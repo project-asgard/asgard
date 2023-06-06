@@ -1011,92 +1011,151 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
 }
 #endif
 
+#ifdef ASGARD_ENABLE_FLOAT
 template void rotg<resource::host, float>(float *, float *, float *, float *);
-template void
-rotg<resource::host, double>(double *, double *, double *, double *);
-
 template float nrm2<resource::host, float>(int, float const[], int);
-template double nrm2<resource::host, double>(int, double const[], int);
-
 template void copy<resource::host, float>(int n, float const *x, int incx,
                                           float *y, int incy);
-template void copy<resource::host, double>(int n, double const *x, int incx,
-                                           double *y, int incy);
-template void
-copy<resource::host, int>(int n, int const *x, int incx, int *y, int incy);
-
 template float dot<resource::host, float>(int n, float const *x, int incx,
                                           float const *y, int incy);
-template double dot<resource::host, double>(int n, double const *x, int incx,
-                                            double const *y, int incy);
-template int
-dot<resource::host, int>(int n, int const *x, int incx, int const *y, int incy);
-
 template void axpy<resource::host, float>(int n, float alpha, float const *x,
                                           int incx, float *y, int incy);
-template void axpy<resource::host, double>(int n, double alpha, double const *x,
-                                           int incx, double *y, int incy);
-
 template void
 scal<resource::host, float>(int n, float alpha, float *x, int incx);
+template void gemv<resource::host, float>(char trans, int m, int n, float alpha,
+                                          float const *A, int lda,
+                                          float const *x, int incx, float beta,
+                                          float *y, int incy);
+template void gemm<resource::host, float>(char transa, char transb, int m,
+                                          int n, int k, float alpha,
+                                          float const *A, int lda,
+                                          float const *B, int ldb, float beta,
+                                          float *C, int ldc);
+template int
+getrf<resource::host, float>(int m, int n, float *A, int lda, int *ipiv);
+template int getri<resource::host, float>(int n, float *A, int lda, int *ipiv,
+                                          float *work, int lwork);
+template void
+batched_gemm<resource::host, float>(float **const &a, int lda, char transa,
+                                    float **const &b, int ldb, char transb,
+                                    float **const &c, int ldc, int m, int n,
+                                    int k, float alpha, float beta,
+                                    int num_batch);
+template int
+gesv(int n, int nrhs, float *A, int lda, int *ipiv, float *b, int ldb);
+template int getrs(char trans, int n, int nrhs, float const *A, int lda,
+                   int const *ipiv, float *b, int ldb);
+template int pttrf(int n, float *D, float *E);
+template int
+pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
+#endif
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template void
+rotg<resource::host, double>(double *, double *, double *, double *);
+template double nrm2<resource::host, double>(int, double const[], int);
+template void copy<resource::host, double>(int n, double const *x, int incx,
+                                           double *y, int incy);
+template double dot<resource::host, double>(int n, double const *x, int incx,
+                                            double const *y, int incy);
+template void axpy<resource::host, double>(int n, double alpha, double const *x,
+                                           int incx, double *y, int incy);
 template void
 scal<resource::host, double>(int n, double alpha, double *x, int incx);
+template void gemv<resource::host, double>(char trans, int m, int n,
+                                           double alpha, double const *A,
+                                           int lda, double const *x, int incx,
+                                           double beta, double *y, int incy);
+template void gemm<resource::host, double>(char transa, char transb, int m,
+                                           int n, int k, double alpha,
+                                           double const *A, int lda,
+                                           double const *B, int ldb,
+                                           double beta, double *C, int ldc);
+template int
+getrf<resource::host, double>(int m, int n, double *A, int lda, int *ipiv);
+template int getri<resource::host, double>(int n, double *A, int lda, int *ipiv,
+                                           double *work, int lwork);
+template void
+batched_gemm<resource::host, double>(double **const &a, int lda, char transa,
+                                     double **const &b, int ldb, char transb,
+                                     double **const &c, int ldc, int m, int n,
+                                     int k, double alpha, double beta,
+                                     int num_batch);
+template int
+gesv(int n, int nrhs, double *A, int lda, int *ipiv, double *b, int ldb);
+template int getrs(char trans, int n, int nrhs, double const *A, int lda,
+                   int const *ipiv, double *b, int ldb);
+template int pttrf(int n, double *D, double *E);
+template int
+pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
+
+#endif
+
+template void
+copy<resource::host, int>(int n, int const *x, int incx, int *y, int incy);
+template int
+dot<resource::host, int>(int n, int const *x, int incx, int const *y, int incy);
 template void scal<resource::host, int>(int n, int alpha, int *x, int incx);
+template void gemm<resource::host, int>(char transa, char transb, int m, int n,
+                                        int k, int alpha, int const *A, int lda,
+                                        int const *B, int ldb, int beta, int *C,
+                                        int ldc);
 
 #ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_ENABLE_FLOAT
 template float nrm2<resource::device, float>(int, float const[], int);
-template double nrm2<resource::device, double>(int, double const[], int);
-
 template void rotg<resource::device, float>(float *, float *, float *, float *);
-template void
-rotg<resource::device, double>(double *, double *, double *, double *);
-
 template void copy<resource::device, float>(int n, float const *x, int incx,
                                             float *y, int incy);
-template void copy<resource::device, double>(int n, double const *x, int incx,
-                                             double *y, int incyc);
 template float dot<resource::device, float>(int n, float const *x, int incx,
                                             float const *y, int incy);
-template double dot<resource::device, double>(int n, double const *x, int incx,
-                                              double const *y, int incy);
 template void axpy<resource::device, float>(int n, float alpha, float const *x,
                                             int incx, float *y, int incy);
-template void axpy<resource::device, double>(int n, double alpha,
-                                             double const *x, int incx,
-                                             double *y, int incy);
-
 template void
 scal<resource::device, float>(int n, float alpha, float *x, int incx);
-template void
-scal<resource::device, double>(int n, double alpha, double *x, int incx);
-
 template void gemv<resource::device, float>(char trans, int m, int n,
                                             float alpha, float const *A,
                                             int lda, float const *x, int incx,
                                             float beta, float *y, int incy);
-template void gemv<resource::device, double>(char trans, int m, int n,
-                                             double alpha, double const *A,
-                                             int lda, double const *x, int incx,
-                                             double beta, double *y, int incy);
-
 template void gemm<resource::device, float>(char transa, char transb, int m,
                                             int n, int k, float alpha,
                                             float const *A, int lda,
                                             float const *B, int ldb, float beta,
                                             float *C, int ldc);
-template void gemm<resource::device, double>(char transa, char transb, int m,
-                                             int n, int k, double alpha,
-                                             double const *A, int lda,
-                                             double const *B, int ldb,
-                                             double beta, double *C, int ldc);
-
 template void
 batched_gemm<resource::device, float>(float **const &a, int lda, char transa,
                                       float **const &b, int ldb, char transb,
                                       float **const &c, int ldc, int m, int n,
                                       int k, float alpha, float beta,
                                       int num_batch);
+template int
+getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
+template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
+                                            float *work, int lwork);
+#endif
 
+#ifdef ASGARD_ENABLE_DOUBLE
+template double nrm2<resource::device, double>(int, double const[], int);
+template void
+rotg<resource::device, double>(double *, double *, double *, double *);
+template void copy<resource::device, double>(int n, double const *x, int incx,
+                                             double *y, int incyc);
+template double dot<resource::device, double>(int n, double const *x, int incx,
+                                              double const *y, int incy);
+template void axpy<resource::device, double>(int n, double alpha,
+                                             double const *x, int incx,
+                                             double *y, int incy);
+template void
+scal<resource::device, double>(int n, double alpha, double *x, int incx);
+template void gemv<resource::device, double>(char trans, int m, int n,
+                                             double alpha, double const *A,
+                                             int lda, double const *x, int incx,
+                                             double beta, double *y, int incy);
+template void gemm<resource::device, double>(char transa, char transb, int m,
+                                             int n, int k, double alpha,
+                                             double const *A, int lda,
+                                             double const *B, int ldb,
+                                             double beta, double *C, int ldc);
 template void
 batched_gemm<resource::device, double>(double **const &a, int lda, char transa,
                                        double **const &b, int ldb, char transb,
@@ -1104,94 +1163,29 @@ batched_gemm<resource::device, double>(double **const &a, int lda, char transa,
                                        int k, double alpha, double beta,
                                        int num_batch);
 template int
-getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
-template int
 getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
-
-template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
-                                            float *work, int lwork);
 template int getri<resource::device, double>(int n, double *A, int lda,
                                              int *ipiv, double *work,
                                              int lwork);
+
+#endif
 #endif
 
-template void gemv<resource::host, float>(char trans, int m, int n, float alpha,
-                                          float const *A, int lda,
-                                          float const *x, int incx, float beta,
-                                          float *y, int incy);
-template void gemv<resource::host, double>(char trans, int m, int n,
-                                           double alpha, double const *A,
-                                           int lda, double const *x, int incx,
-                                           double beta, double *y, int incy);
-
-template void gemm<resource::host, float>(char transa, char transb, int m,
-                                          int n, int k, float alpha,
-                                          float const *A, int lda,
-                                          float const *B, int ldb, float beta,
-                                          float *C, int ldc);
-template void gemm<resource::host, double>(char transa, char transb, int m,
-                                           int n, int k, double alpha,
-                                           double const *A, int lda,
-                                           double const *B, int ldb,
-                                           double beta, double *C, int ldc);
-template void gemm<resource::host, int>(char transa, char transb, int m, int n,
-                                        int k, int alpha, int const *A, int lda,
-                                        int const *B, int ldb, int beta, int *C,
-                                        int ldc);
-
-template int
-getrf<resource::host, float>(int m, int n, float *A, int lda, int *ipiv);
-template int
-getrf<resource::host, double>(int m, int n, double *A, int lda, int *ipiv);
-
-template int getri<resource::host, float>(int n, float *A, int lda, int *ipiv,
-                                          float *work, int lwork);
-template int getri<resource::host, double>(int n, double *A, int lda, int *ipiv,
-                                           double *work, int lwork);
-
-template void
-batched_gemm<resource::host, float>(float **const &a, int lda, char transa,
-                                    float **const &b, int ldb, char transb,
-                                    float **const &c, int ldc, int m, int n,
-                                    int k, float alpha, float beta,
-                                    int num_batch);
-
-template void
-batched_gemm<resource::host, double>(double **const &a, int lda, char transa,
-                                     double **const &b, int ldb, char transb,
-                                     double **const &c, int ldc, int m, int n,
-                                     int k, double alpha, double beta,
-                                     int num_batch);
-
-template int
-gesv(int n, int nrhs, double *A, int lda, int *ipiv, double *b, int ldb);
-template int
-gesv(int n, int nrhs, float *A, int lda, int *ipiv, float *b, int ldb);
-
-template int getrs(char trans, int n, int nrhs, double const *A, int lda,
-                   int const *ipiv, double *b, int ldb);
-template int getrs(char trans, int n, int nrhs, float const *A, int lda,
-                   int const *ipiv, float *b, int ldb);
-
-template int pttrf(int n, double *D, double *E);
-template int pttrf(int n, float *D, float *E);
-
-template int
-pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
-template int
-pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
-
 #ifdef ASGARD_USE_SCALAPACK
-template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
-                             int *ipiv, double *b, int *descB, int *info);
+#ifdef ASGARD_ENABLE_FLOAT
 template void scalapack_gesv(int *n, int *nrhs, float *A, int *descA, int *ipiv,
                              float *b, int *descB, int *info);
-
-template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
-                              int *descA, int const *ipiv, double *b,
-                              int *descB, int *info);
 template void scalapack_getrs(char *trans, int *n, int *nrhs, float const *A,
                               int *descA, int const *ipiv, float *b, int *descB,
                               int *info);
+#endif
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
+                             int *ipiv, double *b, int *descB, int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
+                              int *descA, int const *ipiv, double *b,
+                              int *descB, int *info);
+#endif
 #endif
 } // namespace asgard::lib_dispatch
