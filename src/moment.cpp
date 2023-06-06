@@ -179,9 +179,11 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
               int const ind_j = i * static_cast<int>(std::pow(deg, 3)) +
                                 j * static_cast<int>(std::pow(deg, 2)) +
                                 deg * vdeg1 + vdeg2;
-              moment_matrix(ind_i, ind_j) =
-                  g_vec_1(elem_indices(1) * deg + vdeg1) *
-                  g_vec_2(elem_indices(2) * deg + vdeg2);
+              moment_mat.insert(
+                  {ind_i,
+                   dense_item<P>{ind_i, ind_j,
+                                 g_vec_1(elem_indices(1) * deg + vdeg1) *
+                                     g_vec_2(elem_indices(2) * deg + vdeg2)}});
             }
             else if (nvdim == 3)
             {
@@ -192,10 +194,12 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
                                   j * static_cast<int>(std::pow(deg, 3)) +
                                   static_cast<int>(std::pow(deg, 2)) * vdeg1 +
                                   vdeg2 * deg + vdeg3;
-                moment_matrix(ind_i, ind_j) =
-                    g_vec_1(elem_indices(1) * deg + vdeg1) *
-                    g_vec_2(elem_indices(2) * deg + vdeg2) *
-                    g_vec_3(elem_indices(3) * deg + vdeg3);
+                moment_mat.insert(
+                    {ind_i, dense_item<P>{
+                                ind_i, ind_j,
+                                g_vec_1(elem_indices(1) * deg + vdeg1) *
+                                    g_vec_2(elem_indices(2) * deg + vdeg2) *
+                                    g_vec_3(elem_indices(3) * deg + vdeg3)}});
               }
             }
           }
