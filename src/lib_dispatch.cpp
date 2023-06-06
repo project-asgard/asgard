@@ -588,6 +588,7 @@ void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
 
   if constexpr (resrc == resource::device)
   {
+    static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // instantiated for these two fp types
@@ -633,25 +634,22 @@ void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
   }
 }
 
-template<typename P>
-void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
-           resource const resrc)
+template<resource resrc, typename P>
+[[nodiscard]] int getrf(int m, int n, P *A, int lda, int *ipiv)
 {
+  // instantiated for these two fp types
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
   expect(A);
   expect(ipiv);
-  expect(info);
-  expect(lda && *lda >= 0);
-  expect(m && *m >= 0);
-  expect(n && *n >= 0);
-
-  if (resrc == resource::device)
+  expect(lda >= 0);
+  expect(m >= 0);
+  expect(n >= 0);
+  int info{1};
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-    expect(*m == *n);
+    expect(m == n);
     ignore(m);
 
     P **A_d;
@@ -660,39 +658,45 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
       throw std::bad_alloc();
     }
     auto stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
-    expect(stat == 0);
-
+    expect(stat == cudaSuccess);
+    int *info_d;
+    if (cudaMalloc((void **)&info_d, sizeof(int)) != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
+      auto const success = cublasDgetrfBatched(device.get_handle(), n, A_d, lda,
+                                               ipiv, info_d, 1);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
+      auto const success = cublasSgetrfBatched(device.get_handle(), n, A_d, lda,
+                                               ipiv, info_d, 1);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    return;
+    stat = cudaMemcpy(&info, info_d, sizeof(int), cudaMemcpyDeviceToHost);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(A_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(info_d);
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (resrc == resource::host)
   {
-    dgetrf_(m, n, A, lda, ipiv, info);
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
+    {
+      dgetrf_(&m, &n, A, &lda, ipiv, &info);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      sgetrf_(&m, &n, A, &lda, ipiv, &info);
+    }
   }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sgetrf_(m, n, A, lda, ipiv, info);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getrf not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
 template<typename P>
@@ -1141,6 +1145,10 @@ batched_gemm<resource::device, double>(double **const &a, int lda, char transa,
                                        double **const &c, int ldc, int m, int n,
                                        int k, double alpha, double beta,
                                        int num_batch);
+template int
+getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
+template int
+getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
 #endif
 
 template void gemv<resource::host, float>(char trans, int m, int n, float alpha,
@@ -1167,10 +1175,10 @@ template void gemm<resource::host, int>(char transa, char transb, int m, int n,
                                         int const *B, int ldb, int beta, int *C,
                                         int ldc);
 
-template void getrf(int *m, int *n, float *A, int *lda, int *ipiv, int *info,
-                    resource const resrc);
-template void getrf(int *m, int *n, double *A, int *lda, int *ipiv, int *info,
-                    resource const resrc);
+template int
+getrf<resource::host, float>(int m, int n, float *A, int lda, int *ipiv);
+template int
+getrf<resource::host, double>(int m, int n, double *A, int lda, int *ipiv);
 
 template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
                     int *lwork, int *info, resource const resrc);

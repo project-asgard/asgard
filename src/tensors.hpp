@@ -2398,18 +2398,23 @@ template<typename U, typename, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::invert()
 {
   expect(nrows() == ncols());
+  static_assert(resrc == resource::host);
 
-  int *ipiv{new int[ncols()]};
-  int lwork{nrows() * ncols()};
+  std::vector<int> ipiv(ncols());
+  int lwork{static_cast<int>(size())};
   int lda = stride();
-  P *work{new P[nrows() * ncols()]};
-  int info;
+  std::vector<P> work(size());
 
-  lib_dispatch::getrf(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
-  lib_dispatch::getri(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
+  int info = lib_dispatch::getrf(ncols_, ncols_, data(0, 0), lda, ipiv.data());
+  if (info != 0)
+    throw std::runtime_error("Error returned from lib_dispatch::getrf: " +
+                             std::to_string(info));
+  lib_dispatch::getri(&ncols_, data(0, 0), &lda, ipiv.data(), work.data(),
+                      &lwork, &info);
+  if (info != 0)
+    throw std::runtime_error("Error returned from lib_dispatch::getri: " +
+                             std::to_string(info));
 
-  delete[] ipiv;
-  delete[] work;
   return *this;
 }
 
@@ -2434,12 +2439,14 @@ P fk::matrix<P, mem, resrc>::determinant() const
   expect(nrows() == ncols());
 
   matrix<P, mem_type::owner> temp(*this); // get temp copy to do LU
-  int *ipiv{new int[ncols()]};
-  int info;
+  std::vector<int> ipiv(ncols());
   int n   = temp.ncols();
   int lda = temp.stride();
 
-  lib_dispatch::getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
+  int info = lib_dispatch::getrf(n, n, temp.data(0, 0), lda, ipiv.data());
+  if (info != 0)
+    throw std::runtime_error("Error returned from lib_dispatch::getrf: " +
+                             std::to_string(info));
 
   P det    = 1.0;
   int sign = 1;
@@ -2450,7 +2457,6 @@ P fk::matrix<P, mem, resrc>::determinant() const
     det *= temp(i, i);
   }
   det *= static_cast<P>(sign);
-  delete[] ipiv;
   return det;
 }
 

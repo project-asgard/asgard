@@ -830,13 +830,11 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
   int n   = test.ncols();
   int lda = test.stride();
 
-  lib_dispatch::getrf(&m, &n, test_d.data(), &lda, ipiv_d.data(), info_d.data(),
-                      resource::device);
-
+  int info = lib_dispatch::getrf<resource::device>(m, n, test_d.data(), lda,
+                                                   ipiv_d.data());
+  REQUIRE(info == 0);
   auto stat = cudaDeviceSynchronize();
-  REQUIRE(stat == 0);
-  fk::vector<int> const info_check(info_d.clone_onto_host());
-  REQUIRE(info_check(0) == 0);
+  REQUIRE(stat == cudaSuccess);
 
   m = test.nrows();
   n = test.ncols();
@@ -846,9 +844,9 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
                       &size, info_d.data(), resource::device);
 
   stat = cudaDeviceSynchronize();
-  REQUIRE(stat == 0);
-  fk::vector<int> const info_check_2(info_d.clone_onto_host());
-  REQUIRE(info_check_2(0) == 0);
+  REQUIRE(stat == cudaSuccess);
+  fk::vector<int> const info_check(info_d.clone_onto_host());
+  REQUIRE(info_check(0) == 0);
 
   fk::matrix<TestType> const test_copy(work.clone_onto_host());
 
