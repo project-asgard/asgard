@@ -222,7 +222,7 @@ TEST_CASE("fm::two_raised_to", "[fast_math]")
   }
 }
 
-TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
+TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", test_precs, int)
 {
   // clang-format off
     fk::matrix<TestType> const ans{
@@ -464,7 +464,7 @@ TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", float, double, int)
 #endif
 }
 
-TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double)
+TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", test_precs)
 {
   // clang-format off
     fk::vector<TestType> const ans
@@ -585,7 +585,7 @@ TEMPLATE_TEST_CASE("fm::gemv", "[fast_math]", float, double)
 #endif
 }
 
-TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double)
+TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", test_precs)
 {
   fk::vector<TestType> const gold = {2, 3, 4, 5, 6};
   SECTION("vector scale and accumulate (fm::axpy)")
@@ -781,7 +781,7 @@ TEMPLATE_TEST_CASE("other vector routines", "[fast_math]", float, double)
 #endif
 }
 
-TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
+TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", test_precs)
 {
   fk::matrix<TestType> const A_gold{
       {3.383861628748717e+00, 1.113343240310116e-02, 2.920740795411032e+00},
@@ -894,7 +894,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", float, double)
   }
 }
 
-TEMPLATE_TEST_CASE("", "[parallel_solver]", float, double)
+TEMPLATE_TEST_CASE("", "[parallel_solver]", test_precs)
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {

@@ -13,7 +13,7 @@ using namespace asgard;
 // exception: all device code paths are tested
 //
 TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
-                   "[lib_dispatch]", float, double)
+                   "[lib_dispatch]", test_precs)
 {
   // clang-format off
     fk::matrix<TestType> const ans{
@@ -316,7 +316,7 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
 }
 
 TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
-                   "[lib_dispatch]", float, double)
+                   "[lib_dispatch]", test_precs)
 {
   // clang-format off
     fk::vector<TestType> const ans
@@ -537,7 +537,7 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
 
 TEMPLATE_TEST_CASE(
     "scale and copy routines (lib_dispatch::scal/lib_dispatch::copy)",
-    "[lib_dispatch]", float, double, int)
+    "[lib_dispatch]", test_precs, int)
 {
   fk::vector<TestType> const x         = {1, 2, 3, 4, 5};
   fk::vector<TestType> const x_tripled = {3, 6, 9, 12, 15};
@@ -672,7 +672,7 @@ TEMPLATE_TEST_CASE(
 }
 
 TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
-                   float, double)
+                   test_precs)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
@@ -743,8 +743,8 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
 #endif
 }
 
-TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
-                   double, int)
+TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]",
+                   test_precs, int)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
@@ -979,7 +979,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
 TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::host), (float, resource::host))
+                       test_precs_host)
 {
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
@@ -1075,7 +1075,7 @@ TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
 #ifdef ASGARD_USE_CUDA
 TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::device), (float, resource::device))
+                       test_precs_device)
 {
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
@@ -1169,7 +1169,7 @@ TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
 }
 #endif
 
-TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
+TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", test_precs)
 {
   fk::matrix<TestType> const A_gold{
       {3.383861628748717e+00, 1.113343240310116e-02, 2.920740795411032e+00},

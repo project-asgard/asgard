@@ -10,12 +10,12 @@
 #include "src/fast_math.hpp"
 #include "src/pde.hpp"
 #include "src/program_options.hpp"
+#include <catch2/catch_all.hpp>
 #include <filesystem>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
-#include <catch2/catch_all.hpp>
 
 /*!
  * \defgroup AsgardTesting Miscellaneous testing utilities
@@ -32,8 +32,30 @@
 #else
 #define test_precs double
 #endif
-#else
+#elif defined(ASGARD_ENABLE_FLOAT)
 #define test_precs float
+#endif
+
+#ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_ENABLE_FLOAT
+#define test_precs_host (double, resource::host), (float, resource::host)
+#else
+#define test_precs_host (double, resource::host)
+#endif
+#elif defined(ASGARD_ENABLE_FLOAT)
+#define test_precs_host (float, resource::host)
+#endif
+
+#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_ENABLE_FLOAT
+#define test_precs_device (double, resource::device), (float, resource::device)
+#else
+#define test_precs_device (double, resource::device)
+#endif
+#elif defined(ASGARD_ENABLE_FLOAT)
+#define test_precs_device (float, resource::device)
+#endif
 #endif
 
 static inline const std::filesystem::path gold_base_dir{ASGARD_GOLD_BASE_DIR};
@@ -41,7 +63,7 @@ static inline const std::filesystem::path gold_base_dir{ASGARD_GOLD_BASE_DIR};
 template<typename P>
 constexpr P get_tolerance(int ulp)
 {
-  return std::numeric_limits<P>::epsilon()*ulp;
+  return std::numeric_limits<P>::epsilon() * ulp;
 }
 
 /* These functions implement: norm( v0 - v1 ) < tolerance * max( norm(v0),
@@ -91,7 +113,8 @@ void compare_vectors(std::vector<P> const &a, std::vector<P> const &b)
   if constexpr (std::is_floating_point<P>::value)
   {
     for (size_t i = 0; i < a.size(); i++)
-      if (a[i] != Catch::Approx(b[i]).epsilon(std::numeric_limits<P>::epsilon() * 2))
+      if (a[i] !=
+          Catch::Approx(b[i]).epsilon(std::numeric_limits<P>::epsilon() * 2))
         FAIL("" << a[i] << " != " << b[i]);
   }
   else
@@ -194,16 +217,16 @@ void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
       });
 }
 
-namespace asgard {
-
-
-  /*!
-   * \ingroup AsgardTesting
-   * \brief Create a parser with no parameters.
-   */
-  inline parser make_empty_parser() {
-    const char *ename = "asgard";
-    return parser(1, &ename); // dummy parser
-  }
-
+namespace asgard
+{
+/*!
+ * \ingroup AsgardTesting
+ * \brief Create a parser with no parameters.
+ */
+inline parser make_empty_parser()
+{
+  const char *ename = "asgard";
+  return parser(1, &ename); // dummy parser
 }
+
+} // namespace asgard
