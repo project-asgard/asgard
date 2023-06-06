@@ -300,7 +300,7 @@ void gesv(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
   int cols_B = 1;
   int info;
   lib_dispatch::scalapack_gesv(&rows_A, &cols_B, A.data(), ainfo.get_desc(),
-                               ipiv.data(), B.data(), binfo.get_desc());
+                               ipiv.data(), B.data(), binfo.get_desc(), &info);
   if (info > 0)
   {
     std::cout << "The diagonal element of the triangular factor of A,\n";
