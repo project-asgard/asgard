@@ -21,7 +21,9 @@ struct memory_usage {
   //! \brief Persistent size that cannot be any less, in MB.
   int baseline_memory;
   //! \brief Size (number of entries) of the index matrix.
-  int max_index_size;
+  int64_t max_index_size;
+  //! \brief Index workspace size (does not include row/col indexes)
+  int work_size;
 };
 
 /*!
@@ -46,7 +48,7 @@ public:
   //! \brief Creates uninitialized matrix cannot be used except to be reinitialized.
   kronmult_matrix()
       : num_dimensions_(0), kron_size_(0), num_rows_(0), num_cols_(0),
-        num_terms_(0), tensor_size_(0), flops_(0)
+        num_terms_(0), tensor_size_(0), flops_(0), list_row_stride_(0)
   {}
   /*!
    * \brief Creates a new matrix and moves the data into internal structures.
@@ -112,7 +114,7 @@ public:
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
         col_indx_(std::move(col_indx)), iA(std::move(index_A)),
-        vA(std::move(values_A))
+        list_row_stride_(0), vA(std::move(values_A))
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -146,6 +148,38 @@ public:
 #endif
   }
 
+  //! \brief Split computing mode, e.g., out-of-core mode
+  template<resource input_mode>
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
+                  int num_terms,
+                  std::vector<fk::vector<int>> const &&row_indx,
+                  std::vector<fk::vector<int>> const &&col_indx,
+                  std::vector<fk::vector<int>> &&list_index_A,
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      : num_dimensions_(num_dimensions), kron_size_(kron_size),
+        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
+        tensor_size_(1), list_iA(std::move(list_index_A)),
+        list_col_indx_(std::move(col_indx)), list_row_indx_(std::move(row_indx)),
+        list_row_stride_(0), vA(std::move(values_A))
+  {
+#ifdef ASGARD_USE_CUDA
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, so input vectors must have resource::device");
+#else
+    static_assert(
+        input_mode == resource::host,
+        "the GPU is disabled, so input vectors must have resource::host");
+#endif
+
+    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
+           (row_indx_.size() > 0 and col_indx_.size() > 0));
+
+    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+
+    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
+  }
+
   /*!
    * \brief Creates a new dense matrix by skipping row_indx and col_indx.
    */
@@ -161,7 +195,18 @@ public:
                         std::move(index_A), std::move(values_A))
   {}
 
-#ifdef ASGARD_USE_CUDA
+  //! \brief Split computing (e.g., out-of-core) dense case.
+  template<resource input_mode>
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
+                  int num_terms,
+                  std::vector<fk::vector<int>> &&list_index_A,
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
+                        num_terms,
+                        std::vector<fk::vector<int>>(),
+                        std::vector<fk::vector<int>>(),
+                        std::move(list_index_A), std::move(values_A))
+  {}
   //! \brief Set the workspace memory.
   void set_workspace(
             fk::vector<precision, mem_type::owner, resource::device> &x,
@@ -169,7 +214,6 @@ public:
     xdev = fk::vector<precision, mem_type::view, resource::device>(x);
     ydev = fk::vector<precision, mem_type::view, resource::device>(y);
   }
-#endif
 
   /*!
    * \brief Computes y = alpha * kronmult_matrix * x + beta * y
@@ -280,6 +324,15 @@ private:
 
   // index of the matrices for each kronmult product
   fk::vector<int, mem_type::owner, data_mode> iA;
+
+  // break iA into a list, as well as indexing
+  // used for out-of-core work and splitting work to prevent overflow
+  // only one of iA or list_iA is used in an instance of the matrix
+  std::vector<fk::vector<int>> list_iA;
+  std::vector<fk::vector<int>> list_row_indx_;
+  std::vector<fk::vector<int>> list_col_indx_;
+  int list_row_stride_; // for dense case, how many rows fall in one list entry
+
   // list of the operators
   fk::vector<precision, mem_type::owner, data_mode> vA;
   // pointer and indexes for the sparsity
@@ -369,7 +422,7 @@ struct matrix_list
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
     if (not(*this)[entry])
-      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex(entry));
+      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats, imex(entry));
 #ifdef ASGARD_USE_CUDA
     if ((*this)[entry].input_size() != xdev.size()) {
         xdev = fk::vector<precision, mem_type::owner, resource::device>();
@@ -391,7 +444,7 @@ struct matrix_list
                           options const &opts)
   {
     if (not(*this)[entry])
-      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex(entry));
+      make(entry, pde, grid, opts);
     else
       update_kronmult_coefficients(pde, opts, imex(entry), (*this)[entry]);
   }
@@ -410,6 +463,7 @@ struct matrix_list
         matrix = kronmult_matrix<precision>();
     mem_stats.baseline_memory = 0;
     mem_stats.max_index_size = 0;
+    mem_stats.work_size = 0;
   }
 
   //! \brief Holds the matrices

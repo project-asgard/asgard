@@ -41,6 +41,19 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
   }
 }
 
+void check_available_memory(int64_t available_MB) {
+  if (available_MB < 2) {
+    throw std::runtime_error(
+        "the problem is too large to fit in the specified memory limit, "
+        "this problem requires at least " + std::to_string(mem_stats.baseline_memory+2)
+        + "MB and minimum recommended is " + std::to_string(mem_stats.baseline_memory+512)
+        + "MB but the more the better");
+  } else if (available_MB < 512) {
+    std::cerr << "  -- warning: low memory, recommended for this problem size is: "
+              << std::to_string(mem_stats.baseline_memory + 512) << "\n";
+  }
+}
+
 template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
@@ -79,16 +92,39 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
-  // check if the matrix size will overflow the 'int' indexing
-  int64_t size_of_indexes =
-      int64_t{num_rows} * int64_t{num_cols} * num_terms * num_dimensions;
-  if (size_of_indexes > (int64_t{1} << 31) - 1) // 2^31 -1 is the largest 'int'
-    throw std::runtime_error(
-        "the storage required for the dense matrix is too large for the 32-bit "
-        "signed indexing, try running with '--kron-mode sparse'");
+  if (mem_stats.baseline_memory == 0)
+  {
+    int64_t base_line_entries = 0;
+    // assume all terms will be loaded into the GPU, as one IMEX flag or another
+    for (int t = 0; t < pde.num_terms; t++)
+      for (int d = 0; d < num_dimensions; d++)
+        base_line_entries += pde.get_coefficients(t, d).size();
 
-  fk::vector<int, mem_type::owner, resource::host> iA(
-      num_rows * num_cols * num_terms * num_dimensions);
+    base_line_entries += (num_rows + num_cols) * kronmult_matrix<precision>::compute_tensor_size(num_dimensions, kron_size);
+
+    mem_stats.baseline_memory = get_MB<precision>(base_line_entries);
+
+    int64_t available_MB = program_options.get_memory_limit() - mem_stats.baseline_memory;
+    check_available_memory(available_MB);
+
+    int64_t available_entries = (available_MB * 1024 * 1024) / sizeof(int);
+    constexpr int max_entries = 2147483646; // 2^31 - 2
+    if (imex == imex_flag::unspecified)
+    {
+      // assuming there will be only one matrix, max index is
+      mem_stats.max_index_size = std::min(available_entries, max_entries);
+      mem_stats.work_size = mem_stats.max_index_size / 2;
+    }
+    else
+    {
+      // assuming there will be two matrices, max index is 2^31 - 2
+      mem_stats.max_index_size = std::min(available_entries / 2, max_entries);
+      mem_stats.work_size = mem_stats.max_index_size;
+    }
+  }
+
+  //fk::vector<int, mem_type::owner, resource::host> iA(
+  //    num_rows * num_cols * num_terms * num_dimensions);
   fk::vector<precision, mem_type::owner, resource::host> vA(osize);
 
   // will print the command to use for performance testing
@@ -119,6 +155,16 @@ make_kronmult_dense(PDE<precision> const &pde,
                              kron_size, pA);
     }
   }
+
+  // all indexes that the matrix will need
+  int64_t size_of_indexes =
+      int64_t{num_rows} * int64_t{num_cols} * num_terms * num_dimensions;
+
+  std::vector<fk::vector<int>> list_A;
+  if (size_of_indexes <= mem_stats.max_index_size)
+    list_A.push_back(fk::vector<int>(size_of_indexes));
+  else
+    return std::vector<fk::vector<int>>((size_of_indexes + mem_stats.work_size - 1) / mem_stats.work_size);
 
   // compute the indexes for the matrices for the kron-products
   int const *const flattened_table =
@@ -755,7 +801,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
-                             options const &, imex_flag const);
+                             options const &, memory_usage &, imex_flag const);
 template void update_kronmult_coefficients<double>(PDE<double> const &,
                                                    options const &,
                                                    imex_flag const,
@@ -766,7 +812,7 @@ template void update_kronmult_coefficients<double>(PDE<double> const &,
 template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
-                            options const &, imex_flag const);
+                            options const &, memory_usage &, imex_flag const);
 template void
 update_kronmult_coefficients<float>(PDE<float> const &, options const &,
                                     imex_flag const, kronmult_matrix<float> &);
