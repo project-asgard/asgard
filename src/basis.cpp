@@ -687,16 +687,13 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class wavelet_transform<double, resource::host>;
+#ifdef ASGARD_USE_CUDA
 template class wavelet_transform<double, resource::device>;
+#endif
 
 template fk::vector<double, mem_type::owner, resource::host>
 wavelet_transform<double, resource::host>::apply(
     fk::vector<double, mem_type::owner, resource::host> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-template fk::vector<double, mem_type::owner, resource::device>
-wavelet_transform<double, resource::device>::apply(
-    fk::vector<double, mem_type::owner, resource::device> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
 template fk::vector<double, mem_type::owner, resource::host>
@@ -705,15 +702,21 @@ wavelet_transform<double, resource::host>::apply(
         &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
+template fk::matrix<double, mem_type::owner, resource::host>
+wavelet_transform<double, resource::host>::apply(
+    fk::matrix<double, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+#ifdef ASGARD_USE_CUDA
+template fk::vector<double, mem_type::owner, resource::device>
+wavelet_transform<double, resource::device>::apply(
+    fk::vector<double, mem_type::owner, resource::device> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
 template fk::matrix<double, mem_type::owner, resource::device>
 wavelet_transform<double, resource::device>::apply(
     fk::matrix<double, mem_type::const_view, resource::device> const
         &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-template fk::matrix<double, mem_type::owner, resource::host>
-wavelet_transform<double, resource::host>::apply(
-    fk::matrix<double, mem_type::owner, resource::host> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
 template fk::matrix<double, mem_type::owner, resource::device>
@@ -722,24 +725,40 @@ wavelet_transform<double, resource::device>::apply(
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
 #endif
+#endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class wavelet_transform<float, resource::host>;
+#ifdef ASGARD_USE_CUDA
 template class wavelet_transform<float, resource::device>;
+#endif
 
 template fk::vector<float, mem_type::owner, resource::host>
 wavelet_transform<float, resource::host>::apply(
     fk::vector<float, mem_type::owner, resource::host> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-template fk::vector<float, mem_type::owner, resource::device>
-wavelet_transform<float, resource::device>::apply(
-    fk::vector<float, mem_type::owner, resource::device> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
+
 template fk::vector<float, mem_type::owner, resource::host>
 wavelet_transform<float, resource::host>::apply(
     fk::vector<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::owner, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+template fk::matrix<float, mem_type::owner, resource::host>
+wavelet_transform<float, resource::host>::apply(
+    fk::matrix<float, mem_type::const_view, resource::host> const &coefficients,
+    int const level, basis::side const transform_side,
+    basis::transpose const transform_trans) const;
+
+#ifdef ASGARD_USE_CUDA
+template fk::vector<float, mem_type::owner, resource::device>
+wavelet_transform<float, resource::device>::apply(
+    fk::vector<float, mem_type::owner, resource::device> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
 template fk::vector<float, mem_type::owner, resource::device>
@@ -748,19 +767,9 @@ wavelet_transform<float, resource::device>::apply(
         &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
-template fk::matrix<float, mem_type::owner, resource::host>
-wavelet_transform<float, resource::host>::apply(
-    fk::matrix<float, mem_type::owner, resource::host> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
 template fk::matrix<float, mem_type::owner, resource::device>
 wavelet_transform<float, resource::device>::apply(
     fk::matrix<float, mem_type::owner, resource::device> const &coefficients,
-    int const level, basis::side const transform_side,
-    basis::transpose const transform_trans) const;
-template fk::matrix<float, mem_type::owner, resource::host>
-wavelet_transform<float, resource::host>::apply(
-    fk::matrix<float, mem_type::const_view, resource::host> const &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
 template fk::matrix<float, mem_type::owner, resource::device>
@@ -769,6 +778,7 @@ wavelet_transform<float, resource::device>::apply(
         &coefficients,
     int const level, basis::side const transform_side,
     basis::transpose const transform_trans) const;
+#endif
 #endif
 
 } // namespace basis

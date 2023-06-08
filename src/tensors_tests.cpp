@@ -506,7 +506,9 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
 
   SECTION("vector*matrix operator")
   {
-    // clang-format off
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      // clang-format off
     fk::matrix<TestType> test_mat {
       {12, 22, 32},
       {13, 23, 33},
@@ -515,30 +517,31 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
       {16, 26, 36},
     }; // clang-format on
 
-    fk::matrix<TestType, mem_type::view> const test_mat_v(test_mat);
-    fk::matrix<TestType, mem_type::const_view> const test_mat_cv(test_mat);
+      fk::matrix<TestType, mem_type::view> const test_mat_v(test_mat);
+      fk::matrix<TestType, mem_type::const_view> const test_mat_cv(test_mat);
 
-    fk::vector<TestType> test_vect(gold);
-    fk::vector<TestType, mem_type::view> const test_vect_v(test_vect);
-    fk::vector<TestType, mem_type::const_view> const test_vect_cv(test_vect);
-    fk::vector<TestType> const gold_result{290, 490, 690};
+      fk::vector<TestType> test_vect(gold);
+      fk::vector<TestType, mem_type::view> const test_vect_v(test_vect);
+      fk::vector<TestType, mem_type::const_view> const test_vect_cv(test_vect);
+      fk::vector<TestType> const gold_result{290, 490, 690};
 
-    REQUIRE((test_vect * test_mat) == gold_result);
-    REQUIRE((test_vect_v * test_mat) == gold_result);
-    REQUIRE((test_vect_cv * test_mat) == gold_result);
+      REQUIRE((test_vect * test_mat) == gold_result);
+      REQUIRE((test_vect_v * test_mat) == gold_result);
+      REQUIRE((test_vect_cv * test_mat) == gold_result);
 
-    REQUIRE((test_vect * test_mat_v) == gold_result);
-    REQUIRE((test_vect_v * test_mat_v) == gold_result);
-    REQUIRE((test_vect_cv * test_mat_v) == gold_result);
+      REQUIRE((test_vect * test_mat_v) == gold_result);
+      REQUIRE((test_vect_v * test_mat_v) == gold_result);
+      REQUIRE((test_vect_cv * test_mat_v) == gold_result);
 
-    REQUIRE((test_vect * test_mat_cv) == gold_result);
-    REQUIRE((test_vect_v * test_mat_cv) == gold_result);
-    REQUIRE((test_vect_cv * test_mat_cv) == gold_result);
+      REQUIRE((test_vect * test_mat_cv) == gold_result);
+      REQUIRE((test_vect_v * test_mat_cv) == gold_result);
+      REQUIRE((test_vect_cv * test_mat_cv) == gold_result);
+    }
   }
 
   SECTION("vector*scalar operator")
   {
-    TestType const scale = static_cast<TestType>(-2);
+    TestType const scale = TestType{-2};
     fk::vector<TestType> const gold_scaled{-4, -6, -8, -10, -12};
     fk::vector<TestType> gold_copy(gold);
     fk::vector<TestType> const gold_v(gold_copy);
@@ -550,63 +553,67 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
 
   SECTION("vector (as matrix) kron product")
   {
-    fk::vector<TestType> gold_copy(gold);
-    fk::vector<TestType, mem_type::view> const gold_v(gold_copy);
-    fk::vector<TestType, mem_type::const_view> const gold_cv(gold);
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType> gold_copy(gold);
+      fk::vector<TestType, mem_type::view> const gold_v(gold_copy);
+      fk::vector<TestType, mem_type::const_view> const gold_cv(gold);
 
-    fk::vector<TestType> identity{1};
-    fk::vector<TestType, mem_type::view> const identity_v(identity);
-    fk::vector<TestType, mem_type::const_view> const identity_cv(identity);
+      fk::vector<TestType> identity{1};
+      fk::vector<TestType, mem_type::view> const identity_v(identity);
+      fk::vector<TestType, mem_type::const_view> const identity_cv(identity);
 
-    REQUIRE(identity.single_column_kron(gold) == gold);
-    REQUIRE(identity_v.single_column_kron(gold) == gold);
-    REQUIRE(identity_cv.single_column_kron(gold) == gold);
+      REQUIRE(identity.single_column_kron(gold) == gold);
+      REQUIRE(identity_v.single_column_kron(gold) == gold);
+      REQUIRE(identity_cv.single_column_kron(gold) == gold);
 
-    REQUIRE(identity.single_column_kron(gold_v) == gold);
-    REQUIRE(identity_v.single_column_kron(gold_v) == gold);
-    REQUIRE(identity_cv.single_column_kron(gold_v) == gold);
+      REQUIRE(identity.single_column_kron(gold_v) == gold);
+      REQUIRE(identity_v.single_column_kron(gold_v) == gold);
+      REQUIRE(identity_cv.single_column_kron(gold_v) == gold);
 
-    REQUIRE(identity.single_column_kron(gold_cv) == gold);
-    REQUIRE(identity_v.single_column_kron(gold_cv) == gold);
-    REQUIRE(identity_cv.single_column_kron(gold_cv) == gold);
+      REQUIRE(identity.single_column_kron(gold_cv) == gold);
+      REQUIRE(identity_v.single_column_kron(gold_cv) == gold);
+      REQUIRE(identity_cv.single_column_kron(gold_cv) == gold);
 
-    fk::vector<TestType> const gold_repeated =
-        fk::vector<TestType>(gold).concat(gold);
+      fk::vector<TestType> const gold_repeated =
+          fk::vector<TestType>(gold).concat(gold);
 
-    fk::vector<TestType> repeat{1, 1};
-    fk::vector<TestType, mem_type::view> const repeat_v(repeat);
-    fk::vector<TestType, mem_type::const_view> const repeat_cv(repeat);
+      fk::vector<TestType> repeat{1, 1};
+      fk::vector<TestType, mem_type::view> const repeat_v(repeat);
+      fk::vector<TestType, mem_type::const_view> const repeat_cv(repeat);
 
-    REQUIRE(repeat.single_column_kron(gold) == gold_repeated);
-    REQUIRE(repeat.single_column_kron(gold_v) == gold_repeated);
-    REQUIRE(repeat.single_column_kron(gold_cv) == gold_repeated);
+      REQUIRE(repeat.single_column_kron(gold) == gold_repeated);
+      REQUIRE(repeat.single_column_kron(gold_v) == gold_repeated);
+      REQUIRE(repeat.single_column_kron(gold_cv) == gold_repeated);
 
-    REQUIRE(repeat_v.single_column_kron(gold) == gold_repeated);
-    REQUIRE(repeat_v.single_column_kron(gold_v) == gold_repeated);
-    REQUIRE(repeat_v.single_column_kron(gold_cv) == gold_repeated);
+      REQUIRE(repeat_v.single_column_kron(gold) == gold_repeated);
+      REQUIRE(repeat_v.single_column_kron(gold_v) == gold_repeated);
+      REQUIRE(repeat_v.single_column_kron(gold_cv) == gold_repeated);
 
-    REQUIRE(repeat_cv.single_column_kron(gold) == gold_repeated);
-    REQUIRE(repeat_cv.single_column_kron(gold_v) == gold_repeated);
-    REQUIRE(repeat_cv.single_column_kron(gold_cv) == gold_repeated);
+      REQUIRE(repeat_cv.single_column_kron(gold) == gold_repeated);
+      REQUIRE(repeat_cv.single_column_kron(gold_v) == gold_repeated);
+      REQUIRE(repeat_cv.single_column_kron(gold_cv) == gold_repeated);
 
-    fk::vector<TestType> const zeros(gold.size());
-    fk::vector<TestType> alternate{1, 0, 2, 0};
-    fk::vector<TestType, mem_type::view> const alternate_v(alternate);
-    fk::vector<TestType, mem_type::const_view> const alternate_cv(alternate);
-    fk::vector<TestType> const ans =
-        fk::vector<TestType>(gold).concat(zeros).concat(gold * 2).concat(zeros);
+      fk::vector<TestType> const zeros(gold.size());
+      fk::vector<TestType> alternate{1, 0, 2, 0};
+      fk::vector<TestType, mem_type::view> const alternate_v(alternate);
+      fk::vector<TestType, mem_type::const_view> const alternate_cv(alternate);
+      fk::vector<TestType> const ans =
+          fk::vector<TestType>(gold).concat(zeros).concat(gold * 2).concat(
+              zeros);
 
-    REQUIRE(ans == alternate.single_column_kron(gold));
-    REQUIRE(ans == alternate.single_column_kron(gold_v));
-    REQUIRE(ans == alternate.single_column_kron(gold_cv));
+      REQUIRE(ans == alternate.single_column_kron(gold));
+      REQUIRE(ans == alternate.single_column_kron(gold_v));
+      REQUIRE(ans == alternate.single_column_kron(gold_cv));
 
-    REQUIRE(ans == alternate_v.single_column_kron(gold));
-    REQUIRE(ans == alternate_v.single_column_kron(gold_v));
-    REQUIRE(ans == alternate_v.single_column_kron(gold_cv));
+      REQUIRE(ans == alternate_v.single_column_kron(gold));
+      REQUIRE(ans == alternate_v.single_column_kron(gold_v));
+      REQUIRE(ans == alternate_v.single_column_kron(gold_cv));
 
-    REQUIRE(ans == alternate_cv.single_column_kron(gold));
-    REQUIRE(ans == alternate_cv.single_column_kron(gold_v));
-    REQUIRE(ans == alternate_cv.single_column_kron(gold_cv));
+      REQUIRE(ans == alternate_cv.single_column_kron(gold));
+      REQUIRE(ans == alternate_cv.single_column_kron(gold_v));
+      REQUIRE(ans == alternate_cv.single_column_kron(gold_cv));
+    }
   }
 
   SECTION("vector scale in place")
@@ -881,9 +888,10 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     fk::vector<TestType, mem_type::view> const test_v(test);
     fk::vector<TestType, mem_type::const_view> const test_cv(test);
     TestType const sum = 36;
-    REQUIRE(std::accumulate(test.begin(), test.end(), 0.0) == sum);
-    REQUIRE(std::accumulate(test_v.begin(), test_v.end(), 0.0) == sum);
-    REQUIRE(std::accumulate(test_cv.begin(), test_cv.end(), 0.0) == sum);
+    REQUIRE(std::accumulate(test.begin(), test.end(), TestType{0}) == sum);
+    REQUIRE(std::accumulate(test_v.begin(), test_v.end(), TestType{0}) == sum);
+    REQUIRE(std::accumulate(test_cv.begin(), test_cv.end(), TestType{0}) ==
+            sum);
   }
 } // end fk::vector utilities
 
@@ -2126,7 +2134,9 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
   }
   SECTION("matrix*vector multiplication")
   {
-    // clang-format off
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      // clang-format off
     fk::matrix<TestType> testm{
       {12, 22, 32},
       {13, 23, 33},
@@ -2134,31 +2144,32 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
       {15, 25, 35},
       {16, 26, 36},
     }; // clang-format on
-    fk::matrix<TestType, mem_type::view> const testm_v(testm);
-    fk::matrix<TestType, mem_type::const_view> const testm_cv(testm);
-    fk::matrix<TestType, mem_type::const_view> const testm_v_p(testm, 1, 2, 0,
-                                                               2);
+      fk::matrix<TestType, mem_type::view> const testm_v(testm);
+      fk::matrix<TestType, mem_type::const_view> const testm_cv(testm);
+      fk::matrix<TestType, mem_type::const_view> const testm_v_p(testm, 1, 2, 0,
+                                                                 2);
 
-    fk::vector<TestType> testv{2, 3, 4};
-    fk::vector<TestType, mem_type::view> const testv_v(testv);
-    fk::vector<TestType, mem_type::const_view> const testv_cv(testv);
+      fk::vector<TestType> testv{2, 3, 4};
+      fk::vector<TestType, mem_type::view> const testv_v(testv);
+      fk::vector<TestType, mem_type::const_view> const testv_cv(testv);
 
-    fk::vector<TestType> const gold_data{218, 227, 236, 245, 254};
-    REQUIRE((testm * testv) == gold_data);
-    REQUIRE((testm * testv_v) == gold_data);
-    REQUIRE((testm * testv_cv) == gold_data);
+      fk::vector<TestType> const gold_data{218, 227, 236, 245, 254};
+      REQUIRE((testm * testv) == gold_data);
+      REQUIRE((testm * testv_v) == gold_data);
+      REQUIRE((testm * testv_cv) == gold_data);
 
-    REQUIRE((testm_v * testv) == gold_data);
-    REQUIRE((testm_v * testv_v) == gold_data);
-    REQUIRE((testm_v * testv_cv) == gold_data);
+      REQUIRE((testm_v * testv) == gold_data);
+      REQUIRE((testm_v * testv_v) == gold_data);
+      REQUIRE((testm_v * testv_cv) == gold_data);
 
-    REQUIRE((testm_cv * testv) == gold_data);
-    REQUIRE((testm_cv * testv_v) == gold_data);
-    REQUIRE((testm_cv * testv_cv) == gold_data);
+      REQUIRE((testm_cv * testv) == gold_data);
+      REQUIRE((testm_cv * testv_v) == gold_data);
+      REQUIRE((testm_cv * testv_cv) == gold_data);
 
-    fk::vector<TestType> const gold_p = gold_data.extract(1, 2);
-    REQUIRE((testm_v_p * testv_v) == gold_p);
-    REQUIRE((testm_v_p * testv) == gold_p);
+      fk::vector<TestType> const gold_p = gold_data.extract(1, 2);
+      REQUIRE((testm_v_p * testv_v) == gold_p);
+      REQUIRE((testm_v_p * testv) == gold_p);
+    }
   }
   SECTION("matrix*matrix multiplication")
   {

@@ -13,7 +13,7 @@ using namespace asgard;
 // exception: all device code paths are tested
 //
 TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
-                   "[lib_dispatch]", float, double, int)
+                   "[lib_dispatch]", test_precs)
 {
   // clang-format off
     fk::matrix<TestType> const ans{
@@ -54,10 +54,11 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 'n';
-    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda,
-                       in2.data(), &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(trans_a, trans_b, m, n, k, alpha, in1.data(), lda,
+                       in2.data(), ldb, beta, result.data(), ldc);
     REQUIRE(result == ans);
   }
+#ifdef ASGARD_USE_CUDA
   SECTION("no transpose, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -76,13 +77,14 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       char const trans_a = 'n';
       char const trans_b = 'n';
 
-      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_d.data(),
-                         &lda, in2_d.data(), &ldb, &beta, result_d.data(), &ldc,
-                         resource::device);
+      lib_dispatch::gemm<resource::device>(trans_a, trans_b, m, n, k, alpha,
+                                           in1_d.data(), lda, in2_d.data(), ldb,
+                                           beta, result_d.data(), ldc);
       fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
+#endif
   SECTION("transpose a")
   {
     fk::matrix<TestType> const in1_t = fk::matrix<TestType>(in1).transpose();
@@ -98,8 +100,8 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     int ldc            = result.stride();
     char const trans_a = 't';
     char const trans_b = 'n';
-    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t.data(),
-                       &lda, in2.data(), &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(trans_a, trans_b, m, n, k, alpha, in1_t.data(), lda,
+                       in2.data(), ldb, beta, result.data(), ldc);
     REQUIRE(result == ans);
   }
   SECTION("transpose b")
@@ -117,8 +119,8 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 't';
-    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda,
-                       in2_t.data(), &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(trans_a, trans_b, m, n, k, alpha, in1.data(), lda,
+                       in2_t.data(), ldb, beta, result.data(), ldc);
     REQUIRE(result == ans);
   }
 
@@ -138,11 +140,11 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     int ldc            = result.stride();
     char const trans_a = 't';
     char const trans_b = 't';
-    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t.data(),
-                       &lda, in2_t.data(), &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(trans_a, trans_b, m, n, k, alpha, in1_t.data(), lda,
+                       in2_t.data(), ldb, beta, result.data(), ldc);
     REQUIRE(result == ans);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("both transpose, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -166,13 +168,14 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       int ldc            = result_d.stride();
       char const trans_a = 't';
       char const trans_b = 't';
-      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_t_d.data(),
-                         &lda, in2_t_d.data(), &ldb, &beta, result_d.data(),
-                         &ldc, resource::device);
+      lib_dispatch::gemm<resource::device>(trans_a, trans_b, m, n, k, alpha,
+                                           in1_t_d.data(), lda, in2_t_d.data(),
+                                           ldb, beta, result_d.data(), ldc);
       fk::matrix<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
+#endif
   SECTION("test scaling")
   {
     fk::matrix<TestType> result(in1.nrows(), in2.ncols());
@@ -197,11 +200,11 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 'n';
-    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1.data(), &lda,
-                       in2.data(), &ldb, &beta, result.data(), &ldc);
+    lib_dispatch::gemm(trans_a, trans_b, m, n, k, alpha, in1.data(), lda,
+                       in2.data(), ldb, beta, result.data(), ldc);
     REQUIRE(result == gold);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("test scaling, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -230,14 +233,14 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       int ldc            = result.stride();
       char const trans_a = 'n';
       char const trans_b = 'n';
-      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha, in1_d.data(),
-                         &lda, in2_d.data(), &ldb, &beta, result_d.data(), &ldc,
-                         resource::device);
+      lib_dispatch::gemm<resource::device>(trans_a, trans_b, m, n, k, alpha,
+                                           in1_d.data(), lda, in2_d.data(), ldb,
+                                           beta, result_d.data(), ldc);
       result.transfer_from(result_d);
       REQUIRE(result == gold);
     }
   }
-
+#endif
   SECTION("lda =/= nrows")
   {
     fk::matrix<TestType> in1_extended(in1.nrows() + 1, in1.ncols());
@@ -265,12 +268,11 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     int ldc            = result.stride();
     char const trans_a = 'n';
     char const trans_b = 'n';
-    lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha,
-                       in1_extended.data(), &lda, in2_extended.data(), &ldb,
-                       &beta, result.data(), &ldc);
+    lib_dispatch::gemm(trans_a, trans_b, m, n, k, alpha, in1_extended.data(),
+                       lda, in2_extended.data(), ldb, beta, result.data(), ldc);
     REQUIRE(result_view == ans);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("lda =/= nrows, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -303,17 +305,18 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
       char const trans_a = 'n';
       char const trans_b = 'n';
 
-      lib_dispatch::gemm(&trans_a, &trans_b, &m, &n, &k, &alpha,
-                         in1_extended_d.data(), &lda, in2_extended_d.data(),
-                         &ldb, &beta, result_d.data(), &ldc, resource::device);
+      lib_dispatch::gemm<resource::device>(
+          trans_a, trans_b, m, n, k, alpha, in1_extended_d.data(), lda,
+          in2_extended_d.data(), ldb, beta, result_d.data(), ldc);
       fk::matrix<TestType> const result(result_view_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
-                   "[lib_dispatch]", float, double, int)
+                   "[lib_dispatch]", test_precs)
 {
   // clang-format off
     fk::vector<TestType> const ans
@@ -344,10 +347,12 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     int inc            = 1;
     char const trans_a = 'n';
 
-    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc,
-                       &beta, result.data(), &inc);
+    lib_dispatch::gemv(trans_a, m, n, alpha, A.data(), lda, x.data(), inc, beta,
+                       result.data(), inc);
     REQUIRE(result == ans);
   }
+
+#ifdef ASGARD_USE_CUDA
   SECTION("no transpose, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -363,13 +368,15 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       int inc            = 1;
       char const trans_a = 'n';
 
-      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda, x_d.data(),
-                         &inc, &beta, result_d.data(), &inc, resource::device);
+      lib_dispatch::gemv<resource::device>(trans_a, m, n, alpha, A_d.data(),
+                                           lda, x_d.data(), inc, beta,
+                                           result_d.data(), inc);
 
       fk::vector<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
+#endif
 
   SECTION("transpose A")
   {
@@ -384,11 +391,11 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     int inc            = 1;
     char const trans_a = 't';
 
-    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_trans.data(), &lda, x.data(),
-                       &inc, &beta, result.data(), &inc);
+    lib_dispatch::gemv(trans_a, m, n, alpha, A_trans.data(), lda, x.data(), inc,
+                       beta, result.data(), inc);
     REQUIRE(result == ans);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("transpose A, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -407,14 +414,14 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       int inc            = 1;
       char const trans_a = 't';
 
-      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_trans_d.data(), &lda,
-                         x_d.data(), &inc, &beta, result_d.data(), &inc,
-                         resource::device);
+      lib_dispatch::gemv<resource::device>(trans_a, m, n, alpha,
+                                           A_trans_d.data(), lda, x_d.data(),
+                                           inc, beta, result_d.data(), inc);
       fk::vector<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == ans);
     }
   }
-
+#endif
   SECTION("test scaling")
   {
     fk::vector<TestType> result(ans.size());
@@ -436,11 +443,11 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     int inc            = 1;
     char const trans_a = 'n';
 
-    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A.data(), &lda, x.data(), &inc,
-                       &beta, result.data(), &inc);
+    lib_dispatch::gemv(trans_a, m, n, alpha, A.data(), lda, x.data(), inc, beta,
+                       result.data(), inc);
     REQUIRE(result == gold);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("test scaling, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -467,13 +474,14 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       int inc            = 1;
       char const trans_a = 'n';
 
-      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda, x_d.data(),
-                         &inc, &beta, result_d.data(), &inc, resource::device);
+      lib_dispatch::gemv<resource::device>(trans_a, m, n, alpha, A_d.data(),
+                                           lda, x_d.data(), inc, beta,
+                                           result_d.data(), inc);
       result.transfer_from(result_d);
       REQUIRE(result == gold);
     }
   }
-
+#endif
   SECTION("inc =/= 1")
   {
     fk::vector<TestType> result(ans.size() * 2 - 1);
@@ -490,11 +498,12 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
     int incy           = 2;
     char const trans_a = 'n';
 
-    lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A.data(), &lda,
-                       x_padded.data(), &incx, &beta, result.data(), &incy);
+    lib_dispatch::gemv(trans_a, m, n, alpha, A.data(), lda, x_padded.data(),
+                       incx, beta, result.data(), incy);
     REQUIRE(result == gold);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("inc =/= 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -516,18 +525,19 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
       int incy           = 2;
       char const trans_a = 'n';
 
-      lib_dispatch::gemv(&trans_a, &m, &n, &alpha, A_d.data(), &lda,
-                         x_padded_d.data(), &incx, &beta, result_d.data(),
-                         &incy, resource::device);
+      lib_dispatch::gemv<resource::device>(trans_a, m, n, alpha, A_d.data(),
+                                           lda, x_padded_d.data(), incx, beta,
+                                           result_d.data(), incy);
       fk::vector<TestType> const result(result_d.clone_onto_host());
       REQUIRE(result == gold);
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE(
     "scale and copy routines (lib_dispatch::scal/lib_dispatch::copy)",
-    "[lib_dispatch]", float, double, int)
+    "[lib_dispatch]", test_precs, int)
 {
   fk::vector<TestType> const x         = {1, 2, 3, 4, 5};
   fk::vector<TestType> const x_tripled = {3, 6, 9, 12, 15};
@@ -538,10 +548,11 @@ TEMPLATE_TEST_CASE(
     int n          = x.size();
     TestType alpha = scale;
     int incx       = 1;
-    lib_dispatch::scal(&n, &alpha, test.data(), &incx);
+    lib_dispatch::scal(n, alpha, test.data(), incx);
     REQUIRE(test == x_tripled);
   }
 
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::scal - inc = 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -552,13 +563,15 @@ TEMPLATE_TEST_CASE(
       TestType alpha = scale;
       int incx       = 1;
 
-      lib_dispatch::scal(&n, &alpha, test.data(), &incx, resource::device);
+      lib_dispatch::scal<resource::device>(n, alpha, test.data(), incx);
 
       fk::vector<TestType, mem_type::owner, resource::host> const test_h(
           test.clone_onto_host());
       REQUIRE(test_h == x_tripled);
     }
   }
+#endif
+
   SECTION("lib_dispatch::scal - incx =/= 1")
   {
     fk::vector<TestType> test{1, 0, 2, 0, 3, 0, 4, 0, 5};
@@ -567,11 +580,11 @@ TEMPLATE_TEST_CASE(
     TestType alpha = scale;
     int incx       = 2;
 
-    lib_dispatch::scal(&n, &alpha, test.data(), &incx);
+    lib_dispatch::scal(n, alpha, test.data(), incx);
 
     REQUIRE(test == gold);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("lib_dispatch::scal - incx =/= 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)
@@ -583,14 +596,14 @@ TEMPLATE_TEST_CASE(
       TestType alpha = scale;
       int incx       = 2;
 
-      lib_dispatch::scal(&n, &alpha, test.data(), &incx, resource::device);
+      lib_dispatch::scal<resource::device>(n, alpha, test.data(), incx);
 
       fk::vector<TestType, mem_type::owner, resource::host> const test_h(
           test.clone_onto_host());
       REQUIRE(test_h == gold);
     }
   }
-
+#endif
   SECTION("lib_dispatch::copy - inc = 1")
   {
     fk::vector<TestType> const x_test(x);
@@ -659,7 +672,7 @@ TEMPLATE_TEST_CASE(
 }
 
 TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
-                   float, double)
+                   test_precs)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
@@ -730,8 +743,8 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
 #endif
 }
 
-TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]", float,
-                   double, int)
+TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]",
+                   test_precs, int)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
@@ -811,31 +824,28 @@ TEMPLATE_TEST_CASE("device inversion test (lib_dispatch::getrf/getri)",
   fk::matrix<TestType, mem_type::owner, resource::device> test_d(
       test.clone_onto_device());
   fk::vector<int, mem_type::owner, resource::device> ipiv_d(test_d.nrows());
-  fk::vector<int, mem_type::owner, resource::device> info_d(10);
 
   int m   = test.nrows();
   int n   = test.ncols();
   int lda = test.stride();
 
-  lib_dispatch::getrf(&m, &n, test_d.data(), &lda, ipiv_d.data(), info_d.data(),
-                      resource::device);
-
+  int info  = lib_dispatch::getrf<resource::device>(m, n, test_d.data(), lda,
+                                                   ipiv_d.data());
   auto stat = cudaDeviceSynchronize();
-  REQUIRE(stat == 0);
-  fk::vector<int> const info_check(info_d.clone_onto_host());
-  REQUIRE(info_check(0) == 0);
+  REQUIRE(stat == cudaSuccess);
+
+  REQUIRE(info == 0);
 
   m = test.nrows();
   n = test.ncols();
   fk::matrix<TestType, mem_type::owner, resource::device> work(2, 2);
   int size = m * n;
-  lib_dispatch::getri(&n, test_d.data(), &lda, ipiv_d.data(), work.data(),
-                      &size, info_d.data(), resource::device);
-
+  info     = lib_dispatch::getri<resource::device>(
+      n, test_d.data(), lda, ipiv_d.data(), work.data(), size);
   stat = cudaDeviceSynchronize();
-  REQUIRE(stat == 0);
-  fk::vector<int> const info_check_2(info_d.clone_onto_host());
-  REQUIRE(info_check_2(0) == 0);
+  REQUIRE(stat == cudaSuccess);
+
+  REQUIRE(info == 0);
 
   fk::matrix<TestType> const test_copy(work.clone_onto_host());
 
@@ -942,9 +952,9 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
   P beta_           = beta;
   int num_batch_    = num_batch;
 
-  lib_dispatch::batched_gemm(ptrs[0].data(), &lda_, &transa, ptrs[1].data(),
-                             &ldb_, &transb, ptrs[2].data(), &ldc_, &m_, &n_,
-                             &k_, &alpha_, &beta_, &num_batch_, resrc);
+  lib_dispatch::batched_gemm<resrc>(
+      ptrs[0].data(), lda_, transa, ptrs[1].data(), ldb_, transb,
+      ptrs[2].data(), ldc_, m_, n_, k_, alpha_, beta_, num_batch_);
 
   // check results. we only want the effective region of c,
   // i.e. not the padding region that extends to ldc
@@ -969,8 +979,7 @@ void test_batched_gemm(int const m, int const n, int const k, int const lda,
 
 TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
                        ((typename TestType, resource resrc), TestType, resrc),
-                       (double, resource::host), (double, resource::device),
-                       (float, resource::host), (float, resource::device))
+                       test_precs_host)
 {
   SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
   {
@@ -1063,7 +1072,104 @@ TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
   }
 }
 
-TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
+#ifdef ASGARD_USE_CUDA
+TEMPLATE_TEST_CASE_SIG("batched gemm", "[lib_dispatch]",
+                       ((typename TestType, resource resrc), TestType, resrc),
+                       test_precs_device)
+{
+  SECTION("batched gemm: no trans, no trans, alpha = 1.0, beta = 0.0")
+  {
+    int const m         = 4;
+    int const n         = 4;
+    int const k         = 4;
+    int const num_batch = 3;
+    int const lda       = m;
+    int const ldb       = k;
+    int const ldc       = m;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch);
+  }
+
+  SECTION("batched gemm: trans a, no trans b, alpha = 1.0, beta = 0.0")
+  {
+    int const m         = 8;
+    int const n         = 2;
+    int const k         = 3;
+    int const num_batch = 2;
+    int const lda       = k + 1;
+    int const ldb       = k + 2;
+    int const ldc       = m;
+    bool const trans_a  = true;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a);
+  }
+
+  SECTION("batched gemm: no trans a, trans b, alpha = 1.0, beta = 0.0")
+  {
+    int const m         = 3;
+    int const n         = 6;
+    int const k         = 5;
+    int const num_batch = 4;
+    int const lda       = m;
+    int const ldb       = n;
+    int const ldc       = m + 1;
+    bool const trans_a  = false;
+    bool const trans_b  = true;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b);
+  }
+
+  SECTION("batched gemm: trans a, trans b, alpha = 1.0, beta = 0.0")
+  {
+    int const m         = 9;
+    int const n         = 8;
+    int const k         = 7;
+    int const num_batch = 6;
+    int const lda       = k + 1;
+    int const ldb       = n + 2;
+    int const ldc       = m + 3;
+    bool const trans_a  = true;
+    bool const trans_b  = true;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b);
+  }
+
+  SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 0.0")
+  {
+    int const m          = 4;
+    int const n          = 4;
+    int const k          = 4;
+    int const num_batch  = 3;
+    int const lda        = m;
+    int const ldb        = k;
+    int const ldc        = m;
+    bool const trans_a   = false;
+    bool const trans_b   = false;
+    TestType const alpha = 3.0;
+    TestType const beta  = 0.0;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b, alpha, beta);
+  }
+
+  SECTION("batched gemm: no trans, no trans, alpha = 3.0, beta = 2.0")
+  {
+    int const m          = 4;
+    int const n          = 4;
+    int const k          = 4;
+    int const num_batch  = 3;
+    int const lda        = m;
+    int const ldb        = k;
+    int const ldc        = m;
+    bool const trans_a   = false;
+    bool const trans_b   = false;
+    TestType const alpha = 3.0;
+    TestType const beta  = 2.0;
+    test_batched_gemm<TestType, resrc>(m, n, k, lda, ldb, ldc, num_batch,
+                                       trans_a, trans_b, alpha, beta);
+  }
+}
+#endif
+
+TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", test_precs)
 {
   fk::matrix<TestType> const A_gold{
       {3.383861628748717e+00, 1.113343240310116e-02, 2.920740795411032e+00},
@@ -1108,9 +1214,8 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
     int lda = A_copy.stride();
     int ldb = x.size();
 
-    int info;
-    lib_dispatch::gesv(&rows_A, &cols_B, A_copy.data(), &lda, ipiv.data(),
-                       x.data(), &ldb, &info);
+    int info = lib_dispatch::gesv(rows_A, cols_B, A_copy.data(), lda,
+                                  ipiv.data(), x.data(), ldb);
 
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -1120,8 +1225,8 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", float, double)
 
     x          = B1_gold;
     char trans = 'N';
-    lib_dispatch::getrs(&trans, &rows_A, &cols_B, A_copy.data(), &lda,
-                        ipiv.data(), x.data(), &ldb, &info);
+    info       = lib_dispatch::getrs(trans, rows_A, cols_B, A_copy.data(), lda,
+                               ipiv.data(), x.data(), ldb);
 
     REQUIRE(info == 0);
     rmse_comparison(x, X1_gold, tol_factor);

@@ -208,12 +208,12 @@ void rotg(P *a, P *b, P *c, P *s)
     if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDrotg(device.get_handle(), a, b, c, s);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSrotg(device.get_handle(), a, b, c, s);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return;
 #endif
@@ -247,12 +247,12 @@ P nrm2(int n, P const x[], int incx)
     if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDnrm2(device.get_handle(), n, x, incx, &norm);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSnrm2(device.get_handle(), n, x, incx, &norm);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return norm;
 #endif
@@ -290,13 +290,13 @@ void copy(int n, P const *x, int incx, P *y, int incy)
     {
       auto const success =
           cublasDcopy(device.get_handle(), n, x, incx, y, incy);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
       auto const success =
           cublasScopy(device.get_handle(), n, x, incx, y, incy);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return;
 #endif
@@ -343,13 +343,13 @@ P dot(int n, P const *x, int incx, P const *y, int incy)
     {
       auto const success =
           cublasDdot(device.get_handle(), n, x, incx, y, incy, &result);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
       auto const success =
           cublasSdot(device.get_handle(), n, x, incx, y, incy, &result);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return result;
 #endif
@@ -397,13 +397,13 @@ void axpy(int n, P alpha, const P *x, int incx, P *y, int incy)
     {
       auto const success =
           cublasDaxpy(device.get_handle(), n, &alpha, x, incx, y, incy);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
       auto const success =
           cublasSaxpy(device.get_handle(), n, &alpha, x, incx, y, incy);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return;
 #endif
@@ -422,52 +422,49 @@ void axpy(int n, P alpha, const P *x, int incx, P *y, int incy)
   }
 }
 
-template<typename P>
-void scal(int *n, P *alpha, P *x, int *incx, resource const resrc)
+template<resource resrc, typename P>
+void scal(int n, P alpha, P *x, int incx)
 {
-  expect(alpha);
+  expect(n >= 0);
   expect(x);
-  expect(n && *n >= 0);
-  expect(incx && *incx >= 0);
+  expect(incx >= 0);
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
+    static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success =
-          cublasDscal(device.get_handle(), *n, alpha, x, *incx);
-      expect(success == 0);
+      auto const success = cublasDscal(device.get_handle(), n, &alpha, x, incx);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success =
-          cublasSscal(device.get_handle(), *n, alpha, x, *incx);
-      expect(success == 0);
+      auto const success = cublasSscal(device.get_handle(), n, &alpha, x, incx);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return;
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    cblas_dscal(*n, *alpha, x, *incx);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    cblas_sscal(*n, *alpha, x, *incx);
-  }
-  else
-  {
-    for (int i = 0; i < *n; ++i)
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
     {
-      x[i * (*incx)] *= *alpha;
+      cblas_dscal(n, alpha, x, incx);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      cblas_sscal(n, alpha, x, incx);
+    }
+    else
+    {
+      for (int i = 0; i < n; ++i)
+      {
+        x[i * incx] *= alpha;
+      }
     }
   }
 }
@@ -504,39 +501,13 @@ basic_gemm(P const *A, bool const trans_A, int const lda, P const *B,
   }
 }
 
-template<typename P>
-static void basic_gemv(P const *A, bool const trans_A, int const lda,
-                       P const *x, int const incx, P *y, int const incy,
-                       int const m, int const n, P const alpha, P const beta)
+static CBLAS_TRANSPOSE cblas_transpose_type(char trans)
 {
-  expect(m > 0);
-  expect(n > 0);
-  expect(lda > 0);
-  expect(incx > 0);
-  expect(incy > 0);
-
-  for (auto i = 0; i < m; ++i)
-  {
-    P result = 0.0;
-    for (auto j = 0; j < n; ++j)
-    {
-      int const A_loc = trans_A ? i * lda + j : j * lda + i;
-      result += A[A_loc] * x[j * incx];
-    }
-    y[i * incy] = y[i * incy] * beta + alpha * result;
-  }
-}
-
-//
-//  Translate FORTRAN transpose blas arguments to cblas equivalents.
-//
-static CBLAS_TRANSPOSE cblas_transpose_type(char const *trans)
-{
-  if (*trans == 'n' || *trans == 'N')
+  if (trans == 'n' || trans == 'N')
   {
     return CblasNoTrans;
   }
-  else if (*trans == 't' || *trans == 'T')
+  else if (trans == 't' || trans == 'T')
   {
     return CblasTrans;
   }
@@ -546,155 +517,140 @@ static CBLAS_TRANSPOSE cblas_transpose_type(char const *trans)
   }
 }
 
-template<typename P>
-void gemv(char const *trans, int *m, int *n, P *alpha, P const *A, int *lda,
-          P const *x, int *incx, P *beta, P *y, int *incy, resource const resrc)
+template<resource resrc, typename P>
+void gemv(char trans, int m, int n, P alpha, P const *A, int lda, P const *x,
+          int incx, P beta, P *y, int incy)
 {
-  expect(alpha);
+  // instantiated for these two fp types
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
   expect(A);
   expect(x);
-  expect(beta);
   expect(y);
-  expect(m && *m >= 0);
-  expect(n && *n >= 0);
-  expect(lda && *lda >= 0);
-  expect(incx && *incx >= 0);
-  expect(incy && *incy >= 0);
-  expect(trans && (*trans == 't' || *trans == 'n'));
+  expect(m >= 0);
+  expect(n >= 0);
+  expect(lda >= 0);
+  expect(incx >= 0);
+  expect(incy >= 0);
+  expect(trans == 't' || trans == 'T' || trans == 'n' || trans == 'N');
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
-    // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success =
-          cublasDgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
-                      A, *lda, x, *incx, beta, y, *incy);
-      expect(success == 0);
+          cublasDgemv(device.get_handle(), cublas_trans(trans), m, n, &alpha, A,
+                      lda, x, incx, &beta, y, incy);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success =
-          cublasSgemv(device.get_handle(), cublas_trans(*trans), *m, *n, alpha,
-                      A, *lda, x, *incx, beta, y, *incy);
-      expect(success == 0);
+          cublasSgemv(device.get_handle(), cublas_trans(trans), m, n, &alpha, A,
+                      lda, x, incx, &beta, y, incy);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return;
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    cblas_dgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
-                *lda, x, *incx, *beta, y, *incy);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    cblas_sgemv(CblasColMajor, cblas_transpose_type(trans), *m, *n, *alpha, A,
-                *lda, x, *incx, *beta, y, *incy);
-  }
-  else
-  {
-    bool const trans_A = (*trans == 't') ? true : false;
-    int const rows_A   = trans_A ? *n : *m;
-    int const cols_A   = trans_A ? *m : *n;
-    basic_gemv(A, trans_A, *lda, x, *incx, y, *incy, rows_A, cols_A, *alpha,
-               *beta);
+    // default execution on the host
+    if constexpr (std::is_same<P, double>::value)
+    {
+      cblas_dgemv(CblasColMajor, cblas_transpose_type(trans), m, n, alpha, A,
+                  lda, x, incx, beta, y, incy);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      cblas_sgemv(CblasColMajor, cblas_transpose_type(trans), m, n, alpha, A,
+                  lda, x, incx, beta, y, incy);
+    }
   }
 }
 
-template<typename P>
-void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
-          P *alpha, P const *A, int *lda, P const *B, int *ldb, P *beta, P *C,
-          int *ldc, resource const resrc)
+template<resource resrc, typename P>
+void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
+          int lda, P const *B, int ldb, P beta, P *C, int ldc)
 {
-  expect(alpha);
   expect(A);
-  expect(lda && *lda >= 0);
+  expect(lda >= 0);
   expect(B);
-  expect(ldb && *ldb >= 0);
-  expect(beta);
+  expect(ldb >= 0);
   expect(C);
-  expect(ldc && *ldc >= 0);
-  expect(m && *m >= 0);
-  expect(n && *n >= 0);
-  expect(k && *k >= 0);
-  expect(transa && (*transa == 't' || *transa == 'n'));
-  expect(transb && (*transb == 't' || *transb == 'n'));
+  expect(ldc >= 0);
+  expect(m >= 0);
+  expect(n >= 0);
+  expect(k >= 0);
+  expect(transa == 't' || transa == 'T' || transa == 'n' || transa == 'N');
+  expect(transb == 't' || transb == 'T' || transb == 'n' || transb == 'N');
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
+    static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgemm(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
-      expect(success == 0);
+          device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
+          k, &alpha, A, lda, B, ldb, &beta, C, ldc);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemm(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
-      expect(success == 0);
+          device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
+          k, &alpha, A, lda, B, ldb, &beta, C, ldc);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     return;
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    cblas_dgemm(CblasColMajor, cblas_transpose_type(transa),
-                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
-                *ldb, *beta, C, *ldc);
-  }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    cblas_sgemm(CblasColMajor, cblas_transpose_type(transa),
-                cblas_transpose_type(transb), *m, *n, *k, *alpha, A, *lda, B,
-                *ldb, *beta, C, *ldc);
-  }
-  else
-  {
-    bool const trans_A = (*transa == 't') ? true : false;
-    bool const trans_B = (*transb == 't') ? true : false;
-    basic_gemm(A, trans_A, *lda, B, trans_B, *ldb, C, *ldc, *m, *k, *n, *alpha,
-               *beta);
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
+    {
+      cblas_dgemm(CblasColMajor, cblas_transpose_type(transa),
+                  cblas_transpose_type(transb), m, n, k, alpha, A, lda, B, ldb,
+                  beta, C, ldc);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      cblas_sgemm(CblasColMajor, cblas_transpose_type(transa),
+                  cblas_transpose_type(transb), m, n, k, alpha, A, lda, B, ldb,
+                  beta, C, ldc);
+    }
+    else
+    {
+      bool const trans_A = (transa == 't') ? true : false;
+      bool const trans_B = (transb == 't') ? true : false;
+      basic_gemm(A, trans_A, lda, B, trans_B, ldb, C, ldc, m, k, n, alpha,
+                 beta);
+    }
   }
 }
 
-template<typename P>
-void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
-           resource const resrc)
+template<resource resrc, typename P>
+int getrf(int m, int n, P *A, int lda, int *ipiv)
 {
+  // instantiated for these two fp types
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
   expect(A);
   expect(ipiv);
-  expect(info);
-  expect(lda && *lda >= 0);
-  expect(m && *m >= 0);
-  expect(n && *n >= 0);
+  expect(lda >= 0);
+  expect(m >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
+  int info{1};
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-    expect(*m == *n);
+    expect(m == n);
     ignore(m);
 
     P **A_d;
@@ -703,75 +659,82 @@ void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
       throw std::bad_alloc();
     }
     auto stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
-    expect(stat == 0);
-
+    expect(stat == cudaSuccess);
+    int *info_d;
+    if (cudaMalloc((void **)&info_d, sizeof(int)) != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
-      expect(success == 0);
+      auto const success = cublasDgetrfBatched(device.get_handle(), n, A_d, lda,
+                                               ipiv, info_d, 1);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetrfBatched(device.get_handle(), *n, A_d,
-                                               *lda, ipiv, info, 1);
-      expect(success == 0);
+      auto const success = cublasSgetrfBatched(device.get_handle(), n, A_d, lda,
+                                               ipiv, info_d, 1);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    return;
+    stat = cudaMemcpy(&info, info_d, sizeof(int), cudaMemcpyDeviceToHost);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(A_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(info_d);
+    expect(stat == cudaSuccess);
+
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (resrc == resource::host)
   {
-    dgetrf_(m, n, A, lda, ipiv, info);
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
+    {
+      dgetrf_(&m, &n, A, &lda, ipiv, &info);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      sgetrf_(&m, &n, A, &lda, ipiv, &info);
+    }
   }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sgetrf_(m, n, A, lda, ipiv, info);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getrf not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
-template<typename P>
-void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
-           resource const resrc)
+template<resource resrc, typename P>
+int getri(int n, P *A, int lda, int *ipiv, P *work, int lwork)
 {
+  // instantiated for these two fp types
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
   expect(A);
   expect(ipiv);
   expect(work);
-  expect(lwork);
-  expect(info);
-  expect(lda && *lda >= 0);
-  expect(n && *n >= 0);
+  expect(lwork == n * n);
+  expect(lda >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
+  int info{1};
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-
     // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
-    expect(*lwork == (*n) * (*n));
-    ignore(lwork);
-
-    P const **A_d;
-    P **work_d;
+    P **A_d;
     if (cudaMalloc((void **)&A_d, sizeof(P *)) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
+    P **work_d;
     if (cudaMalloc((void **)&work_d, sizeof(P *)) != cudaSuccess)
     {
       throw std::bad_alloc();
     }
-
+    int *info_d;
+    if (cudaMalloc((void **)&info_d, sizeof(int)) != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
     auto stat = cudaMemcpy(A_d, &A, sizeof(P *), cudaMemcpyHostToDevice);
     expect(stat == 0);
     stat = cudaMemcpy(work_d, &work, sizeof(P *), cudaMemcpyHostToDevice);
@@ -780,68 +743,69 @@ void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
     // instantiated for these two fp types
     if constexpr (std::is_same<P, double>::value)
     {
-      auto const success = cublasDgetriBatched(
-          device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
-      expect(success == 0);
+      auto const success = cublasDgetriBatched(device.get_handle(), n, A_d, lda,
+                                               nullptr, work_d, n, info_d, 1);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
-      auto const success = cublasSgetriBatched(
-          device.get_handle(), *n, A_d, *lda, nullptr, work_d, *n, info, 1);
-      expect(success == 0);
+      auto const success = cublasSgetriBatched(device.get_handle(), n, A_d, lda,
+                                               nullptr, work_d, n, info_d, 1);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    return;
+    stat = cudaMemcpy(&info, info_d, sizeof(int), cudaMemcpyDeviceToHost);
+    expect(stat == cudaSuccess);
+
+    stat = cudaFree(A_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(work_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(info_d);
+    expect(stat == cudaSuccess);
 #endif
   }
-
-  // default execution on the host for any resource
-  if constexpr (std::is_same<P, double>::value)
+  else if constexpr (resrc == resource::host)
   {
-    dgetri_(n, A, lda, ipiv, work, lwork, info);
+    // default execution on the host for any resource
+    if constexpr (std::is_same<P, double>::value)
+    {
+      dgetri_(&n, A, &lda, ipiv, work, &lwork, &info);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      sgetri_(&n, A, &lda, ipiv, work, &lwork, &info);
+    }
   }
-  else if constexpr (std::is_same<P, float>::value)
-  {
-    sgetri_(n, A, lda, ipiv, work, lwork, info);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getri not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
-template<typename P>
-void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
-                  int *ldb, char const *transb, P **const &c, int *ldc, int *m,
-                  int *n, int *k, P *alpha, P *beta, int *num_batch,
-                  resource const resrc)
+template<resource resrc, typename P>
+void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
+                  char transb, P **const &c, int ldc, int m, int n, int k,
+                  P alpha, P beta, int num_batch)
 {
-  expect(alpha);
   expect(a);
-  expect(lda && *lda >= 0);
+  expect(lda >= 0);
   expect(b);
-  expect(ldb && *ldb >= 0);
-  expect(beta);
+  expect(ldb >= 0);
   expect(c);
-  expect(ldc && *ldc >= 0);
-  expect(m && *m >= 0);
-  expect(n && *n >= 0);
-  expect(k && *k >= 0);
-  expect(transa && (*transa == 't' || *transa == 'n'));
-  expect(transb && (*transb == 't' || *transb == 'n'));
-  expect(num_batch && *num_batch > 0);
+  expect(ldc >= 0);
+  expect(m >= 0);
+  expect(n >= 0);
+  expect(k >= 0);
+  expect(transa == 't' || transa == 'T' || transa == 'n' || transa == 'N');
+  expect(transb == 't' || transb == 'T' || transb == 'n' || transb == 'N');
+  expect(num_batch > 0);
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
-
     P const **a_d;
     P const **b_d;
     P **c_d;
-    size_t const list_size = *num_batch * sizeof(P *);
+    size_t const list_size = num_batch * sizeof(P *);
 
     if (cudaMalloc((void **)&a_d, list_size) != cudaSuccess)
     {
@@ -866,20 +830,20 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     if constexpr (std::is_same<P, double>::value)
     {
       auto const success = cublasDgemmBatched(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+          device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
+          k, &alpha, a_d, lda, b_d, ldb, &beta, c_d, ldc, num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       expect(cuda_stat == 0);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
       auto const success = cublasSgemmBatched(
-          device.get_handle(), cublas_trans(*transa), cublas_trans(*transb), *m,
-          *n, *k, alpha, a_d, *lda, b_d, *ldb, beta, c_d, *ldc, *num_batch);
+          device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
+          k, &alpha, a_d, lda, b_d, ldb, &beta, c_d, ldc, num_batch);
       auto const cuda_stat = cudaDeviceSynchronize();
       expect(cuda_stat == 0);
-      expect(success == 0);
+      expect(success == CUBLAS_STATUS_SUCCESS);
     }
 
     stat = cudaFree(a_d);
@@ -888,149 +852,110 @@ void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
     expect(stat == 0);
     stat = cudaFree(c_d);
     expect(stat == 0);
-
     return;
 #endif
   }
-
-  // default execution on the host for any resource
-  int const end = *num_batch;
+  else if constexpr (resrc == resource::host)
+  {
+// default execution on the host for any resource
 #ifdef ASGARD_USE_OPENMP
 #pragma omp parallel for
 #endif
-  for (int i = 0; i < end; ++i)
-  {
-    gemm(transa, transb, m, n, k, alpha, a[i], lda, b[i], ldb, beta, c[i], ldc,
-         resource::host);
+    for (int i = 0; i < num_batch; ++i)
+    {
+      gemm(transa, transb, m, n, k, alpha, a[i], lda, b[i], ldb, beta, c[i],
+           ldc);
+    }
   }
 }
 
 template<typename P>
-void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
-          int *info)
+int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
 {
-  expect(n);
-  expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
-  expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
-  expect(*n >= 0);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
+
+  int info{1};
   if constexpr (std::is_same<P, double>::value)
   {
-    dgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    dgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgesv_(n, nrhs, A, lda, ipiv, b, ldb, info);
+    sgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "gesv not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
 template<typename P>
-void getrs(char *trans, int *n, int *nrhs, P const *A, int *lda,
-           int const *ipiv, P *b, int *ldb, int *info)
+int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
+          P *b, int ldb)
 {
-  expect(trans);
-  expect(n);
-  expect(nrhs);
   expect(A);
-  expect(lda);
   expect(ipiv);
-  expect(info);
   expect(b);
-  expect(ldb);
-  expect(*ldb >= 1);
-  expect(*lda >= 1);
-  expect(*n >= 0);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
 
+  int info{1};
   // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
-    dgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
-            ldb, info);
+    dgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+            const_cast<int *>(ipiv), b, &ldb, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    sgetrs_(trans, n, nrhs, const_cast<P *>(A), lda, const_cast<int *>(ipiv), b,
-            ldb, info);
+    sgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+            const_cast<int *>(ipiv), b, &ldb, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getrs not implemented for non-floating types" << '\n';
-    assert(false);
-  }
+  return info;
 }
 
 template<typename P>
-void pttrf(int *n, P *D, P *E, int *info, resource const resrc)
+int pttrf(int n, P *D, P *E)
 {
   expect(D);
   expect(E);
-  expect(info);
-  expect(n && *n >= 0);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
-  {
-    throw std::runtime_error("no pttrf support on cuda implemented");
-  }
-
+  int info{1};
   if constexpr (std::is_same<P, double>::value)
   {
-    dpttrf_(n, D, E, info);
+    dpttrf_(&n, D, E, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    spttrf_(n, D, E, info);
+    spttrf_(&n, D, E, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "pttrf not implemented for non-floating types" << '\n';
-    expect(false);
-  }
+  return info;
 }
 
 template<typename P>
-void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
-           resource const resrc)
+int pttrs(int n, int nrhs, P const *D, P const *E, P *B, int ldb)
 {
-  expect(n);
-  expect(nrhs);
   expect(D);
   expect(E);
   expect(B);
-  expect(ldb);
-  expect(info);
-  expect(*ldb >= 1);
-  expect(*n >= 0);
+  expect(ldb >= 1);
+  expect(n >= 0);
 
-  if (resrc == resource::device)
-  {
-    throw std::runtime_error("no pttrs support on cuda implemented");
-  }
-
+  int info{1};
   // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same<P, double>::value)
   {
-    dpttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
+    dpttrs_(&n, &nrhs, const_cast<P *>(D), const_cast<P *>(E), B, &ldb, &info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    spttrs_(n, nrhs, const_cast<P *>(D), const_cast<P *>(E), B, ldb, info);
+    spttrs_(&n, &nrhs, const_cast<P *>(D), const_cast<P *>(E), B, &ldb, &info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "spttrs not implemented for non-floating types" << '\n';
-    assert(false);
-  }
+  return info;
 }
 
 #ifdef ASGARD_USE_SCALAPACK
@@ -1057,11 +982,6 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
   {
     psgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "gesv not implemented for non-floating types" << '\n';
-    expect(false);
-  }
 }
 
 template<typename P>
@@ -1078,154 +998,194 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
   expect(*n >= 0);
 
   int mp{1}, nq{1}, i_one{1};
-  char N{'N'};
   if constexpr (std::is_same<P, double>::value)
   {
-    pdgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+    pdgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
              info);
   }
   else if constexpr (std::is_same<P, float>::value)
   {
-    psgetrs_(&N, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
+    psgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
              info);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "getrs not implemented for non-floating types" << '\n';
-    expect(false);
   }
 }
 #endif
 
+#ifdef ASGARD_ENABLE_FLOAT
 template void rotg<resource::host, float>(float *, float *, float *, float *);
-template void
-rotg<resource::host, double>(double *, double *, double *, double *);
-
 template float nrm2<resource::host, float>(int, float const[], int);
-template double nrm2<resource::host, double>(int, double const[], int);
-
 template void copy<resource::host, float>(int n, float const *x, int incx,
                                           float *y, int incy);
-template void copy<resource::host, double>(int n, double const *x, int incx,
-                                           double *y, int incy);
-template void
-copy<resource::host, int>(int n, int const *x, int incx, int *y, int incy);
-
 template float dot<resource::host, float>(int n, float const *x, int incx,
                                           float const *y, int incy);
+template void axpy<resource::host, float>(int n, float alpha, float const *x,
+                                          int incx, float *y, int incy);
+template void
+scal<resource::host, float>(int n, float alpha, float *x, int incx);
+template void gemv<resource::host, float>(char trans, int m, int n, float alpha,
+                                          float const *A, int lda,
+                                          float const *x, int incx, float beta,
+                                          float *y, int incy);
+template void gemm<resource::host, float>(char transa, char transb, int m,
+                                          int n, int k, float alpha,
+                                          float const *A, int lda,
+                                          float const *B, int ldb, float beta,
+                                          float *C, int ldc);
+template int
+getrf<resource::host, float>(int m, int n, float *A, int lda, int *ipiv);
+template int getri<resource::host, float>(int n, float *A, int lda, int *ipiv,
+                                          float *work, int lwork);
+template void
+batched_gemm<resource::host, float>(float **const &a, int lda, char transa,
+                                    float **const &b, int ldb, char transb,
+                                    float **const &c, int ldc, int m, int n,
+                                    int k, float alpha, float beta,
+                                    int num_batch);
+template int
+gesv(int n, int nrhs, float *A, int lda, int *ipiv, float *b, int ldb);
+template int getrs(char trans, int n, int nrhs, float const *A, int lda,
+                   int const *ipiv, float *b, int ldb);
+template int pttrf(int n, float *D, float *E);
+template int
+pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
+#endif
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template void
+rotg<resource::host, double>(double *, double *, double *, double *);
+template double nrm2<resource::host, double>(int, double const[], int);
+template void copy<resource::host, double>(int n, double const *x, int incx,
+                                           double *y, int incy);
 template double dot<resource::host, double>(int n, double const *x, int incx,
                                             double const *y, int incy);
+template void axpy<resource::host, double>(int n, double alpha, double const *x,
+                                           int incx, double *y, int incy);
+template void
+scal<resource::host, double>(int n, double alpha, double *x, int incx);
+template void gemv<resource::host, double>(char trans, int m, int n,
+                                           double alpha, double const *A,
+                                           int lda, double const *x, int incx,
+                                           double beta, double *y, int incy);
+template void gemm<resource::host, double>(char transa, char transb, int m,
+                                           int n, int k, double alpha,
+                                           double const *A, int lda,
+                                           double const *B, int ldb,
+                                           double beta, double *C, int ldc);
+template int
+getrf<resource::host, double>(int m, int n, double *A, int lda, int *ipiv);
+template int getri<resource::host, double>(int n, double *A, int lda, int *ipiv,
+                                           double *work, int lwork);
+template void
+batched_gemm<resource::host, double>(double **const &a, int lda, char transa,
+                                     double **const &b, int ldb, char transb,
+                                     double **const &c, int ldc, int m, int n,
+                                     int k, double alpha, double beta,
+                                     int num_batch);
+template int
+gesv(int n, int nrhs, double *A, int lda, int *ipiv, double *b, int ldb);
+template int getrs(char trans, int n, int nrhs, double const *A, int lda,
+                   int const *ipiv, double *b, int ldb);
+template int pttrf(int n, double *D, double *E);
+template int
+pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
+
+#endif
+
+template void
+copy<resource::host, int>(int n, int const *x, int incx, int *y, int incy);
 template int
 dot<resource::host, int>(int n, int const *x, int incx, int const *y, int incy);
+template void scal<resource::host, int>(int n, int alpha, int *x, int incx);
+template void gemm<resource::host, int>(char transa, char transb, int m, int n,
+                                        int k, int alpha, int const *A, int lda,
+                                        int const *B, int ldb, int beta, int *C,
+                                        int ldc);
 
 #ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_ENABLE_FLOAT
 template float nrm2<resource::device, float>(int, float const[], int);
-template double nrm2<resource::device, double>(int, double const[], int);
-
 template void rotg<resource::device, float>(float *, float *, float *, float *);
-template void
-rotg<resource::device, double>(double *, double *, double *, double *);
-
 template void copy<resource::device, float>(int n, float const *x, int incx,
                                             float *y, int incy);
-template void copy<resource::device, double>(int n, double const *x, int incx,
-                                             double *y, int incyc);
 template float dot<resource::device, float>(int n, float const *x, int incx,
                                             float const *y, int incy);
-template double dot<resource::device, double>(int n, double const *x, int incx,
-                                              double const *y, int incy);
 template void axpy<resource::device, float>(int n, float alpha, float const *x,
                                             int incx, float *y, int incy);
+template void
+scal<resource::device, float>(int n, float alpha, float *x, int incx);
+template void gemv<resource::device, float>(char trans, int m, int n,
+                                            float alpha, float const *A,
+                                            int lda, float const *x, int incx,
+                                            float beta, float *y, int incy);
+template void gemm<resource::device, float>(char transa, char transb, int m,
+                                            int n, int k, float alpha,
+                                            float const *A, int lda,
+                                            float const *B, int ldb, float beta,
+                                            float *C, int ldc);
+template void
+batched_gemm<resource::device, float>(float **const &a, int lda, char transa,
+                                      float **const &b, int ldb, char transb,
+                                      float **const &c, int ldc, int m, int n,
+                                      int k, float alpha, float beta,
+                                      int num_batch);
+template int
+getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
+template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
+                                            float *work, int lwork);
+#endif
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template double nrm2<resource::device, double>(int, double const[], int);
+template void
+rotg<resource::device, double>(double *, double *, double *, double *);
+template void copy<resource::device, double>(int n, double const *x, int incx,
+                                             double *y, int incyc);
+template double dot<resource::device, double>(int n, double const *x, int incx,
+                                              double const *y, int incy);
 template void axpy<resource::device, double>(int n, double alpha,
                                              double const *x, int incx,
                                              double *y, int incy);
+template void
+scal<resource::device, double>(int n, double alpha, double *x, int incx);
+template void gemv<resource::device, double>(char trans, int m, int n,
+                                             double alpha, double const *A,
+                                             int lda, double const *x, int incx,
+                                             double beta, double *y, int incy);
+template void gemm<resource::device, double>(char transa, char transb, int m,
+                                             int n, int k, double alpha,
+                                             double const *A, int lda,
+                                             double const *B, int ldb,
+                                             double beta, double *C, int ldc);
+template void
+batched_gemm<resource::device, double>(double **const &a, int lda, char transa,
+                                       double **const &b, int ldb, char transb,
+                                       double **const &c, int ldc, int m, int n,
+                                       int k, double alpha, double beta,
+                                       int num_batch);
+template int
+getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
+template int getri<resource::device, double>(int n, double *A, int lda,
+                                             int *ipiv, double *work,
+                                             int lwork);
+
+#endif
 #endif
 
-template void axpy<resource::host, float>(int n, float alpha, float const *x,
-                                          int incx, float *y, int incy);
-template void axpy<resource::host, double>(int n, double alpha, double const *x,
-                                           int incx, double *y, int incy);
-
-template void
-scal(int *n, float *alpha, float *x, int *incx, resource const resrc);
-template void
-scal(int *n, double *alpha, double *x, int *incx, resource const resrc);
-template void scal(int *n, int *alpha, int *x, int *incx, resource const resrc);
-
-template void gemv(char const *trans, int *m, int *n, float *alpha,
-                   float const *A, int *lda, float const *x, int *incx,
-                   float *beta, float *y, int *incy, resource const resrc);
-template void gemv(char const *trans, int *m, int *n, double *alpha,
-                   double const *A, int *lda, double const *x, int *incx,
-                   double *beta, double *y, int *incy, resource const resrc);
-template void gemv(char const *trans, int *m, int *n, int *alpha, int const *A,
-                   int *lda, int const *x, int *incx, int *beta, int *y,
-                   int *incy, resource const resrc);
-
-template void gemm(char const *transa, char const *transb, int *m, int *n,
-                   int *k, float *alpha, float const *A, int *lda,
-                   float const *B, int *ldb, float *beta, float *C, int *ldc,
-                   resource const resrc);
-template void gemm(char const *transa, char const *transb, int *m, int *n,
-                   int *k, double *alpha, double const *A, int *lda,
-                   double const *B, int *ldb, double *beta, double *C, int *ldc,
-                   resource const resrc);
-template void gemm(char const *transa, char const *transb, int *m, int *n,
-                   int *k, int *alpha, int const *A, int *lda, int const *B,
-                   int *ldb, int *beta, int *C, int *ldc, resource const resrc);
-
-template void getrf(int *m, int *n, float *A, int *lda, int *ipiv, int *info,
-                    resource const resrc);
-template void getrf(int *m, int *n, double *A, int *lda, int *ipiv, int *info,
-                    resource const resrc);
-
-template void getri(int *n, float *A, int *lda, int *ipiv, float *work,
-                    int *lwork, int *info, resource const resrc);
-template void getri(int *n, double *A, int *lda, int *ipiv, double *work,
-                    int *lwork, int *info, resource const resrc);
-
-template void batched_gemm(float **const &a, int *lda, char const *transa,
-                           float **const &b, int *ldb, char const *transb,
-                           float **const &c, int *ldc, int *m, int *n, int *k,
-                           float *alpha, float *beta, int *num_batch,
-                           resource const resrc);
-
-template void batched_gemm(double **const &a, int *lda, char const *transa,
-                           double **const &b, int *ldb, char const *transb,
-                           double **const &c, int *ldc, int *m, int *n, int *k,
-                           double *alpha, double *beta, int *num_batch,
-                           resource const resrc);
-
-template void gesv(int *n, int *nrhs, double *A, int *lda, int *ipiv, double *b,
-                   int *ldb, int *info);
-template void gesv(int *n, int *nrhs, float *A, int *lda, int *ipiv, float *b,
-                   int *ldb, int *info);
-
-template void getrs(char *trans, int *n, int *nrhs, double const *A, int *lda,
-                    int const *ipiv, double *b, int *ldb, int *info);
-template void getrs(char *trans, int *n, int *nrhs, float const *A, int *lda,
-                    int const *ipiv, float *b, int *ldb, int *info);
-
-template void
-pttrf(int *n, double *D, double *E, int *info, resource const resrc);
-template void
-pttrf(int *n, float *D, float *E, int *info, resource const resrc);
-
-template void pttrs(int *n, int *nrhs, double const *D, double const *E,
-                    double *B, int *ldb, int *info, resource const resrc);
-template void pttrs(int *n, int *nrhs, float const *D, float const *E, float *B,
-                    int *ldb, int *info, resource const resrc);
 #ifdef ASGARD_USE_SCALAPACK
-template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
-                             int *ipiv, double *b, int *descB, int *info);
+#ifdef ASGARD_ENABLE_FLOAT
 template void scalapack_gesv(int *n, int *nrhs, float *A, int *descA, int *ipiv,
                              float *b, int *descB, int *info);
-
-template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
-                              int *descA, int const *ipiv, double *b,
-                              int *descB, int *info);
 template void scalapack_getrs(char *trans, int *n, int *nrhs, float const *A,
                               int *descA, int const *ipiv, float *b, int *descB,
                               int *info);
+#endif
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
+                             int *ipiv, double *b, int *descB, int *info);
+template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
+                              int *descA, int const *ipiv, double *b,
+                              int *descB, int *info);
+#endif
 #endif
 } // namespace asgard::lib_dispatch

@@ -301,7 +301,7 @@ void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
     return;
   }
 
-  fm::scal(static_cast<P>(0.0), dest);
+  fm::scal(P{0.}, dest);
   int const num_cols = get_num_subgrid_cols(plan.size());
 
   int const my_row = my_rank / num_cols;

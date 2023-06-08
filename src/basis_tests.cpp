@@ -8,14 +8,32 @@
 
 #ifdef ASGARD_ENABLE_DOUBLE
 #ifdef ASGARD_ENABLE_FLOAT
+
+#ifdef ASGARD_USE_CUDA
 #define mtest_precs                                     \
   (double, resource::host), (double, resource::device), \
       (float, resource::host), (float, resource::device)
 #else
+#define mtest_precs (double, resource::host), (float, resource::host)
+#endif
+
+#else
+
+#ifdef ASGARD_USE_CUDA
 #define mtest_precs (double, resource::host), (double, resource::device)
+#else
+#define mtest_precs (double, resource::host)
+#endif
+
 #endif
 #else
+
+#ifdef ASGARD_USE_CUDA
 #define mtest_precs (float, resource::host), (float, resource::device)
+#else
+#define mtest_precs (float, resource::host)
+#endif
+
 #endif
 
 static auto const transformations_base_dir = gold_base_dir / "transformations";

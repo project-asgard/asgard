@@ -9,14 +9,32 @@
 
 #ifdef ASGARD_ENABLE_DOUBLE
 #ifdef ASGARD_ENABLE_FLOAT
+
+#ifdef ASGARD_USE_CUDA
 #define multi_tests                                     \
   (double, resource::host), (double, resource::device), \
       (float, resource::host), (float, resource::device)
 #else
+#define multi_tests (double, resource::host), (float, resource::host)
+#endif
+
+#else
+
+#ifdef ASGARD_USE_CUDA
 #define multi_tests (double, resource::host), (double, resource::device)
+#else
+#define multi_tests (double, resource::host)
+#endif
+
 #endif
 #else
+
+#ifdef ASGARD_USE_CUDA
 #define multi_tests (float, resource::host), (float, resource::device)
+#else
+#define multi_tests (float, resource::host)
+#endif
+
 #endif
 
 using namespace asgard;
@@ -46,8 +64,10 @@ void test_kron(
 
   if constexpr (resrc == resource::device)
   {
+#ifdef ASGARD_USE_CUDA
     REQUIRE(real_space.clone_onto_host() == correct);
     return;
+#endif
   }
 
   else if constexpr (resrc == resource::host)
@@ -83,7 +103,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
 
     REQUIRE(calculate_workspace_length(matrices, x_size) == correct_size);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("kron_0_device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> const a = {{2, 3},
@@ -105,7 +125,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
 
     test_kron<TestType, resource::device>(matrices, x, correct);
   }
-
+#endif
   SECTION("kron_0_host")
   {
     fk::matrix<TestType, mem_type::owner, resource::host> const a = {{2, 3},
@@ -127,7 +147,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
 
     test_kron<TestType, resource::host>(matrices, x, correct);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("kron_1_device")
   {
     auto const matrix_all_twos = [](int const rows, int const cols)
@@ -186,7 +206,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
 
     test_kron<TestType, resource::device>(matrices, x_device, correct);
   }
-
+#endif
   SECTION("kron_1_host")
   {
     auto const matrix_all_twos = [](int const rows, int const cols)
@@ -242,7 +262,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
 
     test_kron<TestType, resource::host>(matrices, x, correct);
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("kron_2_device")
   {
     fk::matrix<TestType, mem_type::owner, resource::device> const a = {
@@ -272,7 +292,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
 
     test_kron<TestType, resource::device>(matrices, x, correct);
   }
-
+#endif
   SECTION("kron_2_host")
   {
     fk::matrix<TestType, mem_type::owner, resource::host> const a = {

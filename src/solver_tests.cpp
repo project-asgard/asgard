@@ -58,7 +58,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     fk::vector<P> x(b);
     build_system_matrix(*pde, table, A, my_subgrid);
     // AA = I - dt*A;
-    fm::scal(P{-1.0} * pde->get_dt(), A);
+    fm::scal(P{-1.} * pde->get_dt(), A);
     for (int i = 0; i < A.nrows(); ++i)
     {
       A(i, i) += 1.0;
@@ -79,7 +79,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     build_system_matrix(*pde, table, A, my_subgrid);
     // AA = I - dt*A;
-    fm::scal(P{-1.0} * pde->get_dt(), A);
+    fm::scal(P{-1.} * pde->get_dt(), A);
     for (int i = 0; i < A.nrows(); ++i)
     {
       A(i, i) += 1.0;
