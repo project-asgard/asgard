@@ -45,7 +45,8 @@ template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
-                    options const &program_options, imex_flag const imex)
+                    options const &program_options, memory_usage &mem_stats,
+                    imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -448,7 +449,8 @@ template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
-                     options const &program_options, imex_flag const imex)
+                     options const &program_options, memory_usage &mem_stats,
+                     imex_flag const imex)
 {
   auto const form_id = tools::timer.start("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
@@ -647,15 +649,16 @@ make_kronmult_sparse(PDE<precision> const &pde,
 template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                     options const &cli_opts, imex_flag const imex)
+                     options const &cli_opts, memory_usage &mem_stats,
+                     imex_flag const imex)
 {
   if (cli_opts.kmode == kronmult_mode::dense)
   {
-    return make_kronmult_dense<P>(pde, grid, cli_opts, imex);
+    return make_kronmult_dense<P>(pde, grid, cli_opts, mem_stats, imex);
   }
   else
   {
-    return make_kronmult_sparse<P>(pde, grid, cli_opts, imex);
+    return make_kronmult_sparse<P>(pde, grid, cli_opts, mem_stats, imex);
   }
 }
 

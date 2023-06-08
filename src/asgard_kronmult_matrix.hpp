@@ -15,6 +15,16 @@
 namespace asgard
 {
 /*!
+ * \brief Holds data for the pre-computed memory sizes.
+ */
+struct memory_usage {
+  //! \brief Persistent size that cannot be any less, in MB.
+  int baseline_memory;
+  //! \brief Size (number of entries) of the index matrix.
+  int max_index_size;
+};
+
+/*!
  * \brief Contains persistent data for a kronmult operation.
  *
  * Holds the data for one batch of kronmult operations
@@ -152,6 +162,7 @@ public:
   {}
 
 #ifdef ASGARD_USE_CUDA
+  //! \brief Set the workspace memory.
   void set_workspace(
             fk::vector<precision, mem_type::owner, resource::device> &x,
             fk::vector<precision, mem_type::owner, resource::device> &y) {
@@ -294,12 +305,13 @@ private:
  * \param pde is the instance of the PDE being simulated
  * \param grid is the current sparse grid for the discretization
  * \param program_options are the input options passed in by the user
+ * \param mem_stats caches the information that needs to be used
  * \param imex indicates whether this is part of an imex time stepping scheme
  */
 template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                     options const &program_options,
+                     options const &program_options, memory_usage &mem_stats,
                      imex_flag const imex = imex_flag::unspecified);
 
 /*!
@@ -396,6 +408,8 @@ struct matrix_list
     for (auto &matrix : matrices)
       if (matrix)
         matrix = kronmult_matrix<precision>();
+    mem_stats.baseline_memory = 0;
+    mem_stats.max_index_size = 0;
   }
 
   //! \brief Holds the matrices
@@ -410,6 +424,8 @@ private:
   static constexpr std::array<imex_flag, 3> flag_map = {
       imex_flag::unspecified, imex_flag::imex_explicit,
       imex_flag::imex_implicit};
+
+  memory_usage mem_stats;
 
 #ifdef ASGARD_USE_CUDA
   mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
