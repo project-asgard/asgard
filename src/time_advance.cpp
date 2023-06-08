@@ -612,6 +612,98 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 #endif
   };
 
+  auto calculate_moments =
+      [&](fk::vector<P, mem_type::owner, imex_resrc> const &f_in) {
+        fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
+        fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), f_in, mom0);
+        fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
+            pde_1d, mom0, adaptive_grid_1d.get_table(), transformer,
+            tmp_workspace);
+        param_manager.get_parameter("n")->value = [&](P const x_v,
+                                                      P const t = 0) -> P {
+          ignore(t);
+          return interp1(nodes, mom0_real, {x_v})[0];
+        };
+
+        // TODO: refactor into more generic function
+        fk::vector<P, mem_type::owner, imex_resrc> mom1(dense_size);
+        fm::sparse_gemv(pde.moments[1].get_moment_matrix_dev(), f_in, mom1);
+        fk::vector<P> &mom1_real = pde.moments[1].create_realspace_moment(
+            pde_1d, mom1, adaptive_grid_1d.get_table(), transformer,
+            tmp_workspace);
+        param_manager.get_parameter("u")->value = [&](P const x_v,
+                                                      P const t = 0) -> P {
+          return interp1(nodes, mom1_real, {x_v})[0] /
+                 param_manager.get_parameter("n")->value(x_v, t);
+        };
+
+        if (pde.num_dims > 2 && pde.moments.size() > 3)
+        {
+          // Calculate additional moments for PDEs with more than one velocity
+          // dimension
+
+          // moment 2 = moment1v2 = \int f v_{2} dv
+          fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
+          fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), f_in, mom2);
+          fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
+              pde_1d, mom2, adaptive_grid_1d.get_table(), transformer,
+              tmp_workspace);
+
+          // u2 = \int_v f v_1 dv / n(x)
+          param_manager.get_parameter("u2")->value = [&](P const x_v,
+                                                         P const t = 0) -> P {
+            return interp1(nodes, mom2_real, {x_v})[0] /
+                   param_manager.get_parameter("n")->value(x_v, t);
+          };
+
+          // moment 3 = moment2v1
+          fk::vector<P, mem_type::owner, imex_resrc> mom3(dense_size);
+          fm::sparse_gemv(pde.moments[3].get_moment_matrix_dev(), f_in, mom3);
+          fk::vector<P> &mom3_real = pde.moments[3].create_realspace_moment(
+              pde_1d, mom3, adaptive_grid_1d.get_table(), transformer,
+              tmp_workspace);
+
+          // moment 4 = moment2v2
+          fk::vector<P, mem_type::owner, imex_resrc> mom4(dense_size);
+          fm::sparse_gemv(pde.moments[4].get_moment_matrix_dev(), f_in, mom4);
+          fk::vector<P> &mom4_real = pde.moments[4].create_realspace_moment(
+              pde_1d, mom4, adaptive_grid_1d.get_table(), transformer,
+              tmp_workspace);
+
+          // theta = \frac{ \int f(v_1^2 + v_2^2) dv }{ 2n(x)} - 0.5 * (u_1^2(x)
+          // + u_2^2(x))
+          param_manager.get_parameter("theta")->value =
+              [&](P const x_v, P const t = 0) -> P {
+            P const mom3_x = interp1(nodes, mom3_real, {x_v})[0];
+            P const mom4_x = interp1(nodes, mom4_real, {x_v})[0];
+
+            P const u1 = param_manager.get_parameter("u")->value(x_v, t);
+            P const u2 = param_manager.get_parameter("u2")->value(x_v, t);
+
+            P const n = param_manager.get_parameter("n")->value(x_v, t);
+
+            return (mom3_x + mom4_x) / (2.0 * n) -
+                   0.5 * (std::pow(u1, 2) + std::pow(u2, 2));
+          };
+        }
+        else
+        {
+          // theta moment for 1x1v case
+          fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
+          fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), f_in, mom2);
+          fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
+              pde_1d, mom2, adaptive_grid_1d.get_table(), transformer,
+              tmp_workspace);
+          param_manager.get_parameter("theta")->value =
+              [&](P const x_v, P const t = 0) -> P {
+            P const u = param_manager.get_parameter("u")->value(x_v, t);
+            return (interp1(nodes, mom2_real, {x_v})[0] /
+                    param_manager.get_parameter("n")->value(x_v, t)) -
+                   std::pow(u, 2);
+          };
+        }
+      };
+
   if (pde.do_poisson_solve)
   {
     do_poisson_update(x);
@@ -649,90 +741,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.stop("explicit_1");
   tools::timer.start("implicit_1");
 
-  fk::vector<P, mem_type::owner, imex_resrc> x_dev = x;
   // Create rho_2s
-  fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
-  fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), x_dev, mom0);
-  fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
-      pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("n")->value = [&](P const x_v,
-                                                P const t = 0) -> P {
-    ignore(t);
-    return interp1(nodes, mom0_real, {x_v})[0];
-  };
-
-  // TODO: refactor into more generic function
-  fk::vector<P, mem_type::owner, imex_resrc> mom1(dense_size);
-  fm::sparse_gemv(pde.moments[1].get_moment_matrix_dev(), x_dev, mom1);
-  fk::vector<P> &mom1_real = pde.moments[1].create_realspace_moment(
-      pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("u")->value = [&](P const x_v,
-                                                P const t = 0) -> P {
-    return interp1(nodes, mom1_real, {x_v})[0] /
-           param_manager.get_parameter("n")->value(x_v, t);
-  };
-
-  if (pde.num_dims > 2 && pde.moments.size() > 3)
-  {
-    // Calculate additional moments for PDEs with more than one velocity
-    // dimension
-
-    // moment 2 = moment1v2 = \int f v_{2} dv
-    fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
-    fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), x_dev, mom2);
-    fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
-        pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-
-    // u2 = \int_v f v_1 dv / n(x)
-    param_manager.get_parameter("u2")->value = [&](P const x_v,
-                                                   P const t = 0) -> P {
-      return interp1(nodes, mom2_real, {x_v})[0] /
-             param_manager.get_parameter("n")->value(x_v, t);
-    };
-
-    // moment 3 = moment2v1
-    fk::vector<P, mem_type::owner, imex_resrc> mom3(dense_size);
-    fm::sparse_gemv(pde.moments[3].get_moment_matrix_dev(), x_dev, mom3);
-    fk::vector<P> &mom3_real = pde.moments[3].create_realspace_moment(
-        pde_1d, mom3, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-
-    // moment 4 = moment2v2
-    fk::vector<P, mem_type::owner, imex_resrc> mom4(dense_size);
-    fm::sparse_gemv(pde.moments[4].get_moment_matrix_dev(), x_dev, mom4);
-    fk::vector<P> &mom4_real = pde.moments[4].create_realspace_moment(
-        pde_1d, mom4, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-
-    // theta = \frac{ \int f(v_1^2 + v_2^2) dv }{ 2n(x)} - 0.5 * (u_1^2(x) +
-    // u_2^2(x))
-    param_manager.get_parameter("theta")->value = [&](P const x_v,
-                                                      P const t = 0) -> P {
-      P const mom3_x = interp1(nodes, mom3_real, {x_v})[0];
-      P const mom4_x = interp1(nodes, mom4_real, {x_v})[0];
-
-      P const u1 = param_manager.get_parameter("u")->value(x_v, t);
-      P const u2 = param_manager.get_parameter("u2")->value(x_v, t);
-
-      P const n = param_manager.get_parameter("n")->value(x_v, t);
-
-      return (mom3_x + mom4_x) / (2.0 * n) -
-             0.5 * (std::pow(u1, 2) + std::pow(u2, 2));
-    };
-  }
-  else
-  {
-    // theta moment for 1x1v case
-    fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
-    fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), x_dev, mom2);
-    fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
-        pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-    param_manager.get_parameter("theta")->value = [&](P const x_v,
-                                                      P const t = 0) -> P {
-      P const u = param_manager.get_parameter("u")->value(x_v, t);
-      return (interp1(nodes, mom2_real, {x_v})[0] /
-              param_manager.get_parameter("n")->value(x_v, t)) -
-            std::pow(u, 2);
-    };
-  }
+  calculate_moments(x);
 
   // f2 now
   P const tolerance  = program_opts.gmres_tolerance;
@@ -816,87 +826,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   }
   tools::timer.start("implicit_2_mom");
   // Create rho_3s
-  // TODO: refactor into more generic function
-  x_dev = fk::vector<P, mem_type::owner, imex_resrc>(x);
-  fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), x_dev, mom0);
-  mom0_real = pde.moments[0].create_realspace_moment(
-      pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("n")->value = [&](P const x_v,
-                                                P const t = 0) -> P {
-    ignore(t);
-    return interp1(nodes, mom0_real, {x_v})[0];
-  };
-
-  fm::sparse_gemv(pde.moments[1].get_moment_matrix_dev(), x_dev, mom1);
-  mom1_real = pde.moments[1].create_realspace_moment(
-      pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  param_manager.get_parameter("u")->value = [&](P const x_v,
-                                                P const t = 0) -> P {
-    return interp1(nodes, mom1_real, {x_v})[0] /
-           param_manager.get_parameter("n")->value(x_v, t);
-  };
-
-  if (pde.num_dims > 2 && pde.moments.size() > 3)
-  {
-    // Calculate additional moments for PDEs with more than one velocity
-    // dimension
-
-    // moment 2 = moment1v2 = \int f v_{2} dv
-    fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
-    fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), x_dev, mom2);
-    fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
-        pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-
-    // u2 = \int_v f v_1 dv / n(x)
-    param_manager.get_parameter("u2")->value = [&](P const x_v,
-                                                   P const t = 0) -> P {
-      return interp1(nodes, mom2_real, {x_v})[0] /
-             param_manager.get_parameter("n")->value(x_v, t);
-    };
-
-    // moment 3 = moment2v1
-    fk::vector<P, mem_type::owner, imex_resrc> mom3(dense_size);
-    fm::sparse_gemv(pde.moments[3].get_moment_matrix_dev(), x_dev, mom3);
-    fk::vector<P> &mom3_real = pde.moments[3].create_realspace_moment(
-        pde_1d, mom3, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-
-    // moment 4 = moment2v2
-    fk::vector<P, mem_type::owner, imex_resrc> mom4(dense_size);
-    fm::sparse_gemv(pde.moments[4].get_moment_matrix_dev(), x_dev, mom4);
-    fk::vector<P> &mom4_real = pde.moments[4].create_realspace_moment(
-        pde_1d, mom4, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-
-    // theta = \frac{ \int f(v_1^2 + v_2^2) dv }{ 2n(x)} - 0.5 * (u_1^2(x) +
-    // u_2^2(x))
-    param_manager.get_parameter("theta")->value = [&](P const x_v,
-                                                      P const t = 0) -> P {
-      P const mom3_x = interp1(nodes, mom3_real, {x_v})[0];
-      P const mom4_x = interp1(nodes, mom4_real, {x_v})[0];
-
-      P const u1 = param_manager.get_parameter("u")->value(x_v, t);
-      P const u2 = param_manager.get_parameter("u2")->value(x_v, t);
-
-      P const n = param_manager.get_parameter("n")->value(x_v, t);
-
-      return (mom3_x + mom4_x) / (2.0 * n) -
-             0.5 * (std::pow(u1, 2) + std::pow(u2, 2));
-    };
-  }
-  else
-  {
-    // theta moment for 1x1v case
-    fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
-    fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), x_dev, mom2);
-    fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
-        pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-    param_manager.get_parameter("theta")->value = [&](P const x_v,
-                                                      P const t = 0) -> P {
-      P const u = param_manager.get_parameter("u")->value(x_v, t);
-      return (interp1(nodes, mom2_real, {x_v})[0] /
-              param_manager.get_parameter("n")->value(x_v, t)) -
-             std::pow(u, 2);
-    };
-  }
+  calculate_moments(x);
   tools::timer.stop("implicit_2_mom");
 
   // Final stage f3
