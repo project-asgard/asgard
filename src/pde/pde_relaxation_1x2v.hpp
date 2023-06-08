@@ -38,7 +38,7 @@ private:
   static bool constexpr do_poisson_solve_ = false;
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = false;
-  static bool constexpr has_analytic_soln_     = false;
+  static bool constexpr has_analytic_soln_     = true;
   static int constexpr default_degree          = 3;
 
   static P constexpr nu = 1e3;
@@ -346,8 +346,15 @@ private:
   inline static term_set<P> const terms_ = {terms_im_1, terms_im_2, terms_im_3,
                                             terms_im_4, terms_im_5, terms_im_6};
 
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
-  inline static scalar_func<P> const exact_scalar_func_               = {};
+  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {
+      {initial_condition_dim_x_0, partial_term<P>::null_vector_func,
+       partial_term<P>::null_vector_func},
+      {partial_term<P>::null_vector_func, initial_condition_dim_v_0,
+       partial_term<P>::null_vector_func},
+      {partial_term<P>::null_vector_func, partial_term<P>::null_vector_func,
+       initial_condition_dim_v_1}};
+
+  inline static scalar_func<P> const exact_scalar_func_ = {};
 
   static P get_dt_(dimension<P> const &dim)
   {
