@@ -135,7 +135,9 @@ class vector
   friend class vector;
 
 public:
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
+  /*! constructor
+   * \brief creates an empty vector.
+   */
   vector();
   /*! constructor
    * \param size size of newly constructed vector.
@@ -1016,7 +1018,6 @@ namespace asgard
 //
 //-----------------------------------------------------------------------------
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector() : data_{nullptr}, size_{0}
 {}
 // right now, initializing with zero for e.g. passing in answer vectors to blas

@@ -70,6 +70,10 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
                                       vA.clone_onto_device());
   }
 
+  asgard::fk::vector<T, asgard::mem_type::owner, asgard::resource::device> xdev(kmat.input_size());
+  asgard::fk::vector<T, asgard::mem_type::owner, asgard::resource::device> ydev(kmat.output_size());
+  kmat.set_workspace(xdev, ydev);
+
 #else
 
   if (matrix_mode == sparse_mode)

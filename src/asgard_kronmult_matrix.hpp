@@ -127,11 +127,6 @@ public:
       expect(row_indx_.size() == col_indx_.size());
       expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
     }
-
-    xdev = fk::vector<precision, mem_type::owner, data_mode>(tensor_size_ *
-                                                             num_cols_);
-    ydev = fk::vector<precision, mem_type::owner, data_mode>(tensor_size_ *
-                                                             num_rows_);
 #else
     if (row_indx_.size() > 0)
     {
@@ -155,6 +150,15 @@ public:
                         fk::vector<int, mem_type::owner, input_mode>(),
                         std::move(index_A), std::move(values_A))
   {}
+
+#ifdef ASGARD_USE_CUDA
+  void set_workspace(
+            fk::vector<precision, mem_type::owner, resource::device> &x,
+            fk::vector<precision, mem_type::owner, resource::device> &y) {
+    xdev = fk::vector<precision, mem_type::view, resource::device>(x);
+    ydev = fk::vector<precision, mem_type::view, resource::device>(y);
+  }
+#endif
 
   /*!
    * \brief Computes y = alpha * kronmult_matrix * x + beta * y
@@ -255,7 +259,7 @@ private:
 
 #ifdef ASGARD_USE_CUDA
   static constexpr resource data_mode = resource::device;
-  mutable fk::vector<precision, mem_type::owner, data_mode> xdev, ydev;
+  mutable fk::vector<precision, mem_type::view, data_mode> xdev, ydev;
 #else
   static constexpr resource data_mode = resource::host;
 #endif
@@ -275,6 +279,8 @@ private:
  *
  * The main purpose of the method is to "glue" the data-structures together
  * from the definition of the PDE to the format used by the Kronecker product.
+ * It also keeps a common workspace that will be used for all kron operations,
+ * which means that virtually none of the operations here are thread-safe.
  *
  * This method will copy out the coefficient data from the PDE terms
  * into the matrix structure, so the method should be called only
@@ -352,6 +358,17 @@ struct matrix_list
   {
     if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, imex(entry));
+#ifdef ASGARD_USE_CUDA
+    if ((*this)[entry].input_size() != xdev.size()) {
+        xdev = fk::vector<precision, mem_type::owner, resource::device>();
+        xdev = fk::vector<precision, mem_type::owner, resource::device>((*this)[entry].input_size());
+    }
+    if ((*this)[entry].output_size() != ydev.size()) {
+        ydev = fk::vector<precision, mem_type::owner, resource::device>();
+        ydev = fk::vector<precision, mem_type::owner, resource::device>((*this)[entry].output_size());
+    }
+    (*this)[entry].set_workspace(xdev, ydev);
+#endif
   }
   /*!
    * \brief Either makes the matrix or if it exists, just updates only the
@@ -393,6 +410,11 @@ private:
   static constexpr std::array<imex_flag, 3> flag_map = {
       imex_flag::unspecified, imex_flag::imex_explicit,
       imex_flag::imex_implicit};
+
+#ifdef ASGARD_USE_CUDA
+  mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
+#endif
+
 };
 
 } // namespace asgard
