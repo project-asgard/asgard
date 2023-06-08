@@ -255,9 +255,9 @@ void batched_gemm(batch<P, resrc> const &a, batch<P, resrc> const &b,
 
   int num_batch = a.num_entries();
 
-  lib_dispatch::batched_gemm(a.get_list(), &lda, &trans_a, b.get_list(), &ldb,
-                             &trans_b, c.get_list(), &ldc, &m, &n, &k, &alpha_,
-                             &beta_, &num_batch, resrc);
+  lib_dispatch::batched_gemm<resrc>(a.get_list(), lda, trans_a, b.get_list(),
+                                    ldb, trans_b, c.get_list(), ldc, m, n, k,
+                                    alpha_, beta_, num_batch);
 }
 
 // Problem solved by batch_chain class:
@@ -586,7 +586,9 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_USE_CUDA
 template class batch<double>;
+#endif
 template class batch<double, resource::host>;
 
 template void batch<double, resource::host>::assign_entry(
@@ -598,7 +600,7 @@ template void batch<double, resource::host>::assign_entry(
 template void batch<double, resource::host>::assign_entry(
     fk::matrix<double, mem_type::const_view, resource::host> const &a,
     int const position);
-
+#ifdef ASGARD_USE_CUDA
 template void batch<double, resource::device>::assign_entry(
     fk::matrix<double, mem_type::owner, resource::device> const &a,
     int const position);
@@ -612,6 +614,8 @@ template void batch<double, resource::device>::assign_entry(
 template void batched_gemm(batch<double> const &a, batch<double> const &b,
                            batch<double> const &c, double const alpha,
                            double const beta);
+#endif
+
 template void batched_gemm(batch<double, resource::host> const &a,
                            batch<double, resource::host> const &b,
                            batch<double, resource::host> const &c,
@@ -622,9 +626,11 @@ build_system_matrix(PDE<double> const &pde, elements::table const &elem_table,
                     fk::matrix<double> &A, element_subgrid const &grid,
                     imex_flag const imex);
 
-template class batch_chain<double, resource::device, chain_method::realspace>;
 template class batch_chain<double, resource::host, chain_method::realspace>;
+#ifdef ASGARD_USE_CUDA
+template class batch_chain<double, resource::device, chain_method::realspace>;
 template class batch_chain<double, resource::device, chain_method::advance>;
+#endif
 
 template batch_chain<double, resource::host, chain_method::realspace>::
     batch_chain(
@@ -634,7 +640,7 @@ template batch_chain<double, resource::host, chain_method::realspace>::
         std::array<fk::vector<double, mem_type::view, resource::host>, 2>
             &workspace,
         fk::vector<double, mem_type::view, resource::host> &final_output);
-
+#ifdef ASGARD_USE_CUDA
 template batch_chain<double, resource::device, chain_method::realspace>::
     batch_chain(
         std::vector<fk::matrix<double, mem_type::const_view,
@@ -644,9 +650,12 @@ template batch_chain<double, resource::device, chain_method::realspace>::
             &workspace,
         fk::vector<double, mem_type::view, resource::device> &final_output);
 #endif
+#endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+#ifdef ASGARD_USE_CUDA
 template class batch<float>;
+#endif
 template class batch<float, resource::host>;
 
 template void batch<float, resource::host>::assign_entry(
@@ -658,7 +667,7 @@ template void batch<float, resource::host>::assign_entry(
 template void batch<float, resource::host>::assign_entry(
     fk::matrix<float, mem_type::const_view, resource::host> const &a,
     int const position);
-
+#ifdef ASGARD_USE_CUDA
 template void batch<float, resource::device>::assign_entry(
     fk::matrix<float, mem_type::owner, resource::device> const &a,
     int const position);
@@ -672,6 +681,7 @@ template void batch<float, resource::device>::assign_entry(
 template void batched_gemm(batch<float> const &a, batch<float> const &b,
                            batch<float> const &c, float const alpha,
                            float const beta);
+#endif
 template void batched_gemm(batch<float, resource::host> const &a,
                            batch<float, resource::host> const &b,
                            batch<float, resource::host> const &c,
@@ -681,10 +691,11 @@ template void
 build_system_matrix(PDE<float> const &pde, elements::table const &elem_table,
                     fk::matrix<float> &A, element_subgrid const &grid,
                     imex_flag const imex);
-
+#ifdef ASGARD_USE_CUDA
 template class batch_chain<float, resource::device, chain_method::realspace>;
-template class batch_chain<float, resource::host, chain_method::realspace>;
 template class batch_chain<float, resource::device, chain_method::advance>;
+#endif
+template class batch_chain<float, resource::host, chain_method::realspace>;
 
 template batch_chain<float, resource::host, chain_method::realspace>::
     batch_chain(
@@ -694,7 +705,7 @@ template batch_chain<float, resource::host, chain_method::realspace>::
         std::array<fk::vector<float, mem_type::view, resource::host>, 2>
             &workspace,
         fk::vector<float, mem_type::view, resource::host> &final_output);
-
+#ifdef ASGARD_USE_CUDA
 template batch_chain<float, resource::device, chain_method::realspace>::
     batch_chain(
         std::vector<fk::matrix<float, mem_type::const_view,
@@ -703,6 +714,7 @@ template batch_chain<float, resource::device, chain_method::realspace>::
         std::array<fk::vector<float, mem_type::view, resource::device>, 2>
             &workspace,
         fk::vector<float, mem_type::view, resource::device> &final_output);
+#endif
 #endif
 
 } // namespace asgard

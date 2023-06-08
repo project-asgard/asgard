@@ -29,7 +29,7 @@ using prec = double;
 using prec = float;
 #endif
 
-int main(int, char**)
+int main(int, char **)
 {
   // keep this file clean for each PR
   // allows someone to easily come here, dump code and start playing

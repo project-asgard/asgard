@@ -75,9 +75,8 @@ void reference_kronmult_one(int dimensions, int n, T const *const pA[],
   char charN = 'n';
   T alpha = 1.0, beta = 1.0;
   int int_one = 1;
-  asgard::lib_dispatch::gemv(&charN, &total_size, &total_size, &alpha,
-                             kron.data(), &total_size, x, &int_one, &beta, y,
-                             &int_one, asgard::resource::host);
+  asgard::lib_dispatch::gemv(charN, total_size, total_size, alpha, kron.data(),
+                             total_size, x, int_one, beta, y, int_one);
 }
 
 /*!

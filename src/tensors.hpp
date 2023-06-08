@@ -1457,8 +1457,8 @@ fk::vector<P, mem, resrc>::operator*(fk::matrix<P, omem> const &A) const
 
   P zero = 0.0;
   P one  = 1.0;
-  lib_dispatch::gemv("t", &m, &n, &one, A.data(), &lda, X.data(), &one_i, &zero,
-                     Y.data(), &one_i);
+  lib_dispatch::gemv<resrc>('t', m, n, one, A.data(), lda, X.data(), one_i,
+                            zero, Y.data(), one_i);
   return Y;
 }
 
@@ -1474,7 +1474,7 @@ fk::vector<P> fk::vector<P, mem, resrc>::operator*(P const x) const
   int n     = a.size();
   P alpha   = x;
 
-  lib_dispatch::scal(&n, &alpha, a.data(), &one_i);
+  lib_dispatch::scal(n, alpha, a.data(), one_i);
 
   return a;
 }
@@ -1508,7 +1508,7 @@ fk::vector<P, mem> &fk::vector<P, mem, resrc>::scale(P const x)
   int n     = this->size();
   P alpha   = x;
 
-  lib_dispatch::scal(&n, &alpha, this->data(), &one_i);
+  lib_dispatch::scal(n, alpha, this->data(), one_i);
 
   return *this;
 }
@@ -2248,8 +2248,8 @@ fk::matrix<P, mem, resrc>::operator*(fk::vector<P, omem> const &right) const
 
   P one  = 1.0;
   P zero = 0.0;
-  lib_dispatch::gemv("n", &m, &n, &one, A.data(), &lda, right.data(), &one_i,
-                     &zero, Y.data(), &one_i);
+  lib_dispatch::gemv<resrc>('n', m, n, one, A.data(), lda, right.data(), one_i,
+                            zero, Y.data(), one_i);
 
   return Y;
 }
@@ -2278,8 +2278,8 @@ fk::matrix<P, mem, resrc>::operator*(matrix<P, omem> const &B) const
 
   P one  = 1.0;
   P zero = 0.0;
-  lib_dispatch::gemm("n", "n", &m, &n, &k, &one, A.data(), &lda, B.data(), &ldb,
-                     &zero, C.data(), &ldc);
+  lib_dispatch::gemm('n', 'n', m, n, k, one, A.data(), lda, B.data(), ldb, zero,
+                     C.data(), ldc);
 
   return C;
 }
@@ -2397,19 +2397,23 @@ template<typename P, mem_type mem, resource resrc>
 template<typename U, typename, mem_type, typename, resource, typename>
 fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::invert()
 {
+  static_assert(resrc == resource::host);
   expect(nrows() == ncols());
 
-  int *ipiv{new int[ncols()]};
-  int lwork{nrows() * ncols()};
+  std::vector<int> ipiv(ncols());
+  int lwork{static_cast<int>(size())};
   int lda = stride();
-  P *work{new P[nrows() * ncols()]};
-  int info;
+  std::vector<P> work(size());
 
-  lib_dispatch::getrf(&ncols_, &ncols_, data(0, 0), &lda, ipiv, &info);
-  lib_dispatch::getri(&ncols_, data(0, 0), &lda, ipiv, work, &lwork, &info);
-
-  delete[] ipiv;
-  delete[] work;
+  int info = lib_dispatch::getrf(ncols_, ncols_, data(0, 0), lda, ipiv.data());
+  if (info != 0)
+    throw std::runtime_error("Error returned from lib_dispatch::getrf: " +
+                             std::to_string(info));
+  info = lib_dispatch::getri(ncols_, data(0, 0), lda, ipiv.data(), work.data(),
+                             lwork);
+  if (info != 0)
+    throw std::runtime_error("Error returned from lib_dispatch::getri: " +
+                             std::to_string(info));
   return *this;
 }
 
@@ -2434,12 +2438,14 @@ P fk::matrix<P, mem, resrc>::determinant() const
   expect(nrows() == ncols());
 
   matrix<P, mem_type::owner> temp(*this); // get temp copy to do LU
-  int *ipiv{new int[ncols()]};
-  int info;
+  std::vector<int> ipiv(ncols());
   int n   = temp.ncols();
   int lda = temp.stride();
 
-  lib_dispatch::getrf(&n, &n, temp.data(0, 0), &lda, ipiv, &info);
+  int info = lib_dispatch::getrf(n, n, temp.data(0, 0), lda, ipiv.data());
+  if (info != 0)
+    throw std::runtime_error("Error returned from lib_dispatch::getrf: " +
+                             std::to_string(info));
 
   P det    = 1.0;
   int sign = 1;
@@ -2450,7 +2456,6 @@ P fk::matrix<P, mem, resrc>::determinant() const
     det *= temp(i, i);
   }
   det *= static_cast<P>(sign);
-  delete[] ipiv;
   return det;
 }
 

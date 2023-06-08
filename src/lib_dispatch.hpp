@@ -27,49 +27,40 @@ P dot(int n, P const *x, int incx, P const *y, int incy);
 template<resource resrc = resource::host, typename P>
 void axpy(int n, P alpha, P const *x, int incx, P *y, int incy);
 
-template<typename P>
-void scal(int *n, P *alpha, P *x, int *incx,
-          resource const resrc = resource::host);
+template<resource resrc = resource::host, typename P>
+void scal(int n, P alpha, P *x, int incx);
+
+template<resource resrc = resource::host, typename P>
+void gemv(char trans, int m, int n, P alpha, P const *A, int lda, P const *x,
+          int incx, P beta, P *y, int incy);
+
+template<resource resrc = resource::host, typename P>
+void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
+          int lda, P const *B, int ldb, P beta, P *C, int ldc);
+
+template<resource resrc = resource::host, typename P>
+int getrf(int m, int n, P *A, int lda, int *ipiv);
+
+template<resource resrc = resource::host, typename P>
+int getri(int n, P *A, int lda, int *ipiv, P *work, int lwork);
+
+template<resource resrc = resource::host, typename P>
+void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
+                  char transb, P **const &c, int ldc, int m, int n, int k,
+                  P alpha, P beta, int num_batch);
 
 template<typename P>
-void gemv(char const *trans, int *m, int *n, P *alpha, P const *A, int *lda,
-          P const *x, int *incx, P *beta, P *y, int *incy,
-          resource const resrc = resource::host);
+int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb);
 
 template<typename P>
-void gemm(char const *transa, char const *transb, int *m, int *n, int *k,
-          P *alpha, P const *A, int *lda, P const *B, int *ldb, P *beta, P *C,
-          int *ldc, resource const resrc = resource::host);
+int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
+          P *b, int ldb);
 
 template<typename P>
-void getrf(int *m, int *n, P *A, int *lda, int *ipiv, int *info,
-           resource const resrc = resource::host);
+int pttrf(int n, P *D, P *E);
 
 template<typename P>
-void getri(int *n, P *A, int *lda, int *ipiv, P *work, int *lwork, int *info,
-           resource const resrc = resource::host);
-
-template<typename P>
-void batched_gemm(P **const &a, int *lda, char const *transa, P **const &b,
-                  int *ldb, char const *transb, P **const &c, int *ldc, int *m,
-                  int *n, int *k, P *alpha, P *beta, int *num_batch,
-                  resource const resrc = resource::host);
-
-template<typename P>
-void gesv(int *n, int *nrhs, P *A, int *lda, int *ipiv, P *b, int *ldb,
-          int *info);
-
-template<typename P>
-void getrs(char *trans, int *n, int *nrhs, P const *A, int *lda,
-           int const *ipiv, P *b, int *ldb, int *info);
-
-template<typename P>
-void pttrf(int *n, P *D, P *E, int *info,
-           resource const resrc = resource::host);
-
-template<typename P>
-void pttrs(int *n, int *nrhs, P const *D, P const *E, P *B, int *ldb, int *info,
-           resource const resrc = resource::host);
+int pttrs(int n, int nrhs, P const *D, P const *E, P *B, int ldb);
 
 #ifdef ASGARD_USE_SCALAPACK
 template<typename P>
