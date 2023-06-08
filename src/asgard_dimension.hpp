@@ -161,7 +161,7 @@ std::vector<dimension_description<precision>> cli_apply_level_degree_correction(
     for (int &l : levels)
     {
       l = cli_input.get_starting_levels()(counter++);
-      expect(l > 1);
+      expect(l >= 1);
     }
   }
   auto const cli_degree = cli_input.get_degree();

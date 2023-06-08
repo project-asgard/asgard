@@ -173,9 +173,9 @@ parser::parser(int argc, char const *const *argv)
     starting_levels.resize(starting_lev.size()) = starting_lev;
     for (auto const lev : starting_levels)
     {
-      if (lev < 2)
+      if (lev < 0)
       {
-        std::cerr << "Level must be greater than one" << '\n';
+        std::cerr << "Level must be >= 0" << '\n';
         valid = false;
       }
       if (max_level < lev)
@@ -425,9 +425,9 @@ parser::parser(int argc, char const *const *argv)
     }
     for (int i = 0; i < max_adapt_levels.size(); ++i)
     {
-      if (max_adapt_levels[i] < 2)
+      if (max_adapt_levels[i] <= 0)
       {
-        std::cerr << "Level must be greater than one" << '\n';
+        std::cerr << "Level must be >= 0" << '\n';
         valid = false;
       }
       if (max_adapt_levels[i] < starting_levels[i])
