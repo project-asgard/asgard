@@ -74,7 +74,7 @@ make_kronmult_dense(PDE<precision> const &pde,
     for (int d = 0; d < num_dimensions; d++)
     {
       dim_term_offset[t * num_dimensions + d] = osize;
-      osize += pde.get_coefficients(t, d).size();
+      osize += pde.get_coefficients(used_terms[t], d).size();
     }
   }
 
@@ -686,7 +686,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     int64_t osize = 0;
     for (int t = 0; t < num_terms; t++)
       for (int d = 0; d < num_dimensions; d++)
-        osize += pde.get_coefficients(t, d).size();
+        osize += pde.get_coefficients(used_terms[t], d).size();
 
     vA = fk::vector<P>(osize);
 
