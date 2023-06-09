@@ -17,13 +17,45 @@ namespace asgard
 /*!
  * \brief Holds data for the pre-computed memory sizes.
  */
-struct memory_usage {
+struct memory_usage
+{
+  //! \brief Indicates whether kronmult will be called in one or multiple calls
+  enum kron_call_mode
+  {
+    //! \brief kronmult can be applied in one call
+    one_call,
+    //! \brief kronmult has to be applied in multiple calls
+    multi_calls
+  };
+  /*!
+   * \brief Indicates whether we are limited by the 32-bit index or allocated
+   *        memory
+   */
+  enum size_limit_mode
+  {
+    //! \brief Limited by the index size, 32-bit
+    overflow,
+    //! \brief Limited by the user specified memory or device capabilitys
+    environment
+  };
   //! \brief Persistent size that cannot be any less, in MB.
   int baseline_memory;
-  //! \brief Size (number of entries) of the index matrix.
-  int64_t max_index_size;
+  //! \brief Indicate whether one shot or multiple shots will be used.
+  kron_call_mode kron_call;
+  //! \brief Indicate how we are limited in size
+  size_limit_mode mem_limit;
   //! \brief Index workspace size (does not include row/col indexes)
-  int work_size;
+  int64_t work_size;
+  //! \brief Indicate whether it has been initialized
+  operator bool() const
+  {
+    return (baseline_memory != 0);
+  }
+  //! \brief Resets the memory parameters due to adapting the grid
+  void reset()
+  {
+    baseline_memory = 0;
+  }
 };
 
 /*!
@@ -207,6 +239,7 @@ public:
                         std::vector<fk::vector<int>>(),
                         std::move(list_index_A), std::move(values_A))
   {}
+#ifdef ASGARD_USE_CUDA
   //! \brief Set the workspace memory.
   void set_workspace(
             fk::vector<precision, mem_type::owner, resource::device> &x,
@@ -214,6 +247,7 @@ public:
     xdev = fk::vector<precision, mem_type::view, resource::device>(x);
     ydev = fk::vector<precision, mem_type::view, resource::device>(y);
   }
+#endif
 
   /*!
    * \brief Computes y = alpha * kronmult_matrix * x + beta * y
@@ -331,7 +365,7 @@ private:
   std::vector<fk::vector<int>> list_iA;
   std::vector<fk::vector<int>> list_row_indx_;
   std::vector<fk::vector<int>> list_col_indx_;
-  int list_row_stride_; // for dense case, how many rows fall in one list entry
+  int list_row_stride_; // for CPU dense case, how many rows fall in one list
 
   // list of the operators
   fk::vector<precision, mem_type::owner, data_mode> vA;
@@ -358,14 +392,15 @@ private:
  * \param pde is the instance of the PDE being simulated
  * \param grid is the current sparse grid for the discretization
  * \param program_options are the input options passed in by the user
- * \param mem_stats caches the information that needs to be used
+ * \param mem_stats is the cached information about memory usage
  * \param imex indicates whether this is part of an imex time stepping scheme
  */
 template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                     options const &program_options, memory_usage &mem_stats,
-                     imex_flag const imex = imex_flag::unspecified);
+                     options const &program_options,
+                     memory_usage const &mem_stats,
+                     imex_flag const imex);
 
 /*!
  * \brief Update the coefficients stored in the matrix without changing the rest
@@ -395,6 +430,17 @@ enum matrix_entry
 };
 
 /*!
+ * \brief Compute the stats for the memory usage
+ *
+ * Computes how to avoid overflow or the use of more memory than
+ * is available on the GPU device.
+ */
+template<typename P>
+memory_usage
+compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
+                  options const &program_options, imex_flag const imex);
+
+/*!
  * \brief Holds a list of matrices used for time-stepping.
  *
  * There are multiple types of matrices based on the time-stepping and the
@@ -421,6 +467,8 @@ struct matrix_list
   void make(matrix_entry entry, PDE<precision> const &pde,
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
+    if (not mem_stats)
+      mem_stats = compute_mem_usage(pde, grid, opts, imex(entry));
     if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats, imex(entry));
 #ifdef ASGARD_USE_CUDA
@@ -461,9 +509,7 @@ struct matrix_list
     for (auto &matrix : matrices)
       if (matrix)
         matrix = kronmult_matrix<precision>();
-    mem_stats.baseline_memory = 0;
-    mem_stats.max_index_size = 0;
-    mem_stats.work_size = 0;
+    mem_stats.reset();
   }
 
   //! \brief Holds the matrices
