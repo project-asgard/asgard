@@ -141,6 +141,8 @@ make_kronmult_dense(PDE<precision> const &pde,
     // work_size fits in 32-bit int so there is no overflow here
     list_row_stride = static_cast<int>(mem_stats.work_size / kron_unit_size);
 
+    std::cout << mem_stats.work_size << "   " << kron_unit_size << "\n";
+
     if (list_row_stride < 1) // many billions of dof
     {
       if (mem_stats.mem_limit == memory_usage::environment)
@@ -151,13 +153,13 @@ make_kronmult_dense(PDE<precision> const &pde,
                                  "(int overflow issues)");
     }
 
-    list_iA.resize((size_of_indexes + kron_unit_size - 1) / kron_unit_size);
+    list_iA.resize((num_rows + list_row_stride - 1) / list_row_stride);
     for(size_t i=0; i<list_iA.size() - 1; i++)
     {
-      list_iA[i] = fk::vector<int>(kron_unit_size);
+      list_iA[i] = fk::vector<int>(kron_unit_size * list_row_stride);
     }
     list_iA.back() = fk::vector<int>(size_of_indexes
-                                     - (list_iA.size() - 1) * kron_unit_size);
+                                     - (list_iA.size() - 1) * list_row_stride * kron_unit_size);
   }
 
   // compute the indexes for the matrices for the kron-products
@@ -233,7 +235,7 @@ make_kronmult_dense(PDE<precision> const &pde,
               << get_MB<int>(2 * mem_stats.work_size) << "\n";
 
     return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms,
+                                      num_cols, num_terms, list_row_stride,
                                       std::move(list_iA),
                                       vA.clone_onto_device());
   }
@@ -249,8 +251,8 @@ make_kronmult_dense(PDE<precision> const &pde,
   else
   {
     return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms, std::move(list_iA),
-                                      std::move(vA));
+                                      num_cols, num_terms, list_row_stride,
+                                      std::move(list_iA), std::move(vA));
   }
 #endif
 }
@@ -862,7 +864,9 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
 #ifdef ASGARD_USE_CUDA
     int64_t available_MB = program_options.memory_limit - stats.baseline_memory;
+    std::cout << " available_MB = " << available_MB << "\n";
     check_available_memory(stats.baseline_memory, available_MB);
+    std::cout << " stats.baseline_memory = " << stats.baseline_memory << "\n";
 
     // 2147483646 = 2^31 - 2, which prevents overflow in the 32-bit signed int
     int64_t available_entries = std::min(int64_t{2147483646}, (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int)));

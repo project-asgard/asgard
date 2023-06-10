@@ -19,6 +19,7 @@ namespace asgard
  */
 struct memory_usage
 {
+  memory_usage() : initialized(false) {}
   //! \brief Indicates whether kronmult will be called in one or multiple calls
   enum kron_call_mode
   {
@@ -38,6 +39,8 @@ struct memory_usage
     //! \brief Limited by the user specified memory or device capabilitys
     environment
   };
+  //! \brief Keeps track if the memory compute has been initialized
+  bool initialized;
   //! \brief Persistent size that cannot be any less, in MB.
   int baseline_memory;
   //! \brief Indicate whether one shot or multiple shots will be used.
@@ -49,12 +52,12 @@ struct memory_usage
   //! \brief Indicate whether it has been initialized
   operator bool() const
   {
-    return (baseline_memory != 0);
+    return initialized;
   }
   //! \brief Resets the memory parameters due to adapting the grid
   void reset()
   {
-    baseline_memory = 0;
+    initialized = false;
   }
 };
 
@@ -209,7 +212,10 @@ public:
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
-    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
+    flops_ = 0;
+    for(auto const &a : list_iA)
+      flops_ += static_cast<int64_t>(a.size());
+    flops_ *= int64_t(tensor_size_) * kron_size_;
   }
 
   /*!
@@ -230,7 +236,7 @@ public:
   //! \brief Split computing (e.g., out-of-core) dense case.
   template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms,
+                  int num_terms, int list_row_stride,
                   std::vector<fk::vector<int>> &&list_index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
@@ -238,14 +244,25 @@ public:
                         std::vector<fk::vector<int>>(),
                         std::vector<fk::vector<int>>(),
                         std::move(list_index_A), std::move(values_A))
-  {}
+  {
+    list_row_stride_ = list_row_stride;
+  }
 #ifdef ASGARD_USE_CUDA
-  //! \brief Set the workspace memory.
+  //! \brief Set the workspace memory for x and y
   void set_workspace(
             fk::vector<precision, mem_type::owner, resource::device> &x,
             fk::vector<precision, mem_type::owner, resource::device> &y) {
     xdev = fk::vector<precision, mem_type::view, resource::device>(x);
     ydev = fk::vector<precision, mem_type::view, resource::device>(y);
+  }
+  //! \brief Set the workspace memory for loading the index list
+  void set_workspace_ooc(
+            fk::vector<int, mem_type::owner, resource::device> &a,
+            fk::vector<int, mem_type::owner, resource::device> &b,
+            cudaStream_t stream) {
+    worka = fk::vector<int, mem_type::view, resource::device>(a);
+    workb = fk::vector<int, mem_type::view, resource::device>(b);
+    load_stream = stream;
   }
 #endif
 
@@ -262,9 +279,40 @@ public:
       fk::copy_to_device(ydev.data(), y, ydev.size());
     fk::copy_to_device(xdev.data(), x, xdev.size());
     if (is_dense())
-      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                          num_batch(), num_cols_, num_terms_, iA.data(),
-                          vA.data(), alpha, xdev.data(), beta, ydev.data());
+    {
+      if (iA.size() > 0)
+      {
+        kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                            num_batch(), num_cols_, num_terms_, iA.data(),
+                            vA.data(), alpha, xdev.data(), beta, ydev.data());
+      }
+      else
+      {
+        std::cout << " multi-mode with " << list_iA.size() << " chunks\n";
+        int *load_buffer    = worka.data();
+        int *compute_buffer = workb.data();
+        auto stats = cudaMemcpyAsync(load_buffer, list_iA[0].data(), sizeof(int) * list_iA[0].size(), cudaMemcpyHostToDevice, load_stream);
+        assert(stats == cudaSuccess);
+        for(size_t i = 0; i < list_iA.size(); i++)
+        {
+          std::cout << " i = " <<  i << "\n";
+          cudaStreamSynchronize(load_stream);
+          if (i > 0) // no need to sync at the very beginning
+            cudaStreamSynchronize(nullptr);
+          std::swap(load_buffer, compute_buffer);
+
+          if (i+1 < list_iA.size())
+          {
+            stats = cudaMemcpyAsync(load_buffer, list_iA[i+1].data(), sizeof(int) * list_iA[i+1].size(), cudaMemcpyHostToDevice, load_stream);
+            assert(stats == cudaSuccess);
+          }
+
+          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                              list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_, num_terms_, compute_buffer,
+                              vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
+        }
+      }
+    }
     else
       kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
                            col_indx_.size(), col_indx_.data(), row_indx_.data(),
@@ -347,8 +395,12 @@ private:
   int64_t flops_;
 
 #ifdef ASGARD_USE_CUDA
+  // load_stream is the stream to load data
+  // compute is done on the default stream
   static constexpr resource data_mode = resource::device;
   mutable fk::vector<precision, mem_type::view, data_mode> xdev, ydev;
+  mutable fk::vector<int, mem_type::view, data_mode> worka, workb;
+  cudaStream_t load_stream;
 #else
   static constexpr resource data_mode = resource::host;
 #endif
@@ -455,6 +507,20 @@ struct matrix_list
   {
     // make sure we have defined flags for all matrices
     expect(matrices.size() == flag_map.size());
+#ifdef ASGARD_USE_CUDA
+    load_stream = nullptr;
+#endif
+  }
+
+  ~matrix_list()
+  {
+#ifdef ASGARD_USE_CUDA
+    if (load_stream != nullptr)
+    {
+      auto status = cudaStreamDestroy(load_stream);
+      assert(status == cudaSuccess);
+    }
+#endif
   }
 
   //! \brief Returns an entry indexed by the enum
@@ -468,7 +534,10 @@ struct matrix_list
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
     if (not mem_stats)
+    {
       mem_stats = compute_mem_usage(pde, grid, opts, imex(entry));
+      std::cout << " called compute_mem_usage() \n";
+    }
     if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats, imex(entry));
 #ifdef ASGARD_USE_CUDA
@@ -480,7 +549,21 @@ struct matrix_list
         ydev = fk::vector<precision, mem_type::owner, resource::device>();
         ydev = fk::vector<precision, mem_type::owner, resource::device>((*this)[entry].output_size());
     }
+    if (mem_stats.kron_call == memory_usage::multi_calls)
+    {
+      // doing multiple calls, prepare streams and workspaces
+      if (load_stream == nullptr)
+        cudaStreamCreate(&load_stream);
+      if (worka.size() < static_cast<int>(mem_stats.work_size))
+      {
+        worka = fk::vector<int, mem_type::owner, resource::device>();
+        workb = fk::vector<int, mem_type::owner, resource::device>();
+        worka = fk::vector<int, mem_type::owner, resource::device>(mem_stats.work_size);
+        workb = fk::vector<int, mem_type::owner, resource::device>(mem_stats.work_size);
+      }
+    }
     (*this)[entry].set_workspace(xdev, ydev);
+    (*this)[entry].set_workspace_ooc(worka, workb, load_stream);
 #endif
   }
   /*!
@@ -529,6 +612,9 @@ private:
 
 #ifdef ASGARD_USE_CUDA
   mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
+  mutable fk::vector<int, mem_type::owner, resource::device> worka;
+  mutable fk::vector<int, mem_type::owner, resource::device> workb;
+  cudaStream_t load_stream;
 #endif
 
 };
