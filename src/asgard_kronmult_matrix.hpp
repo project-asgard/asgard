@@ -6,6 +6,7 @@
 #include "elements.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
+#include "asgard_grid_1d.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 
@@ -16,10 +17,13 @@ namespace asgard
 {
 /*!
  * \brief Holds data for the pre-computed memory sizes.
+ *
+ * Also stores some kronmult data that can be easily reused in different
+ * calls, specifically in the making of the matrices.
  */
 struct memory_usage
 {
-  memory_usage() : initialized(false) {}
+  memory_usage() : initialized(false), cells1d(1) {}
   //! \brief Indicates whether kronmult will be called in one or multiple calls
   enum kron_call_mode
   {
@@ -36,7 +40,7 @@ struct memory_usage
   {
     //! \brief Limited by the index size, 32-bit
     overflow,
-    //! \brief Limited by the user specified memory or device capabilitys
+    //! \brief Limited by the user specified memory or device capabilities
     environment
   };
   //! \brief Keeps track if the memory compute has been initialized
@@ -59,6 +63,27 @@ struct memory_usage
   {
     initialized = false;
   }
+};
+
+/*!
+ * \brief Holds data precomputed for the sparse mode of kronmult
+ *
+ * Ignored in the dense case.
+ */
+struct kron_sparse_cache
+{
+  //! \brief Constructor, makes and empty cache.
+  kron_sparse_cache() : cells1d(2) {}
+
+  // the cells1d should be moved to some discretization class
+  // but that will be done when the sparse grids data-structs are updated
+  //! \brief Contains the connectivity matrix for the 1D rule
+  connect_1d cells1d;
+
+  //! \brief Remembers the number of connections
+  std::vector<int> cconnect;
+  //! \brief Number of non-zeros in the kronmult sparse matrix
+  int64_t num_nonz;
 };
 
 /*!
@@ -282,12 +307,15 @@ public:
     {
       if (iA.size() > 0)
       {
+        // single call to kronmult, all data is on the GPU
         kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
                             num_batch(), num_cols_, num_terms_, iA.data(),
                             vA.data(), alpha, xdev.data(), beta, ydev.data());
       }
       else
       {
+        // multiple calls, need to move data, call kronmult, then move next data
+        // data loading is done asynchronously using the load_stream
         std::cout << " multi-mode with " << list_iA.size() << " chunks\n";
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
@@ -295,18 +323,25 @@ public:
         assert(stats == cudaSuccess);
         for(size_t i = 0; i < list_iA.size(); i++)
         {
-          std::cout << " i = " <<  i << "\n";
+          // std::cout << " i = " <<  i << "\n";
+          // sync load_stream to ensure that data has already been loaded
           cudaStreamSynchronize(load_stream);
+          // ensure the last compute stage is done before swapping the buffers
           if (i > 0) // no need to sync at the very beginning
             cudaStreamSynchronize(nullptr);
           std::swap(load_buffer, compute_buffer);
 
           if (i+1 < list_iA.size())
           {
+            // begin loading the next chunk of data
             stats = cudaMemcpyAsync(load_buffer, list_iA[i+1].data(), sizeof(int) * list_iA[i+1].size(), cudaMemcpyHostToDevice, load_stream);
             assert(stats == cudaSuccess);
           }
 
+          // num_batch is list_iA[i].size() / (num_dimensions_ * num_terms_)
+          // note that the first call to gpu_dense with the given output_size()
+          // will apply beta to the output y, thus follow on calls have to only
+          // accumulate and beta should be set to 1
           kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
                               list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_, num_terms_, compute_buffer,
                               vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
@@ -321,12 +356,27 @@ public:
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
     if (is_dense())
-      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
-                          num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+    {
+      if (iA.size() > 0)
+      {
+        kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
+                            num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+      }
+      else
+      {
+        for(size_t i = 0; i < list_iA.size(); i++)
+        {
+          kronmult::cpu_dense(num_dimensions_, kron_size_, list_iA[i].size() / (num_dimensions_ * num_terms_ * num_cols_), num_cols_,
+                              num_terms_, list_iA[i].data(), vA.data(), alpha, x, beta, y + i * list_row_stride_ * tensor_size_);
+        }
+      }
+    }
     else
+    {
       kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
                            row_indx_.data(), col_indx_.data(), num_terms_,
                            iA.data(), vA.data(), alpha, x, beta, y);
+    }
 #endif
   }
 
@@ -452,7 +502,7 @@ kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &program_options,
                      memory_usage const &mem_stats,
-                     imex_flag const imex);
+                     imex_flag const imex, kron_sparse_cache &spcache);
 
 /*!
  * \brief Update the coefficients stored in the matrix without changing the rest
@@ -490,7 +540,7 @@ enum matrix_entry
 template<typename P>
 memory_usage
 compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                  options const &program_options, imex_flag const imex);
+                  options const &program_options, imex_flag const imex, kron_sparse_cache &spcache);
 
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -535,7 +585,7 @@ struct matrix_list
   {
     if (not mem_stats)
     {
-      mem_stats = compute_mem_usage(pde, grid, opts, imex(entry));
+      mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), mem_stats);
       std::cout << " called compute_mem_usage() \n";
     }
     if (not(*this)[entry])
@@ -609,6 +659,8 @@ private:
       imex_flag::imex_implicit};
 
   memory_usage mem_stats;
+
+  kron_sparse_cache spcache;
 
 #ifdef ASGARD_USE_CUDA
   mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
