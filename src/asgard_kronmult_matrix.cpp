@@ -362,9 +362,12 @@ make_kronmult_sparse(PDE<precision> const &pde,
   // size of the small kron matrices
   int const kron_squared = kron_size * kron_size;
 
-  // holds the 1D sparsity structure for the coefficient matrices
-  connect_1d cells1d(pde.max_level);
-  int const num_1d = cells1d.num_connections();
+  int const num_1d = spcache.cells1d.num_connections();
+
+#ifdef ASGARD_USE_CUDA
+  int const tensor_size = kronmult_matrix<precision>::compute_tensor_size(
+      num_dimensions, kron_size);
+#endif
 
   // storing the 1D operator matrices by 1D row and column
   // each connected pair of 1D cells will be associated with a block
@@ -372,11 +375,11 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const block1D_size = num_dimensions * num_terms * kron_squared;
   fk::vector<precision> vA(num_1d * block1D_size);
   auto pA = vA.begin();
-  for (int row = 0; row < cells1d.num_cells(); row++)
+  for (int row = 0; row < spcache.cells1d.num_cells(); row++)
   {
-    for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
+    for (int j = spcache.cells1d.row_begin(row); j < spcache.cells1d.row_end(row); j++)
     {
-      int col = cells1d[j];
+      int col = spcache.cells1d[j];
       for (int const t : used_terms)
       {
         for (int d = 0; d < num_dimensions; d++)
@@ -394,145 +397,182 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const *const flattened_table =
       discretization.get_table().get_active_table().data();
 
-  // This is a bad algorithm as it loops over all possible pairs of
-  // multi-indexes The correct algorithm is to infer the connectivity from the
-  // sparse grid graph hierarchy and avoid doing so many comparisons, but that
-  // requires messy work with the way the indexes are stored in memory. To do
-  // this properly, I need a fast map from a multi-index to the matrix row
-  // associated with the multi-index (or indicate if it's missing).
-  // The unordered_map does not provide this functionality and the addition of
-  // the flattened table in element.hpp is not a good answer.
-  // Will fix in a future PR ...
-
-  // the algorithm use two stages, counts the non-zeros in the global matrix,
-  // then fills in the associated indexes for the rows, columns and iA
-  std::vector<int> ccount(num_rows, 0); // first counts the connections
-#pragma omp parallel for
-  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
-  {
-    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-    // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
-    for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
-    {
-      int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-      if (check_connected(num_dimensions, row_coords, col_coords))
-        ccount[row - grid.row_start]++;
-    }
-  }
-
-  // right now, ccount[row] is the number of connections for each row
-  // later we will replace ccount by cumulative count similar to pntr
-  // num_connect is the total number of non-zeros of the sparse matrix
-  int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
-
-  fk::vector<int> iA(num_connect * num_dimensions * num_terms);
-
-#ifdef ASGARD_USE_CUDA
-  int tensor_size = kronmult_matrix<precision>::compute_tensor_size(
-      num_dimensions, kron_size);
-
-  fk::vector<int> row_indx(num_connect);
-  fk::vector<int> col_indx(num_connect);
-  {
-    int cumulative = 0;
-    for (int i = 0; i < num_rows; i++)
-    {
-      int current = cumulative;
-      cumulative += ccount[i];
-      ccount[i] = current;
-    }
-  }
-#else
-  fk::vector<int> pntr(num_rows + 1);
-  fk::vector<int> indx(num_connect);
-  pntr[0] = 0;
-  for (int i = 0; i < num_rows; i++)
-    pntr[i + 1] = pntr[i] + ccount[i];
-  for (int i = 0; i < num_rows; i++)
-    ccount[i] = pntr[i];
+#ifndef ASGARD_USE_CUDA
+  std::vector<int> row_group_pntr; // group rows in the CPU case
 #endif
 
-#pragma omp parallel
+  std::vector<fk::vector<int>> list_iA;
+  std::vector<fk::vector<int>> list_row_indx;
+  std::vector<fk::vector<int>> list_col_indx;
+  if (mem_stats.kron_call == memory_usage::one_call)
   {
-    std::vector<int> offsets(num_dimensions); // find the 1D offsets
+    list_iA.push_back(fk::vector<int>(spcache.num_nonz
+                                      * num_dimensions * num_terms));
+
+#ifdef ASGARD_USE_CUDA
+    list_row_indx.push_back(fk::vector<int>(spcache.num_nonz));
+    list_col_indx.push_back(fk::vector<int>(spcache.num_nonz));
+#else
+    list_row_indx.push_back(fk::vector<int>(num_rows + 1));
+    list_col_indx.push_back(fk::vector<int>(spcache.num_nonz));
+    std::copy_n(spcache.cconnect.begin(), num_rows, list_row_indx[0].begin());
+    list_row_indx[0][num_rows] = spcache.num_nonz;
+#endif
+
+// load the entries in the one-call mode, can be done in parallel
+#pragma omp parallel
+    {
+      std::vector<int> offsets(num_dimensions); // find the 1D offsets
 
 #pragma omp for
-    for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
-    {
-      int c                       = ccount[row - grid.row_start];
-      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-      // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
-      for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+      for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
       {
-        int const *const col_coords =
-            flattened_table + 2 * num_dimensions * col;
+        int const c = spcache.cconnect[row - grid.row_start];
 
-        if (check_connected(num_dimensions, row_coords, col_coords))
-        {
 #ifdef ASGARD_USE_CUDA
-          row_indx[c] = (row - grid.row_start) * tensor_size;
-          col_indx[c] = (col - grid.col_start) * tensor_size;
-#else
-          indx[c] = col - grid.col_start;
+        auto iy = list_row_indx[0].begin() + c;
 #endif
-          int ia = num_dimensions * num_terms * c++;
+        auto ix = list_col_indx[0].begin() + c;
 
-          for (int j = 0; j < num_dimensions; j++)
+        int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+        // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+        for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+        {
+          int const *const col_coords =
+              flattened_table + 2 * num_dimensions * col;
+
+          if (check_connected(num_dimensions, row_coords, col_coords))
           {
-            int const oprow = (row_coords[j] == 0)
-                                  ? 0
-                                  : ((1 << (row_coords[j] - 1)) +
-                                     row_coords[j + num_dimensions]);
-            int const opcol = (col_coords[j] == 0)
-                                  ? 0
-                                  : ((1 << (col_coords[j] - 1)) +
-                                     col_coords[j + num_dimensions]);
+#ifdef ASGARD_USE_CUDA
+            *iy++ = (row - grid.row_start) * tensor_size;
+            *ix++ = (col - grid.col_start) * tensor_size;
+#else
+            *ix++ = col - grid.col_start;
+#endif
+            auto ia = list_iA[0].begin() + num_dimensions * num_terms * c;
 
-            offsets[j] = cells1d.get_offset(oprow, opcol);
-          }
-
-          for (int t = 0; t < num_terms; t++)
-          {
-            for (int d = 0; d < num_dimensions; d++)
+            for (int j = 0; j < num_dimensions; j++)
             {
-              iA[ia++] = offsets[d] * block1D_size +
-                         (t * num_dimensions + d) * kron_squared;
+              int const oprow = (row_coords[j] == 0)
+                                    ? 0
+                                    : ((1 << (row_coords[j] - 1)) +
+                                       row_coords[j + num_dimensions]);
+              int const opcol = (col_coords[j] == 0)
+                                    ? 0
+                                    : ((1 << (col_coords[j] - 1)) +
+                                       col_coords[j + num_dimensions]);
+
+              offsets[j] = spcache.cells1d.get_offset(oprow, opcol);
+            }
+
+            for (int t = 0; t < num_terms; t++)
+            {
+              for (int d = 0; d < num_dimensions; d++)
+              {
+                *ia++ = offsets[d] * block1D_size +
+                           (t * num_dimensions + d) * kron_squared;
+              }
             }
           }
         }
       }
     }
   }
+  else
+  { // split the problem into multiple chunks
+    // size of the indexes for each pair of (row, col) indexes (for x and y)
+    int kron_unit_size = num_dimensions * num_terms;
+    // number of pairs that fit in the work-size
+    int max_units = mem_stats.work_size / kron_unit_size;
+#ifdef ASGARD_USE_CUDA
+    // CUDA case, split evenly since parallelism is per kron-product
+    int num_chunks = (spcache.num_nonz + max_units - 1) / max_units;
+    list_iA.resize(num_chunks);
+    list_row_indx.resize(num_chunks);
+    list_col_indx.resize(num_chunks);
+
+    for(size_t i=0; i<list_iA.size() - 1; i++)
+    {
+      list_iA[i] = fk::vector<int>(max_units * kron_unit_size);
+      list_row_indx[i] = fk::vector<int>(max_units);
+      list_col_indx[i] = fk::vector<int>(max_units);
+    }
+    list_iA.back() = fk::vector<int>((spcache.num_nonz - (num_chunks - 1) * max_units) * kron_unit_size);
+    list_row_indx.back() = fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
+    list_col_indx.back() = fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
+#else
+    // CPU case, combine rows together into large groups but don't exceed the work-size
+    row_group_pntr.push_back(0);
+    int64_t num_units = 0;
+    for(int i = 0; i < num_rows; i++)
+    {
+      int nz_per_row = spcache.cconnect[i+1] - spcache.cconnect[i];
+      if (num_units + nz_per_row > max_units)
+      {
+        // begin new chunk
+        list_iA.push_back(fk::vector<int>(num_units * kron_unit_size));
+        list_row_indx.push_back(fk::vector<int>(i - row_group_pntr.back() + 1));
+        list_row_indx.push_back(fk::vector<int>(num_units));
+
+        row_group_pntr.push_back(i);
+        num_units = 0;
+      }
+      else
+      {
+        num_units += nz_per_row;
+      }
+    }
+    row_group_pntr.push_back(i);
+#endif
+  }
 
   tools::timer.stop(form_id);
 
   std::cout << "  kronmult sparse matrix fill: "
-            << 100.0 * double(num_connect) /
+            << 100.0 * double(spcache.num_nonz) /
                    (double(num_rows) * double(num_cols))
             << "%\n";
 
-#ifdef ASGARD_USE_CUDA
   int64_t flops = kronmult_matrix<precision>::compute_flops(
-      num_dimensions, kron_size, num_terms, col_indx.size());
+      num_dimensions, kron_size, num_terms, spcache.num_nonz);
   std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
-  std::cout << "  kronmult sparse matrix allocation (MB): "
-            << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) +
-                   get_MB<int>(2 * row_indx.size())
-            << "\n";
 
-  return kronmult_matrix<precision>(
-      num_dimensions, kron_size, num_rows, num_cols, num_terms,
-      row_indx.clone_onto_device(), col_indx.clone_onto_device(),
-      iA.clone_onto_device(), vA.clone_onto_device());
+#ifdef ASGARD_USE_CUDA
+  if (mem_stats.kron_call == memory_usage::one_call)
+  {
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_row_indx[0].clone_onto_device(),
+        list_col_indx[0].clone_onto_device(),
+        list_iA[0].clone_onto_device(), vA.clone_onto_device());
+  }
+  else
+  {
+  }
+
+
+  // std::cout << "  kronmult sparse matrix allocation (MB): "
+  //           << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) +
+  //                  get_MB<int>(2 * row_indx.size())
+  //           << "\n";
+
 #else
-  int64_t flops = kronmult_matrix<precision>::compute_flops(
-      num_dimensions, kron_size, num_terms, indx.size());
-  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
+  if (mem_stats.kron_call == memory_usage::one_call)
+  {
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        std::move(list_row_indx), std::move(list_col_indx),
+        std::move(list_iA), std::move(vA));
+  }
+  else
+  {
+  }
+
 
   // if using the CPU, move the vectors into the matrix structure
-  return kronmult_matrix<precision>(
-      num_dimensions, kron_size, num_rows, num_cols, num_terms, std::move(pntr),
-      std::move(indx), std::move(iA), std::move(vA));
+//  return kronmult_matrix<precision>(
+//      num_dimensions, kron_size, num_rows, num_cols, num_terms, std::move(pntr),
+//      std::move(indx), std::move(iA), std::move(vA));
 #endif
 }
 
@@ -778,8 +818,12 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     }
 
     spcache.num_nonz = 0; // total number of connected cells
-    for(auto const c : spcache.cconnect)
+    for(int i = 0; i < num_rows; i++)
+    {
+      int c = spcache.cconnect[i];
+      spcache.cconnect[i] = spcache.num_nonz;
       spcache.num_nonz += c;
+    }
 
     int64_t base_line_entries = spcache.cells1d.num_connections() * num_dimensions * pde.num_terms * kron_size * kron_size;
     stats.baseline_memory = get_MB<P>(base_line_entries);
@@ -807,6 +851,10 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       int64_t size_of_indexes =
           spcache.num_nonz * (pde.num_terms * num_dimensions + 2);
 
+      // max number of kron-products in one work chunk
+      int64_t work_products =
+          available_entries / (pde.num_terms * num_dimensions + 2);
+
       if (size_of_indexes <= available_entries)
       {
         stats.kron_call = memory_usage::one_call;
@@ -814,24 +862,47 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       else
       {
         stats.kron_call = memory_usage::multi_calls;
-        if (available_entries == 2147483646)
-        {
-          stats.mem_limit = memory_usage::overflow;
+        stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
 #ifdef ASGARD_USE_CUDA
-          stats.work_size = available_entries / 2;
+        stats.work_size = pde.num_terms * num_dimensions * (work_products / 2);
 #else
-          stats.work_size = available_entries;
+        stats.work_size = available_entries;
 #endif
-        }
-        else
-        {
-          stats.mem_limit = memory_usage::environment;
-        }
       }
     }
     else
     {
       // assuming there will be two matrices, find the memory for each
+      std::vector<int> const explicit_terms =
+          get_used_terms(pde, program_options, imex_flag::imex_explicit);
+      std::vector<int> const implicit_terms =
+          get_used_terms(pde, program_options, imex_flag::imex_implicit);
+
+      int64_t explicit_of_indexes =
+          spcache.num_nonz *
+            (static_cast<int64_t>(explicit_terms.size()) * num_dimensions + 2);
+      int64_t implicit_of_indexes =
+          spcache.num_nonz *
+            (static_cast<int64_t>(implicit_terms.size()) * num_dimensions + 2);
+
+      int64_t work_products =
+          available_entries /
+              (std::max(explicit_terms.size(), implicit_terms.size()) * num_dimensions + 2);
+
+      if (explicit_of_indexes + implicit_of_indexes <= available_entries)
+      {
+        stats.kron_call = memory_usage::one_call;
+      }
+      else
+      {
+        stats.kron_call = memory_usage::multi_calls;
+        stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
+#ifdef ASGARD_USE_CUDA
+        stats.work_size = pde.num_terms * num_dimensions * (work_products / 2);
+#else
+        stats.work_size = available_entries;
+#endif
+      }
     }
 
   }

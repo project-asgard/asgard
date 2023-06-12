@@ -23,6 +23,7 @@ namespace asgard
  */
 struct memory_usage
 {
+  //! \brief Constructs uninitialized structure
   memory_usage() : initialized(false) {}
   //! \brief Indicates whether kronmult will be called in one or multiple calls
   enum kron_call_mode
@@ -80,7 +81,7 @@ struct kron_sparse_cache
   //! \brief Contains the connectivity matrix for the 1D rule
   connect_1d cells1d;
 
-  //! \brief Remembers the number of connections
+  //! \brief Row-compressed style of an array that keeps the active connections
   std::vector<int> cconnect;
   //! \brief Number of non-zeros in the kronmult sparse matrix
   int64_t num_nonz;
@@ -218,9 +219,9 @@ public:
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-        tensor_size_(1), list_iA(std::move(list_index_A)),
-        list_col_indx_(std::move(col_indx)), list_row_indx_(std::move(row_indx)),
-        list_row_stride_(0), vA(std::move(values_A))
+        tensor_size_(1), list_row_stride_(0), list_iA(std::move(list_index_A)),
+        list_row_indx_(std::move(row_indx)), list_col_indx_(std::move(col_indx)),
+        vA(std::move(values_A))
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -414,7 +415,8 @@ public:
            num_dimensions * num_terms * num_batch;
   }
   //! \brief Defined if the matrix is dense or sparse
-  bool is_dense() const { return (row_indx_.size() == 0); }
+  bool is_dense() const { return (row_indx_.size() == 0 and
+                                  list_row_indx_.size() == 0); }
 
   //! \brief Update coefficients
   template<resource input_mode>
@@ -461,10 +463,10 @@ private:
   // break iA into a list, as well as indexing
   // used for out-of-core work and splitting work to prevent overflow
   // only one of iA or list_iA is used in an instance of the matrix
+  int list_row_stride_; // for CPU dense case, how many rows fall in one list
   std::vector<fk::vector<int>> list_iA;
   std::vector<fk::vector<int>> list_row_indx_;
   std::vector<fk::vector<int>> list_col_indx_;
-  int list_row_stride_; // for CPU dense case, how many rows fall in one list
 
   // index of the matrices for each kronmult product
   fk::vector<int, mem_type::owner, data_mode> iA;
