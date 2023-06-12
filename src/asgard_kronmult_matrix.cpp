@@ -162,6 +162,10 @@ make_kronmult_dense(PDE<precision> const &pde,
                                      - (list_iA.size() - 1) * list_row_stride * kron_unit_size);
   }
 
+  int64_t used_entries = 0;
+  for(auto const &list : list_iA) used_entries += list.size();
+  std::cout << "  memory for the indexes: " << get_MB<int>(used_entries) << "\n";
+
   // compute the indexes for the matrices for the kron-products
   int const *const flattened_table =
       discretization.get_table().get_active_table().data();
@@ -336,7 +340,7 @@ kronmult_matrix<precision>
 make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
                      options const &program_options, memory_usage const &mem_stats,
-                     imex_flag const imex)
+                     imex_flag const imex, kron_sparse_cache &spcache)
 {
   auto const form_id = tools::timer.start("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
@@ -536,7 +540,7 @@ template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &cli_opts, memory_usage const &mem_stats,
-                     imex_flag const imex)
+                     imex_flag const imex, kron_sparse_cache &spcache)
 {
   if (cli_opts.kmode == kronmult_mode::dense)
   {
@@ -544,7 +548,7 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
   }
   else
   {
-    return make_kronmult_sparse<P>(pde, grid, cli_opts, mem_stats, imex);
+    return make_kronmult_sparse<P>(pde, grid, cli_opts, mem_stats, imex, spcache);
   }
 }
 
@@ -755,10 +759,10 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     // the flattened table in element.hpp is not a good answer.
     // Will fix in a future PR ...
 
-    if (spcache.ccount.size() == num_rows)
-      std::fill(spcache.begin(), spcache.end(), 0);
+    if (spcache.cconnect.size() == static_cast<size_t>(num_rows))
+      std::fill(spcache.cconnect.begin(), spcache.cconnect.end(), 0);
     else
-      spcache.ccount = std::vector<int>(num_rows);
+      spcache.cconnect = std::vector<int>(num_rows);
 
 #pragma omp parallel for
     for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
@@ -769,15 +773,15 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       {
         int const *const col_coords = flattened_table + 2 * num_dimensions * col;
         if (check_connected(num_dimensions, row_coords, col_coords))
-          spcache.ccount[row - grid.row_start]++;
+          spcache.cconnect[row - grid.row_start]++;
       }
     }
 
     spcache.num_nonz = 0; // total number of connected cells
-    for(auto const c : spcache.ccount)
+    for(auto const c : spcache.cconnect)
       spcache.num_nonz += c;
 
-    int64_t base_line_entries = stats.cells1d.num_connections() * num_dimensions * num_terms * kron_size * kron_size;
+    int64_t base_line_entries = spcache.cells1d.num_connections() * num_dimensions * pde.num_terms * kron_size * kron_size;
     stats.baseline_memory = get_MB<P>(base_line_entries);
 
 #ifdef ASGARD_USE_CUDA
@@ -840,7 +844,7 @@ template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, memory_usage const &,
-                             imex_flag const);
+                             imex_flag const, kron_sparse_cache &);
 template void update_kronmult_coefficients<double>(PDE<double> const &,
                                                    options const &,
                                                    imex_flag const,
@@ -856,7 +860,7 @@ template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
                             options const &, memory_usage const &,
-                            imex_flag const);
+                            imex_flag const, kron_sparse_cache &);
 template void
 update_kronmult_coefficients<float>(PDE<float> const &, options const &,
                                     imex_flag const, kronmult_matrix<float> &);

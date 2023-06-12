@@ -23,7 +23,7 @@ namespace asgard
  */
 struct memory_usage
 {
-  memory_usage() : initialized(false), cells1d(1) {}
+  memory_usage() : initialized(false) {}
   //! \brief Indicates whether kronmult will be called in one or multiple calls
   enum kron_call_mode
   {
@@ -173,8 +173,8 @@ public:
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
-        col_indx_(std::move(col_indx)), iA(std::move(index_A)),
-        list_row_stride_(0), vA(std::move(values_A))
+        col_indx_(std::move(col_indx)), list_row_stride_(0),
+        iA(std::move(index_A)), vA(std::move(values_A))
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -458,9 +458,6 @@ private:
   fk::vector<int, mem_type::owner, data_mode> row_indx_;
   fk::vector<int, mem_type::owner, data_mode> col_indx_;
 
-  // index of the matrices for each kronmult product
-  fk::vector<int, mem_type::owner, data_mode> iA;
-
   // break iA into a list, as well as indexing
   // used for out-of-core work and splitting work to prevent overflow
   // only one of iA or list_iA is used in an instance of the matrix
@@ -468,6 +465,9 @@ private:
   std::vector<fk::vector<int>> list_row_indx_;
   std::vector<fk::vector<int>> list_col_indx_;
   int list_row_stride_; // for CPU dense case, how many rows fall in one list
+
+  // index of the matrices for each kronmult product
+  fk::vector<int, mem_type::owner, data_mode> iA;
 
   // list of the operators
   fk::vector<precision, mem_type::owner, data_mode> vA;
@@ -540,7 +540,8 @@ enum matrix_entry
 template<typename P>
 memory_usage
 compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                  options const &program_options, imex_flag const imex, kron_sparse_cache &spcache);
+                  options const &program_options, imex_flag const imex,
+                  kron_sparse_cache &spcache);
 
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -585,11 +586,11 @@ struct matrix_list
   {
     if (not mem_stats)
     {
-      mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), mem_stats);
+      mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), spcache);
       std::cout << " called compute_mem_usage() \n";
     }
     if (not(*this)[entry])
-      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats, imex(entry));
+      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats, imex(entry), spcache);
 #ifdef ASGARD_USE_CUDA
     if ((*this)[entry].input_size() != xdev.size()) {
         xdev = fk::vector<precision, mem_type::owner, resource::device>();
