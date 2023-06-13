@@ -604,6 +604,16 @@ TEMPLATE_TEST_CASE(
     }
   }
 #endif
+
+  SECTION("lib_dispatch::copy - memcpy")
+  {
+    fk::vector<TestType> const x_test(x);
+    fk::vector<TestType> y_test(x.size());
+    int n = x.size();
+    lib_dispatch::copy(n, x_test.data(), y_test.data());
+    REQUIRE(y_test == x);
+  }
+
   SECTION("lib_dispatch::copy - inc = 1")
   {
     fk::vector<TestType> const x_test(x);
@@ -615,6 +625,23 @@ TEMPLATE_TEST_CASE(
   }
 
 #ifdef ASGARD_USE_CUDA
+  SECTION("lib_dispatch::copy memcpy, device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> const x_test(
+          x.clone_onto_device());
+      fk::vector<TestType, mem_type::owner, resource::device> y_test(x.size());
+      int n = x.size();
+
+      lib_dispatch::copy<resource::device>(n, x_test.data(), y_test.data());
+
+      fk::vector<TestType, mem_type::owner, resource::host> const y(
+          y_test.clone_onto_host());
+      REQUIRE(y == x);
+    }
+  }
+
   SECTION("lib_dispatch::copy - inc = 1, device")
   {
     if constexpr (std::is_floating_point_v<TestType>)

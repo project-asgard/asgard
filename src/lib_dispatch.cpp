@@ -323,6 +323,30 @@ void copy(int n, P const *x, int incx, P *y, int incy)
 }
 
 template<resource resrc, typename P>
+void copy(int64_t n, P const *x, P *y)
+{
+  expect(x);
+  expect(y);
+  expect(n >= 0);
+
+  // device-specific specialization if needed
+  if constexpr (resrc == resource::device)
+  {
+#ifdef ASGARD_USE_CUDA
+    // function instantiated for these two fp types
+    static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
+    auto const success =
+        cudaMemcpy(y, x, n * sizeof(P), cudaMemcpyDeviceToDevice);
+    expect(success == cudaSuccess);
+#endif
+  }
+  else if constexpr (resrc == resource::host)
+  {
+    std::copy_n(x, n, y);
+  }
+}
+
+template<resource resrc, typename P>
 P dot(int n, P const *x, int incx, P const *y, int incy)
 {
   expect(x);
@@ -1016,6 +1040,7 @@ template void rotg<resource::host, float>(float *, float *, float *, float *);
 template float nrm2<resource::host, float>(int, float const[], int);
 template void copy<resource::host, float>(int n, float const *x, int incx,
                                           float *y, int incy);
+template void copy<resource::host, float>(int64_t n, float const *x, float *y);
 template float dot<resource::host, float>(int n, float const *x, int incx,
                                           float const *y, int incy);
 template void axpy<resource::host, float>(int n, float alpha, float const *x,
@@ -1056,6 +1081,8 @@ rotg<resource::host, double>(double *, double *, double *, double *);
 template double nrm2<resource::host, double>(int, double const[], int);
 template void copy<resource::host, double>(int n, double const *x, int incx,
                                            double *y, int incy);
+template void
+copy<resource::host, double>(int64_t n, double const *x, double *y);
 template double dot<resource::host, double>(int n, double const *x, int incx,
                                             double const *y, int incy);
 template void axpy<resource::host, double>(int n, double alpha, double const *x,
@@ -1093,6 +1120,7 @@ pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
 
 template void
 copy<resource::host, int>(int n, int const *x, int incx, int *y, int incy);
+template void copy<resource::host, int>(int64_t n, int const *x, int *y);
 template int
 dot<resource::host, int>(int n, int const *x, int incx, int const *y, int incy);
 template void scal<resource::host, int>(int n, int alpha, int *x, int incx);
@@ -1107,6 +1135,8 @@ template float nrm2<resource::device, float>(int, float const[], int);
 template void rotg<resource::device, float>(float *, float *, float *, float *);
 template void copy<resource::device, float>(int n, float const *x, int incx,
                                             float *y, int incy);
+template void
+copy<resource::device, float>(int64_t n, float const *x, float *y);
 template float dot<resource::device, float>(int n, float const *x, int incx,
                                             float const *y, int incy);
 template void axpy<resource::device, float>(int n, float alpha, float const *x,
@@ -1140,6 +1170,8 @@ template void
 rotg<resource::device, double>(double *, double *, double *, double *);
 template void copy<resource::device, double>(int n, double const *x, int incx,
                                              double *y, int incyc);
+template void
+copy<resource::device, double>(int64_t n, double const *x, double *y);
 template double dot<resource::device, double>(int n, double const *x, int incx,
                                               double const *y, int incy);
 template void axpy<resource::device, double>(int n, double alpha,

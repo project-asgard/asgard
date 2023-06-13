@@ -104,9 +104,8 @@ fk::vector<P, mem, resrc> &
 copy(fk::vector<P, omem, resrc> const &x, fk::vector<P, mem, resrc> &y)
 {
   expect(y.size() >= x.size());
-  int n   = x.size();
-  int one = 1;
-  lib_dispatch::copy<resrc>(n, x.data(), one, y.data(), one);
+  int64_t n = x.size();
+  lib_dispatch::copy<resrc>(n, x.data(), y.data());
   return y;
 }
 
