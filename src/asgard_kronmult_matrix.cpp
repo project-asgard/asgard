@@ -238,9 +238,9 @@ make_kronmult_dense(PDE<precision> const &pde,
   }
   else
   {
-    std::cout << "  kronmult dense matrix allocation (MB): "
+    std::cout << "  kronmult dense matrix coefficient allocation (MB): "
               << get_MB<precision>(vA.size()) << "\n";
-    std::cout << "  common workspace allocation (MB): "
+    std::cout << "  kronmult dense matrix common workspace allocation (MB): "
               << get_MB<int>(2 * mem_stats.work_size) << "\n";
 
     return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,

@@ -656,10 +656,8 @@ struct matrix_list
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
     if (not mem_stats)
-    {
       mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), spcache);
-      std::cout << " called compute_mem_usage() \n";
-    }
+
     if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats, imex(entry), spcache);
 #ifdef ASGARD_USE_CUDA
