@@ -1012,6 +1012,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
   }
 
+  stats.initialized = true;
+
   return stats;
 }
 
