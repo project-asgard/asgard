@@ -619,7 +619,6 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #ifdef ASGARD_USE_CUDA
   if (mem_stats.kron_call == memory_usage::one_call)
   {
-    std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
     std::cout << "        memory usage (unique): "
               << get_MB<int>(list_row_indx[0].size())
                     + get_MB<int>(list_col_indx[0].size())
@@ -824,9 +823,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
 #ifdef ASGARD_USE_CUDA
     int64_t available_MB = program_options.memory_limit - stats.baseline_memory;
-    std::cout << " available_MB = " << available_MB << "\n";
     check_available_memory(stats.baseline_memory, available_MB);
-    std::cout << " stats.baseline_memory = " << stats.baseline_memory << "\n";
 
     // 2147483646 = 2^31 - 2, which prevents overflow in the 32-bit signed int
     int64_t available_entries = std::min(int64_t{2147483646}, (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int)));
@@ -936,9 +933,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
 #ifdef ASGARD_USE_CUDA
     int64_t available_MB = program_options.memory_limit - stats.baseline_memory;
-    std::cout << " available_MB = " << available_MB << "\n";
     check_available_memory(stats.baseline_memory, available_MB);
-    std::cout << " stats.baseline_memory = " << stats.baseline_memory << "\n";
 
     // 2147483646 = 2^31 - 2, which prevents overflow in the 32-bit signed int
     int64_t available_entries = std::min(int64_t{2147483646}, (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int)));
