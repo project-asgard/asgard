@@ -185,6 +185,11 @@ make_kronmult_dense(PDE<precision> const &pde,
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
+
+            //std::cout << " connected: " << row << "  " << col << "\n";
+            //std::cout << "(" << row_coords[0] << ", " << row_coords[2] << ") - (" << row_coords[1] << ", " << row_coords[3]
+            //          << ") || (" << col_coords[0] << ", " << col_coords[2] << ") - (" << col_coords[1] << ", " << col_coords[3] << ")\n";
+
       for (int i = 0; i < num_dimensions; i++)
         opcol[i] =
             (col_coords[i] == 0)
@@ -247,6 +252,23 @@ make_kronmult_dense(PDE<precision> const &pde,
 #else
   if (mem_stats.kron_call == memory_usage::one_call)
   {
+    /////
+    //int tia = 0;
+    //for(int i=0; i<num_rows; i++)
+    //{
+    //  for(int j=0; j<num_cols; j++)
+    //  {
+    //    std::cout << "(i, j) = " <<  i << ", " << j << "\n";
+    //    for(int jj = 0; jj < num_dimensions * num_terms; jj++)
+    //    {
+    //      precision *A = &vA[list_iA[0][tia++]];
+    //      for(int k=0; k<kron_size * kron_size; k++)
+    //        std::cout << A[k] << "  ";
+    //      std::cout << "\n";
+    //    }
+    //  }
+    //}
+
     // if using the CPU, move the vectors into the matrix structure
     return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
                                       num_cols, num_terms,
@@ -420,11 +442,11 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #endif
 
 // load the entries in the one-call mode, can be done in parallel
-#pragma omp parallel
+//#pragma omp parallel
     {
       std::vector<int> offsets(num_dimensions); // find the 1D offsets
 
-#pragma omp for
+//#pragma omp for
       for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
       {
         int const c = spcache.cconnect[row - grid.row_start];
@@ -433,6 +455,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
         auto iy = list_row_indx[0].begin() + c;
 #endif
         auto ix = list_col_indx[0].begin() + c;
+
+        auto ia = list_iA[0].begin() + num_dimensions * num_terms * c;
 
         int const *const row_coords = flattened_table + 2 * num_dimensions * row;
         // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
@@ -443,13 +467,17 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
           if (check_connected(num_dimensions, row_coords, col_coords))
           {
+
+            //std::cout << " connected: " << row << "  " << col << "\n";
+            //std::cout << "(" << row_coords[0] << ", " << row_coords[2] << ") - (" << row_coords[1] << ", " << row_coords[3]
+            //          << ") || (" << col_coords[0] << ", " << col_coords[2] << ") - (" << col_coords[1] << ", " << col_coords[3] << ")\n";
+
 #ifdef ASGARD_USE_CUDA
             *iy++ = (row - grid.row_start) * tensor_size;
             *ix++ = (col - grid.col_start) * tensor_size;
 #else
             *ix++ = col - grid.col_start;
 #endif
-            auto ia = list_iA[0].begin() + num_dimensions * num_terms * c;
 
             for (int j = 0; j < num_dimensions; j++)
             {
@@ -522,7 +550,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
         num_units += nz_per_row;
       }
     }
-    row_group_pntr.push_back(i);
+    row_group_pntr.push_back(num_rows);
 #endif
   }
 
@@ -557,6 +585,24 @@ make_kronmult_sparse(PDE<precision> const &pde,
   //           << "\n";
 
 #else
+
+  //int tia = 0;
+  //for(int i=0; i<num_rows; i++)
+  //{
+  //  for(int j=list_row_indx[0][i]; j < list_row_indx[0][i+1]; j++)
+  //  {
+  //    int col = list_col_indx[0][j];
+  //    std::cout << "(i, j) = " <<  i << ", " << col << "\n";
+  //    for(int jj = 0; jj < num_dimensions * num_terms; jj++)
+  //    {
+  //      precision *A = &vA[list_iA[0][tia++]];
+  //      for(int k=0; k<kron_size * kron_size; k++)
+  //        std::cout << A[k] << "  ";
+  //      std::cout << "\n";
+  //    }
+  //  }
+  //}
+
   if (mem_stats.kron_call == memory_usage::one_call)
   {
     return kronmult_matrix<precision>(
@@ -851,10 +897,6 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       int64_t size_of_indexes =
           spcache.num_nonz * (pde.num_terms * num_dimensions + 2);
 
-      // max number of kron-products in one work chunk
-      int64_t work_products =
-          available_entries / (pde.num_terms * num_dimensions + 2);
-
       if (size_of_indexes <= available_entries)
       {
         stats.kron_call = memory_usage::one_call;
@@ -864,6 +906,10 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
         stats.kron_call = memory_usage::multi_calls;
         stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
 #ifdef ASGARD_USE_CUDA
+        // max number of kron-products in one work chunk
+        int64_t work_products =
+            available_entries / (pde.num_terms * num_dimensions + 2);
+
         stats.work_size = pde.num_terms * num_dimensions * (work_products / 2);
 #else
         stats.work_size = available_entries;
@@ -885,10 +931,6 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
           spcache.num_nonz *
             (static_cast<int64_t>(implicit_terms.size()) * num_dimensions + 2);
 
-      int64_t work_products =
-          available_entries /
-              (std::max(explicit_terms.size(), implicit_terms.size()) * num_dimensions + 2);
-
       if (explicit_of_indexes + implicit_of_indexes <= available_entries)
       {
         stats.kron_call = memory_usage::one_call;
@@ -898,6 +940,10 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
         stats.kron_call = memory_usage::multi_calls;
         stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
 #ifdef ASGARD_USE_CUDA
+        int64_t work_products =
+            available_entries /
+                (std::max(explicit_terms.size(), implicit_terms.size()) * num_dimensions + 2);
+
         stats.work_size = pde.num_terms * num_dimensions * (work_products / 2);
 #else
         stats.work_size = available_entries;

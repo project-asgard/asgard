@@ -375,8 +375,9 @@ public:
     else
     {
       kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
-                           row_indx_.data(), col_indx_.data(), num_terms_,
-                           iA.data(), vA.data(), alpha, x, beta, y);
+                           list_row_indx_[0].data(), list_col_indx_[0].data(),
+                           num_terms_, list_iA[0].data(), vA.data(), alpha, x,
+                           beta, y);
     }
 #endif
   }
