@@ -37,7 +37,7 @@ private:
   static int constexpr num_terms_         = 6;
   static bool constexpr do_poisson_solve_ = false;
   // disable implicit steps in IMEX
-  static bool constexpr do_collision_operator_ = false;
+  static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = true;
   static int constexpr default_degree          = 3;
 
@@ -285,8 +285,8 @@ private:
 
   inline static term<P> const term_i3x =
       term<P>(false,  // time-dependent
-              "I2_x", // name
-              {i2_pterm_x}, imex_flag::imex_implicit);
+              "I3_x", // name
+              {i3_pterm_x}, imex_flag::imex_implicit);
 
   inline static std::vector<term<P>> const terms_im_4 = {term_i3x, I_im,
                                                          term_i2v};
