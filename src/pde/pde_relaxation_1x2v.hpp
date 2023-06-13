@@ -48,22 +48,30 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const x_v) -> P { return 1.0 / (4.0 * PI); });
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+      // For test 1 and 2:
+      // return 1.0;
+      // For test 3:
+      return 0.5;
+    });
     return fx;
   }
 
+  /*
+  // Test 1 - IC = Analytical
   static fk::vector<P>
   initial_condition_dim_v_0(fk::vector<P> const &x, P const t = 0)
   {
     ignore(t);
-
-    P const coefficient = 1.0 / std::sqrt(2.0 * PI);
+    const P theta = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_v) -> P {
-                     return coefficient * std::exp(-0.5 * std::pow(x_v, 2));
+                   [coefficient, theta](P const x_v) -> P {
+                    const P ux = 0.5;
+                    return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v
+  - ux, 2));
                    });
     return fx;
   }
@@ -73,28 +81,174 @@ private:
   {
     ignore(t);
 
-    P const coefficient = 1.0 / std::sqrt(2.0 * PI);
+    P const theta = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [coefficient](P const x_v) -> P {
-                     return coefficient * std::exp(-0.5 * std::pow(x_v, 2));
+                   [coefficient, theta](P const x_v) -> P {
+                     P const uy = 1.0;
+                     return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v
+  - uy, 2));
                    });
+    return fx;
+  }
+  */
+
+  /*
+  // Test 2 - Box
+   static fk::vector<P>
+   initial_condition_dim_v_0(fk::vector<P> const &x, P const t = 0)
+   {
+     ignore(t);
+     const P theta = 1.0;
+     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+     fk::vector<P> fx(x.size());
+     std::transform(x.begin(), x.end(), fx.begin(),
+                    [coefficient, theta](P const x_v) -> P {
+                     if (x_v >= 1.0 && x_v <= 2.0) {
+                       return 1.0;
+                     } else {
+                       return 0.0;
+                     }
+                    });
+     return fx;
+   }
+
+   static fk::vector<P>
+   initial_condition_dim_v_1(fk::vector<P> const &x, P const t = 0)
+   {
+     ignore(t);
+
+     P const theta = 1.0;
+     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+     fk::vector<P> fx(x.size());
+     std::transform(x.begin(), x.end(), fx.begin(),
+                    [coefficient, theta](P const x_v) -> P {
+                     if (x_v >= 0.0 && x_v <= 1.0) {
+                       return 1.0;
+                     } else {
+                       return 0.0;
+                     }
+                    });
+     return fx;
+   }
+   */
+
+  // Test 3 - 2 Maxwellians
+  static fk::vector<P>
+  initial_condition_dim_v_0_0(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+    const P theta       = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
+          const P ux = 3.0;
+          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - ux, 2));
+        });
+    return fx;
+  }
+
+  static fk::vector<P>
+  initial_condition_dim_v_1_0(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+
+    P const theta       = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
+          P const uy = 0.0;
+          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - uy, 2));
+        });
+    return fx;
+  }
+
+  static fk::vector<P>
+  initial_condition_dim_v_0_1(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+    const P theta       = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
+          const P ux = 0.0;
+          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - ux, 2));
+        });
+    return fx;
+  }
+
+  static fk::vector<P>
+  initial_condition_dim_v_1_1(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+
+    P const theta       = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
+          P const uy = 3.0;
+          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - uy, 2));
+        });
+    return fx;
+  }
+
+  static fk::vector<P>
+  initial_condition_dim_x_1(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+      // For test 1 and 2:
+      // return 1.0;
+      // For test 3:
+      return 0.5;
+    });
     return fx;
   }
 
   /* Define the dimension */
+  /*
   inline static dimension<P> const dim_0 =
-      dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
+      dimension<P>(-0.5, 0.5, 4, default_degree,
                    initial_condition_dim_x_0, nullptr, "x");
 
   inline static dimension<P> const dim_1 =
-      dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
+      dimension<P>(-8.0, 8.0, 3, default_degree,
                    initial_condition_dim_v_0, nullptr, "v1");
 
   inline static dimension<P> const dim_2 =
-      dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
+      dimension<P>(-8.0, 8.0, 3, default_degree,
                    initial_condition_dim_v_1, nullptr, "v2");
+  */
+
+  // /*
+  // Test 3
+  inline static dimension<P> const dim_0 = dimension<P>(
+      -0.5, 0.5, 4, default_degree,
+      {initial_condition_dim_x_0, initial_condition_dim_x_1}, nullptr, "x");
+
+  inline static dimension<P> const dim_1 =
+      dimension<P>(-8.0, 8.0, 3, default_degree,
+                   {initial_condition_dim_v_0_0, initial_condition_dim_v_0_1},
+                   nullptr, "v1");
+
+  inline static dimension<P> const dim_2 =
+      dimension<P>(-8.0, 8.0, 3, default_degree,
+                   {initial_condition_dim_v_1_0, initial_condition_dim_v_1_1},
+                   nullptr, "v2");
+  // */
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1,
                                                                dim_2};
@@ -346,13 +500,130 @@ private:
   inline static term_set<P> const terms_ = {terms_im_1, terms_im_2, terms_im_3,
                                             terms_im_4, terms_im_5, terms_im_6};
 
-  inline static std::vector<md_func_type<P>> const exact_vector_funcs_ = {
-      {initial_condition_dim_x_0, partial_term<P>::null_vector_func,
-       partial_term<P>::null_vector_func},
-      {partial_term<P>::null_vector_func, initial_condition_dim_v_0,
-       partial_term<P>::null_vector_func},
-      {partial_term<P>::null_vector_func, partial_term<P>::null_vector_func,
-       initial_condition_dim_v_1}};
+  static fk::vector<P> exact_dim_x_0(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+      ignore(x_v);
+      return 1.0;
+    });
+    return fx;
+  }
+
+  /*
+  // Test 1 - IC = Analytical
+  static fk::vector<P> exact_dim_v_0(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+    P const theta = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [coefficient, theta](P const x_v) -> P {
+                    const P u1 = 0.5;
+                    //const P theta = 1.0;
+                    //const P theta = 8.0 / 3.0 * std::pow(PI, 2);
+                    return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v
+  - u1, 2));
+                   });
+    return fx;
+  }
+
+  static fk::vector<P> exact_dim_v_1(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+
+    //P const coefficient = 1.0 / std::sqrt(2.0 * PI);
+    P const theta = 1.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [coefficient, theta](P const x_v) -> P {
+                    const P u2 = 1.0;
+                    //const P theta = 1.0;
+                    //const P theta = 8.0 / 3.0 * std::pow(PI, 2);
+                    return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v
+  - u2, 2));
+                   });
+    return fx;
+  }
+  */
+
+  /*
+  // Test 2 - Box
+  static fk::vector<P> exact_dim_v_0(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+    P const theta = 1.0 / 12.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [coefficient, theta](P const x_v) -> P {
+                    const P u1 = 3.0 / 2.0;
+                    return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v
+  - u1, 2));
+                   });
+    return fx;
+  }
+
+  static fk::vector<P> exact_dim_v_1(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+
+    P const theta = 1.0 / 12.0;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(x.begin(), x.end(), fx.begin(),
+                   [coefficient, theta](P const x_v) -> P {
+                    const P u2 = 0.5;
+                    return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v
+  - u2, 2));
+                   });
+    return fx;
+  }
+  */
+
+  // /*
+  // Test 3 - 2 Maxwellians
+  static fk::vector<P> exact_dim_v_0(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+    P const theta       = 2.75;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
+          const P u1 = 1.5;
+          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - u1, 2));
+        });
+    return fx;
+  }
+
+  static fk::vector<P> exact_dim_v_1(fk::vector<P> const &x, P const t = 0)
+  {
+    ignore(t);
+
+    P const theta       = 2.75;
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
+
+    fk::vector<P> fx(x.size());
+    std::transform(
+        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
+          const P u2 = 1.5;
+          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - u2, 2));
+        });
+    return fx;
+  }
+  // */
+
+  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
+      exact_dim_x_0, exact_dim_v_0, exact_dim_v_1};
 
   inline static scalar_func<P> const exact_scalar_func_ = {};
 
