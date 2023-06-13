@@ -2472,11 +2472,9 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
   expect(nrows() == static_cast<int>(v.size()));
   expect(col_idx < ncols());
 
-  int n{v.size()};
-  int one{1};
-  int stride = 1;
+  int64_t n{v.size()};
 
-  lib_dispatch::copy<resrc>(n, v.data(), one, data(0, col_idx), stride);
+  lib_dispatch::copy<resrc>(n, v.data(), data(0, col_idx));
 
   return *this;
 }
@@ -2493,11 +2491,9 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
   expect(nrows() == static_cast<int>(v.size()));
   expect(col_idx < ncols());
 
-  int n{static_cast<int>(v.size())};
-  int one{1};
-  int stride = 1;
+  int64_t n = v.size();
 
-  lib_dispatch::copy<resrc>(n, v.data(), one, data(0, col_idx), stride);
+  lib_dispatch::copy<resrc>(n, v.data(), data(0, col_idx));
 
   return *this;
 }
