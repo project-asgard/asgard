@@ -54,6 +54,8 @@ struct memory_usage
   size_limit_mode mem_limit;
   //! \brief Index workspace size (does not include row/col indexes)
   int64_t work_size;
+  //! \brief Index workspace size for the row/col indexes
+  int64_t row_work_size;
   //! \brief Indicate whether it has been initialized
   operator bool() const
   {
@@ -290,6 +292,19 @@ public:
     workb = fk::vector<int, mem_type::view, resource::device>(b);
     load_stream = stream;
   }
+  //! \brief Set the workspace memory for loading the sparse row/col indexes
+  void set_workspace_ooc_sparse(
+            fk::vector<int, mem_type::owner, resource::device> &iya,
+            fk::vector<int, mem_type::owner, resource::device> &iyb,
+            fk::vector<int, mem_type::owner, resource::device> &ixa,
+            fk::vector<int, mem_type::owner, resource::device> &ixb
+            ) {
+    irowa = fk::vector<int, mem_type::view, resource::device>(iya);
+    irowb = fk::vector<int, mem_type::view, resource::device>(iyb);
+    icola = fk::vector<int, mem_type::view, resource::device>(ixa);
+    icolb = fk::vector<int, mem_type::view, resource::device>(ixb);
+  }
+
 #endif
 
   /*!
@@ -317,7 +332,7 @@ public:
       {
         // multiple calls, need to move data, call kronmult, then move next data
         // data loading is done asynchronously using the load_stream
-        std::cout << " multi-mode with " << list_iA.size() << " chunks\n";
+        std::cout << " dense multi-mode with " << list_iA.size() << " chunks\n";
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
         auto stats = cudaMemcpyAsync(load_buffer, list_iA[0].data(), sizeof(int) * list_iA[0].size(), cudaMemcpyHostToDevice, load_stream);
@@ -350,10 +365,61 @@ public:
       }
     }
     else
-      kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
-                           col_indx_.size(), col_indx_.data(), row_indx_.data(),
-                           num_terms_, iA.data(), vA.data(), alpha, xdev.data(),
-                           beta, ydev.data());
+    {
+      if (iA.size() > 0)
+      {
+        kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
+                             col_indx_.size(), col_indx_.data(), row_indx_.data(),
+                             num_terms_, iA.data(), vA.data(), alpha, xdev.data(),
+                             beta, ydev.data());
+      }
+      else
+      {
+        std::cout << " sparse multi-mode with " << list_iA.size() << " chunks\n";
+        int *load_buffer    = worka.data();
+        int *compute_buffer = workb.data();
+        int *load_buffer_rows    = irowa.data();
+        int *compute_buffer_rows = irowb.data();
+        int *load_buffer_cols    = icola.data();
+        int *compute_buffer_cols = icolb.data();
+        auto stats1 = cudaMemcpyAsync(load_buffer, list_iA[0].data(), sizeof(int) * list_iA[0].size(), cudaMemcpyHostToDevice, load_stream);
+        auto stats2 = cudaMemcpyAsync(load_buffer_rows, list_row_indx_[0].data(), sizeof(int) * list_row_indx_[0].size(), cudaMemcpyHostToDevice, load_stream);
+        auto stats3 = cudaMemcpyAsync(load_buffer_cols, list_col_indx_[0].data(), sizeof(int) * list_col_indx_[0].size(), cudaMemcpyHostToDevice, load_stream);
+        assert(stats1 == cudaSuccess);
+        assert(stats2 == cudaSuccess);
+        assert(stats3 == cudaSuccess);
+        for(size_t i = 0; i < list_iA.size(); i++)
+        {
+          // sync load_stream to ensure that data has already been loaded
+          cudaStreamSynchronize(load_stream);
+          // ensure the last compute stage is done before swapping the buffers
+          if (i > 0) // no need to sync at the very beginning
+            cudaStreamSynchronize(nullptr);
+          std::swap(load_buffer, compute_buffer);
+          std::swap(load_buffer_rows, compute_buffer_rows);
+          std::swap(load_buffer_cols, compute_buffer_cols);
+
+          if (i+1 < list_iA.size())
+          {
+            // begin loading the next chunk of data
+            stats1 = cudaMemcpyAsync(load_buffer, list_iA[i+1].data(), sizeof(int) * list_iA[i+1].size(), cudaMemcpyHostToDevice, load_stream);
+            stats2 = cudaMemcpyAsync(load_buffer_rows, list_row_indx_[i+1].data(), sizeof(int) * list_row_indx_[i+1].size(), cudaMemcpyHostToDevice, load_stream);
+            stats3 = cudaMemcpyAsync(load_buffer_cols, list_col_indx_[i+1].data(), sizeof(int) * list_col_indx_[i+1].size(), cudaMemcpyHostToDevice, load_stream);
+            assert(stats1 == cudaSuccess);
+            assert(stats2 == cudaSuccess);
+            assert(stats3 == cudaSuccess);
+          }
+
+          // num_batch is list_iA[i].size() / (num_dimensions_ * num_terms_)
+          // note that the first call to gpu_dense with the given output_size()
+          // will apply beta to the output y, thus follow on calls have to only
+          // accumulate and beta should be set to 1
+          kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
+                               list_row_indx_[i].size(), compute_buffer_cols, compute_buffer_rows, num_terms_, compute_buffer,
+                               vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data());
+        }
+      }
+    }
     fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
     if (is_dense())
@@ -453,6 +519,8 @@ private:
   static constexpr resource data_mode = resource::device;
   mutable fk::vector<precision, mem_type::view, data_mode> xdev, ydev;
   mutable fk::vector<int, mem_type::view, data_mode> worka, workb;
+  mutable fk::vector<int, mem_type::view, data_mode> irowa, irowb;
+  mutable fk::vector<int, mem_type::view, data_mode> icola, icolb;
   cudaStream_t load_stream;
 #else
   static constexpr resource data_mode = resource::host;
@@ -614,10 +682,22 @@ struct matrix_list
         workb = fk::vector<int, mem_type::owner, resource::device>();
         worka = fk::vector<int, mem_type::owner, resource::device>(mem_stats.work_size);
         workb = fk::vector<int, mem_type::owner, resource::device>(mem_stats.work_size);
+        if (not (*this)[entry].is_dense())
+        {
+          irowa = fk::vector<int, mem_type::owner, resource::device>();
+          irowb = fk::vector<int, mem_type::owner, resource::device>();
+          icola = fk::vector<int, mem_type::owner, resource::device>();
+          icolb = fk::vector<int, mem_type::owner, resource::device>();
+          irowa = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
+          irowb = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
+          icola = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
+          icolb = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
+        }
       }
     }
     (*this)[entry].set_workspace(xdev, ydev);
     (*this)[entry].set_workspace_ooc(worka, workb, load_stream);
+    (*this)[entry].set_workspace_ooc_sparse(irowa, irowb, icola, icolb);
 #endif
   }
   /*!
@@ -670,6 +750,10 @@ private:
   mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
   mutable fk::vector<int, mem_type::owner, resource::device> worka;
   mutable fk::vector<int, mem_type::owner, resource::device> workb;
+  mutable fk::vector<int, mem_type::owner, resource::device> irowa;
+  mutable fk::vector<int, mem_type::owner, resource::device> irowb;
+  mutable fk::vector<int, mem_type::owner, resource::device> icola;
+  mutable fk::vector<int, mem_type::owner, resource::device> icolb;
   cudaStream_t load_stream;
 #endif
 
