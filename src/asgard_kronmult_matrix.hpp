@@ -275,6 +275,7 @@ public:
   {
     list_row_stride_ = list_row_stride;
   }
+
 #ifdef ASGARD_USE_CUDA
   //! \brief Set the workspace memory for x and y
   void set_workspace(
@@ -332,14 +333,12 @@ public:
       {
         // multiple calls, need to move data, call kronmult, then move next data
         // data loading is done asynchronously using the load_stream
-        std::cout << " dense multi-mode with " << list_iA.size() << " chunks\n";
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
         auto stats = cudaMemcpyAsync(load_buffer, list_iA[0].data(), sizeof(int) * list_iA[0].size(), cudaMemcpyHostToDevice, load_stream);
         assert(stats == cudaSuccess);
         for(size_t i = 0; i < list_iA.size(); i++)
         {
-          // std::cout << " i = " <<  i << "\n";
           // sync load_stream to ensure that data has already been loaded
           cudaStreamSynchronize(load_stream);
           // ensure the last compute stage is done before swapping the buffers
@@ -375,7 +374,6 @@ public:
       }
       else
       {
-        std::cout << " sparse multi-mode with " << list_iA.size() << " chunks\n";
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
         int *load_buffer_rows    = irowa.data();
@@ -440,11 +438,10 @@ public:
     }
     else
     {
-      std::cout << " sparse multi-mode CPU with " << list_row_indx_.size() << " chunks\n";
       int64_t row_offset = 0;
       for(size_t i = 0; i < list_row_indx_.size(); i++)
       {
-        kronmult::cpu_sparse(num_dimensions_, kron_size_, list_row_indx_.size() - 1,
+        kronmult::cpu_sparse(num_dimensions_, kron_size_, list_row_indx_[i].size() - 1,
                              list_row_indx_[i].data(), list_col_indx_[i].data(),
                              num_terms_, list_iA[i].data(), vA.data(), alpha, x,
                              beta, y + row_offset * tensor_size_);
