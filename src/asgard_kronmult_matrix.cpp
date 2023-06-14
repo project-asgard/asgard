@@ -583,25 +583,88 @@ make_kronmult_sparse(PDE<precision> const &pde,
     // CPU case, combine rows together into large groups but don't exceed the work-size
     row_group_pntr.push_back(0);
     int64_t num_units = 0;
+    int64_t num_alloc = 0; // remove later, it's a sanity check
     for(int i = 0; i < num_rows; i++)
     {
-      int nz_per_row = spcache.cconnect[i+1] - spcache.cconnect[i];
+      int nz_per_row = ((i+1 < num_rows) ? spcache.cconnect[i+1] : spcache.num_nonz) - spcache.cconnect[i];
+      //std::cout << " for i = " << i << "  " << num_units << "   " << nz_per_row << "   " << max_units << "\n";
       if (num_units + nz_per_row > max_units)
       {
         // begin new chunk
         list_iA.push_back(fk::vector<int>(num_units * kron_unit_size));
         list_row_indx.push_back(fk::vector<int>(i - row_group_pntr.back() + 1));
-        list_row_indx.push_back(fk::vector<int>(num_units));
+        list_col_indx.push_back(fk::vector<int>(num_units));
+        //std::cout << " list_col_indx[i].size() " << list_col_indx.back().size() << "\n";
+        num_alloc += list_col_indx.back().size();
 
         row_group_pntr.push_back(i);
-        num_units = 0;
+        num_units = nz_per_row;
       }
       else
       {
         num_units += nz_per_row;
       }
     }
+    if (num_units > 0)
+    {
+      list_iA.push_back(fk::vector<int>(num_units * kron_unit_size));
+      list_row_indx.push_back(fk::vector<int>(num_rows - row_group_pntr.back() + 1));
+      list_col_indx.push_back(fk::vector<int>(num_units));
+      //std::cout << " list_col_indx[i].size() " << list_col_indx.back().size() << "\n";
+      num_alloc += list_col_indx.back().size();
+    }
     row_group_pntr.push_back(num_rows);
+    std::cout << " num_alloc = " << num_alloc << "  spcache.num_nonz = " << spcache.num_nonz << "\n";
+
+    std::vector<int> offsets(num_dimensions);
+
+    auto iconn = spcache.cconnect.begin();
+    int64_t shift_iy = 0;
+
+    for(size_t i = 0; i < row_group_pntr.size() - 1; i++)
+    {
+      auto ia = list_iA[i].begin();
+      auto ix = list_col_indx[i].begin();
+      auto iy = list_row_indx[i].begin();
+
+      for (int64_t row = row_group_pntr[i]; row < row_group_pntr[i+1]; row++)
+      {
+        *iy++ = *iconn++ - shift_iy; // copy the pointer index
+
+        int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+        // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+        for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+        {
+          int const *const col_coords =
+              flattened_table + 2 * num_dimensions * col;
+
+          if (check_connected(num_dimensions, row_coords, col_coords))
+          {
+            *ix++ = (col - grid.col_start);
+
+            compute_coefficient_offsets(spcache, row_coords, col_coords,
+                                        offsets);
+
+            for (int t = 0; t < num_terms; t++)
+              for (int d = 0; d < num_dimensions; d++)
+                *ia++ = offsets[d] * block1D_size +
+                           (t * num_dimensions + d) * kron_squared;
+
+          }
+        }
+      }
+
+      if (i + 2 < row_group_pntr.size())
+      {
+        *iy++ = *iconn - shift_iy;
+        shift_iy = *iconn;
+      }
+      else
+      {
+        *iy++ = spcache.num_nonz - shift_iy;
+      }
+    }
+
 #endif
   }
 
@@ -662,16 +725,10 @@ make_kronmult_sparse(PDE<precision> const &pde,
   //  }
   //}
 
-  if (mem_stats.kron_call == memory_usage::one_call)
-  {
-    return kronmult_matrix<precision>(
-        num_dimensions, kron_size, num_rows, num_cols, num_terms,
-        std::move(list_row_indx), std::move(list_col_indx),
-        std::move(list_iA), std::move(vA));
-  }
-  else
-  {
-  }
+  return kronmult_matrix<precision>(
+      num_dimensions, kron_size, num_rows, num_cols, num_terms,
+      std::move(list_row_indx), std::move(list_col_indx),
+      std::move(list_iA), std::move(vA));
 
 
   // if using the CPU, move the vectors into the matrix structure
@@ -939,7 +996,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     int64_t available_entries = std::min(int64_t{2147483646}, (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int)));
 #else
     // CPU mode is limited only by the 32-bit indexing
-    int64_t available_entries = 2147483646;
+    //int64_t available_entries = 2147483646;
+    int64_t available_entries = 8000;
 #endif
 
     // available_entries holds the number of ints that can be loaded at

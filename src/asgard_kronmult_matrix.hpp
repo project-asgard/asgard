@@ -440,10 +440,16 @@ public:
     }
     else
     {
-      kronmult::cpu_sparse(num_dimensions_, kron_size_, num_rows_,
-                           list_row_indx_[0].data(), list_col_indx_[0].data(),
-                           num_terms_, list_iA[0].data(), vA.data(), alpha, x,
-                           beta, y);
+      std::cout << " sparse multi-mode CPU with " << list_row_indx_.size() << " chunks\n";
+      int64_t row_offset = 0;
+      for(size_t i = 0; i < list_row_indx_.size(); i++)
+      {
+        kronmult::cpu_sparse(num_dimensions_, kron_size_, list_row_indx_.size() - 1,
+                             list_row_indx_[i].data(), list_col_indx_[i].data(),
+                             num_terms_, list_iA[i].data(), vA.data(), alpha, x,
+                             beta, y + row_offset * tensor_size_);
+        row_offset += list_row_indx_[i].size() - 1;
+      }
     }
 #endif
   }
