@@ -809,20 +809,25 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     memory_limit_MB = program_options.memory_limit;
 #endif
 
+  // parameters common to the dense and sparse cases
+  // matrices_per_prod is the number of matrices per Kronecker product
+  int64_t matrices_per_prod = pde.num_terms * num_dimensions;
+
+  // base_line_entries are the entries that must always be loaded in GPU memory
+  // first we compute the size of the state vectors (x and y) and then we
+  // add the size of the coefficients (based on sparse/dense mode)
+  int64_t base_line_entries =
+        (num_rows + num_cols) *
+            kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
+
   if (program_options.kmode == kronmult_mode::dense)
   {
-    int64_t base_line_entries = 0;
     // assume all terms will be loaded into the GPU, as one IMEX flag or another
     for (int t = 0; t < pde.num_terms; t++)
       for (int d = 0; d < num_dimensions; d++)
         base_line_entries += pde.get_coefficients(t, d).size();
 
-    base_line_entries +=
-        (num_rows + num_cols) *
-            kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
-
-    stats.baseline_memory =
-        std::max(1, static_cast<int>(get_MB<P>(base_line_entries)));
+    stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
 
 #ifdef ASGARD_USE_CUDA
     int64_t available_MB = memory_limit_MB - stats.baseline_memory;
@@ -838,28 +843,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     int64_t available_entries = index_limit;
 #endif
 
-    int64_t size_of_indexes = [&]() -> int64_t{
-      if (imex == imex_flag::unspecified)
-      {
-        return int64_t{num_rows} * int64_t{num_cols} * pde.num_terms * num_dimensions;
-      }
-      else
-      {
-        std::vector<int> const explicit_terms =
-            get_used_terms(pde, program_options, imex_flag::imex_explicit);
-        std::vector<int> const implicit_terms =
-            get_used_terms(pde, program_options, imex_flag::imex_implicit);
-
-        int64_t explicit_of_indexes =
-            int64_t{num_rows} * int64_t{num_cols} *
-              static_cast<int64_t>(explicit_terms.size()) * num_dimensions;
-        int64_t implicit_of_indexes =
-            int64_t{num_rows} * int64_t{num_cols} *
-              static_cast<int64_t>(implicit_terms.size()) * num_dimensions;
-
-        return std::max(explicit_of_indexes, implicit_of_indexes);
-      }
-    }();
+    int64_t size_of_indexes =
+        int64_t{num_rows} * int64_t{num_cols} * matrices_per_prod;
 
     if (size_of_indexes <= available_entries and
         size_of_indexes <= index_limit)
@@ -932,88 +917,66 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       spcache.num_nonz += c;
     }
 
-    int64_t base_line_entries = spcache.cells1d.num_connections() * num_dimensions * pde.num_terms * kron_size * kron_size;
-    stats.baseline_memory = get_MB<P>(base_line_entries);
+    base_line_entries += spcache.cells1d.num_connections() * num_dimensions * pde.num_terms * kron_size * kron_size;
+
+    stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
 
 #ifdef ASGARD_USE_CUDA
-    int64_t available_MB = program_options.memory_limit - stats.baseline_memory;
+    int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
 
-    // 2147483646 = 2^31 - 2, which prevents overflow in the 32-bit signed int
-    int64_t available_entries = std::min(int64_t{2147483646}, (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int)));
+    std::cout << "sparse stats.baseline_memory = " << stats.baseline_memory << "  available_MB = " << available_MB << "\n";
+
+    int64_t available_entries = (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int));
 #else
-    // CPU mode is limited only by the 32-bit indexing
-    int64_t available_entries = 2147483646;
+    int64_t available_entries = index_limit;
 #endif
 
-    // available_entries holds the number of ints that can be loaded at
-    // one time to respect the memory limit
-    if (imex == imex_flag::unspecified)
+    int64_t size_of_indexes = spcache.num_nonz * (matrices_per_prod + 2);
+
+    if (size_of_indexes <= available_entries and
+        size_of_indexes <= index_limit)
     {
-      // assuming there will be only one matrix, compute the number of indexes
-      // each product uses pde.num_terms * num_dimensions ints
-      // plus two more for the row and column index
-      int64_t size_of_indexes =
-          spcache.num_nonz * (pde.num_terms * num_dimensions + 2);
-
-      if (size_of_indexes <= available_entries)
-      {
-        stats.kron_call = memory_usage::one_call;
-      }
-      else
-      {
-        stats.kron_call = memory_usage::multi_calls;
-        stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
-#ifdef ASGARD_USE_CUDA
-        // max number of kron-products in one work chunk
-        int64_t work_products =
-            available_entries / (pde.num_terms * num_dimensions + 2);
-
-        stats.work_size = pde.num_terms * num_dimensions * (work_products / 2);
-        stats.row_work_size = work_products / 2;
-#else
-        stats.work_size = available_entries;
-        stats.row_work_size = available_entries / (pde.num_terms * num_dimensions + 2);
-#endif
-      }
+      stats.kron_call = memory_usage::one_call;
     }
     else
     {
-      // assuming there will be two matrices, find the memory for each
-      std::vector<int> const explicit_terms =
-          get_used_terms(pde, program_options, imex_flag::imex_explicit);
-      std::vector<int> const implicit_terms =
-          get_used_terms(pde, program_options, imex_flag::imex_implicit);
-
-      int64_t explicit_of_indexes =
-          spcache.num_nonz *
-            (static_cast<int64_t>(explicit_terms.size()) * num_dimensions + 2);
-      int64_t implicit_of_indexes =
-          spcache.num_nonz *
-            (static_cast<int64_t>(implicit_terms.size()) * num_dimensions + 2);
-
-      if (explicit_of_indexes + implicit_of_indexes <= available_entries)
+      int min_terms = pde.num_terms;
+      if (imex != imex_flag::unspecified)
       {
-        stats.kron_call = memory_usage::one_call;
+        std::vector<int> const explicit_terms =
+            get_used_terms(pde, program_options, imex_flag::imex_explicit);
+        std::vector<int> const implicit_terms =
+            get_used_terms(pde, program_options, imex_flag::imex_implicit);
+        min_terms = std::min(explicit_terms.size(), implicit_terms.size());
+      }
+
+      stats.kron_call = memory_usage::multi_calls;
+      if (size_of_indexes > index_limit)
+      {
+        stats.mem_limit = memory_usage::overflow;
+        stats.work_size = index_limit;
+        stats.row_work_size = index_limit / (num_dimensions * min_terms);
       }
       else
       {
-        stats.kron_call = memory_usage::multi_calls;
-        stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
-#ifdef ASGARD_USE_CUDA
+        stats.mem_limit = memory_usage::environment;
         int64_t work_products =
-            available_entries /
-                (std::max(explicit_terms.size(), implicit_terms.size()) * num_dimensions + 2);
-
-        stats.work_size = pde.num_terms * num_dimensions * (work_products / 2);
+            available_entries / (min_terms * num_dimensions + 2);
+        stats.work_size = min_terms * num_dimensions * (work_products / 2);
         stats.row_work_size = work_products / 2;
-#else
-        stats.work_size = available_entries;
-        stats.row_work_size = available_entries / (std::max(explicit_terms.size(), implicit_terms.size()) * num_dimensions + 2);
-#endif
       }
-    }
 
+#ifdef ASGARD_USE_CUDA
+      if (2 * stats.work_size + 2 * stats.row_work_size > available_entries)
+      {
+        int64_t work_products =
+            available_entries / (min_terms * num_dimensions + 2);
+        stats.work_size = min_terms * num_dimensions * (work_products / 2);
+        stats.row_work_size = work_products / 2;
+      }
+#endif
+    }
   }
 
   stats.initialized = true;
