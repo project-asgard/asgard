@@ -88,7 +88,7 @@ template<resource resrc>
 using enable_for_device = std::enable_if_t<resrc == resource::device>;
 
 // resource arguments allow developers to select host (CPU only) or device
-// (accelerator if enabled, fall back to host) allocation for tensors. device
+// (accelerator) allocation for tensors. device
 // tensors have a restricted API - most member functions are disabled. the fast
 // math component is designed to allow BLAS on host and device tensors.
 
@@ -801,91 +801,116 @@ private:
 //
 //-----------------------------------------------------------------------------
 
+#ifdef ASGARD_USE_CUDA
 template<typename P>
 inline void
 allocate_device(P *&ptr, int64_t const num_elems, bool const initialize = true)
 {
-#ifdef ASGARD_USE_CUDA
   if (cudaMalloc((void **)&ptr, num_elems * sizeof(P)) != cudaSuccess)
-  {
     throw std::bad_alloc();
-  }
   if (num_elems > 0)
-  {
     expect(ptr != nullptr);
-  }
-
   if (initialize)
   {
     auto success = cudaMemset((void *)ptr, 0, num_elems * sizeof(P));
     expect(success == cudaSuccess);
   }
-
-#else
-  if (initialize)
-  {
-    ptr = new P[num_elems]();
-  }
-  else
-  {
-    ptr = new P[num_elems];
-  }
-#endif
 }
+#else
+template<typename P>
+inline void
+allocate_device(P *&ptr, int64_t const num_elems, bool const initialize = true)
+{
+  ignore(ptr);
+  ignore(num_elems);
+  ignore(initialize);
+  throw std::runtime_error("calling allocate_device without CUDA");
+}
+#endif
 
+#ifdef ASGARD_USE_CUDA
 template<typename P>
 inline void delete_device(P *const ptr)
 {
-#ifdef ASGARD_USE_CUDA
   auto const success = cudaFree(ptr);
   // the device runtime may be unloaded at process shut down
   // (when static storage duration destructors are called)
   // returning a cudartUnloading error code.
   expect((success == cudaSuccess) || (success == cudaErrorCudartUnloading));
-#else
-  delete[] ptr;
-#endif
 }
+#else
+template<typename P>
+inline void delete_device(P *const ptr)
+{
+  ignore(ptr);
+  throw std::runtime_error("calling delete_device without CUDA");
+}
+#endif
 
+#ifdef ASGARD_USE_CUDA
 template<typename P>
 inline void
 copy_on_device(P *const dest, P const *const source, int const num_elems)
 {
-#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
   expect(success == cudaSuccess);
-#else
-  std::copy(source, source + num_elems, dest);
-#endif
 }
+#else
+template<typename P>
+inline void
+copy_on_device(P *const dest, P const *const source, int const num_elems)
+{
+  ignore(dest);
+  ignore(source);
+  ignore(num_elems);
+  throw std::runtime_error("calling copy_on_device without CUDA");
+}
+#endif
 
+#ifdef ASGARD_USE_CUDA
 template<typename P>
 inline void
 copy_to_device(P *const dest, P const *const source, int const num_elems)
 {
-#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
   expect(success == cudaSuccess);
-#else
-  std::copy(source, source + num_elems, dest);
-#endif
 }
+#else
+template<typename P>
+inline void
+copy_to_device(P *const dest, P const *const source, int const num_elems)
+{
+  ignore(dest);
+  ignore(source);
+  ignore(num_elems);
+  throw std::runtime_error("calling copy_to_device without CUDA");
+}
+#endif
 
+#ifdef ASGARD_USE_CUDA
 template<typename P>
 inline void
 copy_to_host(P *const dest, P const *const source, int const num_elems)
 {
-#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
   expect(success == cudaSuccess);
-#else
-  std::copy(source, source + num_elems, dest);
-#endif
 }
+#else
+template<typename P>
+inline void
+copy_to_host(P *const dest, P const *const source, int const num_elems)
+{
+  ignore(dest);
+  ignore(source);
+  ignore(num_elems);
+  throw std::runtime_error("calling copy_to_host without CUDA");
+}
+#endif
 
+#ifdef ASGARD_USE_CUDA
 template<typename P, mem_type mem, mem_type omem>
 inline void
 copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
@@ -894,17 +919,25 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
 
-#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
                    source.ncols(), cudaMemcpyDeviceToDevice);
   expect(success == 0);
-#else
-  std::copy(source.begin(), source.end(), dest.begin());
-#endif
 }
+#else
+template<typename P, mem_type mem, mem_type omem>
+inline void
+copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
+                      fk::matrix<P, omem, resource::device> const &source)
+{
+  ignore(dest);
+  ignore(source);
+  throw std::runtime_error("calling copy_matrix_on_device without CUDA");
+}
+#endif
 
+#ifdef ASGARD_USE_CUDA
 template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
          typename = disable_for_const_view<m_>>
 inline void
@@ -913,17 +946,26 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
 {
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
-#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
                    source.ncols(), cudaMemcpyHostToDevice);
   expect(success == 0);
-#else
-  std::copy(source.begin(), source.end(), dest.begin());
-#endif
 }
+#else
+template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
+         typename = disable_for_const_view<m_>>
+inline void
+copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
+                      fk::matrix<P, omem, resource::host> const &source)
+{
+  ignore(dest);
+  ignore(source);
+  throw std::runtime_error("calling copy_matrix_to_device without CUDA");
+}
+#endif
 
+#ifdef ASGARD_USE_CUDA
 template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
          typename = disable_for_const_view<m_>>
 inline void
@@ -932,16 +974,24 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
 {
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
-#ifdef ASGARD_USE_CUDA
   auto const success =
       cudaMemcpy2D(dest.data(), dest.stride() * sizeof(P), source.data(),
                    source.stride() * sizeof(P), source.nrows() * sizeof(P),
                    source.ncols(), cudaMemcpyDeviceToHost);
   expect(success == 0);
-#else
-  std::copy(source.begin(), source.end(), dest.begin());
-#endif
 }
+#else
+template<typename P, mem_type mem, mem_type omem, mem_type m_ = mem,
+         typename = disable_for_const_view<m_>>
+inline void
+copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
+                    fk::matrix<P, omem, resource::device> const &source)
+{
+  ignore(dest);
+  ignore(source);
+  throw std::runtime_error("calling copy_matrix_to_host without CUDA");
+}
+#endif
 
 } // namespace fk
 } // namespace asgard
@@ -997,12 +1047,12 @@ fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
 {
   if constexpr (resrc == resource::host)
   {
-    data_ = new P[size_]();
+    data_ = new P[size_];
     std::copy(list.begin(), list.end(), data_);
   }
   else
   {
-    allocate_device(data_, size_);
+    allocate_device(data_, size_, false);
     copy_to_device(data_, list.begin(), size_);
   }
 }
@@ -1029,16 +1079,12 @@ fk::vector<P, mem, resrc>::vector(
   {
     if constexpr (resrc == resource::host)
     {
-      data_ = new P[mat.size()]();
-      int i = 0;
-      for (auto const &elem : mat)
-      {
-        (*this)(i++) = elem;
-      }
+      data_ = new P[mat.size()];
+      std::copy_n(mat.data(), mat.size(), data_);
     }
     else
     {
-      allocate_device(data_, size_);
+      allocate_device(data_, size_, false);
       copy_on_device(data_, mat.data(), mat.size());
     }
   }
@@ -1132,7 +1178,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
     }
     else
     {
-      allocate_device(data_, a.size());
+      allocate_device(data_, a.size(), false);
       copy_on_device(data_, a.data(), a.size());
     }
   }
@@ -1218,7 +1264,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, omem, resrc> const &a)
   }
   else
   {
-    allocate_device(data_, a.size());
+    allocate_device(data_, a.size(), false);
     copy_on_device(data_, a.data(), a.size());
   }
 }
@@ -1588,11 +1634,14 @@ fk::vector<P, mem, resrc>::resize(int const new_size)
 
   if constexpr (resrc == resource::host)
   {
-    data_ = new P[new_size]();
+    data_ = new P[new_size];
     if (size() > 0 && new_size > 0)
     {
       if (size() < new_size)
+      {
         std::memcpy(data_, old_data, size() * sizeof(P));
+        std::fill(data_ + size(), data_ + new_size, P{0});
+      }
       else
         std::memcpy(data_, old_data, new_size * sizeof(P));
     }
@@ -1623,7 +1672,7 @@ fk::vector<P, mem, resrc>::concat(vector<P, omem> const &right)
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
   P *old_data{data_};
-  data_ = new P[new_size]();
+  data_ = new P[new_size];
   std::memcpy(data_, old_data, old_size * sizeof(P));
   std::memcpy(data(old_size), right.data(), right.size() * sizeof(P));
   size_ = new_size;

@@ -35,10 +35,12 @@ TEMPLATE_TEST_CASE("matrix-matrix multiply (lib_dispatch::gemm)",
     };
   // clang-format on
 
+#ifdef ASGARD_USE_CUDA
   fk::matrix<TestType, mem_type::owner, resource::device> const in1_d(
       in1.clone_onto_device());
   fk::matrix<TestType, mem_type::owner, resource::device> const in2_d(
       in2.clone_onto_device());
+#endif
 
   SECTION("no transpose")
   {
@@ -329,11 +331,15 @@ TEMPLATE_TEST_CASE("matrix-vector multiply (lib_dispatch::gemv)",
      {  8, -1, -8},
      { -9,  9,  8},
     };
-    fk::matrix<TestType, mem_type::owner, resource::device> const A_d(A.clone_onto_device());
     fk::vector<TestType> const x
      {2, 1, -7};
-    fk::vector<TestType, mem_type::owner, resource::device> const x_d(x.clone_onto_device());
   // clang-format on
+#ifdef ASGARD_USE_CUDA
+  fk::matrix<TestType, mem_type::owner, resource::device> const A_d(
+      A.clone_onto_device());
+  fk::vector<TestType, mem_type::owner, resource::device> const x_d(
+      x.clone_onto_device());
+#endif
 
   SECTION("no transpose")
   {
@@ -702,8 +708,10 @@ TEMPLATE_TEST_CASE("scale/accumulate (lib_dispatch::axpy)", "[lib_dispatch]",
                    test_precs)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
+#ifdef ASGARD_USE_CUDA
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
       x.clone_onto_device());
+#endif
 
   TestType const scale            = 3;
   fk::vector<TestType> const gold = {4, 7, 10, 13, 16};
@@ -774,11 +782,13 @@ TEMPLATE_TEST_CASE("dot product (lib_dispatch::dot)", "[lib_dispatch]",
                    test_precs, int)
 {
   fk::vector<TestType> const x = {1, 2, 3, 4, 5};
+  fk::vector<TestType> const y = {2, 4, 6, 8, 10};
+#ifdef ASGARD_USE_CUDA
   fk::vector<TestType, mem_type::owner, resource::device> const x_d(
       x.clone_onto_device());
-  fk::vector<TestType> const y = {2, 4, 6, 8, 10};
   fk::vector<TestType, mem_type::owner, resource::device> const y_d(
       y.clone_onto_device());
+#endif
   TestType const gold = 110;
 
   SECTION("lib_dispatch::dot - inc = 1")
