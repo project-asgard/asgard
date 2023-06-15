@@ -77,10 +77,12 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(test_empty.size() == 0);
 
     // enable on device...
+#ifdef ASGARD_USE_CUDA
     fk::matrix<TestType, mem_type::owner, resource::device> const mat_d(
         mat.clone_onto_device());
     fk::vector<TestType, mem_type::owner, resource::device> const vect_d(mat_d);
     REQUIRE(vect_d.clone_onto_host() == gold);
+#endif
   }
 
   SECTION("construct view from owner")
@@ -901,6 +903,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
 
   SECTION("ctors")
   {
+#ifdef ASGARD_USE_CUDA
     // default
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect;
@@ -963,7 +966,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
           copy.clone_onto_host());
       REQUIRE(vect_h == gold);
     }
-
+#endif
     SECTION("views from matrix constructor")
     {
       fk::matrix<TestType> base{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
@@ -1033,7 +1036,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
           std::move(view_2));
     }
   }
-
+#ifdef ASGARD_USE_CUDA
   SECTION("copy and move")
   {
     // copy owner
@@ -1122,7 +1125,6 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
       REQUIRE(moved_h == gold);
     }
   }
-
   SECTION("transfer copies and assignments")
   {
     // owner device to owner host
@@ -1434,6 +1436,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
       }
     }
   }
+#endif
 }
 
 TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
@@ -2903,7 +2906,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
     REQUIRE(std::accumulate(test_v_p.begin(), test_v_p.end(), 0) == sum_p);
   }
 } // end fk::matrix utilities
-
+#ifdef ASGARD_USE_CUDA
 TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
                    test_precs, int)
 {
@@ -3445,7 +3448,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
     REQUIRE(mat_h == gold_view);
   }
 }
-
+#endif
 TEMPLATE_TEST_CASE("fk::matrix transpose", "[tensors]", test_precs)
 {
   fk::matrix<TestType> const m_0 = {{0, 4, 8, 12, 16, 20, 24, 28},

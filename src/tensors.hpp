@@ -88,7 +88,7 @@ template<resource resrc>
 using enable_for_device = std::enable_if_t<resrc == resource::device>;
 
 // resource arguments allow developers to select host (CPU only) or device
-// (accelerator if enabled, fall back to host) allocation for tensors. device
+// (accelerator) allocation for tensors. device
 // tensors have a restricted API - most member functions are disabled. the fast
 // math component is designed to allow BLAS on host and device tensors.
 
@@ -822,14 +822,10 @@ allocate_device(P *&ptr, int64_t const num_elems, bool const initialize = true)
   }
 
 #else
-  if (initialize)
-  {
-    ptr = new P[num_elems]();
-  }
-  else
-  {
-    ptr = new P[num_elems];
-  }
+  ignore(ptr);
+  ignore(num_elems);
+  ignore(initialize);
+  expect(false);
 #endif
 }
 
@@ -843,7 +839,8 @@ inline void delete_device(P *const ptr)
   // returning a cudartUnloading error code.
   expect((success == cudaSuccess) || (success == cudaErrorCudartUnloading));
 #else
-  delete[] ptr;
+  ignore(ptr);
+  expect(false);
 #endif
 }
 
@@ -856,7 +853,10 @@ copy_on_device(P *const dest, P const *const source, int const num_elems)
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToDevice);
   expect(success == cudaSuccess);
 #else
-  std::copy(source, source + num_elems, dest);
+  ignore(dest);
+  ignore(source);
+  ignore(num_elems);
+  expect(false);
 #endif
 }
 
@@ -869,7 +869,10 @@ copy_to_device(P *const dest, P const *const source, int const num_elems)
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyHostToDevice);
   expect(success == cudaSuccess);
 #else
-  std::copy(source, source + num_elems, dest);
+  ignore(dest);
+  ignore(source);
+  ignore(num_elems);
+  expect(false);
 #endif
 }
 
@@ -882,7 +885,10 @@ copy_to_host(P *const dest, P const *const source, int const num_elems)
       cudaMemcpy(dest, source, num_elems * sizeof(P), cudaMemcpyDeviceToHost);
   expect(success == cudaSuccess);
 #else
-  std::copy(source, source + num_elems, dest);
+  ignore(dest);
+  ignore(source);
+  ignore(num_elems);
+  expect(false);
 #endif
 }
 
@@ -901,7 +907,9 @@ copy_matrix_on_device(fk::matrix<P, mem, resource::device> &dest,
                    source.ncols(), cudaMemcpyDeviceToDevice);
   expect(success == 0);
 #else
-  std::copy(source.begin(), source.end(), dest.begin());
+  ignore(dest);
+  ignore(source);
+  expect(false);
 #endif
 }
 
@@ -920,7 +928,9 @@ copy_matrix_to_device(fk::matrix<P, mem, resource::device> &dest,
                    source.ncols(), cudaMemcpyHostToDevice);
   expect(success == 0);
 #else
-  std::copy(source.begin(), source.end(), dest.begin());
+  ignore(dest);
+  ignore(source);
+  expect(false);
 #endif
 }
 
@@ -939,7 +949,9 @@ copy_matrix_to_host(fk::matrix<P, mem, resource::host> &dest,
                    source.ncols(), cudaMemcpyDeviceToHost);
   expect(success == 0);
 #else
-  std::copy(source.begin(), source.end(), dest.begin());
+  ignore(dest);
+  ignore(source);
+  expect(false);
 #endif
 }
 
@@ -1029,12 +1041,8 @@ fk::vector<P, mem, resrc>::vector(
   {
     if constexpr (resrc == resource::host)
     {
-      data_ = new P[mat.size()]();
-      int i = 0;
-      for (auto const &elem : mat)
-      {
-        (*this)(i++) = elem;
-      }
+      data_ = new P[mat.size()];
+      std::copy_n(mat.data(), mat.size(), data_);
     }
     else
     {
