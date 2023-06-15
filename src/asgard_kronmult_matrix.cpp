@@ -702,7 +702,9 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
 template<typename P>
 void update_kronmult_coefficients(PDE<P> const &pde,
                                   options const &program_options,
-                                  imex_flag const imex, kronmult_matrix<P> &mat)
+                                  imex_flag const imex,
+                                  kron_sparse_cache &spcache,
+                                  kronmult_matrix<P> &mat)
 {
   auto const form_id       = tools::timer.start("kronmult-update-coefficients");
   int const num_dimensions = pde.num_dims;
@@ -750,8 +752,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
   else
   {
     // holds the 1D sparsity structure for the coefficient matrices
-    connect_1d cells1d(pde.max_level);
-    int const num_1d = cells1d.num_connections();
+    int const num_1d = spcache.cells1d.num_connections();
 
     // storing the 1D operator matrices by 1D row and column
     // each connected pair of 1D cells will be associated with a block
@@ -759,11 +760,11 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     int const block1D_size = num_dimensions * num_terms * kron_squared;
     vA                     = fk::vector<P>(num_1d * block1D_size);
     auto pA                = vA.begin();
-    for (int row = 0; row < cells1d.num_cells(); row++)
+    for (int row = 0; row < spcache.cells1d.num_cells(); row++)
     {
-      for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
+      for (int j = spcache.cells1d.row_begin(row); j < spcache.cells1d.row_end(row); j++)
       {
-        int col = cells1d[j];
+        int col = spcache.cells1d[j];
         for (int const t : used_terms)
         {
           for (int d = 0; d < num_dimensions; d++)
@@ -792,7 +793,8 @@ template<typename P>
 memory_usage
 compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretization,
                   options const &program_options, imex_flag const imex,
-                  kron_sparse_cache &spcache)
+                  kron_sparse_cache &spcache, int memory_limit_MB,
+                  int64_t index_limit)
 {
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
@@ -802,6 +804,11 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
   memory_usage stats;
 
+#ifdef ASGARD_USE_CUDA
+  if (memory_limit_MB == 0)
+    memory_limit_MB = program_options.memory_limit;
+#endif
+
   if (program_options.kmode == kronmult_mode::dense)
   {
     int64_t base_line_entries = 0;
@@ -810,70 +817,74 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       for (int d = 0; d < num_dimensions; d++)
         base_line_entries += pde.get_coefficients(t, d).size();
 
-    base_line_entries += (num_rows + num_cols) * kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
+    base_line_entries +=
+        (num_rows + num_cols) *
+            kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
 
-    stats.baseline_memory = get_MB<P>(base_line_entries);
+    stats.baseline_memory =
+        std::max(1, static_cast<int>(get_MB<P>(base_line_entries)));
 
 #ifdef ASGARD_USE_CUDA
-    int64_t available_MB = program_options.memory_limit - stats.baseline_memory;
+    int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
 
+    std::cout << "stats.baseline_memory = " << stats.baseline_memory << "  available_MB = " << available_MB << "\n";
+
     // 2147483646 = 2^31 - 2, which prevents overflow in the 32-bit signed int
-    int64_t available_entries = std::min(int64_t{2147483646}, (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int)));
+    int64_t available_entries = (int64_t{available_MB} * 1024 * 1024)
+                                 / static_cast<int64_t>(sizeof(int));
 #else
     // CPU mode is limited only by the 32-bit indexing
-    int64_t available_entries = 2147483646;
+    int64_t available_entries = index_limit;
 #endif
-    if (imex == imex_flag::unspecified)
-    {
-      // assuming there will be only one matrix, max index is
-      int64_t size_of_indexes =
-          int64_t{num_rows} * int64_t{num_cols} * pde.num_terms * num_dimensions;
 
-      if (size_of_indexes <= available_entries)
+    int64_t size_of_indexes = [&]() -> int64_t{
+      if (imex == imex_flag::unspecified)
       {
-        stats.kron_call = memory_usage::one_call;
+        return int64_t{num_rows} * int64_t{num_cols} * pde.num_terms * num_dimensions;
       }
       else
       {
-        stats.kron_call = memory_usage::multi_calls;
-        stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
-#ifdef ASGARD_USE_CUDA
-        stats.work_size = available_entries / 2;
-#else
-        stats.work_size = available_entries;
-#endif
+        std::vector<int> const explicit_terms =
+            get_used_terms(pde, program_options, imex_flag::imex_explicit);
+        std::vector<int> const implicit_terms =
+            get_used_terms(pde, program_options, imex_flag::imex_implicit);
+
+        int64_t explicit_of_indexes =
+            int64_t{num_rows} * int64_t{num_cols} *
+              static_cast<int64_t>(explicit_terms.size()) * num_dimensions;
+        int64_t implicit_of_indexes =
+            int64_t{num_rows} * int64_t{num_cols} *
+              static_cast<int64_t>(implicit_terms.size()) * num_dimensions;
+
+        return std::max(explicit_of_indexes, implicit_of_indexes);
       }
+    }();
+
+    if (size_of_indexes <= available_entries and
+        size_of_indexes <= index_limit)
+    {
+      stats.kron_call = memory_usage::one_call;
     }
     else
     {
-      // assuming there will be two matrices, find the memory for each
-      std::vector<int> const explicit_terms =
-          get_used_terms(pde, program_options, imex_flag::imex_explicit);
-      std::vector<int> const implicit_terms =
-          get_used_terms(pde, program_options, imex_flag::imex_implicit);
+      stats.kron_call = memory_usage::multi_calls;
 
-      int64_t explicit_of_indexes =
-          int64_t{num_rows} * int64_t{num_cols} *
-            static_cast<int64_t>(explicit_terms.size()) * num_dimensions;
-      int64_t implicit_of_indexes =
-          int64_t{num_rows} * int64_t{num_cols} *
-            static_cast<int64_t>(implicit_terms.size()) * num_dimensions;
-
-      if (explicit_of_indexes + implicit_of_indexes <= available_entries)
+      if (size_of_indexes > index_limit)
       {
-        stats.kron_call = memory_usage::one_call;
+        stats.mem_limit = memory_usage::overflow;
+        stats.work_size = index_limit;
       }
       else
       {
-        stats.kron_call = memory_usage::multi_calls;
-        stats.mem_limit = (available_entries == 2147483646) ? memory_usage::overflow : memory_usage::environment;
-#ifdef ASGARD_USE_CUDA
+        stats.mem_limit = memory_usage::environment;
         stats.work_size = available_entries / 2;
-#else
-        stats.work_size = available_entries;
-#endif
       }
+
+#ifdef ASGARD_USE_CUDA
+      if (2 * stats.work_size > available_entries)
+        stats.work_size = available_entries / 2;
+#endif
     }
   }
   else
@@ -1019,11 +1030,13 @@ make_kronmult_matrix<double>(PDE<double> const &,
 template void update_kronmult_coefficients<double>(PDE<double> const &,
                                                    options const &,
                                                    imex_flag const,
+                                                   kron_sparse_cache &,
                                                    kronmult_matrix<double> &);
 template memory_usage
 compute_mem_usage<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
-                          options const &, imex_flag const, kron_sparse_cache &);
+                          options const &, imex_flag const, kron_sparse_cache &,
+                          int, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1034,11 +1047,13 @@ make_kronmult_matrix<float>(PDE<float> const &,
                             imex_flag const, kron_sparse_cache &);
 template void
 update_kronmult_coefficients<float>(PDE<float> const &, options const &,
-                                    imex_flag const, kronmult_matrix<float> &);
+                                    imex_flag const, kron_sparse_cache &,
+                                    kronmult_matrix<float> &);
 template memory_usage
 compute_mem_usage<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,
-                         options const &, imex_flag const, kron_sparse_cache &);
+                         options const &, imex_flag const, kron_sparse_cache &,
+                         int, int64_t);
 #endif
 
 } // namespace asgard

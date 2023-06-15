@@ -331,6 +331,7 @@ public:
       }
       else
       {
+          std::cout << " multi-kron " << list_iA.size() << "\n";
         // multiple calls, need to move data, call kronmult, then move next data
         // data loading is done asynchronously using the load_stream
         int *load_buffer    = worka.data();
@@ -592,6 +593,7 @@ template<typename P>
 void update_kronmult_coefficients(PDE<P> const &pde,
                                   options const &program_options,
                                   imex_flag const imex,
+                                  kron_sparse_cache &spcache,
                                   kronmult_matrix<P> &mat);
 
 //! \brief Expressive indexing for the matrices
@@ -610,12 +612,27 @@ enum matrix_entry
  *
  * Computes how to avoid overflow or the use of more memory than
  * is available on the GPU device.
+ *
+ * \tparam P is float or double
+ *
+ * \param pde holds the problem data
+ * \param grid is the discretization
+ * \param program_options is the user provided options
+ * \param imex is the flag indicating the IMEX mode
+ * \param spcache holds precomputed data about the sparsity pattern which is
+ *        used between multiple calls to avoid recomputing identical entries
+ * \param memory_limit_MB can override the user specified limit (in MB),
+ *        if set to zero the user selection will be used
+ * \param index_limit should be set to the max value held by the 32-bit index,
+ *        namely 2^31 -2 since 2^31 causes an overflow,
+ *        a different value can be used for testing purposes
  */
 template<typename P>
 memory_usage
 compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                   options const &program_options, imex_flag const imex,
-                  kron_sparse_cache &spcache);
+                  kron_sparse_cache &spcache, int memory_limit_MB = 0,
+                  int64_t index_limit = 2147483646);
 
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -712,7 +729,7 @@ struct matrix_list
     if (not(*this)[entry])
       make(entry, pde, grid, opts);
     else
-      update_kronmult_coefficients(pde, opts, imex(entry), (*this)[entry]);
+      update_kronmult_coefficients(pde, opts, imex(entry), spcache, (*this)[entry]);
   }
 
   //! \brief Clear the specified matrix
