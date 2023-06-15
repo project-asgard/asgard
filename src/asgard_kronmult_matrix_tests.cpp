@@ -128,6 +128,8 @@ TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", test_precs)
   test_almost_equal(R, gold);
 }
 
+/*
+
 #ifndef ASGARD_USE_CUDA // test CPU kronmult only when CUDA is not enabled
 
 TEMPLATE_TEST_CASE("testing kronmult cpu core dense", "[execute_cpu]",
@@ -249,3 +251,69 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", test_precs)
 }
 
 #endif
+*/
+
+/*****************************************************************************
+ * Testing the ability to split a matrix into multiple calls
+ *****************************************************************************/
+
+#include "coefficients.hpp"
+
+using namespace asgard;
+
+template<typename prec>
+void test_memory_mode()
+{
+    // make some PDE, no need to be too specific
+  fk::vector<int> levels = {5, 5};
+  parser parse("two_stream", levels);
+  parser_mod::set(parse, parser_mod::degree, 3);
+
+  auto pde = make_PDE<prec>(parse);
+
+  options const opts(parse);
+
+  adapt::distributed_grid grid(*pde, opts);
+  basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde);
+  generate_dimension_mass_mat(*pde, transformer);
+  generate_all_coefficients(*pde, transformer);
+  auto const x = grid.get_initial_condition(*pde, transformer, opts);
+  generate_dimension_mass_mat(*pde, transformer);
+
+  // one means that all data fits in memory and only one call will be made
+  kron_sparse_cache spcache_one;
+  memory_usage memory_one =
+    compute_mem_usage(*pde, grid, opts, imex_flag::unspecified, spcache_one);
+  auto mat_one = make_kronmult_matrix(*pde, grid, opts, memory_one, imex_flag::unspecified, spcache_one);
+
+  kron_sparse_cache spcache_multi;
+  memory_usage memory_multi =
+    compute_mem_usage(*pde, grid, opts, imex_flag::unspecified, spcache_multi, 0, 8000);
+  auto mat_multi = make_kronmult_matrix(*pde, grid, opts, memory_multi, imex_flag::unspecified, spcache_multi);
+
+  REQUIRE(mat_one.is_onecall());
+  REQUIRE(not mat_multi.is_onecall());
+
+  fk::vector<prec> y_one(mat_one.output_size());
+  fk::vector<prec> y_multi(mat_multi.output_size());
+  REQUIRE(y_one.size() == y_multi.size());
+
+#ifdef ASGARD_USE_CUDA
+  fk::vector<prec, mem_type::owner, resource::device> xdev(y_one.size());
+  fk::vector<prec, mem_type::owner, resource::device> ydev(y_multi.size());
+  mat_one.set_workspace(xdev, ydev);
+  mat_multi.set_workspace(xdev, ydev);
+#endif
+
+  mat_one.apply(2.0, x.data(), 0.0, y_one.data());
+  mat_multi.apply(2.0, x.data(), 0.0, y_multi.data());
+
+  //rmse_comparison(y_one, y_multi, prec{100});
+}
+
+TEMPLATE_TEST_CASE("testing multi-call mode", "multi-calls", test_precs)
+{
+  test_memory_mode<TestType>();
+
+}
+

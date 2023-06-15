@@ -324,7 +324,7 @@ public:
       }
       else
       {
-        std::cout << " multi-kron dense" << list_iA.size() << "\n";
+        std::cout << " multi-kron dense " << list_iA.size() << "\n";
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
         // multiple calls, need to move data, call kronmult, then move next data
         // data loading is done asynchronously using the load_stream
@@ -359,6 +359,7 @@ public:
 #else
         for(size_t i = 0; i < list_iA.size(); i++)
         {
+          std::cerr << " multi-gpu " << i << "\n";
           kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
                               num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
         }
@@ -516,6 +517,12 @@ public:
     expect(num_dimensions_ > 0);
     expect(values_A.size() == vA.size());
     vA = std::move(values_A);
+  }
+
+  //! \brief Returns the mode of the matrix, one call or multiple calls
+  bool is_onecall()
+  {
+    return (iA.size() > 0);
   }
 
 private:

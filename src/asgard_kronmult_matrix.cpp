@@ -870,13 +870,9 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
 
-    std::cout << "stats.baseline_memory = " << stats.baseline_memory << "  available_MB = " << available_MB << "\n";
-
-    // 2147483646 = 2^31 - 2, which prevents overflow in the 32-bit signed int
     int64_t available_entries = (int64_t{available_MB} * 1024 * 1024)
                                  / static_cast<int64_t>(sizeof(int));
 #else
-    // CPU mode is limited only by the 32-bit indexing
     int64_t available_entries = index_limit;
 #endif
 
@@ -961,8 +957,6 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
-
-    std::cout << "sparse stats.baseline_memory = " << stats.baseline_memory << "  available_MB = " << available_MB << "\n";
 
     int64_t available_entries = (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int));
 #else
