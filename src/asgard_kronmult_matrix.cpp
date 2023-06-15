@@ -233,6 +233,7 @@ make_kronmult_dense(PDE<precision> const &pde,
   }
   else
   {
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
     std::cout << "  kronmult dense matrix coefficient allocation (MB): "
               << get_MB<precision>(vA.size()) << "\n";
     std::cout << "  kronmult dense matrix common workspace allocation (MB): "
@@ -242,6 +243,22 @@ make_kronmult_dense(PDE<precision> const &pde,
                                       num_cols, num_terms, list_row_stride,
                                       std::move(list_iA),
                                       vA.clone_onto_device());
+#else
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(list_iA.size());
+    int64_t num_ints = 0;
+    for(size_t i=0; i<gpu_iA.size(); i++)
+    {
+      gpu_iA[i] = list_iA[i].clone_onto_device();
+      num_ints += gpu_iA[i].size() + gpu_col[i].size() + gpu_row[i].size();
+    }
+    std::cout << "        memory usage (MB): "
+              << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
+
+    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
+                                      num_cols, num_terms, list_row_stride,
+                                      std::move(gpu_iA),
+                                      vA.clone_onto_device());
+#endif
   }
 
 #else
@@ -663,6 +680,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   }
   else
   {
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
     std::cout << "        memory usage (unique): "
               << get_MB<precision>(vA.size()) << "\n";
     std::cout << "        memory usage (shared): "
@@ -672,6 +690,25 @@ make_kronmult_sparse(PDE<precision> const &pde,
             num_dimensions, kron_size, num_rows, num_cols, num_terms,
             std::move(list_row_indx), std::move(list_col_indx),
             std::move(list_iA), vA.clone_onto_device());
+#else
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(list_iA.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_col(list_col_indx.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_row(list_row_indx.size());
+    int64_t num_ints = 0;
+    for(size_t i=0; i<gpu_iA.size(); i++)
+    {
+      gpu_iA[i] = list_iA[i].clone_onto_device();
+      gpu_col[i] = list_col_indx[i].clone_onto_device();
+      gpu_row[i] = list_row_indx[i].clone_onto_device();
+      num_ints += gpu_iA[i].size() + gpu_col[i].size() + gpu_row[i].size();
+    }
+    std::cout << "        memory usage (MB): "
+              << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
+    return kronmult_matrix<precision>(
+            num_dimensions, kron_size, num_rows, num_cols, num_terms,
+            std::move(gpu_row), std::move(gpu_col),
+            std::move(gpu_iA), vA.clone_onto_device());
+#endif
   }
 #else
 
@@ -804,9 +841,11 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
   memory_usage stats;
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
   if (memory_limit_MB == 0)
     memory_limit_MB = program_options.memory_limit;
+#else
+  ignore(memory_limit_MB);
 #endif
 
   // parameters common to the dense and sparse cases
@@ -829,7 +868,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
     stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
     int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
 
@@ -866,7 +905,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
         stats.work_size = available_entries / 2;
       }
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
       if (2 * stats.work_size > available_entries)
         stats.work_size = available_entries / 2;
 #endif
@@ -921,7 +960,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
 
     stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
     int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
 
@@ -967,7 +1006,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
         stats.row_work_size = work_products / 2;
       }
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
       if (2 * stats.work_size + 2 * stats.row_work_size > available_entries)
       {
         int64_t work_products =

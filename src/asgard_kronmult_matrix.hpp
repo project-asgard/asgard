@@ -156,6 +156,10 @@ public:
    *   }
    * \endcode
    *
+   * This constructor will create a matrix in single call mode, if row_indx
+   * and col_indx are empty vectors, the matrix will be dense. Otherwise,
+   * it will be sparse.
+   *
    * \par Sparse matrix format
    * There are two formats that allow for better utilization of parallelism
    * when running on the CPU and GPU respectively. The CPU format uses standard
@@ -176,8 +180,8 @@ public:
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
-        col_indx_(std::move(col_indx)), list_row_stride_(0),
-        iA(std::move(index_A)), vA(std::move(values_A))
+        col_indx_(std::move(col_indx)), iA(std::move(index_A)),
+        list_row_stride_(0), vA(std::move(values_A))
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -211,43 +215,33 @@ public:
 #endif
   }
 
-  //! \brief Split computing mode, e.g., out-of-core mode
-  template<resource input_mode>
+  /*!
+   * \brief Constructs a sparse matrix that will be processed in multiple calls.
+   *
+   * \tparam multi_mode must be set to the host if using only the CPU or if CUDA
+   *         has out-of-core mode enabled, i.e., with ASGARD_USE_GPU_MEM_LIMIT
+   *         set at compile time. Otherwise, the data for all calls will be
+   *         loaded on the GPU and multi_mode must be set to device
+   * \tparam input_mode the mode of the coefficient matrices is always host
+   *         for the CPU and device when CUDA is enabled
+   */
+  template<resource multi_mode, resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
                   int num_terms,
-                  std::vector<fk::vector<int>> const &&row_indx,
-                  std::vector<fk::vector<int>> const &&col_indx,
-                  std::vector<fk::vector<int>> &&list_index_A,
+                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&row_indx,
+                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&col_indx,
+                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : num_dimensions_(num_dimensions), kron_size_(kron_size),
-        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-        tensor_size_(1), list_row_stride_(0), list_iA(std::move(list_index_A)),
-        list_row_indx_(std::move(row_indx)), list_col_indx_(std::move(col_indx)),
-        vA(std::move(values_A))
+      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
+                        num_terms, 0,
+                        std::move(row_indx), std::move(col_indx),
+                        std::move(list_index_A), std::move(values_A))
   {
-#ifdef ASGARD_USE_CUDA
-    static_assert(
-        input_mode == resource::device,
-        "the GPU is enabled, so input vectors must have resource::device");
-#else
-    static_assert(
-        input_mode == resource::host,
-        "the GPU is disabled, so input vectors must have resource::host");
-#endif
-
-    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
-           (row_indx_.size() > 0 and col_indx_.size() > 0));
-
-    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
-
-    flops_ = 0;
-    for(auto const &a : list_iA)
-      flops_ += static_cast<int64_t>(a.size());
-    flops_ *= int64_t(tensor_size_) * kron_size_;
+    expect(list_row_indx_.size() > 0 and list_col_indx_.size() > 0);
   }
 
   /*!
-   * \brief Creates a new dense matrix by skipping row_indx and col_indx.
+   * \brief Creates a dense matrix in single call mode, skips row/col indexes.
    */
   template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
@@ -261,20 +255,18 @@ public:
                         std::move(index_A), std::move(values_A))
   {}
 
-  //! \brief Split computing (e.g., out-of-core) dense case.
-  template<resource input_mode>
+  //! \brief Dense matrix in multi-call mode
+  template<resource multi_mode, resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
                   int num_terms, int list_row_stride,
-                  std::vector<fk::vector<int>> &&list_index_A,
+                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
-                        num_terms,
-                        std::vector<fk::vector<int>>(),
-                        std::vector<fk::vector<int>>(),
+                        num_terms, list_row_stride,
+                        std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
+                        std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
                         std::move(list_index_A), std::move(values_A))
-  {
-    list_row_stride_ = list_row_stride;
-  }
+  {}
 
 #ifdef ASGARD_USE_CUDA
   //! \brief Set the workspace memory for x and y
@@ -284,6 +276,8 @@ public:
     xdev = fk::vector<precision, mem_type::view, resource::device>(x);
     ydev = fk::vector<precision, mem_type::view, resource::device>(y);
   }
+#endif
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
   //! \brief Set the workspace memory for loading the index list
   void set_workspace_ooc(
             fk::vector<int, mem_type::owner, resource::device> &a,
@@ -305,7 +299,6 @@ public:
     icola = fk::vector<int, mem_type::view, resource::device>(ixa);
     icolb = fk::vector<int, mem_type::view, resource::device>(ixb);
   }
-
 #endif
 
   /*!
@@ -331,7 +324,8 @@ public:
       }
       else
       {
-          std::cout << " multi-kron " << list_iA.size() << "\n";
+        std::cout << " multi-kron dense" << list_iA.size() << "\n";
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
         // multiple calls, need to move data, call kronmult, then move next data
         // data loading is done asynchronously using the load_stream
         int *load_buffer    = worka.data();
@@ -362,6 +356,13 @@ public:
                               list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_, num_terms_, compute_buffer,
                               vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
         }
+#else
+        for(size_t i = 0; i < list_iA.size(); i++)
+        {
+          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
+                              num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
+        }
+#endif
       }
     }
     else
@@ -375,6 +376,8 @@ public:
       }
       else
       {
+        std::cout << " multi-kron sparse" << list_iA.size() << "\n";
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
         int *load_buffer_rows    = irowa.data();
@@ -417,6 +420,13 @@ public:
                                list_row_indx_[i].size(), compute_buffer_cols, compute_buffer_rows, num_terms_, compute_buffer,
                                vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data());
         }
+#else
+        for(size_t i = 0; i < list_iA.size(); i++)
+        {
+          kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(), list_row_indx_[i].size(), list_col_indx_[i].data(), list_row_indx_[i].data(),
+                              num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data());
+        }
+#endif
       }
     }
     fk::copy_to_host(y, ydev.data(), ydev.size());
@@ -509,6 +519,53 @@ public:
   }
 
 private:
+  //! \brief Multi-call constructors delegate to this one, handles list_row_stride_
+  template<resource multi_mode, resource input_mode>
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
+                  int num_terms, int list_row_stride,
+                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&row_indx,
+                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&col_indx,
+                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
+                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      : num_dimensions_(num_dimensions), kron_size_(kron_size),
+        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
+        tensor_size_(1), list_row_stride_(list_row_stride),
+        list_row_indx_(std::move(row_indx)),
+        list_col_indx_(std::move(col_indx)), list_iA(std::move(list_index_A)),
+        vA(std::move(values_A))
+  {
+#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, the coefficient vectors have resource::device");
+    static_assert(
+        multi_mode == resource::host,
+        "the GPU memory usage has been limited, thus we are assuming that the "
+        "problem data will not fit in GPU memory and the index vectors must "
+        "have resource::host");
+#else
+    static_assert(
+        input_mode == resource::device and multi_mode == resource::device,
+        "the GPU is enabled, the vectors have resource::device");
+#endif
+#else
+    static_assert(
+        input_mode == resource::host and multi_mode == resource::host,
+        "the GPU is enabled, the coefficient vectors have resource::host");
+#endif
+
+    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
+           (row_indx_.size() > 0 and col_indx_.size() > 0));
+
+    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+
+    flops_ = 0;
+    for(auto const &a : list_iA)
+      flops_ += static_cast<int64_t>(a.size());
+    flops_ *= int64_t(tensor_size_) * kron_size_;
+  }
+
   int num_dimensions_;
   int kron_size_; // i.e., n - size of the matrices
   int num_rows_;
@@ -518,35 +575,44 @@ private:
   int64_t flops_;
 
 #ifdef ASGARD_USE_CUDA
-  // load_stream is the stream to load data
-  // compute is done on the default stream
+  // indicates that the input vectors for single-call-mode will be on the GPU
   static constexpr resource data_mode = resource::device;
+  // cache vectors for the input and output
   mutable fk::vector<precision, mem_type::view, data_mode> xdev, ydev;
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+  // if working out-of-code, multiple vectors will be handled from the host
+  static constexpr resource multi_data_mode = resource::host;
+  // worka, workb hold the iA indexes
   mutable fk::vector<int, mem_type::view, data_mode> worka, workb;
+  // in sparse mode, irow/col contains the ix, iy indexes
   mutable fk::vector<int, mem_type::view, data_mode> irowa, irowb;
   mutable fk::vector<int, mem_type::view, data_mode> icola, icolb;
+  // stream to load data while computing kronmult
   cudaStream_t load_stream;
 #else
-  static constexpr resource data_mode = resource::host;
+  // if memory is not limited, multiple vectors are all loaded on the GPU
+  static constexpr resource multi_data_mode = resource::device;
+#endif
+#else
+  static constexpr resource data_mode       = resource::host;
+  static constexpr resource multi_data_mode = resource::host;
 #endif
 
+  // sparse mode (single call), indexes for the rows and columns
   fk::vector<int, mem_type::owner, data_mode> row_indx_;
   fk::vector<int, mem_type::owner, data_mode> col_indx_;
 
-  // break iA into a list, as well as indexing
-  // used for out-of-core work and splitting work to prevent overflow
-  // only one of iA or list_iA is used in an instance of the matrix
-  int list_row_stride_; // for CPU dense case, how many rows fall in one list
-  std::vector<fk::vector<int>> list_iA;
-  std::vector<fk::vector<int>> list_row_indx_;
-  std::vector<fk::vector<int>> list_col_indx_;
-
-  // index of the matrices for each kronmult product
+  // single call, indexes of the kron matrices
   fk::vector<int, mem_type::owner, data_mode> iA;
 
-  // list of the operators
+  // multi call mode, multiple row/col and iA indexes
+  int list_row_stride_; // for the dense case, how many rows fall in one list
+  std::vector<fk::vector<int, mem_type::owner, multi_data_mode>> list_row_indx_;
+  std::vector<fk::vector<int, mem_type::owner, multi_data_mode>> list_col_indx_;
+  std::vector<fk::vector<int, mem_type::owner, multi_data_mode>> list_iA;
+
+  // values of the kron matrices (loaded form the coefficients)
   fk::vector<precision, mem_type::owner, data_mode> vA;
-  // pointer and indexes for the sparsity
 };
 
 /*!
@@ -689,6 +755,8 @@ struct matrix_list
         ydev = fk::vector<precision, mem_type::owner, resource::device>();
         ydev = fk::vector<precision, mem_type::owner, resource::device>((*this)[entry].output_size());
     }
+#endif
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
     if (mem_stats.kron_call == memory_usage::multi_calls)
     {
       // doing multiple calls, prepare streams and workspaces
@@ -766,6 +834,8 @@ private:
 
 #ifdef ASGARD_USE_CUDA
   mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
+#endif
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
   mutable fk::vector<int, mem_type::owner, resource::device> worka;
   mutable fk::vector<int, mem_type::owner, resource::device> workb;
   mutable fk::vector<int, mem_type::owner, resource::device> irowa;
