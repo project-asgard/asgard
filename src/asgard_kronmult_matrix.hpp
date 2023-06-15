@@ -715,14 +715,14 @@ struct matrix_list
   {
     // make sure we have defined flags for all matrices
     expect(matrices.size() == flag_map.size());
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
     load_stream = nullptr;
 #endif
   }
 
   ~matrix_list()
   {
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
     if (load_stream != nullptr)
     {
       auto status = cudaStreamDestroy(load_stream);
@@ -755,6 +755,7 @@ struct matrix_list
         ydev = fk::vector<precision, mem_type::owner, resource::device>();
         ydev = fk::vector<precision, mem_type::owner, resource::device>((*this)[entry].output_size());
     }
+    (*this)[entry].set_workspace(xdev, ydev);
 #endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     if (mem_stats.kron_call == memory_usage::multi_calls)
@@ -781,7 +782,6 @@ struct matrix_list
         }
       }
     }
-    (*this)[entry].set_workspace(xdev, ydev);
     (*this)[entry].set_workspace_ooc(worka, workb, load_stream);
     (*this)[entry].set_workspace_ooc_sparse(irowa, irowb, icola, icolb);
 #endif

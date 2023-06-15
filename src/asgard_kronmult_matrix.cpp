@@ -79,7 +79,7 @@ make_kronmult_dense(PDE<precision> const &pde,
 
   if (used_terms.size() == 0)
     throw std::runtime_error("no terms selected in the current combination of "
-                             "imex flags and options, thus must be wrong");
+                             "imex flags and options, this must be wrong");
 
   int64_t osize = 0;
   std::vector<int64_t> dim_term_offset(num_terms * pde.num_dims + 1);
@@ -140,8 +140,6 @@ make_kronmult_dense(PDE<precision> const &pde,
     int64_t kron_unit_size = num_terms * num_dimensions * num_cols;
     // work_size fits in 32-bit int so there is no overflow here
     list_row_stride = static_cast<int>(mem_stats.work_size / kron_unit_size);
-
-    std::cout << mem_stats.work_size << "   " << kron_unit_size << "\n";
 
     if (list_row_stride < 1) // many billions of dof
     {
@@ -249,7 +247,7 @@ make_kronmult_dense(PDE<precision> const &pde,
     for(size_t i=0; i<gpu_iA.size(); i++)
     {
       gpu_iA[i] = list_iA[i].clone_onto_device();
-      num_ints += gpu_iA[i].size() + gpu_col[i].size() + gpu_row[i].size();
+      num_ints += gpu_iA[i].size();
     }
     std::cout << "        memory usage (MB): "
               << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
