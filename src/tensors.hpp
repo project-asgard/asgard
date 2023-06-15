@@ -1009,12 +1009,12 @@ fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
 {
   if constexpr (resrc == resource::host)
   {
-    data_ = new P[size_]();
+    data_ = new P[size_];
     std::copy(list.begin(), list.end(), data_);
   }
   else
   {
-    allocate_device(data_, size_);
+    allocate_device(data_, size_, false);
     copy_to_device(data_, list.begin(), size_);
   }
 }
@@ -1046,7 +1046,7 @@ fk::vector<P, mem, resrc>::vector(
     }
     else
     {
-      allocate_device(data_, size_);
+      allocate_device(data_, size_, false);
       copy_on_device(data_, mat.data(), mat.size());
     }
   }
@@ -1140,7 +1140,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
     }
     else
     {
-      allocate_device(data_, a.size());
+      allocate_device(data_, a.size(), false);
       copy_on_device(data_, a.data(), a.size());
     }
   }
@@ -1226,7 +1226,7 @@ fk::vector<P, mem, resrc>::vector(vector<P, omem, resrc> const &a)
   }
   else
   {
-    allocate_device(data_, a.size());
+    allocate_device(data_, a.size(), false);
     copy_on_device(data_, a.data(), a.size());
   }
 }
@@ -1596,11 +1596,14 @@ fk::vector<P, mem, resrc>::resize(int const new_size)
 
   if constexpr (resrc == resource::host)
   {
-    data_ = new P[new_size]();
+    data_ = new P[new_size];
     if (size() > 0 && new_size > 0)
     {
       if (size() < new_size)
+      {
         std::memcpy(data_, old_data, size() * sizeof(P));
+        std::fill(data_ + size(), data_ + new_size, P{0});
+      }
       else
         std::memcpy(data_, old_data, new_size * sizeof(P));
     }
@@ -1631,7 +1634,7 @@ fk::vector<P, mem, resrc>::concat(vector<P, omem> const &right)
   int const old_size = this->size();
   int const new_size = this->size() + right.size();
   P *old_data{data_};
-  data_ = new P[new_size]();
+  data_ = new P[new_size];
   std::memcpy(data_, old_data, old_size * sizeof(P));
   std::memcpy(data(old_size), right.data(), right.size() * sizeof(P));
   size_ = new_size;
