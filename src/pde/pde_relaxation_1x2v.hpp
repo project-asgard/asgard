@@ -142,7 +142,7 @@ private:
   initial_condition_dim_v_0_0(fk::vector<P> const &x, P const t = 0)
   {
     ignore(t);
-    const P theta       = 1.0;
+    const P theta       = 0.5;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
@@ -159,7 +159,7 @@ private:
   {
     ignore(t);
 
-    P const theta       = 1.0;
+    P const theta       = 0.5;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
@@ -175,7 +175,7 @@ private:
   initial_condition_dim_v_0_1(fk::vector<P> const &x, P const t = 0)
   {
     ignore(t);
-    const P theta       = 1.0;
+    const P theta       = 0.5;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
@@ -192,7 +192,7 @@ private:
   {
     ignore(t);
 
-    P const theta       = 1.0;
+    P const theta       = 0.5;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
