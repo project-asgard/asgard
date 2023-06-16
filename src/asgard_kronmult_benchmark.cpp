@@ -89,8 +89,12 @@ int main(int argc, char **argv)
                                            num_terms, iA.clone_onto_device(),
                                            vA.clone_onto_device());
 
-  asgard::fk::vector<precision, asgard::mem_type::owner, asgard::resource::device> xdev(mat.input_size());
-  asgard::fk::vector<precision, asgard::mem_type::owner, asgard::resource::device> ydev(mat.output_size());
+  asgard::fk::vector<precision, asgard::mem_type::owner,
+                     asgard::resource::device>
+      xdev(mat.input_size());
+  asgard::fk::vector<precision, asgard::mem_type::owner,
+                     asgard::resource::device>
+      ydev(mat.output_size());
   mat.set_workspace(xdev, ydev);
 #else
   mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,

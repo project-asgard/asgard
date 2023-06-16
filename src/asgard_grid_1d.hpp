@@ -4,7 +4,6 @@
 
 namespace asgard
 {
-
 /*!
  * \brief Keeps track of the connectivity of the elements in the 1d hierarchy.
  *
@@ -196,4 +195,4 @@ private:
   std::vector<int> indx;
 };
 
-}
+} // namespace asgard

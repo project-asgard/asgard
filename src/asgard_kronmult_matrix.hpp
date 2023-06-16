@@ -2,11 +2,11 @@
 #pragma once
 
 #include "adapt.hpp"
+#include "asgard_grid_1d.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
 #include "tensors.hpp"
-#include "asgard_grid_1d.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 
@@ -57,15 +57,9 @@ struct memory_usage
   //! \brief Index workspace size for the row/col indexes
   int64_t row_work_size;
   //! \brief Indicate whether it has been initialized
-  operator bool() const
-  {
-    return initialized;
-  }
+  operator bool() const { return initialized; }
   //! \brief Resets the memory parameters due to adapting the grid
-  void reset()
-  {
-    initialized = false;
-  }
+  void reset() { initialized = false; }
 };
 
 /*!
@@ -226,15 +220,17 @@ public:
    *         for the CPU and device when CUDA is enabled
    */
   template<resource multi_mode, resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms,
-                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&row_indx,
-                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&col_indx,
-                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+  kronmult_matrix(
+      int num_dimensions, int kron_size, int num_rows, int num_cols,
+      int num_terms,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
+          &&row_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
+          &&col_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
-                        num_terms, 0,
-                        std::move(row_indx), std::move(col_indx),
+                        num_terms, 0, std::move(row_indx), std::move(col_indx),
                         std::move(list_index_A), std::move(values_A))
   {
     expect(list_row_indx_.size() > 0 and list_col_indx_.size() > 0);
@@ -257,43 +253,46 @@ public:
 
   //! \brief Dense matrix in multi-call mode
   template<resource multi_mode, resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms, int list_row_stride,
-                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
-                        num_terms, list_row_stride,
-                        std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
-                        std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
-                        std::move(list_index_A), std::move(values_A))
+  kronmult_matrix(
+      int num_dimensions, int kron_size, int num_rows, int num_cols,
+      int num_terms, int list_row_stride,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      : kronmult_matrix(
+            num_dimensions, kron_size, num_rows, num_cols, num_terms,
+            list_row_stride,
+            std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
+            std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
+            std::move(list_index_A), std::move(values_A))
   {}
 
 #ifdef ASGARD_USE_CUDA
   //! \brief Set the workspace memory for x and y
-  void set_workspace(
-            fk::vector<precision, mem_type::owner, resource::device> &x,
-            fk::vector<precision, mem_type::owner, resource::device> &y) {
+  void
+  set_workspace(fk::vector<precision, mem_type::owner, resource::device> &x,
+                fk::vector<precision, mem_type::owner, resource::device> &y)
+  {
     xdev = fk::vector<precision, mem_type::view, resource::device>(x);
     ydev = fk::vector<precision, mem_type::view, resource::device>(y);
   }
 #endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
   //! \brief Set the workspace memory for loading the index list
-  void set_workspace_ooc(
-            fk::vector<int, mem_type::owner, resource::device> &a,
-            fk::vector<int, mem_type::owner, resource::device> &b,
-            cudaStream_t stream) {
-    worka = fk::vector<int, mem_type::view, resource::device>(a);
-    workb = fk::vector<int, mem_type::view, resource::device>(b);
+  void set_workspace_ooc(fk::vector<int, mem_type::owner, resource::device> &a,
+                         fk::vector<int, mem_type::owner, resource::device> &b,
+                         cudaStream_t stream)
+  {
+    worka       = fk::vector<int, mem_type::view, resource::device>(a);
+    workb       = fk::vector<int, mem_type::view, resource::device>(b);
     load_stream = stream;
   }
   //! \brief Set the workspace memory for loading the sparse row/col indexes
   void set_workspace_ooc_sparse(
-            fk::vector<int, mem_type::owner, resource::device> &iya,
-            fk::vector<int, mem_type::owner, resource::device> &iyb,
-            fk::vector<int, mem_type::owner, resource::device> &ixa,
-            fk::vector<int, mem_type::owner, resource::device> &ixb
-            ) {
+      fk::vector<int, mem_type::owner, resource::device> &iya,
+      fk::vector<int, mem_type::owner, resource::device> &iyb,
+      fk::vector<int, mem_type::owner, resource::device> &ixa,
+      fk::vector<int, mem_type::owner, resource::device> &ixb)
+  {
     irowa = fk::vector<int, mem_type::view, resource::device>(iya);
     irowb = fk::vector<int, mem_type::view, resource::device>(iyb);
     icola = fk::vector<int, mem_type::view, resource::device>(ixa);
@@ -329,9 +328,11 @@ public:
         // data loading is done asynchronously using the load_stream
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
-        auto stats = cudaMemcpyAsync(load_buffer, list_iA[0].data(), sizeof(int) * list_iA[0].size(), cudaMemcpyHostToDevice, load_stream);
+        auto stats          = cudaMemcpyAsync(load_buffer, list_iA[0].data(),
+                                     sizeof(int) * list_iA[0].size(),
+                                     cudaMemcpyHostToDevice, load_stream);
         assert(stats == cudaSuccess);
-        for(size_t i = 0; i < list_iA.size(); i++)
+        for (size_t i = 0; i < list_iA.size(); i++)
         {
           // sync load_stream to ensure that data has already been loaded
           cudaStreamSynchronize(load_stream);
@@ -340,10 +341,12 @@ public:
             cudaStreamSynchronize(nullptr);
           std::swap(load_buffer, compute_buffer);
 
-          if (i+1 < list_iA.size())
+          if (i + 1 < list_iA.size())
           {
             // begin loading the next chunk of data
-            stats = cudaMemcpyAsync(load_buffer, list_iA[i+1].data(), sizeof(int) * list_iA[i+1].size(), cudaMemcpyHostToDevice, load_stream);
+            stats = cudaMemcpyAsync(load_buffer, list_iA[i + 1].data(),
+                                    sizeof(int) * list_iA[i + 1].size(),
+                                    cudaMemcpyHostToDevice, load_stream);
             assert(stats == cudaSuccess);
           }
 
@@ -351,15 +354,22 @@ public:
           // note that the first call to gpu_dense with the given output_size()
           // will apply beta to the output y, thus follow on calls have to only
           // accumulate and beta should be set to 1
-          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                              list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_, num_terms_, compute_buffer,
-                              vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
+          kronmult::gpu_dense(
+              num_dimensions_, kron_size_, output_size(),
+              list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
+              num_terms_, compute_buffer, vA.data(), alpha, xdev.data(),
+              (i == 0) ? beta : 1,
+              ydev.data() + i * list_row_stride_ * tensor_size_);
         }
 #else
-        for(size_t i = 0; i < list_iA.size(); i++)
+        for (size_t i = 0; i < list_iA.size(); i++)
         {
-          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
-                              num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
+          kronmult::gpu_dense(
+              num_dimensions_, kron_size_, output_size(),
+              list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
+              num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(),
+              (i == 0) ? beta : 1,
+              ydev.data() + i * list_row_stride_ * tensor_size_);
         }
 #endif
       }
@@ -369,26 +379,34 @@ public:
       if (iA.size() > 0)
       {
         kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
-                             col_indx_.size(), col_indx_.data(), row_indx_.data(),
-                             num_terms_, iA.data(), vA.data(), alpha, xdev.data(),
-                             beta, ydev.data());
+                             col_indx_.size(), col_indx_.data(),
+                             row_indx_.data(), num_terms_, iA.data(), vA.data(),
+                             alpha, xdev.data(), beta, ydev.data());
       }
       else
       {
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
-        int *load_buffer    = worka.data();
-        int *compute_buffer = workb.data();
+        int *load_buffer         = worka.data();
+        int *compute_buffer      = workb.data();
         int *load_buffer_rows    = irowa.data();
         int *compute_buffer_rows = irowb.data();
         int *load_buffer_cols    = icola.data();
         int *compute_buffer_cols = icolb.data();
-        auto stats1 = cudaMemcpyAsync(load_buffer, list_iA[0].data(), sizeof(int) * list_iA[0].size(), cudaMemcpyHostToDevice, load_stream);
-        auto stats2 = cudaMemcpyAsync(load_buffer_rows, list_row_indx_[0].data(), sizeof(int) * list_row_indx_[0].size(), cudaMemcpyHostToDevice, load_stream);
-        auto stats3 = cudaMemcpyAsync(load_buffer_cols, list_col_indx_[0].data(), sizeof(int) * list_col_indx_[0].size(), cudaMemcpyHostToDevice, load_stream);
+        auto stats1 = cudaMemcpyAsync(load_buffer, list_iA[0].data(),
+                                      sizeof(int) * list_iA[0].size(),
+                                      cudaMemcpyHostToDevice, load_stream);
+        auto stats2 =
+            cudaMemcpyAsync(load_buffer_rows, list_row_indx_[0].data(),
+                            sizeof(int) * list_row_indx_[0].size(),
+                            cudaMemcpyHostToDevice, load_stream);
+        auto stats3 =
+            cudaMemcpyAsync(load_buffer_cols, list_col_indx_[0].data(),
+                            sizeof(int) * list_col_indx_[0].size(),
+                            cudaMemcpyHostToDevice, load_stream);
         assert(stats1 == cudaSuccess);
         assert(stats2 == cudaSuccess);
         assert(stats3 == cudaSuccess);
-        for(size_t i = 0; i < list_iA.size(); i++)
+        for (size_t i = 0; i < list_iA.size(); i++)
         {
           // sync load_stream to ensure that data has already been loaded
           cudaStreamSynchronize(load_stream);
@@ -399,12 +417,20 @@ public:
           std::swap(load_buffer_rows, compute_buffer_rows);
           std::swap(load_buffer_cols, compute_buffer_cols);
 
-          if (i+1 < list_iA.size())
+          if (i + 1 < list_iA.size())
           {
             // begin loading the next chunk of data
-            stats1 = cudaMemcpyAsync(load_buffer, list_iA[i+1].data(), sizeof(int) * list_iA[i+1].size(), cudaMemcpyHostToDevice, load_stream);
-            stats2 = cudaMemcpyAsync(load_buffer_rows, list_row_indx_[i+1].data(), sizeof(int) * list_row_indx_[i+1].size(), cudaMemcpyHostToDevice, load_stream);
-            stats3 = cudaMemcpyAsync(load_buffer_cols, list_col_indx_[i+1].data(), sizeof(int) * list_col_indx_[i+1].size(), cudaMemcpyHostToDevice, load_stream);
+            stats1 = cudaMemcpyAsync(load_buffer, list_iA[i + 1].data(),
+                                     sizeof(int) * list_iA[i + 1].size(),
+                                     cudaMemcpyHostToDevice, load_stream);
+            stats2 =
+                cudaMemcpyAsync(load_buffer_rows, list_row_indx_[i + 1].data(),
+                                sizeof(int) * list_row_indx_[i + 1].size(),
+                                cudaMemcpyHostToDevice, load_stream);
+            stats3 =
+                cudaMemcpyAsync(load_buffer_cols, list_col_indx_[i + 1].data(),
+                                sizeof(int) * list_col_indx_[i + 1].size(),
+                                cudaMemcpyHostToDevice, load_stream);
             assert(stats1 == cudaSuccess);
             assert(stats2 == cudaSuccess);
             assert(stats3 == cudaSuccess);
@@ -415,14 +441,19 @@ public:
           // will apply beta to the output y, thus follow on calls have to only
           // accumulate and beta should be set to 1
           kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
-                               list_row_indx_[i].size(), compute_buffer_cols, compute_buffer_rows, num_terms_, compute_buffer,
-                               vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data());
+                               list_row_indx_[i].size(), compute_buffer_cols,
+                               compute_buffer_rows, num_terms_, compute_buffer,
+                               vA.data(), alpha, xdev.data(),
+                               (i == 0) ? beta : 1, ydev.data());
         }
 #else
-        for(size_t i = 0; i < list_iA.size(); i++)
+        for (size_t i = 0; i < list_iA.size(); i++)
         {
-          kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(), list_row_indx_[i].size(), list_col_indx_[i].data(), list_row_indx_[i].data(),
-                              num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data());
+          kronmult::gpu_sparse(
+              num_dimensions_, kron_size_, output_size(),
+              list_row_indx_[i].size(), list_col_indx_[i].data(),
+              list_row_indx_[i].data(), num_terms_, list_iA[i].data(),
+              vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data());
         }
 #endif
       }
@@ -434,23 +465,28 @@ public:
       if (iA.size() > 0)
       {
         kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
-                            num_terms_, iA.data(), vA.data(), alpha, x, beta, y);
+                            num_terms_, iA.data(), vA.data(), alpha, x, beta,
+                            y);
       }
       else
       {
-        for(size_t i = 0; i < list_iA.size(); i++)
+        for (size_t i = 0; i < list_iA.size(); i++)
         {
-          kronmult::cpu_dense(num_dimensions_, kron_size_, list_iA[i].size() / (num_dimensions_ * num_terms_ * num_cols_), num_cols_,
-                              num_terms_, list_iA[i].data(), vA.data(), alpha, x, beta, y + i * list_row_stride_ * tensor_size_);
+          kronmult::cpu_dense(
+              num_dimensions_, kron_size_,
+              list_iA[i].size() / (num_dimensions_ * num_terms_ * num_cols_),
+              num_cols_, num_terms_, list_iA[i].data(), vA.data(), alpha, x,
+              beta, y + i * list_row_stride_ * tensor_size_);
         }
       }
     }
     else
     {
       int64_t row_offset = 0;
-      for(size_t i = 0; i < list_row_indx_.size(); i++)
+      for (size_t i = 0; i < list_row_indx_.size(); i++)
       {
-        kronmult::cpu_sparse(num_dimensions_, kron_size_, list_row_indx_[i].size() - 1,
+        kronmult::cpu_sparse(num_dimensions_, kron_size_,
+                             list_row_indx_[i].size() - 1,
                              list_row_indx_[i].data(), list_col_indx_[i].data(),
                              num_terms_, list_iA[i].data(), vA.data(), alpha, x,
                              beta, y + row_offset * tensor_size_);
@@ -494,8 +530,10 @@ public:
            num_dimensions * num_terms * num_batch;
   }
   //! \brief Defined if the matrix is dense or sparse
-  bool is_dense() const { return (row_indx_.size() == 0 and
-                                  list_row_indx_.size() == 0); }
+  bool is_dense() const
+  {
+    return (row_indx_.size() == 0 and list_row_indx_.size() == 0);
+  }
 
   //! \brief Update coefficients
   template<resource input_mode>
@@ -529,12 +567,15 @@ public:
 private:
   //! \brief Multi-call constructors delegate to this one, handles list_row_stride_
   template<resource multi_mode, resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms, int list_row_stride,
-                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&row_indx,
-                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> const &&col_indx,
-                  std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+  kronmult_matrix(
+      int num_dimensions, int kron_size, int num_rows, int num_cols,
+      int num_terms, int list_row_stride,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
+          &&row_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
+          &&col_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), list_row_stride_(list_row_stride),
@@ -553,9 +594,9 @@ private:
         "problem data will not fit in GPU memory and the index vectors must "
         "have resource::host");
 #else
-    static_assert(
-        input_mode == resource::device and multi_mode == resource::device,
-        "the GPU is enabled, the vectors have resource::device");
+    static_assert(input_mode == resource::device and
+                      multi_mode == resource::device,
+                  "the GPU is enabled, the vectors have resource::device");
 #endif
 #else
     static_assert(
@@ -569,7 +610,7 @@ private:
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
     flops_ = 0;
-    for(auto const &a : list_iA)
+    for (auto const &a : list_iA)
       flops_ += static_cast<int64_t>(a.size());
     flops_ *= int64_t(tensor_size_) * kron_size_;
   }
@@ -602,7 +643,7 @@ private:
   static constexpr resource multi_data_mode = resource::device;
 #endif
 #else
-  static constexpr resource data_mode       = resource::host;
+  static constexpr resource data_mode = resource::host;
   static constexpr resource multi_data_mode = resource::host;
 #endif
 
@@ -652,9 +693,8 @@ template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &program_options,
-                     memory_usage const &mem_stats,
-                     imex_flag const imex, kron_sparse_cache &spcache,
-                     bool force_sparse = false);
+                     memory_usage const &mem_stats, imex_flag const imex,
+                     kron_sparse_cache &spcache, bool force_sparse = false);
 
 /*!
  * \brief Update the coefficients stored in the matrix without changing the rest
@@ -756,15 +796,20 @@ struct matrix_list
       mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), spcache);
 
     if (not(*this)[entry])
-      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats, imex(entry), spcache);
+      (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats,
+                                            imex(entry), spcache);
 #ifdef ASGARD_USE_CUDA
-    if ((*this)[entry].input_size() != xdev.size()) {
-        xdev = fk::vector<precision, mem_type::owner, resource::device>();
-        xdev = fk::vector<precision, mem_type::owner, resource::device>((*this)[entry].input_size());
+    if ((*this)[entry].input_size() != xdev.size())
+    {
+      xdev = fk::vector<precision, mem_type::owner, resource::device>();
+      xdev = fk::vector<precision, mem_type::owner, resource::device>(
+          (*this)[entry].input_size());
     }
-    if ((*this)[entry].output_size() != ydev.size()) {
-        ydev = fk::vector<precision, mem_type::owner, resource::device>();
-        ydev = fk::vector<precision, mem_type::owner, resource::device>((*this)[entry].output_size());
+    if ((*this)[entry].output_size() != ydev.size())
+    {
+      ydev = fk::vector<precision, mem_type::owner, resource::device>();
+      ydev = fk::vector<precision, mem_type::owner, resource::device>(
+          (*this)[entry].output_size());
     }
     (*this)[entry].set_workspace(xdev, ydev);
 #endif
@@ -778,18 +823,24 @@ struct matrix_list
       {
         worka = fk::vector<int, mem_type::owner, resource::device>();
         workb = fk::vector<int, mem_type::owner, resource::device>();
-        worka = fk::vector<int, mem_type::owner, resource::device>(mem_stats.work_size);
-        workb = fk::vector<int, mem_type::owner, resource::device>(mem_stats.work_size);
-        if (not (*this)[entry].is_dense())
+        worka = fk::vector<int, mem_type::owner, resource::device>(
+            mem_stats.work_size);
+        workb = fk::vector<int, mem_type::owner, resource::device>(
+            mem_stats.work_size);
+        if (not(*this)[entry].is_dense())
         {
           irowa = fk::vector<int, mem_type::owner, resource::device>();
           irowb = fk::vector<int, mem_type::owner, resource::device>();
           icola = fk::vector<int, mem_type::owner, resource::device>();
           icolb = fk::vector<int, mem_type::owner, resource::device>();
-          irowa = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
-          irowb = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
-          icola = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
-          icolb = fk::vector<int, mem_type::owner, resource::device>(mem_stats.row_work_size);
+          irowa = fk::vector<int, mem_type::owner, resource::device>(
+              mem_stats.row_work_size);
+          irowb = fk::vector<int, mem_type::owner, resource::device>(
+              mem_stats.row_work_size);
+          icola = fk::vector<int, mem_type::owner, resource::device>(
+              mem_stats.row_work_size);
+          icolb = fk::vector<int, mem_type::owner, resource::device>(
+              mem_stats.row_work_size);
         }
       }
     }
@@ -808,7 +859,8 @@ struct matrix_list
     if (not(*this)[entry])
       make(entry, pde, grid, opts);
     else
-      update_kronmult_coefficients(pde, opts, imex(entry), spcache, (*this)[entry]);
+      update_kronmult_coefficients(pde, opts, imex(entry), spcache,
+                                   (*this)[entry]);
   }
 
   //! \brief Clear the specified matrix
@@ -858,7 +910,6 @@ private:
   mutable fk::vector<int, mem_type::owner, resource::device> icolb;
   cudaStream_t load_stream;
 #endif
-
 };
 
 } // namespace asgard

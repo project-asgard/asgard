@@ -41,16 +41,21 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
   }
 }
 
-void check_available_memory(int64_t baseline_memory, int64_t available_MB) {
-  if (available_MB < 2) { // less then 2MB
+void check_available_memory(int64_t baseline_memory, int64_t available_MB)
+{
+  if (available_MB < 2)
+  { // less then 2MB
     throw std::runtime_error(
         "the problem is too large to fit in the specified memory limit, "
-        "this problem requires at least " + std::to_string(baseline_memory+2)
-        + "MB and minimum recommended is " + std::to_string(baseline_memory+512)
-        + "MB but the more the better");
-  } else if (available_MB < 512) { // less than 512MB
-    std::cerr << "  -- warning: low memory, recommended for this problem size is: "
-              << std::to_string(baseline_memory + 512) << "\n";
+        "this problem requires at least " +
+        std::to_string(baseline_memory + 2) + "MB and minimum recommended is " +
+        std::to_string(baseline_memory + 512) + "MB but the more the better");
+  }
+  else if (available_MB < 512)
+  { // less than 512MB
+    std::cerr
+        << "  -- warning: low memory, recommended for this problem size is: "
+        << std::to_string(baseline_memory + 512) << "\n";
   }
 }
 
@@ -58,8 +63,8 @@ template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
-                    options const &program_options, memory_usage const &mem_stats,
-                    imex_flag const imex)
+                    options const &program_options,
+                    memory_usage const &mem_stats, imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -152,16 +157,18 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
 
     list_iA.resize((num_rows + list_row_stride - 1) / list_row_stride);
-    for(size_t i=0; i<list_iA.size() - 1; i++)
+    for (size_t i = 0; i < list_iA.size() - 1; i++)
     {
       list_iA[i] = fk::vector<int>(kron_unit_size * list_row_stride);
     }
-    list_iA.back() = fk::vector<int>(size_of_indexes
-                                     - (list_iA.size() - 1) * list_row_stride * kron_unit_size);
+    list_iA.back() =
+        fk::vector<int>(size_of_indexes - (list_iA.size() - 1) *
+                                              list_row_stride * kron_unit_size);
   }
 
   int64_t used_entries = 0;
-  for(auto const &list : list_iA) used_entries += list.size();
+  for (auto const &list : list_iA)
+    used_entries += list.size();
 
   // compute the indexes for the matrices for the kron-products
   int const *const flattened_table =
@@ -169,7 +176,7 @@ make_kronmult_dense(PDE<precision> const &pde,
   std::vector<int> oprow(num_dimensions);
   std::vector<int> opcol(num_dimensions);
   auto ilist = list_iA.begin();
-  auto ia = ilist->begin();
+  auto ia    = ilist->begin();
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
@@ -224,10 +231,9 @@ make_kronmult_dense(PDE<precision> const &pde,
               << "\n";
 
     // if using CUDA, copy the matrices onto the GPU
-    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms,
-                                      list_iA[0].clone_onto_device(),
-                                      vA.clone_onto_device());
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_iA[0].clone_onto_device(), vA.clone_onto_device());
   }
   else
   {
@@ -237,14 +243,14 @@ make_kronmult_dense(PDE<precision> const &pde,
     std::cout << "  kronmult dense matrix common workspace allocation (MB): "
               << get_MB<int>(2 * mem_stats.work_size) << "\n";
 
-    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms, list_row_stride,
-                                      std::move(list_iA),
-                                      vA.clone_onto_device());
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_row_stride, std::move(list_iA), vA.clone_onto_device());
 #else
-    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(list_iA.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(
+        list_iA.size());
     int64_t num_ints = 0;
-    for(size_t i=0; i<gpu_iA.size(); i++)
+    for (size_t i = 0; i < gpu_iA.size(); i++)
     {
       gpu_iA[i] = list_iA[i].clone_onto_device();
       num_ints += gpu_iA[i].size();
@@ -252,10 +258,9 @@ make_kronmult_dense(PDE<precision> const &pde,
     std::cout << "        memory usage (MB): "
               << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
 
-    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms, list_row_stride,
-                                      std::move(gpu_iA),
-                                      vA.clone_onto_device());
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_row_stride, std::move(gpu_iA), vA.clone_onto_device());
 #endif
   }
 
@@ -358,14 +363,14 @@ void compute_coefficient_offsets(kron_sparse_cache const &spcache,
   size_t num_dimensions = offsets.size();
   for (size_t j = 0; j < num_dimensions; j++)
   {
-    int const oprow = (row_coords[j] == 0)
-                          ? 0
-                          : ((1 << (row_coords[j] - 1)) +
-                             row_coords[j + num_dimensions]);
-    int const opcol = (col_coords[j] == 0)
-                          ? 0
-                          : ((1 << (col_coords[j] - 1)) +
-                             col_coords[j + num_dimensions]);
+    int const oprow =
+        (row_coords[j] == 0)
+            ? 0
+            : ((1 << (row_coords[j] - 1)) + row_coords[j + num_dimensions]);
+    int const opcol =
+        (col_coords[j] == 0)
+            ? 0
+            : ((1 << (col_coords[j] - 1)) + col_coords[j + num_dimensions]);
 
     offsets[j] = spcache.cells1d.get_offset(oprow, opcol);
   }
@@ -375,8 +380,9 @@ template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
-                     options const &program_options, memory_usage const &mem_stats,
-                     imex_flag const imex, kron_sparse_cache &spcache)
+                     options const &program_options,
+                     memory_usage const &mem_stats, imex_flag const imex,
+                     kron_sparse_cache &spcache)
 {
   auto const form_id = tools::timer.start("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
@@ -413,7 +419,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
   auto pA = vA.begin();
   for (int row = 0; row < spcache.cells1d.num_cells(); row++)
   {
-    for (int j = spcache.cells1d.row_begin(row); j < spcache.cells1d.row_end(row); j++)
+    for (int j = spcache.cells1d.row_begin(row);
+         j < spcache.cells1d.row_end(row); j++)
     {
       int col = spcache.cells1d[j];
       for (int const t : used_terms)
@@ -443,8 +450,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   if (mem_stats.kron_call == memory_usage::one_call)
   {
-    list_iA.push_back(fk::vector<int>(spcache.num_nonz
-                                      * num_dimensions * num_terms));
+    list_iA.push_back(
+        fk::vector<int>(spcache.num_nonz * num_dimensions * num_terms));
 
 #ifdef ASGARD_USE_CUDA
     list_row_indx.push_back(fk::vector<int>(spcache.num_nonz));
@@ -473,7 +480,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
         auto ia = list_iA[0].begin() + num_dimensions * num_terms * c;
 
-        int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+        int const *const row_coords =
+            flattened_table + 2 * num_dimensions * row;
         // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
         for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
         {
@@ -482,7 +490,6 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
           if (check_connected(num_dimensions, row_coords, col_coords))
           {
-
 #ifdef ASGARD_USE_CUDA
             *iy++ = (row - grid.row_start) * tensor_size;
             *ix++ = (col - grid.col_start) * tensor_size;
@@ -496,7 +503,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
             for (int t = 0; t < num_terms; t++)
               for (int d = 0; d < num_dimensions; d++)
                 *ia++ = offsets[d] * block1D_size +
-                           (t * num_dimensions + d) * kron_squared;
+                        (t * num_dimensions + d) * kron_squared;
           }
         }
       }
@@ -515,19 +522,22 @@ make_kronmult_sparse(PDE<precision> const &pde,
     list_row_indx.resize(num_chunks);
     list_col_indx.resize(num_chunks);
 
-    for(size_t i=0; i<list_iA.size() - 1; i++)
+    for (size_t i = 0; i < list_iA.size() - 1; i++)
     {
-      list_iA[i] = fk::vector<int>(max_units * kron_unit_size);
+      list_iA[i]       = fk::vector<int>(max_units * kron_unit_size);
       list_row_indx[i] = fk::vector<int>(max_units);
       list_col_indx[i] = fk::vector<int>(max_units);
     }
-    list_iA.back() = fk::vector<int>((spcache.num_nonz - (num_chunks - 1) * max_units) * kron_unit_size);
-    list_row_indx.back() = fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
-    list_col_indx.back() = fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
+    list_iA.back() = fk::vector<int>(
+        (spcache.num_nonz - (num_chunks - 1) * max_units) * kron_unit_size);
+    list_row_indx.back() =
+        fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
+    list_col_indx.back() =
+        fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
 
     auto list_itra = list_iA.begin();
-    auto list_ix = list_col_indx.begin();
-    auto list_iy = list_row_indx.begin();
+    auto list_ix   = list_col_indx.begin();
+    auto list_iy   = list_row_indx.begin();
 
     auto ia = list_itra->begin();
     auto ix = list_ix->begin();
@@ -549,13 +559,12 @@ make_kronmult_sparse(PDE<precision> const &pde,
           *iy++ = (row - grid.row_start) * tensor_size;
           *ix++ = (col - grid.col_start) * tensor_size;
 
-          compute_coefficient_offsets(spcache, row_coords, col_coords,
-                                      offsets);
+          compute_coefficient_offsets(spcache, row_coords, col_coords, offsets);
 
           for (int t = 0; t < num_terms; t++)
             for (int d = 0; d < num_dimensions; d++)
               *ia++ = offsets[d] * block1D_size +
-                         (t * num_dimensions + d) * kron_squared;
+                      (t * num_dimensions + d) * kron_squared;
 
           if (ix == list_ix->end() and list_ix < list_col_indx.end())
           {
@@ -563,18 +572,20 @@ make_kronmult_sparse(PDE<precision> const &pde,
             ix = (++list_ix)->begin();
             iy = (++list_iy)->begin();
           }
-
         }
       }
     }
 
 #else
-    // CPU case, combine rows together into large groups but don't exceed the work-size
+    // CPU case, combine rows together into large groups but don't exceed the
+    // work-size
     row_group_pntr.push_back(0);
     int64_t num_units = 0;
-    for(int i = 0; i < num_rows; i++)
+    for (int i = 0; i < num_rows; i++)
     {
-      int nz_per_row = ((i+1 < num_rows) ? spcache.cconnect[i+1] : spcache.num_nonz) - spcache.cconnect[i];
+      int nz_per_row =
+          ((i + 1 < num_rows) ? spcache.cconnect[i + 1] : spcache.num_nonz) -
+          spcache.cconnect[i];
       if (num_units + nz_per_row > max_units)
       {
         // begin new chunk
@@ -593,27 +604,29 @@ make_kronmult_sparse(PDE<precision> const &pde,
     if (num_units > 0)
     {
       list_iA.push_back(fk::vector<int>(num_units * kron_unit_size));
-      list_row_indx.push_back(fk::vector<int>(num_rows - row_group_pntr.back() + 1));
+      list_row_indx.push_back(
+          fk::vector<int>(num_rows - row_group_pntr.back() + 1));
       list_col_indx.push_back(fk::vector<int>(num_units));
     }
     row_group_pntr.push_back(num_rows);
 
     std::vector<int> offsets(num_dimensions);
 
-    auto iconn = spcache.cconnect.begin();
+    auto iconn       = spcache.cconnect.begin();
     int64_t shift_iy = 0;
 
-    for(size_t i = 0; i < row_group_pntr.size() - 1; i++)
+    for (size_t i = 0; i < row_group_pntr.size() - 1; i++)
     {
       auto ia = list_iA[i].begin();
       auto ix = list_col_indx[i].begin();
       auto iy = list_row_indx[i].begin();
 
-      for (int64_t row = row_group_pntr[i]; row < row_group_pntr[i+1]; row++)
+      for (int64_t row = row_group_pntr[i]; row < row_group_pntr[i + 1]; row++)
       {
         *iy++ = *iconn++ - shift_iy; // copy the pointer index
 
-        int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+        int const *const row_coords =
+            flattened_table + 2 * num_dimensions * row;
         // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
         for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
         {
@@ -630,15 +643,14 @@ make_kronmult_sparse(PDE<precision> const &pde,
             for (int t = 0; t < num_terms; t++)
               for (int d = 0; d < num_dimensions; d++)
                 *ia++ = offsets[d] * block1D_size +
-                           (t * num_dimensions + d) * kron_squared;
-
+                        (t * num_dimensions + d) * kron_squared;
           }
         }
       }
 
       if (i + 2 < row_group_pntr.size())
       {
-        *iy++ = *iconn - shift_iy;
+        *iy++    = *iconn - shift_iy;
         shift_iy = *iconn;
       }
       else
@@ -665,16 +677,17 @@ make_kronmult_sparse(PDE<precision> const &pde,
   if (mem_stats.kron_call == memory_usage::one_call)
   {
     std::cout << "        memory usage (unique): "
-              << get_MB<int>(list_row_indx[0].size())
-                    + get_MB<int>(list_col_indx[0].size())
-                      + get_MB<int>(list_iA[0].size())
-                        + get_MB<precision>(vA.size()) << "\n";
+              << get_MB<int>(list_row_indx[0].size()) +
+                     get_MB<int>(list_col_indx[0].size()) +
+                     get_MB<int>(list_iA[0].size()) +
+                     get_MB<precision>(vA.size())
+              << "\n";
     std::cout << "        memory usage (shared): 0\n";
     return kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         list_row_indx[0].clone_onto_device(),
-        list_col_indx[0].clone_onto_device(),
-        list_iA[0].clone_onto_device(), vA.clone_onto_device());
+        list_col_indx[0].clone_onto_device(), list_iA[0].clone_onto_device(),
+        vA.clone_onto_device());
   }
   else
   {
@@ -682,38 +695,42 @@ make_kronmult_sparse(PDE<precision> const &pde,
     std::cout << "        memory usage (unique): "
               << get_MB<precision>(vA.size()) << "\n";
     std::cout << "        memory usage (shared): "
-              << 2 * get_MB<int>(mem_stats.work_size)
-                   + 4 * get_MB<int>(mem_stats.row_work_size) << "\n";
+              << 2 * get_MB<int>(mem_stats.work_size) +
+                     4 * get_MB<int>(mem_stats.row_work_size)
+              << "\n";
     return kronmult_matrix<precision>(
-            num_dimensions, kron_size, num_rows, num_cols, num_terms,
-            std::move(list_row_indx), std::move(list_col_indx),
-            std::move(list_iA), vA.clone_onto_device());
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
+        vA.clone_onto_device());
 #else
-    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(list_iA.size());
-    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_col(list_col_indx.size());
-    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_row(list_row_indx.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(
+        list_iA.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_col(
+        list_col_indx.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_row(
+        list_row_indx.size());
     int64_t num_ints = 0;
-    for(size_t i=0; i<gpu_iA.size(); i++)
+    for (size_t i = 0; i < gpu_iA.size(); i++)
     {
-      gpu_iA[i] = list_iA[i].clone_onto_device();
+      gpu_iA[i]  = list_iA[i].clone_onto_device();
       gpu_col[i] = list_col_indx[i].clone_onto_device();
       gpu_row[i] = list_row_indx[i].clone_onto_device();
       num_ints += gpu_iA[i].size() + gpu_col[i].size() + gpu_row[i].size();
     }
     std::cout << "        memory usage (MB): "
               << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
-    return kronmult_matrix<precision>(
-            num_dimensions, kron_size, num_rows, num_cols, num_terms,
-            std::move(gpu_row), std::move(gpu_col),
-            std::move(gpu_iA), vA.clone_onto_device());
+    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
+                                      num_cols, num_terms, std::move(gpu_row),
+                                      std::move(gpu_col), std::move(gpu_iA),
+                                      vA.clone_onto_device());
 #endif
   }
 #else
 
   return kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
-      std::move(list_row_indx), std::move(list_col_indx),
-      std::move(list_iA), std::move(vA));
+      std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
+      std::move(vA));
 
 #endif
 }
@@ -731,7 +748,8 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
   }
   else
   {
-    return make_kronmult_sparse<P>(pde, grid, cli_opts, mem_stats, imex, spcache);
+    return make_kronmult_sparse<P>(pde, grid, cli_opts, mem_stats, imex,
+                                   spcache);
   }
 }
 
@@ -798,7 +816,8 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     auto pA                = vA.begin();
     for (int row = 0; row < spcache.cells1d.num_cells(); row++)
     {
-      for (int j = spcache.cells1d.row_begin(row); j < spcache.cells1d.row_end(row); j++)
+      for (int j = spcache.cells1d.row_begin(row);
+           j < spcache.cells1d.row_end(row); j++)
       {
         int col = spcache.cells1d[j];
         for (int const t : used_terms)
@@ -827,7 +846,8 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 
 template<typename P>
 memory_usage
-compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretization,
+compute_mem_usage(PDE<P> const &pde,
+                  adapt::distributed_grid<P> const &discretization,
                   options const &program_options, imex_flag const imex,
                   kron_sparse_cache &spcache, int memory_limit_MB,
                   int64_t index_limit, bool force_sparse)
@@ -855,8 +875,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
   // first we compute the size of the state vectors (x and y) and then we
   // add the size of the coefficients (based on sparse/dense mode)
   int64_t base_line_entries =
-        (num_rows + num_cols) *
-            kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
+      (num_rows + num_cols) *
+      kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
 
   if (program_options.kmode == kronmult_mode::dense and not force_sparse)
   {
@@ -871,8 +891,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
 
-    int64_t available_entries = (int64_t{available_MB} * 1024 * 1024)
-                                 / static_cast<int64_t>(sizeof(int));
+    int64_t available_entries = (int64_t{available_MB} * 1024 * 1024) /
+                                static_cast<int64_t>(sizeof(int));
 #else
     int64_t available_entries = index_limit;
 #endif
@@ -880,8 +900,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     int64_t size_of_indexes =
         int64_t{num_rows} * int64_t{num_cols} * matrices_per_prod;
 
-    if (size_of_indexes <= available_entries and
-        size_of_indexes <= index_limit)
+    if (size_of_indexes <= available_entries and size_of_indexes <= index_limit)
     {
       stats.kron_call = memory_usage::one_call;
     }
@@ -937,21 +956,23 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
       for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
       {
-        int const *const col_coords = flattened_table + 2 * num_dimensions * col;
+        int const *const col_coords =
+            flattened_table + 2 * num_dimensions * col;
         if (check_connected(num_dimensions, row_coords, col_coords))
           spcache.cconnect[row - grid.row_start]++;
       }
     }
 
     spcache.num_nonz = 0; // total number of connected cells
-    for(int i = 0; i < num_rows; i++)
+    for (int i = 0; i < num_rows; i++)
     {
-      int c = spcache.cconnect[i];
+      int c               = spcache.cconnect[i];
       spcache.cconnect[i] = spcache.num_nonz;
       spcache.num_nonz += c;
     }
 
-    base_line_entries += spcache.cells1d.num_connections() * num_dimensions * pde.num_terms * kron_size * kron_size;
+    base_line_entries += spcache.cells1d.num_connections() * num_dimensions *
+                         pde.num_terms * kron_size * kron_size;
 
     stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
 
@@ -959,15 +980,15 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
     int64_t available_MB = memory_limit_MB - stats.baseline_memory;
     check_available_memory(stats.baseline_memory, available_MB);
 
-    int64_t available_entries = (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int));
+    int64_t available_entries =
+        (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int));
 #else
     int64_t available_entries = index_limit;
 #endif
 
     int64_t size_of_indexes = spcache.num_nonz * (matrices_per_prod + 2);
 
-    if (size_of_indexes <= available_entries and
-        size_of_indexes <= index_limit)
+    if (size_of_indexes <= available_entries and size_of_indexes <= index_limit)
     {
       stats.kron_call = memory_usage::one_call;
     }
@@ -986,8 +1007,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       stats.kron_call = memory_usage::multi_calls;
       if (size_of_indexes > index_limit)
       {
-        stats.mem_limit = memory_usage::overflow;
-        stats.work_size = index_limit;
+        stats.mem_limit     = memory_usage::overflow;
+        stats.work_size     = index_limit;
         stats.row_work_size = index_limit / (num_dimensions * min_terms);
       }
       else
@@ -995,7 +1016,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
         stats.mem_limit = memory_usage::environment;
         int64_t work_products =
             available_entries / (min_terms * num_dimensions + 2);
-        stats.work_size = min_terms * num_dimensions * (work_products / 2);
+        stats.work_size     = min_terms * num_dimensions * (work_products / 2);
         stats.row_work_size = work_products / 2;
       }
 
@@ -1004,7 +1025,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
       {
         int64_t work_products =
             available_entries / (min_terms * num_dimensions + 2);
-        stats.work_size = min_terms * num_dimensions * (work_products / 2);
+        stats.work_size     = min_terms * num_dimensions * (work_products / 2);
         stats.row_work_size = work_products / 2;
       }
 #endif
@@ -1022,11 +1043,10 @@ make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, memory_usage const &,
                              imex_flag const, kron_sparse_cache &, bool);
-template void update_kronmult_coefficients<double>(PDE<double> const &,
-                                                   options const &,
-                                                   imex_flag const,
-                                                   kron_sparse_cache &,
-                                                   kronmult_matrix<double> &);
+template void
+update_kronmult_coefficients<double>(PDE<double> const &, options const &,
+                                     imex_flag const, kron_sparse_cache &,
+                                     kronmult_matrix<double> &);
 template memory_usage
 compute_mem_usage<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
