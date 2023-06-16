@@ -324,7 +324,6 @@ public:
       }
       else
       {
-        std::cout << " multi-kron dense " << list_iA.size() << "\n";
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
         // multiple calls, need to move data, call kronmult, then move next data
         // data loading is done asynchronously using the load_stream
@@ -376,7 +375,6 @@ public:
       }
       else
       {
-        std::cout << " multi-kron sparse " << list_iA.size() << "\n";
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
