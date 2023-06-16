@@ -96,7 +96,9 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
     auto const gold_moment_matrix =
         read_matrix_from_txt_file<TestType>(gold_filename);
 
-    rmse_comparison(gold_moment_matrix, moments[i].get_moment_matrix(),
-                    tol_factor);
+    rmse_comparison(
+        gold_moment_matrix,
+        moments[i].get_moment_matrix_dev().clone_onto_host().to_dense(),
+        tol_factor);
   }
 }

@@ -187,6 +187,29 @@ public:
         nrows_, ncols_, nnz_, offsets_host, col_host, val_host);
   }
 
+  // convert this sparse matrix back to a dense matrix
+  fk::matrix<P, mem, resrc> to_dense() const
+  {
+    // create dense, filled with 0 initially
+    fk::matrix<P, mem, resrc> dense(nrows_, ncols_);
+
+    // populate entries of the dense matrix
+    int col_index_offset = 0;
+    for (int row = 0; row < nrows_; row++)
+    {
+      int num_in_row = row_offsets_[row + 1] - row_offsets_[row];
+      for (int col = 0; col < num_in_row; col++)
+      {
+        int index                       = col_index_offset + col;
+        dense(row, col_indices_[index]) = values_[index];
+      }
+
+      col_index_offset += num_in_row;
+    }
+
+    return dense;
+  }
+
   //
   // basic queries to private data
   //
