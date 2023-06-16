@@ -722,9 +722,10 @@ template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &cli_opts, memory_usage const &mem_stats,
-                     imex_flag const imex, kron_sparse_cache &spcache)
+                     imex_flag const imex, kron_sparse_cache &spcache,
+                     bool force_sparse)
 {
-  if (cli_opts.kmode == kronmult_mode::dense)
+  if (cli_opts.kmode == kronmult_mode::dense and not force_sparse)
   {
     return make_kronmult_dense<P>(pde, grid, cli_opts, mem_stats, imex);
   }
@@ -829,7 +830,7 @@ memory_usage
 compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretization,
                   options const &program_options, imex_flag const imex,
                   kron_sparse_cache &spcache, int memory_limit_MB,
-                  int64_t index_limit)
+                  int64_t index_limit, bool force_sparse)
 {
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
@@ -857,7 +858,7 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &discretiz
         (num_rows + num_cols) *
             kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
 
-  if (program_options.kmode == kronmult_mode::dense)
+  if (program_options.kmode == kronmult_mode::dense and not force_sparse)
   {
     // assume all terms will be loaded into the GPU, as one IMEX flag or another
     for (int t = 0; t < pde.num_terms; t++)
@@ -1020,7 +1021,7 @@ template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
                              options const &, memory_usage const &,
-                             imex_flag const, kron_sparse_cache &);
+                             imex_flag const, kron_sparse_cache &, bool);
 template void update_kronmult_coefficients<double>(PDE<double> const &,
                                                    options const &,
                                                    imex_flag const,
@@ -1030,7 +1031,7 @@ template memory_usage
 compute_mem_usage<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
                           options const &, imex_flag const, kron_sparse_cache &,
-                          int, int64_t);
+                          int, int64_t, bool);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1038,7 +1039,7 @@ template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
                             options const &, memory_usage const &,
-                            imex_flag const, kron_sparse_cache &);
+                            imex_flag const, kron_sparse_cache &, bool);
 template void
 update_kronmult_coefficients<float>(PDE<float> const &, options const &,
                                     imex_flag const, kron_sparse_cache &,
@@ -1047,7 +1048,7 @@ template memory_usage
 compute_mem_usage<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,
                          options const &, imex_flag const, kron_sparse_cache &,
-                         int, int64_t);
+                         int, int64_t, bool);
 #endif
 
 } // namespace asgard

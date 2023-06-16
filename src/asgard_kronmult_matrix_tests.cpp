@@ -262,7 +262,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", test_precs)
 using namespace asgard;
 
 template<typename prec>
-void test_memory_mode()
+void test_memory_mode(imex_flag imex)
 {
     // make some PDE, no need to be too specific
   fk::vector<int> levels = {5, 5};
@@ -281,39 +281,96 @@ void test_memory_mode()
   generate_dimension_mass_mat(*pde, transformer);
 
   // one means that all data fits in memory and only one call will be made
-  kron_sparse_cache spcache_one;
-  memory_usage memory_one =
-    compute_mem_usage(*pde, grid, opts, imex_flag::unspecified, spcache_one);
-  auto mat_one = make_kronmult_matrix(*pde, grid, opts, memory_one, imex_flag::unspecified, spcache_one);
+  constexpr bool force_sparse = true;
 
-  kron_sparse_cache spcache_multi;
+  kron_sparse_cache spcache_null1, spcache_one;
+  memory_usage memory_one =
+    compute_mem_usage(*pde, grid, opts, imex, spcache_null1);
+  auto mat_one = make_kronmult_matrix(*pde, grid, opts, memory_one, imex_flag::unspecified, spcache_null1);
+  memory_usage spmemory_one =
+    compute_mem_usage(*pde, grid, opts, imex, spcache_one, 6, 2147483646, force_sparse);
+  auto spmat_one = make_kronmult_matrix(*pde, grid, opts, spmemory_one, imex, spcache_one, force_sparse);
+
+  kron_sparse_cache spcache_null2, spcache_multi;
   memory_usage memory_multi =
-    compute_mem_usage(*pde, grid, opts, imex_flag::unspecified, spcache_multi, 0, 8000);
-  auto mat_multi = make_kronmult_matrix(*pde, grid, opts, memory_multi, imex_flag::unspecified, spcache_multi);
+    compute_mem_usage(*pde, grid, opts, imex, spcache_null2, 0, 8000);
+  auto mat_multi = make_kronmult_matrix(*pde, grid, opts, memory_multi, imex, spcache_null2);
+  memory_usage spmemory_multi =
+    compute_mem_usage(*pde, grid, opts, imex, spcache_multi, 6, 8000, force_sparse);
+  auto spmat_multi = make_kronmult_matrix(*pde, grid, opts, spmemory_multi, imex, spcache_multi, force_sparse);
 
   REQUIRE(mat_one.is_onecall());
+  REQUIRE(spmat_one.is_onecall());
   REQUIRE(not mat_multi.is_onecall());
+  REQUIRE(not spmat_multi.is_onecall());
 
   fk::vector<prec> y_one(mat_one.output_size());
   fk::vector<prec> y_multi(mat_multi.output_size());
+  fk::vector<prec> y_spone(spmat_one.output_size());
+  fk::vector<prec> y_spmulti(spmat_multi.output_size());
   REQUIRE(y_one.size() == y_multi.size());
+  REQUIRE(y_one.size() == y_spmulti.size());
+  REQUIRE(y_one.size() == y_spone.size());
 
 #ifdef ASGARD_USE_CUDA
   fk::vector<prec, mem_type::owner, resource::device> xdev(y_one.size());
   fk::vector<prec, mem_type::owner, resource::device> ydev(y_multi.size());
   mat_one.set_workspace(xdev, ydev);
   mat_multi.set_workspace(xdev, ydev);
+  spmat_one.set_workspace(xdev, ydev);
+  spmat_multi.set_workspace(xdev, ydev);
+#endif
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+  // allocate large enough vectors, total size is 24MB
+  cudaStream_t load_stream;
+  cudaStreamCreate(&load_stream);
+  auto worka = fk::vector<int, mem_type::owner, resource::device>(1048576);
+  auto workb = fk::vector<int, mem_type::owner, resource::device>(1048576);
+  auto irowa = fk::vector<int, mem_type::owner, resource::device>(262144);
+  auto irowb = fk::vector<int, mem_type::owner, resource::device>(262144);
+  auto icola = fk::vector<int, mem_type::owner, resource::device>(262144);
+  auto icolb = fk::vector<int, mem_type::owner, resource::device>(262144);
+  mat_multi.set_workspace_ooc(worka, workb, load_stream);
+  spmat_multi.set_workspace_ooc(worka, workb, load_stream);
+  mat_multi.set_workspace_ooc_sparse(irowa, irowb, icola, icolb);
+  spmat_multi.set_workspace_ooc_sparse(irowa, irowb, icola, icolb);
 #endif
 
   mat_one.apply(2.0, x.data(), 0.0, y_one.data());
   mat_multi.apply(2.0, x.data(), 0.0, y_multi.data());
+  spmat_one.apply(2.0, x.data(), 0.0, y_spone.data());
+  spmat_multi.apply(2.0, x.data(), 0.0, y_spmulti.data());
 
-  //rmse_comparison(y_one, y_multi, prec{100});
+  rmse_comparison(y_one, y_multi, prec{10});
+  rmse_comparison(y_one, y_spone, prec{10});
+  rmse_comparison(y_one, y_spmulti, prec{10});
+
+  mat_one.apply(2.5, y_one.data(), 3.0, y_one.data());
+  mat_multi.apply(2.5, y_multi.data(), 3.0, y_multi.data());
+  spmat_one.apply(2.5, y_spone.data(), 3.0, y_spone.data());
+  spmat_multi.apply(2.5, y_spmulti.data(), 3.0, y_spmulti.data());
+
+  rmse_comparison(y_one, y_multi, prec{10});
+  rmse_comparison(y_one, y_spone, prec{10});
+  rmse_comparison(y_one, y_spmulti, prec{10});
+
+  parameter_manager<prec>::get_instance().reset();
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+  cudaStreamDestroy(load_stream);
+#endif
 }
 
-TEMPLATE_TEST_CASE("testing multi-call mode", "multi-calls", test_precs)
+TEMPLATE_TEST_CASE("testing multi imex unspecified", "unspecified", test_precs)
 {
-  test_memory_mode<TestType>();
-
+  test_memory_mode<TestType>(imex_flag::unspecified);
 }
 
+TEMPLATE_TEST_CASE("testing multi imex implicit", "imex_implicit", test_precs)
+{
+  test_memory_mode<TestType>(imex_flag::imex_implicit);
+}
+
+TEMPLATE_TEST_CASE("testing multi imex explicit", "imex_explicit", test_precs)
+{
+  test_memory_mode<TestType>(imex_flag::imex_explicit);
+}

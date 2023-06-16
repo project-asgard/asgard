@@ -427,6 +427,11 @@ public:
 
   size_t get_num_parameters() { return parameters.size(); }
 
+  void reset()
+  {
+    parameters = std::vector<std::shared_ptr<parameter<P>>>();
+  }
+
 private:
   parameter_manager() {}
 

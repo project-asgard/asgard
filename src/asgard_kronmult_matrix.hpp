@@ -359,7 +359,6 @@ public:
 #else
         for(size_t i = 0; i < list_iA.size(); i++)
         {
-          std::cerr << " multi-gpu " << i << "\n";
           kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
                               num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data() + i * list_row_stride_ * tensor_size_);
         }
@@ -377,7 +376,7 @@ public:
       }
       else
       {
-        std::cout << " multi-kron sparse" << list_iA.size() << "\n";
+        std::cout << " multi-kron sparse " << list_iA.size() << "\n";
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
         int *load_buffer    = worka.data();
         int *compute_buffer = workb.data();
@@ -522,7 +521,11 @@ public:
   //! \brief Returns the mode of the matrix, one call or multiple calls
   bool is_onecall()
   {
+#ifdef ASGARD_USE_CUDA
     return (iA.size() > 0);
+#else
+    return (iA.size() > 0 or list_iA.size() == 1);
+#endif
   }
 
 private:
@@ -644,13 +647,16 @@ private:
  * \param program_options are the input options passed in by the user
  * \param mem_stats is the cached information about memory usage
  * \param imex indicates whether this is part of an imex time stepping scheme
+ * \param spcache cache holding sparse analysis meta-data
+ * \param force_sparse (testing purposes only) forces a sparse matrix
  */
 template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                      options const &program_options,
                      memory_usage const &mem_stats,
-                     imex_flag const imex, kron_sparse_cache &spcache);
+                     imex_flag const imex, kron_sparse_cache &spcache,
+                     bool force_sparse = false);
 
 /*!
  * \brief Update the coefficients stored in the matrix without changing the rest
@@ -705,7 +711,7 @@ memory_usage
 compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                   options const &program_options, imex_flag const imex,
                   kron_sparse_cache &spcache, int memory_limit_MB = 0,
-                  int64_t index_limit = 2147483646);
+                  int64_t index_limit = 2147483646, bool force_sparse = false);
 
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -726,7 +732,7 @@ struct matrix_list
     load_stream = nullptr;
 #endif
   }
-
+  //! \brief Frees the matrix list and any cache vectors
   ~matrix_list()
   {
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
@@ -826,20 +832,23 @@ struct matrix_list
   std::vector<kronmult_matrix<precision>> matrices;
 
 private:
+  //! \brief Maps the entry enum to the IMEX flag
   static imex_flag imex(matrix_entry entry)
   {
     return flag_map[static_cast<int>(entry)];
   }
-
+  //! \brief Maps imex flags to integers
   static constexpr std::array<imex_flag, 3> flag_map = {
       imex_flag::unspecified, imex_flag::imex_explicit,
       imex_flag::imex_implicit};
-
+  //! \brief Cache holding the memory stats, limits bounds etc.
   memory_usage mem_stats;
 
+  //! \brief Cache holding sparse parameters to avoid recomputing data
   kron_sparse_cache spcache;
 
 #ifdef ASGARD_USE_CUDA
+  //! \brief Work buffers for the input and output
   mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
 #endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
