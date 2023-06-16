@@ -12,7 +12,7 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
 }
 
 constexpr bool sparse_mode = true;
-constexpr bool dense_mode = false;
+constexpr bool dense_mode  = false;
 
 template<typename T, bool matrix_mode = sparse_mode>
 void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
