@@ -1235,8 +1235,7 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
   }
 }
 
-TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
-                   double)
+TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", test_precs)
 {
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
