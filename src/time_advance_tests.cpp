@@ -1294,7 +1294,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
   generate_dimension_mass_mat(*pde, transformer);
 
   fk::vector<TestType> f_val(initial_condition);
-  asgard::kronmult_matrix<TestType> operator_matrix;
+  asgard::matrix_list<TestType> operator_matrices;
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
@@ -1305,55 +1305,12 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
     std::cout.setstate(std::ios_base::failbit);
     auto const time          = i * pde->get_dt();
     auto const update_system = i == 0;
-    auto const method =
-        opts.use_implicit_stepping
-            ? asgard::time_advance::method::imp
-            : (opts.use_imex_stepping ? asgard::time_advance::method::imex
-                                      : asgard::time_advance::method::exp);
-    auto const sol = time_advance::adaptive_advance(
-        method, *pde, operator_matrix, adaptive_grid, transformer, opts, f_val,
-        time, update_system);
+    auto const sol           = time_advance::adaptive_advance(
+        asgard::time_advance::method::imex, *pde, operator_matrices,
+        adaptive_grid, transformer, opts, f_val, time, update_system);
 
     f_val.resize(sol.size()) = sol;
     std::cout.clear();
-
-    auto calculate_integral =
-        [&](fk::vector<TestType> const &input) -> TestType {
-      auto const &dim = pde->get_dimensions()[0];
-      auto const legendre_values =
-          legendre_weights<TestType>(dim.get_degree(), -1.0, 1.0, true);
-      auto const num_cells = input.size();
-
-      auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_cells;
-
-      fk::matrix<TestType> coefficients(num_cells, degree);
-      fk::vector<TestType> half_input(input);
-      fm::scal(TestType{0.5}, half_input);
-      for (int d = 0; d < degree; d++)
-      {
-        coefficients.update_col(d, half_input);
-      }
-
-      fk::matrix<TestType> w(degree, degree);
-      w.update_row(0, legendre_values[1]);
-
-      fk::matrix<TestType> input_weighted(num_cells, degree);
-      fm::gemm(coefficients, w, input_weighted);
-      fm::scal(TestType{0.5}, input_weighted);
-
-      TestType sum = 0.0;
-      for (int elem = 0; elem < num_cells; elem++)
-      {
-        for (int d = 0; d < degree; d++)
-        {
-          sum += input_weighted(elem, d);
-        }
-      }
-
-      TestType integral = grid_spacing * sum;
-
-      return integral;
-    };
 
     // compute the E potential and kinetic energy
     fk::vector<TestType> E_field_sq(pde->E_field);
@@ -1361,8 +1318,10 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", float,
     {
       e = e * e;
     }
-    TestType E_pot = calculate_integral(E_field_sq);
-    TestType E_kin = calculate_integral(pde->moments[2].get_realspace_moment());
+    dimension<TestType> &dim = pde->get_dimensions()[0];
+    TestType E_pot           = calculate_integral(E_field_sq, dim);
+    TestType E_kin =
+        calculate_integral(pde->moments[2].get_realspace_moment(), dim);
     if (i == 0)
     {
       E_pot_initial = E_pot;
