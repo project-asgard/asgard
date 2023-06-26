@@ -51,9 +51,9 @@ private:
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
       // For test 1 and 2:
-      // return 1.0;
+      return 1.0;
       // For test 3:
-      return 0.5;
+      // return 0.5;
     });
     return fx;
   }
