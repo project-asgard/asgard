@@ -331,7 +331,7 @@ public:
         auto stats          = cudaMemcpyAsync(load_buffer, list_iA[0].data(),
                                      sizeof(int) * list_iA[0].size(),
                                      cudaMemcpyHostToDevice, load_stream);
-        assert(stats == cudaSuccess);
+        expect(stats == cudaSuccess);
         for (size_t i = 0; i < list_iA.size(); i++)
         {
           // sync load_stream to ensure that data has already been loaded
@@ -347,7 +347,7 @@ public:
             stats = cudaMemcpyAsync(load_buffer, list_iA[i + 1].data(),
                                     sizeof(int) * list_iA[i + 1].size(),
                                     cudaMemcpyHostToDevice, load_stream);
-            assert(stats == cudaSuccess);
+            expect(stats == cudaSuccess);
           }
 
           // num_batch is list_iA[i].size() / (num_dimensions_ * num_terms_)
