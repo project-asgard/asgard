@@ -70,24 +70,35 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
                                       vA.clone_onto_device());
   }
 
+  asgard::fk::vector<T, asgard::mem_type::owner, asgard::resource::device> xdev(
+      kmat.input_size());
+  asgard::fk::vector<T, asgard::mem_type::owner, asgard::resource::device> ydev(
+      kmat.output_size());
+  kmat.set_workspace(xdev, ydev);
+
 #else
 
   if (matrix_mode == sparse_mode)
   {
-    asgard::fk::vector<int> pntr(num_rows + 1);
-    asgard::fk::vector<int> indx(num_rows * num_rows);
+    std::vector<asgard::fk::vector<int>> pntr;
+    std::vector<asgard::fk::vector<int>> indx;
+    pntr.push_back(asgard::fk::vector<int>(num_rows + 1));
+    indx.push_back(asgard::fk::vector<int>(num_rows * num_rows));
 
     for (int i = 0; i < num_rows; i++)
     {
-      pntr[i] = i * num_rows;
+      pntr[0][i] = i * num_rows;
       for (int j = 0; j < num_rows; j++)
-        indx[pntr[i] + j] = j;
+        indx[0][i * num_rows + j] = j;
     }
-    pntr[num_rows] = indx.size();
+    pntr[0][num_rows] = indx[0].size();
+
+    std::vector<asgard::fk::vector<int>> list_iA;
+    list_iA.push_back(iA);
 
     kmat = asgard::kronmult_matrix<T>(
         dimensions, n, num_rows, num_rows, num_terms, std::move(pntr),
-        std::move(indx), std::move(iA), std::move(vA));
+        std::move(indx), std::move(list_iA), std::move(vA));
   }
   else
   {

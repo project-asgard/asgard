@@ -41,11 +41,30 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
   }
 }
 
+void check_available_memory(int64_t baseline_memory, int64_t available_MB)
+{
+  if (available_MB < 2)
+  { // less then 2MB
+    throw std::runtime_error(
+        "the problem is too large to fit in the specified memory limit, "
+        "this problem requires at least " +
+        std::to_string(baseline_memory + 2) + "MB and minimum recommended is " +
+        std::to_string(baseline_memory + 512) + "MB but the more the better");
+  }
+  else if (available_MB < 512)
+  { // less than 512MB
+    std::cerr
+        << "  -- warning: low memory, recommended for this problem size is: "
+        << std::to_string(baseline_memory + 512) << "\n";
+  }
+}
+
 template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
-                    options const &program_options, imex_flag const imex)
+                    options const &program_options,
+                    memory_usage const &mem_stats, imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -65,7 +84,7 @@ make_kronmult_dense(PDE<precision> const &pde,
 
   if (used_terms.size() == 0)
     throw std::runtime_error("no terms selected in the current combination of "
-                             "imex flags and options, thus must be wrong");
+                             "imex flags and options, this must be wrong");
 
   int64_t osize = 0;
   std::vector<int64_t> dim_term_offset(num_terms * pde.num_dims + 1);
@@ -78,17 +97,7 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
-  // check if the matrix size will overflow the 'int' indexing
-  int64_t size_of_indexes =
-      int64_t{num_rows} * int64_t{num_cols} * num_terms * num_dimensions;
-  if (size_of_indexes > (int64_t{1} << 31) - 1) // 2^31 -1 is the largest 'int'
-    throw std::runtime_error(
-        "the storage required for the dense matrix is too large for the 32-bit "
-        "signed indexing, try running with '--kron-mode sparse'");
-
-  fk::vector<int, mem_type::owner, resource::host> iA(
-      num_rows * num_cols * num_terms * num_dimensions);
-  fk::vector<precision, mem_type::owner, resource::host> vA(osize);
+  fk::vector<precision> vA(osize);
 
   // will print the command to use for performance testing
   // std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " <<
@@ -119,12 +128,55 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
+  // all indexes that the matrix will need
+  int64_t size_of_indexes =
+      int64_t{num_rows} * int64_t{num_cols} * num_terms * num_dimensions;
+
+  int list_row_stride = 0;
+
+  std::vector<fk::vector<int>> list_iA;
+  if (mem_stats.kron_call == memory_usage::one_call)
+  {
+    list_iA.push_back(fk::vector<int>(size_of_indexes));
+  }
+  else
+  {
+    // break the work into chunks
+    int64_t kron_unit_size = num_terms * num_dimensions * num_cols;
+    // work_size fits in 32-bit int so there is no overflow here
+    list_row_stride = static_cast<int>(mem_stats.work_size / kron_unit_size);
+
+    if (list_row_stride < 1) // many billions of dof
+    {
+      if (mem_stats.mem_limit == memory_usage::environment)
+        throw std::runtime_error("problem size is too large for the memory "
+                                 "specified memory limit");
+      else
+        throw std::runtime_error("problem is too large for ASGarD "
+                                 "(int overflow issues)");
+    }
+
+    list_iA.resize((num_rows + list_row_stride - 1) / list_row_stride);
+    for (size_t i = 0; i < list_iA.size() - 1; i++)
+    {
+      list_iA[i] = fk::vector<int>(kron_unit_size * list_row_stride);
+    }
+    list_iA.back() =
+        fk::vector<int>(size_of_indexes - (list_iA.size() - 1) *
+                                              list_row_stride * kron_unit_size);
+  }
+
+  int64_t used_entries = 0;
+  for (auto const &list : list_iA)
+    used_entries += list.size();
+
   // compute the indexes for the matrices for the kron-products
   int const *const flattened_table =
       discretization.get_table().get_active_table().data();
   std::vector<int> oprow(num_dimensions);
   std::vector<int> opcol(num_dimensions);
-  auto ia = iA.begin();
+  auto ilist = list_iA.begin();
+  auto ia    = ilist->begin();
   for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
   {
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
@@ -137,6 +189,7 @@ make_kronmult_dense(PDE<precision> const &pde,
     for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
     {
       int const *const col_coords = flattened_table + 2 * num_dimensions * col;
+
       for (int i = 0; i < num_dimensions; i++)
         opcol[i] =
             (col_coords[i] == 0)
@@ -154,6 +207,13 @@ make_kronmult_dense(PDE<precision> const &pde,
         }
       }
     }
+    // if reached the end of the list and there is more to go
+    if (ia == ilist->end())
+    {
+      ilist++;
+      if (ilist != list_iA.end())
+        ia = ilist->begin();
+    }
   }
 
   int64_t flops = kronmult_matrix<precision>::compute_flops(
@@ -164,18 +224,60 @@ make_kronmult_dense(PDE<precision> const &pde,
   std::cout << "        Gflops per call: " << flops * 1.E-9 << "\n";
 
 #ifdef ASGARD_USE_CUDA
-  std::cout << "  kronmult dense matrix allocation (MB): "
-            << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) << "\n";
+  if (mem_stats.kron_call == memory_usage::one_call)
+  {
+    std::cout << "  kronmult dense matrix allocation (MB): "
+              << get_MB<int>(list_iA[0].size()) + get_MB<precision>(vA.size())
+              << "\n";
 
-  // if using CUDA, copy the matrices onto the GPU
-  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms, iA.clone_onto_device(),
-                                    vA.clone_onto_device());
+    // if using CUDA, copy the matrices onto the GPU
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_iA[0].clone_onto_device(), vA.clone_onto_device());
+  }
+  else
+  {
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+    std::cout << "  kronmult dense matrix coefficient allocation (MB): "
+              << get_MB<precision>(vA.size()) << "\n";
+    std::cout << "  kronmult dense matrix common workspace allocation (MB): "
+              << get_MB<int>(2 * mem_stats.work_size) << "\n";
+
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_row_stride, std::move(list_iA), vA.clone_onto_device());
 #else
-  // if using the CPU, move the vectors into the matrix structure
-  return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                    num_cols, num_terms, std::move(iA),
-                                    std::move(vA));
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(
+        list_iA.size());
+    int64_t num_ints = 0;
+    for (size_t i = 0; i < gpu_iA.size(); i++)
+    {
+      gpu_iA[i] = list_iA[i].clone_onto_device();
+      num_ints += gpu_iA[i].size();
+    }
+    std::cout << "        memory usage (MB): "
+              << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
+
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_row_stride, std::move(gpu_iA), vA.clone_onto_device());
+#endif
+  }
+
+#else
+  if (mem_stats.kron_call == memory_usage::one_call)
+  {
+    // if using the CPU, move the vectors into the matrix structure
+    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
+                                      num_cols, num_terms,
+                                      std::move(list_iA[0]), std::move(vA));
+  }
+  else
+  {
+    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
+                                      num_cols, num_terms, list_row_stride,
+                                      std::move(list_iA), std::move(vA));
+  }
 #endif
 }
 
@@ -253,202 +355,34 @@ inline bool check_connected(int const num_dimensions, int const *const row,
   return true;
 }
 
-/*!
- * \brief Keeps track of the connectivity of the elements in the 1d hierarchy.
- *
- * Constructs a sparse matrix-like structure with row-compressed format and
- * ordered indexes within each row, so that the 1D connectivity can be verified
- * with a simple binary search.
- *
- * The advantage of the structure is to provide:
- * - easier check if two 1D cell are connected or not
- * - index of the connection, so operator coefficient matrices can be easily
- *   referenced
- *
- * TODO: This logic should be moved inside the coefficients class.
- */
-class connect_1d
+void compute_coefficient_offsets(kron_sparse_cache const &spcache,
+                                 int const *const row_coords,
+                                 int const *const col_coords,
+                                 std::vector<int> &offsets)
 {
-public:
-  /*!
-   *  \brief Constructor, makes the connectivity up to and including the given
-   *         max-level.
-   */
-  connect_1d(int const max_level)
-      : levels(max_level), cells(1 << levels), pntr(cells + 1, 0),
-        indx(2 * cells)
+  size_t num_dimensions = offsets.size();
+  for (size_t j = 0; j < num_dimensions; j++)
   {
-    std::vector<int> cell_per_level(levels + 2, 1);
-    for (int l = 2; l < levels + 2; l++)
-      cell_per_level[l] = 2 * cell_per_level[l - 1];
+    int const oprow =
+        (row_coords[j] == 0)
+            ? 0
+            : ((1 << (row_coords[j] - 1)) + row_coords[j + num_dimensions]);
+    int const opcol =
+        (col_coords[j] == 0)
+            ? 0
+            : ((1 << (col_coords[j] - 1)) + col_coords[j + num_dimensions]);
 
-    // first two cells are connected to everything
-    pntr[1] = cells;
-    pntr[2] = 2 * cells;
-    for (int i = 0; i < cells; i++)
-      indx[i] = i;
-    for (int i = 0; i < cells; i++)
-      indx[i + cells] = i;
-
-    // for the remaining, loop level by level, cell by cell
-    for (int l = 2; l < levels + 1; l++)
-    {
-      int level_size = cell_per_level[l]; // number of cells in this level
-
-      // for each cell in this level, look at all cells connected
-      // look at previous levels, this level, follow on levels
-
-      // start with the first cell, on the left edge
-      int i = level_size; // index of the first cell
-      // always connected to cells 0 and 1
-      indx.push_back(0);
-      indx.push_back(1);
-      // look at cells above
-      for (int upl = 2; upl < l; upl++)
-      {
-        // edge cell is connected to both edge cells on each level
-        indx.push_back(cell_per_level[upl]);
-        indx.push_back(cell_per_level[upl + 1] - 1);
-      }
-      // look at this level
-      indx.push_back(i);
-      indx.push_back(i + 1);
-      // connect also to the right-most cell (periodic boundary)
-      if (l > 2) // at level l = 2, i+1 is the right-most cell
-        indx.push_back(cell_per_level[l + 1] - 1);
-      // look at follow on levels
-      for (int downl = l + 1; downl < levels + 1; downl++)
-      {
-        // connect to the first bunch of cell, i.e., with overlapping support
-        // going on by 2, 4, 8 ... and one more for touching boundary
-        // also connect to the right-most cell
-        int lstart = cell_per_level[downl];
-        for (int downp = 0; downp < cell_per_level[downl - l + 1] + 1; downp++)
-          indx.push_back(lstart + downp);
-        indx.push_back(cell_per_level[downl + 1] - 1);
-      }
-      pntr[i + 1] = static_cast<int>(indx.size()); // done with point
-
-      // handle middle cells
-      for (int p = 1; p < level_size - 1; p++)
-      {
-        i++;
-        // always connected to the first two cells
-        indx.push_back(0);
-        indx.push_back(1);
-        // ancestors on previous levels
-        for (int upl = 2; upl < l; upl++)
-        {
-          int segment_size = cell_per_level[l - upl + 1];
-          int ancestor     = p / segment_size;
-          int edge         = p - ancestor * segment_size; // p % segment_size
-          // if on the left edge of the ancestor
-          if (edge == 0)
-            indx.push_back(cell_per_level[upl] + ancestor - 1);
-          indx.push_back(cell_per_level[upl] + ancestor);
-          // if on the right edge of the ancestor
-          if (edge == segment_size - 1)
-            indx.push_back(cell_per_level[upl] + ancestor + 1);
-        }
-        // on this level
-        indx.push_back(i - 1);
-        indx.push_back(i);
-        indx.push_back(i + 1);
-        // kids on further levels
-        int left_kid = p; // initialize, will be updated on first iteration
-        int num_kids = 1;
-        for (int downl = l + 1; downl < levels + 1; downl++)
-        {
-          left_kid *= 2;
-          num_kids *= 2;
-          for (int j = left_kid - 1; j < left_kid + num_kids + 1; j++)
-            indx.push_back(cell_per_level[downl] + j);
-        }
-        pntr[i + 1] = static_cast<int>(indx.size()); // done with cell i
-      }
-
-      // right edge cell
-      i++;
-      // always connected to 0 and 1
-      indx.push_back(0);
-      indx.push_back(1);
-      for (int upl = 2; upl < l; upl++)
-      {
-        // edge cell is connected to both edge cells on each level
-        indx.push_back(cell_per_level[upl]);
-        indx.push_back(cell_per_level[upl + 1] - 1);
-      }
-      // at this level
-      // connect also to the left-most cell (periodic boundary)
-      if (l > 2) // at level l = 2, left-most cell is i-1, don't double add
-        indx.push_back(cell_per_level[l]);
-      indx.push_back(i - 1);
-      indx.push_back(i);
-      // look at follow on levels
-      for (int downl = l + 1; downl < levels + 1; downl++)
-      {
-        // left edge on the level
-        indx.push_back(cell_per_level[downl]);
-        // get the last bunch of cells at the level
-        int lend = cell_per_level[downl + 1] - 1;
-        for (int downp = cell_per_level[downl - l + 1]; downp > -1; downp--)
-          indx.push_back(lend - downp);
-      }
-      pntr[i + 1] = static_cast<int>(indx.size()); // done with the right edge
-    } // done with level, move to the next level
-  }   // close the constructor
-
-  int get_offset(int row, int col) const
-  {
-    // first two levels are large and trivial, no need to search
-    if (row == 0)
-      return col;
-    else if (row == 1)
-      return cells + col;
-    // if not on the first or second row, do binary search
-    int sstart = pntr[row], send = pntr[row + 1] - 1;
-    int current = (sstart + send) / 2;
-    while (sstart <= send)
-    {
-      if (indx[current] < col)
-      {
-        sstart = current + 1;
-      }
-      else if (indx[current] > col)
-      {
-        send = current - 1;
-      }
-      else
-      {
-        return current;
-      };
-      current = (sstart + send) / 2;
-    }
-    return -1;
+    offsets[j] = spcache.cells1d.get_offset(oprow, opcol);
   }
-
-  int num_connections() const { return static_cast<int>(indx.size()); }
-
-  int num_cells() const { return cells; }
-
-  int row_begin(int row) const { return pntr[row]; }
-
-  int row_end(int row) const { return pntr[row + 1]; }
-
-  int operator[](int j) const { return indx[j]; }
-
-private:
-  int levels;
-  int cells;
-  std::vector<int> pntr;
-  std::vector<int> indx;
-};
+}
 
 template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
-                     options const &program_options, imex_flag const imex)
+                     options const &program_options,
+                     memory_usage const &mem_stats, imex_flag const imex,
+                     kron_sparse_cache &spcache)
 {
   auto const form_id = tools::timer.start("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
@@ -470,9 +404,12 @@ make_kronmult_sparse(PDE<precision> const &pde,
   // size of the small kron matrices
   int const kron_squared = kron_size * kron_size;
 
-  // holds the 1D sparsity structure for the coefficient matrices
-  connect_1d cells1d(pde.max_level);
-  int const num_1d = cells1d.num_connections();
+  int const num_1d = spcache.cells1d.num_connections();
+
+#ifdef ASGARD_USE_CUDA
+  int const tensor_size = kronmult_matrix<precision>::compute_tensor_size(
+      num_dimensions, kron_size);
+#endif
 
   // storing the 1D operator matrices by 1D row and column
   // each connected pair of 1D cells will be associated with a block
@@ -480,11 +417,12 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const block1D_size = num_dimensions * num_terms * kron_squared;
   fk::vector<precision> vA(num_1d * block1D_size);
   auto pA = vA.begin();
-  for (int row = 0; row < cells1d.num_cells(); row++)
+  for (int row = 0; row < spcache.cells1d.num_cells(); row++)
   {
-    for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
+    for (int j = spcache.cells1d.row_begin(row);
+         j < spcache.cells1d.row_end(row); j++)
     {
-      int col = cells1d[j];
+      int col = spcache.cells1d[j];
       for (int const t : used_terms)
       {
         for (int d = 0; d < num_dimensions; d++)
@@ -502,72 +440,113 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const *const flattened_table =
       discretization.get_table().get_active_table().data();
 
-  // This is a bad algorithm as it loops over all possible pairs of
-  // multi-indexes The correct algorithm is to infer the connectivity from the
-  // sparse grid graph hierarchy and avoid doing so many comparisons, but that
-  // requires messy work with the way the indexes are stored in memory. To do
-  // this properly, I need a fast map from a multi-index to the matrix row
-  // associated with the multi-index (or indicate if it's missing).
-  // The unordered_map does not provide this functionality and the addition of
-  // the flattened table in element.hpp is not a good answer.
-  // Will fix in a future PR ...
-
-  // the algorithm use two stages, counts the non-zeros in the global matrix,
-  // then fills in the associated indexes for the rows, columns and iA
-  std::vector<int> ccount(num_rows, 0); // first counts the connections
-#pragma omp parallel for
-  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
-  {
-    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-    // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
-    for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
-    {
-      int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-      if (check_connected(num_dimensions, row_coords, col_coords))
-        ccount[row - grid.row_start]++;
-    }
-  }
-
-  // right now, ccount[row] is the number of connections for each row
-  // later we will replace ccount by cumulative count similar to pntr
-  // num_connect is the total number of non-zeros of the sparse matrix
-  int num_connect = std::accumulate(ccount.begin(), ccount.end(), 0);
-
-  fk::vector<int> iA(num_connect * num_dimensions * num_terms);
-
-#ifdef ASGARD_USE_CUDA
-  int tensor_size = kronmult_matrix<precision>::compute_tensor_size(
-      num_dimensions, kron_size);
-
-  fk::vector<int> row_indx(num_connect);
-  fk::vector<int> col_indx(num_connect);
-  {
-    int cumulative = 0;
-    for (int i = 0; i < num_rows; i++)
-    {
-      int current = cumulative;
-      cumulative += ccount[i];
-      ccount[i] = current;
-    }
-  }
-#else
-  fk::vector<int> pntr(num_rows + 1);
-  fk::vector<int> indx(num_connect);
-  pntr[0] = 0;
-  for (int i = 0; i < num_rows; i++)
-    pntr[i + 1] = pntr[i] + ccount[i];
-  for (int i = 0; i < num_rows; i++)
-    ccount[i] = pntr[i];
+#ifndef ASGARD_USE_CUDA
+  std::vector<int> row_group_pntr; // group rows in the CPU case
 #endif
 
-#pragma omp parallel
+  std::vector<fk::vector<int>> list_iA;
+  std::vector<fk::vector<int>> list_row_indx;
+  std::vector<fk::vector<int>> list_col_indx;
+
+  if (mem_stats.kron_call == memory_usage::one_call)
   {
-    std::vector<int> offsets(num_dimensions); // find the 1D offsets
+    list_iA.push_back(
+        fk::vector<int>(spcache.num_nonz * num_dimensions * num_terms));
+
+#ifdef ASGARD_USE_CUDA
+    list_row_indx.push_back(fk::vector<int>(spcache.num_nonz));
+    list_col_indx.push_back(fk::vector<int>(spcache.num_nonz));
+#else
+    list_row_indx.push_back(fk::vector<int>(num_rows + 1));
+    list_col_indx.push_back(fk::vector<int>(spcache.num_nonz));
+    std::copy_n(spcache.cconnect.begin(), num_rows, list_row_indx[0].begin());
+    list_row_indx[0][num_rows] = spcache.num_nonz;
+#endif
+
+// load the entries in the one-call mode, can be done in parallel
+#pragma omp parallel
+    {
+      std::vector<int> offsets(num_dimensions); // find the 1D offsets
 
 #pragma omp for
+      for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
+      {
+        int const c = spcache.cconnect[row - grid.row_start];
+
+#ifdef ASGARD_USE_CUDA
+        auto iy = list_row_indx[0].begin() + c;
+#endif
+        auto ix = list_col_indx[0].begin() + c;
+
+        auto ia = list_iA[0].begin() + num_dimensions * num_terms * c;
+
+        int const *const row_coords =
+            flattened_table + 2 * num_dimensions * row;
+        // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+        for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+        {
+          int const *const col_coords =
+              flattened_table + 2 * num_dimensions * col;
+
+          if (check_connected(num_dimensions, row_coords, col_coords))
+          {
+#ifdef ASGARD_USE_CUDA
+            *iy++ = (row - grid.row_start) * tensor_size;
+            *ix++ = (col - grid.col_start) * tensor_size;
+#else
+            *ix++ = col - grid.col_start;
+#endif
+
+            compute_coefficient_offsets(spcache, row_coords, col_coords,
+                                        offsets);
+
+            for (int t = 0; t < num_terms; t++)
+              for (int d = 0; d < num_dimensions; d++)
+                *ia++ = offsets[d] * block1D_size +
+                        (t * num_dimensions + d) * kron_squared;
+          }
+        }
+      }
+    }
+  }
+  else
+  { // split the problem into multiple chunks
+    // size of the indexes for each pair of (row, col) indexes (for x and y)
+    int kron_unit_size = num_dimensions * num_terms;
+    // number of pairs that fit in the work-size
+    int max_units = mem_stats.work_size / kron_unit_size;
+#ifdef ASGARD_USE_CUDA
+    // CUDA case, split evenly since parallelism is per kron-product
+    int num_chunks = (spcache.num_nonz + max_units - 1) / max_units;
+    list_iA.resize(num_chunks);
+    list_row_indx.resize(num_chunks);
+    list_col_indx.resize(num_chunks);
+
+    for (size_t i = 0; i < list_iA.size() - 1; i++)
+    {
+      list_iA[i]       = fk::vector<int>(max_units * kron_unit_size);
+      list_row_indx[i] = fk::vector<int>(max_units);
+      list_col_indx[i] = fk::vector<int>(max_units);
+    }
+    list_iA.back() = fk::vector<int>(
+        (spcache.num_nonz - (num_chunks - 1) * max_units) * kron_unit_size);
+    list_row_indx.back() =
+        fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
+    list_col_indx.back() =
+        fk::vector<int>(spcache.num_nonz - (num_chunks - 1) * max_units);
+
+    auto list_itra = list_iA.begin();
+    auto list_ix   = list_col_indx.begin();
+    auto list_iy   = list_row_indx.begin();
+
+    auto ia = list_itra->begin();
+    auto ix = list_ix->begin();
+    auto iy = list_iy->begin();
+
+    std::vector<int> offsets(num_dimensions); // find the 1D offsets
+
     for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
     {
-      int c                       = ccount[row - grid.row_start];
       int const *const row_coords = flattened_table + 2 * num_dimensions * row;
       // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
       for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
@@ -577,92 +556,209 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
         if (check_connected(num_dimensions, row_coords, col_coords))
         {
-#ifdef ASGARD_USE_CUDA
-          row_indx[c] = (row - grid.row_start) * tensor_size;
-          col_indx[c] = (col - grid.col_start) * tensor_size;
-#else
-          indx[c] = col - grid.col_start;
-#endif
-          int ia = num_dimensions * num_terms * c++;
+          *iy++ = (row - grid.row_start) * tensor_size;
+          *ix++ = (col - grid.col_start) * tensor_size;
 
-          for (int j = 0; j < num_dimensions; j++)
-          {
-            int const oprow = (row_coords[j] == 0)
-                                  ? 0
-                                  : ((1 << (row_coords[j] - 1)) +
-                                     row_coords[j + num_dimensions]);
-            int const opcol = (col_coords[j] == 0)
-                                  ? 0
-                                  : ((1 << (col_coords[j] - 1)) +
-                                     col_coords[j + num_dimensions]);
-
-            offsets[j] = cells1d.get_offset(oprow, opcol);
-          }
+          compute_coefficient_offsets(spcache, row_coords, col_coords, offsets);
 
           for (int t = 0; t < num_terms; t++)
-          {
             for (int d = 0; d < num_dimensions; d++)
-            {
-              iA[ia++] = offsets[d] * block1D_size +
-                         (t * num_dimensions + d) * kron_squared;
-            }
+              *ia++ = offsets[d] * block1D_size +
+                      (t * num_dimensions + d) * kron_squared;
+
+          if (ix == list_ix->end() and list_ix < list_col_indx.end())
+          {
+            ia = (++list_itra)->begin();
+            ix = (++list_ix)->begin();
+            iy = (++list_iy)->begin();
           }
         }
       }
     }
+
+#else
+    // CPU case, combine rows together into large groups but don't exceed the
+    // work-size
+    row_group_pntr.push_back(0);
+    int64_t num_units = 0;
+    for (int i = 0; i < num_rows; i++)
+    {
+      int nz_per_row =
+          ((i + 1 < num_rows) ? spcache.cconnect[i + 1] : spcache.num_nonz) -
+          spcache.cconnect[i];
+      if (num_units + nz_per_row > max_units)
+      {
+        // begin new chunk
+        list_iA.push_back(fk::vector<int>(num_units * kron_unit_size));
+        list_row_indx.push_back(fk::vector<int>(i - row_group_pntr.back() + 1));
+        list_col_indx.push_back(fk::vector<int>(num_units));
+
+        row_group_pntr.push_back(i);
+        num_units = nz_per_row;
+      }
+      else
+      {
+        num_units += nz_per_row;
+      }
+    }
+    if (num_units > 0)
+    {
+      list_iA.push_back(fk::vector<int>(num_units * kron_unit_size));
+      list_row_indx.push_back(
+          fk::vector<int>(num_rows - row_group_pntr.back() + 1));
+      list_col_indx.push_back(fk::vector<int>(num_units));
+    }
+    row_group_pntr.push_back(num_rows);
+
+    std::vector<int> offsets(num_dimensions);
+
+    auto iconn       = spcache.cconnect.begin();
+    int64_t shift_iy = 0;
+
+    for (size_t i = 0; i < row_group_pntr.size() - 1; i++)
+    {
+      auto ia = list_iA[i].begin();
+      auto ix = list_col_indx[i].begin();
+      auto iy = list_row_indx[i].begin();
+
+      for (int64_t row = row_group_pntr[i]; row < row_group_pntr[i + 1]; row++)
+      {
+        *iy++ = *iconn++ - shift_iy; // copy the pointer index
+
+        int const *const row_coords =
+            flattened_table + 2 * num_dimensions * row;
+        // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+        for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+        {
+          int const *const col_coords =
+              flattened_table + 2 * num_dimensions * col;
+
+          if (check_connected(num_dimensions, row_coords, col_coords))
+          {
+            *ix++ = (col - grid.col_start);
+
+            compute_coefficient_offsets(spcache, row_coords, col_coords,
+                                        offsets);
+
+            for (int t = 0; t < num_terms; t++)
+              for (int d = 0; d < num_dimensions; d++)
+                *ia++ = offsets[d] * block1D_size +
+                        (t * num_dimensions + d) * kron_squared;
+          }
+        }
+      }
+
+      if (i + 2 < row_group_pntr.size())
+      {
+        *iy++    = *iconn - shift_iy;
+        shift_iy = *iconn;
+      }
+      else
+      {
+        *iy++ = spcache.num_nonz - shift_iy;
+      }
+    }
+
+#endif
   }
 
   tools::timer.stop(form_id);
 
   std::cout << "  kronmult sparse matrix fill: "
-            << 100.0 * double(num_connect) /
+            << 100.0 * double(spcache.num_nonz) /
                    (double(num_rows) * double(num_cols))
             << "%\n";
 
-#ifdef ASGARD_USE_CUDA
   int64_t flops = kronmult_matrix<precision>::compute_flops(
-      num_dimensions, kron_size, num_terms, col_indx.size());
+      num_dimensions, kron_size, num_terms, spcache.num_nonz);
   std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
-  std::cout << "  kronmult sparse matrix allocation (MB): "
-            << get_MB<int>(iA.size()) + get_MB<precision>(vA.size()) +
-                   get_MB<int>(2 * row_indx.size())
-            << "\n";
+
+#ifdef ASGARD_USE_CUDA
+  if (mem_stats.kron_call == memory_usage::one_call)
+  {
+    std::cout << "        memory usage (unique): "
+              << get_MB<int>(list_row_indx[0].size()) +
+                     get_MB<int>(list_col_indx[0].size()) +
+                     get_MB<int>(list_iA[0].size()) +
+                     get_MB<precision>(vA.size())
+              << "\n";
+    std::cout << "        memory usage (shared): 0\n";
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        list_row_indx[0].clone_onto_device(),
+        list_col_indx[0].clone_onto_device(), list_iA[0].clone_onto_device(),
+        vA.clone_onto_device());
+  }
+  else
+  {
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+    std::cout << "        memory usage (unique): "
+              << get_MB<precision>(vA.size()) << "\n";
+    std::cout << "        memory usage (shared): "
+              << 2 * get_MB<int>(mem_stats.work_size) +
+                     4 * get_MB<int>(mem_stats.row_work_size)
+              << "\n";
+    return kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
+        vA.clone_onto_device());
+#else
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(
+        list_iA.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_col(
+        list_col_indx.size());
+    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_row(
+        list_row_indx.size());
+    int64_t num_ints = 0;
+    for (size_t i = 0; i < gpu_iA.size(); i++)
+    {
+      gpu_iA[i]  = list_iA[i].clone_onto_device();
+      gpu_col[i] = list_col_indx[i].clone_onto_device();
+      gpu_row[i] = list_row_indx[i].clone_onto_device();
+      num_ints += gpu_iA[i].size() + gpu_col[i].size() + gpu_row[i].size();
+    }
+    std::cout << "        memory usage (MB): "
+              << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
+    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
+                                      num_cols, num_terms, std::move(gpu_row),
+                                      std::move(gpu_col), std::move(gpu_iA),
+                                      vA.clone_onto_device());
+#endif
+  }
+#else
 
   return kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
-      row_indx.clone_onto_device(), col_indx.clone_onto_device(),
-      iA.clone_onto_device(), vA.clone_onto_device());
-#else
-  int64_t flops = kronmult_matrix<precision>::compute_flops(
-      num_dimensions, kron_size, num_terms, indx.size());
-  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
+      std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
+      std::move(vA));
 
-  // if using the CPU, move the vectors into the matrix structure
-  return kronmult_matrix<precision>(
-      num_dimensions, kron_size, num_rows, num_cols, num_terms, std::move(pntr),
-      std::move(indx), std::move(iA), std::move(vA));
 #endif
 }
 
 template<typename P>
 kronmult_matrix<P>
 make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                     options const &cli_opts, imex_flag const imex)
+                     options const &cli_opts, memory_usage const &mem_stats,
+                     imex_flag const imex, kron_sparse_cache &spcache,
+                     bool force_sparse)
 {
-  if (cli_opts.kmode == kronmult_mode::dense)
+  if (cli_opts.kmode == kronmult_mode::dense and not force_sparse)
   {
-    return make_kronmult_dense<P>(pde, grid, cli_opts, imex);
+    return make_kronmult_dense<P>(pde, grid, cli_opts, mem_stats, imex);
   }
   else
   {
-    return make_kronmult_sparse<P>(pde, grid, cli_opts, imex);
+    return make_kronmult_sparse<P>(pde, grid, cli_opts, mem_stats, imex,
+                                   spcache);
   }
 }
 
 template<typename P>
 void update_kronmult_coefficients(PDE<P> const &pde,
                                   options const &program_options,
-                                  imex_flag const imex, kronmult_matrix<P> &mat)
+                                  imex_flag const imex,
+                                  kron_sparse_cache &spcache,
+                                  kronmult_matrix<P> &mat)
 {
   auto const form_id       = tools::timer.start("kronmult-update-coefficients");
   int const num_dimensions = pde.num_dims;
@@ -710,8 +806,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
   else
   {
     // holds the 1D sparsity structure for the coefficient matrices
-    connect_1d cells1d(pde.max_level);
-    int const num_1d = cells1d.num_connections();
+    int const num_1d = spcache.cells1d.num_connections();
 
     // storing the 1D operator matrices by 1D row and column
     // each connected pair of 1D cells will be associated with a block
@@ -719,11 +814,12 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     int const block1D_size = num_dimensions * num_terms * kron_squared;
     vA                     = fk::vector<P>(num_1d * block1D_size);
     auto pA                = vA.begin();
-    for (int row = 0; row < cells1d.num_cells(); row++)
+    for (int row = 0; row < spcache.cells1d.num_cells(); row++)
     {
-      for (int j = cells1d.row_begin(row); j < cells1d.row_end(row); j++)
+      for (int j = spcache.cells1d.row_begin(row);
+           j < spcache.cells1d.row_end(row); j++)
       {
-        int col = cells1d[j];
+        int col = spcache.cells1d[j];
         for (int const t : used_terms)
         {
           for (int d = 0; d < num_dimensions; d++)
@@ -748,25 +844,231 @@ void update_kronmult_coefficients(PDE<P> const &pde,
   tools::timer.stop(form_id);
 }
 
+template<typename P>
+memory_usage
+compute_mem_usage(PDE<P> const &pde,
+                  adapt::distributed_grid<P> const &discretization,
+                  options const &program_options, imex_flag const imex,
+                  kron_sparse_cache &spcache, int memory_limit_MB,
+                  int64_t index_limit, bool force_sparse)
+{
+  auto const &grid         = discretization.get_subgrid(get_rank());
+  int const num_dimensions = pde.num_dims;
+  int const kron_size      = pde.get_dimensions()[0].get_degree();
+  int const num_rows       = grid.row_stop - grid.row_start + 1;
+  int const num_cols       = grid.col_stop - grid.col_start + 1;
+
+  memory_usage stats;
+
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+  if (memory_limit_MB == 0)
+    memory_limit_MB = program_options.memory_limit;
+#else
+  ignore(memory_limit_MB);
+#endif
+
+  // parameters common to the dense and sparse cases
+  // matrices_per_prod is the number of matrices per Kronecker product
+  int64_t matrices_per_prod = pde.num_terms * num_dimensions;
+
+  // base_line_entries are the entries that must always be loaded in GPU memory
+  // first we compute the size of the state vectors (x and y) and then we
+  // add the size of the coefficients (based on sparse/dense mode)
+  int64_t base_line_entries =
+      (num_rows + num_cols) *
+      kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
+
+  if (program_options.kmode == kronmult_mode::dense and not force_sparse)
+  {
+    // assume all terms will be loaded into the GPU, as one IMEX flag or another
+    for (int t = 0; t < pde.num_terms; t++)
+      for (int d = 0; d < num_dimensions; d++)
+        base_line_entries += pde.get_coefficients(t, d).size();
+
+    stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
+
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+    int64_t available_MB = memory_limit_MB - stats.baseline_memory;
+    check_available_memory(stats.baseline_memory, available_MB);
+
+    int64_t available_entries = (int64_t{available_MB} * 1024 * 1024) /
+                                static_cast<int64_t>(sizeof(int));
+#else
+    int64_t available_entries = index_limit;
+#endif
+
+    int64_t size_of_indexes =
+        int64_t{num_rows} * int64_t{num_cols} * matrices_per_prod;
+
+    if (size_of_indexes <= available_entries and size_of_indexes <= index_limit)
+    {
+      stats.kron_call = memory_usage::one_call;
+    }
+    else
+    {
+      stats.kron_call = memory_usage::multi_calls;
+
+      if (size_of_indexes > index_limit)
+      {
+        stats.mem_limit = memory_usage::overflow;
+        stats.work_size = index_limit;
+      }
+      else
+      {
+        stats.mem_limit = memory_usage::environment;
+        stats.work_size = available_entries / 2;
+      }
+
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+      if (2 * stats.work_size > available_entries)
+        stats.work_size = available_entries / 2;
+#endif
+    }
+  }
+  else
+  { // sparse mode
+    // if possible, keep the 1d connectivity matrix
+    if (pde.max_level != spcache.cells1d.max_loaded_level())
+      spcache.cells1d = connect_1d(pde.max_level);
+
+    int const *const flattened_table =
+        discretization.get_table().get_active_table().data();
+
+    // This is a bad algorithm as it loops over all possible pairs of
+    // multi-indexes The correct algorithm is to infer the connectivity from the
+    // sparse grid graph hierarchy and avoid doing so many comparisons, but that
+    // requires messy work with the way the indexes are stored in memory. To do
+    // this properly, I need a fast map from a multi-index to the matrix row
+    // associated with the multi-index (or indicate if it's missing).
+    // The unordered_map does not provide this functionality and the addition of
+    // the flattened table in element.hpp is not a good answer.
+    // Will fix in a future PR ...
+
+    if (spcache.cconnect.size() == static_cast<size_t>(num_rows))
+      std::fill(spcache.cconnect.begin(), spcache.cconnect.end(), 0);
+    else
+      spcache.cconnect = std::vector<int>(num_rows);
+
+#pragma omp parallel for
+    for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
+    {
+      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+      // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+      for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+      {
+        int const *const col_coords =
+            flattened_table + 2 * num_dimensions * col;
+        if (check_connected(num_dimensions, row_coords, col_coords))
+          spcache.cconnect[row - grid.row_start]++;
+      }
+    }
+
+    spcache.num_nonz = 0; // total number of connected cells
+    for (int i = 0; i < num_rows; i++)
+    {
+      int c               = spcache.cconnect[i];
+      spcache.cconnect[i] = spcache.num_nonz;
+      spcache.num_nonz += c;
+    }
+
+    base_line_entries += spcache.cells1d.num_connections() * num_dimensions *
+                         pde.num_terms * kron_size * kron_size;
+
+    stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
+
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+    int64_t available_MB = memory_limit_MB - stats.baseline_memory;
+    check_available_memory(stats.baseline_memory, available_MB);
+
+    int64_t available_entries =
+        (available_MB * 1024 * 1024) / static_cast<int64_t>(sizeof(int));
+#else
+    int64_t available_entries = index_limit;
+#endif
+
+    int64_t size_of_indexes = spcache.num_nonz * (matrices_per_prod + 2);
+
+    if (size_of_indexes <= available_entries and size_of_indexes <= index_limit)
+    {
+      stats.kron_call = memory_usage::one_call;
+    }
+    else
+    {
+      int min_terms = pde.num_terms;
+      if (imex != imex_flag::unspecified)
+      {
+        std::vector<int> const explicit_terms =
+            get_used_terms(pde, program_options, imex_flag::imex_explicit);
+        std::vector<int> const implicit_terms =
+            get_used_terms(pde, program_options, imex_flag::imex_implicit);
+        min_terms = std::min(explicit_terms.size(), implicit_terms.size());
+      }
+
+      stats.kron_call = memory_usage::multi_calls;
+      if (size_of_indexes > index_limit)
+      {
+        stats.mem_limit     = memory_usage::overflow;
+        stats.work_size     = index_limit;
+        stats.row_work_size = index_limit / (num_dimensions * min_terms);
+      }
+      else
+      {
+        stats.mem_limit = memory_usage::environment;
+        int64_t work_products =
+            available_entries / (min_terms * num_dimensions + 2);
+        stats.work_size     = min_terms * num_dimensions * (work_products / 2);
+        stats.row_work_size = work_products / 2;
+      }
+
+#ifdef ASGARD_USE_GPU_MEM_LIMIT
+      if (2 * stats.work_size + 2 * stats.row_work_size > available_entries)
+      {
+        int64_t work_products =
+            available_entries / (min_terms * num_dimensions + 2);
+        stats.work_size     = min_terms * num_dimensions * (work_products / 2);
+        stats.row_work_size = work_products / 2;
+      }
+#endif
+    }
+  }
+
+  stats.initialized = true;
+
+  return stats;
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
-                             options const &, imex_flag const);
-template void update_kronmult_coefficients<double>(PDE<double> const &,
-                                                   options const &,
-                                                   imex_flag const,
-                                                   kronmult_matrix<double> &);
+                             options const &, memory_usage const &,
+                             imex_flag const, kron_sparse_cache &, bool);
+template void
+update_kronmult_coefficients<double>(PDE<double> const &, options const &,
+                                     imex_flag const, kron_sparse_cache &,
+                                     kronmult_matrix<double> &);
+template memory_usage
+compute_mem_usage<double>(PDE<double> const &,
+                          adapt::distributed_grid<double> const &,
+                          options const &, imex_flag const, kron_sparse_cache &,
+                          int, int64_t, bool);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
-                            options const &, imex_flag const);
+                            options const &, memory_usage const &,
+                            imex_flag const, kron_sparse_cache &, bool);
 template void
 update_kronmult_coefficients<float>(PDE<float> const &, options const &,
-                                    imex_flag const, kronmult_matrix<float> &);
+                                    imex_flag const, kron_sparse_cache &,
+                                    kronmult_matrix<float> &);
+template memory_usage
+compute_mem_usage<float>(PDE<float> const &,
+                         adapt::distributed_grid<float> const &,
+                         options const &, imex_flag const, kron_sparse_cache &,
+                         int, int64_t, bool);
 #endif
 
 } // namespace asgard
