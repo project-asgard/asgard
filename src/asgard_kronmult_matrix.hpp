@@ -612,7 +612,7 @@ private:
     flops_ = 0;
     for (auto const &a : list_iA)
       flops_ += static_cast<int64_t>(a.size());
-    flops_ *= int64_t(tensor_size_) * kron_size_;
+    flops_ *= int64_t{tensor_size_} * kron_size_;
   }
 
   int num_dimensions_;
