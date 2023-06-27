@@ -731,7 +731,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
             P const n = param_manager.get_parameter("n")->value(x_v, t);
 
             return (mom4_x + mom5_x + mom6_x) / (3.0 * n) -
-                   0.5 * (std::pow(u1, 2) + std::pow(u2, 2) + std::pow(u3, 2));
+                   (1.0 / 3.0) *
+                       (std::pow(u1, 2) + std::pow(u2, 2) + std::pow(u3, 2));
           };
         }
         else
