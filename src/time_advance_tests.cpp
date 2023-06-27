@@ -1332,6 +1332,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", test_precs)
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
     REQUIRE(E_relative <= tolerance);
   }
+
+  parameter_manager<TestType>::get_instance().reset();
 }
 
 /*****************************************************************************
