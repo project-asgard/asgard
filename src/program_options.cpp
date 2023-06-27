@@ -81,7 +81,9 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(gmres_inner_iterations, "inner_it > 0")["--inner_it"](
           "Number of inner iterations in gmres solver") |
       clara::detail::Opt(gmres_outer_iterations, "outer_it > 0")["--outer_it"](
-          "Number of outer iterations in gmres solver");
+          "Number of outer iterations in gmres solver") |
+      clara::detail::Opt(device, "device index")["--device"](
+          "Sets the GPU device that ASGarD will run on (CUDA builds only).");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -375,6 +377,20 @@ parser::parser(int argc, char const *const *argv)
               << '\n';
     valid = false;
   }
+
+#ifdef ASGARD_USE_CUDA
+  if (device != NO_USER_VALUE)
+  {
+    lib_dispatch::initialize_libraries(device, true);
+  }
+#else
+  if (device != NO_USER_VALUE)
+  {
+    std::cerr << "Invalid GPU device choice; ASGarD was not built with CUDA "
+                 "enabled\n";
+    valid = false;
+  }
+#endif
 }
 
 bool parser::using_implicit() const { return use_implicit_stepping; }
@@ -401,6 +417,7 @@ int parser::get_gmres_outer_iterations() const
 {
   return gmres_outer_iterations;
 }
+int parser::get_device_id() const { return device; }
 
 double parser::get_cfl() const { return cfl; }
 double parser::get_dt() const { return dt; }
@@ -451,6 +468,9 @@ void parser_mod::set(parser &p, parser_option_entry entry, int value)
     break;
   case gmres_outer_iterations:
     p.gmres_outer_iterations = value;
+    break;
+  case device:
+    p.device = value;
     break;
   default:
     throw std::runtime_error(

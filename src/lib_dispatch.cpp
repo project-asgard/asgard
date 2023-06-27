@@ -178,14 +178,23 @@ inline cublasOperation_t cublas_trans(char trans)
 #endif
 } // namespace
 
-void initialize_libraries(int const local_rank)
+void initialize_libraries(int const local_rank, bool ignore_rank)
 {
 #ifdef ASGARD_USE_CUDA
   expect(local_rank >= 0);
   int num_devices;
   if (cudaGetDeviceCount(&num_devices) != cudaSuccess)
     throw std::runtime_error("cannot read the number of GPUs");
-  device.set_device(local_rank % num_devices);
+  // check whether to setting device across ranks, or different device for
+  // single rank
+  if (!ignore_rank)
+  {
+    device.set_device(local_rank % num_devices);
+  }
+  else
+  {
+    device.set_device(local_rank);
+  }
 #else
   asgard::ignore(local_rank);
 #endif

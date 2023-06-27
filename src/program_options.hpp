@@ -199,6 +199,7 @@ public:
   static auto constexpr DEFAULT_GMRES_TOLERANCE   = NO_USER_VALUE_FP;
   static auto constexpr DEFAULT_GMRES_INNER_ITERATIONS = NO_USER_VALUE;
   static auto constexpr DEFAULT_GMRES_OUTER_ITERATIONS = NO_USER_VALUE;
+  static auto constexpr DEFAULT_GPU_DEVICE             = NO_USER_VALUE;
 
   // construct from command line
   explicit parser(int argc, char const *const *argv);
@@ -220,7 +221,8 @@ public:
       kronmult_mode const kmode_in         = DEFAULT_KRONMULT_MODE,
       double const gmres_tolerance_in      = DEFAULT_GMRES_TOLERANCE,
       int const gmres_inner_iterations_in  = DEFAULT_GMRES_INNER_ITERATIONS,
-      int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS)
+      int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS,
+      int const device_in                  = DEFAULT_GPU_DEVICE)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid_in),
         do_adapt(do_adapt_levels), starting_levels(starting_levels_in),
         degree(degree_in), max_level(max_level_in),
@@ -231,7 +233,7 @@ public:
         memory_limit(memory_limit_in), kmode(kmode_in),
         gmres_tolerance(gmres_tolerance_in),
         gmres_inner_iterations(gmres_inner_iterations_in),
-        gmres_outer_iterations(gmres_outer_iterations_in){};
+        gmres_outer_iterations(gmres_outer_iterations_in), device(device_in){};
 
   explicit parser(
       std::string const &pde_choice_in, fk::vector<int> starting_levels_in,
@@ -249,13 +251,14 @@ public:
       kronmult_mode const kmode_in         = DEFAULT_KRONMULT_MODE,
       double const gmres_tolerance_in      = DEFAULT_GMRES_TOLERANCE,
       int const gmres_inner_iterations_in  = DEFAULT_GMRES_INNER_ITERATIONS,
-      int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS)
+      int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS,
+      int const device_in                  = DEFAULT_GPU_DEVICE)
       : parser(pde_mapping.at(pde_choice_in).pde_choice, starting_levels_in,
                degree_in, cfl_in, use_full_grid_in, max_level_in,
                mixed_grid_group_in, num_steps, use_implicit, do_adapt_levels,
                adapt_threshold_in, solver_str_in, use_imex, memory_limit_in,
                kmode_in, gmres_tolerance_in, gmres_inner_iterations_in,
-               gmres_outer_iterations_in){};
+               gmres_outer_iterations_in, device_in){};
   /*!
    * \brief Simple utility to modify private members of the parser.
    */
@@ -277,6 +280,7 @@ public:
   int get_memory_limit() const;
   int get_gmres_inner_iterations() const;
   int get_gmres_outer_iterations() const;
+  int get_device_id() const;
 
   int get_wavelet_output_freq() const;
   int get_realspace_output_freq() const;
@@ -393,6 +397,9 @@ private:
   int gmres_inner_iterations = DEFAULT_GMRES_INNER_ITERATIONS;
   int gmres_outer_iterations = DEFAULT_GMRES_OUTER_ITERATIONS;
 
+  // GPU device index to use
+  int device = DEFAULT_GPU_DEVICE;
+
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
 };
@@ -412,6 +419,7 @@ struct parser_mod
     memory_limit,
     gmres_inner_iterations,
     gmres_outer_iterations,
+    device,
     // bool values
     use_implicit_stepping,
     use_full_grid,

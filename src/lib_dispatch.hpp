@@ -13,7 +13,7 @@ enum class resource
 // -- precision/execution resource wrapper for blas --
 namespace lib_dispatch
 {
-void initialize_libraries(int const local_rank);
+void initialize_libraries(int const local_rank, bool const ignore_rank = false);
 
 template<resource resrc = resource::host, typename P>
 void rotg(P *a, P *b, P *c, P *s);
