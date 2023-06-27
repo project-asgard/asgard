@@ -137,7 +137,12 @@ struct device_handler
     }
 
     success = cudaSetDevice(local_rank);
-    expect(success == cudaSuccess);
+    if (success != cudaSuccess)
+    {
+      throw std::runtime_error(
+          "failed to set CUDA device to " + std::to_string(local_rank) +
+          ", available devices = " + std::to_string(num_devices));
+    }
     auto const cublas_success = cublasCreate(&handle);
     expect(cublas_success == CUBLAS_STATUS_SUCCESS);
 
