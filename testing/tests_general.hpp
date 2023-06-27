@@ -10,6 +10,7 @@
 #include "src/fast_math.hpp"
 #include "src/pde.hpp"
 #include "src/program_options.hpp"
+#include "src/quadrature.hpp"
 #include <catch2/catch_all.hpp>
 #include <filesystem>
 #include <sstream>
@@ -217,6 +218,46 @@ void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
       });
 }
 
+/**
+ * \brief Calculates the integral of a vector over the given dimension
+ */
+template<typename P>
+P calculate_integral(asgard::fk::vector<P> const &input,
+                     asgard::dimension<P> const &dim)
+{
+  int const degree = dim.get_degree();
+  auto const legendre_values =
+      asgard::legendre_weights<P>(degree, -1.0, 1.0, true);
+  int const num_cells  = input.size();
+  P const grid_spacing = (dim.domain_max - dim.domain_min) / num_cells;
+
+  asgard::fk::matrix<P> coefficients(num_cells, degree);
+  asgard::fk::vector<P> half_input(input);
+  asgard::fm::scal(P{0.5}, half_input);
+  for (int d = 0; d < degree; d++)
+  {
+    coefficients.update_col(d, half_input);
+  }
+
+  asgard::fk::matrix<P> w(degree, degree);
+  w.update_row(0, legendre_values[1]);
+
+  asgard::fk::matrix<P> input_weighted(num_cells, degree);
+  asgard::fm::gemm(coefficients, w, input_weighted);
+  asgard::fm::scal(P{0.5}, input_weighted);
+
+  P sum = 0.0;
+  for (int elem = 0; elem < num_cells; elem++)
+  {
+    for (int d = 0; d < degree; d++)
+    {
+      sum += input_weighted(elem, d);
+    }
+  }
+
+  P integral = grid_spacing * sum;
+  return integral;
+}
 namespace asgard
 {
 /*!
@@ -228,5 +269,4 @@ inline parser make_empty_parser()
   const char *ename = "asgard";
   return parser(1, &ename); // dummy parser
 }
-
 } // namespace asgard
