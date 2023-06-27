@@ -1332,6 +1332,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", test_precs)
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
     REQUIRE(E_relative <= tolerance);
   }
+}
 
 /*****************************************************************************
  * Testing the ability to split a matrix into multiple calls
