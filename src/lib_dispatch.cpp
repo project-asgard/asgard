@@ -202,6 +202,7 @@ void initialize_libraries(int const local_rank, bool ignore_rank)
   }
 #else
   asgard::ignore(local_rank);
+  asgard::ignore(ignore_rank);
 #endif
 }
 
