@@ -236,7 +236,7 @@ private:
   {
     auto param = param_manager.get_parameter("E");
     expect(param != nullptr);
-    return std::max(P{0.0},param->value(x, time));
+    return std::max(P{0.0}, param->value(x, time));
   }
 
   static P negOne(P const x, P const time = 0)
@@ -275,7 +275,7 @@ private:
   {
     auto param = param_manager.get_parameter("E");
     expect(param != nullptr);
-    return std::min(P{0.0},param->value(x, time));
+    return std::min(P{0.0}, param->value(x, time));
   }
 
   inline static const partial_term<P> pterm_E_mass_x_neg = partial_term<P>(
