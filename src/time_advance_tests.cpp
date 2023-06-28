@@ -1336,6 +1336,131 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[time_advance]", test_precs)
   parameter_manager<TestType>::get_instance().reset();
 }
 
+TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[time_advance]",
+                   test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "two_stream";
+  fk::vector<int> const levels{5, 5};
+  int const degree            = 3;
+  static int constexpr nsteps = 15;
+
+  TestType constexpr tolerance =
+      std::is_same<TestType, double>::value ? 1.0e-8 : 1.0e-5;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 6.25e-3);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  options const opts(parse);
+  elements::table const check(opts, *pde);
+
+  adapt::distributed_grid adaptive_grid(*pde, opts);
+  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                       *pde);
+
+  // -- compute dimension mass matrices
+  generate_dimension_mass_mat(*pde, transformer);
+
+  // -- set coeffs
+  generate_all_coefficients(*pde, transformer);
+
+  // -- generate moments
+  for (auto &m : pde->moments)
+  {
+    m.createFlist(*pde, opts);
+    expect(m.get_fList().size() > 0);
+
+    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    expect(m.get_vector().size() > 0);
+  }
+
+  // -- generate initial condition vector.
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+
+  generate_dimension_mass_mat(*pde, transformer);
+
+  fk::vector<TestType> f_val(initial_condition);
+  asgard::matrix_list<TestType> operator_matrices;
+
+  TestType E_pot_initial = 0.0;
+  TestType E_kin_initial = 0.0;
+
+  // -- time loop
+  for (auto i = 0; i < opts.num_time_steps; ++i)
+  {
+    std::cout.setstate(std::ios_base::failbit);
+    auto const time          = i * pde->get_dt();
+    auto const update_system = i == 0;
+    auto const sol           = time_advance::adaptive_advance(
+        asgard::time_advance::method::imex, *pde, operator_matrices,
+        adaptive_grid, transformer, opts, f_val, time, update_system);
+
+    f_val.resize(sol.size()) = sol;
+    std::cout.clear();
+
+    // compute the E potential and kinetic energy
+    fk::vector<TestType> E_field_sq(pde->E_field);
+    for (auto &e : E_field_sq)
+    {
+      e = e * e;
+    }
+    dimension<TestType> &dim = pde->get_dimensions()[0];
+    TestType E_pot           = calculate_integral(E_field_sq, dim);
+    TestType E_kin =
+        calculate_integral(pde->moments[2].get_realspace_moment(), dim);
+    if (i == 0)
+    {
+      E_pot_initial = E_pot;
+      E_kin_initial = E_kin;
+    }
+
+    TestType E_tot = E_pot + E_kin;
+    std::cout << i << ": E_tot = " << E_tot << "\n";
+
+    // calculate the absolute relative total energy
+    TestType E_relative =
+        std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
+    std::cout << " E_relative = " << E_relative << "\n";
+    // REQUIRE(E_relative <= tolerance);
+
+    // calculate integral of moments
+    fk::vector<TestType> mom0 = pde->moments[0].get_realspace_moment();
+    fk::vector<TestType> mom1 = pde->moments[1].get_realspace_moment();
+
+    TestType n_total = calculate_integral(fm::scal(TestType{2.0}, mom0), dim);
+
+    fk::vector<TestType> n_times_u(mom0.size());
+    for (int j = 0; j < n_times_u.size(); j++)
+    {
+      n_times_u[j] = mom0[j] * mom1[j];
+    }
+
+    TestType nu_total = calculate_integral(n_times_u, dim);
+    std::cout << "   n   total = " << n_total << "\n";
+    std::cout << "   n*u total = " << nu_total << "\n";
+
+    // n total should be close to 6.28
+    REQUIRE((n_total - 6.283185) <= 1.0e-4);
+
+    // n*u total should be positive
+    REQUIRE(nu_total > 0.0);
+  }
+
+  parameter_manager<TestType>::get_instance().reset();
+}
+
 /*****************************************************************************
  * Testing the ability to split a matrix into multiple calls
  *****************************************************************************/
