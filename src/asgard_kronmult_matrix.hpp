@@ -187,8 +187,7 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect((row_indx_.empty() and col_indx_.empty()) or
-           not(row_indx_.empty() or col_indx_.empty()));
+    expect(row_indx_.empty() == col_indx_.empty());
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
@@ -233,7 +232,7 @@ public:
                         num_terms, 0, std::move(row_indx), std::move(col_indx),
                         std::move(list_index_A), std::move(values_A))
   {
-    expect(not(list_row_indx_.empty() or list_col_indx_.empty()));
+    expect(not(list_row_indx_.empty() and list_col_indx_.empty()));
   }
 
   /*!
@@ -604,8 +603,7 @@ private:
         "the GPU is enabled, the coefficient vectors have resource::host");
 #endif
 
-    expect((row_indx_.empty() and col_indx_.empty()) or
-           not(row_indx_.empty() or col_indx_.empty()));
+    expect(row_indx_.empty() == col_indx_.empty());
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
