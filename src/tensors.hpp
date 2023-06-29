@@ -415,8 +415,7 @@ public:
    */
   bool empty() const
   {
-    expect(size_ == 0);
-    return data_ == nullptr;
+    return size_ == 0;
   }
 
   /*! just get a pointer. cannot deref/assign. for e.g. blas
@@ -708,8 +707,7 @@ public:
 
   bool empty() const
   {
-    expect(size() == 0);
-    return data_ == nullptr;
+    return size() == 0;
   }
 
   // just get a pointer. cannot deref/assign. for e.g. blas
