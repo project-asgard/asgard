@@ -413,10 +413,7 @@ public:
   /*! size of container
    * \return number of elements in the container
    */
-  bool empty() const
-  {
-    return size_ == 0;
-  }
+  bool empty() const { return size_ == 0; }
 
   /*! just get a pointer. cannot deref/assign. for e.g. blas
    *  Use subscript operators for general purpose access
@@ -705,10 +702,7 @@ public:
   int stride() const { return stride_; }
   int64_t size() const { return int64_t{nrows()} * ncols(); }
 
-  bool empty() const
-  {
-    return size() == 0;
-  }
+  bool empty() const { return size() == 0; }
 
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
