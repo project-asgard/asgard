@@ -188,20 +188,20 @@ public:
 #endif
 
     expect((row_indx_.empty() and col_indx_.empty()) or
-           (row_indx_.size() > 0 and col_indx_.size() > 0));
+           not(row_indx_.empty() or col_indx_.empty()));
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
     flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
 
 #ifdef ASGARD_USE_CUDA
-    if (row_indx_.size() > 0)
+    if (!row_indx_.empty())
     {
       expect(row_indx_.size() == col_indx_.size());
       expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
     }
 #else
-    if (row_indx_.size() > 0)
+    if (!row_indx_.empty())
     {
       expect(row_indx_.size() == num_rows_ + 1);
       expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
@@ -233,7 +233,7 @@ public:
                         num_terms, 0, std::move(row_indx), std::move(col_indx),
                         std::move(list_index_A), std::move(values_A))
   {
-    expect(list_row_indx_.size() > 0 and list_col_indx_.size() > 0);
+    expect(not(list_row_indx_.empty() or list_col_indx_.empty()));
   }
 
   /*!
@@ -605,7 +605,7 @@ private:
 #endif
 
     expect((row_indx_.empty() and col_indx_.empty()) or
-           (row_indx_.size() > 0 and col_indx_.size() > 0));
+           not(row_indx_.empty() or col_indx_.empty()));
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
