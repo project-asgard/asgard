@@ -82,7 +82,7 @@ make_kronmult_dense(PDE<precision> const &pde,
       get_used_terms(pde, program_options, imex);
   int const num_terms = static_cast<int>(used_terms.size());
 
-  if (used_terms.size() == 0)
+  if (used_terms.empty())
     throw std::runtime_error("no terms selected in the current combination of "
                              "imex flags and options, this must be wrong");
 

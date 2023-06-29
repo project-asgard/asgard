@@ -102,7 +102,7 @@ struct field_description
 
     expect(d_names.size() > 0);
     expect(d_names.size() == init_cond.size());
-    expect(exact.size() == 0 or d_names.size() == init_cond.size());
+    expect(exact.empty() or d_names.size() == init_cond.size());
     if (not check_unique_strings(d_names))
       throw std::runtime_error("repeated dimensions in the field definition");
   }

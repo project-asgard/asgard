@@ -132,7 +132,7 @@ parser::parser(int argc, char const *const *argv)
   if (starting_levels_str != NO_USER_VALUE_STR)
   {
     auto const starting_lev = ints_from_string(starting_levels_str);
-    if (starting_lev.size() == 0)
+    if (starting_lev.empty())
     {
       std::cerr << "Failed to parse starting levels from input argument"
                 << '\n';
@@ -309,7 +309,7 @@ parser::parser(int argc, char const *const *argv)
   if (active_terms_str != NO_USER_VALUE_STR)
   {
     auto const starting_terms = ints_from_string(active_terms_str);
-    if (starting_terms.size() == 0)
+    if (starting_terms.empty())
     {
       std::cerr << "Failed to parse active terms from input argument" << '\n';
       valid = false;

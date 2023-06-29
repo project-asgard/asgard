@@ -32,7 +32,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   {
     fk::vector<TestType> const test;
     // fk::vector<TestType, mem_type::view> test_v; // disabled
-    REQUIRE(test.size() == 0);
+    REQUIRE(test.empty());
   }
   SECTION("give me some size, initialized to zero")
   {
@@ -74,7 +74,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     // check for problems when constructing from an empty matrix
     fk::matrix<TestType> const mat_empty;
     fk::vector<TestType> const test_empty(mat_empty);
-    REQUIRE(test_empty.size() == 0);
+    REQUIRE(test_empty.empty());
 
     // enable on device...
 #ifdef ASGARD_USE_CUDA
@@ -141,9 +141,9 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(empty_v == empty_v2);
     REQUIRE(empty_v2 == empty);
     REQUIRE(empty_v.data() == nullptr);
-    REQUIRE(empty_v.size() == 0);
+    REQUIRE(empty_v.empty());
     REQUIRE(empty_v2.data() == nullptr);
-    REQUIRE(empty_v2.size() == 0);
+    REQUIRE(empty_v2.empty());
   }
 
   SECTION("construct const view from owner")
@@ -176,9 +176,9 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
     REQUIRE(empty_v == empty_v);
 
     REQUIRE(empty_v.data() == nullptr);
-    REQUIRE(empty_v.size() == 0);
+    REQUIRE(empty_v.empty());
     REQUIRE(empty_v2.data() == nullptr);
-    REQUIRE(empty_v2.size() == 0);
+    REQUIRE(empty_v2.empty());
   }
 
   SECTION("construct owner from view")
@@ -656,6 +656,14 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     REQUIRE(gold_v.size() == 5);
     REQUIRE(gold_cv.size() == 5);
   }
+  SECTION("empty(): the number of elements")
+  {
+    fk::vector<TestType> const gold_empty;
+    REQUIRE(gold_empty.empty());
+    REQUIRE(!gold.empty());
+    REQUIRE(!gold_v.empty());
+    REQUIRE(!gold_cv.empty());
+  }
   SECTION("data(): const addr to element")
   {
     REQUIRE(*gold.data(4) == 6);
@@ -907,7 +915,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
     // default
     {
       fk::vector<TestType, mem_type::owner, resource::device> const vect;
-      REQUIRE(vect.size() == 0);
+      REQUIRE(vect.empty());
       REQUIRE(vect.data() == nullptr);
     }
     // from init list
@@ -1057,7 +1065,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
       fk::vector<TestType, mem_type::owner, resource::device> const moved_d(
           std::move(vect));
       REQUIRE(vect.data() == nullptr);
-      REQUIRE(vect.size() == 0);
+      REQUIRE(vect.empty());
       fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
           moved_d.clone_onto_host());
       REQUIRE(moved_h == gold);
@@ -1099,7 +1107,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
       fk::vector<TestType, mem_type::view, resource::device> view_moved_d(
           std::move(view_d));
       REQUIRE(view_d.data() == nullptr);
-      REQUIRE(view_d.size() == 0);
+      REQUIRE(view_d.empty());
       REQUIRE(view_moved_d.data() == vect.data());
 
       fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
@@ -1117,7 +1125,7 @@ TEMPLATE_TEST_CASE("fk::vector device functions", "[tensors]", test_precs, int)
       fk::vector<TestType, mem_type::const_view, resource::device> view_moved_d(
           std::move(view_d));
       REQUIRE(view_d.data() == nullptr);
-      REQUIRE(view_d.size() == 0);
+      REQUIRE(view_d.empty());
       REQUIRE(view_moved_d.data() == vect.data());
 
       fk::vector<TestType, mem_type::owner, resource::host> const moved_h(
@@ -1481,7 +1489,7 @@ TEMPLATE_TEST_CASE("fk::matrix interface: constructors, copy/move", "[tensors]",
   {
     fk::matrix<TestType> test;
     // fk::matrix<TestType, mem_type::view> test_v; // disabled
-    REQUIRE(test.size() == 0);
+    REQUIRE(test.empty());
   }
   SECTION("give me some size, initialized to zero")
   {
@@ -2394,6 +2402,17 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
     REQUIRE(gold_cv.size() == 15);
     REQUIRE(gold_v_p.size() == 6);
   }
+  SECTION("empty(): the number of elements")
+  {
+    fk::matrix<TestType> const gold_empty;
+    REQUIRE(gold_empty.empty());
+
+    REQUIRE(!gold.empty());
+    REQUIRE(!gold_v.empty());
+    REQUIRE(!gold_cv.empty());
+    fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 1, 3, 1, 2);
+    REQUIRE(!gold_v_p.empty());
+  }
   SECTION("data(): const get address to an element")
   {
     fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 3, 4, 1, 2);
@@ -2920,7 +2939,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
     SECTION("default")
     {
       fk::matrix<TestType, mem_type::owner, resource::device> const mat;
-      REQUIRE(mat.size() == 0);
+      REQUIRE(mat.empty());
       REQUIRE(mat.data() == nullptr);
     }
 
@@ -3025,7 +3044,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
       fk::matrix<TestType, mem_type::owner, resource::device> const moved_d(
           std::move(mat));
       REQUIRE(mat.data() == nullptr);
-      REQUIRE(mat.size() == 0);
+      REQUIRE(mat.empty());
       fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
           moved_d.clone_onto_host());
       REQUIRE(moved_h == gold);
@@ -3070,7 +3089,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
       fk::matrix<TestType, mem_type::view, resource::device> view_moved_d(
           std::move(view_d));
       REQUIRE(view_d.data() == nullptr);
-      REQUIRE(view_d.size() == 0);
+      REQUIRE(view_d.empty());
       REQUIRE(view_moved_d.data() == mat.data());
 
       fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(
@@ -3088,7 +3107,7 @@ TEMPLATE_TEST_CASE("fk::matrix device transfer functions", "[tensors]",
       fk::matrix<TestType, mem_type::const_view, resource::device> view_moved_d(
           std::move(view_d));
       REQUIRE(view_d.data() == nullptr);
-      REQUIRE(view_d.size() == 0);
+      REQUIRE(view_d.empty());
       REQUIRE(view_moved_d.data() == mat.data());
 
       fk::matrix<TestType, mem_type::owner, resource::host> const moved_h(

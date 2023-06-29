@@ -30,7 +30,7 @@ void matlab_plot::connect(std::string const &name)
       // needs to be started
       std::cout << "  connecting with MATLAB...\n";
       auto const &sessions = matlab::engine::findMATLAB();
-      if (sessions.size() == 0)
+      if (sessions.empty())
       {
         // if there were no shared sessions, set flag to wait for any plots at
         // the end
@@ -620,7 +620,7 @@ bool matlab_plot::find_session(std::string const &name, bool const find_name,
 {
   // Check if there is a running matlab session with name
   std::vector<ml_string> const &sessions = matlab::engine::findMATLAB();
-  if (sessions.size() == 0 && !find_name)
+  if (sessions.empty() && !find_name)
   {
     std::cerr
         << "  Found no running matlab sessions! Ensure the session has been "

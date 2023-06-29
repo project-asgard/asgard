@@ -22,7 +22,7 @@ remap_for_delete(std::vector<int64_t> const &deleted_indices,
 {
   assert(num_new_elems > 0);
 
-  if (deleted_indices.size() == 0)
+  if (deleted_indices.empty())
   {
     return {};
   }
@@ -349,7 +349,7 @@ fk::vector<P> distributed_grid<P>::refine_elements(
   auto const all_child_ids =
       get_unique(distribute_table_changes(get_unique(child_ids), plan_));
 
-  if (all_child_ids.size() == 0)
+  if (all_child_ids.empty())
   {
     return x;
   }
@@ -375,7 +375,7 @@ fk::vector<P> distributed_grid<P>::remove_elements(
   auto const all_remove_indices =
       distribute_table_changes(indices_to_remove, plan_);
 
-  if (all_remove_indices.size() == 0)
+  if (all_remove_indices.empty())
   {
     return x;
   }

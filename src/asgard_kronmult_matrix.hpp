@@ -187,7 +187,7 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
+    expect((row_indx_.empty() and col_indx_.empty()) or
            (row_indx_.size() > 0 and col_indx_.size() > 0));
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
@@ -532,7 +532,7 @@ public:
   //! \brief Defined if the matrix is dense or sparse
   bool is_dense() const
   {
-    return (row_indx_.size() == 0 and list_row_indx_.size() == 0);
+    return (row_indx_.empty() and list_row_indx_.empty());
   }
 
   //! \brief Update coefficients
@@ -604,7 +604,7 @@ private:
         "the GPU is enabled, the coefficient vectors have resource::host");
 #endif
 
-    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
+    expect((row_indx_.empty() and col_indx_.empty()) or
            (row_indx_.size() > 0 and col_indx_.size() > 0));
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);

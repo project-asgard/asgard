@@ -410,6 +410,15 @@ public:
    */
   int size() const { return size_; }
 
+  /*! size of container
+   * \return number of elements in the container
+   */
+  bool empty() const
+  {
+    expect(size_ == 0);
+    return data_ == nullptr;
+  }
+
   /*! just get a pointer. cannot deref/assign. for e.g. blas
    *  Use subscript operators for general purpose access
    *  \param elem offset used for views.
@@ -696,6 +705,13 @@ public:
   // for views:  stride == owner's nrows
   int stride() const { return stride_; }
   int64_t size() const { return int64_t{nrows()} * ncols(); }
+
+  bool empty() const
+  {
+    expect(size() == 0);
+    return data_ == nullptr;
+  }
+
   // just get a pointer. cannot deref/assign. for e.g. blas
   // use subscript operators for general purpose access
   P const *data(int const i = 0, int const j = 0) const
