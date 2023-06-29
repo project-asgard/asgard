@@ -44,7 +44,7 @@ void moment<P>::createMomentVector(PDE<P> const &pde, parser const &opts,
   // check that fList has been constructed
   expect(this->fList.size() > 0);
 
-  if (this->vector.size() == 0 || opts.do_adapt_levels())
+  if (this->vector.empty() || opts.do_adapt_levels())
   {
     distribution_plan const plan = get_plan(get_num_ranks(), hash_table);
     auto rank                    = get_rank();

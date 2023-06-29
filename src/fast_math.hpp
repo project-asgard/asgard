@@ -25,7 +25,7 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
 #ifndef ASGARD_USE_CUDA
   static_assert(resrc == resource::host);
 #endif
-  if (x.size() == 0)
+  if (x.empty())
     return 0.0;
   return lib_dispatch::nrm2<resrc>(x.size(), x.data(), 1);
 }
@@ -34,7 +34,7 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
 template<typename P, resource resrc>
 P frobenius(fk::matrix<P, mem_type::owner, resrc> const &m)
 {
-  if (m.size() == 0)
+  if (m.empty())
   {
     return 0.0;
   }
@@ -59,7 +59,7 @@ template<typename P, mem_type mem, resource resrc, mem_type m_ = mem,
          typename = enable_for_all_views<m_>>
 P frobenius(fk::matrix<P, mem, resrc> const &m)
 {
-  if (m.size() == 0)
+  if (m.empty())
   {
     return 0.0;
   }

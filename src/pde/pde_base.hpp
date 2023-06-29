@@ -631,7 +631,7 @@ public:
       }
     }
 
-    if (cli_input.using_imex() && moments.size() == 0)
+    if (cli_input.using_imex() && moments.empty())
     {
       throw std::runtime_error(
           "Invalid PDE choice for IMEX time advance. PDE must have "

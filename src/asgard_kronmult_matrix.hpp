@@ -187,21 +187,20 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
-           (row_indx_.size() > 0 and col_indx_.size() > 0));
+    expect(row_indx_.empty() == col_indx_.empty());
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
     flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
 
 #ifdef ASGARD_USE_CUDA
-    if (row_indx_.size() > 0)
+    if (!row_indx_.empty())
     {
       expect(row_indx_.size() == col_indx_.size());
       expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
     }
 #else
-    if (row_indx_.size() > 0)
+    if (!row_indx_.empty())
     {
       expect(row_indx_.size() == num_rows_ + 1);
       expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
@@ -233,7 +232,7 @@ public:
                         num_terms, 0, std::move(row_indx), std::move(col_indx),
                         std::move(list_index_A), std::move(values_A))
   {
-    expect(list_row_indx_.size() > 0 and list_col_indx_.size() > 0);
+    expect(not(list_row_indx_.empty() and list_col_indx_.empty()));
   }
 
   /*!
@@ -532,7 +531,7 @@ public:
   //! \brief Defined if the matrix is dense or sparse
   bool is_dense() const
   {
-    return (row_indx_.size() == 0 and list_row_indx_.size() == 0);
+    return (row_indx_.empty() and list_row_indx_.empty());
   }
 
   //! \brief Update coefficients
@@ -604,8 +603,7 @@ private:
         "the GPU is enabled, the coefficient vectors have resource::host");
 #endif
 
-    expect((row_indx_.size() == 0 and col_indx_.size() == 0) or
-           (row_indx_.size() > 0 and col_indx_.size() > 0));
+    expect(row_indx_.empty() == col_indx_.empty());
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
