@@ -38,11 +38,11 @@ private:
   static int constexpr num_terms_         = 8;
   static bool constexpr do_poisson_solve_ = false;
   // disable implicit steps in IMEX
-  static bool constexpr do_collision_operator_ = false;
+  static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = false;
   static int constexpr default_degree          = 3;
 
-  static P constexpr nu = 0.0;
+  static P constexpr nu = 1e3;
 
   static fk::vector<P>
   initial_condition_dim_x_0(fk::vector<P> const &x, P const t = 0)
