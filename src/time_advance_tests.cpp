@@ -1348,10 +1348,10 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[time_advance]",
   std::string const pde_choice = "two_stream";
   fk::vector<int> const levels{5, 5};
   int const degree            = 3;
-  static int constexpr nsteps = 15;
+  static int constexpr nsteps = 600;
 
   TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-8 : 1.0e-5;
+      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1428,6 +1428,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[time_advance]",
 
     TestType E_tot = E_pot + E_kin;
     std::cout << i << ": E_tot = " << E_tot << "\n";
+    std::cout << "    - E_kinetic = " << E_kin << "\n";
+    std::cout << "    - E_pot     = " << E_pot << "\n";
 
     // calculate the absolute relative total energy
     TestType E_relative =
@@ -1454,8 +1456,19 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[time_advance]",
     // n total should be close to 6.28
     REQUIRE((n_total - 6.283185) <= 1.0e-4);
 
-    // n*u total should be positive
-    REQUIRE(nu_total > 0.0);
+    // n*u total should be 0
+    REQUIRE(nu_total <= 1.0e-14);
+
+    // total relative energy change drops and stabilizes around 2.0e-5
+    REQUIRE(E_relative <= 5.5e-5);
+
+    if (i > 0 && i < 100)
+    {
+      // check the initial slight energy decay before it stabilizes
+      // Total energy at time step 1:   5.4952938
+      // Total energy at time step 100: 5.4952734
+      REQUIRE(E_relative >= tolerance);
+    }
   }
 
   parameter_manager<TestType>::get_instance().reset();
