@@ -439,18 +439,17 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   static bool first_time = true;
 
   // create 1D version of PDE and element table for wavelet->realspace mappings
-  static PDE pde_1d = PDE(pde, PDE<P>::extract_dim0);
-  static adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
+  PDE pde_1d = PDE(pde, PDE<P>::extract_dim0);
+  adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
 
   // Create workspace for wavelet transform
-  static auto const dense_size = dense_space_size(pde_1d);
-  static fk::vector<P, mem_type::owner, resource::host> workspace(dense_size *
-                                                                  2);
-  static std::array<fk::vector<P, mem_type::view, resource::host>, 2>
-      tmp_workspace = {fk::vector<P, mem_type::view, resource::host>(
-                           workspace, 0, dense_size - 1),
-                       fk::vector<P, mem_type::view, resource::host>(
-                           workspace, dense_size, dense_size * 2 - 1)};
+  auto const dense_size = dense_space_size(pde_1d);
+  fk::vector<P, mem_type::owner, resource::host> workspace(dense_size * 2);
+  std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
+      fk::vector<P, mem_type::view, resource::host>(workspace, 0,
+                                                    dense_size - 1),
+      fk::vector<P, mem_type::view, resource::host>(workspace, dense_size,
+                                                    dense_size * 2 - 1)};
 
   // auto const &table    = adaptive_grid.get_table();
   auto const &plan     = adaptive_grid.get_distrib_plan();
@@ -463,7 +462,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   int const N_elements = std::pow(2, level);
 
   fk::vector<P> x(x_orig);
-  static auto nodes = gen_realspace_nodes(degree, level, min, max);
+  auto nodes = gen_realspace_nodes(degree, level, min, max);
 
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
   int const A_local_rows = elem_size * grid.nrows();
@@ -517,8 +516,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                            N_elements, min, max, static_cast<P>(0.0),
                            static_cast<P>(0.0), solver::poisson_bc::periodic);
 
-    param_manager.get_parameter("E")->value = [poisson_E](P const x_v,
-                                                          P const t = 0) -> P {
+    param_manager.get_parameter("E")->value =
+        [poisson_E, nodes](P const x_v, P const t = 0) -> P {
       ignore(t);
       return interp1(nodes, poisson_E, {x_v})[0];
     };
