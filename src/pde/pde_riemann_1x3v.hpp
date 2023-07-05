@@ -98,7 +98,7 @@ private:
   }
 
   inline static dimension<P> const dim_0 = dimension<P>(
-      -1.5, 1.5, 8, default_degree,
+      -1.0, 1.0, 8, default_degree,
       {initial_condition_dim_x_0, initial_condition_dim_x_1}, nullptr, "x");
 
   inline static dimension<P> const dim_1 = dimension<P>(
