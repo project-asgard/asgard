@@ -61,7 +61,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      return (std::abs(x_v) <= 0.5) ? 1.0 : 0.0;
+      return (std::abs(x_v) <= 0.5) ? (1.0 / 8.0) : 0.0;
     });
     return fx;
   }
@@ -86,7 +86,7 @@ private:
   {
     ignore(t);
 
-    P const coefficient = (1.0 / 8.0) / std::sqrt(2.0 * PI * (4.0 / 5.0));
+    P const coefficient = 1.0 / std::sqrt(2.0 * PI * (4.0 / 5.0));
 
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(),
