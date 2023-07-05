@@ -245,6 +245,12 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
           fm::gemv(m, s_view, x, false, P{1.0}, P{1.0});
         break; // depart the inner iteration loop
       }
+
+      if (i % 5 == 0)
+      {
+        std::cout << "   -- GMRES inner iteration " << i << " / " << restart
+                  << " w/ residual " << error << std::endl;
+      }
     } // end of inner iteration loop
 
     if (error <= tolerance)
