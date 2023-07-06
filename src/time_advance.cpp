@@ -84,6 +84,14 @@ adaptive_advance(method const step_method, PDE<P> &pde,
   if (old_size != adaptive_grid.size())
     operator_matrices.clear_all();
 
+  // save coarsen stats
+  pde.adapt_info.initial_dof = old_size;
+  pde.adapt_info.coarsen_dof = adaptive_grid.size();
+  pde.adapt_info.refine_dofs = std::vector<int>();
+  // save GMRES stats starting with the coarsen stats
+  pde.adapt_info.gmres_stats =
+      std::vector<std::vector<gmres_info<P>>>({pde.gmres_outputs});
+
   // refine
   bool refining = true;
   while (refining)
@@ -125,6 +133,10 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
     node_out() << " adapt -- refined grid from " << old_size << " -> "
                << adaptive_grid.size() << " elems\n";
+    // save refined DOF stats
+    pde.adapt_info.refine_dofs.push_back(adaptive_grid.size());
+    // append GMRES stats for refinement
+    pde.adapt_info.gmres_stats.push_back({pde.gmres_outputs});
 
     if (!refining)
     {

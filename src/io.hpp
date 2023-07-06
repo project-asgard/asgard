@@ -178,6 +178,29 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   if (cli_input.do_adapt_levels())
   {
     H5Easy::dump(file, "adapt_thresh", cli_input.get_adapt_thresh());
+
+    // if using adaptivity, save some stats about DOF coarsening/refining and
+    // GMRES stats for each adapt step
+    H5Easy::dump(file, "adapt_initial_dof", pde.adapt_info.initial_dof);
+    H5Easy::dump(file, "adapt_coarsen_dof", pde.adapt_info.coarsen_dof);
+    H5Easy::dump(file, "adapt_num_refines", pde.adapt_info.refine_dofs.size());
+    H5Easy::dump(file, "adapt_refine_dofs", pde.adapt_info.refine_dofs);
+    for (size_t step = 0; step < pde.adapt_info.gmres_stats.size(); step++)
+    {
+      auto const &info = pde.adapt_info.gmres_stats[step];
+      // Write the GMRES stats for each adaptive step (step 0 is coarsen, then
+      // refinements)
+      std::string const prefix = "adapt_step" + std::to_string(step) + "_gmres";
+      for (size_t i = 0; i < info.size(); ++i)
+      {
+        H5Easy::dump(file, prefix + std::to_string(i) + "_err", info[i].error,
+                     opts);
+        H5Easy::dump(file, prefix + std::to_string(i) + "_num_outer",
+                     info[i].outer_iter, opts);
+        H5Easy::dump(file, prefix + std::to_string(i) + "_num_inner",
+                     info[i].inner_iter, opts);
+      }
+    }
   }
 
   P gmres_tol = cli_input.get_gmres_tolerance();
