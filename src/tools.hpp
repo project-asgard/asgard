@@ -20,6 +20,16 @@ namespace asgard::tools
 // simple layer over assert to prevent unused variable warnings when
 // expects disabled
 
+struct timing_stats
+{
+  double avg;
+  double min;
+  double max;
+  double med;
+  double gflops;
+  size_t ncalls;
+};
+
 class simple_timer
 {
 public:
@@ -65,6 +75,12 @@ public:
     return id_to_times_[id];
   }
 
+  // uses the map of timings to calculate avg, min, max, med, calls, for each
+  // key similar to what is displayed in the report() function, but returns a
+  // vector for use elsewhere
+  void get_timing_stats(std::map<std::string, timing_stats> &stat_map);
+  void get_timing_stats(std::map<std::string, std::vector<double>> &stat_map);
+
 private:
   // little helper for creating a new list if no values exist for key
   void insert(std::map<std::string, std::vector<double>> &mapping,
@@ -73,6 +89,9 @@ private:
     mapping.try_emplace(key, std::vector<double>());
     mapping[key].push_back(time);
   }
+
+  timing_stats
+  calculate_timing_stats(std::string const &&id, std::vector<double> &&times);
 
   // stores function identifier -> list of times recorded
   std::map<std::string, std::vector<double>> id_to_times_;
