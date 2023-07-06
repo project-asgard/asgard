@@ -1,5 +1,7 @@
 #pragma once
 
+#include "build_info.hpp"
+
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "tensors.hpp"
@@ -163,6 +165,39 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_inner",
                  pde.gmres_outputs[i].inner_iter, opts);
   }
+
+  H5Easy::dump(file, "do_adapt", cli_input.do_adapt_levels());
+  H5Easy::dump(file, "using_fullgrid", cli_input.using_full_grid());
+  H5Easy::dump(file, "starting_levels",
+               cli_input.get_starting_levels().to_std());
+  if (cli_input.get_active_terms().size() > 0)
+  {
+    // save list of terms this was run with if --terms option used
+    H5Easy::dump(file, "active_terms", cli_input.get_active_terms().to_std());
+  }
+  if (cli_input.do_adapt_levels())
+  {
+    H5Easy::dump(file, "adapt_thresh", cli_input.get_adapt_thresh());
+  }
+
+  P gmres_tol = cli_input.get_gmres_tolerance();
+  if (gmres_tol == parser::NO_USER_VALUE_FP)
+  {
+    gmres_tol = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+  }
+  H5Easy::dump(file, "gmres_tolerance", gmres_tol);
+
+  // save some basic build info
+  H5Easy::dump(file, "GIT_BRANCH", std::string(GIT_BRANCH));
+  H5Easy::dump(file, "GIT_COMMIT_HASH", std::string(GIT_COMMIT_HASH));
+  H5Easy::dump(file, "GIT_COMMIT_SUMMARY", std::string(GIT_COMMIT_SUMMARY));
+  H5Easy::dump(file, "BUILD_TIME", std::string(BUILD_TIME));
+#if defined(ASGARD_USE_CUDA)
+  bool constexpr using_gpu = true;
+#else
+  bool constexpr using_gpu = false;
+#endif
+  H5Easy::dump(file, "USING_GPU", using_gpu);
 
   file.flush();
   tools::timer.stop("write_output");
