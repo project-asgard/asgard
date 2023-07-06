@@ -654,7 +654,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                                        adaptive_grid, program_opts);
 
   tools::timer.start(apply_id);
-  operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
+  operator_matrices[matrix_entry::imex_explicit].apply(1.0, f_2.data(), 0.0,
                                                        fx.data());
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
