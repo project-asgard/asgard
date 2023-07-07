@@ -4,6 +4,7 @@
 
 using namespace asgard;
 
+#ifdef ASGARD_USE_CUDA
 TEMPLATE_TEST_CASE("device functions", "[resources]", test_precs, int)
 {
   SECTION("allocate_device, delete_device")
@@ -52,6 +53,7 @@ TEMPLATE_TEST_CASE("device functions", "[resources]", test_precs, int)
     REQUIRE(d == a);
   }
 }
+#endif
 
 TEMPLATE_TEST_CASE("Copy matrix functions for various resources", "[resources]",
                    test_precs, int)
