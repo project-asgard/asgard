@@ -1603,8 +1603,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     std::cout << "    - E_pot     = " << E_pot << "\n";
 
     std::cout << "  => DOF = " << f_val.size() << " = "
-              << TestType{100.0 *
-                          (static_cast<TestType>(f_val.size()) / fg_dof)}
+              << TestType{100.0} *
+                     (static_cast<TestType>(f_val.size()) / fg_dof)
               << "% FG DOF\n";
 
     // calculate the absolute relative total energy
