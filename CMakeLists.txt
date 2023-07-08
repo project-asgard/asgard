@@ -281,6 +281,7 @@ set (components
      asgard_field
      asgard_dimension
      asgard_discretization
+     asgard_resources
      asgard_pde_system
      asgard_kronmult_matrix
 )
