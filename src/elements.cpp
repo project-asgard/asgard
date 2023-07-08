@@ -282,6 +282,20 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   }();
 
   fk::vector<int> dev_table_builder;
+  if (opts.use_full_grid)
+  {
+    int64_t dof = 1;
+    for (int lev = 0; lev < dims.size(); lev++)
+    {
+      dof *= dims[0].get_degree() * fm::two_raised_to(dims[lev].get_level());
+    }
+    std::cout << "    FG DOF = " << dof << std::endl;
+
+    // reserve element table data up front
+    dev_table_builder.resize(dof);
+  }
+
+  int64_t pos = 0;
   for (int row = 0; row < perm_table.nrows(); ++row)
   {
     // get the level tuple to work on
@@ -290,6 +304,8 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
     // calculate all possible cell indices allowed by this level tuple
     fk::matrix<int> const index_set = get_cell_index_set(level_tuple);
 
+    std::cout << " row " << row << " / " << perm_table.nrows()
+              << " -- index set rows = " << index_set.nrows() << std::endl;
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
       auto const cell_indices = fk::vector<int>(
@@ -304,8 +320,28 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
       id_to_coords_[key].resize(coords.size()) = coords;
 
       // assign into flattened device table builder
-      dev_table_builder.concat(coords);
+      if (pos + coords.size() < dev_table_builder.size())
+      {
+        dev_table_builder.set_subvector(pos, coords);
+      }
+      else
+      {
+        // if this is larger than our pre-allocated size, then start resizing
+        dev_table_builder.concat(coords);
+        std::cout << "  flattened table size = " << dev_table_builder.size()
+                  << std::endl;
+      }
+      pos += coords.size();
     }
+  }
+
+  std::cout << " FINISHED CREATING ELEMENT TABLE\n";
+  std::cout << "  TOTAL SIZE = " << dev_table_builder.size()
+            << ", ACTUAL size = " << pos << std::endl;
+  if (pos < dev_table_builder.size())
+  {
+    std::cout << "   over allocated, shrinking table\n";
+    dev_table_builder = dev_table_builder.extract(0, pos - 1);
   }
 
   expect(active_element_ids_.size() == id_to_coords_.size());
