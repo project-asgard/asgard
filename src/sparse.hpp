@@ -293,8 +293,9 @@ public:
     expect(col >= 0);
     expect(col < ncols_);
 
-    for (int i = col_indices_[row_offsets_[row]];
-         i < col_indices_[row_offsets_[row + 1]]; i++)
+    int col_index_offset = col_indices_[row_offsets_[row]];
+    int num_in_row       = row_offsets_[row + 1] - row_offsets_[row];
+    for (int i = col_index_offset; i < col_index_offset + num_in_row; i++)
     {
       if (i == col)
       {
