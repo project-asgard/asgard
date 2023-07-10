@@ -519,6 +519,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 #endif
 
+  fk::matrix<P, mem_type::owner, imex_resrc> precond(x.size(), x.size());
+
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
   if (first_time || update_system)
@@ -833,9 +835,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_2 = x_prev;
       }
     }
-    pde.gmres_outputs[0] = solver::simple_gmres_euler(
+    pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-        restart, max_iter, tolerance);
+        precond, restart, max_iter, tolerance);
     // save output of GMRES call to use in the second one
     f_2_output = f_2;
   }
@@ -918,9 +920,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    pde.gmres_outputs[1] = solver::simple_gmres_euler(
+    pde.gmres_outputs[1] = solver::simple_gmres_euler_precond(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-        f_3, x, restart, max_iter, tolerance);
+        f_3, x, precond, restart, max_iter, tolerance);
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)
