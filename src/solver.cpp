@@ -43,6 +43,45 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
       },
       x, b, fk::matrix<P>(), restart, max_iter, tolerance);
 }
+
+template<typename P, resource resrc>
+gmres_info<P>
+simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
+                           fk::vector<P, mem_type::owner, resrc> &x,
+                           fk::vector<P, mem_type::owner, resrc> const &b,
+                           fk::matrix<P, mem_type::owner, resrc> &M,
+                           int const restart, int const max_iter,
+                           P const tolerance)
+{
+  std::cout << " -> SETTING UP PRECOND" << std::endl;
+
+  /*
+  fk::vector<P> tmp_x(x.size());
+  fk::vector<P> tmp_y(x.size());
+  std::fill(tmp_x.begin(), tmp_x.end(), P{1.0});
+  mat.apply(-1.0 * dt, tmp_x.data(), 0.0, tmp_y.data());
+  fk::sparse<P> sp_y(tmp_y);
+  fm::ilu(sp_y, M);
+  */
+
+  fk::sparse<P> sp_y(eye<P>(x.size()));
+  fm::ilu(sp_y, M);
+
+  std::cout << "    DONE PRECOND" << std::endl;
+
+  return simple_gmres(
+      [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
+          fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
+          P const beta) -> void {
+        auto const apply_id = tools::timer.start("kronmult - implicit");
+        mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
+        tools::timer.stop(apply_id, mat.flops());
+        int one = 1, n = y.size();
+        lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
+      },
+      x, b, M, restart, max_iter, tolerance);
+}
+
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
  * \returns default number of iterations before restart
@@ -420,6 +459,12 @@ simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
                    int const restart, int const max_iter,
                    double const tolerance);
 
+template gmres_info<double>
+simple_gmres_euler_precond(const double dt, kronmult_matrix<double> const &mat,
+                           fk::vector<double> &x, fk::vector<double> const &b,
+                           fk::matrix<double> &M, int const restart,
+                           int const max_iter, double const tolerance);
+
 template int default_gmres_restarts<double>(int num_cols);
 
 #ifdef ASGARD_USE_CUDA
@@ -429,6 +474,7 @@ template gmres_info<double> simple_gmres_euler(
     fk::vector<double, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, double const tolerance);
 #endif
+
 template void setup_poisson(const int N_elements, double const x_min,
                             double const x_max, fk::vector<double> &diag,
                             fk::vector<double> &off_diag);
@@ -455,6 +501,12 @@ simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
                    int const restart, int const max_iter,
                    float const tolerance);
 
+template gmres_info<float>
+simple_gmres_euler_precond(const float dt, kronmult_matrix<float> const &mat,
+                           fk::vector<float> &x, fk::vector<float> const &b,
+                           fk::matrix<float> &M, int const restart,
+                           int const max_iter, float const tolerance);
+
 template int default_gmres_restarts<float>(int num_cols);
 
 #ifdef ASGARD_USE_CUDA
@@ -464,6 +516,7 @@ template gmres_info<float> simple_gmres_euler(
     fk::vector<float, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, float const tolerance);
 #endif
+
 template void setup_poisson(const int N_elements, float const x_min,
                             float const x_max, fk::vector<float> &diag,
                             fk::vector<float> &off_diag);

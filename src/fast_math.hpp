@@ -504,7 +504,7 @@ sparse_gemv(fk::sparse<P, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
 }
 
 template<typename P, mem_type mem, resource resrc>
-void ilu(fk::sparse<P, mem, resrc> const &S, fk::matrix<P, mem, resrc> &A)
+void ilu(fk::sparse<P, resrc> const &S, fk::matrix<P, mem, resrc> &A)
 {
   auto tmp = S.to_dense();
   expect(tmp.nrows() >= A.nrows());
@@ -516,8 +516,8 @@ void ilu(fk::sparse<P, mem, resrc> const &S, fk::matrix<P, mem, resrc> &A)
   int cols_A = A.ncols();
   int lda    = A.stride();
 
-  lib_dispatch::sp_ilu(rows_A, cols_A, A.data(), lda, S.data(), S.offsets(),
-                       S.columns(), S.nnz());
+  lib_dispatch::sp_ilu<resrc>(rows_A, cols_A, A.data(), lda, S.data(),
+                              S.offsets(), S.columns(), S.nnz());
 }
 
 } // namespace asgard::fm
