@@ -480,9 +480,8 @@ sparse_gemv(fk::sparse<P, amem, resrc> const &A,
   int n             = A.ncols();
   int nnz           = A.nnz();
 
-  lib_dispatch::sparse_gemv(&transa, &m, &n, &nnz, A.offsets(), A.columns(),
-                            A.data(), &alpha_, x.data(), &beta_, y.data(),
-                            resrc);
+  lib_dispatch::sparse_gemv<resrc>(&transa, &m, &n, &nnz, A.offsets(), A.columns(),
+                            A.data(), &alpha_, x.data(), &beta_, y.data());
 
   return y;
 }

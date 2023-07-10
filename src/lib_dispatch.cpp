@@ -1221,10 +1221,10 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
 }
 #endif
 
-template<typename P>
+template<resource resrc, typename P>
 void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
                  const int *offsets, const int *columns, const P *A, P *alpha,
-                 const P *x, P *beta, const P *y, resource const resrc)
+                 const P *x, P *beta, P *y)
 {
   expect(offsets);
   expect(columns);
@@ -1238,7 +1238,7 @@ void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
   expect(nnz && *nnz >= 0);
   expect(trans && (*trans == 't' || *trans == 'n'));
 
-  if (resrc == resource::device)
+  if constexpr (resrc == resource::device)
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
@@ -1294,9 +1294,26 @@ void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
 #endif
     return;
   }
-  else
+  if constexpr (resrc == resource::host)
   {
-    throw std::runtime_error("sparse gemv not implemented on CPU");
+    // TODO: only non-transpose case implemented
+    expect(*trans == 'n');
+
+    int col_index_offset = 0;
+    for (int i = 0; i < *rows; i++)
+    {
+      P sum = 0.0;
+      // sparse case, iterate over number of column entries in the current row
+      int num_in_row = offsets[i + 1] - offsets[i];
+      for (int col = 0; col < num_in_row; col++)
+      {
+        int index = col_index_offset + col;
+        sum += A[index] * x[index];
+      }
+      col_index_offset += num_in_row;
+
+      y[i] = sum;
+    }
   }
 }
 
@@ -1345,6 +1362,14 @@ template void tpsv<resource::host, float>(const char uplo, const char trans,
 template int pttrf(int n, float *D, float *E);
 template int
 pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
+
+template void
+sparse_gemv<resource::host, float>(char const *trans, int *rows, int *cols,
+                                   int *nnz, const int *offsets,
+                                   const int *columns, const float *A,
+                                   float *alpha, const float *x, float *beta,
+                                   float *y);
+
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -1394,6 +1419,13 @@ template int getrs(char trans, int n, int nrhs, double const *A, int lda,
 template int pttrf(int n, double *D, double *E);
 template int
 pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
+
+template void
+sparse_gemv<resource::host, double>(char const *trans, int *rows, int *cols,
+                                    int *nnz, const int *offsets,
+                                    const int *columns, const double *A,
+                                    double *alpha, const double *x,
+                                    double *beta, double *y);
 
 #endif
 
@@ -1449,10 +1481,12 @@ template void tpsv<resource::device, float>(const char uplo, const char trans,
                                             const float *ap, float *x,
                                             const int incx);
 
-template void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
-                          const int *offsets, const int *columns,
-                          const float *A, float *alpha, const float *x,
-                          float *beta, const float *y, resource const resrc);
+template void
+sparse_gemv<resource::device, float>(char const *trans, int *rows, int *cols,
+                                     int *nnz, const int *offsets,
+                                     const int *columns, const float *A,
+                                     float *alpha, const float *x, float *beta,
+                                     float *y);
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -1497,11 +1531,12 @@ template void tpsv<resource::device, double>(const char uplo, const char trans,
                                              const char diag, const int n,
                                              const double *ap, double *x,
                                              const int incx);
-
-template void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
-                          const int *offsets, const int *columns,
-                          const double *A, double *alpha, const double *x,
-                          double *beta, const double *y, resource const resrc);
+template void
+sparse_gemv<resource::device, double>(char const *trans, int *rows, int *cols,
+                                      int *nnz, const int *offsets,
+                                      const int *columns, const double *A,
+                                      double *alpha, const double *x,
+                                      double *beta, double *y);
 
 #endif
 #endif
