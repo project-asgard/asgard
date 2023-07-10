@@ -484,7 +484,34 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
     REQUIRE((in1_cv - in2_v) == gold);
     REQUIRE((in1_cv - in2_cv) == gold);
   }
+#ifdef ASGARD_USE_CUDA
+  SECTION("vector*vector operator - device")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      fk::vector<TestType, mem_type::owner, resource::device> gold_d(
+          gold.clone_onto_device());
+      fk::vector<TestType, mem_type::view, resource::device> const gold_v_d(
+          gold_d);
+      fk::vector<TestType, mem_type::const_view, resource::device> const
+          gold_cv_d(gold_d);
 
+      TestType const inner_prod = 90;
+
+      REQUIRE((gold_d * gold_d) == inner_prod);
+      REQUIRE((gold_d * gold_v_d) == inner_prod);
+      REQUIRE((gold_d * gold_cv_d) == inner_prod);
+
+      REQUIRE((gold_v_d * gold_d) == inner_prod);
+      REQUIRE((gold_v_d * gold_v_d) == inner_prod);
+      REQUIRE((gold_v_d * gold_cv_d) == inner_prod);
+
+      REQUIRE((gold_cv_d * gold_d) == inner_prod);
+      REQUIRE((gold_cv_d * gold_v_d) == inner_prod);
+      REQUIRE((gold_cv_d * gold_cv_d) == inner_prod);
+    }
+  }
+#endif
   SECTION("vector*vector operator")
   {
     fk::vector<TestType> gold_copy(gold);

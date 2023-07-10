@@ -372,8 +372,8 @@ public:
    *  \param right elements on rhs for dot product.
    *  \return scalar result of dot product.
    */
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  P operator*(vector<P, omem> const &) const;
+  template<mem_type omem>
+  P operator*(vector<P, omem, resrc> const &) const;
   /*! vector*matrix product
    *  \param right Matrix on RHS.
    *  \return result of vector*matrix multiplication .
@@ -1284,15 +1284,13 @@ fk::vector<P, mem, resrc>::operator-(vector<P, omem> const &right) const
 // vector*vector multiplication operator
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
-P fk::vector<P, mem, resrc>::operator*(vector<P, omem> const &right) const
+template<mem_type omem>
+P fk::vector<P, mem, resrc>::operator*(
+    vector<P, omem, resrc> const &right) const
 {
   expect(size() == right.size());
-  int n           = size();
-  int one         = 1;
   vector const &X = (*this);
-
-  return lib_dispatch::dot(n, X.data(), one, right.data(), one);
+  return lib_dispatch::dot<resrc>(size(), X.data(), 1, right.data(), 1);
 }
 
 //
