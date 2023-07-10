@@ -275,6 +275,7 @@ set (components
      quadrature
      solver
      tensors
+     sparse
      time_advance
      tools
      transformations

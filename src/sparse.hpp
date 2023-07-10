@@ -29,6 +29,11 @@ struct dense_item
 
 namespace fk
 {
+// forward declarations
+template<typename P, mem_type mem = mem_type::owner,
+         resource resrc = resource::host> // default to be an owner only on host
+class sparse;
+
 template<typename P, mem_type mem, resource resrc>
 class sparse
 {
@@ -41,9 +46,9 @@ public:
   {}
 
   explicit sparse(int nrows, int ncols, int nnz,
-                  fk::vector<int, mem, resrc> &row_offsets,
-                  fk::vector<int, mem, resrc> &col_indices,
-                  fk::vector<P, mem, resrc> &values)
+                  fk::vector<int, mem, resrc> const &row_offsets,
+                  fk::vector<int, mem, resrc> const &col_indices,
+                  fk::vector<P, mem, resrc> const &values)
       : ncols_{ncols}, nrows_{nrows}, nnz_{nnz}, row_offsets_{row_offsets},
         col_indices_{col_indices}, values_{values}
   {}
@@ -51,6 +56,7 @@ public:
   ~sparse() {}
 
   // create sparse matrix from dense matrix
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   sparse(fk::matrix<P, mem, resrc> const &m)
   {
     P constexpr tol = 1.0e-10;
@@ -96,7 +102,7 @@ public:
   }
 
   // create sparse matrix from multimap
-  sparse(std::multimap<int, dense_item<P>> &items, int ncols, int nrows)
+  sparse(std::multimap<int, dense_item<P>> const &items, int ncols, int nrows)
   {
     P constexpr tol = 1.0e-10;
     // P constexpr tol = 2.0 * std::numeric_limits<P>::epsilon();
@@ -137,13 +143,81 @@ public:
     expect(col_indices_tmp.size() == values_.size());
   }
 
+  // create sparse matrix from a vector, filling elements on the diagonal
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  sparse(fk::vector<P, mem, resrc> const &diag)
+  {
+    nnz_   = diag.size();
+    nrows_ = nnz_;
+    ncols_ = nnz_;
+
+    values_      = fk::vector<P, mem, resrc>(diag);
+    row_offsets_ = fk::vector<int, mem, resrc>(nrows_ + 1);
+    col_indices_ = fk::vector<int, mem, resrc>(nnz_);
+
+    row_offsets_[0] = 0;
+    for (int i = 0; i < nnz_; i++)
+    {
+      col_indices_[i]     = i;
+      row_offsets_[i + 1] = i + 1;
+    }
+  }
+
+  // template<mem_type m_ = mem, typename = enable_for_owner<m_>,
+  //          resource r_ = resrc, typename = enable_for_host<r_>>
+  /*
   explicit sparse(sparse<P, mem, resrc> const &a)
       : ncols_{a.ncols_}, nrows_{a.nrows_}, nnz_{a.nnz_},
-        row_offsets_{a.row_offsets_},
-        col_indices_{a.col_indices_}, values_{a.values_}
+        row_offsets_{a.row_offsets_}, col_indices_{a.col_indices_},
+        values_{a.values_}
+  {}
+  */
+
+  // copy constructor
+  sparse(fk::sparse<P, mem, resrc> const &other)
+      : ncols_{other.ncols_}, nrows_{other.nrows_}, nnz_{other.nnz_},
+        nz_{other.nz_}
+  {
+    row_offsets_ = fk::vector<int, mem, resrc>(other.get_offsets());
+    col_indices_ = fk::vector<int, mem, resrc>(other.get_columns());
+    values_      = fk::vector<P, mem, resrc>(other.get_values());
+  }
+
+  // copy assignment
+  sparse<P, mem, resrc> &operator=(fk::sparse<P, mem, resrc> const &a)
+  {
+    static_assert(mem != mem_type::const_view,
+                  "cannot copy assign into const_view!");
+
+    if (&a == this)
+      return *this;
+
+    // expect(size() == a.size());
+    // expect(nnz() == a.nnz());
+
+    nrows_ = a.nrows_;
+    ncols_ = a.ncols_;
+    nnz_   = a.nnz_;
+    nz_    = a.nz_;
+
+    row_offsets_ = fk::vector<int, mem, resrc>(a.get_offsets());
+    col_indices_ = fk::vector<int, mem, resrc>(a.get_columns());
+    values_      = fk::vector<P, mem, resrc>(a.get_values());
+
+    return *this;
+  }
+
+  // move constructor
+  sparse(fk::sparse<P, mem, resrc> &&other)
+      : ncols_{other.ncols_}, nrows_{other.nrows_}, nnz_{other.nnz_},
+        nz_{other.nz_}, row_offsets_{std::move(other.row_offsets_)},
+        col_indices_{std::move(other.col_indices_)}, values_{std::move(
+                                                         other.values_)}
   {}
 
   // move assignment
+  // template<mem_type m_ = mem, typename = enable_for_owner<m_>,
+  //         resource r_ = resrc, typename = enable_for_host<r_>>
   sparse<P, mem, resrc> &operator=(fk::sparse<P, mem, resrc> &&a)
   {
     static_assert(mem != mem_type::const_view,
@@ -156,9 +230,9 @@ public:
     this->nrows_ = a.nrows_;
     this->nnz_   = a.nnz_;
 
-    this->row_offsets_ = std::move(a.get_offsets());
-    this->col_indices_ = std::move(a.get_columns());
-    this->values_      = std::move(a.get_values());
+    this->row_offsets_ = std::move(a.row_offsets_);
+    this->col_indices_ = std::move(a.col_indices_);
+    this->values_      = std::move(a.values_);
 
     return *this;
   }
@@ -188,6 +262,7 @@ public:
   }
 
   // convert this sparse matrix back to a dense matrix
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
   fk::matrix<P, mem, resrc> to_dense() const
   {
     // create dense, filled with 0 initially
@@ -210,6 +285,45 @@ public:
     return dense;
   }
 
+  // checks if the dense element at (row, col) exists in the sparse matrix
+  bool exists(int const row, int const col)
+  {
+    expect(row >= 0);
+    expect(row < nrows_);
+    expect(col >= 0);
+    expect(col < ncols_);
+
+    for (int i = col_indices_[row_offsets_[row]];
+         i < col_indices_[row_offsets_[row + 1]]; i++)
+    {
+      if (i == col)
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  bool operator==(fk::sparse<P, omem> const &other) const
+  {
+    if constexpr (omem == mem)
+      if (&other == this)
+        return true;
+    if (nnz_ != other.nnz_ || size() != other.size())
+      return false;
+    if (row_offsets_ == other.row_offsets_ &&
+        col_indices_ == other.col_indices_ && values_ == other.values_)
+      return true;
+    return false;
+  }
+  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
+  bool operator!=(sparse<P, omem> const &other) const
+  {
+    return !(*this == other);
+  }
+
   //
   // basic queries to private data
   //
@@ -218,16 +332,20 @@ public:
   int nnz() const { return nnz_; }
   int64_t size() const { return int64_t{nrows()} * ncols(); }
   int64_t sp_size() const { return int64_t{values_.size()}; }
+  bool empty() const { return values_.size() == 0; }
 
-  const P *data() const { return values_.data(); }
+  P const *data() const { return values_.data(); }
+  P *data() { return values_.data(); }
 
-  const int *offsets() const { return row_offsets_.data(); }
+  int const *offsets() const { return row_offsets_.data(); }
+  int *offsets() { return row_offsets_.data(); }
 
-  const int *columns() const { return col_indices_.data(); }
+  int const *columns() const { return col_indices_.data(); }
+  int *columns() { return col_indices_.data(); }
 
-  fk::vector<int, mem, resrc> &get_offsets() { return row_offsets_; }
-  fk::vector<int, mem, resrc> &get_columns() { return col_indices_; }
-  fk::vector<P, mem, resrc> &get_values() { return values_; }
+  fk::vector<int, mem, resrc> get_offsets() const { return row_offsets_; }
+  fk::vector<int, mem, resrc> get_columns() const { return col_indices_; }
+  fk::vector<P, mem, resrc> get_values() const { return values_; }
 
 private:
   int ncols_;
