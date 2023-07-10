@@ -91,5 +91,9 @@ void sparse_gemv(char const trans, int rows, int cols, int nnz,
                  const int *row_offsets, const int *col_indices, const P *vals,
                  P alpha, const P *x, P beta, P *y);
 
+template<resource resrc = resource::host, typename P>
+void sp_ilu(int m, int n, P *A, int lda, P const *S, int const *S_offsets,
+            int const *S_indices, int const nnz);
+
 } // namespace lib_dispatch
 } // namespace asgard

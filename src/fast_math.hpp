@@ -503,4 +503,21 @@ sparse_gemv(fk::sparse<P, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
   return y;
 }
 
+template<typename P, mem_type mem, resource resrc>
+void ilu(fk::sparse<P, mem, resrc> const &S, fk::matrix<P, mem, resrc> &A)
+{
+  auto tmp = S.to_dense();
+  expect(tmp.nrows() >= A.nrows());
+  expect(tmp.ncols() >= A.ncols());
+
+  A = tmp.extract_submatrix(0, 0, A.nrows(), A.ncols());
+
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+  int lda    = A.stride();
+
+  lib_dispatch::sp_ilu(rows_A, cols_A, A.data(), lda, S.data(), S.offsets(),
+                       S.columns(), S.nnz());
+}
+
 } // namespace asgard::fm

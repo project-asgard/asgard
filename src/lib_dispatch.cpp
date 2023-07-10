@@ -1314,6 +1314,61 @@ void sparse_gemv(char const trans, int rows, int cols, int nnz,
   }
 }
 
+// compute incomplete LU factorization of matrix A from sparse pattern S (stored
+// in CSR format)
+// equivalent to L*U where [L,U] = ilu(S) from matlab
+template<resource resrc, typename P>
+void sp_ilu(int m, int n, P *A, int lda, P const *S, int const *S_offsets,
+            int const *S_indices, int const nnz)
+{
+  // instantiated for these two fp types
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
+  expect(A);
+  expect(m >= 0);
+  expect(n >= 0);
+  expect(lda >= 1);
+  expect(m == n); // expect square matrix
+  expect(S);
+  expect(S_offsets);
+  expect(S_indices);
+  expect(nnz > 0);
+  expect(nnz < m * n);
+
+  auto sp_contains = [](int const &row, int const &col, int const *row_offsets,
+                        int const *col_indices) -> bool {
+    // sparse case, iterate over number of column entries in the current row
+    int col_index_offset = col_indices[row_offsets[row]];
+    int num_in_row       = row_offsets[row + 1] - row_offsets[row];
+    for (int i = col_index_offset; i < col_index_offset + num_in_row; i++)
+    {
+      if (i == col)
+      {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (int i = 1; i < n; i++)
+  {
+    for (int k = 0; k < i - 1; k++)
+    {
+      // check if S contains (i,k)
+      if (sp_contains(i, k, S_offsets, S_indices))
+      {
+        A[i * lda + k] /= A[k * lda + k];
+        for (int j = k; j < n - 1; j++)
+        {
+          if (sp_contains(i, j, S_offsets, S_indices))
+          {
+            A[i * lda + j] = A[i * lda + j] - A[i * lda + k] * A[k * lda + j];
+          }
+        }
+      }
+    }
+  }
+}
+
 #ifdef ASGARD_ENABLE_FLOAT
 template void rot<resource::host, float>(const int n, float *x, const int incx,
                                          float *y, const int incy,
@@ -1367,6 +1422,10 @@ sparse_gemv<resource::host, float>(char const trans, int rows, int cols,
                                    float alpha, const float *x, float beta,
                                    float *y);
 
+template void
+sp_ilu<resource::host, float>(int m, int n, float *A, int lda, float const *S,
+                              int const *S_offsets, int const *S_indices,
+                              int const nnz);
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -1424,6 +1483,10 @@ sparse_gemv<resource::host, double>(char const trans, int rows, int cols,
                                     double alpha, const double *x, double beta,
                                     double *y);
 
+template void
+sp_ilu<resource::host, double>(int m, int n, double *A, int lda,
+                               double const *S, int const *S_offsets,
+                               int const *S_indices, int const nnz);
 #endif
 
 template void
