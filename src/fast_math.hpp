@@ -280,6 +280,21 @@ void gesv(fk::matrix<P, amem> &A, fk::matrix<P, bmem> &B,
   }
 }
 
+/** tpsv - Solve Ax=B using LU decomposition
+ *
+ * \param A  n-by-n coefficient matrix
+ * \param B  n-by-1 right hand side matrix
+ */
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void tpsv(fk::vector<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
+          char uplo = 'U', char trans = 'N', char diag = 'N')
+{
+  int rows_B = B.size();
+  expect(A.size() == rows_B * (rows_B + 1) / 2);
+
+  lib_dispatch::tpsv<resrc>(uplo, trans, diag, rows_B, A.data(), B.data(), 1);
+}
+
 #ifdef ASGARD_USE_SCALAPACK
 // gesv - Solve Ax=B using LU decomposition
 // template void gesv( int* n, int* nrhs, float* A, int* lda, int* ipiv,

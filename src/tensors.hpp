@@ -399,9 +399,8 @@ public:
    *  \param x multiply each element by x
    *  \return reference to this vector
    */
-  template<mem_type m_ = mem, typename = disable_for_const_view<m_>,
-           resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P, mem> &scale(P const x);
+  template<mem_type m_ = mem, typename = disable_for_const_view<m_>>
+  vector<P, mem, resrc> &scale(P const x);
 
   // basic queries to private data
 
@@ -465,8 +464,8 @@ public:
    * \param stop last element to include
    * \return container with elements [start, stop]
    */
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P> extract(int const start, int const stop) const;
+  vector<P, mem_type::owner, resrc>
+  extract(int const start, int const stop) const;
 
   /*! append vector to the end of the container
    * \param right elements added to the end of the container
@@ -723,9 +722,9 @@ public:
   // utility functions
   //
   template<mem_type omem, mem_type m_ = mem,
-           typename = disable_for_const_view<m_>, resource r_ = resrc,
-           typename = enable_for_host<r_>>
-  matrix<P, mem> &update_col(int const, fk::vector<P, omem> const &);
+           typename = disable_for_const_view<m_>>
+  matrix<P, mem, resrc> &
+  update_col(int const, fk::vector<P, omem, resrc> const &);
   template<mem_type m_ = mem, typename = disable_for_const_view<m_>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &update_col(int const, std::vector<P> const &);
@@ -1089,14 +1088,7 @@ fk::vector<P, mem, resrc> &
 fk::vector<P, mem, resrc>::operator=(vector<P, omem, resrc> const &a)
 {
   expect(size() == a.size());
-  if constexpr (resrc == resource::host)
-  {
-    std::memcpy(data_, a.data(), size() * sizeof(P));
-  }
-  else
-  {
-    copy_vector(*this, a);
-  }
+  copy_vector(*this, a);
   return *this;
 }
 
@@ -1109,7 +1101,7 @@ fk::vector<P, mem, resrc>::clone_onto_device() const
 
 {
   fk::vector<P, mem_type::owner, resource::device> a(size());
-  copy_to_device(a.data(), data(), size());
+  copy_vector(a, *this);
   return a;
 }
 
@@ -1358,14 +1350,14 @@ fk::vector<P> fk::vector<P, mem, resrc>::single_column_kron(
 }
 
 template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename, resource, typename>
-fk::vector<P, mem> &fk::vector<P, mem, resrc>::scale(P const x)
+template<mem_type, typename>
+fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::scale(P const x)
 {
   int one_i = 1;
   int n     = this->size();
   P alpha   = x;
 
-  lib_dispatch::scal(n, alpha, this->data(), one_i);
+  lib_dispatch::scal<resrc>(n, alpha, this->data(), one_i);
 
   return *this;
 }
@@ -1507,8 +1499,7 @@ fk::vector<P, mem, resrc>::set_subvector(int const index,
 
 // extract subvector, indices inclusive
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
-fk::vector<P>
+fk::vector<P, mem_type::owner, resrc>
 fk::vector<P, mem, resrc>::extract(int const start, int const stop) const
 {
   expect(start >= 0);
@@ -1516,11 +1507,8 @@ fk::vector<P, mem, resrc>::extract(int const start, int const stop) const
   expect(stop >= start);
 
   int const sub_size = stop - start + 1;
-  fk::vector<P> sub_vector(sub_size);
-  for (int i = 0; i < sub_size; ++i)
-  {
-    sub_vector(i) = (*this)(i + start);
-  }
+  fk::vector<P, mem_type::owner, resrc> sub_vector(sub_size);
+  lib_dispatch::copy<resrc>(sub_size, data(start), sub_vector.data());
   return sub_vector;
 }
 
@@ -2322,10 +2310,10 @@ P fk::matrix<P, mem, resrc>::determinant() const
 // original)
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, mem_type, typename, resource, typename>
-fk::matrix<P, mem> &
+template<mem_type omem, mem_type, typename>
+fk::matrix<P, mem, resrc> &
 fk::matrix<P, mem, resrc>::update_col(int const col_idx,
-                                      fk::vector<P, omem> const &v)
+                                      fk::vector<P, omem, resrc> const &v)
 {
   expect(nrows() == static_cast<int>(v.size()));
   expect(col_idx < ncols());
