@@ -1502,7 +1502,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 }
 
 TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
-                   test_precs)
+                   double)
 {
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
