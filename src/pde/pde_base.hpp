@@ -823,7 +823,8 @@ private:
     // set maximum level to generate term coefficients
     if (cli_input.do_adapt_levels())
     {
-      if(auto const & levels = cli_input.get_max_adapt_levels(); !levels.empty())
+      if (auto const &levels = cli_input.get_max_adapt_levels();
+          !levels.empty())
         return *std::max_element(levels.begin(), levels.end());
       else
         return cli_input.get_max_level();
@@ -832,12 +833,14 @@ private:
     {
       // if adaptivity is not used, only generate to the highest dim level
       auto const levels = cli_input.get_starting_levels();
-      return levels.empty() ? std::max_element(
+      return levels.empty()
+                 ? std::max_element(
                        dims.begin(), dims.end(),
                        [](dimension<P> const &a, dimension<P> const &b) {
                          return a.get_level() < b.get_level();
                        })
-                       ->get_level() : *std::max_element(levels.begin(), levels.end());
+                       ->get_level()
+                 : *std::max_element(levels.begin(), levels.end());
     }
   }
 
