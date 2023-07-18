@@ -555,6 +555,7 @@ void parser_mod::set(parser &p, parser_option_entry entry, double value)
         "Insider parser_mod::set, setting double to non-double entry.");
   }
 }
+
 void parser_mod::set(parser &p, parser_option_entry entry,
                      std::string const &value)
 {
@@ -566,6 +567,20 @@ void parser_mod::set(parser &p, parser_option_entry entry,
   default:
     throw std::runtime_error(
         "Insider parser_mod::set, setting std::string to non-string entry.");
+  }
+}
+
+void parser_mod::set(parser &p, parser_option_entry entry,
+                     fk::vector<int> const &value)
+{
+  switch (entry)
+  {
+  case max_adapt_level:
+    p.max_adapt_levels.resize(value.size()) = value;
+    break;
+  default:
+    throw std::runtime_error("Insider parser_mod::set, setting fk::vector<int> "
+                             "to non-vector entry.");
   }
 }
 

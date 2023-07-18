@@ -293,5 +293,4 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
-  //--adapt
 }

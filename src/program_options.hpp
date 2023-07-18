@@ -433,13 +433,17 @@ struct parser_mod
     adapt_threshold,
     gmres_tolerance,
     // string
-    solver_str
+    solver_str,
+    // fk::vector<int>
+    max_adapt_level
   };
   static void set(parser &p, parser_option_entry entry, int value);
   static void set(parser &p, parser_option_entry entry, bool value);
   static void set(parser &p, parser_option_entry entry, double value);
   static void
   set(parser &p, parser_option_entry entry, std::string const &value);
+  static void
+  set(parser &p, parser_option_entry entry, fk::vector<int> const &value);
 };
 
 // simple class to hold non-pde user options
