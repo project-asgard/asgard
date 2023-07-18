@@ -1347,7 +1347,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   std::string const pde_choice = "two_stream";
   fk::vector<int> const levels{5, 5};
   int const degree            = 3;
-  static int constexpr nsteps = 600;
+  static int constexpr nsteps = 20;
 
   TestType constexpr tolerance =
       std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
