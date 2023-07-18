@@ -218,24 +218,24 @@ table::get_child_elements(int64_t const index, options const &opts) const
   // all coordinates have 2 entries (lev, cell) per dimension
   auto const num_dims = coords.size() / 2;
 
+  auto const max_adapt_levels = opts.max_adapt_levels;
   std::list<int64_t> daughter_ids;
   for (auto i = 0; i < num_dims; ++i)
   {
+    int level = max_adapt_levels.empty() ? opts.max_level : max_adapt_levels[i];
     // first daughter in this dimension
-    if (coords(i) + 1 < opts.max_level)
+    if (coords(i) + 1 < level)
     {
       auto daughter_coords          = coords;
       daughter_coords(i)            = coords(i) + 1;
       daughter_coords(i + num_dims) = coords(i + num_dims) * 2;
-      daughter_ids.push_back(
-          map_to_id(daughter_coords, opts.max_level, num_dims));
+      daughter_ids.push_back(map_to_id(daughter_coords, level, num_dims));
 
       // second daughter
       if (coords(i) >= 1)
       {
         daughter_coords(i + num_dims) = coords(i + num_dims) * 2 + 1;
-        daughter_ids.push_back(
-            map_to_id(daughter_coords, opts.max_level, num_dims));
+        daughter_ids.push_back(map_to_id(daughter_coords, level, num_dims));
       }
     }
   }
