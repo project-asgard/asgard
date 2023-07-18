@@ -69,8 +69,8 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                               time, update_system);
     case (method::imex):
       return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
-                          program_opts, unscaled_parts, x_orig, time,
-                          program_opts.solver, update_system);
+                          program_opts, unscaled_parts, x_orig, fk::vector<P>(),
+                          time, program_opts.solver, update_system);
     };
   }
 
@@ -94,6 +94,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
   // refine
   bool refining = true;
+  fk::vector<P> y_first_refine;
   while (refining)
   {
     // update boundary conditions
@@ -116,8 +117,8 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                                 time, refining);
       case (method::imex):
         return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
-                            program_opts, unscaled_parts, y, time,
-                            program_opts.solver, refining);
+                            program_opts, unscaled_parts, y, y_first_refine,
+                            time, program_opts.solver, refining);
       default:
         return fk::vector<P>();
       };
@@ -148,6 +149,19 @@ adaptive_advance(method const step_method, PDE<P> &pde,
       operator_matrices.clear_all();
 
       y = adaptive_grid.redistribute_solution(y, old_plan, old_size);
+
+      // after first refinement, save the refined vector to use as initial
+      // "guess" to GMRES
+      if (y_first_refine.empty())
+      {
+        y_first_refine = fk::vector<P>(y_refined);
+      }
+
+      // pad with zeros if more elements were added
+      if (y_first_refine.size() < y.size())
+      {
+        y_first_refine.resize(y.size());
+      }
     }
   }
 
@@ -454,8 +468,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                  &unscaled_parts,
-             fk::vector<P> const &x_orig, P const time, solve_opts const solver,
-             bool const update_system)
+             fk::vector<P> const &x_orig, fk::vector<P> const &x_prev,
+             P const time, solve_opts const solver, bool const update_system)
 {
   ignore(unscaled_parts);
   ignore(solver);
@@ -801,8 +815,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                                          adaptive_grid, program_opts);
 
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-        restart, max_iter, tolerance);
+        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2,
+        x_prev.empty() ? x : x_prev, restart, max_iter, tolerance);
   }
   else
   {
@@ -870,7 +884,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     fk::vector<P, mem_type::owner, imex_resrc> f_3(x);
     pde.gmres_outputs[1] = solver::simple_gmres_euler(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-        f_3, x, restart, max_iter, tolerance);
+        f_3, x_prev.empty() ? x : x_prev, restart, max_iter, tolerance);
+
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)
@@ -930,8 +945,8 @@ template fk::vector<double> imex_advance(
     options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
         &unscaled_parts,
-    fk::vector<double> const &x_orig, double const time,
-    solve_opts const solver, bool const update_system);
+    fk::vector<double> const &x_orig, fk::vector<double> const &x_prev,
+    double const time, solve_opts const solver, bool const update_system);
 
 #endif
 
@@ -970,8 +985,9 @@ imex_advance(PDE<float> &pde, matrix_list<float> &operator_matrix,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
                  &unscaled_parts,
-             fk::vector<float> const &x_orig, float const time,
-             solve_opts const solver, bool const update_system);
+             fk::vector<float> const &x_orig, fk::vector<float> const &x_prev,
+             float const time, solve_opts const solver,
+             bool const update_system);
 #endif
 
 } // namespace asgard::time_advance
