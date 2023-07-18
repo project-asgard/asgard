@@ -378,29 +378,21 @@ parser::parser(int argc, char const *const *argv)
   }
   if (max_adapt_levels_str != NO_USER_VALUE_STR)
   {
-    auto max_adapt_lev = ints_from_string(max_adapt_levels_str);
-    if (max_adapt_lev.empty())
+    max_adapt_levels = ints_from_string(max_adapt_levels_str);
+    if (max_adapt_levels.empty())
     {
       std::cerr
           << "Failed to parse maximum adaptivity levels from input argument"
           << '\n';
       valid = false;
     }
-    if (!(max_adapt_lev.empty() && do_adapt))
+    if (!(max_adapt_levels.empty() && do_adapt))
     {
       std::cerr
           << "input maximum adaptivity levels without enabling adaptivity..."
           << '\n';
       valid = false;
     }
-    if (!(max_adapt_lev.empty() && do_adapt))
-    {
-      std::cerr
-          << "input maximum adaptivity levels without enabling adaptivity..."
-          << '\n';
-      valid = false;
-    }
-    max_adapt_levels = std::move(max_adapt_lev);
     for (int i = 0; i < max_adapt_levels.size(); ++i)
     {
       if (max_adapt_levels[i] < 2)
