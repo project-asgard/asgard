@@ -803,7 +803,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
-  fk::vector<P, mem_type::owner, imex_resrc> f_2(x);
+  fk::vector<P, mem_type::owner, imex_resrc> f_2(x.size());
 
   if (pde.do_collision_operator)
   {
@@ -814,9 +814,25 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
+    // use previous refined solution as initial guess to GMRES if it exists
+    if (x_prev.empty())
+    {
+      f_2 = x;
+    }
+    else
+    {
+      if constexpr (imex_resrc == resource::device)
+      {
+        f_2 = x_prev.clone_onto_device();
+      }
+      else
+      {
+        f_2 = x_prev;
+      }
+    }
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2,
-        x_prev.empty() ? x : x_prev, restart, max_iter, tolerance);
+        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
+        restart, max_iter, tolerance);
   }
   else
   {
@@ -877,15 +893,29 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     // Final stage f3
     tools::timer.start("implicit_2_solve");
+    fk::vector<P, mem_type::owner, imex_resrc> f_3;
+    if (x_prev.empty())
+    {
+      f_3 = x;
+    }
+    else
+    {
+      if constexpr (imex_resrc == resource::device)
+      {
+        f_3 = x_prev.clone_onto_device();
+      }
+      else
+      {
+        f_3 = x_prev;
+      }
+    }
 
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    fk::vector<P, mem_type::owner, imex_resrc> f_3(x);
     pde.gmres_outputs[1] = solver::simple_gmres_euler(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-        f_3, x_prev.empty() ? x : x_prev, restart, max_iter, tolerance);
-
+        f_3, x, restart, max_iter, tolerance);
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)
