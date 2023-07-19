@@ -282,17 +282,14 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   }();
 
   fk::vector<int> dev_table_builder;
-  if (opts.use_full_grid)
+  int64_t dof = 1;
+  for (int lev = 0; lev < dims.size(); lev++)
   {
-    int64_t dof = 1;
-    for (int lev = 0; lev < dims.size(); lev++)
-    {
-      dof *= dims[0].get_degree() * fm::two_raised_to(dims[lev].get_level());
-    }
-
-    // reserve element table data up front
-    dev_table_builder.resize(dof);
+    dof *= dims[0].get_degree() * fm::two_raised_to(dims[lev].get_level());
   }
+
+  // reserve element table data up front
+  dev_table_builder.resize(dof);
 
   int64_t pos = 0;
   for (int row = 0; row < perm_table.nrows(); ++row)
