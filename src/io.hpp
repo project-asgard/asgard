@@ -4,6 +4,7 @@
 
 #include "pde.hpp"
 #include "program_options.hpp"
+#include "solver.hpp"
 #include "tensors.hpp"
 #include "tools.hpp"
 #include "transformations.hpp"
@@ -266,6 +267,22 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     gmres_tol = std::is_same_v<float, P> ? 1e-6 : 1e-12;
   }
   H5Easy::dump(file, "gmres_tolerance", gmres_tol);
+
+  int gmres_restart = cli_input.get_gmres_inner_iterations();
+  if (gmres_restart == parser::NO_USER_VALUE)
+  {
+    // calculate default based on size of solution vector
+    gmres_restart = solver::default_gmres_restarts<P>(vec.size());
+  }
+  H5Easy::dump(file, "gmres_restart", gmres_restart);
+
+  int gmres_max_iter = cli_input.get_gmres_outer_iterations();
+  if (gmres_max_iter == parser::NO_USER_VALUE)
+  {
+    // default value is to use size of solution vector
+    gmres_max_iter = vec.size();
+  }
+  H5Easy::dump(file, "gmres_max_iter", gmres_max_iter);
 
   // save some basic build info
   H5Easy::dump(file, "GIT_BRANCH", std::string(GIT_BRANCH));
