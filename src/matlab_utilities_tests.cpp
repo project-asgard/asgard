@@ -105,6 +105,30 @@ TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]",
   }
 }
 
+TEMPLATE_TEST_CASE("speye() matches matlab implementation", "[matlab]",
+                   test_precs, int)
+{
+  SECTION("speye()")
+  {
+    fk::matrix<TestType> const gold{{1}};
+    fk::sparse<TestType> const test = speye<TestType>();
+    REQUIRE(test.to_dense() == gold);
+  }
+  SECTION("speye(5)")
+  {
+    // clang-format off
+    fk::matrix<TestType> const gold{
+      {1, 0, 0, 0, 0},
+      {0, 1, 0, 0, 0},
+      {0, 0, 1, 0, 0},
+      {0, 0, 0, 1, 0},
+      {0, 0, 0, 0, 1},
+    }; // clang-format on
+    fk::sparse<TestType> const test = speye<TestType>(5);
+    REQUIRE(test.to_dense() == gold);
+  }
+}
+
 TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", test_precs,
                    int)
 {
