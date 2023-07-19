@@ -64,7 +64,7 @@ simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
   fm::ilu(sp_y, M);
   */
 
-  fk::sparse<P> sp_y(eye<P>(x.size()));
+  fk::sparse<P> sp_y(speye<P>(x.size()));
   fm::ilu(sp_y, M);
 
   std::cout << "    DONE PRECOND" << std::endl;
