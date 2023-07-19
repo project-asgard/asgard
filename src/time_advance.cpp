@@ -804,7 +804,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
   fk::vector<P, mem_type::owner, imex_resrc> f_2(x.size());
-
+  fk::vector<P, mem_type::owner, imex_resrc> f_2_output(x.size());
   if (pde.do_collision_operator)
   {
     // Update coeffs
@@ -833,6 +833,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
         restart, max_iter, tolerance);
+    // save output of GMRES call to use in the second one
+    f_2_output = f_2;
   }
   else
   {
@@ -893,10 +895,10 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     // Final stage f3
     tools::timer.start("implicit_2_solve");
-    fk::vector<P, mem_type::owner, imex_resrc> f_3;
+    fk::vector<P, mem_type::owner, imex_resrc> f_3(x.size());
     if (x_prev.empty())
     {
-      f_3 = x;
+      f_3 = std::move(f_2_output);
     }
     else
     {
