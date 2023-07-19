@@ -455,6 +455,14 @@ asgard::options make_options(std::vector<std::string> const arguments)
   return asgard::options(make_parser(arguments));
 }
 
+template<typename P>
+fk::matrix<P> precond_eye(int const n)
+{
+  // a test preconditioner that is just the identity matrix
+  fk::sparse<P> sp_y(speye<P>(n));
+  return sp_y.to_dense();
+};
+
 // this function executes an implicit-explicit (imex) time step using the
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
@@ -519,7 +527,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 #endif
 
-  fk::matrix<P, mem_type::owner, imex_resrc> precond(x.size(), x.size());
+  // fk::matrix<P, mem_type::owner, imex_resrc> precond(x.size(), x.size());
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
@@ -837,7 +845,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
     pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-        precond, restart, max_iter, tolerance);
+        precond_eye<P>, restart, max_iter, tolerance);
     // save output of GMRES call to use in the second one
     f_2_output = f_2;
   }
@@ -922,7 +930,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     pde.gmres_outputs[1] = solver::simple_gmres_euler_precond(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-        f_3, x, precond, restart, max_iter, tolerance);
+        f_3, x, precond_eye<P>, restart, max_iter, tolerance);
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)

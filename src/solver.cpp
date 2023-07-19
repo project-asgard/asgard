@@ -20,8 +20,13 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     bool const trans_A = false;
     fm::gemv(A, x_in, y, trans_A, alpha, beta);
   };
-  return simple_gmres(dense_matrix_wrapper, x, b, M, restart, max_iter,
-                      tolerance);
+  auto preconditioner_op = [&M](int const n) -> fk::matrix<P> {
+    expect(M.nrows() == n);
+    expect(M.ncols() == n);
+    return M;
+  };
+  return simple_gmres(dense_matrix_wrapper, x, b, preconditioner_op, restart,
+                      max_iter, tolerance);
 }
 
 template<typename P, resource resrc>
@@ -31,6 +36,11 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance)
 {
+  fk::matrix<P> precond  = fk::matrix<P>();
+  auto preconditioner_op = [&precond](int const n) -> fk::matrix<P> {
+    ignore(n);
+    return precond;
+  };
   return simple_gmres(
       [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
@@ -41,7 +51,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
         int one = 1, n = y.size();
         lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
       },
-      x, b, fk::matrix<P>(), restart, max_iter, tolerance);
+      x, b, preconditioner_op, restart, max_iter, tolerance);
 }
 
 template<typename P, resource resrc>
@@ -49,26 +59,10 @@ gmres_info<P>
 simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
                            fk::vector<P, mem_type::owner, resrc> &x,
                            fk::vector<P, mem_type::owner, resrc> const &b,
-                           fk::matrix<P, mem_type::owner, resrc> &M,
+                           preconditioner_func<P> const &precond,
                            int const restart, int const max_iter,
                            P const tolerance)
 {
-  std::cout << " -> SETTING UP PRECOND" << std::endl;
-
-  /*
-  fk::vector<P> tmp_x(x.size());
-  fk::vector<P> tmp_y(x.size());
-  std::fill(tmp_x.begin(), tmp_x.end(), P{1.0});
-  mat.apply(-1.0 * dt, tmp_x.data(), 0.0, tmp_y.data());
-  fk::sparse<P> sp_y(tmp_y);
-  fm::ilu(sp_y, M);
-  */
-
-  fk::sparse<P> sp_y(speye<P>(x.size()));
-  fm::ilu(sp_y, M);
-
-  std::cout << "    DONE PRECOND" << std::endl;
-
   return simple_gmres(
       [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
@@ -79,7 +73,7 @@ simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
         int one = 1, n = y.size();
         lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
       },
-      x, b, M, restart, max_iter, tolerance);
+      x, b, precond, restart, max_iter, tolerance);
 }
 
 /*! Generates a default number inner iterations when no use input is given
@@ -101,11 +95,13 @@ int default_gmres_restarts(int num_cols)
 static int pos_from_indices(int i, int j) { return i + j * (j + 1) / 2; }
 
 // simple, node-local test version
-template<typename P, typename matrix_replacement, resource resrc>
+template<typename P, typename matrix_replacement,
+         typename preconditioner_operator, resource resrc>
 gmres_info<P>
 simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
              fk::vector<P, mem_type::owner, resrc> const &b,
-             fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
+             preconditioner_operator const &M, int restart, int max_iter,
+             P tolerance)
 {
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -113,14 +109,18 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
   int const n = b.size();
   expect(n == x.size());
 
-  bool const do_precond = M.size() > 0;
+  auto id               = asgard::tools::timer.start("gmres precond setup");
+  fk::matrix<P> precond = M(n);
+  asgard::tools::timer.stop(id);
+
+  bool const do_precond = precond.size() > 0;
   std::vector<int> precond_pivots(n);
   if (do_precond)
   {
-    expect(M.ncols() == n);
-    expect(M.nrows() == n);
+    expect(precond.ncols() == n);
+    expect(precond.nrows() == n);
   }
-  fk::matrix<P> precond(M);
+  // fk::matrix<P> precond(M);
   bool precond_factored = false;
 
   if (restart == parser::NO_USER_VALUE)
@@ -462,8 +462,9 @@ simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
 template gmres_info<double>
 simple_gmres_euler_precond(const double dt, kronmult_matrix<double> const &mat,
                            fk::vector<double> &x, fk::vector<double> const &b,
-                           fk::matrix<double> &M, int const restart,
-                           int const max_iter, double const tolerance);
+                           preconditioner_func<double> const &precond,
+                           int const restart, int const max_iter,
+                           double const tolerance);
 
 template int default_gmres_restarts<double>(int num_cols);
 
@@ -504,8 +505,9 @@ simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
 template gmres_info<float>
 simple_gmres_euler_precond(const float dt, kronmult_matrix<float> const &mat,
                            fk::vector<float> &x, fk::vector<float> const &b,
-                           fk::matrix<float> &M, int const restart,
-                           int const max_iter, float const tolerance);
+                           preconditioner_func<float> const &precond,
+                           int const restart, int const max_iter,
+                           float const tolerance);
 
 template int default_gmres_restarts<float>(int num_cols);
 

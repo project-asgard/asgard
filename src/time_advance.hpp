@@ -7,6 +7,9 @@
 
 namespace asgard::time_advance
 {
+template<typename P>
+using preconditioner_func = std::function<fk::matrix<P>(int const)>;
+
 enum class method
 {
   imp,

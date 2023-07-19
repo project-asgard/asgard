@@ -14,6 +14,9 @@ enum class poisson_bc
   periodic
 };
 
+template<typename P>
+using preconditioner_func = std::function<fk::matrix<P>(int const)>;
+
 // simple, node-local test version of gmres
 template<typename P>
 gmres_info<P>
@@ -35,7 +38,7 @@ gmres_info<P>
 simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
                            fk::vector<P, mem_type::owner, resrc> &x,
                            fk::vector<P, mem_type::owner, resrc> const &b,
-                           fk::matrix<P, mem_type::owner, resrc> &M,
+                           preconditioner_func<P> const &precond,
                            int const restart, int const max_iter,
                            P const tolerance);
 
