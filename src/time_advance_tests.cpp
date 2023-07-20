@@ -1337,7 +1337,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   }
   parameter_manager<TestType>::get_instance().reset();
 }
-#endif
 
 TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 {
