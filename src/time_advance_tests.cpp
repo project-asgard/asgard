@@ -394,6 +394,27 @@ TEST_CASE("adaptive time advance")
 
     time_advance_test(parse, gold_base, tol_factor);
   }
+
+  SECTION("continuity 2 explicit")
+  {
+    auto const tol_factor        = get_tolerance<default_precision>(100);
+    std::string const pde_choice = "continuity_2";
+    auto const degree            = 4;
+    fk::vector<int> const levels{3, 3};
+    auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
+
+    auto const full_grid       = false;
+    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
+    auto const do_adapt_levels = true;
+    auto const adapt_threshold = 1e-3;
+    fk::vector<int> max_adapt_level{6, 8};
+
+    parser parse =
+        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+                          use_implicit, do_adapt_levels, adapt_threshold);
+    parser_mod::set(parse, parser_mod::max_adapt_level, max_adapt_level);
+    time_advance_test(parse, gold_base, tol_factor);
+  }
 }
 TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
 {

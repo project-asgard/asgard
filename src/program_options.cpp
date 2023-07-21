@@ -81,7 +81,9 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(gmres_inner_iterations, "inner_it > 0")["--inner_it"](
           "Number of inner iterations in gmres solver") |
       clara::detail::Opt(gmres_outer_iterations, "outer_it > 0")["--outer_it"](
-          "Number of outer iterations in gmres solver");
+          "Number of outer iterations in gmres solver") |
+      clara::detail::Opt(max_adapt_levels_str, "")["--max_adapt_levels"](
+          "Maximum hierarchical levels (resolution) for adaptivity");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -154,13 +156,12 @@ parser::parser(int argc, char const *const *argv)
         valid = false;
       }
     }
-    if (memory_limit <= 0)
-    {
-      std::cerr << "Kronmult max memory size must be a positive integer\n";
-      valid = false;
-    }
   }
-
+  if (memory_limit <= 0)
+  {
+    std::cerr << "Kronmult max memory size must be a positive integer\n";
+    valid = false;
+  }
   if (dt != NO_USER_VALUE_FP && dt <= 0.0)
   {
     std::cerr << "Provided dt must be positive" << '\n';
@@ -375,6 +376,45 @@ parser::parser(int argc, char const *const *argv)
               << '\n';
     valid = false;
   }
+  if (max_adapt_levels_str != NO_USER_VALUE_STR)
+  {
+    max_adapt_levels = ints_from_string(max_adapt_levels_str);
+    if (max_adapt_levels.empty())
+    {
+      std::cerr
+          << "Failed to parse maximum adaptivity levels from input argument"
+          << '\n';
+      valid = false;
+    }
+    if (!(max_adapt_levels.empty() && do_adapt))
+    {
+      std::cerr
+          << "input maximum adaptivity levels without enabling adaptivity..."
+          << '\n';
+      valid = false;
+    }
+    for (int i = 0; i < max_adapt_levels.size(); ++i)
+    {
+      if (max_adapt_levels[i] < 2)
+      {
+        std::cerr << "Level must be greater than one" << '\n';
+        valid = false;
+      }
+      if (max_adapt_levels[i] < starting_levels[i])
+      {
+        std::cerr
+            << "Maximum level must be greater than or equal to starting level"
+            << '\n';
+        valid = false;
+      }
+      if (max_adapt_levels[i] > max_level)
+      {
+        std::cerr << "Maximum level must be less than or equal to maximum level"
+                  << '\n';
+        valid = false;
+      }
+    }
+  }
 }
 
 bool parser::using_implicit() const { return use_implicit_stepping; }
@@ -400,6 +440,11 @@ int parser::get_gmres_inner_iterations() const
 int parser::get_gmres_outer_iterations() const
 {
   return gmres_outer_iterations;
+}
+
+fk::vector<int> parser::get_max_adapt_levels() const
+{
+  return max_adapt_levels;
 }
 
 double parser::get_cfl() const { return cfl; }
@@ -502,6 +547,7 @@ void parser_mod::set(parser &p, parser_option_entry entry, double value)
         "Insider parser_mod::set, setting double to non-double entry.");
   }
 }
+
 void parser_mod::set(parser &p, parser_option_entry entry,
                      std::string const &value)
 {
@@ -513,6 +559,20 @@ void parser_mod::set(parser &p, parser_option_entry entry,
   default:
     throw std::runtime_error(
         "Insider parser_mod::set, setting std::string to non-string entry.");
+  }
+}
+
+void parser_mod::set(parser &p, parser_option_entry entry,
+                     fk::vector<int> const &value)
+{
+  switch (entry)
+  {
+  case max_adapt_level:
+    p.max_adapt_levels.resize(value.size()) = value;
+    break;
+  default:
+    throw std::runtime_error("Insider parser_mod::set, setting fk::vector<int> "
+                             "to non-vector entry.");
   }
 }
 

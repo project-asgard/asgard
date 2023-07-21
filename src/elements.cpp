@@ -218,11 +218,13 @@ table::get_child_elements(int64_t const index, options const &opts) const
   // all coordinates have 2 entries (lev, cell) per dimension
   auto const num_dims = coords.size() / 2;
 
+  auto const max_adapt_levels = opts.max_adapt_levels;
   std::list<int64_t> daughter_ids;
   for (auto i = 0; i < num_dims; ++i)
   {
     // first daughter in this dimension
-    if (coords(i) + 1 < opts.max_level)
+    int level = max_adapt_levels.empty() ? opts.max_level : max_adapt_levels[i];
+    if (coords(i) + 1 < level)
     {
       auto daughter_coords          = coords;
       daughter_coords(i)            = coords(i) + 1;
