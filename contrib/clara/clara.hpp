@@ -653,7 +653,7 @@ namespace detail {
         std::stringstream ss;
         ss << source;
         ss >> target;
-        if( ss.fail() )
+        if( ss.fail() || !ss.eof() )
             return ParserResult::runtimeError( "Unable to convert '" + source + "' to destination type" );
         else
             return ParserResult::ok( ParseResultType::Matched );
