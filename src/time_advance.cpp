@@ -617,20 +617,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P> mom0(dense_size);
   fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
 
-  /*
-  fk::matrix<P> tmp = asgard::operator_two_scale<P>(degree, level);
-  tmp.transpose();
-
-  fk::vector<P> mom0_real_coeffs(dense_size);
-  fm::gemv(tmp, mom0, mom0_real_coeffs);
-
-  fm::scal(static_cast<P>((1.0 / (std::sqrt(4.0 * PI * std::pow(2, level))))),
-  mom0_real_coeffs); mom0_real_coeffs.print("mom0_real_coeffs");
-  */
-
   fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
       pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
-  // mom0_real.print("mom0_real");
   param_manager.get_parameter("n")->value = [&](P const x_v,
                                                 P const t = 0) -> P {
     ignore(t);

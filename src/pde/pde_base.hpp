@@ -202,7 +202,6 @@ public:
   {
     // set the coefficients at the given level
     expect(coefficients_.size() > static_cast<size_t>(level));
-    // coefficients_[level] = std::move(new_coefficients);
     this->coefficients_[level].clear_and_resize(new_coefficients.nrows(),
                                                 new_coefficients.ncols()) =
         std::move(new_coefficients);
@@ -288,7 +287,6 @@ public:
     expect(pterm >= 0);
     expect(pterm < static_cast<int>(partial_terms_.size()));
     ignore(deg);
-    // partial_terms_[pterm].set_coefficients(coeffs, deg, max_lev);
     partial_terms_[pterm].set_coefficients(std::move(coeffs), max_lev);
   }
 
@@ -655,7 +653,6 @@ public:
     gmres_outputs.resize(cli_input.using_imex() ? 2 : 1);
 
     // hack to preallocate empty matrix for pterm coefficients for adapt
-    // if (cli_input.do_adapt_levels()) {
     for (auto i = 0; i < num_dims; ++i)
     {
       auto const &dim = this->get_dimensions()[i];
@@ -676,7 +673,6 @@ public:
         }
       }
     }
-    //}
   }
 
   constexpr static int extract_dim0 = 1;
