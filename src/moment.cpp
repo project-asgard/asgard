@@ -52,8 +52,6 @@ void moment<P>::createMomentVector(PDE<P> const &pde, options const &opts,
     int const degree             = pde.get_dimensions()[0].get_degree();
     auto tmp = combine_dimensions(degree, hash_table, plan.at(rank).row_start,
                                   plan.at(rank).row_stop, this->fList[0]);
-    this->vector = fk::vector<P>();
-    this->vector.resize(tmp.size());
     this->vector      = std::move(tmp);
     auto num_md_funcs = md_funcs.size();
     for (std::size_t s = 1; s < num_md_funcs; ++s)
