@@ -493,34 +493,43 @@ void precond_block_jacobi(PDE<P> const &pde, elements::table const &table,
     // the index where this block is placed in the preconditioner matrix
     int const matrix_offset = element * std::pow(degree, num_dims);
 
+    fk::matrix<P> kron0(1, 1);
+    kron0(0, 0) = 1.0;
+
     for (int term = 0; term < pde.num_terms; term++)
     {
-      int start_index = indices[0];
-      int end_index   = indices[0] + degree - 1;
-      auto block      = fk::matrix<P, mem_type::const_view>(
-          pde.get_coefficients(term, 0), start_index, end_index, start_index,
-          end_index);
-      precond.set_submatrix(matrix_offset, matrix_offset, block);
-
-      for (int dim = 1; dim < num_dims; dim++)
+      // Vector containing coefficient blocks for each dimension
+      std::vector<fk::matrix<P, mem_type::const_view>> blocks;
+      for (int dim = 0; dim < num_dims; dim++)
       {
-        start_index = indices[dim];
-        end_index   = indices[dim] + degree - 1;
+        int const start_index = indices[dim];
+        int const end_index   = indices[dim] + degree - 1;
 
-        // compute the kron product of this term with the previous dimension
-        fk::matrix<P> kron_tmp = block.kron(fk::matrix<P, mem_type::const_view>(
-            pde.get_coefficients(term, dim), start_index, end_index,
-            start_index, end_index));
-
-        // sum the kron product into the preconditioner matrix
-        precond.set_submatrix(
-            matrix_offset, matrix_offset,
-            fk::matrix<P, mem_type::view>(
-                precond, matrix_offset,
-                matrix_offset + std::pow(degree, num_dims) - 1, matrix_offset,
-                matrix_offset + std::pow(degree, num_dims) - 1) +
-                kron_tmp);
+        blocks.push_back(fk::matrix<P, mem_type::const_view>(
+            pde.get_coefficients(term, 0), start_index, end_index, start_index,
+            end_index));
       }
+
+      // Vector containing kron products of each block. The final kron product
+      // is stored at the last element.
+      std::vector<fk::matrix<P>> krons;
+      krons.push_back(kron0);
+      for (int dim = 0; dim < num_dims; dim++)
+      {
+        krons.push_back(std::move(krons[dim].kron(blocks[dim])));
+      }
+
+      expect(krons.back().nrows() == std::pow(degree, num_dims));
+      expect(krons.back().ncols() == std::pow(degree, num_dims));
+
+      // sum the kron product into the preconditioner matrix
+      precond.set_submatrix(
+          matrix_offset, matrix_offset,
+          fk::matrix<P, mem_type::view>(
+              precond, matrix_offset,
+              matrix_offset + std::pow(degree, num_dims) - 1, matrix_offset,
+              matrix_offset + std::pow(degree, num_dims) - 1) +
+              krons.back());
     }
   }
 };
@@ -1073,6 +1082,7 @@ template fk::vector<double> implicit_advance(
     fk::vector<double> const &host_space, double const time,
     bool const update_system);
 
+template fk::matrix<double> precond_eye(int const n);
 template void precond_block_jacobi(PDE<double> const &pde,
                                    elements::table const &table, int const n,
                                    fk::matrix<double> &precond);
@@ -1117,6 +1127,7 @@ template fk::vector<float> implicit_advance(
         &unscaled_parts,
     fk::vector<float> const &x, float const time, bool const update_system);
 
+template fk::matrix<float> precond_eye(int const n);
 template void precond_block_jacobi(PDE<float> const &pde,
                                    elements::table const &table, int const n,
                                    fk::matrix<float> &precond);

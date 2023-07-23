@@ -110,7 +110,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
   expect(n == x.size());
 
   auto id               = asgard::tools::timer.start("gmres precond setup");
-  fk::matrix<P> precond = M(n);
+  fk::matrix<P> precond = std::move(M(n));
   asgard::tools::timer.stop(id);
 
   bool const do_precond = precond.size() > 0;
