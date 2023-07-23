@@ -101,6 +101,11 @@ public:
     int const num_dims = pde.num_dims;
     int const degree   = pde.get_dimensions()[0].get_degree();
 
+    this->num_blocks = table.size();
+    this->degree     = degree;
+    this->num_dims   = pde.num_dims;
+    this->blk_pivots = std::vector<std::vector<int>>(this->num_blocks);
+
     std::cout << "PRECOND SIZE n = " << n << "\n";
 
 #pragma omp parallel for
@@ -159,6 +164,59 @@ public:
       }
     }
   }
+
+  virtual void apply(fk::vector<P> &B) override
+  {
+    auto id = asgard::tools::timer.start("precond apply");
+    if (!this->is_factored)
+    {
+      int const piv_size = std::pow(this->degree, this->num_dims);
+      for (int i = 0; i < this->num_blocks; i++)
+      {
+        blk_pivots[i] = std::vector<int>(piv_size);
+      }
+    }
+
+    for (int block = 0; block < this->num_blocks; block++)
+    {
+      apply_block(block, B);
+    }
+
+    if (!this->is_factored)
+    {
+      this->is_factored = true;
+    }
+    asgard::tools::timer.stop(id);
+  }
+
+  void apply_block(int const block_index, fk::vector<P> &B)
+  {
+    int const block_size = std::pow(this->degree, this->num_dims);
+    int const offset     = block_index * block_size;
+
+    // extract the given block from the preconditioner matrix
+    auto block = fk::matrix<P, mem_type::view>(this->precond, offset,
+                                               offset + block_size - 1, offset,
+                                               offset + block_size - 1);
+
+    auto B_block =
+        fk::vector<P, mem_type::view>(B, offset, offset + block_size - 1);
+
+    if (!this->is_factored)
+    {
+      fm::gesv(block, B_block, this->blk_pivots[block_index]);
+    }
+    else
+    {
+      fm::getrs(block, B_block, this->blk_pivots[block_index]);
+    }
+  }
+
+  int num_blocks;
+  int degree;
+  int num_dims;
+
+  std::vector<std::vector<int>> blk_pivots;
 };
 
 } // namespace asgard::preconditioner
