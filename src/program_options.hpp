@@ -220,6 +220,7 @@ public:
   static auto constexpr DEFAULT_USE_FG            = false;
   static auto constexpr DEFAULT_DO_POISSON        = false;
   static auto constexpr DEFAULT_DO_ADAPT          = false;
+  static auto constexpr DEFAULT_USE_PRECOND       = false;
   static auto constexpr DEFAULT_PDE_STR           = "continuity_2";
   static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::continuity_2;
   static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
@@ -254,7 +255,8 @@ public:
       int const gmres_inner_iterations_in  = DEFAULT_GMRES_INNER_ITERATIONS,
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS,
       fk::vector<int> const &max_adapt_levels_in = DEFAULT_MAX_ADAPT_LEVELS,
-      std::string const restart_file_in          = NO_USER_VALUE_STR)
+      std::string const restart_file_in          = NO_USER_VALUE_STR,
+      bool const use_precond_in                  = DEFAULT_USE_PRECOND)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid_in),
         do_adapt(do_adapt_levels), starting_levels(starting_levels_in),
         degree(degree_in), max_level(max_level_in),
@@ -266,7 +268,8 @@ public:
         gmres_tolerance(gmres_tolerance_in),
         gmres_inner_iterations(gmres_inner_iterations_in),
         gmres_outer_iterations(gmres_outer_iterations_in),
-        max_adapt_levels(max_adapt_levels_in), restart_file(restart_file_in){};
+        max_adapt_levels(max_adapt_levels_in), restart_file(restart_file_in),
+        use_precond(use_precond_in){};
 
   explicit parser(
       std::string const &pde_choice_in, fk::vector<int> starting_levels_in,
@@ -286,14 +289,15 @@ public:
       int const gmres_inner_iterations_in  = DEFAULT_GMRES_INNER_ITERATIONS,
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS,
       fk::vector<int> const &max_adapt_levels_in = DEFAULT_MAX_ADAPT_LEVELS,
-      std::string const restart_file_in          = NO_USER_VALUE_STR)
+      std::string const restart_file_in          = NO_USER_VALUE_STR,
+      bool const use_precond_in                  = DEFAULT_USE_PRECOND)
       : parser(pde_mapping.at(pde_choice_in).pde_choice, starting_levels_in,
                degree_in, cfl_in, use_full_grid_in, max_level_in,
                mixed_grid_group_in, num_steps, use_implicit, do_adapt_levels,
                adapt_threshold_in, solver_str_in, use_imex, memory_limit_in,
                kmode_in, gmres_tolerance_in, gmres_inner_iterations_in,
-               gmres_outer_iterations_in, max_adapt_levels_in,
-               restart_file_in){};
+               gmres_outer_iterations_in, max_adapt_levels_in, restart_file_in,
+               use_precond_in){};
   /*!
    * \brief Simple utility to modify private members of the parser.
    */
@@ -305,6 +309,7 @@ public:
   bool do_poisson_solve() const;
   bool do_adapt_levels() const;
   bool do_restart() const;
+  bool using_precond() const;
 
   fk::vector<int> get_starting_levels() const;
   fk::vector<int> get_active_terms() const;
@@ -451,6 +456,8 @@ private:
 
   std::string restart_file = NO_USER_VALUE_STR;
 
+  bool use_precond = DEFAULT_USE_PRECOND;
+
   // is there a better (testable) way to handle invalid command-line input?
   bool valid = true;
 };
@@ -476,6 +483,7 @@ struct parser_mod
     do_poisson,
     do_adapt,
     use_imex_stepping,
+    use_precond,
     // double values
     cfl,
     dt,
@@ -523,7 +531,8 @@ public:
         solver(user_vals.get_selected_solver()),
         use_imex_stepping(user_vals.using_imex()),
         max_adapt_levels(user_vals.get_max_adapt_levels()),
-        restart_file(user_vals.get_restart_file()){};
+        restart_file(user_vals.get_restart_file()),
+        use_precond(user_vals.using_precond()){};
 
   bool should_output_wavelet(int const i) const;
   bool should_output_realspace(int const i) const;
@@ -557,6 +566,8 @@ public:
   fk::vector<int> const max_adapt_levels;
 
   std::string restart_file;
+
+  bool const use_precond;
 
 private:
   // helper for output writing
