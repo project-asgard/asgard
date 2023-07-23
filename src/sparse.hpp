@@ -286,7 +286,7 @@ public:
   }
 
   // checks if the dense element at (row, col) exists in the sparse matrix
-  bool exists(int const row, int const col)
+  bool exists(int const row, int const col) const
   {
     expect(row >= 0);
     expect(row < nrows_);
@@ -323,6 +323,40 @@ public:
   bool operator!=(sparse<P, omem> const &other) const
   {
     return !(*this == other);
+  }
+
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  void print(std::string const label = "") const
+  {
+    if constexpr (mem == mem_type::owner)
+      std::cout << label << "(owner)" << '\n';
+    else
+      expect(false); // above cases cover all implemented mem types
+
+    //  Print these out as row major even though stored in memory as column
+    //  major.
+    for (auto i = 0; i < nrows(); ++i)
+    {
+      for (auto j = 0; j < ncols(); ++j)
+      {
+        if (exists(i, j))
+        {
+          std::cout << "(" << std::setw(2) << i << ", " << std::setw(2) << j
+                    << ") ";
+          P const val = values_[col_indices_[row_offsets_[i]]];
+          if constexpr (std::is_floating_point<P>::value)
+          {
+            std::cout << std::setw(12) << std::setprecision(4)
+                      << std::scientific << std::right << val;
+          }
+          else
+          {
+            std::cout << val << " ";
+          }
+          std::cout << '\n';
+        }
+      }
+    }
   }
 
   //
