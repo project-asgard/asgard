@@ -48,7 +48,7 @@ public:
   }
   // virtual void apply(fk::vector<P> &B, std::vector<int> &pivots) {}
 
-  bool empty() const { return this->precond.empty(); }
+  virtual bool empty() const { return this->precond.empty(); }
 
 protected:
   bool is_factored = false;
@@ -95,23 +95,32 @@ public:
     // matrix
     // expect(this->precond.nrows() == n);
     // expect(this->precond.ncols() == n);
-    this->precond.clear_and_resize(n, n);
-    this->pivots.resize(n);
+    // this->precond.clear_and_resize(n, n);
+    // this->pivots.resize(n);
 
     int const num_dims = pde.num_dims;
     int const degree   = pde.get_dimensions()[0].get_degree();
 
-    this->num_blocks = table.size();
-    this->degree     = degree;
-    this->num_dims   = pde.num_dims;
-    this->blk_pivots = std::vector<std::vector<int>>(this->num_blocks);
+    this->num_blocks   = table.size();
+    this->degree       = degree;
+    this->num_dims     = pde.num_dims;
+    this->precond_blks = std::vector<fk::matrix<P>>(this->num_blocks);
+    this->blk_pivots   = std::vector<std::vector<int>>(this->num_blocks);
 
     std::cout << "PRECOND SIZE n = " << n << "\n";
+    std::cout << "      precond dense mat size = " << this->precond.size()
+              << "\n";
+
+    fk::matrix<P> kron0(1, 1);
+    kron0(0, 0) = 1.0;
 
 #pragma omp parallel for
     for (int element = 0; element < table.size(); element++)
     {
       fk::vector<int> const &coords = table.get_coords(element);
+
+      precond_blks[element].clear_and_resize(std::pow(degree, num_dims),
+                                             std::pow(degree, num_dims));
 
       // get 1D operator indices for each dimension
       int indices[num_dims];
@@ -123,9 +132,6 @@ public:
 
       // the index where this block is placed in the preconditioner matrix
       int const matrix_offset = element * std::pow(degree, num_dims);
-
-      fk::matrix<P> kron0(1, 1);
-      kron0(0, 0) = 1.0;
 
       for (int term = 0; term < pde.num_terms; term++)
       {
@@ -154,13 +160,7 @@ public:
         expect(krons.back().ncols() == std::pow(degree, num_dims));
 
         // sum the kron product into the preconditioner matrix
-        this->precond.set_submatrix(
-            matrix_offset, matrix_offset,
-            fk::matrix<P, mem_type::view>(
-                this->precond, matrix_offset,
-                matrix_offset + std::pow(degree, num_dims) - 1, matrix_offset,
-                matrix_offset + std::pow(degree, num_dims) - 1) +
-                krons.back());
+        precond_blks[element] = precond_blks[element] + krons.back();
       }
     }
   }
@@ -189,26 +189,32 @@ public:
     asgard::tools::timer.stop(id);
   }
 
+  virtual bool empty() const override { return this->precond_blks.empty(); }
+
   void apply_block(int const block_index, fk::vector<P> &B)
   {
     int const block_size = std::pow(this->degree, this->num_dims);
     int const offset     = block_index * block_size;
 
     // extract the given block from the preconditioner matrix
+    /*
     auto block = fk::matrix<P, mem_type::view>(this->precond, offset,
                                                offset + block_size - 1, offset,
                                                offset + block_size - 1);
+    */
 
     auto B_block =
         fk::vector<P, mem_type::view>(B, offset, offset + block_size - 1);
 
     if (!this->is_factored)
     {
-      fm::gesv(block, B_block, this->blk_pivots[block_index]);
+      fm::gesv(precond_blks[block_index], B_block,
+               this->blk_pivots[block_index]);
     }
     else
     {
-      fm::getrs(block, B_block, this->blk_pivots[block_index]);
+      fm::getrs(precond_blks[block_index], B_block,
+                this->blk_pivots[block_index]);
     }
   }
 
@@ -216,6 +222,7 @@ public:
   int degree;
   int num_dims;
 
+  std::vector<fk::matrix<P>> precond_blks;
   std::vector<std::vector<int>> blk_pivots;
 };
 
