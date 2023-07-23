@@ -463,6 +463,68 @@ fk::matrix<P> precond_eye(int const n)
   return sp_y.to_dense();
 };
 
+template<typename P>
+void precond_block_jacobi(PDE<P> const &pde, elements::table const &table,
+                          int const n, fk::matrix<P> &precond)
+{
+  // calculates a block jacobi preconditioner into and updates the precond
+  // matrix
+  expect(precond.nrows() == n);
+  expect(precond.ncols() == n);
+
+  int const num_dims = pde.num_dims;
+  int const degree   = pde.get_dimensions()[0].get_degree();
+
+  std::cout << "PRECOND SIZE n = " << n << "\n";
+
+#pragma omp parallel for
+  for (int element = 0; element < table.size(); element++)
+  {
+    fk::vector<int> const &coords = table.get_coords(element);
+
+    // get 1D operator indices for each dimension
+    int indices[num_dims];
+    for (int i = 0; i < num_dims; ++i)
+    {
+      indices[i] =
+          elements::get_1d_index(coords[i], coords[i + num_dims]) * degree;
+    }
+
+    // the index where this block is placed in the preconditioner matrix
+    int const matrix_offset = element * std::pow(degree, num_dims);
+
+    for (int term = 0; term < pde.num_terms; term++)
+    {
+      int start_index = indices[0];
+      int end_index   = indices[0] + degree - 1;
+      auto block      = fk::matrix<P, mem_type::const_view>(
+          pde.get_coefficients(term, 0), start_index, end_index, start_index,
+          end_index);
+      precond.set_submatrix(matrix_offset, matrix_offset, block);
+
+      for (int dim = 1; dim < num_dims; dim++)
+      {
+        start_index = indices[dim];
+        end_index   = indices[dim] + degree - 1;
+
+        // compute the kron product of this term with the previous dimension
+        fk::matrix<P> kron_tmp = block.kron(fk::matrix<P, mem_type::const_view>(
+            pde.get_coefficients(term, dim), start_index, end_index,
+            start_index, end_index));
+
+        // sum the kron product into the preconditioner matrix
+        precond.set_submatrix(
+            matrix_offset, matrix_offset,
+            fk::matrix<P, mem_type::view>(
+                precond, matrix_offset,
+                matrix_offset + std::pow(degree, num_dims) - 1, matrix_offset,
+                matrix_offset + std::pow(degree, num_dims) - 1) +
+                kron_tmp);
+      }
+    }
+  }
+};
+
 // this function executes an implicit-explicit (imex) time step using the
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
@@ -527,7 +589,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 #endif
 
-  // fk::matrix<P, mem_type::owner, imex_resrc> precond(x.size(), x.size());
+  fk::matrix<P, mem_type::owner, imex_resrc> precond(x.size(), x.size());
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
@@ -778,6 +840,12 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         }
       };
 
+  preconditioner_func<P> block_jacobi_precond =
+      [&](int const n) -> fk::matrix<P> {
+    precond_block_jacobi(pde, adaptive_grid.get_table(), x.size(), precond);
+    return precond;
+  };
+
   if (pde.do_poisson_solve)
   {
     do_poisson_update(x);
@@ -845,7 +913,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
     pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-        precond_eye<P>, restart, max_iter, tolerance);
+        block_jacobi_precond, restart, max_iter, tolerance);
     // save output of GMRES call to use in the second one
     f_2_output = f_2;
   }
@@ -930,7 +998,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     pde.gmres_outputs[1] = solver::simple_gmres_euler_precond(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-        f_3, x, precond_eye<P>, restart, max_iter, tolerance);
+        f_3, x, block_jacobi_precond, restart, max_iter, tolerance);
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)
@@ -983,6 +1051,10 @@ template fk::vector<double> implicit_advance(
     fk::vector<double> const &host_space, double const time,
     bool const update_system);
 
+template void precond_block_jacobi(PDE<double> const &pde,
+                                   elements::table const &table, int const n,
+                                   fk::matrix<double> &precond);
+
 template fk::vector<double> imex_advance(
     PDE<double> &pde, matrix_list<double> &operator_matrix,
     adapt::distributed_grid<double> const &adaptive_grid,
@@ -1022,6 +1094,10 @@ template fk::vector<float> implicit_advance(
     std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
         &unscaled_parts,
     fk::vector<float> const &x, float const time, bool const update_system);
+
+template void precond_block_jacobi(PDE<float> const &pde,
+                                   elements::table const &table, int const n,
+                                   fk::matrix<float> &precond);
 
 template fk::vector<float>
 imex_advance(PDE<float> &pde, matrix_list<float> &operator_matrix,
