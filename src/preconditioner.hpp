@@ -6,7 +6,6 @@
 
 namespace asgard::preconditioner
 {
-
 template<typename P>
 class preconditioner
 {

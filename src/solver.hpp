@@ -5,6 +5,7 @@
 #include "asgard_vector.hpp"
 #include "batch.hpp"
 #include "pde.hpp"
+#include "preconditioner.hpp"
 
 namespace asgard::solver
 {
@@ -38,7 +39,7 @@ gmres_info<P>
 simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
                            fk::vector<P, mem_type::owner, resrc> &x,
                            fk::vector<P, mem_type::owner, resrc> const &b,
-                           preconditioner_func<P> const &precond,
+                           preconditioner::preconditioner<P> &precond,
                            int const restart, int const max_iter,
                            P const tolerance);
 

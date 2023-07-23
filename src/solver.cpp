@@ -1,6 +1,7 @@
 #include "solver.hpp"
 #include "distribution.hpp"
 #include "fast_math.hpp"
+#include "preconditioner.hpp"
 #include "quadrature.hpp"
 #include "tools.hpp"
 #include <algorithm>
@@ -20,13 +21,9 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     bool const trans_A = false;
     fm::gemv(A, x_in, y, trans_A, alpha, beta);
   };
-  auto preconditioner_op = [&M](int const n) -> fk::matrix<P> {
-    expect(M.nrows() == n);
-    expect(M.ncols() == n);
-    return M;
-  };
-  return simple_gmres(dense_matrix_wrapper, x, b, preconditioner_op, restart,
-                      max_iter, tolerance);
+  auto precond = preconditioner::preconditioner<P>(std::move(M));
+  return simple_gmres(dense_matrix_wrapper, x, b, precond, restart, max_iter,
+                      tolerance);
 }
 
 template<typename P, resource resrc>
@@ -36,11 +33,8 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance)
 {
-  fk::matrix<P> precond  = fk::matrix<P>();
-  auto preconditioner_op = [&precond](int const n) -> fk::matrix<P> {
-    ignore(n);
-    return precond;
-  };
+  fk::matrix<P> precond_M = fk::matrix<P>();
+  auto precond = preconditioner::preconditioner<P>(std::move(precond_M));
   return simple_gmres(
       [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
@@ -51,7 +45,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
         int one = 1, n = y.size();
         lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
       },
-      x, b, preconditioner_op, restart, max_iter, tolerance);
+      x, b, precond, restart, max_iter, tolerance);
 }
 
 template<typename P, resource resrc>
@@ -59,7 +53,7 @@ gmres_info<P>
 simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
                            fk::vector<P, mem_type::owner, resrc> &x,
                            fk::vector<P, mem_type::owner, resrc> const &b,
-                           preconditioner_func<P> const &precond,
+                           preconditioner::preconditioner<P> &precond,
                            int const restart, int const max_iter,
                            P const tolerance)
 {
@@ -100,8 +94,7 @@ template<typename P, typename matrix_replacement,
 gmres_info<P>
 simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
              fk::vector<P, mem_type::owner, resrc> const &b,
-             preconditioner_operator const &M, int restart, int max_iter,
-             P tolerance)
+             preconditioner_operator &M, int restart, int max_iter, P tolerance)
 {
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -109,19 +102,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
   int const n = b.size();
   expect(n == x.size());
 
-  auto id               = asgard::tools::timer.start("gmres precond setup");
-  fk::matrix<P> precond = std::move(M(n));
-  asgard::tools::timer.stop(id);
-
-  bool const do_precond = precond.size() > 0;
-  std::vector<int> precond_pivots(n);
-  if (do_precond)
-  {
-    expect(precond.ncols() == n);
-    expect(precond.nrows() == n);
-  }
-  // fk::matrix<P> precond(M);
-  bool precond_factored = false;
+  bool const do_precond = !M.empty();
 
   if (restart == parser::NO_USER_VALUE)
     restart = default_gmres_restarts<P>(n);
@@ -165,22 +146,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
     mat(x, residual, alpha, beta);
     if (do_precond)
     {
-      if constexpr (resrc == resource::device)
-      {
-#ifdef ASGARD_USE_CUDA
-        static_assert(resrc == resource::device);
-        auto res = residual.clone_onto_host();
-        precond_factored ? fm::getrs(precond, res, precond_pivots)
-                         : fm::gesv(precond, res, precond_pivots);
-        fk::copy_vector(residual, res);
-        precond_factored = true;
-#endif
-      }
-      else if constexpr (resrc == resource::host)
-      {
-        precond_factored ? fm::getrs(precond, residual, precond_pivots)
-                         : fm::gesv(precond, residual, precond_pivots);
-      }
+      M.apply(residual);
     }
     return fm::nrm2(residual);
   };
@@ -225,19 +191,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
 
       if (do_precond)
       {
-        if constexpr (resrc == resource::device)
-        {
-#ifdef ASGARD_USE_CUDA
-          static_assert(resrc == resource::device);
-          auto new_basis_h = new_basis.clone_onto_host();
-          fm::getrs(precond, new_basis_h, precond_pivots);
-          fk::copy_vector(new_basis, new_basis_h);
-#endif
-        }
-        else if constexpr (resrc == resource::host)
-        {
-          fm::getrs(precond, new_basis, precond_pivots);
-        }
+        M.apply(new_basis);
       }
 
       fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0, i);
@@ -462,7 +416,7 @@ simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
 template gmres_info<double>
 simple_gmres_euler_precond(const double dt, kronmult_matrix<double> const &mat,
                            fk::vector<double> &x, fk::vector<double> const &b,
-                           preconditioner_func<double> const &precond,
+                           preconditioner::preconditioner<double> &precond,
                            int const restart, int const max_iter,
                            double const tolerance);
 
@@ -505,7 +459,7 @@ simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
 template gmres_info<float>
 simple_gmres_euler_precond(const float dt, kronmult_matrix<float> const &mat,
                            fk::vector<float> &x, fk::vector<float> const &b,
-                           preconditioner_func<float> const &precond,
+                           preconditioner::preconditioner<float> &precond,
                            int const restart, int const max_iter,
                            float const tolerance);
 

@@ -6,6 +6,10 @@
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "fast_math.hpp"
+#ifdef ASGARD_IO_HIGHFIVE
+#include "io.hpp"
+#endif
+#include "preconditioner.hpp"
 #include "solver.hpp"
 #include "tools.hpp"
 #ifdef ASGARD_USE_SCALAPACK
@@ -598,10 +602,12 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 #endif
 
-  fk::matrix<P, mem_type::owner, imex_resrc> precond;
+  auto precond = preconditioner::block_jacobi_preconditioner<P>();
   if (program_opts.use_precond)
   {
-    precond.clear_and_resize(x.size(), x.size());
+    auto id = asgard::tools::timer.start("gmres precond setup");
+    precond.construct(pde, adaptive_grid.get_table(), x.size());
+    asgard::tools::timer.stop(id);
   }
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
@@ -853,12 +859,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         }
       };
 
-  preconditioner_func<P> block_jacobi_precond =
-      [&](int const n) -> fk::matrix<P> {
-    precond_block_jacobi(pde, adaptive_grid.get_table(), x.size(), precond);
-    return precond;
-  };
-
   if (pde.do_poisson_solve)
   {
     do_poisson_update(x);
@@ -928,7 +928,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     {
       pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
           pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-          block_jacobi_precond, restart, max_iter, tolerance);
+          precond, restart, max_iter, tolerance);
     }
     else
     {
@@ -1022,7 +1022,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     {
       pde.gmres_outputs[1] = solver::simple_gmres_euler_precond(
           P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-          f_3, x, block_jacobi_precond, restart, max_iter, tolerance);
+          f_3, x, precond, restart, max_iter, tolerance);
     }
     else
     {
