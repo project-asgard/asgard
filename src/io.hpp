@@ -332,6 +332,102 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 }
 
 template<typename P>
+void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
+                      kronmult_matrix<P> const &mat, fk::vector<P> &x,
+                      fk::vector<P> const &b,
+                      preconditioner::preconditioner<P> *precond, P const dt,
+                      P const time, int const file_index, int const dof,
+                      elements::table const &hash_table,
+                      std::string const output_dataset_name = "gmres_data")
+{
+  tools::timer.start("write_output");
+  std::string const output_file_name =
+      output_dataset_name + "_" + std::to_string(file_index) + ".h5";
+
+  std::cout << " starting to write GMRES data.." << std::endl;
+
+  // Construct Matrix A by calling kronmult with identity to back-out the A
+  // matrix one column at a time
+  fk::matrix<P> A(dof, dof);
+  fk::vector<P> kron_x(dof);
+  fk::vector<P> kron_y(dof);
+  for (int col = 0; col < dof; col++)
+  {
+    // set current row to identity
+    kron_x(col) = 1.0;
+    if (col > 0)
+    {
+      // flip prev row value back to 0.
+      kron_x(col - 1) = 0.0;
+    }
+
+    mat.apply(P{1.0}, kron_x.data(), P{0.0}, kron_y.data());
+    A.update_col(col, kron_y);
+  }
+
+  // Calculate (I - dt*A)
+  fm::scal(-dt, A);
+  for (int col = 0; col < dof; col++)
+  {
+    A(col, col) += 1.0;
+  }
+
+  // Get preconditioner M matrix
+  /*
+  // If block jacobi, M matrix is stored as a vector of (degree^ndims,
+  // degree^ndims) matrix blocks
+  if (dynamic_cast<preconditioner::block_jacobi_preconditioner *>(precond)) {
+  }
+  else
+  {
+    // others store as dense M.
+  }
+  */
+
+  fk::matrix<P> precond_M = precond->get_matrix();
+
+  std::cout << " WRITING OUTPUT FILE '" << output_file_name << "'" << std::endl;
+
+  // TODO: Rewrite this entirely!
+  HighFive::File file(output_file_name, HighFive::File::ReadWrite |
+                                            HighFive::File::Create |
+                                            HighFive::File::Truncate);
+
+  H5Easy::DumpOptions opts;
+  opts.setChunkSize(std::vector<hsize_t>{2});
+
+  HighFive::DataSetCreateProps plist;
+  plist.add(HighFive::Chunking(hsize_t{64}));
+  plist.add(HighFive::Deflate(9));
+
+  H5Easy::dump(file, "pde", cli_input.get_pde_string());
+  H5Easy::dump(file, "degree", cli_input.get_degree());
+  H5Easy::dump(file, "dt", cli_input.get_dt());
+  H5Easy::dump(file, "time", time);
+  H5Easy::dump(file, "dof", dof);
+
+  // initial guess (x) of GMRES
+  file.createDataSet<P>("x", HighFive::DataSpace({x.size()}), plist)
+      .write_raw(x.data());
+  // RHS (b) of GMRES
+  file.createDataSet<P>("b", HighFive::DataSpace({b.size()}), plist)
+      .write_raw(b.data());
+
+  // (I - dt*A)
+  file.createDataSet<P>("A", HighFive::DataSpace({dof, dof}), plist)
+      .write_raw(A.data());
+
+  // preconditioner matrix M
+  file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist)
+      .write_raw(precond_M.data());
+
+  file.flush();
+  tools::timer.stop("write_output");
+
+  std::cout << " DONE FILE WRITE" << std::endl;
+}
+
+template<typename P>
 void read_restart_metadata(parser &user_vals, std::string const &restart_file)
 {
   std::cout << "--- Reading metadata from restart file '" << restart_file

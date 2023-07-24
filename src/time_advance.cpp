@@ -926,6 +926,20 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
     if (program_opts.use_precond)
     {
+#ifdef ASGARD_IO_HIGHFIVE
+      if (pde.cli.get_wavelet_output_freq() > 0)
+      {
+        int const step_index = (int)(time / dt);
+
+        // write GMRES info for debugging:
+        // saves x, b, M, and (I - dt*A) to file
+        asgard::write_gmres_temp(pde, pde.cli,
+                                 operator_matrices[matrix_entry::imex_implicit],
+                                 f_2, x, &precond, dt, time, step_index,
+                                 x.size(), adaptive_grid.get_table());
+      }
+#endif
+
       pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
           pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
           precond, restart, max_iter, tolerance);

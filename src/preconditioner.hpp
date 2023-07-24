@@ -50,6 +50,8 @@ public:
 
   virtual bool empty() const { return this->precond.empty(); }
 
+  virtual fk::matrix<P> get_matrix() const { return this->precond; }
+
 protected:
   bool is_factored = false;
   fk::matrix<P> precond;
@@ -216,6 +218,25 @@ public:
       fm::getrs(precond_blks[block_index], B_block,
                 this->blk_pivots[block_index]);
     }
+  }
+
+  virtual fk::matrix<P> get_matrix() const override
+  {
+    int offset = std::pow(degree, num_dims);
+    int n      = num_blocks * offset;
+
+    fk::matrix<P> dense_precond(n, n);
+    for (int blk = 0; blk < num_blocks; blk++)
+    {
+      expect(precond_blks[blk].nrows() == offset);
+      expect(precond_blks[blk].ncols() == offset);
+
+      int const row = blk * offset;
+
+      dense_precond.set_submatrix(row, row, precond_blks[blk]);
+    }
+
+    return dense_precond;
   }
 
   int num_blocks;
