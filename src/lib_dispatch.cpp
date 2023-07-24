@@ -79,6 +79,7 @@ extern "C"
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
+#include <cusolverDn.h>
 #include <cusparse.h>
 #endif
 
@@ -121,6 +122,9 @@ struct device_handler
 
     auto const cusparse_success = cusparseCreate(&sp_handle);
     expect(cusparse_success == CUSPARSE_STATUS_SUCCESS);
+
+    auto const cusolver_success = cusolverDnCreate(&solver_handle);
+    expect(cusolver_success == CUSOLVER_STATUS_SUCCESS);
 #endif
   }
 
@@ -141,6 +145,9 @@ struct device_handler
 
       auto const cusparse_success = cusparseDestroy(sp_handle);
       expect(cusparse_success == CUSPARSE_STATUS_SUCCESS);
+
+      auto const cusolver_success = cusolverDnDestroy(solver_handle);
+      expect(cusolver_success == CUSOLVER_STATUS_SUCCESS);
     }
 
     success = cudaSetDevice(local_rank);
@@ -149,6 +156,8 @@ struct device_handler
     expect(cublas_success == CUBLAS_STATUS_SUCCESS);
     auto const cusparse_success = cusparseCreate(&sp_handle);
     expect(cusparse_success == CUSPARSE_STATUS_SUCCESS);
+    auto const cusolver_success = cusolverDnCreate(&solver_handle);
+    expect(cusolver_success == CUSOLVER_STATUS_SUCCESS);
 
 #else
     asgard::ignore(local_rank);
@@ -158,12 +167,14 @@ struct device_handler
 #ifdef ASGARD_USE_CUDA
   cublasHandle_t const &get_handle() const { return handle; }
   cusparseHandle_t const &get_sp_handle() const { return sp_handle; }
+  cusolverDnHandle_t const &get_solver_handle() const { return solver_handle; }
 #endif
   ~device_handler()
   {
 #ifdef ASGARD_USE_CUDA
     cublasDestroy(handle);
     cusparseDestroy(sp_handle);
+    cusolverDnDestroy(solver_handle);
 #endif
   }
 
@@ -171,6 +182,7 @@ private:
 #ifdef ASGARD_USE_CUDA
   cublasHandle_t handle;
   cusparseHandle_t sp_handle;
+  cusolverDnHandle_t solver_handle;
 #endif
 };
 static device_handler device;
@@ -962,8 +974,8 @@ void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
   }
 }
 
-template<typename P>
-int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
+template<resource resrc, typename P>
+P *gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb, int *info)
 {
   expect(A);
   expect(ipiv);
@@ -971,17 +983,96 @@ int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
   expect(ldb >= 1);
   expect(lda >= 1);
   expect(n >= 0);
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
 
-  int info{1};
+  // int info{1};
+
+  if constexpr (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+    size_t work_size;
+    cusolverStatus_t status;
+    if constexpr (std::is_same_v<P, double>)
+    {
+      status = cusolverDnDDgesv_bufferSize(device.get_solver_handle(), n, nrhs,
+                                           A, lda, ipiv, b, ldb, NULL, n, NULL,
+                                           &work_size);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      status = cusolverDnSSgesv_bufferSize(device.get_solver_handle(), n, nrhs,
+                                           A, lda, ipiv, b, ldb, NULL, n, NULL,
+                                           &work_size);
+    }
+
+    if (status != CUSOLVER_STATUS_SUCCESS)
+    {
+      throw std::runtime_error(
+          std::string("Error in getting CUSOLVER gesv bufferSize: "));
+    }
+
+    void *buffer = NULL;
+    auto success = cudaMalloc(&buffer, work_size);
+    assert(success == cudaSuccess);
+
+    int const xsize = n * nrhs;
+    P *dX           = NULL;
+    success         = cudaMalloc(&dX, xsize * sizeof(P));
+    assert(success == cudaSuccess);
+
+    int niters = 0;
+    cusolver_int_t *dinfo;
+    success = cudaMalloc(&dinfo, sizeof(cusolver_int_t));
+    assert(success == cudaSuccess);
+
+    if constexpr (std::is_same_v<P, double>)
+    {
+      status =
+          cusolverDnDDgesv(device.get_solver_handle(), n, nrhs, A, lda, ipiv, b,
+                           ldb, dX, n, buffer, work_size, &niters, dinfo);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      status =
+          cusolverDnSSgesv(device.get_solver_handle(), n, nrhs, A, lda, ipiv, b,
+                           ldb, dX, n, buffer, work_size, &niters, dinfo);
+    }
+
+    if (status != CUSOLVER_STATUS_SUCCESS)
+    {
+      throw std::runtime_error("Error in CUSOLVER gesv:");
+    }
+
+    success = cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t),
+                         cudaMemcpyDeviceToHost);
+    assert(success == cudaSuccess);
+
+    if (niters < 0)
+    {
+      throw std::runtime_error("CUSOLVER gesv failed to reach solution");
+    }
+
+    success = cudaFree(buffer);
+    expect(success == cudaSuccess);
+
+    success = cudaFree(dinfo);
+    expect(success == cudaSuccess);
+
+    return dX;
+#endif
+  }
+
   if constexpr (std::is_same_v<P, double>)
   {
-    dgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
+    dgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, info);
   }
   else if constexpr (std::is_same_v<P, float>)
   {
-    sgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
+    sgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, info);
   }
-  return info;
+
+  return b;
 }
 
 #ifdef ASGARD_USE_CUDA
@@ -1105,7 +1196,7 @@ void tpsv(const char uplo, const char trans, const char diag, const int n,
   }
 }
 
-template<typename P>
+template<resource resrc, typename P>
 int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
           P *b, int ldb)
 {
@@ -1117,6 +1208,35 @@ int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
   expect(n >= 0);
 
   int info{1};
+
+  if constexpr (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+
+    // no non-fp blas on device
+    expect(std::is_floating_point_v<P>);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success =
+          cublasDgetrsBatched(device.get_handle(), cublas_trans(trans), n, nrhs,
+                              &A, lda, ipiv, &b, ldb, &info, 1);
+      expect(success == 0);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success =
+          cublasSgetrsBatched(device.get_handle(), cublas_trans(trans), n, nrhs,
+                              &A, lda, ipiv, &b, ldb, &info, 1);
+      expect(success == 0);
+    }
+    auto const cuda_stat = cudaDeviceSynchronize();
+    expect(cuda_stat == 0);
+
+#endif
+  }
   // the const_cast below is needed due to bad header under OSX
   if constexpr (std::is_same_v<P, double>)
   {
@@ -1403,14 +1523,18 @@ batched_gemm<resource::host, float>(float **const &a, int lda, char transa,
                                     float **const &c, int ldc, int m, int n,
                                     int k, float alpha, float beta,
                                     int num_batch);
-template int
-gesv(int n, int nrhs, float *A, int lda, int *ipiv, float *b, int ldb);
-template int getrs(char trans, int n, int nrhs, float const *A, int lda,
-                   int const *ipiv, float *b, int ldb);
+
+template float *gesv<resource::host, float>(int n, int nrhs, float *A, int lda,
+                                            int *ipiv, float *b, int ldb,
+                                            int *info);
+template int getrs<resource::host, float>(char trans, int n, int nrhs,
+                                          float const *A, int lda,
+                                          int const *ipiv, float *b, int ldb);
 template void tpsv<resource::host, float>(const char uplo, const char trans,
                                           const char diag, const int n,
                                           const float *ap, float *x,
                                           const int incx);
+
 template int pttrf(int n, float *D, float *E);
 template int
 pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
@@ -1464,14 +1588,19 @@ batched_gemm<resource::host, double>(double **const &a, int lda, char transa,
                                      double **const &c, int ldc, int m, int n,
                                      int k, double alpha, double beta,
                                      int num_batch);
-template int
-gesv(int n, int nrhs, double *A, int lda, int *ipiv, double *b, int ldb);
+
+template double *gesv<resource::host, double>(int n, int nrhs, double *A,
+                                              int lda, int *ipiv, double *b,
+                                              int ldb, int *info);
 template void tpsv<resource::host, double>(const char uplo, const char trans,
                                            const char diag, const int n,
                                            const double *ap, double *x,
                                            const int incx);
-template int getrs(char trans, int n, int nrhs, double const *A, int lda,
-                   int const *ipiv, double *b, int ldb);
+
+template int getrs<resource::host, double>(char trans, int n, int nrhs,
+                                           double const *A, int lda,
+                                           int const *ipiv, double *b, int ldb);
+
 template int pttrf(int n, double *D, double *E);
 template int
 pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
@@ -1535,6 +1664,14 @@ batched_gemm<resource::device, float>(float **const &a, int lda, char transa,
                                       float **const &c, int ldc, int m, int n,
                                       int k, float alpha, float beta,
                                       int num_batch);
+
+template float *gesv<resource::device, float>(int n, int nrhs, float *A,
+                                              int lda, int *ipiv, float *b,
+                                              int ldb, int *info);
+template int getrs<resource::device, float>(char trans, int n, int nrhs,
+                                            float const *A, int lda,
+                                            int const *ipiv, float *b, int ldb);
+
 template int
 getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
 template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
@@ -1585,6 +1722,15 @@ batched_gemm<resource::device, double>(double **const &a, int lda, char transa,
                                        double **const &c, int ldc, int m, int n,
                                        int k, double alpha, double beta,
                                        int num_batch);
+
+template double *gesv<resource::device, double>(int n, int nrhs, double *A,
+                                                int lda, int *ipiv, double *b,
+                                                int ldb, int *info);
+
+template int
+getrs<resource::device, double>(char trans, int n, int nrhs, double const *A,
+                                int lda, int const *ipiv, double *b, int ldb);
+
 template int
 getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
 template int getri<resource::device, double>(int n, double *A, int lda,

@@ -377,6 +377,7 @@ if (ASGARD_USE_CUDA)
                            CUDA::cudart
                            CUDA::cublas
                            CUDA::cusparse
+                           CUDA::cusolver
     )
 endif ()
 

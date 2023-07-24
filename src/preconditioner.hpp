@@ -8,7 +8,7 @@
 
 namespace asgard::preconditioner
 {
-template<typename P>
+template<typename P, resource resrc = resource::host>
 class preconditioner
 {
 public:
@@ -24,8 +24,8 @@ public:
   virtual void construct(int const n)
   {
     precond.clear_and_resize(n, n);
+    pivots      = fk::vector<int, mem_type::owner, resrc>(n);
     is_factored = false;
-    pivots.resize(n);
   }
 
   virtual void construct(PDE<P> const &pde, elements::table const &table,
@@ -39,7 +39,7 @@ public:
     this->construct(n);
   }
 
-  virtual void apply(fk::vector<P> &B)
+  virtual void apply(fk::vector<P, mem_type::owner, resrc> &B)
   {
     if (!is_factored)
     {
@@ -54,27 +54,38 @@ public:
 
   virtual bool empty() const { return this->precond.empty(); }
 
-  virtual fk::matrix<P> get_matrix() const { return this->precond; }
+  virtual fk::matrix<P, mem_type::owner, resource::host> get_matrix() const
+  {
+    if constexpr (resrc == resource::host)
+    {
+      return this->precond;
+    }
+    else if constexpr (resrc == resource::device)
+    {
+      return this->precond.clone_onto_host();
+    }
+  }
 
   bool factored() const { return is_factored; }
 
 protected:
   bool is_factored = false;
-  fk::matrix<P> precond;
-  std::vector<int> pivots;
+  fk::matrix<P, mem_type::owner, resrc> precond;
+  fk::vector<int, mem_type::owner, resrc> pivots;
 };
 
-template<typename P>
-class eye_preconditioner : public preconditioner<P>
+template<typename P, resource resrc = resource::host>
+class eye_preconditioner : public preconditioner<P, resrc>
 {
 public:
   eye_preconditioner() {}
 
   virtual void construct(int const n) override
   {
-    fk::sparse<P> sp_y(speye<P>(n));
-    this->precond.clear_and_resize(n, n) = std::move(sp_y.to_dense());
-    this->pivots.resize(n);
+    fk::sparse<P, resource::host> sp_y(speye<P>(n));
+    this->precond.clear_and_resize(n, n) =
+        std::move(sp_y.to_dense().clone_onto_device());
+    this->pivots      = fk::vector<int, mem_type::owner, resrc>(n);
     this->is_factored = false;
   }
 
@@ -89,8 +100,8 @@ public:
   // virtual void apply(fk::vector<P> &B, std::vector<int> &pivots) override {}
 };
 
-template<typename P>
-class block_jacobi_preconditioner : public preconditioner<P>
+template<typename P, resource resrc = resource::host>
+class block_jacobi_preconditioner : public preconditioner<P, resrc>
 {
 public:
   block_jacobi_preconditioner() {}
@@ -111,6 +122,16 @@ public:
 
     int const block_size = std::pow(degree, num_dims);
     expect(n == num_blocks * block_size);
+
+    if constexpr (resrc == resource::device)
+    {
+      this->dev_precond_blks =
+          std::vector<fk::matrix<P, mem_type::owner, resource::device>>(
+              this->num_blocks);
+      this->dev_blk_pivots =
+          std::vector<fk::vector<int, mem_type::owner, resource::device>>(
+              this->num_blocks);
+    }
 
 #pragma omp parallel for
     for (int element = 0; element < table.size(); element++)
@@ -177,17 +198,41 @@ public:
       precond_blks[element] =
           eye<P>(block_size) - fm::scal(dt, precond_blks[element]);
     }
+
+    if constexpr (resrc == resource::device)
+    {
+      // copy blocks over to device
+      for (int b = 0; b < this->num_blocks; b++)
+      {
+        this->dev_precond_blks[b] = this->precond_blks[b].clone_onto_device();
+      }
+    }
   }
 
-  virtual void apply(fk::vector<P> &B) override
+  virtual void apply(fk::vector<P, mem_type::owner, resrc> &B) override
   {
     auto id = asgard::tools::timer.start("precond apply");
-    if (!this->is_factored)
+    if constexpr (resrc == resource::host)
     {
-      int const piv_size = std::pow(this->degree, this->num_dims);
-      for (int i = 0; i < this->num_blocks; i++)
+      if (!this->is_factored)
       {
-        blk_pivots[i] = std::vector<int>(piv_size);
+        int const piv_size = std::pow(this->degree, this->num_dims);
+        for (int i = 0; i < this->num_blocks; i++)
+        {
+          blk_pivots[i] = std::vector<int>(piv_size);
+        }
+      }
+    }
+    else if constexpr (resrc == resource::device)
+    {
+      if (!this->is_factored)
+      {
+        int const piv_size = std::pow(this->degree, this->num_dims);
+        for (int i = 0; i < this->num_blocks; i++)
+        {
+          dev_blk_pivots[i] =
+              fk::vector<int, mem_type::owner, resource::device>(piv_size);
+        }
       }
     }
 
@@ -205,28 +250,50 @@ public:
 
   virtual bool empty() const override { return this->precond_blks.empty(); }
 
-  void apply_block(int const block_index, fk::vector<P> &B)
+  void
+  apply_block(int const block_index, fk::vector<P, mem_type::owner, resrc> &B)
   {
     int const block_size = std::pow(this->degree, this->num_dims);
     int const offset     = block_index * block_size;
 
-    // extract the given block from the preconditioner matrix
-    auto B_block =
-        fk::vector<P, mem_type::view>(B, offset, offset + block_size - 1);
+    if constexpr (resrc == resource::host)
+    {
+      // extract the given block from the preconditioner matrix
+      auto B_block =
+          fk::vector<P, mem_type::view>(B, offset, offset + block_size - 1);
 
-    if (!this->is_factored)
-    {
-      fm::gesv(precond_blks[block_index], B_block,
-               this->blk_pivots[block_index]);
+      if (!this->is_factored)
+      {
+        fm::gesv(precond_blks[block_index], B_block,
+                 this->blk_pivots[block_index]);
+      }
+      else
+      {
+        fm::getrs(precond_blks[block_index], B_block,
+                  this->blk_pivots[block_index]);
+      }
     }
-    else
+    else if constexpr (resrc == resource::device)
     {
-      fm::getrs(precond_blks[block_index], B_block,
-                this->blk_pivots[block_index]);
+      // extract the given block from the preconditioner matrix
+      auto B_block = fk::vector<P, mem_type::view, resource::device>(
+          B, offset, offset + block_size - 1);
+
+      if (!this->is_factored)
+      {
+        fm::gesv(dev_precond_blks[block_index], B_block,
+                 this->dev_blk_pivots[block_index]);
+      }
+      else
+      {
+        fm::getrs(dev_precond_blks[block_index], B_block,
+                  this->dev_blk_pivots[block_index]);
+      }
     }
   }
 
-  virtual fk::matrix<P> get_matrix() const override
+  virtual fk::matrix<P, mem_type::owner, resource::host>
+  get_matrix() const override
   {
     int const offset = std::pow(degree, num_dims);
     int const n      = num_blocks * offset;
@@ -251,6 +318,13 @@ public:
 
   std::vector<fk::matrix<P>> precond_blks;
   std::vector<std::vector<int>> blk_pivots;
+
+  // #ifdef ASGARD_USE_CUDA
+  std::vector<fk::matrix<P, mem_type::owner, resource::device>>
+      dev_precond_blks;
+  std::vector<fk::vector<int, mem_type::owner, resource::device>>
+      dev_blk_pivots;
+  // #endif
 };
 
 } // namespace asgard::preconditioner

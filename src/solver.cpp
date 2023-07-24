@@ -33,8 +33,9 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance)
 {
-  fk::matrix<P> precond_M = fk::matrix<P>();
-  auto precond = preconditioner::preconditioner<P>(std::move(precond_M));
+  fk::matrix<P, mem_type::owner, resrc> precond_M =
+      fk::matrix<P, mem_type::owner, resrc>();
+  auto precond = preconditioner::preconditioner<P, resrc>(std::move(precond_M));
   return simple_gmres(
       [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
@@ -53,7 +54,7 @@ gmres_info<P>
 simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
                            fk::vector<P, mem_type::owner, resrc> &x,
                            fk::vector<P, mem_type::owner, resrc> const &b,
-                           preconditioner::preconditioner<P> &precond,
+                           preconditioner::preconditioner<P, resrc> &precond,
                            int const restart, int const max_iter,
                            P const tolerance)
 {
@@ -146,19 +147,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
     mat(x, residual, alpha, beta);
     if (do_precond)
     {
-      if constexpr (resrc == resource::device)
-      {
-#ifdef ASGARD_USE_CUDA
-        static_assert(resrc == resource::device);
-        auto res = residual.clone_onto_host();
-        M.apply(res);
-        fk::copy_vector(residual, res);
-#endif
-      }
-      else if constexpr (resrc == resource::host)
-      {
-        M.apply(residual);
-      }
+      M.apply(residual);
     }
     return fm::nrm2(residual);
   };
@@ -203,19 +192,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
 
       if (do_precond)
       {
-        if constexpr (resrc == resource::device)
-        {
-#ifdef ASGARD_USE_CUDA
-          static_assert(resrc == resource::device);
-          auto new_basis_h = new_basis.clone_onto_host();
-          M.apply(new_basis_h);
-          fk::copy_vector(new_basis, new_basis_h);
-#endif
-        }
-        else if constexpr (resrc == resource::host)
-        {
-          M.apply(new_basis);
-        }
+        M.apply(new_basis);
       }
 
       fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0, i);
@@ -457,8 +434,8 @@ template gmres_info<double> simple_gmres_euler_precond(
     const double dt, kronmult_matrix<double> const &mat,
     fk::vector<double, mem_type::owner, resource::device> &x,
     fk::vector<double, mem_type::owner, resource::device> const &b,
-    preconditioner::preconditioner<double> &precond, int const restart,
-    int const max_iter, double const tolerance);
+    preconditioner::preconditioner<double, resource::device> &precond,
+    int const restart, int const max_iter, double const tolerance);
 #endif
 
 template void setup_poisson(const int N_elements, double const x_min,
@@ -507,8 +484,8 @@ template gmres_info<float> simple_gmres_euler_precond(
     const float dt, kronmult_matrix<float> const &mat,
     fk::vector<float, mem_type::owner, resource::device> &x,
     fk::vector<float, mem_type::owner, resource::device> const &b,
-    preconditioner::preconditioner<float> &precond, int const restart,
-    int const max_iter, float const tolerance);
+    preconditioner::preconditioner<float, resource::device> &precond,
+    int const restart, int const max_iter, float const tolerance);
 #endif
 
 template void setup_poisson(const int N_elements, float const x_min,
