@@ -264,11 +264,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
     {
       // get maximum level of each group
       fk::vector<int> mixed_max(2);
-      mixed_max[0] = 0;
-      for (int i = 0; i < opts.mixed_grid_group; ++i)
-      {
-        mixed_max[0] = std::max(levels[i], mixed_max[0]);
-      }
+      mixed_max[0] = *std::max_element(std::begin(levels), std::next(std::begin(levels), opts.mixed_grid_group));
       mixed_max[1] = 0;
       for (int i = opts.mixed_grid_group; i < dims.size(); ++i)
       {
