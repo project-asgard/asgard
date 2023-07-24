@@ -424,6 +424,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
 
     H5Easy::dump(file, "M_nblocks", nblocks);
     H5Easy::dump(file, "M_block_size", block_size);
+    H5Easy::dump(file, "M_factored", precond_jacobi->factored());
 
     // TODO: this is a hackish way to implement all of this.. can be done better
     auto row_dset = file.createDataSet<int>(

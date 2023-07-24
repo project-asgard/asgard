@@ -52,6 +52,8 @@ public:
 
   virtual fk::matrix<P> get_matrix() const { return this->precond; }
 
+  bool factored() const { return is_factored; }
+
 protected:
   bool is_factored = false;
   fk::matrix<P> precond;
