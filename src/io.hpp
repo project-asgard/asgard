@@ -372,19 +372,8 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
     A(col, col) += 1.0;
   }
 
-  // Get preconditioner M matrix
-  /*
-  // If block jacobi, M matrix is stored as a vector of (degree^ndims,
-  // degree^ndims) matrix blocks
-  if (dynamic_cast<preconditioner::block_jacobi_preconditioner *>(precond)) {
-  }
-  else
-  {
-    // others store as dense M.
-  }
-  */
 
-  fk::matrix<P> precond_M = precond->get_matrix();
+  //fk::matrix<P> precond_M = precond->get_matrix();
 
   std::cout << " WRITING OUTPUT FILE '" << output_file_name << "'" << std::endl;
 
@@ -400,6 +389,10 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   plist.add(HighFive::Chunking(hsize_t{64}));
   plist.add(HighFive::Deflate(9));
 
+  HighFive::DataSetCreateProps plist_2d;
+  plist_2d.add(HighFive::Chunking({hsize_t{8},hsize_t{8}}));
+  plist_2d.add(HighFive::Deflate(9));
+
   H5Easy::dump(file, "pde", cli_input.get_pde_string());
   H5Easy::dump(file, "degree", cli_input.get_degree());
   H5Easy::dump(file, "dt", cli_input.get_dt());
@@ -414,12 +407,84 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
       .write_raw(b.data());
 
   // (I - dt*A)
-  file.createDataSet<P>("A", HighFive::DataSpace({dof, dof}), plist)
+  file.createDataSet<P>("A", HighFive::DataSpace({dof, dof}), plist_2d)
       .write_raw(A.data());
 
-  // preconditioner matrix M
-  file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist)
-      .write_raw(precond_M.data());
+  // Get preconditioner M matrix
+  // If block jacobi, M matrix is stored as a vector of (degree^ndims,
+  // degree^ndims) matrix blocks
+  auto precond_jacobi =
+      dynamic_cast<preconditioner::block_jacobi_preconditioner<P> *>(precond);
+  if (precond_jacobi)
+  {
+    // get preconditioner matrix M
+    std::vector<fk::matrix<P>> &blocks = precond_jacobi->precond_blks;
+    int nblocks                        = blocks.size();
+    int block_size                     = blocks[0].nrows();
+
+    H5Easy::dump(file, "M_nblocks", nblocks);
+    H5Easy::dump(file, "M_block_size", block_size);
+
+    // TODO: this is a hackish way to implement all of this.. can be done better
+    auto row_dset = file.createDataSet<int>(
+        "M_rows", HighFive::DataSpace({nblocks * block_size * block_size}),
+        plist);
+    auto col_dset = file.createDataSet<int>(
+        "M_cols", HighFive::DataSpace({nblocks * block_size * block_size}),
+        plist);
+    auto val_dset = file.createDataSet<P>(
+        "M_vals", HighFive::DataSpace({nblocks * block_size * block_size}),
+        plist);
+
+    fk::vector<int> rows(block_size * block_size);
+    fk::vector<int> cols(block_size * block_size);
+
+    // col major to match fk::matrix layout
+    for (int col = 0; col < block_size; col++)
+    {
+      for (int row = 0; row < block_size; row++)
+      {
+        rows[col * block_size + row] = row;
+        cols[col * block_size + row] = col;
+      }
+    }
+
+    // for each block, write the values based on the (row,col) tuples. Add
+    // offset to block index vectors for next block
+    for (int blk = 0; blk < nblocks; blk++)
+    {
+      auto &block = blocks[blk];
+
+      size_t block_offset = blk * block_size;
+
+      row_dset.select({block_offset}, {block_size * block_size})
+          .write_raw(rows.data());
+      col_dset.select({block_offset}, {block_size * block_size})
+          .write_raw(cols.data());
+      val_dset.select({block_offset}, {block_size * block_size})
+          .write_raw(block.data());
+
+      // shift col, row indices by block offset
+      // TODO: no element wise operator defined?
+      // rows = rows + block_size;
+      // cols = cols + block_size;
+      for (int col = 0; col < block_size; col++)
+      {
+        for (int row = 0; row < block_size; row++)
+        {
+          rows[col * block_size + row] = row + block_offset;
+          cols[col * block_size + row] = col + block_offset;
+        }
+      }
+    }
+  }
+  else
+  {
+    // others store as dense M.
+    fk::matrix<P> precond_M = precond->get_matrix();
+    file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist)
+        .write_raw(precond_M.data());
+  }
 
   file.flush();
   tools::timer.stop("write_output");
