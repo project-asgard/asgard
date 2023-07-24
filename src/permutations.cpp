@@ -53,17 +53,20 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
                         });
 }
 
-fk::matrix<int> get_mix_leqmax_multi(fk::vector<int> const &levels,
-                                     int const num_dims, int const limit,
-                                     int const num_first_group,
-                                     bool const increasing_sum_order)
+fk::matrix<int>
+get_mix_leqmax_multi(fk::vector<int> const &levels, int const num_dims,
+                     fk::vector<int> const &mixed_max,
+                     int const num_first_group, bool const increasing_sum_order)
 {
   expect(num_dims > 0);
   expect(levels.size() == num_dims);
-  expect(limit >= 0);
+  expect(mixed_max.size() == 2);
+  expect(mixed_max[0] >= 0);
+  expect(mixed_max[1] >= 0);
 
   return select_indexex(num_dims, true, not increasing_sum_order,
                         [&](std::vector<int> const &index) -> bool {
+                          // check first group
                           int level_g1 = 0;
                           for (int i = 0; i < num_first_group; i++)
                           {
@@ -71,6 +74,9 @@ fk::matrix<int> get_mix_leqmax_multi(fk::vector<int> const &levels,
                               return false;
                             level_g1 += index[i];
                           }
+                          if (level_g1 > mixed_max[0])
+                            return false;
+                          // check second group
                           int level_g2 = 0;
                           for (int i = num_first_group; i < num_dims; i++)
                           {
@@ -78,7 +84,10 @@ fk::matrix<int> get_mix_leqmax_multi(fk::vector<int> const &levels,
                               return false;
                             level_g2 += index[i];
                           }
-                          return (std::max(level_g1, level_g2) <= limit);
+                          if (level_g2 > mixed_max[1])
+                            return false;
+                          // if both groups pass, return true
+                          return true;
                         });
 }
 

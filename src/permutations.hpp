@@ -254,7 +254,8 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
  * tensored.
  */
 fk::matrix<int> get_mix_leqmax_multi(fk::vector<int> const &levels,
-                                     int const num_dims, int const limit,
+                                     int const num_dims,
+                                     fk::vector<int> const &mixed_max,
                                      int const num_first_group,
                                      bool const increasing_sum_order);
 
