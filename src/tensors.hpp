@@ -1930,13 +1930,11 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> &&a)
   if (&a == this)
     return *this;
 
-  expect((nrows() == a.nrows()) &&
-         (ncols() == a.ncols() && stride() == a.stride()));
+  std::swap(data_, a.data_);
+  std::swap(nrows_, a.nrows_);
+  std::swap(ncols_, a.ncols_);
+  std::swap(stride_, a.stride_);
 
-  P *temp{data_};
-  // this would orphan views on the destination
-  data_   = a.data();
-  a.data_ = temp; // b/c a's destructor will be called
   return *this;
 }
 
