@@ -1283,9 +1283,9 @@ TEMPLATE_TEST_CASE(
   TestType const cos          = std::cos(M_PI / 6.);
   TestType const sin          = std::sin(M_PI / 6.);
 #ifdef ASGARD_USE_CUDA
-  fk::vector<TestType, mem_type::owner, resource::device> const x_d(
+  fk::vector<TestType, mem_type::owner, resource::device> x_d(
       x.clone_onto_device());
-  fk::vector<TestType, mem_type::owner, resource::device> const y_d(
+  fk::vector<TestType, mem_type::owner, resource::device> y_d(
       y.clone_onto_device());
 #endif
 
@@ -1303,9 +1303,10 @@ TEMPLATE_TEST_CASE(
   {
     auto constexpr tol_factor = get_tolerance<TestType>(10);
     int n                     = x_d.size();
-    lib_dispatch::rot(n, x_d.data(), 1, y_d.data(), 1, cos, sin);
-    rmse_comparison(x_d.clone_to_host(), gold_x, tol_factor);
-    rmse_comparison(y_y.clone_to_host(), gold_y, tol_factor);
+    lib_dispatch::rot<resource::device>(n, x_d.data(), 1, y_d.data(), 1, cos,
+                                        sin);
+    rmse_comparison(x_d.clone_onto_host(), gold_x, tol_factor);
+    rmse_comparison(y_d.clone_onto_host(), gold_y, tol_factor);
   }
 #endif
 }
