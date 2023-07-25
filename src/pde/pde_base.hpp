@@ -612,7 +612,7 @@ public:
       {
         auto const dof = fm::two_raised_to(level) * degree;
         expect(dof < INT_MAX);
-        update_dimension_mass_mat(i, eye<P>(dof), level);
+        update_dimension_mass_mat(i, std::move(eye<P>(dof)), level);
       }
     }
 
@@ -806,7 +806,7 @@ public:
     }
   }
 
-  void update_dimension_mass_mat(int const dim_index, fk::matrix<P> const &mass,
+  void update_dimension_mass_mat(int const dim_index, fk::matrix<P> &&mass,
                                  int const level)
   {
     assert(dim_index >= 0);

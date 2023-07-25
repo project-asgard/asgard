@@ -350,7 +350,7 @@ struct dimension
     degree_ = degree;
   }
 
-  void set_mass_matrix(fk::matrix<P> const &new_mass, int level)
+  void set_mass_matrix(fk::matrix<P> &&new_mass, int level)
   {
     expect(level >= 0);
 
@@ -358,8 +358,6 @@ struct dimension
     {
       this->mass_.resize(level + 1);
     }
-    this->mass_[level].clear_and_resize(new_mass.nrows(), new_mass.ncols());
-    expect(this->mass_[level].nrows() == new_mass.nrows());
     this->mass_[level] = std::move(new_mass);
   }
 
