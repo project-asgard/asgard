@@ -1234,8 +1234,10 @@ template int
 gesv(int n, int nrhs, float *A, int lda, int *ipiv, float *b, int ldb);
 template int getrs(char trans, int n, int nrhs, float const *A, int lda,
                    int const *ipiv, float *b, int ldb);
-template void tpsv<resource::host, float>(const char uplo, const char trans, const char diag, const int n,
-          const float *ap, float *x, const int incx);
+template void tpsv<resource::host, float>(const char uplo, const char trans,
+                                          const char diag, const int n,
+                                          const float *ap, float *x,
+                                          const int incx);
 template int pttrf(int n, float *D, float *E);
 template int
 pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
@@ -1279,8 +1281,10 @@ batched_gemm<resource::host, double>(double **const &a, int lda, char transa,
                                      int num_batch);
 template int
 gesv(int n, int nrhs, double *A, int lda, int *ipiv, double *b, int ldb);
-template void tpsv<resource::host, double>(const char uplo, const char trans, const char diag, const int n,
-          const double *ap, double *x, const int incx);
+template void tpsv<resource::host, double>(const char uplo, const char trans,
+                                           const char diag, const int n,
+                                           const double *ap, double *x,
+                                           const int incx);
 template int getrs(char trans, int n, int nrhs, double const *A, int lda,
                    int const *ipiv, double *b, int ldb);
 template int pttrf(int n, double *D, double *E);
@@ -1336,8 +1340,10 @@ template int
 getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
 template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
                                             float *work, int lwork);
-template void tpsv<resource::device, float>(const char uplo, const char trans, const char diag, const int n,
-          const float *ap, float *x, const int incx);
+template void tpsv<resource::device, float>(const char uplo, const char trans,
+                                            const char diag, const int n,
+                                            const float *ap, float *x,
+                                            const int incx);
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -1378,8 +1384,10 @@ getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
 template int getri<resource::device, double>(int n, double *A, int lda,
                                              int *ipiv, double *work,
                                              int lwork);
-template void tpsv<resource::device, double>(const char uplo, const char trans, const char diag, const int n,
-          const double *ap, double *x, const int incx);
+template void tpsv<resource::device, double>(const char uplo, const char trans,
+                                             const char diag, const int n,
+                                             const double *ap, double *x,
+                                             const int incx);
 
 #endif
 #endif
