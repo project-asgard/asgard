@@ -955,6 +955,127 @@ int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
   return info;
 }
 
+#ifdef ASGARD_USE_CUDA
+static cublasOperation_t cublas_operation_type(char trans)
+{
+  if (trans == 'n' || trans == 'N')
+  {
+    return CUBLAS_OP_N;
+  }
+  else if (trans == 't' || trans == 'T')
+  {
+    return CUBLAS_OP_T;
+  }
+  else
+  {
+    return CUBLAS_OP_C;
+  }
+}
+
+static cublasFillMode_t cublas_fillmode_type(char trans)
+{
+  if (trans == 'U' || trans == 'u')
+  {
+    return CUBLAS_FILL_MODE_UPPER;
+  }
+  else
+  {
+    expect(trans == 'L' || trans == 'l');
+    return CUBLAS_FILL_MODE_LOWER;
+  }
+}
+
+static cublasDiagType_t cublas_diag_type(char trans)
+{
+  if (trans == 'U' || trans == 'u')
+  {
+    return CUBLAS_DIAG_UNIT;
+  }
+  else
+  {
+    expect(trans == 'N' || trans == 'n');
+    return CUBLAS_DIAG_NON_UNIT;
+  }
+}
+#endif
+
+static CBLAS_UPLO cblas_uplo_type(char trans)
+{
+  if (trans == 'U' || trans == 'u')
+  {
+    return CblasUpper;
+  }
+  else
+  {
+    expect(trans == 'L' || trans == 'l');
+    return CblasLower;
+  }
+}
+
+static CBLAS_DIAG cblas_diag_type(char trans)
+{
+  if (trans == 'U' || trans == 'u')
+  {
+    return CblasUnit;
+  }
+  else
+  {
+    expect(trans == 'N' || trans == 'n');
+    return CblasNonUnit;
+  }
+}
+
+template<resource resrc, typename P>
+void tpsv(const char uplo, const char trans, const char diag, const int n,
+          const P *ap, P *x, const int incx)
+{
+  expect(uplo == 'U' || uplo == 'u' || uplo == 'L' || uplo == 'l');
+  expect(trans == 't' || trans == 'T' || trans == 'n' || trans == 'N');
+  expect(diag == 'U' || diag == 'u' || diag == 'N' || diag == 'n');
+  expect(n >= 0);
+  expect(ap);
+  expect(x);
+  expect(incx > 0);
+
+  if constexpr (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+    // instantiated for these two fp types
+    if constexpr (std::is_same_v<P, double>)
+    {
+      auto const success = cublasDtpsv(
+          device.get_handle(), cublas_fillmode_type(uplo),
+          cublas_operation_type(trans), cublas_diag_type(diag), n, ap, x, incx);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      auto const success = cublasStpsv(
+          device.get_handle(), cublas_fillmode_type(uplo),
+          cublas_operation_type(trans), cublas_diag_type(diag), n, ap, x, incx);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+#endif
+  }
+  // default execution on the host
+  else if constexpr (resrc == resource::host)
+  {
+    if constexpr (std::is_same_v<P, double>)
+    {
+      cblas_dtpsv(CblasColMajor, cblas_uplo_type(uplo),
+                  cblas_transpose_type(trans), cblas_diag_type(diag), n, ap, x,
+                  incx);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      cblas_stpsv(CblasColMajor, cblas_uplo_type(uplo),
+                  cblas_transpose_type(trans), cblas_diag_type(diag), n, ap, x,
+                  incx);
+    }
+  }
+}
+
 template<typename P>
 int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
           P *b, int ldb)
@@ -1113,6 +1234,8 @@ template int
 gesv(int n, int nrhs, float *A, int lda, int *ipiv, float *b, int ldb);
 template int getrs(char trans, int n, int nrhs, float const *A, int lda,
                    int const *ipiv, float *b, int ldb);
+template void tpsv<resource::host, float>(const char uplo, const char trans, const char diag, const int n,
+          const float *ap, float *x, const int incx);
 template int pttrf(int n, float *D, float *E);
 template int
 pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
@@ -1156,6 +1279,8 @@ batched_gemm<resource::host, double>(double **const &a, int lda, char transa,
                                      int num_batch);
 template int
 gesv(int n, int nrhs, double *A, int lda, int *ipiv, double *b, int ldb);
+template void tpsv<resource::host, double>(const char uplo, const char trans, const char diag, const int n,
+          const double *ap, double *x, const int incx);
 template int getrs(char trans, int n, int nrhs, double const *A, int lda,
                    int const *ipiv, double *b, int ldb);
 template int pttrf(int n, double *D, double *E);
@@ -1211,6 +1336,8 @@ template int
 getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
 template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
                                             float *work, int lwork);
+template void tpsv<resource::device, float>(const char uplo, const char trans, const char diag, const int n,
+          const float *ap, float *x, const int incx);
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -1251,6 +1378,8 @@ getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);
 template int getri<resource::device, double>(int n, double *A, int lda,
                                              int *ipiv, double *work,
                                              int lwork);
+template void tpsv<resource::device, double>(const char uplo, const char trans, const char diag, const int n,
+          const double *ap, double *x, const int incx);
 
 #endif
 #endif
