@@ -261,9 +261,19 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
       return permutations::get_max_multi(levels, dims.size(), sort);
 
     if (opts.mixed_grid_group > 0)
-      return permutations::get_mix_leqmax_multi(
-          levels, dims.size(), *std::max_element(levels.begin(), levels.end()),
-          opts.mixed_grid_group, sort);
+    {
+      // get maximum level of each group
+      fk::vector<int> mixed_max(2);
+      mixed_max[0] = *std::max_element(
+          std::begin(levels),
+          std::next(std::begin(levels), opts.mixed_grid_group));
+      mixed_max[1] = *std::max_element(
+          std::next(std::begin(levels), opts.mixed_grid_group),
+          std::end(levels));
+
+      return permutations::get_mix_leqmax_multi(levels, dims.size(), mixed_max,
+                                                opts.mixed_grid_group, sort);
+    }
 
     // default is a simple sparse grid
     return permutations::get_lequal_multi(
