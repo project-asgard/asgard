@@ -16,6 +16,10 @@ namespace lib_dispatch
 void initialize_libraries(int const local_rank);
 
 template<resource resrc = resource::host, typename P>
+void rot(const int n, P *x, const int incx, P *y, const int incy, const P c,
+         const P s);
+
+template<resource resrc = resource::host, typename P>
 void rotg(P *a, P *b, P *c, P *s);
 
 template<resource resrc = resource::host, typename P>

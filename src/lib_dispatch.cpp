@@ -192,6 +192,46 @@ void initialize_libraries(int const local_rank)
 }
 
 template<resource resrc, typename P>
+void rot(const int n, P *x, const int incx, P *y, const int incy, const P c,
+         const P s)
+{
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
+
+  if constexpr (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+    // function instantiated for these two fp types
+    if constexpr (std::is_same_v<P, double>)
+    {
+      auto const success =
+          cublasDrot(device.get_handle(), n, x, incx, y, incy, &c, &s);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      auto const success =
+          cublasSrot(device.get_handle(), n, x, incx, y, incy, &c, &s);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+    return;
+#endif
+  }
+  // default execution on the host for any resource
+  else if constexpr (resrc == resource::host)
+  {
+    if constexpr (std::is_same_v<P, double>)
+    {
+      cblas_drot(n, x, incx, y, incy, c, s);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      cblas_srot(n, x, incx, y, incy, c, s);
+    }
+  }
+}
+
+template<resource resrc, typename P>
 void rotg(P *a, P *b, P *c, P *s)
 {
   expect(a);
@@ -1036,6 +1076,9 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template void rot<resource::host, float>(const int n, float *x, const int incx,
+                                         float *y, const int incy,
+                                         const float c, const float s);
 template void rotg<resource::host, float>(float *, float *, float *, float *);
 template float nrm2<resource::host, float>(int, float const[], int);
 template void copy<resource::host, float>(int n, float const *x, int incx,
@@ -1076,6 +1119,9 @@ pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template void
+rot<resource::host, double>(const int n, double *x, const int incx, double *y,
+                            const int incy, const double c, const double s);
 template void
 rotg<resource::host, double>(double *, double *, double *, double *);
 template double nrm2<resource::host, double>(int, double const[], int);
@@ -1132,6 +1178,9 @@ template void gemm<resource::host, int>(char transa, char transb, int m, int n,
 #ifdef ASGARD_USE_CUDA
 #ifdef ASGARD_ENABLE_FLOAT
 template float nrm2<resource::device, float>(int, float const[], int);
+template void
+rot<resource::device, float>(const int n, float *x, const int incx, float *y,
+                             const int incy, const float c, const float s);
 template void rotg<resource::device, float>(float *, float *, float *, float *);
 template void copy<resource::device, float>(int n, float const *x, int incx,
                                             float *y, int incy);
@@ -1166,6 +1215,9 @@ template int getri<resource::device, float>(int n, float *A, int lda, int *ipiv,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template double nrm2<resource::device, double>(int, double const[], int);
+template void
+rot<resource::device, double>(const int n, double *x, const int incx, double *y,
+                              const int incy, const double c, const double s);
 template void
 rotg<resource::device, double>(double *, double *, double *, double *);
 template void copy<resource::device, double>(int n, double const *x, int incx,
