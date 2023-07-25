@@ -147,7 +147,7 @@ public:
           int const end_index   = indices[dim] + degree - 1;
 
           blocks.push_back(fk::matrix<P, mem_type::const_view>(
-              pde.get_coefficients(term, 0), start_index, end_index,
+              pde.get_coefficients(term, dim), start_index, end_index,
               start_index, end_index));
         }
 
