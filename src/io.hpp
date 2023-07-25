@@ -479,13 +479,13 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
       }
     }
   }
-  else
-  {
+  //else
+  //{
     // others store as dense M.
     fk::matrix<P> precond_M = precond->get_matrix();
-    file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist)
+    file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist_2d)
         .write_raw(precond_M.data());
-  }
+  //}
 
   file.flush();
   tools::timer.stop("write_output");
