@@ -1327,12 +1327,12 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   TestType E_kin_initial = 0.0;
 
   // -- time loop
-  for (auto i = 0; i < opts.num_time_steps; ++i)
+  for (int i = 0; i < opts.num_time_steps; ++i)
   {
     std::cout.setstate(std::ios_base::failbit);
-    auto const time          = i * pde->get_dt();
-    auto const update_system = i == 0;
-    auto const sol           = time_advance::adaptive_advance(
+    TestType const time            = i * pde->get_dt();
+    bool const update_system       = i == 0;
+    fk::vector<TestType> const sol = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
         adaptive_grid, transformer, opts, f_val, time, update_system);
 
@@ -1425,12 +1425,12 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   TestType E_kin_initial = 0.0;
 
   // -- time loop
-  for (auto i = 0; i < opts.num_time_steps; ++i)
+  for (int i = 0; i < opts.num_time_steps; ++i)
   {
     std::cout.setstate(std::ios_base::failbit);
-    auto const time          = i * pde->get_dt();
-    auto const update_system = i == 0;
-    auto const sol           = time_advance::adaptive_advance(
+    TestType const time            = i * pde->get_dt();
+    bool const update_system       = i == 0;
+    fk::vector<TestType> const sol = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
         adaptive_grid, transformer, opts, f_val, time, update_system);
 
@@ -1569,12 +1569,12 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   int const fg_dof = std::pow(degree * std::pow(2, levels[0]), 2);
 
   // -- time loop
-  for (auto i = 0; i < opts.num_time_steps; ++i)
+  for (int i = 0; i < opts.num_time_steps; ++i)
   {
     std::cout.setstate(std::ios_base::failbit);
-    auto const time          = i * pde->get_dt();
-    auto const update_system = i == 0;
-    auto const sol           = time_advance::adaptive_advance(
+    TestType const time            = i * pde->get_dt();
+    bool const update_system       = i == 0;
+    fk::vector<TestType> const sol = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
         adaptive_grid, transformer, opts, f_val, time, update_system);
 

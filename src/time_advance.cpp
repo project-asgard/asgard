@@ -464,9 +464,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
        "-l " + std::to_string(pde.get_dimensions()[0].get_level())});
   adapt::distributed_grid adaptive_grid_1d(pde_1d, opts_1d);
 
-  // asgard::basis::wavelet_transform<P, asgard::resource::host> const
-  // transformer_1d(opts_1d, pde_1d, false);
-
   // Create workspace for wavelet transform
   auto const dense_size = dense_space_size(pde_1d);
   fk::vector<P, mem_type::owner, resource::host> workspace(dense_size * 2);
@@ -502,12 +499,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     std::cout << " dim1 lev = " << pde.get_dimensions()[1].get_level() << "\n";
     for (auto &m : pde.moments)
     {
-      // m.createFlist(pde, program_opts);
-      // expect(m.get_fList().size() > 0);
-
-      // m.createMomentVector(pde, program_opts, adaptive_grid.get_table());
-      // expect(m.get_vector().size() > 0);
-
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
       expect(m.get_moment_matrix().nrows() > 0);
     }
