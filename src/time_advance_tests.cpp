@@ -1621,3 +1621,4 @@ TEMPLATE_TEST_CASE("testing multi imex explicit", "imex_explicit", test_precs)
 {
   test_memory_mode<TestType>(imex_flag::imex_explicit);
 }
+

@@ -175,13 +175,10 @@ simple_gmres(matrix_replacement mat, fk::vector<P> &x, fk::vector<P> const &b,
       krylov_proj(i + 1, i) = fm::nrm2(new_basis);
 
       basis.update_col(i + 1, new_basis * (1 / krylov_proj(i + 1, i)));
-      for (int k = 0; k <= i - 1; ++k)
+      for (int k = 0; k < i; ++k)
       {
-        P const temp =
-            cosines(k) * krylov_proj(k, i) + sines(k) * krylov_proj(k + 1, i);
-        krylov_proj(k + 1, i) =
-            -sines(k) * krylov_proj(k, i) + cosines(k) * krylov_proj(k + 1, i);
-        krylov_proj(k, i) = temp;
+        lib_dispatch::rot(1, krylov_proj.data(k, i), 1,
+                          krylov_proj.data(k + 1, i), 1, cosines[k], sines[k]);
       }
 
       // compute given's rotation

@@ -1269,3 +1269,43 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", test_precs)
     rmse_comparison(x, X1_gold, tol_factor);
   };
 }
+
+TEMPLATE_TEST_CASE(
+    "Performs rotation of points in the plane (lib_dispatch::rot)",
+    "[lib_dispatch]", test_precs)
+{
+  fk::vector<TestType> x      = {1., 2., 3.};
+  fk::vector<TestType> y      = {2., 4., 6.};
+  fk::vector<TestType> gold_x = {1.86602540378443859659, 3.73205080756887719318,
+                                 5.59807621135331601181};
+  fk::vector<TestType> gold_y = {1.23205080756887741522, 2.46410161513775483044,
+                                 3.69615242270663246771};
+  TestType const cos          = std::cos(M_PI / 6.);
+  TestType const sin          = std::sin(M_PI / 6.);
+#ifdef ASGARD_USE_CUDA
+  fk::vector<TestType, mem_type::owner, resource::device> const x_d(
+      x.clone_onto_device());
+  fk::vector<TestType, mem_type::owner, resource::device> const y_d(
+      y.clone_onto_device());
+#endif
+
+  SECTION("test lib_dispatch::rot on host")
+  {
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    int n                     = x.size();
+    lib_dispatch::rot(n, x.data(), 1, y.data(), 1, cos, sin);
+    rmse_comparison(x, gold_x, tol_factor);
+    rmse_comparison(y, gold_y, tol_factor);
+  }
+
+#ifdef ASGARD_USE_CUDA
+  SECTION("test lib_dispatch::rot on device")
+  {
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    int n                     = x_d.size();
+    lib_dispatch::rot(n, x_d.data(), 1, y_d.data(), 1, cos, sin);
+    rmse_comparison(x_d.clone_to_host(), gold_x, tol_factor);
+    rmse_comparison(y_y.clone_to_host(), gold_y, tol_factor);
+  }
+#endif
+}
