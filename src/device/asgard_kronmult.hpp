@@ -70,6 +70,18 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
                T const vA[], T const alpha, T const x[], T const beta, T y[]);
 
 /*!
+ * \brief Performs a batch of kronmult operations using a dense CPU matrix.
+ *
+ * The main point here is that this takes in the list of elements.
+ */
+template<typename T>
+void cpu_dense(int const dimensions, int const n, int const num_rows,
+               int const num_cols, int const num_terms, int const elements[],
+               T const * const vA[], int const num_1d_blocks, T const alpha,
+               T const x[], T const beta, T y[]);
+
+
+/*!
  * \brief Sparse variant for the CPU.
  *
  * The inputs are the same with the exception of the pntr and indx
