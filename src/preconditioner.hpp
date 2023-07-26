@@ -164,8 +164,15 @@ public:
         expect(krons.back().ncols() == std::pow(degree, num_dims));
 
         // sum the kron product into the preconditioner matrix
-        precond_blks[element] = precond_blks[element] + krons.back();
+        precond_blks[element] =
+            fk::matrix<P>(precond_blks[element]) + krons[num_dims];
+        // precond_blks[element] = precond_blks[element].
       }
+
+      precond_blks[element] = eye<P>(std::pow(degree, num_dims)) -
+                              fm::scal(pde.get_dt(), precond_blks[element]);
+
+      // precond_blks[element].print("ELEMENT BLOCK");
     }
   }
 

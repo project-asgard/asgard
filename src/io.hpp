@@ -398,6 +398,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   H5Easy::dump(file, "dt", cli_input.get_dt());
   H5Easy::dump(file, "time", time);
   H5Easy::dump(file, "dof", dof);
+  H5Easy::dump(file, "max_level", pde.max_level);
 
   // initial guess (x) of GMRES
   file.createDataSet<P>("x", HighFive::DataSpace({x.size()}), plist)
@@ -479,13 +480,42 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
       }
     }
   }
-  //else
+  // else
   //{
-    // others store as dense M.
-    fk::matrix<P> precond_M = precond->get_matrix();
-    file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist_2d)
-        .write_raw(precond_M.data());
+  //  others store as dense M.
+  fk::matrix<P> precond_M = precond->get_matrix();
+  file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist_2d)
+      .write_raw(precond_M.data());
   //}
+
+  auto &elements = hash_table.get_active_table();
+  file.createDataSet<int>("elements", HighFive::DataSpace({elements.size()}),
+                          plist)
+      .write_raw(elements.data());
+
+  auto coeff_group = file.createGroup("coeffs");
+
+  // auto term_group = file.createGroup("");
+
+  // HighFive::DataSetCreateProps plist_3d;
+  // plist_3d.add(HighFive::Chunking({hsize_t{1}, hsize_t{8}, hsize_t{8}}));
+  // plist_3d.add(HighFive::Deflate(9));
+
+  for (int term = 0; term < pde.num_terms; term++)
+  {
+    // auto &term_dset = coeff_group.createDataSet<P>(
+    //     "term" + std::to_string(term),
+    //     HighFive::DataSpace({pde.num_dims, dof, dof}), plist_3d);
+    auto term_group = coeff_group.createGroup("term" + std::to_string(term));
+
+    for (int dim = 0; dim < pde.num_dims; dim++)
+    {
+      term_group
+          .createDataSet<P>("dim" + std::to_string(dim),
+                            HighFive::DataSpace({dof, dof}), plist_2d)
+          .write_raw(pde.get_coefficients(term, dim).data());
+    }
+  }
 
   file.flush();
   tools::timer.stop("write_output");
