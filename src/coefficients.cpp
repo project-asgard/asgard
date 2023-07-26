@@ -25,6 +25,71 @@ void generate_all_coefficients(
   for (auto i = 0; i < pde.num_dims; ++i)
   {
     auto const &dim = pde.get_dimensions()[i];
+    std::vector<int> ipiv(dim.get_degree() *
+                          fm::two_raised_to(dim.get_level()));
+    for (auto j = 0; j < pde.num_terms; ++j)
+    {
+      auto const &term_1D       = pde.get_terms()[j][i];
+      auto const &partial_terms = term_1D.get_partial_terms();
+
+      // skip regenerating coefficients that are constant in time
+      if (!term_1D.time_dependent && time > 0.0)
+      {
+        continue;
+      }
+
+      for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
+      {
+        // TODO: refactor these changes, this is slow!
+        partial_term<P> const lhs_mass_pterm = partial_term<P>(
+            coefficient_type::mass, partial_terms[k].lhs_mass_func, nullptr,
+            flux_type::central, boundary_condition::periodic,
+            boundary_condition::periodic, homogeneity::homogeneous,
+            homogeneity::homogeneous, {}, nullptr, {}, nullptr,
+            dim.volume_jacobian_dV);
+
+        auto mass_coeff = generate_coefficients<P>(
+            dim, lhs_mass_pterm, transformer, dim.get_level(), time, rotate);
+
+        // precompute inv(mass) * coeff for each level up to max level
+        // std::vector<fk::matrix<P>> pterm_coeffs;
+
+        auto result = generate_coefficients<P>(
+            dim, partial_terms[k], transformer, dim.get_level(), time, rotate);
+
+        // for (int level = 0; level <= dim.get_level(); ++level)
+        //{
+        auto const dof  = dim.get_degree() * fm::two_raised_to(dim.get_level());
+        auto result_tmp = result.extract_submatrix(0, 0, dof, dof);
+        if (partial_terms[k].dv_func || partial_terms[k].g_func)
+        {
+          auto mass_tmp = mass_coeff.extract_submatrix(0, 0, dof, dof);
+          fm::gesv(mass_tmp, result_tmp, ipiv);
+        }
+        // pterm_coeffs.emplace_back(std::move(result_tmp));
+        //}
+
+        pde.set_lhs_mass(j, i, k, std::move(mass_coeff));
+        // pde.set_partial_coefficients(j, i, k, std::move(pterm_coeffs));
+        pde.set_partial_coefficients(j, i, k, std::move(result_tmp));
+      }
+    }
+    pde.rechain_dimension(i);
+  }
+  tools::timer.stop("gen_coefficients");
+}
+
+template<typename P>
+void generate_all_coefficients_max_level(
+    PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
+    P const time, bool const rotate)
+{
+  tools::timer.start("gen_coefficients");
+  expect(time >= 0.0);
+
+  for (auto i = 0; i < pde.num_dims; ++i)
+  {
+    auto const &dim = pde.get_dimensions()[i];
     std::vector<int> ipiv(dim.get_degree() * fm::two_raised_to(pde.max_level));
     for (auto j = 0; j < pde.num_terms; ++j)
     {
@@ -77,15 +142,18 @@ void generate_dimension_mass_mat(
   {
     auto &dim = pde.get_dimensions()[i];
 
-    partial_term<P> const lhs_mass_pterm = partial_term<P>(
-        coefficient_type::mass, nullptr, nullptr, flux_type::central,
-        boundary_condition::periodic, boundary_condition::periodic,
-        homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
-        nullptr, dim.volume_jacobian_dV);
-    auto mass_mat = generate_coefficients<P>(dim, lhs_mass_pterm, transformer,
-                                             pde.max_level, 0.0, true);
+    for (int level = 0; level <= pde.max_level; ++level)
+    {
+      partial_term<P> const lhs_mass_pterm = partial_term<P>(
+          coefficient_type::mass, nullptr, nullptr, flux_type::central,
+          boundary_condition::periodic, boundary_condition::periodic,
+          homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
+          nullptr, dim.volume_jacobian_dV);
+      auto mass_mat = generate_coefficients<P>(dim, lhs_mass_pterm, transformer,
+                                               level, 0.0, true);
 
-    pde.update_dimension_mass_mat(i, mass_mat);
+      pde.update_dimension_mass_mat(i, std::move(mass_mat), level);
+    }
   }
 }
 
@@ -565,6 +633,11 @@ template void generate_all_coefficients<double>(
     basis::wavelet_transform<double, resource::host> const &transformer,
     double const time, bool const rotate);
 
+template void generate_all_coefficients_max_level<double>(
+    PDE<double> &pde,
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    double const time, bool const rotate);
+
 template void generate_dimension_mass_mat<double>(
     PDE<double> &pde,
     basis::wavelet_transform<double, resource::host> const &transformer);
@@ -577,6 +650,11 @@ template fk::matrix<float> generate_coefficients<float>(
     int const level, float const time, bool const rotate);
 
 template void generate_all_coefficients<float>(
+    PDE<float> &pde,
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    float const time, bool const rotate);
+
+template void generate_all_coefficients_max_level<float>(
     PDE<float> &pde,
     basis::wavelet_transform<float, resource::host> const &transformer,
     float const time, bool const rotate);

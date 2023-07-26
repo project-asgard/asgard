@@ -416,6 +416,24 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   return x;
 }
 
+asgard::parser make_parser(std::vector<std::string> const arguments)
+{
+  std::vector<char *> argv;
+  argv.push_back(const_cast<char *>("asgard"));
+  for (const auto &arg : arguments)
+  {
+    argv.push_back(const_cast<char *>(arg.data()));
+  }
+  argv.push_back(nullptr);
+
+  return asgard::parser(argv.size() - 1, argv.data());
+}
+
+asgard::options make_options(std::vector<std::string> const arguments)
+{
+  return asgard::options(make_parser(arguments));
+}
+
 // this function executes an implicit-explicit (imex) time step using the
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
@@ -440,7 +458,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   // create 1D version of PDE and element table for wavelet->realspace mappings
   PDE pde_1d = PDE(pde, PDE<P>::extract_dim0);
-  adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
+
+  options const opts_1d = make_options(
+      {"-d 3", "-f",
+       "-l " + std::to_string(pde.get_dimensions()[0].get_level())});
+  adapt::distributed_grid adaptive_grid_1d(pde_1d, opts_1d);
 
   // Create workspace for wavelet transform
   auto const dense_size = dense_space_size(pde_1d);
@@ -473,6 +495,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // function in x
   if (first_time || update_system)
   {
+    std::cout << " dim0 lev = " << level << "\n";
+    std::cout << " dim1 lev = " << pde.get_dimensions()[1].get_level() << "\n";
     for (auto &m : pde.moments)
     {
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
@@ -487,6 +511,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
 
     pde.E_field.resize(dense_size);
+
+    // first_time = false;
   }
 
   auto do_poisson_update = [&](fk::vector<P> const &f_in) {
@@ -581,6 +607,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // Create rho_2s
   fk::vector<P> mom0(dense_size);
   fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+
   fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
       pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("n")->value = [&](P const x_v,
@@ -612,9 +639,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
            std::pow(u, 2);
   };
 
-  // Update coeffs
-  generate_all_coefficients<P>(pde, transformer);
-
   // f2 now
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;
@@ -623,6 +647,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if (pde.do_collision_operator)
   {
+    // Update coeffs
+    generate_all_coefficients<P>(pde, transformer);
+
     // f2 now
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
@@ -666,8 +693,10 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fm::axpy(f_2, x);    // x is now f0 + f3
   fm::scal(P{0.5}, x); // x = 0.5 * (f0 + f3)
   tools::timer.stop("explicit_2");
-  tools::timer.start("implicit_2");
-
+  if (pde.do_collision_operator)
+  {
+    tools::timer.start("implicit_2");
+  }
   tools::timer.start("implicit_2_mom");
   // Create rho_3s
   // TODO: refactor into more generic function
@@ -701,14 +730,14 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   };
   tools::timer.stop("implicit_2_mom");
 
-  // Update coeffs
-  tools::timer.start("implicit_2_coeff");
-  generate_all_coefficients<P>(pde, transformer);
-  tools::timer.stop("implicit_2_coeff");
-
   // Final stage f3
   if (pde.do_collision_operator)
   {
+    // Update coeffs
+    tools::timer.start("implicit_2_coeff");
+    generate_all_coefficients<P>(pde, transformer);
+    tools::timer.stop("implicit_2_coeff");
+
     // Final stage f3
     tools::timer.start("implicit_2_solve");
     fk::vector<P> f_3(x);

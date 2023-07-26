@@ -248,12 +248,10 @@ inline void transform_and_combine_dimensions(
         dim, v_functions[i], dim.volume_jacobian_dV, transformer, time));
     int const n = dimension_components.back().size();
     std::vector<int> ipiv(n);
-    fk::matrix<P, mem_type::const_view> const lhs_mass(dim.get_mass_matrix(), 0,
-                                                       n - 1, 0, n - 1);
+    fk::matrix<P> lhs_mass = dim.get_mass_matrix();
     expect(lhs_mass.nrows() == n);
     expect(lhs_mass.ncols() == n);
-    fk::matrix<P> mass_copy(lhs_mass);
-    fm::gesv(mass_copy, dimension_components.back(), ipiv);
+    fm::gesv(lhs_mass, dimension_components.back(), ipiv);
   }
 
   combine_dimensions(degree, table, start, stop, dimension_components,
