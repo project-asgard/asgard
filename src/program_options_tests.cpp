@@ -103,6 +103,8 @@ TEST_CASE("parser constructor/getters", "[program_options]")
 
     auto const def_max_adapt_levels = parser::DEFAULT_MAX_ADAPT_LEVELS;
 
+    auto const def_restart = parser::NO_USER_VALUE_STR;
+
     auto const p = make_parser({});
 
     REQUIRE(p.get_degree() == def_degree);
@@ -127,6 +129,7 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     REQUIRE(p.get_gmres_inner_iterations() == def_inner_iterations);
     REQUIRE(p.get_gmres_outer_iterations() == def_outer_iterations);
     REQUIRE(p.get_max_adapt_levels() == def_max_adapt_levels);
+    REQUIRE(p.get_restart_file() == def_restart);
     REQUIRE(p.is_valid());
   }
 
@@ -290,6 +293,13 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.setstate(std::ios_base::failbit);
     parser const p =
         make_parser({"--adapt", R"(-l "5 5")", R"(--max_adapt_level="4 4")"});
+    std::cerr.clear();
+    REQUIRE(!p.is_valid());
+  }
+  SECTION("set --restart with bad file")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser({"--restart ./.invalid_file.h5"});
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }

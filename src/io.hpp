@@ -9,6 +9,7 @@
 // workaround for missing include issue with highfive
 // clang-format off
 #include <numeric>
+#include <filesystem>
 #include <highfive/H5Easy.hpp>
 // clang-format on
 namespace asgard
@@ -172,6 +173,11 @@ void read_restart_metadata(parser *user_vals, std::string restart_file)
 {
   std::cout << " Reading restart file '" << restart_file << "'\n";
 
+  if (!std::filesystem::exists(restart_file))
+  {
+    throw std::runtime_error("Could not open restart file: " + restart_file);
+  }
+
   HighFive::File file(restart_file, HighFive::File::ReadOnly);
 
   std::string const pde_string =
@@ -190,6 +196,8 @@ void read_restart_metadata(parser *user_vals, std::string restart_file)
   }
   int const max_level = H5Easy::load<int>(file, std::string("max_level"));
   int const dof       = H5Easy::load<int>(file, std::string("dof"));
+  // TODO: this will be used for validation in the future
+  ignore(dof);
 
   parser_mod::set(*user_vals, parser_mod::pde_str, pde_string);
   parser_mod::set(*user_vals, parser_mod::degree, degree);
@@ -220,6 +228,11 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
 
   std::cout << "--- Loading from restart file '" << restart_file << "' ---\n";
 
+  if (!std::filesystem::exists(restart_file))
+  {
+    throw std::runtime_error("Could not open restart file: " + restart_file);
+  }
+
   HighFive::File file(restart_file, HighFive::File::ReadOnly);
 
   int const max_level = H5Easy::load<int>(file, std::string("max_level"));
@@ -228,7 +241,6 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
 
   std::vector<int64_t> active_table =
       H5Easy::load<std::vector<int64_t>>(file, std::string("elements"));
-  // hash_table.add_elements(active_table, max_level);
 
   fk::vector<P> solution =
       fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("soln")));

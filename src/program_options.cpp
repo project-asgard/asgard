@@ -119,7 +119,16 @@ parser::parser(int argc, char const *const *argv)
 #ifdef ASGARD_IO_HIGHFIVE
   if (do_restart())
   {
-    asgard::read_restart_metadata<double>(this, get_restart_file());
+    if (std::filesystem::exists(get_restart_file()))
+    {
+      asgard::read_restart_metadata<double>(this, get_restart_file());
+    }
+    else
+    {
+      std::cerr << "Could not open restart file '" << get_restart_file()
+                << "'\n";
+      valid = false;
+    }
   }
 #endif
 
