@@ -283,7 +283,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
 
   fk::vector<int> dev_table_builder;
   int64_t dof = 1;
-  for (int lev = 0; lev < dims.size(); lev++)
+  for (size_t lev = 0; lev < dims.size(); lev++)
   {
     dof *= dims[0].get_degree() * fm::two_raised_to(dims[lev].get_level());
   }
