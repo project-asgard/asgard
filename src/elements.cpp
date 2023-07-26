@@ -330,7 +330,6 @@ void table::recreate_from_elements(std::vector<int64_t> const &element_ids,
   int const new_table_size = static_cast<int>(element_ids.size() / coord_size);
 
   std::cout << "Recreating element table:\n";
-  std::cout << "  - original elements: " << original_ids.size() << "\n";
   std::cout << "  - elements from restart: " << new_table_size << "\n";
 
   // clear the existing hash table
