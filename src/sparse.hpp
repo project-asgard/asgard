@@ -18,7 +18,6 @@
 
 namespace asgard
 {
-
 template<typename P>
 struct dense_item
 {
