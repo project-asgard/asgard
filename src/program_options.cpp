@@ -116,9 +116,9 @@ parser::parser(int argc, char const *const *argv)
     exit(0);
   }
 
-#ifdef ASGARD_IO_HIGHFIVE
   if (do_restart())
   {
+#ifdef ASGARD_IO_HIGHFIVE
     if (std::filesystem::exists(get_restart_file()))
     {
       asgard::read_restart_metadata<double>(this, get_restart_file());
@@ -129,8 +129,12 @@ parser::parser(int argc, char const *const *argv)
                 << "'\n";
       valid = false;
     }
-  }
+#else
+    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to use restart option"
+              << '\n';
+    valid = false;
 #endif
+  }
 
   // Validation...
   if (cfl != NO_USER_VALUE_FP)
