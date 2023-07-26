@@ -139,7 +139,7 @@ public:
     values_ = fk::vector<P>(values);
     nnz_    = values_.size();
 
-    expect(col_indices_tmp.size() == values_.size());
+    expect(col_indices_tmp.size() == static_cast<size_t>(values_.size()));
   }
 
   // create sparse matrix from a vector, filling elements on the diagonal
