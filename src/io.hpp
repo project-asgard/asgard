@@ -2,6 +2,7 @@
 
 #include "pde.hpp"
 #include "tensors.hpp"
+#include "tools.hpp"
 #include "transformations.hpp"
 
 // workaround for missing include issue with highfive
@@ -92,8 +93,10 @@ void generate_initial_moments(
 template<typename P>
 void write_output(PDE<P> const &pde, parser const &cli_input,
                   fk::vector<P> const &vec, P const time, int const file_index,
+                  int const dof, elements::table const &hash_table,
                   std::string const output_dataset_name = "asgard")
 {
+  tools::timer.start("write_output");
   std::string const output_file_name =
       output_dataset_name + "_" + std::to_string(file_index) + ".h5";
 
@@ -111,6 +114,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   H5Easy::dump(file, "time", time);
   H5Easy::dump(file, "ndims", pde.num_dims);
   H5Easy::dump(file, "max_level", pde.max_level);
+  H5Easy::dump(file, "dof", dof);
   auto const dims = pde.get_dimensions();
   for (size_t dim = 0; dim < dims.size(); ++dim)
   {
@@ -125,6 +129,8 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_max",
                  dims[dim].domain_max);
   }
+
+  H5Easy::dump(file, "elements", hash_table.get_active_table().to_std());
 
   H5Easy::dump(file, "soln", vec.to_std(), opts);
 
@@ -152,6 +158,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_inner",
                  pde.gmres_outputs[i].inner_iter, opts);
   }
+  tools::timer.stop("write_output");
 }
 
 } // namespace asgard

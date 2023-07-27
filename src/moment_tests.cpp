@@ -87,7 +87,7 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
   for (size_t i = 0; i < moments.size(); ++i)
   {
     moments[i].createFlist(*pde, opts);
-    moments[i].createMomentVector(*pde, parse, check);
+    moments[i].createMomentVector(*pde, opts, check);
     moments[i].createMomentReducedMatrix(*pde, check);
 
     auto const gold_filename =

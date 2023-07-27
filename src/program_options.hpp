@@ -183,7 +183,7 @@ public:
   static auto constexpr DEFAULT_MIXED_GRID_GROUP  = -1;
   static auto constexpr DEFAULT_TIME_STEPS        = 10;
   static auto constexpr DEFAULT_WRITE_FREQ        = 0;
-  static auto constexpr DEFAULT_PLOT_FREQ         = 1;
+  static auto constexpr DEFAULT_PLOT_FREQ         = 1e9;
   static auto constexpr DEFAULT_USE_IMPLICIT      = false;
   static auto constexpr DEFAULT_USE_IMEX          = false;
   static auto constexpr DEFAULT_USE_FG            = false;

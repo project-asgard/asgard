@@ -191,7 +191,7 @@ parser::parser(int argc, char const *const *argv)
   }
 
   if (realspace_output_freq > num_time_steps ||
-      wavelet_output_freq > num_time_steps || plot_freq > num_time_steps)
+      wavelet_output_freq > num_time_steps)
   {
     std::cerr
         << "Requested a write or plot frequency > number of steps - no output "
