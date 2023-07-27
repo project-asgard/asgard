@@ -104,7 +104,7 @@ public:
   {
     table_.recreate_from_elements(element_ids, max_level);
 
-    plan_ = std::move(get_plan(get_num_ranks(), table_));
+    plan_ = get_plan(get_num_ranks(), table_);
   }
 
   elements::table const &get_table() const { return table_; }

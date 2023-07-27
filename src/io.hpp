@@ -169,7 +169,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 }
 
 template<typename P>
-void read_restart_metadata(parser *user_vals, std::string restart_file)
+void read_restart_metadata(parser &user_vals, std::string const &restart_file)
 {
   std::cout << " Reading restart file '" << restart_file << "'\n";
 
@@ -186,8 +186,8 @@ void read_restart_metadata(parser *user_vals, std::string restart_file)
   P const dt       = H5Easy::load<P>(file, std::string("dt"));
   P const time     = H5Easy::load<P>(file, std::string("time"));
 
-  int const ndims    = H5Easy::load<int>(file, std::string("ndims"));
-  std::string levels = "";
+  int const ndims = H5Easy::load<int>(file, std::string("ndims"));
+  std::string levels;
   for (int dim = 0; dim < ndims; ++dim)
   {
     levels += std::to_string(H5Easy::load<int>(
@@ -199,11 +199,11 @@ void read_restart_metadata(parser *user_vals, std::string restart_file)
   // TODO: this will be used for validation in the future
   ignore(dof);
 
-  parser_mod::set(*user_vals, parser_mod::pde_str, pde_string);
-  parser_mod::set(*user_vals, parser_mod::degree, degree);
-  parser_mod::set(*user_vals, parser_mod::dt, dt);
-  parser_mod::set(*user_vals, parser_mod::starting_levels_str, levels);
-  parser_mod::set(*user_vals, parser_mod::max_level, max_level);
+  parser_mod::set(user_vals, parser_mod::pde_str, pde_string);
+  parser_mod::set(user_vals, parser_mod::degree, degree);
+  parser_mod::set(user_vals, parser_mod::dt, dt);
+  parser_mod::set(user_vals, parser_mod::starting_levels_str, levels);
+  parser_mod::set(user_vals, parser_mod::max_level, max_level);
 
   std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
             << ", degree = " << degree << "\n";
@@ -222,7 +222,7 @@ struct restart_data
 
 template<typename P>
 restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
-                            std::string restart_file)
+                            std::string const &restart_file)
 {
   tools::timer.start("read_output");
 
@@ -269,7 +269,7 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
             file, std::string("moment" + std::to_string(i)))));
   }
 
-  int step_index = (int)(time / dt);
+  int step_index = static_cast<int>(time / dt);
 
   std::cout << " Setting time step index as = " << step_index << "\n";
 

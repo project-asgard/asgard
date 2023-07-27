@@ -349,16 +349,16 @@ void table::recreate_from_elements(std::vector<int64_t> const &element_ids,
     // get full linear id as key to active element id
     int64_t id = map_to_id(coords, max_level, num_dims);
 
-    // add this element to the hash table
-    active_element_ids_.push_back(id);
-    id_to_coords_[id].resize(coords.size()) = coords;
-
     // add the element coords to the flattened device table
     dev_table_builder.concat(coords);
+
+    // add this element to the hash table
+    active_element_ids_.push_back(id);
+    id_to_coords_[id] = std::move(coords);
   }
 
   expect(active_element_ids_.size() == id_to_coords_.size());
-  active_table_.resize(dev_table_builder.size()) = dev_table_builder;
+  active_table_ = std::move(dev_table_builder);
 
   std::cout << "  - after recreation: " << size() << "\n";
   expect(size() == new_table_size);
