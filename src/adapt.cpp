@@ -355,15 +355,11 @@ fk::vector<P> distributed_grid<P>::refine_elements(
   }
 
   auto const added    = table_.add_elements(all_child_ids, opts.max_level);
-  auto const new_plan = get_plan(get_num_ranks(), table_);
+  auto new_plan       = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_addtl(table_.size() - added);
-  auto const y        = redistribute_vector(x, plan_, new_plan, remapper);
+  fk::vector<P> y     = redistribute_vector(x, plan_, new_plan, remapper);
 
-  // Clang and libc++ raise a const error if new_plan is directly assigned to
-  // plan_ since it tries to overwrite the elements inplace. Instead clear the
-  // elements of plan first then inser the elements from the new_plan.
-  plan_.clear();
-  plan_.insert(new_plan.cbegin(), new_plan.cend());
+  plan_ = std::move(new_plan);
 
   return y;
 }
