@@ -1270,6 +1270,58 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", test_precs)
   };
 }
 
+TEMPLATE_TEST_CASE("tpsv", "[lib_dispatch]", test_precs)
+{
+  fk::matrix<TestType> const A_gold{{1., 2., 4.}, {0., 3., 5.}, {0., 0., 6.}};
+
+  fk::vector<TestType> const A_packed_gold{1., 2., 3., 4., 5., 6.};
+
+  fk::vector<TestType> const B_gold{1., 1., 1.};
+  fk::vector<TestType> const X_gold{
+      0.22222222222222220989, 0.05555555555555557329, 0.16666666666666665741};
+
+  SECTION("gesv and tpsv")
+  {
+    fk::matrix<TestType> A_copy = A_gold;
+    std::vector<int> ipiv(A_copy.nrows());
+    fk::vector<TestType> x = B_gold;
+
+    int rows_A = A_copy.nrows();
+    int cols_B = 1;
+
+    int lda = A_copy.stride();
+    int ldb = x.size();
+
+    int info = lib_dispatch::gesv(rows_A, cols_B, A_copy.data(), lda,
+                                  ipiv.data(), x.data(), ldb);
+
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+
+    REQUIRE(info == 0);
+    rmse_comparison(x, X_gold, tol_factor);
+
+    x = B_gold;
+    lib_dispatch::tpsv('U', 'N', 'N', ldb, A_packed_gold.data(), x.data(), 1);
+    rmse_comparison(x, X_gold, tol_factor);
+  };
+
+#ifdef ASGARD_USE_CUDA
+  SECTION("tpsv on device")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> A_gold =
+        A_packed_gold.clone_onto_device();
+    fk::vector<TestType, mem_type::owner, resource::device> x =
+        B_gold.clone_onto_device();
+    int ldb = x.size();
+
+    lib_dispatch::tpsv<resource::device>('U', 'N', 'N', ldb, A_gold.data(),
+                                         x.data(), 1);
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    rmse_comparison(x.clone_onto_host(), X_gold, tol_factor);
+  };
+#endif
+}
+
 TEMPLATE_TEST_CASE(
     "Performs rotation of points in the plane (lib_dispatch::rot)",
     "[lib_dispatch]", test_precs)
