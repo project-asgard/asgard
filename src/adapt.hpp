@@ -104,9 +104,7 @@ public:
   {
     table_.recreate_from_elements(element_ids, max_level);
 
-    auto const new_plan = get_plan(get_num_ranks(), table_);
-    plan_.clear();
-    plan_.insert(new_plan.cbegin(), new_plan.cend());
+    plan_ = std::move(get_plan(get_num_ranks(), table_));
   }
 
   elements::table const &get_table() const { return table_; }
