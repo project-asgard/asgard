@@ -619,7 +619,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   }
   else
   {
-    x_dev = x;
+    x_dev = fk::vector(x);
   }
   // Create rho_2s
   fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);

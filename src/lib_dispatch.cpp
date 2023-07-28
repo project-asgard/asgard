@@ -1228,10 +1228,8 @@ void sparse_gemv(char const trans, int rows, int cols, int nnz,
 {
   expect(row_offsets);
   expect(col_indices);
-  expect(alpha);
   expect(vals);
   expect(x);
-  expect(beta);
   expect(y);
   expect(rows >= 0);
   expect(cols >= 0);
