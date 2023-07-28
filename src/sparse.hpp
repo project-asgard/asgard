@@ -48,6 +48,17 @@ public:
     expect(col_indices.size() == nnz);
   }
 
+  template<mem_type mem>
+  explicit sparse(int nrows, int ncols, int nnz,
+                  fk::vector<int, mem, resrc> &&row_offsets,
+                  fk::vector<int, mem, resrc> &&col_indices,
+                  fk::vector<P, mem, resrc> &&values)
+      : ncols_{ncols}, nrows_{nrows}, row_offsets_{row_offsets},
+        col_indices_{col_indices}, values_{values}
+  {
+    expect(col_indices_.size() == nnz);
+  }
+
   ~sparse() {}
 
   // create sparse matrix from dense matrix
@@ -160,9 +171,9 @@ public:
   sparse(fk::sparse<P, resrc> const &other)
       : ncols_{other.ncols_}, nrows_{other.nrows_}
   {
-    row_offsets_ = fk::vector<int, mem_type::owner, resrc>(other.get_offsets());
-    col_indices_ = fk::vector<int, mem_type::owner, resrc>(other.get_columns());
-    values_      = fk::vector<P, mem_type::owner, resrc>(other.get_values());
+    row_offsets_ = other.get_offsets();
+    col_indices_ = other.get_columns();
+    values_      = other.get_values();
   }
 
   // copy assignment
@@ -210,11 +221,9 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   sparse<P, resource::device> clone_onto_device() const
   {
-    auto offsets_dev = row_offsets_.clone_onto_device();
-    auto col_dev     = col_indices_.clone_onto_device();
-    auto val_dev     = values_.clone_onto_device();
-    return sparse<P, resource::device>(nrows_, ncols_, col_dev.size(),
-                                       offsets_dev, col_dev, val_dev);
+    return sparse<P, resource::device>(
+        nrows_, ncols_, col_indices_.size(), row_offsets_.clone_onto_device(),
+        col_indices_.clone_onto_device(), values_.clone_onto_device());
   }
 
   // transfer functions
@@ -222,11 +231,9 @@ public:
   template<resource r_ = resrc, typename = enable_for_device<r_>>
   sparse<P, resource::host> clone_onto_host() const
   {
-    auto offsets_host = row_offsets_.clone_onto_host();
-    auto col_host     = col_indices_.clone_onto_host();
-    auto val_host     = values_.clone_onto_host();
-    return sparse<P, resource::host>(nrows_, ncols_, col_host.size(),
-                                     offsets_host, col_host, val_host);
+    return sparse<P, resource::host>(
+        nrows_, ncols_, col_indices_.size(), row_offsets_.clone_onto_host(),
+        col_indices_.clone_onto_host(), values_.clone_onto_host());
   }
 
   // convert this sparse matrix back to a dense matrix
@@ -237,17 +244,12 @@ public:
     fk::matrix<P, mem_type::owner, resrc> dense(nrows_, ncols_);
 
     // populate entries of the dense matrix
-    int col_index_offset = 0;
     for (int row = 0; row < nrows_; row++)
     {
-      int num_in_row = row_offsets_[row + 1] - row_offsets_[row];
-      for (int col = 0; col < num_in_row; col++)
+      for (int col = row_offsets_[row]; col < row_offsets_[row + 1]; col++)
       {
-        int index                       = col_index_offset + col;
-        dense(row, col_indices_[index]) = values_[index];
+        dense(row, col_indices_[col]) = values_[col];
       }
-
-      col_index_offset += num_in_row;
     }
 
     return dense;
