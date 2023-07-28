@@ -27,6 +27,12 @@ template<typename P, resource resrc>
 class wavelet_transform;
 }
 
+#ifdef ASGARD_USE_CUDA
+static constexpr resource sparse_resrc = resource::device;
+#else
+static constexpr resource sparse_resrc = resource::host;
+#endif
+
 template<typename P>
 class moment
 {
@@ -43,7 +49,7 @@ public:
     return fList;
   }
   fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
-  fk::sparse<P, resource::device> const &get_moment_matrix_dev() const
+  fk::sparse<P, sparse_resrc> const &get_moment_matrix_dev() const
   {
     return sparse_mat;
   }
@@ -79,7 +85,7 @@ private:
   fk::vector<P> vector;
   fk::matrix<P> moment_matrix;
   fk::vector<P> realspace;
-  fk::sparse<P, resource::device> sparse_mat;
+  fk::sparse<P, sparse_resrc> sparse_mat;
   // moment_fval_integral;
   // moment_analytic_integral;
 };

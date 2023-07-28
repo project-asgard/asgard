@@ -210,9 +210,19 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
 
   std::cout << " -- moment_mat map size = " << moment_mat.size() << "\n";
 
-  // create a sparse version of this matrix and put it on the GPU
-  this->sparse_mat =
-      fk::sparse<P, resource::host>(moment_mat, n, rows).clone_onto_device();
+  // TODO: sparse construction is host-only
+  fk::sparse<P, resource::host> host_sparse =
+      fk::sparse<P, resource::host>(moment_mat, n, rows);
+  if constexpr (sparse_resrc == resource::device)
+  {
+    // create a sparse version of this matrix and put it on the GPU
+    this->sparse_mat = host_sparse.clone_onto_device();
+  }
+  else
+  {
+    this->sparse_mat = host_sparse;
+  }
+
   std::cout << this->sparse_mat.sp_size() << "\n";
 }
 
@@ -228,6 +238,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
   return this->realspace;
 }
 
+#ifdef ASGARD_USE_CUDA
 template<typename P>
 fk::vector<P> &moment<P>::create_realspace_moment(
     PDE<P> const &pde_1d,
@@ -242,6 +253,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
                           this->realspace);
   return this->realspace;
 }
+#endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class moment<double>;
