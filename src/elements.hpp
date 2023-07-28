@@ -104,6 +104,9 @@ public:
     return active_element_ids_.size();
   }
 
+  void recreate_from_elements(std::vector<int64_t> const &element_ids,
+                              int const max_level);
+
   // static construction helper
   // conceptually private, exposed for testing
   // return the cell indices given a level tuple

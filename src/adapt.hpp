@@ -99,6 +99,14 @@ public:
     return plan_.at(rank);
   }
 
+  void
+  recreate_table(std::vector<int64_t> const &element_ids, int const max_level)
+  {
+    table_.recreate_from_elements(element_ids, max_level);
+
+    plan_ = get_plan(get_num_ranks(), table_);
+  }
+
   elements::table const &get_table() const { return table_; }
   int64_t size() const { return table_.size(); }
 

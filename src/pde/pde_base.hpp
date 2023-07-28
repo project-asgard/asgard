@@ -710,6 +710,8 @@ public:
   fk::vector<P> poisson_off_diag;
 
   fk::vector<P> E_field;
+  fk::vector<P> phi;
+  fk::vector<P> E_source;
   // holds gmres error and iteration counts for writing to output file
   std::vector<gmres_info<P>> gmres_outputs;
 

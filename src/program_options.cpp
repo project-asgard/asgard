@@ -6,6 +6,9 @@
 #pragma GCC diagnostic pop
 #include "distribution.hpp"
 #include "tools.hpp"
+#ifdef ASGARD_IO_HIGHFIVE
+#include "io.hpp"
+#endif
 
 #include <iostream>
 #include <string>
@@ -83,7 +86,9 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(gmres_outer_iterations, "outer_it > 0")["--outer_it"](
           "Number of outer iterations in gmres solver") |
       clara::detail::Opt(max_adapt_levels_str, "")["--max_adapt_levels"](
-          "Maximum hierarchical levels (resolution) for adaptivity");
+          "Maximum hierarchical levels (resolution) for adaptivity") |
+      clara::detail::Opt(restart_file, "filename")["--restart"](
+          "Load a HDF5 file to restart from");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -91,6 +96,11 @@ parser::parser(int argc, char const *const *argv)
     std::cerr << "Error in command line parsing: " << result.errorMessage()
               << '\n';
     valid = false;
+  }
+
+  for (int i = 1; i < argc; i++)
+  {
+    this->cli_opts.push_back(std::string(argv[i]));
   }
 
   if (show_help)
@@ -104,6 +114,26 @@ parser::parser(int argc, char const *const *argv)
   if (show_help || show_pdes)
   {
     exit(0);
+  }
+
+  if (do_restart())
+  {
+#ifdef ASGARD_IO_HIGHFIVE
+    if (std::filesystem::exists(get_restart_file()))
+    {
+      asgard::read_restart_metadata<double>(*this, get_restart_file());
+    }
+    else
+    {
+      std::cerr << "Could not open restart file '" << get_restart_file()
+                << "'\n";
+      valid = false;
+    }
+#else
+    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to use restart option"
+              << '\n';
+    valid = false;
+#endif
   }
 
   // Validation...
@@ -422,6 +452,7 @@ bool parser::using_imex() const { return use_imex_stepping; }
 bool parser::using_full_grid() const { return use_full_grid; }
 bool parser::do_poisson_solve() const { return do_poisson; }
 bool parser::do_adapt_levels() const { return do_adapt; }
+bool parser::do_restart() const { return restart_file != NO_USER_VALUE_STR; }
 
 fk::vector<int> parser::get_starting_levels() const { return starting_levels; }
 fk::vector<int> parser::get_active_terms() const { return active_terms; }
@@ -454,6 +485,7 @@ double parser::get_gmres_tolerance() const { return gmres_tolerance; }
 
 std::string parser::get_pde_string() const { return pde_str; }
 std::string parser::get_solver_string() const { return solver_str; }
+std::string parser::get_restart_file() const { return restart_file; }
 
 PDE_opts parser::get_selected_pde() const { return pde_choice; }
 solve_opts parser::get_selected_solver() const { return solver; }
@@ -555,6 +587,16 @@ void parser_mod::set(parser &p, parser_option_entry entry,
   {
   case solver_str:
     p.solver_str = value;
+    break;
+  case pde_str:
+    p.pde_str    = value;
+    p.pde_choice = pde_mapping.at(value).pde_choice;
+    break;
+  case starting_levels_str:
+    p.starting_levels_str = value;
+    break;
+  case restart_file:
+    p.restart_file = value;
     break;
   default:
     throw std::runtime_error(
