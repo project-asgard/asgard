@@ -295,6 +295,7 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void print(std::string const label = "") const
   {
+    std::cout << label << "(owner)" << '\n';
     //  Print these out as row major even though stored in memory as column
     //  major.
     for (auto i = 0; i < nrows(); ++i)
