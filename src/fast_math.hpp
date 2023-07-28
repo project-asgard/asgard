@@ -467,22 +467,16 @@ sparse_gemv(fk::sparse<P, amem, resrc> const &A,
             fk::vector<P, xmem, resrc> const &x, fk::vector<P, ymem, resrc> &y,
             bool const trans_A = false, P const alpha = 1.0, P const beta = 0.0)
 {
-  int const rows_A = trans_A ? A.ncols() : A.nrows();
-  int const cols_A = trans_A ? A.nrows() : A.ncols();
+  int const rows_opA = trans_A ? A.ncols() : A.nrows();
+  int const cols_A   = trans_A ? A.nrows() : A.ncols();
 
-  expect(rows_A == y.size());
+  expect(rows_opA == y.size());
   expect(cols_A == x.size());
 
-  P alpha_          = alpha;
-  P beta_           = beta;
   char const transa = trans_A ? 't' : 'n';
-  int m             = A.nrows();
-  int n             = A.ncols();
-  int nnz           = A.nnz();
-
-  lib_dispatch::sparse_gemv<resrc>(&transa, &m, &n, &nnz, A.offsets(),
-                                   A.columns(), A.data(), &alpha_, x.data(),
-                                   &beta_, y.data());
+  lib_dispatch::sparse_gemv<resrc>(transa, A.nrows(), A.ncols(), A.nnz(),
+                                   A.offsets(), A.columns(), A.data(), alpha,
+                                   x.data(), beta, y.data());
 
   return y;
 }

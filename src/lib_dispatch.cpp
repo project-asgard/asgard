@@ -1222,21 +1222,21 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
 #endif
 
 template<resource resrc, typename P>
-void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
-                 const int *offsets, const int *columns, const P *A, P *alpha,
-                 const P *x, P *beta, P *y)
+void sparse_gemv(char const trans, int rows, int cols, int nnz,
+                 const int *row_offsets, const int *col_indices, const P *vals,
+                 P alpha, const P *x, P beta, P *y)
 {
-  expect(offsets);
-  expect(columns);
+  expect(row_offsets);
+  expect(col_indices);
   expect(alpha);
-  expect(A);
+  expect(vals);
   expect(x);
   expect(beta);
   expect(y);
-  expect(rows && *rows >= 0);
-  expect(cols && *cols >= 0);
-  expect(nnz && *nnz >= 0);
-  expect(trans && (*trans == 't' || *trans == 'n'));
+  expect(rows >= 0);
+  expect(cols >= 0);
+  expect(nnz >= 0);
+  expect(trans == 't' || trans == 'n');
 
   if constexpr (resrc == resource::device)
   {
@@ -1252,24 +1252,23 @@ void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
       cusparseSpMatDescr_t mat;
       cusparseDnVecDescr_t vecX, vecY;
       auto status = cusparseCreateCsr(
-          &mat, *rows, *cols, *nnz, const_cast<int *>(offsets),
-          const_cast<int *>(columns), const_cast<P *>(A), CUSPARSE_INDEX_32I,
-          CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
+          &mat, rows, cols, nnz, const_cast<int *>(row_offsets),
+          const_cast<int *>(col_indices), const_cast<P *>(vals),
+          CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
+          CUDA_R_64F);
       expect(status == 0);
 
-      status =
-          cusparseCreateDnVec(&vecX, *cols, const_cast<P *>(x), CUDA_R_64F);
+      status = cusparseCreateDnVec(&vecX, cols, const_cast<P *>(x), CUDA_R_64F);
       expect(status == 0);
 
-      status =
-          cusparseCreateDnVec(&vecY, *rows, const_cast<P *>(y), CUDA_R_64F);
+      status = cusparseCreateDnVec(&vecY, rows, const_cast<P *>(y), CUDA_R_64F);
       expect(status == 0);
 
       // find tmp buffer size if needed
       size_t buffer_size = 0;
       status             = cusparseSpMV_bufferSize(
-          device.get_sp_handle(), cusparse_trans(*trans), alpha, mat, vecX,
-          beta, vecY, CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG2, &buffer_size);
+          device.get_sp_handle(), cusparse_trans(trans), &alpha, mat, vecX,
+          &beta, vecY, CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG2, &buffer_size);
       expect(status == 0);
 
       void *sp_buffer = NULL;
@@ -1279,8 +1278,8 @@ void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
       // call the sparse grid dense vector multiply
       // using CSR_ALG2 since it provides deterministic bit-wise results for
       // each run
-      status = cusparseSpMV(device.get_sp_handle(), cusparse_trans(*trans),
-                            alpha, mat, vecX, beta, vecY, CUDA_R_64F,
+      status = cusparseSpMV(device.get_sp_handle(), cusparse_trans(trans),
+                            &alpha, mat, vecX, &beta, vecY, CUDA_R_64F,
                             CUSPARSE_SPMV_CSR_ALG2, sp_buffer);
       expect(status == 0);
 
@@ -1297,22 +1296,16 @@ void sparse_gemv(char const *trans, int *rows, int *cols, int *nnz,
   if constexpr (resrc == resource::host)
   {
     // TODO: only non-transpose case implemented
-    expect(*trans == 'n');
+    expect(trans == 'n');
 
-    int col_index_offset = 0;
-    for (int i = 0; i < *rows; i++)
+    for (int i = 0; i < rows; i++)
     {
-      P sum = 0.0;
+      y[i] *= beta;
       // sparse case, iterate over number of column entries in the current row
-      int num_in_row = offsets[i + 1] - offsets[i];
-      for (int col = 0; col < num_in_row; col++)
+      for (int col = row_offsets[i]; col < row_offsets[i + 1]; col++)
       {
-        int index = col_index_offset + col;
-        sum += A[index] * x[index];
+        y[i] += alpha * vals[col] * x[col_indices[col]];
       }
-      col_index_offset += num_in_row;
-
-      y[i] = sum;
     }
   }
 }
@@ -1364,10 +1357,10 @@ template int
 pttrs(int n, int nrhs, float const *D, float const *E, float *B, int ldb);
 
 template void
-sparse_gemv<resource::host, float>(char const *trans, int *rows, int *cols,
-                                   int *nnz, const int *offsets,
-                                   const int *columns, const float *A,
-                                   float *alpha, const float *x, float *beta,
+sparse_gemv<resource::host, float>(char const trans, int rows, int cols,
+                                   int nnz, const int *row_offsets,
+                                   const int *col_indices, const float *vals,
+                                   float alpha, const float *x, float beta,
                                    float *y);
 
 #endif
@@ -1421,11 +1414,11 @@ template int
 pttrs(int n, int nrhs, double const *D, double const *E, double *B, int ldb);
 
 template void
-sparse_gemv<resource::host, double>(char const *trans, int *rows, int *cols,
-                                    int *nnz, const int *offsets,
-                                    const int *columns, const double *A,
-                                    double *alpha, const double *x,
-                                    double *beta, double *y);
+sparse_gemv<resource::host, double>(char const trans, int rows, int cols,
+                                    int nnz, const int *row_offsets,
+                                    const int *col_indices, const double *vals,
+                                    double alpha, const double *x, double beta,
+                                    double *y);
 
 #endif
 
@@ -1482,10 +1475,10 @@ template void tpsv<resource::device, float>(const char uplo, const char trans,
                                             const int incx);
 
 template void
-sparse_gemv<resource::device, float>(char const *trans, int *rows, int *cols,
-                                     int *nnz, const int *offsets,
-                                     const int *columns, const float *A,
-                                     float *alpha, const float *x, float *beta,
+sparse_gemv<resource::device, float>(char const trans, int rows, int cols,
+                                     int nnz, const int *row_offsets,
+                                     const int *col_indices, const float *vals,
+                                     float alpha, const float *x, float beta,
                                      float *y);
 #endif
 
@@ -1532,11 +1525,11 @@ template void tpsv<resource::device, double>(const char uplo, const char trans,
                                              const double *ap, double *x,
                                              const int incx);
 template void
-sparse_gemv<resource::device, double>(char const *trans, int *rows, int *cols,
-                                      int *nnz, const int *offsets,
-                                      const int *columns, const double *A,
-                                      double *alpha, const double *x,
-                                      double *beta, double *y);
+sparse_gemv<resource::device, double>(char const trans, int rows, int cols,
+                                      int nnz, const int *row_offsets,
+                                      const int *col_indices,
+                                      const double *vals, double alpha,
+                                      const double *x, double beta, double *y);
 
 #endif
 #endif

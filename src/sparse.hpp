@@ -162,16 +162,6 @@ public:
     }
   }
 
-  // template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-  //          resource r_ = resrc, typename = enable_for_host<r_>>
-  /*
-  explicit sparse(sparse<P, mem, resrc> const &a)
-      : ncols_{a.ncols_}, nrows_{a.nrows_}, nnz_{a.nnz_},
-        row_offsets_{a.row_offsets_}, col_indices_{a.col_indices_},
-        values_{a.values_}
-  {}
-  */
-
   // copy constructor
   sparse(fk::sparse<P, mem, resrc> const &other)
       : ncols_{other.ncols_}, nrows_{other.nrows_}, nnz_{other.nnz_},
