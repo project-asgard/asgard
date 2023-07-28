@@ -282,10 +282,10 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   }();
 
   fk::vector<int> dev_table_builder;
-  int64_t dof = 1;
+  int64_t dof = std::pow(dims[0].get_degree(), dims.size());
   for (size_t lev = 0; lev < dims.size(); lev++)
   {
-    dof *= dims[0].get_degree() * fm::two_raised_to(dims[lev].get_level());
+    dof *= fm::two_raised_to(dims[lev].get_level());
   }
 
   // reserve element table data up front
@@ -314,7 +314,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
       id_to_coords_[key].resize(coords.size()) = coords;
 
       // assign into flattened device table builder
-      if (pos + coords.size() < dev_table_builder.size())
+      if (pos + coords.size() - 1 < dev_table_builder.size())
       {
         dev_table_builder.set_subvector(pos, coords);
       }
@@ -333,7 +333,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   }
 
   expect(active_element_ids_.size() == id_to_coords_.size());
-  active_table_.resize(dev_table_builder.size()) = dev_table_builder;
+  active_table_ = std::move(dev_table_builder);
 }
 
 // static construction helper
