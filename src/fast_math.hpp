@@ -460,12 +460,11 @@ void getrs(fk::matrix<P, amem> const &A, fk::scalapack_matrix_info &ainfo,
 #endif
 
 // sparse gemv - sparse matrix dense vector multiplication
-template<typename P, mem_type amem, mem_type xmem, mem_type ymem,
-         resource resrc>
+template<typename P, mem_type xmem, mem_type ymem, resource resrc>
 fk::vector<P, ymem, resrc> &
-sparse_gemv(fk::sparse<P, amem, resrc> const &A,
-            fk::vector<P, xmem, resrc> const &x, fk::vector<P, ymem, resrc> &y,
-            bool const trans_A = false, P const alpha = 1.0, P const beta = 0.0)
+sparse_gemv(fk::sparse<P, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
+            fk::vector<P, ymem, resrc> &y, bool const trans_A = false,
+            P const alpha = 1.0, P const beta = 0.0)
 {
   int const rows_opA = trans_A ? A.ncols() : A.nrows();
   int const cols_A   = trans_A ? A.nrows() : A.ncols();

@@ -43,8 +43,7 @@ public:
     return fList;
   }
   fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
-  fk::sparse<P, mem_type::owner, resource::device> const &
-  get_moment_matrix_dev() const
+  fk::sparse<P, resource::device> const &get_moment_matrix_dev() const
   {
     return sparse_mat;
   }
@@ -80,7 +79,7 @@ private:
   fk::vector<P> vector;
   fk::matrix<P> moment_matrix;
   fk::vector<P> realspace;
-  fk::sparse<P, mem_type::owner, resource::device> sparse_mat;
+  fk::sparse<P, resource::device> sparse_mat;
   // moment_fval_integral;
   // moment_analytic_integral;
 };

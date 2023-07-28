@@ -63,7 +63,7 @@ TEMPLATE_TEST_CASE("fk::sparse interface: constructors, copy/move", "[sparse]",
 
 #ifdef ASGARD_USE_CUDA
     // create device sparse matrix from host
-    fk::sparse<TestType, mem_type::owner, resource::device> const sp_mat_d(
+    fk::sparse<TestType, resource::device> const sp_mat_d(
         sp_mat.clone_onto_device());
 
     REQUIRE((sp_mat_d.nrows() == nrows));
@@ -75,7 +75,7 @@ TEMPLATE_TEST_CASE("fk::sparse interface: constructors, copy/move", "[sparse]",
     REQUIRE((sp_mat_d.get_values().clone_onto_host() == values));
 
     // clone device sparse matrix back to host
-    fk::sparse<TestType, mem_type::owner, resource::host> const sp_host =
+    fk::sparse<TestType, resource::host> const sp_host =
         sp_mat_d.clone_onto_host();
     REQUIRE((sp_host.nrows() == nrows));
     REQUIRE((sp_host.ncols() == ncols));
@@ -153,8 +153,8 @@ TEMPLATE_TEST_CASE("fk::sparse interface: constructors, copy/move", "[sparse]",
     fk::sparse<TestType> test;
     TestType *const test_data = test.data();
     test                      = std::move(moved);
-    REQUIRE(test.data() == data);
-    REQUIRE(moved.data() == test_data);
-    REQUIRE(test == sp_mat_gold);
+    REQUIRE((test.data() == data));
+    REQUIRE((moved.data() == test_data));
+    REQUIRE((test == sp_mat_gold));
   }
 } // end fk::sparse constructors, copy/move

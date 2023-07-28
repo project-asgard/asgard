@@ -28,18 +28,16 @@ struct dense_item
 
 namespace fk
 {
-template<typename P, mem_type mem = mem_type::owner,
-         resource resrc = resource::host>
+template<typename P, resource resrc = resource::host>
 class sparse
 {
-  template<typename, mem_type, resource>
+  template<typename, resource>
   friend class sparse;
 
 public:
-  template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  sparse() : ncols_{0}, nrows_{0}
-  {}
+  sparse() : ncols_{0}, nrows_{0} {}
 
+  template<mem_type mem>
   explicit sparse(int nrows, int ncols, int nnz,
                   fk::vector<int, mem, resrc> const &row_offsets,
                   fk::vector<int, mem, resrc> const &col_indices,
@@ -53,7 +51,7 @@ public:
   ~sparse() {}
 
   // create sparse matrix from dense matrix
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<resource r_ = resrc, typename = enable_for_host<r_>, mem_type mem>
   sparse(fk::matrix<P, mem, resrc> const &m)
   {
     P constexpr tol = 1.0e-10;
@@ -131,7 +129,7 @@ public:
       row_offsets_[row + 1] = row_offsets_[row] + (n_end - n_start);
     }
 
-    col_indices_ = fk::vector<int, mem, resrc>(col_indices_tmp);
+    col_indices_ = fk::vector<int, mem_type::owner, resrc>(col_indices_tmp);
 
     values_ = fk::vector<P>(values);
     expect(col_indices_.size() == values_.size());
@@ -140,7 +138,7 @@ public:
   }
 
   // create sparse matrix from a vector, filling elements on the diagonal
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  template<resource r_ = resrc, typename = enable_for_host<r_>, mem_type mem>
   sparse(fk::vector<P, mem, resrc> const &diag)
   {
     nrows_ = diag.size();
@@ -159,35 +157,32 @@ public:
   }
 
   // copy constructor
-  sparse(fk::sparse<P, mem, resrc> const &other)
+  sparse(fk::sparse<P, resrc> const &other)
       : ncols_{other.ncols_}, nrows_{other.nrows_}
   {
-    row_offsets_ = fk::vector<int, mem, resrc>(other.get_offsets());
-    col_indices_ = fk::vector<int, mem, resrc>(other.get_columns());
-    values_      = fk::vector<P, mem, resrc>(other.get_values());
+    row_offsets_ = fk::vector<int, mem_type::owner, resrc>(other.get_offsets());
+    col_indices_ = fk::vector<int, mem_type::owner, resrc>(other.get_columns());
+    values_      = fk::vector<P, mem_type::owner, resrc>(other.get_values());
   }
 
   // copy assignment
-  sparse<P, mem, resrc> &operator=(fk::sparse<P, mem, resrc> const &a)
+  sparse<P, resrc> &operator=(fk::sparse<P, resrc> const &a)
   {
-    static_assert(mem != mem_type::const_view,
-                  "cannot copy assign into const_view!");
-
     if (&a == this)
       return *this;
 
     nrows_ = a.nrows_;
     ncols_ = a.ncols_;
 
-    row_offsets_ = fk::vector<int, mem, resrc>(a.get_offsets());
-    col_indices_ = fk::vector<int, mem, resrc>(a.get_columns());
-    values_      = fk::vector<P, mem, resrc>(a.get_values());
+    row_offsets_ = fk::vector<int, mem_type::owner, resrc>(a.get_offsets());
+    col_indices_ = fk::vector<int, mem_type::owner, resrc>(a.get_columns());
+    values_      = fk::vector<P, mem_type::owner, resrc>(a.get_values());
 
     return *this;
   }
 
   // move constructor
-  sparse(fk::sparse<P, mem, resrc> &&other)
+  sparse(fk::sparse<P, resrc> &&other)
       : ncols_{other.ncols_}, nrows_{other.nrows_}, row_offsets_{std::move(
                                                         other.row_offsets_)},
         col_indices_{std::move(other.col_indices_)}, values_{std::move(
@@ -195,13 +190,8 @@ public:
   {}
 
   // move assignment
-  // template<mem_type m_ = mem, typename = enable_for_owner<m_>,
-  //         resource r_ = resrc, typename = enable_for_host<r_>>
-  sparse<P, mem, resrc> &operator=(fk::sparse<P, mem, resrc> &&a)
+  sparse<P, resrc> &operator=(fk::sparse<P, resrc> &&a)
   {
-    static_assert(mem != mem_type::const_view,
-                  "cannot move assign into const_view!");
-
     if (&a == this)
       return *this;
 
@@ -218,33 +208,33 @@ public:
   // transfer functions
   // host->dev, new matrix
   template<resource r_ = resrc, typename = enable_for_host<r_>>
-  sparse<P, mem_type::owner, resource::device> clone_onto_device() const
+  sparse<P, resource::device> clone_onto_device() const
   {
     auto offsets_dev = row_offsets_.clone_onto_device();
     auto col_dev     = col_indices_.clone_onto_device();
     auto val_dev     = values_.clone_onto_device();
-    return sparse<P, mem_type::owner, resource::device>(
-        nrows_, ncols_, col_dev.size(), offsets_dev, col_dev, val_dev);
+    return sparse<P, resource::device>(nrows_, ncols_, col_dev.size(),
+                                       offsets_dev, col_dev, val_dev);
   }
 
   // transfer functions
   // dev->host, new matrix
   template<resource r_ = resrc, typename = enable_for_device<r_>>
-  sparse<P, mem_type::owner, resource::host> clone_onto_host() const
+  sparse<P, resource::host> clone_onto_host() const
   {
     auto offsets_host = row_offsets_.clone_onto_host();
     auto col_host     = col_indices_.clone_onto_host();
     auto val_host     = values_.clone_onto_host();
-    return sparse<P, mem_type::owner, resource::host>(
-        nrows_, ncols_, col_host.size(), offsets_host, col_host, val_host);
+    return sparse<P, resource::host>(nrows_, ncols_, col_host.size(),
+                                     offsets_host, col_host, val_host);
   }
 
   // convert this sparse matrix back to a dense matrix
   template<resource r_ = resrc, typename = enable_for_host<r_>>
-  fk::matrix<P, mem, resrc> to_dense() const
+  fk::matrix<P, mem_type::owner, resrc> to_dense() const
   {
     // create dense, filled with 0 initially
-    fk::matrix<P, mem, resrc> dense(nrows_, ncols_);
+    fk::matrix<P, mem_type::owner, resrc> dense(nrows_, ncols_);
 
     // populate entries of the dense matrix
     int col_index_offset = 0;
@@ -282,12 +272,11 @@ public:
     return false;
   }
 
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  bool operator==(fk::sparse<P, omem> const &other) const
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  bool operator==(fk::sparse<P> const &other) const
   {
-    if constexpr (omem == mem)
-      if (&other == this)
-        return true;
+    if (&other == this)
+      return true;
     if (nnz() != other.nnz() || size() != other.size())
       return false;
     if (row_offsets_ == other.row_offsets_ &&
@@ -295,8 +284,8 @@ public:
       return true;
     return false;
   }
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  bool operator!=(sparse<P, omem> const &other) const
+  template<resource r_ = resrc, typename = enable_for_host<r_>>
+  bool operator!=(sparse<P> const &other) const
   {
     return !(*this == other);
   }
@@ -304,11 +293,6 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void print(std::string const label = "") const
   {
-    if constexpr (mem == mem_type::owner)
-      std::cout << label << "(owner)" << '\n';
-    else
-      expect(false); // above cases cover all implemented mem types
-
     //  Print these out as row major even though stored in memory as column
     //  major.
     for (auto i = 0; i < nrows(); ++i)
@@ -354,19 +338,25 @@ public:
   int const *columns() const { return col_indices_.data(); }
   int *columns() { return col_indices_.data(); }
 
-  fk::vector<int, mem, resrc> get_offsets() const { return row_offsets_; }
-  fk::vector<int, mem, resrc> get_columns() const { return col_indices_; }
-  fk::vector<P, mem, resrc> get_values() const { return values_; }
+  fk::vector<int, mem_type::owner, resrc> get_offsets() const
+  {
+    return row_offsets_;
+  }
+  fk::vector<int, mem_type::owner, resrc> get_columns() const
+  {
+    return col_indices_;
+  }
+  fk::vector<P, mem_type::owner, resrc> get_values() const { return values_; }
 
 private:
   int ncols_;
   int nrows_;
 
   // CSR format
-  fk::vector<int, mem, resrc> row_offsets_;
-  fk::vector<int, mem, resrc> col_indices_;
+  fk::vector<int, mem_type::owner, resrc> row_offsets_;
+  fk::vector<int, mem_type::owner, resrc> col_indices_;
 
-  fk::vector<P, mem, resrc> values_;
+  fk::vector<P, mem_type::owner, resrc> values_;
 };
 
 } // namespace fk
