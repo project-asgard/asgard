@@ -125,8 +125,6 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   std::string const output_file_name =
       output_dataset_name + "_" + std::to_string(file_index) + ".h5";
 
-  std::cout << " WRITING OUTPUT FILE '" << output_file_name << "'" << std::endl;
-
   // TODO: Rewrite this entirely!
   HighFive::File file(output_file_name, HighFive::File::ReadWrite |
                                             HighFive::File::Create |
@@ -135,6 +133,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   H5Easy::DumpOptions opts;
   opts.setChunkSize(std::vector<hsize_t>{2});
 
+  // TODO: needs to be checked further based on problem sizes
   HighFive::DataSetCreateProps plist;
   plist.add(HighFive::Chunking(hsize_t{64}));
   plist.add(HighFive::Deflate(9));
@@ -153,9 +152,9 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     auto const nodes =
         gen_realspace_nodes(dims[dim].get_degree(), dims[dim].get_level(),
                             dims[dim].domain_min, dims[dim].domain_max);
-    // H5Easy::dump(file, "nodes" + std::to_string(dim), nodes.to_std());
-    file.createDataSet<P>("nodes" + std::to_string(dim),
-                          HighFive::DataSpace({nodes.size()}))
+    file.createDataSet<P>(
+            "nodes" + std::to_string(dim),
+            HighFive::DataSpace({static_cast<size_t>(nodes.size())}))
         .write_raw(nodes.data());
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_level",
                  dims[dim].get_level());
@@ -165,16 +164,14 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
                  dims[dim].domain_max);
   }
 
-  std::cout << " WRITING elements and soln vector... " << std::endl;
-
-  // H5Easy::dump(file, "elements", hash_table.get_active_table().to_std());
   auto &elements = hash_table.get_active_table();
-  file.createDataSet<int>("elements", HighFive::DataSpace({elements.size()}),
-                          plist)
+  file.createDataSet<int>(
+          "elements",
+          HighFive::DataSpace({static_cast<size_t>(elements.size())}), plist)
       .write_raw(elements.data());
 
-  // H5Easy::dump(file, "soln", vec.to_std(), opts);
-  file.createDataSet<P>("soln", HighFive::DataSpace({vec.size()}), plist)
+  file.createDataSet<P>(
+          "soln", HighFive::DataSpace({static_cast<size_t>(vec.size())}), plist)
       .write_raw(vec.data());
 
   // save E field
@@ -188,11 +185,9 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "nmoments", pde.moments.size());
     for (size_t i = 0; i < pde.moments.size(); ++i)
     {
-      // H5Easy::dump(file, "moment" + std::to_string(i),
-      //              pde.moments[i].get_realspace_moment().to_std(), opts);
       file.createDataSet<P>("moment" + std::to_string(i),
-                            HighFive::DataSpace(
-                                {pde.moments[i].get_realspace_moment().size()}))
+                            HighFive::DataSpace({static_cast<size_t>(
+                                pde.moments[i].get_realspace_moment().size())}))
           .write_raw(pde.moments[i].get_realspace_moment().data());
     }
   }
