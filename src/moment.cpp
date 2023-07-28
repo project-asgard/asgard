@@ -211,10 +211,6 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
   std::cout << " -- moment_mat map size = " << moment_mat.size() << "\n";
 
   // create a sparse version of this matrix and put it on the GPU
-  // this->sparse_mat =
-  //    fk::sparse<P, mem_type::owner, resource::host>(this->moment_matrix)
-  //        .clone_onto_device();
-
   this->sparse_mat =
       fk::sparse<P, mem_type::owner, resource::host>(moment_mat, n, rows)
           .clone_onto_device();

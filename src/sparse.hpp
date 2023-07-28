@@ -23,17 +23,13 @@ struct dense_item
 {
   int row;
   int col;
-  P data;
+  P val;
 };
 
 namespace fk
 {
-// forward declarations
 template<typename P, mem_type mem = mem_type::owner,
-         resource resrc = resource::host> // default to be an owner only on host
-class sparse;
-
-template<typename P, mem_type mem, resource resrc>
+         resource resrc = resource::host>
 class sparse
 {
   template<typename, mem_type, resource>
@@ -41,16 +37,18 @@ class sparse
 
 public:
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  sparse()
+  sparse() : ncols_{0}, nrows_{0}
   {}
 
   explicit sparse(int nrows, int ncols, int nnz,
                   fk::vector<int, mem, resrc> const &row_offsets,
                   fk::vector<int, mem, resrc> const &col_indices,
                   fk::vector<P, mem, resrc> const &values)
-      : ncols_{ncols}, nrows_{nrows}, nnz_{nnz}, row_offsets_{row_offsets},
+      : ncols_{ncols}, nrows_{nrows}, row_offsets_{row_offsets},
         col_indices_{col_indices}, values_{values}
-  {}
+  {
+    expect(col_indices.size() == nnz);
+  }
 
   ~sparse() {}
 
@@ -63,7 +61,7 @@ public:
 
     ncols_ = m.ncols();
     nrows_ = m.nrows();
-    nz_    = 0;
+    int nz = 0;
 
     row_offsets_.resize(nrows_ + 1);
     row_offsets_[0] = 0;
@@ -84,7 +82,7 @@ public:
         }
         else
         {
-          nz_ += 1;
+          nz += 1;
         }
       }
       size_t n_end = values.size();
@@ -95,9 +93,9 @@ public:
     col_indices_ = fk::vector<int, mem, resrc>(col_indices_tmp);
 
     values_ = fk::vector<P>(values);
-    nnz_    = values_.size();
+    expect(col_indices_.size() == values_.size());
 
-    expect(m.size() == values_.size() + nz_);
+    expect(m.size() == values_.size() + nz);
   }
 
   // create sparse matrix from multimap
@@ -108,7 +106,6 @@ public:
 
     ncols_ = ncols;
     nrows_ = nrows;
-    nz_    = 0;
 
     row_offsets_.resize(nrows_ + 1);
     row_offsets_[0] = 0;
@@ -123,10 +120,10 @@ public:
       auto range     = items.equal_range(row);
       for (auto col = range.first; col != range.second; ++col)
       {
-        if (std::abs(col->second.data) > tol)
+        if (std::abs(col->second.val) > tol)
         {
           col_indices_tmp.push_back(col->second.col);
-          values.push_back(col->second.data);
+          values.push_back(col->second.val);
         }
       }
       size_t n_end = values.size();
@@ -137,7 +134,7 @@ public:
     col_indices_ = fk::vector<int, mem, resrc>(col_indices_tmp);
 
     values_ = fk::vector<P>(values);
-    nnz_    = values_.size();
+    expect(col_indices_.size() == values_.size());
 
     expect(col_indices_tmp.size() == static_cast<size_t>(values_.size()));
   }
@@ -146,16 +143,15 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   sparse(fk::vector<P, mem, resrc> const &diag)
   {
-    nnz_   = diag.size();
-    nrows_ = nnz_;
-    ncols_ = nnz_;
+    nrows_ = diag.size();
+    ncols_ = diag.size();
 
     values_      = fk::vector<P, mem, resrc>(diag);
     row_offsets_ = fk::vector<int, mem, resrc>(nrows_ + 1);
-    col_indices_ = fk::vector<int, mem, resrc>(nnz_);
+    col_indices_ = fk::vector<int, mem, resrc>(ncols_);
 
     row_offsets_[0] = 0;
-    for (int i = 0; i < nnz_; i++)
+    for (int i = 0; i < ncols_; i++)
     {
       col_indices_[i]     = i;
       row_offsets_[i + 1] = i + 1;
@@ -164,8 +160,7 @@ public:
 
   // copy constructor
   sparse(fk::sparse<P, mem, resrc> const &other)
-      : ncols_{other.ncols_}, nrows_{other.nrows_}, nnz_{other.nnz_},
-        nz_{other.nz_}
+      : ncols_{other.ncols_}, nrows_{other.nrows_}
   {
     row_offsets_ = fk::vector<int, mem, resrc>(other.get_offsets());
     col_indices_ = fk::vector<int, mem, resrc>(other.get_columns());
@@ -181,13 +176,8 @@ public:
     if (&a == this)
       return *this;
 
-    // expect(size() == a.size());
-    // expect(nnz() == a.nnz());
-
     nrows_ = a.nrows_;
     ncols_ = a.ncols_;
-    nnz_   = a.nnz_;
-    nz_    = a.nz_;
 
     row_offsets_ = fk::vector<int, mem, resrc>(a.get_offsets());
     col_indices_ = fk::vector<int, mem, resrc>(a.get_columns());
@@ -198,8 +188,8 @@ public:
 
   // move constructor
   sparse(fk::sparse<P, mem, resrc> &&other)
-      : ncols_{other.ncols_}, nrows_{other.nrows_}, nnz_{other.nnz_},
-        nz_{other.nz_}, row_offsets_{std::move(other.row_offsets_)},
+      : ncols_{other.ncols_}, nrows_{other.nrows_}, row_offsets_{std::move(
+                                                        other.row_offsets_)},
         col_indices_{std::move(other.col_indices_)}, values_{std::move(
                                                          other.values_)}
   {}
@@ -217,7 +207,6 @@ public:
 
     this->ncols_ = a.ncols_;
     this->nrows_ = a.nrows_;
-    this->nnz_   = a.nnz_;
 
     this->row_offsets_ = std::move(a.row_offsets_);
     this->col_indices_ = std::move(a.col_indices_);
@@ -235,7 +224,7 @@ public:
     auto col_dev     = col_indices_.clone_onto_device();
     auto val_dev     = values_.clone_onto_device();
     return sparse<P, mem_type::owner, resource::device>(
-        nrows_, ncols_, nnz_, offsets_dev, col_dev, val_dev);
+        nrows_, ncols_, col_dev.size(), offsets_dev, col_dev, val_dev);
   }
 
   // transfer functions
@@ -247,7 +236,7 @@ public:
     auto col_host     = col_indices_.clone_onto_host();
     auto val_host     = values_.clone_onto_host();
     return sparse<P, mem_type::owner, resource::host>(
-        nrows_, ncols_, nnz_, offsets_host, col_host, val_host);
+        nrows_, ncols_, col_host.size(), offsets_host, col_host, val_host);
   }
 
   // convert this sparse matrix back to a dense matrix
@@ -282,11 +271,9 @@ public:
     expect(col >= 0);
     expect(col < ncols_);
 
-    int col_index_offset = col_indices_[row_offsets_[row]];
-    int num_in_row       = row_offsets_[row + 1] - row_offsets_[row];
-    for (int i = col_index_offset; i < col_index_offset + num_in_row; i++)
+    for (int i = row_offsets_[row]; i < row_offsets_[row + 1]; i++)
     {
-      if (i == col)
+      if (col_indices_[i] == col)
       {
         return true;
       }
@@ -301,7 +288,7 @@ public:
     if constexpr (omem == mem)
       if (&other == this)
         return true;
-    if (nnz_ != other.nnz_ || size() != other.size())
+    if (nnz() != other.nnz() || size() != other.size())
       return false;
     if (row_offsets_ == other.row_offsets_ &&
         col_indices_ == other.col_indices_ && values_ == other.values_)
@@ -353,7 +340,7 @@ public:
   //
   int nrows() const { return nrows_; }
   int ncols() const { return ncols_; }
-  int nnz() const { return nnz_; }
+  int nnz() const { return col_indices_.size(); }
   int64_t size() const { return int64_t{nrows()} * ncols(); }
   int64_t sp_size() const { return int64_t{values_.size()}; }
   bool empty() const { return values_.size() == 0; }
@@ -374,8 +361,6 @@ public:
 private:
   int ncols_;
   int nrows_;
-  int nnz_;
-  int nz_;
 
   // CSR format
   fk::vector<int, mem, resrc> row_offsets_;
