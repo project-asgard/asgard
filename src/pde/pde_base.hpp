@@ -99,6 +99,18 @@ struct gmres_info
   int inner_iter;
 };
 
+template<typename P>
+struct adaptive_info
+{
+  // Holds the DOF count for each coarsen and refine step for the current time
+  // step
+  int initial_dof;
+  int coarsen_dof;
+  std::vector<int> refine_dofs;
+  // Hold a vector of the GMRES stats for each adapt step
+  std::vector<std::vector<gmres_info<P>>> gmres_stats;
+};
+
 // ---------------------------------------------------------------------------
 //
 // Term: describes a single term in the pde for operator matrix
@@ -714,6 +726,7 @@ public:
   fk::vector<P> E_source;
   // holds gmres error and iteration counts for writing to output file
   std::vector<gmres_info<P>> gmres_outputs;
+  adaptive_info<P> adapt_info;
 
   virtual ~PDE() {}
 

@@ -1,7 +1,10 @@
 #pragma once
 
+#include "build_info.hpp"
+
 #include "pde.hpp"
 #include "program_options.hpp"
+#include "solver.hpp"
 #include "tensors.hpp"
 #include "tools.hpp"
 #include "transformations.hpp"
@@ -11,7 +14,27 @@
 #include <numeric>
 #include <filesystem>
 #include <highfive/H5Easy.hpp>
+#include <highfive/H5DataType.hpp>
+#include <highfive/H5DataSpace.hpp>
 // clang-format on
+
+namespace asgard
+{
+template<typename P>
+HighFive::CompoundType create_timing_stats()
+{
+  return {{"avg", HighFive::create_datatype<double>()},
+          {"min", HighFive::create_datatype<double>()},
+          {"max", HighFive::create_datatype<double>()},
+          {"med", HighFive::create_datatype<double>()},
+          {"gflops", HighFive::create_datatype<double>()},
+          {"ncalls", HighFive::create_datatype<size_t>()}};
+}
+} // namespace asgard
+
+HIGHFIVE_REGISTER_TYPE(asgard::tools::timing_stats,
+                       asgard::create_timing_stats<double>)
+
 namespace asgard
 {
 template<typename P>
@@ -123,6 +146,11 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   H5Easy::DumpOptions opts;
   opts.setChunkSize(std::vector<hsize_t>{2});
 
+  // TODO: needs to be checked further based on problem sizes
+  HighFive::DataSetCreateProps plist;
+  plist.add(HighFive::Chunking(hsize_t{64}));
+  plist.add(HighFive::Deflate(9));
+
   H5Easy::dump(file, "pde", cli_input.get_pde_string());
   H5Easy::dump(file, "degree", cli_input.get_degree());
   H5Easy::dump(file, "dt", cli_input.get_dt());
@@ -137,7 +165,10 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     auto const nodes =
         gen_realspace_nodes(dims[dim].get_degree(), dims[dim].get_level(),
                             dims[dim].domain_min, dims[dim].domain_max);
-    H5Easy::dump(file, "nodes" + std::to_string(dim), nodes.to_std());
+    file.createDataSet<P>(
+            "nodes" + std::to_string(dim),
+            HighFive::DataSpace({static_cast<size_t>(nodes.size())}))
+        .write_raw(nodes.data());
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_level",
                  dims[dim].get_level());
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_min",
@@ -146,9 +177,15 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
                  dims[dim].domain_max);
   }
 
-  H5Easy::dump(file, "elements", hash_table.get_active_table().to_std());
+  auto &elements = hash_table.get_active_table();
+  file.createDataSet<int>(
+          "elements",
+          HighFive::DataSpace({static_cast<size_t>(elements.size())}), plist)
+      .write_raw(elements.data());
 
-  H5Easy::dump(file, "soln", vec.to_std(), opts);
+  file.createDataSet<P>(
+          "soln", HighFive::DataSpace({static_cast<size_t>(vec.size())}), plist)
+      .write_raw(vec.data());
 
   // save E field
   H5Easy::dump(file, "Efield", pde.E_field.to_std(), opts);
@@ -161,8 +198,10 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "nmoments", pde.moments.size());
     for (size_t i = 0; i < pde.moments.size(); ++i)
     {
-      H5Easy::dump(file, "moment" + std::to_string(i),
-                   pde.moments[i].get_realspace_moment().to_std(), opts);
+      file.createDataSet<P>("moment" + std::to_string(i),
+                            HighFive::DataSpace({static_cast<size_t>(
+                                pde.moments[i].get_realspace_moment().size())}))
+          .write_raw(pde.moments[i].get_realspace_moment().data());
     }
   }
 
@@ -177,8 +216,116 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
                  pde.gmres_outputs[i].inner_iter, opts);
   }
 
+  H5Easy::dump(file, "do_adapt", cli_input.do_adapt_levels());
+  H5Easy::dump(file, "using_fullgrid", cli_input.using_full_grid());
+  H5Easy::dump(file, "starting_levels",
+               cli_input.get_starting_levels().to_std());
+  if (cli_input.get_active_terms().size() > 0)
+  {
+    // save list of terms this was run with if --terms option used
+    H5Easy::dump(file, "active_terms", cli_input.get_active_terms().to_std());
+  }
+  if (cli_input.do_adapt_levels())
+  {
+    H5Easy::dump(file, "adapt_thresh", cli_input.get_adapt_thresh());
+
+    // if using adaptivity, save some stats about DOF coarsening/refining and
+    // GMRES stats for each adapt step
+    H5Easy::dump(file, "adapt_initial_dof", pde.adapt_info.initial_dof);
+    H5Easy::dump(file, "adapt_coarsen_dof", pde.adapt_info.coarsen_dof);
+    H5Easy::dump(file, "adapt_num_refines", pde.adapt_info.refine_dofs.size());
+    H5Easy::dump(file, "adapt_refine_dofs", pde.adapt_info.refine_dofs);
+
+    // Transform GMRES stats for each adaptive step into arrays to reduce number
+    // of H5 datasets and make it easier to process later.
+    // TODO: this needs to be refactored into its own dataset within the H5
+    // file.
+    size_t num_gmres_calls = pde.gmres_outputs.size();
+    size_t num_adapt_steps = pde.adapt_info.gmres_stats.size();
+    std::vector<std::vector<P>> step_errors(num_gmres_calls);
+    std::vector<std::vector<int>> step_num_inner(num_gmres_calls);
+    std::vector<std::vector<int>> step_num_outer(num_gmres_calls);
+
+    for (size_t gmres = 0; gmres < num_gmres_calls; gmres++)
+    {
+      step_errors[gmres].resize(num_adapt_steps);
+      step_num_inner[gmres].resize(num_adapt_steps);
+      step_num_outer[gmres].resize(num_adapt_steps);
+      // Combine stats for all steps into a single array
+      for (size_t step = 0; step < num_adapt_steps; step++)
+      {
+        step_errors[gmres][step] =
+            pde.adapt_info.gmres_stats[step][gmres].error;
+        step_num_inner[gmres][step] =
+            pde.adapt_info.gmres_stats[step][gmres].inner_iter;
+        step_num_outer[gmres][step] =
+            pde.adapt_info.gmres_stats[step][gmres].outer_iter;
+      }
+
+      std::string const prefix = "adapt_gmres" + std::to_string(gmres);
+      H5Easy::dump(file, prefix + "_err", step_errors[gmres]);
+      H5Easy::dump(file, prefix + "_num_inner", step_num_inner[gmres]);
+      H5Easy::dump(file, prefix + "_num_outer", step_num_outer[gmres]);
+    }
+  }
+
+  P gmres_tol = cli_input.get_gmres_tolerance();
+  if (gmres_tol == parser::NO_USER_VALUE_FP)
+  {
+    gmres_tol = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+  }
+  H5Easy::dump(file, "gmres_tolerance", gmres_tol);
+
+  int gmres_restart = cli_input.get_gmres_inner_iterations();
+  if (gmres_restart == parser::NO_USER_VALUE)
+  {
+    // calculate default based on size of solution vector
+    gmres_restart = solver::default_gmres_restarts<P>(vec.size());
+  }
+  H5Easy::dump(file, "gmres_restart", gmres_restart);
+
+  int gmres_max_iter = cli_input.get_gmres_outer_iterations();
+  if (gmres_max_iter == parser::NO_USER_VALUE)
+  {
+    // default value is to use size of solution vector
+    gmres_max_iter = vec.size();
+  }
+  H5Easy::dump(file, "gmres_max_iter", gmres_max_iter);
+
+  // save some basic build info
+  H5Easy::dump(file, "GIT_BRANCH", std::string(GIT_BRANCH));
+  H5Easy::dump(file, "GIT_COMMIT_HASH", std::string(GIT_COMMIT_HASH));
+  H5Easy::dump(file, "GIT_COMMIT_SUMMARY", std::string(GIT_COMMIT_SUMMARY));
+  H5Easy::dump(file, "BUILD_TIME", std::string(BUILD_TIME));
+#if defined(ASGARD_USE_CUDA)
+  bool constexpr using_gpu = true;
+#else
+  bool constexpr using_gpu = false;
+#endif
+  H5Easy::dump(file, "USING_GPU", using_gpu);
+
+  // save performance timers to the /timings/ group
+  auto timing_stat_type = create_timing_stats<double>();
+  timing_stat_type.commit(file, "timing_stats");
+
+  std::map<std::string, tools::timing_stats> timings;
+  tools::timer.get_timing_stats(timings);
+  auto timing_group = file.createGroup("timings");
+  for (auto [id, times] : timings)
+  {
+    timing_group
+        .createDataSet(
+            id,
+            HighFive::DataSpace(
+                HighFive::DataSpace::DataspaceType::dataspace_scalar),
+            timing_stat_type)
+        .write(times);
+  }
+
   file.flush();
   tools::timer.stop("write_output");
+
+  std::cout << " DONE FILE WRITE" << std::endl;
 }
 
 template<typename P>

@@ -45,7 +45,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat, fk::vector<P> &x,
  * \returns default number of iterations before restart
  */
 template<typename P>
-static int default_gmres_restarts(int num_cols)
+int default_gmres_restarts(int num_cols)
 {
   // at least 10 iterations before restart but not more than num_cols
   int minimum = std::min(10, num_cols);
@@ -363,6 +363,8 @@ simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
                    int const restart, int const max_iter,
                    double const tolerance);
 
+template int default_gmres_restarts<double>(int num_cols);
+
 template void setup_poisson(const int N_elements, double const x_min,
                             double const x_max, fk::vector<double> &diag,
                             fk::vector<double> &off_diag);
@@ -388,6 +390,8 @@ simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
                    fk::vector<float> &x, fk::vector<float> const &b,
                    int const restart, int const max_iter,
                    float const tolerance);
+
+template int default_gmres_restarts<float>(int num_cols);
 
 template void setup_poisson(const int N_elements, float const x_min,
                             float const x_max, fk::vector<float> &diag,

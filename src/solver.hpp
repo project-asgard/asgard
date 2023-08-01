@@ -28,6 +28,9 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat, fk::vector<P> &x,
                    int const max_iter, P const tolerance);
 
 template<typename P>
+int default_gmres_restarts(int num_cols);
+
+template<typename P>
 void setup_poisson(const int N_nodes, P const x_min, P const x_max,
                    fk::vector<P> &diag, fk::vector<P> &off_diag);
 
