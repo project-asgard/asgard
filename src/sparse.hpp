@@ -75,35 +75,45 @@ public:
     row_offsets_.resize(nrows_ + 1);
     row_offsets_[0] = 0;
 
-    std::vector<P> values;
-    std::vector<int> col_indices_tmp;
-
-    values.reserve(nrows_);
+    // Determine number of non-zeros to pre-allocate
+    int nnz = 0;
     for (int row = 0; row < nrows_; row++)
     {
-      size_t n_start = values.size();
       for (int col = 0; col < ncols_; col++)
       {
         if (std::abs(m(row, col)) > tol)
         {
-          col_indices_tmp.push_back(col);
-          values.push_back(m(row, col));
+          nnz += 1;
+        }
+      }
+    }
+
+    values_      = fk::vector<P>(nnz);
+    col_indices_ = fk::vector<int>(nnz);
+
+    size_t index = 0;
+    for (int row = 0; row < nrows_; row++)
+    {
+      size_t n_start = index;
+      for (int col = 0; col < ncols_; col++)
+      {
+        if (std::abs(m(row, col)) > tol)
+        {
+          col_indices_[index] = col;
+          values_[index]      = m(row, col);
+          index += 1;
         }
         else
         {
           nz += 1;
         }
       }
-      size_t n_end = values.size();
+      size_t n_end = index;
 
       row_offsets_[row + 1] = row_offsets_[row] + (n_end - n_start);
     }
 
-    col_indices_ = fk::vector<int, mem, resrc>(col_indices_tmp);
-
-    values_ = fk::vector<P>(values);
     expect(col_indices_.size() == values_.size());
-
     expect(m.size() == values_.size() + nz);
   }
 
@@ -169,12 +179,10 @@ public:
 
   // copy constructor
   sparse(fk::sparse<P, resrc> const &other)
-      : ncols_{other.ncols_}, nrows_{other.nrows_}
-  {
-    row_offsets_ = other.get_offsets();
-    col_indices_ = other.get_columns();
-    values_      = other.get_values();
-  }
+      : ncols_{other.ncols_}, nrows_{other.nrows_},
+        row_offsets_{other.row_offsets_},
+        col_indices_{other.col_indices_}, values_{other.values_}
+  {}
 
   // copy assignment
   sparse<P, resrc> &operator=(fk::sparse<P, resrc> const &a)
