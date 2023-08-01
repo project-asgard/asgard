@@ -10,6 +10,7 @@ class PDE;
 #include "elements.hpp"
 #include "pde/pde_base.hpp"
 #include "program_options.hpp"
+#include "sparse.hpp"
 #include "tensors.hpp"
 #include <vector>
 
@@ -25,6 +26,12 @@ namespace basis
 template<typename P, resource resrc>
 class wavelet_transform;
 }
+
+#ifdef ASGARD_USE_CUDA
+static constexpr resource sparse_resrc = resource::device;
+#else
+static constexpr resource sparse_resrc = resource::host;
+#endif
 
 template<typename P>
 class moment
@@ -42,6 +49,10 @@ public:
     return fList;
   }
   fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
+  fk::sparse<P, sparse_resrc> const &get_moment_matrix_dev() const
+  {
+    return sparse_mat;
+  }
 
   void createMomentReducedMatrix(PDE<P> const &pde,
                                  elements::table const &hash_table);
@@ -57,6 +68,13 @@ public:
       asgard::basis::wavelet_transform<P, resource::host> const &transformer,
       std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace);
 
+  fk::vector<P> &create_realspace_moment(
+      PDE<P> const &pde_1d,
+      fk::vector<P, mem_type::owner, resource::device> &wave,
+      elements::table const &table,
+      basis::wavelet_transform<P, resource::host> const &transformer,
+      std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace);
+
 private:
   template<int nvdim>
   void createMomentReducedMatrix_nd(PDE<P> const &pde,
@@ -67,6 +85,7 @@ private:
   fk::vector<P> vector;
   fk::matrix<P> moment_matrix;
   fk::vector<P> realspace;
+  fk::sparse<P, sparse_resrc> sparse_mat;
   // moment_fval_integral;
   // moment_analytic_integral;
 };

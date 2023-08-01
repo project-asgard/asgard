@@ -275,6 +275,7 @@ set (components
      quadrature
      solver
      tensors
+     sparse
      time_advance
      tools
      transformations
@@ -375,6 +376,7 @@ if (ASGARD_USE_CUDA)
                            PUBLIC
                            CUDA::cudart
                            CUDA::cublas
+                           CUDA::cusparse
     )
 endif ()
 
