@@ -303,29 +303,26 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void print(std::string const label = "") const
   {
-    std::cout << label << "(owner)" << '\n';
+    std::cout << label << "(owner, nnz = " << nnz() << ")" << '\n';
     //  Print these out as row major even though stored in memory as column
     //  major.
-    for (auto i = 0; i < nrows(); ++i)
+    for (int row = 0; row < nrows_; row++)
     {
-      for (auto j = 0; j < ncols(); ++j)
+      for (int col = row_offsets_[row]; col < row_offsets_[row + 1]; col++)
       {
-        if (exists(i, j))
+        std::cout << "(" << std::setw(2) << row << ", " << std::setw(2) << col
+                  << ") ";
+        P const val = values_[col];
+        if constexpr (std::is_floating_point<P>::value)
         {
-          std::cout << "(" << std::setw(2) << i << ", " << std::setw(2) << j
-                    << ") ";
-          P const val = values_[col_indices_[row_offsets_[i]]];
-          if constexpr (std::is_floating_point<P>::value)
-          {
-            std::cout << std::setw(12) << std::setprecision(4)
-                      << std::scientific << std::right << val;
-          }
-          else
-          {
-            std::cout << val << " ";
-          }
-          std::cout << '\n';
+          std::cout << std::setw(12) << std::setprecision(4) << std::scientific
+                    << std::right << val;
         }
+        else
+        {
+          std::cout << val << " ";
+        }
+        std::cout << '\n';
       }
     }
   }
