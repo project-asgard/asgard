@@ -65,7 +65,7 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>, mem_type mem>
   sparse(fk::matrix<P, mem, resrc> const &m)
   {
-    P constexpr tol = 1.0e-10;
+    P constexpr tol = std::is_floating_point_v<P> ? 1.0e-10 : 0;
     // P constexpr tol = 2.0 * std::numeric_limits<P>::epsilon();
 
     ncols_ = m.ncols();
@@ -110,7 +110,7 @@ public:
   // create sparse matrix from multimap
   sparse(std::multimap<int, dense_item<P>> const &items, int ncols, int nrows)
   {
-    P constexpr tol = 1.0e-10;
+    P constexpr tol = std::is_floating_point_v<P> ? 1.0e-10 : 0;
     // P constexpr tol = 2.0 * std::numeric_limits<P>::epsilon();
 
     ncols_ = ncols;
