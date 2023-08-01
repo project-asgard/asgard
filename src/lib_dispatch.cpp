@@ -1254,24 +1254,24 @@ void sparse_gemv(char const trans, int rows, int cols, int nnz,
           const_cast<int *>(col_indices), const_cast<P *>(vals),
           CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO,
           CUDA_R_64F);
-      expect(status == 0);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
 
       status = cusparseCreateDnVec(&vecX, cols, const_cast<P *>(x), CUDA_R_64F);
-      expect(status == 0);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
 
       status = cusparseCreateDnVec(&vecY, rows, const_cast<P *>(y), CUDA_R_64F);
-      expect(status == 0);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
 
       // find tmp buffer size if needed
       size_t buffer_size = 0;
       status             = cusparseSpMV_bufferSize(
           device.get_sp_handle(), cusparse_trans(trans), &alpha, mat, vecX,
           &beta, vecY, CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG2, &buffer_size);
-      expect(status == 0);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
 
       void *sp_buffer = NULL;
       auto success    = cudaMalloc(&sp_buffer, buffer_size);
-      expect(success == 0);
+      expect(success == cudaSuccess);
 
       // call the sparse grid dense vector multiply
       // using CSR_ALG2 since it provides deterministic bit-wise results for
@@ -1279,10 +1279,20 @@ void sparse_gemv(char const trans, int rows, int cols, int nnz,
       status = cusparseSpMV(device.get_sp_handle(), cusparse_trans(trans),
                             &alpha, mat, vecX, &beta, vecY, CUDA_R_64F,
                             CUSPARSE_SPMV_CSR_ALG2, sp_buffer);
-      expect(status == 0);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
 
       success = cudaFree(sp_buffer);
-      expect(success == 0);
+      expect(success == cudaSuccess);
+
+      // destroy the cuSparse desriptors
+      status = cusparseDestroyDnVec(vecX);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
+
+      status = cusparseDestroyDnVec(vecY);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
+
+      status = cusparseDestroySpMat(mat);
+      expect(status == CUSPARSE_STATUS_SUCCESS);
     }
     else if constexpr (std::is_same<P, float>::value)
     {
