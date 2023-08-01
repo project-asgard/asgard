@@ -588,7 +588,14 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if (pde.do_poisson_solve)
   {
-    do_poisson_update(x);
+    if constexpr (imex_resrc == resource::device)
+    {
+      do_poisson_update(x.clone_onto_device());
+    }
+    else
+    {
+      do_poisson_update(x);
+    }
   }
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
@@ -690,7 +697,14 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if (pde.do_poisson_solve)
   {
-    do_poisson_update(f_2);
+    if constexpr (imex_resrc == resource::device)
+    {
+      do_poisson_update(f_2.clone_onto_device());
+    }
+    else
+    {
+      do_poisson_update(f_2);
+    }
   }
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
