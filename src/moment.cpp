@@ -1,6 +1,8 @@
 #include "moment.hpp"
 #include "basis.hpp"
 #include "elements.hpp"
+#include "sparse.hpp"
+#include "tools.hpp"
 #include "transformations.hpp"
 
 namespace asgard
@@ -143,7 +145,7 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
       static_cast<int>(std::pow(2, pde.get_dimensions()[x_dim].get_level())) *
       pde.get_dimensions()[x_dim].get_degree();
 
-  this->moment_matrix.clear_and_resize(rows, n);
+  std::multimap<int, dense_item<P>> moment_mat;
 
   int const deg = pde.get_dimensions()[v_dim_1].get_degree();
 
@@ -163,8 +165,9 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
         {
           // "2D" case (v_dim = 1)
           int const ind_j = i * static_cast<int>(std::pow(deg, 2)) + j * deg;
-          moment_matrix(ind_i, ind_j + vdeg1) =
-              g_vec_1(elem_indices(1) * deg + vdeg1);
+          moment_mat.insert(
+              {ind_i, dense_item<P>{ind_i, ind_j + vdeg1,
+                                    g_vec_1(elem_indices(1) * deg + vdeg1)}});
         }
         else
         {
@@ -176,9 +179,11 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
               int const ind_j = i * static_cast<int>(std::pow(deg, 3)) +
                                 j * static_cast<int>(std::pow(deg, 2)) +
                                 deg * vdeg1 + vdeg2;
-              moment_matrix(ind_i, ind_j) =
-                  g_vec_1(elem_indices(1) * deg + vdeg1) *
-                  g_vec_2(elem_indices(2) * deg + vdeg2);
+              moment_mat.insert(
+                  {ind_i,
+                   dense_item<P>{ind_i, ind_j,
+                                 g_vec_1(elem_indices(1) * deg + vdeg1) *
+                                     g_vec_2(elem_indices(2) * deg + vdeg2)}});
             }
             else if (nvdim == 3)
             {
@@ -189,10 +194,12 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
                                   j * static_cast<int>(std::pow(deg, 3)) +
                                   static_cast<int>(std::pow(deg, 2)) * vdeg1 +
                                   vdeg2 * deg + vdeg3;
-                moment_matrix(ind_i, ind_j) =
-                    g_vec_1(elem_indices(1) * deg + vdeg1) *
-                    g_vec_2(elem_indices(2) * deg + vdeg2) *
-                    g_vec_3(elem_indices(3) * deg + vdeg3);
+                moment_mat.insert(
+                    {ind_i, dense_item<P>{
+                                ind_i, ind_j,
+                                g_vec_1(elem_indices(1) * deg + vdeg1) *
+                                    g_vec_2(elem_indices(2) * deg + vdeg2) *
+                                    g_vec_3(elem_indices(3) * deg + vdeg3)}});
               }
             }
           }
@@ -200,6 +207,23 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
       }
     }
   }
+
+  std::cout << " -- moment_mat map size = " << moment_mat.size() << "\n";
+
+  // TODO: sparse construction is host-only
+  fk::sparse<P, resource::host> host_sparse =
+      fk::sparse<P, resource::host>(moment_mat, n, rows);
+  if constexpr (sparse_resrc == resource::device)
+  {
+    // create a sparse version of this matrix and put it on the GPU
+    this->sparse_mat = host_sparse.clone_onto_device();
+  }
+  else
+  {
+    this->sparse_mat = host_sparse;
+  }
+
+  std::cout << this->sparse_mat.sp_size() << "\n";
 }
 
 template<typename P>
@@ -213,6 +237,23 @@ fk::vector<P> &moment<P>::create_realspace_moment(
                           this->realspace);
   return this->realspace;
 }
+
+#ifdef ASGARD_USE_CUDA
+template<typename P>
+fk::vector<P> &moment<P>::create_realspace_moment(
+    PDE<P> const &pde_1d,
+    fk::vector<P, mem_type::owner, resource::device> &wave,
+    elements::table const &table,
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace)
+{
+  fk::vector<P> wave_host = wave.clone_onto_host();
+  this->realspace.resize(wave_host.size());
+  wavelet_to_realspace<P>(pde_1d, wave_host, table, transformer, workspace,
+                          this->realspace);
+  return this->realspace;
+}
+#endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class moment<double>;

@@ -495,12 +495,13 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // function in x
   if (first_time || update_system)
   {
+    asgard::tools::timer.start("update_system");
     std::cout << " dim0 lev = " << level << "\n";
     std::cout << " dim1 lev = " << pde.get_dimensions()[1].get_level() << "\n";
     for (auto &m : pde.moments)
     {
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
-      expect(m.get_moment_matrix().nrows() > 0);
+      // expect(m.get_moment_matrix().nrows() > 0);
     }
 
     if (pde.do_poisson_solve)
@@ -515,13 +516,15 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     pde.E_source.resize(dense_size);
 
     first_time = false;
+    asgard::tools::timer.stop("update_system");
   }
 
-  auto do_poisson_update = [&](fk::vector<P> const &f_in) {
+  auto do_poisson_update = [&](fk::vector<P, mem_type::owner, imex_resrc> const
+                                   &f_in) {
     tools::timer.start("poisson_update");
     // Get 0th moment
-    fk::vector<P> mom0(dense_size);
-    fm::gemv(pde.moments[0].get_moment_matrix(), f_in, mom0);
+    fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
+    fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), f_in, mom0);
     fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
         pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
     param_manager.get_parameter("n")->value = [&](P const x_v,
@@ -585,7 +588,14 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if (pde.do_poisson_solve)
   {
-    do_poisson_update(x);
+    if constexpr (imex_resrc == resource::device)
+    {
+      do_poisson_update(x.clone_onto_device());
+    }
+    else
+    {
+      do_poisson_update(x);
+    }
   }
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
@@ -608,9 +618,19 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   tools::timer.stop("explicit_1");
   tools::timer.start("implicit_1");
+
+  fk::vector<P, mem_type::owner, imex_resrc> x_dev;
+  if constexpr (imex_resrc == resource::device)
+  {
+    x_dev = x.clone_onto_device();
+  }
+  else
+  {
+    x_dev = fk::vector(x);
+  }
   // Create rho_2s
-  fk::vector<P> mom0(dense_size);
-  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+  fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
+  fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), x_dev, mom0);
 
   fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
       pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
@@ -621,8 +641,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   };
 
   // TODO: refactor into more generic function
-  fk::vector<P> mom1(dense_size);
-  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
+  fk::vector<P, mem_type::owner, imex_resrc> mom1(dense_size);
+  fm::sparse_gemv(pde.moments[1].get_moment_matrix_dev(), x_dev, mom1);
   fk::vector<P> &mom1_real = pde.moments[1].create_realspace_moment(
       pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("u")->value = [&](P const x_v,
@@ -631,8 +651,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
-  fk::vector<P> mom2(dense_size);
-  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
+  fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
+  fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), x_dev, mom2);
   fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
       pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("theta")->value = [&](P const x_v,
@@ -677,7 +697,14 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if (pde.do_poisson_solve)
   {
-    do_poisson_update(f_2);
+    if constexpr (imex_resrc == resource::device)
+    {
+      do_poisson_update(f_2.clone_onto_device());
+    }
+    else
+    {
+      do_poisson_update(f_2);
+    }
   }
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
@@ -704,7 +731,15 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.start("implicit_2_mom");
   // Create rho_3s
   // TODO: refactor into more generic function
-  fm::gemv(pde.moments[0].get_moment_matrix(), x, mom0);
+  if constexpr (imex_resrc == resource::device)
+  {
+    x_dev.transfer_from(x);
+  }
+  else
+  {
+    x_dev = x;
+  }
+  fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), x_dev, mom0);
   mom0_real = pde.moments[0].create_realspace_moment(
       pde_1d, mom0, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("n")->value = [&](P const x_v,
@@ -713,7 +748,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     return interp1(nodes, mom0_real, {x_v})[0];
   };
 
-  fm::gemv(pde.moments[1].get_moment_matrix(), x, mom1);
+  fm::sparse_gemv(pde.moments[1].get_moment_matrix_dev(), x_dev, mom1);
   mom1_real = pde.moments[1].create_realspace_moment(
       pde_1d, mom1, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("u")->value = [&](P const x_v,
@@ -722,7 +757,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
            param_manager.get_parameter("n")->value(x_v, t);
   };
 
-  fm::gemv(pde.moments[2].get_moment_matrix(), x, mom2);
+  fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), x_dev, mom2);
   mom2_real = pde.moments[2].create_realspace_moment(
       pde_1d, mom2, adaptive_grid_1d.get_table(), transformer, tmp_workspace);
   param_manager.get_parameter("theta")->value = [&](P const x_v,

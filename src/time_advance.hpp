@@ -14,6 +14,12 @@ enum class method
   imex
 };
 
+#ifdef ASGARD_USE_CUDA
+static constexpr resource imex_resrc = resource::device;
+#else
+static constexpr resource imex_resrc = resource::host;
+#endif
+
 // take an adaptivity-enabled timestep
 // make require many "pseudosteps" to refine
 template<typename P>

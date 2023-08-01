@@ -1,6 +1,7 @@
 #pragma once
 #include "lib_dispatch.hpp"
 #include "program_options.hpp"
+#include "sparse.hpp"
 #include "tensors.hpp"
 #include "tools.hpp"
 #ifdef ASGARD_USE_SCALAPACK
@@ -457,5 +458,26 @@ void getrs(fk::matrix<P, amem> const &A, fk::scalapack_matrix_info &ainfo,
   }
 }
 #endif
+
+// sparse gemv - sparse matrix dense vector multiplication
+template<typename P, mem_type xmem, mem_type ymem, resource resrc>
+fk::vector<P, ymem, resrc> &
+sparse_gemv(fk::sparse<P, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
+            fk::vector<P, ymem, resrc> &y, bool const trans_A = false,
+            P const alpha = 1.0, P const beta = 0.0)
+{
+  int const rows_opA = trans_A ? A.ncols() : A.nrows();
+  int const cols_A   = trans_A ? A.nrows() : A.ncols();
+
+  expect(rows_opA == y.size());
+  expect(cols_A == x.size());
+
+  char const transa = trans_A ? 't' : 'n';
+  lib_dispatch::sparse_gemv<resrc>(transa, A.nrows(), A.ncols(), A.nnz(),
+                                   A.offsets(), A.columns(), A.data(), alpha,
+                                   x.data(), beta, y.data());
+
+  return y;
+}
 
 } // namespace asgard::fm
