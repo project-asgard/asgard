@@ -511,7 +511,8 @@ public:
         num_terms(get_num_terms(cli_input, max_num_terms)),
         max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
         exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
-        exact_time(exact_time_in), do_poisson_solve(do_poisson_solve_in),
+        exact_time(check_exact_time(exact_time_in)),
+        do_poisson_solve(do_poisson_solve_in),
         do_collision_operator(do_collision_operator_in),
         has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
         terms_(terms)
@@ -892,6 +893,22 @@ private:
                        })
                        ->get_level()
                  : *std::max_element(levels.begin(), levels.end());
+    }
+  }
+
+  scalar_func<P> check_exact_time(scalar_func<P> const &exact_time_func)
+  {
+    // check if the PDE exact time function was defined, or return an empty one
+    if (!exact_time_func)
+    {
+      return [](P const t) {
+        ignore(t);
+        return P{1.0};
+      };
+    }
+    else
+    {
+      return exact_time_func;
     }
   }
 
