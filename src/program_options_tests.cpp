@@ -155,12 +155,12 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
-  SECTION("out of range level, 2nd entry")
+  SECTION("2d with dim 1 level=0")
   {
     std::cerr.setstate(std::ios_base::failbit);
     parser const p = make_parser({"-l=\"2, 0\""});
     std::cerr.clear();
-    REQUIRE(!p.is_valid());
+    REQUIRE(p.is_valid());
   }
   SECTION("negative degree")
   {
