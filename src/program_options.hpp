@@ -339,6 +339,14 @@ private:
       std::string word;
       number_stream >> word;
       int temp_int;
+
+      // remove any leading or trailing '"'
+      size_t pos = word.find_first_of('\"');
+      if (pos != std::string::npos)
+      {
+        word.erase(word.begin() + pos);
+      }
+
       if (std::stringstream(word) >> temp_int)
       {
         parsed_ints.push_back(temp_int);
