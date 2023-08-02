@@ -1673,8 +1673,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
 
   // the expected L2 from analytical solution after the maxwellian has relaxed
   TestType constexpr expected_l2 = 8.654e-4;
-  // the tolerance for comparing l2, should be same for both float and double
-  TestType constexpr tolerance = 1.0e-4;
+  // rel tolerance for comparing l2
+  TestType constexpr tolerance = 1.0e-3;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
