@@ -189,7 +189,7 @@ parser::parser(int argc, char const *const *argv)
       }
       lev_sum += lev;
     }
-    if (lev_sum == 0)
+    if (lev_sum == 0 && starting_lev.size() > 1)
     {
       std::cerr << "At least one level must be > 0" << '\n';
       valid = false;
