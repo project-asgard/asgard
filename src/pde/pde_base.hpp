@@ -549,7 +549,7 @@ public:
       for (dimension<P> &d : dimensions_)
       {
         auto const num_levels = cli_input.get_starting_levels()(counter++);
-        expect(num_levels >= 1);
+        expect(num_levels >= 0);
         d.set_level(num_levels);
       }
     }
@@ -613,7 +613,7 @@ public:
     for (auto const &d : dimensions_)
     {
       expect(d.get_degree() > 0);
-      expect(d.get_level() >= 1);
+      expect(d.get_level() >= 0);
       expect(d.domain_max > d.domain_min);
     }
 

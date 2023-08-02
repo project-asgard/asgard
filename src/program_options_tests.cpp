@@ -303,4 +303,11 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }
+  SECTION("check all levels cannot be 0")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser({"-l=\"0, 0\""});
+    std::cerr.clear();
+    REQUIRE(!p.is_valid());
+  }
 }

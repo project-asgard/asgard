@@ -171,6 +171,8 @@ parser::parser(int argc, char const *const *argv)
       valid = false;
     }
     starting_levels.resize(starting_lev.size()) = starting_lev;
+    // check that at least one level is greater than 0
+    int lev_sum = 0;
     for (auto const lev : starting_levels)
     {
       if (lev < 0)
@@ -185,6 +187,12 @@ parser::parser(int argc, char const *const *argv)
             << '\n';
         valid = false;
       }
+      lev_sum += lev;
+    }
+    if (lev_sum == 0)
+    {
+      std::cerr << "At least one level must be > 0" << '\n';
+      valid = false;
     }
   }
   if (memory_limit <= 0)
