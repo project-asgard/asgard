@@ -65,15 +65,15 @@ private:
   initial_condition_dim_v_0_0(fk::vector<P> const &x, P const t = 0)
   {
     ignore(t);
-    const P theta       = 0.5;
+    P constexpr theta   = 0.5;
+    P constexpr ux      = -1.0;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
-    std::transform(
-        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
-          const P ux = -1.0;
-          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - ux, 2));
-        });
+    for (int i = 0; i < x.size(); i++)
+    {
+      fx[i] = coefficient * std::exp(-(0.5 / theta) * std::pow(x[i] - ux, 2));
+    }
     return fx;
   }
 
@@ -81,15 +81,15 @@ private:
   initial_condition_dim_v_0_1(fk::vector<P> const &x, P const t = 0)
   {
     ignore(t);
-    const P theta       = 0.5;
+    P constexpr theta   = 0.5;
+    P constexpr ux      = 2.0;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
-    std::transform(
-        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
-          const P ux = 2.0;
-          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - ux, 2));
-        });
+    for (int i = 0; i < x.size(); i++)
+    {
+      fx[i] = coefficient * std::exp(-(0.5 / theta) * std::pow(x[i] - ux, 2));
+    }
     return fx;
   }
 
@@ -125,8 +125,10 @@ private:
     ignore(t);
 
     fk::vector<P> f(x.size());
-    std::transform(x.begin(), x.end(), f.begin(),
-                   [](P const &x_v) -> P { return std::pow(x_v, 2); });
+    for (int i = 0; i < x.size(); i++)
+    {
+      f[i] = std::pow(x[i], 2);
+    }
     return f;
   }
 
@@ -324,15 +326,15 @@ private:
   static fk::vector<P> exact_dim_v_0(fk::vector<P> const &x, P const t = 0)
   {
     ignore(t);
-    P const theta       = 2.75;
+    P constexpr theta   = 2.75;
+    P constexpr u1      = 0.5;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
-    std::transform(
-        x.begin(), x.end(), fx.begin(), [coefficient, theta](P const x_v) -> P {
-          const P u1 = 0.5;
-          return coefficient * std::exp(-(0.5 / theta) * std::pow(x_v - u1, 2));
-        });
+    for (int i = 0; i < x.size(); i++)
+    {
+      fx[i] = coefficient * std::exp(-(0.5 / theta) * std::pow(x[i] - u1, 2));
+    }
     return fx;
   }
 
