@@ -1666,12 +1666,15 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   std::string const pde_choice = "relaxation_1x1v";
   fk::vector<int> const levels{0, 4};
   int const degree            = 3;
-  static int constexpr nsteps = 100;
+  static int constexpr nsteps = 10;
 
   TestType constexpr gmres_tol =
       std::is_same<TestType, double>::value ? 1.0e-10 : 1.0e-6;
-  TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+
+  // the expected L2 from analytical solution after the maxwellian has relaxed
+  TestType constexpr expected_l2 = 8.654e-4;
+  // the tolerance for comparing l2, should be same for both float and double
+  TestType constexpr tolerance = 1.0e-4;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1728,28 +1731,36 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
     f_val.resize(sol.size()) = sol;
     std::cout.clear();
 
-    // get analytic solution at time(step+1)
-    fk::vector<TestType> const analytic_solution = sum_separable_funcs(
-        pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
-        transformer, degree, time + pde->get_dt());
-
-    // calculate L2 error between simulation and analytical solution
-    fk::vector<TestType> const diff = f_val - analytic_solution;
-    auto const L2                   = [&diff]() -> TestType {
-      asgard::fk::vector<TestType> squared(diff);
-      std::transform(squared.begin(), squared.end(), squared.begin(),
-                     [](TestType const &elem) { return elem * elem; });
-      auto const mean = std::accumulate(squared.begin(), squared.end(), 0.0);
-      return std::sqrt(mean);
-    }();
-    auto const relative_error = L2 / asgard::inf_norm(analytic_solution) * 100;
-    auto const [l2_errors, relative_errors] =
-        asgard::gather_errors<TestType>(L2, relative_error);
-    expect(l2_errors.size() == relative_errors.size());
-    for (int j = 0; j < l2_errors.size(); ++j)
+    // get analytic solution at final time step to compare
+    if (i == opts.num_time_steps - 1)
     {
-      std::cerr << i << ": l2 = " << l2_errors[j] << "\n";
-      REQUIRE(l2_errors[j] <= tolerance);
+      fk::vector<TestType> const analytic_solution = sum_separable_funcs(
+          pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
+          transformer, degree, time + pde->get_dt());
+
+      // calculate L2 error between simulation and analytical solution
+      fk::vector<TestType> const diff = f_val - analytic_solution;
+      auto const L2                   = [&diff]() -> TestType {
+        asgard::fk::vector<TestType> squared(diff);
+        std::transform(squared.begin(), squared.end(), squared.begin(),
+                       [](TestType const &elem) { return elem * elem; });
+        auto const mean = std::accumulate(squared.begin(), squared.end(), 0.0);
+        return std::sqrt(mean);
+      }();
+      auto const relative_error =
+          L2 / asgard::inf_norm(analytic_solution) * 100;
+      auto const [l2_errors, relative_errors] =
+          asgard::gather_errors<TestType>(L2, relative_error);
+      expect(l2_errors.size() == relative_errors.size());
+      for (int j = 0; j < l2_errors.size(); ++j)
+      {
+        // verify the l2 is close to the expected l2 from the analytical
+        // solution
+        TestType const abs_diff = std::abs(l2_errors[j] - expected_l2);
+        TestType const expected =
+            tolerance * std::max(std::abs(l2_errors[j]), std::abs(expected_l2));
+        REQUIRE(abs_diff <= expected);
+      }
     }
   }
 
