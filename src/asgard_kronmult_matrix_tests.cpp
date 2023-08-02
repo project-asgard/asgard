@@ -119,7 +119,7 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
     asgard::fk::copy_to_device(xt.data(), data->input_x.data(), xdev.size());
     asgard::fk::copy_to_device(yt.data(), data->output_y.data(), ydev.size());
     kmat.template apply<rec>(1.0, xt.data(), 1.0, yt.data());
-    asgard::fk::copy_to_host(data->output_y, yt.data(), yt.size());
+    asgard::fk::copy_to_host(data->output_y.data(), yt.data(), yt.size());
   }
   else
   {
