@@ -1655,6 +1655,107 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   parameter_manager<TestType>::get_instance().reset();
 }
 
+TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "relaxation_1x1v";
+  fk::vector<int> const levels{0, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 100;
+
+  TestType constexpr gmres_tol =
+      std::is_same<TestType, double>::value ? 1.0e-10 : 1.0e-6;
+  TestType constexpr tolerance =
+      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  options const opts(parse);
+  elements::table const check(opts, *pde);
+
+  adapt::distributed_grid adaptive_grid(*pde, opts);
+  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                       *pde);
+
+  // -- compute dimension mass matrices
+  generate_dimension_mass_mat(*pde, transformer);
+
+  // -- set coeffs
+  generate_all_coefficients(*pde, transformer);
+
+  // -- generate moments
+  for (auto &m : pde->moments)
+  {
+    m.createFlist(*pde, opts);
+    expect(m.get_fList().size() > 0);
+
+    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    expect(m.get_vector().size() > 0);
+  }
+
+  // -- generate initial condition vector.
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+
+  generate_dimension_mass_mat(*pde, transformer);
+
+  fk::vector<TestType> f_val(initial_condition);
+  asgard::matrix_list<TestType> operator_matrices;
+
+  // -- time loop
+  for (int i = 0; i < opts.num_time_steps; ++i)
+  {
+    std::cout.setstate(std::ios_base::failbit);
+    TestType const time            = i * pde->get_dt();
+    bool const update_system       = i == 0;
+    fk::vector<TestType> const sol = time_advance::adaptive_advance(
+        asgard::time_advance::method::imex, *pde, operator_matrices,
+        adaptive_grid, transformer, opts, f_val, time, update_system);
+
+    f_val.resize(sol.size()) = sol;
+    std::cout.clear();
+
+    // get analytic solution at time(step+1)
+    fk::vector<TestType> const analytic_solution = sum_separable_funcs(
+        pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
+        transformer, degree, time + pde->get_dt());
+
+    // calculate L2 error between simulation and analytical solution
+    fk::vector<TestType> const diff = f_val - analytic_solution;
+    auto const L2                   = [&diff]() -> TestType {
+      asgard::fk::vector<TestType> squared(diff);
+      std::transform(squared.begin(), squared.end(), squared.begin(),
+                     [](TestType const &elem) { return elem * elem; });
+      auto const mean = std::accumulate(squared.begin(), squared.end(), 0.0);
+      return std::sqrt(mean);
+    }();
+    auto const relative_error = L2 / asgard::inf_norm(analytic_solution) * 100;
+    auto const [l2_errors, relative_errors] =
+        asgard::gather_errors<TestType>(L2, relative_error);
+    expect(l2_errors.size() == relative_errors.size());
+    for (int j = 0; j < l2_errors.size(); ++j)
+    {
+      std::cerr << i << ": l2 = " << l2_errors[j] << "\n";
+      REQUIRE(l2_errors[j] <= tolerance);
+    }
+  }
+
+  parameter_manager<TestType>::get_instance().reset();
+}
+
 /*****************************************************************************
  * Testing the ability to split a matrix into multiple calls
  *****************************************************************************/
