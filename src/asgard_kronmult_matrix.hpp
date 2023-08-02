@@ -303,6 +303,8 @@ public:
    * \brief Computes y = alpha * kronmult_matrix * x + beta * y
    *
    * This method is not thread-safe!
+   *
+   * \tparam rec indicates whether the x and y buffers sit on the host or device
    */
   template<resource rec = resource::host>
   void apply(precision alpha, precision const x[], precision beta,
