@@ -28,6 +28,7 @@
 #include "pde/pde_fokkerplanck1_pitch_C.hpp"
 #include "pde/pde_fokkerplanck1_pitch_E.hpp"
 #include "pde/pde_fokkerplanck2_complete.hpp"
+#include "pde/pde_relaxation_1x1v.hpp"
 #include "pde/pde_two_stream.hpp"
 #include "pde/pde_vlasov_lb_full_f.hpp"
 #include "tensors.hpp"
@@ -97,6 +98,8 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_vlasov_lb<P>>(cli_input);
   case PDE_opts::vlasov_two_stream:
     return std::make_unique<PDE_vlasov_two_stream<P>>(cli_input);
+  case PDE_opts::relaxation_1x1v:
+    return std::make_unique<PDE_relaxation_1x1v<P>>(cli_input);
   case PDE_opts::collisional_landau:
     return std::make_unique<PDE_collisional_landau<P>>(cli_input);
   default:
@@ -187,6 +190,9 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
       return fk::vector<int>(std::vector<int>(2, level));
 
     case PDE_opts::vlasov_two_stream:
+      return fk::vector<int>(std::vector<int>(2, level));
+
+    case PDE_opts::relaxation_1x1v:
       return fk::vector<int>(std::vector<int>(2, level));
 
     case PDE_opts::collisional_landau:
