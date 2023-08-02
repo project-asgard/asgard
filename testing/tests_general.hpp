@@ -259,6 +259,25 @@ P calculate_integral(asgard::fk::vector<P> const &input,
   P integral = grid_spacing * sum;
   return integral;
 }
+
+/**
+ * \brief Calculates the l2 between two vectors
+ */
+template<typename P>
+P calculate_l2(asgard::fk::vector<P> const &sol,
+               asgard::fk::vector<P> const &analytic)
+{
+  expect(sol.size() == analytic.size());
+
+  P l2 = 0.0;
+  for (int i = 0; i < sol.size(); i++)
+  {
+    P const diff = sol[i] - analytic[i];
+    l2 += diff * diff;
+  }
+  return std::sqrt(l2);
+}
+
 namespace asgard
 {
 /*!

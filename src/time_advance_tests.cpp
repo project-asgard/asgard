@@ -1739,16 +1739,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
           transformer, degree, time + pde->get_dt());
 
       // calculate L2 error between simulation and analytical solution
-      fk::vector<TestType> const diff = f_val - analytic_solution;
-      auto const L2                   = [&diff]() -> TestType {
-        asgard::fk::vector<TestType> squared(diff);
-        std::transform(squared.begin(), squared.end(), squared.begin(),
-                       [](TestType const &elem) { return elem * elem; });
-        auto const mean = std::accumulate(squared.begin(), squared.end(), 0.0);
-        return std::sqrt(mean);
-      }();
-      auto const relative_error =
-          L2 / asgard::inf_norm(analytic_solution) * 100;
+      TestType const L2 = calculate_l2(f_val, analytic_solution);
+      TestType const relative_error =
+          TestType{100.0} * (L2 / asgard::inf_norm(analytic_solution));
       auto const [l2_errors, relative_errors] =
           asgard::gather_errors<TestType>(L2, relative_error);
       expect(l2_errors.size() == relative_errors.size());
