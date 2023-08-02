@@ -76,7 +76,7 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
  */
 template<typename T>
 void cpu_dense(int const dimensions, int const n, int const num_rows,
-               int const num_cols, int const num_terms, int const elements[],
+               int const num_cols, int const num_terms, int const elem[],
                T const * const vA[], int const num_1d_blocks, T const alpha,
                T const x[], T const beta, T y[]);
 
