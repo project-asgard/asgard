@@ -48,8 +48,7 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const x_v) -> P { return 0.5; });
+    std::fill(fx.begin(), fx.end(), P{0.5});
     return fx;
   }
 
@@ -58,8 +57,7 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const x_v) -> P { return 0.5; });
+    std::fill(fx.begin(), fx.end(), P{0.5});
     return fx;
   }
 
@@ -318,10 +316,7 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      ignore(x_v);
-      return 1.0;
-    });
+    std::fill(fx.begin(), fx.end(), P{1.0});
     return fx;
   }
 
