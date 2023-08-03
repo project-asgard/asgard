@@ -284,6 +284,9 @@ void gesv(fk::matrix<P, amem> &A, fk::matrix<P, bmem> &B,
  *
  * \param A  n-by-n coefficient matrix
  * \param B  n-by-1 right hand side matrix
+ * \param uplo whether the matrix A is upper or lower triangular
+ * \param trans whether matrix A is transposed
+ * \param diag whether the matrix A is unit triangular
  */
 template<typename P, mem_type amem, mem_type bmem, resource resrc>
 void tpsv(fk::vector<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
