@@ -501,13 +501,13 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if constexpr (imex_resrc == resource::device)
   {
-    x = x_orig.clone_onto_device();
+    x          = x_orig.clone_onto_device();
     x_orig_dev = x_orig.clone_onto_device();
   }
   else
   {
-    x = x_orig;
-    x_orig_dev = x_orig;
+    x          = fk::vector<P>(x_orig);
+    x_orig_dev = fk::vector<P>(x_orig);
   }
 
   auto nodes = gen_realspace_nodes(degree, level, min, max);
@@ -732,12 +732,19 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   }
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
-  reduce_results(fx, reduced_fx, plan, get_rank());
 
-  fk::vector<P, mem_type::owner, resource::device> f_2s(x_orig.size());
-  exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
-  fm::axpy(f_2s, x, dt); // x here is f(1)
+  if constexpr (imex_resrc == resource::device)
+  {
+    reduce_results(fx, reduced_fx, plan, get_rank());
 
+    fk::vector<P, mem_type::owner, resource::device> f_2s(x_orig.size());
+    exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
+    fm::axpy(f_2s, x, dt); // x here is f(1)
+  }
+  else
+  {
+    fm::axpy(fx, x, dt); // x here is f(1)
+  }
   tools::timer.stop("explicit_1");
   tools::timer.start("implicit_1");
 
@@ -799,24 +806,29 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.start(apply_id);
   if constexpr (imex_resrc == resource::device)
   {
-    //fk::vector<P, mem_type::owner, resource::host> fx_host(x.size());
     operator_matrices[matrix_entry::imex_explicit].apply(
-        1.0, x.clone_onto_host().data(), 0.0, fx_host.data());
+        1.0, f_2.clone_onto_host().data(), 0.0, fx_host.data());
     fx.transfer_from(fx_host);
   }
   else
   {
-    operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
+    operator_matrices[matrix_entry::imex_explicit].apply(1.0, f_2.data(), 0.0,
                                                          fx.data());
   }
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
-  reduce_results(fx, reduced_fx, plan, get_rank());
+  if constexpr (imex_resrc == resource::device)
+  {
+    reduce_results(fx, reduced_fx, plan, get_rank());
 
-  fk::vector<P, mem_type::owner, resource::device> t_f2(x_orig.size());
-  exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
-  fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
-
+    fk::vector<P, mem_type::owner, resource::device> t_f2(x_orig.size());
+    exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
+    fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
+  }
+  else
+  {
+    fm::axpy(fx, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
+  }
   fm::axpy(f_2, x);    // x is now f0 + f3
   fm::scal(P{0.5}, x); // x = 0.5 * (f0 + f3)
   tools::timer.stop("explicit_2");
@@ -853,7 +865,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
     else
     {
-      f_3                  = x;
+      f_3                  = fk::vector<P>(x);
       pde.gmres_outputs[1] = solver::simple_gmres_euler(
           P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
           f_3, x, restart, max_iter, tolerance);

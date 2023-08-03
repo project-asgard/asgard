@@ -1251,7 +1251,7 @@ template void exchange_results(
     fk::vector<double, mem_type::owner, resource::host> &dest,
     int const segment_size, distribution_plan const &plan, int const my_rank);
 
-//#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_CUDA
 template void reduce_results(
     fk::vector<double, mem_type::owner, resource::device> const &source,
     fk::vector<double, mem_type::owner, resource::device> &dest,
@@ -1261,7 +1261,7 @@ template void exchange_results(
     fk::vector<double, mem_type::owner, resource::device> const &source,
     fk::vector<double, mem_type::owner, resource::device> &dest,
     int const segment_size, distribution_plan const &plan, int const my_rank);
-//#endif
+#endif
 
 template std::array<fk::vector<double>, 2>
 gather_errors(double const root_mean_squared, double const relative);
@@ -1307,7 +1307,7 @@ template void exchange_results(
     fk::vector<float, mem_type::owner, resource::host> &dest,
     int const segment_size, distribution_plan const &plan, int const my_rank);
 
-//#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_CUDA
 template void reduce_results(
     fk::vector<float, mem_type::owner, resource::device> const &source,
     fk::vector<float, mem_type::owner, resource::device> &dest,
@@ -1317,7 +1317,7 @@ template void exchange_results(
     fk::vector<float, mem_type::owner, resource::device> const &source,
     fk::vector<float, mem_type::owner, resource::device> &dest,
     int const segment_size, distribution_plan const &plan, int const my_rank);
-//#endif
+#endif
 
 template std::array<fk::vector<float>, 2>
 gather_errors(float const root_mean_squared, float const relative);

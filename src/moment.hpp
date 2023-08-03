@@ -84,7 +84,6 @@ private:
   std::vector<std::vector<fk::vector<P>>> fList;
   fk::vector<P> vector;
   fk::matrix<P> moment_matrix;
-  fk::matrix<P, mem_type::owner, resource::device> moment_matrix_dev;
   fk::vector<P> realspace;
   fk::sparse<P, sparse_resrc> sparse_mat;
   // moment_fval_integral;
