@@ -1741,7 +1741,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
       // calculate L2 error between simulation and analytical solution
       TestType const L2 = calculate_l2(f_val, analytic_solution);
       TestType const relative_error =
-          TestType{100.0} * (L2 / asgard::inf_norm(analytic_solution));
+          TestType{100.0} * (L2 / asgard::l2_norm(analytic_solution));
       auto const [l2_errors, relative_errors] =
           asgard::gather_errors<TestType>(L2, relative_error);
       expect(l2_errors.size() == relative_errors.size());
