@@ -303,14 +303,22 @@ public:
    * \brief Computes y = alpha * kronmult_matrix * x + beta * y
    *
    * This method is not thread-safe!
+   *
+   * \tparam rec indicates whether the x and y buffers sit on the host or device
    */
+  template<resource rec = resource::host>
   void apply(precision alpha, precision const x[], precision beta,
              precision y[]) const
   {
 #ifdef ASGARD_USE_CUDA
-    if (beta != 0)
-      fk::copy_to_device(ydev.data(), y, ydev.size());
-    fk::copy_to_device(xdev.data(), x, xdev.size());
+    precision const *active_x = (rec == resource::host) ? xdev.data() : x;
+    precision *active_y       = (rec == resource::host) ? ydev.data() : y;
+    if constexpr (rec == resource::host)
+    {
+      if (beta != 0)
+        fk::copy_to_device(ydev.data(), y, ydev.size());
+      fk::copy_to_device(xdev.data(), x, xdev.size());
+    }
     if (is_dense())
     {
       if (iA.size() > 0)
@@ -318,7 +326,7 @@ public:
         // single call to kronmult, all data is on the GPU
         kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
                             num_batch(), num_cols_, num_terms_, iA.data(),
-                            vA.data(), alpha, xdev.data(), beta, ydev.data());
+                            vA.data(), alpha, active_x, beta, active_y);
       }
       else
       {
@@ -353,22 +361,22 @@ public:
           // note that the first call to gpu_dense with the given output_size()
           // will apply beta to the output y, thus follow on calls have to only
           // accumulate and beta should be set to 1
-          kronmult::gpu_dense(
-              num_dimensions_, kron_size_, output_size(),
-              list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
-              num_terms_, compute_buffer, vA.data(), alpha, xdev.data(),
-              (i == 0) ? beta : 1,
-              ydev.data() + i * list_row_stride_ * tensor_size_);
+          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                              list_iA[i].size() /
+                                  (num_dimensions_ * num_terms_),
+                              num_cols_, num_terms_, compute_buffer, vA.data(),
+                              alpha, active_x, (i == 0) ? beta : 1,
+                              active_y + i * list_row_stride_ * tensor_size_);
         }
 #else
         for (size_t i = 0; i < list_iA.size(); i++)
         {
-          kronmult::gpu_dense(
-              num_dimensions_, kron_size_, output_size(),
-              list_iA[i].size() / (num_dimensions_ * num_terms_), num_cols_,
-              num_terms_, list_iA[i].data(), vA.data(), alpha, xdev.data(),
-              (i == 0) ? beta : 1,
-              ydev.data() + i * list_row_stride_ * tensor_size_);
+          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                              list_iA[i].size() /
+                                  (num_dimensions_ * num_terms_),
+                              num_cols_, num_terms_, list_iA[i].data(),
+                              vA.data(), alpha, active_x, (i == 0) ? beta : 1,
+                              active_y + i * list_row_stride_ * tensor_size_);
         }
 #endif
       }
@@ -380,7 +388,7 @@ public:
         kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
                              col_indx_.size(), col_indx_.data(),
                              row_indx_.data(), num_terms_, iA.data(), vA.data(),
-                             alpha, xdev.data(), beta, ydev.data());
+                             alpha, active_x, beta, active_y);
       }
       else
       {
@@ -442,8 +450,8 @@ public:
           kronmult::gpu_sparse(num_dimensions_, kron_size_, output_size(),
                                list_row_indx_[i].size(), compute_buffer_cols,
                                compute_buffer_rows, num_terms_, compute_buffer,
-                               vA.data(), alpha, xdev.data(),
-                               (i == 0) ? beta : 1, ydev.data());
+                               vA.data(), alpha, active_x, (i == 0) ? beta : 1,
+                               active_y);
         }
 #else
         for (size_t i = 0; i < list_iA.size(); i++)
@@ -452,13 +460,17 @@ public:
               num_dimensions_, kron_size_, output_size(),
               list_row_indx_[i].size(), list_col_indx_[i].data(),
               list_row_indx_[i].data(), num_terms_, list_iA[i].data(),
-              vA.data(), alpha, xdev.data(), (i == 0) ? beta : 1, ydev.data());
+              vA.data(), alpha, active_x, (i == 0) ? beta : 1, active_y);
         }
 #endif
       }
     }
-    fk::copy_to_host(y, ydev.data(), ydev.size());
+    if constexpr (rec == resource::host)
+      fk::copy_to_host(y, ydev.data(), ydev.size());
 #else
+    static_assert(rec == resource::host,
+                  "CUDA not enabled, only resource::host is allowed for "
+                  "the kronmult_matrix::apply() template parameter");
     if (is_dense())
     {
       if (iA.size() > 0)

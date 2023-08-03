@@ -14,7 +14,8 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
 constexpr bool sparse_mode = true;
 constexpr bool dense_mode  = false;
 
-template<typename T, bool matrix_mode = sparse_mode>
+template<typename T, bool matrix_mode = sparse_mode,
+         asgard::resource rec = asgard::resource::host>
 void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
                    int num_matrices)
 {
@@ -108,7 +109,26 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
 
 #endif
 
+#ifdef ASGARD_USE_CUDA
+  if constexpr (rec == asgard::resource::device)
+  {
+    asgard::fk::vector<T, asgard::mem_type::owner, asgard::resource::device> xt(
+        kmat.input_size());
+    asgard::fk::vector<T, asgard::mem_type::owner, asgard::resource::device> yt(
+        kmat.output_size());
+    asgard::fk::copy_to_device(xt.data(), data->input_x.data(), xdev.size());
+    asgard::fk::copy_to_device(yt.data(), data->output_y.data(), ydev.size());
+    kmat.template apply<rec>(1.0, xt.data(), 1.0, yt.data());
+    asgard::fk::copy_to_host(data->output_y.data(), yt.data(), yt.size());
+  }
+  else
+  {
+    kmat.template apply<rec>(1.0, data->input_x.data(), 1.0,
+                             data->output_y.data());
+  }
+#else
   kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
+#endif
 
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
@@ -212,6 +232,8 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", test_precs)
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
   test_kronmult<TestType, dense_mode>(1, n, 11, 2, 7);
   test_kronmult<TestType, sparse_mode>(1, n, 11, 2, 7);
+  test_kronmult<TestType, sparse_mode, asgard::resource::device>(1, n, 11, 2,
+                                                                 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", test_precs)
@@ -219,6 +241,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", test_precs)
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
                    18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
   test_kronmult<TestType, dense_mode>(2, n, 13, 2, 7);
+  test_kronmult<TestType, dense_mode, asgard::resource::device>(2, n, 13, 2, 7);
   test_kronmult<TestType, sparse_mode>(2, n, 13, 2, 7);
 }
 
@@ -226,7 +249,10 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[execute_gpu 3d]", test_precs)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
   test_kronmult<TestType, dense_mode>(3, n, 17, 3, 7);
+  test_kronmult<TestType, dense_mode, asgard::resource::device>(3, n, 17, 3, 7);
   test_kronmult<TestType, sparse_mode>(3, n, 17, 3, 7);
+  test_kronmult<TestType, sparse_mode, asgard::resource::device>(3, n, 17, 3,
+                                                                 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[execute_gpu 4d]", test_precs)
