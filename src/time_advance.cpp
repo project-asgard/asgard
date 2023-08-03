@@ -733,11 +733,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
 
-  if constexpr (imex_resrc == resource::device)
+  if constexpr (imex_resrc == resource::host)
   {
     reduce_results(fx, reduced_fx, plan, get_rank());
 
-    fk::vector<P, mem_type::owner, resource::device> f_2s(x_orig.size());
+    fk::vector<P, mem_type::owner, resource::host> f_2s(x_orig.size());
     exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
     fm::axpy(f_2s, x, dt); // x here is f(1)
   }
@@ -817,11 +817,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   }
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
-  if constexpr (imex_resrc == resource::device)
+  if constexpr (imex_resrc == resource::host)
   {
     reduce_results(fx, reduced_fx, plan, get_rank());
 
-    fk::vector<P, mem_type::owner, resource::device> t_f2(x_orig.size());
+    fk::vector<P, mem_type::owner, resource::host> t_f2(x_orig.size());
     exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
     fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
   }
