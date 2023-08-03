@@ -945,7 +945,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
 
             // totalA *= vA[d][ ix[d] * num_1d_blocks + iy[d] ];
 
-          T const *const A = &vA[0][ ix[0] * num_1d_blocks + iy[0] ];
+          T const *const A = &vA[0][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
           T Y[n]           = {{0}};
           ASGARD_PRAGMA_OMP_SIMD(collapse(2))
           for (int j = 0; j < n; j++)
