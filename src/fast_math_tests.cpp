@@ -840,6 +840,32 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", test_precs)
     rmse_comparison(fk::vector<TestType>(x_mat), X_gold, tol_factor);
   }
 
+  fk::vector<TestType> const A_packed_gold{1., 2., 3., 4., 5., 6.};
+  fk::vector<TestType> const B_packed_gold{1., 1., 1.};
+  fk::vector<TestType> const X_packed_gold{
+      0.22222222222222220989, 0.05555555555555557329, 0.16666666666666665741};
+
+  SECTION("tpsv (host)")
+  {
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+
+    auto x = B_packed_gold;
+    fm::tpsv(A_packed_gold, x);
+    rmse_comparison(x, X_packed_gold, tol_factor);
+  }
+
+#ifdef ASGARD_USE_CUDA
+  SECTION("tpsv (device)")
+  {
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+
+    auto A_d = A_packed_gold.clone_onto_device();
+    auto x_d = B_packed_gold.clone_onto_device();
+    fm::tpsv(A_d, x_d);
+    rmse_comparison(x_d.clone_onto_host(), X_packed_gold, tol_factor);
+  }
+#endif
+
 #ifdef ASGARD_USE_SCALAPACK
   SECTION("scalapack_gesv and scalapack_getrs")
   {

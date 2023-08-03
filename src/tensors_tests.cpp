@@ -668,6 +668,37 @@ TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
     REQUIRE(test_view.scale(x2) == zeros);
     REQUIRE(test_own == zeros);
   }
+
+#ifdef ASGARD_USE_CUDA
+  SECTION("vector scale in place")
+  {
+    if constexpr (std::is_floating_point_v<TestType>)
+    {
+      TestType const x = 2.0;
+      fk::vector<TestType, mem_type::owner, resource::device> test(gold.size());
+      fk::copy_vector(test, gold);
+      fk::vector<TestType, mem_type::owner, resource::device> test_own(test);
+      fk::vector<TestType, mem_type::view, resource::device> test_view(
+          test_own);
+
+      fk::vector<TestType> const ans = {4, 6, 8, 10, 12};
+
+      REQUIRE(test.scale(x).clone_onto_host() == ans);
+      REQUIRE(test_view.scale(x).clone_onto_host() == ans);
+      REQUIRE(test_own.clone_onto_host() == ans);
+
+      fk::copy_vector(test, gold);
+      fk::copy_vector(test_own, gold);
+
+      TestType const x2 = 0.0;
+      fk::vector<TestType> const zeros(gold.size());
+
+      REQUIRE(test.scale(x2).clone_onto_host() == zeros);
+      REQUIRE(test_view.scale(x2).clone_onto_host() == zeros);
+      REQUIRE(test_own.clone_onto_host() == zeros);
+    }
+  }
+#endif
 } // end fk::vector operators
 
 TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
@@ -893,6 +924,33 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     REQUIRE(test_middle == gold_cv.extract(2, 3));
     REQUIRE(test_end == gold_cv.extract(3, 4));
   }
+#ifdef ASGARD_USE_CUDA
+  SECTION("vector extract")
+  {
+    fk::vector<TestType> const test_begin  = {2, 3, 4};
+    fk::vector<TestType> const test_middle = {4, 5};
+    fk::vector<TestType> const test_end    = {5, 6};
+
+    auto const gold_d = gold.clone_onto_device();
+    fk::vector<TestType, mem_type::owner, resource::device> gold_copy_d(gold_d);
+    fk::vector<TestType, mem_type::view, resource::device> const gold_v_d(
+        gold_copy_d);
+    fk::vector<TestType, mem_type::const_view, resource::device> const
+        gold_cv_d(gold_d);
+
+    REQUIRE(test_begin == gold_d.extract(0, 2).clone_onto_host());
+    REQUIRE(test_middle == gold_d.extract(2, 3).clone_onto_host());
+    REQUIRE(test_end == gold_d.extract(3, 4).clone_onto_host());
+
+    REQUIRE(test_begin == gold_v_d.extract(0, 2).clone_onto_host());
+    REQUIRE(test_middle == gold_v_d.extract(2, 3).clone_onto_host());
+    REQUIRE(test_end == gold_v_d.extract(3, 4).clone_onto_host());
+
+    REQUIRE(test_begin == gold_cv_d.extract(0, 2).clone_onto_host());
+    REQUIRE(test_middle == gold_cv_d.extract(2, 3).clone_onto_host());
+    REQUIRE(test_end == gold_cv_d.extract(3, 4).clone_onto_host());
+  }
+#endif
   SECTION("vector transform")
   {
     fk::vector<TestType> test{-1, 1, 2, 3};
@@ -2518,6 +2576,65 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
     test_p = orig_p;
     REQUIRE(test_p.update_col(2, testv_v_p) == gold_v_p);
   }
+#ifdef ASGARD_USE_CUDA
+  SECTION("matrix update_col(fk::vector)")
+  {
+    // clang-format off
+    fk::matrix<TestType,mem_type::owner,resource::device> test {
+      {12, 22, 0},
+      {13, 23, 0},
+      {14, 24, 0},
+      {15, 25, 0},
+      {16, 26, 52},
+    }; // clang-format on
+    fk::matrix<TestType, mem_type::owner, resource::device> const orig(test);
+
+    // clang-format off
+    fk::matrix<TestType, mem_type::owner,resource::device> test_p {
+      {13, 23, 0},
+      {14, 24, 0},
+      {15, 25, 0}
+    }; // clang-format on
+    fk::matrix<TestType, mem_type::owner, resource::device> const orig_p(
+        test_p);
+
+    fk::matrix<TestType, mem_type::const_view> const gold_v_p(gold, 1, 3, 0, 2);
+
+    fk::matrix<TestType, mem_type::owner, resource::device> own(test);
+    fk::matrix<TestType, mem_type::view, resource::device> test_v(own);
+
+    fk::matrix<TestType, mem_type::owner, resource::device> own_p(test);
+    fk::matrix<TestType, mem_type::view, resource::device> test_v_p(own_p, 1, 3,
+                                                                    0, 2);
+
+    fk::vector<TestType, mem_type::owner, resource::device> testv{32, 33, 34,
+                                                                  35, 36};
+    fk::vector<TestType, mem_type::view, resource::device> const testv_v(testv);
+    fk::vector<TestType, mem_type::const_view, resource::device> const testv_cv(
+        testv);
+
+    fk::vector<TestType, mem_type::owner, resource::device> const testv_p =
+        testv.extract(1, 3);
+    fk::vector<TestType, mem_type::const_view, resource::device> const
+        testv_v_p(testv_p);
+
+    REQUIRE(test.update_col(2, testv).clone_onto_host() == gold);
+    test = orig;
+    REQUIRE(test.update_col(2, testv_v).clone_onto_host() == gold);
+    test = orig;
+    REQUIRE(test.update_col(2, testv_cv).clone_onto_host() == gold);
+
+    REQUIRE(test_v.update_col(2, testv).clone_onto_host() == gold);
+    test_v = orig;
+    REQUIRE(test_v.update_col(2, testv_v).clone_onto_host() == gold);
+    test_v = orig;
+    REQUIRE(test_v.update_col(2, testv_cv).clone_onto_host() == gold);
+
+    REQUIRE(test_p.update_col(2, testv_p).clone_onto_host() == gold_v_p);
+    test_p = orig_p;
+    REQUIRE(test_p.update_col(2, testv_v_p).clone_onto_host() == gold_v_p);
+  }
+#endif
   SECTION("matrix update_col(std::vector)")
   {
     // clang-format off

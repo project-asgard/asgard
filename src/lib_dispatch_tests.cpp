@@ -1308,14 +1308,14 @@ TEMPLATE_TEST_CASE("tpsv", "[lib_dispatch]", test_precs)
 #ifdef ASGARD_USE_CUDA
   SECTION("tpsv on device")
   {
-    fk::vector<TestType, mem_type::owner, resource::device> A_gold =
+    fk::vector<TestType, mem_type::owner, resource::device> A_packed_gold_d =
         A_packed_gold.clone_onto_device();
     fk::vector<TestType, mem_type::owner, resource::device> x =
         B_gold.clone_onto_device();
     int ldb = x.size();
 
-    lib_dispatch::tpsv<resource::device>('U', 'N', 'N', ldb, A_gold.data(),
-                                         x.data(), 1);
+    lib_dispatch::tpsv<resource::device>('U', 'N', 'N', ldb,
+                                         A_packed_gold_d.data(), x.data(), 1);
     auto constexpr tol_factor = get_tolerance<TestType>(10);
     rmse_comparison(x.clone_onto_host(), X_gold, tol_factor);
   };
