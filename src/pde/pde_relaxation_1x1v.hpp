@@ -72,7 +72,8 @@ private:
     fk::vector<P> fx(x.size());
     for (int i = 0; i < x.size(); i++)
     {
-      fx[i] = coefficient * std::exp(-(0.5 / theta) * std::pow(x[i] - ux, 2));
+      fx[i] =
+          coefficient * std::exp(-(0.5 / theta) * (x[i] - ux) * (x[i] - ux));
     }
     return fx;
   }
@@ -88,7 +89,8 @@ private:
     fk::vector<P> fx(x.size());
     for (int i = 0; i < x.size(); i++)
     {
-      fx[i] = coefficient * std::exp(-(0.5 / theta) * std::pow(x[i] - ux, 2));
+      fx[i] =
+          coefficient * std::exp(-(0.5 / theta) * (x[i] - ux) * (x[i] - ux));
     }
     return fx;
   }
@@ -127,7 +129,7 @@ private:
     fk::vector<P> f(x.size());
     for (int i = 0; i < x.size(); i++)
     {
-      f[i] = std::pow(x[i], 2);
+      f[i] = x[i] * x[i];
     }
     return f;
   }
@@ -327,13 +329,14 @@ private:
   {
     ignore(t);
     P constexpr theta   = 2.75;
-    P constexpr u1      = 0.5;
+    P constexpr ux      = 0.5;
     P const coefficient = 1.0 / std::sqrt(2.0 * PI * theta);
 
     fk::vector<P> fx(x.size());
     for (int i = 0; i < x.size(); i++)
     {
-      fx[i] = coefficient * std::exp(-(0.5 / theta) * std::pow(x[i] - u1, 2));
+      fx[i] =
+          coefficient * std::exp(-(0.5 / theta) * (x[i] - ux) * (x[i] - ux));
     }
     return fx;
   }
