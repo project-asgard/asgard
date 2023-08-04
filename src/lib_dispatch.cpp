@@ -399,7 +399,6 @@ void copy(int64_t n, P const *x, P *y)
   {
 #ifdef ASGARD_USE_CUDA
     // function instantiated for these two fp types
-    static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     auto const success =
         cudaMemcpy(y, x, n * sizeof(P), cudaMemcpyDeviceToDevice);
     expect(success == cudaSuccess);
@@ -1438,6 +1437,9 @@ template void gemm<resource::host, int>(char transa, char transb, int m, int n,
                                         int ldc);
 
 #ifdef ASGARD_USE_CUDA
+
+template void copy<resource::device, int>(int64_t n, int const *x, int *y);
+
 #ifdef ASGARD_ENABLE_FLOAT
 template float nrm2<resource::device, float>(int, float const[], int);
 template void

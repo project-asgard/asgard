@@ -21,11 +21,12 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
              P const tolerance);
 
 // solves ( I - dt * mat ) * x = b
-template<typename P>
+template<typename P, resource resrc>
 gmres_info<P>
-simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat, fk::vector<P> &x,
-                   fk::vector<P> const &b, int const restart,
-                   int const max_iter, P const tolerance);
+simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
+                   fk::vector<P, mem_type::owner, resrc> &x,
+                   fk::vector<P, mem_type::owner, resrc> const &b,
+                   int const restart, int const max_iter, P const tolerance);
 
 template<typename P>
 int default_gmres_restarts(int num_cols);
