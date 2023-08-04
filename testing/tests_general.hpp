@@ -261,18 +261,17 @@ P calculate_integral(asgard::fk::vector<P> const &input,
 }
 
 /**
- * \brief Calculates the l2 between two vectors
+ * \brief Calculate the discrete l-2 norm of the difference between two vectors.
  */
 template<typename P>
-P calculate_l2(asgard::fk::vector<P> const &sol,
-               asgard::fk::vector<P> const &analytic)
+P nrm2_dist(asgard::fk::vector<P> const &x, asgard::fk::vector<P> const &y)
 {
-  expect(sol.size() == analytic.size());
+  expect(x.size() == y.size());
 
   P l2 = 0.0;
-  for (int i = 0; i < sol.size(); i++)
+  for (int i = 0; i < x.size(); i++)
   {
-    P const diff = sol[i] - analytic[i];
+    P const diff = x[i] - y[i];
     l2 += diff * diff;
   }
   return std::sqrt(l2);

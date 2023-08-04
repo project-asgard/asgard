@@ -1739,7 +1739,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
           transformer, degree, time + pde->get_dt());
 
       // calculate L2 error between simulation and analytical solution
-      TestType const L2 = calculate_l2(f_val, analytic_solution);
+      TestType const L2 = nrm2_dist(f_val, analytic_solution);
       TestType const relative_error =
           TestType{100.0} * (L2 / asgard::l2_norm(analytic_solution));
       auto const [l2_errors, relative_errors] =
