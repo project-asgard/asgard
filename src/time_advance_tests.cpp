@@ -1655,6 +1655,111 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   parameter_manager<TestType>::get_instance().reset();
 }
 
+TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "relaxation_1x1v";
+  fk::vector<int> const levels{0, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 10;
+
+  TestType constexpr gmres_tol =
+      std::is_same<TestType, double>::value ? 1.0e-10 : 1.0e-6;
+
+  // the expected L2 from analytical solution after the maxwellian has relaxed
+  TestType constexpr expected_l2 = 8.654e-4;
+  // rel tolerance for comparing l2
+  TestType constexpr tolerance = 1.0e-3;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  options const opts(parse);
+  elements::table const check(opts, *pde);
+
+  adapt::distributed_grid adaptive_grid(*pde, opts);
+  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                       *pde);
+
+  // -- compute dimension mass matrices
+  generate_dimension_mass_mat(*pde, transformer);
+
+  // -- set coeffs
+  generate_all_coefficients(*pde, transformer);
+
+  // -- generate moments
+  for (auto &m : pde->moments)
+  {
+    m.createFlist(*pde, opts);
+    expect(m.get_fList().size() > 0);
+
+    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    expect(m.get_vector().size() > 0);
+  }
+
+  // -- generate initial condition vector.
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+
+  generate_dimension_mass_mat(*pde, transformer);
+
+  fk::vector<TestType> f_val(initial_condition);
+  asgard::matrix_list<TestType> operator_matrices;
+
+  // -- time loop
+  for (int i = 0; i < opts.num_time_steps; ++i)
+  {
+    std::cout.setstate(std::ios_base::failbit);
+    TestType const time            = i * pde->get_dt();
+    bool const update_system       = i == 0;
+    fk::vector<TestType> const sol = time_advance::adaptive_advance(
+        asgard::time_advance::method::imex, *pde, operator_matrices,
+        adaptive_grid, transformer, opts, f_val, time, update_system);
+
+    f_val.resize(sol.size()) = sol;
+    std::cout.clear();
+
+    // get analytic solution at final time step to compare
+    if (i == opts.num_time_steps - 1)
+    {
+      fk::vector<TestType> const analytic_solution = sum_separable_funcs(
+          pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
+          transformer, degree, time + pde->get_dt());
+
+      // calculate L2 error between simulation and analytical solution
+      TestType const L2 = nrm2_dist(f_val, analytic_solution);
+      TestType const relative_error =
+          TestType{100.0} * (L2 / asgard::l2_norm(analytic_solution));
+      auto const [l2_errors, relative_errors] =
+          asgard::gather_errors<TestType>(L2, relative_error);
+      expect(l2_errors.size() == relative_errors.size());
+      for (int j = 0; j < l2_errors.size(); ++j)
+      {
+        // verify the l2 is close to the expected l2 from the analytical
+        // solution
+        TestType const abs_diff = std::abs(l2_errors[j] - expected_l2);
+        TestType const expected =
+            tolerance * std::max(std::abs(l2_errors[j]), std::abs(expected_l2));
+        REQUIRE(abs_diff <= expected);
+      }
+    }
+  }
+
+  parameter_manager<TestType>::get_instance().reset();
+}
+
 /*****************************************************************************
  * Testing the ability to split a matrix into multiple calls
  *****************************************************************************/

@@ -259,6 +259,24 @@ P calculate_integral(asgard::fk::vector<P> const &input,
   P integral = grid_spacing * sum;
   return integral;
 }
+
+/**
+ * \brief Calculate the discrete l-2 norm of the difference between two vectors.
+ */
+template<typename P>
+P nrm2_dist(asgard::fk::vector<P> const &x, asgard::fk::vector<P> const &y)
+{
+  expect(x.size() == y.size());
+
+  P l2 = 0.0;
+  for (int i = 0; i < x.size(); i++)
+  {
+    P const diff = x[i] - y[i];
+    l2 += diff * diff;
+  }
+  return std::sqrt(l2);
+}
+
 namespace asgard
 {
 /*!
