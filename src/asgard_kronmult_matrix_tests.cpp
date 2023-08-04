@@ -133,6 +133,23 @@ void test_kronmult(int dimensions, int n, int num_rows, int num_terms,
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
 
+template<typename P>
+void test_kronmult_welem(int dimensions, int n, int num_terms,
+                         int num_1d_blocks)
+{
+  constexpr bool precompute = true;
+
+  auto data = make_kronmult_welem<P, precompute>(dimensions, n, num_terms,
+                                                 num_1d_blocks);
+
+  cpu_dense<P>(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
+               data->elem.data(), data->get_offsets().data(), num_1d_blocks,
+               P{1.0}, data->input_x.data(), P{1.0}, data->output_y.data());
+
+  test_almost_equal(data->output_y, data->reference_y, 100);
+}
+
+
 TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", test_precs)
 {
   std::vector<TestType> A    = {1, 2, 3, 4};
@@ -159,6 +176,10 @@ TEMPLATE_TEST_CASE("testing kronmult cpu core dense", "[execute_cpu]",
   test_kronmult<TestType, dense_mode>(1, 2, 1, 1, 5);
   test_kronmult<TestType, dense_mode>(1, 2, 1, 2, 3);
   test_kronmult<TestType, dense_mode>(1, 2, 10, 2, 7);
+  test_kronmult_welem<TestType>(1, 2, 1, 1);
+  test_kronmult_welem<TestType>(1, 2, 1, 5);
+  test_kronmult_welem<TestType>(1, 2, 2, 5);
+  test_kronmult_welem<TestType>(1, 2, 2, 7);
 }
 TEMPLATE_TEST_CASE("testing kronmult cpu core sparse", "[execute_cpu]",
                    test_precs)
@@ -174,6 +195,12 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 1d", "[execute_cpu 1d]", test_precs)
   int n = GENERATE(1, 2, 3, 4, 5, 6);
   test_kronmult<TestType, dense_mode>(1, n, 11, 2, 7);
   test_kronmult<TestType, sparse_mode>(1, n, 11, 2, 7);
+}
+TEMPLATE_TEST_CASE("testing kronmult cpu 1d", "[dense_cpu 1d]", test_precs)
+{
+  //int n = GENERATE(1, 2, 3, 4, 5, 6);
+  int n = GENERATE(1, 2, 3, 4);
+  test_kronmult_welem<TestType>(1, n, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult cpu 2d", "[execute_cpu 2d]", test_precs)
