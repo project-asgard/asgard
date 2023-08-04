@@ -614,23 +614,27 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   auto calculate_moments =
       [&](fk::vector<P, mem_type::owner, imex_resrc> const &f_in) {
+        // \int f dv
         fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
         fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), f_in, mom0);
         fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
             pde_1d, mom0, adaptive_grid_1d.get_table(), transformer,
             tmp_workspace);
+        // n = \int f dv
         param_manager.get_parameter("n")->value = [&](P const x_v,
                                                       P const t = 0) -> P {
           ignore(t);
           return interp1(nodes, mom0_real, {x_v})[0];
         };
 
-        // TODO: refactor into more generic function
+        // \int f v_x dv
         fk::vector<P, mem_type::owner, imex_resrc> mom1(dense_size);
         fm::sparse_gemv(pde.moments[1].get_moment_matrix_dev(), f_in, mom1);
         fk::vector<P> &mom1_real = pde.moments[1].create_realspace_moment(
             pde_1d, mom1, adaptive_grid_1d.get_table(), transformer,
             tmp_workspace);
+
+        // u_x = \int f v_x  dv / n
         param_manager.get_parameter("u")->value = [&](P const x_v,
                                                       P const t = 0) -> P {
           return interp1(nodes, mom1_real, {x_v})[0] /
@@ -642,36 +646,36 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
           // Calculate additional moments for PDEs with more than one velocity
           // dimension
 
-          // moment 2 = moment1v2 = \int f v_{2} dv
+          // \int f v_{y} dv
           fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
           fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), f_in, mom2);
           fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
               pde_1d, mom2, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
 
-          // u2 = \int_v f v_1 dv / n(x)
+          // u_y = \int_v f v_y dv / n
           param_manager.get_parameter("u2")->value = [&](P const x_v,
                                                          P const t = 0) -> P {
             return interp1(nodes, mom2_real, {x_v})[0] /
                    param_manager.get_parameter("n")->value(x_v, t);
           };
 
-          // moment 3 = moment2v1
+          // \int f v_x^2 dv
           fk::vector<P, mem_type::owner, imex_resrc> mom3(dense_size);
           fm::sparse_gemv(pde.moments[3].get_moment_matrix_dev(), f_in, mom3);
           fk::vector<P> &mom3_real = pde.moments[3].create_realspace_moment(
               pde_1d, mom3, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
 
-          // moment 4 = moment2v2
+          // \int f v_y^2 dv
           fk::vector<P, mem_type::owner, imex_resrc> mom4(dense_size);
           fm::sparse_gemv(pde.moments[4].get_moment_matrix_dev(), f_in, mom4);
           fk::vector<P> &mom4_real = pde.moments[4].create_realspace_moment(
               pde_1d, mom4, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
 
-          // theta = \frac{ \int f(v_1^2 + v_2^2) dv }{ 2n(x)} - 0.5 * (u_1^2(x)
-          // + u_2^2(x))
+          // \theta = \frac{ \int f(v_x^2 + v_y^2) dv }{2n} - 0.5 * (u_x^2
+          // + u_y^2)
           param_manager.get_parameter("theta")->value =
               [&](P const x_v, P const t = 0) -> P {
             P const mom3_x = interp1(nodes, mom3_real, {x_v})[0];
@@ -694,6 +698,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
           fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
               pde_1d, mom2, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
+          // \theta = \int f v_x^2 dv / n - u_x^2
           param_manager.get_parameter("theta")->value =
               [&](P const x_v, P const t = 0) -> P {
             P const u = param_manager.get_parameter("u")->value(x_v, t);
