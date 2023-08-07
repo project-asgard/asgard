@@ -722,19 +722,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto const apply_id = tools::timer.start("kronmult - explicit");
 
   fk::vector<P, mem_type::owner, imex_resrc> fx(x.size());
-  if constexpr (imex_resrc == resource::device)
-  {
-    fx_host = x.clone_onto_host();
-    operator_matrices[matrix_entry::imex_explicit].apply(
-        1.0, x.clone_onto_host().data(), 0.0, fx_host.data());
-    // fx = fx_host.clone_onto_device();
-    fx.transfer_from(fx_host);
-  }
-  else
-  {
-    operator_matrices[matrix_entry::imex_explicit].apply(1.0, x.data(), 0.0,
-                                                         fx.data());
-  }
+  operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
+      1.0, x.data(), 0.0, fx.data());
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
 
@@ -771,21 +760,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    if constexpr (imex_resrc == resource::device)
-    {
-      fk::vector<P, mem_type::owner, resource::host> f_2_host;
-      f_2_host             = x.clone_onto_host();
-      pde.gmres_outputs[0] = solver::simple_gmres_euler(
-          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-          f_2_host, x.clone_onto_host(), restart, max_iter, tolerance);
-      f_2.transfer_from(f_2_host);
-    }
-    else
-    {
-      pde.gmres_outputs[0] = solver::simple_gmres_euler(
-          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-          restart, max_iter, tolerance);
-    }
+    pde.gmres_outputs[0] = solver::simple_gmres_euler(
+        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
+        restart, max_iter, tolerance);
   }
   else
   {
@@ -809,19 +786,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                                        adaptive_grid, program_opts);
 
   tools::timer.start(apply_id);
-  if constexpr (imex_resrc == resource::device)
-  {
-    operator_matrices[matrix_entry::imex_explicit].apply(
-        1.0, f_2.clone_onto_host().data(), 0.0, fx_host.data());
-    fx.transfer_from(fx_host);
-  }
-  else
-  {
-    operator_matrices[matrix_entry::imex_explicit].apply(1.0, f_2.data(), 0.0,
-                                                         fx.data());
-  }
+  operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
+      1.0, f_2.data(), 0.0, fx.data());
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
+
   if constexpr (imex_resrc == resource::host)
   {
     reduce_results(fx, reduced_fx, plan, get_rank());
@@ -834,6 +803,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   {
     fm::axpy(fx, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
   }
+
   fm::axpy(f_2, x);    // x is now f0 + f3
   fm::scal(P{0.5}, x); // x = 0.5 * (f0 + f3)
   tools::timer.stop("explicit_2");
@@ -860,24 +830,20 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    fk::vector<P, mem_type::owner, resource::host> f_3;
+    fk::vector<P, mem_type::owner, imex_resrc> f_3(x);
+    pde.gmres_outputs[1] = solver::simple_gmres_euler(
+        P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+        f_3, x, restart, max_iter, tolerance);
+    tools::timer.stop("implicit_2_solve");
+    tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)
     {
-      f_3                  = x.clone_onto_host();
-      pde.gmres_outputs[1] = solver::simple_gmres_euler(
-          P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-          f_3, x.clone_onto_host(), restart, max_iter, tolerance);
+      return f_3.clone_onto_host();
     }
     else
     {
-      f_3                  = fk::vector<P>(x);
-      pde.gmres_outputs[1] = solver::simple_gmres_euler(
-          P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-          f_3, x, restart, max_iter, tolerance);
+      return f_3;
     }
-    tools::timer.stop("implicit_2_solve");
-    tools::timer.stop("implicit_2");
-    return f_3;
   }
   else
   {
