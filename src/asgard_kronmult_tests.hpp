@@ -206,7 +206,7 @@ void reference_kronmult(int dimensions, int n, int num_rows, int num_terms,
 
   int const vstride = num_1d_blocks * num_1d_blocks * n * n;
 
-//#pragma omp parallel for
+#pragma omp parallel for
   for (int i = 0; i < num_rows; i++)
   {
     int const *iy = elem + i * dimensions;

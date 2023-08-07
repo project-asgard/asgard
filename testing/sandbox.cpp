@@ -69,10 +69,14 @@ int main(int, char **)
   //test_kronmult_welem<double>(1, 2, 2, 5);
   //test_kronmult_welem<double>(1, 2, 2, 7);
 
-  test_kronmult_welem<double>(1, 1, 3, 7);
-  test_kronmult_welem<double>(1, 2, 3, 7);
-  test_kronmult_welem<double>(1, 3, 3, 7);
+  //test_kronmult_welem<double>(1, 1, 3, 7);
+  //test_kronmult_welem<double>(1, 2, 3, 7);
+  //test_kronmult_welem<double>(1, 3, 3, 7);
 
+  //test_kronmult_welem<double>(2, 1, 3, 7);
+  test_kronmult_welem<double>(2, 2, 3, 7);
+  //test_kronmult_welem<double>(2, 3, 3, 7);
+  //test_kronmult_welem<double>(2, 4, 3, 7);
 
   return 0;
 }
