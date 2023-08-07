@@ -418,7 +418,8 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
 template<typename P, int dimensions, scalar_case alpha_case,
          scalar_case beta_case>
 void cpu_dense(int const n, int const num_rows, int const num_cols,
-               int const num_terms, int const elem[], P const * const vA[],
+               int const num_terms, int const elem[], int const row_offset,
+               int const col_offset, P const * const vA[],
                int const num_1d_blocks, P const alpha, P const x[],
                P const beta, P y[])
 {
@@ -449,11 +450,11 @@ void cpu_dense(int const n, int const num_rows, int const num_cols,
           y[ti + j] *= beta;
 
       // ma is the starting index of the operators for this y
-      int const *iy = elem + rowy * dimensions;
+      int const *iy = elem + (rowy + row_offset) * dimensions;
 
       for (int colx = 0; colx < num_cols; colx++)
       {
-        int const *ix = elem + colx * dimensions;
+        int const *ix = elem + (colx + col_offset) * dimensions;
 
         // tensor i (ti) is the first index of this tensor in x
         int const tj = colx * Y.size();

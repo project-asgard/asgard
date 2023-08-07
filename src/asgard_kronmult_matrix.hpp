@@ -105,8 +105,41 @@ public:
   //! \brief Creates uninitialized matrix cannot be used except to be reinitialized.
   kronmult_matrix()
       : num_dimensions_(0), kron_size_(0), num_rows_(0), num_cols_(0),
-        num_terms_(0), tensor_size_(0), flops_(0), list_row_stride_(0)
+        num_terms_(0), tensor_size_(0), flops_(0), list_row_stride_(0),
+        num_1d_blocks_(0)
   {}
+
+//  template<resource input_mode>
+//  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
+//                  int num_terms,
+//                  std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&cterms,
+//                  fk::vector<int, mem_type::owner, input_mode> &&celem,
+//                  int num1dblocks)
+//      : num_dimensions_(num_dimensions), kron_size_(kron_size),
+//        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
+//        tensor_size_(1), terms(std::move(cterms)), elem(std::move(celem)),
+//        num_1d_blocks_(num1dblocks)
+//  {
+//#ifdef ASGARD_USE_CUDA
+//    static_assert(
+//        input_mode == resource::device,
+//        "the GPU is enabled, so input vectors must have resource::device");
+//#else
+//    static_assert(
+//        input_mode == resource::host,
+//        "the GPU is disabled, so input vectors must have resource::host");
+//#endif
+//
+//    expect(terms.size() == num_terms);
+//    //for(int t=0; t<num_terms; t++)
+//    //  expect(
+//
+//    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+//
+//    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
+//
+//  }
+
   /*!
    * \brief Creates a new matrix and moves the data into internal structures.
    *
@@ -167,15 +200,15 @@ public:
   template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
                   int num_terms,
-                  fk::vector<int, mem_type::owner, input_mode> const &&row_indx,
-                  fk::vector<int, mem_type::owner, input_mode> const &&col_indx,
+                  fk::vector<int, mem_type::owner, input_mode> &&row_indx,
+                  fk::vector<int, mem_type::owner, input_mode> &&col_indx,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
         col_indx_(std::move(col_indx)), iA(std::move(index_A)),
-        list_row_stride_(0), vA(std::move(values_A))
+        list_row_stride_(0), vA(std::move(values_A)), num_1d_blocks_(0)
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -222,10 +255,8 @@ public:
   kronmult_matrix(
       int num_dimensions, int kron_size, int num_rows, int num_cols,
       int num_terms,
-      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
-          &&row_indx,
-      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
-          &&col_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&row_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&col_indx,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
       fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
@@ -672,6 +703,12 @@ private:
 
   // values of the kron matrices (loaded form the coefficients)
   fk::vector<precision, mem_type::owner, data_mode> vA;
+
+  // new dense mode
+  std::vector<fk::vector<precision, mem_type::owner, data_mode>> terms;
+  fk::vector<precision *, mem_type::owner, data_mode> term_pnts;
+  fk::vector<int, mem_type::owner, data_mode> elem;
+  int num_1d_blocks_;
 };
 
 /*!
