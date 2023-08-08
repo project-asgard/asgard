@@ -142,15 +142,17 @@ void test_kronmult_welem(int dimensions, int n, int num_terms,
   auto data = make_kronmult_welem<P, precompute>(dimensions, n, num_terms,
                                                  num_1d_blocks);
 
-  cpu_dense<P>(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
-               data->elem.data(), 0, 0, data->get_offsets().data(),
-               num_1d_blocks, P{1.0}, data->input_x.data(), P{1.0},
-               data->output_y.data());
+  //cpu_dense<P>(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
+  //             data->elem.data(), 0, 0, data->get_offsets().data(),
+  //             num_1d_blocks, P{1.0}, data->input_x.data(), P{1.0},
+  //             data->output_y.data());
 
   asgard::kronmult_matrix<P> kmat(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
                                   std::move(data->coefficients),
-                                  asgard::fk::vector<int>(data->elem), 
+                                  asgard::fk::vector<int>(data->elem),
                                   0, 0, num_1d_blocks);
+
+  kmat.apply_v2(1.0, data->input_x.data(), 1.0, data->output_y.data());
 
   test_almost_equal(data->output_y, data->reference_y, 100);
 }

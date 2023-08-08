@@ -131,12 +131,12 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect(terms.size() == static_cast<size_t>(num_terms));
+    expect(terms_.size() == static_cast<size_t>(num_terms_));
     for(int t=0; t<num_terms; t++)
       expect(terms_[t].size() ==
-                 num_1d_blocks_ * num_1d_blocks_ * kron_size_ * kron_size_);
+                 num_dimensions_ * num_1d_blocks_ * num_1d_blocks_ * kron_size_ * kron_size_);
 
-    term_pntr_ = fk::vector<precision *, mem_type::owner, data_mode>(num_dimensions_);
+    term_pntr_ = fk::vector<precision *, mem_type::owner, data_mode>(num_terms_);
     for(int t = 0; t < num_terms; t++)
       term_pntr_[t] = terms_[t].data();
 
@@ -337,9 +337,13 @@ public:
   }
 #endif
 
+  template<resource rec = resource::host>
   void apply_v2(precision alpha, precision const x[], precision beta,
                 precision y[]) const
   {
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_rows_, num_terms_,
+                          elem_.data(), 0, 0, term_pntr_.data(),
+                          num_1d_blocks_, alpha, x, beta, y);
   }
 
   /*!
