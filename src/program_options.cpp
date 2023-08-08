@@ -424,7 +424,7 @@ parser::parser(int argc, char const *const *argv)
           << '\n';
       valid = false;
     }
-    if (!(max_adapt_levels.empty() && do_adapt))
+    if (!max_adapt_levels.empty() && !do_adapt)
     {
       std::cerr
           << "input maximum adaptivity levels without enabling adaptivity..."
@@ -433,7 +433,7 @@ parser::parser(int argc, char const *const *argv)
     }
     for (int i = 0; i < max_adapt_levels.size(); ++i)
     {
-      if (max_adapt_levels[i] <= 0)
+      if (max_adapt_levels[i] < 0)
       {
         std::cerr << "Level must be >= 0" << '\n';
         valid = false;
