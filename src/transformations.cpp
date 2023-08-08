@@ -125,17 +125,17 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
 template<typename P>
 fk::vector<P>
 gen_realspace_nodes(int const degree, int const level, P const min, P const max,
-                    bool const use_degree_points)
+                    bool const use_degree_quad)
 {
   int const n      = pow(2, level);
   P const h        = (max - min) / n;
-  auto const lgwt  = legendre_weights<P>(degree, -1.0, 1.0, use_degree_points);
+  auto const lgwt  = legendre_weights<P>(degree, -1.0, 1.0, use_degree_quad);
   auto const roots = lgwt[0];
 
   unsigned int const dof = roots.size();
 
   // TODO: refactor this whole function.. it does a lot of unnecessary things
-  int const mat_dims = use_degree_points ? degree * n : dof * n;
+  int const mat_dims = use_degree_quad ? degree * n : dof * n;
   fk::vector<P> nodes(mat_dims);
   for (int i = 0; i < n; i++)
   {
@@ -446,7 +446,7 @@ template std::vector<fk::matrix<double>> gen_realspace_transform(
     bool const use_degree_quad);
 template fk::vector<double>
 gen_realspace_nodes(int const degree, int const level, double const min,
-                    double const max, bool const use_degree_points);
+                    double const max, bool const use_degree_quad);
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     std::vector<dimension<double>> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
@@ -501,7 +501,7 @@ template std::vector<fk::matrix<float>> gen_realspace_transform(
     bool const use_degree_quad);
 template fk::vector<float>
 gen_realspace_nodes(int const degree, int const level, float const min,
-                    float const max, bool const use_degree_points);
+                    float const max, bool const use_degree_quad);
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     std::vector<dimension<float>> const &pde,
     basis::wavelet_transform<float, resource::host> const &transformer,

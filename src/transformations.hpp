@@ -33,7 +33,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
 template<typename P>
 fk::vector<P>
 gen_realspace_nodes(int const degree, int const level, P const min, P const max,
-                    bool const use_degree_points = false);
+                    bool const use_degree_quad = false);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
