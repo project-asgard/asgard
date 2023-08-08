@@ -147,6 +147,11 @@ void test_kronmult_welem(int dimensions, int n, int num_terms,
                num_1d_blocks, P{1.0}, data->input_x.data(), P{1.0},
                data->output_y.data());
 
+  asgard::kronmult_matrix<P> kmat(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
+                                  std::move(data->coefficients),
+                                  asgard::fk::vector<int>(data->elem), 
+                                  0, 0, num_1d_blocks);
+
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
 

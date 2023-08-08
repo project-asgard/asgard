@@ -294,13 +294,12 @@ struct kronmult_intputs_welem
    * The starting coefficient should be p (if proved)
    * otherwise coefficients.data() will be used
    */
-  asgard::fk::vector<P*> get_offsets(P *p = nullptr)
+  asgard::fk::vector<P*> get_offsets()
   {
     asgard::fk::vector<P*> vA(num_terms);
 
-    vA[0] = (p == nullptr) ? coefficients.data() : p;
-    for(int t=1; t<num_terms; t++)
-        vA[t] = vA[t-1] + num_dimensions * kron_size * kron_size * index_range * index_range;
+    for(int t=0; t<num_terms; t++)
+        vA[t] = coefficients[t].data();
 
     return vA;
   }
@@ -308,7 +307,7 @@ struct kronmult_intputs_welem
   int num_dimensions, kron_size, num_terms, index_range;
   std::vector<int> elem;
 
-  std::vector<std::vector<P>> coefficients;
+  std::vector<asgard::fk::vector<P>> coefficients;
   std::vector<P> input_x;
   std::vector<P> output_y;
   std::vector<P> reference_y;

@@ -119,7 +119,7 @@ public:
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), terms_(std::move(terms)), elem_(std::move(elem)),
         row_offset_(row_offset), col_offset_(col_offset),
-        num_1d_blocks_(num1dblocks)
+        num_1d_blocks_(num_1d_blocks)
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -131,7 +131,7 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect(terms.size() == num_terms);
+    expect(terms.size() == static_cast<size_t>(num_terms));
     for(int t=0; t<num_terms; t++)
       expect(terms_[t].size() ==
                  num_1d_blocks_ * num_1d_blocks_ * kron_size_ * kron_size_);
@@ -336,6 +336,11 @@ public:
     icolb = fk::vector<int, mem_type::view, resource::device>(ixb);
   }
 #endif
+
+  void apply_v2(precision alpha, precision const x[], precision beta,
+                precision y[]) const
+  {
+  }
 
   /*!
    * \brief Computes y = alpha * kronmult_matrix * x + beta * y
