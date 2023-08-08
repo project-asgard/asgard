@@ -142,7 +142,9 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 {
   // get unrefined condition
 
-  auto const num_md_funcs = dims.front().initial_condition.size();
+  // TODO: this needs to be refactored to allow dimensions to have different
+  // number of md_funcs
+  auto const num_md_funcs = dims.back().initial_condition.size();
   std::vector<std::vector<vector_func<P>>> v_functions;
   for (auto const &dim : dims)
   {

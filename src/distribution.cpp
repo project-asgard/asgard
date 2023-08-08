@@ -286,8 +286,9 @@ find_column_dependencies(std::vector<int> const &row_boundaries,
   return column_dependencies;
 }
 
-template<typename P>
-void reduce_results(fk::vector<P> const &source, fk::vector<P> &dest,
+template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
+void reduce_results(fk::vector<P, src_mem, resrc> const &source,
+                    fk::vector<P, dst_mem, resrc> &dest,
                     distribution_plan const &plan, int const my_rank)
 {
   expect(source.size() == dest.size());
@@ -563,8 +564,9 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
 #endif
 }
 
-template<typename P>
-void exchange_results(fk::vector<P> const &source, fk::vector<P> &dest,
+template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
+void exchange_results(fk::vector<P, src_mem, resrc> const &source,
+                      fk::vector<P, dst_mem, resrc> &dest,
                       int const segment_size, distribution_plan const &plan,
                       int const my_rank)
 {
@@ -1238,13 +1240,28 @@ void scatter_matrix(P const *A, int const *descA, P *A_distr,
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template void reduce_results(fk::vector<double> const &source,
-                             fk::vector<double> &dest,
-                             distribution_plan const &plan, int const my_rank);
-template void exchange_results(fk::vector<double> const &source,
-                               fk::vector<double> &dest, int const segment_size,
-                               distribution_plan const &plan,
-                               int const my_rank);
+
+template void reduce_results(
+    fk::vector<double, mem_type::owner, resource::host> const &source,
+    fk::vector<double, mem_type::owner, resource::host> &dest,
+    distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    fk::vector<double, mem_type::owner, resource::host> const &source,
+    fk::vector<double, mem_type::owner, resource::host> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+
+#ifdef ASGARD_USE_CUDA
+template void reduce_results(
+    fk::vector<double, mem_type::owner, resource::device> const &source,
+    fk::vector<double, mem_type::owner, resource::device> &dest,
+    distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    fk::vector<double, mem_type::owner, resource::device> const &source,
+    fk::vector<double, mem_type::owner, resource::device> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+#endif
 
 template std::array<fk::vector<double>, 2>
 gather_errors(double const root_mean_squared, double const relative);
@@ -1279,13 +1296,28 @@ template void scatter_matrix<double>(double const *A, int const *descA,
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template void reduce_results(fk::vector<float> const &source,
-                             fk::vector<float> &dest,
-                             distribution_plan const &plan, int const my_rank);
-template void exchange_results(fk::vector<float> const &source,
-                               fk::vector<float> &dest, int const segment_size,
-                               distribution_plan const &plan,
-                               int const my_rank);
+
+template void
+reduce_results(fk::vector<float, mem_type::owner, resource::host> const &source,
+               fk::vector<float, mem_type::owner, resource::host> &dest,
+               distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    fk::vector<float, mem_type::owner, resource::host> const &source,
+    fk::vector<float, mem_type::owner, resource::host> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+
+#ifdef ASGARD_USE_CUDA
+template void reduce_results(
+    fk::vector<float, mem_type::owner, resource::device> const &source,
+    fk::vector<float, mem_type::owner, resource::device> &dest,
+    distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    fk::vector<float, mem_type::owner, resource::device> const &source,
+    fk::vector<float, mem_type::owner, resource::device> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+#endif
 
 template std::array<fk::vector<float>, 2>
 gather_errors(float const root_mean_squared, float const relative);
