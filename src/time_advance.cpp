@@ -685,14 +685,16 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         else if (pde.num_dims == 4 && pde.moments.size() > 3)
         {
           // Moments for 1X3V case
-          std::vector<fk::vector<P, mem_type::owner, resource::device>> moments;
+          // TODO: this will be refactored to replace dimension cases in the
+          // future
+          std::vector<fk::vector<P, mem_type::owner, imex_resrc>> moments;
           std::vector<fk::vector<P> *> moments_real;
           // Create moment matrices and realspace moments for all moments in PDE
-          for (int mom = 2; mom < pde.moments.size(); mom++)
+          for (size_t mom = 2; mom < pde.moments.size(); mom++)
           {
-            // moment 2 = moment1v2 = \int f v_{2} dv
+            // \int f v_{mom} dv
             moments.push_back(
-                fk::vector<P, mem_type::owner, resource::device>(dense_size));
+                fk::vector<P, mem_type::owner, imex_resrc>(dense_size));
             fm::sparse_gemv(pde.moments[mom].get_moment_matrix_dev(), f_in,
                             moments.back());
             moments_real.push_back(&pde.moments[mom].create_realspace_moment(
@@ -700,24 +702,22 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                 transformer, tmp_workspace));
           }
 
-          // moment 1_2
-          // u2 = \int_v f v_1 dv / n(x)
+          // u_y = \int_v f v_y dv / n
           param_manager.get_parameter("u2")->value =
               [&nodes, moments_real](P const x_v, P const t = 0) -> P {
             return interp1(nodes, *(moments_real[0]), {x_v})[0] /
                    param_manager.get_parameter("n")->value(x_v, t);
           };
 
-          // moment 1_3
-          // u3 = \int_v f v_1 dv / n(x)
+          // u_z = \int_v f v_z dv / n
           param_manager.get_parameter("u3")->value =
               [&nodes, moments_real](P const x_v, P const t = 0) -> P {
             return interp1(nodes, *(moments_real[1]), {x_v})[0] /
                    param_manager.get_parameter("n")->value(x_v, t);
           };
 
-          // theta = \frac{ \int f(v_1^2 + v_2^2) dv }{ 2n(x)} - 0.5 * (u_1^2(x)
-          // + u_2^2(x))
+          // \theta = \frac{ \int f(v_x^2 + v_y^2 + v_z^2) dv }{ 3n }
+          //          - (1/3) * (u_x^2 + u_y^2 + u_z^2)
           param_manager.get_parameter("theta")->value =
               [&nodes, moments_real](P const x_v, P const t = 0) -> P {
             P const mom4_x = interp1(nodes, *(moments_real[2]), {x_v})[0];
