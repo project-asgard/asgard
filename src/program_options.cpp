@@ -433,7 +433,7 @@ parser::parser(int argc, char const *const *argv)
     }
     for (int i = 0; i < max_adapt_levels.size(); ++i)
     {
-      if (max_adapt_levels[i] <= 0)
+      if (max_adapt_levels[i] < 0)
       {
         std::cerr << "Level must be >= 0" << '\n';
         valid = false;
