@@ -485,37 +485,30 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
       fk::vector<P, mem_type::view, resource::host>(workspace, dense_size,
                                                     dense_size * 2 - 1)};
 
-  // auto const &table    = adaptive_grid.get_table();
-  auto const &plan     = adaptive_grid.get_distrib_plan();
   auto const dt        = pde.get_dt();
   int const degree     = pde.get_dimensions()[0].get_degree();
   int const level      = pde.get_dimensions()[0].get_level();
   P const min          = pde.get_dimensions()[0].domain_min;
   P const max          = pde.get_dimensions()[0].domain_max;
-  int const elem_size  = static_cast<int>(std::pow(degree, pde.num_dims));
   int const N_elements = std::pow(2, level);
-
-  fk::vector<P, mem_type::owner, imex_resrc> x;
-  fk::vector<P, mem_type::owner, imex_resrc> x_orig_dev;
-  fk::vector<P, mem_type::owner, resource::host> fx_host;
-
-  if constexpr (imex_resrc == resource::device)
-  {
-    x          = x_orig.clone_onto_device();
-    x_orig_dev = x_orig.clone_onto_device();
-  }
-  else
-  {
-    x          = fk::vector<P>(x_orig);
-    x_orig_dev = fk::vector<P>(x_orig);
-  }
 
   auto nodes = gen_realspace_nodes(degree, level, min, max);
 
+#ifdef ASGARD_USE_CUDA
+  fk::vector<P, mem_type::owner, imex_resrc> x = x_orig.clone_onto_device();
+  fk::vector<P, mem_type::owner, imex_resrc> x_orig_dev =
+      x_orig.clone_onto_device();
+#else
+  fk::vector<P, mem_type::owner, imex_resrc> x          = x_orig;
+  fk::vector<P, mem_type::owner, imex_resrc> x_orig_dev = x_orig;
+
+  auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
+  int const elem_size    = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_local_rows = elem_size * grid.nrows();
 
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
+#endif
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
@@ -727,18 +720,16 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
 
-  if constexpr (imex_resrc == resource::host)
-  {
-    reduce_results(fx, reduced_fx, plan, get_rank());
+#ifndef ASGARD_USE_CUDA
+  reduce_results(fx, reduced_fx, plan, get_rank());
 
-    fk::vector<P, mem_type::owner, resource::host> f_2s(x_orig.size());
-    exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
-    fm::axpy(f_2s, x, dt); // x here is f(1)
-  }
-  else
-  {
-    fm::axpy(fx, x, dt); // x here is f(1)
-  }
+  fk::vector<P, mem_type::owner, resource::host> f_2s(x_orig.size());
+  exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
+  fm::axpy(f_2s, x, dt); // x here is f(1)
+#else
+  fm::axpy(fx, x, dt);   // x here is f(1)
+#endif
+
   tools::timer.stop("explicit_1");
   tools::timer.start("implicit_1");
 
@@ -791,18 +782,15 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
 
-  if constexpr (imex_resrc == resource::host)
-  {
-    reduce_results(fx, reduced_fx, plan, get_rank());
+#ifndef ASGARD_USE_CUDA
+  reduce_results(fx, reduced_fx, plan, get_rank());
 
-    fk::vector<P, mem_type::owner, resource::host> t_f2(x_orig.size());
-    exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
-    fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
-  }
-  else
-  {
-    fm::axpy(fx, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
-  }
+  fk::vector<P, mem_type::owner, resource::host> t_f2(x_orig.size());
+  exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
+  fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
+#else
+  fm::axpy(fx, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
+#endif
 
   fm::axpy(f_2, x);    // x is now f0 + f3
   fm::scal(P{0.5}, x); // x = 0.5 * (f0 + f3)
