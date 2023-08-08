@@ -240,7 +240,7 @@ struct kronmult_intputs_welem
   kronmult_intputs_welem(int dims, int ksize, int terms, int range) :
       num_dimensions(dims), kron_size(ksize), num_terms(terms),
       index_range(range),
-      coefficients(num_terms * num_dimensions * index_range * index_range * kron_size * kron_size)
+      coefficients(num_terms, std::vector<P>(num_dimensions * index_range * index_range * kron_size * kron_size))
   {
     int total = index_range;
     for(int d=1; d<num_dimensions; d++)
@@ -264,8 +264,9 @@ struct kronmult_intputs_welem
     std::minstd_rand park_miller(42);
     std::uniform_real_distribution<P> unif(-1.0, 1.0);
 
-    for(auto &c : coefficients)
-      c = unif(park_miller);
+    for(auto &cc : coefficients)
+      for(auto &c : cc)
+        c = unif(park_miller);
 
     int tensor_size = kron_size;
     for(int i=1; i<num_dimensions; i++)
@@ -307,7 +308,7 @@ struct kronmult_intputs_welem
   int num_dimensions, kron_size, num_terms, index_range;
   std::vector<int> elem;
 
-  std::vector<P> coefficients;
+  std::vector<std::vector<P>> coefficients;
   std::vector<P> input_x;
   std::vector<P> output_y;
   std::vector<P> reference_y;

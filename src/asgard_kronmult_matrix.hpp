@@ -106,39 +106,45 @@ public:
   kronmult_matrix()
       : num_dimensions_(0), kron_size_(0), num_rows_(0), num_cols_(0),
         num_terms_(0), tensor_size_(0), flops_(0), list_row_stride_(0),
-        num_1d_blocks_(0)
+        row_offset_(0), col_offset_(0), num_1d_blocks_(0)
   {}
 
-//  template<resource input_mode>
-//  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-//                  int num_terms,
-//                  std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&cterms,
-//                  fk::vector<int, mem_type::owner, input_mode> &&celem,
-//                  int num1dblocks)
-//      : num_dimensions_(num_dimensions), kron_size_(kron_size),
-//        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
-//        tensor_size_(1), terms(std::move(cterms)), elem(std::move(celem)),
-//        num_1d_blocks_(num1dblocks)
-//  {
-//#ifdef ASGARD_USE_CUDA
-//    static_assert(
-//        input_mode == resource::device,
-//        "the GPU is enabled, so input vectors must have resource::device");
-//#else
-//    static_assert(
-//        input_mode == resource::host,
-//        "the GPU is disabled, so input vectors must have resource::host");
-//#endif
-//
-//    expect(terms.size() == num_terms);
-//    //for(int t=0; t<num_terms; t++)
-//    //  expect(
-//
-//    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
-//
-//    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
-//
-//  }
+  template<resource input_mode>
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
+                  int num_terms,
+                  std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&terms,
+                  fk::vector<int, mem_type::owner, input_mode> &&elem,
+                  int row_offset, int col_offset, int num_1d_blocks)
+      : num_dimensions_(num_dimensions), kron_size_(kron_size),
+        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
+        tensor_size_(1), terms_(std::move(terms)), elem_(std::move(elem)),
+        row_offset_(row_offset), col_offset_(col_offset),
+        num_1d_blocks_(num1dblocks)
+  {
+#ifdef ASGARD_USE_CUDA
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, so input vectors must have resource::device");
+#else
+    static_assert(
+        input_mode == resource::host,
+        "the GPU is disabled, so input vectors must have resource::host");
+#endif
+
+    expect(terms.size() == num_terms);
+    for(int t=0; t<num_terms; t++)
+      expect(terms_[t].size() ==
+                 num_1d_blocks_ * num_1d_blocks_ * kron_size_ * kron_size_);
+
+    term_pntr_ = fk::vector<precision *, mem_type::owner, data_mode>(num_dimensions_);
+    for(int t = 0; t < num_terms; t++)
+      term_pntr_[t] = terms_[t].data();
+
+    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+
+    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
+
+  }
 
   /*!
    * \brief Creates a new matrix and moves the data into internal structures.
@@ -208,7 +214,8 @@ public:
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
         col_indx_(std::move(col_indx)), iA(std::move(index_A)),
-        list_row_stride_(0), vA(std::move(values_A)), num_1d_blocks_(0)
+        list_row_stride_(0), vA(std::move(values_A)), row_offset_(0),
+        col_offset_(0), num_1d_blocks_(0)
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -705,10 +712,10 @@ private:
   fk::vector<precision, mem_type::owner, data_mode> vA;
 
   // new dense mode
-  std::vector<fk::vector<precision, mem_type::owner, data_mode>> terms;
-  fk::vector<precision *, mem_type::owner, data_mode> term_pnts;
-  fk::vector<int, mem_type::owner, data_mode> elem;
-  int num_1d_blocks_;
+  std::vector<fk::vector<precision, mem_type::owner, data_mode>> terms_;
+  fk::vector<precision *, mem_type::owner, data_mode> term_pntr_;
+  fk::vector<int, mem_type::owner, data_mode> elem_;
+  int row_offset_, col_offset_, num_1d_blocks_;
 };
 
 /*!
