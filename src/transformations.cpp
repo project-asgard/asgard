@@ -71,9 +71,11 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer)
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    bool const use_degree_quad)
 {
-  return gen_realspace_transform(pde.get_dimensions(), transformer);
+  return gen_realspace_transform(pde.get_dimensions(), transformer,
+                                 use_degree_quad);
 }
 
 /* given a pde, for each dimension create a matrix where the columns are
@@ -81,7 +83,8 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension<P>> const &dims,
-    basis::wavelet_transform<P, resource::host> const &transformer)
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    bool const use_degree_quad)
 {
   /* contains a basis matrix for each dimension */
   std::vector<fk::matrix<P>> real_space_transform;
@@ -95,12 +98,12 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     int const n_segments     = fm::two_raised_to(level);
     int const deg_freedom_1d = d.get_degree() * n_segments;
     P const normalize        = (d.domain_max - d.domain_min) / n_segments;
-    fk::matrix<P> dimension_transform(deg_freedom_1d, deg_freedom_1d);
     /* create matrix of Legendre polynomial basis functions evaluated at the
      * roots */
-    bool const use_degree_quad = true;
     auto const roots =
         legendre_weights<P>(d.get_degree(), -1, 1, use_degree_quad)[0];
+    fk::matrix<P> dimension_transform(roots.size() * n_segments,
+                                      deg_freedom_1d);
     /* normalized legendre transformation matrix. Column i is legendre
        polynomial of degree i. element (i, j) is polynomial evaluated at jth
        root of the highest degree polynomial */
@@ -110,7 +113,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     for (int j = 0; j < n_segments; j++)
     {
       int const diagonal_pos = d.get_degree() * j;
-      dimension_transform.set_submatrix(diagonal_pos, diagonal_pos, basis);
+      dimension_transform.set_submatrix(roots.size() * j, diagonal_pos, basis);
     }
     real_space_transform.push_back(transformer.apply(dimension_transform, level,
                                                      basis::side::right,
@@ -121,16 +124,18 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
 
 template<typename P>
 fk::vector<P>
-gen_realspace_nodes(int const degree, int const level, P const min, P const max)
+gen_realspace_nodes(int const degree, int const level, P const min, P const max,
+                    bool const use_degree_points)
 {
-  int const n        = pow(2, level);
-  int const mat_dims = degree * n;
-  P const h          = (max - min) / n;
-  auto const lgwt    = legendre_weights<P>(degree, -1.0, 1.0, true);
-  auto const roots   = lgwt[0];
+  int const n      = pow(2, level);
+  P const h        = (max - min) / n;
+  auto const lgwt  = legendre_weights<P>(degree, -1.0, 1.0, use_degree_points);
+  auto const roots = lgwt[0];
 
   unsigned int const dof = roots.size();
 
+  // TODO: refactor this whole function.. it does a lot of unnecessary things
+  int const mat_dims = use_degree_points ? degree * n : dof * n;
   fk::vector<P> nodes(mat_dims);
   for (int i = 0; i < n; i++)
   {
@@ -144,17 +149,16 @@ gen_realspace_nodes(int const degree, int const level, P const min, P const max)
       xi[j] = (0.5 * (roots(j) + 1.0) + i) * h + min;
     }
 
-    std::vector<int> Iu(degree);
-    for (int j = 0, je = degree - 1; j < je; j++)
+    std::vector<int> Iu(dof);
+    for (std::size_t j = 0; j < dof; j++)
     {
-      Iu[j] = dof * i + j + 1;
+      Iu[j] = dof * i + j;
     }
-    Iu[degree - 1] = dof * (i + 1);
 
     for (std::size_t j = 0; j < dof; j++)
     {
       expect(j <= Iu.size());
-      nodes(Iu[j] - 1) = xi[j];
+      nodes(Iu[j]) = xi[j];
     }
   }
 
@@ -164,7 +168,8 @@ gen_realspace_nodes(int const degree, int const level, P const min, P const max)
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension_description<P>> const &dims,
-    basis::wavelet_transform<P, resource::host> const &transformer)
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    bool const use_degree_quad)
 {
   /* contains a basis matrix for each dimension */
   std::vector<fk::matrix<P>> real_space_transform;
@@ -178,11 +183,11 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     int const n_segments              = fm::two_raised_to(level);
     int const deg_freedom_1d          = d.degree * n_segments;
     P const normalize                 = (d.d_max - d.d_min) / n_segments;
-    fk::matrix<P> dimension_transform(deg_freedom_1d, deg_freedom_1d);
     /* create matrix of Legendre polynomial basis functions evaluated at the
      * roots */
-    bool const use_degree_quad = true;
     auto const roots = legendre_weights<P>(d.degree, -1, 1, use_degree_quad)[0];
+    fk::matrix<P> dimension_transform(roots.size() * n_segments,
+                                      deg_freedom_1d);
     /* normalized legendre transformation matrix. Column i is legendre
        polynomial of degree i. element (i, j) is polynomial evaluated at jth
        root of the highest degree polynomial */
@@ -192,7 +197,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     for (int j = 0; j < n_segments; j++)
     {
       int const diagonal_pos = d.degree * j;
-      dimension_transform.set_submatrix(diagonal_pos, diagonal_pos, basis);
+      dimension_transform.set_submatrix(roots.size() * j, diagonal_pos, basis);
     }
     real_space_transform.push_back(transformer.apply(dimension_transform, level,
                                                      basis::side::right,
@@ -228,7 +233,7 @@ void wavelet_to_realspace(
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
-      gen_realspace_transform(dims, transformer);
+      gen_realspace_transform(dims, transformer, false);
 
   // FIXME Assume the degree in the first dimension is equal across all the
   // remaining dimensions
@@ -285,7 +290,7 @@ void wavelet_to_realspace(
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
-      gen_realspace_transform(dims, transformer);
+      gen_realspace_transform(dims, transformer, false);
 
   // FIXME Assume the degree in the first dimension is equal across all the
   // remaining dimensions
@@ -437,16 +442,19 @@ recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
                int const index);
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
-    basis::wavelet_transform<double, resource::host> const &transformer);
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    bool const use_degree_quad);
 template fk::vector<double>
 gen_realspace_nodes(int const degree, int const level, double const min,
-                    double const max);
+                    double const max, bool const use_degree_points);
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     std::vector<dimension<double>> const &pde,
-    basis::wavelet_transform<double, resource::host> const &transformer);
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    bool const use_degree_quad);
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     std::vector<dimension_description<double>> const &pde,
-    basis::wavelet_transform<double, resource::host> const &transformer);
+    basis::wavelet_transform<double, resource::host> const &transformer,
+    bool const use_degree_quad);
 template void wavelet_to_realspace(
     PDE<double> const &pde, fk::vector<double> const &wave_space,
     elements::table const &table,
@@ -489,16 +497,19 @@ recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
                int const index);
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer);
-template fk::vector<float> gen_realspace_nodes(int const degree,
-                                               int const level, float const min,
-                                               float const max);
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    bool const use_degree_quad);
+template fk::vector<float>
+gen_realspace_nodes(int const degree, int const level, float const min,
+                    float const max, bool const use_degree_points);
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     std::vector<dimension<float>> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer);
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    bool const use_degree_quad);
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     std::vector<dimension_description<float>> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer);
+    basis::wavelet_transform<float, resource::host> const &transformer,
+    bool const use_degree_quad);
 template void wavelet_to_realspace(
     PDE<float> const &pde, fk::vector<float> const &wave_space,
     elements::table const &table,

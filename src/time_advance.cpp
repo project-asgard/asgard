@@ -486,13 +486,18 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   adapt::distributed_grid adaptive_grid_1d(pde_1d, opts_1d);
 
   // Create workspace for wavelet transform
-  auto const dense_size = dense_space_size(pde_1d);
-  fk::vector<P, mem_type::owner, resource::host> workspace(dense_size * 2);
+  auto const dense_size      = dense_space_size(pde_1d);
+  auto const quad_dense_size = std::accumulate(
+      pde_1d.get_dimensions().cbegin(), pde_1d.get_dimensions().cend(), int{1},
+      [](int const size, dimension<P> const &dim) {
+        return size * asgard::dense_dim_size(10, dim.get_level());
+      });
+  fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
       fk::vector<P, mem_type::view, resource::host>(workspace, 0,
-                                                    dense_size - 1),
-      fk::vector<P, mem_type::view, resource::host>(workspace, dense_size,
-                                                    dense_size * 2 - 1)};
+                                                    quad_dense_size - 1),
+      fk::vector<P, mem_type::view, resource::host>(workspace, quad_dense_size,
+                                                    quad_dense_size * 2 - 1)};
 
   auto const dt        = pde.get_dt();
   int const degree     = pde.get_dimensions()[0].get_degree();

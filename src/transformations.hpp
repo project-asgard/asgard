@@ -27,21 +27,25 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer);
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    bool const use_degree_quad = true);
 
 template<typename P>
-fk::vector<P> gen_realspace_nodes(int const degree, int const level,
-                                  P const min, P const max);
+fk::vector<P>
+gen_realspace_nodes(int const degree, int const level, P const min, P const max,
+                    bool const use_degree_points = false);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension<P>> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer);
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    bool const use_degree_quad = true);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension_description<P>> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer);
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    bool const use_degree_quad = true);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -284,14 +288,19 @@ inline int dense_space_size(PDE<P> const &pde)
   return dense_space_size(pde.get_dimensions());
 }
 
+inline int dense_dim_size(int const &degree, int const &level)
+{
+  return degree * fm::two_raised_to(level);
+}
+
 template<typename precision>
 inline int dense_space_size(std::vector<dimension<precision>> const &dims)
 {
   /* determine the length of the realspace solution */
   return std::accumulate(dims.cbegin(), dims.cend(), int{1},
                          [](int const size, dimension<precision> const &dim) {
-                           return size * dim.get_degree() *
-                                  fm::two_raised_to(dim.get_level());
+                           return size * dense_dim_size(dim.get_degree(),
+                                                        dim.get_level());
                          });
 }
 
@@ -302,7 +311,7 @@ dense_space_size(std::vector<dimension_description<precision>> const &dims)
   return std::accumulate(
       dims.cbegin(), dims.cend(), int{1},
       [](int const size, dimension_description<precision> const &dim) {
-        return size * dim.degree * fm::two_raised_to(dim.level);
+        return size * dense_dim_size(dim.degree, dim.level);
       });
 }
 
