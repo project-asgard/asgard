@@ -603,13 +603,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 #endif
 
   auto precond = preconditioner::block_jacobi_preconditioner<P>();
-  if (program_opts.use_precond)
-  {
-    auto id = asgard::tools::timer.start("gmres precond setup");
-    precond.construct(pde, adaptive_grid.get_table(), x.size(),
-                      imex_flag::imex_implicit);
-    asgard::tools::timer.stop(id);
-  }
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
@@ -927,6 +920,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
     if (program_opts.use_precond)
     {
+      auto id = asgard::tools::timer.start("gmres precond setup");
+      precond.construct(pde, adaptive_grid.get_table(), x.size(),
+                        imex_flag::imex_implicit);
+      asgard::tools::timer.stop(id);
+
 #ifdef ASGARD_IO_HIGHFIVE
       if (pde.cli.get_wavelet_output_freq() > 0)
       {
