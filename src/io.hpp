@@ -350,7 +350,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   // matrix one column at a time
   fk::matrix<P> A(dof, dof);
   fk::vector<P> kron_x(dof);
-  //fk::vector<P> kron_y(dof);
+  fk::vector<P> kron_y(dof);
   for (int col = 0; col < dof; col++)
   {
     // set current row to identity
@@ -361,7 +361,6 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
       kron_x(col - 1) = 0.0;
     }
 
-    fk::vector<P> kron_y(dof);
     mat.apply(P{1.0}, kron_x.data(), P{0.0}, kron_y.data());
     A.update_col(col, kron_y);
   }
@@ -514,30 +513,58 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
           HighFive::DataSpace({static_cast<size_t>(elements.size())}), plist)
       .write_raw(elements.data());
 
+  // save the term coefficient matrices
   auto coeff_group = file.createGroup("coeffs");
-
-  // auto term_group = file.createGroup("");
-
-  // HighFive::DataSetCreateProps plist_3d;
-  // plist_3d.add(HighFive::Chunking({hsize_t{1}, hsize_t{8}, hsize_t{8}}));
-  // plist_3d.add(HighFive::Deflate(9));
-
   for (int term = 0; term < pde.num_terms; term++)
   {
-    // auto &term_dset = coeff_group.createDataSet<P>(
-    //     "term" + std::to_string(term),
-    //     HighFive::DataSpace({pde.num_dims, dof, dof}), plist_3d);
     auto term_group = coeff_group.createGroup("term" + std::to_string(term));
 
     for (int dim = 0; dim < pde.num_dims; dim++)
     {
-      
       term_group
-          .createDataSet<P>("dim" + std::to_string(dim),
-                            HighFive::DataSpace({static_cast<size_t>(pde.get_coefficients(term, dim).nrows()),
-                                                 static_cast<size_t>(pde.get_coefficients(term, dim).ncols())}),
-                            plist_2d)
+          .createDataSet<P>(
+              "dim" + std::to_string(dim),
+              HighFive::DataSpace(
+                  {static_cast<size_t>(pde.get_coefficients(term, dim).nrows()),
+                   static_cast<size_t>(
+                       pde.get_coefficients(term, dim).ncols())}),
+              plist_2d)
           .write_raw(pde.get_coefficients(term, dim).data());
+    }
+  }
+
+  HighFive::DataSetCreateProps plist_pterm;
+  plist_pterm.add(HighFive::Chunking({hsize_t{2}, hsize_t{2}}));
+  plist_pterm.add(HighFive::Deflate(9));
+
+  // save the partial term coefficient matrices
+  auto pterm_coeff_group = file.createGroup("pterm_coeffs");
+  auto term_set          = pde.get_terms();
+  for (int term = 0; term < pde.num_terms; term++)
+  {
+    auto term_group =
+        pterm_coeff_group.createGroup("term" + std::to_string(term));
+
+    for (int dim = 0; dim < pde.num_dims; dim++)
+    {
+      int const level = pde.get_dimensions()[dim].get_level();
+
+      auto dim_group = term_group.createGroup("dim" + std::to_string(dim));
+
+      auto &pterms = term_set[term][dim].get_partial_terms();
+      for (size_t pterm = 0; pterm < pterms.size(); pterm++)
+      {
+        dim_group
+            .createDataSet<P>(
+                "pterm" + std::to_string(pterm),
+                HighFive::DataSpace(
+                    {static_cast<size_t>(
+                         pterms[pterm].get_coefficients(level).nrows()),
+                     static_cast<size_t>(
+                         pterms[pterm].get_coefficients(level).ncols())}),
+                plist_pterm)
+            .write_raw(pterms[pterm].get_coefficients(level).data());
+      }
     }
   }
 
