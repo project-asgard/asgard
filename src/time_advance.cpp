@@ -682,7 +682,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                    0.5 * (std::pow(u1, 2) + std::pow(u2, 2));
           };
         }
-        else if (pde.num_dims == 4 && pde.moments.size() > 3)
+        else if (pde.num_dims == 4 && pde.moments.size() > 6)
         {
           // Moments for 1X3V case
           // TODO: this will be refactored to replace dimension cases in the
@@ -692,7 +692,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
           // Create moment matrices and realspace moments for all moments in PDE
           for (size_t mom = 2; mom < pde.moments.size(); mom++)
           {
-            // \int f v_{mom} dv
+            // \int f v_x dv
             moments.push_back(
                 fk::vector<P, mem_type::owner, imex_resrc>(dense_size));
             fm::sparse_gemv(pde.moments[mom].get_moment_matrix_dev(), f_in,
@@ -731,8 +731,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
             P const n = param_manager.get_parameter("n")->value(x_v, t);
 
             return (mom4_x + mom5_x + mom6_x) / (3.0 * n) -
-                   (1.0 / 3.0) *
-                       (std::pow(u1, 2) + std::pow(u2, 2) + std::pow(u3, 2));
+                   (1.0 / 3.0) * (u1 * u1 + u2 * u2 + u3 * u3);
           };
         }
         else
