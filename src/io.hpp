@@ -372,8 +372,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
     A(col, col) += 1.0;
   }
 
-
-  //fk::matrix<P> precond_M = precond->get_matrix();
+  // fk::matrix<P> precond_M = precond->get_matrix();
 
   std::cout << " WRITING OUTPUT FILE '" << output_file_name << "'" << std::endl;
 
@@ -390,7 +389,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   plist.add(HighFive::Deflate(9));
 
   HighFive::DataSetCreateProps plist_2d;
-  plist_2d.add(HighFive::Chunking({hsize_t{8},hsize_t{8}}));
+  plist_2d.add(HighFive::Chunking({hsize_t{8}, hsize_t{8}}));
   plist_2d.add(HighFive::Deflate(9));
 
   H5Easy::dump(file, "pde", cli_input.get_pde_string());
@@ -401,14 +400,19 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   H5Easy::dump(file, "max_level", pde.max_level);
 
   // initial guess (x) of GMRES
-  file.createDataSet<P>("x", HighFive::DataSpace({x.size()}), plist)
+  file.createDataSet<P>(
+          "x", HighFive::DataSpace({static_cast<size_t>(x.size())}), plist)
       .write_raw(x.data());
   // RHS (b) of GMRES
-  file.createDataSet<P>("b", HighFive::DataSpace({b.size()}), plist)
+  file.createDataSet<P>(
+          "b", HighFive::DataSpace({static_cast<size_t>(b.size())}), plist)
       .write_raw(b.data());
 
   // (I - dt*A)
-  file.createDataSet<P>("A", HighFive::DataSpace({dof, dof}), plist_2d)
+  file.createDataSet<P>("A",
+                        HighFive::DataSpace({static_cast<size_t>(dof),
+                                             static_cast<size_t>(dof)}),
+                        plist_2d)
       .write_raw(A.data());
 
   // Get preconditioner M matrix
@@ -420,7 +424,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   {
     // get preconditioner matrix M
     std::vector<fk::matrix<P>> &blocks = precond_jacobi->precond_blks;
-    int nblocks                        = blocks.size();
+    size_t nblocks                     = blocks.size();
     int block_size                     = blocks[0].nrows();
 
     H5Easy::dump(file, "M_nblocks", nblocks);
@@ -429,13 +433,19 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
 
     // TODO: this is a hackish way to implement all of this.. can be done better
     auto row_dset = file.createDataSet<int>(
-        "M_rows", HighFive::DataSpace({nblocks * block_size * block_size}),
+        "M_rows",
+        HighFive::DataSpace(
+            {static_cast<size_t>(nblocks * block_size * block_size)}),
         plist);
     auto col_dset = file.createDataSet<int>(
-        "M_cols", HighFive::DataSpace({nblocks * block_size * block_size}),
+        "M_cols",
+        HighFive::DataSpace(
+            {static_cast<size_t>(nblocks * block_size * block_size)}),
         plist);
     auto val_dset = file.createDataSet<P>(
-        "M_vals", HighFive::DataSpace({nblocks * block_size * block_size}),
+        "M_vals",
+        HighFive::DataSpace(
+            {static_cast<size_t>(nblocks * block_size * block_size)}),
         plist);
 
     fk::vector<int> rows(block_size * block_size);
@@ -453,17 +463,23 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
 
     // for each block, write the values based on the (row,col) tuples. Add
     // offset to block index vectors for next block
-    for (int blk = 0; blk < nblocks; blk++)
+    for (size_t blk = 0; blk < nblocks; blk++)
     {
       auto &block = blocks[blk];
 
       size_t block_offset = blk * block_size;
 
-      row_dset.select({block_offset}, {block_size * block_size})
+      row_dset
+          .select({block_offset},
+                  {static_cast<size_t>(block_size * block_size)})
           .write_raw(rows.data());
-      col_dset.select({block_offset}, {block_size * block_size})
+      col_dset
+          .select({block_offset},
+                  {static_cast<size_t>(block_size * block_size)})
           .write_raw(cols.data());
-      val_dset.select({block_offset}, {block_size * block_size})
+      val_dset
+          .select({block_offset},
+                  {static_cast<size_t>(block_size * block_size)})
           .write_raw(block.data());
 
       // shift col, row indices by block offset
@@ -484,13 +500,17 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   //{
   //  others store as dense M.
   fk::matrix<P> precond_M = precond->get_matrix();
-  file.createDataSet<P>("M", HighFive::DataSpace({dof, dof}), plist_2d)
+  file.createDataSet<P>("M",
+                        HighFive::DataSpace({static_cast<size_t>(dof),
+                                             static_cast<size_t>(dof)}),
+                        plist_2d)
       .write_raw(precond_M.data());
   //}
 
   auto &elements = hash_table.get_active_table();
-  file.createDataSet<int>("elements", HighFive::DataSpace({elements.size()}),
-                          plist)
+  file.createDataSet<int>(
+          "elements",
+          HighFive::DataSpace({static_cast<size_t>(elements.size())}), plist)
       .write_raw(elements.data());
 
   auto coeff_group = file.createGroup("coeffs");
@@ -512,7 +532,9 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
     {
       term_group
           .createDataSet<P>("dim" + std::to_string(dim),
-                            HighFive::DataSpace({dof, dof}), plist_2d)
+                            HighFive::DataSpace({static_cast<size_t>(dof),
+                                                 static_cast<size_t>(dof)}),
+                            plist_2d)
           .write_raw(pde.get_coefficients(term, dim).data());
     }
   }
