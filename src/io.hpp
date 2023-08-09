@@ -151,15 +151,15 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   plist.add(HighFive::Chunking(hsize_t{64}));
   plist.add(HighFive::Deflate(9));
 
+  auto const dims = pde.get_dimensions();
   H5Easy::dump(file, "pde", cli_input.get_pde_string());
-  H5Easy::dump(file, "degree", cli_input.get_degree());
-  H5Easy::dump(file, "dt", cli_input.get_dt());
+  H5Easy::dump(file, "degree", dims[0].get_degree());
+  H5Easy::dump(file, "dt", pde.get_dt());
   H5Easy::dump(file, "time", time);
   H5Easy::dump(file, "ndims", pde.num_dims);
   H5Easy::dump(file, "max_level", pde.max_level);
   H5Easy::dump(file, "dof", dof);
   H5Easy::dump(file, "cli", cli_input.cli_opts);
-  auto const dims = pde.get_dimensions();
   for (size_t dim = 0; dim < dims.size(); ++dim)
   {
     auto const nodes =
@@ -324,8 +324,6 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 
   file.flush();
   tools::timer.stop("write_output");
-
-  std::cout << " DONE FILE WRITE" << std::endl;
 }
 
 template<typename P>
