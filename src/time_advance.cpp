@@ -487,7 +487,7 @@ void precond_block_jacobi(PDE<P> const &pde, elements::table const &table,
     fk::vector<int> const &coords = table.get_coords(element);
 
     // get 1D operator indices for each dimension
-    int indices[num_dims];
+    std::vector<int> indices(num_dims);
     for (int i = 0; i < num_dims; ++i)
     {
       indices[i] =

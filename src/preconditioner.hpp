@@ -31,6 +31,7 @@ public:
   {
     ignore(pde);
     ignore(table);
+    ignore(imex);
     this->construct(n);
   }
 
@@ -102,11 +103,8 @@ public:
     // this->precond.clear_and_resize(n, n);
     // this->pivots.resize(n);
 
-    int const num_dims = pde.num_dims;
-    int const degree   = pde.get_dimensions()[0].get_degree();
-
     this->num_blocks   = table.size();
-    this->degree       = degree;
+    this->degree       = pde.get_dimensions()[0].get_degree();
     this->num_dims     = pde.num_dims;
     this->precond_blks = std::vector<fk::matrix<P>>(this->num_blocks);
     this->blk_pivots   = std::vector<std::vector<int>>(this->num_blocks);
@@ -124,7 +122,7 @@ public:
                                              std::pow(degree, num_dims));
 
       // get 1D operator indices for each dimension
-      int indices[num_dims];
+      std::vector<int> indices(num_dims);
       for (int i = 0; i < num_dims; ++i)
       {
         indices[i] =
@@ -132,7 +130,7 @@ public:
       }
 
       // the index where this block is placed in the preconditioner matrix
-      int const matrix_offset = element * std::pow(degree, num_dims);
+      // int const matrix_offset = element * std::pow(degree, num_dims);
 
       for (int term = 0; term < pde.num_terms; term++)
       {
