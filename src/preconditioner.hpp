@@ -24,13 +24,17 @@ public:
   virtual void construct(int const n)
   {
     this->precond.clear_and_resize(n, n);
+    this->is_factored = false;
     pivots.resize(n);
   }
+
   virtual void construct(PDE<P> const &pde, elements::table const &table,
-                         int const n, imex_flag const imex)
+                         int const n, P const dt,
+                         imex_flag const imex = imex_flag::unspecified)
   {
     ignore(pde);
     ignore(table);
+    ignore(dt);
     ignore(imex);
     this->construct(n);
   }
@@ -73,11 +77,13 @@ public:
     fk::sparse<P> sp_y(speye<P>(n));
     this->precond.clear_and_resize(n, n) = std::move(sp_y.to_dense());
     this->pivots.resize(n);
+    this->is_factored = false;
     std::cout << " end eye construct\n";
   }
 
   virtual void construct(PDE<P> const &pde, elements::table const &table,
-                         int const n, imex_flag const imex) override
+                         int const n, P const dt,
+                         imex_flag const imex = imex_flag::unspecified) override
   {
     this->construct(n);
   }
@@ -94,7 +100,8 @@ public:
   ~block_jacobi_preconditioner() {}
 
   virtual void construct(PDE<P> const &pde, elements::table const &table,
-                         int const n, imex_flag const imex) override
+                         int const n, P const dt,
+                         imex_flag const imex = imex_flag::unspecified) override
   {
     // calculates a block jacobi preconditioner into and updates the precond
     // matrix
@@ -108,6 +115,7 @@ public:
     this->num_dims     = pde.num_dims;
     this->precond_blks = std::vector<fk::matrix<P>>(this->num_blocks);
     this->blk_pivots   = std::vector<std::vector<int>>(this->num_blocks);
+    this->is_factored  = false;
 
     std::cout << "PRECOND SIZE n = " << n << "\n";
     std::cout << "      precond dense mat size = " << this->precond.size()
@@ -178,7 +186,7 @@ public:
       }
 
       precond_blks[element] = eye<P>(std::pow(degree, num_dims)) -
-                              fm::scal(pde.get_dt(), precond_blks[element]);
+                              fm::scal(dt, precond_blks[element]);
 
       // precond_blks[element].print("ELEMENT BLOCK");
     }

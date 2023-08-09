@@ -920,8 +920,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
     if (program_opts.use_precond)
     {
-      auto id = asgard::tools::timer.start("gmres precond setup");
-      precond.construct(pde, adaptive_grid.get_table(), x.size(),
+      auto id = asgard::tools::timer.start("precond setup");
+      precond.construct(pde, adaptive_grid.get_table(), x.size(), dt,
                         imex_flag::imex_implicit);
       asgard::tools::timer.stop(id);
 
@@ -1038,6 +1038,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     if (program_opts.use_precond)
     {
+      auto id = asgard::tools::timer.start("precond setup");
+      precond.construct(pde, adaptive_grid.get_table(), x.size(), P{0.5} * dt,
+                        imex_flag::imex_implicit);
+      asgard::tools::timer.stop(id);
+
       pde.gmres_outputs[1] = solver::simple_gmres_euler_precond(
           P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
           f_3, x, precond, restart, max_iter, tolerance);
