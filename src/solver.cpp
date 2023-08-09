@@ -115,6 +115,9 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
     return (norm == 0.0) ? static_cast<P>(1.0) : norm;
   }();
 
+  // controls how often the inner residual print occurs
+  int const print_freq = restart / 3;
+
   fk::vector<P, mem_type::owner, resrc> residual(b);
   auto const compute_residual = [&]() {
     P const alpha = -1.0;
@@ -248,7 +251,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
         break; // depart the inner iteration loop
       }
 
-      if (i % 5 == 0)
+      if (i % print_freq == 0)
       {
         std::cout << "   -- GMRES inner iteration " << i << " / " << restart
                   << " w/ residual " << error << std::endl;
