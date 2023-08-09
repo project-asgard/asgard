@@ -152,7 +152,7 @@ void test_kronmult_welem(int dimensions, int n, int num_terms,
                                   asgard::fk::vector<int>(data->elem),
                                   0, 0, num_1d_blocks);
 
-  kmat.apply_v2(1.0, data->input_x.data(), 1.0, data->output_y.data());
+  kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
 
   test_almost_equal(data->output_y, data->reference_y, 100);
 }

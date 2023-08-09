@@ -143,7 +143,6 @@ public:
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
     flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
-
   }
 
   /*!
@@ -518,7 +517,14 @@ public:
     static_assert(rec == resource::host,
                   "CUDA not enabled, only resource::host is allowed for "
                   "the kronmult_matrix::apply() template parameter");
-    if (is_dense())
+
+    if (elem_.size() > 0)
+    {
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_rows_, num_terms_,
+                          elem_.data(), 0, 0, term_pntr_.data(),
+                          num_1d_blocks_, alpha, x, beta, y);
+    }
+    else if (is_dense())
     {
       if (iA.size() > 0)
       {
