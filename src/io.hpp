@@ -350,7 +350,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
   // matrix one column at a time
   fk::matrix<P> A(dof, dof);
   fk::vector<P> kron_x(dof);
-  fk::vector<P> kron_y(dof);
+  //fk::vector<P> kron_y(dof);
   for (int col = 0; col < dof; col++)
   {
     // set current row to identity
@@ -361,6 +361,7 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
       kron_x(col - 1) = 0.0;
     }
 
+    fk::vector<P> kron_y(dof);
     mat.apply(P{1.0}, kron_x.data(), P{0.0}, kron_y.data());
     A.update_col(col, kron_y);
   }
@@ -530,10 +531,11 @@ void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
 
     for (int dim = 0; dim < pde.num_dims; dim++)
     {
+      
       term_group
           .createDataSet<P>("dim" + std::to_string(dim),
-                            HighFive::DataSpace({static_cast<size_t>(dof),
-                                                 static_cast<size_t>(dof)}),
+                            HighFive::DataSpace({static_cast<size_t>(pde.get_coefficients(term, dim).nrows()),
+                                                 static_cast<size_t>(pde.get_coefficients(term, dim).ncols())}),
                             plist_2d)
           .write_raw(pde.get_coefficients(term, dim).data());
     }
