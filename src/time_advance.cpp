@@ -633,8 +633,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
           return interp1(nodes, mom1_real, {x_v})[0] /
                  param_manager.get_parameter("n")->value(x_v, t);
         };
-
-        if (pde.num_dims > 2 && pde.moments.size() > 3)
+        if (pde.num_dims == 3 && pde.moments.size() > 3)
         {
           // Calculate additional moments for PDEs with more than one velocity
           // dimension
@@ -681,6 +680,58 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
             return (mom3_x + mom4_x) / (2.0 * n) -
                    0.5 * (std::pow(u1, 2) + std::pow(u2, 2));
+          };
+        }
+        else if (pde.num_dims == 4 && pde.moments.size() > 6)
+        {
+          // Moments for 1X3V case
+          // TODO: this will be refactored to replace dimension cases in the
+          // future
+          std::vector<fk::vector<P, mem_type::owner, imex_resrc>> moments;
+          std::vector<fk::vector<P> *> moments_real;
+          // Create moment matrices and realspace moments for all moments in PDE
+          for (size_t mom = 2; mom < pde.moments.size(); mom++)
+          {
+            // \int f v_x dv
+            moments.push_back(
+                fk::vector<P, mem_type::owner, imex_resrc>(dense_size));
+            fm::sparse_gemv(pde.moments[mom].get_moment_matrix_dev(), f_in,
+                            moments.back());
+            moments_real.push_back(&pde.moments[mom].create_realspace_moment(
+                pde_1d, moments.back(), adaptive_grid_1d.get_table(),
+                transformer, tmp_workspace));
+          }
+
+          // u_y = \int_v f v_y dv / n
+          param_manager.get_parameter("u2")->value =
+              [&nodes, moments_real](P const x_v, P const t = 0) -> P {
+            return interp1(nodes, *(moments_real[0]), {x_v})[0] /
+                   param_manager.get_parameter("n")->value(x_v, t);
+          };
+
+          // u_z = \int_v f v_z dv / n
+          param_manager.get_parameter("u3")->value =
+              [&nodes, moments_real](P const x_v, P const t = 0) -> P {
+            return interp1(nodes, *(moments_real[1]), {x_v})[0] /
+                   param_manager.get_parameter("n")->value(x_v, t);
+          };
+
+          // \theta = \frac{ \int f(v_x^2 + v_y^2 + v_z^2) dv }{ 3n }
+          //          - (1/3) * (u_x^2 + u_y^2 + u_z^2)
+          param_manager.get_parameter("theta")->value =
+              [&nodes, moments_real](P const x_v, P const t = 0) -> P {
+            P const mom4_x = interp1(nodes, *(moments_real[2]), {x_v})[0];
+            P const mom5_x = interp1(nodes, *(moments_real[3]), {x_v})[0];
+            P const mom6_x = interp1(nodes, *(moments_real[4]), {x_v})[0];
+
+            P const u1 = param_manager.get_parameter("u")->value(x_v, t);
+            P const u2 = param_manager.get_parameter("u2")->value(x_v, t);
+            P const u3 = param_manager.get_parameter("u3")->value(x_v, t);
+
+            P const n = param_manager.get_parameter("n")->value(x_v, t);
+
+            return (mom4_x + mom5_x + mom6_x) / (3.0 * n) -
+                   (1.0 / 3.0) * (u1 * u1 + u2 * u2 + u3 * u3);
           };
         }
         else

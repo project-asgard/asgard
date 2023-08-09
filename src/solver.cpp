@@ -35,7 +35,9 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
       [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
           P const beta) -> void {
+        auto const apply_id = tools::timer.start("kronmult - implicit");
         mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
+        tools::timer.stop(apply_id, mat.flops());
         int one = 1, n = y.size();
         lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
       },
@@ -112,6 +114,9 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
     P const norm = fm::nrm2(b);
     return (norm == 0.0) ? static_cast<P>(1.0) : norm;
   }();
+
+  // controls how often the inner residual print occurs
+  int const print_freq = restart / 3;
 
   fk::vector<P, mem_type::owner, resrc> residual(b);
   auto const compute_residual = [&]() {
@@ -244,6 +249,12 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
         else if constexpr (resrc == resource::host)
           fm::gemv(m, s_view, x, false, P{1.0}, P{1.0});
         break; // depart the inner iteration loop
+      }
+
+      if (i % print_freq == 0)
+      {
+        std::cout << "   -- GMRES inner iteration " << i << " / " << restart
+                  << " w/ residual " << error << std::endl;
       }
     } // end of inner iteration loop
 
