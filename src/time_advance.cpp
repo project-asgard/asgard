@@ -606,7 +606,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   if (program_opts.use_precond)
   {
     auto id = asgard::tools::timer.start("gmres precond setup");
-    precond.construct(pde, adaptive_grid.get_table(), x.size());
+    precond.construct(pde, adaptive_grid.get_table(), x.size(),
+                      imex_flag::imex_implicit);
     asgard::tools::timer.stop(id);
   }
 

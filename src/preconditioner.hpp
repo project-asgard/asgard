@@ -26,8 +26,8 @@ public:
     this->precond.clear_and_resize(n, n);
     pivots.resize(n);
   }
-  virtual void
-  construct(PDE<P> const &pde, elements::table const &table, int const n)
+  virtual void construct(PDE<P> const &pde, elements::table const &table,
+                         int const n, imex_flag const imex)
   {
     ignore(pde);
     ignore(table);
@@ -76,7 +76,7 @@ public:
   }
 
   virtual void construct(PDE<P> const &pde, elements::table const &table,
-                         int const n) override
+                         int const n, imex_flag const imex) override
   {
     this->construct(n);
   }
@@ -93,7 +93,7 @@ public:
   ~block_jacobi_preconditioner() {}
 
   virtual void construct(PDE<P> const &pde, elements::table const &table,
-                         int const n) override
+                         int const n, imex_flag const imex) override
   {
     // calculates a block jacobi preconditioner into and updates the precond
     // matrix
@@ -114,9 +114,6 @@ public:
     std::cout << "PRECOND SIZE n = " << n << "\n";
     std::cout << "      precond dense mat size = " << this->precond.size()
               << "\n";
-
-    fk::matrix<P> kron0(1, 1);
-    kron0(0, 0) = 1.0;
 
 #pragma omp parallel for
     for (int element = 0; element < table.size(); element++)
@@ -154,6 +151,19 @@ public:
         // Vector containing kron products of each block. The final kron product
         // is stored at the last element.
         std::vector<fk::matrix<P>> krons;
+
+        fk::matrix<P> kron0(1, 1);
+        // if using imex, include only terms that match the flag
+        if (imex == imex_flag::unspecified ||
+            pde.get_terms()[term][0].flag == imex)
+        {
+          kron0(0, 0) = 1.0;
+        }
+        else
+        {
+          kron0(0, 0) = 0.0;
+        }
+
         krons.push_back(kron0);
         for (int dim = 0; dim < num_dims; dim++)
         {
