@@ -925,6 +925,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                         imex_flag::imex_implicit);
       asgard::tools::timer.stop(id);
 
+/*
 #ifdef ASGARD_IO_HIGHFIVE
       if (pde.cli.get_wavelet_output_freq() > 0)
       {
@@ -943,6 +944,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
             adaptive_grid.get_table(), "gmres_data_explicit");
       }
 #endif
+*/
 
       pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
           pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,

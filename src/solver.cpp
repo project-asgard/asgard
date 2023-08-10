@@ -146,7 +146,19 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
     mat(x, residual, alpha, beta);
     if (do_precond)
     {
-      M.apply(residual);
+      if constexpr (resrc == resource::device)
+      {
+#ifdef ASGARD_USE_CUDA
+        static_assert(resrc == resource::device);
+        auto res = residual.clone_onto_host();
+        M.apply(res);
+        fk::copy_vector(residual, res);
+#endif
+      }
+      else if constexpr (resrc == resource::host)
+      {
+        M.apply(residual);
+      }
     }
     return fm::nrm2(residual);
   };
@@ -191,7 +203,19 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
 
       if (do_precond)
       {
-        M.apply(new_basis);
+        if constexpr (resrc == resource::device)
+        {
+#ifdef ASGARD_USE_CUDA
+          static_assert(resrc == resource::device);
+          auto new_basis_h = new_basis.clone_onto_host();
+          M.apply(new_basis_h);
+          fk::copy_vector(new_basis, new_basis_h);
+#endif
+        }
+        else if constexpr (resrc == resource::host)
+        {
+          M.apply(new_basis);
+        }
       }
 
       fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0, i);
@@ -428,6 +452,13 @@ template gmres_info<double> simple_gmres_euler(
     fk::vector<double, mem_type::owner, resource::device> &x,
     fk::vector<double, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, double const tolerance);
+
+template gmres_info<double> simple_gmres_euler_precond(
+    const double dt, kronmult_matrix<double> const &mat,
+    fk::vector<double, mem_type::owner, resource::device> &x,
+    fk::vector<double, mem_type::owner, resource::device> const &b,
+    preconditioner::preconditioner<double> &precond, int const restart,
+    int const max_iter, double const tolerance);
 #endif
 
 template void setup_poisson(const int N_elements, double const x_min,
@@ -471,6 +502,13 @@ template gmres_info<float> simple_gmres_euler(
     fk::vector<float, mem_type::owner, resource::device> &x,
     fk::vector<float, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, float const tolerance);
+
+template gmres_info<float> simple_gmres_euler_precond(
+    const float dt, kronmult_matrix<float> const &mat,
+    fk::vector<float, mem_type::owner, resource::device> &x,
+    fk::vector<float, mem_type::owner, resource::device> const &b,
+    preconditioner::preconditioner<float> &precond, int const restart,
+    int const max_iter, float const tolerance);
 #endif
 
 template void setup_poisson(const int N_elements, float const x_min,

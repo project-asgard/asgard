@@ -109,13 +109,15 @@ public:
     this->blk_pivots   = std::vector<std::vector<int>>(this->num_blocks);
     this->is_factored  = false;
 
+    int const block_size = std::pow(degree, num_dims);
+    expect(n == num_blocks * block_size);
+
 #pragma omp parallel for
     for (int element = 0; element < table.size(); element++)
     {
       fk::vector<int> const &coords = table.get_coords(element);
 
-      precond_blks[element].clear_and_resize(std::pow(degree, num_dims),
-                                             std::pow(degree, num_dims));
+      precond_blks[element].clear_and_resize(block_size, block_size);
 
       // get 1D operator indices for each dimension
       std::vector<int> indices(num_dims);
@@ -164,16 +166,16 @@ public:
           krons.push_back(std::move(krons[dim].kron(blocks[dim])));
         }
 
-        expect(krons.back().nrows() == std::pow(degree, num_dims));
-        expect(krons.back().ncols() == std::pow(degree, num_dims));
+        expect(krons.back().nrows() == block_size);
+        expect(krons.back().ncols() == block_size);
 
         // sum the kron product into the preconditioner matrix
         precond_blks[element] = precond_blks[element] + krons[num_dims];
-        // precond_blks[element] = precond_blks[element].
       }
 
-      precond_blks[element] = eye<P>(std::pow(degree, num_dims)) -
-                              fm::scal(dt, precond_blks[element]);
+      // Compute M = I - dt*M
+      precond_blks[element] =
+          eye<P>(block_size) - fm::scal(dt, precond_blks[element]);
     }
   }
 
