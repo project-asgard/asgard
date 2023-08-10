@@ -51,7 +51,6 @@ public:
       fm::getrs(precond, B, pivots);
     }
   }
-  // virtual void apply(fk::vector<P> &B, std::vector<int> &pivots) {}
 
   virtual bool empty() const { return this->precond.empty(); }
 
@@ -73,12 +72,10 @@ public:
 
   virtual void construct(int const n) override
   {
-    std::cout << "constructing eye preconditioner\n";
     fk::sparse<P> sp_y(speye<P>(n));
     this->precond.clear_and_resize(n, n) = std::move(sp_y.to_dense());
     this->pivots.resize(n);
     this->is_factored = false;
-    std::cout << " end eye construct\n";
   }
 
   virtual void construct(PDE<P> const &pde, elements::table const &table,
@@ -105,21 +102,12 @@ public:
   {
     // calculates a block jacobi preconditioner into and updates the precond
     // matrix
-    // expect(this->precond.nrows() == n);
-    // expect(this->precond.ncols() == n);
-    // this->precond.clear_and_resize(n, n);
-    // this->pivots.resize(n);
-
     this->num_blocks   = table.size();
     this->degree       = pde.get_dimensions()[0].get_degree();
     this->num_dims     = pde.num_dims;
     this->precond_blks = std::vector<fk::matrix<P>>(this->num_blocks);
     this->blk_pivots   = std::vector<std::vector<int>>(this->num_blocks);
     this->is_factored  = false;
-
-    std::cout << "PRECOND SIZE n = " << n << "\n";
-    std::cout << "      precond dense mat size = " << this->precond.size()
-              << "\n";
 
 #pragma omp parallel for
     for (int element = 0; element < table.size(); element++)
@@ -180,15 +168,12 @@ public:
         expect(krons.back().ncols() == std::pow(degree, num_dims));
 
         // sum the kron product into the preconditioner matrix
-        precond_blks[element] =
-            fk::matrix<P>(precond_blks[element]) + krons[num_dims];
+        precond_blks[element] = precond_blks[element] + krons[num_dims];
         // precond_blks[element] = precond_blks[element].
       }
 
       precond_blks[element] = eye<P>(std::pow(degree, num_dims)) -
                               fm::scal(dt, precond_blks[element]);
-
-      // precond_blks[element].print("ELEMENT BLOCK");
     }
   }
 
@@ -224,12 +209,6 @@ public:
     int const offset     = block_index * block_size;
 
     // extract the given block from the preconditioner matrix
-    /*
-    auto block = fk::matrix<P, mem_type::view>(this->precond, offset,
-                                               offset + block_size - 1, offset,
-                                               offset + block_size - 1);
-    */
-
     auto B_block =
         fk::vector<P, mem_type::view>(B, offset, offset + block_size - 1);
 
@@ -247,8 +226,8 @@ public:
 
   virtual fk::matrix<P> get_matrix() const override
   {
-    int offset = std::pow(degree, num_dims);
-    int n      = num_blocks * offset;
+    int const offset = std::pow(degree, num_dims);
+    int const n      = num_blocks * offset;
 
     fk::matrix<P> dense_precond(n, n);
     for (int blk = 0; blk < num_blocks; blk++)
