@@ -1,6 +1,8 @@
 #pragma once
 #include "build_info.hpp"
 
+#include "elements.hpp"
+#include "pde.hpp"
 #include "sparse.hpp"
 #include "tensors.hpp"
 
@@ -14,17 +16,15 @@ public:
   ~preconditioner() {}
 
   // constructs from an already existing matrix
-  preconditioner(fk::matrix<P> const &&M)
+  preconditioner(fk::matrix<P> const &&M) : is_factored{false}, precond{M}
   {
-    this->precond = std::move(M);
-    this->pivots.resize(M.nrows());
-    this->is_factored = false;
+    pivots.resize(M.nrows());
   }
 
   virtual void construct(int const n)
   {
-    this->precond.clear_and_resize(n, n);
-    this->is_factored = false;
+    precond.clear_and_resize(n, n);
+    is_factored = false;
     pivots.resize(n);
   }
 

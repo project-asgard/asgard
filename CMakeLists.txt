@@ -271,6 +271,7 @@ set (components
      moment
      pde
      permutations
+     preconditioner
      program_options
      quadrature
      solver
