@@ -16,7 +16,8 @@ public:
   ~preconditioner() {}
 
   // constructs from an already existing matrix
-  preconditioner(fk::matrix<P> const &&M) : is_factored{false}, precond{M}
+  preconditioner(fk::matrix<P, mem_type::owner, resrc> const &&M)
+      : is_factored{false}, precond{M}
   {
     pivots.resize(M.nrows());
   }

@@ -996,13 +996,13 @@ P *gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb, int *info)
     if constexpr (std::is_same_v<P, double>)
     {
       status = cusolverDnDDgesv_bufferSize(device.get_solver_handle(), n, nrhs,
-                                           A, lda, ipiv, b, ldb, NULL, n, NULL,
+                                           A, lda, ipiv, b, ldb, NULL, ldb, NULL,
                                            &work_size);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
       status = cusolverDnSSgesv_bufferSize(device.get_solver_handle(), n, nrhs,
-                                           A, lda, ipiv, b, ldb, NULL, n, NULL,
+                                           A, lda, ipiv, b, ldb, NULL, ldb, NULL,
                                            &work_size);
     }
 
@@ -1030,13 +1030,13 @@ P *gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb, int *info)
     {
       status =
           cusolverDnDDgesv(device.get_solver_handle(), n, nrhs, A, lda, ipiv, b,
-                           ldb, dX, n, buffer, work_size, &niters, dinfo);
+                           ldb, dX, ldb, buffer, work_size, &niters, dinfo);
     }
     else if constexpr (std::is_same_v<P, float>)
     {
       status =
           cusolverDnSSgesv(device.get_solver_handle(), n, nrhs, A, lda, ipiv, b,
-                           ldb, dX, n, buffer, work_size, &niters, dinfo);
+                           ldb, dX, ldb, buffer, work_size, &niters, dinfo);
     }
 
     if (status != CUSOLVER_STATUS_SUCCESS)
@@ -1044,7 +1044,7 @@ P *gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb, int *info)
       throw std::runtime_error("Error in CUSOLVER gesv:");
     }
 
-    success = cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t),
+    success = cudaMemcpy(info, dinfo, sizeof(cusolver_int_t),
                          cudaMemcpyDeviceToHost);
     assert(success == cudaSuccess);
 
@@ -1238,16 +1238,20 @@ int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
 #endif
   }
   // the const_cast below is needed due to bad header under OSX
-  if constexpr (std::is_same_v<P, double>)
+  else if constexpr (resrc == resource::host)
   {
-    dgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
-            const_cast<int *>(ipiv), b, &ldb, &info);
+    if constexpr (std::is_same_v<P, double>)
+    {
+      dgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+              const_cast<int *>(ipiv), b, &ldb, &info);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      sgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+              const_cast<int *>(ipiv), b, &ldb, &info);
+    }
   }
-  else if constexpr (std::is_same_v<P, float>)
-  {
-    sgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
-            const_cast<int *>(ipiv), b, &ldb, &info);
-  }
+
   return info;
 }
 

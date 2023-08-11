@@ -602,8 +602,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 #endif
 
-  preconditioner::preconditioner<P, imex_resrc> precond =
-      preconditioner::block_jacobi_preconditioner<P, imex_resrc>();
+  auto precond = preconditioner::block_jacobi_preconditioner<P, imex_resrc>();
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
