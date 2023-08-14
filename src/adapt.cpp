@@ -199,8 +199,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     update_levels(this->get_table(), dims, num_terms, terms);
 
     // reproject
-    auto const refined_fval              = initial_unref();
-    refine_y.resize(refined_fval.size()) = refined_fval;
+    refine_y = initial_unref();
   }
 
   // coarsen

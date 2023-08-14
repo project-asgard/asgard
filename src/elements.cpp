@@ -161,7 +161,7 @@ void table::remove_elements(std::vector<int64_t> const &indices)
     id_to_coords_.erase(id);
   }
 
-  active_table_.resize(new_active_table.size()) = new_active_table;
+  active_table_ = std::move(new_active_table);
 
   active_element_ids_ = new_active_ids;
 
@@ -194,16 +194,16 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
     }
 
     // not present, insert
-    auto const coords = map_to_coords(id, max_level, num_dims);
+    auto coords = map_to_coords(id, max_level, num_dims);
     active_element_ids_.push_back(id);
-    id_to_coords_[id].resize(coord_size) = coords;
     // TODO we know a priori how many coords we are adding
     // so this could be optimized away if it's slow
     active_table_update.concat(coords);
+    id_to_coords_[id] = std::move(coords);
     added++;
   }
   expect(active_element_ids_.size() == id_to_coords_.size());
-  active_table_.resize(active_table_update.size()) = active_table_update;
+  active_table_ = std::move(active_table_update);
   return added;
 }
 

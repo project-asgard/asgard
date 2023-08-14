@@ -267,10 +267,10 @@ int main(int argc, char **argv)
             : (opts.use_imex_stepping ? "imex_time_advance"
                                       : "explicit_time_advance");
     const std::string time_id = asgard::tools::timer.start(time_str);
-    auto const sol            = asgard::time_advance::adaptive_advance(
+    f_val                     = asgard::time_advance::adaptive_advance(
         method, *pde, operator_matrices, adaptive_grid, transformer, opts,
         f_val, time, update_system);
-    f_val.resize(sol.size()) = sol;
+
     asgard::tools::timer.stop(time_id);
 
     // print root mean squared error from analytic solution
