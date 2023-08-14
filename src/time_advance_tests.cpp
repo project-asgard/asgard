@@ -1362,7 +1362,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   parameter_manager<TestType>::get_instance().reset();
 }
 
-TEMPLATE_TEST_CASE("IMEX time advance - landau - precond", "[imex][precond]", test_precs)
+TEMPLATE_TEST_CASE("IMEX time advance - landau - precond", "[imex][precond]",
+                   test_precs)
 {
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
