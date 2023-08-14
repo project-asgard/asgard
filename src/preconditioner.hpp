@@ -25,7 +25,7 @@ public:
   virtual void construct(int const n)
   {
     precond.clear_and_resize(n, n);
-    pivots      = fk::vector<int, mem_type::owner, resrc>(n);
+    pivots      = fk::vector<int64_t, mem_type::owner, resrc>(n);
     is_factored = false;
   }
 
@@ -72,7 +72,7 @@ public:
 protected:
   bool is_factored = false;
   fk::matrix<P, mem_type::owner, resrc> precond;
-  fk::vector<int, mem_type::owner, resrc> pivots;
+  fk::vector<int64_t, mem_type::owner, resrc> pivots;
 };
 
 template<typename P, resource resrc = resource::host>
@@ -86,7 +86,7 @@ public:
     fk::sparse<P, resource::host> sp_y(speye<P>(n));
     this->precond.clear_and_resize(n, n) =
         std::move(sp_y.to_dense().clone_onto_device());
-    this->pivots      = fk::vector<int, mem_type::owner, resrc>(n);
+    this->pivots      = fk::vector<int64_t, mem_type::owner, resrc>(n);
     this->is_factored = false;
   }
 
@@ -130,7 +130,7 @@ public:
           std::vector<fk::matrix<P, mem_type::owner, resource::device>>(
               this->num_blocks);
       this->dev_blk_pivots =
-          std::vector<fk::vector<int, mem_type::owner, resource::device>>(
+          std::vector<fk::vector<int64_t, mem_type::owner, resource::device>>(
               this->num_blocks);
     }
 
@@ -203,9 +203,12 @@ public:
     if constexpr (resrc == resource::device)
     {
       // copy blocks over to device
+      int const piv_size = std::pow(this->degree, this->num_dims);
       for (int b = 0; b < this->num_blocks; b++)
       {
         this->dev_precond_blks[b] = this->precond_blks[b].clone_onto_device();
+        dev_blk_pivots[b] =
+            fk::vector<int64_t, mem_type::owner, resource::device>(piv_size);
       }
     }
   }
@@ -224,18 +227,19 @@ public:
         }
       }
     }
+    /*
     else if constexpr (resrc == resource::device)
     {
       if (!this->is_factored)
       {
-        int const piv_size = std::pow(this->degree, this->num_dims);
         for (int i = 0; i < this->num_blocks; i++)
         {
           dev_blk_pivots[i] =
-              fk::vector<int, mem_type::owner, resource::device>(piv_size);
+              fk::vector<int64_t, mem_type::owner, resource::device>(piv_size);
         }
       }
     }
+    */
 
     for (int block = 0; block < this->num_blocks; block++)
     {
@@ -323,7 +327,7 @@ public:
   // #ifdef ASGARD_USE_CUDA
   std::vector<fk::matrix<P, mem_type::owner, resource::device>>
       dev_precond_blks;
-  std::vector<fk::vector<int, mem_type::owner, resource::device>>
+  std::vector<fk::vector<int64_t, mem_type::owner, resource::device>>
       dev_blk_pivots;
   // #endif
 };
