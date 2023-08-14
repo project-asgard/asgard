@@ -60,7 +60,7 @@ void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
                   P alpha, P beta, int num_batch);
 
 template<resource resrc = resource::host, typename P>
-P *gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb, int *info);
+int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb);
 
 template<resource resrc = resource::host, typename P>
 void tpsv(const char uplo, const char trans, const char diag, const int n,

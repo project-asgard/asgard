@@ -226,9 +226,8 @@ void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
   int lda = A.stride();
   int ldb = B.size();
 
-  int info;
-  lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda, ipiv.data(),
-                                     B.data(), ldb, &info);
+  int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
+                                                ipiv.data(), B.data(), ldb);
   if (info < 0)
   {
     throw std::runtime_error(
@@ -253,7 +252,7 @@ void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
  */
 template<typename P, mem_type amem, mem_type bmem, resource resrc>
 void gesv(fk::matrix<P, amem, resrc> &A, fk::vector<P, bmem, resrc> &B,
-          fk::vector<int, amem, resrc> &ipiv)
+          fk::vector<int64_t, amem, resrc> &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -268,16 +267,8 @@ void gesv(fk::matrix<P, amem, resrc> &A, fk::vector<P, bmem, resrc> &B,
   int lda = A.stride();
   int ldb = B.size();
 
-  int info = 0;
-  P *x = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda, ipiv.data(),
-                                   B.data(), ldb, &info);
-  if constexpr (resrc == resource::device)
-  {
-    B.update_from(x);
-
-    B.clone_onto_host().print(" gesv result ");
-    ipiv.clone_onto_host().print("  new pivs");
-  }
+  int info = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda,
+                                       (int *)ipiv.data(), B.data(), ldb);
 
   if (info < 0)
   {
@@ -318,9 +309,8 @@ void gesv(fk::matrix<P, amem> &A, fk::matrix<P, bmem> &B,
   int lda = A.stride();
   int ldb = B.stride();
 
-  int info;
-  lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda, ipiv.data(),
-                                     B.data(), ldb, &info);
+  int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
+                                                ipiv.data(), B.data(), ldb);
   if (info < 0)
   {
     throw std::runtime_error(
@@ -363,7 +353,7 @@ void tpsv(fk::vector<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
  */
 template<typename P, mem_type amem, mem_type bmem, resource resrc>
 void gesv(fk::matrix<P, amem, resrc> &A, fk::matrix<P, bmem, resrc> &B,
-          fk::vector<int, amem, resrc> &ipiv)
+          fk::vector<int64_t, amem, resrc> &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -378,17 +368,8 @@ void gesv(fk::matrix<P, amem, resrc> &A, fk::matrix<P, bmem, resrc> &B,
   int lda = A.stride();
   int ldb = B.stride();
 
-  int info = 0;
-  P *x = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda, ipiv.data(),
-                                   B.data(), ldb, &info);
-
-  if constexpr (resrc == resource::device)
-  {
-    B.update_from(x);
-
-    B.clone_onto_host().print(" gesv result ");
-    ipiv.clone_onto_host().print("  new pivs");
-  }
+  int info = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda,
+                                       (int *)ipiv.data(), B.data(), ldb);
 
   if (info < 0)
   {
@@ -475,7 +456,7 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
 
 template<typename P, mem_type amem, mem_type bmem, resource resrc>
 void getrs(fk::matrix<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
-           fk::vector<int, amem, resrc> &ipiv)
+           fk::vector<int64_t, amem, resrc> &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -492,8 +473,8 @@ void getrs(fk::matrix<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
   int ldb    = B.size();
 
   int info;
-  info = lib_dispatch::getrs<resrc>(trans, rows_A, cols_B, A.data(), lda, ipiv.data(),
-                             B.data(), ldb);
+  info = lib_dispatch::getrs<resrc>(trans, rows_A, cols_B, A.data(), lda,
+                                    (int *)ipiv.data(), B.data(), ldb);
   if (info < 0)
   {
     printf("Argument %d in call to getrs() has an illegal value\n", -info);
