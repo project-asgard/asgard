@@ -103,7 +103,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
         my_subgrid.row_stop);
 
     // take a probing refinement step
-    fk::vector<P> const y_stepped = [&]() {
+    fk::vector<P> y_stepped = [&]() {
       switch (step_method)
       {
       case (method::exp):
@@ -140,16 +140,14 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
     if (!refining)
     {
-      y.resize(y_stepped.size()) = y_stepped;
+      y = std::move(y_stepped);
     }
     else
     {
       // added more indexes, matrices will have to be remade
       operator_matrices.clear_all();
 
-      auto const y1 =
-          adaptive_grid.redistribute_solution(y, old_plan, old_size);
-      y.resize(y1.size()) = y1;
+      y = adaptive_grid.redistribute_solution(y, old_plan, old_size);
     }
   }
 
