@@ -126,7 +126,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
     auto const old_plan = adaptive_grid.get_distrib_plan();
     old_size            = adaptive_grid.size();
-    fk::vector<P> const y_refined =
+    fk::vector<P> y_refined =
         adaptive_grid.refine_solution(pde, y_stepped, program_opts);
     // if either one of the ranks reports 1, i.e., y_stepped.size() changed
     refining = get_global_max<bool>(y_stepped.size() != y_refined.size(),
@@ -154,7 +154,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
       // "guess" to GMRES
       if (y_first_refine.empty())
       {
-        y_first_refine = fk::vector<P>(y_refined);
+        y_first_refine = std::move(y_refined);
       }
 
       // pad with zeros if more elements were added
