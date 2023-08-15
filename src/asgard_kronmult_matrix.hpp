@@ -142,7 +142,7 @@ public:
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
-    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
+    flops_ = int64_t(tensor_size_) * kron_size_ * num_rows_ * num_cols_ * num_terms_ * num_dimensions_;
   }
 
   /*!
@@ -518,10 +518,10 @@ public:
                   "CUDA not enabled, only resource::host is allowed for "
                   "the kronmult_matrix::apply() template parameter");
 
-    if (elem_.size() > 0)
+    if (is_v2())
     {
       kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_rows_, num_terms_,
-                          elem_.data(), 0, 0, term_pntr_.data(),
+                          elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
                           num_1d_blocks_, alpha, x, beta, y);
     }
     else if (is_dense())
@@ -599,6 +599,11 @@ public:
     return (row_indx_.empty() and list_row_indx_.empty());
   }
 
+  bool is_v2() const
+  {
+    return (elem_.size() > 0);
+  }
+
   //! \brief Update coefficients
   template<resource input_mode>
   void update_stored_coefficients(
@@ -616,6 +621,27 @@ public:
     expect(num_dimensions_ > 0);
     expect(values_A.size() == vA.size());
     vA = std::move(values_A);
+  }
+  //! \brief Update coefficients
+  template<resource input_mode>
+  void update_stored_coefficients(
+      std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&values_A)
+  {
+#ifdef ASGARD_USE_CUDA
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, so input vectors must have resource::device");
+#else
+    static_assert(
+        input_mode == resource::host,
+        "the GPU is disabled, so input vectors must have resource::host");
+#endif
+    expect(num_dimensions_ > 0);
+    expect(values_A.size() == static_cast<size_t>(num_terms_));
+    terms_ = std::move(values_A);
+
+    for(int t = 0; t < num_terms_; t++)
+      term_pntr_[t] = terms_[t].data();
   }
 
   //! \brief Returns the mode of the matrix, one call or multiple calls

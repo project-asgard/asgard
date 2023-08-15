@@ -64,7 +64,7 @@ kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
                     options const &program_options,
-                    memory_usage const &mem_stats, imex_flag const imex)
+                    memory_usage const &, imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -85,6 +85,64 @@ make_kronmult_dense(PDE<precision> const &pde,
   if (used_terms.empty())
     throw std::runtime_error("no terms selected in the current combination of "
                              "imex flags and options, this must be wrong");
+
+  constexpr resource mode = resource::host;
+
+  std::vector<fk::vector<precision, mem_type::owner, mode>> terms(num_terms);
+  int const num_1d_blocks = pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
+
+  for (int t = 0; t < num_terms; t++)
+  {
+    terms[t] = fk::vector<precision, mem_type::owner, mode>(num_dimensions * num_1d_blocks * num_1d_blocks * kron_size * kron_size);
+    auto pA = terms[t].begin();
+    for (int d = 0; d < num_dimensions; d++)
+    {
+      auto const &ops = pde.get_coefficients(used_terms[t], d);
+
+      // the matrices of the kron products are organized into blocks
+      // of a large matrix, the matrix is square with size num-ops by
+      // kron-size rearrange in a sequential way (by columns) to avoid the lda
+      for (int ocol = 0; ocol < num_1d_blocks; ocol++)
+        for (int orow = 0; orow < num_1d_blocks; orow++)
+          for (int i = 0; i < kron_size; i++)
+            pA = std::copy_n(ops.data() + kron_size * orow +
+                                 lda * (kron_size * ocol + i),
+                             kron_size, pA);
+    }
+  }
+
+  int const *const flattened_table =
+      discretization.get_table().get_active_table().data();
+
+  int const num_indexes = 1 + std::max(grid.row_stop, grid.col_stop);
+  fk::vector<int, mem_type::owner, mode> elem(num_dimensions * num_indexes);
+  for(int i = 0; i < num_indexes; i++)
+  {
+    int const *const idx = flattened_table + 2 * num_dimensions * i;
+
+    for(int d = 0; d < num_dimensions; d++)
+    {
+      elem[i * num_dimensions + d] =
+          (idx[d] == 0) ? 0 : ((1 << (idx[d] - 1)) + idx[d + num_dimensions]);
+    }
+  }
+
+  int64_t flps = kronmult_matrix<precision>::compute_flops(
+      num_dimensions, kron_size, num_terms, num_rows * num_cols);
+
+  std::cout << "  kronmult dense matrix: " << num_rows << " by " << num_cols
+            << "\n";
+  std::cout << "        Gflops per call: " << flps * 1.E-9 << "\n";
+
+  std::cout << "        memory usage (MB): "
+            << get_MB<precision>(terms.size()) + get_MB<int>(elem.size()) << "\n";
+
+  return
+    asgard::kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, num_terms,
+                                  std::move(terms), std::move(elem),
+                                  grid.row_start, grid.col_start, num_1d_blocks);
+
+#ifdef ASGARD_USE_CUDA
 
   int64_t osize = 0;
   std::vector<int64_t> dim_term_offset(num_terms * pde.num_dims + 1);
@@ -278,6 +336,7 @@ make_kronmult_dense(PDE<precision> const &pde,
                                       num_cols, num_terms, list_row_stride,
                                       std::move(list_iA), std::move(vA));
   }
+#endif
 #endif
 }
 
@@ -777,7 +836,37 @@ void update_kronmult_coefficients(PDE<P> const &pde,
   int const kron_squared = kron_size * kron_size;
   fk::vector<P> vA;
 
-  if (mat.is_dense())
+  if (mat.is_v2())
+  {
+    constexpr resource mode = resource::host;
+
+    std::vector<fk::vector<P, mem_type::owner, mode>> terms(num_terms);
+    int const num_1d_blocks = pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
+    
+    for (int t = 0; t < num_terms; t++)
+    {
+      terms[t] = fk::vector<P, mem_type::owner, mode>(num_dimensions * num_1d_blocks * num_1d_blocks * kron_squared);
+      auto pA = terms[t].begin();
+      for (int d = 0; d < num_dimensions; d++)
+      {
+        auto const &ops = pde.get_coefficients(used_terms[t], d);
+
+        // the matrices of the kron products are organized into blocks
+        // of a large matrix, the matrix is square with size num-ops by
+        // kron-size rearrange in a sequential way (by columns) to avoid the lda
+        for (int ocol = 0; ocol < num_1d_blocks; ocol++)
+          for (int orow = 0; orow < num_1d_blocks; orow++)
+            for (int i = 0; i < kron_size; i++)
+              pA = std::copy_n(ops.data() + kron_size * orow +
+                                   lda * (kron_size * ocol + i),
+                               kron_size, pA);
+      }
+    }
+    mat.update_stored_coefficients(std::move(terms));
+    tools::timer.stop(form_id);
+    return;
+  }
+  else if (mat.is_dense())
   {
     int64_t osize = 0;
     for (int t = 0; t < num_terms; t++)
