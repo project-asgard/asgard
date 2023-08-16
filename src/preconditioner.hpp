@@ -124,7 +124,6 @@ public:
     this->degree       = pde.get_dimensions()[0].get_degree();
     this->num_dims     = pde.num_dims;
     this->precond_blks = std::vector<fk::matrix<P>>(this->num_blocks);
-    this->blk_pivots   = std::vector<std::vector<int>>(this->num_blocks);
     this->is_factored  = false;
 
     int const block_size = std::pow(degree, num_dims);
@@ -135,10 +134,18 @@ public:
       this->dev_precond_blks =
           std::vector<fk::matrix<P, mem_type::owner, resource::device>>(
               this->num_blocks);
+      /*
       this->dev_blk_pivots =
           std::vector<fk::vector<int64_t, mem_type::owner, resource::device>>(
               this->num_blocks);
+      */
     }
+    else if constexpr (resrc == resource::host)
+    {
+      this->blk_pivots = std::vector<std::vector<int>>(this->num_blocks);
+    }
+
+    fk::matrix<P> const I = eye<P>(block_size);
 
 #pragma omp parallel for
     for (int element = 0; element < table.size(); element++)
@@ -202,8 +209,7 @@ public:
       }
 
       // Compute M = I - dt*M
-      precond_blks[element] =
-          eye<P>(block_size) - fm::scal(dt, precond_blks[element]);
+      precond_blks[element] = I - fm::scal(dt, precond_blks[element]);
     }
 
     if constexpr (resrc == resource::device)
@@ -213,8 +219,8 @@ public:
       for (int b = 0; b < this->num_blocks; b++)
       {
         this->dev_precond_blks[b] = this->precond_blks[b].clone_onto_device();
-        dev_blk_pivots[b] =
-            fk::vector<int64_t, mem_type::owner, resource::device>(piv_size);
+        // dev_blk_pivots[b] =
+        //     fk::vector<int64_t, mem_type::owner, resource::device>(piv_size);
       }
 
       this->dev_pivots = fk::vector<int, mem_type::owner, resource::device>(
