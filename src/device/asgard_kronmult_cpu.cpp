@@ -967,7 +967,6 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         }
         else if constexpr (dimensions == 2)
         {
-          std::cerr << ix[0] << "   " << iy[0] << "    " << ix[1] << "   " << iy[1] << std::endl;
           P W[n][n] = {{{0}}}, Y[n][n] = {{{0}}};
           P const *A = &vA[t][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
           ASGARD_PRAGMA_OMP_SIMD(collapse(3))

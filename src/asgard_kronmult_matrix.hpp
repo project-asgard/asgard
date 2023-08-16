@@ -520,7 +520,7 @@ public:
 
     if (is_v2())
     {
-      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_rows_, num_terms_,
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_, num_terms_,
                           elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
                           num_1d_blocks_, alpha, x, beta, y);
     }
