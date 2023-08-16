@@ -137,6 +137,9 @@ make_kronmult_dense(PDE<precision> const &pde,
   std::cout << "        memory usage (MB): "
             << get_MB<precision>(terms.size()) + get_MB<int>(elem.size()) << "\n";
 
+  std::cerr << "grid.row_start = " << grid.row_start << "  " << grid.row_stop << "\n";
+  std::cerr << "grid.col_start = " << grid.col_start << "  " << grid.col_stop << "\n";
+
   return
     asgard::kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, num_terms,
                                   std::move(terms), std::move(elem),
@@ -842,7 +845,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 
     std::vector<fk::vector<P, mem_type::owner, mode>> terms(num_terms);
     int const num_1d_blocks = pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
-    
+
     for (int t = 0; t < num_terms; t++)
     {
       terms[t] = fk::vector<P, mem_type::owner, mode>(num_dimensions * num_1d_blocks * num_1d_blocks * kron_squared);
