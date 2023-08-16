@@ -76,7 +76,7 @@ int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
   }
 
   expect(id >= 0);
-  expect(id <= fm::two_raised_to(max_level * num_dims));
+  expect(id <= fm::two_raised_to(int64_t{max_level} * num_dims));
 
   return id;
 }

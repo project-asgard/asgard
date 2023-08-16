@@ -18,7 +18,7 @@ inline constexpr T two_raised_to(T const exponent)
   static_assert(std::is_same_v<T, int> || std::is_same_v<T, unsigned> ||
                 std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>);
   expect(exponent >= 0);
-  return 1 << exponent;
+  return T{1} << exponent;
 }
 
 template<typename P, mem_type mem, resource resrc>
