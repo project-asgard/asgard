@@ -523,12 +523,12 @@ void scal(int n, P alpha, P *x, int incx)
 #ifdef ASGARD_USE_CUDA
     static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
     // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDscal(device.get_handle(), n, &alpha, x, incx);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSscal(device.get_handle(), n, &alpha, x, incx);
       expect(success == CUBLAS_STATUS_SUCCESS);
@@ -539,11 +539,11 @@ void scal(int n, P alpha, P *x, int incx)
   else if constexpr (resrc == resource::host)
   {
     // default execution on the host for any resource
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       cblas_dscal(n, alpha, x, incx);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       cblas_sscal(n, alpha, x, incx);
     }
@@ -625,14 +625,14 @@ void gemv(char trans, int m, int n, P alpha, P const *A, int lda, P const *x,
   {
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success =
           cublasDgemv(device.get_handle(), cublas_trans(trans), m, n, &alpha, A,
                       lda, x, incx, &beta, y, incy);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success =
           cublasSgemv(device.get_handle(), cublas_trans(trans), m, n, &alpha, A,
@@ -645,12 +645,12 @@ void gemv(char trans, int m, int n, P alpha, P const *A, int lda, P const *x,
   else if constexpr (resrc == resource::host)
   {
     // default execution on the host
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       cblas_dgemv(CblasColMajor, cblas_transpose_type(trans), m, n, alpha, A,
                   lda, x, incx, beta, y, incy);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       cblas_sgemv(CblasColMajor, cblas_transpose_type(trans), m, n, alpha, A,
                   lda, x, incx, beta, y, incy);
@@ -680,14 +680,14 @@ void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
     // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
     // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDgemm(
           device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
           k, &alpha, A, lda, B, ldb, &beta, C, ldc);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSgemm(
           device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
@@ -700,13 +700,13 @@ void gemm(char transa, char transb, int m, int n, int k, P alpha, P const *A,
   else if constexpr (resrc == resource::host)
   {
     // default execution on the host for any resource
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       cblas_dgemm(CblasColMajor, cblas_transpose_type(transa),
                   cblas_transpose_type(transb), m, n, k, alpha, A, lda, B, ldb,
                   beta, C, ldc);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       cblas_sgemm(CblasColMajor, cblas_transpose_type(transa),
                   cblas_transpose_type(transb), m, n, k, alpha, A, lda, B, ldb,
@@ -754,13 +754,13 @@ int getrf(int m, int n, P *A, int lda, int *ipiv)
       throw std::bad_alloc();
     }
     // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDgetrfBatched(device.get_handle(), n, A_d, lda,
                                                ipiv, info_d, 1);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSgetrfBatched(device.get_handle(), n, A_d, lda,
                                                ipiv, info_d, 1);
@@ -778,11 +778,11 @@ int getrf(int m, int n, P *A, int lda, int *ipiv)
   if constexpr (resrc == resource::host)
   {
     // default execution on the host for any resource
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       dgetrf_(&m, &n, A, &lda, ipiv, &info);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       sgetrf_(&m, &n, A, &lda, ipiv, &info);
     }
@@ -829,13 +829,13 @@ int getri(int n, P *A, int lda, int *ipiv, P *work, int lwork)
     expect(stat == 0);
 
     // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDgetriBatched(device.get_handle(), n, A_d, lda,
                                                nullptr, work_d, n, info_d, 1);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSgetriBatched(device.get_handle(), n, A_d, lda,
                                                nullptr, work_d, n, info_d, 1);
@@ -855,11 +855,11 @@ int getri(int n, P *A, int lda, int *ipiv, P *work, int lwork)
   else if constexpr (resrc == resource::host)
   {
     // default execution on the host for any resource
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       dgetri_(&n, A, &lda, ipiv, work, &lwork, &info);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       sgetri_(&n, A, &lda, ipiv, work, &lwork, &info);
     }
@@ -915,7 +915,7 @@ void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
     expect(stat == cudaSuccess);
 
     // instantiated for these two fp types
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       auto const success = cublasDgemmBatched(
           device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
@@ -924,7 +924,7 @@ void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
       expect(cuda_stat == 0);
       expect(success == CUBLAS_STATUS_SUCCESS);
     }
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
     {
       auto const success = cublasSgemmBatched(
           device.get_handle(), cublas_trans(transa), cublas_trans(transb), m, n,
@@ -968,11 +968,11 @@ int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
   expect(n >= 0);
 
   int info{1};
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     dgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     sgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
   }
@@ -1113,12 +1113,12 @@ int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
 
   int info{1};
   // the const_cast below is needed due to bad header under OSX
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     dgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
             const_cast<int *>(ipiv), b, &ldb, &info);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     sgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
             const_cast<int *>(ipiv), b, &ldb, &info);
@@ -1134,11 +1134,11 @@ int pttrf(int n, P *D, P *E)
   expect(n >= 0);
 
   int info{1};
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     dpttrf_(&n, D, E, &info);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     spttrf_(&n, D, E, &info);
   }
@@ -1156,11 +1156,11 @@ int pttrs(int n, int nrhs, P const *D, P const *E, P *B, int ldb)
 
   int info{1};
   // the const_cast below is needed due to bad header under OSX
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     dpttrs_(&n, &nrhs, const_cast<P *>(D), const_cast<P *>(E), B, &ldb, &info);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     spttrs_(&n, &nrhs, const_cast<P *>(D), const_cast<P *>(E), B, &ldb, &info);
   }
@@ -1183,11 +1183,11 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
   expect(*n >= 0);
 
   int mp{1}, nq{1}, i_one{1};
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     pdgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     psgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
   }
@@ -1207,12 +1207,12 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
   expect(*n >= 0);
 
   int mp{1}, nq{1}, i_one{1};
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     pdgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
              info);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     psgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
              info);

@@ -111,7 +111,7 @@ void rmse_comparison(asgard::fk::matrix<P, mem> const &m0,
 template<typename P>
 void compare_vectors(std::vector<P> const &a, std::vector<P> const &b)
 {
-  if constexpr (std::is_floating_point<P>::value)
+  if constexpr (std::is_floating_point_v<P>)
   {
     for (size_t i = 0; i < a.size(); i++)
       if (a[i] !=
@@ -203,7 +203,7 @@ void relaxed_comparison(comparable_1 const &first, comparable_2 const &second,
   // was using template template parameters, but clang complained
   using P = typename std::remove_pointer<decltype(first.data())>::type;
   using R = typename std::remove_pointer<decltype(second.data())>::type;
-  static_assert(std::is_same<P, R>::value, "containers must hold same type");
+  static_assert(std::is_same_v<P, R>, "containers must hold same type");
   Catch::StringMaker<P>::precision = 15;
   auto first_it                    = first.begin();
   std::for_each(

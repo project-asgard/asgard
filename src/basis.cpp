@@ -327,7 +327,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   }
 
   P const compare = [] {
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
     {
       return static_cast<P>(1e-12);
     }

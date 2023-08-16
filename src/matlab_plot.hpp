@@ -90,7 +90,7 @@ public:
   void add_param(matlab::data::ArrayDimensions const dims, T const &t,
                  Args &&...args)
   {
-    static_assert(!std::is_scalar<T>::value);
+    static_assert(!std::is_scalar_v<T>);
     m_args_.push_back(factory_.createArray(dims, t.begin(), t.end()));
     add_param(dims, args...);
   }
@@ -98,7 +98,7 @@ public:
   template<typename T>
   void add_param(matlab::data::ArrayDimensions const dims, T const &t)
   {
-    static_assert(!std::is_scalar<T>::value);
+    static_assert(!std::is_scalar_v<T>);
     m_args_.push_back(factory_.createArray(dims, t.begin(), t.end()));
   }
 

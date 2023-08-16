@@ -86,8 +86,8 @@ public:
         fields(make_fields_vector(field_terms)),
         transformer(cli_input, dimensions.front().degree, true)
   {
-    static_assert(std::is_same<precision, float>::value or
-                      std::is_same<precision, double>::value,
+    static_assert(std::is_same_v<precision, float> or
+                      std::is_same_v<precision, double>,
                   "ASGARD supports only float and double as template "
                   "parameters for precision.");
 

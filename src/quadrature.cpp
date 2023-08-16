@@ -17,7 +17,7 @@ namespace asgard
 // derivative) for each degree
 
 template<typename P>
-std::enable_if_t<std::is_floating_point<P>::value, std::array<fk::matrix<P>, 2>>
+std::enable_if_t<std::is_floating_point_v<P>, std::array<fk::matrix<P>, 2>>
 legendre(fk::vector<P> const domain, int const degree,
          legendre_normalization const normalization)
 {

@@ -748,7 +748,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     std::cout.rdbuf(old_cout_stream_buf);
 
     std::string golden_string, golden_string_v, golden_string_cv;
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string = "golden vector(owner)\n  2.0000e+00  3.0000e+00  "
                       "4.0000e+00  5.0000e+00  6.0000e+00\n";
@@ -793,7 +793,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     REQUIRE(std::filesystem::remove("test_out_cv.dat"));
 
     std::string golden_string;
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string =
           "2.000000000000e+00 3.000000000000e+00 4.000000000000e+00 "
@@ -2389,7 +2389,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
   }
   SECTION("matrix inverse")
   {
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       // (square slices of) our golden matrix is singular, so here's a
       // well conditioned one
@@ -2428,7 +2428,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
   }
   SECTION("matrix determinant")
   {
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       // clang-format off
     fk::matrix<TestType> in {
@@ -2868,7 +2868,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
 
     std::string golden_string, golden_string_v, golden_string_cv,
         golden_string_vp;
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string =
           "golden matrix(owner)\n  1.2000e+01  "
@@ -2956,7 +2956,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
 
     std::string golden_string, golden_string_p;
 
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string =
           "1.200000000000e+01 2.200000000000e+01 3.200000000000e+01 \n"
