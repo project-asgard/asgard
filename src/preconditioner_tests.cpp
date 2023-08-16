@@ -203,5 +203,70 @@ TEMPLATE_TEST_CASE("block jacobi - relaxation 1x1v", "[precond]", test_precs)
     relaxed_fp_comparison(fm::nrm2(b), fm::nrm2(b_apply));
   }
 
+#ifdef ASGARD_USE_CUDA
+  SECTION("apply (batched, device)")
+  {
+    auto precond =
+        preconditioner::block_jacobi_preconditioner<TestType,
+                                                    resource::device>();
+
+    auto precond_batched =
+        preconditioner::block_jacobi_preconditioner<TestType,
+                                                    resource::device>();
+
+    // Construct preconditioner matrix from PDE coefficients
+    precond.construct(*pde, adaptive_grid.get_table(), sol.size(),
+                      pde->get_dt(), imex_flag::imex_implicit);
+    precond_batched.construct(*pde, adaptive_grid.get_table(), sol.size(),
+                              pde->get_dt(), imex_flag::imex_implicit);
+
+    size_t const num_blocks =
+        static_cast<size_t>(adaptive_grid.get_table().size());
+    REQUIRE((precond.precond_blks.size() == num_blocks));
+    REQUIRE((precond.blk_pivots.size() == num_blocks));
+    REQUIRE((precond.factored() == false));
+
+    auto sol_d = sol.clone_onto_device();
+
+    auto &mat = operator_matrices[matrix_entry::imex_implicit];
+    auto mat_replacement =
+        [&](fk::vector<TestType, mem_type::owner, resource::device> const &x_in,
+            fk::vector<TestType, mem_type::owner, resource::device> &y,
+            TestType const alpha, TestType const beta) -> void {
+      mat.template apply<resource::device>(-pde->get_dt() * alpha, x_in.data(),
+                                           beta, y.data());
+      int one = 1, n = y.size();
+      lib_dispatch::axpy<resource::device>(n, alpha, x_in.data(), one, y.data(),
+                                           one);
+    };
+
+    // Test the implementation of the apply function
+    TestType const alpha = -1.0;
+    TestType const beta  = 1.0;
+
+    fk::vector<TestType, mem_type::owner, resource::device> b_apply(sol_d);
+    fk::vector<TestType, mem_type::owner, resource::device> b_apply_batched(
+        sol_d);
+
+    // Test both preconditioners, one without batching and one with
+    mat_replacement(sol_d, b_apply, alpha, beta);
+    precond.apply(b_apply);
+
+    mat_replacement(sol_d, b_apply_batched, alpha, beta);
+    precond_batched.apply_batched(b_apply_batched);
+
+    relaxed_fp_comparison(fm::nrm2(b_apply), fm::nrm2(b_apply_batched));
+
+    // Test both preconditioners again now that they are factored
+    mat_replacement(sol_d, b_apply, alpha, beta);
+    precond.apply(b_apply);
+
+    mat_replacement(sol_d, b_apply_batched, alpha, beta);
+    precond_batched.apply_batched(b_apply_batched);
+
+    relaxed_fp_comparison(fm::nrm2(b_apply), fm::nrm2(b_apply_batched));
+  }
+#endif
+
   parameter_manager<TestType>::get_instance().reset();
 }

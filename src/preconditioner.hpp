@@ -53,6 +53,12 @@ public:
     }
   }
 
+#ifdef ASGARD_USE_CUDA
+  virtual void
+  apply_batched(fk::vector<P, mem_type::owner, resource::device> &B)
+  {}
+#endif
+
   virtual bool empty() const { return this->precond.empty(); }
 
   virtual fk::matrix<P, mem_type::owner, resource::host> get_matrix() const
@@ -210,6 +216,9 @@ public:
         dev_blk_pivots[b] =
             fk::vector<int64_t, mem_type::owner, resource::device>(piv_size);
       }
+
+      this->dev_pivots = fk::vector<int, mem_type::owner, resource::device>(
+          piv_size * num_blocks);
     }
   }
 
@@ -227,19 +236,6 @@ public:
         }
       }
     }
-    /*
-    else if constexpr (resrc == resource::device)
-    {
-      if (!this->is_factored)
-      {
-        for (int i = 0; i < this->num_blocks; i++)
-        {
-          dev_blk_pivots[i] =
-              fk::vector<int64_t, mem_type::owner, resource::device>(piv_size);
-        }
-      }
-    }
-    */
 
     for (int block = 0; block < this->num_blocks; block++)
     {
@@ -297,6 +293,54 @@ public:
     }
   }
 
+#ifdef ASGARD_USE_CUDA
+  virtual void
+  apply_batched(fk::vector<P, mem_type::owner, resource::device> &B) override
+  {
+    auto id = asgard::tools::timer.start("precond apply batched");
+
+    int const block_size = std::pow(degree, num_dims);
+
+    std::vector<fk::vector<P, mem_type::view, resource::device>> B_blocks(
+        num_blocks);
+
+    std::vector<P *> B_block_ptrs(num_blocks);
+    std::vector<P *> precond_blk_ptrs(num_blocks);
+
+    for (int block = 0; block < num_blocks; block++)
+    {
+      int const offset = block * block_size;
+      // extract the given block from the preconditioner matrix
+      B_blocks[block] = fk::vector<P, mem_type::view, resource::device>(
+          B, offset, offset + block_size - 1);
+
+      B_block_ptrs[block]     = B_blocks[block].data();
+      precond_blk_ptrs[block] = dev_precond_blks[block].data();
+    }
+
+    if (!this->is_factored)
+    {
+      lib_dispatch::batched_gesv(block_size, 1, precond_blk_ptrs.data(),
+                                 dev_precond_blks[0].stride(),
+                                 dev_pivots.data(), B_block_ptrs.data(),
+                                 B_blocks[0].size(), num_blocks);
+    }
+    else
+    {
+      lib_dispatch::batched_getrs('N', block_size, 1, precond_blk_ptrs.data(),
+                                  dev_precond_blks[0].stride(),
+                                  dev_pivots.data(), B_block_ptrs.data(),
+                                  B_blocks[0].size(), num_blocks);
+    }
+
+    if (!this->is_factored)
+    {
+      this->is_factored = true;
+    }
+    asgard::tools::timer.stop(id);
+  }
+#endif
+
   virtual fk::matrix<P, mem_type::owner, resource::host>
   get_matrix() const override
   {
@@ -329,6 +373,8 @@ public:
       dev_precond_blks;
   std::vector<fk::vector<int64_t, mem_type::owner, resource::device>>
       dev_blk_pivots;
+
+  fk::vector<int, mem_type::owner, resource::device> dev_pivots;
   // #endif
 };
 

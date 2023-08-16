@@ -1076,6 +1076,115 @@ int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
   return info;
 }
 
+/**
+ * @brief Solves Ax = b using LU decomposition where A and b are arrays of
+ * size num_batch to matrices of n by n and matrices of n by nrhs, respectively.
+ *
+ * @param n number of rows/cols in each A matrix
+ * @param nrhs number of right hand sizes of b
+ * @param A host array of device pointers to matrices of size n by n
+ * @param lda leading dimension of each A array
+ * @param ipiv device array of size n by num_batch containing pivot indices
+ * for each batched A matrix
+ * @param b host array of device pointers to matrices of size n by nrhs
+ * @param ldb leading dimension of each b matrix
+ * @param num_batch number of pointers in A and b
+ */
+template<resource resrc, typename P>
+int batched_gesv(int n, int nrhs, P **A, int lda, int *ipiv, P **b, int ldb,
+                 int num_batch)
+{
+  expect(A);
+  expect(ipiv);
+  expect(b);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
+
+  int info{1};
+  std::vector<int> infos(num_batch);
+  if constexpr (resrc == resource::device)
+  {
+    // device-specific specialization if needed
+#ifdef ASGARD_USE_CUDA
+    P **A_d;
+    if (cudaMalloc((void **)&A_d, sizeof(P *) * num_batch) != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+
+    P **b_d;
+    if (cudaMalloc((void **)&b_d, sizeof(P *) * num_batch) != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+
+    auto stat =
+        cudaMemcpy(A_d, A, sizeof(P *) * num_batch, cudaMemcpyHostToDevice);
+    expect(stat == cudaSuccess);
+
+    stat = cudaMemcpy(b_d, b, sizeof(P *) * num_batch, cudaMemcpyHostToDevice);
+    expect(stat == cudaSuccess);
+
+    int *info_d;
+    if (cudaMalloc((void **)&info_d, sizeof(int) * num_batch) != cudaSuccess)
+    {
+      throw std::bad_alloc();
+    }
+    // instantiated for these two fp types
+    if constexpr (std::is_same<P, double>::value)
+    {
+      auto const success = cublasDgetrfBatched(device.get_handle(), n, A_d, lda,
+                                               ipiv, info_d, num_batch);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+    else if constexpr (std::is_same<P, float>::value)
+    {
+      auto const success = cublasSgetrfBatched(device.get_handle(), n, A_d, lda,
+                                               ipiv, info_d, num_batch);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+
+    stat = cudaDeviceSynchronize();
+    expect(stat == cudaSuccess);
+
+    stat = cudaMemcpy(infos.data(), info_d, sizeof(int) * num_batch,
+                      cudaMemcpyDeviceToHost);
+    expect(stat == cudaSuccess);
+
+    expect(infos[0] == 0);
+
+    // instantiated for these two fp types
+    if constexpr (std::is_same_v<P, double>)
+    {
+      auto const success =
+          cublasDgetrsBatched(device.get_handle(), CUBLAS_OP_N, n, nrhs, A_d,
+                              lda, ipiv, b_d, ldb, &info, num_batch);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+    else if constexpr (std::is_same_v<P, float>)
+    {
+      auto const success =
+          cublasSgetrsBatched(device.get_handle(), CUBLAS_OP_N, n, nrhs, A_d,
+                              lda, ipiv, b_d, ldb, &info, num_batch);
+      expect(success == CUBLAS_STATUS_SUCCESS);
+    }
+
+    stat = cudaDeviceSynchronize();
+    expect(stat == cudaSuccess);
+
+    stat = cudaFree(A_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(b_d);
+    expect(stat == cudaSuccess);
+    stat = cudaFree(info_d);
+    expect(stat == cudaSuccess);
+#endif
+  }
+  return info;
+}
+
 #ifdef ASGARD_USE_CUDA
 static cublasOperation_t cublas_operation_type(char trans)
 {
@@ -1269,6 +1378,70 @@ int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
               const_cast<int *>(ipiv), b, &ldb, &info);
     }
   }
+
+  return info;
+}
+
+template<resource resrc, typename P>
+int batched_getrs(char trans, int n, int nrhs, P **const &A, int lda,
+                  int const *ipiv, P **const &b, int ldb, int num_batch)
+{
+  expect(A);
+  expect(ipiv);
+  expect(b);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
+
+  static_assert(resrc == resource::device);
+
+  int info{1};
+#ifdef ASGARD_USE_CUDA
+  P **A_d;
+  if (cudaMalloc((void **)&A_d, sizeof(P *) * num_batch) != cudaSuccess)
+  {
+    throw std::bad_alloc();
+  }
+
+  P **b_d;
+  if (cudaMalloc((void **)&b_d, sizeof(P *) * num_batch) != cudaSuccess)
+  {
+    throw std::bad_alloc();
+  }
+
+  auto stat =
+      cudaMemcpy(A_d, A, sizeof(P *) * num_batch, cudaMemcpyHostToDevice);
+  expect(stat == cudaSuccess);
+
+  stat = cudaMemcpy(b_d, b, sizeof(P *) * num_batch, cudaMemcpyHostToDevice);
+  expect(stat == cudaSuccess);
+
+  // instantiated for these two fp types
+  if constexpr (std::is_same_v<P, double>)
+  {
+    auto const success =
+        cublasDgetrsBatched(device.get_handle(), cublas_trans(trans), n, nrhs,
+                            A_d, lda, ipiv, b_d, ldb, &info, num_batch);
+    expect(success == CUBLAS_STATUS_SUCCESS);
+  }
+  else if constexpr (std::is_same_v<P, float>)
+  {
+    auto const success =
+        cublasSgetrsBatched(device.get_handle(), cublas_trans(trans), n, nrhs,
+                            A_d, lda, ipiv, b_d, ldb, &info, num_batch);
+    expect(success == CUBLAS_STATUS_SUCCESS);
+  }
+
+  stat = cudaDeviceSynchronize();
+  expect(stat == cudaSuccess);
+
+  expect(info == cudaSuccess);
+
+  stat = cudaFree(A_d);
+  expect(stat == cudaSuccess);
+  stat = cudaFree(b_d);
+  expect(stat == cudaSuccess);
+#endif
 
   return info;
 }
@@ -1687,9 +1860,21 @@ batched_gemm<resource::device, float>(float **const &a, int lda, char transa,
 
 template int gesv<resource::device, float>(int n, int nrhs, float *A, int lda,
                                            int *ipiv, float *b, int ldb);
+
+template int batched_gesv<resource::device, float>(int n, int nrhs, float **A,
+                                                   int lda, int *ipiv,
+                                                   float **b, int ldb,
+                                                   int num_batch);
+
 template int getrs<resource::device, float>(char trans, int n, int nrhs,
                                             float const *A, int lda,
                                             int const *ipiv, float *b, int ldb);
+
+template int batched_getrs<resource::device, float>(char trans, int n, int nrhs,
+                                                    float **const &A, int lda,
+                                                    int const *ipiv,
+                                                    float **const &b, int ldb,
+                                                    int num_batch);
 
 template int
 getrf<resource::device, float>(int m, int n, float *A, int lda, int *ipiv);
@@ -1745,9 +1930,20 @@ batched_gemm<resource::device, double>(double **const &a, int lda, char transa,
 template int gesv<resource::device, double>(int n, int nrhs, double *A, int lda,
                                             int *ipiv, double *b, int ldb);
 
+template int batched_gesv<resource::device, double>(int n, int nrhs, double **A,
+                                                    int lda, int *ipiv,
+                                                    double **b, int ldb,
+                                                    int num_batch);
+
 template int
 getrs<resource::device, double>(char trans, int n, int nrhs, double const *A,
                                 int lda, int const *ipiv, double *b, int ldb);
+
+template int
+batched_getrs<resource::device, double>(char trans, int n, int nrhs,
+                                        double **const &A, int lda,
+                                        int const *ipiv, double **const &b,
+                                        int ldb, int num_batch);
 
 template int
 getrf<resource::device, double>(int m, int n, double *A, int lda, int *ipiv);

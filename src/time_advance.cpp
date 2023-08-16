@@ -887,6 +887,18 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // Create rho_2s
   calculate_moments(x);
 
+  /*
+  #ifdef ASGARD_IO_HIGHFIVE
+    if (pde.cli.get_wavelet_output_freq() > 0)
+    {
+      int const step_index = (int)(time / dt);
+      asgard::write_output(pde, pde.cli, x.clone_onto_host(), time, step_index,
+                           x.size(), adaptive_grid.get_table(),
+                           "asgard_wavelet_ex1");
+    }
+  #endif
+  */
+
   // f2 now
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;

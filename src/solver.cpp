@@ -147,7 +147,16 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
     mat(x, residual, alpha, beta);
     if (do_precond)
     {
-      M.apply(residual);
+      if constexpr (resrc == resource::device)
+      {
+#ifdef ASGARD_USE_CUDA
+        M.apply_batched(residual);
+#endif
+      }
+      else if constexpr (resrc == resource::host)
+      {
+        M.apply(residual);
+      }
     }
     return fm::nrm2(residual);
   };
@@ -192,7 +201,16 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
 
       if (do_precond)
       {
-        M.apply(new_basis);
+        if constexpr (resrc == resource::device)
+        {
+#ifdef ASGARD_USE_CUDA
+          M.apply_batched(new_basis);
+#endif
+        }
+        else if constexpr (resrc == resource::host)
+        {
+          M.apply(new_basis);
+        }
       }
 
       fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0, i);
