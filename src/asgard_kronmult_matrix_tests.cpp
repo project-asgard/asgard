@@ -142,17 +142,41 @@ void test_kronmult_welem(int dimensions, int n, int num_terms,
   auto data = make_kronmult_welem<P, precompute>(dimensions, n, num_terms,
                                                  num_1d_blocks);
 
-  //cpu_dense<P>(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
-  //             data->elem.data(), 0, 0, data->get_offsets().data(),
-  //             num_1d_blocks, P{1.0}, data->input_x.data(), P{1.0},
-  //             data->output_y.data());
+#ifdef ASGARD_USE_CUDA
+  std::vector< asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> > gpu_terms(num_terms);
+  asgard::fk::vector<P*> terms_ptr(num_terms);
+  for(int t=0; t<num_terms; t++)
+  {
+    gpu_terms[t] = data->coefficients[t].clone_onto_device();
+    terms_ptr[t] = gpu_terms[t].data();
+  }
+  auto gpu_terms_ptr = terms_ptr.clone_onto_device();
 
+  asgard::fk::vector<int, asgard::mem_type::owner, asgard::resource::device> elem(data->elem.size());
+  asgard::fk::copy_to_device(elem.data(), data->elem.data(), elem.size());
+
+  asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> xdev(data->input_x.size());
+  asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> ydev(data->output_y.size());
+  asgard::fk::copy_to_device(xdev.data(), data->input_x.data(), xdev.size());
+  asgard::fk::copy_to_device(ydev.data(), data->output_y.data(), ydev.size());
+
+  int const num_batch = data->num_rows() * data->num_rows();
+
+  asgard::kronmult::gpu_dense<P>(dimensions, n, ydev.size(), num_batch, data->num_rows(), num_terms,
+                                 elem.data(), 0, 0, gpu_terms_ptr.data(),
+                                 num_1d_blocks, P{1.0}, xdev.data(), P{1.0},
+                                 ydev.data());
+
+  asgard::fk::copy_to_host(data->output_y.data(), ydev.data(), ydev.size());
+
+#else
   asgard::kronmult_matrix<P> kmat(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
                                   std::move(data->coefficients),
                                   asgard::fk::vector<int>(data->elem),
                                   0, 0, num_1d_blocks);
 
   kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
+#endif
 
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
@@ -311,6 +335,13 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", test_precs)
                                                                  7);
 }
 
+TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[dense_gpu 1d]", test_precs)
+{
+  //int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8);
+  test_kronmult_welem<TestType>(1, n, 3, 7);
+}
+
 TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", test_precs)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -318,6 +349,14 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", test_precs)
   test_kronmult<TestType, dense_mode>(2, n, 13, 2, 7);
   test_kronmult<TestType, dense_mode, asgard::resource::device>(2, n, 13, 2, 7);
   test_kronmult<TestType, sparse_mode>(2, n, 13, 2, 7);
+}
+
+TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[dense_gpu 2d]", test_precs)
+{
+  //int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+  //                 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
+  int n = GENERATE(1, 2);
+  test_kronmult_welem<TestType>(2, n, 3, 7);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[execute_gpu 3d]", test_precs)

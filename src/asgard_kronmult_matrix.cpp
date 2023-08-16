@@ -64,7 +64,7 @@ kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
                     options const &program_options,
-                    memory_usage const &, imex_flag const imex)
+                    memory_usage const &mem_stats, imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -86,6 +86,7 @@ make_kronmult_dense(PDE<precision> const &pde,
     throw std::runtime_error("no terms selected in the current combination of "
                              "imex flags and options, this must be wrong");
 
+#ifndef ASGARD_USE_CUDA
   constexpr resource mode = resource::host;
 
   std::vector<fk::vector<precision, mem_type::owner, mode>> terms(num_terms);
@@ -141,6 +142,7 @@ make_kronmult_dense(PDE<precision> const &pde,
     asgard::kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, num_terms,
                                   std::move(terms), std::move(elem),
                                   grid.row_start, grid.col_start, num_1d_blocks);
+#endif
 
 #ifdef ASGARD_USE_CUDA
 
@@ -838,6 +840,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 
   if (mat.is_v2())
   {
+#ifndef ASGARD_USE_CUDA
     constexpr resource mode = resource::host;
 
     std::vector<fk::vector<P, mem_type::owner, mode>> terms(num_terms);
@@ -865,6 +868,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     mat.update_stored_coefficients(std::move(terms));
     tools::timer.stop(form_id);
     return;
+#endif
   }
   else if (mat.is_dense())
   {

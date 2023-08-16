@@ -6,7 +6,7 @@
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
-#include "tensors.hpp"
+#include "asgard_resources.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 
