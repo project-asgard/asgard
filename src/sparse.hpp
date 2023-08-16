@@ -313,7 +313,7 @@ public:
         std::cout << "(" << std::setw(2) << row << ", " << std::setw(2) << col
                   << ") ";
         P const val = values_[col];
-        if constexpr (std::is_floating_point<P>::value)
+        if constexpr (std::is_floating_point_v<P>)
         {
           std::cout << std::setw(12) << std::setprecision(4) << std::scientific
                     << std::right << val;

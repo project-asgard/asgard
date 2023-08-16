@@ -40,7 +40,7 @@ P frobenius(fk::matrix<P, mem_type::owner, resrc> const &m)
     return 0.0;
   }
 
-  else if constexpr (std::is_floating_point<P>::value)
+  else if constexpr (std::is_floating_point_v<P>)
   {
     return lib_dispatch::nrm2<resrc>(m.size(), m.data(), 1);
   }

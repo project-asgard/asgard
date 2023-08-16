@@ -1276,9 +1276,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   static int constexpr nsteps = 100;
 
   TestType constexpr gmres_tol =
-      std::is_same<TestType, double>::value ? 1.0e-8 : 1.0e-6;
+      std::is_same_v<TestType, double> ? 1.0e-8 : 1.0e-6;
   TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1376,7 +1376,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   static int constexpr nsteps = 20;
 
   TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1513,7 +1513,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   static int constexpr nsteps = 10;
 
   TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1665,7 +1665,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   static int constexpr nsteps = 10;
 
   TestType constexpr gmres_tol =
-      std::is_same<TestType, double>::value ? 1.0e-10 : 1.0e-6;
+      std::is_same_v<TestType, double> ? 1.0e-10 : 1.0e-6;
 
   // the expected L2 from analytical solution after the maxwellian has relaxed
   TestType constexpr expected_l2 = 8.654e-4;

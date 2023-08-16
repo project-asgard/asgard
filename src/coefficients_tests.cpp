@@ -214,8 +214,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_C terms", "[coefficients]", test_precs)
   auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_C;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p2_coefficients";
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-14 : 1e-5;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-5;
 
   SECTION("level 5, degree 2")
   {
@@ -231,8 +230,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", test_precs)
   auto const pde_choice = PDE_opts::fokkerplanck_1d_4p3;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p3_coefficients";
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-13 : 1e-4;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-13 : 1e-4;
 
   SECTION("level 2, degree 5")
   {
@@ -248,8 +246,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", test_precs)
   auto const pde_choice = PDE_opts::fokkerplanck_1d_4p4;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p4_coefficients";
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-14 : 1e-6;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-6;
 
   SECTION("level 5, degree 3")
   {
@@ -265,8 +262,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", test_precs)
   auto const pde_choice = PDE_opts::fokkerplanck_1d_4p5;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p5_coefficients";
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-14 : 1e-4;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-4;
 
   SECTION("level 3, degree 5")
   {
@@ -283,9 +279,8 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck2_complete_coefficients";
 
-  auto const pde_choice = PDE_opts::fokkerplanck_2d_complete_case4;
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-12 : 1e-3;
+  auto const pde_choice     = PDE_opts::fokkerplanck_2d_complete_case4;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-12 : 1e-3;
 
   SECTION("level 3, degree 3")
   {
@@ -367,9 +362,8 @@ TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", test_precs)
   auto const gold_path =
       coefficients_base_dir / "vlasov_lb_full_f_coefficients";
 
-  auto const pde_choice = PDE_opts::vlasov_lb_full_f;
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-12 : 1e-3;
+  auto const pde_choice     = PDE_opts::vlasov_lb_full_f;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-12 : 1e-3;
 
   auto const cfl                  = 0.01;
   auto const full_grid            = true;

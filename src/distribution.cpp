@@ -316,7 +316,7 @@ void reduce_results(fk::vector<P, src_mem, resrc> const &source,
   expect(success == 0);
 
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
   success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
                           source.size(), mpi_type, MPI_SUM, row_communicator);
   expect(success == 0);
@@ -516,7 +516,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
   expect(segment_size > 0);
 
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
   MPI_Comm const communicator = distro_handle.get_global_comm();
 
   auto const mpi_tag = 0;
@@ -625,7 +625,7 @@ gather_errors(P const root_mean_squared, P const relative)
   expect(success == 0);
 
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
 
   int local_rank;
   success = MPI_Comm_rank(local_comm, &local_rank);
@@ -724,7 +724,7 @@ gather_results(fk::vector<P> const &my_results, distribution_plan const &plan,
     std::vector<P> results(vect_size);
 
     MPI_Datatype const mpi_type =
-        std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+        std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
 
     if (my_rank == 0)
     {
@@ -778,14 +778,14 @@ P get_global_max(P const my_max, distribution_plan const &plan)
 
   // get max
   MPI_Datatype const mpi_type = []() -> MPI_Datatype {
-    if constexpr (std::is_same<P, double>::value)
+    if constexpr (std::is_same_v<P, double>)
       return MPI_DOUBLE;
-    else if constexpr (std::is_same<P, float>::value)
+    else if constexpr (std::is_same_v<P, float>)
       return MPI_FLOAT;
-    else if constexpr (std::is_same<P, bool>::value)
+    else if constexpr (std::is_same_v<P, bool>)
       return MPI_CXX_BOOL;
     else
-      static_assert(std::is_same<P, double>::value,
+      static_assert(std::is_same_v<P, double>,
                     "The value of P must be double, float, or int");
   }();
 
@@ -1087,7 +1087,7 @@ fk::vector<P> col_to_row_major(fk::vector<P> const &x, int size_r)
   x_new.resize(size_r);
 #ifdef ASGARD_USE_MPI
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
 
   int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
 
@@ -1116,7 +1116,7 @@ fk::vector<P> row_to_col_major(fk::vector<P> const &x, int size_r)
   x_new.resize(size_r);
 #ifdef ASGARD_USE_MPI
   MPI_Datatype const mpi_type =
-      std::is_same<P, double>::value ? MPI_DOUBLE : MPI_FLOAT;
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
   auto global_comm           = distro_handle.get_global_comm();
   int const num_subgrid_cols = get_num_subgrid_cols(get_num_ranks());
   for (int row_rank = 1; row_rank < num_subgrid_cols; ++row_rank)
@@ -1186,12 +1186,12 @@ void gather_matrix(P *A, int const *descA, P const *A_distr,
   int n = descA[fk::N_];
   int m = descA[fk::M_];
   // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     pdgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
              &i_one, &i_one, descA);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     psgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
              &i_one, &i_one, descA);
@@ -1221,12 +1221,12 @@ void scatter_matrix(P const *A, int const *descA, P *A_distr,
     std::copy_n(descA, 9, desc);
   }
   bcast(desc, 9, 0);
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
              &i_one, descA_distr);
   }
-  else if constexpr (std::is_same<P, float>::value)
+  else if constexpr (std::is_same_v<P, float>)
   {
     psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
              &i_one, descA_distr);

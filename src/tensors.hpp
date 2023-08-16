@@ -679,15 +679,15 @@ public:
   matrix<P> kron(matrix<P, omem> const &) const;
 
   template<typename U  = P,
-           typename    = std::enable_if_t<std::is_floating_point<U>::value &&
-                                       std::is_same<P, U>::value>,
+           typename    = std::enable_if_t<std::is_floating_point_v<U> &&
+                                       std::is_same_v<P, U>>,
            mem_type m_ = mem, typename = disable_for_const_view<m_>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &invert();
 
   template<typename U  = P,
-           typename    = std::enable_if_t<std::is_floating_point<U>::value &&
-                                       std::is_same<P, U>::value>,
+           typename    = std::enable_if_t<std::is_floating_point_v<U> &&
+                                       std::is_same_v<P, U>>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   P determinant() const;
 
@@ -1211,7 +1211,7 @@ bool fk::vector<P, mem, resrc>::operator==(vector<P, omem> const &other) const
   if (size() != other.size())
     return false;
   for (auto i = 0; i < size(); ++i)
-    if constexpr (std::is_floating_point<P>::value)
+    if constexpr (std::is_floating_point_v<P>)
     {
       if (std::abs((*this)(i)-other(i)) > TOL)
       {
@@ -1386,7 +1386,7 @@ void fk::vector<P, mem, resrc>::print(std::string_view const label) const
   else
     expect(false); // above cases should cover all implemented types
 
-  if constexpr (std::is_floating_point<P>::value)
+  if constexpr (std::is_floating_point_v<P>)
   {
     for (auto i = 0; i < size(); ++i)
       std::cout << std::setw(12) << std::setprecision(4) << std::scientific
@@ -1981,7 +1981,7 @@ bool fk::matrix<P, mem, resrc>::operator==(matrix<P, omem> const &other) const
     return false;
   for (auto j = 0; j < ncols(); ++j)
     for (auto i = 0; i < nrows(); ++i)
-      if constexpr (std::is_floating_point<P>::value)
+      if constexpr (std::is_floating_point_v<P>)
       {
         if (std::abs((*this)(i, j) - other(i, j)) > TOL)
         {
@@ -2496,7 +2496,7 @@ void fk::matrix<P, mem, resrc>::print(std::string label) const
   {
     for (auto j = 0; j < ncols(); ++j)
     {
-      if constexpr (std::is_floating_point<P>::value)
+      if constexpr (std::is_floating_point_v<P>)
       {
         std::cout << std::setw(12) << std::setprecision(4) << std::scientific
                   << std::right << (*this)(i, j);
@@ -2668,7 +2668,7 @@ void debug_compare(fk::matrix<P, left_mem> const &left,
   {
     for (auto j = 0; j < left.ncols(); ++j)
     {
-      if constexpr (std::is_floating_point<P>::value)
+      if constexpr (std::is_floating_point_v<P>)
       {
         if (std::abs(left(i, j) - right(i, j)) > TOL)
         {
