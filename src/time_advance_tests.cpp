@@ -1563,7 +1563,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   TestType E_kin_initial = 0.0;
 
   // number of DOF for the FG case: (degree * 2^level)^2 = 9.216e3
-  int const fg_dof = std::pow(degree * std::pow(2, levels[0]), 2);
+  int const fg_dof = std::pow(degree * fm::two_raised_to(levels[0]), 2);
 
   // -- time loop
   for (int i = 0; i < opts.num_time_steps; ++i)

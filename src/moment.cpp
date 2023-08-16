@@ -145,9 +145,8 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
   int const n = static_cast<int>(std::pow(
                     pde.get_dimensions()[v_dim_1].get_degree(), nvdim + 1)) *
                 num_ele;
-  int const rows =
-      static_cast<int>(std::pow(2, pde.get_dimensions()[x_dim].get_level())) *
-      pde.get_dimensions()[x_dim].get_degree();
+  auto const &dim = pde.get_dimensions()[x_dim];
+  int const rows  = fm::two_raised_to(dim.get_level()) * dim.get_degree();
 
   std::multimap<int, dense_item<P>> moment_mat;
 

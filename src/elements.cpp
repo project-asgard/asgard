@@ -37,7 +37,7 @@ int64_t get_1d_index(int const level, int const cell)
   {
     return 0;
   }
-  return static_cast<int64_t>(std::pow(2, level - 1)) + cell;
+  return fm::two_raised_to(level - 1) + cell;
 }
 
 std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
@@ -72,11 +72,11 @@ int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
     expect(coords(i + num_dims) >= 0);
 
     id += get_1d_index(coords(i), coords(i + num_dims)) * stride;
-    stride *= static_cast<int64_t>(std::pow(2, max_level));
+    stride *= fm::two_raised_to(max_level);
   }
 
   expect(id >= 0);
-  expect(id <= static_cast<int64_t>(std::pow(2, max_level * num_dims)));
+  expect(id <= fm::two_raised_to(max_level * num_dims));
 
   return id;
 }
@@ -89,7 +89,7 @@ map_to_coords(int64_t const id, int const max_level, int const num_dims)
   expect(num_dims > 0);
   expect(max_level <= dim_to_max_level.at(num_dims));
 
-  auto const stride = static_cast<int64_t>(std::pow(2, max_level));
+  auto const stride = fm::two_raised_to(max_level);
 
   fk::vector<int> coords(num_dims * 2);
   for (auto i = 0; i < num_dims; ++i)

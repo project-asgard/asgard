@@ -111,7 +111,7 @@ private:
   static P get_dt_(dimension<P> const &dim)
   {
     P const x_range = dim.domain_max - dim.domain_min;
-    P const dx      = x_range / std::pow(2, dim.get_level());
+    P const dx      = x_range / fm::two_raised_to(dim.get_level());
     P const dt      = dx;
     // this will be scaled by CFL
     // from command line

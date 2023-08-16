@@ -657,7 +657,7 @@ inline std::vector<size_t> matlab_plot::get_soln_sizes(
   std::vector<size_t> sizes(dims.size());
   for (size_t i = 0; i < dims.size(); i++)
   {
-    sizes[i] = dims[i].degree * std::pow(2, dims[i].level);
+    sizes[i] = dims[i].degree * fm::two_raised_to(dims[i].level);
   }
   return sizes;
 }
@@ -670,7 +670,7 @@ matlab_plot::get_soln_sizes(std::vector<dimension<P>> const &dims) const
   std::vector<size_t> sizes(dims.size());
   for (size_t i = 0; i < dims.size(); i++)
   {
-    sizes[i] = dims[i].get_degree() * std::pow(2, dims[i].get_level());
+    sizes[i] = dims[i].get_degree() * fm::two_raised_to(dims[i].get_level());
   }
   return sizes;
 }
@@ -687,7 +687,7 @@ inline int matlab_plot::get_soln_size(PDE<P> const &pde, int const dim) const
   // Gets the solution size for a given dimension (see dense_space_size() in
   // transformations)
   return pde.get_dimensions()[dim].get_degree() *
-         std::pow(2, pde.get_dimensions()[pde].get_level());
+         fm::two_raised_to(pde.get_dimensions()[pde].get_level());
 }
 
 /* explicit instantiations */

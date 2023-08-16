@@ -488,7 +488,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   int const level      = pde.get_dimensions()[0].get_level();
   P const min          = pde.get_dimensions()[0].domain_min;
   P const max          = pde.get_dimensions()[0].domain_max;
-  int const N_elements = std::pow(2, level);
+  int const N_elements = fm::two_raised_to(level);
 
   auto nodes = gen_realspace_nodes(degree, level, min, max);
 

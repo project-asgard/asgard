@@ -166,7 +166,7 @@ compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
   int const level  = dim.get_level();
   int const degree = dim.get_degree();
 
-  P const total_cells = std::pow(2, level);
+  P const total_cells = fm::two_raised_to(level);
 
   P const domain_per_cell = domain_extent / total_cells;
 
@@ -222,7 +222,7 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
   int const level  = dim.get_level();
   int const degree = dim.get_degree();
 
-  P const total_cells = std::pow(2, level);
+  P const total_cells = fm::two_raised_to(level);
 
   P const domain_per_cell = domain_extent / total_cells;
 
