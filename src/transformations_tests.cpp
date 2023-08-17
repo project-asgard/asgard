@@ -38,7 +38,7 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   P counter = 1.0;
   for (int i = 0; i < pde.num_dims; ++i)
   {
-    int const vect_size         = dims * static_cast<int>(std::pow(2, lev));
+    int const vect_size         = dims * fm::two_raised_to(lev);
     fk::vector<P> const vect_1d = [&counter, vect_size] {
       fk::vector<P> vect(vect_size);
       std::iota(vect.begin(), vect.end(), static_cast<P>(counter));

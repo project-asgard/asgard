@@ -202,7 +202,7 @@ TEMPLATE_TEST_CASE("kron", "[kron]", test_precs)
                &m) { return i * m.nrows(); });
 
     fk::vector<TestType> const correct(std::vector<TestType>(
-        y_size, x_size * std::pow(2, matrices.size() - 1) * 3));
+        y_size, x_size * fm::two_raised_to(matrices.size() - 1) * 3));
 
     test_kron<TestType, resource::device>(matrices, x_device, correct);
   }
