@@ -585,6 +585,44 @@ void case_cycle2(int const num_batch, int const num_cols, int const num_terms,
     kernel::cycle2<P, dims, n, team_size, num_teams, scalar_case::other>
         <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
 }
+template<typename P, int dims, int n>
+void case_cycle2(int const num_batch, int const num_cols, int const num_terms,
+                 int const elem[], int const row_offset, int const col_offset,
+                 P const * const vA[], int const num_1d_blocks,
+                 int iwork[], int iwsize,
+                 P const alpha, P const x[], P y[])
+{
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = (dims == 6) ? ASGARD_NUM_GPU_THREADS / 2 : ASGARD_NUM_GPU_THREADS;
+  constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
+  constexpr int num_teams   = max_threads / team_size;
+
+  static_assert(max_threads >= team_size,
+                "tensor size must be less than the max number of threads");
+
+  int const i_row       = num_cols * num_terms * dims; // ints per row
+  int const num_subrows = iwsize / i_row;
+
+  if (num_subrows <= num_batch / num_cols)
+  {
+  }
+  else
+  {
+  }
+
+  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  if (alpha == 1)
+    kernel::cycle2<P, dims, n, team_size, num_teams, scalar_case::one>
+        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+  else if (alpha == -1)
+    kernel::cycle2<P, dims, n, team_size, num_teams, scalar_case::neg_one>
+        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+  else
+    kernel::cycle2<P, dims, n, team_size, num_teams, scalar_case::other>
+        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+}
 /*!
  * \brief Helper to instantiate and call the kernel for cyclex.
  */
@@ -623,8 +661,9 @@ template<typename P>
 void gpu_dense(int const dimensions, int const n, int const output_size,
                int const num_batch, int const num_cols, int const num_terms,
                int const elem[], int const row_offset, int const col_offset,
-               P const *const vA[], int const num_1d_blocks, P const alpha,
-               P const x[], P const beta, P y[])
+               P const *const vA[], int const num_1d_blocks,
+               int iwork[], int iwsize,
+               P const alpha, P const x[], P const beta, P y[])
 {
   // apply the scaling to y and assume beta == 1 for the other kernels
   scale(output_size, beta, y);
@@ -778,13 +817,13 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
       case_n1<P, 3>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
       break;
     case 2:
-      case_cycle2<P, 3, 2>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      case_cycle2<P, 3, 2>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, iwork, iwsize, alpha, x, y);
       break;
     case 3:
       case_cycle1<P, 3, 3>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
       break;
     case 4:
-      case_cycle2<P, 3, 4>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      case_cycle2<P, 3, 4>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, iwork, iwsize, alpha, x, y);
       break;
     case 5:
       case_cycle1<P, 3, 5>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
@@ -890,6 +929,7 @@ template void gpu_dense<double>(int const, int const, int const, int const,
 template void gpu_dense<double>(int const, int const, int const, int const,
                                 int const, int const, int const[], int const,
                                 int const, double const *const[], int const,
+                                int[], int,
                                 double const, double const[], double const,
                                 double[]);
 
@@ -905,6 +945,7 @@ template void gpu_dense<float>(int const, int const, int const, int const,
 template void gpu_dense<float>(int const, int const, int const, int const,
                                int const, int const, int const[], int const,
                                int const, float const *const[], int const,
+                               int[], int,
                                float const, float const[], float const,
                                float[]);
 #endif
