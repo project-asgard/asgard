@@ -136,9 +136,16 @@ public:
       expect(terms_[t].size() ==
                  num_dimensions_ * num_1d_blocks_ * num_1d_blocks_ * kron_size_ * kron_size_);
 
+#ifdef ASGARD_USE_CUDA
+    fk::vector<precision *> cpu_term_pntr(num_terms_);
+    for(int t = 0; t < num_terms; t++)
+      cpu_term_pntr[t] = terms_[t].data();
+    term_pntr_ = cpu_term_pntr.clone_onto_device();
+#else
     term_pntr_ = fk::vector<precision *, mem_type::owner, data_mode>(num_terms_);
     for(int t = 0; t < num_terms; t++)
       term_pntr_[t] = terms_[t].data();
+#endif
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
@@ -365,7 +372,13 @@ public:
         fk::copy_to_device(ydev.data(), y, ydev.size());
       fk::copy_to_device(xdev.data(), x, xdev.size());
     }
-    if (is_dense())
+    if (is_v2())
+    {
+      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(), num_cols_, num_terms_,
+                          elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
+                          num_1d_blocks_, alpha, active_x, beta, active_y);
+    }
+    else if (is_dense())
     {
       if (iA.size() > 0)
       {
@@ -640,8 +653,15 @@ public:
     expect(values_A.size() == static_cast<size_t>(num_terms_));
     terms_ = std::move(values_A);
 
+#ifdef ASGARD_USE_CUDA
+    fk::vector<precision *> cpu_term_pntr(num_terms_);
     for(int t = 0; t < num_terms_; t++)
+      cpu_term_pntr[t] = terms_[t].data();
+    term_pntr_ = cpu_term_pntr.clone_onto_device();
+#else
+    for(int t = 0; t < num_terms; t++)
       term_pntr_[t] = terms_[t].data();
+#endif
   }
 
   //! \brief Returns the mode of the matrix, one call or multiple calls

@@ -160,13 +160,11 @@ void test_kronmult_welem(int dimensions, int n, int num_terms,
   asgard::fk::copy_to_device(xdev.data(), data->input_x.data(), xdev.size());
   asgard::fk::copy_to_device(ydev.data(), data->output_y.data(), ydev.size());
 
-  int const num_batch = data->num_rows() * data->num_rows();
+  asgard::kronmult_matrix<P> kmat(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
+                                  std::move(gpu_terms), std::move(elem),
+                                  0, 0, num_1d_blocks);
 
-  asgard::kronmult::gpu_dense<P>(dimensions, n, ydev.size(), num_batch, data->num_rows(), num_terms,
-                                 elem.data(), 0, 0, gpu_terms_ptr.data(),
-                                 num_1d_blocks, P{1.0}, xdev.data(), P{1.0},
-                                 ydev.data());
-
+  kmat.template apply<asgard::resource::device>(1.0, xdev.data(), 1.0, ydev.data());
   asgard::fk::copy_to_host(data->output_y.data(), ydev.data(), ydev.size());
 
 #else

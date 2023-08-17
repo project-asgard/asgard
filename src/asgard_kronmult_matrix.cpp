@@ -86,7 +86,6 @@ make_kronmult_dense(PDE<precision> const &pde,
     throw std::runtime_error("no terms selected in the current combination of "
                              "imex flags and options, this must be wrong");
 
-#ifndef ASGARD_USE_CUDA
   constexpr resource mode = resource::host;
 
   std::vector<fk::vector<precision, mem_type::owner, mode>> terms(num_terms);
@@ -112,14 +111,14 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
-  int const *const flattened_table =
+  int const *const ftable =
       discretization.get_table().get_active_table().data();
 
   int const num_indexes = 1 + std::max(grid.row_stop, grid.col_stop);
   fk::vector<int, mem_type::owner, mode> elem(num_dimensions * num_indexes);
   for(int i = 0; i < num_indexes; i++)
   {
-    int const *const idx = flattened_table + 2 * num_dimensions * i;
+    int const *const idx = ftable + 2 * num_dimensions * i;
 
     for(int d = 0; d < num_dimensions; d++)
     {
@@ -138,10 +137,22 @@ make_kronmult_dense(PDE<precision> const &pde,
   std::cout << "        memory usage (MB): "
             << get_MB<precision>(terms.size()) + get_MB<int>(elem.size()) << "\n";
 
+#ifdef ASGARD_USE_CUDA
+  std::vector<fk::vector<precision, mem_type::owner, resource::device>> gpu_terms(num_terms);
+  for(int t=0; t<num_terms; t++)
+    gpu_terms[t] = terms[t].clone_onto_device();
+
+  auto gpu_elem = elem.clone_onto_device();
+
   return
     asgard::kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, num_terms,
-                                  std::move(terms), std::move(elem),
-                                  grid.row_start, grid.col_start, num_1d_blocks);
+                                       std::move(gpu_terms), std::move(gpu_elem),
+                                       grid.row_start, grid.col_start, num_1d_blocks);
+#else
+  return
+    asgard::kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, num_terms,
+                                       std::move(terms), std::move(elem),
+                                       grid.row_start, grid.col_start, num_1d_blocks);
 #endif
 
 #ifdef ASGARD_USE_CUDA
@@ -840,7 +851,6 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 
   if (mat.is_v2())
   {
-#ifndef ASGARD_USE_CUDA
     constexpr resource mode = resource::host;
 
     std::vector<fk::vector<P, mem_type::owner, mode>> terms(num_terms);
@@ -865,10 +875,16 @@ void update_kronmult_coefficients(PDE<P> const &pde,
                                kron_size, pA);
       }
     }
+#ifdef ASGARD_USE_CUDA
+    std::vector<fk::vector<P, mem_type::owner, resource::device>> gpu_terms(num_terms);
+    for(int t=0; t<num_terms; t++)
+      gpu_terms[t] = terms[t].clone_onto_device();
+    mat.update_stored_coefficients(std::move(gpu_terms));
+#else
     mat.update_stored_coefficients(std::move(terms));
+#endif
     tools::timer.stop(form_id);
     return;
-#endif
   }
   else if (mat.is_dense())
   {
