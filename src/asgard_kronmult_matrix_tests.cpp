@@ -259,7 +259,6 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 3d", "[execute_cpu 3d]", test_precs)
 TEMPLATE_TEST_CASE("testing kronmult cpu 3d", "[dense_cpu 3d]", test_precs)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  //int n = GENERATE(1, 2, 3, 4);
   test_kronmult_welem<TestType>(3, n, 3, 3);
 }
 
@@ -273,7 +272,6 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 4d", "[execute_cpu 4d]", test_precs)
 TEMPLATE_TEST_CASE("testing kronmult cpu 4d", "[dense_cpu 4d]", test_precs)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
-  //int n = GENERATE(1, 2, 3, 4);
   test_kronmult_welem<TestType>(4, n, 2, 3);
 }
 
@@ -337,8 +335,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[execute_gpu 1d]", test_precs)
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[dense_gpu 1d]", test_precs)
 {
-  //int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8);
+  int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
   test_kronmult_welem<TestType>(1, n, 3, 7);
 }
 
@@ -353,9 +350,8 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[execute_gpu 2d]", test_precs)
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[dense_gpu 2d]", test_precs)
 {
-  //int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-  //                 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
-  int n = GENERATE(1, 2);
+  int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+                   18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32);
   test_kronmult_welem<TestType>(2, n, 3, 7);
 }
 
@@ -369,11 +365,23 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[execute_gpu 3d]", test_precs)
                                                                  7);
 }
 
+TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[dense_gpu 3d]", test_precs)
+{
+  int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+  test_kronmult_welem<TestType>(3, n, 3, 3);
+}
+
 TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[execute_gpu 4d]", test_precs)
 {
   int n = GENERATE(1, 2, 3, 4, 5);
   test_kronmult<TestType, dense_mode>(4, n, 10, 3, 7);
   test_kronmult<TestType, sparse_mode>(4, n, 10, 3, 7);
+}
+
+TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[dense_gpu 4d]", test_precs)
+{
+  int n = GENERATE(1, 2, 3, 4, 5);
+  test_kronmult_welem<TestType>(4, n, 2, 3);
 }
 
 TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", test_precs)
@@ -383,11 +391,23 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[execute_gpu 5d]", test_precs)
   test_kronmult<TestType, sparse_mode>(5, n, 10, 2, 7);
 }
 
+TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[dense_gpu 5d]", test_precs)
+{
+  int n = GENERATE(1, 2, 3, 4);
+  test_kronmult_welem<TestType>(5, n, 2, 1);
+}
+
 TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[execute_gpu 6d]", test_precs)
 {
   int n = GENERATE(1, 2, 3, 4);
   test_kronmult<TestType, dense_mode>(6, n, 8, 2, 7);
   test_kronmult<TestType, sparse_mode>(6, n, 8, 2, 7);
+}
+
+TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[dense_gpu 6d]", test_precs)
+{
+  int n = GENERATE(1, 2, 3);
+  test_kronmult_welem<TestType>(6, n, 2, 1);
 }
 
 #endif

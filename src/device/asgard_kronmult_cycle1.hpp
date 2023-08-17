@@ -136,7 +136,7 @@ case_n1(int const num_batch, int const num_cols, int const num_terms,
     {
       P totalA = vA[t][ ix[0] * num_1d_blocks + iy[0] ];
       for (int d = 1; d < dims; d++)
-        totalA *= vA[t][ ix[d] * num_1d_blocks + iy[d] ];
+        totalA *= vA[t][ d * num_1d_blocks * num_1d_blocks + ix[d] * num_1d_blocks + iy[d] ];
       sum += totalA * X;
     }
 
@@ -519,9 +519,9 @@ template<typename P, int dims, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
 cycle1(int const num_batch, int const num_cols, int const num_terms,
-        int const elem[], int const row_offset, int const col_offset,
-        P const * const vA[], int const num_1d_blocks, P const alpha,
-        P const x[], P y[])
+       int const elem[], int const row_offset, int const col_offset,
+       P const * const vA[], int const num_1d_blocks, P const alpha,
+       P const x[], P y[])
 {
   (void)alpha;
   // if thread teams span more than one warp, we must synchronize
@@ -597,15 +597,17 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
     int const rowy = i / num_cols;
     int const colx = i % num_cols;
 
-    int const *iy = elem + (rowy + row_offset) * dims;
-    int const *ix = elem + (colx + col_offset) * dims;
-
     P yinc = 0;
     P rawx = x[int_pow<n, dims>() * colx + threadIdx.x];
 
     for (int t = 0; t < num_terms; t++)
     {
       X[threadIdx.y][threadIdx.x] = rawx;
+
+      int const *iy = elem + (rowy + row_offset) * dims;
+      int const *ix = elem + (colx + col_offset) * dims;
+
+      int ma_stride = 0;
       int ma = n * n * ( (*ix) * num_1d_blocks + *iy );
 
       if constexpr (dims >= 6)
@@ -613,7 +615,8 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
         if (threadIdx.x < n * n)
         {
           A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma = n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -634,7 +637,8 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
         if (threadIdx.x < n * n)
         {
           A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma = n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -655,7 +659,8 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
         if (threadIdx.x < n * n)
         {
           A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma = n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -676,7 +681,8 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
         if (threadIdx.x < n * n)
         {
           A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma = n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -697,7 +703,8 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
         if (threadIdx.x < n * n)
         {
           A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma = n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -713,10 +720,7 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
       }
 
       if (threadIdx.x < n * n)
-      {
         A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-        ma = n * n * ( *(++ix) * num_1d_blocks + *(++iy));
-      }
       if constexpr (sync_mode == manual_sync::enable)
         __syncthreads();
 

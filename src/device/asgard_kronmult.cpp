@@ -512,7 +512,7 @@ void case_d1(int const num_batch, int const num_cols, int const num_terms,
              P const x[], P y[])
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
-  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
+  constexpr int max_threads = (n >= 9) ? ASGARD_NUM_GPU_THREADS / 2 : ASGARD_NUM_GPU_THREADS;
   constexpr int team_size   = n;
   constexpr int num_teams   = max_threads / team_size;
 
@@ -558,67 +558,66 @@ void case_cycle1(int const num_batch, int const num_cols, int const num_terms,
         <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
 }
 //! \brief Helper to instantiate and call the kernel for cycle2.
-//template<typename T, int dims, int n>
-//void case_cycle2(int const num_batch, int const num_cols, int const num_terms,
-//                 int const iA[], T const vA[], T const alpha, T const x[],
-//                 T y[])
-//{
-//  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
-//  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
-//  constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
-//  constexpr int num_teams   = max_threads / team_size;
-//
-//  static_assert(max_threads >= team_size,
-//                "tensor size must be less than the max number of threads");
-//
-//  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
-//
-//  dim3 grid(team_size, num_teams);
-//  if (alpha == 1)
-//    kernel::cycle2<T, dims, n, team_size, num_teams, scalar_case::one>
-//        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, iA, vA, alpha, x,
-//                               y);
-//  else if (alpha == -1)
-//    kernel::cycle2<T, dims, n, team_size, num_teams, scalar_case::neg_one>
-//        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, iA, vA, alpha, x,
-//                               y);
-//  else
-//    kernel::cycle2<T, dims, n, team_size, num_teams, scalar_case::other>
-//        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, iA, vA, alpha, x,
-//                               y);
-//}
+template<typename P, int dims, int n>
+void case_cycle2(int const num_batch, int const num_cols, int const num_terms,
+                 int const elem[], int const row_offset, int const col_offset,
+                 P const * const vA[], int const num_1d_blocks, P const alpha,
+                 P const x[], P y[])
+{
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = (dims == 6) ? ASGARD_NUM_GPU_THREADS / 2 : ASGARD_NUM_GPU_THREADS;
+  constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
+  constexpr int num_teams   = max_threads / team_size;
+
+  static_assert(max_threads >= team_size,
+                "tensor size must be less than the max number of threads");
+
+  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  if (alpha == 1)
+    kernel::cycle2<P, dims, n, team_size, num_teams, scalar_case::one>
+        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+  else if (alpha == -1)
+    kernel::cycle2<P, dims, n, team_size, num_teams, scalar_case::neg_one>
+        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+  else
+    kernel::cycle2<P, dims, n, team_size, num_teams, scalar_case::other>
+        <<<num_blocks, grid>>>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+}
 /*!
  * \brief Helper to instantiate and call the kernel for cyclex.
  */
-//template<typename T, int dims, int n, int num_cycles>
-//void case_cyclex(int const num_batch, int const num_cols, int const num_terms,
-//                 int const iA[], T const vA[], T const alpha, T const x[],
-//                 T y[])
-//{
-//  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
-//  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
-//  constexpr int team_size   = (ipow<n, dims>() + 1) / num_cycles;
-//  constexpr int num_teams   = max_threads / team_size;
-//
-//  static_assert(max_threads >= team_size,
-//                "tensor size must be less than the max number of threads");
-//
-//  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
-//
-//  dim3 grid(team_size, num_teams);
-//  if (alpha == 1)
-//    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles,
-//                   scalar_case::one><<<num_blocks, grid>>>(
-//        num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-//  else if (alpha == -1)
-//    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles,
-//                   scalar_case::neg_one><<<num_blocks, grid>>>(
-//        num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-//  else
-//    kernel::cyclex<T, dims, n, team_size, num_teams, num_cycles,
-//                   scalar_case::other><<<num_blocks, grid>>>(
-//        num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-//}
+template<typename P, int dims, int n, int num_cycles>
+void case_cyclex(int const num_batch, int const num_cols, int const num_terms,
+                 int const elem[], int const row_offset, int const col_offset,
+                 P const * const vA[], int const num_1d_blocks, P const alpha,
+                 P const x[], P y[])
+{
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = ASGARD_NUM_GPU_THREADS / 2;
+  constexpr int team_size   = (ipow<n, dims>() + 1) / num_cycles;
+  constexpr int num_teams   = max_threads / team_size;
+
+  static_assert(max_threads >= team_size,
+                "tensor size must be less than the max number of threads");
+
+  int const num_blocks = blocks(num_batch, num_teams, max_blocks);
+
+  dim3 grid(team_size, num_teams);
+  if (alpha == 1)
+    kernel::cyclex<P, dims, n, team_size, num_teams, num_cycles,
+                   scalar_case::one><<<num_blocks, grid>>>(
+        num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+  else if (alpha == -1)
+    kernel::cyclex<P, dims, n, team_size, num_teams, num_cycles,
+                   scalar_case::neg_one><<<num_blocks, grid>>>(
+        num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+  else
+    kernel::cyclex<P, dims, n, team_size, num_teams, num_cycles,
+                   scalar_case::other><<<num_blocks, grid>>>(
+        num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+}
 
 template<typename P>
 void gpu_dense(int const dimensions, int const n, int const output_size,
@@ -775,37 +774,36 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
   case 3:
     switch (n)
     {
-    //case 1:
-    //  case_n1<T, 3>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 2:
-    //  case_cycle2<T, 3, 2>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 3:
-    //  case_cycle1<T, 3, 3>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 4:
-    //  case_cycle2<T, 3, 4>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 5:
-    //  case_cycle1<T, 3, 5>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 6:
-    //  case_cycle1<T, 3, 6>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 7:
-    //  case_cycle1<T, 3, 7>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 8:
-    //  case_cycle1<T, 3, 8>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 9:
-    //  case_cycle1<T, 3, 9>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 10:
-    //  case_cycle1<T, 3, 10>(num_batch, num_cols, num_terms, iA, vA, alpha, x,
-    //                        y);
-    //  break;
+    case 1:
+      case_n1<P, 3>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 2:
+      case_cycle2<P, 3, 2>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 3:
+      case_cycle1<P, 3, 3>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 4:
+      case_cycle2<P, 3, 4>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 5:
+      case_cycle1<P, 3, 5>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 6:
+      case_cycle1<P, 3, 6>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 7:
+      case_cycle1<P, 3, 7>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 8:
+      case_cycle1<P, 3, 8>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 9:
+      case_cycle1<P, 3, 9>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 10:
+      case_cycle1<P, 3, 10>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
     }
@@ -813,21 +811,21 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
   case 4:
     switch (n)
     {
-    //case 1:
-    //  case_n1<T, 4>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 2:
-    //  case_cycle1<T, 4, 2>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 3:
-    //  case_cycle2<T, 4, 3>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 4:
-    //  case_cycle2<T, 4, 4>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 5:
-    //  case_cycle2<T, 4, 5>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
+    case 1:
+      case_n1<P, 4>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 2:
+      case_cycle1<P, 4, 2>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 3:
+      case_cycle2<P, 4, 3>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 4:
+      case_cycle2<P, 4, 4>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 5:
+      case_cycle2<P, 4, 5>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
     }
@@ -835,18 +833,18 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
   case 5:
     switch (n)
     {
-    //case 1:
-    //  case_n1<T, 5>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 2:
-    //  case_cycle1<T, 5, 2>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 3:
-    //  case_cycle2<T, 5, 3>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 4:
-    //  case_cycle2<T, 5, 4>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
+    case 1:
+      case_n1<P, 5>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 2:
+      case_cycle1<P, 5, 2>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 3:
+      case_cycle2<P, 5, 3>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 4:
+      case_cycle2<P, 5, 4>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
     }
@@ -854,19 +852,18 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
   case 6:
     switch (n)
     {
-    //case 1:
-    //  case_n1<T, 6>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 2:
-    //  case_cycle2<T, 6, 2>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 3:
-    //  case_cycle2<T, 6, 3>(num_batch, num_cols, num_terms, iA, vA, alpha, x, y);
-    //  break;
-    //case 4:
-    //  case_cyclex<T, 6, 4, 4>(num_batch, num_cols, num_terms, iA, vA, alpha, x,
-    //                          y);
-    //  break;
+    case 1:
+      case_n1<P, 6>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 2:
+      case_cycle2<P, 6, 2>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 3:
+      case_cycle2<P, 6, 3>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
+    case 4:
+      //case_cyclex<P, 6, 4, 8>(num_batch, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, y);
+      break;
     default:
       throw std::runtime_error("kronmult unimplemented n for the gpu");
     }
@@ -876,6 +873,8 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
         "kronmult unimplemented number of dimensions for the gpu " +
         std::to_string(dimensions));
   }
+  cudaError_t err = cudaGetLastError();  // add
+  if (err != cudaSuccess) std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
 }
 
 
