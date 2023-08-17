@@ -16,8 +16,11 @@ template<typename T>
 inline constexpr T two_raised_to(T const exponent)
 {
   static_assert(std::is_same_v<T, int> || std::is_same_v<T, unsigned> ||
-                std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>);
+                std::is_same_v<T, long> || std::is_same_v<T, unsigned long> ||
+                std::is_same_v<T, long long> ||
+                std::is_same_v<T, unsigned long long>);
   expect(exponent >= 0);
+  expect(exponent < std::numeric_limits<T>::digits);
   return T{1} << exponent;
 }
 

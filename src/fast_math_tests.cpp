@@ -211,13 +211,14 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 #endif
 }
 
-TEST_CASE("fm::two_raised_to", "[fast_math]")
+TEMPLATE_TEST_CASE("fm::two_raised_to", "[fast_math]", int, long, long long,
+                   unsigned, unsigned long, unsigned long long)
 {
   SECTION("pow")
   {
-    for (int i = 0; i < 31; i++)
+    for (TestType i = 0; i < std::numeric_limits<TestType>::digits; ++i)
     {
-      REQUIRE(fm::two_raised_to(i) == pow(2, i));
+      REQUIRE(fm::two_raised_to(i) == std::pow(2, i));
     }
   }
 }
