@@ -44,35 +44,35 @@ enum class scalar_case
  * The short notation is that:
  * y[i * n^d ... (i+1) * n^d - 1] = beta * y[i * n^d ... (i+1) * n^d - 1]
  *      + alpha * sum_j sum_k
- *          kron(vA[n * n * iA[i * d * T * num_rows + j * d * T + k * d]]
+ *          kron(vA[t][n * n * (elem[j * dimensions] * num_1d_blocks
+ *                              + elem[i * dimensions])]
  *               ...
- *               vA[iA[i * d * T * num_rows + j * d * T + k * d + d - 1])
+ *              kron(vA[t][(dims - 1) * num_1d_blocks^2 * n * n +
+ *                    n * n * (elem[j * dimensions + (dims - 1)] * num_1d_blocks
+ *                                  + elem[i * dimensions + (dims - 1)])]
  *          * x[j * n^d ... (j+1) * n^d - 1]
- * T is the number of terms (num_terms)
+ *
  * i indexes the tensors in y, j the tensors in x,
  * both go from 0 to num_rows - 1
- * k indexes the operator terms (0 to T - 1)
- * and iA is the index of the small matrices of size n * n
+ * t indexes the operator terms (0 to num_terms - 1)
+ * vA[t] is the list of coefficients for this term, i.e., the n by n matrices
  * all such matrices are stored in column-major format and stacked by
  * rows inside vA (i.e., there is one row of matrices)
  *
- * \tparam T is float or double
+ * \tparam P is float or double
  *
  * \param dimensions must be between 1D and 6D (included)
  * \param n is the size of the problem, e.g., for linear basis n=2
  *        and cubic basis n=4
  *
- * \param num_rows is the number of rows of the matrix with
- */
-template<typename T>
-void cpu_dense(int const dimensions, int const n, int const num_rows,
-               int const num_cols, int const num_terms, int const iA[],
-               T const vA[], T const alpha, T const x[], T const beta, T y[]);
-
-/*!
- * \brief Performs a batch of kronmult operations using a dense CPU matrix.
- *
- * The main point here is that this takes in the list of elements.
+ * \param num_rows is the number of rows of the matrix
+ * \param num_cols is the number of rows of the matrix
+ * \param num_terms is the number of operator terms
+ * \param elem is the list multi-indexes
+ * \param row_offset is the offset inside elem of the first row multi-index
+ * \param col_offset is the offset inside elem of the first row multi-index
+ * \param vA is an array of arrays that holds all coefficients
+ * \param num_1d_blocks is the number of cells in one-dimension
  */
 template<typename T>
 void cpu_dense(int const dimensions, int const n, int const num_rows,
@@ -105,13 +105,9 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
  * The indexes and scalars alpha and beta are stored on the CPU.
  *
  * \b output_size is the total size of y, i.e., num_rows * n^dimensions
+ *
+ * \b num_batch is the product num_cols times num_rows
  */
-template<typename T>
-void gpu_dense(int const dimensions, int const n, int const output_size,
-               int const num_batch, int const num_cols, int const num_terms,
-               int const iA[], T const vA[], T const alpha, T const x[],
-               T const beta, T y[]);
-
 template<typename P>
 void gpu_dense(int const dimensions, int const n, int const output_size,
                int const num_batch, int const num_cols, int const num_terms,

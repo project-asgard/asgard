@@ -363,73 +363,11 @@ public:
         fk::copy_to_device(ydev.data(), y, ydev.size());
       fk::copy_to_device(xdev.data(), x, xdev.size());
     }
-    if (is_v2())
+    if (is_dense())
     {
       kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(), num_cols_, num_terms_,
                           elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
                           num_1d_blocks_, alpha, active_x, beta, active_y);
-    }
-    else if (is_dense())
-    {
-      if (iA.size() > 0)
-      {
-        // single call to kronmult, all data is on the GPU
-        kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                            num_batch(), num_cols_, num_terms_, iA.data(),
-                            vA.data(), alpha, active_x, beta, active_y);
-      }
-      else
-      {
-#ifdef ASGARD_USE_GPU_MEM_LIMIT
-        // multiple calls, need to move data, call kronmult, then move next data
-        // data loading is done asynchronously using the load_stream
-        int *load_buffer    = worka.data();
-        int *compute_buffer = workb.data();
-        auto stats          = cudaMemcpyAsync(load_buffer, list_iA[0].data(),
-                                     sizeof(int) * list_iA[0].size(),
-                                     cudaMemcpyHostToDevice, load_stream);
-        expect(stats == cudaSuccess);
-        for (size_t i = 0; i < list_iA.size(); i++)
-        {
-          // sync load_stream to ensure that data has already been loaded
-          cudaStreamSynchronize(load_stream);
-          // ensure the last compute stage is done before swapping the buffers
-          if (i > 0) // no need to sync at the very beginning
-            cudaStreamSynchronize(nullptr);
-          std::swap(load_buffer, compute_buffer);
-
-          if (i + 1 < list_iA.size())
-          {
-            // begin loading the next chunk of data
-            stats = cudaMemcpyAsync(load_buffer, list_iA[i + 1].data(),
-                                    sizeof(int) * list_iA[i + 1].size(),
-                                    cudaMemcpyHostToDevice, load_stream);
-            expect(stats == cudaSuccess);
-          }
-
-          // num_batch is list_iA[i].size() / (num_dimensions_ * num_terms_)
-          // note that the first call to gpu_dense with the given output_size()
-          // will apply beta to the output y, thus follow on calls have to only
-          // accumulate and beta should be set to 1
-          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                              list_iA[i].size() /
-                                  (num_dimensions_ * num_terms_),
-                              num_cols_, num_terms_, compute_buffer, vA.data(),
-                              alpha, active_x, (i == 0) ? beta : 1,
-                              active_y + i * list_row_stride_ * tensor_size_);
-        }
-#else
-        for (size_t i = 0; i < list_iA.size(); i++)
-        {
-          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                              list_iA[i].size() /
-                                  (num_dimensions_ * num_terms_),
-                              num_cols_, num_terms_, list_iA[i].data(),
-                              vA.data(), alpha, active_x, (i == 0) ? beta : 1,
-                              active_y + i * list_row_stride_ * tensor_size_);
-        }
-#endif
-      }
     }
     else
     {
@@ -522,31 +460,11 @@ public:
                   "CUDA not enabled, only resource::host is allowed for "
                   "the kronmult_matrix::apply() template parameter");
 
-    if (is_v2())
+    if (is_dense())
     {
       kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_, num_terms_,
                           elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
                           num_1d_blocks_, alpha, x, beta, y);
-    }
-    else if (is_dense())
-    {
-      if (iA.size() > 0)
-      {
-        kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
-                            num_terms_, iA.data(), vA.data(), alpha, x, beta,
-                            y);
-      }
-      else
-      {
-        for (size_t i = 0; i < list_iA.size(); i++)
-        {
-          kronmult::cpu_dense(
-              num_dimensions_, kron_size_,
-              list_iA[i].size() / (num_dimensions_ * num_terms_ * num_cols_),
-              num_cols_, num_terms_, list_iA[i].data(), vA.data(), alpha, x,
-              beta, y + i * list_row_stride_ * tensor_size_);
-        }
-      }
     }
     else
     {
@@ -603,11 +521,6 @@ public:
     return (row_indx_.empty() and list_row_indx_.empty());
   }
 
-  bool is_v2() const
-  {
-    return (elem_.size() > 0);
-  }
-
   //! \brief Update coefficients
   template<resource input_mode>
   void update_stored_coefficients(
@@ -650,7 +563,7 @@ public:
       cpu_term_pntr[t] = terms_[t].data();
     term_pntr_ = cpu_term_pntr.clone_onto_device();
 #else
-    for(int t = 0; t < num_terms; t++)
+    for(int t = 0; t < num_terms_; t++)
       term_pntr_[t] = terms_[t].data();
 #endif
   }
@@ -658,6 +571,8 @@ public:
   //! \brief Returns the mode of the matrix, one call or multiple calls
   bool is_onecall()
   {
+    if (is_dense())
+      return true;
 #ifdef ASGARD_USE_CUDA
     return (iA.size() > 0);
 #else
