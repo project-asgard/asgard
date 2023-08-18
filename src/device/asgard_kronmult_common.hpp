@@ -35,9 +35,9 @@ namespace asgard::kronmult
  */
 inline int blocks(int64_t work_size, int work_per_block, int max_blocks)
 {
-  return std::min(max_blocks,
-                  static_cast<int>((work_size + work_per_block - 1)
-                                    / work_per_block));
+  return std::min(
+      max_blocks,
+      static_cast<int>((work_size + work_per_block - 1) / work_per_block));
 }
 
 /*!

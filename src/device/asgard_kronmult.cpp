@@ -152,12 +152,12 @@ void case_cycle2(int64_t const num_batch, int const num_cols,
                  int const col_offset, P const *const vA[],
                  int const num_1d_blocks, P const alpha, P const x[], P y[])
 {
-  constexpr int max_blocks = ASGARD_NUM_GPU_BLOCKS;
-  constexpr int max_threads =
-      (dims == 6 or (dims == 5 and n >= 3)) ? ASGARD_NUM_GPU_THREADS / 2
-                                            : ASGARD_NUM_GPU_THREADS;
-  constexpr int team_size = (ipow<n, dims>() + 1) / 2;
-  constexpr int num_teams = max_threads / team_size;
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = (dims == 6 or (dims == 5 and n >= 3))
+                                  ? ASGARD_NUM_GPU_THREADS / 2
+                                  : ASGARD_NUM_GPU_THREADS;
+  constexpr int team_size   = (ipow<n, dims>() + 1) / 2;
+  constexpr int num_teams   = max_threads / team_size;
 
   static_assert(max_threads >= team_size,
                 "tensor size must be less than the max number of threads");
