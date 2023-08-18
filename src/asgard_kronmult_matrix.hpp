@@ -318,11 +318,6 @@ public:
     xdev = fk::vector<precision, mem_type::view, resource::device>(x);
     ydev = fk::vector<precision, mem_type::view, resource::device>(y);
   }
-  void
-  set_iworkspace(fk::vector<int, mem_type::owner, resource::device> &w)
-  {
-    iwork = fk::vector<int, mem_type::view, resource::device>(w);
-  }
 #endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
   //! \brief Set the workspace memory for loading the index list
@@ -372,8 +367,7 @@ public:
     {
       kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(), num_cols_, num_terms_,
                           elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
-                          num_1d_blocks_, iwork.data(), iwork.size(),
-                          alpha, active_x, beta, active_y);
+                          num_1d_blocks_, alpha, active_x, beta, active_y);
     }
     else if (is_dense())
     {
@@ -734,7 +728,6 @@ private:
   static constexpr resource data_mode = resource::device;
   // cache vectors for the input and output
   mutable fk::vector<precision, mem_type::view, data_mode> xdev, ydev;
-  mutable fk::vector<int, mem_type::view, resource::device> iwork;
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
   // if working out-of-code, multiple vectors will be handled from the host
   static constexpr resource multi_data_mode = resource::host;
@@ -879,9 +872,6 @@ struct matrix_list
   {
     // make sure we have defined flags for all matrices
     expect(matrices.size() == flag_map.size());
-#ifdef ASGARD_USE_CUDA
-    iwork = fk::vector<int, mem_type::owner, resource::device>(1073741824);
-#endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     load_stream = nullptr;
 #endif
@@ -928,7 +918,6 @@ struct matrix_list
           (*this)[entry].output_size());
     }
     (*this)[entry].set_workspace(xdev, ydev);
-    (*this)[entry].set_iworkspace(iwork);
 #endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     if (mem_stats.kron_call == memory_usage::multi_calls)
@@ -1017,8 +1006,6 @@ private:
 #ifdef ASGARD_USE_CUDA
   //! \brief Work buffers for the input and output
   mutable fk::vector<precision, mem_type::owner, resource::device> xdev, ydev;
-  //! \brief Workspace for the indexes
-  mutable fk::vector<int, mem_type::owner, resource::device> iwork;
 #endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
   mutable fk::vector<int, mem_type::owner, resource::device> worka;

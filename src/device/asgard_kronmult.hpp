@@ -116,9 +116,8 @@ template<typename P>
 void gpu_dense(int const dimensions, int const n, int const output_size,
                int const num_batch, int const num_cols, int const num_terms,
                int const elem[], int const row_offset, int const col_offset,
-               P const *const vA[], int const num_1d_blocks,
-               int iwork[], int iwsize,
-               P const alpha, P const x[], P const beta, P y[]);
+               P const *const vA[], int const num_1d_blocks, P const alpha,
+               P const x[], P const beta, P y[]);
 
 /*!
  * \brief Sparse variant for the GPU.

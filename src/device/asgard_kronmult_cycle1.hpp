@@ -597,6 +597,44 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
     int const rowy = i / num_cols;
     int const colx = i % num_cols;
 
+    int const *iy = elem + (rowy + row_offset) * dims;
+    int const *ix = elem + (colx + col_offset) * dims;
+
+    int ii5, ii4, ii3, ii2, ii1, ii0;
+#if (CUDART_VERSION < 11070)
+    (void) ii5;
+    (void) ii4;
+    (void) ii3;
+    (void) ii2;
+#endif
+    int ioff = 0;
+    if constexpr (dims >= 6)
+    {
+      ii5   = n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 5)
+    {
+      ii4   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 4)
+    {
+      ii3   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 3)
+    {
+      ii2   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 2)
+    {
+      ii1   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    ii0   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+
     P yinc = 0;
     P rawx = x[int_pow<n, dims>() * colx + threadIdx.x];
 
@@ -604,19 +642,22 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
     {
       X[threadIdx.y][threadIdx.x] = rawx;
 
-      int const *iy = elem + (rowy + row_offset) * dims;
-      int const *ix = elem + (colx + col_offset) * dims;
+      P const* const pA = vA[t];
 
-      int ma_stride = 0;
-      int ma = n * n * ( (*ix) * num_1d_blocks + *iy );
+      //int const *iy = elem + (rowy + row_offset) * dims;
+      //int const *ix = elem + (colx + col_offset) * dims;
+      //
+      //int ma_stride = 0;
+      //int ma = n * n * ( (*ix) * num_1d_blocks + *iy );
 
       if constexpr (dims >= 6)
       {
         if (threadIdx.x < n * n)
         {
-          A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          //A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
+          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          A[threadIdx.y][threadIdx.x] = pA[ii5 + threadIdx.x];
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -636,9 +677,10 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          //A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
+          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          A[threadIdx.y][threadIdx.x] = pA[ii4 + threadIdx.x];
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -658,9 +700,10 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          //A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
+          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          A[threadIdx.y][threadIdx.x] = pA[ii3 + threadIdx.x];
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -680,9 +723,10 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          //A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
+          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          A[threadIdx.y][threadIdx.x] = pA[ii2 + threadIdx.x];
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -702,9 +746,10 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
-          ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          //A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
+          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          A[threadIdx.y][threadIdx.x] = pA[ii1 + threadIdx.x];
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -720,7 +765,8 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
       }
 
       if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
+        //A[threadIdx.y][threadIdx.x] = vA[t][ma + threadIdx.x];
+        A[threadIdx.y][threadIdx.x] = pA[ii0 + threadIdx.x];
       if constexpr (sync_mode == manual_sync::enable)
         __syncthreads();
 
@@ -732,11 +778,11 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
     }
 
     if constexpr (alpha_case == scalar_case::one)
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], yinc);
+      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], yinc);
     else if constexpr (alpha_case == scalar_case::neg_one)
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], -yinc);
+      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], -yinc);
     else
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x],
+      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x],
                 alpha * yinc);
 
     i += gridDim.x * blockDim.y;
