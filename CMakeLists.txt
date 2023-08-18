@@ -363,6 +363,11 @@ target_compile_definitions (libasgard
 
 if (ASGARD_USE_CUDA)
 
+    target_sources (libasgard
+                    PRIVATE
+                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_resources_cuda.cpp>
+    )
+
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
                                  PROPERTIES LANGUAGE CUDA)
@@ -377,6 +382,11 @@ if (ASGARD_USE_CUDA)
                            CUDA::cudart
                            CUDA::cublas
                            CUDA::cusparse
+    )
+else()
+    target_sources (libasgard
+                    PRIVATE
+                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_resources_host.cpp>
     )
 endif ()
 

@@ -472,9 +472,10 @@ generate_messages(distribution_plan const &plan)
 // static helper for copying my own output to input
 // message ranges are in terms of global element indices
 // index maps get us back to local element indices
-template<typename P>
+template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
 static void
-copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
+copy_to_input(fk::vector<P, src_mem, resrc> const &source,
+              fk::vector<P, dst_mem, resrc> &dest,
               index_mapper const &source_map, index_mapper const &dest_map,
               message const &message, int const segment_size)
 {
@@ -495,9 +496,10 @@ copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
             segment_size -
         1;
 
-    fk::vector<P, mem_type::const_view> const source_window(
+    fk::vector<P, mem_type::const_view, resrc> const source_window(
         source, source_start, source_end);
-    fk::vector<P, mem_type::view> dest_window(dest, dest_start, dest_end);
+    fk::vector<P, mem_type::view, resrc> dest_window(dest, dest_start,
+                                                     dest_end);
 
     fm::copy(source_window, dest_window);
   }
@@ -507,10 +509,11 @@ copy_to_input(fk::vector<P> const &source, fk::vector<P> &dest,
 // static helper for sending/receiving output/input data using mpi
 // message ranges are in terms of global element indices
 // index map gets us back to local element indices
-template<typename P>
-static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
-                             index_mapper const &map, message const &message,
-                             int const segment_size)
+template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
+static void
+dispatch_message(fk::vector<P, src_mem, resrc> const &source,
+                 fk::vector<P, dst_mem, resrc> &dest, index_mapper const &map,
+                 message const &message, int const segment_size)
 {
 #ifdef ASGARD_USE_MPI
   expect(segment_size > 0);
@@ -529,8 +532,8 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
             segment_size -
         1;
 
-    fk::vector<P, mem_type::const_view> const window(source, source_start,
-                                                     source_end);
+    fk::vector<P, mem_type::const_view, resrc> const window(
+        source, source_start, source_end);
 
     auto const success =
         MPI_Send((void *)window.data(), window.size(), mpi_type, message.target,
@@ -545,7 +548,7 @@ static void dispatch_message(fk::vector<P> const &source, fk::vector<P> &dest,
         static_cast<int64_t>(map(message.dest_range.stop) + 1) * segment_size -
         1;
 
-    fk::vector<P, mem_type::view> window(dest, dest_start, dest_end);
+    fk::vector<P, mem_type::view, resrc> window(dest, dest_start, dest_end);
 
     auto const success =
         MPI_Recv((void *)window.data(), window.size(), mpi_type, message.target,
