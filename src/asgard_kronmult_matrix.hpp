@@ -236,24 +236,18 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect(row_indx_.empty() == col_indx_.empty());
+    expect(not row_indx_.empty() and not col_indx_.empty());
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
     flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
 
 #ifdef ASGARD_USE_CUDA
-    if (!row_indx_.empty())
-    {
-      expect(row_indx_.size() == col_indx_.size());
-      expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
-    }
+    expect(row_indx_.size() == col_indx_.size());
+    expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
 #else
-    if (!row_indx_.empty())
-    {
-      expect(row_indx_.size() == num_rows_ + 1);
-      expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
-    }
+    expect(row_indx_.size() == num_rows_ + 1);
+    expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
 #endif
   }
 
@@ -281,36 +275,6 @@ public:
   {
     expect(not(list_row_indx_.empty() and list_col_indx_.empty()));
   }
-
-  /*!
-   * \brief Creates a dense matrix in single call mode, skips row/col indexes.
-   */
-  template<resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms,
-                  fk::vector<int, mem_type::owner, input_mode> &&index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
-                        num_terms,
-                        fk::vector<int, mem_type::owner, input_mode>(),
-                        fk::vector<int, mem_type::owner, input_mode>(),
-                        std::move(index_A), std::move(values_A))
-  {}
-
-  //! \brief Dense matrix in multi-call mode
-  template<resource multi_mode, resource input_mode>
-  kronmult_matrix(
-      int num_dimensions, int kron_size, int num_rows, int num_cols,
-      int num_terms, int list_row_stride,
-      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
-      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : kronmult_matrix(
-            num_dimensions, kron_size, num_rows, num_cols, num_terms,
-            list_row_stride,
-            std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
-            std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
-            std::move(list_index_A), std::move(values_A))
-  {}
 
 #ifdef ASGARD_USE_CUDA
   //! \brief Set the workspace memory for x and y
