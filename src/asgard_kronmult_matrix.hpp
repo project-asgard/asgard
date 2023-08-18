@@ -478,7 +478,7 @@ public:
   }
   //! \brief Helper, computes the number of flops for each call to apply.
   static int64_t compute_flops(int const num_dimensions, int const kron_size,
-                               int const num_terms, int const num_batch)
+                               int const num_terms, int64_t const num_batch)
   {
     return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size *
            num_dimensions * num_terms * num_batch;
