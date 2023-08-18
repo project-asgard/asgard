@@ -77,10 +77,9 @@ enum class scalar_case
 template<typename T>
 void cpu_dense(int const dimensions, int const n, int const num_rows,
                int const num_cols, int const num_terms, int const elem[],
-               int const row_offset, int const col_offset,
-               T const * const vA[], int const num_1d_blocks, T const alpha,
-               T const x[], T const beta, T y[]);
-
+               int const row_offset, int const col_offset, T const *const vA[],
+               int const num_1d_blocks, T const alpha, T const x[],
+               T const beta, T y[]);
 
 /*!
  * \brief Sparse variant for the CPU.

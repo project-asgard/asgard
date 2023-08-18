@@ -3,10 +3,10 @@
 
 #include "adapt.hpp"
 #include "asgard_grid_1d.hpp"
+#include "asgard_resources.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
-#include "asgard_resources.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 
@@ -110,11 +110,12 @@ public:
   {}
 
   template<resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms,
-                  std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&terms,
-                  fk::vector<int, mem_type::owner, input_mode> &&elem,
-                  int row_offset, int col_offset, int num_1d_blocks)
+  kronmult_matrix(
+      int num_dimensions, int kron_size, int num_rows, int num_cols,
+      int num_terms,
+      std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&terms,
+      fk::vector<int, mem_type::owner, input_mode> &&elem, int row_offset,
+      int col_offset, int num_1d_blocks)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), terms_(std::move(terms)), elem_(std::move(elem)),
@@ -132,24 +133,26 @@ public:
 #endif
 
     expect(terms_.size() == static_cast<size_t>(num_terms_));
-    for(int t=0; t<num_terms; t++)
-      expect(terms_[t].size() ==
-                 num_dimensions_ * num_1d_blocks_ * num_1d_blocks_ * kron_size_ * kron_size_);
+    for (int t = 0; t < num_terms; t++)
+      expect(terms_[t].size() == num_dimensions_ * num_1d_blocks_ *
+                                     num_1d_blocks_ * kron_size_ * kron_size_);
 
 #ifdef ASGARD_USE_CUDA
     fk::vector<precision *> cpu_term_pntr(num_terms_);
-    for(int t = 0; t < num_terms; t++)
+    for (int t = 0; t < num_terms; t++)
       cpu_term_pntr[t] = terms_[t].data();
     term_pntr_ = cpu_term_pntr.clone_onto_device();
 #else
-    term_pntr_ = fk::vector<precision *, mem_type::owner, data_mode>(num_terms_);
-    for(int t = 0; t < num_terms; t++)
+    term_pntr_ =
+        fk::vector<precision *, mem_type::owner, data_mode>(num_terms_);
+    for (int t = 0; t < num_terms; t++)
       term_pntr_[t] = terms_[t].data();
 #endif
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
-    flops_ = int64_t(tensor_size_) * kron_size_ * num_rows_ * num_cols_ * num_terms_ * num_dimensions_;
+    flops_ = int64_t(tensor_size_) * kron_size_ * num_rows_ * num_cols_ *
+             num_terms_ * num_dimensions_;
   }
 
   /*!
@@ -365,8 +368,9 @@ public:
     }
     if (is_dense())
     {
-      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(), num_batch(), num_cols_, num_terms_,
-                          elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
+      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                          num_batch(), num_cols_, num_terms_, elem_.data(),
+                          row_offset_, col_offset_, term_pntr_.data(),
                           num_1d_blocks_, alpha, active_x, beta, active_y);
     }
     else
@@ -462,9 +466,9 @@ public:
 
     if (is_dense())
     {
-      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_, num_terms_,
-                          elem_.data(), row_offset_, col_offset_, term_pntr_.data(),
-                          num_1d_blocks_, alpha, x, beta, y);
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
+                          num_terms_, elem_.data(), row_offset_, col_offset_,
+                          term_pntr_.data(), num_1d_blocks_, alpha, x, beta, y);
     }
     else
     {
@@ -542,7 +546,8 @@ public:
   //! \brief Update coefficients
   template<resource input_mode>
   void update_stored_coefficients(
-      std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&values_A)
+      std::vector<fk::vector<precision, mem_type::owner, input_mode>>
+          &&values_A)
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -559,11 +564,11 @@ public:
 
 #ifdef ASGARD_USE_CUDA
     fk::vector<precision *> cpu_term_pntr(num_terms_);
-    for(int t = 0; t < num_terms_; t++)
+    for (int t = 0; t < num_terms_; t++)
       cpu_term_pntr[t] = terms_[t].data();
     term_pntr_ = cpu_term_pntr.clone_onto_device();
 #else
-    for(int t = 0; t < num_terms_; t++)
+    for (int t = 0; t < num_terms_; t++)
       term_pntr_[t] = terms_[t].data();
 #endif
   }

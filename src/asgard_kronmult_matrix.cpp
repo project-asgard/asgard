@@ -88,11 +88,13 @@ make_kronmult_dense(PDE<precision> const &pde,
   constexpr resource mode = resource::host;
 
   std::vector<fk::vector<precision, mem_type::owner, mode>> terms(num_terms);
-  int const num_1d_blocks = pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
+  int const num_1d_blocks =
+      pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
 
   for (int t = 0; t < num_terms; t++)
   {
-    terms[t] = fk::vector<precision, mem_type::owner, mode>(num_dimensions * num_1d_blocks * num_1d_blocks * kron_size * kron_size);
+    terms[t] = fk::vector<precision, mem_type::owner, mode>(
+        num_dimensions * num_1d_blocks * num_1d_blocks * kron_size * kron_size);
     auto pA = terms[t].begin();
     for (int d = 0; d < num_dimensions; d++)
     {
@@ -115,11 +117,11 @@ make_kronmult_dense(PDE<precision> const &pde,
 
   int const num_indexes = 1 + std::max(grid.row_stop, grid.col_stop);
   fk::vector<int, mem_type::owner, mode> elem(num_dimensions * num_indexes);
-  for(int i = 0; i < num_indexes; i++)
+  for (int i = 0; i < num_indexes; i++)
   {
     int const *const idx = ftable + 2 * num_dimensions * i;
 
-    for(int d = 0; d < num_dimensions; d++)
+    for (int d = 0; d < num_dimensions; d++)
     {
       elem[i * num_dimensions + d] =
           (idx[d] == 0) ? 0 : ((1 << (idx[d] - 1)) + idx[d + num_dimensions]);
@@ -134,24 +136,26 @@ make_kronmult_dense(PDE<precision> const &pde,
   std::cout << "        Gflops per call: " << flps * 1.E-9 << "\n";
 
   std::cout << "        memory usage (MB): "
-            << get_MB<precision>(terms.size()) + get_MB<int>(elem.size()) << "\n";
+            << get_MB<precision>(terms.size()) + get_MB<int>(elem.size())
+            << "\n";
 
 #ifdef ASGARD_USE_CUDA
-  std::vector<fk::vector<precision, mem_type::owner, resource::device>> gpu_terms(num_terms);
-  for(int t=0; t<num_terms; t++)
+  std::vector<fk::vector<precision, mem_type::owner, resource::device>>
+      gpu_terms(num_terms);
+  for (int t = 0; t < num_terms; t++)
     gpu_terms[t] = terms[t].clone_onto_device();
 
   auto gpu_elem = elem.clone_onto_device();
 
-  return
-    asgard::kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, num_terms,
-                                       std::move(gpu_terms), std::move(gpu_elem),
-                                       grid.row_start, grid.col_start, num_1d_blocks);
+  return asgard::kronmult_matrix<precision>(
+      num_dimensions, kron_size, num_rows, num_cols, num_terms,
+      std::move(gpu_terms), std::move(gpu_elem), grid.row_start, grid.col_start,
+      num_1d_blocks);
 #else
-  return
-    asgard::kronmult_matrix<precision>(num_dimensions, kron_size, num_rows, num_cols, num_terms,
-                                       std::move(terms), std::move(elem),
-                                       grid.row_start, grid.col_start, num_1d_blocks);
+  return asgard::kronmult_matrix<precision>(
+      num_dimensions, kron_size, num_rows, num_cols, num_terms,
+      std::move(terms), std::move(elem), grid.row_start, grid.col_start,
+      num_1d_blocks);
 #endif
 }
 
@@ -656,11 +660,13 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     constexpr resource mode = resource::host;
 
     std::vector<fk::vector<P, mem_type::owner, mode>> terms(num_terms);
-    int const num_1d_blocks = pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
+    int const num_1d_blocks =
+        pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
 
     for (int t = 0; t < num_terms; t++)
     {
-      terms[t] = fk::vector<P, mem_type::owner, mode>(num_dimensions * num_1d_blocks * num_1d_blocks * kron_squared);
+      terms[t] = fk::vector<P, mem_type::owner, mode>(
+          num_dimensions * num_1d_blocks * num_1d_blocks * kron_squared);
       auto pA = terms[t].begin();
       for (int d = 0; d < num_dimensions; d++)
       {
@@ -678,8 +684,9 @@ void update_kronmult_coefficients(PDE<P> const &pde,
       }
     }
 #ifdef ASGARD_USE_CUDA
-    std::vector<fk::vector<P, mem_type::owner, resource::device>> gpu_terms(num_terms);
-    for(int t=0; t<num_terms; t++)
+    std::vector<fk::vector<P, mem_type::owner, resource::device>> gpu_terms(
+        num_terms);
+    for (int t = 0; t < num_terms; t++)
       gpu_terms[t] = terms[t].clone_onto_device();
     mat.update_stored_coefficients(std::move(gpu_terms));
 #else
@@ -717,9 +724,9 @@ void update_kronmult_coefficients(PDE<P> const &pde,
       }
     }
 #ifdef ASGARD_USE_CUDA
-  mat.update_stored_coefficients(vA.clone_onto_device());
+    mat.update_stored_coefficients(vA.clone_onto_device());
 #else
-  mat.update_stored_coefficients(std::move(vA));
+    mat.update_stored_coefficients(std::move(vA));
 #endif
   }
 

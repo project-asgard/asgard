@@ -17,8 +17,8 @@ template<typename P, int dims, int n, int team_size, int num_teams,
 __global__ void
 cycle2(int const num_batch, int const num_cols, int const num_terms,
        int const elem[], int const row_offset, int const col_offset,
-       P const * const vA[], int const num_1d_blocks, P const alpha,
-       P const x[], P y[])
+       P const *const vA[], int const num_1d_blocks, P const alpha, P const x[],
+       P y[])
 {
   static_assert(dims <= 6, "kernel won't work for more than 6 dimensions");
   static_assert(
@@ -170,55 +170,56 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
 
     int ii5, ii4, ii3, ii2, ii1, ii0;
 #if (CUDART_VERSION < 11070)
-    (void) ii5;
-    (void) ii4;
-    (void) ii3;
-    (void) ii2;
+    (void)ii5;
+    (void)ii4;
+    (void)ii3;
+    (void)ii2;
 #endif
     int ioff = 0;
     if constexpr (dims >= 6)
     {
-      ii5   = n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ii5 = n * n * ((*ix++) * num_1d_blocks + *iy++);
       ioff += num_1d_blocks * num_1d_blocks * n * n;
     }
     if constexpr (dims >= 5)
     {
-      ii4   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ii4 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
       ioff += num_1d_blocks * num_1d_blocks * n * n;
     }
     if constexpr (dims >= 4)
     {
-      ii3   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ii3 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
       ioff += num_1d_blocks * num_1d_blocks * n * n;
     }
     if constexpr (dims >= 3)
     {
-      ii2   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ii2 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
       ioff += num_1d_blocks * num_1d_blocks * n * n;
     }
     if constexpr (dims >= 2)
     {
-      ii1   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+      ii1 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
       ioff += num_1d_blocks * num_1d_blocks * n * n;
     }
-    ii0   = ioff + n * n * ( (*ix++) * num_1d_blocks + *iy++ );
+    ii0 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
 
     for (int t = 0; t < num_terms; t++)
     {
       X[threadIdx.y][threadIdx.x]             = rawx0;
       X[threadIdx.y][threadIdx.x + team_size] = rawx1;
 
-      P const* const pA = vA[t];
+      P const *const pA = vA[t];
 
       if constexpr (dims >= 6)
       {
         if (threadIdx.x < n * n)
         {
-          //A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][5] + threadIdx.x];
-          //A[threadIdx.y][threadIdx.x] = vA[t][ii5 + threadIdx.x];
+          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][5] +
+          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii5 +
+          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii5 + threadIdx.x];
-          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -252,11 +253,12 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          //A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][4] + threadIdx.x];
-          //A[threadIdx.y][threadIdx.x] = vA[t][ii4 + threadIdx.x];
+          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][4] +
+          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii4 +
+          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii4 + threadIdx.x];
-          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -290,11 +292,12 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          //A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][3] + threadIdx.x];
-          //A[threadIdx.y][threadIdx.x] = vA[t][ii3 + threadIdx.x];
+          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][3] +
+          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii3 +
+          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii3 + threadIdx.x];
-          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -328,11 +331,12 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          //A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][2] + threadIdx.x];
-          //A[threadIdx.y][threadIdx.x] = vA[t][ii2 + threadIdx.x];
+          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][2] +
+          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii2 +
+          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii2 + threadIdx.x];
-          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -366,11 +370,12 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       {
         if (threadIdx.x < n * n)
         {
-          //A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][1] + threadIdx.x];
-          //A[threadIdx.y][threadIdx.x] = vA[t][ii1 + threadIdx.x];
+          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][1] +
+          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii1 +
+          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii1 + threadIdx.x];
-          //ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          //ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
+          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
+          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
         }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
@@ -399,8 +404,8 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       }
 
       if (threadIdx.x < n * n)
-        //A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][0] + threadIdx.x];
-        //A[threadIdx.y][threadIdx.x] = vA[t][ii0 + threadIdx.x];
+        // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][0] +
+        // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii0 + threadIdx.x];
         A[threadIdx.y][threadIdx.x] = pA[ii0 + threadIdx.x];
       if constexpr (sync_mode == manual_sync::enable)
         __syncthreads();
@@ -420,16 +425,14 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
-            yinc1);
+        atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                  yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
-              yinc1);
+          atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                    yinc1);
       }
     }
     else if constexpr (alpha_case == scalar_case::neg_one)
@@ -437,34 +440,29 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], -yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
-            -yinc1);
+        atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                  -yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
-              -yinc1);
+          atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                    -yinc1);
       }
     }
     else
     {
-      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x],
-                alpha * yinc0);
+      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], alpha * yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
-            alpha * yinc1);
+        atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                  alpha * yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
-              alpha * yinc1);
+          atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                    alpha * yinc1);
       }
     }
 

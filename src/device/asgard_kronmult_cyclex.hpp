@@ -24,10 +24,10 @@ __device__ constexpr int int_pow(int p)
  * The indexes are the ones associated with the offsets in vA.
  */
 template<int dims, int n>
-__global__ void build_indexes(int const num_batch, int const num_cols,
-                              int const elem[], int const row_offset,
-                              int const col_offset, int const num_1d_blocks,
-                              int iA[])
+__global__ void
+build_indexes(int const num_batch, int const num_cols, int const elem[],
+              int const row_offset, int const col_offset,
+              int const num_1d_blocks, int iA[])
 {
   int i = threadIdx.y + blockIdx.x * blockDim.y;
 
@@ -39,7 +39,9 @@ __global__ void build_indexes(int const num_batch, int const num_cols,
     int const iy = elem[(rowy + row_offset) * dims + threadIdx.x];
     int const ix = elem[(colx + col_offset) * dims + threadIdx.x];
 
-    iA[i * dims + threadIdx.x] = n * n * (threadIdx.x * num_1d_blocks * num_1d_blocks + ix * num_1d_blocks + iy);
+    iA[i * dims + threadIdx.x] =
+        n * n *
+        (threadIdx.x * num_1d_blocks * num_1d_blocks + ix * num_1d_blocks + iy);
 
     i += gridDim.x * blockDim.y;
   }

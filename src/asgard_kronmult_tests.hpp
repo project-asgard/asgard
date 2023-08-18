@@ -190,18 +190,16 @@ make_kronmult_data(int dimensions, int n, int num_rows, int num_terms,
   return result;
 }
 
-
 /*!
  * \brief Reference implementation of kronmult, do not use in production.
  */
 template<typename P>
 void reference_kronmult(int dimensions, int n, int num_rows, int num_terms,
-                        int const elem[],
-                        P const *const vA[], int const num_1d_blocks,
-                        P const x[], P y[])
+                        int const elem[], P const *const vA[],
+                        int const num_1d_blocks, P const x[], P y[])
 {
   int tensor_size = n;
-  for(int d=1; d<dimensions; d++)
+  for (int d = 1; d < dimensions; d++)
     tensor_size *= n;
 
   int const vstride = num_1d_blocks * num_1d_blocks * n * n;
@@ -217,12 +215,14 @@ void reference_kronmult(int dimensions, int n, int num_rows, int num_terms,
     {
       int const *ix = elem + j * dimensions;
 
-      for (int t=0; t<num_terms; t++)
+      for (int t = 0; t < num_terms; t++)
       {
-        for(int d=0; d<dimensions; d++)
-          pA[d] = const_cast<P *>( &vA[t][d * vstride + n * n * (ix[d] * num_1d_blocks + iy[d])] );
+        for (int d = 0; d < dimensions; d++)
+          pA[d] = const_cast<P *>(
+              &vA[t][d * vstride + n * n * (ix[d] * num_1d_blocks + iy[d])]);
 
-        reference_kronmult_one(dimensions, n, pA.data(), x + j * tensor_size, y + i * tensor_size);
+        reference_kronmult_one(dimensions, n, pA.data(), x + j * tensor_size,
+                               y + i * tensor_size);
       }
     }
   }
@@ -237,22 +237,24 @@ template<typename P>
 struct kronmult_intputs_welem
 {
   //! \brief Creates the element table and
-  kronmult_intputs_welem(int dims, int ksize, int terms, int range) :
-      num_dimensions(dims), kron_size(ksize), num_terms(terms),
-      index_range(range),
-      coefficients(num_terms, std::vector<P>(num_dimensions * index_range * index_range * kron_size * kron_size))
+  kronmult_intputs_welem(int dims, int ksize, int terms, int range)
+      : num_dimensions(dims), kron_size(ksize), num_terms(terms),
+        index_range(range),
+        coefficients(num_terms,
+                     std::vector<P>(num_dimensions * index_range * index_range *
+                                    kron_size * kron_size))
   {
     int total = index_range;
-    for(int d=1; d<num_dimensions; d++)
+    for (int d = 1; d < num_dimensions; d++)
       total *= index_range;
 
     // create a tensor list of elements
     elem.reserve(total * num_dimensions);
     std::vector<int> index(num_dimensions);
-    for(int i=0; i<total; i++)
+    for (int i = 0; i < total; i++)
     {
       int t = i;
-      for(int d=0; d<num_dimensions; d++)
+      for (int d = 0; d < num_dimensions; d++)
       {
         index[d] = t % num_dimensions;
         t /= num_dimensions;
@@ -264,20 +266,20 @@ struct kronmult_intputs_welem
     std::minstd_rand park_miller(42);
     std::uniform_real_distribution<P> unif(-1.0, 1.0);
 
-    for(auto &cc : coefficients)
-      for(auto &c : cc)
+    for (auto &cc : coefficients)
+      for (auto &c : cc)
         c = unif(park_miller);
 
     int tensor_size = kron_size;
-    for(int i=1; i<num_dimensions; i++)
+    for (int i = 1; i < num_dimensions; i++)
       tensor_size *= kron_size;
 
     input_x  = std::vector<P>(tensor_size * num_rows());
     output_y = std::vector<P>(input_x.size());
 
-    for(auto &x : input_x)
+    for (auto &x : input_x)
       x = unif(park_miller);
-    for(auto &y : output_y)
+    for (auto &y : output_y)
       y = unif(park_miller);
 
     reference_y = output_y;
@@ -294,12 +296,12 @@ struct kronmult_intputs_welem
    * The starting coefficient should be p (if proved)
    * otherwise coefficients.data() will be used
    */
-  asgard::fk::vector<P*> get_offsets()
+  asgard::fk::vector<P *> get_offsets()
   {
-    asgard::fk::vector<P*> vA(num_terms);
+    asgard::fk::vector<P *> vA(num_terms);
 
-    for(int t=0; t<num_terms; t++)
-        vA[t] = coefficients[t].data();
+    for (int t = 0; t < num_terms; t++)
+      vA[t] = coefficients[t].data();
 
     return vA;
   }
@@ -311,7 +313,6 @@ struct kronmult_intputs_welem
   std::vector<P> input_x;
   std::vector<P> output_y;
   std::vector<P> reference_y;
-
 };
 
 /*!
@@ -337,17 +338,17 @@ template<typename P, bool compute_reference = true>
 std::unique_ptr<kronmult_intputs_welem<P>>
 make_kronmult_welem(int dimensions, int n, int num_terms, int index_range)
 {
-  auto result = std::make_unique<kronmult_intputs_welem<P>>(dimensions, n,
-                                                            num_terms,
-                                                            index_range);
-
-
+  auto result = std::make_unique<kronmult_intputs_welem<P>>(
+      dimensions, n, num_terms, index_range);
 
   // copy the output, i.e., we assume that beta = 1 in the call to kronmult
   result->reference_y = result->output_y;
 
   if (compute_reference)
-    reference_kronmult(dimensions, n, result->num_rows(), num_terms, result->elem.data(), result->get_offsets().data(), index_range, result->input_x.data(), result->reference_y.data());
+    reference_kronmult(dimensions, n, result->num_rows(), num_terms,
+                       result->elem.data(), result->get_offsets().data(),
+                       index_range, result->input_x.data(),
+                       result->reference_y.data());
 
   return result;
 }

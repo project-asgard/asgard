@@ -24,7 +24,7 @@ namespace asgard::kronmult
 template<typename P, scalar_case alpha_case, scalar_case beta_case>
 void cpu_n0(int const dimensions, int const num_rows, int const num_cols,
             int const num_terms, int const elem[], int const row_offset,
-            int const col_offset, P const * const vA[], int const num_1d_blocks,
+            int const col_offset, P const *const vA[], int const num_1d_blocks,
             P const alpha, P const x[], P const beta, P y[])
 {
   int const vstride = num_1d_blocks * num_1d_blocks;
@@ -50,7 +50,7 @@ void cpu_n0(int const dimensions, int const num_rows, int const num_cols,
       {
         P totalA = 1;
         for (int d = 0; d < dimensions; d++)
-          totalA *= vA[t][ d * vstride + ix[d] * num_1d_blocks + iy[d] ];
+          totalA *= vA[t][d * vstride + ix[d] * num_1d_blocks + iy[d]];
 
         if constexpr (alpha_case == scalar_case::one)
           y[rowy] += totalA * x[colx];
@@ -69,59 +69,70 @@ void cpu_n0(int const dimensions, int const num_rows, int const num_cols,
 template<typename P>
 void cpu_n0(int const d, int const rows, int cols, int const terms,
             int const elem[], int const row_offset, int const col_offset,
-            P const * const vA[], int const num_1d_blocks, P const alpha,
+            P const *const vA[], int const num_1d_blocks, P const alpha,
             P const x[], P const beta, P y[])
 {
   if (beta == 0)
   {
     if (alpha == 1)
-      cpu_n0<P, scalar_case::one, scalar_case::zero>(d, rows, cols, terms, elem, row_offset, col_offset,
-                                                     vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0<P, scalar_case::one, scalar_case::zero>(
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_n0<P, scalar_case::neg_one, scalar_case::zero>(
-          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
-      cpu_n0<P, scalar_case::other, scalar_case::zero>(d, rows, cols, terms, elem, row_offset, col_offset,
-                                                       vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0<P, scalar_case::other, scalar_case::zero>(
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else if (beta == 1)
   {
     if (alpha == 1)
-      cpu_n0<P, scalar_case::one, scalar_case::one>(d, rows, cols, terms, elem, row_offset, col_offset,
-                                                    vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0<P, scalar_case::one, scalar_case::one>(
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_n0<P, scalar_case::neg_one, scalar_case::one>(
-          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
-      cpu_n0<P, scalar_case::other, scalar_case::one>(d, rows, cols, terms, elem, row_offset, col_offset,
-                                                      vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0<P, scalar_case::other, scalar_case::one>(
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else if (beta == -1)
   {
     if (alpha == 1)
       cpu_n0<P, scalar_case::one, scalar_case::neg_one>(
-          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_n0<P, scalar_case::neg_one, scalar_case::neg_one>(
-          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_n0<P, scalar_case::other, scalar_case::neg_one>(
-          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else
   {
     if (alpha == 1)
-      cpu_n0<P, scalar_case::one, scalar_case::other>(d, rows, cols, terms, elem, row_offset, col_offset,
-                                                      vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0<P, scalar_case::one, scalar_case::other>(
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_n0<P, scalar_case::neg_one, scalar_case::other>(
-          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_n0<P, scalar_case::other, scalar_case::other>(
-          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          d, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
 }
-
 
 /*!
  * \brief Baseline kronmult algorithm on the CPU (dense case).
@@ -146,7 +157,7 @@ template<typename P, int dimensions, int n, scalar_case alpha_case,
          scalar_case beta_case>
 void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                int const elem[], int const row_offset, int const col_offset,
-               P const * const vA[], int const num_1d_blocks, P const alpha,
+               P const *const vA[], int const num_1d_blocks, P const alpha,
                P const x[], P const beta, P y[])
 {
   static_assert(1 <= dimensions and dimensions <= 6);
@@ -186,7 +197,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
       {
         if constexpr (dimensions == 1)
         {
-          P const *const A = &vA[t][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
+          P const *const A = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
           P Y[n]           = {{0}};
           ASGARD_PRAGMA_OMP_SIMD(collapse(2))
           for (int j = 0; j < n; j++)
@@ -205,13 +216,13 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         else if constexpr (dimensions == 2)
         {
           P W[n][n] = {{{0}}}, Y[n][n] = {{{0}}};
-          P const *A = &vA[t][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
+          P const *A = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(3))
           for (int j = 0; j < n; j++)
             for (int s = 0; s < n; s++)
               for (int k = 0; k < n; k++)
                 W[s][k] += x[tj + n * j + k] * A[j * n + s];
-          A = &vA[t][ vstride + n * n * (ix[1] * num_1d_blocks + iy[1]) ];
+          A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(3))
           for (int k = 0; k < n; k++)
             for (int j = 0; j < n; j++)
@@ -230,14 +241,14 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         else if constexpr (dimensions == 3)
         {
           P W[n][n][n] = {{{{0}}}}, Y[n][n][n] = {{{{0}}}};
-          P const *A = &vA[t][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
+          P const *A = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(4))
           for (int j = 0; j < n; j++)
             for (int s = 0; s < n; s++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
                   Y[s][l][k] += x[tj + n * n * j + n * l + k] * A[j * n + s];
-          A = &vA[t][ vstride + n * n * (ix[1] * num_1d_blocks + iy[1]) ];
+          A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(4))
           for (int l = 0; l < n; l++)
             for (int j = 0; j < n; j++)
@@ -245,7 +256,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                 for (int k = 0; k < n; k++)
                   W[l][s][k] += Y[l][j][k] * A[j * n + s];
           std::fill(&Y[0][0][0], &Y[0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2]) ];
+          A = &vA[t][2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(4))
           for (int l = 0; l < n; l++)
             for (int k = 0; k < n; k++)
@@ -266,7 +277,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         else if constexpr (dimensions == 4)
         {
           P W[n][n][n][n] = {{{{{0}}}}}, Y[n][n][n][n] = {{{{{0}}}}};
-          P const *A = &vA[t][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
+          P const *A = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(5))
           for (int j = 0; j < n; j++)
             for (int s = 0; s < n; s++)
@@ -276,7 +287,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                     W[s][p][l][k] +=
                         x[tj + n * n * n * j + n * n * p + n * l + k] *
                         A[j * n + s];
-          A = &vA[t][ vstride + n * n * (ix[1] * num_1d_blocks + iy[1]) ];
+          A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(5))
           for (int p = 0; p < n; p++)
             for (int j = 0; j < n; j++)
@@ -286,7 +297,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                     Y[p][s][l][k] += W[p][j][l][k] * A[j * n + s];
           std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W) / sizeof(P),
                     P{0.});
-          A = &vA[t][ 2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2]) ];
+          A = &vA[t][2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(5))
           for (int p = 0; p < n; p++)
             for (int l = 0; l < n; l++)
@@ -296,7 +307,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                     W[p][l][s][k] += Y[p][l][j][k] * A[j * n + s];
           std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(P),
                     P{0.});
-          A = &vA[t][ 3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3]) ];
+          A = &vA[t][3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(5))
           for (int p = 0; p < n; p++)
             for (int l = 0; l < n; l++)
@@ -321,7 +332,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         }
         else if constexpr (dimensions == 5)
         {
-          P const *A = &vA[t][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
+          P const *A         = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
           P W[n][n][n][n][n] = {{{{{{0}}}}}}, Y[n][n][n][n][n] = {{{{{{0}}}}}};
           ASGARD_PRAGMA_OMP_SIMD(collapse(6))
           for (int j = 0; j < n; j++)
@@ -334,7 +345,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                           x[tj + n * n * n * n * j + n * n * n * v + n * n * p +
                             n * l + k] *
                           A[j * n + s];
-          A = &vA[t][ vstride + n * n * (ix[1] * num_1d_blocks + iy[1]) ];
+          A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(6))
           for (int v = 0; v < n; v++)
             for (int j = 0; j < n; j++)
@@ -345,7 +356,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                       W[v][s][p][l][k] += Y[v][j][p][l][k] * A[j * n + s];
           std::fill(&Y[0][0][0][0][0],
                     &Y[0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2]) ];
+          A = &vA[t][2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(6))
           for (int v = 0; v < n; v++)
             for (int p = 0; p < n; p++)
@@ -356,7 +367,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                       Y[v][p][s][l][k] += W[v][p][j][l][k] * A[j * n + s];
           std::fill(&W[0][0][0][0][0],
                     &W[0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3]) ];
+          A = &vA[t][3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(6))
           for (int v = 0; v < n; v++)
             for (int p = 0; p < n; p++)
@@ -367,7 +378,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                       W[v][p][l][s][k] += Y[v][p][l][j][k] * A[j * n + s];
           std::fill(&Y[0][0][0][0][0],
                     &Y[0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 4 * vstride + n * n * (ix[4] * num_1d_blocks + iy[4]) ];
+          A = &vA[t][4 * vstride + n * n * (ix[4] * num_1d_blocks + iy[4])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(6))
           for (int v = 0; v < n; v++)
             for (int p = 0; p < n; p++)
@@ -394,7 +405,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
         }
         else if constexpr (dimensions == 6)
         {
-          P const *A = &vA[t][ n * n * (ix[0] * num_1d_blocks + iy[0]) ];
+          P const *A = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
           P W[n][n][n][n][n][n] = {{{{{{{0}}}}}}},
             Y[n][n][n][n][n][n] = {{{{{{{0}}}}}}};
           ASGARD_PRAGMA_OMP_SIMD(collapse(7))
@@ -409,7 +420,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                             x[tj + n * n * n * n * n * j + n * n * n * n * w +
                               n * n * n * v + n * n * p + n * l + k] *
                             A[j * n + s];
-          A = &vA[t][ vstride + n * n * (ix[1] * num_1d_blocks + iy[1]) ];
+          A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(7))
           for (int w = 0; w < n; w++)
             for (int j = 0; j < n; j++)
@@ -422,7 +433,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                             W[w][j][v][p][l][k] * A[j * n + s];
           std::fill(&W[0][0][0][0][0][0],
                     &W[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2]) ];
+          A = &vA[t][2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2])];
           for (int w = 0; w < n; w++)
             for (int v = 0; v < n; v++)
               for (int j = 0; j < n; j++)
@@ -434,7 +445,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                             Y[w][v][j][p][l][k] * A[j * n + s];
           std::fill(&Y[0][0][0][0][0][0],
                     &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3]) ];
+          A = &vA[t][3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(7))
           for (int w = 0; w < n; w++)
             for (int v = 0; v < n; v++)
@@ -447,7 +458,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                             W[w][v][p][j][l][k] * A[j * n + s];
           std::fill(&W[0][0][0][0][0][0],
                     &W[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 4 * vstride + n * n * (ix[4] * num_1d_blocks + iy[4]) ];
+          A = &vA[t][4 * vstride + n * n * (ix[4] * num_1d_blocks + iy[4])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(7))
           for (int w = 0; w < n; w++)
             for (int v = 0; v < n; v++)
@@ -460,7 +471,7 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
                             Y[w][v][p][l][j][k] * A[j * n + s];
           std::fill(&Y[0][0][0][0][0][0],
                     &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
-          A = &vA[t][ 5 * vstride + n * n * (ix[5] * num_1d_blocks + iy[5]) ];
+          A = &vA[t][5 * vstride + n * n * (ix[5] * num_1d_blocks + iy[5])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(7))
           for (int w = 0; w < n; w++)
             for (int v = 0; v < n; v++)
@@ -496,62 +507,74 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
   } // for iy loop
 }
 
-
 /*!
  * \brief Helper method that instantiates correct kernel based on alpha and beta.
  */
 template<typename P, int d, int n>
-void cpu_dense(int const rows, int cols, int const terms, int const elem[], int const row_offset, int const col_offset,
-               P const * const vA[], int const num_1d_blocks, P const alpha,
-               P const x[], P const beta, P y[])
+void cpu_dense(int const rows, int cols, int const terms, int const elem[],
+               int const row_offset, int const col_offset, P const *const vA[],
+               int const num_1d_blocks, P const alpha, P const x[],
+               P const beta, P y[])
 {
   if (beta == 0)
   {
     if (alpha == 1)
       cpu_dense<P, d, n, scalar_case::one, scalar_case::zero>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, n, scalar_case::neg_one, scalar_case::zero>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, n, scalar_case::other, scalar_case::zero>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else if (beta == 1)
   {
     if (alpha == 1)
       cpu_dense<P, d, n, scalar_case::one, scalar_case::one>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, n, scalar_case::neg_one, scalar_case::one>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, n, scalar_case::other, scalar_case::one>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else if (beta == -1)
   {
     if (alpha == 1)
       cpu_dense<P, d, n, scalar_case::one, scalar_case::neg_one>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, n, scalar_case::neg_one, scalar_case::neg_one>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, n, scalar_case::other, scalar_case::neg_one>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else
   {
     if (alpha == 1)
       cpu_dense<P, d, n, scalar_case::one, scalar_case::other>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, n, scalar_case::neg_one, scalar_case::other>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, n, scalar_case::other, scalar_case::other>(
-          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
 }
 
@@ -560,85 +583,103 @@ void cpu_dense(int const rows, int cols, int const terms, int const elem[], int 
  */
 template<typename P, int d>
 void cpu_dense(int const n, int const rows, int cols, int const terms,
-               int const elem[], int const row_offset, int const col_offset, P const * const vA[], int const num_1d_blocks,
-               P const alpha, P const x[], P const beta, P y[])
+               int const elem[], int const row_offset, int const col_offset,
+               P const *const vA[], int const num_1d_blocks, P const alpha,
+               P const x[], P const beta, P y[])
 {
   if (beta == 0)
   {
     if (alpha == 1)
       cpu_dense<P, d, scalar_case::one, scalar_case::zero>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, scalar_case::neg_one, scalar_case::zero>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, scalar_case::other, scalar_case::zero>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else if (beta == 1)
   {
     if (alpha == 1)
       cpu_dense<P, d, scalar_case::one, scalar_case::one>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, scalar_case::neg_one, scalar_case::one>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, scalar_case::other, scalar_case::one>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else if (beta == -1)
   {
     if (alpha == 1)
       cpu_dense<P, d, scalar_case::one, scalar_case::neg_one>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, scalar_case::neg_one, scalar_case::neg_one>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, scalar_case::other, scalar_case::neg_one>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
   else
   {
     if (alpha == 1)
       cpu_dense<P, d, scalar_case::one, scalar_case::other>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else if (alpha == -1)
       cpu_dense<P, d, scalar_case::neg_one, scalar_case::other>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
     else
       cpu_dense<P, d, scalar_case::other, scalar_case::other>(
-          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+          n, rows, cols, terms, elem, row_offset, col_offset, vA, num_1d_blocks,
+          alpha, x, beta, y);
   }
 }
 
 template<typename P>
 void cpu_dense(int const dimensions, int const n, int const num_rows,
                int const num_cols, int const num_terms, int const elem[],
-               int const row_offset, int const col_offset,
-               P const * const vA[], int const num_1d_blocks, P const alpha,
-               P const x[], P const beta, P y[]){
-
+               int const row_offset, int const col_offset, P const *const vA[],
+               int const num_1d_blocks, P const alpha, P const x[],
+               P const beta, P y[])
+{
   switch (dimensions)
   {
   case 1:
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset,
+             col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 2:
-      cpu_dense<P, 1, 2>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 1, 2>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 3:
-      cpu_dense<P, 1, 3>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 1, 3>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 4:
-      cpu_dense<P, 1, 4>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 1, 4>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     default:
-      cpu_dense<P, 1>(n, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 1>(n, num_rows, num_cols, num_terms, elem, row_offset,
+                      col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     }
     break;
@@ -646,19 +687,24 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset,
+             col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 2:
-      cpu_dense<P, 2, 2>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 2, 2>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 3:
-      cpu_dense<P, 2, 3>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 2, 3>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 4:
-      cpu_dense<P, 2, 4>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 2, 4>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     default:
-      cpu_dense<P, 2>(n, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 2>(n, num_rows, num_cols, num_terms, elem, row_offset,
+                      col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     }
     break;
@@ -666,19 +712,24 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset,
+             col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 2:
-      cpu_dense<P, 3, 2>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 3, 2>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 3:
-      cpu_dense<P, 3, 3>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 3, 3>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 4:
-      cpu_dense<P, 3, 4>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 3, 4>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     default:
-      cpu_dense<P, 3>(n, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 3>(n, num_rows, num_cols, num_terms, elem, row_offset,
+                      col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     }
     break;
@@ -686,19 +737,24 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset,
+             col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 2:
-      cpu_dense<P, 4, 2>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 4, 2>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 3:
-      cpu_dense<P, 4, 3>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 4, 3>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 4:
-      cpu_dense<P, 4, 4>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 4, 4>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     default:
-      cpu_dense<P, 4>(n, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 4>(n, num_rows, num_cols, num_terms, elem, row_offset,
+                      col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     }
     break;
@@ -706,19 +762,24 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset,
+             col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 2:
-      cpu_dense<P, 5, 2>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 5, 2>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 3:
-      cpu_dense<P, 5, 3>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 5, 3>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 4:
-      cpu_dense<P, 5, 4>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 5, 4>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     default:
-      cpu_dense<P, 5>(n, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 5>(n, num_rows, num_cols, num_terms, elem, row_offset,
+                      col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     }
     break;
@@ -726,19 +787,24 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
     switch (n)
     {
     case 1:
-      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_n0(dimensions, num_rows, num_cols, num_terms, elem, row_offset,
+             col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 2:
-      cpu_dense<P, 6, 2>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 6, 2>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 3:
-      cpu_dense<P, 6, 3>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 6, 3>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     case 4:
-      cpu_dense<P, 6, 4>(num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 6, 4>(num_rows, num_cols, num_terms, elem, row_offset,
+                         col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     default:
-      cpu_dense<P, 6>(n, num_rows, num_cols, num_terms, elem, row_offset, col_offset, vA, num_1d_blocks, alpha, x, beta, y);
+      cpu_dense<P, 6>(n, num_rows, num_cols, num_terms, elem, row_offset,
+                      col_offset, vA, num_1d_blocks, alpha, x, beta, y);
       break;
     }
     break;
@@ -752,13 +818,13 @@ void cpu_dense(int const dimensions, int const n, int const num_rows,
 #ifdef ASGARD_ENABLE_DOUBLE
 template void cpu_dense<double>(int const, int const, int const, int const,
                                 int const, int const[], int const, int const,
-                                double const * const[], int const, double const,
+                                double const *const[], int const, double const,
                                 double const[], double const, double y[]);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
 template void cpu_dense<float>(int const, int const, int const, int const,
                                int const, int const[], int const, int const,
-                               float const * const[], int const, float const,
+                               float const *const[], int const, float const,
                                float const[], float const, float y[]);
 #endif
 #endif

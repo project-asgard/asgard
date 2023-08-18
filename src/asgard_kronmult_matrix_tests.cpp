@@ -82,9 +82,9 @@ void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
   std::vector<asgard::fk::vector<int>> list_iA;
   list_iA.push_back(iA);
 
-  kmat = asgard::kronmult_matrix<T>(
-      dimensions, n, num_rows, num_rows, num_terms, std::move(pntr),
-      std::move(indx), std::move(list_iA), std::move(vA));
+  kmat = asgard::kronmult_matrix<T>(dimensions, n, num_rows, num_rows,
+                                    num_terms, std::move(pntr), std::move(indx),
+                                    std::move(list_iA), std::move(vA));
 
 #endif
 
@@ -122,32 +122,38 @@ void test_kronmult_dense(int dimensions, int n, int num_terms,
                                                  num_1d_blocks);
 
 #ifdef ASGARD_USE_CUDA
-  std::vector< asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> > gpu_terms(num_terms);
-  asgard::fk::vector<P*> terms_ptr(num_terms);
-  for(int t=0; t<num_terms; t++)
+  std::vector<
+      asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device>>
+      gpu_terms(num_terms);
+  asgard::fk::vector<P *> terms_ptr(num_terms);
+  for (int t = 0; t < num_terms; t++)
   {
     gpu_terms[t] = data->coefficients[t].clone_onto_device();
     terms_ptr[t] = gpu_terms[t].data();
   }
   auto gpu_terms_ptr = terms_ptr.clone_onto_device();
 
-  asgard::fk::vector<int, asgard::mem_type::owner, asgard::resource::device> elem(data->elem.size());
+  asgard::fk::vector<int, asgard::mem_type::owner, asgard::resource::device>
+      elem(data->elem.size());
   asgard::fk::copy_to_device(elem.data(), data->elem.data(), elem.size());
 
-  asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> xdev(data->input_x.size());
-  asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> ydev(data->output_y.size());
+  asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> xdev(
+      data->input_x.size());
+  asgard::fk::vector<P, asgard::mem_type::owner, asgard::resource::device> ydev(
+      data->output_y.size());
   asgard::fk::copy_to_device(xdev.data(), data->input_x.data(), xdev.size());
   asgard::fk::copy_to_device(ydev.data(), data->output_y.data(), ydev.size());
 
-  asgard::kronmult_matrix<P> kmat(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
-                                  std::move(gpu_terms), std::move(elem),
-                                  0, 0, num_1d_blocks);
+  asgard::kronmult_matrix<P> kmat(
+      dimensions, n, data->num_rows(), data->num_rows(), num_terms,
+      std::move(gpu_terms), std::move(elem), 0, 0, num_1d_blocks);
 
   kmat.set_workspace(xdev, ydev);
 
   if constexpr (rec == asgard::resource::device)
   {
-    kmat.template apply<asgard::resource::device>(1.0, xdev.data(), 1.0, ydev.data());
+    kmat.template apply<asgard::resource::device>(1.0, xdev.data(), 1.0,
+                                                  ydev.data());
     asgard::fk::copy_to_host(data->output_y.data(), ydev.data(), ydev.size());
   }
   else
@@ -156,17 +162,16 @@ void test_kronmult_dense(int dimensions, int n, int num_terms,
   }
 
 #else
-  asgard::kronmult_matrix<P> kmat(dimensions, n, data->num_rows(), data->num_rows(), num_terms,
-                                  std::move(data->coefficients),
-                                  asgard::fk::vector<int>(data->elem),
-                                  0, 0, num_1d_blocks);
+  asgard::kronmult_matrix<P> kmat(
+      dimensions, n, data->num_rows(), data->num_rows(), num_terms,
+      std::move(data->coefficients), asgard::fk::vector<int>(data->elem), 0, 0,
+      num_1d_blocks);
 
   kmat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());
 #endif
 
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
-
 
 TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", test_precs)
 {
@@ -276,7 +281,8 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d", "[cpu_dense 6d]", test_precs)
   test_kronmult_dense<TestType>(6, n, 2, 2);
 }
 
-TEMPLATE_TEST_CASE("testing kronmult cpu 6d (large)", "[cpu_dense 6d]", test_precs)
+TEMPLATE_TEST_CASE("testing kronmult cpu 6d (large)", "[cpu_dense 6d]",
+                   test_precs)
 {
   int n = GENERATE(4, 5);
   test_kronmult_dense<TestType>(6, n, 2, 1);
