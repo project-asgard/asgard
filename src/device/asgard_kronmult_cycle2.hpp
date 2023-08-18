@@ -15,7 +15,7 @@ namespace asgard::kronmult::kernel
 template<typename P, int dims, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-cycle2(int const num_batch, int const num_cols, int const num_terms,
+cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
        int const elem[], int const row_offset, int const col_offset,
        P const *const vA[], int const num_1d_blocks, P const alpha, P const x[],
        P y[])
@@ -41,7 +41,7 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
   __shared__ P A[num_teams][team_size];
   //__shared__ int ia[num_teams][6];
 
-  int i = threadIdx.y + blockIdx.x * blockDim.y;
+  int64_t i = threadIdx.y + blockIdx.x * blockDim.y;
 
   int const ix50 =
       threadIdx.x % int_pow<n, 5>() +

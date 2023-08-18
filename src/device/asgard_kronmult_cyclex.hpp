@@ -25,7 +25,7 @@ __device__ constexpr int int_pow(int p)
  */
 template<int dims, int n>
 __global__ void
-build_indexes(int const num_batch, int const num_cols, int const elem[],
+build_indexes(int64_t const num_batch, int const num_cols, int const elem[],
               int const row_offset, int const col_offset,
               int const num_1d_blocks, int iA[])
 {
@@ -53,7 +53,7 @@ build_indexes(int const num_batch, int const num_cols, int const elem[],
 template<typename T, int dims, int n, int team_size, int num_teams,
          int num_cycles, scalar_case alpha_case>
 __global__ void
-cyclex(int const num_batch, int const num_cols, int const num_terms,
+cyclex(int64_t const num_batch, int const num_cols, int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
 #if (CUDART_VERSION < 11070)

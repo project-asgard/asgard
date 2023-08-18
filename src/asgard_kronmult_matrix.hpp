@@ -451,7 +451,7 @@ public:
   }
 
   //! \brief Returns the number of kron-products
-  int num_batch() const { return num_rows_ * num_cols_; }
+  int64_t num_batch() const { return int64_t{num_rows_} * int64_t{num_cols_}; }
 
   //! \brief Returns the size of a tensor block, i.e., kron_size^num_dimensions
   int tensor_size() const { return tensor_size_; }

@@ -78,13 +78,13 @@ __global__ void scale(int const num, T const beta, T y[])
  */
 template<typename P, int dims, scalar_case alpha_case>
 __global__ void
-case_n1(int const num_batch, int const num_cols, int const num_terms,
+case_n1(int64_t const num_batch, int const num_cols, int const num_terms,
         int const elem[], int const row_offset, int const col_offset,
         P const *const vA[], int const num_1d_blocks, P const alpha,
         P const x[], P y[])
 {
   (void)alpha;
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int64_t i = threadIdx.x + blockIdx.x * blockDim.x;
 
   while (i < num_batch)
   {
@@ -129,7 +129,7 @@ case_n1(int const num_batch, int const num_cols, int const num_terms,
 template<typename P, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-case_d1(int const num_batch, int const num_cols, int const num_terms,
+case_d1(int64_t const num_batch, int const num_cols, int const num_terms,
         int const elem[], int const row_offset, int const col_offset,
         P const *const vA[], int const num_1d_blocks, P const alpha,
         P const x[], P y[])
@@ -148,7 +148,7 @@ case_d1(int const num_batch, int const num_cols, int const num_terms,
 
   __shared__ P X[num_teams][team_size];
 
-  int i = threadIdx.y + blockIdx.x * blockDim.y;
+  int64_t i = threadIdx.y + blockIdx.x * blockDim.y;
 
   if constexpr (effective_team_size < team_size)
   {
@@ -213,7 +213,7 @@ case_d1(int const num_batch, int const num_cols, int const num_terms,
 template<typename P, int dims, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-cycle1(int const num_batch, int const num_cols, int const num_terms,
+cycle1(int64_t const num_batch, int const num_cols, int const num_terms,
        int const elem[], int const row_offset, int const col_offset,
        P const *const vA[], int const num_1d_blocks, P const alpha, P const x[],
        P y[])
@@ -234,7 +234,7 @@ cycle1(int const num_batch, int const num_cols, int const num_terms,
   __shared__ P X[num_teams][team_size];
   __shared__ P A[num_teams][team_size];
 
-  int i = threadIdx.y + blockIdx.x * blockDim.y;
+  int64_t i = threadIdx.y + blockIdx.x * blockDim.y;
 
   int const ix5 =
       threadIdx.x % int_pow<n, 5>() +

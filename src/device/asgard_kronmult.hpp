@@ -109,7 +109,7 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
  */
 template<typename P>
 void gpu_dense(int const dimensions, int const n, int const output_size,
-               int const num_batch, int const num_cols, int const num_terms,
+               int64_t const num_batch, int const num_cols, int const num_terms,
                int const elem[], int const row_offset, int const col_offset,
                P const *const vA[], int const num_1d_blocks, P const alpha,
                P const x[], P const beta, P y[]);

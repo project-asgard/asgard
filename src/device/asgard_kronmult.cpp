@@ -62,7 +62,7 @@ void scale(int const num, T const beta, T y[])
 
 //! \brief Helper to instantiate and call the kernel for n=1.
 template<typename P, int dims>
-void case_n1(int const num_batch, int const num_cols, int const num_terms,
+void case_n1(int64_t const num_batch, int const num_cols, int const num_terms,
              int const elem[], int const row_offset, int const col_offset,
              P const *const vA[], int const num_1d_blocks, P const alpha,
              P const x[], P y[])
@@ -87,14 +87,14 @@ void case_n1(int const num_batch, int const num_cols, int const num_terms,
 }
 //! \brief Helper to instantiate and call the kernel for d=1.
 template<typename P, int n>
-void case_d1(int const num_batch, int const num_cols, int const num_terms,
+void case_d1(int64_t const num_batch, int const num_cols, int const num_terms,
              int const elem[], int const row_offset, int const col_offset,
              P const *const vA[], int const num_1d_blocks, P const alpha,
              P const x[], P y[])
 {
   constexpr int max_blocks = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads =
-      (n >= 9) ? ASGARD_NUM_GPU_THREADS / 2 : ASGARD_NUM_GPU_THREADS;
+      (n >= 8) ? ASGARD_NUM_GPU_THREADS / 2 : ASGARD_NUM_GPU_THREADS;
   constexpr int team_size = n;
   constexpr int num_teams = max_threads / team_size;
 
@@ -116,10 +116,10 @@ void case_d1(int const num_batch, int const num_cols, int const num_terms,
 }
 //! \brief Helper to instantiate and call the kernel for cycle1.
 template<typename P, int dims, int n>
-void case_cycle1(int const num_batch, int const num_cols, int const num_terms,
-                 int const elem[], int const row_offset, int const col_offset,
-                 P const *const vA[], int const num_1d_blocks, P const alpha,
-                 P const x[], P y[])
+void case_cycle1(int64_t const num_batch, int const num_cols,
+                 int const num_terms, int const elem[], int const row_offset,
+                 int const col_offset, P const *const vA[],
+                 int const num_1d_blocks, P const alpha, P const x[], P y[])
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
@@ -147,14 +147,15 @@ void case_cycle1(int const num_batch, int const num_cols, int const num_terms,
 }
 //! \brief Helper to instantiate and call the kernel for cycle2.
 template<typename P, int dims, int n>
-void case_cycle2(int const num_batch, int const num_cols, int const num_terms,
-                 int const elem[], int const row_offset, int const col_offset,
-                 P const *const vA[], int const num_1d_blocks, P const alpha,
-                 P const x[], P y[])
+void case_cycle2(int64_t const num_batch, int const num_cols,
+                 int const num_terms, int const elem[], int const row_offset,
+                 int const col_offset, P const *const vA[],
+                 int const num_1d_blocks, P const alpha, P const x[], P y[])
 {
   constexpr int max_blocks = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads =
-      (dims == 6) ? ASGARD_NUM_GPU_THREADS / 2 : ASGARD_NUM_GPU_THREADS;
+      (dims == 6 or (dims == 5 and n >= 3)) ? ASGARD_NUM_GPU_THREADS / 2
+                                            : ASGARD_NUM_GPU_THREADS;
   constexpr int team_size = (ipow<n, dims>() + 1) / 2;
   constexpr int num_teams = max_threads / team_size;
 
@@ -181,10 +182,10 @@ void case_cycle2(int const num_batch, int const num_cols, int const num_terms,
  * \brief Helper to instantiate and call the kernel for cyclex.
  */
 template<typename P, int dims, int n, int num_cycles>
-void case_cyclex(int const num_batch, int const num_cols, int const num_terms,
-                 int const elem[], int const row_offset, int const col_offset,
-                 P const *const vA[], int const num_1d_blocks, P const alpha,
-                 P const x[], P y[])
+void case_cyclex(int64_t const num_batch, int const num_cols,
+                 int const num_terms, int const elem[], int const row_offset,
+                 int const col_offset, P const *const vA[],
+                 int const num_1d_blocks, P const alpha, P const x[], P y[])
 {
   constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
   constexpr int max_threads = ASGARD_NUM_GPU_THREADS / 2;
@@ -216,7 +217,7 @@ void case_cyclex(int const num_batch, int const num_cols, int const num_terms,
 
 template<typename P>
 void gpu_dense(int const dimensions, int const n, int const output_size,
-               int const num_batch, int const num_cols, int const num_terms,
+               int64_t const num_batch, int const num_cols, int const num_terms,
                int const elem[], int const row_offset, int const col_offset,
                P const *const vA[], int const num_1d_blocks, P const alpha,
                P const x[], P const beta, P y[])
@@ -541,7 +542,7 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-template void gpu_dense<double>(int const, int const, int const, int const,
+template void gpu_dense<double>(int const, int const, int const, int64_t const,
                                 int const, int const, int const[], int const,
                                 int const, double const *const[], int const,
                                 double const, double const[], double const,
@@ -551,7 +552,7 @@ template void gpu_dense<double>(int const, int const, int const, int const,
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-template void gpu_dense<float>(int const, int const, int const, int const,
+template void gpu_dense<float>(int const, int const, int const, int64_t const,
                                int const, int const, int const[], int const,
                                int const, float const *const[], int const,
                                float const, float const[], float const,
