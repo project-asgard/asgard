@@ -213,14 +213,7 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 6)
       {
         if (threadIdx.x < n * n)
-        {
-          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][5] +
-          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii5 +
-          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii5 + threadIdx.x];
-          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
-        }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
@@ -252,14 +245,7 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 5)
       {
         if (threadIdx.x < n * n)
-        {
-          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][4] +
-          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii4 +
-          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii4 + threadIdx.x];
-          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
-        }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
@@ -291,14 +277,7 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 4)
       {
         if (threadIdx.x < n * n)
-        {
-          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][3] +
-          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii3 +
-          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii3 + threadIdx.x];
-          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
-        }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
@@ -330,14 +309,7 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 3)
       {
         if (threadIdx.x < n * n)
-        {
-          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][2] +
-          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii2 +
-          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii2 + threadIdx.x];
-          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
-        }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
