@@ -109,12 +109,15 @@ allocate_device(double **&ptr, int64_t const num_elems, bool const initialize);
 template void
 allocate_device(double *&ptr, int64_t const num_elems, bool const initialize);
 template void
+allocate_device(float **&ptr, int64_t const num_elems, bool const initialize);
+template void
 allocate_device(float *&ptr, int64_t const num_elems, bool const initialize);
 template void
 allocate_device(int *&ptr, int64_t const num_elems, bool const initialize);
 
 template void delete_device(double **&ptr);
 template void delete_device(double *&ptr);
+template void delete_device(float **&ptr);
 template void delete_device(float *&ptr);
 template void delete_device(int *&ptr);
 
