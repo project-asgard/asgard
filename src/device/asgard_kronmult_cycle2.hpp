@@ -39,7 +39,6 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
 
   __shared__ P X[num_teams][2 * team_size];
   __shared__ P A[num_teams][team_size];
-  //__shared__ int ia[num_teams][6];
 
   int64_t i = threadIdx.y + blockIdx.x * blockDim.y;
 
@@ -152,17 +151,17 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
     P yinc0 = 0;
     P yinc1 = 0;
 
-    P rawx0 = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x];
+    P rawx0 = x[int_pow<n, dims>() * colx + threadIdx.x];
     P rawx1 = 0;
     if constexpr (num_second_cycle == team_size)
     {
-      rawx1 = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x + team_size];
+      rawx1 = x[int_pow<n, dims>() * colx + threadIdx.x + team_size];
     }
     else
     {
       if (threadIdx.x < num_second_cycle)
         rawx1 =
-            x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x + team_size];
+            x[int_pow<n, dims>() * colx + threadIdx.x + team_size];
     }
 
     int const *iy = elem + (rowy + row_offset) * dims;
@@ -341,14 +340,7 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 2)
       {
         if (threadIdx.x < n * n)
-        {
-          // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][1] +
-          // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii1 +
-          // threadIdx.x];
           A[threadIdx.y][threadIdx.x] = pA[ii1 + threadIdx.x];
-          // ma_stride += num_1d_blocks * num_1d_blocks * n * n;
-          // ma = ma_stride + n * n * ( *(++ix) * num_1d_blocks + *(++iy));
-        }
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
@@ -376,8 +368,6 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
       }
 
       if (threadIdx.x < n * n)
-        // A[threadIdx.y][threadIdx.x] = vA[t][ia[threadIdx.y][0] +
-        // threadIdx.x]; A[threadIdx.y][threadIdx.x] = vA[t][ii0 + threadIdx.x];
         A[threadIdx.y][threadIdx.x] = pA[ii0 + threadIdx.x];
       if constexpr (sync_mode == manual_sync::enable)
         __syncthreads();
