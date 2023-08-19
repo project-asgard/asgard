@@ -160,8 +160,7 @@ cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
     else
     {
       if (threadIdx.x < num_second_cycle)
-        rawx1 =
-            x[int_pow<n, dims>() * colx + threadIdx.x + team_size];
+        rawx1 = x[int_pow<n, dims>() * colx + threadIdx.x + team_size];
     }
 
     int const *iy = elem + (rowy + row_offset) * dims;
