@@ -860,15 +860,7 @@ template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(int const size) : size_{size}
 {
   expect(size >= 0);
-
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size_]();
-  }
-  else
-  {
-    allocate_device(data_, size_);
-  }
+  allocate_resource<resrc>(data_, size_);
 }
 
 // can also do this with variadic template constructor for constness
@@ -879,16 +871,8 @@ template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
     : size_{static_cast<int>(list.size())}
 {
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size_];
-    std::copy(list.begin(), list.end(), data_);
-  }
-  else
-  {
-    allocate_device(data_, size_, false);
-    copy_to_device(data_, list.begin(), size_);
-  }
+  allocate_resource<resrc>(data_, size_, false);
+  memcpy_1d<resrc, resource::host>(data_, list.begin(), size_);
 }
 
 template<typename P, mem_type mem, resource resrc>
@@ -911,16 +895,8 @@ fk::vector<P, mem, resrc>::vector(
 {
   if (size_ != 0)
   {
-    if constexpr (resrc == resource::host)
-    {
-      data_ = new P[mat.size()];
-      std::copy_n(mat.data(), mat.size(), data_);
-    }
-    else
-    {
-      allocate_device(data_, size_, false);
-      copy_on_device(data_, mat.data(), mat.size());
-    }
+    allocate_resource<resrc>(data_, size_, false);
+    memcpy_1d<resrc, resrc>(data_, mat.data(), mat.size());
   }
 }
 
@@ -985,14 +961,7 @@ fk::vector<P, mem, resrc>::~vector()
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      delete[] data_;
-    }
-    else
-    {
-      delete_device(data_);
-    }
+    delete_resource<resrc>(data_);
   }
 }
 
@@ -1005,16 +974,8 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      data_ = new P[a.size()];
-      std::memcpy(data_, a.data(), a.size() * sizeof(P));
-    }
-    else
-    {
-      allocate_device(data_, a.size(), false);
-      copy_vector(*this, a);
-    }
+    allocate_resource<resrc>(data_, a.size(), false);
+    copy_vector(*this, a);
   }
   else
   {
