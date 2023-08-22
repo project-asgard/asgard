@@ -124,7 +124,9 @@ make_kronmult_dense(PDE<precision> const &pde,
     for (int d = 0; d < num_dimensions; d++)
     {
       elem[i * num_dimensions + d] =
-          (idx[d] == 0) ? 0 : (fm::two_raised_to(idx[d] - 1) + idx[d + num_dimensions]);
+          (idx[d] == 0)
+              ? 0
+              : (fm::two_raised_to(idx[d] - 1) + idx[d + num_dimensions]);
     }
   }
 
