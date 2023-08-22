@@ -459,85 +459,6 @@ asgard::options make_options(std::vector<std::string> const arguments)
   return asgard::options(make_parser(arguments));
 }
 
-template<typename P>
-fk::matrix<P> precond_eye(int const n)
-{
-  // a test preconditioner that is just the identity matrix
-  fk::sparse<P> sp_y(speye<P>(n));
-  return sp_y.to_dense();
-};
-
-template<typename P>
-void precond_block_jacobi(PDE<P> const &pde, elements::table const &table,
-                          int const n, fk::matrix<P> &precond)
-{
-  // calculates a block jacobi preconditioner into and updates the precond
-  // matrix
-  expect(precond.nrows() == n);
-  expect(precond.ncols() == n);
-
-  int const num_dims = pde.num_dims;
-  int const degree   = pde.get_dimensions()[0].get_degree();
-
-  std::cout << "PRECOND SIZE n = " << n << "\n";
-
-#pragma omp parallel for
-  for (int element = 0; element < table.size(); element++)
-  {
-    fk::vector<int> const &coords = table.get_coords(element);
-
-    // get 1D operator indices for each dimension
-    std::vector<int> indices(num_dims);
-    for (int i = 0; i < num_dims; ++i)
-    {
-      indices[i] =
-          elements::get_1d_index(coords[i], coords[i + num_dims]) * degree;
-    }
-
-    // the index where this block is placed in the preconditioner matrix
-    int const matrix_offset = element * std::pow(degree, num_dims);
-
-    fk::matrix<P> kron0(1, 1);
-    kron0(0, 0) = 1.0;
-
-    for (int term = 0; term < pde.num_terms; term++)
-    {
-      // Vector containing coefficient blocks for each dimension
-      std::vector<fk::matrix<P, mem_type::const_view>> blocks;
-      for (int dim = 0; dim < num_dims; dim++)
-      {
-        int const start_index = indices[dim];
-        int const end_index   = indices[dim] + degree - 1;
-
-        blocks.push_back(fk::matrix<P, mem_type::const_view>(
-            pde.get_coefficients(term, 0), start_index, end_index, start_index,
-            end_index));
-      }
-
-      // Vector containing kron products of each block. The final kron product
-      // is stored at the last element.
-      std::vector<fk::matrix<P>> krons;
-      krons.push_back(kron0);
-      for (int dim = 0; dim < num_dims; dim++)
-      {
-        krons.push_back(std::move(krons[dim].kron(blocks[dim])));
-      }
-
-      expect(krons.back().nrows() == std::pow(degree, num_dims));
-      expect(krons.back().ncols() == std::pow(degree, num_dims));
-
-      // sum the kron product into the preconditioner matrix
-      precond.set_submatrix(
-          matrix_offset, matrix_offset,
-          fk::matrix<P, mem_type::view>(
-              precond, matrix_offset,
-              matrix_offset + std::pow(degree, num_dims) - 1, matrix_offset,
-              matrix_offset + std::pow(degree, num_dims) - 1) +
-              krons.back());
-    }
-  }
-};
-
 // this function executes an implicit-explicit (imex) time step using the
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
@@ -1119,11 +1040,6 @@ template fk::vector<double> implicit_advance(
     fk::vector<double> const &host_space, double const time,
     bool const update_system);
 
-template fk::matrix<double> precond_eye(int const n);
-template void precond_block_jacobi(PDE<double> const &pde,
-                                   elements::table const &table, int const n,
-                                   fk::matrix<double> &precond);
-
 template fk::vector<double> imex_advance(
     PDE<double> &pde, matrix_list<double> &operator_matrix,
     adapt::distributed_grid<double> const &adaptive_grid,
@@ -1163,11 +1079,6 @@ template fk::vector<float> implicit_advance(
     std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
         &unscaled_parts,
     fk::vector<float> const &x, float const time, bool const update_system);
-
-template fk::matrix<float> precond_eye(int const n);
-template void precond_block_jacobi(PDE<float> const &pde,
-                                   elements::table const &table, int const n,
-                                   fk::matrix<float> &precond);
 
 template fk::vector<float>
 imex_advance(PDE<float> &pde, matrix_list<float> &operator_matrix,
