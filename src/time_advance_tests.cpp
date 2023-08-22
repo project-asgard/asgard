@@ -1,10 +1,10 @@
 #include "build_info.hpp"
 #include "coefficients.hpp"
 #include "pde.hpp"
-#include "tensors.hpp"
 #include "tests_general.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
+#include "vector.hpp"
 #include <numeric>
 #include <random>
 #include <sstream>

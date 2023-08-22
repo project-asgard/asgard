@@ -1,6 +1,7 @@
 #include "matlab_utilities.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
 #include "tools.hpp"
+#include "vector.hpp"
 #include <array>
 #include <cmath>
 #include <fstream>

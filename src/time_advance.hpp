@@ -3,7 +3,7 @@
 #include "asgard_kronmult_matrix.hpp"
 #include "boundary_conditions.hpp"
 #include "program_options.hpp"
-#include "tensors.hpp"
+#include "vector.hpp"
 
 namespace asgard::time_advance
 {

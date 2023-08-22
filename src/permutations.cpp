@@ -1,8 +1,9 @@
 #include "permutations.hpp"
 
 #include "matlab_utilities.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
 #include "tools.hpp"
+#include "vector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numeric>

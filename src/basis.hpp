@@ -1,8 +1,9 @@
 #pragma once
+#include "matrix.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "quadrature.hpp"
-#include "tensors.hpp"
+#include "vector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <type_traits>

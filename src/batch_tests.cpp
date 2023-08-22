@@ -1,9 +1,10 @@
 #include "batch.hpp"
 #include "coefficients.hpp"
 #include "fast_math.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
 #include "tests_general.hpp"
 #include "tools.hpp"
+#include "vector.hpp"
 #include <numeric>
 #include <random>
 

@@ -20,9 +20,9 @@
 
 #include "pde.hpp"
 #include "program_options.hpp"
-#include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
+#include "vector.hpp"
 #include <numeric>
 
 using prec = asgard::default_precision;

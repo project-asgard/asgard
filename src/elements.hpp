@@ -1,10 +1,11 @@
 #pragma once
 #include "asgard_dimension.hpp"
+#include "matrix.hpp"
 #include "pde.hpp"
 #include "permutations.hpp"
 #include "program_options.hpp"
-#include "tensors.hpp"
 #include "tools.hpp"
+#include "vector.hpp"
 #include <algorithm>
 #include <list>
 #include <map>

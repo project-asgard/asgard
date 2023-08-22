@@ -1,5 +1,3 @@
-#include "asgard_resources.hpp"
-
 #include <algorithm>
 #include <stdexcept>
 

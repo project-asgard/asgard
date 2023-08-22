@@ -1,7 +1,7 @@
 
 #include "asgard_resources.hpp"
-#include "tensors.hpp"
 #include "tests_general.hpp"
+#include "vector.hpp"
 
 using namespace asgard;
 

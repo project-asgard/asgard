@@ -2,8 +2,9 @@
 
 #include "asgard_kronmult_matrix.hpp"
 #include "batch.hpp"
+#include "matrix.hpp"
 #include "pde.hpp"
-#include "tensors.hpp"
+#include "vector.hpp"
 
 namespace asgard::solver
 {

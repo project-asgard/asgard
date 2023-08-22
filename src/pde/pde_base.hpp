@@ -16,7 +16,6 @@
 #include "../matlab_utilities.hpp"
 #include "../moment.hpp"
 #include "../program_options.hpp"
-#include "../tensors.hpp"
 #include "../tools.hpp"
 
 namespace asgard

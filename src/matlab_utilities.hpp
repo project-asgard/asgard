@@ -1,7 +1,8 @@
 #pragma once
 
 #include "fast_math.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
+#include "vector.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <functional>
