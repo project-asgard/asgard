@@ -1269,7 +1269,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   {
     return;
   }
-  return;
 
   std::string const pde_choice = "landau";
   fk::vector<int> const levels{4, 4};
