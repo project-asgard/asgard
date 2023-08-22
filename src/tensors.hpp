@@ -1711,14 +1711,7 @@ fk::matrix<P, mem, resrc>::~matrix()
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      delete[] data_;
-    }
-    else
-    {
-      delete_device(data_);
-    }
+    delete_resource<resrc>(data_);
   }
 }
 
@@ -1768,14 +1761,8 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
 
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      std::copy(a.begin(), a.end(), begin());
-    }
-    else
-    {
-      copy_matrix(*this, a);
-    }
+    allocate_resource<resrc>(data_, a.size());
+    copy_matrix(*this, a);
   }
   else
   {
@@ -1792,16 +1779,8 @@ template<mem_type omem, mem_type, typename, mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(matrix<P, omem, resrc> const &a)
     : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()}
 {
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size()]();
-    std::copy(a.begin(), a.end(), begin());
-  }
-  else
-  {
-    allocate_device(data_, size());
-    copy_matrix(*this, a);
-  }
+  allocate_resource<resrc>(data_, size());
+  copy_matrix(*this, a);
 }
 
 // assignment owner <-> view
@@ -1812,14 +1791,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, omem, resrc> const &a)
 {
   expect(nrows() == a.nrows());
   expect(ncols() == a.ncols());
-  if constexpr (resrc == resource::host)
-  {
-    std::copy(a.begin(), a.end(), begin());
-  }
-  else
-  {
-    copy_matrix(*this, a);
-  }
+  copy_matrix(*this, a);
   return *this;
 }
 
@@ -2422,16 +2394,8 @@ fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
   if (rows == 0 || cols == 0)
     expect(cols == rows);
 
-  if constexpr (resrc == resource::host)
-  {
-    delete[] data_;
-    data_ = new P[int64_t{rows} * cols]();
-  }
-  else
-  {
-    delete_device(data_);
-    allocate_device(data_, int64_t{rows} * cols);
-  }
+  delete_resource<resrc>(data_);
+  allocate_resource<resrc>(data_, int64_t{rows} * cols);
 
   nrows_  = rows;
   ncols_  = cols;
