@@ -1403,33 +1403,15 @@ fk::vector<P, mem, resrc>::resize(int const new_size)
     return *this;
   P *old_data{data_};
 
-  if constexpr (resrc == resource::host)
+  allocate_resource<resrc>(data_, new_size);
+  if (size() > 0 && new_size > 0)
   {
-    data_ = new P[new_size];
-    if (size() > 0 && new_size > 0)
-    {
-      if (size() < new_size)
-      {
-        std::memcpy(data_, old_data, size() * sizeof(P));
-        std::fill(data_ + size(), data_ + new_size, P{0});
-      }
-      else
-        std::memcpy(data_, old_data, new_size * sizeof(P));
-    }
-    delete[] old_data;
+    if (size() < new_size)
+      memcpy_1d<resrc, resrc>(data_, old_data, size());
+    else
+      memcpy_1d<resrc, resrc>(data_, old_data, new_size);
   }
-  else
-  {
-    allocate_device(data_, new_size);
-    if (size() > 0 && new_size > 0)
-    {
-      if (size() < new_size)
-        copy_on_device(data_, old_data, size());
-      else
-        copy_on_device(data_, old_data, new_size);
-    }
-    delete_device(old_data);
-  }
+  delete_resource<resrc>(old_data);
 
   size_ = new_size;
   return *this;
