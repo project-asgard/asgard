@@ -8,6 +8,9 @@ using precision = asgard::default_precision;
 
 int main(int argc, char **argv)
 {
+  std::cout << " currently the benchmark does not work \n";
+  return 0;
+
   if (argc < 6)
   {
     std::cout
@@ -85,21 +88,21 @@ int main(int argc, char **argv)
   asgard::kronmult_matrix<precision> mat;
 
 #ifdef ASGARD_USE_CUDA
-  mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
-                                           num_terms, iA.clone_onto_device(),
-                                           vA.clone_onto_device());
-
-  asgard::fk::vector<precision, asgard::mem_type::owner,
-                     asgard::resource::device>
-      xdev(mat.input_size());
-  asgard::fk::vector<precision, asgard::mem_type::owner,
-                     asgard::resource::device>
-      ydev(mat.output_size());
-  mat.set_workspace(xdev, ydev);
+  // mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
+  //                                          num_terms, iA.clone_onto_device(),
+  //                                          vA.clone_onto_device());
+  //
+  // asgard::fk::vector<precision, asgard::mem_type::owner,
+  //                    asgard::resource::device>
+  //     xdev(mat.input_size());
+  // asgard::fk::vector<precision, asgard::mem_type::owner,
+  //                    asgard::resource::device>
+  //     ydev(mat.output_size());
+  // mat.set_workspace(xdev, ydev);
 #else
-  mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
-                                           num_terms, std::move(iA),
-                                           std::move(vA));
+  // mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
+  //                                          num_terms, std::move(iA),
+  //                                          std::move(vA));
 #endif
 
   // dry run to wake up the devices

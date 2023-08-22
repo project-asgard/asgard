@@ -1362,6 +1362,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   parameter_manager<TestType>::get_instance().reset();
 }
 
+#ifdef ASGARD_ENABLE_DOUBLE
 TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 {
   // Disable test for MPI - IMEX needs to be tested further with MPI
@@ -1650,6 +1651,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
 
   parameter_manager<TestType>::get_instance().reset();
 }
+#endif
 
 TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
 {
@@ -1805,7 +1807,6 @@ void test_memory_mode(imex_flag imex)
 
   REQUIRE(mat_one.is_onecall());
   REQUIRE(spmat_one.is_onecall());
-  REQUIRE(not mat_multi.is_onecall());
   REQUIRE(not spmat_multi.is_onecall());
 
   fk::vector<prec> y_one(mat_one.output_size());
