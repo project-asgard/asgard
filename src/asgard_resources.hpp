@@ -5,6 +5,7 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
+#include "build_info.hpp"
 #include "lib_dispatch.hpp"
 
 #include <cstdint>
@@ -48,3 +49,9 @@ void memcpy_2d(P *dest, int const dest_stride, P const *const source,
                int const source_stride, int const nrows, int const ncols);
 
 } // namespace asgard::fk
+
+#ifdef ASGARD_USE_CUDA
+#include "asgard_resources_cuda.tpp"
+#else
+#include "asgard_resources_host.tpp"
+#endif
