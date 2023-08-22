@@ -1001,14 +1001,7 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> const &a)
 
   expect(size() == a.size());
 
-  if constexpr (resrc == resource::host)
-  {
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
-  }
-  else
-  {
-    copy_vector(*this, a);
-  }
+  copy_vector(*this, a);
 
   return *this;
 }
@@ -1052,16 +1045,8 @@ template<mem_type omem, mem_type, typename, mem_type, typename>
 fk::vector<P, mem, resrc>::vector(vector<P, omem, resrc> const &a)
     : size_(a.size())
 {
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[a.size()];
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
-  }
-  else
-  {
-    allocate_device(data_, a.size(), false);
-    copy_vector(*this, a);
-  }
+  allocate_resource<resrc>(data_, a.size(), false);
+  copy_vector(*this, a);
 }
 
 // assignment owner <-> view
@@ -1564,15 +1549,7 @@ fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
 {
   expect(m >= 0);
   expect(n >= 0);
-
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size()]();
-  }
-  else
-  {
-    allocate_device(data_, size());
-  }
+  allocate_resource<resrc>(data_, size());
 }
 
 template<typename P, mem_type mem, resource resrc>
@@ -1686,16 +1663,8 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      data_ = new P[a.size()]();
-      std::copy(a.begin(), a.end(), begin());
-    }
-    else
-    {
-      allocate_device(data_, a.size());
-      copy_matrix(*this, a);
-    }
+    allocate_resource<resrc>(data_, a.size());
+    copy_matrix(*this, a);
   }
   else
   {
@@ -1722,7 +1691,6 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
 
   if constexpr (mem == mem_type::owner)
   {
-    allocate_resource<resrc>(data_, a.size());
     copy_matrix(*this, a);
   }
   else
