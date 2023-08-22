@@ -4,8 +4,9 @@
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "lib_dispatch.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
 #include "tests_general.hpp"
+#include "vector.hpp"
 #include <cmath>
 #include <numeric>
 

@@ -4,7 +4,6 @@
 #include "./asgard_kronmult_matrix.hpp"
 #include "./device/asgard_kronmult.hpp"
 #include "lib_dispatch.hpp"
-#include "tensors.hpp"
 
 #include <iostream>
 #include <random>

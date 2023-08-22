@@ -2,12 +2,13 @@
 
 #include "build_info.hpp"
 
+#include "matrix.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "solver.hpp"
-#include "tensors.hpp"
 #include "tools.hpp"
 #include "transformations.hpp"
+#include "vector.hpp"
 
 // workaround for missing include issue with highfive
 // clang-format off

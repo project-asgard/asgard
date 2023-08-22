@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "../quadrature.hpp"
-#include "../tensors.hpp"
 #include "../tools.hpp"
 #include "pde_base.hpp"
 

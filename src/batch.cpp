@@ -3,8 +3,9 @@
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "lib_dispatch.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
 #include "tools.hpp"
+#include "vector.hpp"
 
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>

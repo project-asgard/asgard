@@ -1,7 +1,8 @@
 #pragma once
 #include "basis.hpp"
+#include "matrix.hpp"
 #include "pde.hpp"
-#include "tensors.hpp"
+#include "vector.hpp"
 
 namespace asgard
 {

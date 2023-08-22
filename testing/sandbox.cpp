@@ -16,7 +16,8 @@
 
 #include "pde.hpp"
 #include "program_options.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
+#include "vector.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
 #include <numeric>

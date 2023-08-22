@@ -1,9 +1,10 @@
 #include "transformations.hpp"
 #include "batch.hpp"
 #include "matlab_utilities.hpp"
+#include "matrix.hpp"
 #include "quadrature.hpp"
-#include "tensors.hpp"
 #include "tools.hpp"
+#include "vector.hpp"
 #include <algorithm>
 #include <climits>
 #include <cmath>

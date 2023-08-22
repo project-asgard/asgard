@@ -1,7 +1,8 @@
 #include "build_info.hpp"
 #include "lib_dispatch.hpp"
-#include "tensors.hpp"
+#include "matrix.hpp"
 #include "tests_general.hpp"
+#include "vector.hpp"
 
 using namespace asgard;
 

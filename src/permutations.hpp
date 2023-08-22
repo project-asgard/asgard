@@ -1,5 +1,6 @@
 #pragma once
-#include "tensors.hpp"
+#include "matrix.hpp"
+#include "vector.hpp"
 #include <functional>
 #include <vector>
 

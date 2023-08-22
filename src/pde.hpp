@@ -31,7 +31,7 @@
 #include "pde/pde_relaxation_1x1v.hpp"
 #include "pde/pde_two_stream.hpp"
 #include "pde/pde_vlasov_lb_full_f.hpp"
-#include "tensors.hpp"
+#include "vector.hpp"
 
 namespace asgard
 {
