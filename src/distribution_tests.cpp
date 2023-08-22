@@ -101,7 +101,8 @@ void check_coverage(elements::table const &table,
     assigned
   };
 
-  fk::matrix<element_status> coverage(table.size(), table.size());
+  std::vector<element_status> coverage(table.size() * table.size(),
+                                       element_status::unassigned);
 
   for (auto const &[rank, grid] : to_test)
   {
@@ -110,8 +111,10 @@ void check_coverage(elements::table const &table,
     {
       for (int col = grid.col_start; col <= grid.col_stop; ++col)
       {
-        REQUIRE(coverage(row, col) == element_status::unassigned);
-        coverage(row, col) = element_status::assigned;
+        int64_t idx = int64_t{col} * table.size() + row;
+        REQUIRE(idx < static_cast<int64_t>(coverage.size()));
+        REQUIRE(coverage[idx] == element_status::unassigned);
+        coverage[idx] = element_status::assigned;
       }
     }
   }

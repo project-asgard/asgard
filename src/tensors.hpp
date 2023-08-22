@@ -1,10 +1,7 @@
 #pragma once
 #include "build_info.hpp"
 
-#ifdef ASGARD_USE_CUDA
-#include <cuda_runtime.h>
-#endif
-
+#include "asgard_resources.hpp"
 #include "lib_dispatch.hpp"
 #include "tools.hpp"
 
@@ -50,9 +47,6 @@ class access_badge
   friend badge_holder;
   access_badge(){};
 };
-
-// used to suppress warnings in unused variables
-auto const ignore = [](auto ignored) { (void)ignored; };
 
 enum class mem_type
 {
@@ -804,6 +798,16 @@ private:
                // elements in a row
 };
 
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename = disable_for_const_view<mem>>
+void copy_vector(fk::vector<P, mem, resrc> &dest,
+                 fk::vector<P, omem, oresrc> const &source);
+
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename = disable_for_const_view<mem>>
+void copy_matrix(fk::matrix<P, mem, resrc> &dest,
+                 fk::matrix<P, omem, oresrc> const &source);
+
 } // namespace fk
 } // namespace asgard
 
@@ -811,8 +815,6 @@ private:
 // This would otherwise be the start of the tensors.cpp, if we were still doing
 // the explicit instantiations
 //
-
-#include "asgard_resources.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -823,6 +825,26 @@ private:
 
 namespace asgard
 {
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename>
+inline void fk::copy_vector(fk::vector<P, mem, resrc> &dest,
+                            fk::vector<P, omem, oresrc> const &source)
+{
+  expect(source.size() == dest.size());
+  fk::memcpy_1d<resrc, oresrc>(dest.data(), source.data(), source.size());
+}
+
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename>
+inline void fk::copy_matrix(fk::matrix<P, mem, resrc> &dest,
+                            fk::matrix<P, omem, oresrc> const &source)
+{
+  expect(source.nrows() == dest.nrows());
+  expect(source.ncols() == dest.ncols());
+  fk::memcpy_2d<resrc, oresrc>(dest.data(), dest.stride(), source.data(),
+                               source.stride(), source.nrows(), source.ncols());
+}
+
 //-----------------------------------------------------------------------------
 //
 // fk::vector class implementation starts here
