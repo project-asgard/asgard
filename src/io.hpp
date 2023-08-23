@@ -354,6 +354,16 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
   }
   int const max_level = H5Easy::load<int>(file, std::string("max_level"));
   int const dof       = H5Easy::load<int>(file, std::string("dof"));
+  bool const use_fg   = H5Easy::load<bool>(file, std::string("using_fullgrid"));
+
+  if (use_fg != user_vals.using_full_grid())
+  {
+    throw std::runtime_error("Mismatch of grid type between CLI and restart "
+                             "file. Restart file has FG = " +
+                             std::to_string(use_fg) + " but CLI FG = " +
+                             std::to_string(user_vals.using_full_grid()));
+  }
+
   // TODO: this will be used for validation in the future
   ignore(dof);
 
