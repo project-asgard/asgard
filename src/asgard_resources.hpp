@@ -111,8 +111,6 @@ void memcpy_2d(P *dest, int const dest_stride, P const *const source,
 
 } // namespace asgard::fk
 
-
-
 #ifdef ASGARD_USE_CUDA
 #include "asgard_resources_cuda.tpp"
 #else
