@@ -229,6 +229,10 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   {
     H5Easy::dump(file, "adapt_thresh", cli_input.get_adapt_thresh());
 
+    // save the max adaptivity levels for each dimension
+    H5Easy::dump(file, "max_adapt_levels",
+                 cli_input.get_max_adapt_levels().to_std());
+
     // if using adaptivity, save some stats about DOF coarsening/refining and
     // GMRES stats for each adapt step
     H5Easy::dump(file, "adapt_initial_dof", pde.adapt_info.initial_dof);
@@ -373,9 +377,37 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
   parser_mod::set(user_vals, parser_mod::starting_levels_str, levels);
   parser_mod::set(user_vals, parser_mod::max_level, max_level);
 
+  // check whether to enable adaptivity
+  bool const do_adapt = H5Easy::load<bool>(file, std::string("do_adapt"));
+  parser_mod::set(user_vals, parser_mod::do_adapt, do_adapt);
+
+  // restore the max adaptivity levels if set
+  std::vector<int> max_adapt_levels;
+  std::string max_adapt_str;
+  if (do_adapt)
+  {
+    max_adapt_levels =
+        H5Easy::load<std::vector<int>>(file, std::string("max_adapt_levels"));
+    assert(max_adapt_levels.size() == static_cast<size_t>(ndims));
+
+    parser_mod::set(user_vals, parser_mod::max_adapt_level,
+                    fk::vector<int>(max_adapt_levels));
+
+    for (const int &lev : max_adapt_levels)
+    {
+      max_adapt_str += std::to_string(lev) + " ";
+    }
+  }
+
   std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
             << ", degree = " << degree << "\n";
   std::cout << "  - time = " << time << ", dt = " << dt << "\n";
+  std::cout << "  - adaptivity = " << (do_adapt ? "true" : "false") << "\n";
+  if (do_adapt)
+  {
+    std::cout << "    - max_level = " << max_level
+              << ", max_adapt_levels = " << max_adapt_str << "\n";
+  }
 }
 
 template<typename P>
