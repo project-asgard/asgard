@@ -283,9 +283,20 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
 
   fk::vector<int> dev_table_builder;
   int64_t dof = std::pow(dims[0].get_degree(), dims.size());
-  for (size_t lev = 0; lev < dims.size(); lev++)
+
+  // get a rough DOF estimate used to pre-allocate the element table
+  if (opts.use_full_grid)
   {
-    dof *= fm::two_raised_to(dims[lev].get_level());
+    for (size_t lev = 0; lev < dims.size(); lev++)
+    {
+      dof *= fm::two_raised_to(dims[lev].get_level());
+    }
+  }
+  else
+  {
+    // estimate for sparse grids: deg^ndims * 2^max_lev * max_lev ^ (ndims - 1)
+    dof *= fm::two_raised_to(opts.max_level) *
+           std::pow(opts.max_level, dims.size() - 1);
   }
 
   // reserve element table data up front
