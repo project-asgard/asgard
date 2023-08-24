@@ -1,10 +1,10 @@
 #pragma once
-#include "lib_dispatch.hpp"
 #include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
+#include "lib_dispatch.hpp"
 #include "program_options.hpp"
 #include "sparse.hpp"
 #include "tools.hpp"
-#include "asgard_vector.hpp"
 #ifdef ASGARD_USE_SCALAPACK
 #include "scalapack_vector_info.hpp"
 #endif

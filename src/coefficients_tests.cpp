@@ -1,11 +1,11 @@
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "basis.hpp"
 #include "coefficients.hpp"
 #include "matlab_utilities.hpp"
-#include "asgard_matrix.hpp"
 #include "pde.hpp"
 #include "pde/pde_base.hpp"
 #include "tests_general.hpp"
-#include "asgard_vector.hpp"
 
 static auto const coefficients_base_dir = gold_base_dir / "coefficients";
 

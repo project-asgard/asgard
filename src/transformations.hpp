@@ -2,15 +2,15 @@
 
 #include "adapt.hpp"
 #include "asgard_dimension.hpp"
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "basis.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "fast_math.hpp"
-#include "asgard_matrix.hpp"
 #include "pde.hpp"
 #include "quadrature.hpp"
 #include "tools.hpp"
-#include "asgard_vector.hpp"
 
 #include <algorithm>
 #include <cmath>
