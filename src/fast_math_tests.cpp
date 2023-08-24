@@ -4,9 +4,9 @@
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "lib_dispatch.hpp"
-#include "matrix.hpp"
+#include "asgard_matrix.hpp"
 #include "tests_general.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 #include <cmath>
 #include <numeric>
 

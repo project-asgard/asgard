@@ -1,8 +1,8 @@
 #pragma once
 
 #include "fast_math.hpp"
-#include "matrix.hpp"
-#include "vector.hpp"
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <functional>

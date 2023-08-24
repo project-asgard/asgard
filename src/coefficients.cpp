@@ -3,12 +3,12 @@
 #include "basis.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
-#include "matrix.hpp"
+#include "asgard_matrix.hpp"
 #include "pde.hpp"
 #include "quadrature.hpp"
 #include "tools.hpp"
 #include "transformations.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 #include <numeric>
 
 namespace asgard

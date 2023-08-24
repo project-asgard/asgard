@@ -7,9 +7,9 @@
 #endif
 
 #include "lib_dispatch.hpp"
-#include "matrix.hpp"
+#include "asgard_matrix.hpp"
 #include "tools.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 
 #include <filesystem>
 #include <memory>

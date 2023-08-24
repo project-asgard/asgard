@@ -22,7 +22,7 @@
 #include "program_options.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 #include <numeric>
 
 using prec = asgard::default_precision;

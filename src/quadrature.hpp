@@ -1,7 +1,7 @@
 #pragma once
 
-#include "matrix.hpp"
-#include "vector.hpp"
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include <array>
 
 namespace asgard

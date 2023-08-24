@@ -7,7 +7,7 @@
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 

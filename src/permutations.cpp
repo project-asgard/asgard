@@ -1,9 +1,9 @@
 #include "permutations.hpp"
 
 #include "matlab_utilities.hpp"
-#include "matrix.hpp"
+#include "asgard_matrix.hpp"
 #include "tools.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numeric>

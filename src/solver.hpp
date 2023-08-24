@@ -2,9 +2,9 @@
 
 #include "asgard_kronmult_matrix.hpp"
 #include "batch.hpp"
-#include "matrix.hpp"
+#include "asgard_matrix.hpp"
 #include "pde.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 
 namespace asgard::solver
 {
