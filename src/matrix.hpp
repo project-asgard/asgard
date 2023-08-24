@@ -865,20 +865,11 @@ fk::matrix<P, mem, resrc>::operator*(matrix<P, omem, resrc> const &B) const
 
   // just aliases for easier reading
   matrix const &A = (*this);
-  int m           = A.nrows();
-  int n           = B.ncols();
-  int k           = B.nrows();
+  matrix<P> C(A.nrows(), B.ncols());
 
-  matrix<P> C(m, n);
-
-  int lda = A.stride();
-  int ldb = B.stride();
-  int ldc = C.stride();
-
-  P one  = 1.0;
-  P zero = 0.0;
-  lib_dispatch::gemm('n', 'n', m, n, k, one, A.data(), lda, B.data(), ldb, zero,
-                     C.data(), ldc);
+  lib_dispatch::gemm('n', 'n', A.nrows(), B.ncols(), B.nrows(), P{1}, A.data(),
+                     A.stride(), B.data(), B.stride(), P{0}, C.data(),
+                     C.stride());
 
   return C;
 }
@@ -1001,15 +992,15 @@ fk::matrix<P, mem> &fk::matrix<P, mem, resrc>::invert()
 
   std::vector<int> ipiv(ncols());
   int lwork{static_cast<int>(size())};
-  int lda = stride();
   std::vector<P> work(size());
 
-  int info = lib_dispatch::getrf(ncols_, ncols_, data(0, 0), lda, ipiv.data());
+  int info =
+      lib_dispatch::getrf(ncols_, ncols_, data(0, 0), stride(), ipiv.data());
   if (info != 0)
     throw std::runtime_error("Error returned from lib_dispatch::getrf: " +
                              std::to_string(info));
-  info = lib_dispatch::getri(ncols_, data(0, 0), lda, ipiv.data(), work.data(),
-                             lwork);
+  info = lib_dispatch::getri(ncols_, data(0, 0), stride(), ipiv.data(),
+                             work.data(), lwork);
   if (info != 0)
     throw std::runtime_error("Error returned from lib_dispatch::getri: " +
                              std::to_string(info));
@@ -1038,10 +1029,8 @@ P fk::matrix<P, mem, resrc>::determinant() const
 
   matrix<P, mem_type::owner> temp(*this); // get temp copy to do LU
   std::vector<int> ipiv(ncols());
-  int n   = temp.ncols();
-  int lda = temp.stride();
-
-  int info = lib_dispatch::getrf(n, n, temp.data(0, 0), lda, ipiv.data());
+  int info = lib_dispatch::getrf(temp.nrows(), temp.ncols(), temp.data(0, 0),
+                                 temp.stride(), ipiv.data());
   if (info != 0)
     throw std::runtime_error("Error returned from lib_dispatch::getrf: " +
                              std::to_string(info));
@@ -1071,9 +1060,7 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
   expect(nrows() == static_cast<int>(v.size()));
   expect(col_idx < ncols());
 
-  int64_t n{v.size()};
-
-  lib_dispatch::copy<resrc>(n, v.data(), data(0, col_idx));
+  lib_dispatch::copy<resrc>(v.size(), v.data(), data(0, col_idx));
 
   return *this;
 }
@@ -1090,9 +1077,7 @@ fk::matrix<P, mem, resrc>::update_col(int const col_idx,
   expect(nrows() == static_cast<int>(v.size()));
   expect(col_idx < ncols());
 
-  int64_t n = v.size();
-
-  lib_dispatch::copy<resrc>(n, v.data(), data(0, col_idx));
+  lib_dispatch::copy<resrc>(v.size(), v.data(), data(0, col_idx));
 
   return *this;
 }
@@ -1110,11 +1095,7 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
   expect(ncols() == v.size());
   expect(row_idx < nrows());
 
-  int n{v.size()};
-  int one{1};
-  int lda = stride();
-
-  lib_dispatch::copy<resrc>(n, v.data(), one, data(row_idx, 0), lda);
+  lib_dispatch::copy<resrc>(v.size(), v.data(), 1, data(row_idx, 0), stride());
 
   return *this;
 }
@@ -1131,11 +1112,7 @@ fk::matrix<P, mem, resrc>::update_row(int const row_idx,
   expect(ncols() == static_cast<int>(v.size()));
   expect(row_idx < nrows());
 
-  int n{static_cast<int>(v.size())};
-  int one{1};
-  int lda = stride();
-
-  lib_dispatch::copy<resrc>(n, v.data(), one, data(row_idx, 0), lda);
+  lib_dispatch::copy<resrc>(v.size(), v.data(), 1, data(row_idx, 0), stride());
 
   return *this;
 }
