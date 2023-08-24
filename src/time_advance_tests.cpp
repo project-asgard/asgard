@@ -4,7 +4,7 @@
 #include "tests_general.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 #include <numeric>
 #include <random>
 #include <sstream>

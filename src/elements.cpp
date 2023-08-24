@@ -2,10 +2,10 @@
 
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
-#include "matrix.hpp"
+#include "asgard_matrix.hpp"
 #include "program_options.hpp"
 #include "tools.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 
 #include <cmath>
 #include <functional>

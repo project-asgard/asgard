@@ -1,7 +1,7 @@
 #include "io.hpp"
 
 #include "tests_general.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 
 using namespace asgard;
 

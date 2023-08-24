@@ -2,10 +2,10 @@
 
 #include "asgard_dimension.hpp"
 #include "elements.hpp"
-#include "matrix.hpp"
+#include "asgard_matrix.hpp"
 #include "pde.hpp"
 #include "tools.hpp"
-#include "vector.hpp"
+#include "asgard_vector.hpp"
 #include <MatlabDataArray.hpp>
 #include <MatlabEngine.hpp>
 #include <type_traits>
