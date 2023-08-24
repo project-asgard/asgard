@@ -1,7 +1,7 @@
 #pragma once
 
-#include "tools.hpp"
 #include "asgard_vector.hpp"
+#include "tools.hpp"
 
 #include <limits>
 #include <map>

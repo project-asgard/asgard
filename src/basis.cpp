@@ -1,11 +1,11 @@
 #include "basis.hpp"
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
-#include "asgard_matrix.hpp"
 #include "quadrature.hpp"
 #include "tools.hpp"
-#include "asgard_vector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numeric>

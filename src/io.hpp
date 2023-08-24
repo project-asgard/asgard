@@ -3,12 +3,12 @@
 #include "build_info.hpp"
 
 #include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "solver.hpp"
 #include "tools.hpp"
 #include "transformations.hpp"
-#include "asgard_vector.hpp"
 
 // workaround for missing include issue with highfive
 // clang-format off

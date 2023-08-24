@@ -1,12 +1,12 @@
 #ifdef ASGARD_USE_SCALAPACK
 #include "cblacs_grid.hpp"
 #endif
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "lib_dispatch.hpp"
-#include "asgard_matrix.hpp"
 #include "tests_general.hpp"
-#include "asgard_vector.hpp"
 #include <cmath>
 #include <numeric>
 

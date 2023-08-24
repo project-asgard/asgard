@@ -1,6 +1,6 @@
 #include "asgard_matrix.hpp"
-#include "tests_general.hpp"
 #include "asgard_vector.hpp"
+#include "tests_general.hpp"
 #include <fstream>
 #include <functional>
 #include <iostream>
