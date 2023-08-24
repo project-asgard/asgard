@@ -903,16 +903,8 @@ fk::vector<P, mem, resrc>::operator*(fk::matrix<P, omem, resrc> const &A) const
 
   vector const &X = (*this);
   vector<P> Y(A.ncols());
-
-  int m     = A.nrows();
-  int n     = A.ncols();
-  int lda   = A.stride();
-  int one_i = 1;
-
-  P zero = 0.0;
-  P one  = 1.0;
-  lib_dispatch::gemv<resrc>('t', m, n, one, A.data(), lda, X.data(), one_i,
-                            zero, Y.data(), one_i);
+  lib_dispatch::gemv<resrc>('t', A.nrows(), A.ncols(), P{1.0}, A.data(),
+                            A.stride(), X.data(), 1, P{0.0}, Y.data(), 1);
   return Y;
 }
 
@@ -924,12 +916,7 @@ template<resource, typename>
 fk::vector<P> fk::vector<P, mem, resrc>::operator*(P const x) const
 {
   vector<P> a(*this);
-  int one_i = 1;
-  int n     = a.size();
-  P alpha   = x;
-
-  lib_dispatch::scal(n, alpha, a.data(), one_i);
-
+  lib_dispatch::scal(a.size(), x, a.data(), 1);
   return a;
 }
 
@@ -958,12 +945,7 @@ template<typename P, mem_type mem, resource resrc>
 template<mem_type, typename>
 fk::vector<P, mem, resrc> &fk::vector<P, mem, resrc>::scale(P const x)
 {
-  int one_i = 1;
-  int n     = this->size();
-  P alpha   = x;
-
-  lib_dispatch::scal<resrc>(n, alpha, this->data(), one_i);
-
+  lib_dispatch::scal<resrc>(size(), x, data(), 1);
   return *this;
 }
 
