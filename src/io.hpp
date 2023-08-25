@@ -360,12 +360,16 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
   int const dof       = H5Easy::load<int>(file, std::string("dof"));
   bool const use_fg   = H5Easy::load<bool>(file, std::string("using_fullgrid"));
 
-  if (use_fg != user_vals.using_full_grid())
+  // if the user requested a FG but the restart is a SG, let the user know the
+  // FG option is ignored
+  if (user_vals.using_full_grid() && !use_fg)
   {
-    throw std::runtime_error("Mismatch of grid type between CLI and restart "
-                             "file. Restart file has FG = " +
-                             std::to_string(use_fg) + " but CLI FG = " +
-                             std::to_string(user_vals.using_full_grid()));
+    std::cerr << "WARN: Requested FG but restart file contains a SG. The FG "
+                 "option will be ignored."
+              << std::endl;
+    // ensure FG is disabled in CLI since we always use the grid from the
+    // restart file
+    parser_mod::set(user_vals, parser_mod::use_full_grid, false);
   }
 
   // TODO: this will be used for validation in the future
