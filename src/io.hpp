@@ -397,21 +397,23 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
     parser_mod::set(user_vals, parser_mod::max_adapt_level,
                     fk::vector<int>(max_adapt_levels));
 
-    for (const int &lev : max_adapt_levels)
+    for (size_t lev = 0; lev < max_adapt_levels.size(); lev++)
     {
-      max_adapt_str += std::to_string(lev) + " ";
+      max_adapt_str += std::to_string(max_adapt_levels[lev]);
+      if (lev < max_adapt_levels.size() - 1)
+        max_adapt_str += " ";
     }
   }
 
   std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
-            << ", degree = " << degree << "\n";
-  std::cout << "  - time = " << time << ", dt = " << dt << "\n";
+            << ", degree = " << degree << '\n';
+  std::cout << "  - time = " << time << ", dt = " << dt << '\n';
   std::cout << "  - file used adaptivity = "
-            << (restart_used_adapt ? "true" : "false") << "\n";
+            << (restart_used_adapt ? "true" : "false") << '\n';
   if (restart_used_adapt)
   {
     std::cout << "    - max_level = " << max_level
-              << ", max_adapt_levels = " << max_adapt_str << "\n";
+              << ", max_adapt_levels = " << max_adapt_str << '\n';
   }
   std::cout << "---------------" << '\n';
 }
