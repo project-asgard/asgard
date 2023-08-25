@@ -333,7 +333,8 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 template<typename P>
 void read_restart_metadata(parser &user_vals, std::string const &restart_file)
 {
-  std::cout << " Reading restart file '" << restart_file << "'\n";
+  std::cout << "--- Reading metadata from restart file '" << restart_file
+            << "' ---\n";
 
   if (!std::filesystem::exists(restart_file))
   {
@@ -381,16 +382,15 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
   parser_mod::set(user_vals, parser_mod::starting_levels_str, levels);
   parser_mod::set(user_vals, parser_mod::max_level, max_level);
 
-  // check whether to enable adaptivity
-  bool const do_adapt = H5Easy::load<bool>(file, std::string("do_adapt"));
-  parser_mod::set(user_vals, parser_mod::do_adapt, do_adapt);
+  // check if the restart file was run with adaptivity
+  bool const restart_used_adapt =
+      H5Easy::load<bool>(file, std::string("do_adapt"));
 
-  // restore the max adaptivity levels if set
-  std::vector<int> max_adapt_levels;
+  // restore the max adaptivity levels if set in the file
   std::string max_adapt_str;
-  if (do_adapt)
+  if (restart_used_adapt)
   {
-    max_adapt_levels =
+    std::vector<int> max_adapt_levels =
         H5Easy::load<std::vector<int>>(file, std::string("max_adapt_levels"));
     assert(max_adapt_levels.size() == static_cast<size_t>(ndims));
 
@@ -406,12 +406,14 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
   std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
             << ", degree = " << degree << "\n";
   std::cout << "  - time = " << time << ", dt = " << dt << "\n";
-  std::cout << "  - adaptivity = " << (do_adapt ? "true" : "false") << "\n";
-  if (do_adapt)
+  std::cout << "  - file used adaptivity = "
+            << (restart_used_adapt ? "true" : "false") << "\n";
+  if (restart_used_adapt)
   {
     std::cout << "    - max_level = " << max_level
               << ", max_adapt_levels = " << max_adapt_str << "\n";
   }
+  std::cout << "---------------" << '\n';
 }
 
 template<typename P>
