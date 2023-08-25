@@ -158,10 +158,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
       }
 
       // pad with zeros if more elements were added
-      if (y_first_refine.size() < y.size())
-      {
-        y_first_refine.resize(y.size());
-      }
+      y_first_refine.resize(y.size());
     }
   }
 
