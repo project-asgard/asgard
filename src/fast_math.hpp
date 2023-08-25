@@ -13,11 +13,15 @@ namespace asgard::fm
 {
 // a non-matlab one-liner that had no better home - compute 2^arg
 template<typename T>
-inline T two_raised_to(T const exponent)
+inline constexpr T two_raised_to(T const exponent)
 {
-  static_assert(std::is_same_v<T, int> || std::is_same_v<T, int64_t>);
+  static_assert(std::is_same_v<T, int> || std::is_same_v<T, unsigned> ||
+                std::is_same_v<T, long> || std::is_same_v<T, unsigned long> ||
+                std::is_same_v<T, long long> ||
+                std::is_same_v<T, unsigned long long>);
   expect(exponent >= 0);
-  return 1 << exponent;
+  expect(exponent < std::numeric_limits<T>::digits);
+  return T{1} << exponent;
 }
 
 template<typename P, mem_type mem, resource resrc>
@@ -40,7 +44,7 @@ P frobenius(fk::matrix<P, mem_type::owner, resrc> const &m)
     return 0.0;
   }
 
-  else if constexpr (std::is_floating_point<P>::value)
+  else if constexpr (std::is_floating_point_v<P>)
   {
     return lib_dispatch::nrm2<resrc>(m.size(), m.data(), 1);
   }

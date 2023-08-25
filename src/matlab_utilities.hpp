@@ -55,7 +55,7 @@ namespace asgard
 //-----------------------------------------------------------------------------
 
 template<typename P>
-std::enable_if_t<std::is_floating_point<P>::value, fk::vector<P>>
+std::enable_if_t<std::is_floating_point_v<P>, fk::vector<P>>
 linspace(P const start, P const end, unsigned int const num_elems = 100);
 
 template<typename P>

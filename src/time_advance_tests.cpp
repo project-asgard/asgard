@@ -1276,9 +1276,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   static int constexpr nsteps = 100;
 
   TestType constexpr gmres_tol =
-      std::is_same<TestType, double>::value ? 1.0e-8 : 1.0e-6;
+      std::is_same_v<TestType, double> ? 1.0e-8 : 1.0e-6;
   TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1362,6 +1362,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   parameter_manager<TestType>::get_instance().reset();
 }
 
+#ifdef ASGARD_ENABLE_DOUBLE
 TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 {
   // Disable test for MPI - IMEX needs to be tested further with MPI
@@ -1376,7 +1377,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   static int constexpr nsteps = 20;
 
   TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1513,7 +1514,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   static int constexpr nsteps = 10;
 
   TestType constexpr tolerance =
-      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1563,7 +1564,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   TestType E_kin_initial = 0.0;
 
   // number of DOF for the FG case: (degree * 2^level)^2 = 9.216e3
-  int const fg_dof = std::pow(degree * std::pow(2, levels[0]), 2);
+  int const fg_dof = std::pow(degree * fm::two_raised_to(levels[0]), 2);
 
   // -- time loop
   for (int i = 0; i < opts.num_time_steps; ++i)
@@ -1650,6 +1651,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
 
   parameter_manager<TestType>::get_instance().reset();
 }
+#endif
 
 TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
 {
@@ -1665,7 +1667,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   static int constexpr nsteps = 10;
 
   TestType constexpr gmres_tol =
-      std::is_same<TestType, double>::value ? 1.0e-10 : 1.0e-6;
+      std::is_same_v<TestType, double> ? 1.0e-10 : 1.0e-6;
 
   // the expected L2 from analytical solution after the maxwellian has relaxed
   TestType constexpr expected_l2 = 8.654e-4;
@@ -1805,7 +1807,6 @@ void test_memory_mode(imex_flag imex)
 
   REQUIRE(mat_one.is_onecall());
   REQUIRE(spmat_one.is_onecall());
-  REQUIRE(not mat_multi.is_onecall());
   REQUIRE(not spmat_multi.is_onecall());
 
   fk::vector<prec> y_one(mat_one.output_size());

@@ -21,6 +21,8 @@
 #include "transformations.hpp"
 #include <numeric>
 
+#include "asgard_kronmult_tests.hpp"
+
 using namespace asgard;
 
 #ifdef ASGARD_USE_DOUBLE_PREC

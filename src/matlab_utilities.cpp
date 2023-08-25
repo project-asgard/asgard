@@ -40,7 +40,7 @@ namespace asgard
 //
 //-----------------------------------------------------------------------------
 template<typename P>
-std::enable_if_t<std::is_floating_point<P>::value, fk::vector<P>>
+std::enable_if_t<std::is_floating_point_v<P>, fk::vector<P>>
 linspace(P const start, P const end, unsigned int const num_elems)
 {
   expect(num_elems > 1); // must have at least 2 elements
@@ -227,7 +227,7 @@ fk::vector<P> read_vector_from_bin_file(std::filesystem::path const &path)
 
   infile.read(reinterpret_cast<char *>(values.data()), bytes);
 
-  if constexpr (std::is_same<P, double>::value)
+  if constexpr (std::is_same_v<P, double>)
   {
     return values;
   }

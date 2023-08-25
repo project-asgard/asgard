@@ -1,10 +1,7 @@
 #pragma once
 #include "build_info.hpp"
 
-#ifdef ASGARD_USE_CUDA
-#include <cuda_runtime.h>
-#endif
-
+#include "asgard_resources.hpp"
 #include "lib_dispatch.hpp"
 #include "tools.hpp"
 
@@ -50,9 +47,6 @@ class access_badge
   friend badge_holder;
   access_badge(){};
 };
-
-// used to suppress warnings in unused variables
-auto const ignore = [](auto ignored) { (void)ignored; };
 
 enum class mem_type
 {
@@ -679,15 +673,15 @@ public:
   matrix<P> kron(matrix<P, omem> const &) const;
 
   template<typename U  = P,
-           typename    = std::enable_if_t<std::is_floating_point<U>::value &&
-                                       std::is_same<P, U>::value>,
+           typename    = std::enable_if_t<std::is_floating_point_v<U> &&
+                                       std::is_same_v<P, U>>,
            mem_type m_ = mem, typename = disable_for_const_view<m_>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   matrix<P, mem> &invert();
 
   template<typename U  = P,
-           typename    = std::enable_if_t<std::is_floating_point<U>::value &&
-                                       std::is_same<P, U>::value>,
+           typename    = std::enable_if_t<std::is_floating_point_v<U> &&
+                                       std::is_same_v<P, U>>,
            resource r_ = resrc, typename = enable_for_host<r_>>
   P determinant() const;
 
@@ -804,6 +798,16 @@ private:
                // elements in a row
 };
 
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename = disable_for_const_view<mem>>
+void copy_vector(fk::vector<P, mem, resrc> &dest,
+                 fk::vector<P, omem, oresrc> const &source);
+
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename = disable_for_const_view<mem>>
+void copy_matrix(fk::matrix<P, mem, resrc> &dest,
+                 fk::matrix<P, omem, oresrc> const &source);
+
 } // namespace fk
 } // namespace asgard
 
@@ -811,8 +815,6 @@ private:
 // This would otherwise be the start of the tensors.cpp, if we were still doing
 // the explicit instantiations
 //
-
-#include "asgard_resources.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -823,6 +825,26 @@ private:
 
 namespace asgard
 {
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename>
+inline void fk::copy_vector(fk::vector<P, mem, resrc> &dest,
+                            fk::vector<P, omem, oresrc> const &source)
+{
+  expect(source.size() == dest.size());
+  fk::memcpy_1d<resrc, oresrc>(dest.data(), source.data(), source.size());
+}
+
+template<typename P, mem_type mem, resource resrc, mem_type omem,
+         resource oresrc, typename>
+inline void fk::copy_matrix(fk::matrix<P, mem, resrc> &dest,
+                            fk::matrix<P, omem, oresrc> const &source)
+{
+  expect(source.nrows() == dest.nrows());
+  expect(source.ncols() == dest.ncols());
+  fk::memcpy_2d<resrc, oresrc>(dest.data(), dest.stride(), source.data(),
+                               source.stride(), source.nrows(), source.ncols());
+}
+
 //-----------------------------------------------------------------------------
 //
 // fk::vector class implementation starts here
@@ -838,15 +860,7 @@ template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(int const size) : size_{size}
 {
   expect(size >= 0);
-
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size_]();
-  }
-  else
-  {
-    allocate_device(data_, size_);
-  }
+  allocate_resource<resrc>(data_, size_);
 }
 
 // can also do this with variadic template constructor for constness
@@ -857,16 +871,8 @@ template<mem_type, typename>
 fk::vector<P, mem, resrc>::vector(std::initializer_list<P> list)
     : size_{static_cast<int>(list.size())}
 {
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size_];
-    std::copy(list.begin(), list.end(), data_);
-  }
-  else
-  {
-    allocate_device(data_, size_, false);
-    copy_to_device(data_, list.begin(), size_);
-  }
+  allocate_resource<resrc>(data_, size_, false);
+  memcpy_1d<resrc, resource::host>(data_, list.begin(), size_);
 }
 
 template<typename P, mem_type mem, resource resrc>
@@ -889,16 +895,8 @@ fk::vector<P, mem, resrc>::vector(
 {
   if (size_ != 0)
   {
-    if constexpr (resrc == resource::host)
-    {
-      data_ = new P[mat.size()];
-      std::copy_n(mat.data(), mat.size(), data_);
-    }
-    else
-    {
-      allocate_device(data_, size_, false);
-      copy_on_device(data_, mat.data(), mat.size());
-    }
+    allocate_resource<resrc>(data_, size_, false);
+    memcpy_1d<resrc, resrc>(data_, mat.data(), mat.size());
   }
 }
 
@@ -963,14 +961,7 @@ fk::vector<P, mem, resrc>::~vector()
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      delete[] data_;
-    }
-    else
-    {
-      delete_device(data_);
-    }
+    delete_resource<resrc>(data_);
   }
 }
 
@@ -983,16 +974,8 @@ fk::vector<P, mem, resrc>::vector(vector<P, mem, resrc> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      data_ = new P[a.size()];
-      std::memcpy(data_, a.data(), a.size() * sizeof(P));
-    }
-    else
-    {
-      allocate_device(data_, a.size(), false);
-      copy_vector(*this, a);
-    }
+    allocate_resource<resrc>(data_, a.size(), false);
+    copy_vector(*this, a);
   }
   else
   {
@@ -1018,14 +1001,7 @@ fk::vector<P, mem, resrc>::operator=(vector<P, mem, resrc> const &a)
 
   expect(size() == a.size());
 
-  if constexpr (resrc == resource::host)
-  {
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
-  }
-  else
-  {
-    copy_vector(*this, a);
-  }
+  copy_vector(*this, a);
 
   return *this;
 }
@@ -1069,16 +1045,8 @@ template<mem_type omem, mem_type, typename, mem_type, typename>
 fk::vector<P, mem, resrc>::vector(vector<P, omem, resrc> const &a)
     : size_(a.size())
 {
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[a.size()];
-    std::memcpy(data_, a.data(), a.size() * sizeof(P));
-  }
-  else
-  {
-    allocate_device(data_, a.size(), false);
-    copy_vector(*this, a);
-  }
+  allocate_resource<resrc>(data_, a.size(), false);
+  copy_vector(*this, a);
 }
 
 // assignment owner <-> view
@@ -1211,7 +1179,7 @@ bool fk::vector<P, mem, resrc>::operator==(vector<P, omem> const &other) const
   if (size() != other.size())
     return false;
   for (auto i = 0; i < size(); ++i)
-    if constexpr (std::is_floating_point<P>::value)
+    if constexpr (std::is_floating_point_v<P>)
     {
       if (std::abs((*this)(i)-other(i)) > TOL)
       {
@@ -1386,7 +1354,7 @@ void fk::vector<P, mem, resrc>::print(std::string_view const label) const
   else
     expect(false); // above cases should cover all implemented types
 
-  if constexpr (std::is_floating_point<P>::value)
+  if constexpr (std::is_floating_point_v<P>)
   {
     for (auto i = 0; i < size(); ++i)
       std::cout << std::setw(12) << std::setprecision(4) << std::scientific
@@ -1462,7 +1430,6 @@ fk::vector<P, mem, resrc>::resize(int const new_size)
     }
     delete_device(old_data);
   }
-
   size_ = new_size;
   return *this;
 }
@@ -1581,15 +1548,7 @@ fk::matrix<P, mem, resrc>::matrix(int const m, int const n)
 {
   expect(m >= 0);
   expect(n >= 0);
-
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size()]();
-  }
-  else
-  {
-    allocate_device(data_, size());
-  }
+  allocate_resource<resrc>(data_, size());
 }
 
 template<typename P, mem_type mem, resource resrc>
@@ -1689,14 +1648,7 @@ fk::matrix<P, mem, resrc>::~matrix()
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      delete[] data_;
-    }
-    else
-    {
-      delete_device(data_);
-    }
+    delete_resource<resrc>(data_);
   }
 }
 
@@ -1710,16 +1662,8 @@ fk::matrix<P, mem, resrc>::matrix(matrix<P, mem, resrc> const &a)
 {
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      data_ = new P[a.size()]();
-      std::copy(a.begin(), a.end(), begin());
-    }
-    else
-    {
-      allocate_device(data_, a.size());
-      copy_matrix(*this, a);
-    }
+    allocate_resource<resrc>(data_, a.size());
+    copy_matrix(*this, a);
   }
   else
   {
@@ -1746,14 +1690,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, mem, resrc> const &a)
 
   if constexpr (mem == mem_type::owner)
   {
-    if constexpr (resrc == resource::host)
-    {
-      std::copy(a.begin(), a.end(), begin());
-    }
-    else
-    {
-      copy_matrix(*this, a);
-    }
+    copy_matrix(*this, a);
   }
   else
   {
@@ -1770,16 +1707,8 @@ template<mem_type omem, mem_type, typename, mem_type, typename>
 fk::matrix<P, mem, resrc>::matrix(matrix<P, omem, resrc> const &a)
     : nrows_{a.nrows()}, ncols_{a.ncols()}, stride_{a.nrows()}
 {
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[size()]();
-    std::copy(a.begin(), a.end(), begin());
-  }
-  else
-  {
-    allocate_device(data_, size());
-    copy_matrix(*this, a);
-  }
+  allocate_resource<resrc>(data_, size());
+  copy_matrix(*this, a);
 }
 
 // assignment owner <-> view
@@ -1790,14 +1719,7 @@ fk::matrix<P, mem, resrc>::operator=(matrix<P, omem, resrc> const &a)
 {
   expect(nrows() == a.nrows());
   expect(ncols() == a.ncols());
-  if constexpr (resrc == resource::host)
-  {
-    std::copy(a.begin(), a.end(), begin());
-  }
-  else
-  {
-    copy_matrix(*this, a);
-  }
+  copy_matrix(*this, a);
   return *this;
 }
 
@@ -1981,7 +1903,7 @@ bool fk::matrix<P, mem, resrc>::operator==(matrix<P, omem> const &other) const
     return false;
   for (auto j = 0; j < ncols(); ++j)
     for (auto i = 0; i < nrows(); ++i)
-      if constexpr (std::is_floating_point<P>::value)
+      if constexpr (std::is_floating_point_v<P>)
       {
         if (std::abs((*this)(i, j) - other(i, j)) > TOL)
         {
@@ -2400,16 +2322,8 @@ fk::matrix<P, mem, resrc>::clear_and_resize(int const rows, int const cols)
   if (rows == 0 || cols == 0)
     expect(cols == rows);
 
-  if constexpr (resrc == resource::host)
-  {
-    delete[] data_;
-    data_ = new P[int64_t{rows} * cols]();
-  }
-  else
-  {
-    delete_device(data_);
-    allocate_device(data_, int64_t{rows} * cols);
-  }
+  delete_resource<resrc>(data_);
+  allocate_resource<resrc>(data_, int64_t{rows} * cols);
 
   nrows_  = rows;
   ncols_  = cols;
@@ -2496,7 +2410,7 @@ void fk::matrix<P, mem, resrc>::print(std::string label) const
   {
     for (auto j = 0; j < ncols(); ++j)
     {
-      if constexpr (std::is_floating_point<P>::value)
+      if constexpr (std::is_floating_point_v<P>)
       {
         std::cout << std::setw(12) << std::setprecision(4) << std::scientific
                   << std::right << (*this)(i, j);
@@ -2668,7 +2582,7 @@ void debug_compare(fk::matrix<P, left_mem> const &left,
   {
     for (auto j = 0; j < left.ncols(); ++j)
     {
-      if constexpr (std::is_floating_point<P>::value)
+      if constexpr (std::is_floating_point_v<P>)
       {
         if (std::abs(left(i, j) - right(i, j)) > TOL)
         {

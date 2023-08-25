@@ -63,8 +63,7 @@ template<typename precision>
 kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
-                    options const &program_options,
-                    memory_usage const &mem_stats, imex_flag const imex)
+                    options const &program_options, imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -86,41 +85,26 @@ make_kronmult_dense(PDE<precision> const &pde,
     throw std::runtime_error("no terms selected in the current combination of "
                              "imex flags and options, this must be wrong");
 
-  int64_t osize = 0;
-  std::vector<int64_t> dim_term_offset(num_terms * pde.num_dims + 1);
+  constexpr resource mode = resource::host;
+
+  std::vector<fk::vector<precision, mem_type::owner, mode>> terms(num_terms);
+  int const num_1d_blocks =
+      pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
+
   for (int t = 0; t < num_terms; t++)
   {
+    terms[t] = fk::vector<precision, mem_type::owner, mode>(
+        num_dimensions * num_1d_blocks * num_1d_blocks * kron_size * kron_size);
+    auto pA = terms[t].begin();
     for (int d = 0; d < num_dimensions; d++)
     {
-      dim_term_offset[t * num_dimensions + d] = osize;
-      osize += pde.get_coefficients(used_terms[t], d).size();
-    }
-  }
-
-  fk::vector<precision> vA(osize);
-
-  // will print the command to use for performance testing
-  // std::cout << "./asgard_kronmult_benchmark " << num_dimensions << " " <<
-  // kron_size
-  //          << " " << num_rows << " " << num_terms
-  //          << " " << osize / (kron_size * kron_size) << "\n";
-
-  // load the matrices into a contiguous data-structure
-  // keep the column major format
-  // but stack on the columns so the new leading dimensions is kron_size
-  precision *pA = vA.data();
-  for (int t : used_terms)
-  {
-    for (int d = 0; d < num_dimensions; d++)
-    {
-      auto const &ops   = pde.get_coefficients(t, d); // this is an fk::matrix
-      int const num_ops = ops.nrows() / kron_size;
+      auto const &ops = pde.get_coefficients(used_terms[t], d);
 
       // the matrices of the kron products are organized into blocks
       // of a large matrix, the matrix is square with size num-ops by
       // kron-size rearrange in a sequential way (by columns) to avoid the lda
-      for (int ocol = 0; ocol < num_ops; ocol++)
-        for (int orow = 0; orow < num_ops; orow++)
+      for (int ocol = 0; ocol < num_1d_blocks; ocol++)
+        for (int orow = 0; orow < num_1d_blocks; orow++)
           for (int i = 0; i < kron_size; i++)
             pA = std::copy_n(ops.data() + kron_size * orow +
                                  lda * (kron_size * ocol + i),
@@ -128,156 +112,52 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
-  // all indexes that the matrix will need
-  int64_t size_of_indexes =
-      int64_t{num_rows} * int64_t{num_cols} * num_terms * num_dimensions;
-
-  int list_row_stride = 0;
-
-  std::vector<fk::vector<int>> list_iA;
-  if (mem_stats.kron_call == memory_usage::one_call)
-  {
-    list_iA.push_back(fk::vector<int>(size_of_indexes));
-  }
-  else
-  {
-    // break the work into chunks
-    int64_t kron_unit_size = num_terms * num_dimensions * num_cols;
-    // work_size fits in 32-bit int so there is no overflow here
-    list_row_stride = static_cast<int>(mem_stats.work_size / kron_unit_size);
-
-    if (list_row_stride < 1) // many billions of dof
-    {
-      if (mem_stats.mem_limit == memory_usage::environment)
-        throw std::runtime_error("problem size is too large for the memory "
-                                 "specified memory limit");
-      else
-        throw std::runtime_error("problem is too large for ASGarD "
-                                 "(int overflow issues)");
-    }
-
-    list_iA.resize((num_rows + list_row_stride - 1) / list_row_stride);
-    for (size_t i = 0; i < list_iA.size() - 1; i++)
-    {
-      list_iA[i] = fk::vector<int>(kron_unit_size * list_row_stride);
-    }
-    list_iA.back() =
-        fk::vector<int>(size_of_indexes - (list_iA.size() - 1) *
-                                              list_row_stride * kron_unit_size);
-  }
-
-  int64_t used_entries = 0;
-  for (auto const &list : list_iA)
-    used_entries += list.size();
-
-  // compute the indexes for the matrices for the kron-products
-  int const *const flattened_table =
+  int const *const ftable =
       discretization.get_table().get_active_table().data();
-  std::vector<int> oprow(num_dimensions);
-  std::vector<int> opcol(num_dimensions);
-  auto ilist = list_iA.begin();
-  auto ia    = ilist->begin();
-  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
+
+  int const num_indexes = 1 + std::max(grid.row_stop, grid.col_stop);
+  fk::vector<int, mem_type::owner, mode> elem(num_dimensions * num_indexes);
+  for (int i = 0; i < num_indexes; i++)
   {
-    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-    for (int i = 0; i < num_dimensions; i++)
-      oprow[i] =
-          (row_coords[i] == 0)
+    int const *const idx = ftable + 2 * num_dimensions * i;
+
+    for (int d = 0; d < num_dimensions; d++)
+    {
+      elem[i * num_dimensions + d] =
+          (idx[d] == 0)
               ? 0
-              : ((1 << (row_coords[i] - 1)) + row_coords[i + num_dimensions]);
-
-    for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
-    {
-      int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-
-      for (int i = 0; i < num_dimensions; i++)
-        opcol[i] =
-            (col_coords[i] == 0)
-                ? 0
-                : ((1 << (col_coords[i] - 1)) + col_coords[i + num_dimensions]);
-
-      for (int t = 0; t < num_terms; t++)
-      {
-        for (int d = 0; d < num_dimensions; d++)
-        {
-          int64_t const num_ops =
-              pde.get_coefficients(used_terms[t], d).nrows() / kron_size;
-          *ia++ = dim_term_offset[t * num_dimensions + d] +
-                  (oprow[d] + opcol[d] * num_ops) * kron_size * kron_size;
-        }
-      }
-    }
-    // if reached the end of the list and there is more to go
-    if (ia == ilist->end())
-    {
-      ilist++;
-      if (ilist != list_iA.end())
-        ia = ilist->begin();
+              : (fm::two_raised_to(idx[d] - 1) + idx[d + num_dimensions]);
     }
   }
 
-  int64_t flops = kronmult_matrix<precision>::compute_flops(
-      num_dimensions, kron_size, num_terms, num_rows * num_cols);
+  int64_t flps = kronmult_matrix<precision>::compute_flops(
+      num_dimensions, kron_size, num_terms, int64_t{num_rows} * num_cols);
 
   std::cout << "  kronmult dense matrix: " << num_rows << " by " << num_cols
             << "\n";
-  std::cout << "        Gflops per call: " << flops * 1.E-9 << "\n";
+  std::cout << "        Gflops per call: " << flps * 1.E-9 << "\n";
+
+  std::cout << "        memory usage (MB): "
+            << get_MB<precision>(terms.size()) + get_MB<int>(elem.size())
+            << "\n";
 
 #ifdef ASGARD_USE_CUDA
-  if (mem_stats.kron_call == memory_usage::one_call)
-  {
-    std::cout << "  kronmult dense matrix allocation (MB): "
-              << get_MB<int>(list_iA[0].size()) + get_MB<precision>(vA.size())
-              << "\n";
+  std::vector<fk::vector<precision, mem_type::owner, resource::device>>
+      gpu_terms(num_terms);
+  for (int t = 0; t < num_terms; t++)
+    gpu_terms[t] = terms[t].clone_onto_device();
 
-    // if using CUDA, copy the matrices onto the GPU
-    return kronmult_matrix<precision>(
-        num_dimensions, kron_size, num_rows, num_cols, num_terms,
-        list_iA[0].clone_onto_device(), vA.clone_onto_device());
-  }
-  else
-  {
-#ifdef ASGARD_USE_GPU_MEM_LIMIT
-    std::cout << "  kronmult dense matrix coefficient allocation (MB): "
-              << get_MB<precision>(vA.size()) << "\n";
-    std::cout << "  kronmult dense matrix common workspace allocation (MB): "
-              << get_MB<int>(2 * mem_stats.work_size) << "\n";
+  auto gpu_elem = elem.clone_onto_device();
 
-    return kronmult_matrix<precision>(
-        num_dimensions, kron_size, num_rows, num_cols, num_terms,
-        list_row_stride, std::move(list_iA), vA.clone_onto_device());
+  return asgard::kronmult_matrix<precision>(
+      num_dimensions, kron_size, num_rows, num_cols, num_terms,
+      std::move(gpu_terms), std::move(gpu_elem), grid.row_start, grid.col_start,
+      num_1d_blocks);
 #else
-    std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(
-        list_iA.size());
-    int64_t num_ints = 0;
-    for (size_t i = 0; i < gpu_iA.size(); i++)
-    {
-      gpu_iA[i] = list_iA[i].clone_onto_device();
-      num_ints += gpu_iA[i].size();
-    }
-    std::cout << "        memory usage (MB): "
-              << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
-
-    return kronmult_matrix<precision>(
-        num_dimensions, kron_size, num_rows, num_cols, num_terms,
-        list_row_stride, std::move(gpu_iA), vA.clone_onto_device());
-#endif
-  }
-
-#else
-  if (mem_stats.kron_call == memory_usage::one_call)
-  {
-    // if using the CPU, move the vectors into the matrix structure
-    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms,
-                                      std::move(list_iA[0]), std::move(vA));
-  }
-  else
-  {
-    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms, list_row_stride,
-                                      std::move(list_iA), std::move(vA));
-  }
+  return asgard::kronmult_matrix<precision>(
+      num_dimensions, kron_size, num_rows, num_cols, num_terms,
+      std::move(terms), std::move(elem), grid.row_start, grid.col_start,
+      num_1d_blocks);
 #endif
 }
 
@@ -744,7 +624,7 @@ make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
 {
   if (cli_opts.kmode == kronmult_mode::dense and not force_sparse)
   {
-    return make_kronmult_dense<P>(pde, grid, cli_opts, mem_stats, imex);
+    return make_kronmult_dense<P>(pde, grid, cli_opts, imex);
   }
   else
   {
@@ -779,29 +659,41 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 
   if (mat.is_dense())
   {
-    int64_t osize = 0;
+    constexpr resource mode = resource::host;
+
+    std::vector<fk::vector<P, mem_type::owner, mode>> terms(num_terms);
+    int const num_1d_blocks =
+        pde.get_coefficients(used_terms[0], 0).nrows() / kron_size;
+
     for (int t = 0; t < num_terms; t++)
-      for (int d = 0; d < num_dimensions; d++)
-        osize += pde.get_coefficients(used_terms[t], d).size();
-
-    vA = fk::vector<P>(osize);
-
-    auto pA = vA.begin();
-    for (int t : used_terms)
     {
+      terms[t] = fk::vector<P, mem_type::owner, mode>(
+          num_dimensions * num_1d_blocks * num_1d_blocks * kron_squared);
+      auto pA = terms[t].begin();
       for (int d = 0; d < num_dimensions; d++)
       {
-        auto const &ops   = pde.get_coefficients(t, d);
-        int const num_ops = ops.nrows() / kron_size;
+        auto const &ops = pde.get_coefficients(used_terms[t], d);
 
-        for (int ocol = 0; ocol < num_ops; ocol++)
-          for (int orow = 0; orow < num_ops; orow++)
+        // the matrices of the kron products are organized into blocks
+        // of a large matrix, the matrix is square with size num-ops by
+        // kron-size rearrange in a sequential way (by columns) to avoid the lda
+        for (int ocol = 0; ocol < num_1d_blocks; ocol++)
+          for (int orow = 0; orow < num_1d_blocks; orow++)
             for (int i = 0; i < kron_size; i++)
               pA = std::copy_n(ops.data() + kron_size * orow +
                                    lda * (kron_size * ocol + i),
                                kron_size, pA);
       }
     }
+#ifdef ASGARD_USE_CUDA
+    std::vector<fk::vector<P, mem_type::owner, resource::device>> gpu_terms(
+        num_terms);
+    for (int t = 0; t < num_terms; t++)
+      gpu_terms[t] = terms[t].clone_onto_device();
+    mat.update_stored_coefficients(std::move(gpu_terms));
+#else
+    mat.update_stored_coefficients(std::move(terms));
+#endif
   }
   else
   {
@@ -833,13 +725,12 @@ void update_kronmult_coefficients(PDE<P> const &pde,
         }
       }
     }
-  }
-
 #ifdef ASGARD_USE_CUDA
-  mat.update_stored_coefficients(vA.clone_onto_device());
+    mat.update_stored_coefficients(vA.clone_onto_device());
 #else
-  mat.update_stored_coefficients(std::move(vA));
+    mat.update_stored_coefficients(std::move(vA));
 #endif
+  }
 
   tools::timer.stop(form_id);
 }

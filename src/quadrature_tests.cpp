@@ -52,8 +52,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
     int const degree         = 5;
     auto const [poly, deriv] = legendre(in, degree);
 
-    TestType const tol_factor =
-        std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+    TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-15 : 1e-6;
 
     rmse_comparison(poly, poly_gold, tol_factor);
     rmse_comparison(deriv, deriv_gold, tol_factor);
@@ -63,8 +62,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
 TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
                    test_precs)
 {
-  TestType const tol_factor =
-      std::is_same<TestType, double>::value ? 1e-15 : 1e-6;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-15 : 1e-6;
 
   SECTION("legendre_weights(10, -1, 1)")
   {

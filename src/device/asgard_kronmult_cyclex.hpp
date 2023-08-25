@@ -18,10 +18,42 @@ __device__ constexpr int int_pow(int p)
                                                  : ((p == 2) ? n * n : n))));
 }
 
+/*!
+ * \brief Builds the indexes only into the iA structure
+ *
+ * The indexes are the ones associated with the offsets in vA.
+ */
+template<int dims, int n>
+__global__ void
+build_indexes(int64_t const num_batch, int const num_cols, int const elem[],
+              int const row_offset, int const col_offset,
+              int const num_1d_blocks, int iA[])
+{
+  int i = threadIdx.y + blockIdx.x * blockDim.y;
+
+  while (i < num_batch)
+  {
+    int const rowy = i / num_cols;
+    int const colx = i % num_cols;
+
+    int const iy = elem[(rowy + row_offset) * dims + threadIdx.x];
+    int const ix = elem[(colx + col_offset) * dims + threadIdx.x];
+
+    iA[i * dims + threadIdx.x] =
+        n * n *
+        (threadIdx.x * num_1d_blocks * num_1d_blocks + ix * num_1d_blocks + iy);
+
+    i += gridDim.x * blockDim.y;
+  }
+}
+
+/*!
+ * \brief Up-to 4 cycle kernel
+ */
 template<typename T, int dims, int n, int team_size, int num_teams,
          int num_cycles, scalar_case alpha_case>
 __global__ void
-cyclex(int const num_batch, int const num_cols, int const num_terms,
+cyclex(int64_t const num_batch, int const num_cols, int const num_terms,
        int const iA[], T const vA[], T const alpha, T const x[], T y[])
 {
 #if (CUDART_VERSION < 11070)

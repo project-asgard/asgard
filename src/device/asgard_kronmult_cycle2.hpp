@@ -12,11 +12,13 @@ namespace asgard::kronmult::kernel
  * and avoiding the situation when team_size is much bigger than
  * the matrix size n^2 and many threads have to wait for I/O.
  */
-template<typename T, int dims, int n, int team_size, int num_teams,
+template<typename P, int dims, int n, int team_size, int num_teams,
          scalar_case alpha_case>
 __global__ void
-cycle2(int const num_batch, int const num_cols, int const num_terms,
-       int const iA[], T const vA[], T const alpha, T const x[], T y[])
+cycle2(int64_t const num_batch, int const num_cols, int const num_terms,
+       int const elem[], int const row_offset, int const col_offset,
+       P const *const vA[], int const num_1d_blocks, P const alpha, P const x[],
+       P y[])
 {
   static_assert(dims <= 6, "kernel won't work for more than 6 dimensions");
   static_assert(
@@ -35,10 +37,10 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
   static_assert(num_second_cycle > 0,
                 "team is large enough for one cycle, no need for a second one");
 
-  __shared__ T X[num_teams][2 * team_size];
-  __shared__ T A[num_teams][team_size];
+  __shared__ P X[num_teams][2 * team_size];
+  __shared__ P A[num_teams][team_size];
 
-  int i = threadIdx.y + blockIdx.x * blockDim.y;
+  int64_t i = threadIdx.y + blockIdx.x * blockDim.y;
 
   int const ix50 =
       threadIdx.x % int_pow<n, 5>() +
@@ -143,41 +145,82 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
 
   while (i < num_batch)
   {
-    T yinc0 = 0;
-    T yinc1 = 0;
-    int ma  = i * num_terms * dims;
+    int const rowy = i / num_cols;
+    int const colx = i % num_cols;
 
-    T rawx0 = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x];
-    T rawx1 = 0;
+    P yinc0 = 0;
+    P yinc1 = 0;
+
+    P rawx0 = x[int_pow<n, dims>() * colx + threadIdx.x];
+    P rawx1 = 0;
     if constexpr (num_second_cycle == team_size)
     {
-      rawx1 = x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x + team_size];
+      rawx1 = x[int_pow<n, dims>() * colx + threadIdx.x + team_size];
     }
     else
     {
       if (threadIdx.x < num_second_cycle)
-        rawx1 =
-            x[int_pow<n, dims>() * (i % num_cols) + threadIdx.x + team_size];
+        rawx1 = x[int_pow<n, dims>() * colx + threadIdx.x + team_size];
     }
+
+    int const *iy = elem + (rowy + row_offset) * dims;
+    int const *ix = elem + (colx + col_offset) * dims;
+
+    int ii5, ii4, ii3, ii2, ii1, ii0;
+#if (CUDART_VERSION < 11070)
+    (void)ii5;
+    (void)ii4;
+    (void)ii3;
+    (void)ii2;
+#endif
+    int ioff = 0;
+    if constexpr (dims >= 6)
+    {
+      ii5 = n * n * ((*ix++) * num_1d_blocks + *iy++);
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 5)
+    {
+      ii4 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 4)
+    {
+      ii3 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 3)
+    {
+      ii2 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    if constexpr (dims >= 2)
+    {
+      ii1 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
+      ioff += num_1d_blocks * num_1d_blocks * n * n;
+    }
+    ii0 = ioff + n * n * ((*ix++) * num_1d_blocks + *iy++);
 
     for (int t = 0; t < num_terms; t++)
     {
       X[threadIdx.y][threadIdx.x]             = rawx0;
       X[threadIdx.y][threadIdx.x + team_size] = rawx1;
 
+      P const *const pA = vA[t];
+
       if constexpr (dims >= 6)
       {
         if (threadIdx.x < n * n)
-          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+          A[threadIdx.y][threadIdx.x] = pA[ii5 + threadIdx.x];
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
-        T sum0 = 0;
+        P sum0 = 0;
         for (int k = 0; k < n; k++)
           sum0 += X[threadIdx.y][ix50 + k * int_pow<n, 5>()] *
                   A[threadIdx.y][ia50 + k * n];
 
-        T sum1 = 0;
+        P sum1 = 0;
         for (int k = 0; k < n; k++)
           sum1 += X[threadIdx.y][ix51 + k * int_pow<n, 5>()] *
                   A[threadIdx.y][ia51 + k * n];
@@ -200,16 +243,16 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 5)
       {
         if (threadIdx.x < n * n)
-          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+          A[threadIdx.y][threadIdx.x] = pA[ii4 + threadIdx.x];
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
-        T sum0 = 0;
+        P sum0 = 0;
         for (int k = 0; k < n; k++)
           sum0 += X[threadIdx.y][ix40 + k * int_pow<n, 4>()] *
                   A[threadIdx.y][ia40 + k * n];
 
-        T sum1 = 0;
+        P sum1 = 0;
         for (int k = 0; k < n; k++)
           sum1 += X[threadIdx.y][ix41 + k * int_pow<n, 4>()] *
                   A[threadIdx.y][ia41 + k * n];
@@ -232,16 +275,16 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 4)
       {
         if (threadIdx.x < n * n)
-          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+          A[threadIdx.y][threadIdx.x] = pA[ii3 + threadIdx.x];
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
-        T sum0 = 0;
+        P sum0 = 0;
         for (int k = 0; k < n; k++)
           sum0 += X[threadIdx.y][ix30 + k * int_pow<n, 3>()] *
                   A[threadIdx.y][ia30 + k * n];
 
-        T sum1 = 0;
+        P sum1 = 0;
         for (int k = 0; k < n; k++)
           sum1 += X[threadIdx.y][ix31 + k * int_pow<n, 3>()] *
                   A[threadIdx.y][ia31 + k * n];
@@ -264,16 +307,16 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 3)
       {
         if (threadIdx.x < n * n)
-          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+          A[threadIdx.y][threadIdx.x] = pA[ii2 + threadIdx.x];
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
-        T sum0 = 0;
+        P sum0 = 0;
         for (int k = 0; k < n; k++)
           sum0 += X[threadIdx.y][ix20 + k * int_pow<n, 2>()] *
                   A[threadIdx.y][ia20 + k * n];
 
-        T sum1 = 0;
+        P sum1 = 0;
         for (int k = 0; k < n; k++)
           sum1 += X[threadIdx.y][ix21 + k * int_pow<n, 2>()] *
                   A[threadIdx.y][ia21 + k * n];
@@ -296,15 +339,15 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       if constexpr (dims >= 2)
       {
         if (threadIdx.x < n * n)
-          A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+          A[threadIdx.y][threadIdx.x] = pA[ii1 + threadIdx.x];
         if constexpr (sync_mode == manual_sync::enable)
           __syncthreads();
 
-        T sum0 = 0;
+        P sum0 = 0;
         for (int k = 0; k < n; k++)
           sum0 += X[threadIdx.y][ix10 + k * n] * A[threadIdx.y][ia10 + k * n];
 
-        T sum1 = 0;
+        P sum1 = 0;
         for (int k = 0; k < n; k++)
           sum1 += X[threadIdx.y][ix11 + k * n] * A[threadIdx.y][ia11 + k * n];
 
@@ -324,7 +367,7 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
       }
 
       if (threadIdx.x < n * n)
-        A[threadIdx.y][threadIdx.x] = vA[iA[ma++] + threadIdx.x];
+        A[threadIdx.y][threadIdx.x] = pA[ii0 + threadIdx.x];
       if constexpr (sync_mode == manual_sync::enable)
         __syncthreads();
 
@@ -340,54 +383,47 @@ cycle2(int const num_batch, int const num_cols, int const num_terms,
 
     if constexpr (alpha_case == scalar_case::one)
     {
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], yinc0);
+      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-            yinc1);
+        atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                  yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-              yinc1);
+          atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                    yinc1);
       }
     }
     else if constexpr (alpha_case == scalar_case::neg_one)
     {
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x], -yinc0);
+      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], -yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-            -yinc1);
+        atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                  -yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-              -yinc1);
+          atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                    -yinc1);
       }
     }
     else
     {
-      atomicAdd(&y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x],
-                alpha * yinc0);
+      atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x], alpha * yinc0);
       if constexpr (num_second_cycle == team_size)
       {
-        atomicAdd(
-            &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-            alpha * yinc1);
+        atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                  alpha * yinc1);
       }
       else
       {
         if (threadIdx.x < num_second_cycle)
-          atomicAdd(
-              &y[int_pow<n, dims>() * (i / num_cols) + threadIdx.x + team_size],
-              alpha * yinc1);
+          atomicAdd(&y[int_pow<n, dims>() * rowy + threadIdx.x + team_size],
+                    alpha * yinc1);
       }
     }
 

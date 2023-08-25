@@ -259,7 +259,7 @@ TEMPLATE_TEST_CASE_SIG("wavelet constructor", "[basis]",
 template<typename P, resource resrc>
 void test_fmwt_application(int const level, int const degree)
 {
-  P constexpr tol = std::is_same<P, double>::value ? 1e-15 : 1e-5;
+  P constexpr tol = std::is_same_v<P, double> ? 1e-15 : 1e-5;
 
   auto const pde_choice = "diffusion_2";
   auto const num_dims   = 2;

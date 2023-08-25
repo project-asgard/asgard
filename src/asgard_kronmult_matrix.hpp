@@ -3,10 +3,10 @@
 
 #include "adapt.hpp"
 #include "asgard_grid_1d.hpp"
+#include "asgard_resources.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
-#include "tensors.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 
@@ -105,8 +105,56 @@ public:
   //! \brief Creates uninitialized matrix cannot be used except to be reinitialized.
   kronmult_matrix()
       : num_dimensions_(0), kron_size_(0), num_rows_(0), num_cols_(0),
-        num_terms_(0), tensor_size_(0), flops_(0), list_row_stride_(0)
+        num_terms_(0), tensor_size_(0), flops_(0), list_row_stride_(0),
+        row_offset_(0), col_offset_(0), num_1d_blocks_(0)
   {}
+
+  template<resource input_mode>
+  kronmult_matrix(
+      int num_dimensions, int kron_size, int num_rows, int num_cols,
+      int num_terms,
+      std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&terms,
+      fk::vector<int, mem_type::owner, input_mode> &&elem, int row_offset,
+      int col_offset, int num_1d_blocks)
+      : num_dimensions_(num_dimensions), kron_size_(kron_size),
+        num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
+        tensor_size_(1), terms_(std::move(terms)), elem_(std::move(elem)),
+        row_offset_(row_offset), col_offset_(col_offset),
+        num_1d_blocks_(num_1d_blocks)
+  {
+#ifdef ASGARD_USE_CUDA
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, so input vectors must have resource::device");
+#else
+    static_assert(
+        input_mode == resource::host,
+        "the GPU is disabled, so input vectors must have resource::host");
+#endif
+
+    expect(terms_.size() == static_cast<size_t>(num_terms_));
+    for (int t = 0; t < num_terms; t++)
+      expect(terms_[t].size() == num_dimensions_ * num_1d_blocks_ *
+                                     num_1d_blocks_ * kron_size_ * kron_size_);
+
+#ifdef ASGARD_USE_CUDA
+    fk::vector<precision *> cpu_term_pntr(num_terms_);
+    for (int t = 0; t < num_terms; t++)
+      cpu_term_pntr[t] = terms_[t].data();
+    term_pntr_ = cpu_term_pntr.clone_onto_device();
+#else
+    term_pntr_ =
+        fk::vector<precision *, mem_type::owner, data_mode>(num_terms_);
+    for (int t = 0; t < num_terms; t++)
+      term_pntr_[t] = terms_[t].data();
+#endif
+
+    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+
+    flops_ = int64_t(tensor_size_) * kron_size_ * num_rows_ * num_cols_ *
+             num_terms_ * num_dimensions_;
+  }
+
   /*!
    * \brief Creates a new matrix and moves the data into internal structures.
    *
@@ -167,15 +215,16 @@ public:
   template<resource input_mode>
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
                   int num_terms,
-                  fk::vector<int, mem_type::owner, input_mode> const &&row_indx,
-                  fk::vector<int, mem_type::owner, input_mode> const &&col_indx,
+                  fk::vector<int, mem_type::owner, input_mode> &&row_indx,
+                  fk::vector<int, mem_type::owner, input_mode> &&col_indx,
                   fk::vector<int, mem_type::owner, input_mode> &&index_A,
                   fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
         col_indx_(std::move(col_indx)), iA(std::move(index_A)),
-        list_row_stride_(0), vA(std::move(values_A))
+        list_row_stride_(0), vA(std::move(values_A)), row_offset_(0),
+        col_offset_(0), num_1d_blocks_(0)
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -187,24 +236,18 @@ public:
         "the GPU is disabled, so input vectors must have resource::host");
 #endif
 
-    expect(row_indx_.empty() == col_indx_.empty());
+    expect(not row_indx_.empty() and not col_indx_.empty());
 
     tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
 
     flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
 
 #ifdef ASGARD_USE_CUDA
-    if (!row_indx_.empty())
-    {
-      expect(row_indx_.size() == col_indx_.size());
-      expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
-    }
+    expect(row_indx_.size() == col_indx_.size());
+    expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
 #else
-    if (!row_indx_.empty())
-    {
-      expect(row_indx_.size() == num_rows_ + 1);
-      expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
-    }
+    expect(row_indx_.size() == num_rows_ + 1);
+    expect(iA.size() == col_indx_.size() * num_dimensions_ * num_terms_);
 #endif
   }
 
@@ -222,10 +265,8 @@ public:
   kronmult_matrix(
       int num_dimensions, int kron_size, int num_rows, int num_cols,
       int num_terms,
-      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
-          &&row_indx,
-      std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
-          &&col_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&row_indx,
+      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&col_indx,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
       fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
@@ -234,36 +275,6 @@ public:
   {
     expect(not(list_row_indx_.empty() and list_col_indx_.empty()));
   }
-
-  /*!
-   * \brief Creates a dense matrix in single call mode, skips row/col indexes.
-   */
-  template<resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms,
-                  fk::vector<int, mem_type::owner, input_mode> &&index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
-                        num_terms,
-                        fk::vector<int, mem_type::owner, input_mode>(),
-                        fk::vector<int, mem_type::owner, input_mode>(),
-                        std::move(index_A), std::move(values_A))
-  {}
-
-  //! \brief Dense matrix in multi-call mode
-  template<resource multi_mode, resource input_mode>
-  kronmult_matrix(
-      int num_dimensions, int kron_size, int num_rows, int num_cols,
-      int num_terms, int list_row_stride,
-      std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
-      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : kronmult_matrix(
-            num_dimensions, kron_size, num_rows, num_cols, num_terms,
-            list_row_stride,
-            std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
-            std::vector<fk::vector<int, mem_type::owner, multi_data_mode>>(),
-            std::move(list_index_A), std::move(values_A))
-  {}
 
 #ifdef ASGARD_USE_CUDA
   //! \brief Set the workspace memory for x and y
@@ -321,65 +332,10 @@ public:
     }
     if (is_dense())
     {
-      if (iA.size() > 0)
-      {
-        // single call to kronmult, all data is on the GPU
-        kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                            num_batch(), num_cols_, num_terms_, iA.data(),
-                            vA.data(), alpha, active_x, beta, active_y);
-      }
-      else
-      {
-#ifdef ASGARD_USE_GPU_MEM_LIMIT
-        // multiple calls, need to move data, call kronmult, then move next data
-        // data loading is done asynchronously using the load_stream
-        int *load_buffer    = worka.data();
-        int *compute_buffer = workb.data();
-        auto stats          = cudaMemcpyAsync(load_buffer, list_iA[0].data(),
-                                     sizeof(int) * list_iA[0].size(),
-                                     cudaMemcpyHostToDevice, load_stream);
-        expect(stats == cudaSuccess);
-        for (size_t i = 0; i < list_iA.size(); i++)
-        {
-          // sync load_stream to ensure that data has already been loaded
-          cudaStreamSynchronize(load_stream);
-          // ensure the last compute stage is done before swapping the buffers
-          if (i > 0) // no need to sync at the very beginning
-            cudaStreamSynchronize(nullptr);
-          std::swap(load_buffer, compute_buffer);
-
-          if (i + 1 < list_iA.size())
-          {
-            // begin loading the next chunk of data
-            stats = cudaMemcpyAsync(load_buffer, list_iA[i + 1].data(),
-                                    sizeof(int) * list_iA[i + 1].size(),
-                                    cudaMemcpyHostToDevice, load_stream);
-            expect(stats == cudaSuccess);
-          }
-
-          // num_batch is list_iA[i].size() / (num_dimensions_ * num_terms_)
-          // note that the first call to gpu_dense with the given output_size()
-          // will apply beta to the output y, thus follow on calls have to only
-          // accumulate and beta should be set to 1
-          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                              list_iA[i].size() /
-                                  (num_dimensions_ * num_terms_),
-                              num_cols_, num_terms_, compute_buffer, vA.data(),
-                              alpha, active_x, (i == 0) ? beta : 1,
-                              active_y + i * list_row_stride_ * tensor_size_);
-        }
-#else
-        for (size_t i = 0; i < list_iA.size(); i++)
-        {
-          kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
-                              list_iA[i].size() /
-                                  (num_dimensions_ * num_terms_),
-                              num_cols_, num_terms_, list_iA[i].data(),
-                              vA.data(), alpha, active_x, (i == 0) ? beta : 1,
-                              active_y + i * list_row_stride_ * tensor_size_);
-        }
-#endif
-      }
+      kronmult::gpu_dense(num_dimensions_, kron_size_, output_size(),
+                          num_batch(), num_cols_, num_terms_, elem_.data(),
+                          row_offset_, col_offset_, term_pntr_.data(),
+                          num_1d_blocks_, alpha, active_x, beta, active_y);
     }
     else
     {
@@ -471,25 +427,12 @@ public:
     static_assert(rec == resource::host,
                   "CUDA not enabled, only resource::host is allowed for "
                   "the kronmult_matrix::apply() template parameter");
+
     if (is_dense())
     {
-      if (iA.size() > 0)
-      {
-        kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
-                            num_terms_, iA.data(), vA.data(), alpha, x, beta,
-                            y);
-      }
-      else
-      {
-        for (size_t i = 0; i < list_iA.size(); i++)
-        {
-          kronmult::cpu_dense(
-              num_dimensions_, kron_size_,
-              list_iA[i].size() / (num_dimensions_ * num_terms_ * num_cols_),
-              num_cols_, num_terms_, list_iA[i].data(), vA.data(), alpha, x,
-              beta, y + i * list_row_stride_ * tensor_size_);
-        }
-      }
+      kronmult::cpu_dense(num_dimensions_, kron_size_, num_rows_, num_cols_,
+                          num_terms_, elem_.data(), row_offset_, col_offset_,
+                          term_pntr_.data(), num_1d_blocks_, alpha, x, beta, y);
     }
     else
     {
@@ -508,7 +451,7 @@ public:
   }
 
   //! \brief Returns the number of kron-products
-  int num_batch() const { return num_rows_ * num_cols_; }
+  int64_t num_batch() const { return int64_t{num_rows_} * int64_t{num_cols_}; }
 
   //! \brief Returns the size of a tensor block, i.e., kron_size^num_dimensions
   int tensor_size() const { return tensor_size_; }
@@ -535,7 +478,7 @@ public:
   }
   //! \brief Helper, computes the number of flops for each call to apply.
   static int64_t compute_flops(int const num_dimensions, int const kron_size,
-                               int const num_terms, int const num_batch)
+                               int const num_terms, int64_t const num_batch)
   {
     return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size *
            num_dimensions * num_terms * num_batch;
@@ -564,10 +507,41 @@ public:
     expect(values_A.size() == vA.size());
     vA = std::move(values_A);
   }
+  //! \brief Update coefficients
+  template<resource input_mode>
+  void update_stored_coefficients(
+      std::vector<fk::vector<precision, mem_type::owner, input_mode>>
+          &&values_A)
+  {
+#ifdef ASGARD_USE_CUDA
+    static_assert(
+        input_mode == resource::device,
+        "the GPU is enabled, so input vectors must have resource::device");
+#else
+    static_assert(
+        input_mode == resource::host,
+        "the GPU is disabled, so input vectors must have resource::host");
+#endif
+    expect(num_dimensions_ > 0);
+    expect(values_A.size() == static_cast<size_t>(num_terms_));
+    terms_ = std::move(values_A);
+
+#ifdef ASGARD_USE_CUDA
+    fk::vector<precision *> cpu_term_pntr(num_terms_);
+    for (int t = 0; t < num_terms_; t++)
+      cpu_term_pntr[t] = terms_[t].data();
+    term_pntr_ = cpu_term_pntr.clone_onto_device();
+#else
+    for (int t = 0; t < num_terms_; t++)
+      term_pntr_[t] = terms_[t].data();
+#endif
+  }
 
   //! \brief Returns the mode of the matrix, one call or multiple calls
   bool is_onecall()
   {
+    if (is_dense())
+      return true;
 #ifdef ASGARD_USE_CUDA
     return (iA.size() > 0);
 #else
@@ -672,6 +646,12 @@ private:
 
   // values of the kron matrices (loaded form the coefficients)
   fk::vector<precision, mem_type::owner, data_mode> vA;
+
+  // new dense mode
+  std::vector<fk::vector<precision, mem_type::owner, data_mode>> terms_;
+  fk::vector<precision *, mem_type::owner, data_mode> term_pntr_;
+  fk::vector<int, mem_type::owner, data_mode> elem_;
+  int row_offset_, col_offset_, num_1d_blocks_;
 };
 
 /*!

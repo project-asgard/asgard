@@ -748,7 +748,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     std::cout.rdbuf(old_cout_stream_buf);
 
     std::string golden_string, golden_string_v, golden_string_cv;
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string = "golden vector(owner)\n  2.0000e+00  3.0000e+00  "
                       "4.0000e+00  5.0000e+00  6.0000e+00\n";
@@ -793,7 +793,7 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     REQUIRE(std::filesystem::remove("test_out_cv.dat"));
 
     std::string golden_string;
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string =
           "2.000000000000e+00 3.000000000000e+00 4.000000000000e+00 "
@@ -2389,7 +2389,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
   }
   SECTION("matrix inverse")
   {
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       // (square slices of) our golden matrix is singular, so here's a
       // well conditioned one
@@ -2428,7 +2428,7 @@ TEMPLATE_TEST_CASE("fk::matrix operators", "[tensors]", test_precs, int)
   }
   SECTION("matrix determinant")
   {
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       // clang-format off
     fk::matrix<TestType> in {
@@ -2868,7 +2868,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
 
     std::string golden_string, golden_string_v, golden_string_cv,
         golden_string_vp;
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string =
           "golden matrix(owner)\n  1.2000e+01  "
@@ -2956,7 +2956,7 @@ TEMPLATE_TEST_CASE("fk::matrix utilities", "[tensors]", test_precs, int)
 
     std::string golden_string, golden_string_p;
 
-    if constexpr (std::is_floating_point<TestType>::value)
+    if constexpr (std::is_floating_point_v<TestType>)
     {
       golden_string =
           "1.200000000000e+01 2.200000000000e+01 3.200000000000e+01 \n"
@@ -3657,4 +3657,235 @@ TEMPLATE_TEST_CASE("fk::matrix transpose", "[tensors]", test_precs)
     REQUIRE(correct_transpose(m_6, m_7));
     REQUIRE(correct_transpose(m_7, m_6));
   }
+}
+
+TEMPLATE_TEST_CASE("Copy matrix functions for various resources", "[resources]",
+                   test_precs, int)
+{
+  fk::matrix<TestType> const a{{1, 2}, {3, 4}};
+
+  SECTION("check host -> host")
+  {
+    fk::matrix<TestType> b(a.nrows(), a.ncols());
+    copy_matrix(b, a);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check host -> host view")
+  {
+    fk::matrix<TestType> b(a.nrows(), a.ncols());
+    fk::matrix<TestType, mem_type::view> b_v(b);
+    copy_matrix(b_v, a);
+    REQUIRE(b_v == a);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check host view -> host")
+  {
+    fk::matrix<TestType, mem_type::const_view> a_v(a);
+    fk::matrix<TestType> b(a.nrows(), a.ncols());
+
+    copy_matrix(b, a_v);
+    REQUIRE(b == a_v);
+    REQUIRE(b == a);
+  }
+
+#ifdef ASGARD_USE_CUDA
+  fk::matrix<TestType, mem_type::owner, resource::device> a_d(
+      a.clone_onto_device());
+  SECTION("check host -> device")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> b(a.nrows(),
+                                                              a.ncols());
+    copy_matrix(b, a);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check host -> device view")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> b(a.nrows(),
+                                                              a.ncols());
+    fk::matrix<TestType, mem_type::view, resource::device> b_v(b);
+    copy_matrix(b_v, a);
+    REQUIRE(b_v.clone_onto_host() == a);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check host view -> device")
+  {
+    fk::matrix<TestType, mem_type::const_view> a_v(a);
+    fk::matrix<TestType, mem_type::owner, resource::device> b_d(a.nrows(),
+                                                                a.ncols());
+
+    copy_matrix(b_d, a_v);
+    REQUIRE(b_d.clone_onto_host() == a_v);
+    REQUIRE(b_d.clone_onto_host() == a);
+  }
+
+  SECTION("check device -> host")
+  {
+    fk::matrix<TestType> b(a.nrows(), a.ncols());
+    copy_matrix(b, a_d);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check device -> host view")
+  {
+    fk::matrix<TestType, mem_type::owner> b(a.nrows(), a.ncols());
+    fk::matrix<TestType, mem_type::view> b_v(b);
+    copy_matrix(b_v, a_d);
+    REQUIRE(b_v == a);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check device view -> host")
+  {
+    fk::matrix<TestType, mem_type::const_view> a_v(a);
+    fk::matrix<TestType, mem_type::owner, resource::device> b(a.nrows(),
+                                                              a.ncols());
+
+    copy_matrix(b, a_v);
+    REQUIRE(b.clone_onto_host() == a_v);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check device -> device")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> b(a.nrows(),
+                                                              a.ncols());
+    copy_matrix(b, a_d);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check device -> device view")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> b(a.nrows(),
+                                                              a.ncols());
+    fk::matrix<TestType, mem_type::view, resource::device> b_v(b);
+    copy_matrix(b_v, a_d);
+    REQUIRE(b_v.clone_onto_host() == a);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check device view -> device")
+  {
+    fk::matrix<TestType, mem_type::const_view, resource::device> a_v(a_d);
+    fk::matrix<TestType, mem_type::owner, resource::device> b(a.nrows(),
+                                                              a.ncols());
+    copy_matrix(b, a_v);
+    REQUIRE(b.clone_onto_host() == a_v.clone_onto_host());
+    REQUIRE(b.clone_onto_host() == a);
+  }
+#endif
+}
+
+TEMPLATE_TEST_CASE("Copy vector functions for various resources", "[resources]",
+                   test_precs, int)
+{
+  fk::vector<TestType> const a{1, 2, 3, 4};
+
+  SECTION("check host -> host")
+  {
+    fk::vector<TestType> b(a.size());
+    copy_vector(b, a);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check host -> host view")
+  {
+    fk::vector<TestType> b(a.size());
+    fk::vector<TestType, mem_type::view> b_v(b);
+    copy_vector(b_v, a);
+    REQUIRE(b_v == a);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check host view -> host")
+  {
+    fk::vector<TestType, mem_type::const_view> a_v(a);
+    fk::vector<TestType> b(a.size());
+    copy_vector(b, a_v);
+    REQUIRE(b == a_v);
+    REQUIRE(b == a);
+  }
+
+#ifdef ASGARD_USE_CUDA
+  fk::vector<TestType, mem_type::owner, resource::device> a_d(
+      a.clone_onto_device());
+  SECTION("check host -> device")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> b(a.size());
+    copy_vector(b, a);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check host -> device view")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> b(a.size());
+    fk::vector<TestType, mem_type::view, resource::device> b_v(b);
+    copy_vector(b_v, a);
+    REQUIRE(b_v.clone_onto_host() == a);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check host view -> device")
+  {
+    fk::vector<TestType, mem_type::const_view> a_v(a);
+    fk::vector<TestType, mem_type::owner, resource::device> b_d(a.size());
+    copy_vector(b_d, a_v);
+    REQUIRE(b_d.clone_onto_host() == a_v);
+    REQUIRE(b_d.clone_onto_host() == a);
+  }
+
+  SECTION("check device -> host")
+  {
+    fk::vector<TestType> b(a.size());
+    copy_vector(b, a_d);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check device -> host view")
+  {
+    fk::vector<TestType, mem_type::owner> b(a.size());
+    fk::vector<TestType, mem_type::view> b_v(b);
+    copy_vector(b_v, a_d);
+    REQUIRE(b_v == a);
+    REQUIRE(b == a);
+  }
+
+  SECTION("check device view -> host")
+  {
+    fk::vector<TestType, mem_type::const_view> a_v(a);
+    fk::vector<TestType, mem_type::owner, resource::device> b(a.size());
+
+    copy_vector(b, a_v);
+    REQUIRE(b.clone_onto_host() == a_v);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check device -> device")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> b(a.size());
+    copy_vector(b, a_d);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check device -> device view")
+  {
+    fk::vector<TestType, mem_type::owner, resource::device> b(a.size());
+    fk::vector<TestType, mem_type::view, resource::device> b_v(b);
+    copy_vector(b_v, a_d);
+    REQUIRE(b_v.clone_onto_host() == a);
+    REQUIRE(b.clone_onto_host() == a);
+  }
+
+  SECTION("check device view -> device")
+  {
+    fk::vector<TestType, mem_type::const_view, resource::device> a_v(a_d);
+    fk::vector<TestType, mem_type::owner, resource::device> b(a.size());
+    copy_vector(b, a_v);
+    REQUIRE(b.clone_onto_host() == a_v.clone_onto_host());
+    REQUIRE(b.clone_onto_host() == a);
+  }
+#endif
 }
