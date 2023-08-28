@@ -1,4 +1,5 @@
-#include "tensors.hpp"
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "tests_general.hpp"
 #include <fstream>
 #include <functional>

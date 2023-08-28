@@ -6,12 +6,13 @@ template<typename P>
 class PDE;
 }
 
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "basis.hpp"
 #include "elements.hpp"
 #include "pde/pde_base.hpp"
 #include "program_options.hpp"
 #include "sparse.hpp"
-#include "tensors.hpp"
 #include <vector>
 
 namespace asgard

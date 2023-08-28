@@ -1,6 +1,6 @@
 #include "io.hpp"
 
-#include "tensors.hpp"
+#include "asgard_vector.hpp"
 #include "tests_general.hpp"
 
 using namespace asgard;

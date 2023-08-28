@@ -6,8 +6,9 @@
 #include <cusparse.h>
 #endif
 
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "lib_dispatch.hpp"
-#include "tensors.hpp"
 #include "tools.hpp"
 
 #include <filesystem>
