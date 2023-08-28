@@ -1180,10 +1180,8 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
 {
   expect(n);
   expect(nrhs);
-  expect(A);
   expect(ipiv);
   expect(info);
-  expect(b);
   expect(descB);
   expect(*n >= 0);
 
@@ -1205,10 +1203,8 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
   expect(trans);
   expect(n);
   expect(nrhs);
-  expect(A);
   expect(ipiv);
   expect(info);
-  expect(b);
   expect(*n >= 0);
 
   int mp{1}, nq{1}, i_one{1};
