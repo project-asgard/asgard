@@ -18,9 +18,9 @@
 #include "matlab_plot.hpp"
 #endif
 
+#include "asgard_vector.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
-#include "tensors.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
 #include <numeric>

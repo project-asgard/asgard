@@ -1,7 +1,8 @@
 #include "permutations.hpp"
 
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "matlab_utilities.hpp"
-#include "tensors.hpp"
 #include "tools.hpp"
 #include <algorithm>
 #include <cmath>

@@ -2,7 +2,6 @@
 #include "build_info.hpp"
 #include "distribution.hpp"
 #include "sparse.hpp"
-#include "tensors.hpp"
 #include "tools.hpp"
 
 // ==========================================================================

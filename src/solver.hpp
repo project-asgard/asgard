@@ -1,9 +1,10 @@
 #pragma once
 
 #include "asgard_kronmult_matrix.hpp"
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "batch.hpp"
 #include "pde.hpp"
-#include "tensors.hpp"
 
 namespace asgard::solver
 {

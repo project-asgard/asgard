@@ -1,9 +1,10 @@
 #include "basis.hpp"
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
-#include "tensors.hpp"
 #include "tools.hpp"
 #include <algorithm>
 #include <cmath>
