@@ -479,7 +479,8 @@ inline void fk::copy_vector(fk::vector<P, mem, resrc> &dest,
                             fk::vector<P, omem, oresrc> const &source)
 {
   expect(source.size() == dest.size());
-  fk::memcpy_1d<resrc, oresrc>(dest.data(), source.data(), source.size());
+  if (!source.empty())
+    fk::memcpy_1d<resrc, oresrc>(dest.data(), source.data(), source.size());
 }
 
 //-----------------------------------------------------------------------------

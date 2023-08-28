@@ -37,6 +37,12 @@ void copy_to_host(P *const dest, P const *const source, int const num_elems)
 template<resource resrc, typename P>
 void allocate_resource(P *&ptr, int64_t const num_elems, bool const initialize)
 {
+  if (num_elems == 0)
+  {
+    ptr = nullptr;
+    return;
+  }
+
   if constexpr (resrc == resource::host)
   {
     if (initialize)
