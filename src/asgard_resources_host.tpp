@@ -50,6 +50,13 @@ template<resource resrc, typename P>
 void allocate_resource(P *&ptr, int64_t const num_elems, bool const initialize)
 {
   static_assert(resrc == resource::host);
+
+  if (num_elems == 0)
+  {
+    ptr = nullptr;
+    return;
+  }
+
   if (initialize)
     ptr = new P[num_elems]();
   else

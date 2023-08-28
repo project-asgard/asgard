@@ -352,8 +352,10 @@ inline void fk::copy_matrix(fk::matrix<P, mem, resrc> &dest,
 {
   expect(source.nrows() == dest.nrows());
   expect(source.ncols() == dest.ncols());
-  fk::memcpy_2d<resrc, oresrc>(dest.data(), dest.stride(), source.data(),
-                               source.stride(), source.nrows(), source.ncols());
+  if (!source.empty())
+    fk::memcpy_2d<resrc, oresrc>(dest.data(), dest.stride(), source.data(),
+                                 source.stride(), source.nrows(),
+                                 source.ncols());
 }
 
 //-----------------------------------------------------------------------------
