@@ -344,7 +344,7 @@ void copy(int n, P const *x, int incx, P *y, int incy)
   expect(y);
   expect(incx >= 0);
   expect(incy >= 0);
-  expect(n >= 0);
+  expect(n > 0);
 
   if constexpr (resrc == resource::device)
   {
@@ -397,7 +397,7 @@ void copy(int64_t n, P const *x, P *y)
 
   expect(x);
   expect(y);
-  expect(n >= 0);
+  expect(n > 0);
 
   // device-specific specialization if needed
   if constexpr (resrc == resource::device)
