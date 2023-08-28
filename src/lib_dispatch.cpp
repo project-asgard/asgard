@@ -337,6 +337,9 @@ P nrm2(int n, P const x[], int incx)
 template<resource resrc, typename P>
 void copy(int n, P const *x, int incx, P *y, int incy)
 {
+  if (n == 0)
+    return;
+
   expect(x);
   expect(y);
   expect(incx >= 0);
@@ -389,6 +392,9 @@ void copy(int n, P const *x, int incx, P *y, int incy)
 template<resource resrc, typename P>
 void copy(int64_t n, P const *x, P *y)
 {
+  if (n == 0)
+    return;
+
   expect(x);
   expect(y);
   expect(n >= 0);
