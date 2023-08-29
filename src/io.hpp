@@ -230,6 +230,10 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   {
     H5Easy::dump(file, "adapt_thresh", cli_input.get_adapt_thresh());
 
+    // save the max adaptivity levels for each dimension
+    H5Easy::dump(file, "max_adapt_levels",
+                 cli_input.get_max_adapt_levels().to_std());
+
     // if using adaptivity, save some stats about DOF coarsening/refining and
     // GMRES stats for each adapt step
     H5Easy::dump(file, "adapt_initial_dof", pde.adapt_info.initial_dof);
@@ -330,7 +334,8 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 template<typename P>
 void read_restart_metadata(parser &user_vals, std::string const &restart_file)
 {
-  std::cout << " Reading restart file '" << restart_file << "'\n";
+  std::cout << "--- Reading metadata from restart file '" << restart_file
+            << "' ---\n";
 
   if (!std::filesystem::exists(restart_file))
   {
@@ -355,6 +360,20 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
   }
   int const max_level = H5Easy::load<int>(file, std::string("max_level"));
   int const dof       = H5Easy::load<int>(file, std::string("dof"));
+  bool const use_fg   = H5Easy::load<bool>(file, std::string("using_fullgrid"));
+
+  // if the user requested a FG but the restart is a SG, let the user know the
+  // FG option is ignored
+  if (user_vals.using_full_grid() && !use_fg)
+  {
+    std::cerr << "WARN: Requested FG but restart file contains a SG. The FG "
+                 "option will be ignored."
+              << std::endl;
+    // ensure FG is disabled in CLI since we always use the grid from the
+    // restart file
+    parser_mod::set(user_vals, parser_mod::use_full_grid, false);
+  }
+
   // TODO: this will be used for validation in the future
   ignore(dof);
 
@@ -364,9 +383,40 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
   parser_mod::set(user_vals, parser_mod::starting_levels_str, levels);
   parser_mod::set(user_vals, parser_mod::max_level, max_level);
 
+  // check if the restart file was run with adaptivity
+  bool const restart_used_adapt =
+      H5Easy::load<bool>(file, std::string("do_adapt"));
+
+  // restore the max adaptivity levels if set in the file
+  std::string max_adapt_str;
+  if (restart_used_adapt)
+  {
+    std::vector<int> max_adapt_levels =
+        H5Easy::load<std::vector<int>>(file, std::string("max_adapt_levels"));
+    assert(max_adapt_levels.size() == static_cast<size_t>(ndims));
+
+    parser_mod::set(user_vals, parser_mod::max_adapt_level,
+                    fk::vector<int>(max_adapt_levels));
+
+    for (size_t lev = 0; lev < max_adapt_levels.size(); lev++)
+    {
+      max_adapt_str += std::to_string(max_adapt_levels[lev]);
+      if (lev < max_adapt_levels.size() - 1)
+        max_adapt_str += " ";
+    }
+  }
+
   std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
-            << ", degree = " << degree << "\n";
-  std::cout << "  - time = " << time << ", dt = " << dt << "\n";
+            << ", degree = " << degree << '\n';
+  std::cout << "  - time = " << time << ", dt = " << dt << '\n';
+  std::cout << "  - file used adaptivity = "
+            << (restart_used_adapt ? "true" : "false") << '\n';
+  if (restart_used_adapt)
+  {
+    std::cout << "    - max_level = " << max_level
+              << ", max_adapt_levels = " << max_adapt_str << '\n';
+  }
+  std::cout << "---------------" << '\n';
 }
 
 template<typename P>

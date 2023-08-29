@@ -337,11 +337,14 @@ P nrm2(int n, P const x[], int incx)
 template<resource resrc, typename P>
 void copy(int n, P const *x, int incx, P *y, int incy)
 {
+  if (n == 0)
+    return;
+
   expect(x);
   expect(y);
   expect(incx >= 0);
   expect(incy >= 0);
-  expect(n >= 0);
+  expect(n > 0);
 
   if constexpr (resrc == resource::device)
   {
@@ -389,9 +392,12 @@ void copy(int n, P const *x, int incx, P *y, int incy)
 template<resource resrc, typename P>
 void copy(int64_t n, P const *x, P *y)
 {
+  if (n == 0)
+    return;
+
   expect(x);
   expect(y);
-  expect(n >= 0);
+  expect(n > 0);
 
   // device-specific specialization if needed
   if constexpr (resrc == resource::device)
@@ -1174,10 +1180,8 @@ void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
 {
   expect(n);
   expect(nrhs);
-  expect(A);
   expect(ipiv);
   expect(info);
-  expect(b);
   expect(descB);
   expect(*n >= 0);
 
@@ -1199,10 +1203,8 @@ void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
   expect(trans);
   expect(n);
   expect(nrhs);
-  expect(A);
   expect(ipiv);
   expect(info);
-  expect(b);
   expect(*n >= 0);
 
   int mp{1}, nq{1}, i_one{1};
