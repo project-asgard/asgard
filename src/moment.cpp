@@ -241,7 +241,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
       10 * std::pow(2, pde_1d.get_dimensions()[0].get_level());
   this->realspace.resize(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave, table, transformer, workspace,
-                          this->realspace);
+                          this->realspace, false);
   return this->realspace;
 }
 
@@ -261,7 +261,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
       10 * std::pow(2, pde_1d.get_dimensions()[0].get_level());
   this->realspace.resize(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave_host, table, transformer, workspace,
-                          this->realspace);
+                          this->realspace, false);
   return this->realspace;
 }
 #endif

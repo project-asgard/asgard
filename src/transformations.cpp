@@ -212,11 +212,11 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space)
+    fk::vector<P> &real_space, bool const use_degree_quad)
 {
   tools::timer.start("wavelet_to_realspace");
   wavelet_to_realspace(pde.get_dimensions(), wave_space, table, transformer,
-                       workspace, real_space);
+                       workspace, real_space, use_degree_quad);
   tools::timer.stop("wavelet_to_realspace");
 }
 
@@ -226,14 +226,14 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space)
+    fk::vector<P> &real_space, bool const use_degree_quad)
 {
   std::vector<batch_chain<P, resource::host>> chain;
 
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
-      gen_realspace_transform(dims, transformer, false);
+      gen_realspace_transform(dims, transformer, use_degree_quad);
 
   // FIXME Assume the degree in the first dimension is equal across all the
   // remaining dimensions
@@ -283,14 +283,14 @@ void wavelet_to_realspace(
     fk::vector<P> const &wave_space, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space)
+    fk::vector<P> &real_space, bool const use_degree_quad)
 {
   std::vector<batch_chain<P, resource::host>> chain;
 
   /* generate the wavelet-to-real-space transformation matrices for each
    * dimension */
   std::vector<fk::matrix<P>> real_space_transform =
-      gen_realspace_transform(dims, transformer, false);
+      gen_realspace_transform(dims, transformer, use_degree_quad);
 
   // FIXME Assume the degree in the first dimension is equal across all the
   // remaining dimensions
@@ -461,21 +461,21 @@ template void wavelet_to_realspace(
     basis::wavelet_transform<double, resource::host> const &transformer,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
         &workspace,
-    fk::vector<double> &real_space);
+    fk::vector<double> &real_space, bool const use_degree_quad = true);
 template void wavelet_to_realspace(
     std::vector<dimension<double>> const &pde,
     fk::vector<double> const &wave_space, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
         &workspace,
-    fk::vector<double> &real_space);
+    fk::vector<double> &real_space, bool const use_degree_quad = true);
 template void wavelet_to_realspace(
     std::vector<dimension_description<double>> const &pde,
     fk::vector<double> const &wave_space, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
         &workspace,
-    fk::vector<double> &real_space);
+    fk::vector<double> &real_space, bool const use_degree_quad = true);
 template fk::vector<double>
 combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<double>> const &, double const = 1.0);
@@ -515,19 +515,19 @@ template void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<float, resource::host> const &transformer,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space);
+    fk::vector<float> &real_space, bool const use_degree_quad = true);
 template void wavelet_to_realspace(
     std::vector<dimension<float>> const &pde,
     fk::vector<float> const &wave_space, elements::table const &table,
     basis::wavelet_transform<float, resource::host> const &transformer,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space);
+    fk::vector<float> &real_space, bool const use_degree_quad = true);
 template void wavelet_to_realspace(
     std::vector<dimension_description<float>> const &pde,
     fk::vector<float> const &wave_space, elements::table const &table,
     basis::wavelet_transform<float, resource::host> const &transformer,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space);
+    fk::vector<float> &real_space, bool const use_degree_quad = true);
 template fk::vector<float>
 combine_dimensions(int const, elements::table const &, int const, int const,
                    std::vector<fk::vector<float>> const &, float const = 1.0);

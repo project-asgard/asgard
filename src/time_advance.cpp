@@ -550,9 +550,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                             pde.poisson_off_diag);
     }
 
-    pde.E_field.resize(dense_size);
-    pde.phi.resize(dense_size);
-    pde.E_source.resize(dense_size);
+    pde.E_field.resize(quad_dense_size);
+    pde.phi.resize(quad_dense_size);
+    pde.E_source.resize(quad_dense_size);
 
     first_time = false;
     asgard::tools::timer.stop("update_system");
@@ -573,16 +573,16 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     };
 
     // Compute source for poisson
-    fk::vector<P> poisson_source(dense_size);
+    fk::vector<P> poisson_source(quad_dense_size);
     std::transform(mom0_real.begin(), mom0_real.end(), poisson_source.begin(),
                    [](P const &x_v) {
                      return param_manager.get_parameter("S")->value(x_v, 0.0);
                    });
 
-    fk::vector<P> phi(dense_size);
-    fk::vector<P> poisson_E(dense_size);
+    fk::vector<P> phi(quad_dense_size);
+    fk::vector<P> poisson_E(quad_dense_size);
     solver::poisson_solver(poisson_source, pde.poisson_diag,
-                           pde.poisson_off_diag, phi, poisson_E, degree - 1,
+                           pde.poisson_off_diag, phi, poisson_E, 10 - 1,
                            N_elements, min, max, static_cast<P>(0.0),
                            static_cast<P>(0.0), solver::poisson_bc::periodic);
 

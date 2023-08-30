@@ -53,7 +53,7 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space);
+    fk::vector<P> &real_space, bool const use_degree_quad = true);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -61,7 +61,7 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space);
+    fk::vector<P> &real_space, bool const use_degree_quad = true);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -69,7 +69,7 @@ void wavelet_to_realspace(
     fk::vector<P> const &wave_space, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space);
+    fk::vector<P> &real_space, bool const use_degree_quad = true);
 
 // overload - get only the elements of the combined vector that fall within a
 // specified range
