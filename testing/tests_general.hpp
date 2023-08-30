@@ -227,30 +227,31 @@ P calculate_integral(asgard::fk::vector<P> const &input,
 {
   int const degree = dim.get_degree();
   auto const legendre_values =
-      asgard::legendre_weights<P>(degree, -1.0, 1.0, true);
-  int const num_cells  = input.size() / degree;
+      asgard::legendre_weights<P>(degree, -1.0, 1.0, false);
+  int const num_quad   = legendre_values[0].size();
+  int const num_cells  = input.size() / num_quad;
   P const grid_spacing = (dim.domain_max - dim.domain_min) / num_cells;
 
-  asgard::fk::matrix<P> coefficients(num_cells, degree);
+  asgard::fk::matrix<P> coefficients(num_cells, num_quad);
   for (int elem = 0; elem < num_cells; elem++)
   {
-    for (int d = 0; d < degree; d++)
+    for (int d = 0; d < num_quad; d++)
     {
-      coefficients(elem, d) = 0.5 * input[elem * degree + d];
+      coefficients(elem, d) = 0.5 * input[elem * num_quad + d];
     }
   }
 
-  asgard::fk::matrix<P> w(degree, degree);
+  asgard::fk::matrix<P> w(num_quad, num_quad);
   w.update_col(0, legendre_values[1]);
 
-  asgard::fk::matrix<P> input_weighted(num_cells, degree);
+  asgard::fk::matrix<P> input_weighted(num_cells, num_quad);
   asgard::fm::gemm(coefficients, w, input_weighted);
   asgard::fm::scal(P{0.5}, input_weighted);
 
   P sum = 0.0;
   for (int elem = 0; elem < num_cells; elem++)
   {
-    for (int d = 0; d < degree; d++)
+    for (int d = 0; d < num_quad; d++)
     {
       sum += input_weighted(elem, d);
     }
