@@ -69,8 +69,8 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                               time, update_system);
     case (method::imex):
       return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
-                          program_opts, unscaled_parts, x_orig, time,
-                          program_opts.solver, update_system);
+                          program_opts, unscaled_parts, x_orig, fk::vector<P>(),
+                          time, program_opts.solver, update_system);
     };
   }
 
@@ -94,6 +94,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
   // refine
   bool refining = true;
+  fk::vector<P> y_first_refine;
   while (refining)
   {
     // update boundary conditions
@@ -116,8 +117,8 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                                 time, refining);
       case (method::imex):
         return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
-                            program_opts, unscaled_parts, y, time,
-                            program_opts.solver, refining);
+                            program_opts, unscaled_parts, y, y_first_refine,
+                            time, program_opts.solver, refining);
       default:
         return fk::vector<P>();
       };
@@ -125,7 +126,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
     auto const old_plan = adaptive_grid.get_distrib_plan();
     old_size            = adaptive_grid.size();
-    fk::vector<P> const y_refined =
+    fk::vector<P> y_refined =
         adaptive_grid.refine_solution(pde, y_stepped, program_opts);
     // if either one of the ranks reports 1, i.e., y_stepped.size() changed
     refining = get_global_max<bool>(y_stepped.size() != y_refined.size(),
@@ -148,6 +149,16 @@ adaptive_advance(method const step_method, PDE<P> &pde,
       operator_matrices.clear_all();
 
       y = adaptive_grid.redistribute_solution(y, old_plan, old_size);
+
+      // after first refinement, save the refined vector to use as initial
+      // "guess" to GMRES
+      if (y_first_refine.empty())
+      {
+        y_first_refine = std::move(y_refined);
+      }
+
+      // pad with zeros if more elements were added
+      y_first_refine.resize(y.size());
     }
   }
 
@@ -454,8 +465,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                  &unscaled_parts,
-             fk::vector<P> const &x_orig, P const time, solve_opts const solver,
-             bool const update_system)
+             fk::vector<P> const &x_orig, fk::vector<P> const &x_prev,
+             P const time, solve_opts const solver, bool const update_system)
 {
   ignore(unscaled_parts);
   ignore(solver);
@@ -789,8 +800,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
-  fk::vector<P, mem_type::owner, imex_resrc> f_2(x);
-
+  fk::vector<P, mem_type::owner, imex_resrc> f_2(x.size());
+  fk::vector<P, mem_type::owner, imex_resrc> f_2_output(x.size());
   if (pde.do_collision_operator)
   {
     // Update coeffs
@@ -800,9 +811,27 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
+    // use previous refined solution as initial guess to GMRES if it exists
+    if (x_prev.empty())
+    {
+      f_2 = x;
+    }
+    else
+    {
+      if constexpr (imex_resrc == resource::device)
+      {
+        f_2 = x_prev.clone_onto_device();
+      }
+      else
+      {
+        f_2 = x_prev;
+      }
+    }
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
         restart, max_iter, tolerance);
+    // save output of GMRES call to use in the second one
+    f_2_output = f_2;
   }
   else
   {
@@ -863,11 +892,26 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     // Final stage f3
     tools::timer.start("implicit_2_solve");
+    fk::vector<P, mem_type::owner, imex_resrc> f_3(x.size());
+    if (x_prev.empty())
+    {
+      f_3 = std::move(f_2_output);
+    }
+    else
+    {
+      if constexpr (imex_resrc == resource::device)
+      {
+        f_3 = x_prev.clone_onto_device();
+      }
+      else
+      {
+        f_3 = x_prev;
+      }
+    }
 
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    fk::vector<P, mem_type::owner, imex_resrc> f_3(x);
     pde.gmres_outputs[1] = solver::simple_gmres_euler(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
         f_3, x, restart, max_iter, tolerance);
@@ -930,8 +974,8 @@ template fk::vector<double> imex_advance(
     options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
         &unscaled_parts,
-    fk::vector<double> const &x_orig, double const time,
-    solve_opts const solver, bool const update_system);
+    fk::vector<double> const &x_orig, fk::vector<double> const &x_prev,
+    double const time, solve_opts const solver, bool const update_system);
 
 #endif
 
@@ -970,8 +1014,9 @@ imex_advance(PDE<float> &pde, matrix_list<float> &operator_matrix,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
                  &unscaled_parts,
-             fk::vector<float> const &x_orig, float const time,
-             solve_opts const solver, bool const update_system);
+             fk::vector<float> const &x_orig, fk::vector<float> const &x_prev,
+             float const time, solve_opts const solver,
+             bool const update_system);
 #endif
 
 } // namespace asgard::time_advance
