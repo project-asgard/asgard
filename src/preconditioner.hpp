@@ -1,10 +1,11 @@
 #pragma once
 #include "build_info.hpp"
 
+#include "asgard_matrix.hpp"
+#include "asgard_vector.hpp"
 #include "elements.hpp"
 #include "pde.hpp"
 #include "sparse.hpp"
-#include "tensors.hpp"
 
 namespace asgard::preconditioner
 {
