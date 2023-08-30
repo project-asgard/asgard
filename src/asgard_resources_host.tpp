@@ -68,6 +68,7 @@ void delete_resource(P *&ptr)
 {
   static_assert(resrc == resource::host);
   delete[] ptr;
+  ptr = nullptr;
 }
 
 template<resource resrc, resource oresrc, typename P>
@@ -84,6 +85,7 @@ void memcpy_2d(P *dest, int const dest_stride, P const *const source,
 {
   static_assert(resrc == resource::host);
   static_assert(oresrc == resource::host);
+#pragma omp parallel for
   for (int j = 0; j < ncols; ++j)
     std::copy_n(source + j * source_stride, nrows, dest + j * dest_stride);
 }

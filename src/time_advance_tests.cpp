@@ -1699,13 +1699,13 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   for (int i = 0; i < opts.num_time_steps; ++i)
   {
     std::cout.setstate(std::ios_base::failbit);
-    TestType const time            = i * pde->get_dt();
-    bool const update_system       = i == 0;
-    fk::vector<TestType> const sol = time_advance::adaptive_advance(
+    TestType const time      = i * pde->get_dt();
+    bool const update_system = i == 0;
+    fk::vector<TestType> sol = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
         adaptive_grid, transformer, opts, f_val, time, update_system);
 
-    f_val.resize(sol.size()) = sol;
+    f_val = std::move(sol);
     std::cout.clear();
 
     // get analytic solution at final time step to compare
