@@ -528,6 +528,12 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     std::cout << " dim1 lev = " << pde.get_dimensions()[1].get_level() << "\n";
     for (auto &m : pde.moments)
     {
+      m.createFlist(pde, program_opts);
+      expect(m.get_fList().size() > 0);
+
+      m.createMomentVector(pde, program_opts, adaptive_grid.get_table());
+      expect(m.get_vector().size() > 0);
+
       m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
       // expect(m.get_moment_matrix().nrows() > 0);
     }
