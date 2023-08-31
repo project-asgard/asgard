@@ -490,7 +490,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto const quad_dense_size = std::accumulate(
       pde_1d.get_dimensions().cbegin(), pde_1d.get_dimensions().cend(), int{1},
       [](int const size, dimension<P> const &dim) {
-        return size * asgard::dense_dim_size(10, dim.get_level());
+        return size * asgard::dense_dim_size(ASGARD_NUM_QUAD_REALSPACE,
+                                             dim.get_level());
       });
   fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
@@ -581,10 +582,10 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
     fk::vector<P> phi(quad_dense_size);
     fk::vector<P> poisson_E(quad_dense_size);
-    solver::poisson_solver(poisson_source, pde.poisson_diag,
-                           pde.poisson_off_diag, phi, poisson_E, 10 - 1,
-                           N_elements, min, max, static_cast<P>(0.0),
-                           static_cast<P>(0.0), solver::poisson_bc::periodic);
+    solver::poisson_solver(
+        poisson_source, pde.poisson_diag, pde.poisson_off_diag, phi, poisson_E,
+        ASGARD_NUM_QUAD_REALSPACE - 1, N_elements, min, max,
+        static_cast<P>(0.0), static_cast<P>(0.0), solver::poisson_bc::periodic);
 
     param_manager.get_parameter("E")->value =
         [poisson_E, nodes](P const x_v, P const t = 0) -> P {
