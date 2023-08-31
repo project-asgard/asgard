@@ -97,8 +97,8 @@ void generate_initial_moments(
   adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
 
   // Create workspace for wavelet transform
-  auto const dense_size      = dense_space_size(pde_1d);
-  auto const quad_dense_size = std::accumulate(
+  int const dense_size      = dense_space_size(pde_1d);
+  int const quad_dense_size = std::accumulate(
       pde_1d.get_dimensions().cbegin(), pde_1d.get_dimensions().cend(), int{1},
       [](int const size, dimension<P> const &dim) {
         return size * asgard::dense_dim_size(10, dim.get_level());

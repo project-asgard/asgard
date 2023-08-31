@@ -127,7 +127,7 @@ fk::vector<P>
 gen_realspace_nodes(int const degree, int const level, P const min, P const max,
                     bool const use_degree_quad)
 {
-  int const n      = pow(2, level);
+  int const n      = fm::two_raised_to(level);
   P const h        = (max - min) / n;
   auto const lgwt  = legendre_weights<P>(degree, -1.0, 1.0, use_degree_quad);
   auto const roots = lgwt[0];

@@ -288,7 +288,7 @@ inline int dense_space_size(PDE<P> const &pde)
   return dense_space_size(pde.get_dimensions());
 }
 
-inline int dense_dim_size(int const &degree, int const &level)
+inline int dense_dim_size(int const degree, int const level)
 {
   return degree * fm::two_raised_to(level);
 }
