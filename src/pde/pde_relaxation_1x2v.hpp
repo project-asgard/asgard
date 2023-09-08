@@ -48,12 +48,13 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+    for (int i = 0; i < x.size(); i++)
+    {
       // For test 1 and 2:
-      // return 1.0;
+      // fx[i] = 1.0;
       // For test 3:
-      return 0.5;
-    });
+      fx[i] = 0.5;
+    }
     return fx;
   }
 
@@ -209,12 +210,13 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
+    for (int i = 0; i < x.size(); i++)
+    {
       // For test 1 and 2:
-      // return 1.0;
+      // fx[i] = 1.0;
       // For test 3:
-      return 0.5;
-    });
+      fx[i] = 0.5;
+    }
     return fx;
   }
 
