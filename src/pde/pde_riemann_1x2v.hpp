@@ -410,16 +410,16 @@ private:
 
   inline static term<P> const nu_uy_term =
       term<P>(false,  // time-dependent
-              "I3_x", // name
+              "I4_x", // name
               {nu_uy_pterm}, imex_flag::imex_implicit);
 
   inline static std::vector<term<P>> const terms_im_4 = {nu_uy_term, I_im,
                                                          dv_term};
 
-  // Term 7
+  // Term 5
   // d_{v_x}(th q), q = d_{v_x} f
 
-  // Used in all 3 diffusion terms
+  // Used in all diffusion terms
   static P nu_theta(P const x, P const time = 0)
   {
     auto param = param_manager.get_parameter("theta");
@@ -433,7 +433,7 @@ private:
 
   inline static term<P> const nu_theta_term =
       term<P>(false,  // time-dependent
-              "I3_x", // name
+              "I5_x", // name
               {I_pterm, nu_theta_pterm}, imex_flag::imex_implicit);
 
   inline static const partial_term<P> i5_pterm_v1 = partial_term<P>(
@@ -446,27 +446,27 @@ private:
 
   inline static term<P> const diff_v_term =
       term<P>(false,  // time-dependent
-              "I3_v", // name
+              "I5_v", // name
               {i5_pterm_v1, i5_pterm_v2}, imex_flag::imex_implicit);
 
   inline static term<P> const I_diff_im =
       term<P>(false,  // time-dependent
-              "I3_v", // name
+              "I5_v", // name
               {I_pterm, I_pterm}, imex_flag::imex_implicit);
 
-  inline static std::vector<term<P>> const terms_im_7 = {
+  inline static std::vector<term<P>> const terms_im_5 = {
       nu_theta_term, diff_v_term, I_diff_im};
 
-  // Term 8
+  // Term 6
   // d_{v_y}(th q), q = d_{v_y} f
-  // Same as term 7 but order if changed
+  // Same as term 5 but order if changed
 
-  inline static std::vector<term<P>> const terms_im_8 = {
+  inline static std::vector<term<P>> const terms_im_6 = {
       nu_theta_term, I_diff_im, diff_v_term};
 
   inline static term_set<P> const terms_ = {terms_ex_1, terms_ex_2, terms_im_1,
                                             terms_im_2, terms_im_3, terms_im_4,
-                                            terms_im_7, terms_im_8};
+                                            terms_im_5, terms_im_6};
 
   static fk::vector<P> exact_dim_x_0(fk::vector<P> const &x, P const t = 0)
   {
