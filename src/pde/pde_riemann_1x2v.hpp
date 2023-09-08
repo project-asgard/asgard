@@ -25,7 +25,6 @@ public:
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
     param_manager.add_parameter(parameter<P>{"u2", u2});
-    // param_manager.add_parameter(parameter<P>{"u3", u3});
     param_manager.add_parameter(parameter<P>{"theta", theta});
     param_manager.add_parameter(parameter<P>{"E", E});
     param_manager.add_parameter(parameter<P>{"S", S});
@@ -97,17 +96,8 @@ private:
     return fx;
   }
 
-  static fk::vector<P>
-  initial_condition_const(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-    fk::vector<P> fx(x.size());
-    std::fill(fx.begin(), fx.end(), P{1.0 / 12.0});
-    return fx;
-  }
-
   inline static dimension<P> const dim_0 = dimension<P>(
-      -0.6, 0.6, 8, default_degree,
+      -0.6, 0.6, 7, default_degree,
       {initial_condition_dim_x_0, initial_condition_dim_x_1}, nullptr, "x");
 
   inline static dimension<P> const dim_1 = dimension<P>(
