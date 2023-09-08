@@ -50,7 +50,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      return (std::abs(x_v) > 0.5) ? 1.0 : 0.0;
+      return (std::abs(x_v) > 0.3) ? 1.0 : 0.0;
     });
     return fx;
   }
@@ -61,7 +61,7 @@ private:
     ignore(t);
     fk::vector<P> fx(x.size());
     std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      return (std::abs(x_v) <= 0.5) ? (1.0 / 8.0) : 0.0;
+      return (std::abs(x_v) <= 0.3) ? (1.0 / 8.0) : 0.0;
     });
     return fx;
   }
@@ -102,15 +102,12 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      ignore(x_v);
-      return 1.0 / 12.0;
-    });
+    std::fill(fx.begin(), fx.end(), P{1.0 / 12.0});
     return fx;
   }
 
   inline static dimension<P> const dim_0 = dimension<P>(
-      -1.0, 1.0, 8, default_degree,
+      -0.6, 0.6, 8, default_degree,
       {initial_condition_dim_x_0, initial_condition_dim_x_1}, nullptr, "x");
 
   inline static dimension<P> const dim_1 = dimension<P>(
@@ -120,11 +117,6 @@ private:
   inline static dimension<P> const dim_2 = dimension<P>(
       -6.0, 6.0, 3, default_degree,
       {initial_condition_dim_v_0, initial_condition_dim_v_1}, nullptr, "v2");
-
-  //  inline static dimension<P> const dim_3 = dimension<P>(
-  //      -6.0, 6.0, 3, default_degree,
-  //      {initial_condition_dim_v_0, initial_condition_dim_v_1}, nullptr,
-  //      "v3");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1,
                                                                dim_2};
@@ -178,9 +170,9 @@ private:
   static P n(P const &x, P const t = 0)
   {
     ignore(t);
-    P const first  = x < -0.5 ? 1.0 : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (1.0 / 8.0) : 0.0;
-    P const third  = x > 0.5 ? 1.0 : 0.0;
+    P const first  = x < -0.3 ? 1.0 : 0.0;
+    P const second = (x >= -0.3 && x <= 0.3) ? (1.0 / 8.0) : 0.0;
+    P const third  = x > 0.3 ? 1.0 : 0.0;
     return first + second + third;
   }
 
@@ -209,9 +201,9 @@ private:
   {
     ignore(t);
     ignore(x);
-    P const first  = x < -0.5 ? 1.0 : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (4.0 / 5.0) : 0.0;
-    P const third  = x > 0.5 ? 1.0 : 0.0;
+    P const first  = x < -0.3 ? 1.0 : 0.0;
+    P const second = (x >= -0.3 && x <= 0.3) ? (4.0 / 5.0) : 0.0;
+    P const third  = x > 0.3 ? 1.0 : 0.0;
     return first + second + third;
   }
 
@@ -490,10 +482,7 @@ private:
   {
     ignore(t);
     fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      ignore(x_v);
-      return 1.0;
-    });
+    std::fill(fx.begin(), fx.end(), 1.0);
     return fx;
   }
 
