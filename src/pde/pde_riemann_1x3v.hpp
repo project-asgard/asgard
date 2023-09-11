@@ -172,10 +172,9 @@ private:
   static P n(P const &x, P const t = 0)
   {
     ignore(t);
-    P const first  = x < -0.3 ? 1.0 : 0.0;
-    P const second = (x >= -0.3 && x <= 0.3) ? (1.0 / 8.0) : 0.0;
-    P const third  = x > 0.3 ? 1.0 : 0.0;
-    return first + second + third;
+    P const first  = std::abs(x) > 0.3 ? 1.0 : 0.0;
+    P const second = std::abs(x) < 0.3 ? (1.0 / 8.0) : 0.0;
+    return first + second;
   }
 
   static P u(P const &x, P const t = 0)
@@ -202,11 +201,9 @@ private:
   static P theta(P const &x, P const t = 0)
   {
     ignore(t);
-    ignore(x);
-    P const first  = x < -0.3 ? 1.0 : 0.0;
-    P const second = (x >= -0.3 && x <= 0.3) ? (4.0 / 5.0) : 0.0;
-    P const third  = x > 0.3 ? 1.0 : 0.0;
-    return first + second + third;
+    P const first  = std::abs(x) > 0.3 ? 1.0 : 0.0;
+    P const second = std::abs(x) < 0.3 ? (4.0 / 5.0) : 0.0;
+    return first + second;
   }
 
   static P E(P const &x, P const t = 0)
@@ -260,7 +257,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x > 0.0) ? x : 0.0;
+    return std::max(P{0.0}, x);
   }
 
   inline static const partial_term<P> e1_pterm_x = partial_term<P>(
@@ -297,7 +294,7 @@ private:
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x < 0.0) ? x : 0.0;
+    return std::min(P{0.0}, x);
   }
 
   inline static const partial_term<P> e2_pterm_x = partial_term<P>(
