@@ -161,7 +161,7 @@ private:
   {
     ignore(t);
     P const first  = x < -0.3 ? 1.0 : 0.0;
-    P const second = (x >= -0.3 && x <= 0.3) ? (1.0 / 8.0) : 0.0;
+    P const second = std::abs(x) < 0.3 ? (1.0 / 8.0) : 0.0;
     P const third  = x > 0.3 ? 1.0 : 0.0;
     return first + second + third;
   }
@@ -192,7 +192,7 @@ private:
     ignore(t);
     ignore(x);
     P const first  = x < -0.3 ? 1.0 : 0.0;
-    P const second = (x >= -0.3 && x <= 0.3) ? (4.0 / 5.0) : 0.0;
+    P const second = std::abs(x) < 0.3 ? (4.0 / 5.0) : 0.0;
     P const third  = x > 0.3 ? 1.0 : 0.0;
     return first + second + third;
   }
