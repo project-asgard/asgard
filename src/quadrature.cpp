@@ -166,7 +166,7 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
   expect(lower_bound < upper_bound);
 
   auto const default_quad_number = [](int const degree_in) {
-    static int constexpr minimum_quadrature = 10;
+    static int constexpr minimum_quadrature = ASGARD_NUM_QUADRATURE;
     return std::max(minimum_quadrature, degree_in + 1);
   };
 

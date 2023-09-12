@@ -237,7 +237,7 @@ foreach(_prec ${ASGARD_PRECISIONS})
 endforeach()
 
 
-set (ASGARD_NUM_QUAD_REALSPACE "10" CACHE STRING "Number of quadrature points to be used in realspace transformations.")
+set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Number of quadrature points to be used in realspace transformations.")
 
 #-------------------------------------------------------------------------------
 #  Define the asgard library.

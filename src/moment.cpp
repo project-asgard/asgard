@@ -238,7 +238,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
   // the realspace size uses the number of quadrature points (10) rather than
   // degree
   int const realspace_size =
-      ASGARD_NUM_QUAD_REALSPACE *
+      ASGARD_NUM_QUADRATURE *
       fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
   this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave, table, transformer, workspace,
@@ -259,7 +259,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
   // the realspace size uses the number of quadrature points (10) rather than
   // degree
   int const realspace_size =
-      ASGARD_NUM_QUAD_REALSPACE *
+      ASGARD_NUM_QUADRATURE *
       fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
   this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave_host, table, transformer, workspace,

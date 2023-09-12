@@ -101,8 +101,8 @@ void generate_initial_moments(
   int const quad_dense_size = std::accumulate(
       pde_1d.get_dimensions().cbegin(), pde_1d.get_dimensions().cend(), int{1},
       [](int const size, dimension<P> const &dim) {
-        return size * asgard::dense_dim_size(ASGARD_NUM_QUAD_REALSPACE,
-                                             dim.get_level());
+        return size *
+               asgard::dense_dim_size(ASGARD_NUM_QUADRATURE, dim.get_level());
       });
 
   fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
