@@ -160,7 +160,8 @@ legendre(fk::vector<P> const domain, int const degree,
 template<typename P>
 std::array<fk::vector<P>, 2>
 legendre_weights(int const degree, no_deduce<P> const lower_bound,
-                 no_deduce<P> const upper_bound, bool const use_degree_points)
+                 no_deduce<P> const upper_bound,
+                 quadrature_mode const quad_mode)
 {
   expect(degree > 0);
   expect(lower_bound < upper_bound);
@@ -170,8 +171,9 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
     return std::max(minimum_quadrature, degree_in + 1);
   };
 
-  int const num_points =
-      use_degree_points ? degree : default_quad_number(degree);
+  int const num_points = quad_mode == quadrature_mode::use_degree
+                             ? degree
+                             : default_quad_number(degree);
 
   // prepare output vectors
   // the number of roots of a Legendre polynomial is equal to its degree
@@ -365,7 +367,7 @@ legendre(fk::vector<double> const domain, int const degree,
 
 template std::array<fk::vector<double>, 2>
 legendre_weights(int const degree, double const lower_bound,
-                 double const upper_bound, bool const use_degree_points);
+                 double const upper_bound, quadrature_mode const quad_mode);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -375,7 +377,7 @@ legendre(fk::vector<float> const domain, int const degree,
 
 template std::array<fk::vector<float>, 2>
 legendre_weights(int const degree, float const lower_bound,
-                 float const upper_bound, bool const use_degree_points);
+                 float const upper_bound, quadrature_mode const quad_mode);
 #endif
 
 } // namespace asgard

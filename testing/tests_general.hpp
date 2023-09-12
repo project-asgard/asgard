@@ -225,9 +225,9 @@ template<typename P>
 P calculate_integral(asgard::fk::vector<P> const &input,
                      asgard::dimension<P> const &dim)
 {
-  int const degree = dim.get_degree();
-  auto const legendre_values =
-      asgard::legendre_weights<P>(degree, -1.0, 1.0, false);
+  int const degree           = dim.get_degree();
+  auto const legendre_values = asgard::legendre_weights<P>(
+      degree, -1.0, 1.0, asgard::quadrature_mode::use_fixed);
   int const num_quad   = legendre_values[0].size();
   int const num_cells  = input.size() / num_quad;
   P const grid_spacing = (dim.domain_max - dim.domain_min) / num_cells;

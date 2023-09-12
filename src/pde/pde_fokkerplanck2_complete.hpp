@@ -221,7 +221,8 @@ private:
       /* Matlab uses 20 points - even though this is probably not the degree,
          putting 20 for the degree argument and "true" for use_degree_points
          forces consistency */
-      std::array<fk::vector<P>, 2> rw = legendre_weights<P>(20, x_0, x_1, true);
+      std::array<fk::vector<P>, 2> rw =
+          legendre_weights<P>(20, x_0, x_1, quadrature_mode::use_degree);
 
       fk::vector<P> transformed = function(rw[0]);
 

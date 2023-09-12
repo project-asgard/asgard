@@ -242,7 +242,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
       fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
   this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave, table, transformer, workspace,
-                          this->realspace, false);
+                          this->realspace, quadrature_mode::use_fixed);
   return this->realspace;
 }
 
@@ -263,7 +263,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
       fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
   this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave_host, table, transformer, workspace,
-                          this->realspace, false);
+                          this->realspace, quadrature_mode::use_fixed);
   return this->realspace;
 }
 #endif

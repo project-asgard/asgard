@@ -28,24 +28,24 @@ template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    bool const use_degree_quad = true);
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
-fk::vector<P>
-gen_realspace_nodes(int const degree, int const level, P const min, P const max,
-                    bool const use_degree_quad = false);
+fk::vector<P> gen_realspace_nodes(
+    int const degree, int const level, P const min, P const max,
+    quadrature_mode const quad_mode = quadrature_mode::use_fixed);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension<P>> const &pde,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    bool const use_degree_quad = true);
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension_description<P>> const &pde,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    bool const use_degree_quad = true);
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -53,7 +53,8 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space, bool const use_degree_quad = true);
+    fk::vector<P> &real_space,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -61,7 +62,8 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space, bool const use_degree_quad = true);
+    fk::vector<P> &real_space,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -69,7 +71,8 @@ void wavelet_to_realspace(
     fk::vector<P> const &wave_space, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space, bool const use_degree_quad = true);
+    fk::vector<P> &real_space,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 // overload - get only the elements of the combined vector that fall within a
 // specified range
@@ -108,7 +111,8 @@ fk::vector<P> forward_transform(
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
-  auto const [roots, weights] = legendre_weights<P>(degree, -1, 1);
+  auto const [roots, weights] =
+      legendre_weights<P>(degree, -1, 1, quadrature_mode::use_fixed);
 
   // get grid spacing.
   // hate this name TODO
