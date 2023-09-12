@@ -3,11 +3,9 @@
 
 namespace asgard
 {
-// 3D test case using relaxation problem
+// 3D collisional landau, i.e.,
 //
-//  df/dt == div_v( (v-u(x))f + theta(x)\grad_v f)
-//
-//  where the domain is (x,v_x,v_y,v_z).  The moments of f are constant x.
+//  df/dt == -v*\grad_x f -E\grad_v f + div_v( (v-u)f + theta\grad_v f)
 //
 //  BC is peridoic in x
 //  BC in v is all inflow in advection for v and Neumann for diffusion in v
@@ -25,7 +23,6 @@ public:
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
     param_manager.add_parameter(parameter<P>{"u2", u2});
-    // param_manager.add_parameter(parameter<P>{"u3", u3});
     param_manager.add_parameter(parameter<P>{"theta", theta});
     param_manager.add_parameter(parameter<P>{"E", E});
     param_manager.add_parameter(parameter<P>{"S", S});
@@ -38,7 +35,7 @@ private:
   static int constexpr num_terms_         = 10;
   static bool constexpr do_poisson_solve_ = true;
   // disable implicit steps in IMEX
-  static bool constexpr do_collision_operator_ = false;
+  static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = false;
   static int constexpr default_degree          = 3;
 
@@ -135,10 +132,7 @@ private:
   static P n(P const &x, P const t = 0)
   {
     ignore(t);
-    P const first  = x < -0.5 ? 1.0 : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (1.0 / 8.0) : 0.0;
-    P const third  = x > 0.5 ? 1.0 : 0.0;
-    return first + second + third;
+    return (1.0 + A * std::cos(0.5 * x));
   }
 
   static P u(P const &x, P const t = 0)
@@ -155,23 +149,14 @@ private:
     return 0.0;
   }
 
-  static P u3(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
-  }
-
   static P theta(P const &x, P const t = 0)
   {
     ignore(t);
     ignore(x);
-    P const first  = x < -0.5 ? 1.0 : 0.0;
-    P const second = (x >= -0.5 && x <= 0.5) ? (4.0 / 5.0) : 0.0;
-    P const third  = x > 0.5 ? 1.0 : 0.0;
-    return first + second + third;
+    return 1.0;
   }
 
+  // E = -d_x phi
   static P E(P const &x, P const t = 0)
   {
     ignore(t);
@@ -223,7 +208,7 @@ private:
   static P e1_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x > 0.0) ? x : 0.0;
+    return std::max(P{0.0}, x);
   }
 
   inline static const partial_term<P> e1_pterm_x = partial_term<P>(
@@ -260,7 +245,7 @@ private:
   static P e2_g2(P const x, P const time = 0)
   {
     ignore(time);
-    return (x < 0.0) ? x : 0.0;
+    return std::min(P{0.0}, x);
   }
 
   inline static const partial_term<P> e2_pterm_x = partial_term<P>(
@@ -515,17 +500,6 @@ private:
   inline static term_set<P> const terms_ = {
       terms_ex_1, terms_ex_2, terms_ex_3, terms_ex_4, terms_im_1,
       terms_im_2, terms_im_3, terms_im_4, terms_im_7, terms_im_8};
-
-  static fk::vector<P> exact_dim_x_0(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-    fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(), [](P const x_v) -> P {
-      ignore(x_v);
-      return 1.0;
-    });
-    return fx;
-  }
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
 
