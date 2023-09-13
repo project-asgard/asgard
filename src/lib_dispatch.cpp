@@ -1340,7 +1340,7 @@ int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
 
     cusolver_int_t *dinfo;
     auto success = cudaMalloc(&dinfo, sizeof(cusolver_int_t));
-    assert(success == cudaSuccess);
+    expect(success == cudaSuccess);
 
     status = cusolverDnXgetrs(device.get_solver_handle(), params,
                               cublas_trans(trans), n, nrhs, fp_prec, A, lda,
@@ -1354,7 +1354,7 @@ int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
 
     success = cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t),
                          cudaMemcpyDeviceToHost);
-    assert(success == cudaSuccess);
+    expect(success == cudaSuccess);
 
     success = cudaFree(dinfo);
     expect(success == cudaSuccess);

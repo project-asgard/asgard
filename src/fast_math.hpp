@@ -228,19 +228,23 @@ void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
 
   int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
                                                 ipiv.data(), B.data(), ldb);
-  if (info < 0)
+  if (info != 0)
   {
-    throw std::runtime_error(
-        std::string("Argument " + std::to_string(info) +
-                    " in call to gesv() has an illegal value\n"));
-  }
-  else if (info > 0)
-  {
-    std::ostringstream msg;
-    msg << "The diagonal element of the triangular factor of A,\n";
-    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
-    msg << "the solution could not be computed.\n";
-    throw std::runtime_error(msg.str());
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
   }
 }
 
@@ -270,19 +274,23 @@ void gesv(fk::matrix<P, amem, resrc> &A, fk::vector<P, bmem, resrc> &B,
   int info = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda,
                                        (int *)ipiv.data(), B.data(), ldb);
 
-  if (info < 0)
+  if (info != 0)
   {
-    throw std::runtime_error(
-        std::string("Argument " + std::to_string(info) +
-                    " in call to gesv() has an illegal value\n"));
-  }
-  else if (info > 0)
-  {
-    std::ostringstream msg;
-    msg << "The diagonal element of the triangular factor of A,\n";
-    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
-    msg << "the solution could not be computed.\n";
-    throw std::runtime_error(msg.str());
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
   }
 }
 
@@ -311,19 +319,23 @@ void gesv(fk::matrix<P, amem> &A, fk::matrix<P, bmem> &B,
 
   int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
                                                 ipiv.data(), B.data(), ldb);
-  if (info < 0)
+  if (info != 0)
   {
-    throw std::runtime_error(
-        std::string("Argument " + std::to_string(info) +
-                    " in call to gesv() has an illegal value\n"));
-  }
-  else if (info > 0)
-  {
-    std::ostringstream msg;
-    msg << "The diagonal element of the triangular factor of A,\n";
-    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
-    msg << "the solution could not be computed.\n";
-    throw std::runtime_error(msg.str());
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
   }
 }
 
@@ -371,19 +383,23 @@ void gesv(fk::matrix<P, amem, resrc> &A, fk::matrix<P, bmem, resrc> &B,
   int info = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda,
                                        (int *)ipiv.data(), B.data(), ldb);
 
-  if (info < 0)
+  if (info != 0)
   {
-    throw std::runtime_error(
-        std::string("Argument " + std::to_string(info) +
-                    " in call to gesv() has an illegal value\n"));
-  }
-  else if (info > 0)
-  {
-    std::ostringstream msg;
-    msg << "The diagonal element of the triangular factor of A,\n";
-    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
-    msg << "the solution could not be computed.\n";
-    throw std::runtime_error(msg.str());
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
   }
 }
 
