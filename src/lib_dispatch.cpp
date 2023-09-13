@@ -1101,6 +1101,7 @@ int batched_gesv(int n, int nrhs, P **A, int lda, int *ipiv, P **b, int ldb,
   expect(lda >= 1);
   expect(n >= 0);
   static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
+  static_assert(resrc == resource::device);
 
   int info{1};
   std::vector<int> infos(num_batch);
