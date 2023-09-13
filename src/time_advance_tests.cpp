@@ -1758,6 +1758,60 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   parameter_manager<TestType>::get_instance().reset();
 }
 
+TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
+                   test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "relaxation_1x2v";
+  fk::vector<int> const levels{0, 4, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 10;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  // TODO
+  REQUIRE(false);
+}
+
+TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
+                   test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "relaxation_1x3v";
+  fk::vector<int> const levels{0, 4, 4, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 10;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  // TODO
+  REQUIRE(false);
+}
+
 /*****************************************************************************
  * Testing the ability to split a matrix into multiple calls
  *****************************************************************************/
