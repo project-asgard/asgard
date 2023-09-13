@@ -1781,6 +1781,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
 
   auto const pde = make_PDE<TestType>(parse);
 
+  parameter_manager<TestType>::get_instance().reset();
+
   // TODO
   REQUIRE(false);
 }
@@ -1807,6 +1809,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
   parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
 
   auto const pde = make_PDE<TestType>(parse);
+
+  parameter_manager<TestType>::get_instance().reset();
 
   // TODO
   REQUIRE(false);
