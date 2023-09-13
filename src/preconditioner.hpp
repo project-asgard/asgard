@@ -132,6 +132,7 @@ public:
 
     if constexpr (resrc == resource::device)
     {
+#ifdef ASGARD_USE_CUDA
       this->dev_precond_blks =
           std::vector<fk::matrix<P, mem_type::owner, resource::device>>(
               this->num_blocks);
@@ -140,6 +141,7 @@ public:
           std::vector<fk::vector<int64_t, mem_type::owner, resource::device>>(
               this->num_blocks);
       */
+#endif
     }
     else if constexpr (resrc == resource::host)
     {
@@ -215,6 +217,7 @@ public:
 
     if constexpr (resrc == resource::device)
     {
+#ifdef ASGARD_USE_CUDA
       // copy blocks over to device
       int const piv_size = std::pow(this->degree, this->num_dims);
       for (int b = 0; b < this->num_blocks; b++)
@@ -226,6 +229,7 @@ public:
 
       this->dev_pivots = fk::vector<int, mem_type::owner, resource::device>(
           piv_size * num_blocks);
+#endif
     }
   }
 
@@ -283,6 +287,7 @@ public:
     }
     else if constexpr (resrc == resource::device)
     {
+#ifdef ASGARD_USE_CUDA
       // extract the given block from the preconditioner matrix
       auto B_block = fk::vector<P, mem_type::view, resource::device>(
           B, offset, offset + block_size - 1);
@@ -297,6 +302,7 @@ public:
         fm::getrs(dev_precond_blks[block_index], B_block,
                   this->dev_blk_pivots[block_index]);
       }
+#endif
     }
   }
 
@@ -375,14 +381,14 @@ public:
   std::vector<fk::matrix<P>> precond_blks;
   std::vector<std::vector<int>> blk_pivots;
 
-  // #ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_CUDA
   std::vector<fk::matrix<P, mem_type::owner, resource::device>>
       dev_precond_blks;
   std::vector<fk::vector<int64_t, mem_type::owner, resource::device>>
       dev_blk_pivots;
 
   fk::vector<int, mem_type::owner, resource::device> dev_pivots;
-  // #endif
+#endif
 };
 
 } // namespace asgard::preconditioner
