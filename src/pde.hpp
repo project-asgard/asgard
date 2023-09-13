@@ -17,6 +17,7 @@
 #include "asgard_vector.hpp"
 #include "pde/pde_advection1.hpp"
 #include "pde/pde_collisional_landau.hpp"
+#include "pde/pde_collisional_landau_1x2v.hpp"
 #include "pde/pde_collisional_landau_1x3v.hpp"
 #include "pde/pde_continuity1.hpp"
 #include "pde/pde_continuity2.hpp"
@@ -115,6 +116,8 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
     return std::make_unique<PDE_riemann_1x3v<P>>(cli_input);
   case PDE_opts::collisional_landau:
     return std::make_unique<PDE_collisional_landau<P>>(cli_input);
+  case PDE_opts::collisional_landau_1x2v:
+    return std::make_unique<PDE_collisional_landau_1x2v<P>>(cli_input);
   case PDE_opts::collisional_landau_1x3v:
     return std::make_unique<PDE_collisional_landau_1x3v<P>>(cli_input);
   default:
@@ -224,6 +227,9 @@ make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
 
     case PDE_opts::collisional_landau:
       return fk::vector<int>(std::vector<int>(2, level));
+
+    case PDE_opts::collisional_landau_1x2v:
+      return fk::vector<int>(std::vector<int>(3, level));
 
     case PDE_opts::collisional_landau_1x3v:
       return fk::vector<int>(std::vector<int>(4, level));

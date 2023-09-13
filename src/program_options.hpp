@@ -56,6 +56,7 @@ enum class PDE_opts
   riemann_1x2v,
   riemann_1x3v,
   collisional_landau,
+  collisional_landau_1x2v,
   collisional_landau_1x3v
   // FIXME will need to add the user supplied PDE choice
 };
@@ -190,6 +191,10 @@ static pde_map_t const pde_mapping = {
     {"landau", PDE_descriptor("Collisional Landau. df/dt == -v*grad_x f "
                               "-E*grad_v f + div_v((v-u)f + theta*grad_v f)",
                               PDE_opts::collisional_landau)},
+    {"landau_1x2v",
+     PDE_descriptor("Collisional Landau 1x2v. df/dt == -v*grad_x f "
+                    "-E*grad_v f + div_v((v-u)f + theta*grad_v f)",
+                    PDE_opts::collisional_landau_1x2v)},
     {"landau_1x3v",
      PDE_descriptor("Collisional Landau 1x3v. df/dt == -v*grad_x f "
                     "-E*grad_v f + div_v((v-u)f + theta*grad_v f)",
