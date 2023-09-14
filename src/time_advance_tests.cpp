@@ -1452,14 +1452,10 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     }
 
     TestType E_tot = E_pot + E_kin;
-    std::cout << i << ": E_tot = " << E_tot << "\n";
-    std::cout << "    - E_kinetic = " << E_kin << "\n";
-    std::cout << "    - E_pot     = " << E_pot << "\n";
 
     // calculate the absolute relative total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
-    std::cout << " E_relative = " << E_relative << "\n";
     // REQUIRE(E_relative <= tolerance);
 
     // calculate integral of moments
@@ -1475,8 +1471,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     }
 
     TestType nu_total = calculate_integral(n_times_u, dim);
-    std::cout << "   n   total = " << n_total << "\n";
-    std::cout << "   n*u total = " << nu_total << "\n";
 
     // n total should be close to 6.28
     REQUIRE((n_total - 6.283185) <= 1.0e-4);
@@ -1595,19 +1589,10 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     }
 
     TestType E_tot = E_pot + E_kin;
-    std::cout << i << ": E_tot = " << E_tot << "\n";
-    std::cout << "    - E_kinetic = " << E_kin << "\n";
-    std::cout << "    - E_pot     = " << E_pot << "\n";
-
-    std::cout << "  => DOF = " << f_val.size() << " = "
-              << TestType{100.0} *
-                     (static_cast<TestType>(f_val.size()) / fg_dof)
-              << "% FG DOF\n";
 
     // calculate the absolute relative total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
-    std::cout << " E_relative = " << E_relative << "\n";
     // REQUIRE(E_relative <= tolerance);
 
     // calculate integral of moments
@@ -1623,8 +1608,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     }
 
     TestType nu_total = calculate_integral(n_times_u, dim);
-    std::cout << "   n   total = " << n_total << "\n";
-    std::cout << "   n*u total = " << nu_total << "\n";
 
     // n total should be close to 6.28
     REQUIRE((n_total - 6.283185) <= 1.0e-4);
