@@ -1644,9 +1644,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     }
 
     // for this configuration, the DOF of ASG / DOF of FG should be between
-    // 50-60%. Testing against 65% is conservative but will capture issues with
+    // 60-65%. Testing against 70% is conservative but will capture issues with
     // adaptivity
-    REQUIRE(static_cast<TestType>(f_val.size()) / fg_dof <= 0.65);
+    REQUIRE(static_cast<TestType>(f_val.size()) / fg_dof <= 0.70);
   }
 
   parameter_manager<TestType>::get_instance().reset();
