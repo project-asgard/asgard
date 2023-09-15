@@ -1451,8 +1451,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
       E_kin_initial = E_kin;
     }
 
-    TestType E_tot = E_pot + E_kin;
-
     // calculate the absolute relative total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
@@ -1587,8 +1585,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
       E_pot_initial = E_pot;
       E_kin_initial = E_kin;
     }
-
-    TestType E_tot = E_pot + E_kin;
 
     // calculate the absolute relative total energy
     TestType E_relative =
