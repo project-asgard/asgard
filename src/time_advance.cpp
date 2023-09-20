@@ -482,11 +482,13 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   static bool first_time = true;
 
   // create 1D version of PDE and element table for wavelet->realspace mappings
-  PDE pde_1d = PDE(pde, PDE<P>::extract_dim0);
+  PDE pde_1d       = PDE(pde, PDE<P>::extract_dim0);
+  int const degree = pde.get_dimensions()[0].get_degree();
+  int const level  = pde.get_dimensions()[0].get_level();
 
   options const opts_1d = make_options(
-      {"-d 3", "-f",
-       "-l " + std::to_string(pde.get_dimensions()[0].get_level())});
+      {"-d " + std::to_string(degree), "-f", "-l " + std::to_string(level),
+       "-m " + std::to_string(program_opts.max_level)});
   adapt::distributed_grid adaptive_grid_1d(pde_1d, opts_1d);
 
   // Create workspace for wavelet transform
@@ -499,8 +501,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                                                     dense_size * 2 - 1)};
 
   auto const dt        = pde.get_dt();
-  int const degree     = pde.get_dimensions()[0].get_degree();
-  int const level      = pde.get_dimensions()[0].get_level();
   P const min          = pde.get_dimensions()[0].domain_min;
   P const max          = pde.get_dimensions()[0].domain_max;
   int const N_elements = fm::two_raised_to(level);

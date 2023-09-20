@@ -225,7 +225,7 @@ table::get_child_elements(int64_t const index, options const &opts) const
   {
     // first daughter in this dimension
     int level = max_adapt_levels.empty() ? opts.max_level : max_adapt_levels[i];
-    if (coords(i) + 1 < level)
+    if (coords(i) + 1 <= level)
     {
       auto daughter_coords          = coords;
       daughter_coords(i)            = coords(i) + 1;
