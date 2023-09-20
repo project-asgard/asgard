@@ -13,6 +13,12 @@ enum class legendre_normalization
   matlab
 };
 
+enum class quadrature_mode
+{
+  use_degree,
+  use_fixed
+};
+
 template<typename P>
 std::enable_if_t<std::is_floating_point_v<P>, std::array<fk::matrix<P>, 2>>
 legendre(fk::vector<P> const domain, int const degree,
@@ -28,5 +34,5 @@ template<typename P>
 std::array<fk::vector<P>, 2>
 legendre_weights(int const degree, no_deduce<P> const lower_bound,
                  no_deduce<P> const upper_bound,
-                 bool const use_degree_points = false);
+                 quadrature_mode const quad_mode = quadrature_mode::use_fixed);
 } // namespace asgard

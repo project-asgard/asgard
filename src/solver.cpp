@@ -326,7 +326,8 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
 
   P const dx = (x_max - x_min) / static_cast<P>(N_elements);
 
-  auto const lgwt = legendre_weights<P>(degree + 1, -1.0, 1.0, true);
+  auto const lgwt =
+      legendre_weights<P>(degree + 1, -1.0, 1.0, quadrature_mode::use_degree);
 
   int N_nodes = N_elements - 1;
 

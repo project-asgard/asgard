@@ -235,9 +235,14 @@ fk::vector<P> &moment<P>::create_realspace_moment(
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace)
 {
-  this->realspace.resize(wave.size());
+  // the realspace size uses the number of quadrature points (10) rather than
+  // degree
+  int const realspace_size =
+      ASGARD_NUM_QUADRATURE *
+      fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
+  this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave, table, transformer, workspace,
-                          this->realspace);
+                          this->realspace, quadrature_mode::use_fixed);
   return this->realspace;
 }
 
@@ -251,9 +256,14 @@ fk::vector<P> &moment<P>::create_realspace_moment(
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace)
 {
   fk::vector<P> wave_host = wave.clone_onto_host();
-  this->realspace.resize(wave_host.size());
+  // the realspace size uses the number of quadrature points (10) rather than
+  // degree
+  int const realspace_size =
+      ASGARD_NUM_QUADRATURE *
+      fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
+  this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave_host, table, transformer, workspace,
-                          this->realspace);
+                          this->realspace, quadrature_mode::use_fixed);
   return this->realspace;
 }
 #endif

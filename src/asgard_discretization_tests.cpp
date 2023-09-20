@@ -80,7 +80,7 @@ TEMPLATE_TEST_CASE("testing construction of a basic field_discretization",
 
   // transform initial condition to realspace
   wavelet_to_realspace(dims.list, init, grid.grid->get_table(), transformer,
-                       tmp_workspace, real_space);
+                       tmp_workspace, real_space, quadrature_mode::use_degree);
 
   REQUIRE(real_space.size() == dense_size);
 

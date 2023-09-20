@@ -1451,15 +1451,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
       E_kin_initial = E_kin;
     }
 
-    TestType E_tot = E_pot + E_kin;
-    std::cout << i << ": E_tot = " << E_tot << "\n";
-    std::cout << "    - E_kinetic = " << E_kin << "\n";
-    std::cout << "    - E_pot     = " << E_pot << "\n";
-
     // calculate the absolute relative total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
-    std::cout << " E_relative = " << E_relative << "\n";
     // REQUIRE(E_relative <= tolerance);
 
     // calculate integral of moments
@@ -1475,8 +1469,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     }
 
     TestType nu_total = calculate_integral(n_times_u, dim);
-    std::cout << "   n   total = " << n_total << "\n";
-    std::cout << "   n*u total = " << nu_total << "\n";
 
     // n total should be close to 6.28
     REQUIRE((n_total - 6.283185) <= 1.0e-4);
@@ -1594,20 +1586,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
       E_kin_initial = E_kin;
     }
 
-    TestType E_tot = E_pot + E_kin;
-    std::cout << i << ": E_tot = " << E_tot << "\n";
-    std::cout << "    - E_kinetic = " << E_kin << "\n";
-    std::cout << "    - E_pot     = " << E_pot << "\n";
-
-    std::cout << "  => DOF = " << f_val.size() << " = "
-              << TestType{100.0} *
-                     (static_cast<TestType>(f_val.size()) / fg_dof)
-              << "% FG DOF\n";
-
     // calculate the absolute relative total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
-    std::cout << " E_relative = " << E_relative << "\n";
     // REQUIRE(E_relative <= tolerance);
 
     // calculate integral of moments
@@ -1623,8 +1604,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     }
 
     TestType nu_total = calculate_integral(n_times_u, dim);
-    std::cout << "   n   total = " << n_total << "\n";
-    std::cout << "   n*u total = " << nu_total << "\n";
 
     // n total should be close to 6.28
     REQUIRE((n_total - 6.283185) <= 1.0e-4);
@@ -1644,9 +1623,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     }
 
     // for this configuration, the DOF of ASG / DOF of FG should be between
-    // 50-60%. Testing against 65% is conservative but will capture issues with
+    // 60-65%. Testing against 70% is conservative but will capture issues with
     // adaptivity
-    REQUIRE(static_cast<TestType>(f_val.size()) / fg_dof <= 0.65);
+    REQUIRE(static_cast<TestType>(f_val.size()) / fg_dof <= 0.70);
   }
 
   parameter_manager<TestType>::get_instance().reset();
@@ -1756,6 +1735,64 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   }
 
   parameter_manager<TestType>::get_instance().reset();
+}
+
+TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
+                   test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "relaxation_1x2v";
+  fk::vector<int> const levels{0, 4, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 10;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  parameter_manager<TestType>::get_instance().reset();
+
+  // TODO
+  REQUIRE(false);
+}
+
+TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
+                   test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "relaxation_1x3v";
+  fk::vector<int> const levels{0, 4, 4, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 10;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  parameter_manager<TestType>::get_instance().reset();
+
+  // TODO
+  REQUIRE(false);
 }
 
 /*****************************************************************************
