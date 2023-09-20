@@ -213,7 +213,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
       fk::vector<P, mem_type::view, resource::host>(workspace_1)};
 
   wavelet_to_realspace<P>(pde, wave_space, table, transformer, tmp_workspace,
-                          real_space);
+                          real_space, quadrature_mode::use_degree);
 
   auto const gold = read_vector_from_txt_file<P>(gold_filename);
 
@@ -272,7 +272,7 @@ void test_gen_realspace_transform(PDE<P> const &pde,
       make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
   basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
   std::vector<fk::matrix<P>> const transforms =
-      gen_realspace_transform(pde, transformer);
+      gen_realspace_transform(pde, transformer, quadrature_mode::use_degree);
 
   for (int i = 0; i < static_cast<int>(transforms.size()); ++i)
   {

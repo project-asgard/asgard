@@ -333,7 +333,8 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", test_precs)
     }
 
     // Set Source in DG Elements //
-    auto const lgwt = legendre_weights<TestType>(degree + 1, -1.0, 1.0, true);
+    auto const lgwt = legendre_weights<TestType>(degree + 1, -1.0, 1.0,
+                                                 quadrature_mode::use_degree);
     for (int i = 0; i < N_elements; i++)
     {
       for (int q = 0; q < degree + 1; q++)
