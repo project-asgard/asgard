@@ -831,7 +831,24 @@ TEMPLATE_TEST_CASE("fk::vector utilities", "[tensors]", test_precs, int)
     // REQUIRE(test_reduced_v == gold);
     // REQUIRE(test_enlarged_v == gold_enlarged);
   }
+  SECTION("vector resize from 0")
+  {
+    fk::vector<TestType> const gold_enlarged{0, 0, 0, 0, 0};
+    fk::vector<TestType> test_enlarged;
 
+    test_enlarged.resize(gold_enlarged.size());
+
+    REQUIRE(test_enlarged == gold_enlarged);
+  }
+  SECTION("vector resize to 0")
+  {
+    fk::vector<TestType> const gold_reduced;
+    fk::vector<TestType> test_reduced{1, 2, 3, 4, 5};
+
+    test_reduced.resize(gold_reduced.size());
+
+    REQUIRE(test_reduced == gold_reduced);
+  }
   SECTION("vector concatenation")
   {
     fk::vector<TestType> test_left = {2, 3, 4};

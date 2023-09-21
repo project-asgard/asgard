@@ -221,10 +221,8 @@ fk::vector<P> read_vector_from_bin_file(std::filesystem::path const &path)
   infile.seekg(0, std::ios::beg);
 
   // create output vector
-  fk::vector<double> values;
-
   unsigned int const num_values = bytes / sizeof(double);
-  values.resize(num_values);
+  fk::vector<double> values(num_values);
 
   infile.read(reinterpret_cast<char *>(values.data()), bytes);
 
