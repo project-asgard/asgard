@@ -792,7 +792,7 @@ int getrf(int m, int n, P *A, int lda, int *ipiv)
 
 #endif
   }
-  if constexpr (resrc == resource::host)
+  else if constexpr (resrc == resource::host)
   {
     // default execution on the host for any resource
     if constexpr (std::is_same_v<P, double>)
@@ -984,95 +984,107 @@ int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb)
   expect(lda >= 1);
   expect(n >= 0);
   static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
+  static_assert(resrc == resource::host);
 
   int info{1};
 
-  if constexpr (resrc == resource::device)
+  if constexpr (std::is_same_v<P, double>)
   {
-    // device-specific specialization if needed
+    dgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
+  }
+  else if constexpr (std::is_same_v<P, float>)
+  {
+    sgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
+  }
+
+  return info;
+}
+
+template<resource resrc, typename P>
+int gesv(int n, int nrhs, P *A, int lda, int64_t *ipiv, P *b, int ldb)
+{
+  expect(A);
+  expect(ipiv);
+  expect(b);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
+  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
+  static_assert(resrc == resource::device);
+
+  int info{1};
+
+  // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-    size_t work_size;
-    size_t host_work_size;
-    cusolverStatus_t status;
+  size_t work_size;
+  size_t host_work_size;
+  cusolverStatus_t status;
 
-    cudaDataType_t constexpr fp_prec =
-        std::is_same_v<P, double> ? CUDA_R_64F : CUDA_R_32F;
+  cudaDataType_t constexpr fp_prec =
+      std::is_same_v<P, double> ? CUDA_R_64F : CUDA_R_32F;
 
-    cusolverDnParams_t params;
-    status = cusolverDnCreateParams(&params);
-    expect(status == CUSOLVER_STATUS_SUCCESS);
+  cusolverDnParams_t params;
+  status = cusolverDnCreateParams(&params);
+  expect(status == CUSOLVER_STATUS_SUCCESS);
 
-    status = cusolverDnSetAdvOptions(params, CUSOLVERDN_GETRF, CUSOLVER_ALG_0);
-    expect(status == CUSOLVER_STATUS_SUCCESS);
+  status = cusolverDnSetAdvOptions(params, CUSOLVERDN_GETRF, CUSOLVER_ALG_0);
+  expect(status == CUSOLVER_STATUS_SUCCESS);
 
-    status = cusolverDnXgetrf_bufferSize(device.get_solver_handle(), params, n,
-                                         n, fp_prec, nullptr, lda, fp_prec,
-                                         &work_size, &host_work_size);
+  status = cusolverDnXgetrf_bufferSize(device.get_solver_handle(), params, n, n,
+                                       fp_prec, nullptr, lda, fp_prec,
+                                       &work_size, &host_work_size);
 
-    if (status != CUSOLVER_STATUS_SUCCESS)
-    {
-      throw std::runtime_error(
-          std::string("Error in getting CUSOLVER gesv bufferSize: "));
-    }
-
-    void *buffer = NULL;
-    auto success = cudaMalloc(&buffer, work_size);
-    assert(success == cudaSuccess);
-
-    void *host_buffer = NULL;
-
-    cusolver_int_t *dinfo;
-    success = cudaMalloc(&dinfo, sizeof(cusolver_int_t));
-    assert(success == cudaSuccess);
-
-    status =
-        cusolverDnXgetrf(device.get_solver_handle(), params, n, n, fp_prec, A,
-                         lda, (int64_t *)(const_cast<int *>(ipiv)), fp_prec,
-                         buffer, work_size, host_buffer, host_work_size, dinfo);
-
-    if (status != CUSOLVER_STATUS_SUCCESS)
-    {
-      throw std::runtime_error("Error in CUSOLVER gesv (getrf)");
-    }
-
-    success = cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t),
-                         cudaMemcpyDeviceToHost);
-    assert(success == cudaSuccess);
-
-    status = cusolverDnXgetrs(
-        device.get_solver_handle(), params, CUBLAS_OP_N, n, nrhs, fp_prec, A,
-        lda, (int64_t *)(const_cast<int *>(ipiv)), fp_prec, b, ldb, dinfo);
-    if (status != CUSOLVER_STATUS_SUCCESS)
-    {
-      throw std::runtime_error("Error in CUSOLVER gesv (getrs)");
-    }
-
-    success = cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t),
-                         cudaMemcpyDeviceToHost);
-    assert(success == cudaSuccess);
-
-    status = cusolverDnDestroyParams(params);
-    expect(status == CUSOLVER_STATUS_SUCCESS);
-
-    success = cudaFree(buffer);
-    expect(success == cudaSuccess);
-
-    success = cudaFree(dinfo);
-    expect(success == cudaSuccess);
-#endif
-  }
-
-  else if constexpr (resrc == resource::host)
+  if (status != CUSOLVER_STATUS_SUCCESS)
   {
-    if constexpr (std::is_same_v<P, double>)
-    {
-      dgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
-    }
-    else if constexpr (std::is_same_v<P, float>)
-    {
-      sgesv_(&n, &nrhs, A, &lda, ipiv, b, &ldb, &info);
-    }
+    throw std::runtime_error(
+        std::string("Error in getting CUSOLVER gesv bufferSize: "));
   }
+
+  void *buffer = NULL;
+  auto success = cudaMalloc(&buffer, work_size);
+  assert(success == cudaSuccess);
+
+  void *host_buffer = NULL;
+
+  cusolver_int_t *dinfo;
+  success = cudaMalloc(&dinfo, sizeof(cusolver_int_t));
+  assert(success == cudaSuccess);
+
+  status = cusolverDnXgetrf(device.get_solver_handle(), params, n, n, fp_prec,
+                            A, lda, ipiv, fp_prec, buffer, work_size,
+                            host_buffer, host_work_size, dinfo);
+
+  if (status != CUSOLVER_STATUS_SUCCESS)
+  {
+    throw std::runtime_error("Error in CUSOLVER gesv (getrf)");
+  }
+
+  success =
+      cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t), cudaMemcpyDeviceToHost);
+  assert(success == cudaSuccess);
+
+  status =
+      cusolverDnXgetrs(device.get_solver_handle(), params, CUBLAS_OP_N, n, nrhs,
+                       fp_prec, A, lda, ipiv, fp_prec, b, ldb, dinfo);
+  if (status != CUSOLVER_STATUS_SUCCESS)
+  {
+    throw std::runtime_error("Error in CUSOLVER gesv (getrs)");
+  }
+
+  success =
+      cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t), cudaMemcpyDeviceToHost);
+  assert(success == cudaSuccess);
+
+  status = cusolverDnDestroyParams(params);
+  expect(status == CUSOLVER_STATUS_SUCCESS);
+
+  success = cudaFree(buffer);
+  expect(success == cudaSuccess);
+
+  success = cudaFree(dinfo);
+  expect(success == cudaSuccess);
+#endif
+
   return info;
 }
 
@@ -1319,67 +1331,77 @@ int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
   expect(n >= 0);
 
   int info{1};
+  static_assert(resrc == resource::host);
 
-  if constexpr (resrc == resource::device)
+  // the const_cast below is needed due to bad header under OSX
+  if constexpr (std::is_same_v<P, double>)
   {
-    // device-specific specialization if needed
+    dgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+            const_cast<int *>(ipiv), b, &ldb, &info);
+  }
+  else if constexpr (std::is_same<P, float>::value)
+  {
+    sgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
+            const_cast<int *>(ipiv), b, &ldb, &info);
+  }
+  return info;
+}
+
+template<resource resrc, typename P>
+int getrs(char trans, int n, int nrhs, P const *A, int lda, int64_t const *ipiv,
+          P *b, int ldb)
+{
+  expect(A);
+  expect(ipiv);
+  expect(b);
+  expect(ldb >= 1);
+  expect(lda >= 1);
+  expect(n >= 0);
+
+  int info{1};
+  static_assert(resrc == resource::device);
+
+  // device-specific specialization if needed
 #ifdef ASGARD_USE_CUDA
-    cusolverStatus_t status;
+  cusolverStatus_t status;
 
-    cudaDataType_t constexpr fp_prec =
-        std::is_same_v<P, double> ? CUDA_R_64F : CUDA_R_32F;
+  cudaDataType_t constexpr fp_prec =
+      std::is_same_v<P, double> ? CUDA_R_64F : CUDA_R_32F;
 
-    cusolverDnParams_t params;
-    status = cusolverDnCreateParams(&params);
-    expect(status == CUSOLVER_STATUS_SUCCESS);
+  cusolverDnParams_t params;
+  status = cusolverDnCreateParams(&params);
+  expect(status == CUSOLVER_STATUS_SUCCESS);
 
-    status = cusolverDnSetAdvOptions(params, CUSOLVERDN_GETRF, CUSOLVER_ALG_0);
-    expect(status == CUSOLVER_STATUS_SUCCESS);
+  status = cusolverDnSetAdvOptions(params, CUSOLVERDN_GETRF, CUSOLVER_ALG_0);
+  expect(status == CUSOLVER_STATUS_SUCCESS);
 
-    // no non-fp blas on device
-    expect(std::is_floating_point_v<P>);
+  // no non-fp blas on device
+  expect(std::is_floating_point_v<P>);
 
-    cusolver_int_t *dinfo;
-    auto success = cudaMalloc(&dinfo, sizeof(cusolver_int_t));
-    expect(success == cudaSuccess);
+  cusolver_int_t *dinfo;
+  auto success = cudaMalloc(&dinfo, sizeof(cusolver_int_t));
+  expect(success == cudaSuccess);
 
-    status = cusolverDnXgetrs(device.get_solver_handle(), params,
-                              cublas_trans(trans), n, nrhs, fp_prec, A, lda,
-                              (int64_t *)(const_cast<int *>(ipiv)), fp_prec, b,
-                              ldb, dinfo);
+  status =
+      cusolverDnXgetrs(device.get_solver_handle(), params, cublas_trans(trans),
+                       n, nrhs, fp_prec, A, lda, ipiv, fp_prec, b, ldb, dinfo);
 
-    if (status != CUSOLVER_STATUS_SUCCESS)
-    {
-      throw std::runtime_error("Error in CUSOLVER getrs:");
-    }
+  if (status != CUSOLVER_STATUS_SUCCESS)
+  {
+    throw std::runtime_error("Error in CUSOLVER getrs:");
+  }
 
-    success = cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t),
-                         cudaMemcpyDeviceToHost);
-    expect(success == cudaSuccess);
+  success =
+      cudaMemcpy(&info, dinfo, sizeof(cusolver_int_t), cudaMemcpyDeviceToHost);
+  expect(success == cudaSuccess);
 
-    success = cudaFree(dinfo);
-    expect(success == cudaSuccess);
+  success = cudaFree(dinfo);
+  expect(success == cudaSuccess);
 
-    status = cusolverDnDestroyParams(params);
-    expect(status == CUSOLVER_STATUS_SUCCESS);
+  status = cusolverDnDestroyParams(params);
+  expect(status == CUSOLVER_STATUS_SUCCESS);
 
 #endif
-  }
-  // the const_cast below is needed due to bad header under OSX
-  else if constexpr (resrc == resource::host)
-  {
-    if constexpr (std::is_same_v<P, double>)
-    {
-      dgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
-              const_cast<int *>(ipiv), b, &ldb, &info);
-    }
-    else if constexpr (std::is_same<P, float>::value)
-    {
-      sgetrs_(&trans, &n, &nrhs, const_cast<P *>(A), &lda,
-              const_cast<int *>(ipiv), b, &ldb, &info);
-    }
-  }
-
   return info;
 }
 
@@ -1860,16 +1882,16 @@ batched_gemm<resource::device, float>(float **const &a, int lda, char transa,
                                       int num_batch);
 
 template int gesv<resource::device, float>(int n, int nrhs, float *A, int lda,
-                                           int *ipiv, float *b, int ldb);
+                                           int64_t *ipiv, float *b, int ldb);
 
 template int batched_gesv<resource::device, float>(int n, int nrhs, float **A,
                                                    int lda, int *ipiv,
                                                    float **b, int ldb,
                                                    int num_batch);
 
-template int getrs<resource::device, float>(char trans, int n, int nrhs,
-                                            float const *A, int lda,
-                                            int const *ipiv, float *b, int ldb);
+template int
+getrs<resource::device, float>(char trans, int n, int nrhs, float const *A,
+                               int lda, int64_t const *ipiv, float *b, int ldb);
 
 template int batched_getrs<resource::device, float>(char trans, int n, int nrhs,
                                                     float **const &A, int lda,
@@ -1929,16 +1951,17 @@ batched_gemm<resource::device, double>(double **const &a, int lda, char transa,
                                        int num_batch);
 
 template int gesv<resource::device, double>(int n, int nrhs, double *A, int lda,
-                                            int *ipiv, double *b, int ldb);
+                                            int64_t *ipiv, double *b, int ldb);
 
 template int batched_gesv<resource::device, double>(int n, int nrhs, double **A,
                                                     int lda, int *ipiv,
                                                     double **b, int ldb,
                                                     int num_batch);
 
-template int
-getrs<resource::device, double>(char trans, int n, int nrhs, double const *A,
-                                int lda, int const *ipiv, double *b, int ldb);
+template int getrs<resource::device, double>(char trans, int n, int nrhs,
+                                             double const *A, int lda,
+                                             int64_t const *ipiv, double *b,
+                                             int ldb);
 
 template int
 batched_getrs<resource::device, double>(char trans, int n, int nrhs,

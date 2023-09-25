@@ -1286,7 +1286,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", test_precs)
     int ldb = x.size();
 
     int info = lib_dispatch::gesv<resource::device>(
-        rows_A, cols_B, A_copy.data(), lda, (int *)ipiv.data(), x.data(), ldb);
+        rows_A, cols_B, A_copy.data(), lda, ipiv.data(), x.data(), ldb);
 
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
@@ -1298,8 +1298,7 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", test_precs)
     x          = B1_gold.clone_onto_device();
     char trans = 'N';
     info       = lib_dispatch::getrs<resource::device>(
-        trans, rows_A, cols_B, A_copy.data(), lda, (int *)ipiv.data(), x.data(),
-        ldb);
+        trans, rows_A, cols_B, A_copy.data(), lda, ipiv.data(), x.data(), ldb);
     REQUIRE(info == 0);
     rmse_comparison(x.clone_onto_host(), X1_gold, tol_factor);
   }

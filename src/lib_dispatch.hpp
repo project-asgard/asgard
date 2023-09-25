@@ -63,6 +63,9 @@ template<resource resrc = resource::host, typename P>
 int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb);
 
 template<resource resrc = resource::device, typename P>
+int gesv(int n, int nrhs, P *A, int lda, int64_t *ipiv, P *b, int ldb);
+
+template<resource resrc = resource::device, typename P>
 int batched_gesv(int n, int nrhs, P **A, int lda, int *ipiv, P **b, int ldb,
                  int num_batch);
 
@@ -72,6 +75,10 @@ void tpsv(const char uplo, const char trans, const char diag, const int n,
 
 template<resource resrc = resource::host, typename P>
 int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
+          P *b, int ldb);
+
+template<resource resrc = resource::device, typename P>
+int getrs(char trans, int n, int nrhs, P const *A, int lda, int64_t const *ipiv,
           P *b, int ldb);
 
 template<resource resrc = resource::device, typename P>

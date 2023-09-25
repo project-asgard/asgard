@@ -271,8 +271,56 @@ void gesv(fk::matrix<P, amem, resrc> &A, fk::vector<P, bmem, resrc> &B,
   int lda = A.stride();
   int ldb = B.size();
 
-  int info = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda,
-                                       (int *)ipiv.data(), B.data(), ldb);
+  static_assert(resrc == resource::device);
+  int info = lib_dispatch::gesv<resource::device>(rows_A, cols_B, A.data(), lda,
+                                                  ipiv.data(), B.data(), ldb);
+
+  if (info != 0)
+  {
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
+  }
+}
+
+/** gesv - Solve Ax=B using LU decomposition
+ *
+ * \param A  n-by-n coefficient matrix
+ * \param B  n-by-1 right hand side matrix
+ * \param ipiv pivot indices, size >= max(1, n)
+ */
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void gesv(fk::matrix<P, amem, resrc> &A, fk::vector<P, bmem, resrc> &B,
+          fk::vector<int, amem, resrc> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.size();
+  int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv >= rows_A);
+
+  int lda = A.stride();
+  int ldb = B.size();
+
+  static_assert(resrc == resource::host);
+  int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
+                                                ipiv.data(), B.data(), ldb);
 
   if (info != 0)
   {
@@ -380,8 +428,9 @@ void gesv(fk::matrix<P, amem, resrc> &A, fk::matrix<P, bmem, resrc> &B,
   int lda = A.stride();
   int ldb = B.stride();
 
-  int info = lib_dispatch::gesv<resrc>(rows_A, cols_B, A.data(), lda,
-                                       (int *)ipiv.data(), B.data(), ldb);
+  static_assert(resrc == resource::device);
+  int info = lib_dispatch::gesv<resource::device>(rows_A, cols_B, A.data(), lda,
+                                                  ipiv.data(), B.data(), ldb);
 
   if (info != 0)
   {
@@ -445,7 +494,7 @@ void gesv(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
 //
 template<typename P, mem_type amem, mem_type bmem>
 void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
-           std::vector<int> &ipiv)
+           std::vector<int> const &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -472,7 +521,7 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
 
 template<typename P, mem_type amem, mem_type bmem, resource resrc>
 void getrs(fk::matrix<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
-           fk::vector<int64_t, amem, resrc> &ipiv)
+           fk::vector<int, amem, resrc> const &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -488,12 +537,60 @@ void getrs(fk::matrix<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
   int lda    = A.stride();
   int ldb    = B.size();
 
-  int info;
-  info = lib_dispatch::getrs<resrc>(trans, rows_A, cols_B, A.data(), lda,
-                                    (int *)ipiv.data(), B.data(), ldb);
+  int info = lib_dispatch::getrs<resource::host>(
+      trans, rows_A, cols_B, A.data(), lda, ipiv.data(), B.data(), ldb);
   if (info < 0)
   {
     printf("Argument %d in call to getrs() has an illegal value\n", -info);
+    exit(1);
+  }
+}
+
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void getrs(fk::matrix<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
+           fk::vector<int64_t, amem, resrc> const &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.size();
+  int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv == rows_A);
+
+  char trans = 'N';
+  int lda    = A.stride();
+  int ldb    = B.size();
+
+  static_assert(resrc == resource::device);
+  int info;
+  info = lib_dispatch::getrs<resource::device>(trans, rows_A, cols_B, A.data(),
+                                               lda, ipiv.data(), B.data(), ldb);
+  if (info < 0)
+  {
+    printf("Argument %d in call to getrs() has an illegal value\n", -info);
+    exit(1);
+  }
+}
+
+template<typename P, mem_type mem, resource resrc>
+void getrf(fk::matrix<P, mem, resrc> &A, fk::vector<int, mem, resrc> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_ipiv = ipiv.size();
+  expect(rows_ipiv == rows_A);
+
+  int lda = A.stride();
+
+  int info =
+      lib_dispatch::getrf<resrc>(rows_A, cols_A, A.data(), lda, ipiv.data());
+  if (info < 0)
+  {
+    printf("Argument %d in call to getrf() has an illegal value\n", -info);
     exit(1);
   }
 }
