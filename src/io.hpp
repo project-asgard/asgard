@@ -97,13 +97,21 @@ void generate_initial_moments(
   adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
 
   // Create workspace for wavelet transform
-  auto const dense_size = dense_space_size(pde_1d);
-  fk::vector<P, mem_type::owner, resource::host> workspace(dense_size * 2);
+  int const dense_size = dense_space_size(pde_1d);
+  int quad_dense_size  = 1;
+  auto const &dims     = pde_1d.get_dimensions();
+  for (size_t i = 0; i < dims.size(); i++)
+  {
+    quad_dense_size *=
+        asgard::dense_dim_size(ASGARD_NUM_QUADRATURE, dims[i].get_level());
+  }
+
+  fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
       fk::vector<P, mem_type::view, resource::host>(workspace, 0,
-                                                    dense_size - 1),
-      fk::vector<P, mem_type::view, resource::host>(workspace, dense_size,
-                                                    dense_size * 2 - 1)};
+                                                    quad_dense_size - 1),
+      fk::vector<P, mem_type::view, resource::host>(workspace, quad_dense_size,
+                                                    quad_dense_size * 2 - 1)};
 
 #ifdef ASGARD_USE_CUDA
   fk::vector<P, mem_type::owner, resource::device> initial_condition_d =

@@ -469,7 +469,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                  &unscaled_parts,
-             fk::vector<P> const &x_orig, fk::vector<P> const &x_prev,
+             fk::vector<P> const &f_0, fk::vector<P> const &x_prev,
              P const time, solve_opts const solver, bool const update_system)
 {
   ignore(unscaled_parts);
@@ -492,13 +492,15 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   adapt::distributed_grid adaptive_grid_1d(pde_1d, opts_1d);
 
   // Create workspace for wavelet transform
-  auto const dense_size = dense_space_size(pde_1d);
-  fk::vector<P, mem_type::owner, resource::host> workspace(dense_size * 2);
+  int const dense_size      = dense_space_size(pde_1d);
+  int const quad_dense_size = dense_dim_size(
+      ASGARD_NUM_QUADRATURE, pde_1d.get_dimensions()[0].get_level());
+  fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
       fk::vector<P, mem_type::view, resource::host>(workspace, 0,
-                                                    dense_size - 1),
-      fk::vector<P, mem_type::view, resource::host>(workspace, dense_size,
-                                                    dense_size * 2 - 1)};
+                                                    quad_dense_size - 1),
+      fk::vector<P, mem_type::view, resource::host>(workspace, quad_dense_size,
+                                                    quad_dense_size * 2 - 1)};
 
   auto const dt        = pde.get_dt();
   P const min          = pde.get_dimensions()[0].domain_min;
@@ -508,12 +510,12 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto nodes = gen_realspace_nodes(degree, level, min, max);
 
 #ifdef ASGARD_USE_CUDA
-  fk::vector<P, mem_type::owner, imex_resrc> x = x_orig.clone_onto_device();
-  fk::vector<P, mem_type::owner, imex_resrc> x_orig_dev =
-      x_orig.clone_onto_device();
+  fk::vector<P, mem_type::owner, imex_resrc> f = f_0.clone_onto_device();
+  fk::vector<P, mem_type::owner, imex_resrc> f_orig_dev =
+      f_0.clone_onto_device();
 #else
-  fk::vector<P, mem_type::owner, imex_resrc> x          = x_orig;
-  fk::vector<P, mem_type::owner, imex_resrc> x_orig_dev = x_orig;
+  fk::vector<P, mem_type::owner, imex_resrc> f          = f_0;
+  fk::vector<P, mem_type::owner, imex_resrc> f_orig_dev = f_0;
 
   auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
@@ -551,9 +553,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                             pde.poisson_off_diag);
     }
 
-    pde.E_field.resize(dense_size);
-    pde.phi.resize(dense_size);
-    pde.E_source.resize(dense_size);
+    pde.E_field.resize(quad_dense_size);
+    pde.phi.resize(quad_dense_size);
+    pde.E_source.resize(quad_dense_size);
 
     first_time = false;
     asgard::tools::timer.stop("update_system");
@@ -574,18 +576,18 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     };
 
     // Compute source for poisson
-    fk::vector<P> poisson_source(dense_size);
+    fk::vector<P> poisson_source(quad_dense_size);
     std::transform(mom0_real.begin(), mom0_real.end(), poisson_source.begin(),
                    [](P const &x_v) {
                      return param_manager.get_parameter("S")->value(x_v, 0.0);
                    });
 
-    fk::vector<P> phi(dense_size);
-    fk::vector<P> poisson_E(dense_size);
-    solver::poisson_solver(poisson_source, pde.poisson_diag,
-                           pde.poisson_off_diag, phi, poisson_E, degree - 1,
-                           N_elements, min, max, static_cast<P>(0.0),
-                           static_cast<P>(0.0), solver::poisson_bc::periodic);
+    fk::vector<P> phi(quad_dense_size);
+    fk::vector<P> poisson_E(quad_dense_size);
+    solver::poisson_solver(
+        poisson_source, pde.poisson_diag, pde.poisson_off_diag, phi, poisson_E,
+        ASGARD_NUM_QUADRATURE - 1, N_elements, min, max, static_cast<P>(0.0),
+        static_cast<P>(0.0), solver::poisson_bc::periodic);
 
     param_manager.get_parameter("E")->value =
         [poisson_E, nodes](P const x_v, P const t = 0) -> P {
@@ -776,37 +778,37 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   if (pde.do_poisson_solve)
   {
-    do_poisson_update(x);
+    do_poisson_update(f);
   }
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
                                        adaptive_grid, program_opts);
 
-  // Explicit step (f_2s)
+  // Explicit step f_1s = f_0 + dt A f_0
   tools::timer.start("explicit_1");
   auto const apply_id = tools::timer.start("kronmult - explicit");
 
-  fk::vector<P, mem_type::owner, imex_resrc> fx(x.size());
+  fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
   operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
-      1.0, x.data(), 0.0, fx.data());
+      1.0, f.data(), 0.0, fx.data());
   tools::timer.stop(apply_id,
                     operator_matrices[matrix_entry::imex_explicit].flops());
 
 #ifndef ASGARD_USE_CUDA
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  fk::vector<P, mem_type::owner, resource::host> f_2s(x_orig.size());
-  exchange_results(reduced_fx, f_2s, elem_size, plan, get_rank());
-  fm::axpy(f_2s, x, dt); // x here is f(1)
+  // fk::vector<P, mem_type::owner, resource::host> f_1s(f_0.size());
+  exchange_results(reduced_fx, fx, elem_size, plan, get_rank());
+  fm::axpy(fx, f, dt); // f here is f_1s
 #else
-  fm::axpy(fx, x, dt);   // x here is f(1)
+  fm::axpy(fx, f, dt);   // f here is f_1s
 #endif
 
   tools::timer.stop("explicit_1");
   tools::timer.start("implicit_1");
 
-  // Create rho_2s
-  calculate_moments(x);
+  // Create rho_1s
+  calculate_moments(f);
 
   /*
   #ifdef ASGARD_IO_HIGHFIVE
@@ -820,12 +822,12 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   #endif
   */
 
-  // f2 now
+  // Implicit step f_1: f_1 - dt B f_1 = f_1s
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;
   int const max_iter = program_opts.gmres_outer_iterations;
-  fk::vector<P, mem_type::owner, imex_resrc> f_2(x.size());
-  fk::vector<P, mem_type::owner, imex_resrc> f_2_output(x.size());
+  fk::vector<P, mem_type::owner, imex_resrc> f_1(f.size());
+  fk::vector<P, mem_type::owner, imex_resrc> f_1_output(f.size());
   if (pde.do_collision_operator)
   {
     // Update coeffs
@@ -838,7 +840,125 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     // use previous refined solution as initial guess to GMRES if it exists
     if (x_prev.empty())
     {
-      f_2 = x;
+      f_1 = f; // use f_1s as input
+    }
+    else
+    {
+      if constexpr (imex_resrc == resource::device)
+      {
+        f_1 = x_prev.clone_onto_device();
+      }
+      else
+      {
+        f_1 = x_prev;
+      }
+    }
+    if (program_opts.use_precond)
+    {
+      auto id = asgard::tools::timer.start("precond setup");
+      precond.construct(pde, adaptive_grid.get_table(), f.size(), dt,
+                        imex_flag::imex_implicit);
+      asgard::tools::timer.stop(id);
+
+      /*
+#ifdef ASGARD_IO_HIGHFIVE
+      if (pde.cli.get_wavelet_output_freq() > 0)
+      {
+        int const step_index = (int)(time / dt);
+
+        // write GMRES info for debugging:
+        // saves x, b, M, and (I - dt*A) to file
+        asgard::write_gmres_temp(
+            pde, pde.cli, operator_matrices[matrix_entry::imex_implicit], f_2,
+            x, &precond, dt, time, step_index, x.size(),
+            adaptive_grid.get_table(), "gmres_data_implicit");
+
+        asgard::write_gmres_temp(
+            pde, pde.cli, operator_matrices[matrix_entry::imex_explicit], f_2,
+            x, &precond, dt, time, step_index, x.size(),
+            adaptive_grid.get_table(), "gmres_data_explicit");
+      }
+#endif
+      */
+
+      pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
+          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_1, f,
+          precond, restart, max_iter, tolerance);
+    }
+    else
+    {
+      pde.gmres_outputs[0] = solver::simple_gmres_euler(
+          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_1, f,
+          restart, max_iter, tolerance);
+    }
+
+    // save output of GMRES call to use in the second one
+    f_1_output = f_1;
+  }
+  else
+  {
+    // for non-collision: f_1 = f_1s
+    fm::copy(f, f_1);
+  }
+
+  tools::timer.stop("implicit_1");
+
+  // --------------------------------
+  // Second Stage
+  // --------------------------------
+  tools::timer.start("explicit_2");
+  fm::copy(f_orig_dev, f); // f here is now f_0
+
+  if (pde.do_poisson_solve)
+  {
+    do_poisson_update(f_1);
+  }
+
+  operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
+                                       adaptive_grid, program_opts);
+
+  // Explicit step f_2s = 0.5*f_0 + 0.5*(f_1 + dt A f_1)
+  tools::timer.start(apply_id);
+  operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
+      1.0, f_1.data(), 0.0, fx.data());
+  tools::timer.stop(apply_id,
+                    operator_matrices[matrix_entry::imex_explicit].flops());
+
+#ifndef ASGARD_USE_CUDA
+  reduce_results(fx, reduced_fx, plan, get_rank());
+
+  // fk::vector<P, mem_type::owner, resource::host> t_f2(x_orig.size());
+  exchange_results(reduced_fx, fx, elem_size, plan, get_rank());
+  fm::axpy(fx, f_1, dt); // f_1 here is now f_2 = f_1 + dt*T(f_1)
+#else
+  fm::axpy(fx, f_1, dt); // f_1 here is now f_2 = f_1 + dt*T(f_1)
+#endif
+
+  fm::axpy(f_1, f);    // f is now f_0 + f_2
+  fm::scal(P{0.5}, f); // f = 0.5 * (f_0 + f_2) = f_2s
+  tools::timer.stop("explicit_2");
+  if (pde.do_collision_operator)
+  {
+    tools::timer.start("implicit_2");
+  }
+  tools::timer.start("implicit_2_mom");
+  // Create rho_2s
+  calculate_moments(f);
+  tools::timer.stop("implicit_2_mom");
+
+  // Implicit step f_2: f_2 - dt B f_2 = f_2s
+  if (pde.do_collision_operator)
+  {
+    // Update coeffs
+    tools::timer.start("implicit_2_coeff");
+    generate_all_coefficients<P>(pde, transformer);
+    tools::timer.stop("implicit_2_coeff");
+
+    tools::timer.start("implicit_2_solve");
+    fk::vector<P, mem_type::owner, imex_resrc> f_2(f.size());
+    if (x_prev.empty())
+    {
+      f_2 = std::move(f_1_output);
     }
     else
     {
@@ -851,122 +971,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_2 = x_prev;
       }
     }
-    if (program_opts.use_precond)
-    {
-      auto id = asgard::tools::timer.start("precond setup");
-      precond.construct(pde, adaptive_grid.get_table(), x.size(), dt,
-                        imex_flag::imex_implicit);
-      asgard::tools::timer.stop(id);
-
-      /*
-      #ifdef ASGARD_IO_HIGHFIVE
-            if (pde.cli.get_wavelet_output_freq() > 0)
-            {
-              int const step_index = (int)(time / dt);
-
-              // write GMRES info for debugging:
-              // saves x, b, M, and (I - dt*A) to file
-              asgard::write_gmres_temp(
-                  pde, pde.cli, operator_matrices[matrix_entry::imex_implicit],
-      f_2, x, &precond, dt, time, step_index, x.size(),
-                  adaptive_grid.get_table(), "gmres_data_implicit");
-
-              asgard::write_gmres_temp(
-                  pde, pde.cli, operator_matrices[matrix_entry::imex_explicit],
-      f_2, x, &precond, dt, time, step_index, x.size(),
-                  adaptive_grid.get_table(), "gmres_data_explicit");
-            }
-      #endif
-      */
-
-      pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
-          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-          precond, restart, max_iter, tolerance);
-    }
-    else
-    {
-      pde.gmres_outputs[0] = solver::simple_gmres_euler(
-          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_2, x,
-          restart, max_iter, tolerance);
-    }
-    // save output of GMRES call to use in the second one
-    f_2_output = f_2;
-  }
-  else
-  {
-    // for non-collision: f_2 = f_2s
-    fm::copy(x, f_2);
-  }
-
-  tools::timer.stop("implicit_1");
-  tools::timer.start("explicit_2");
-  // --------------------------------
-  // Third Stage
-  // --------------------------------
-  fm::copy(x_orig_dev, x); // x here is now f0
-
-  if (pde.do_poisson_solve)
-  {
-    do_poisson_update(f_2);
-  }
-
-  operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
-                                       adaptive_grid, program_opts);
-
-  tools::timer.start(apply_id);
-  operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
-      1.0, f_2.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id,
-                    operator_matrices[matrix_entry::imex_explicit].flops());
-
-#ifndef ASGARD_USE_CUDA
-  reduce_results(fx, reduced_fx, plan, get_rank());
-
-  fk::vector<P, mem_type::owner, resource::host> t_f2(x_orig.size());
-  exchange_results(reduced_fx, t_f2, elem_size, plan, get_rank());
-  fm::axpy(t_f2, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
-#else
-  fm::axpy(fx, f_2, dt); // f_2 here is now f3 = f_2 + dt*T(f2)
-#endif
-
-  fm::axpy(f_2, x);    // x is now f0 + f3
-  fm::scal(P{0.5}, x); // x = 0.5 * (f0 + f3)
-  tools::timer.stop("explicit_2");
-  if (pde.do_collision_operator)
-  {
-    tools::timer.start("implicit_2");
-  }
-  tools::timer.start("implicit_2_mom");
-  // Create rho_3s
-  calculate_moments(x);
-  tools::timer.stop("implicit_2_mom");
-
-  // Final stage f3
-  if (pde.do_collision_operator)
-  {
-    // Update coeffs
-    tools::timer.start("implicit_2_coeff");
-    generate_all_coefficients<P>(pde, transformer);
-    tools::timer.stop("implicit_2_coeff");
-
-    // Final stage f3
-    tools::timer.start("implicit_2_solve");
-    fk::vector<P, mem_type::owner, imex_resrc> f_3(x.size());
-    if (x_prev.empty())
-    {
-      f_3 = std::move(f_2_output);
-    }
-    else
-    {
-      if constexpr (imex_resrc == resource::device)
-      {
-        f_3 = x_prev.clone_onto_device();
-      }
-      else
-      {
-        f_3 = x_prev;
-      }
-    }
 
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
@@ -974,40 +978,41 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     if (program_opts.use_precond)
     {
       auto id = asgard::tools::timer.start("precond setup");
-      precond.construct(pde, adaptive_grid.get_table(), x.size(), P{0.5} * dt,
+      precond.construct(pde, adaptive_grid.get_table(), f.size(), P{0.5} * dt,
                         imex_flag::imex_implicit);
       asgard::tools::timer.stop(id);
 
       pde.gmres_outputs[1] = solver::simple_gmres_euler_precond(
           P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-          f_3, x, precond, restart, max_iter, tolerance);
+          f_2, f, precond, restart, max_iter, tolerance);
     }
     else
     {
       pde.gmres_outputs[1] = solver::simple_gmres_euler(
           P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-          f_3, x, restart, max_iter, tolerance);
+          f_2, f, restart, max_iter, tolerance);
     }
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)
     {
-      return f_3.clone_onto_host();
+      return f_2.clone_onto_host();
     }
     else
     {
-      return f_3;
+      return f_2;
     }
   }
   else
   {
+    // for non-collision: f_2 = f_2s, and f here is f_2s
     if constexpr (imex_resrc == resource::device)
     {
-      return x.clone_onto_host();
+      return f.clone_onto_host();
     }
     else
     {
-      return x;
+      return f;
     }
   }
 }
@@ -1047,7 +1052,7 @@ template fk::vector<double> imex_advance(
     options const &program_opts,
     std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
         &unscaled_parts,
-    fk::vector<double> const &x_orig, fk::vector<double> const &x_prev,
+    fk::vector<double> const &f_0, fk::vector<double> const &x_prev,
     double const time, solve_opts const solver, bool const update_system);
 
 #endif
@@ -1087,7 +1092,7 @@ imex_advance(PDE<float> &pde, matrix_list<float> &operator_matrix,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
                  &unscaled_parts,
-             fk::vector<float> const &x_orig, fk::vector<float> const &x_prev,
+             fk::vector<float> const &f_0, fk::vector<float> const &x_prev,
              float const time, solve_opts const solver,
              bool const update_system);
 #endif

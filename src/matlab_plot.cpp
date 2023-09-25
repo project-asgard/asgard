@@ -209,7 +209,8 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
   // TODO: fully implement the output_grid options from matlab (this is just
   // the 'else' case)
-  T const roots = legendre_weights<T>(degree, -1.0, 1.0, true)[0];
+  T const roots =
+      legendre_weights<T>(degree, -1.0, 1.0, quadrature_mode::use_degree)[0];
 
   unsigned int const dof = roots.size();
 

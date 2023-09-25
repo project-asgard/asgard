@@ -319,16 +319,16 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
 
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
-      auto const coords = fk::vector<int>(level_tuple).concat(cell_indices);
-      auto const key    = map_to_id(coords, opts.max_level, dims.size());
+      auto coords    = fk::vector<int>(level_tuple).concat(cell_indices);
+      auto const key = map_to_id(coords, opts.max_level, dims.size());
 
       active_element_ids_.push_back(key);
-      id_to_coords_[key].resize(coords.size()) = coords;
 
       // assign into flattened device table builder
       if (pos + coords.size() - 1 < dev_table_builder.size())
       {
-        dev_table_builder.set_subvector(pos, coords);
+        dev_table_builder.set_subvector(
+            pos, fk::vector<int, mem_type::const_view>(coords));
       }
       else
       {
@@ -336,6 +336,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
         dev_table_builder.concat(coords);
       }
       pos += coords.size();
+      id_to_coords_[key] = std::move(coords);
     }
   }
 

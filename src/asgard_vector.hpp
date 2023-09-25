@@ -368,7 +368,20 @@ public:
    *  \return reference to this
    */
   template<mem_type m_ = mem, typename = enable_for_owner<m_>>
-  fk::vector<P, mem_type::owner, resrc> &resize(int const size = 0);
+  fk::vector<P, mem_type::owner, resrc> &resize(int const new_size)
+  {
+    expect(new_size >= 0);
+    if (new_size == size_)
+      return *this;
+
+    P *old_data{data_};
+    allocate_resource<resrc>(data_, new_size);
+    if (size_ > 0 && new_size > 0)
+      memcpy_1d<resrc, resrc>(data_, old_data, std::min(size_, new_size));
+    delete_resource<resrc>(old_data);
+    size_ = new_size;
+    return *this;
+  }
 
   /*! set a subvector beginning at provided index
    * \param index first element to set
@@ -1007,51 +1020,6 @@ void fk::vector<P, mem, resrc>::dump_to_octave(
     std::cout << std::setprecision(12) << (*this)(i) << " ";
 
   std::cout.rdbuf(coutbuf);
-}
-
-//
-// resize the vector
-// (currently supports a subset of the std::vector.resize() interface)
-//
-template<typename P, mem_type mem, resource resrc>
-template<mem_type, typename>
-fk::vector<P, mem_type::owner, resrc> &
-fk::vector<P, mem, resrc>::resize(int const new_size)
-{
-  expect(new_size >= 0);
-  if (new_size == this->size())
-    return *this;
-  P *old_data{data_};
-
-  if constexpr (resrc == resource::host)
-  {
-    data_ = new P[new_size];
-    if (size() > 0 && new_size > 0)
-    {
-      if (size() < new_size)
-      {
-        std::memcpy(data_, old_data, size() * sizeof(P));
-        std::fill(data_ + size(), data_ + new_size, P{0});
-      }
-      else
-        std::memcpy(data_, old_data, new_size * sizeof(P));
-    }
-    delete[] old_data;
-  }
-  else
-  {
-    allocate_device(data_, new_size);
-    if (size() > 0 && new_size > 0)
-    {
-      if (size() < new_size)
-        copy_on_device(data_, old_data, size());
-      else
-        copy_on_device(data_, old_data, new_size);
-    }
-    delete_device(old_data);
-  }
-  size_ = new_size;
-  return *this;
 }
 
 template<typename P, mem_type mem, resource resrc>

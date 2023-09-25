@@ -27,21 +27,25 @@ recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer);
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
-fk::vector<P> gen_realspace_nodes(int const degree, int const level,
-                                  P const min, P const max);
+fk::vector<P> gen_realspace_nodes(
+    int const degree, int const level, P const min, P const max,
+    quadrature_mode const quad_mode = quadrature_mode::use_fixed);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension<P>> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer);
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     std::vector<dimension_description<P>> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer);
+    basis::wavelet_transform<P, resource::host> const &transformer,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -49,7 +53,8 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space);
+    fk::vector<P> &real_space,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -57,7 +62,8 @@ void wavelet_to_realspace(
     elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space);
+    fk::vector<P> &real_space,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
 void wavelet_to_realspace(
@@ -65,7 +71,8 @@ void wavelet_to_realspace(
     fk::vector<P> const &wave_space, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space);
+    fk::vector<P> &real_space,
+    quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 // overload - get only the elements of the combined vector that fall within a
 // specified range
@@ -104,7 +111,8 @@ fk::vector<P> forward_transform(
 
   // get the Legendre-Gauss nodes and weights on the domain
   // [-1,+1] for performing quadrature.
-  auto const [roots, weights] = legendre_weights<P>(degree, -1, 1);
+  auto const [roots, weights] =
+      legendre_weights<P>(degree, -1, 1, quadrature_mode::use_fixed);
 
   // get grid spacing.
   // hate this name TODO
@@ -284,14 +292,19 @@ inline int dense_space_size(PDE<P> const &pde)
   return dense_space_size(pde.get_dimensions());
 }
 
+inline int dense_dim_size(int const degree, int const level)
+{
+  return degree * fm::two_raised_to(level);
+}
+
 template<typename precision>
 inline int dense_space_size(std::vector<dimension<precision>> const &dims)
 {
   /* determine the length of the realspace solution */
   return std::accumulate(dims.cbegin(), dims.cend(), int{1},
                          [](int const size, dimension<precision> const &dim) {
-                           return size * dim.get_degree() *
-                                  fm::two_raised_to(dim.get_level());
+                           return size * dense_dim_size(dim.get_degree(),
+                                                        dim.get_level());
                          });
 }
 
@@ -302,7 +315,7 @@ dense_space_size(std::vector<dimension_description<precision>> const &dims)
   return std::accumulate(
       dims.cbegin(), dims.cend(), int{1},
       [](int const size, dimension_description<precision> const &dim) {
-        return size * dim.degree * fm::two_raised_to(dim.level);
+        return size * dense_dim_size(dim.degree, dim.level);
       });
 }
 

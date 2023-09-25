@@ -66,7 +66,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
              options const &program_opts,
              std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                  &unscaled_parts,
-             fk::vector<P> const &x_orig, fk::vector<P> const &x_prev,
+             fk::vector<P> const &f_0, fk::vector<P> const &x_prev,
              P const time, solve_opts const solver,
              bool const update_system = true);
 
