@@ -31,11 +31,7 @@ public:
   virtual void construct(int const n)
   {
     precond.clear_and_resize(n, n);
-#ifdef ASGARD_USE_CUDA
     pivots = fk::vector<int, mem_type::owner, resrc>(n);
-#else
-    pivots = fk::vector<int, mem_type::owner, resrc>(n);
-#endif
 
     // factorize the preconditioner initially
     fm::getrf(precond, pivots);
@@ -81,43 +77,7 @@ public:
 
 protected:
   fk::matrix<P, mem_type::owner, resrc> precond;
-#ifdef ASGARD_USE_CUDA
   fk::vector<int, mem_type::owner, resrc> pivots;
-#else
-  fk::vector<int, mem_type::owner, resrc> pivots;
-#endif
-};
-
-template<typename P, resource resrc = resource::host>
-class eye_preconditioner : public preconditioner<P, resrc>
-{
-public:
-  eye_preconditioner() {}
-
-  virtual void construct(int const n) override
-  {
-    fk::sparse<P, resource::host> sp_y(speye<P>(n));
-    this->precond.clear_and_resize(n, n) =
-        std::move(sp_y.to_dense().clone_onto_device());
-#ifdef ASGARD_USE_CUDA
-    this->pivots = fk::vector<int64_t, mem_type::owner, resrc>(n);
-#else
-    this->pivots = fk::vector<int, mem_type::owner, resrc>(n);
-#endif
-
-    // factorize the preconditioner initially
-    fm::getrf(this->precond, this->pivots);
-  }
-
-  virtual void construct(PDE<P> const &pde, elements::table const &table,
-                         int const n, P const dt,
-                         imex_flag const imex = imex_flag::unspecified) override
-  {
-    this->construct(n);
-  }
-
-  // virtual void apply(fk::vector<P> &B) override {}
-  // virtual void apply(fk::vector<P> &B, std::vector<int> &pivots) override {}
 };
 
 template<typename P, resource resrc = resource::host>
@@ -147,11 +107,6 @@ public:
       this->dev_precond_blks =
           std::vector<fk::matrix<P, mem_type::owner, resource::device>>(
               this->num_blocks);
-      /*
-      this->dev_blk_pivots =
-          std::vector<fk::vector<int64_t, mem_type::owner, resource::device>>(
-              this->num_blocks);
-      */
 #endif
     }
     else if constexpr (resrc == resource::host)
@@ -239,10 +194,9 @@ public:
       for (int b = 0; b < this->num_blocks; b++)
       {
         this->dev_precond_blks[b] = this->precond_blks[b].clone_onto_device();
-        // dev_blk_pivots[b] =
-        //     fk::vector<int64_t, mem_type::owner, resource::device>(piv_size);
       }
 
+      // pivot indices are stored as a 1D vector for all blocks
       this->dev_pivots = fk::vector<int, mem_type::owner, resource::device>(
           piv_size * num_blocks);
 #endif
@@ -258,7 +212,11 @@ public:
       else if constexpr (resrc == resource::device)
       {
 #ifdef ASGARD_USE_CUDA
-        fm::getrf(dev_precond_blks[block], this->dev_blk_pivots[block]);
+        // TODO: this should be batched
+        lib_dispatch::getrf<resource::device>(
+            dev_precond_blks[block].nrows(), dev_precond_blks[block].ncols(),
+            dev_precond_blks[block].data(), dev_precond_blks[block].stride(),
+            dev_pivots.data() + (block * block_size));
 #endif
       }
     }
@@ -282,6 +240,7 @@ public:
     int const block_size = std::pow(this->degree, this->num_dims);
     int const offset     = block_index * block_size;
 
+    // applies a single block of the preconditioner
     if constexpr (resrc == resource::host)
     {
       // extract the given block from the preconditioner matrix
@@ -293,6 +252,7 @@ public:
     }
     else if constexpr (resrc == resource::device)
     {
+      // TODO: this can be removed, the batched version is used instead
 #ifdef ASGARD_USE_CUDA
       // extract the given block from the preconditioner matrix
       auto B_block = fk::vector<P, mem_type::view, resource::device>(
