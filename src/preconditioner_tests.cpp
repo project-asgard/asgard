@@ -14,7 +14,6 @@ TEMPLATE_TEST_CASE("preconditioner interface", "[precond]", test_precs)
   {
     preconditioner::preconditioner<TestType> const test;
     REQUIRE(test.empty());
-    REQUIRE((test.factored() == false));
   }
 
   SECTION("constructor from existing dense M matrix")
@@ -22,7 +21,6 @@ TEMPLATE_TEST_CASE("preconditioner interface", "[precond]", test_precs)
     fk::matrix<TestType> M = asgard::eye<TestType>(5);
     preconditioner::preconditioner<TestType> const test(std::move(M));
     REQUIRE((test.get_matrix() == asgard::eye<TestType>(5)));
-    REQUIRE((test.factored() == false));
   }
 }
 
@@ -98,7 +96,6 @@ TEMPLATE_TEST_CASE("block jacobi - relaxation 1x1v", "[precond]", test_precs)
         static_cast<size_t>(adaptive_grid.get_table().size());
     REQUIRE((precond.precond_blks.size() == num_blocks));
     REQUIRE((precond.blk_pivots.size() == num_blocks));
-    REQUIRE((precond.factored() == false));
 
     int const dof = sol.size();
     auto &mat     = operator_matrices[matrix_entry::imex_implicit];
@@ -138,10 +135,12 @@ TEMPLATE_TEST_CASE("block jacobi - relaxation 1x1v", "[precond]", test_precs)
       REQUIRE((precond.precond_blks[blk].nrows() == offset));
       REQUIRE((precond.precond_blks[blk].ncols() == offset));
 
+      fk::vector<int> A_piv(offset);
       int const row = blk * offset;
-      rmse_comparison(precond.precond_blks[blk],
-                      A.extract_submatrix(row, row, offset, offset),
-                      tol_factor);
+      // factorize block of A since preconditioner blocks are factorized
+      auto A_tmp = A.extract_submatrix(row, row, offset, offset);
+      fm::getrf(A_tmp, A_piv);
+      rmse_comparison(precond.precond_blks[blk], A_tmp, tol_factor);
     }
   }
 
@@ -157,7 +156,6 @@ TEMPLATE_TEST_CASE("block jacobi - relaxation 1x1v", "[precond]", test_precs)
         static_cast<size_t>(adaptive_grid.get_table().size());
     REQUIRE((precond.precond_blks.size() == num_blocks));
     REQUIRE((precond.blk_pivots.size() == num_blocks));
-    REQUIRE((precond.factored() == false));
 
     // Get a dense copy of M before applying
     fk::matrix<TestType> M = precond.get_matrix();
@@ -186,9 +184,6 @@ TEMPLATE_TEST_CASE("block jacobi - relaxation 1x1v", "[precond]", test_precs)
     precond.apply(b_apply);
 
     relaxed_fp_comparison(fm::nrm2(b), fm::nrm2(b_apply));
-
-    // preconditioner should be factored now
-    REQUIRE((precond.factored() == true));
 
     b       = sol * 0.1;
     b_apply = sol * 0.1;
@@ -224,7 +219,6 @@ TEMPLATE_TEST_CASE("block jacobi - relaxation 1x1v", "[precond]", test_precs)
         static_cast<size_t>(adaptive_grid.get_table().size());
     REQUIRE((precond.precond_blks.size() == num_blocks));
     REQUIRE((precond.blk_pivots.size() == num_blocks));
-    REQUIRE((precond.factored() == false));
 
     auto sol_d = sol.clone_onto_device();
 
