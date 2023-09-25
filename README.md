@@ -1,6 +1,6 @@
 # ASGarD - Adaptive Sparse Grid Discretization
 
-To cite the ASGarD code in your work, please use: (TODO)
+To cite the ASGarD code in your work, please use: [doi:10.11578/dc.20201125.5](https://www.osti.gov/doecode/biblio/48752)
 
 The ASGarD project has the goal of building an solver specifically targeting
 high-dimensional PDEs where the "curse-of-dimensionality" has previously
@@ -81,17 +81,17 @@ To see the list of all runtime options, run `./asgard --help`.
 
 ## HighFive/HDF5 IO
 
-To enable HDF5 wavelet and realspace output, pass the `-DASGARD_IO_HIGHFIVE=ON`. 
+To enable HDF5 wavelet and realspace output, pass the `-DASGARD_IO_HIGHFIVE=ON`.
 
-Pass `-DASGARD_BUILD_HDF5=TRUE` and ASGarD will download and build HDF5 and HighFive libraries. If HIGHFIVE and/or HDF5 are already 
+Pass `-DASGARD_BUILD_HDF5=TRUE` and ASGarD will download and build HDF5 and HighFive libraries. If HIGHFIVE and/or HDF5 are already
 available, pass `-DASGARD_HIGHFIVE_PATH=<path to HighFive>` and/or `-DASGARD_HDF5_PATH=<path to HDF5>`.
 
-## MATLAB Interface 
+## MATLAB Interface
 
-Asgard can interface with MATLAB to plot, share data, and run scripts. To enable this, compile with `-DASGARD_USE_MATLAB=ON`. 
+Asgard can interface with MATLAB to plot, share data, and run scripts. To enable this, compile with `-DASGARD_USE_MATLAB=ON`.
 
-If using only for plotting purposes, then Asgard can be run without any additional arguments. However, for 
-sharing data with MATLAB, Asgard will need to connect to a shared session. This can be done in MATLAB by 
+If using only for plotting purposes, then Asgard can be run without any additional arguments. However, for
+sharing data with MATLAB, Asgard will need to connect to a shared session. This can be done in MATLAB by
 running
  ```
  matlab.engine.shareEngine
