@@ -171,6 +171,10 @@ inline bool check_connected(int L1, int p1, int L2, int p2)
 {
   expect(L1 <= L2);
 
+  // levels 0 and 1 are connected to everything
+  if (L1 <= 1 or L2 <= 1)
+    return true;
+
   // periodic boundary conditions
   // if these are left-most and right-most cells in respective levels
   // assume connected due to the periodic boundary conditions
@@ -595,7 +599,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
       gpu_iA[i]  = list_iA[i].clone_onto_device();
       gpu_col[i] = list_col_indx[i].clone_onto_device();
       gpu_row[i] = list_row_indx[i].clone_onto_device();
-      num_ints += gpu_iA[i].size() + gpu_col[i].size() + gpu_row[i].size();
+      num_ints += int64_t{gpu_iA[i].size()} + int64_t{gpu_col[i].size()} +
+                  int64_t{gpu_row[i].size()};
     }
     std::cout << "        memory usage (MB): "
               << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
