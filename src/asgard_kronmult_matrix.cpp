@@ -268,7 +268,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
                      memory_usage const &mem_stats, imex_flag const imex,
                      kron_sparse_cache &spcache)
 {
-  auto const form_id = tools::timer.start("make-kronmult-sparse");
+  tools::time_event performance_("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims;
@@ -549,8 +549,6 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
 #endif
   }
-
-  tools::timer.stop(form_id);
 
   std::cout << "  kronmult sparse matrix fill: "
             << 100.0 * double(spcache.num_nonz) /

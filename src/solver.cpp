@@ -318,7 +318,7 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
                     P const x_min, P const x_max, P const phi_min,
                     P const phi_max, poisson_bc const bc)
 {
-  tools::timer.start("poisson_solver");
+  tools::time_event psolve_("poisson_solver");
   // Solving: - phi_xx = source Using Linear Finite Elements
   // Boundary Conditions: phi(x_min)=phi_min and phi(x_max)=phi_max
   // Returns phi and E = - Phi_x in Gauss-Legendre Nodes
@@ -404,7 +404,6 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
 
     E[k] = b[i - 1] / dx - dg;
   }
-  tools::timer.stop("poisson_solver");
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

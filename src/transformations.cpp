@@ -213,10 +213,9 @@ void wavelet_to_realspace(
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space, quadrature_mode const quad_mode)
 {
-  tools::timer.start("wavelet_to_realspace");
+  tools::time_event performance("wavelet_to_realspace");
   wavelet_to_realspace(pde.get_dimensions(), wave_space, table, transformer,
                        workspace, real_space, quad_mode);
-  tools::timer.stop("wavelet_to_realspace");
 }
 
 template<typename P>
