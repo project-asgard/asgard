@@ -566,7 +566,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto do_poisson_update = [&](fk::vector<P, mem_type::owner, imex_resrc> const
                                    &f_in) {
     {
-      tools::time_event performance("poisson_update");
+      tools::time_event pupdate_("poisson_update");
       // Get 0th moment
       fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
       fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), f_in, mom0);
@@ -791,13 +791,13 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   // Explicit step f_1s = f_0 + dt A f_0
   tools::timer.start("explicit_1");
-  auto const apply_id = tools::timer.start("kronmult - explicit");
-
   fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
-  operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
-      1.0, f.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id,
-                    operator_matrices[matrix_entry::imex_explicit].flops());
+  {
+    tools::time_event kronm_("kronmult - explicit",
+        operator_matrices[matrix_entry::imex_explicit].flops());
+    operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
+        1.0, f.data(), 0.0, fx.data());
+  }
 
 #ifndef ASGARD_USE_CUDA
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -875,11 +875,12 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                                        adaptive_grid, program_opts);
 
   // Explicit step f_2s = 0.5*f_0 + 0.5*(f_1 + dt A f_1)
-  tools::timer.start(apply_id);
-  operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
+  {
+    tools::time_event kronm_("kronmult - explicit",
+        operator_matrices[matrix_entry::imex_explicit].flops());
+    operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
       1.0, f_1.data(), 0.0, fx.data());
-  tools::timer.stop(apply_id,
-                    operator_matrices[matrix_entry::imex_explicit].flops());
+  }
 
 #ifndef ASGARD_USE_CUDA
   reduce_results(fx, reduced_fx, plan, get_rank());

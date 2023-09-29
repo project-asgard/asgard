@@ -649,7 +649,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
                                   kron_sparse_cache &spcache,
                                   kronmult_matrix<P> &mat)
 {
-  auto const form_id       = tools::timer.start("kronmult-update-coefficients");
+  tools::time_event kron_time_("kronmult-update-coefficients");
   int const num_dimensions = pde.num_dims;
   int const kron_size      = pde.get_dimensions()[0].get_degree();
 
@@ -743,8 +743,6 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     mat.update_stored_coefficients(std::move(vA));
 #endif
   }
-
-  tools::timer.stop(form_id);
 }
 
 template<typename P>

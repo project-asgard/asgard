@@ -35,9 +35,8 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
       [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
           P const beta) -> void {
-        auto const apply_id = tools::timer.start("kronmult - implicit");
+        tools::time_event performance("kronmult - implicit", mat.flops());
         mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
-        tools::timer.stop(apply_id, mat.flops());
         int one = 1, n = y.size();
         lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
       },
