@@ -588,11 +588,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
       fk::vector<P> phi(quad_dense_size);
       fk::vector<P> poisson_E(quad_dense_size);
-      solver::poisson_solver(
-          poisson_source, pde.poisson_diag, pde.poisson_off_diag, phi,
-          poisson_E, ASGARD_NUM_QUADRATURE - 1, N_elements, min, max,
-          static_cast<P>(0.0), static_cast<P>(0.0),
-          solver::poisson_bc::periodic);
+      solver::poisson_solver(poisson_source, pde.poisson_diag,
+                             pde.poisson_off_diag, phi, poisson_E,
+                             ASGARD_NUM_QUADRATURE - 1, N_elements, min, max,
+                             static_cast<P>(0.0), static_cast<P>(0.0),
+                             solver::poisson_bc::periodic);
 
       param_manager.get_parameter("E")->value =
           [poisson_E, nodes](P const x_v, P const t = 0) -> P {
@@ -793,7 +793,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.start("explicit_1");
   fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
   {
-    tools::time_event kronm_("kronmult - explicit",
+    tools::time_event kronm_(
+        "kronmult - explicit",
         operator_matrices[matrix_entry::imex_explicit].flops());
     operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
         1.0, f.data(), 0.0, fx.data());
@@ -876,10 +877,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   // Explicit step f_2s = 0.5*f_0 + 0.5*(f_1 + dt A f_1)
   {
-    tools::time_event kronm_("kronmult - explicit",
+    tools::time_event kronm_(
+        "kronmult - explicit",
         operator_matrices[matrix_entry::imex_explicit].flops());
     operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
-      1.0, f_1.data(), 0.0, fx.data());
+        1.0, f_1.data(), 0.0, fx.data());
   }
 
 #ifndef ASGARD_USE_CUDA
