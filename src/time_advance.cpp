@@ -241,10 +241,10 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
 
   // -- RK step 2
   {
-    tools::time_event performance("kronmult");
+    tools::time_event performance(
+        "kronmult", operator_matrices[matrix_entry::regular].flops());
     operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
                                                    fx.data());
-    performance.flops = operator_matrices[matrix_entry::regular].flops();
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 

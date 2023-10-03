@@ -25,8 +25,10 @@ double shuffle_random(int const num_items)
 }
 
 static auto constexpr tol = 1e3;
-struct time_event_tag{};
-struct simple_timer_tag{};
+struct time_event_tag
+{};
+struct simple_timer_tag
+{};
 TEMPLATE_TEST_CASE("test timer", "[timing test]", time_event_tag,
                    simple_timer_tag)
 {
