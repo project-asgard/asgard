@@ -54,7 +54,7 @@ public:
 
     if (flops != -1)
     {
-      expect(flops > 0);
+      expect(flops >= 0);
       auto const gflops = flops / 1e9;
       expect(dur >= 0.0);
 

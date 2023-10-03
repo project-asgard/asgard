@@ -82,8 +82,8 @@ make_kronmult_dense(PDE<precision> const &pde,
   int const num_terms = static_cast<int>(used_terms.size());
 
   if (used_terms.empty())
-    throw std::runtime_error("no terms selected in the current combination of "
-                             "imex flags and options, this must be wrong");
+    return asgard::kronmult_matrix<precision>(num_dimensions, kron_size,
+                                              num_rows, num_cols);
 
   constexpr resource mode = resource::host;
 
@@ -284,6 +284,10 @@ make_kronmult_sparse(PDE<precision> const &pde,
   std::vector<int> const used_terms =
       get_used_terms(pde, program_options, imex);
   int const num_terms = static_cast<int>(used_terms.size());
+
+  if (used_terms.empty())
+    return asgard::kronmult_matrix<precision>(num_dimensions, kron_size,
+                                              num_rows, num_cols);
 
   // size of the small kron matrices
   int const kron_squared = kron_size * kron_size;
@@ -657,6 +661,9 @@ void update_kronmult_coefficients(PDE<P> const &pde,
   std::vector<int> const used_terms =
       get_used_terms(pde, program_options, imex);
   int const num_terms = static_cast<int>(used_terms.size());
+
+  if (num_terms == 0)
+    return;
 
   // size of the small kron matrices
   int const kron_squared = kron_size * kron_size;

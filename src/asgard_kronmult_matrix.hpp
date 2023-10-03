@@ -110,6 +110,16 @@ public:
         row_offset_(0), col_offset_(0), num_1d_blocks_(0)
   {}
 
+  //! \brief Creates a zero/empty matrix no terms.
+  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols)
+      : num_dimensions_(num_dimensions), kron_size_(kron_size),
+        num_rows_(num_rows), num_cols_(num_cols), num_terms_(0),
+        tensor_size_(0), flops_(0), list_row_stride_(0), row_offset_(0),
+        col_offset_(0), num_1d_blocks_(0)
+  {
+    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+  }
+
   template<resource input_mode>
   kronmult_matrix(
       int num_dimensions, int kron_size, int num_rows, int num_cols,
@@ -322,6 +332,12 @@ public:
   void apply(precision alpha, precision const x[], precision beta,
              precision y[]) const
   {
+    if (num_terms_ == 0)
+    {
+      if (beta != 0)
+        lib_dispatch::scal<rec>(output_size(), beta, y, 1);
+      return;
+    }
 #ifdef ASGARD_USE_CUDA
     precision const *active_x = (rec == resource::host) ? xdev.data() : x;
     precision *active_y       = (rec == resource::host) ? ydev.data() : y;

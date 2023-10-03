@@ -33,7 +33,7 @@ public:
 private:
   static int constexpr num_dims_          = 2;
   static int constexpr num_sources_       = 0;
-  static int constexpr num_terms_         = 4;
+  static int constexpr num_terms_         = 3;
   static bool constexpr do_poisson_solve_ = false;
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = true;
@@ -189,27 +189,6 @@ private:
 
   /* build the terms */
 
-  // Explicit Term 1
-  // does nothing
-
-  static P null_gfunc(P const x, P const time = 0)
-  {
-    ignore(time);
-    ignore(x);
-    return 0.0;
-  }
-
-  inline static const partial_term<P> null_pterm = partial_term<P>(
-      coefficient_type::mass, null_gfunc, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static term<P> const null_ex =
-      term<P>(false,       // time-dependent
-              "null_term", // name
-              {null_pterm}, imex_flag::imex_explicit);
-
-  inline static std::vector<term<P>> const terms_ex_1 = {null_ex, null_ex};
-
   // Constant Identity term
 
   inline static const partial_term<P> I_pterm = partial_term<P>(
@@ -313,8 +292,7 @@ private:
   inline static std::vector<term<P>> const terms_im_3 = {term_i5x,
                                                          term_i5v_diff};
 
-  inline static term_set<P> const terms_ = {terms_ex_1, terms_im_1, terms_im_2,
-                                            terms_im_3};
+  inline static term_set<P> const terms_ = {terms_im_1, terms_im_2, terms_im_3};
 
   static fk::vector<P> exact_dim_x_0(fk::vector<P> const &x, P const t = 0)
   {
