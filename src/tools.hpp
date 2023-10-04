@@ -106,4 +106,28 @@ private:
 
 extern simple_timer timer;
 
+/*!
+ * Allows for RAII style of timing for blocks of code.
+ * The constructor will initiate the timer for the given event,
+ * the destructor will stop the timer.
+ */
+struct time_event
+{
+  //! \brief Constructor, start timing.
+  time_event(std::string const &event_name)
+      : event_name_(timer.start(event_name)), flops(-1)
+  {}
+  //! \brief Constructor, start timing for flop count.
+  time_event(std::string const &event_name, double op_flops)
+      : event_name_(timer.start(event_name)), flops(op_flops)
+  {}
+  //! \brief Destructor, stop timing.
+  ~time_event() { timer.stop(event_name_, flops); }
+
+  //! \brief Name of the event being timed.
+  std::string const event_name_;
+  //! \brief FLOPs, for the case when we are timing linear algebra.
+  double flops;
+};
+
 } // namespace asgard::tools

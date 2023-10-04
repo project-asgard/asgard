@@ -25,20 +25,37 @@ double shuffle_random(int const num_items)
 }
 
 static auto constexpr tol = 1e3;
-TEST_CASE("test timer")
+struct time_event_tag
+{};
+struct simple_timer_tag
+{};
+TEMPLATE_TEST_CASE("test timer", "[timing test]", time_event_tag,
+                   simple_timer_tag)
 {
-  tools::simple_timer timer;
+  tools::timer = tools::simple_timer();
+
   int const items_to_gen       = 100000;
   int const iterations         = 10;
   std::string const identifier = "waste_time";
   for (int i = 0; i < iterations; ++i)
   {
-    timer.start(identifier);
-    double const val = shuffle_random(items_to_gen);
-    timer.stop(identifier);
-    expect(val > 0.0); // to avoid comp. warnings
+    if constexpr (std::is_same_v<TestType, simple_timer_tag>)
+    {
+      // testing direct calls to timer
+      tools::timer.start(identifier);
+      double const val = shuffle_random(items_to_gen);
+      tools::timer.stop(identifier);
+      expect(val > 0.0); // to avoid comp. warnings
+    }
+    else
+    {
+      // testing the sue of the
+      tools::time_event timing(identifier);
+      double const val = shuffle_random(items_to_gen);
+      expect(val > 0.0); // to avoid comp. warnings
+    }
   }
-  std::string const report = timer.report();
+  std::string const report = tools::timer.report();
 
   std::stringstream s1(report.substr(report.find("avg: ")));
   std::string s;
@@ -66,7 +83,7 @@ TEST_CASE("test timer")
   int calls;
   s5 >> calls;
 
-  auto const &times = timer.get_times(identifier);
+  auto const &times = tools::timer.get_times(identifier);
 
   SECTION("avg")
   {

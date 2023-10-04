@@ -20,7 +20,7 @@ void generate_all_coefficients(
     PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
     P const time, bool const rotate)
 {
-  tools::timer.start("gen_coefficients");
+  tools::time_event time_generating_("gen_coefficients");
   expect(time >= 0.0);
 
   for (auto i = 0; i < pde.num_dims; ++i)
@@ -77,7 +77,6 @@ void generate_all_coefficients(
     }
     pde.rechain_dimension(i);
   }
-  tools::timer.stop("gen_coefficients");
 }
 
 template<typename P>
@@ -85,7 +84,7 @@ void generate_all_coefficients_max_level(
     PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer,
     P const time, bool const rotate)
 {
-  tools::timer.start("gen_coefficients");
+  tools::time_event time_generating_("gen_coefficients");
   expect(time >= 0.0);
 
   for (auto i = 0; i < pde.num_dims; ++i)
@@ -132,7 +131,6 @@ void generate_all_coefficients_max_level(
     }
     pde.rechain_dimension(i);
   }
-  tools::timer.stop("gen_coefficients");
 }
 
 template<typename P>
