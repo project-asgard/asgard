@@ -118,7 +118,7 @@ struct time_event
       : event_name_(timer.start(event_name)), flops(-1)
   {}
   //! \brief Constructor, start timing for flop count.
-  time_event(std::string const &event_name, int op_flops)
+  time_event(std::string const &event_name, double op_flops)
       : event_name_(timer.start(event_name)), flops(op_flops)
   {}
   //! \brief Destructor, stop timing.
