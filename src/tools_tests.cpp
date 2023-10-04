@@ -39,7 +39,7 @@ TEMPLATE_TEST_CASE("test timer", "[timing test]", time_event_tag,
   std::string const identifier = "waste_time";
   for (int i = 0; i < iterations; ++i)
   {
-    if (std::is_same_v<TestType, simple_timer_tag>)
+    if constexpr (std::is_same_v<TestType, simple_timer_tag>)
     {
       // testing direct calls to timer
       tools::timer.start(identifier);
