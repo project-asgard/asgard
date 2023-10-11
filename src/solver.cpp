@@ -15,13 +15,14 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
              fk::matrix<P> const &M, int const restart, int const max_iter,
              P const tolerance)
 {
-  auto dense_matrix_wrapper = [&A](fk::vector<P> const &x_in, fk::vector<P> &y,
-                                   P const alpha = 1.0, P const beta = 0.0) {
+  auto dense_matrix_wrapper = [&A](fk::vector<P, mem_type::view> const x_in,
+                                   fk::vector<P> &y, P const alpha = 1.0,
+                                   P const beta = 0.0) {
     bool const trans_A = false;
     fm::gemv(A, x_in, y, trans_A, alpha, beta);
   };
-  return simple_gmres(dense_matrix_wrapper, x, b, M, restart, max_iter,
-                      tolerance);
+  return simple_gmres(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x), b,
+                      M, restart, max_iter, tolerance);
 }
 
 template<typename P, resource resrc>
@@ -32,7 +33,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    int const restart, int const max_iter, P const tolerance)
 {
   return simple_gmres(
-      [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
+      [&](fk::vector<P, mem_type::view, resrc> const x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
           P const beta) -> void {
         tools::time_event performance("kronmult - implicit", mat.flops());
@@ -40,7 +41,8 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
         int one = 1, n = y.size();
         lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
       },
-      x, b, fk::matrix<P>(), restart, max_iter, tolerance);
+      fk::vector<P, mem_type::view, resrc>(x), b, fk::matrix<P>(), restart,
+      max_iter, tolerance);
 }
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
@@ -63,7 +65,7 @@ static int pos_from_indices(int i, int j) { return i + j * (j + 1) / 2; }
 // simple, node-local test version
 template<typename P, typename matrix_replacement, resource resrc>
 gmres_info<P>
-simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
+simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
              fk::vector<P, mem_type::owner, resrc> const &b,
              fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
 {
@@ -178,8 +180,8 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
     krylov_sol(0) = norm_r;
     for (i = 0; i < restart; ++i)
     {
-      fk::vector<P, mem_type::owner, resrc> tmp(
-          fk::vector<P, mem_type::view, resrc>(basis, i, 0, basis.nrows() - 1));
+      fk::vector<P, mem_type::view, resrc> const tmp(basis, i, 0,
+                                                     basis.nrows() - 1);
       fk::vector<P, mem_type::owner, resrc> new_basis(tmp.size());
       mat(tmp, new_basis, P{1.0}, P{0.0});
 
@@ -424,7 +426,7 @@ template int default_gmres_restarts<double>(int num_cols);
 #ifdef ASGARD_USE_CUDA
 template gmres_info<double> simple_gmres_euler(
     const double dt, kronmult_matrix<double> const &mat,
-    fk::vector<double, mem_type::owner, resource::device> &x,
+    fk::vector<double, mem_type::owner, resource::device> const &x,
     fk::vector<double, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, double const tolerance);
 #endif
