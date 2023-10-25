@@ -383,9 +383,9 @@ public:
             cudaMemcpyAsync(load_buffer_cols, list_col_indx_[0].data(),
                             sizeof(int) * list_col_indx_[0].size(),
                             cudaMemcpyHostToDevice, load_stream);
-        assert(stats1 == cudaSuccess);
-        assert(stats2 == cudaSuccess);
-        assert(stats3 == cudaSuccess);
+        expect(stats1 == cudaSuccess);
+        expect(stats2 == cudaSuccess);
+        expect(stats3 == cudaSuccess);
         for (size_t i = 0; i < list_iA.size(); i++)
         {
           // sync load_stream to ensure that data has already been loaded
@@ -411,9 +411,9 @@ public:
                 cudaMemcpyAsync(load_buffer_cols, list_col_indx_[i + 1].data(),
                                 sizeof(int) * list_col_indx_[i + 1].size(),
                                 cudaMemcpyHostToDevice, load_stream);
-            assert(stats1 == cudaSuccess);
-            assert(stats2 == cudaSuccess);
-            assert(stats3 == cudaSuccess);
+            expect(stats1 == cudaSuccess);
+            expect(stats2 == cudaSuccess);
+            expect(stats3 == cudaSuccess);
           }
 
           // num_batch is list_iA[i].size() / (num_dimensions_ * num_terms_)
@@ -784,7 +784,7 @@ struct matrix_list
     if (load_stream != nullptr)
     {
       auto status = cudaStreamDestroy(load_stream);
-      assert(status == cudaSuccess);
+      expect(status == cudaSuccess);
     }
 #endif
   }
