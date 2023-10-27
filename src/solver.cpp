@@ -426,7 +426,7 @@ template int default_gmres_restarts<double>(int num_cols);
 #ifdef ASGARD_USE_CUDA
 template gmres_info<double> simple_gmres_euler(
     const double dt, kronmult_matrix<double> const &mat,
-    fk::vector<double, mem_type::owner, resource::device> const &x,
+    fk::vector<double, mem_type::owner, resource::device> &x,
     fk::vector<double, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, double const tolerance);
 #endif
