@@ -220,7 +220,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "gmres" + std::to_string(i) + "_err",
                  pde.gmres_outputs[i].error, opts);
     H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_total",
-                 pde.gmres_outputs[i].total_iter, opts);
+                 pde.gmres_outputs[i].iterations, opts);
   }
 
   H5Easy::dump(file, "do_adapt", cli_input.do_adapt_levels());
@@ -266,7 +266,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
         step_errors[gmres][step] =
             pde.adapt_info.gmres_stats[step][gmres].error;
         step_num_total[gmres][step] =
-            pde.adapt_info.gmres_stats[step][gmres].total_iter;
+            pde.adapt_info.gmres_stats[step][gmres].iterations;
       }
 
       std::string const prefix = "adapt_gmres" + std::to_string(gmres);

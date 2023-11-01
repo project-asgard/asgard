@@ -94,7 +94,7 @@ template<typename P>
 struct gmres_info
 {
   P error;
-  int total_iter;
+  int iterations;
 };
 
 template<typename P>
