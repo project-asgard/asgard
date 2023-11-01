@@ -150,6 +150,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
 
   int it = 0;
   int i  = 0;
+  P error = 0.;
   for (; it < max_iter; ++it)
   {
     P const norm_r = compute_residual();
