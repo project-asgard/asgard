@@ -108,32 +108,33 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
   int const print_freq = restart / 3;
 
   fk::vector<P, mem_type::owner, resrc> residual(b);
-  auto const compute_residual = [&]() {
-    P const alpha = -1.0;
-    P const beta  = 1.0;
-    residual      = b;
-    mat(x, residual, alpha, beta);
-    if (do_precond)
-    {
-      if constexpr (resrc == resource::device)
-      {
+  auto const compute_residual =
+      [&b, &x, do_precond, precond_factored, &precond, &precond_pivots, &mat,
+       norm_b](fk::vector<P, mem_type::owner, resrc> &res) {
+        P const alpha = -1.0;
+        P const beta  = 1.0;
+        res           = b;
+        mat(x, res, alpha, beta);
+        if (do_precond)
+        {
+          if constexpr (resrc == resource::device)
+          {
 #ifdef ASGARD_USE_CUDA
-        static_assert(resrc == resource::device);
-        auto res = residual.clone_onto_host();
-        precond_factored ? fm::getrs(precond, res, precond_pivots)
-                         : fm::gesv(precond, res, precond_pivots);
-        fk::copy_vector(residual, res);
-        precond_factored = true;
+            static_assert(resrc == resource::device);
+            auto res = residual.clone_onto_host();
+            precond_factored ? fm::getrs(precond, res, precond_pivots)
+                             : fm::gesv(precond, res, precond_pivots);
+            fk::copy_vector(residual, res);
+            precond_factored = true;
 #endif
-      }
-      else if constexpr (resrc == resource::host)
-      {
-        precond_factored ? fm::getrs(precond, residual, precond_pivots)
-                         : fm::gesv(precond, residual, precond_pivots);
-      }
-    }
-    return fm::nrm2(residual);
-  };
+          }
+          else if constexpr (resrc == resource::host)
+          {
+            precond_factored ? fm::getrs(precond, res, precond_pivots)
+                             : fm::gesv(precond, res, precond_pivots);
+          }
+        }
+      };
 
   auto const done = [](P const error, int const outer_iters,
                        int const inner_iters) -> gmres_info<P> {
@@ -153,7 +154,8 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
   P error = 0.;
   for (; it < max_iter; ++it)
   {
-    P const norm_r = compute_residual();
+    compute_residual(residual);
+    P const norm_r = fm::nrm2(residual);
 
     auto scaled = residual;
     scaled.scale(1. / norm_r);
@@ -258,7 +260,8 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
       fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.0}, P{1.0});
     else if constexpr (resrc == resource::host)
       fm::gemv(m, s_view, x, false, P{1.0}, P{1.0});
-    P const norm_r_outer                               = compute_residual();
+    compute_residual(residual);
+    P const norm_r_outer                               = fm::nrm2(residual);
     krylov_sol(std::min(krylov_sol.size() - 1, i + 1)) = norm_r_outer;
     error                                              = norm_r_outer / norm_b;
 
