@@ -219,10 +219,8 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   {
     H5Easy::dump(file, "gmres" + std::to_string(i) + "_err",
                  pde.gmres_outputs[i].error, opts);
-    H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_outer",
-                 pde.gmres_outputs[i].outer_iter, opts);
-    H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_inner",
-                 pde.gmres_outputs[i].inner_iter, opts);
+    H5Easy::dump(file, "gmres" + std::to_string(i) + "_num_total",
+                 pde.gmres_outputs[i].total_iter, opts);
   }
 
   H5Easy::dump(file, "do_adapt", cli_input.do_adapt_levels());
@@ -256,29 +254,24 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     size_t num_gmres_calls = pde.gmres_outputs.size();
     size_t num_adapt_steps = pde.adapt_info.gmres_stats.size();
     std::vector<std::vector<P>> step_errors(num_gmres_calls);
-    std::vector<std::vector<int>> step_num_inner(num_gmres_calls);
-    std::vector<std::vector<int>> step_num_outer(num_gmres_calls);
+    std::vector<std::vector<int>> step_num_total(num_gmres_calls);
 
     for (size_t gmres = 0; gmres < num_gmres_calls; gmres++)
     {
       step_errors[gmres].resize(num_adapt_steps);
-      step_num_inner[gmres].resize(num_adapt_steps);
-      step_num_outer[gmres].resize(num_adapt_steps);
+      step_num_total[gmres].resize(num_adapt_steps);
       // Combine stats for all steps into a single array
       for (size_t step = 0; step < num_adapt_steps; step++)
       {
         step_errors[gmres][step] =
             pde.adapt_info.gmres_stats[step][gmres].error;
-        step_num_inner[gmres][step] =
-            pde.adapt_info.gmres_stats[step][gmres].inner_iter;
-        step_num_outer[gmres][step] =
-            pde.adapt_info.gmres_stats[step][gmres].outer_iter;
+        step_num_total[gmres][step] =
+            pde.adapt_info.gmres_stats[step][gmres].total_iter;
       }
 
       std::string const prefix = "adapt_gmres" + std::to_string(gmres);
       H5Easy::dump(file, prefix + "_err", step_errors[gmres]);
-      H5Easy::dump(file, prefix + "_num_inner", step_num_inner[gmres]);
-      H5Easy::dump(file, prefix + "_num_outer", step_num_outer[gmres]);
+      H5Easy::dump(file, prefix + "_num_total", step_num_total[gmres]);
     }
   }
 
