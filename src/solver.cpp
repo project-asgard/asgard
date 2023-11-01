@@ -187,7 +187,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
       {
 #ifdef ASGARD_USE_CUDA
         static_assert(resrc == resource::device);
-        auto coeffs_d = coeffs.clone_onto_device();
+        fk::vector<P, mem_type::owner, resrc> coeffs_d(coeffs.size());
         fm::gemv(basis_v, new_basis, coeffs_d, true, P{1.0}, P{0.0});
         fm::gemv(basis_v, coeffs_d, new_basis, false, P{-1.0}, P{1.0});
         fk::copy_vector(coeffs, coeffs_d);
