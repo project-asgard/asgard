@@ -15,11 +15,10 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
              fk::matrix<P> const &M, int const restart, int const max_iter,
              P const tolerance)
 {
-  auto dense_matrix_wrapper = [&A](fk::vector<P, mem_type::view> const x_in,
-                                   fk::vector<P> &y, P const alpha = 1.0,
-                                   P const beta = 0.0) {
-    bool const trans_A = false;
-    fm::gemv(A, x_in, y, trans_A, alpha, beta);
+  auto dense_matrix_wrapper = [&A](P const alpha,
+                                   fk::vector<P, mem_type::view> const x_in,
+                                   P const beta, fk::vector<P> &y) {
+    fm::gemv(A, x_in, y, false, alpha, beta);
   };
   return simple_gmres(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x), b,
                       M, restart, max_iter, tolerance);
@@ -33,13 +32,11 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    int const restart, int const max_iter, P const tolerance)
 {
   return simple_gmres(
-      [&](fk::vector<P, mem_type::view, resrc> const x_in,
-          fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
-          P const beta) -> void {
+      [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
+          P const beta, fk::vector<P, mem_type::owner, resrc> &y) -> void {
         tools::time_event performance("kronmult - implicit", mat.flops());
         mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
-        int one = 1, n = y.size();
-        lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
+        lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
       },
       fk::vector<P, mem_type::view, resrc>(x), b, fk::matrix<P>(), restart,
       max_iter, tolerance);
@@ -111,10 +108,8 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
   auto const compute_residual =
       [&b, &x, do_precond, precond_factored, &precond, &precond_pivots, &mat,
        norm_b](fk::vector<P, mem_type::owner, resrc> &res) {
-        P const alpha = -1.0;
-        P const beta  = 1.0;
-        res           = b;
-        mat(x, res, alpha, beta);
+        res = b;
+        mat(P{-1.}, x, P{1.}, res);
         if (do_precond)
         {
           if constexpr (resrc == resource::device)
@@ -136,12 +131,10 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
         }
       };
 
-  auto const done = [](P const error, int const outer_iters,
-                       int const inner_iters) -> gmres_info<P> {
+  auto const done = [](P const error, int const total_iters) -> gmres_info<P> {
     std::cout << "GMRES complete with error: " << error << '\n';
-    std::cout << outer_iters << " outer iterations, " << inner_iters
-              << " inner iterations\n";
-    return gmres_info<P>{error, outer_iters, inner_iters};
+    std::cout << total_iters << " iterations\n";
+    return gmres_info<P>{error, total_iters};
   };
 
   fk::matrix<P, mem_type::owner, resrc> basis(n, restart + 1);
@@ -168,7 +161,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
       fk::vector<P, mem_type::view, resrc> const tmp(basis, i, 0,
                                                      basis.nrows() - 1);
       fk::vector<P, mem_type::owner, resrc> new_basis(tmp.size());
-      mat(tmp, new_basis, P{1.0}, P{0.0});
+      mat(P{1.0}, tmp, P{0.0}, new_basis);
 
       if (do_precond)
       {
@@ -246,7 +239,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
 
     if (error <= tolerance)
     {
-      return done(error, it, i); // all done!
+      return done(error, it * restart + i); // all done!
     }
 
     auto proj = fk::vector<P, mem_type::view>(
@@ -267,11 +260,10 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
 
     if (error <= tolerance)
     {
-      return done(error, it, i);
+      return done(error, it * restart + i);
     }
   } // end outer iteration
-
-  return done(error, it, i);
+  return done(error, it * restart + i);
 }
 
 template<typename P>
