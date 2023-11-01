@@ -8,6 +8,44 @@
 
 namespace asgard::solver
 {
+template<typename P>
+class dense_preconditioner
+{
+public:
+  dense_preconditioner(fk::matrix<P> const &M)
+      : precond(M), precond_pivots(M.ncols())
+  {
+    expect(static_cast<size_t>(M.ncols()) == precond_pivots.size());
+    expect(static_cast<size_t>(M.nrows()) == precond_pivots.size());
+    fm::getrf(precond, precond_pivots);
+  }
+  void operator()(fk::vector<P, mem_type::owner, resource::host> &b_h) const
+  {
+    fm::getrs(precond, b_h, precond_pivots);
+  }
+#ifdef ASGARD_USE_CUDA
+  void operator()(fk::vector<P, mem_type::owner, resource::device> &b_d) const
+  {
+    auto b_h = b_d.clone_onto_host();
+    fm::getrs(precond, b_h, precond_pivots);
+    fk::copy_vector(b_d, b_h);
+  }
+#endif
+private:
+  fk::matrix<P> precond;
+  std::vector<int> precond_pivots;
+};
+
+template<typename P>
+class no_op_preconditioner
+{
+public:
+  void operator()(fk::vector<P, mem_type::owner, resource::host> &) const {}
+#ifdef ASGARD_USE_CUDA
+  void operator()(fk::vector<P, mem_type::owner, resource::device> &) const {}
+#endif
+};
+
 // simple, node-local test version
 template<typename P>
 gmres_info<P>
@@ -20,8 +58,14 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                                    P const beta, fk::vector<P> &y) {
     fm::gemv(A, x_in, y, false, alpha, beta);
   };
-  return simple_gmres(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x), b,
-                      M, restart, max_iter, tolerance);
+  if (M.size() > 0)
+    return simple_gmres(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x),
+                        b, dense_preconditioner(M), restart, max_iter,
+                        tolerance);
+  else
+    return simple_gmres(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x),
+                        b, no_op_preconditioner<P>(), restart, max_iter,
+                        tolerance);
 }
 
 template<typename P, resource resrc>
@@ -38,8 +82,8 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
         mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
       },
-      fk::vector<P, mem_type::view, resrc>(x), b, fk::matrix<P>(), restart,
-      max_iter, tolerance);
+      fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
+      restart, max_iter, tolerance);
 }
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
@@ -60,27 +104,19 @@ int default_gmres_restarts(int num_cols)
 static int pos_from_indices(int i, int j) { return i + j * (j + 1) / 2; }
 
 // simple, node-local test version
-template<typename P, typename matrix_abstraction, resource resrc>
+template<typename P, resource resrc, typename matrix_abstraction,
+         typename preconditioner_abstraction>
 gmres_info<P>
 simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
              fk::vector<P, mem_type::owner, resrc> const &b,
-             fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
+             preconditioner_abstraction precondition, int restart, int max_iter,
+             P tolerance)
 {
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
   expect(tolerance >= std::numeric_limits<P>::epsilon());
   int const n = b.size();
   expect(n == x.size());
-
-  bool const do_precond = M.size() > 0;
-  fk::matrix<P> precond(M);
-  std::vector<int> precond_pivots(n);
-  if (do_precond)
-  {
-    expect(M.ncols() == n);
-    expect(M.nrows() == n);
-    fm::getrf(precond, precond_pivots);
-  }
 
   if (restart == parser::NO_USER_VALUE)
     restart = default_gmres_restarts<P>(n);
@@ -106,32 +142,17 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 
   fk::vector<P, mem_type::owner, resrc> residual(b);
   auto const compute_residual =
-      [&b, &x, do_precond, &precond, &precond_pivots,
+      [&b, &x, &precondition,
        &mat](fk::vector<P, mem_type::owner, resrc> &res) {
         res = b;
         mat(P{-1.}, x, P{1.}, res);
-        if (do_precond)
-        {
-          if constexpr (resrc == resource::device)
-          {
-#ifdef ASGARD_USE_CUDA
-            static_assert(resrc == resource::device);
-            auto res_h = res.clone_onto_host();
-            fm::getrs(precond, res_h, precond_pivots);
-            fk::copy_vector(res, res_h);
-#endif
-          }
-          else if constexpr (resrc == resource::host)
-          {
-            fm::getrs(precond, res, precond_pivots);
-          }
-        }
+        precondition(res);
       };
 
-  auto const done = [](P const error, int const total_iters) -> gmres_info<P> {
+  auto const done = [](P const error, int const iterations) -> gmres_info<P> {
     std::cout << "GMRES complete with error: " << error << '\n';
-    std::cout << total_iters << " iterations\n";
-    return gmres_info<P>{error, total_iters};
+    std::cout << iterations << " iterations\n";
+    return gmres_info<P>{error, iterations};
   };
 
   fk::matrix<P, mem_type::owner, resrc> basis(n, restart + 1);
@@ -160,23 +181,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
       fk::vector<P, mem_type::owner, resrc> new_basis(tmp.size());
       mat(P{1.0}, tmp, P{0.0}, new_basis);
 
-      if (do_precond)
-      {
-        if constexpr (resrc == resource::device)
-        {
-#ifdef ASGARD_USE_CUDA
-          static_assert(resrc == resource::device);
-          auto new_basis_h = new_basis.clone_onto_host();
-          fm::getrs(precond, new_basis_h, precond_pivots);
-          fk::copy_vector(new_basis, new_basis_h);
-#endif
-        }
-        else if constexpr (resrc == resource::host)
-        {
-          fm::getrs(precond, new_basis, precond_pivots);
-        }
-      }
-
+      precondition(new_basis);
       fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0, i);
       fk::vector<P, mem_type::view> coeffs(krylov_proj, pos_from_indices(0, i),
                                            pos_from_indices(i, i));
