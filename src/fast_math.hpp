@@ -370,7 +370,7 @@ void getrf(fk::matrix<P, amem> &A, std::vector<int> &ipiv)
 //
 template<typename P, mem_type amem, mem_type bmem>
 void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
-           std::vector<int> &ipiv)
+           std::vector<int> const &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
