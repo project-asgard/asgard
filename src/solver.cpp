@@ -106,8 +106,8 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
 
   fk::vector<P, mem_type::owner, resrc> residual(b);
   auto const compute_residual =
-      [&b, &x, do_precond, precond_factored, &precond, &precond_pivots, &mat,
-       norm_b](fk::vector<P, mem_type::owner, resrc> &res) {
+      [&b, &x, do_precond, &precond_factored, &precond, &precond_pivots,
+       &mat](fk::vector<P, mem_type::owner, resrc> &res) {
         res = b;
         mat(P{-1.}, x, P{1.}, res);
         if (do_precond)
@@ -116,10 +116,10 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
           {
 #ifdef ASGARD_USE_CUDA
             static_assert(resrc == resource::device);
-            auto res = residual.clone_onto_host();
-            precond_factored ? fm::getrs(precond, res, precond_pivots)
-                             : fm::gesv(precond, res, precond_pivots);
-            fk::copy_vector(residual, res);
+            auto res_h = res.clone_onto_host();
+            precond_factored ? fm::getrs(precond, res_h, precond_pivots)
+                             : fm::gesv(precond, res_h, precond_pivots);
+            fk::copy_vector(res, res_h);
             precond_factored = true;
 #endif
           }
@@ -142,8 +142,8 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
   fk::vector<P> sines(restart + 1);
   fk::vector<P> cosines(restart + 1);
 
-  int it = 0;
-  int i  = 0;
+  int it  = 0;
+  int i   = 0;
   P error = 0.;
   for (; it < max_iter; ++it)
   {
