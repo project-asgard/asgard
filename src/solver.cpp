@@ -60,9 +60,9 @@ int default_gmres_restarts(int num_cols)
 static int pos_from_indices(int i, int j) { return i + j * (j + 1) / 2; }
 
 // simple, node-local test version
-template<typename P, typename matrix_replacement, resource resrc>
+template<typename P, typename matrix_abstraction, resource resrc>
 gmres_info<P>
-simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
+simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
              fk::vector<P, mem_type::owner, resrc> const &b,
              fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
 {
@@ -73,14 +73,14 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
   expect(n == x.size());
 
   bool const do_precond = M.size() > 0;
+  fk::matrix<P> precond(M);
   std::vector<int> precond_pivots(n);
   if (do_precond)
   {
     expect(M.ncols() == n);
     expect(M.nrows() == n);
+    fm::getrf(precond, precond_pivots);
   }
-  fk::matrix<P> precond(M);
-  bool precond_factored = false;
 
   if (restart == parser::NO_USER_VALUE)
     restart = default_gmres_restarts<P>(n);
@@ -106,7 +106,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
 
   fk::vector<P, mem_type::owner, resrc> residual(b);
   auto const compute_residual =
-      [&b, &x, do_precond, &precond_factored, &precond, &precond_pivots,
+      [&b, &x, do_precond, &precond, &precond_pivots,
        &mat](fk::vector<P, mem_type::owner, resrc> &res) {
         res = b;
         mat(P{-1.}, x, P{1.}, res);
@@ -117,16 +117,13 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::view, resrc> x,
 #ifdef ASGARD_USE_CUDA
             static_assert(resrc == resource::device);
             auto res_h = res.clone_onto_host();
-            precond_factored ? fm::getrs(precond, res_h, precond_pivots)
-                             : fm::gesv(precond, res_h, precond_pivots);
+            fm::getrs(precond, res_h, precond_pivots);
             fk::copy_vector(res, res_h);
-            precond_factored = true;
 #endif
           }
           else if constexpr (resrc == resource::host)
           {
-            precond_factored ? fm::getrs(precond, res, precond_pivots)
-                             : fm::gesv(precond, res, precond_pivots);
+            fm::getrs(precond, res, precond_pivots);
           }
         }
       };

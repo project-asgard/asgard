@@ -335,6 +335,31 @@ void gesv(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
 }
 #endif
 
+// getrf - Computes the LU factorization of a general m-by-n matrix.
+template<typename P, mem_type amem>
+void getrf(fk::matrix<P, amem> &A, std::vector<int> &ipiv)
+{
+  int rows_ipiv = ipiv.size();
+  expect(rows_ipiv == std::max(1, std::min(A.nrows(), A.ncols())));
+  int info = lib_dispatch::getrf(A.nrows(), A.ncols(), A.data(), A.stride(),
+                                 ipiv.data());
+  if (info != 0)
+  {
+    if (info < 0)
+    {
+      std::cout << "The " << -info << "-th parameter had an illegal value!\n";
+    }
+    else
+    {
+      std::cout << "The diagonal element of the triangular factor of A,\n";
+      std::cout << "U(" << info << ',' << info
+                << ") is zero, so that A is singular;\n";
+      std::cout << "the solution could not be computed.\n";
+    }
+    exit(1);
+  }
+}
+
 // getrs - Solve Ax=B using LU factorization
 // A is assumed to have already beem factored using a
 // previous call to gesv() or getrf() where ipiv is
@@ -368,6 +393,7 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
     printf("Argument %d in call to getrs() has an illegal value\n", -info);
     exit(1);
   }
+  expect(info == 0);
 }
 
 /** pttrf - computes the L*D*L**T factorization of a real symmetric positive
