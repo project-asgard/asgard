@@ -15,7 +15,6 @@ public:
   dense_preconditioner(fk::matrix<P> const &M)
       : precond(M), precond_pivots(M.ncols())
   {
-    expect(static_cast<size_t>(M.ncols()) == precond_pivots.size());
     expect(static_cast<size_t>(M.nrows()) == precond_pivots.size());
     fm::getrf(precond, precond_pivots);
   }
