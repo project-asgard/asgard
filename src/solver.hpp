@@ -5,6 +5,7 @@
 #include "asgard_vector.hpp"
 #include "batch.hpp"
 #include "pde.hpp"
+#include "preconditioner.hpp"
 
 namespace asgard::solver
 {
@@ -13,6 +14,9 @@ enum class poisson_bc
   dirichlet,
   periodic
 };
+
+template<typename P>
+using preconditioner_func = std::function<fk::matrix<P>(int const)>;
 
 // simple, node-local test version of gmres
 template<typename P>
@@ -28,6 +32,16 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    fk::vector<P, mem_type::owner, resrc> &x,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance);
+
+// solves ( I - dt * mat ) * x = b
+template<typename P, resource resrc>
+gmres_info<P>
+simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
+                           fk::vector<P, mem_type::owner, resrc> &x,
+                           fk::vector<P, mem_type::owner, resrc> const &b,
+                           preconditioner::preconditioner<P, resrc> &precond,
+                           int const restart, int const max_iter,
+                           P const tolerance);
 
 template<typename P>
 int default_gmres_restarts(int num_cols);

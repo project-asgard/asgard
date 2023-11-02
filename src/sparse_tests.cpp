@@ -158,3 +158,24 @@ TEMPLATE_TEST_CASE("fk::sparse interface: constructors, copy/move", "[sparse]",
     REQUIRE((test == sp_mat_gold));
   }
 } // end fk::sparse constructors, copy/move
+
+TEMPLATE_TEST_CASE("sparse ilu", "[ilu]", double)
+{
+  fk::matrix<TestType> diag = eye<TestType>(5) * 0.5;
+  diag.print("initial diag");
+
+  diag(0, 1) = 0.1;
+  diag(0, 2) = 0.2;
+  diag(1, 3) = -0.2;
+  diag(2, 4) = 0.4;
+  diag(3, 1) = 0.2;
+  diag(4, 2) = -0.4;
+
+  diag.print(" Final matrix");
+
+  fk::sparse<TestType> sp_diag(diag);
+
+  fm::ilu(sp_diag, diag);
+
+  diag.print("ILU");
+}

@@ -340,6 +340,249 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 }
 
 template<typename P>
+void write_gmres_temp(PDE<P> const &pde, parser const &cli_input,
+                      kronmult_matrix<P> const &mat, fk::vector<P> &x,
+                      fk::vector<P> const &b,
+                      preconditioner::preconditioner<P> *precond, P const dt,
+                      P const time, int const file_index, int const dof,
+                      elements::table const &hash_table,
+                      std::string const output_dataset_name = "gmres_data")
+{
+  tools::timer.start("write_output");
+  std::string const output_file_name =
+      output_dataset_name + "_" + std::to_string(file_index) + ".h5";
+
+  std::cout << " starting to write GMRES data.." << std::endl;
+
+  // Construct Matrix A by calling kronmult with identity to back-out the A
+  // matrix one column at a time
+  fk::matrix<P> A(dof, dof);
+  fk::vector<P> kron_x(dof);
+  fk::vector<P> kron_y(dof);
+  for (int col = 0; col < dof; col++)
+  {
+    // set current row to identity
+    kron_x(col) = 1.0;
+    if (col > 0)
+    {
+      // flip prev row value back to 0.
+      kron_x(col - 1) = 0.0;
+    }
+
+    mat.apply(P{1.0}, kron_x.data(), P{0.0}, kron_y.data());
+    A.update_col(col, kron_y);
+  }
+
+  // Calculate (I - dt*A)
+  fm::scal(-dt, A);
+  for (int col = 0; col < dof; col++)
+  {
+    A(col, col) += 1.0;
+  }
+
+  // fk::matrix<P> precond_M = precond->get_matrix();
+
+  std::cout << " WRITING OUTPUT FILE '" << output_file_name << "'" << std::endl;
+
+  // TODO: Rewrite this entirely!
+  HighFive::File file(output_file_name, HighFive::File::ReadWrite |
+                                            HighFive::File::Create |
+                                            HighFive::File::Truncate);
+
+  H5Easy::DumpOptions opts;
+  opts.setChunkSize(std::vector<hsize_t>{2});
+
+  HighFive::DataSetCreateProps plist;
+  plist.add(HighFive::Chunking(hsize_t{64}));
+  plist.add(HighFive::Deflate(9));
+
+  HighFive::DataSetCreateProps plist_2d;
+  plist_2d.add(HighFive::Chunking({hsize_t{8}, hsize_t{8}}));
+  plist_2d.add(HighFive::Deflate(9));
+
+  H5Easy::dump(file, "pde", cli_input.get_pde_string());
+  H5Easy::dump(file, "degree", cli_input.get_degree());
+  H5Easy::dump(file, "dt", cli_input.get_dt());
+  H5Easy::dump(file, "time", time);
+  H5Easy::dump(file, "dof", dof);
+  H5Easy::dump(file, "max_level", pde.max_level);
+
+  // initial guess (x) of GMRES
+  file.createDataSet<P>(
+          "x", HighFive::DataSpace({static_cast<size_t>(x.size())}), plist)
+      .write_raw(x.data());
+  // RHS (b) of GMRES
+  file.createDataSet<P>(
+          "b", HighFive::DataSpace({static_cast<size_t>(b.size())}), plist)
+      .write_raw(b.data());
+
+  // (I - dt*A)
+  file.createDataSet<P>("A",
+                        HighFive::DataSpace({static_cast<size_t>(dof),
+                                             static_cast<size_t>(dof)}),
+                        plist_2d)
+      .write_raw(A.data());
+
+  // Get preconditioner M matrix
+  // If block jacobi, M matrix is stored as a vector of (degree^ndims,
+  // degree^ndims) matrix blocks
+  auto precond_jacobi =
+      dynamic_cast<preconditioner::block_jacobi_preconditioner<P> *>(precond);
+  if (precond_jacobi)
+  {
+    // get preconditioner matrix M
+    std::vector<fk::matrix<P>> &blocks = precond_jacobi->precond_blks;
+    size_t nblocks                     = blocks.size();
+    int block_size                     = blocks[0].nrows();
+
+    H5Easy::dump(file, "M_nblocks", nblocks);
+    H5Easy::dump(file, "M_block_size", block_size);
+    H5Easy::dump(file, "M_factored", precond_jacobi->factored());
+
+    // TODO: this is a hackish way to implement all of this.. can be done better
+    auto row_dset = file.createDataSet<int>(
+        "M_rows",
+        HighFive::DataSpace(
+            {static_cast<size_t>(nblocks * block_size * block_size)}),
+        plist);
+    auto col_dset = file.createDataSet<int>(
+        "M_cols",
+        HighFive::DataSpace(
+            {static_cast<size_t>(nblocks * block_size * block_size)}),
+        plist);
+    auto val_dset = file.createDataSet<P>(
+        "M_vals",
+        HighFive::DataSpace(
+            {static_cast<size_t>(nblocks * block_size * block_size)}),
+        plist);
+
+    fk::vector<int> rows(block_size * block_size);
+    fk::vector<int> cols(block_size * block_size);
+
+    // col major to match fk::matrix layout
+    for (int col = 0; col < block_size; col++)
+    {
+      for (int row = 0; row < block_size; row++)
+      {
+        rows[col * block_size + row] = row;
+        cols[col * block_size + row] = col;
+      }
+    }
+
+    // for each block, write the values based on the (row,col) tuples. Add
+    // offset to block index vectors for next block
+    for (size_t blk = 0; blk < nblocks; blk++)
+    {
+      auto &block = blocks[blk];
+
+      size_t block_offset = blk * block_size;
+
+      row_dset
+          .select({block_offset},
+                  {static_cast<size_t>(block_size * block_size)})
+          .write_raw(rows.data());
+      col_dset
+          .select({block_offset},
+                  {static_cast<size_t>(block_size * block_size)})
+          .write_raw(cols.data());
+      val_dset
+          .select({block_offset},
+                  {static_cast<size_t>(block_size * block_size)})
+          .write_raw(block.data());
+
+      // shift col, row indices by block offset
+      // TODO: no element wise operator defined?
+      // rows = rows + block_size;
+      // cols = cols + block_size;
+      for (int col = 0; col < block_size; col++)
+      {
+        for (int row = 0; row < block_size; row++)
+        {
+          rows[col * block_size + row] = row + block_offset;
+          cols[col * block_size + row] = col + block_offset;
+        }
+      }
+    }
+  }
+  // else
+  //{
+  //  others store as dense M.
+  fk::matrix<P> precond_M = precond->get_matrix();
+  file.createDataSet<P>("M",
+                        HighFive::DataSpace({static_cast<size_t>(dof),
+                                             static_cast<size_t>(dof)}),
+                        plist_2d)
+      .write_raw(precond_M.data());
+  //}
+
+  auto &elements = hash_table.get_active_table();
+  file.createDataSet<int>(
+          "elements",
+          HighFive::DataSpace({static_cast<size_t>(elements.size())}), plist)
+      .write_raw(elements.data());
+
+  // save the term coefficient matrices
+  auto coeff_group = file.createGroup("coeffs");
+  for (int term = 0; term < pde.num_terms; term++)
+  {
+    auto term_group = coeff_group.createGroup("term" + std::to_string(term));
+
+    for (int dim = 0; dim < pde.num_dims; dim++)
+    {
+      term_group
+          .createDataSet<P>(
+              "dim" + std::to_string(dim),
+              HighFive::DataSpace(
+                  {static_cast<size_t>(pde.get_coefficients(term, dim).nrows()),
+                   static_cast<size_t>(
+                       pde.get_coefficients(term, dim).ncols())}),
+              plist_2d)
+          .write_raw(pde.get_coefficients(term, dim).data());
+    }
+  }
+
+  HighFive::DataSetCreateProps plist_pterm;
+  plist_pterm.add(HighFive::Chunking({hsize_t{2}, hsize_t{2}}));
+  plist_pterm.add(HighFive::Deflate(9));
+
+  // save the partial term coefficient matrices
+  auto pterm_coeff_group = file.createGroup("pterm_coeffs");
+  auto term_set          = pde.get_terms();
+  for (int term = 0; term < pde.num_terms; term++)
+  {
+    auto term_group =
+        pterm_coeff_group.createGroup("term" + std::to_string(term));
+
+    for (int dim = 0; dim < pde.num_dims; dim++)
+    {
+      int const level = pde.get_dimensions()[dim].get_level();
+
+      auto dim_group = term_group.createGroup("dim" + std::to_string(dim));
+
+      auto &pterms = term_set[term][dim].get_partial_terms();
+      for (size_t pterm = 0; pterm < pterms.size(); pterm++)
+      {
+        dim_group
+            .createDataSet<P>(
+                "pterm" + std::to_string(pterm),
+                HighFive::DataSpace(
+                    {static_cast<size_t>(
+                         pterms[pterm].get_coefficients(level).nrows()),
+                     static_cast<size_t>(
+                         pterms[pterm].get_coefficients(level).ncols())}),
+                plist_pterm)
+            .write_raw(pterms[pterm].get_coefficients(level).data());
+      }
+    }
+  }
+
+  file.flush();
+  tools::timer.stop("write_output");
+
+  std::cout << " DONE FILE WRITE" << std::endl;
+}
+
+template<typename P>
 void read_restart_metadata(parser &user_vals, std::string const &restart_file)
 {
   std::cout << "--- Reading metadata from restart file '" << restart_file

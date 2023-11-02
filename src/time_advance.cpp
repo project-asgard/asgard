@@ -6,6 +6,10 @@
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "fast_math.hpp"
+#ifdef ASGARD_IO_HIGHFIVE
+#include "io.hpp"
+#endif
+#include "preconditioner.hpp"
 #include "solver.hpp"
 #include "tools.hpp"
 #ifdef ASGARD_USE_SCALAPACK
@@ -530,6 +534,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 #endif
 
+  auto precond = preconditioner::block_jacobi_preconditioner<P, imex_resrc>();
+
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
   if (first_time || update_system)
@@ -816,6 +822,18 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // Create rho_1s
   calculate_moments(f);
 
+  /*
+  #ifdef ASGARD_IO_HIGHFIVE
+    if (pde.cli.get_wavelet_output_freq() > 0)
+    {
+      int const step_index = (int)(time / dt);
+      asgard::write_output(pde, pde.cli, x.clone_onto_host(), time, step_index,
+                           x.size(), adaptive_grid.get_table(),
+                           "asgard_wavelet_ex1");
+    }
+  #endif
+  */
+
   // Implicit step f_1: f_1 - dt B f_1 = f_1s
   P const tolerance  = program_opts.gmres_tolerance;
   int const restart  = program_opts.gmres_inner_iterations;
@@ -847,9 +865,45 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_1 = x_prev;
       }
     }
-    pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_1, f,
-        restart, max_iter, tolerance);
+    if (program_opts.use_precond)
+    {
+      auto id = asgard::tools::timer.start("precond setup");
+      precond.construct(pde, adaptive_grid.get_table(), f.size(), dt,
+                        imex_flag::imex_implicit);
+      asgard::tools::timer.stop(id);
+
+      /*
+#ifdef ASGARD_IO_HIGHFIVE
+      if (pde.cli.get_wavelet_output_freq() > 0)
+      {
+        int const step_index = (int)(time / dt);
+
+        // write GMRES info for debugging:
+        // saves x, b, M, and (I - dt*A) to file
+        asgard::write_gmres_temp(
+            pde, pde.cli, operator_matrices[matrix_entry::imex_implicit], f_2,
+            x, &precond, dt, time, step_index, x.size(),
+            adaptive_grid.get_table(), "gmres_data_implicit");
+
+        asgard::write_gmres_temp(
+            pde, pde.cli, operator_matrices[matrix_entry::imex_explicit], f_2,
+            x, &precond, dt, time, step_index, x.size(),
+            adaptive_grid.get_table(), "gmres_data_explicit");
+      }
+#endif
+      */
+
+      pde.gmres_outputs[0] = solver::simple_gmres_euler_precond(
+          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_1, f,
+          precond, restart, max_iter, tolerance);
+    }
+    else
+    {
+      pde.gmres_outputs[0] = solver::simple_gmres_euler(
+          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_1, f,
+          restart, max_iter, tolerance);
+    }
+
     // save output of GMRES call to use in the second one
     f_1_output = f_1;
   }
@@ -935,9 +989,23 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
-    pde.gmres_outputs[1] = solver::simple_gmres_euler(
-        P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-        f_2, f, restart, max_iter, tolerance);
+    if (program_opts.use_precond)
+    {
+      auto id = asgard::tools::timer.start("precond setup");
+      precond.construct(pde, adaptive_grid.get_table(), f.size(), P{0.5} * dt,
+                        imex_flag::imex_implicit);
+      asgard::tools::timer.stop(id);
+
+      pde.gmres_outputs[1] = solver::simple_gmres_euler_precond(
+          P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+          f_2, f, precond, restart, max_iter, tolerance);
+    }
+    else
+    {
+      pde.gmres_outputs[1] = solver::simple_gmres_euler(
+          P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+          f_2, f, restart, max_iter, tolerance);
+    }
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)

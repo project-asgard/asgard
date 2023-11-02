@@ -226,21 +226,119 @@ void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
   int lda = A.stride();
   int ldb = B.size();
 
-  int info = lib_dispatch::gesv(rows_A, cols_B, A.data(), lda, ipiv.data(),
-                                B.data(), ldb);
-  if (info < 0)
+  int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
+                                                ipiv.data(), B.data(), ldb);
+  if (info != 0)
   {
-    throw std::runtime_error(
-        std::string("Argument " + std::to_string(info) +
-                    " in call to gesv() has an illegal value\n"));
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
   }
-  else if (info > 0)
+}
+
+/** gesv - Solve Ax=B using LU decomposition
+ *
+ * \param A  n-by-n coefficient matrix
+ * \param B  n-by-1 right hand side matrix
+ * \param ipiv pivot indices, size >= max(1, n)
+ */
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void gesv(fk::matrix<P, amem, resrc> &A, fk::vector<P, bmem, resrc> &B,
+          fk::vector<int64_t, amem, resrc> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.size();
+  int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv >= rows_A);
+
+  int lda = A.stride();
+  int ldb = B.size();
+
+  static_assert(resrc == resource::device);
+  int info = lib_dispatch::gesv<resource::device>(rows_A, cols_B, A.data(), lda,
+                                                  ipiv.data(), B.data(), ldb);
+
+  if (info != 0)
   {
-    std::ostringstream msg;
-    msg << "The diagonal element of the triangular factor of A,\n";
-    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
-    msg << "the solution could not be computed.\n";
-    throw std::runtime_error(msg.str());
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
+  }
+}
+
+/** gesv - Solve Ax=B using LU decomposition
+ *
+ * \param A  n-by-n coefficient matrix
+ * \param B  n-by-1 right hand side matrix
+ * \param ipiv pivot indices, size >= max(1, n)
+ */
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void gesv(fk::matrix<P, amem, resrc> &A, fk::vector<P, bmem, resrc> &B,
+          fk::vector<int, amem, resrc> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.size();
+  int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv >= rows_A);
+
+  int lda = A.stride();
+  int ldb = B.size();
+
+  static_assert(resrc == resource::host);
+  int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
+                                                ipiv.data(), B.data(), ldb);
+
+  if (info != 0)
+  {
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
   }
 }
 
@@ -267,21 +365,25 @@ void gesv(fk::matrix<P, amem> &A, fk::matrix<P, bmem> &B,
   int lda = A.stride();
   int ldb = B.stride();
 
-  int info = lib_dispatch::gesv(rows_A, cols_B, A.data(), lda, ipiv.data(),
-                                B.data(), ldb);
-  if (info < 0)
+  int info = lib_dispatch::gesv<resource::host>(rows_A, cols_B, A.data(), lda,
+                                                ipiv.data(), B.data(), ldb);
+  if (info != 0)
   {
-    throw std::runtime_error(
-        std::string("Argument " + std::to_string(info) +
-                    " in call to gesv() has an illegal value\n"));
-  }
-  else if (info > 0)
-  {
-    std::ostringstream msg;
-    msg << "The diagonal element of the triangular factor of A,\n";
-    msg << "U(" << info << "," << info << ") is zero, so that A is singular;\n";
-    msg << "the solution could not be computed.\n";
-    throw std::runtime_error(msg.str());
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
   }
 }
 
@@ -301,6 +403,53 @@ void tpsv(fk::vector<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
   expect(A.size() == rows_B * (rows_B + 1) / 2);
 
   lib_dispatch::tpsv<resrc>(uplo, trans, diag, rows_B, A.data(), B.data(), 1);
+}
+
+/** gesv - Solve Ax=B using LU decomposition
+ *
+ * \param A  n-by-n coefficient matrix
+ * \param B  n-by-nrhs right hand side matrix
+ * \param ipiv pivot indices, size >= max(1, n)
+ */
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void gesv(fk::matrix<P, amem, resrc> &A, fk::matrix<P, bmem, resrc> &B,
+          fk::vector<int64_t, amem, resrc> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.nrows();
+  int cols_B = B.ncols();
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv >= rows_A);
+
+  int lda = A.stride();
+  int ldb = B.stride();
+
+  static_assert(resrc == resource::device);
+  int info = lib_dispatch::gesv<resource::device>(rows_A, cols_B, A.data(), lda,
+                                                  ipiv.data(), B.data(), ldb);
+
+  if (info != 0)
+  {
+    if (info < 0)
+    {
+      throw std::runtime_error(
+          std::string("Argument " + std::to_string(info) +
+                      " in call to gesv() has an illegal value\n"));
+    }
+    else if (info > 0)
+    {
+      std::ostringstream msg;
+      msg << "The diagonal element of the triangular factor of A,\n";
+      msg << "U(" << info << "," << info
+          << ") is zero, so that A is singular;\n";
+      msg << "the solution could not be computed.\n";
+      throw std::runtime_error(msg.str());
+    }
+  }
 }
 
 #ifdef ASGARD_USE_SCALAPACK
@@ -345,7 +494,7 @@ void gesv(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
 //
 template<typename P, mem_type amem, mem_type bmem>
 void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
-           std::vector<int> &ipiv)
+           std::vector<int> const &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
@@ -361,11 +510,87 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
   int lda    = A.stride();
   int ldb    = B.size();
 
-  int info = lib_dispatch::getrs(trans, rows_A, cols_B, A.data(), lda,
-                                 ipiv.data(), B.data(), ldb);
+  int info = lib_dispatch::getrs<resource::host>(
+      trans, rows_A, cols_B, A.data(), lda, ipiv.data(), B.data(), ldb);
   if (info < 0)
   {
     printf("Argument %d in call to getrs() has an illegal value\n", -info);
+    exit(1);
+  }
+}
+
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void getrs(fk::matrix<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
+           fk::vector<int, amem, resrc> const &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.size();
+  int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv == rows_A);
+
+  char trans = 'N';
+  int lda    = A.stride();
+  int ldb    = B.size();
+
+  int info = lib_dispatch::getrs<resource::host>(
+      trans, rows_A, cols_B, A.data(), lda, ipiv.data(), B.data(), ldb);
+  if (info < 0)
+  {
+    printf("Argument %d in call to getrs() has an illegal value\n", -info);
+    exit(1);
+  }
+}
+
+template<typename P, mem_type amem, mem_type bmem, resource resrc>
+void getrs(fk::matrix<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
+           fk::vector<int64_t, amem, resrc> const &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_B = B.size();
+  int cols_B = 1;
+
+  int rows_ipiv = ipiv.size();
+  expect(cols_A == rows_B);
+  expect(rows_ipiv == rows_A);
+
+  char trans = 'N';
+  int lda    = A.stride();
+  int ldb    = B.size();
+
+  static_assert(resrc == resource::device);
+  int info;
+  info = lib_dispatch::getrs<resource::device>(trans, rows_A, cols_B, A.data(),
+                                               lda, ipiv.data(), B.data(), ldb);
+  if (info < 0)
+  {
+    printf("Argument %d in call to getrs() has an illegal value\n", -info);
+    exit(1);
+  }
+}
+
+template<typename P, mem_type mem, resource resrc>
+void getrf(fk::matrix<P, mem, resrc> &A, fk::vector<int, mem, resrc> &ipiv)
+{
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+
+  int rows_ipiv = ipiv.size();
+  expect(rows_ipiv == rows_A);
+
+  int lda = A.stride();
+
+  int info =
+      lib_dispatch::getrf<resrc>(rows_A, cols_A, A.data(), lda, ipiv.data());
+  if (info < 0)
+  {
+    printf("Argument %d in call to getrf() has an illegal value\n", -info);
     exit(1);
   }
 }
@@ -501,6 +726,23 @@ sparse_gemv(fk::sparse<P, resrc> const &A, fk::vector<P, xmem, resrc> const &x,
                                    x.data(), beta, y.data());
 
   return y;
+}
+
+template<typename P, mem_type mem, resource resrc>
+void ilu(fk::sparse<P, resrc> const &S, fk::matrix<P, mem, resrc> &A)
+{
+  auto tmp = S.to_dense();
+  expect(tmp.nrows() >= A.nrows());
+  expect(tmp.ncols() >= A.ncols());
+
+  A = tmp.extract_submatrix(0, 0, A.nrows(), A.ncols());
+
+  int rows_A = A.nrows();
+  int cols_A = A.ncols();
+  int lda    = A.stride();
+
+  lib_dispatch::sp_ilu<resrc>(rows_A, cols_A, A.data(), lda, S.data(),
+                              S.offsets(), S.columns(), S.nnz());
 }
 
 } // namespace asgard::fm

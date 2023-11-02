@@ -1,6 +1,7 @@
 #include "solver.hpp"
 #include "distribution.hpp"
 #include "fast_math.hpp"
+#include "preconditioner.hpp"
 #include "quadrature.hpp"
 #include "tools.hpp"
 #include <algorithm>
@@ -20,7 +21,8 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
     bool const trans_A = false;
     fm::gemv(A, x_in, y, trans_A, alpha, beta);
   };
-  return simple_gmres(dense_matrix_wrapper, x, b, M, restart, max_iter,
+  auto precond = preconditioner::preconditioner<P>(std::move(M));
+  return simple_gmres(dense_matrix_wrapper, x, b, precond, restart, max_iter,
                       tolerance);
 }
 
@@ -31,6 +33,31 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance)
 {
+  fk::matrix<P, mem_type::owner, resrc> precond_M =
+      fk::matrix<P, mem_type::owner, resrc>();
+  auto precond = preconditioner::preconditioner<P, resrc>(std::move(precond_M));
+  return simple_gmres(
+      [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
+          fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
+          P const beta) -> void {
+        auto const apply_id = tools::timer.start("kronmult - implicit");
+        mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
+        tools::timer.stop(apply_id, mat.flops());
+        int one = 1, n = y.size();
+        lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
+      },
+      x, b, precond, restart, max_iter, tolerance);
+}
+
+template<typename P, resource resrc>
+gmres_info<P>
+simple_gmres_euler_precond(const P dt, kronmult_matrix<P> const &mat,
+                           fk::vector<P, mem_type::owner, resrc> &x,
+                           fk::vector<P, mem_type::owner, resrc> const &b,
+                           preconditioner::preconditioner<P, resrc> &precond,
+                           int const restart, int const max_iter,
+                           P const tolerance)
+{
   return simple_gmres(
       [&](fk::vector<P, mem_type::owner, resrc> const &x_in,
           fk::vector<P, mem_type::owner, resrc> &y, P const alpha,
@@ -40,8 +67,9 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
         int one = 1, n = y.size();
         lib_dispatch::axpy<resrc>(n, alpha, x_in.data(), one, y.data(), one);
       },
-      x, b, fk::matrix<P>(), restart, max_iter, tolerance);
+      x, b, precond, restart, max_iter, tolerance);
 }
+
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
  * \returns default number of iterations before restart
@@ -61,11 +89,12 @@ int default_gmres_restarts(int num_cols)
 static int pos_from_indices(int i, int j) { return i + j * (j + 1) / 2; }
 
 // simple, node-local test version
-template<typename P, typename matrix_replacement, resource resrc>
+template<typename P, typename matrix_replacement,
+         typename preconditioner_operator, resource resrc>
 gmres_info<P>
 simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
              fk::vector<P, mem_type::owner, resrc> const &b,
-             fk::matrix<P> const &M, int restart, int max_iter, P tolerance)
+             preconditioner_operator &M, int restart, int max_iter, P tolerance)
 {
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -73,15 +102,7 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
   int const n = b.size();
   expect(n == x.size());
 
-  bool const do_precond = M.size() > 0;
-  std::vector<int> precond_pivots(n);
-  if (do_precond)
-  {
-    expect(M.ncols() == n);
-    expect(M.nrows() == n);
-  }
-  fk::matrix<P> precond(M);
-  bool precond_factored = false;
+  bool const do_precond = !M.empty();
 
   if (restart == parser::NO_USER_VALUE)
     restart = default_gmres_restarts<P>(n);
@@ -128,18 +149,12 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
       if constexpr (resrc == resource::device)
       {
 #ifdef ASGARD_USE_CUDA
-        static_assert(resrc == resource::device);
-        auto res = residual.clone_onto_host();
-        precond_factored ? fm::getrs(precond, res, precond_pivots)
-                         : fm::gesv(precond, res, precond_pivots);
-        fk::copy_vector(residual, res);
-        precond_factored = true;
+        M.apply_batched(residual);
 #endif
       }
       else if constexpr (resrc == resource::host)
       {
-        precond_factored ? fm::getrs(precond, residual, precond_pivots)
-                         : fm::gesv(precond, residual, precond_pivots);
+        M.apply(residual);
       }
     }
     return fm::nrm2(residual);
@@ -188,15 +203,12 @@ simple_gmres(matrix_replacement mat, fk::vector<P, mem_type::owner, resrc> &x,
         if constexpr (resrc == resource::device)
         {
 #ifdef ASGARD_USE_CUDA
-          static_assert(resrc == resource::device);
-          auto new_basis_h = new_basis.clone_onto_host();
-          fm::getrs(precond, new_basis_h, precond_pivots);
-          fk::copy_vector(new_basis, new_basis_h);
+          M.apply_batched(new_basis);
 #endif
         }
         else if constexpr (resrc == resource::host)
         {
-          fm::getrs(precond, new_basis, precond_pivots);
+          M.apply(new_basis);
         }
       }
 
@@ -419,6 +431,13 @@ simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
                    int const restart, int const max_iter,
                    double const tolerance);
 
+template gmres_info<double>
+simple_gmres_euler_precond(const double dt, kronmult_matrix<double> const &mat,
+                           fk::vector<double> &x, fk::vector<double> const &b,
+                           preconditioner::preconditioner<double> &precond,
+                           int const restart, int const max_iter,
+                           double const tolerance);
+
 template int default_gmres_restarts<double>(int num_cols);
 
 #ifdef ASGARD_USE_CUDA
@@ -427,7 +446,15 @@ template gmres_info<double> simple_gmres_euler(
     fk::vector<double, mem_type::owner, resource::device> &x,
     fk::vector<double, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, double const tolerance);
+
+template gmres_info<double> simple_gmres_euler_precond(
+    const double dt, kronmult_matrix<double> const &mat,
+    fk::vector<double, mem_type::owner, resource::device> &x,
+    fk::vector<double, mem_type::owner, resource::device> const &b,
+    preconditioner::preconditioner<double, resource::device> &precond,
+    int const restart, int const max_iter, double const tolerance);
 #endif
+
 template void setup_poisson(const int N_elements, double const x_min,
                             double const x_max, fk::vector<double> &diag,
                             fk::vector<double> &off_diag);
@@ -454,6 +481,13 @@ simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
                    int const restart, int const max_iter,
                    float const tolerance);
 
+template gmres_info<float>
+simple_gmres_euler_precond(const float dt, kronmult_matrix<float> const &mat,
+                           fk::vector<float> &x, fk::vector<float> const &b,
+                           preconditioner::preconditioner<float> &precond,
+                           int const restart, int const max_iter,
+                           float const tolerance);
+
 template int default_gmres_restarts<float>(int num_cols);
 
 #ifdef ASGARD_USE_CUDA
@@ -462,7 +496,15 @@ template gmres_info<float> simple_gmres_euler(
     fk::vector<float, mem_type::owner, resource::device> &x,
     fk::vector<float, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, float const tolerance);
+
+template gmres_info<float> simple_gmres_euler_precond(
+    const float dt, kronmult_matrix<float> const &mat,
+    fk::vector<float, mem_type::owner, resource::device> &x,
+    fk::vector<float, mem_type::owner, resource::device> const &b,
+    preconditioner::preconditioner<float, resource::device> &precond,
+    int const restart, int const max_iter, float const tolerance);
 #endif
+
 template void setup_poisson(const int N_elements, float const x_min,
                             float const x_max, fk::vector<float> &diag,
                             fk::vector<float> &off_diag);

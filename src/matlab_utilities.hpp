@@ -3,6 +3,7 @@
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
 #include "fast_math.hpp"
+#include "sparse.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <functional>
@@ -63,6 +64,9 @@ template<typename P>
 fk::matrix<P> eye(int const M = 1);
 template<typename P>
 fk::matrix<P> eye(int const M, int const N);
+
+template<typename P>
+fk::sparse<P> speye(int const M = 1);
 
 template<typename P>
 P polyval(fk::vector<P> const &p, P const x);

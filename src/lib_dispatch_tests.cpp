@@ -1269,6 +1269,40 @@ TEMPLATE_TEST_CASE("LU Routines", "[lib_dispatch]", test_precs)
     REQUIRE(info == 0);
     rmse_comparison(x, X1_gold, tol_factor);
   };
+
+#ifdef ASGARD_USE_CUDA
+  SECTION("gesv and getrs (device)")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> A_copy =
+        A_gold.clone_onto_device();
+    fk::vector<int64_t, mem_type::owner, resource::device> ipiv(A_copy.nrows());
+    fk::vector<TestType, mem_type::owner, resource::device> x =
+        B_gold.clone_onto_device();
+
+    int rows_A = A_copy.nrows();
+    int cols_B = 1;
+
+    int lda = A_copy.stride();
+    int ldb = x.size();
+
+    int info = lib_dispatch::gesv<resource::device>(
+        rows_A, cols_B, A_copy.data(), lda, ipiv.data(), x.data(), ldb);
+
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+
+    REQUIRE(info == 0);
+
+    rmse_comparison(A_copy.clone_onto_host(), LU_gold, tol_factor);
+    rmse_comparison(x.clone_onto_host(), X_gold, tol_factor);
+
+    x          = B1_gold.clone_onto_device();
+    char trans = 'N';
+    info       = lib_dispatch::getrs<resource::device>(
+        trans, rows_A, cols_B, A_copy.data(), lda, ipiv.data(), x.data(), ldb);
+    REQUIRE(info == 0);
+    rmse_comparison(x.clone_onto_host(), X1_gold, tol_factor);
+  }
+#endif
 }
 
 TEMPLATE_TEST_CASE("tpsv", "[lib_dispatch]", test_precs)

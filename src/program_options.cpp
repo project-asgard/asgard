@@ -88,7 +88,9 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(max_adapt_levels_str, "")["--max_adapt_levels"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
       clara::detail::Opt(restart_file, "filename")["--restart"](
-          "Load a HDF5 file to restart from");
+          "Load a HDF5 file to restart from") |
+      clara::detail::Opt(use_precond)["--precond"](
+          "Use a preconditioner for IMEX");
 
   auto result = cli.parse(clara::detail::Args(argc, argv));
   if (!result)
@@ -461,6 +463,7 @@ bool parser::using_full_grid() const { return use_full_grid; }
 bool parser::do_poisson_solve() const { return do_poisson; }
 bool parser::do_adapt_levels() const { return do_adapt; }
 bool parser::do_restart() const { return restart_file != NO_USER_VALUE_STR; }
+bool parser::using_precond() const { return use_precond; }
 
 fk::vector<int> parser::get_starting_levels() const { return starting_levels; }
 fk::vector<int> parser::get_active_terms() const { return active_terms; }
@@ -560,6 +563,9 @@ void parser_mod::set(parser &p, parser_option_entry entry, bool value)
     break;
   case use_imex_stepping:
     p.use_imex_stepping = value;
+    break;
+  case use_precond:
+    p.use_precond = value;
     break;
   default:
     throw std::runtime_error(

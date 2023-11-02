@@ -119,6 +119,15 @@ fk::matrix<P> eye(int const M, int const N)
   return id;
 }
 
+template<typename P>
+fk::sparse<P> speye(int const M)
+{
+  fk::vector<P> ones(M);
+  std::fill(ones.begin(), ones.end(), 1.0);
+  fk::sparse<P> sp_mat(std::move(ones));
+  return sp_mat;
+}
+
 //-----------------------------------------------------------------------------
 // C++ implementation of subset of matlab polyval
 // Function for evaluating a polynomial.
@@ -535,6 +544,7 @@ template fk::vector<double> linspace(double const start, double const end,
 
 template fk::matrix<double> eye(int const M = 1);
 template fk::matrix<double> eye(int const M, int const N);
+template fk::sparse<double> speye(int const M = 1);
 template double polyval(fk::vector<double> const &p, double const x);
 
 template double l2_norm(fk::vector<double> const &vec);
@@ -565,6 +575,7 @@ template fk::vector<float> linspace(float const start, float const end,
                                     unsigned int const num_elems = 100);
 
 template fk::matrix<float> eye(int const M = 1);
+template fk::sparse<float> speye(int const M = 1);
 template float polyval(fk::vector<float> const &p, float const x);
 template float l2_norm(fk::vector<float> const &vec);
 template float inf_norm(fk::vector<float> const &vec);
@@ -589,6 +600,7 @@ read_matrix_from_txt_file(std::filesystem::path const &);
 template fk::matrix<int> eye(int const M = 1);
 template fk::matrix<int> eye(int const M, int const N);
 template fk::matrix<float> eye(int const M, int const N);
+template fk::sparse<int> speye(int const M = 1);
 
 template int polyval(fk::vector<int> const &p, int const x);
 

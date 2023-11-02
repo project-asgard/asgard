@@ -1362,6 +1362,109 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   parameter_manager<TestType>::get_instance().reset();
 }
 
+TEMPLATE_TEST_CASE("IMEX time advance - landau - precond", "[imex][precond]",
+                   test_precs)
+{
+  // Disable test for MPI - IMEX needs to be tested further with MPI
+  if (!is_active() || get_num_ranks() > 1)
+  {
+    return;
+  }
+
+  std::string const pde_choice = "landau";
+  fk::vector<int> const levels{4, 4};
+  int const degree            = 3;
+  static int constexpr nsteps = 100;
+
+  TestType constexpr gmres_tol =
+      std::is_same<TestType, double>::value ? 1.0e-8 : 1.0e-6;
+  TestType constexpr tolerance =
+      std::is_same<TestType, double>::value ? 1.0e-9 : 1.0e-5;
+
+  parser parse(pde_choice, levels);
+  parser_mod::set(parse, parser_mod::degree, degree);
+  parser_mod::set(parse, parser_mod::dt, 0.019634954084936);
+  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
+  parser_mod::set(parse, parser_mod::use_full_grid, true);
+  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
+  parser_mod::set(parse, parser_mod::use_precond, true);
+
+  auto const pde = make_PDE<TestType>(parse);
+
+  options const opts(parse);
+  elements::table const check(opts, *pde);
+
+  adapt::distributed_grid adaptive_grid(*pde, opts);
+  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
+                                                                       *pde);
+
+  // -- compute dimension mass matrices
+  generate_dimension_mass_mat(*pde, transformer);
+
+  // -- set coeffs
+  generate_all_coefficients(*pde, transformer);
+
+  // -- generate moments
+  for (auto &m : pde->moments)
+  {
+    m.createFlist(*pde, opts);
+    expect(m.get_fList().size() > 0);
+
+    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    expect(m.get_vector().size() > 0);
+  }
+
+  // -- generate initial condition vector.
+  auto const initial_condition =
+      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+
+  generate_dimension_mass_mat(*pde, transformer);
+
+  fk::vector<TestType> f_val(initial_condition);
+  asgard::matrix_list<TestType> operator_matrices;
+
+  TestType E_pot_initial = 0.0;
+  TestType E_kin_initial = 0.0;
+
+  // -- time loop
+  for (auto i = 0; i < opts.num_time_steps; ++i)
+  {
+    std::cout.setstate(std::ios_base::failbit);
+    auto const time          = i * pde->get_dt();
+    auto const update_system = i == 0;
+    auto const sol           = time_advance::adaptive_advance(
+        asgard::time_advance::method::imex, *pde, operator_matrices,
+        adaptive_grid, transformer, opts, f_val, time, update_system);
+
+    f_val.resize(sol.size()) = sol;
+    std::cout.clear();
+
+    // compute the E potential and kinetic energy
+    fk::vector<TestType> E_field_sq(pde->E_field);
+    for (auto &e : E_field_sq)
+    {
+      e = e * e;
+    }
+    dimension<TestType> &dim = pde->get_dimensions()[0];
+    TestType E_pot           = calculate_integral(E_field_sq, dim);
+    TestType E_kin =
+        calculate_integral(pde->moments[2].get_realspace_moment(), dim);
+    if (i == 0)
+    {
+      E_pot_initial = E_pot;
+      E_kin_initial = E_kin;
+    }
+
+    // calculate the absolute relative total energy
+    TestType E_relative =
+        std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
+    REQUIRE(E_relative <= tolerance);
+  }
+
+  parameter_manager<TestType>::get_instance().reset();
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 {

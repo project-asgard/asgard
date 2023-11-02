@@ -842,6 +842,36 @@ TEMPLATE_TEST_CASE("LU Routines", "[fast_math]", test_precs)
     rmse_comparison(fk::vector<TestType>(x_mat), X_gold, tol_factor);
   }
 
+#ifdef ASGARD_USE_CUDA
+  SECTION("gesv and getrs (device)")
+  {
+    fk::matrix<TestType, mem_type::owner, resource::device> A_copy =
+        A_gold.clone_onto_device();
+    fk::vector<int64_t, mem_type::owner, resource::device> ipiv(A_copy.nrows());
+    fk::vector<TestType, mem_type::owner, resource::device> x =
+        B_gold.clone_onto_device();
+
+    fm::gesv(A_copy, x, ipiv);
+
+    auto constexpr tol_factor = get_tolerance<TestType>(10);
+
+    rmse_comparison(A_copy.clone_onto_host(), LU_gold, tol_factor);
+    rmse_comparison(x.clone_onto_host(), X_gold, tol_factor);
+    x = B1_gold.clone_onto_device();
+    fm::getrs(A_copy, x, ipiv);
+    rmse_comparison(x.clone_onto_host(), X1_gold, tol_factor);
+
+    // RHS may also be a fk::matrix
+    A_copy = A_gold.clone_onto_device();
+    fk::matrix<TestType, mem_type::owner, resource::device> x_mat(
+        {{B_gold[0]}, {B_gold[1]}, {B_gold[2]}});
+    fm::gesv(A_copy, x_mat, ipiv);
+    rmse_comparison(A_copy.clone_onto_host(), LU_gold, tol_factor);
+    rmse_comparison(fk::vector<TestType>(x_mat.clone_onto_host()), X_gold,
+                    tol_factor);
+  }
+#endif
+
   fk::vector<TestType> const A_packed_gold{1., 2., 3., 4., 5., 6.};
   fk::vector<TestType> const B_packed_gold{1., 1., 1.};
   fk::vector<TestType> const X_packed_gold{

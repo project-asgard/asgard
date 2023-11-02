@@ -273,6 +273,7 @@ set (components
      moment
      pde
      permutations
+     preconditioner
      program_options
      quadrature
      solver
@@ -378,6 +379,7 @@ if (ASGARD_USE_CUDA)
                            CUDA::cudart
                            CUDA::cublas
                            CUDA::cusparse
+                           CUDA::cusolver
     )
 endif ()
 

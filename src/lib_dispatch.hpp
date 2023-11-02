@@ -59,16 +59,31 @@ void batched_gemm(P **const &a, int lda, char transa, P **const &b, int ldb,
                   char transb, P **const &c, int ldc, int m, int n, int k,
                   P alpha, P beta, int num_batch);
 
-template<typename P>
+template<resource resrc = resource::host, typename P>
 int gesv(int n, int nrhs, P *A, int lda, int *ipiv, P *b, int ldb);
+
+template<resource resrc = resource::device, typename P>
+int gesv(int n, int nrhs, P *A, int lda, int64_t *ipiv, P *b, int ldb);
+
+template<resource resrc = resource::device, typename P>
+int batched_gesv(int n, int nrhs, P **A, int lda, int *ipiv, P **b, int ldb,
+                 int num_batch);
 
 template<resource resrc = resource::host, typename P>
 void tpsv(const char uplo, const char trans, const char diag, const int n,
           const P *ap, P *x, const int incx);
 
-template<typename P>
+template<resource resrc = resource::host, typename P>
 int getrs(char trans, int n, int nrhs, P const *A, int lda, int const *ipiv,
           P *b, int ldb);
+
+template<resource resrc = resource::device, typename P>
+int getrs(char trans, int n, int nrhs, P const *A, int lda, int64_t const *ipiv,
+          P *b, int ldb);
+
+template<resource resrc = resource::device, typename P>
+int batched_getrs(char trans, int n, int nrhs, P **const &A, int lda,
+                  int const *ipiv, P **const &b, int ldb, int num_batch);
 
 template<typename P>
 int pttrf(int n, P *D, P *E);
@@ -90,6 +105,10 @@ template<resource resrc = resource::host, typename P>
 void sparse_gemv(char const trans, int rows, int cols, int nnz,
                  const int *row_offsets, const int *col_indices, const P *vals,
                  P alpha, const P *x, P beta, P *y);
+
+template<resource resrc = resource::host, typename P>
+void sp_ilu(int m, int n, P *A, int lda, P const *S, int const *S_offsets,
+            int const *S_indices, int const nnz);
 
 } // namespace lib_dispatch
 } // namespace asgard

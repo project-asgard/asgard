@@ -508,9 +508,9 @@ public:
       bool const do_collision_operator_in     = true)
       : num_dims(num_dims_in), num_sources(num_sources_in),
         num_terms(get_num_terms(cli_input, max_num_terms)),
-        max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
-        exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
-        exact_time(check_exact_time(exact_time_in)),
+        max_level(get_max_level(cli_input, dimensions)), cli(cli_input),
+        sources(sources_in), exact_vector_funcs(exact_vector_funcs_in),
+        moments(moments_in), exact_time(check_exact_time(exact_time_in)),
         do_poisson_solve(do_poisson_solve_in),
         do_collision_operator(do_collision_operator_in),
         has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
@@ -696,9 +696,9 @@ public:
   PDE(const PDE &pde, int)
       : num_dims(1), num_sources(pde.sources.size()),
         num_terms(pde.get_terms().size()), max_level(pde.max_level),
-        sources(pde.sources), exact_vector_funcs(pde.exact_vector_funcs),
-        moments(pde.moments), exact_time(pde.exact_time),
-        do_poisson_solve(pde.do_poisson_solve),
+        cli(pde.cli), sources(pde.sources),
+        exact_vector_funcs(pde.exact_vector_funcs), moments(pde.moments),
+        exact_time(pde.exact_time), do_poisson_solve(pde.do_poisson_solve),
         do_collision_operator(pde.do_collision_operator),
         has_analytic_soln(pde.has_analytic_soln),
         dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
@@ -709,6 +709,7 @@ public:
   int const num_sources;
   int const num_terms;
   int const max_level;
+  parser const &cli;
 
   std::vector<source<P>> const sources;
   std::vector<md_func_type<P>> const exact_vector_funcs;
