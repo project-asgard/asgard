@@ -18,12 +18,14 @@ public:
     expect(static_cast<size_t>(M.nrows()) == precond_pivots.size());
     fm::getrf(precond, precond_pivots);
   }
-  void operator()(fk::vector<P, mem_type::owner, resource::host> &b_h) const
+  template<mem_type bmem>
+  void operator()(fk::vector<P, bmem, resource::host> &b_h) const
   {
     fm::getrs(precond, b_h, precond_pivots);
   }
 #ifdef ASGARD_USE_CUDA
-  void operator()(fk::vector<P, mem_type::owner, resource::device> &b_d) const
+  template<mem_type bmem>
+  void operator()(fk::vector<P, bmem, resource::device> &b_d) const
   {
     auto b_h = b_d.clone_onto_host();
     fm::getrs(precond, b_h, precond_pivots);
@@ -39,9 +41,13 @@ template<typename P>
 class no_op_preconditioner
 {
 public:
-  void operator()(fk::vector<P, mem_type::owner, resource::host> &) const {}
+  template<mem_type bmem>
+  void operator()(fk::vector<P, bmem, resource::host> &) const
+  {}
 #ifdef ASGARD_USE_CUDA
-  void operator()(fk::vector<P, mem_type::owner, resource::device> &) const {}
+  template<mem_type bmem>
+  void operator()(fk::vector<P, bmem, resource::device> &) const
+  {}
 #endif
 };
 
@@ -52,11 +58,11 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
              fk::matrix<P> const &M, int const restart, int const max_iter,
              P const tolerance)
 {
-  auto dense_matrix_wrapper = [&A](P const alpha,
-                                   fk::vector<P, mem_type::view> const x_in,
-                                   P const beta, fk::vector<P> &y) {
-    fm::gemv(A, x_in, y, false, alpha, beta);
-  };
+  auto dense_matrix_wrapper =
+      [&A](P const alpha, fk::vector<P, mem_type::view> const x_in,
+           P const beta, fk::vector<P, mem_type::view> y) {
+        fm::gemv(A, x_in, y, false, alpha, beta);
+      };
   if (M.size() > 0)
     return simple_gmres(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x),
                         b, dense_preconditioner(M), restart, max_iter,
@@ -76,7 +82,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
 {
   return simple_gmres(
       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-          P const beta, fk::vector<P, mem_type::owner, resrc> &y) -> void {
+          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
         tools::time_event performance("kronmult - implicit", mat.flops());
         mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
@@ -140,13 +146,11 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   int const print_freq = restart / 3;
 
   fk::vector<P, mem_type::owner, resrc> residual(b);
-  auto const compute_residual =
-      [&b, &x, &precondition,
-       &mat](fk::vector<P, mem_type::owner, resrc> &res) {
-        res = b;
-        mat(P{-1.}, x, P{1.}, res);
-        precondition(res);
-      };
+  auto const compute_residual = [&b, &x, &precondition, &mat](auto &res) {
+    res = b;
+    mat(P{-1.}, x, P{1.}, fk::vector<P, mem_type::view, resrc>(res));
+    precondition(res);
+  };
 
   auto const done = [](P const error, int const iterations) -> gmres_info<P> {
     std::cout << "GMRES complete with error: " << error << '\n';
@@ -164,12 +168,11 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   P error = 0.;
   for (; it < max_iter; ++it)
   {
-    compute_residual(residual);
-    P const norm_r = fm::nrm2(residual);
-
-    auto scaled = residual;
+    fk::vector<P, mem_type::view, resrc> scaled(basis, 0, 0, basis.nrows() - 1);
+    compute_residual(scaled);
+    P const norm_r = fm::nrm2(scaled);
+    fk::copy_vector(scaled, residual);
     scaled.scale(1. / norm_r);
-    basis.update_col(0, scaled);
 
     fk::vector<P> krylov_sol(n + 1);
     krylov_sol(0) = norm_r;
@@ -177,7 +180,8 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     {
       fk::vector<P, mem_type::view, resrc> const tmp(basis, i, 0,
                                                      basis.nrows() - 1);
-      fk::vector<P, mem_type::owner, resrc> new_basis(tmp.size());
+      fk::vector<P, mem_type::view, resrc> new_basis(basis, i + 1, 0,
+                                                     basis.nrows() - 1);
       mat(P{1.0}, tmp, P{0.0}, new_basis);
 
       precondition(new_basis);
@@ -200,8 +204,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
         fm::gemv(basis_v, coeffs, new_basis, false, P{-1.0}, P{1.0});
       }
       auto nrm = fm::nrm2(new_basis);
-
-      basis.update_col(i + 1, new_basis.scale(1 / nrm));
+      new_basis.scale(1. / nrm);
       for (int k = 0; k < i; ++k)
       {
         lib_dispatch::rot(1, coeffs.data(k), 1, coeffs.data(k + 1), 1,
