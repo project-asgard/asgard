@@ -142,7 +142,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 
   P const norm_b = [&b]() {
     P const norm = fm::nrm2(b);
-    return (norm == 0.0) ? static_cast<P>(1.0) : norm;
+    return (norm == P{0.}) ? P{1.} : norm;
   }();
 
   // controls how often the inner residual print occurs
