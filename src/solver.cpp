@@ -90,6 +90,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
       fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
       restart, max_iter, tolerance);
 }
+
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
  * \returns default number of iterations before restart
@@ -120,6 +121,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
   expect(tolerance >= std::numeric_limits<P>::epsilon());
+
   int const n = b.size();
   expect(n == x.size());
 
@@ -133,6 +135,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
             << n << "!";
     throw std::invalid_argument(err_msg.str());
   }
+
   if (max_iter == parser::NO_USER_VALUE)
     max_iter = n;
   expect(max_iter > 0); // checked in program_options
@@ -171,7 +174,6 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     fk::vector<P, mem_type::view, resrc> scaled(basis, 0, 0, basis.nrows() - 1);
     compute_residual(scaled);
     P const norm_r = fm::nrm2(scaled);
-    fk::copy_vector(scaled, residual);
     scaled.scale(1. / norm_r);
 
     fk::vector<P> krylov_sol(n + 1);
@@ -182,7 +184,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
                                                      basis.nrows() - 1);
       fk::vector<P, mem_type::view, resrc> new_basis(basis, i + 1, 0,
                                                      basis.nrows() - 1);
-      mat(P{1.0}, tmp, P{0.0}, new_basis);
+      mat(P{1.}, tmp, P{0.}, new_basis);
 
       precondition(new_basis);
       fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0, i);
@@ -193,15 +195,15 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 #ifdef ASGARD_USE_CUDA
         static_assert(resrc == resource::device);
         fk::vector<P, mem_type::owner, resrc> coeffs_d(coeffs.size());
-        fm::gemv(basis_v, new_basis, coeffs_d, true, P{1.0}, P{0.0});
-        fm::gemv(basis_v, coeffs_d, new_basis, false, P{-1.0}, P{1.0});
+        fm::gemv(basis_v, new_basis, coeffs_d, true, P{1.}, P{0.});
+        fm::gemv(basis_v, coeffs_d, new_basis, false, P{-1.}, P{1.});
         fk::copy_vector(coeffs, coeffs_d);
 #endif
       }
       else if constexpr (resrc == resource::host)
       {
-        fm::gemv(basis_v, new_basis, coeffs, true, P{1.0}, P{0.0});
-        fm::gemv(basis_v, coeffs, new_basis, false, P{-1.0}, P{1.0});
+        fm::gemv(basis_v, new_basis, coeffs, true, P{1.}, P{0.});
+        fm::gemv(basis_v, coeffs, new_basis, false, P{-1.}, P{1.});
       }
       auto nrm = fm::nrm2(new_basis);
       new_basis.scale(1. / nrm);
@@ -228,9 +230,9 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
         fk::matrix<P, mem_type::view, resrc> m(basis, 0, basis.nrows() - 1, 0,
                                                i);
         if constexpr (resrc == resource::device)
-          fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.0}, P{1.0});
+          fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.}, P{1.});
         else if constexpr (resrc == resource::host)
-          fm::gemv(m, s_view, x, false, P{1.0}, P{1.0});
+          fm::gemv(m, s_view, x, false, P{1.}, P{1.});
         break; // depart the inner iteration loop
       }
 
@@ -254,9 +256,9 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     fk::matrix<P, mem_type::view, resrc> m(basis, 0, basis.nrows() - 1, 0,
                                            restart - 1);
     if constexpr (resrc == resource::device)
-      fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.0}, P{1.0});
+      fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.}, P{1.});
     else if constexpr (resrc == resource::host)
-      fm::gemv(m, s_view, x, false, P{1.0}, P{1.0});
+      fm::gemv(m, s_view, x, false, P{1.}, P{1.});
     compute_residual(residual);
     P const norm_r_outer                               = fm::nrm2(residual);
     krylov_sol(std::min(krylov_sol.size() - 1, i + 1)) = norm_r_outer;
