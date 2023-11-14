@@ -261,11 +261,7 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
 {
-  auto const abs_compare = [](auto const a, auto const b) {
-    return (std::abs(a) < std::abs(b));
-  };
-  P const max_elem =
-      std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
+  P const max_elem   = fm::nrm2(x);
   P const global_max = get_global_max<P>(max_elem, this->plan_);
 
   auto const refine_threshold = cli_opts.adapt_threshold * global_max;
@@ -275,11 +271,10 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   }
 
   auto const refine_check =
-      [refine_threshold, abs_compare](
-          int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
-        auto const refined_max_elem =
-            *std::max_element(element_x.begin(), element_x.end(), abs_compare);
-        return std::abs(refined_max_elem) >= refine_threshold;
+      [refine_threshold](int64_t const,
+                         fk::vector<P, mem_type::const_view> const &element_x) {
+        auto const refined_max_elem = fm::nrm2(element_x);
+        return refined_max_elem >= refine_threshold;
       };
   auto const to_refine = filter_elements(refine_check, x);
   return this->refine_elements(to_refine, cli_opts, x);
@@ -289,11 +284,7 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
 {
-  auto const abs_compare = [](auto const a, auto const b) {
-    return (std::abs(a) < std::abs(b));
-  };
-  P const max_elem =
-      std::abs(*std::max_element(x.begin(), x.end(), abs_compare));
+  P const max_elem         = fm::nrm2(x);
   P const global_max       = get_global_max<P>(max_elem, this->plan_);
   P const refine_threshold = cli_opts.adapt_threshold * global_max;
   if (refine_threshold <= 0.0)
@@ -304,13 +295,12 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
   auto const coarsen_threshold = refine_threshold * 0.1;
   auto const &table            = this->table_;
   auto const coarsen_check =
-      [&table, coarsen_threshold,
-       abs_compare](int64_t const elem_index,
-                    fk::vector<P, mem_type::const_view> const &element_x) {
-        auto const coarsened_max_elem =
-            *std::max_element(element_x.begin(), element_x.end(), abs_compare);
-        auto const coords    = table.get_coords(elem_index);
-        auto const min_level = *std::min_element(
+      [&table, coarsen_threshold](
+          int64_t const elem_index,
+          fk::vector<P, mem_type::const_view> const &element_x) {
+        P const coarsened_max_elem = fm::nrm2(element_x);
+        auto const coords          = table.get_coords(elem_index);
+        auto const min_level       = *std::min_element(
             coords.begin(), coords.begin() + coords.size() / 2);
         return std::abs(coarsened_max_elem) <= coarsen_threshold &&
                min_level >= 0;
