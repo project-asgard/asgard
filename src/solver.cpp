@@ -239,11 +239,13 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     if (inner_iterations > 0)
     {
       auto proj = fk::vector<P, mem_type::view>(
-          krylov_proj, 0, pos_from_indices(restart - 1, restart - 1));
-      auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, restart - 1);
+          krylov_proj, 0,
+          pos_from_indices(inner_iterations - 1, inner_iterations - 1));
+      auto s_view =
+          fk::vector<P, mem_type::view>(krylov_sol, 0, inner_iterations - 1);
       fm::tpsv(proj, s_view);
       fk::matrix<P, mem_type::view, resrc> m(basis, 0, basis.nrows() - 1, 0,
-                                             restart - 1);
+                                             inner_iterations - 1);
       if constexpr (resrc == resource::device)
         fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.}, P{1.});
       else if constexpr (resrc == resource::host)
