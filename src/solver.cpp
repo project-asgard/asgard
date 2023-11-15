@@ -146,9 +146,6 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   fk::vector<P, mem_type::owner, resrc> residual(b.size());
 
   auto const done = [](P const error, int const iterations) -> gmres_info<P> {
-    std::cout << "GMRES complete with error: " << error << '\n';
-    std::cout << iterations << " iterations\n";
-    return gmres_info<P>{error, iterations};
   };
 
   fk::matrix<P, mem_type::owner, resrc> basis(n, restart + 1);
@@ -156,11 +153,12 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   fk::vector<P> sines(restart + 1);
   fk::vector<P> cosines(restart + 1);
 
+  int total_iterations{0};
   int outer_iterations{0};
   int inner_iterations{0};
+
   P inner_res{0.};
   P outer_res{tolerance + P{1.}};
-  int total_iterations{0};
   while ((outer_res > tolerance) && (outer_iterations < max_outer_iterations))
   {
     fk::vector<P, mem_type::view, resrc> scaled(basis, 0, 0, basis.nrows() - 1);
@@ -251,10 +249,12 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
       else if constexpr (resrc == resource::host)
         fm::gemv(m, s_view, x, false, P{1.}, P{1.});
     }
-    outer_iterations++;
+    ++outer_iterations;
     outer_res = inner_res;
   } // end outer iteration
-  return done(outer_res, outer_iterations * restart + inner_iterations);
+  std::cout << "GMRES complete with error: " << outer_res << '\n';
+  std::cout << total_iterations << " iterations\n";
+  return gmres_info<P>{outer_res, total_iterations};
 }
 
 template<typename P>
