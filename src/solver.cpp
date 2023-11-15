@@ -115,8 +115,8 @@ template<typename P, resource resrc, typename matrix_abstraction,
 gmres_info<P>
 simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
              fk::vector<P, mem_type::owner, resrc> const &b,
-             preconditioner_abstraction precondition, int restart, int max_iter,
-             P tolerance)
+             preconditioner_abstraction precondition, int restart,
+             int max_outer_iterations, P tolerance)
 {
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -136,24 +136,14 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     throw std::invalid_argument(err_msg.str());
   }
 
-  if (max_iter == parser::NO_USER_VALUE)
-    max_iter = n;
-  expect(max_iter > 0); // checked in program_options
-
-  P const norm_b = [&b]() {
-    P const norm = fm::nrm2(b);
-    return (norm == P{0.}) ? P{1.} : norm;
-  }();
+  if (max_outer_iterations == parser::NO_USER_VALUE)
+    max_outer_iterations = n;
+  expect(max_outer_iterations > 0); // checked in program_options
 
   // controls how often the inner residual print occurs
-  int const print_freq = restart / 3;
+  int const print_freq = 1; // restart / 3;
 
-  fk::vector<P, mem_type::owner, resrc> residual(b);
-  auto const compute_residual = [&b, &x, &precondition, &mat](auto &res) {
-    res = b;
-    mat(P{-1.}, x, P{1.}, fk::vector<P, mem_type::view, resrc>(res));
-    precondition(res);
-  };
+  fk::vector<P, mem_type::owner, resrc> residual(b.size());
 
   auto const done = [](P const error, int const iterations) -> gmres_info<P> {
     std::cout << "GMRES complete with error: " << error << '\n';
@@ -166,30 +156,39 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   fk::vector<P> sines(restart + 1);
   fk::vector<P> cosines(restart + 1);
 
-  int it  = 0;
-  int i   = 0;
-  P error = 0.;
-  for (; it < max_iter; ++it)
+  int outer_iterations{0};
+  int inner_iterations{0};
+  P inner_res{0.};
+  P outer_res{tolerance + P{1.}};
+  int total_iterations{0};
+  while ((outer_res > tolerance) && (outer_iterations < max_outer_iterations))
   {
     fk::vector<P, mem_type::view, resrc> scaled(basis, 0, 0, basis.nrows() - 1);
-    compute_residual(scaled);
-    P const norm_r = fm::nrm2(scaled);
-    scaled.scale(1. / norm_r);
+    scaled = b;
+    mat(P{-1.}, x, P{1.}, scaled);
+    precondition(scaled);
+    ++total_iterations;
 
     fk::vector<P> krylov_sol(n + 1);
-    krylov_sol(0) = norm_r;
-    for (i = 0; i < restart; ++i)
-    {
-      fk::vector<P, mem_type::view, resrc> const tmp(basis, i, 0,
-                                                     basis.nrows() - 1);
-      fk::vector<P, mem_type::view, resrc> new_basis(basis, i + 1, 0,
-                                                     basis.nrows() - 1);
-      mat(P{1.}, tmp, P{0.}, new_basis);
+    inner_res = fm::nrm2(scaled);
+    scaled.scale(P{1.} / inner_res);
+    krylov_sol[0] = inner_res;
 
+    inner_iterations = 0;
+    while ((inner_res > tolerance) && (inner_iterations < restart))
+    {
+      fk::vector<P, mem_type::view, resrc> const tmp(basis, inner_iterations, 0,
+                                                     basis.nrows() - 1);
+      fk::vector<P, mem_type::view, resrc> new_basis(
+          basis, inner_iterations + 1, 0, basis.nrows() - 1);
+      mat(P{1.}, tmp, P{0.}, new_basis);
       precondition(new_basis);
-      fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0, i);
-      fk::vector<P, mem_type::view> coeffs(krylov_proj, pos_from_indices(0, i),
-                                           pos_from_indices(i, i));
+      ++total_iterations;
+      fk::matrix<P, mem_type::const_view, resrc> basis_v(basis, 0, n - 1, 0,
+                                                         inner_iterations);
+      fk::vector<P, mem_type::view> coeffs(
+          krylov_proj, pos_from_indices(0, inner_iterations),
+          pos_from_indices(inner_iterations, inner_iterations));
       if constexpr (resrc == resource::device)
       {
 #ifdef ASGARD_USE_CUDA
@@ -205,71 +204,54 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
         fm::gemv(basis_v, new_basis, coeffs, true, P{1.}, P{0.});
         fm::gemv(basis_v, coeffs, new_basis, false, P{-1.}, P{1.});
       }
-      auto nrm = fm::nrm2(new_basis);
-      new_basis.scale(1. / nrm);
-      for (int k = 0; k < i; ++k)
+      P const nrm = fm::nrm2(new_basis);
+      new_basis.scale(P{1.} / nrm);
+      for (int k = 0; k < inner_iterations; ++k)
       {
         lib_dispatch::rot(1, coeffs.data(k), 1, coeffs.data(k + 1), 1,
                           cosines[k], sines[k]);
       }
 
       // compute given's rotation
-      lib_dispatch::rotg(coeffs.data(i), &nrm, cosines.data(i), sines.data(i));
+      P beta = nrm;
+      lib_dispatch::rotg(coeffs.data(inner_iterations), &beta,
+                         cosines.data(inner_iterations),
+                         sines.data(inner_iterations));
 
-      P const temp      = cosines(i) * krylov_sol(i);
-      krylov_sol(i + 1) = -sines(i) * krylov_sol(i);
-      krylov_sol(i)     = temp;
-      error             = std::abs(krylov_sol(i + 1)) / norm_b;
-
-      if (error <= tolerance)
+      inner_res =
+          std::abs(sines[inner_iterations] / krylov_sol[inner_iterations]);
+      if ((inner_res > tolerance) && (inner_iterations < restart))
       {
-        auto proj   = fk::vector<P, mem_type::view>(krylov_proj, 0,
-                                                  pos_from_indices(i, i));
-        auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, i);
-        fm::tpsv(proj, s_view);
-        fk::matrix<P, mem_type::view, resrc> m(basis, 0, basis.nrows() - 1, 0,
-                                               i);
-        if constexpr (resrc == resource::device)
-          fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.}, P{1.});
-        else if constexpr (resrc == resource::host)
-          fm::gemv(m, s_view, x, false, P{1.}, P{1.});
-        break; // depart the inner iteration loop
+        lib_dispatch::rot(1, krylov_sol.data(inner_iterations), 1,
+                          krylov_sol.data(inner_iterations + 1), 1,
+                          cosines[inner_iterations], sines[inner_iterations]);
       }
 
-      if (i % print_freq == 0)
+      if (inner_iterations % print_freq == 0)
       {
-        std::cout << "   -- GMRES inner iteration " << i << " / " << restart
-                  << " w/ residual " << error << std::endl;
+        std::cout << "   -- GMRES inner iteration " << inner_iterations << " / "
+                  << restart << " w/ residual " << inner_res << std::endl;
       }
+      ++inner_iterations;
     } // end of inner iteration loop
 
-    if (error <= tolerance)
+    if (inner_iterations > 0)
     {
-      return done(error, it * restart + i); // all done!
+      auto proj = fk::vector<P, mem_type::view>(
+          krylov_proj, 0, pos_from_indices(restart - 1, restart - 1));
+      auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, restart - 1);
+      fm::tpsv(proj, s_view);
+      fk::matrix<P, mem_type::view, resrc> m(basis, 0, basis.nrows() - 1, 0,
+                                             restart - 1);
+      if constexpr (resrc == resource::device)
+        fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.}, P{1.});
+      else if constexpr (resrc == resource::host)
+        fm::gemv(m, s_view, x, false, P{1.}, P{1.});
     }
-
-    auto proj = fk::vector<P, mem_type::view>(
-        krylov_proj, 0, pos_from_indices(restart - 1, restart - 1));
-    auto s_view = fk::vector<P, mem_type::view>(krylov_sol, 0, restart - 1);
-    fm::tpsv(proj, s_view);
-
-    fk::matrix<P, mem_type::view, resrc> m(basis, 0, basis.nrows() - 1, 0,
-                                           restart - 1);
-    if constexpr (resrc == resource::device)
-      fm::gemv(m, s_view.clone_onto_device(), x, false, P{1.}, P{1.});
-    else if constexpr (resrc == resource::host)
-      fm::gemv(m, s_view, x, false, P{1.}, P{1.});
-    compute_residual(residual);
-    P const norm_r_outer                               = fm::nrm2(residual);
-    krylov_sol(std::min(krylov_sol.size() - 1, i + 1)) = norm_r_outer;
-    error                                              = norm_r_outer / norm_b;
-
-    if (error <= tolerance)
-    {
-      return done(error, it * restart + i);
-    }
+    outer_iterations++;
+    outer_res = inner_res;
   } // end outer iteration
-  return done(error, it * restart + i);
+  return done(outer_res, outer_iterations * restart + inner_iterations);
 }
 
 template<typename P>

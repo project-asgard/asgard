@@ -154,11 +154,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
   {
     fk::vector<TestType> test(x_gold.size());
 
-    std::cout.setstate(std::ios_base::failbit);
+    //std::cout.setstate(std::ios_base::failbit);
     gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold, fk::matrix<TestType>(), A_gold.ncols(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
+    //std::cout.clear();
     REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold);
   }
@@ -167,11 +167,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
   {
     fk::vector<TestType> test(x_gold.size());
 
-    std::cout.setstate(std::ios_base::failbit);
+    //std::cout.setstate(std::ios_base::failbit);
     gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold, precond, A_gold.ncols(), A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
+    //std::cout.clear();
     REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold);
   }
@@ -180,11 +180,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
   {
     fk::vector<TestType> test(x_gold_2.size());
 
-    std::cout.setstate(std::ios_base::failbit);
+    //std::cout.setstate(std::ios_base::failbit);
     gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold_2, fk::matrix<TestType>(), A_gold.ncols(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
+    //std::cout.clear();
     REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold_2);
   }
@@ -192,11 +192,11 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
   SECTION("test case 2, point jacobi preconditioned")
   {
     fk::vector<TestType> test(x_gold_2.size());
-    std::cout.setstate(std::ios_base::failbit);
+    //std::cout.setstate(std::ios_base::failbit);
     gmres_info<TestType> const gmres_output = solver::simple_gmres(
         A_gold, test, b_gold_2, precond, A_gold.ncols(), A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
+    //std::cout.clear();
     REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
     rmse_comparison(x_gold_2, test, get_tolerance<TestType>(10));
   }
