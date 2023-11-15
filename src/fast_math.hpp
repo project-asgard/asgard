@@ -9,6 +9,8 @@
 #include "scalapack_vector_info.hpp"
 #endif
 #include <numeric>
+#include <sstream>
+#include <stdexcept>
 
 namespace asgard::fm
 {
@@ -345,18 +347,19 @@ void getrf(fk::matrix<P, amem> &A, std::vector<int> &ipiv)
                                  ipiv.data());
   if (info != 0)
   {
+    std::stringstream sout;
     if (info < 0)
     {
-      std::cout << "The " << -info << "-th parameter had an illegal value!\n";
+      sout << "The " << -info << "-th parameter had an illegal value!\n";
     }
     else
     {
-      std::cout << "The diagonal element of the triangular factor of A,\n";
-      std::cout << "U(" << info << ',' << info
-                << ") is zero, so that A is singular;\n";
-      std::cout << "the solution could not be computed.\n";
+      sout << "The diagonal element of the triangular factor of A,\n";
+      sout << "U(" << info << ',' << info
+           << ") is zero, so that A is singular;\n";
+      sout << "the solution could not be computed.\n";
     }
-    exit(1);
+    throw std::runtime_error(sout.str());
   }
 }
 
