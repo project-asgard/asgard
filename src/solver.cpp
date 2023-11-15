@@ -141,12 +141,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   expect(max_outer_iterations > 0); // checked in program_options
 
   // controls how often the inner residual print occurs
-  int const print_freq = 1; // restart / 3;
-
-  fk::vector<P, mem_type::owner, resrc> residual(b.size());
-
-  auto const done = [](P const error, int const iterations) -> gmres_info<P> {
-  };
+  int const print_freq = restart / 3;
 
   fk::matrix<P, mem_type::owner, resrc> basis(n, restart + 1);
   fk::vector<P> krylov_proj(restart * (restart + 1) / 2);
