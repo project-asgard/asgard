@@ -219,7 +219,8 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
                          sines.data(inner_iterations));
 
       inner_res =
-          std::abs(sines[inner_iterations] / krylov_sol[inner_iterations]);
+          std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
+
       if ((inner_res > tolerance) && (inner_iterations < restart))
       {
         lib_dispatch::rot(1, krylov_sol.data(inner_iterations), 1,
