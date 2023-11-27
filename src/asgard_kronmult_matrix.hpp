@@ -9,6 +9,8 @@
 #include "elements.hpp"
 #include "pde.hpp"
 
+#include "asgard_indexset.hpp"
+
 #include "./device/asgard_kronmult.hpp"
 
 // this interface between the low level kernels in src/device
@@ -918,5 +920,24 @@ private:
   cudaStream_t load_stream;
 #endif
 };
+
+////////////////////////////
+//// NEW CODE ... AGAIN ////
+////////////////////////////
+class global_kron_matrix
+{
+public:
+  global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&imap, dimension_sort &&dsort)
+    : conn_(std::move(conn)), iset_(std::move(iset)), imap_(std::move(imap)), dsort_(std::move(dsort))
+  {
+  }
+
+private:
+  connect_1d conn_;
+  indexset iset_;
+  reindex_map imap_;
+  dimension_sort dsort_;
+};
+
 
 } // namespace asgard

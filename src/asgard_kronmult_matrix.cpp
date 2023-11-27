@@ -936,6 +936,41 @@ compute_mem_usage(PDE<P> const &pde,
   return stats;
 }
 
+global_kron_matrix make_global_kron_matrix(PDE<double> const &pde,
+                                           adapt::distributed_grid<double> const &discretization,
+                                           options const &program_options, imex_flag const imex)
+{
+  auto const &grid = discretization.get_subgrid(get_rank());
+  int const *const flattened_table =
+      discretization.get_table().get_active_table().data();
+
+  int const num_dimensions = pde.num_dims;
+  connect_1d pattern1d(pde.max_level);
+
+  int const num_non_padded = grid.col_stop - grid.col_start + 1;
+  std::vector<int> agard_indexes(num_dimensions * num_non_padded);
+  for(int i=0; i<grid.col_stop+1; i++)
+    for(int j=0; j<num_dimensions; j++)
+      agard_indexes[i * num_dimensions + j] = (1 << flattened_table[i * num_dimensions + j]) + flattened_table[i * num_dimensions + num_dimensions + j];
+
+  reindex_map asg2tsg(num_dimensions); // asgard to tasmanian map
+  indexset asg_iset = asg2tsg.remap(agard_indexes);
+
+  // pad with all elements from previous levels connected by the edge
+  indexset edge_pad_indexes;
+  int new_pad_entries = 1; // forces entrance into the while-loop
+
+  while(new_pad_entries > 0)
+  {
+    int old_pad_entries = edge_pad_indexes.num_indexes();
+
+    new_pad_entries = edge_pad_indexes.num_indexes() - old_pad_entries;
+  }
+
+
+}
+
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,

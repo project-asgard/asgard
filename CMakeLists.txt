@@ -287,6 +287,7 @@ set (components
      asgard_resources
      asgard_pde_system
      asgard_kronmult_matrix
+     asgard_indexset
 )
 
 if (ASGARD_IO_HIGHFIVE)

@@ -19,11 +19,13 @@ namespace asgard
 class connect_1d
 {
 public:
+  //! \brief Indicates whether to include same level edge neighbours
+  enum same_level { level_edge_include, level_edge_skip };
   /*!
    *  \brief Constructor, makes the connectivity up to and including the given
    *         max-level.
    */
-  connect_1d(int const max_level)
+  connect_1d(int const max_level, same_level neighbor = level_edge_include)
       : levels(max_level), cells(1 << levels), pntr(cells + 1, 0),
         indx(2 * cells)
   {
@@ -61,7 +63,8 @@ public:
       }
       // look at this level
       indx.push_back(i);
-      indx.push_back(i + 1);
+      if (neighbor == level_edge_include)
+        indx.push_back(i + 1);
       // connect also to the right-most cell (periodic boundary)
       if (l > 2) // at level l = 2, i+1 is the right-most cell
         indx.push_back(cell_per_level[l + 1] - 1);
@@ -100,9 +103,11 @@ public:
             indx.push_back(cell_per_level[upl] + ancestor + 1);
         }
         // on this level
-        indx.push_back(i - 1);
+        if (neighbor == level_edge_include)
+          indx.push_back(i - 1);
         indx.push_back(i);
-        indx.push_back(i + 1);
+        if (neighbor == level_edge_include)
+          indx.push_back(i + 1);
         // kids on further levels
         int left_kid = p; // initialize, will be updated on first iteration
         int num_kids = 1;
@@ -131,7 +136,8 @@ public:
       // connect also to the left-most cell (periodic boundary)
       if (l > 2) // at level l = 2, left-most cell is i-1, don't double add
         indx.push_back(cell_per_level[l]);
-      indx.push_back(i - 1);
+      if (neighbor == level_edge_include)
+        indx.push_back(i - 1);
       indx.push_back(i);
       // look at follow on levels
       for (int downl = l + 1; downl < levels + 1; downl++)
