@@ -27,7 +27,7 @@ public:
    */
   connect_1d(int const max_level, same_level neighbor = level_edge_include)
       : levels(max_level), cells(1 << levels), pntr(cells + 1, 0),
-        indx(2 * cells)
+        indx(2 * cells), diag(cells)
   {
     std::vector<int> cell_per_level(levels + 2, 1);
     for (int l = 2; l < levels + 2; l++)
@@ -40,6 +40,8 @@ public:
       indx[i] = i;
     for (int i = 0; i < cells; i++)
       indx[i + cells] = i;
+    diag[0] = 0;
+    diag[1] = 1;
 
     // for the remaining, loop level by level, cell by cell
     for (int l = 2; l < levels + 1; l++)
@@ -62,12 +64,15 @@ public:
         indx.push_back(cell_per_level[upl + 1] - 1);
       }
       // look at this level
+      diag[i] = static_cast<int>(indx.size());
       indx.push_back(i);
       if (neighbor == level_edge_include)
+      {
         indx.push_back(i + 1);
-      // connect also to the right-most cell (periodic boundary)
-      if (l > 2) // at level l = 2, i+1 is the right-most cell
-        indx.push_back(cell_per_level[l + 1] - 1);
+        // connect also to the right-most cell (periodic boundary)
+        if (l > 2) // at level l = 2, i+1 is the right-most cell
+          indx.push_back(cell_per_level[l + 1] - 1);
+      }
       // look at follow on levels
       for (int downl = l + 1; downl < levels + 1; downl++)
       {
@@ -105,6 +110,7 @@ public:
         // on this level
         if (neighbor == level_edge_include)
           indx.push_back(i - 1);
+        diag[i] = static_cast<int>(indx.size());
         indx.push_back(i);
         if (neighbor == level_edge_include)
           indx.push_back(i + 1);
@@ -133,11 +139,14 @@ public:
         indx.push_back(cell_per_level[upl + 1] - 1);
       }
       // at this level
-      // connect also to the left-most cell (periodic boundary)
-      if (l > 2) // at level l = 2, left-most cell is i-1, don't double add
-        indx.push_back(cell_per_level[l]);
       if (neighbor == level_edge_include)
+      {
+        // connect also to the left-most cell (periodic boundary)
+        if (l > 2) // at level l = 2, left-most cell is i-1, don't double add
+          indx.push_back(cell_per_level[l]);
         indx.push_back(i - 1);
+      }
+      diag[i] = static_cast<int>(indx.size());
       indx.push_back(i);
       // look at follow on levels
       for (int downl = l + 1; downl < levels + 1; downl++)
@@ -188,6 +197,8 @@ public:
 
   int row_begin(int row) const { return pntr[row]; }
 
+  int row_diag(int row) const { return indx[row]; }
+
   int row_end(int row) const { return pntr[row + 1]; }
 
   int operator[](int j) const { return indx[j]; }
@@ -195,10 +206,15 @@ public:
   int max_loaded_level() const { return levels; }
 
 private:
+  // pntr and indx form a sparse matrix (row-compressed format)
+  // describing the connections between the indexes
+  // diag[i] holds the offset of the diagonal entry, i.e., indx[diag[i]] = i
+  //      it helps identify lowe/upper triangular part of the pattern
   int levels;
   int cells;
   std::vector<int> pntr;
   std::vector<int> indx;
+  std::vector<int> diag;
 };
 
 } // namespace asgard

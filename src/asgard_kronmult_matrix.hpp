@@ -924,19 +924,34 @@ private:
 ////////////////////////////
 //// NEW CODE ... AGAIN ////
 ////////////////////////////
+template<typename precision>
 class global_kron_matrix
 {
 public:
-  global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&imap, dimension_sort &&dsort)
-    : conn_(std::move(conn)), iset_(std::move(iset)), imap_(std::move(imap)), dsort_(std::move(dsort))
+  //! \brief Creates an empty matrix.
+  global_kron_matrix() : size_t1d_(0) {}
+  //! \brief Creates an empty matrix.
+  global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&imap, dimension_sort &&dsort,
+                     int size_t1d, std::vector<fk::vector<precision>> &&valA)
+    : conn_(std::move(conn)), iset_(std::move(iset)), imap_(std::move(imap)), dsort_(std::move(dsort)),
+      size_t1d_(size_t1d), num_terms_(0), vals(std::move(valA))
   {
+    expect(vals.size() > 0);
+    expect(vals.size() % iset.num_dimensions() == 0);
+    num_terms_ = static_cast<int>(vals.size() / iset.num_dimensions());
   }
+  //! \brief Returns \b true if the matrix is empty, \b false otherwise.
+  bool empty() const { return vals.empty(); }
 
 private:
+  // description of the multi-indexes and the sparsity pattern
   connect_1d conn_;
   indexset iset_;
   reindex_map imap_;
   dimension_sort dsort_;
+  // data for the 1D tensors
+  int size_t1d_, num_terms_;
+  std::vector<fk::vector<precision>> vals;
 };
 
 

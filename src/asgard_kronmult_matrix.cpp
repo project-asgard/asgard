@@ -936,16 +936,32 @@ compute_mem_usage(PDE<P> const &pde,
   return stats;
 }
 
-global_kron_matrix make_global_kron_matrix(PDE<double> const &pde,
-                                           adapt::distributed_grid<double> const &discretization,
-                                           options const &program_options, imex_flag const imex)
+template<typename precision>
+global_kron_matrix<precision>
+make_global_kron_matrix(PDE<precision> const &pde,
+                        adapt::distributed_grid<precision> const &dis_grid,
+                        options const &program_options, imex_flag const imex)
 {
-  auto const &grid = discretization.get_subgrid(get_rank());
-  int const *const flattened_table =
-      discretization.get_table().get_active_table().data();
+  auto const &grid = dis_grid.get_subgrid(get_rank());
+  int const *const flattened_table = dis_grid.get_table().get_active_table().data();
 
+  int const pdegree_p1     = pde.get_dimensions()[0].get_degree();
+  int const max_level      = (program_options.do_adapt_levels)
+                                ? program_options.max_level
+                                : pde.max_level;
   int const num_dimensions = pde.num_dims;
-  connect_1d pattern1d(pde.max_level);
+
+  // take into account the terms that will be skipped due to the imex_flag
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
+  int const num_terms = static_cast<int>(used_terms.size());
+
+  // early exit, if working with an empty matrix
+  if (used_terms.empty())
+    return global_kron_matrix<precision>();
+
+  connect_1d pattern1d(max_level);
+  int64_t lda = pdegree_p1 * pattern1d.num_cells();
 
   int const num_non_padded = grid.col_stop - grid.col_start + 1;
   std::vector<int> agard_indexes(num_dimensions * num_non_padded);
@@ -954,20 +970,53 @@ global_kron_matrix make_global_kron_matrix(PDE<double> const &pde,
       agard_indexes[i * num_dimensions + j] = (1 << flattened_table[i * num_dimensions + j]) + flattened_table[i * num_dimensions + num_dimensions + j];
 
   reindex_map asg2tsg(num_dimensions); // asgard to tasmanian map
-  indexset asg_iset = asg2tsg.remap(agard_indexes);
+  indexset tsg_iset = asg2tsg.remap(agard_indexes); // set in tasmanian format
 
   // pad with all elements from previous levels connected by the edge
-  indexset edge_pad_indexes;
-  int new_pad_entries = 1; // forces entrance into the while-loop
+  indexset edge_pad = compute_ancestry_completion(tsg_iset, pattern1d);
 
-  while(new_pad_entries > 0)
+  if (not edge_pad.empty())
   {
-    int old_pad_entries = edge_pad_indexes.num_indexes();
-
-    new_pad_entries = edge_pad_indexes.num_indexes() - old_pad_entries;
+    // put all the padding at the back, so we can easily ignore anything
+    // that is copied from or to beyond the num_non_padded
+    agard_indexes.insert(agard_indexes.end(), edge_pad.index(0), edge_pad.index(0) + edge_pad.size());
+    tsg_iset = asg2tsg.remap(agard_indexes);
   }
 
+  // sort the indexes across the dimensions to find matching indexes
+  dimension_sort dsort(tsg_iset);
 
+  // copy out the matrices
+  // size of the tensor entry, polynomial d.o.f. squared
+  int const num1d = pattern1d.num_connections();
+  int const size_tmat = pdegree_p1 * pdegree_p1;
+  std::vector<fk::vector<precision>> valA(num_terms * num_dimensions);
+  for(int t=0; t<num_terms; t++)
+  {
+    for(int d=0; d<num_dimensions; d++)
+    {
+      valA[t * num_dimensions + d] = fk::vector<precision>(num1d * size_tmat);
+      precision const *const ops = pde.get_coefficients(t, d).data();
+      auto pA = valA.begin();
+      for (int row = 0; row < pattern1d.num_cells(); row++)
+      {
+        for (int j = pattern1d.row_begin(row); j < pattern1d.row_end(row); j++)
+        {
+          int const col = pattern1d[j];
+          for (int k = 0; k < pdegree_p1; k++)
+            pA = std::copy_n(ops + pdegree_p1 * row + lda * (pdegree_p1 * col + k), pdegree_p1, pA);
+        }
+      }
+    }
+  }
+
+  // get the 1d pattern of just the same level edge neighbors
+  //   the edge pattern only counts left and right (with mind for periodicity)
+  //   either or both can be missing (no neighbors for level 0, 1, or connected to same element on level 2, else distinct)
+  // for each index, find the neighbors (in global index set) and add the index
+  // build data structures for sparse kronmult, copy only minimum data to another vA
+
+  return global_kron_matrix<precision>(std::move(pattern1d), std::move(tsg_iset), std::move(asg2tsg), std::move(dsort), pdegree_p1, std::move(valA));
 }
 
 

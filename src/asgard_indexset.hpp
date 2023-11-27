@@ -6,6 +6,10 @@
 #include <numeric>
 
 #include "tools.hpp"
+#include "asgard_grid_1d.hpp"
+
+namespace asgard
+{
 
 /*!
  * \brief Contains a set of sorted multi-indexes
@@ -33,6 +37,10 @@ public:
   int num_indexes() const { return num_indexes_; }
   //! \brief Returns the number of dimensions.
   int num_dimensions() const { return num_dimensions_; }
+  //! \brief Total number of integer entries.
+  size_t size() const { return indexes_.size(); }
+  //! \brief Returns true if the number of indexes is zero.
+  bool empty() const { return (num_indexes() == 0); }
 
   //! \brief Get the i-th index of the lexicographical order.
   const int* index(int i) const
@@ -41,7 +49,7 @@ public:
   }
 
   //! \brief Find the index in the sorted list, returns -1 if missing
-  int find(const int *idx)
+  int find(const int *idx) const
   {
     int first = 0, last = num_indexes_ - 1;
     int current = (first + last) / 2;
@@ -65,7 +73,7 @@ public:
     return -1;
   }
   //! \brief Overload for std::vector
-  int find(std::vector<int> const &idx)
+  int find(std::vector<int> const &idx) const
   {
     expect(idx.size() == static_cast<size_t>(idx.size()));
     return find(idx.data());
@@ -78,7 +86,7 @@ protected:
     before_current, match_found, after_current
   };
   //! \brief Compare the multi-index to the one at the position current.
-  match compare(int current, int const *b)
+  match compare(int current, int const *b) const
   {
     int const *a = index(current);
     for(int j=0; j<num_dimensions_; j++) {
@@ -92,15 +100,30 @@ private:
   int num_dimensions_;
   int num_indexes_;
   std::vector<int> indexes_;
-  std::vector<std::vector<int>> map_;
 };
 
+/*!
+ * \brief Factory method for constructing a set from unsorted and non-unique indexes.
+ *
+ * The indexes in the list a assumed unsorted and could have repeated entries,
+ * the effective number of multi-indexes could be less.
+ *
+ * The size of indexes should be a multiple of the number of dimensions.
+ */
+indexset make_index_set(int num_dimensions, std::vector<int> const &indexes);
 
 class reindex_map
 {
 public:
   reindex_map(int num_dimensions) : num_dimensions_(num_dimensions){}
 
+  /*!
+   * \brief Sorts the given indexes into an index set and stores a map
+   *
+   * Holds a map of the sorted and unsorted indexes.
+   * The vector holding the indexes is assumed to contain only unique
+   * multi-indexes, but sorted in so particular order.
+   */
   indexset remap(std::vector<int> const &indexes);
 
 private:
@@ -152,3 +175,19 @@ private:
   std::vector<std::vector<int>> map_;
   std::vector<std::vector<int>> pntr_;
 };
+
+/*!
+ * \brief Finds the set of all missing ancestors.
+ *
+ * Returns the set, so that the union of the given set and the returned set
+ * will be ancestry complete.
+ *
+ * \param iset is the set to be completed
+ * \param the lower-triangular part of the connect_1d pattern lists all
+ *        ancestors for the ancestors, i.e., row i-th ancestors are in
+ *        listed between row_begin(i) and row_diag(i)
+ */
+indexset compute_ancestry_completion(indexset const &iset,
+                                     connect_1d const &pattern1d);
+
+}
