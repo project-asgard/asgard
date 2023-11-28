@@ -474,9 +474,8 @@ template<resource resrc, typename P>
 void axpy(int n, P alpha, const P *x, int incx, P *y, int incy)
 {
   static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
-  expect(alpha);
-  expect(x);
-  expect(y);
+  expect(x != nullptr);
+  expect(y != nullptr);
   expect(incx >= 0);
   expect(incy >= 0);
   expect(n >= 0);
