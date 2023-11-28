@@ -147,13 +147,14 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   fk::vector<P> krylov_proj(restart * (restart + 1) / 2);
   fk::vector<P> sines(restart + 1);
   fk::vector<P> cosines(restart + 1);
+  fk::vector<P> krylov_sol(restart + 1);
 
-  int total_iterations{0};
-  int outer_iterations{0};
-  int inner_iterations{0};
+  int total_iterations = 0;
+  int outer_iterations = 0;
+  int inner_iterations = 0;
 
-  P inner_res{0.};
-  P outer_res{tolerance + P{1.}};
+  P inner_res = 0.;
+  P outer_res = tolerance + 1.;
   while ((outer_res > tolerance) && (outer_iterations < max_outer_iterations))
   {
     fk::vector<P, mem_type::view, resrc> scaled(basis, 0, 0, basis.nrows() - 1);
@@ -162,7 +163,6 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     precondition(scaled);
     ++total_iterations;
 
-    fk::vector<P> krylov_sol(n + 1);
     inner_res = fm::nrm2(scaled);
     scaled.scale(P{1.} / inner_res);
     krylov_sol[0] = inner_res;
@@ -216,6 +216,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 
       if ((inner_res > tolerance) && (inner_iterations < restart))
       {
+        krylov_sol[inner_iterations + 1] = 0.;
         lib_dispatch::rot(1, krylov_sol.data(inner_iterations), 1,
                           krylov_sol.data(inner_iterations + 1), 1,
                           cosines[inner_iterations], sines[inner_iterations]);
