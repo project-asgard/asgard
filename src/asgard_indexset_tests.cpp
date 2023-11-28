@@ -14,8 +14,8 @@ void verify_1d(dimension_sort const &dsort, indexset const &iset, int dimension,
   auto idx1 = index1d.begin();
   for(int j=dsort.vec_begin(dimension, i); j < dsort.vec_end(dimension, i); j++)
   {
-    REQUIRE(dsort(dimension, j) == *ioff++);
-    REQUIRE(dsort.index1d(iset, dimension, j) == *idx1++);
+    REQUIRE(dsort.map(dimension, j) == *ioff++);
+    REQUIRE(dsort(iset, dimension, j) == *idx1++);
   }
 }
 

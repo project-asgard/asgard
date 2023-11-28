@@ -929,7 +929,7 @@ class global_kron_matrix
 {
 public:
   //! \brief Creates an empty matrix.
-  global_kron_matrix() : size_t1d_(0) {}
+  global_kron_matrix() : conn_(1), imap_(0), size_t1d_(0) {}
   //! \brief Creates an empty matrix.
   global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&imap, dimension_sort &&dsort,
                      int size_t1d, std::vector<fk::vector<precision>> &&valA)
@@ -939,9 +939,20 @@ public:
     expect(vals.size() > 0);
     expect(vals.size() % iset.num_dimensions() == 0);
     num_terms_ = static_cast<int>(vals.size() / iset.num_dimensions());
+
+    work1 = fk::vector<precision>(iset.num_dimensions());
+    work2 = fk::vector<precision>(iset.num_dimensions());
   }
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
   bool empty() const { return vals.empty(); }
+  //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
+  void hierarchy_apply(int term, precision alpha, precision const *x, precision *y);
+
+protected:
+  //! \brief Indicates the fill of the matrix.
+  enum class matrix_fill { upper, both, lower };
+  //! \brief Apply the operator across one dimension, using the corresponding fill.
+  void apply1D(int term, precision const *x, precision *y, int dim, matrix_fill fill);
 
 private:
   // description of the multi-indexes and the sparsity pattern
@@ -952,7 +963,8 @@ private:
   // data for the 1D tensors
   int size_t1d_, num_terms_;
   std::vector<fk::vector<precision>> vals;
+  // temp workspace
+  fk::vector<precision> work1, work2;
 };
-
 
 } // namespace asgard

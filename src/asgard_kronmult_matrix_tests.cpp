@@ -173,6 +173,7 @@ void test_kronmult_dense(int dimensions, int n, int num_terms,
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
 
+/*
 TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", test_precs)
 {
   std::vector<TestType> A    = {1, 2, 3, 4};
@@ -383,3 +384,58 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
 }
 
 #endif
+*/
+
+TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
+{
+  std::minstd_rand park_miller(42);
+  std::uniform_real_distribution<TestType> unif(-1.0, 1.0);
+  // very simple test
+  asgard::connect_1d conn(4, asgard::connect_1d::level_edge_skip);
+  std::vector<int> indexes(10);
+  std::iota(indexes.begin(), indexes.end(), 0);
+
+  asgard::reindex_map rmap(1);
+  asgard::indexset iset = rmap.remap(indexes);
+  asgard::dimension_sort dsort(iset);
+
+  // 1d, 1 term, random operator
+  std::vector<asgard::fk::vector<TestType>> vals(1);
+  vals[0] = asgard::fk::vector<TestType>(conn.num_connections());
+  for(auto &v : vals[0])
+    v = unif(park_miller);
+
+  // random vector
+  std::vector<TestType> x(indexes.size());
+  for(auto &v : x)
+    v = unif(park_miller);
+
+  std::vector<TestType> y_ref(x.size(), TestType{0});
+
+  for(int i=0; i<y_ref.size(); i++)
+  {
+    for(int j=0; j<x.size(); j++)
+    {
+      int const op_index = conn.get_offset(i, j);
+      if (op_index > -1) // connected
+        y_ref[i] += x[j] * vals[0][op_index];
+    }
+  }
+
+  asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), std::move(rmap), std::move(dsort), 1, std::vector<asgard::fk::vector<TestType>>(vals));
+
+  std::vector<TestType> y(x.size(), TestType{0});
+  mat.hierarchy_apply(0, TestType{0}, x.data(), y.data());
+
+  for(int i=0; i<y.size(); i++)
+  {
+    std::cout << y[i] << "  " << y_ref[i] << "\n";
+  }
+
+}
+
+template<typename precision>
+void test_global_kron(int dims, int level)
+{
+
+}

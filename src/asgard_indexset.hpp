@@ -156,6 +156,8 @@ private:
 class dimension_sort
 {
 public:
+  //! \brief Empty sort, used for an empty matrix.
+  dimension_sort() {}
   //! \brief Sort the indexes dimension by dimension.
   dimension_sort(indexset const &iset);
 
@@ -167,9 +169,9 @@ public:
   int vec_end(int dimension, int i) const { return pntr_[dimension][i+1]; }
 
   //! \brief Get the j-th global offset
-  int operator() (int dimension, int j) const { return map_[dimension][j]; }
+  int map(int dimension, int j) const { return map_[dimension][j]; }
   //! \brief Get the 1d index of the j-th entry
-  int index1d(indexset const &iset, int dimension, int j) const { return iset.index(map_[dimension][j])[dimension]; }
+  int operator() (indexset const &iset, int dimension, int j) const { return iset.index(map_[dimension][j])[dimension]; }
 
 private:
   std::vector<std::vector<int>> map_;
