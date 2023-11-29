@@ -1034,11 +1034,21 @@ void global_kron_matrix<precision>::apply1D(int term, precision const *x, precis
     // sparse matrix times a spase vector, we must match the patterns
     int const vec_begin = dsort_.vec_begin(dim, vec_id);
     int const vec_end   = dsort_.vec_end(dim, vec_id);
+    //std::cerr << "vec_begin, vec_end = " << vec_begin << "  " << vec_end << "\n";
+    //for(int j=vec_begin; j<vec_end; j++)
+    //{
+    //  //std::cerr << dsort_(iset_, 0, j) << ", " << dsort_(iset_, 1, j) << "\n";
+    //  std::cerr << iset_.index(dsort_.map(dim, j))[0] << ", " << iset_.index(dsort_.map(dim, j))[1] << "\n";
+    //}
     for(int j=vec_begin; j<vec_end; j++)
     {
-      int row = dsort_(iset_, dim, j);
-      int mat_begin = (fill == matrix_fill::upper) ? (conn_.row_diag(row)+1) : conn_.row_begin(row);
+      int row = dsort_(iset_, dim, j); // 1D index of this output
+      //std::cerr << " row = " << row << "\n";
+      int mat_begin = (fill == matrix_fill::upper) ? conn_.row_diag(row) : conn_.row_begin(row);
       int mat_end   = (fill == matrix_fill::lower) ? conn_.row_diag(row) : conn_.row_end(row);
+
+      //std::cerr << "mat_begin, mat_end = " << mat_begin << "  " << mat_end << "\n";
+      //std::cerr << "true mat_begin, mat_end = " << conn_.row_begin(row) << "  " << conn_.row_end(row) << " diag = " << conn_.row_diag(row) << "\n";
 
       int mat_j = mat_begin;
       int vec_j = vec_begin;
@@ -1046,6 +1056,7 @@ void global_kron_matrix<precision>::apply1D(int term, precision const *x, precis
       {
         int const vec_index = dsort_(iset_, dim, vec_j); // pattern index 1d
         int const mat_index = conn_[mat_j];
+        //std::cerr << " vec_index = " << vec_index << "   mat_index = " << mat_index << "\n";
         if (vec_index < mat_index)
         {
           vec_j += 1;
@@ -1059,6 +1070,7 @@ void global_kron_matrix<precision>::apply1D(int term, precision const *x, precis
           // TODO: this should be the product of (k+1)^d tensor times (k+1)^2 matrix
           y[dsort_.map(dim, j)] += x[dsort_.map(dim, vec_j)] * valst[mat_j];
           // entry match, increment both indexes for the pattern
+          //std::cerr << " adding to: " << dsort_.map(dim, j) << "  " << x[dsort_.map(dim, vec_j)] << "   " << valst[mat_j] << "\n";
           vec_j += 1;
           mat_j += 1;
         }
@@ -1073,7 +1085,10 @@ void global_kron_matrix<precision>::hierarchy_apply(int term, precision alpha, p
   int const num_dimensions = iset_.num_dimensions();
   if (num_dimensions == 1) // no need to split anything
   {
-    apply1D(term, x, y, 0, matrix_fill::both);
+    apply1D(term, x, work1.data(), 0, matrix_fill::both);
+    //for(auto w : work1)
+    // std::cerr << w << "  ";
+    //std::cerr << "\n";
     lib_dispatch::axpy<resource::host>(work1.size(), alpha, work1.data(), 1, y, 1);
   }
   else
@@ -1095,26 +1110,37 @@ void global_kron_matrix<precision>::hierarchy_apply(int term, precision alpha, p
         t /= 2;
       }
       std::sort(order.begin(), order.end()); // put lower matrices first
+      // for(auto o : order) std::cerr << o << "  ";
+      // std::cerr << "\n";
       for(int d=0; d<num_dimensions; d++)
       {
-        fill[d] = (order[d] < 0) ? matrix_fill::lower :
-                  ((order[d] > 0) ? matrix_fill::upper :
+        fill[d] = (order[d] < 0) ? matrix_fill::upper :
+                  ((order[d] > 0) ? matrix_fill::lower :
                                      matrix_fill::both);
         order[d] = std::abs(order[d]);
       }
       precision *w1 = work1.data();
       precision *w2 = work2.data();
+      //std::cerr << " ------------------------------- \n ";
+      //std::cerr << " applying: " << order[0] << "  " << fill_name(fill[0]) << "\n ";
       apply1D(term, x, w1, order[0], fill[0]);
+      //for(int i=0; i<work1.size(); i++) std::cerr << w1[i] << "  ";
+      //std::cerr << "\n";
       for(int d=1; d<num_dimensions; d++)
       {
+        //std::cerr << " ------------------------------- \n ";
+        //std::cerr << " applying: " << order[d] << "  " << fill_name(fill[d]) << "\n ";
         apply1D(term, w1, w2, order[d], fill[d]);
+        //for(int i=0; i<work1.size(); i++) std::cerr << w1[i] << "  ";
+        //std::cerr << "\n";
         std::swap(w1, w2);
       }
       lib_dispatch::axpy<resource::host>(work1.size(), alpha, w1, 1, y, 1);
     }
   }
-
 }
+
+
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template kronmult_matrix<double>

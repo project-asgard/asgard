@@ -41,7 +41,7 @@ public:
     for (int i = 0; i < cells; i++)
       indx[i + cells] = i;
     diag[0] = 0;
-    diag[1] = 1;
+    diag[1] = 1 + cells;
 
     // for the remaining, loop level by level, cell by cell
     for (int l = 2; l < levels + 1; l++)
@@ -197,7 +197,7 @@ public:
 
   int row_begin(int row) const { return pntr[row]; }
 
-  int row_diag(int row) const { return indx[row]; }
+  int row_diag(int row) const { return diag[row]; }
 
   int row_end(int row) const { return pntr[row + 1]; }
 

@@ -390,52 +390,164 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
 {
   std::minstd_rand park_miller(42);
   std::uniform_real_distribution<TestType> unif(-1.0, 1.0);
-  // very simple test
-  asgard::connect_1d conn(4, asgard::connect_1d::level_edge_skip);
-  std::vector<int> indexes(10);
-  std::iota(indexes.begin(), indexes.end(), 0);
 
-  asgard::reindex_map rmap(1);
+  std::vector<int> nindex = {10, 20, 44};
+  std::vector<int> levels = { 4,  5,  6};
+
+  for(size_t tcase = 0; tcase < nindex.size(); tcase++)
+  {
+    // very simple test
+    asgard::connect_1d conn(levels[tcase], asgard::connect_1d::level_edge_skip);
+    std::vector<int> indexes(nindex[tcase]);
+    std::iota(indexes.begin(), indexes.end(), 0);
+
+    asgard::reindex_map rmap(1);
+    asgard::indexset iset = rmap.remap(indexes);
+    asgard::dimension_sort dsort(iset);
+
+    // 1d, 1 term, random operator
+    std::vector<asgard::fk::vector<TestType>> vals(1);
+    vals[0] = asgard::fk::vector<TestType>(conn.num_connections());
+    for(auto &v : vals[0])
+      v = unif(park_miller);
+
+    // random vector
+    std::vector<TestType> x(indexes.size());
+    for(auto &v : x)
+      v = unif(park_miller);
+
+    std::vector<TestType> y_ref(x.size(), TestType{0});
+
+    int const num = static_cast<int>(y_ref.size());
+    for(int i=0; i<num; i++)
+    {
+      for(int j=0; j<num; j++)
+      {
+        int const op_index = conn.get_offset(i, j);
+        if (op_index > -1) // connected
+          y_ref[i] += x[j] * vals[0][op_index];
+      }
+    }
+
+    asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), std::move(rmap), std::move(dsort), 1, std::vector<asgard::fk::vector<TestType>>(vals));
+
+    std::vector<TestType> y(x.size(), TestType{0});
+    mat.hierarchy_apply(0, TestType{1}, x.data(), y.data());
+
+    test_almost_equal(y, y_ref);
+  }
+}
+
+int int_log2(int x)
+{
+  int l = 0;
+  while( x > 0 )
+  {
+    x /= 2;
+    l += 1;
+  }
+  return l;
+}
+
+template<typename precision>
+void test_global_kron(int num_dimensions, int level)
+{
+  std::minstd_rand park_miller(42);
+  std::uniform_real_distribution<precision> unif(-1.0, 1.0);
+
+  auto indexes = asgard::permutations::generate_lower_index_set(num_dimensions,
+    [&](std::vector<int> const &index)->bool{
+          int L = 0;
+          for(auto const &i : index) L += int_log2(i);
+          return (L <= level);
+    });
+
+  asgard::connect_1d conn(level, asgard::connect_1d::level_edge_skip);
+
+  asgard::reindex_map rmap(num_dimensions);
   asgard::indexset iset = rmap.remap(indexes);
   asgard::dimension_sort dsort(iset);
 
   // 1d, 1 term, random operator
-  std::vector<asgard::fk::vector<TestType>> vals(1);
-  vals[0] = asgard::fk::vector<TestType>(conn.num_connections());
-  for(auto &v : vals[0])
-    v = unif(park_miller);
+  std::vector<asgard::fk::vector<precision>> vals(num_dimensions);
+  for(int d=0; d<num_dimensions; d++)
+  {
+    vals[d] = asgard::fk::vector<precision>(conn.num_connections());
+    for(auto &v : vals[d])
+      v = unif(park_miller);
+  }
 
   // random vector
-  std::vector<TestType> x(indexes.size());
+  int const num = iset.num_indexes();
+  std::vector<precision> x(num);
   for(auto &v : x)
     v = unif(park_miller);
 
-  std::vector<TestType> y_ref(x.size(), TestType{0});
+  std::vector<precision> y_ref(x.size(), precision{0});
 
-  for(int i=0; i<y_ref.size(); i++)
+  #pragma omp parallel for
+  for(int m=0; m<num; m++)
   {
-    for(int j=0; j<x.size(); j++)
+    for(int i=0; i<num; i++)
     {
-      int const op_index = conn.get_offset(i, j);
-      if (op_index > -1) // connected
-        y_ref[i] += x[j] * vals[0][op_index];
+       precision t = 1;
+       for(int d=0; d<num_dimensions; d++)
+       {
+         int const op_index = conn.get_offset(iset.index(m)[d],
+                                              iset.index(i)[d]);
+         if (op_index == -1)
+         {
+            t = 0;
+            break;
+         }
+         else
+         {
+            t *= vals[d][op_index];
+            //if (m == 1) std::cerr << "   t *= " << vals[d][op_index] << "\n";
+         }
+       }
+       //if (m == 1) {
+       //   std::cerr << " adding: " << x[i] << " x " << t << "\n";
+       //   std::cerr <<   iset.index(i)[0] << "   " << iset.index(i)[1] << "\n";
+       //}
+       y_ref[m] += x[i] * t;
     }
   }
 
-  asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), std::move(rmap), std::move(dsort), 1, std::vector<asgard::fk::vector<TestType>>(vals));
+  asgard::global_kron_matrix<precision> mat(std::move(conn), std::move(iset), std::move(rmap), std::move(dsort), 1, std::move(vals));
 
-  std::vector<TestType> y(x.size(), TestType{0});
-  mat.hierarchy_apply(0, TestType{0}, x.data(), y.data());
+  std::vector<precision> y(y_ref.size(), precision{0});
+  mat.hierarchy_apply(0, precision{1}, x.data(), y.data());
 
-  for(int i=0; i<y.size(); i++)
-  {
-    std::cout << y[i] << "  " << y_ref[i] << "\n";
-  }
+  //std::cerr << " test with num_dimensions = " << num_dimensions << "\n";
+  //for(int i=0; i<num; i++)
+  //  std::cerr << y[i] << "  " << y_ref[i] << "\n";
 
+  test_almost_equal(y, y_ref);
 }
 
-template<typename precision>
-void test_global_kron(int dims, int level)
+TEMPLATE_TEST_CASE("testing global kron 2d, constant basis", "[gkron 2d]", test_precs)
 {
+  int l = GENERATE(1, 2, 3, 4, 5, 6);
+  //int l = 2;
+  test_global_kron<TestType>(2, l);
+}
 
+
+TEMPLATE_TEST_CASE("testing global kron 3d, constant basis", "[gkron 3d]", test_precs)
+{
+  int l = GENERATE(1, 2, 3, 4, 5, 6);
+  test_global_kron<TestType>(3, l);
+}
+
+TEMPLATE_TEST_CASE("testing global kron 4d, constant basis", "[gkron 4d]", test_precs)
+{
+  int l = GENERATE(1, 2, 3, 4, 5, 6);
+  test_global_kron<TestType>(4, l);
+}
+
+TEMPLATE_TEST_CASE("testing global kron 5d, constant basis", "[gkron 5d]", test_precs)
+{
+  int l = GENERATE(1, 2, 3, 4, 5);
+  test_global_kron<TestType>(5, l);
 }

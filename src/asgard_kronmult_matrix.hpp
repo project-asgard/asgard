@@ -940,8 +940,8 @@ public:
     expect(vals.size() % iset.num_dimensions() == 0);
     num_terms_ = static_cast<int>(vals.size() / iset.num_dimensions());
 
-    work1 = fk::vector<precision>(iset.num_dimensions());
-    work2 = fk::vector<precision>(iset.num_dimensions());
+    work1 = fk::vector<precision>(iset.num_indexes());
+    work2 = fk::vector<precision>(iset.num_indexes());
   }
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
   bool empty() const { return vals.empty(); }
@@ -953,6 +953,17 @@ protected:
   enum class matrix_fill { upper, both, lower };
   //! \brief Apply the operator across one dimension, using the corresponding fill.
   void apply1D(int term, precision const *x, precision *y, int dim, matrix_fill fill);
+  //! \brief Debug output purposes, converts the fill to a string
+  const char *fill_name(matrix_fill fill)
+  {
+    switch(fill)
+    {
+      case matrix_fill::upper: return "upper";
+      case matrix_fill::lower: return "lower";
+      default:
+        return "both";
+    }
+  }
 
 private:
   // description of the multi-indexes and the sparsity pattern
