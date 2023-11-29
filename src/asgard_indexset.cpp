@@ -204,7 +204,7 @@ indexset compute_ancestry_completion(indexset const &iset,
       {
         missing_ancestors.insert(missing_ancestors.end(), pad_indexes.index(0), pad_indexes.index(0) + pad_indexes.size());
         pad_indexes = make_index_set(num_dimensions, missing_ancestors);
-        last_added = pad_indexes.num_indexes();
+        last_added  = pad_indexes.num_indexes();
       }
     }
   }

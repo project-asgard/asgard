@@ -162,6 +162,56 @@ public:
     } // done with level, move to the next level
   }   // close the constructor
 
+  /*!
+   * \brief Creates a new connectivity matrix by expanding each element with
+   *        a block of size block_rows by block_rows
+   *
+   * Note that this will also remove the diagonal entries and "self" connection.
+   *
+   * Either way, the two parts of the matrix are split as before
+   * lower part: row_begin(row) ... diag(row)
+   * upper part: diag(row) ... row_end(row)
+   */
+  connect_1d(connect_1d const &elem_connect, int block_rows)
+    : levels(-1), cells(elem_connect.cells * block_rows),
+      pntr(cells + 1, 0), diag(cells)
+  {
+    pntr[0] = 0;
+    for(int row=0; row<elem_connect.num_cells(); row++)
+    {
+      // using one less element, since we will remove the diagonal entries
+      int elem_per_row = block_rows * (elem_connect.row_end(row) - elem_connect.row_begin(row) - 1);
+      for(int j=0; j<block_rows; j++)
+        pntr[block_rows * row + j + 1] = pntr[block_rows * row + j] + elem_per_row;
+    }
+
+    // add the connectivity entries
+    indx.reserve(pntr.back());
+    for(int row=0; row<elem_connect.num_cells(); row++)
+    {
+      for(int j=0; j<block_rows; j++)
+      {
+        for(int col=elem_connect.row_begin(row); col<elem_connect.row_diag(row);
+            col++)
+          for(int k=0; k<block_rows; k++)
+            indx.push_back(block_rows * elem_connect[col] + k);
+
+        for(int col=elem_connect.row_diag(row)+1; col<elem_connect.row_end(row);
+            col++)
+          for(int k=0; k<block_rows; k++)
+            indx.push_back(block_rows * elem_connect[col] + k);
+      }
+    }
+
+    // set the diagonal of the new matrix
+    for(int row=0; row<cells; row++)
+    {
+      diag[row] = row_begin(row);
+      while(indx[diag[row]] < row and diag[row] < row_end(row))
+        diag[row] += 1;
+    }
+  }
+
   int get_offset(int row, int col) const
   {
     // first two levels are large and trivial, no need to search

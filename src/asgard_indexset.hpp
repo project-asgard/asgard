@@ -192,4 +192,27 @@ private:
 indexset compute_ancestry_completion(indexset const &iset,
                                      connect_1d const &pattern1d);
 
+/*
+ * change the completion algorithm
+ * 1. Take a list of indexes (as opposed to a set)
+ * 2. Complete with the edge neighbors, padded to the end
+ * 3. Complete with the polynomial dofs
+ *    - take as inputs from both patterns
+ *    - global index of the padded comes after (easier to remap)
+ *    - the list as to be sorted to be searchable,
+ *      but order in the list has to match ASGarD before the remap
+ * 4. Remap to an index set that is complete
+ * 5.
+ *
+ * Have the remap, patterns and new set as a new data-structure,
+ * call it global remap.
+ *
+ * There is no "matrix" but a collection of terms (per dimension).
+ * Updating the coefficients is done for all matrices (maybe)?
+ * Hold all coefficients in one global matrix,
+ * have a way to specify which term to use for the apply method.
+ *
+ */
+
+
 }
