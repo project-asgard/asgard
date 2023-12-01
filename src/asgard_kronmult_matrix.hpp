@@ -929,7 +929,7 @@ class global_kron_matrix
 {
 public:
   //! \brief Creates an empty matrix.
-  global_kron_matrix() : conn_(1), imap_(0), size_t1d_(0) {}
+  global_kron_matrix() : conn_(1), imap_(0, 0), size_t1d_(0) {}
   //! \brief Creates an empty matrix.
   global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&imap, dimension_sort &&dsort,
                      int size_t1d, std::vector<fk::vector<precision>> &&valA)

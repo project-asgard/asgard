@@ -211,4 +211,109 @@ indexset compute_ancestry_completion(indexset const &iset,
   return pad_indexes;
 }
 
+index_map
+complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
+                   connect_1d const &cell_pattern, int porder)
+{
+  // create a set which is easily searchable
+  indexset current_active_cells = make_index_set(num_dimensions, active_cells);
+
+  // do just one pass, considering the indexes in the iset only
+  std::vector<int> missing_ancestors;
+  for(int i=0; i<current_active_cells.num_indexes(); i++)
+  {
+    // construct all parents, even considering the edges
+    std::vector<int> ancetor(current_active_cells.index(i),
+                             current_active_cells.index(i) + num_dimensions);
+    // check the parents in each direction
+    for(int d=0; d<num_dimensions; d++)
+    {
+      int const row = ancetor[d];
+      for(int j=cell_pattern.row_begin(row); j<cell_pattern.row_diag(row); j++)
+      {
+        ancetor[d] = cell_pattern[j];
+        if (current_active_cells.find(ancetor) == -1)
+          missing_ancestors.insert(missing_ancestors.end(), ancetor.begin(), ancetor.end());
+      }
+      ancetor[d] = row;
+    }
+  }
+
+  // swipe recursively
+  if (not missing_ancestors.empty())
+  {
+    // for search purposes
+    indexset pad_indexes = make_index_set(num_dimensions, missing_ancestors);
+
+    int last_added = pad_indexes.num_indexes();
+
+    // the assumption here it that the padded set will be smaller
+    // then the iset, so we do one loop over the large set and then we work
+    // only with the smaller completion
+    while(last_added > 0)
+    {
+      missing_ancestors.clear();
+
+      for(int i=0; i<pad_indexes.num_indexes(); i++)
+      {
+        // construct all parents, even considering the edges
+        std::vector<int> ancetor(pad_indexes.index(i), pad_indexes.index(i) + num_dimensions);
+        // check the parents in each direction
+        for(int d=0; d<num_dimensions; d++)
+        {
+          int const row = ancetor[d];
+          for(int j=cell_pattern.row_begin(row); j<cell_pattern.row_diag(row); j++)
+          {
+            ancetor[d] = cell_pattern[j];
+            if (current_active_cells.find(ancetor) == -1 and pad_indexes.find(ancetor) == -1)
+              missing_ancestors.insert(missing_ancestors.end(), ancetor.begin(), ancetor.end());
+          }
+          ancetor[d] = row;
+        }
+      }
+
+      if (missing_ancestors.empty())
+      {
+        last_added = 0;
+      }
+      else
+      {
+        pad_indexes = make_index_set(num_dimensions, missing_ancestors);
+        last_added  = pad_indexes.num_indexes();
+      }
+      missing_ancestors.insert(missing_ancestors.end(), pad_indexes.index(0), pad_indexes.index(0) + pad_indexes.size());
+    }
+  }
+
+  // At this point we have the active_cells and the missing_ancestors
+  int const pdof = porder + 1;
+  int num_cell_dofs = pdof;
+  for(int d=1; d<num_dimensions; d++)
+    num_cell_dofs *= pdof;
+
+  // construct a set of indexes for the degrees of freedom
+  std::vector<int> dof_indexes;
+  dof_indexes.reserve((active_cells.size() + missing_ancestors.size()) * num_cell_dofs);
+  for(int group=0; group<2; group++)
+  {
+    std::vector<int> const &cells = (group==0) ? active_cells : missing_ancestors;
+    for(size_t i=0; i<cells.size(); i += num_dimensions)
+    {
+      int const *multi = &cells[i];
+      for(int j=0; j<num_cell_dofs; j++)
+      {
+        int t = j;
+        for(int d=0; d<num_dimensions; d++)
+        {
+          dof_indexes.push_back( multi[d] * pdof + t % pdof);
+          t /= pdof;
+        }
+      }
+    }
+  }
+
+  // remap the indexes into a sorted set
+  return index_map(num_dimensions, active_cells.size() * num_cell_dofs, dof_indexes);
+}
+
 }

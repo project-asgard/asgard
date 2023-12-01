@@ -115,7 +115,8 @@ indexset make_index_set(int num_dimensions, std::vector<int> const &indexes);
 class reindex_map
 {
 public:
-  reindex_map(int num_dimensions) : num_dimensions_(num_dimensions){}
+  reindex_map(int num_dimensions, size_t num_active) : num_dimensions_(num_dimensions), num_active_(num_active){}
+
 
   /*!
    * \brief Sorts the given indexes into an index set and stores a map
@@ -126,8 +127,18 @@ public:
    */
   indexset remap(std::vector<int> const &indexes);
 
+  /*!
+   * \brief Map dof to internal order for the kronecker operation.
+   */
+  template<typename precision>
+  void map_to_ordered(precision const *dof, precision *ordered) const
+  {
+    //for(size_t i=0; i<map
+  }
+
 private:
   int num_dimensions_;
+  size_t num_active_;
   std::vector<int> map_;
 };
 
@@ -192,6 +203,34 @@ private:
 indexset compute_ancestry_completion(indexset const &iset,
                                      connect_1d const &pattern1d);
 
+
+/*!
+ * \brief Holds a map between a set of multi-indexes and degrees of freedom.
+ */
+struct index_map
+{
+  index_map(int num_dimensions, size_t num_active, std::vector<int> const &indexes)
+    : map(num_dimensions, num_active), iset(map.remap(indexes))
+  {}
+  reindex_map map;
+  indexset iset;
+};
+
+/*!
+ * \brief Completes the indexes with the edge parents and fills with the basis indexes.
+ *
+ * \param cell_pattern is used to identify the connections on the level above,
+ * it makes it easier to have a single swipe to identify all parents.
+ * The \b cell_pattern must be created with connect_1d::level_edge_skip option.
+ *
+ * \param porder is the polynomial order of the in-cell basis,
+ *               e.g., 0 for constants and 2 for quadratics
+ */
+index_map
+complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
+                   connect_1d const &cell_pattern, int porder);
+
+
 /*
  * change the completion algorithm
  * 1. Take a list of indexes (as opposed to a set)
@@ -199,7 +238,7 @@ indexset compute_ancestry_completion(indexset const &iset,
  * 3. Complete with the polynomial dofs
  *    - take as inputs from both patterns
  *    - global index of the padded comes after (easier to remap)
- *    - the list as to be sorted to be searchable,
+ *    - the list has to be sorted to be searchable,
  *      but order in the list has to match ASGarD before the remap
  * 4. Remap to an index set that is complete
  * 5.

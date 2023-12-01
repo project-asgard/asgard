@@ -969,7 +969,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
     for(int j=0; j<num_dimensions; j++)
       agard_indexes[i * num_dimensions + j] = (1 << flattened_table[i * num_dimensions + j]) + flattened_table[i * num_dimensions + num_dimensions + j];
 
-  reindex_map asg2tsg(num_dimensions); // asgard to tasmanian map
+  reindex_map asg2tsg(num_dimensions, 0); // asgard to tasmanian map
   indexset tsg_iset = asg2tsg.remap(agard_indexes); // set in tasmanian format
 
   // pad with all elements from previous levels connected by the edge

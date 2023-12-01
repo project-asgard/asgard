@@ -25,9 +25,7 @@ TEST_CASE("indexset sort", "[sort]")
   std::vector<int> sorted   = {0, 0, 0, 1, 1, 0, 1, 1, 2, 0};
   std::vector<int> unsorted = {1, 1, 1, 0, 2, 0, 0, 0, 0, 1};
 
-  reindex_map rmap(2);
-
-  indexset iset = rmap.remap(unsorted);
+  indexset iset = make_index_set(2, unsorted);
   // check the dimensions and number of indexes
   REQUIRE(iset.num_dimensions() == 2);
   REQUIRE(iset.num_indexes() == 5);
