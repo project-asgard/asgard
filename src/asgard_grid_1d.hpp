@@ -208,7 +208,7 @@ public:
     for(int row=0; row<rows; row++)
     {
       diag[row] = row_begin(row);
-      while(indx[diag[row]] < row and diag[row] < row_end(row))
+      while(diag[row] < row_end(row) and indx[diag[row]] < row)
         diag[row] += 1;
     }
   }
