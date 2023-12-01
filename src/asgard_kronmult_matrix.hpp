@@ -18,6 +18,10 @@
 
 namespace asgard
 {
+template<typename precision>
+std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
+                                imex_flag const imex);
+
 /*!
  * \brief Holds data for the pre-computed memory sizes.
  *
@@ -733,6 +737,233 @@ enum matrix_entry
   imex_implicit = 2
 };
 
+//! \brief Compute the permutations (upper/lower) for global kronecker operations
+struct kron_permute
+{
+  //! \brief Indicates the fill of the matrix.
+  enum class matrix_fill { upper, both, lower };
+  //! \brief Matrix fill for each operation.
+  std::vector<std::vector<matrix_fill>> fill;
+  //! \brief Direction for each matrix operation.
+  std::vector<std::vector<int>> direction;
+  //! \brief Empty permutation list.
+  kron_permute() = default;
+  //! \brief Initialize the permutations.
+  kron_permute(int num_dimensions)
+  {
+    int num_permute = 1;
+    for(int d=0; d<num_dimensions-1; d++)
+      num_permute *= 2;
+
+    direction.resize(num_permute);
+    fill.resize(num_permute);
+    for(int perm=0; perm<num_permute; perm++)
+    {
+      direction[perm].resize(num_dimensions, 0);
+      fill[perm].resize(num_dimensions);
+      int t = perm;
+      for(int d=1; d<num_dimensions; d++)
+      {
+        // negative dimension means lower fill, positive for upper fill
+        direction[perm][d] = (t % 2 == 0) ? d : -d;
+        t /= 2;
+      }
+      std::sort(direction[perm].begin(), direction[perm].end()); // put lower matrices first
+      for(int d=0; d<num_dimensions; d++)
+      {
+        fill[perm][d] = (direction[perm][d] < 0) ? matrix_fill::upper :
+                         ((direction[perm][d] > 0) ? matrix_fill::lower :
+                                     matrix_fill::both);
+        direction[perm][d] = std::abs(direction[perm][d]);
+      }
+    }
+  }
+};
+
+namespace kronmult
+{
+/*!
+ * \brief Perform 1D or one stage of a multi-stage global Kronecker product
+ *
+ * Given an indexset and that has been sorted by dimensions,
+ * we perform one stage of a Kronecker product.
+ *
+ * The stage is applied on the dimension \b dim with a matrix that has
+ * the given \b fill and 1D sparsity pattern provided by the connectivity
+ * and values given by the \b vals array.
+ *
+ * The output is y = mat * x
+ */
+template<typename precision>
+void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
+                     int dim, kron_permute::matrix_fill fill,
+                     connect_1d const &conn, precision const *vals,
+                     precision const *x, precision *y);
+
+/*!
+ * \brief Perform global Kronecked product
+ *
+ * The permutations between upper/lower parts and the order of the directions
+ * is stored in \b kron_permute.
+ *
+ * The definition of the sparsity pattern and sets is the same as in
+ * global_kron_1d().
+ * The vals contains a vector for each dimension.
+ *
+ * The result is y += sum_{t in terms} alpha * mat_t * x
+ * i.e., one such operation has to be applied for each term.
+ *
+ * The size of the workspace must be twice the size of x/y,
+ * i.e., it must match 2 * iset.num_indexes()
+ */
+template<typename precision>
+void global_kron(kron_permute const &perms,
+                 indexset const &iset, dimension_sort const &dsort,
+                 connect_1d const &conn, std::vector<int> const &terms,
+                 std::vector<fk::vector<precision>> const &vals,
+                 precision alpha, precision const *x, precision *y,
+                 precision *worspace);
+}
+
+
+/*!
+ * \brief Holds the data for a global Kronecker matrix
+ */
+template<typename precision>
+class global_kron_matrix
+{
+public:
+  //! \brief Creates an empty matrix.
+  global_kron_matrix() : conn_(1) {}
+  //! \brief Creates an empty matrix.
+  global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&rmap, dimension_sort &&dsort,
+                     std::vector<fk::vector<precision>> &&valA)
+    : conn_(std::move(conn)), iset_(std::move(iset)), rmap_(std::move(rmap)), dsort_(std::move(dsort)),
+      perms_(iset_.num_dimensions()), num_terms_(0), vals(std::move(valA))
+  {
+    expect(vals.size() > 0);
+    expect(vals.size() % iset_.num_dimensions() == 0);
+    num_terms_ = static_cast<int>(vals.size() / iset_.num_dimensions());
+    terms_regular = std::vector<int>(num_terms_);
+    std::iota(terms_regular.begin(), terms_regular.end(), 0);
+
+    expanded  = fk::vector<precision>(2 * iset_.num_indexes());
+    workspace = fk::vector<precision>(2 * iset_.num_indexes());
+  }
+  //! \brief Returns \b true if the matrix is empty, \b false otherwise.
+  bool empty() const { return vals.empty(); }
+  //! \brief Apply the operator, including expanding and remapping.
+  void apply(precision alpha, precision const *x, precision *y)
+  {
+    rmap_.to_ordered(x, expanded.data());
+    precision *yordered = expanded.data() + iset_.num_indexes();
+    std::fill_n(yordered, iset_.num_indexes(), 0);
+    apply_increment(alpha, expanded.data(), yordered);
+    rmap_.add_to_dof(yordered, y);
+  }
+  //! \brief Apply the operator, including expanding and remapping.
+  void apply(matrix_entry etype, precision alpha, precision const *x, precision *y)
+  {
+    rmap_.to_ordered(x, expanded.data());
+    precision *yordered = expanded.data() + iset_.num_indexes();
+    std::fill_n(yordered, iset_.num_indexes(), 0);
+    switch(etype)
+    {
+      case matrix_entry::imex_explicit:
+            kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_imex_explicit, vals, alpha, expanded.data(), yordered, workspace.data());
+            break;
+      case matrix_entry::imex_implicit:
+            kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_imex_implicit, vals, alpha, expanded.data(), yordered, workspace.data());
+            break;
+      default:
+            kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_regular, vals, alpha, expanded.data(), yordered, workspace.data());
+            break;
+    }
+
+    rmap_.add_to_dof(yordered, y);
+  }
+  //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
+  void apply_increment(precision alpha, precision const *x, precision *y)
+  {
+    kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_regular, vals, alpha, x, y, workspace.data());
+  }
+
+  //! \brief Sets the collection of terms for each case.
+  void set_terms(matrix_entry etype, std::vector<int> &&terms)
+  {
+    switch(etype)
+    {
+      case matrix_entry::imex_explicit:
+            terms_imex_explicit = std::move(terms);
+            break;
+      case matrix_entry::imex_implicit:
+            terms_imex_implicit = std::move(terms);
+            break;
+      default:
+            terms_regular = std::move(terms);
+            break;
+    }
+  }
+
+  //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
+  operator bool() const { return (not vals.empty()); }
+  //! \brief Return the entry connectivity (sparsity pattern).
+  connect_1d const& connectivity() const { return conn_; }
+
+  //! \brief Allows overwriting of the loaded coefficients.
+  fk::vector<precision>& get_values(int term, int dim)
+  {
+    return vals[term * iset_.num_dimensions() + dim];
+  }
+
+protected:
+  //! \brief Debug output purposes, converts the fill to a string
+  const char *fill_name(kron_permute::matrix_fill fill)
+  {
+    switch(fill)
+    {
+      case kron_permute::matrix_fill::upper: return "upper";
+      case kron_permute::matrix_fill::lower: return "lower";
+      default:
+        return "both";
+    }
+  }
+
+private:
+  // description of the multi-indexes and the sparsity pattern
+  connect_1d conn_;
+  indexset iset_;
+  reindex_map rmap_;
+  dimension_sort dsort_;
+  kron_permute perms_;
+  // data for the 1D tensors
+  int num_terms_;
+  std::vector<fk::vector<precision>> vals;
+  // collections of terms
+  std::vector<int> terms_regular;
+  std::vector<int> terms_imex_explicit;
+  std::vector<int> terms_imex_implicit;
+  // temp workspace
+  fk::vector<precision> expanded;
+  fk::vector<precision> workspace;
+};
+
+
+/*!
+ * \brief Factory method for making a global kron matrix.
+ */
+template<typename precision>
+global_kron_matrix<precision>
+make_global_kron_matrix(PDE<precision> const &pde,
+                        adapt::distributed_grid<precision> const &dis_grid,
+                        options const &program_options);
+//! \brief Update the global coefficients.
+template<typename precision>
+void update_kronmult_coefficients(PDE<precision> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex,
+                                  global_kron_matrix<precision> &mat);
+
 /*!
  * \brief Compute the stats for the memory usage
  *
@@ -807,6 +1038,11 @@ struct matrix_list
     if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats,
                                             imex(entry), spcache);
+
+    if (not kglobal)
+      kglobal = make_global_kron_matrix(pde, grid, opts);
+    kglobal.set_terms(entry, get_used_terms(pde, opts, imex(entry)));
+
 #ifdef ASGARD_USE_CUDA
     if ((*this)[entry].input_size() != xdev.size())
     {
@@ -868,8 +1104,12 @@ struct matrix_list
     if (not(*this)[entry])
       make(entry, pde, grid, opts);
     else
+    {
       update_kronmult_coefficients(pde, opts, imex(entry), spcache,
                                    (*this)[entry]);
+      update_kronmult_coefficients(pde, opts, imex(entry), kglobal);
+    }
+
   }
 
   //! \brief Clear the specified matrix
@@ -877,6 +1117,7 @@ struct matrix_list
   {
     if (matrices[static_cast<int>(entry)])
       matrices[static_cast<int>(entry)] = kronmult_matrix<precision>();
+    kglobal = global_kron_matrix<precision>();
   }
   //! \brief Clear all matrices
   void clear_all()
@@ -885,10 +1126,14 @@ struct matrix_list
       if (matrix)
         matrix = kronmult_matrix<precision>();
     mem_stats.reset();
+    kglobal = global_kron_matrix<precision>();
   }
 
   //! \brief Holds the matrices
   std::vector<kronmult_matrix<precision>> matrices;
+
+  //! \brief Holds the global part of the kron product
+  global_kron_matrix<precision> kglobal;
 
 private:
   //! \brief Maps the entry enum to the IMEX flag
@@ -921,61 +1166,6 @@ private:
 #endif
 };
 
-////////////////////////////
-//// NEW CODE ... AGAIN ////
-////////////////////////////
-template<typename precision>
-class global_kron_matrix
-{
-public:
-  //! \brief Creates an empty matrix.
-  global_kron_matrix() : conn_(1), imap_(0, 0), size_t1d_(0) {}
-  //! \brief Creates an empty matrix.
-  global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&imap, dimension_sort &&dsort,
-                     int size_t1d, std::vector<fk::vector<precision>> &&valA)
-    : conn_(std::move(conn)), iset_(std::move(iset)), imap_(std::move(imap)), dsort_(std::move(dsort)),
-      size_t1d_(size_t1d), num_terms_(0), vals(std::move(valA))
-  {
-    expect(vals.size() > 0);
-    expect(vals.size() % iset.num_dimensions() == 0);
-    num_terms_ = static_cast<int>(vals.size() / iset.num_dimensions());
 
-    work1 = fk::vector<precision>(iset.num_indexes());
-    work2 = fk::vector<precision>(iset.num_indexes());
-  }
-  //! \brief Returns \b true if the matrix is empty, \b false otherwise.
-  bool empty() const { return vals.empty(); }
-  //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
-  void hierarchy_apply(int term, precision alpha, precision const *x, precision *y);
-
-protected:
-  //! \brief Indicates the fill of the matrix.
-  enum class matrix_fill { upper, both, lower };
-  //! \brief Apply the operator across one dimension, using the corresponding fill.
-  void apply1D(int term, precision const *x, precision *y, int dim, matrix_fill fill);
-  //! \brief Debug output purposes, converts the fill to a string
-  const char *fill_name(matrix_fill fill)
-  {
-    switch(fill)
-    {
-      case matrix_fill::upper: return "upper";
-      case matrix_fill::lower: return "lower";
-      default:
-        return "both";
-    }
-  }
-
-private:
-  // description of the multi-indexes and the sparsity pattern
-  connect_1d conn_;
-  indexset iset_;
-  reindex_map imap_;
-  dimension_sort dsort_;
-  // data for the 1D tensors
-  int size_t1d_, num_terms_;
-  std::vector<fk::vector<precision>> vals;
-  // temp workspace
-  fk::vector<precision> work1, work2;
-};
 
 } // namespace asgard

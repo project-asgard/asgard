@@ -305,7 +305,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const block1D_size = num_dimensions * num_terms * kron_squared;
   fk::vector<precision> vA(num_1d * block1D_size);
   auto pA = vA.begin();
-  for (int row = 0; row < spcache.cells1d.num_cells(); row++)
+  for (int row = 0; row < spcache.cells1d.num_rows(); row++)
   {
     for (int j = spcache.cells1d.row_begin(row);
          j < spcache.cells1d.row_end(row); j++)
@@ -716,7 +716,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
     int const block1D_size = num_dimensions * num_terms * kron_squared;
     vA                     = fk::vector<P>(num_1d * block1D_size);
     auto pA                = vA.begin();
-    for (int row = 0; row < spcache.cells1d.num_cells(); row++)
+    for (int row = 0; row < spcache.cells1d.num_rows(); row++)
     {
       for (int j = spcache.cells1d.row_begin(row);
            j < spcache.cells1d.row_end(row); j++)
@@ -940,28 +940,22 @@ template<typename precision>
 global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
-                        options const &program_options, imex_flag const imex)
+                        options const &program_options)
 {
   auto const &grid = dis_grid.get_subgrid(get_rank());
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
 
-  int const pdegree_p1     = pde.get_dimensions()[0].get_degree();
+  int const pdegree        = pde.get_dimensions()[0].get_degree() - 1;
   int const max_level      = (program_options.do_adapt_levels)
                                 ? program_options.max_level
                                 : pde.max_level;
   int const num_dimensions = pde.num_dims;
 
-  // take into account the terms that will be skipped due to the imex_flag
-  std::vector<int> const used_terms =
-      get_used_terms(pde, program_options, imex);
-  int const num_terms = static_cast<int>(used_terms.size());
+  int const num_terms = pde.num_terms;
 
-  // early exit, if working with an empty matrix
-  if (used_terms.empty())
-    return global_kron_matrix<precision>();
-
-  connect_1d pattern1d(max_level);
-  int64_t lda = pdegree_p1 * pattern1d.num_cells();
+  connect_1d cell_pattern(max_level);
+  connect_1d dof_pattern(cell_pattern, pdegree);
+  int64_t lda = (pdegree + 1) * cell_pattern.num_rows();
 
   int const num_non_padded = grid.col_stop - grid.col_start + 1;
   std::vector<int> agard_indexes(num_dimensions * num_non_padded);
@@ -969,71 +963,91 @@ make_global_kron_matrix(PDE<precision> const &pde,
     for(int j=0; j<num_dimensions; j++)
       agard_indexes[i * num_dimensions + j] = (1 << flattened_table[i * num_dimensions + j]) + flattened_table[i * num_dimensions + num_dimensions + j];
 
-  reindex_map asg2tsg(num_dimensions, 0); // asgard to tasmanian map
-  indexset tsg_iset = asg2tsg.remap(agard_indexes); // set in tasmanian format
-
-  // pad with all elements from previous levels connected by the edge
-  indexset edge_pad = compute_ancestry_completion(tsg_iset, pattern1d);
-
-  if (not edge_pad.empty())
-  {
-    // put all the padding at the back, so we can easily ignore anything
-    // that is copied from or to beyond the num_non_padded
-    agard_indexes.insert(agard_indexes.end(), edge_pad.index(0), edge_pad.index(0) + edge_pad.size());
-    tsg_iset = asg2tsg.remap(agard_indexes);
-  }
+  index_map imap = complete_and_remap(num_dimensions, agard_indexes, cell_pattern, pdegree);
 
   // sort the indexes across the dimensions to find matching indexes
-  dimension_sort dsort(tsg_iset);
+  dimension_sort dsort(imap.iset);
 
   // copy out the matrices
   // size of the tensor entry, polynomial d.o.f. squared
-  int const num1d = pattern1d.num_connections();
-  int const size_tmat = pdegree_p1 * pdegree_p1;
-  std::vector<fk::vector<precision>> valA(num_terms * num_dimensions);
+  int const num1d = dof_pattern.num_connections();
+  // values for all terms
+  std::vector<fk::vector<precision>> valst(num_terms * num_dimensions);
   for(int t=0; t<num_terms; t++)
   {
     for(int d=0; d<num_dimensions; d++)
     {
-      valA[t * num_dimensions + d] = fk::vector<precision>(num1d * size_tmat);
+      valst[t * num_dimensions + d] = fk::vector<precision>(num1d);
       precision const *const ops = pde.get_coefficients(t, d).data();
-      auto pA = valA[t * num_dimensions + d].begin();
-      for (int row = 0; row < pattern1d.num_cells(); row++)
+
+      fk::vector<precision> &vals = valst[t * num_dimensions + d];
+      for(int i=0; i<dof_pattern.num_rows(); i++)
       {
-        for (int j = pattern1d.row_begin(row); j < pattern1d.row_end(row); j++)
-        {
-          int const col = pattern1d[j];
-          for (int k = 0; k < pdegree_p1; k++)
-            pA = std::copy_n(ops + pdegree_p1 * row + lda * (pdegree_p1 * col + k), pdegree_p1, pA);
-        }
+        for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_end(i); j++)
+          vals[j] = ops[i + lda * dof_pattern[j]];
       }
     }
   }
 
-  // get the 1d pattern of just the same level edge neighbors
-  //   the edge pattern only counts left and right (with mind for periodicity)
-  //   either or both can be missing (no neighbors for level 0, 1, or connected to same element on level 2, else distinct)
-  // for each index, find the neighbors (in global index set) and add the index
-  // build data structures for sparse kronmult, copy only minimum data to another vA
-
-  return global_kron_matrix<precision>(std::move(pattern1d), std::move(tsg_iset), std::move(asg2tsg), std::move(dsort), pdegree_p1, std::move(valA));
+  return global_kron_matrix<precision>(std::move(dof_pattern), std::move(imap.iset), std::move(imap.map), std::move(dsort), std::move(valst));
 }
 
 template<typename precision>
-void global_kron_matrix<precision>::apply1D(int term, precision const *x, precision *y, int dim, matrix_fill fill)
+void update_kronmult_coefficients(PDE<precision> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex,
+                                  global_kron_matrix<precision> &mat)
 {
-  std::fill_n(y, work1.size(), precision{0});
-  precision const *valst = vals[term * iset_.num_dimensions() + dim].data();
-  int const num_vecs = dsort_.num_vecs(dim);
+  int const kron_size      = pde.get_dimensions()[0].get_degree();
+  int const num_dimensions = pde.num_dims;
+
+  int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
+                                                  ? program_options.max_level
+                                                  : pde.max_level);
+
+  std::vector<int> const used_terms =
+      get_used_terms(pde, program_options, imex);
+
+  connect_1d const &dof_pattern = mat.connectivity();
+
+  for(auto t : used_terms)
+  {
+    for(int d=0; d<num_dimensions; d++)
+    {
+      precision const *const ops = pde.get_coefficients(t, d).data();
+
+      fk::vector<precision> &vals = mat.get_values(t, d);
+      for(int i=0; i<dof_pattern.num_rows(); i++)
+      {
+        for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_end(i); j++)
+          vals[j] = ops[i + lda * dof_pattern[j]];
+      }
+    }
+  }
+
+}
+
+namespace kronmult
+{
+template<typename precision>
+void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
+                     int dim, kron_permute::matrix_fill fill,
+                     connect_1d const &conn, precision const *vals,
+                     precision const *x, precision *y)
+{
+  std::fill_n(y, iset.num_indexes(), precision{0});
+
+  // the sort splits the index set into sparse vectors
+  int const num_vecs = dsort.num_vecs(dim);
   // loop over all the sparse vectors
   for(int vec_id=0; vec_id<num_vecs; vec_id++)
   {
     // the vector is between vec_begin(dim, vec_id) and vec_end(dim, vec_id)
     // the vector has to be multiplied by the upper/lower/both portion
     // of a sparse matrix
-    // sparse matrix times a spase vector, we must match the patterns
-    int const vec_begin = dsort_.vec_begin(dim, vec_id);
-    int const vec_end   = dsort_.vec_end(dim, vec_id);
+    // sparse matrix times a sparse vector requires pattern matching
+    int const vec_begin = dsort.vec_begin(dim, vec_id);
+    int const vec_end   = dsort.vec_end(dim, vec_id);
     //std::cerr << "vec_begin, vec_end = " << vec_begin << "  " << vec_end << "\n";
     //for(int j=vec_begin; j<vec_end; j++)
     //{
@@ -1042,21 +1056,24 @@ void global_kron_matrix<precision>::apply1D(int term, precision const *x, precis
     //}
     for(int j=vec_begin; j<vec_end; j++)
     {
-      int row = dsort_(iset_, dim, j); // 1D index of this output
+      int row = dsort(iset, dim, j); // 1D index of this output in y
       //std::cerr << " row = " << row << "\n";
-      int mat_begin = (fill == matrix_fill::upper) ? conn_.row_diag(row) : conn_.row_begin(row);
-      int mat_end   = (fill == matrix_fill::lower) ? conn_.row_diag(row) : conn_.row_end(row);
+      int mat_begin = (fill == kron_permute::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
+      int mat_end   = (fill == kron_permute::matrix_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
 
       //std::cerr << "mat_begin, mat_end = " << mat_begin << "  " << mat_end << "\n";
       //std::cerr << "true mat_begin, mat_end = " << conn_.row_begin(row) << "  " << conn_.row_end(row) << " diag = " << conn_.row_diag(row) << "\n";
 
+      // loop over the matrix row and the vector looking for matching non-zeros
       int mat_j = mat_begin;
       int vec_j = vec_begin;
       while(mat_j < mat_end and vec_j < vec_end)
       {
-        int const vec_index = dsort_(iset_, dim, vec_j); // pattern index 1d
-        int const mat_index = conn_[mat_j];
+        int const vec_index = dsort(iset, dim, vec_j); // pattern index 1d
+        int const mat_index = conn[mat_j];
         //std::cerr << " vec_index = " << vec_index << "   mat_index = " << mat_index << "\n";
+        // the sort helps here, since indexes are in order, it is easy to
+        // match the index patterns
         if (vec_index < mat_index)
         {
           vec_j += 1;
@@ -1067,8 +1084,7 @@ void global_kron_matrix<precision>::apply1D(int term, precision const *x, precis
         }
         else // mat_index == vec_index, found matching entry, add to output
         {
-          // TODO: this should be the product of (k+1)^d tensor times (k+1)^2 matrix
-          y[dsort_.map(dim, j)] += x[dsort_.map(dim, vec_j)] * valst[mat_j];
+          y[dsort.map(dim, j)] += x[dsort.map(dim, vec_j)] * vals[mat_j];
           // entry match, increment both indexes for the pattern
           //std::cerr << " adding to: " << dsort_.map(dim, j) << "  " << x[dsort_.map(dim, vec_j)] << "   " << valst[mat_j] << "\n";
           vec_j += 1;
@@ -1080,69 +1096,63 @@ void global_kron_matrix<precision>::apply1D(int term, precision const *x, precis
 }
 
 template<typename precision>
-void global_kron_matrix<precision>::hierarchy_apply(int term, precision alpha, precision const *x, precision *y)
+void global_kron(kron_permute const &perms,
+                 indexset const &iset, dimension_sort const &dsort,
+                 connect_1d const &conn, std::vector<int> const &terms,
+                 std::vector<fk::vector<precision>> const &vals,
+                 precision alpha, precision const *x, precision *y,
+                 precision *worspace)
 {
-  int const num_dimensions = iset_.num_dimensions();
+  int const num_dimensions = iset.num_dimensions();
   if (num_dimensions == 1) // no need to split anything
   {
-    apply1D(term, x, work1.data(), 0, matrix_fill::both);
-    //for(auto w : work1)
-    // std::cerr << w << "  ";
-    //std::cerr << "\n";
-    lib_dispatch::axpy<resource::host>(work1.size(), alpha, work1.data(), 1, y, 1);
+    for(int t : terms)
+    {
+      global_kron_1d(iset, dsort, 0, kron_permute::matrix_fill::both, conn,
+                     vals[t].data(), x, worspace);
+      lib_dispatch::axpy<resource::host>(iset.num_indexes(), alpha, worspace, 1, y, 1);
+    }
   }
   else
   {
-    int num_permute = 1;
-    for(int d=0; d<num_dimensions-1; d++)
-      num_permute *= 2;
+    precision *w1 = worspace;
+    precision *w2 = worspace + iset.num_indexes();
 
-    std::vector<int> order(num_dimensions);
-    std::vector<matrix_fill> fill(num_dimensions);
-    for(int perm=0; perm<num_permute; perm++)
+    for(int t : terms)
     {
-      order[0] = 0;
-      int t = perm;
-      for(int d=1; d<num_dimensions; d++)
+      for(size_t i=0; i<perms.fill.size(); i++)
       {
-        // negative dimension means lower fill, positive for upper fill
-        order[d] = (t % 2 == 0) ? d : -d;
-        t /= 2;
-      }
-      std::sort(order.begin(), order.end()); // put lower matrices first
-      // for(auto o : order) std::cerr << o << "  ";
-      // std::cerr << "\n";
-      for(int d=0; d<num_dimensions; d++)
-      {
-        fill[d] = (order[d] < 0) ? matrix_fill::upper :
-                  ((order[d] > 0) ? matrix_fill::lower :
-                                     matrix_fill::both);
-        order[d] = std::abs(order[d]);
-      }
-      precision *w1 = work1.data();
-      precision *w2 = work2.data();
-      //std::cerr << " ------------------------------- \n ";
-      //std::cerr << " applying: " << order[0] << "  " << fill_name(fill[0]) << "\n ";
-      apply1D(term, x, w1, order[0], fill[0]);
-      //for(int i=0; i<work1.size(); i++) std::cerr << w1[i] << "  ";
-      //std::cerr << "\n";
-      for(int d=1; d<num_dimensions; d++)
-      {
+
         //std::cerr << " ------------------------------- \n ";
-        //std::cerr << " applying: " << order[d] << "  " << fill_name(fill[d]) << "\n ";
-        apply1D(term, w1, w2, order[d], fill[d]);
+        //std::cerr << " applying: " << order[0] << "  " << fill_name(fill[0]) << "\n ";
+        //global_kron_1d(term, x, w1, perms.direction[i][0], perms.fill[i][0]);
+        global_kron_1d(iset, dsort, perms.direction[i][0], perms.fill[i][0],
+                       conn, vals[t * num_dimensions + perms.direction[i][0]].data(), x, w1);
         //for(int i=0; i<work1.size(); i++) std::cerr << w1[i] << "  ";
         //std::cerr << "\n";
-        std::swap(w1, w2);
+        for(int d=1; d<num_dimensions; d++)
+        {
+          //std::cerr << " ------------------------------- \n ";
+          //std::cerr << " applying: " << order[d] << "  " << fill_name(fill[d]) << "\n ";
+          //apply1D(term, w1, w2, perms.direction[i][d], perms.fill[i][d]);
+          global_kron_1d(iset, dsort, perms.direction[i][d], perms.fill[i][d],
+                         conn, vals[t * num_dimensions + perms.direction[i][d]].data(), w1, w2);
+          //for(int i=0; i<work1.size(); i++) std::cerr << w1[i] << "  ";
+          //std::cerr << "\n";
+          std::swap(w1, w2);
+        }
+        lib_dispatch::axpy<resource::host>(iset.num_indexes(), alpha, w1, 1, y, 1);
       }
-      lib_dispatch::axpy<resource::host>(work1.size(), alpha, w1, 1, y, 1);
     }
   }
 }
-
-
+}
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template
+std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,
+                                imex_flag const imex);
+
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
@@ -1160,11 +1170,20 @@ compute_mem_usage<double>(PDE<double> const &,
 template global_kron_matrix<double>
 make_global_kron_matrix(PDE<double> const &pde,
                         adapt::distributed_grid<double> const &dis_grid,
-                        options const &program_options, imex_flag const imex);
+                        options const &program_options);
+template
+void update_kronmult_coefficients(PDE<double> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex,
+                                  global_kron_matrix<double> &mat);
 template class global_kron_matrix<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template
+std::vector<int> get_used_terms(PDE<float> const &pde, options const &opts,
+                                imex_flag const imex);
+
 template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
@@ -1182,7 +1201,12 @@ compute_mem_usage<float>(PDE<float> const &,
 template global_kron_matrix<float>
 make_global_kron_matrix(PDE<float> const &pde,
                         adapt::distributed_grid<float> const &dis_grid,
-                        options const &program_options, imex_flag const imex);
+                        options const &program_options);
+template
+void update_kronmult_coefficients(PDE<float> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex,
+                                  global_kron_matrix<float> &mat);
 #endif
 
 } // namespace asgard

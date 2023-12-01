@@ -57,11 +57,11 @@ TEST_CASE("indexset sort", "[sort]")
 TEST_CASE("connectivity expand", "[connectivity]")
 {
   connect_1d cells(3, connect_1d::level_edge_skip);
-  REQUIRE(cells.num_cells() == 8);
+  REQUIRE(cells.num_rows() == 8);
   REQUIRE(cells.num_connections() == 50);
 
   std::vector<int> gold_num_connect = {8, 8, 7, 7, 5, 5, 5, 5};
-  for(int row=0; row<cells.num_cells(); row++)
+  for(int row=0; row<cells.num_rows(); row++)
     REQUIRE(gold_num_connect[row] == cells.row_end(row) - cells.row_begin(row));
 
   std::vector<int> gold_connect_row4 = {0, 1, 2, 3, 4};
@@ -70,10 +70,11 @@ TEST_CASE("connectivity expand", "[connectivity]")
 
   // expand the cells by adding the degrees of freedom for quadratic basis
   // i.e., each entry in the sparse matrix is replaced with a 3x3 block
-  connect_1d expanded(cells, 3);
-  REQUIRE(expanded.num_cells() == 3 * 8);
+  int const porder = 2;
+  connect_1d expanded(cells, porder);
+  REQUIRE(expanded.num_rows() == (porder+1) * 8);
   // there are fewer connection since we removed the self-connection
-  REQUIRE(expanded.num_connections() == (50 - 8) * 3 * 3);
+  REQUIRE(expanded.num_connections() == (50 - 8) * (porder+1) * (porder+1));
 
   // compare the connectivity to the 12-th element
   std::vector<int> gold_connect_row12 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
@@ -83,4 +84,38 @@ TEST_CASE("connectivity expand", "[connectivity]")
   // connectivity for 12 should be the same as 13
   for(int col=expanded.row_begin(13); col<expanded.row_end(13); col++)
     REQUIRE(gold_connect_row12[col - expanded.row_begin(13)] == expanded[col]);
+}
+
+TEST_CASE("remap testing", "[remap]")
+{
+  connect_1d cells(3, connect_1d::level_edge_skip);
+  int const porder = 1;
+  connect_1d basis(cells, porder);
+
+  int const num_dimensions = 2;
+  // selecting (1, 0) and (0, 1), i.e., missing (0, 0) and the order is reversed
+  std::vector<int> active_cells = {1, 0, 0, 1};
+
+  index_map imap = complete_and_remap(num_dimensions, active_cells, cells, porder);
+
+  REQUIRE(imap.iset.num_dimensions() ==  2);
+  REQUIRE(imap.iset.num_indexes()    == 12);
+
+  std::vector<int> gold_iset = {0, 0, 0, 1, 0, 2, 0, 3, // (0, 0), (0, 1) from padded cell (0, 0), and (0, 2), (0,3) from active cell (0, 1)
+                                1, 0, 1, 1, 1, 2, 1, 3,
+                                2, 0, 2, 1, 3, 0, 3, 1};
+
+  std::vector<int> x       = {1, 2, 3, 4, 6, 7, 8, 9};
+  std::vector<int> ordered(12, 5); // fill with 5 to see if zeros were put in
+  std::vector<int> ordered_gold = {0, 0, 6, 7, 0, 0, 8, 9, 1, 2, 3, 4};
+
+  imap.map.to_ordered(x.data(), ordered.data());
+  for(int i=0; i<12; i++)
+    REQUIRE(ordered[i] == ordered_gold[i]);
+
+  std::vector<int> dof(8, -1); // fill with -1 to see if all put correctly
+  imap.map.to_dof(ordered.data(), dof.data());
+  for(int i=0; i<8; i++)
+    REQUIRE(dof[i] == x[i]);
+
 }

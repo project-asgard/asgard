@@ -26,22 +26,22 @@ public:
    *         max-level.
    */
   connect_1d(int const max_level, same_level neighbor = level_edge_include)
-      : levels(max_level), cells(1 << levels), pntr(cells + 1, 0),
-        indx(2 * cells), diag(cells)
+      : levels(max_level), rows(1 << levels), pntr(rows + 1, 0),
+        indx(2 * rows), diag(rows)
   {
     std::vector<int> cell_per_level(levels + 2, 1);
     for (int l = 2; l < levels + 2; l++)
       cell_per_level[l] = 2 * cell_per_level[l - 1];
 
     // first two cells are connected to everything
-    pntr[1] = cells;
-    pntr[2] = 2 * cells;
-    for (int i = 0; i < cells; i++)
+    pntr[1] = rows;
+    pntr[2] = 2 * rows;
+    for (int i = 0; i < rows; i++)
       indx[i] = i;
-    for (int i = 0; i < cells; i++)
-      indx[i + cells] = i;
+    for (int i = 0; i < rows; i++)
+      indx[i + rows] = i;
     diag[0] = 0;
-    diag[1] = 1 + cells;
+    diag[1] = 1 + rows;
 
     // for the remaining, loop level by level, cell by cell
     for (int l = 2; l < levels + 1; l++)
@@ -172,12 +172,13 @@ public:
    * lower part: row_begin(row) ... diag(row)
    * upper part: diag(row) ... row_end(row)
    */
-  connect_1d(connect_1d const &elem_connect, int block_rows)
-    : levels(-1), cells(elem_connect.cells * block_rows),
-      pntr(cells + 1, 0), diag(cells)
+  connect_1d(connect_1d const &elem_connect, int porder)
+    : levels(-1), rows(elem_connect.rows * (porder+1)),
+      pntr(rows + 1, 0), diag(rows)
   {
+    int const block_rows = porder + 1;
     pntr[0] = 0;
-    for(int row=0; row<elem_connect.num_cells(); row++)
+    for(int row=0; row<elem_connect.num_rows(); row++)
     {
       // using one less element, since we will remove the diagonal entries
       int elem_per_row = block_rows * (elem_connect.row_end(row) - elem_connect.row_begin(row) - 1);
@@ -187,7 +188,7 @@ public:
 
     // add the connectivity entries
     indx.reserve(pntr.back());
-    for(int row=0; row<elem_connect.num_cells(); row++)
+    for(int row=0; row<elem_connect.num_rows(); row++)
     {
       for(int j=0; j<block_rows; j++)
       {
@@ -204,7 +205,7 @@ public:
     }
 
     // set the diagonal of the new matrix
-    for(int row=0; row<cells; row++)
+    for(int row=0; row<rows; row++)
     {
       diag[row] = row_begin(row);
       while(indx[diag[row]] < row and diag[row] < row_end(row))
@@ -218,7 +219,7 @@ public:
     if (row == 0)
       return col;
     else if (row == 1)
-      return cells + col;
+      return rows + col;
     // if not on the first or second row, do binary search
     int sstart = pntr[row], send = pntr[row + 1] - 1;
     int current = (sstart + send) / 2;
@@ -243,7 +244,7 @@ public:
 
   int num_connections() const { return static_cast<int>(indx.size()); }
 
-  int num_cells() const { return cells; }
+  int num_rows() const { return rows; }
 
   int row_begin(int row) const { return pntr[row]; }
 
@@ -261,7 +262,7 @@ private:
   // diag[i] holds the offset of the diagonal entry, i.e., indx[diag[i]] = i
   //      it helps identify lowe/upper triangular part of the pattern
   int levels;
-  int cells;
+  int rows;
   std::vector<int> pntr;
   std::vector<int> indx;
   std::vector<int> diag;

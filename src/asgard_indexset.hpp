@@ -115,8 +115,9 @@ indexset make_index_set(int num_dimensions, std::vector<int> const &indexes);
 class reindex_map
 {
 public:
-  reindex_map(int num_dimensions, size_t num_active) : num_dimensions_(num_dimensions), num_active_(num_active){}
+  reindex_map() : num_dimensions_(0), num_active_(0) {}
 
+  reindex_map(int num_dimensions, int num_active) : num_dimensions_(num_dimensions), num_active_(num_active){}
 
   /*!
    * \brief Sorts the given indexes into an index set and stores a map
@@ -131,14 +132,30 @@ public:
    * \brief Map dof to internal order for the kronecker operation.
    */
   template<typename precision>
-  void map_to_ordered(precision const *dof, precision *ordered) const
+  void to_ordered(precision const *dof, precision *ordered) const
   {
-    //for(size_t i=0; i<map
+    for(size_t i=0; i<map_.size(); i++)
+      ordered[i] = (map_[i] < num_active_) ? dof[map_[i]] : precision{0};
   }
+  template<typename precision>
+  void to_dof(precision const *ordered, precision *dof) const
+  {
+    for(size_t i=0; i<map_.size(); i++)
+      if (map_[i] < num_active_)
+        dof[map_[i]] = ordered[i];
+  }
+  template<typename precision>
+  void add_to_dof(precision const *ordered, precision *dof) const
+  {
+    for(size_t i=0; i<map_.size(); i++)
+      if (map_[i] < num_active_)
+        dof[map_[i]] += ordered[i];
+  }
+  int num_active() const { return num_active_; }
 
 private:
   int num_dimensions_;
-  size_t num_active_;
+  int num_active_;
   std::vector<int> map_;
 };
 
@@ -209,7 +226,7 @@ indexset compute_ancestry_completion(indexset const &iset,
  */
 struct index_map
 {
-  index_map(int num_dimensions, size_t num_active, std::vector<int> const &indexes)
+  index_map(int num_dimensions, int num_active, std::vector<int> const &indexes)
     : map(num_dimensions, num_active), iset(map.remap(indexes))
   {}
   reindex_map map;

@@ -297,6 +297,7 @@ complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
   for(int group=0; group<2; group++)
   {
     std::vector<int> const &cells = (group==0) ? active_cells : missing_ancestors;
+    std::vector<int> index(num_dimensions);
     for(size_t i=0; i<cells.size(); i += num_dimensions)
     {
       int const *multi = &cells[i];
@@ -305,15 +306,16 @@ complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
         int t = j;
         for(int d=0; d<num_dimensions; d++)
         {
-          dof_indexes.push_back( multi[d] * pdof + t % pdof);
+          index[num_dimensions-d-1] = multi[num_dimensions-d-1] * pdof + t % pdof;
           t /= pdof;
         }
+        dof_indexes.insert(dof_indexes.end(), index.begin(), index.end());
       }
     }
   }
 
   // remap the indexes into a sorted set
-  return index_map(num_dimensions, active_cells.size() * num_cell_dofs, dof_indexes);
+  return index_map(num_dimensions, (active_cells.size() / num_dimensions) * num_cell_dofs, dof_indexes);
 }
 
 }
