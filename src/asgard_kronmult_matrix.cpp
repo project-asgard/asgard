@@ -959,9 +959,21 @@ make_global_kron_matrix(PDE<precision> const &pde,
 
   int const num_non_padded = grid.col_stop - grid.col_start + 1;
   std::vector<int> agard_indexes(num_dimensions * num_non_padded);
-  for(int i=0; i<grid.col_stop+1; i++)
+  //std::cerr << " converting asg indexes, cols: " << grid.col_start << " - " << grid.col_stop << "\n";
+  //std::cerr << "   sizes = " << dis_grid.get_table().get_active_table().size() << "   " << num_dimensions << "\n";
+  for(int i=0; i<num_non_padded; i++) // does not work with MPI
+  {
+    int const * const asg = flattened_table + 2 * i * num_dimensions;
     for(int j=0; j<num_dimensions; j++)
-      agard_indexes[i * num_dimensions + j] = (1 << flattened_table[i * num_dimensions + j]) + flattened_table[i * num_dimensions + num_dimensions + j];
+    {
+      agard_indexes[i * num_dimensions + j] = (asg[j] == 0) ? 0 : ((1 << (asg[j] -1)) + asg[num_dimensions + j]);
+      //std::cerr << agard_indexes[i * num_dimensions + j] << " (" << asg[j] << ", " << asg[num_dimensions + j] << ") - ";
+    }
+    //std::cerr << "\n";
+  }
+
+  //for(auto i : agard_indexes) std::cerr << i << "  ";
+  //std::cerr << "\n";
 
   index_map imap = complete_and_remap(num_dimensions, agard_indexes, cell_pattern, pdegree);
 

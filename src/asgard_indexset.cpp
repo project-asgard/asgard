@@ -9,16 +9,19 @@ indexset make_index_set(int num_dimensions, std::vector<int> const &indexes){
   std::vector<int> map(num_indexes);
   std::iota(map.begin(), map.end(), 0);
 
+  //std::cerr << "  indexes.size() = " << indexes.size() << "  numd = " << num_dimensions << " num_indexes = " << num_indexes << "\n";
   std::sort(map.begin(), map.end(),
             [&](int a, int b)-> bool{
               for(int j=0; j<num_dimensions; j++)
               {
+                // std::cerr << a << "  " << b << " - " << a*num_dimensions + j << "    " << b*num_dimensions + j << "\n";
+                // std::cerr << indexes[a*num_dimensions + j] << "   " << indexes[b*num_dimensions + j] << "\n";
                 if (indexes[a*num_dimensions + j] < indexes[b*num_dimensions + j])
                   return true;
                 if (indexes[a*num_dimensions + j] > indexes[b*num_dimensions + j])
                   return false;
               }
-              return true; // equal, should never happen
+              return false; // equal should be false, as in < operator
             });
 
   int repeated_indexes = 0;
@@ -65,7 +68,7 @@ indexset reindex_map::remap(std::vector<int> const &indexes)
                 if (indexes[a*num_dimensions_ + j] > indexes[b*num_dimensions_ + j])
                   return false;
               }
-              return true; // equal, should never happen
+              return false; // equal, should never happen here
             });
 
   std::vector<int> sorded_indexes(num_dimensions_ * num_indexes);
@@ -229,6 +232,7 @@ complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
     for(int d=0; d<num_dimensions; d++)
     {
       int const row = ancetor[d];
+      //std::cerr << " row = " << row << "  num_rows = " << cell_pattern.num_rows() << "\n";
       for(int j=cell_pattern.row_begin(row); j<cell_pattern.row_diag(row); j++)
       {
         ancetor[d] = cell_pattern[j];
@@ -278,6 +282,10 @@ complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
       }
       else
       {
+        //for(auto m : missing_ancestors) std::cerr << m << "  ";
+        //std::cerr << "\n";
+        //std::cerr << "num_dimensions = " << num_dimensions << "   " << missing_ancestors.size() << "\n";
+
         pad_indexes = make_index_set(num_dimensions, missing_ancestors);
         last_added  = pad_indexes.num_indexes();
       }
