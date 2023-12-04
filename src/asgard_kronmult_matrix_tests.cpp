@@ -429,7 +429,8 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
     }
 
     //asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), std::move(rmap), std::move(dsort), 1, std::vector<asgard::fk::vector<TestType>>(vals));
-    asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), asgard::reindex_map(), std::move(dsort), std::vector<asgard::fk::vector<TestType>>(vals));
+    asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), asgard::reindex_map(), std::move(dsort), std::vector<asgard::fk::vector<TestType>>(vals),
+    asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
 
     std::vector<TestType> y(x.size(), TestType{0});
     mat.apply_increment(TestType{1}, x.data(), y.data());
@@ -513,7 +514,7 @@ void test_global_kron(int num_dimensions, int level)
     }
   }
 
-  asgard::global_kron_matrix<precision> mat(std::move(conn), std::move(iset), asgard::reindex_map(), std::move(dsort), std::move(vals));
+  asgard::global_kron_matrix<precision> mat(std::move(conn), std::move(iset), asgard::reindex_map(), std::move(dsort), std::move(vals), asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
 
   std::vector<precision> y(y_ref.size(), precision{0});
   mat.apply_increment(precision{1}, x.data(), y.data());

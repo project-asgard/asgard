@@ -86,6 +86,30 @@ TEST_CASE("connectivity expand", "[connectivity]")
     REQUIRE(gold_connect_row12[col - expanded.row_begin(13)] == expanded[col]);
 }
 
+TEST_CASE("testing edge connections", "[edge connect]")
+{
+  connect_1d cells(1, connect_1d::level_edge_only);
+  // cells on level 0 and 1 only connect the themselves
+  REQUIRE(cells.num_rows() == 2);
+  REQUIRE(cells.num_connections() == 2);
+  REQUIRE((cells[0] == 0 and cells[1] == 1));
+
+  cells = connect_1d(4, connect_1d::level_edge_only);
+  REQUIRE(cells.num_rows() == 16);
+  REQUIRE(cells.num_connections() == 42);
+
+  std::vector<int> gold_num_connect = {1, 1, 2, 2};
+  while(gold_num_connect.size() < 16)
+    gold_num_connect.push_back(3);
+  for(int i=0; i<16; i++)
+    REQUIRE(cells.row_end(i) - cells.row_begin(i) == gold_num_connect[i]);
+
+  // check the first two rows only
+  std::vector<int> gold_connect = {0, 1, 2, 3, 2, 3, 4, 5, 7, 4, 5, 6, 5, 6, 7, 4, 6, 7};
+  for(int j=0; j<static_cast<int>(gold_connect.size()); j++)
+    REQUIRE(cells[j] == gold_connect[j]);
+}
+
 TEST_CASE("remap testing", "[remap]")
 {
   connect_1d cells(3, connect_1d::level_edge_skip);

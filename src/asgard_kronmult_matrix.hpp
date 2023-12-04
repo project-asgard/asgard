@@ -13,6 +13,8 @@
 
 #include "./device/asgard_kronmult.hpp"
 
+#define KRON_MODE_GLOBAL
+
 // this interface between the low level kernels in src/device
 // and the higher level data-structures
 
@@ -826,6 +828,24 @@ void global_kron(kron_permute const &perms,
 }
 
 
+
+template<typename precision>
+class global_kron_matrix;
+
+//! \brief Update the global coefficients.
+template<typename precision>
+void update_kronmult_coefficients(PDE<precision> const &pde,
+                                  options const &program_options,
+                                  imex_flag const imex,
+                                  global_kron_matrix<precision> &mat);
+
+//! \brief Update the local coefficients.
+template<typename precision>
+void set_local_pattern(PDE<precision> const &pde,
+                       adapt::distributed_grid<precision> const &dis_grid,
+                       options const &program_options, imex_flag const imex,
+                       global_kron_matrix<precision> &mat);
+
 /*!
  * \brief Holds the data for a global Kronecker matrix
  */
@@ -834,12 +854,16 @@ class global_kron_matrix
 {
 public:
   //! \brief Creates an empty matrix.
-  global_kron_matrix() : conn_(1) {}
+  global_kron_matrix() : conn_(1), edges_(1) {}
   //! \brief Creates an empty matrix.
   global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&rmap, dimension_sort &&dsort,
-                     std::vector<fk::vector<precision>> &&valA)
+                     std::vector<fk::vector<precision>> &&valA,
+                     connect_1d &&edges,
+                     std::vector<int> &&local_pntr, std::vector<int> &&local_indx)
     : conn_(std::move(conn)), iset_(std::move(iset)), rmap_(std::move(rmap)), dsort_(std::move(dsort)),
-      perms_(iset_.num_dimensions()), num_terms_(0), vals(std::move(valA))
+      perms_(iset_.num_dimensions()), num_terms_(0), vals(std::move(valA)),
+      edges_(std::move(edges)),
+      local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
   {
     expect(vals.size() > 0);
     expect(vals.size() % iset_.num_dimensions() == 0);
@@ -853,7 +877,7 @@ public:
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
   bool empty() const { return vals.empty(); }
   //! \brief Apply the operator, including expanding and remapping.
-  void apply(precision alpha, precision const *x, precision *y)
+  void apply(precision alpha, precision const *x, precision *y) const
   {
     rmap_.to_ordered(x, expanded.data());
     precision *yordered = expanded.data() + iset_.num_indexes();
@@ -862,28 +886,36 @@ public:
     rmap_.add_to_dof(yordered, y);
   }
   //! \brief Apply the operator, including expanding and remapping.
-  void apply(matrix_entry etype, precision alpha, precision const *x, precision *y)
+  void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const
   {
+    std::vector<int> const &used_terms = [&]()->std::vector<int> const&
+        {
+            switch(etype)
+            {
+              case matrix_entry::imex_explicit:
+                    return terms_imex_explicit;
+              case matrix_entry::imex_implicit:
+                    return terms_imex_implicit;
+              default:
+                    return terms_regular;
+            }
+        }();
+
+   int const imex = (etype == matrix_entry::imex_explicit) ? 1 : ((etype == matrix_entry::imex_implicit) ? 2 : 0);
+   kronmult::cpu_sparse(iset_.num_dimensions(), porder_ + 1, local_pntr_.size() - 1,
+                        local_pntr_.data(), local_indx_.data(), used_terms.size(),
+                        local_opindex_[imex].data(), local_opvalues_[imex].data(),
+                        alpha, x, beta, y);
+
     rmap_.to_ordered(x, expanded.data());
     precision *yordered = expanded.data() + iset_.num_indexes();
     std::fill_n(yordered, iset_.num_indexes(), 0);
-    switch(etype)
-    {
-      case matrix_entry::imex_explicit:
-            kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_imex_explicit, vals, alpha, expanded.data(), yordered, workspace.data());
-            break;
-      case matrix_entry::imex_implicit:
-            kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_imex_implicit, vals, alpha, expanded.data(), yordered, workspace.data());
-            break;
-      default:
-            kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_regular, vals, alpha, expanded.data(), yordered, workspace.data());
-            break;
-    }
+    kronmult::global_kron(perms_, iset_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yordered, workspace.data());
 
     rmap_.add_to_dof(yordered, y);
   }
   //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
-  void apply_increment(precision alpha, precision const *x, precision *y)
+  void apply_increment(precision alpha, precision const *x, precision *y) const
   {
     kronmult::global_kron(perms_, iset_, dsort_, conn_, terms_regular, vals, alpha, x, y, workspace.data());
   }
@@ -909,12 +941,28 @@ public:
   operator bool() const { return (not vals.empty()); }
   //! \brief Return the entry connectivity (sparsity pattern).
   connect_1d const& connectivity() const { return conn_; }
+  //! \brief Return the edge connectivity
+  connect_1d const& edge_connectivity() const { return edges_; }
 
   //! \brief Allows overwriting of the loaded coefficients.
-  fk::vector<precision>& get_values(int term, int dim)
+  fk::vector<precision>& get_values(int tterm, int dim)
   {
-    return vals[term * iset_.num_dimensions() + dim];
+    return vals[tterm * iset_.num_dimensions() + dim];
   }
+
+
+  friend void set_local_pattern<precision>
+    (PDE<precision> const &pde,
+     adapt::distributed_grid<precision> const &dis_grid,
+     options const &program_options, imex_flag const imex,
+     global_kron_matrix<precision> &mat);
+
+
+  friend void update_kronmult_coefficients<precision>(
+    PDE<precision> const &pde,
+    options const &program_options,
+    imex_flag const imex,
+    global_kron_matrix<precision> &mat);
 
 protected:
   //! \brief Debug output purposes, converts the fill to a string
@@ -931,6 +979,7 @@ protected:
 
 private:
   // description of the multi-indexes and the sparsity pattern
+  // global case data
   connect_1d conn_;
   indexset iset_;
   reindex_map rmap_;
@@ -943,9 +992,16 @@ private:
   std::vector<int> terms_regular;
   std::vector<int> terms_imex_explicit;
   std::vector<int> terms_imex_implicit;
-  // temp workspace
-  fk::vector<precision> expanded;
-  fk::vector<precision> workspace;
+  // temp workspace (global case)
+  mutable fk::vector<precision> expanded;
+  mutable fk::vector<precision> workspace;
+  // local case data, handles the neighbors on the same level
+  int porder_;
+  connect_1d edges_;
+  std::vector<int> local_pntr_;
+  std::vector<int> local_indx_;
+  std::array<std::vector<int>, 3> local_opindex_;
+  std::array<std::vector<precision>, 3> local_opvalues_;
 };
 
 
@@ -957,12 +1013,7 @@ global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
                         options const &program_options);
-//! \brief Update the global coefficients.
-template<typename precision>
-void update_kronmult_coefficients(PDE<precision> const &pde,
-                                  options const &program_options,
-                                  imex_flag const imex,
-                                  global_kron_matrix<precision> &mat);
+
 
 /*!
  * \brief Compute the stats for the memory usage
@@ -1028,6 +1079,24 @@ struct matrix_list
     return matrices[static_cast<int>(entry)];
   }
 
+  void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
+  {
+      #ifdef KRON_MODE_GLOBAL
+      kglobal.apply(entry, alpha, x, beta, y);
+      #else
+      matrices[static_cast<int>(entry)].apply(alpha, x, beta, y);
+      #endif
+  }
+  int64_t flops(matrix_entry entry)
+  {
+      #ifdef KRON_MODE_GLOBAL
+      ignore(entry);
+      return 0;
+      #else
+      return matrices[static_cast<int>(entry)].flops();
+      #endif
+  }
+
   //! \brief Make the matrix for the given entry
   void make(matrix_entry entry, PDE<precision> const &pde,
             adapt::distributed_grid<precision> const &grid, options const &opts)
@@ -1042,6 +1111,7 @@ struct matrix_list
     if (not kglobal)
       kglobal = make_global_kron_matrix(pde, grid, opts);
     kglobal.set_terms(entry, get_used_terms(pde, opts, imex(entry)));
+    set_local_pattern(pde, grid, opts, imex(entry), kglobal);
 
 #ifdef ASGARD_USE_CUDA
     if ((*this)[entry].input_size() != xdev.size())

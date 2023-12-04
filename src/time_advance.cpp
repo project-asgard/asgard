@@ -216,9 +216,10 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
 
   {
     tools::time_event performance("kronmult");
-    operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
-                                                   fx.data());
-    performance.flops = operator_matrices[matrix_entry::regular].flops();
+    //operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
+    //                                               fx.data());
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
+    performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -241,9 +242,14 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
 
   // -- RK step 2
   {
+    //tools::time_event performance(
+    //    "kronmult", operator_matrices[matrix_entry::regular].flops());
+    //operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
+    //                                               fx.data());
+
     tools::time_event performance(
-        "kronmult", operator_matrices[matrix_entry::regular].flops());
-    operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
+        "kronmult", operator_matrices.flops(matrix_entry::regular));
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0,
                                                    fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -272,10 +278,15 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
 
   // -- RK step 3
   {
+    //tools::time_event performance("kronmult");
+    //operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
+    //                                               fx.data());
+    //performance.flops = operator_matrices[matrix_entry::regular].flops();
+
     tools::time_event performance("kronmult");
-    operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0,
                                                    fx.data());
-    performance.flops = operator_matrices[matrix_entry::regular].flops();
+    performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 

@@ -22,6 +22,13 @@ public:
   //! \brief Indicates whether to include same level edge neighbours
   enum same_level { level_edge_include, level_edge_skip };
   /*!
+   * \brief Type tag indicating a pattern that includes only the cells on the
+   * same level.
+   */
+  struct tag_level_edge_only{};
+  //! \brief Instance of the tag for easy use.
+  static tag_level_edge_only level_edge_only;
+  /*!
    *  \brief Constructor, makes the connectivity up to and including the given
    *         max-level.
    */
@@ -163,8 +170,68 @@ public:
   }   // close the constructor
 
   /*!
+   * \brief Construct a pattern including only the elements on the same level
+   *        and connected by the edge (also includes the self-connection).
+   */
+  connect_1d(int const max_level, tag_level_edge_only)
+      : levels(max_level), rows(1 << levels), pntr(rows + 1, 0),
+        indx(2), diag(rows)
+  {
+    std::vector<int> cell_per_level(levels + 2, 1);
+    for (int l = 2; l < levels + 2; l++)
+      cell_per_level[l] = 2 * cell_per_level[l - 1];
+
+    // first two cells are connected only to themselves
+    pntr[1] = 1;
+    pntr[2] = 2;
+    indx[0] = 0;
+    indx[1] = 1;
+    diag[0] = 0;
+    diag[1] = 1;
+
+    // for the remaining, loop level by level, cell by cell
+    for (int l = 2; l < levels + 1; l++)
+    {
+      int level_size = cell_per_level[l]; // number of cells in this level
+
+      // for each cell in this level, look at all cells connected
+      // look at previous levels, this level, follow on levels
+
+      // start with the first cell, on the left edge
+      int i = level_size; // index of the first cell
+      diag[i] = static_cast<int>(indx.size()); // self-connect
+      indx.push_back(i);
+      indx.push_back(i + 1); // connect to one to the left
+      if (l > 2) // at l==2, the i+1 cell is the right-most cell
+        indx.push_back(cell_per_level[l + 1] - 1); // connect to right edge
+      pntr[i + 1] = static_cast<int>(indx.size()); // done with point
+
+      // handle middle cells
+      for (int p = 1; p < level_size - 1; p++)
+      {
+        i++;
+        indx.push_back(i - 1); // left-connect
+        diag[i] = static_cast<int>(indx.size());
+        indx.push_back(i); // self-connect
+        indx.push_back(i + 1); // right-connect
+        pntr[i + 1] = static_cast<int>(indx.size()); // done with cell i
+      }
+
+      // right edge cell
+      i++;
+      // connect also to the left-most cell (periodic boundary)
+      if (l > 2) // at l==2  the i-1 cell is the left-most cell
+        indx.push_back(cell_per_level[l]);
+      indx.push_back(i - 1); // connect to the left-cell
+      diag[i] = static_cast<int>(indx.size()); // self-connect
+      indx.push_back(i);
+      pntr[i + 1] = static_cast<int>(indx.size()); // done with the right edge
+    } // done with level, move to the next level
+  }   // close the constructor
+
+  /*!
    * \brief Creates a new connectivity matrix by expanding each element with
-   *        a block of size block_rows by block_rows
+   *        a block of size (porder+1) by (porder+1)
    *
    * Note that this will also remove the diagonal entries and "self" connection.
    *
