@@ -1097,8 +1097,8 @@ void set_local_pattern(PDE<precision> const &pde,
                        global_kron_matrix<precision> &mat)
 {
   int const imex_indx = (imex == imex_flag::imex_explicit) ? 1 : ((imex == imex_flag::imex_implicit) ? 2 : 0);
-  std::vector<int> &indx = mat.local_opindex_[imex_indx];
-  std::vector<int> &vals = mat.local_opindex_[imex_indx];
+  std::vector<int> &indx       = mat.local_opindex_[imex_indx];
+  std::vector<precision> &vals = mat.local_opvalues_[imex_indx];
 
   auto const &grid = dis_grid.get_subgrid(get_rank());
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
@@ -1152,7 +1152,7 @@ void set_local_pattern(PDE<precision> const &pde,
     }
   }
 
-  //if (vals.empty())
+  if (vals.empty())
     vals.resize(num_terms * num_dimensions * dim_block);
 
   for (int t = 0; t < num_terms; t++)
@@ -1174,8 +1174,6 @@ void set_local_pattern(PDE<precision> const &pde,
       }
     }
   }
-
-  for(auto a : indx) if (a >= vals.size()) std::cerr << "OUCH!\n";
 }
 
 template<typename precision>
@@ -1185,7 +1183,7 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
                                   global_kron_matrix<precision> &mat)
 {
   int const imex_indx = (imex == imex_flag::imex_explicit) ? 1 : ((imex == imex_flag::imex_implicit) ? 2 : 0);
-  std::vector<int> &vals = mat.local_opindex_[imex_indx];
+  std::vector<precision> &vals = mat.local_opvalues_[imex_indx];
 
   int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_dimensions = pde.num_dims;
