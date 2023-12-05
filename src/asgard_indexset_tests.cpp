@@ -68,20 +68,23 @@ TEST_CASE("connectivity expand", "[connectivity]")
   for(int col=cells.row_begin(4); col<cells.row_end(4); col++)
     REQUIRE(gold_connect_row4[col - cells.row_begin(4)] == cells[col]);
 
+  connect_1d(cells, 0).dump();
+
   // expand the cells by adding the degrees of freedom for quadratic basis
   // i.e., each entry in the sparse matrix is replaced with a 3x3 block
   int const porder = 2;
   connect_1d expanded(cells, porder);
   REQUIRE(expanded.num_rows() == (porder+1) * 8);
   // there are fewer connection since we removed the self-connection
-  REQUIRE(expanded.num_connections() == (50 - 8) * (porder+1) * (porder+1));
+  REQUIRE(expanded.num_connections() == (50 - 8) * (porder+1) * (porder+1) + (porder+1) * 8);
 
   // compare the connectivity to the 12-th element
-  std::vector<int> gold_connect_row12 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+  std::vector<int> gold_connect_row12 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
   for(int col=expanded.row_begin(12); col<expanded.row_end(12); col++)
     REQUIRE(gold_connect_row12[col - expanded.row_begin(12)] == expanded[col]);
 
-  // connectivity for 12 should be the same as 13
+  // connectivity for 12 should be the same as 13, but for the last entry
+  gold_connect_row12.back() = 13;
   for(int col=expanded.row_begin(13); col<expanded.row_end(13); col++)
     REQUIRE(gold_connect_row12[col - expanded.row_begin(13)] == expanded[col]);
 }

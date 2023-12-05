@@ -13,7 +13,7 @@
 
 #include "./device/asgard_kronmult.hpp"
 
-#define KRON_MODE_GLOBAL
+//#define KRON_MODE_GLOBAL
 
 // this interface between the low level kernels in src/device
 // and the higher level data-structures
@@ -780,6 +780,15 @@ struct kron_permute
       }
     }
   }
+  const char * fill_name(int perm, int stage) const
+  {
+    switch(fill[perm][stage])
+    {
+      case matrix_fill::upper: return "upper";
+      case matrix_fill::lower: return "lower";
+      default: return "full";
+    }
+  }
 };
 
 namespace kronmult
@@ -901,18 +910,56 @@ public:
             }
         }();
 
+   //std::cerr << "local pattern \n";
+   //int const imex2 = (etype == matrix_entry::imex_explicit) ? 1 : ((etype == matrix_entry::imex_implicit) ? 2 : 0);
+   //for(int r=0; r<local_pntr_.size() - 1; r++){
+   //    for(int j=local_pntr_[r]; j<local_pntr_[r+1]; j++)
+   //      std::cerr << local_indx_[j] << "  ";
+   //    std::cerr << "\n";
+   //    auto ia = local_opindex_[imex2].begin() + local_pntr_[r] * used_terms.size() * iset_.num_dimensions();
+   //    for(int j=local_pntr_[r]; j<local_pntr_[r+1]; j++)
+   //      for(size_t t =0; t<used_terms.size(); t++)
+   //        for(int d =0; d<iset_.num_dimensions(); d++)
+   //          std::cerr << *ia++  << "  ";
+   //    std::cerr << "\n";
+   //}
+   //for(auto v : local_opvalues_[imex2])
+   //  std::cerr << v  << "  ";
+   //std::cerr << "\n";
+
    int const imex = (etype == matrix_entry::imex_explicit) ? 1 : ((etype == matrix_entry::imex_implicit) ? 2 : 0);
    kronmult::cpu_sparse(iset_.num_dimensions(), porder_ + 1, local_pntr_.size() - 1,
                         local_pntr_.data(), local_indx_.data(), used_terms.size(),
                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
                         alpha, x, beta, y);
 
+    //std::cerr << " alpha = " << alpha << "   beta = " << beta << "\n";
+    //std::cerr << " x - y - raw - begin \n";
+    //for(int i=0; i<rmap_.num_active(); i++)
+    //  std::cerr << x[i] << "   " << y[i] << "\n";
+    //std::cerr << " y - raw - end \n";
+
+    //conn_.dump();
+    //for(size_t t = 0; t < used_terms.size(); t++) {
+    //  for(int d = 0; d < iset_.num_dimensions(); d++) {
+    //    for(auto v : vals[t * iset_.num_dimensions() + d])
+    //      std::cerr << v << "  ";
+    //    std::cerr << "\n";
+    //  }
+    //}
+
     rmap_.to_ordered(x, expanded.data());
     precision *yordered = expanded.data() + iset_.num_indexes();
     std::fill_n(yordered, iset_.num_indexes(), 0);
     kronmult::global_kron(perms_, iset_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yordered, workspace.data());
+    //std::cerr << " y - ordered - begin \n";
+    //for(int i=0; i<iset_.num_indexes(); i++)
+    //  std::cerr << yordered[i] << "\n";
+    //std::cerr << " y - ordered - end \n";
 
     rmap_.add_to_dof(yordered, y);
+    for(int i=0; i<rmap_.num_active(); i++)
+      y[i] -= alpha * diag_correct_[imex][i] * x[i];
   }
   //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
   void apply_increment(precision alpha, precision const *x, precision *y) const
@@ -1002,6 +1049,7 @@ private:
   std::vector<int> local_indx_;
   std::array<std::vector<int>, 3> local_opindex_;
   std::array<std::vector<precision>, 3> local_opvalues_;
+  std::array<std::vector<precision>, 3> diag_correct_;
 };
 
 

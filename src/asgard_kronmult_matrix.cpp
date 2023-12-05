@@ -178,13 +178,15 @@ inline bool check_connected_edge(int L1, int p1, int L2, int p2)
 }
 //! \brief Processes two multi-index and returns true if they are connected for all dimensions.
 inline bool check_connected_edge(int const num_dimensions, int const *const row,
-                            int const *const col)
+                                 int const *const col)
 {
   int edge_conn = 0;
   for (int j = 0; j < num_dimensions; j++)
   {
     if (row[j] != col[j])
       return false;
+    if (row[num_dimensions + j] == col[num_dimensions + j])
+      continue;
     if ((row[num_dimensions + j] == 0 and col[num_dimensions + j] == ((1 << (col[j] - 1)) - 1)) or
         (col[num_dimensions + j] == 0 and row[num_dimensions + j] == ((1 << (row[j] - 1)) - 1)))
       edge_conn += 1;
@@ -995,7 +997,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
 
   int const num_terms = pde.num_terms;
 
-  connect_1d cell_pattern(max_level);
+  connect_1d cell_pattern(max_level, asgard::connect_1d::level_edge_skip);
   connect_1d dof_pattern(cell_pattern, pdegree);
   int64_t lda = (pdegree + 1) * cell_pattern.num_rows();
 
@@ -1032,13 +1034,23 @@ make_global_kron_matrix(PDE<precision> const &pde,
     for(int d=0; d<num_dimensions; d++)
     {
       valst[t * num_dimensions + d] = fk::vector<precision>(num1d);
-      precision const *const ops = pde.get_coefficients(t, d).data();
+      //precision const *const ops = pde.get_coefficients(t, d).data();
+      fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
       fk::vector<precision> &vals = valst[t * num_dimensions + d];
       for(int i=0; i<dof_pattern.num_rows(); i++)
       {
         for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_end(i); j++)
-          vals[j] = ops[i + lda * dof_pattern[j]];
+          //vals[j] = ops[i + lda * dof_pattern[j]];
+          vals[j] = ops(i, dof_pattern[j]);
+
+        //for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_diag(i); j++)
+        //  vals[j] = ops[i + lda * dof_pattern[j]];
+        //
+        //vals[dof_pattern.row_diag(i)] = precision{0};
+        //
+        //for(int j=dof_pattern.row_diag(i); j<dof_pattern.row_end(i); j++)
+        //  vals[j] = ops[i + lda * dof_pattern[j]];
       }
     }
   }
@@ -1099,6 +1111,7 @@ void set_local_pattern(PDE<precision> const &pde,
   int const imex_indx = (imex == imex_flag::imex_explicit) ? 1 : ((imex == imex_flag::imex_implicit) ? 2 : 0);
   std::vector<int> &indx       = mat.local_opindex_[imex_indx];
   std::vector<precision> &vals = mat.local_opvalues_[imex_indx];
+  std::vector<precision> &dc   = mat.diag_correct_[imex_indx];
 
   auto const &grid = dis_grid.get_subgrid(get_rank());
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
@@ -1119,18 +1132,22 @@ void set_local_pattern(PDE<precision> const &pde,
   if (num_terms == 0)
     return;
 
+  //std::cerr << " num_terms = " << num_terms << "\n";
+
   connect_1d const &edges = mat.edges_;
   int const dim_block     = edges.num_connections() * block_size;
+  //std::cerr << " edges.num_connections() = " << edges.num_connections() << " block_size = " << block_size << "\n";
+  //edges.dump();
 
   if (indx.empty())
   {
     // load the indexes
     indx.resize(mat.local_indx_.size() * num_terms * num_dimensions);
-#pragma omp parallel
+//#pragma omp parallel
     {
       std::vector<int> offsets(num_dimensions);
 
-#pragma omp for
+//#pragma omp for
       for (int64_t row = 0; row < grid.row_stop + 1; row++)
       {
         auto ia = indx.begin() + num_dimensions * num_terms * mat.local_pntr_[row];
@@ -1143,10 +1160,16 @@ void set_local_pattern(PDE<precision> const &pde,
           int const *const col_coords =
               flattened_table + 2 * num_dimensions * mat.local_indx_[j];
           compute_coefficient_offsets(edges, row_coords, col_coords, offsets);
+          //for (int d = 0; d < num_dimensions; d++)
+          //  std::cerr << row_coords[d] << "  " << row_coords[num_dimensions + d] << " --- "
+          //            << col_coords[d] << "  " << col_coords[num_dimensions + d] << " || " << offsets[d] << "\n";
+          // std::cerr << " row = " << row << "  col = " << mat.local_indx_[j] << "  offsets[0] = " << offsets[0] << "\n";
 
           for (int t = 0; t < num_terms; t++)
-            for (int d = 0; d < num_dimensions; d++)
+            for (int d = 0; d < num_dimensions; d++) {
               *ia++ = (t * num_dimensions + d) * dim_block + offsets[d] * block_size;
+              //std::cerr << " wrote = " << (t * num_dimensions + d) * dim_block + offsets[d] * block_size << "\n";
+            }
         }
       }
     }
@@ -1174,6 +1197,41 @@ void set_local_pattern(PDE<precision> const &pde,
       }
     }
   }
+
+  size_t num_dof = static_cast<size_t>((pdegree + 1) * (grid.row_stop + 1));
+  if (dc.size() <num_dof)
+    dc = std::vector<precision>(num_dof, 0);
+  else
+    std::fill(dc.begin(), dc.end(), 0);
+
+  std::vector<int> midx(num_dimensions);
+  std::cerr << " multi-indexes\n";
+  for (int64_t row = 0; row < grid.row_stop + 1; row++)
+  {
+    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+    for(int d=0; d<num_dimensions; d++)
+    {
+      midx[d] = (row_coords[d] == 0) ? 0 : ( (1 << (row_coords[d] - 1)) + row_coords[d + num_dimensions] );
+      std::cerr << midx[d] << "  ";
+    }
+    std::cerr << "\n";
+
+    for(int p=0; p<=pdegree; p++)
+    {
+      for (int t = 0; t < num_terms; t++)
+      {
+        precision a = 1;
+        for (int d = 0; d < num_dimensions; d++)
+        {
+          //a *= pde.get_coefficients(used_terms[t], d).(lda + 1) * (midx[d] * (pdegree + 1) + p)];
+          int const rc = midx[d] * (pdegree + 1) + p;
+          a *= pde.get_coefficients(used_terms[t], d)(rc, rc);
+        }
+        dc[row * (pdegree + 1) + p] += a;
+      }
+      //std::cerr << "dc[" << row * (pdegree + 1) + p << "] = " << dc[row * (pdegree + 1) + p] << "\n";
+    }
+  }
 }
 
 template<typename precision>
@@ -1183,7 +1241,8 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
                                   global_kron_matrix<precision> &mat)
 {
   int const imex_indx = (imex == imex_flag::imex_explicit) ? 1 : ((imex == imex_flag::imex_implicit) ? 2 : 0);
-  std::vector<precision> &vals = mat.local_opvalues_[imex_indx];
+  std::vector<precision> &lvals = mat.local_opvalues_[imex_indx];
+  std::vector<precision> &dc    = mat.diag_correct_[imex_indx];
 
   int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_dimensions = pde.num_dims;
@@ -1205,11 +1264,19 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
     {
       precision const *const ops = pde.get_coefficients(t, d).data();
 
-      fk::vector<precision> &vals = mat.get_values(t, d);
+      fk::vector<precision> &vals = mat.vals[t * num_dimensions + d];
       for(int i=0; i<dof_pattern.num_rows(); i++)
       {
         for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_end(i); j++)
           vals[j] = ops[i + lda * dof_pattern[j]];
+
+        //for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_diag(i); j++)
+        //  vals[j] = ops[i + lda * dof_pattern[j]];
+        //
+        //vals[dof_pattern.row_diag(i)] = precision{0};
+        //
+        //for(int j=dof_pattern.row_diag(i); j<dof_pattern.row_end(i); j++)
+        //  vals[j] = ops[i + lda * dof_pattern[j]];
       }
     }
   }
@@ -1221,7 +1288,7 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
   {
     for (int d = 0; d < num_dimensions; d++)
     {
-      auto iv = vals.begin() + (t * num_dimensions + d) * dim_block;
+      auto iv = lvals.begin() + (t * num_dimensions + d) * dim_block;
 
       precision const *const ops = pde.get_coefficients(used_terms[t], d).data();
 
@@ -1236,6 +1303,32 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
       }
     }
   }
+
+  std::fill(dc.begin(), dc.end(), 0);
+
+  //std::vector<int> midx(num_dimensions);
+  //for (int64_t row = 0; row < grid.row_stop + 1; row++)
+  //{
+  //  int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+  //  for(int d=0; d<num_dimensions; d++)
+  //    midx[d] = (row_coords[d] == 0) ? 0 : ( (1 << (row_coords[d] - 1)) + row_coords[d + num_dimensions] );
+  //
+  //  for(int p=0; p<=pdegree; p++)
+  //  {
+  //    for (int t = 0; t < num_terms; t++)
+  //    {
+  //      precision a = 1;
+  //      for (int d = 0; d < num_dimensions; d++)
+  //      {
+  //        //a *= pde.get_coefficients(used_terms[t], d).(lda + 1) * (midx[d] * (pdegree + 1) + p)];
+  //        int const rc = midx[d] * (pdegree + 1) + p;
+  //        a *= pde.get_coefficients(used_terms[t], d)(rc, rc);
+  //      }
+  //      dc[row * (pdegree + 1) + p] += a;
+  //    }
+  //    //std::cerr << "dc[" << row * (pdegree + 1) + p << "] = " << dc[row * (pdegree + 1) + p] << "\n";
+  //  }
+  //}
 }
 
 namespace kronmult
@@ -1296,6 +1389,10 @@ void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
         else // mat_index == vec_index, found matching entry, add to output
         {
           y[dsort.map(dim, j)] += x[dsort.map(dim, vec_j)] * vals[mat_j];
+          if (dsort.map(dim, j) == 13){
+              std::cerr << iset.index(13)[0] << ", " << iset.index(13)[1] << " x " << iset.index(dsort.map(dim, vec_j))[0] << ", " << iset.index(dsort.map(dim, vec_j))[1] << " || val = " << vals[mat_j] << "\n";
+          }
+
           // entry match, increment both indexes for the pattern
           //std::cerr << " adding to: " << dsort_.map(dim, j) << "  " << x[dsort_.map(dim, vec_j)] << "   " << valst[mat_j] << "\n";
           vec_j += 1;
@@ -1334,8 +1431,8 @@ void global_kron(kron_permute const &perms,
       for(size_t i=0; i<perms.fill.size(); i++)
       {
 
-        //std::cerr << " ------------------------------- \n ";
-        //std::cerr << " applying: " << order[0] << "  " << fill_name(fill[0]) << "\n ";
+        std::cerr << " ------------------------------- \n ";
+        std::cerr << " applying: " << perms.direction[i][0] << "  " << perms.fill_name(i, 0) << "\n ";
         //global_kron_1d(term, x, w1, perms.direction[i][0], perms.fill[i][0]);
         global_kron_1d(iset, dsort, perms.direction[i][0], perms.fill[i][0],
                        conn, vals[t * num_dimensions + perms.direction[i][0]].data(), x, w1);
@@ -1344,7 +1441,7 @@ void global_kron(kron_permute const &perms,
         for(int d=1; d<num_dimensions; d++)
         {
           //std::cerr << " ------------------------------- \n ";
-          //std::cerr << " applying: " << order[d] << "  " << fill_name(fill[d]) << "\n ";
+          std::cerr << " applying: " << perms.direction[i][d] << "  " << perms.fill_name(i, d) << "\n ";
           //apply1D(term, w1, w2, perms.direction[i][d], perms.fill[i][d]);
           global_kron_1d(iset, dsort, perms.direction[i][d], perms.fill[i][d],
                          conn, vals[t * num_dimensions + perms.direction[i][d]].data(), w1, w2);

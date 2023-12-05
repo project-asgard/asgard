@@ -26,6 +26,7 @@ void cpu_n0(int const dimensions, int const num_rows, int const pntr[],
             int const indx[], int const num_terms, int const iA[], T const vA[],
             T const alpha, T const x[], T const beta, T y[])
 {
+  //std::cerr << " calling here \n";
   (void)alpha;
   (void)beta;
 #pragma omp parallel for
@@ -43,11 +44,14 @@ void cpu_n0(int const dimensions, int const num_rows, int const pntr[],
 
     for (int jx = pntr[iy]; jx < pntr[iy + 1]; jx++)
     {
+      //std::cerr << " iy = " << iy << "  ix = " << indx[jx] << "\n";
       for (int t = 0; t < num_terms; t++)
       {
         T totalA = 1;
-        for (int d = 0; d < dimensions; d++)
+        for (int d = 0; d < dimensions; d++) {
+          //std::cerr << vA[iA[ma]] << "\n";
           totalA *= vA[iA[ma++]];
+        }
 
         if constexpr (alpha_case == scalar_case::one)
           y[iy] += totalA * x[indx[jx]];
@@ -55,6 +59,7 @@ void cpu_n0(int const dimensions, int const num_rows, int const pntr[],
           y[iy] -= totalA * x[indx[jx]];
         else
           y[iy] += alpha * totalA * x[indx[jx]];
+        //std::cerr << " kmult y[" << iy << "] += A * " <<  x[indx[jx]] << "\n";
       }
     }
   }
@@ -607,6 +612,7 @@ void cpu_sparse(int const dimensions, int const n, int const num_rows,
                 int const iA[], T const vA[], T const alpha, T const x[],
                 T const beta, T y[])
 {
+  //std::cerr << " calling cpu_sparse - main \n";
   switch (dimensions)
   {
   case 1:

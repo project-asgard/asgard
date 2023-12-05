@@ -222,6 +222,7 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
     performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
+  for(auto z : fx) std::cerr << z << "\n";
 
   if (pde.num_sources > 0)
   {
@@ -253,6 +254,9 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
                                                    fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
+  std::cerr << " after rk step 2 \n";
+  for(auto z : fx) std::cerr << z << "\n";
+  std::cerr << " --------------- \n";
 
   if (pde.num_sources > 0)
   {

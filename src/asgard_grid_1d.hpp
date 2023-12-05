@@ -233,11 +233,12 @@ public:
    * \brief Creates a new connectivity matrix by expanding each element with
    *        a block of size (porder+1) by (porder+1)
    *
-   * Note that this will also remove the diagonal entries and "self" connection.
+   * Note: in the self cell-to-cell connection, the degrees of freedom will
+   * only connect to self and not to the neighbors in the same cell.
    *
-   * Either way, the two parts of the matrix are split as before
-   * lower part: row_begin(row) ... diag(row)
-   * upper part: diag(row) ... row_end(row)
+   * If we want to split a general matrix to a hierarchical and non-hierarchical
+   * components, then the self connection for the degrees of freedom will
+   * have to be handled by setting the matrix value to a numerical zero.
    */
   connect_1d(connect_1d const &elem_connect, int porder)
     : levels(-1), rows(elem_connect.rows * (porder+1)),
@@ -247,8 +248,8 @@ public:
     pntr[0] = 0;
     for(int row=0; row<elem_connect.num_rows(); row++)
     {
-      // using one less element, since we will remove the diagonal entries
-      int elem_per_row = block_rows * (elem_connect.row_end(row) - elem_connect.row_begin(row) - 1);
+      // using one less element, since we will remove all but one of the diagonal entries
+      int elem_per_row = block_rows * (elem_connect.row_end(row) - elem_connect.row_begin(row) - 1) + 1;
       for(int j=0; j<block_rows; j++)
         pntr[block_rows * row + j + 1] = pntr[block_rows * row + j] + elem_per_row;
     }
@@ -264,29 +265,26 @@ public:
           for(int k=0; k<block_rows; k++)
             indx.push_back(block_rows * elem_connect[col] + k);
 
+        // keep only one entry from the diagonal block
+        diag[block_rows * row + j] = static_cast<int>(indx.size());
+        indx.push_back(block_rows * row + j);
+
         for(int col=elem_connect.row_diag(row)+1; col<elem_connect.row_end(row);
             col++)
           for(int k=0; k<block_rows; k++)
             indx.push_back(block_rows * elem_connect[col] + k);
       }
     }
-
-    // set the diagonal of the new matrix
-    for(int row=0; row<rows; row++)
-    {
-      diag[row] = row_begin(row);
-      while(diag[row] < row_end(row) and indx[diag[row]] < row)
-        diag[row] += 1;
-    }
   }
 
   int get_offset(int row, int col) const
   {
     // first two levels are large and trivial, no need to search
-    if (row == 0)
-      return col;
-    else if (row == 1)
-      return rows + col;
+    // NOT AFTER THE ADDED COMPLEXITY
+    //if (row == 0)
+    //  return col;
+    //else if (row == 1)
+    //  return rows + col;
     // if not on the first or second row, do binary search
     int sstart = pntr[row], send = pntr[row + 1] - 1;
     int current = (sstart + send) / 2;
@@ -322,6 +320,20 @@ public:
   int operator[](int j) const { return indx[j]; }
 
   int max_loaded_level() const { return levels; }
+
+  void dump() const // for debugging
+  {
+    std::cerr << "dumping connectivity\n";
+    for(int r=0; r < num_rows(); r++)
+    {
+      for(int j=row_begin(r); j<row_end(r); j++)
+        std::cerr << indx[j] << "  ";
+      std::cerr << "\n";
+    }
+    for(int r=0; r < num_rows(); r++)
+      std::cerr << diag[r] << "  ";
+    std::cerr << "\n";
+  }
 
 private:
   // pntr and indx form a sparse matrix (row-compressed format)

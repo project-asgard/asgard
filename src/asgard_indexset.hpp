@@ -134,22 +134,31 @@ public:
   template<typename precision>
   void to_ordered(precision const *dof, precision *ordered) const
   {
-    for(size_t i=0; i<map_.size(); i++)
+    for(size_t i=0; i<map_.size(); i++) {
       ordered[i] = (map_[i] < num_active_) ? dof[map_[i]] : precision{0};
+      //std::cerr << "ordered[" << i << "] = dof[" << map_[i] << "] = " << dof[map_[i]] << "\n";
+    }
   }
   template<typename precision>
   void to_dof(precision const *ordered, precision *dof) const
   {
+    //std::cerr << " to dof map \n";
     for(size_t i=0; i<map_.size(); i++)
-      if (map_[i] < num_active_)
+      if (map_[i] < num_active_) {
         dof[map_[i]] = ordered[i];
+        //std::cerr << "dof[" << map_[i] << "] = " << ordered[i] << "\n";
+      }
+
   }
   template<typename precision>
   void add_to_dof(precision const *ordered, precision *dof) const
   {
+    //std::cerr << " to dof map \n";
     for(size_t i=0; i<map_.size(); i++)
-      if (map_[i] < num_active_)
+      if (map_[i] < num_active_) {
         dof[map_[i]] += ordered[i];
+        //std::cerr << "dof[" << map_[i] << "] += " << ordered[i] << "\n";
+      }
   }
   int num_active() const { return num_active_; }
 
