@@ -433,7 +433,7 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
     asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
 
     std::vector<TestType> y(x.size(), TestType{0});
-    mat.apply_increment(TestType{1}, x.data(), y.data());
+    mat.apply_increment({0}, TestType{1}, x.data(), y.data());
 
     test_almost_equal(y, y_ref);
   }
@@ -517,7 +517,7 @@ void test_global_kron(int num_dimensions, int level)
   asgard::global_kron_matrix<precision> mat(std::move(conn), std::move(iset), asgard::reindex_map(), std::move(dsort), std::move(vals), asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
 
   std::vector<precision> y(y_ref.size(), precision{0});
-  mat.apply_increment(precision{1}, x.data(), y.data());
+  mat.apply_increment({0}, precision{1}, x.data(), y.data());
 
   //std::cerr << " test with num_dimensions = " << num_dimensions << "\n";
   //for(int i=0; i<num; i++)

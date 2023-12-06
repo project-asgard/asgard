@@ -111,6 +111,14 @@ set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
+option (KRON_MODE_GLOBAL "Global or local Kronecker products" OFF)
+if (ASGARD_USE_CUDA AND KRON_MODE_GLOBAL)
+  message(FATAL_ERROR "Global Kronecker is not yet implemented for the GPU")
+endif()
+if (ASGARD_USE_MPI AND KRON_MODE_GLOBAL)
+  message(FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
+endif()
+
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")
@@ -527,7 +535,7 @@ if (ASGARD_BUILD_TESTS)
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
   message(STATUS "ASGarD build options (summary):")
-  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_MATLAB)
+  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_MATLAB KRON_MODE_GLOBAL)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_CUDA)

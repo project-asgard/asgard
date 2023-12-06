@@ -999,7 +999,6 @@ make_global_kron_matrix(PDE<precision> const &pde,
 
   connect_1d cell_pattern(max_level, asgard::connect_1d::level_edge_skip);
   connect_1d dof_pattern(cell_pattern, pdegree);
-  int64_t lda = (pdegree + 1) * cell_pattern.num_rows();
 
   int const num_non_padded = grid.col_stop - grid.col_start + 1;
   std::vector<int> agard_indexes(num_dimensions * num_non_padded);
@@ -1096,7 +1095,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   //for(auto p : lindx) std::cerr << p << "  ";
   //std::cerr << "\n";
 
-  connect_1d edge_pattern(max_level, connect_1d::level_edge_only);
+  // connect_1d edge_pattern(max_level, connect_1d::level_edge_only);
 
   return global_kron_matrix<precision>(std::move(dof_pattern), std::move(imap.iset), std::move(imap.map), std::move(dsort), std::move(valst),
                                        connect_1d(max_level, connect_1d::level_edge_only), std::move(lpntr), std::move(lindx));
@@ -1108,10 +1107,14 @@ void set_local_pattern(PDE<precision> const &pde,
                        options const &program_options, imex_flag const imex,
                        global_kron_matrix<precision> &mat)
 {
-  int const imex_indx = (imex == imex_flag::imex_explicit) ? 1 : ((imex == imex_flag::imex_implicit) ? 2 : 0);
+  int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
   std::vector<int> &indx       = mat.local_opindex_[imex_indx];
   std::vector<precision> &vals = mat.local_opvalues_[imex_indx];
   std::vector<precision> &dc   = mat.diag_correct_[imex_indx];
+
+  mat.term_groups[imex_indx] = get_used_terms(pde, program_options, imex);
+
+  std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
   auto const &grid = dis_grid.get_subgrid(get_rank());
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
@@ -1126,8 +1129,6 @@ void set_local_pattern(PDE<precision> const &pde,
 
   int64_t lda = (pdegree + 1) * fm::two_raised_to(max_level);
 
-  std::vector<int> const used_terms =
-      get_used_terms(pde, program_options, imex);
   int const num_terms = static_cast<int>(used_terms.size());
   if (num_terms == 0)
     return;
@@ -1175,8 +1176,7 @@ void set_local_pattern(PDE<precision> const &pde,
     }
   }
 
-  if (vals.empty())
-    vals.resize(num_terms * num_dimensions * dim_block);
+  vals.resize(num_terms * num_dimensions * dim_block);
 
   for (int t = 0; t < num_terms; t++)
   {
@@ -1198,20 +1198,12 @@ void set_local_pattern(PDE<precision> const &pde,
     }
   }
 
-  int tensor_size        = (pdegree + 1);
-  int tensor_diag_stride = 1;
+  int tensor_size = (pdegree + 1);
   for(int d=1; d<num_dimensions; d++)
-  {
-    tensor_size        *= (pdegree + 1);
-    tensor_diag_stride *= (pdegree + 1);
-  }
-  tensor_diag_stride += 1;
+    tensor_size *= (pdegree + 1);
 
   size_t num_dof = static_cast<size_t>(tensor_size * (grid.row_stop + 1));
-  if (dc.size() <num_dof)
-    dc = std::vector<precision>(num_dof, 0);
-  else
-    std::fill(dc.begin(), dc.end(), 0);
+  dc = std::vector<precision>(num_dof, 0);
 
   std::vector<int> midx(num_dimensions);
   //std::cerr << " multi-indexes\n";
@@ -1225,19 +1217,19 @@ void set_local_pattern(PDE<precision> const &pde,
     }
     //std::cerr << "\n";
 
-    for(int tentry=0; tentry<=tensor_size; tentry++)
+    for(int tentry = 0; tentry < tensor_size; tentry++)
     {
-      for (int t = 0; t < num_terms; t++)
+      for (int t : used_terms)
       {
         precision a = 1;
-        int tensor = tentry;
+        int tt = tentry;
         //for (int d = 0; d < num_dimensions; d++)
         for (int d = num_dimensions - 1; d >= 0; d--)
         {
           //a *= pde.get_coefficients(used_terms[t], d).(lda + 1) * (midx[d] * (pdegree + 1) + p)];
-          int const rc = midx[d] * (pdegree + 1) + tensor % (pdegree + 1);
-          a *= pde.get_coefficients(used_terms[t], d)(rc, rc);
-          tensor /= (pdegree + 1);
+          int const rc = midx[d] * (pdegree + 1) + tt % (pdegree + 1);
+          a *= pde.get_coefficients(t, d)(rc, rc);
+          tt /= (pdegree + 1);
         }
         dc[row * tensor_size + tentry] += a;
       }
@@ -1247,16 +1239,24 @@ void set_local_pattern(PDE<precision> const &pde,
 }
 
 template<typename precision>
-void update_kronmult_coefficients(PDE<precision> const &pde,
-                                  options const &program_options,
-                                  imex_flag const imex,
-                                  global_kron_matrix<precision> &mat)
+void update_global_coefficients(PDE<precision> const &pde,
+                                options const &program_options,
+                                adapt::distributed_grid<precision> const &gdrd,
+                                imex_flag const imex,
+                                global_kron_matrix<precision> &mat)
 {
-  int const imex_indx = (imex == imex_flag::imex_explicit) ? 1 : ((imex == imex_flag::imex_implicit) ? 2 : 0);
+  int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
   std::vector<precision> &lvals = mat.local_opvalues_[imex_indx];
   std::vector<precision> &dc    = mat.diag_correct_[imex_indx];
 
-  int const kron_size      = pde.get_dimensions()[0].get_degree();
+  std::vector<int> const &used_terms = mat.term_groups[imex_indx];
+
+  auto const &grid = gdrd.get_subgrid(get_rank());
+  int const *const flattened_table = gdrd.get_table().get_active_table().data();
+
+  int const pdegree        = pde.get_dimensions()[0].get_degree() - 1;
+
+  int const kron_size      = pdegree + 1;
   int const num_dimensions = pde.num_dims;
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
@@ -1265,22 +1265,25 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
 
   int const block_size = kron_size * kron_size;
 
-  std::vector<int> const used_terms =
-      get_used_terms(pde, program_options, imex);
+  int const num_terms = static_cast<int>(used_terms.size());
+  if (num_terms == 0)
+    return;
 
   connect_1d const &dof_pattern = mat.connectivity();
 
-  for(auto t : used_terms)
+  //for(auto t : used_terms) // should be just the select terms
+  for(int t=0; t<pde.num_terms; t++)
   {
     for(int d=0; d<num_dimensions; d++)
     {
-      precision const *const ops = pde.get_coefficients(t, d).data();
+      fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
       fk::vector<precision> &vals = mat.vals[t * num_dimensions + d];
       for(int i=0; i<dof_pattern.num_rows(); i++)
       {
         for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_end(i); j++)
-          vals[j] = ops[i + lda * dof_pattern[j]];
+          vals[j] = ops(i, dof_pattern[j]);
+          //vals[j] = ops[i + lda * dof_pattern[j]];
 
         //for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_diag(i); j++)
         //  vals[j] = ops[i + lda * dof_pattern[j]];
@@ -1296,7 +1299,10 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
   connect_1d const &edges = mat.edges_;
   int const dim_block     = edges.num_connections() * block_size;
 
-  for (int t = 0; t < static_cast<int>(used_terms.size()); t++)
+  if (lvals.empty())
+    lvals.resize(num_terms * num_dimensions * dim_block);
+
+  for (int t = 0; t < num_terms; t++)
   {
     for (int d = 0; d < num_dimensions; d++)
     {
@@ -1316,32 +1322,50 @@ void update_kronmult_coefficients(PDE<precision> const &pde,
     }
   }
 
-  std::fill(dc.begin(), dc.end(), 0);
+  int tensor_size = (pdegree + 1);
+  for(int d=1; d<num_dimensions; d++)
+    tensor_size *= (pdegree + 1);
 
-  //std::vector<int> midx(num_dimensions);
-  //for (int64_t row = 0; row < grid.row_stop + 1; row++)
-  //{
-  //  int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-  //  for(int d=0; d<num_dimensions; d++)
-  //    midx[d] = (row_coords[d] == 0) ? 0 : ( (1 << (row_coords[d] - 1)) + row_coords[d + num_dimensions] );
-  //
-  //  for(int p=0; p<=pdegree; p++)
-  //  {
-  //    for (int t = 0; t < num_terms; t++)
-  //    {
-  //      precision a = 1;
-  //      for (int d = 0; d < num_dimensions; d++)
-  //      {
-  //        //a *= pde.get_coefficients(used_terms[t], d).(lda + 1) * (midx[d] * (pdegree + 1) + p)];
-  //        int const rc = midx[d] * (pdegree + 1) + p;
-  //        a *= pde.get_coefficients(used_terms[t], d)(rc, rc);
-  //      }
-  //      dc[row * (pdegree + 1) + p] += a;
-  //    }
-  //    //std::cerr << "dc[" << row * (pdegree + 1) + p << "] = " << dc[row * (pdegree + 1) + p] << "\n";
-  //  }
-  //}
+  size_t num_dof = static_cast<size_t>(tensor_size * (grid.row_stop + 1));
+  if (dc.size() < num_dof)
+    dc = std::vector<precision>(num_dof, 0);
+  else
+    std::fill(dc.begin(), dc.end(), 0);
+
+  std::vector<int> midx(num_dimensions);
+  //std::cerr << " multi-indexes\n";
+  for (int64_t row = 0; row < grid.row_stop + 1; row++)
+  {
+    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+    for(int d=0; d<num_dimensions; d++)
+    {
+      midx[d] = (row_coords[d] == 0) ? 0 : ( (1 << (row_coords[d] - 1)) + row_coords[d + num_dimensions] );
+      //std::cerr << midx[d] << "  ";
+    }
+    //std::cerr << "\n";
+
+    for(int tentry=0; tentry<tensor_size; tentry++)
+    {
+      for (int t : used_terms)
+      {
+        precision a = 1;
+        int tt = tentry;
+        //for (int d = 0; d < num_dimensions; d++)
+        for (int d = num_dimensions - 1; d >= 0; d--)
+        {
+          //a *= pde.get_coefficients(used_terms[t], d).(lda + 1) * (midx[d] * (pdegree + 1) + p)];
+          int const rc = midx[d] * (pdegree + 1) + tt % (pdegree + 1);
+          a *= pde.get_coefficients(t, d)(rc, rc);
+          tt /= (pdegree + 1);
+        }
+        dc[row * tensor_size + tentry] += a;
+      }
+      //std::cerr << "dc[" << row * (pdegree + 1) + p << "] = " << dc[row * (pdegree + 1) + p] << "\n";
+    }
+  }
 }
+
+//int64_t flop_counter = 0;
 
 namespace kronmult
 {
@@ -1355,6 +1379,7 @@ void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
 
   // the sort splits the index set into sparse vectors
   int const num_vecs = dsort.num_vecs(dim);
+  //std::cerr << " num_vecs = " << num_vecs << "\n";
   // loop over all the sparse vectors
 #pragma omp parallel for
   for(int vec_id=0; vec_id<num_vecs; vec_id++)
@@ -1401,6 +1426,7 @@ void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
         }
         else // mat_index == vec_index, found matching entry, add to output
         {
+          //flop_counter += 1;
           y[dsort.map(dim, j)] += x[dsort.map(dim, vec_j)] * vals[mat_j];
           //if (dsort.map(dim, j) == 13){
           //    std::cerr << iset.index(13)[0] << ", " << iset.index(13)[1] << " x " << iset.index(dsort.map(dim, vec_j))[0] << ", " << iset.index(dsort.map(dim, vec_j))[1] << " || val = " << vals[mat_j] << "\n";
@@ -1489,14 +1515,15 @@ compute_mem_usage<double>(PDE<double> const &,
                           options const &, imex_flag const, kron_sparse_cache &,
                           int, int64_t, bool);
 template global_kron_matrix<double>
-make_global_kron_matrix(PDE<double> const &pde,
-                        adapt::distributed_grid<double> const &dis_grid,
-                        options const &program_options);
+make_global_kron_matrix(PDE<double> const &,
+                        adapt::distributed_grid<double> const &,
+                        options const &);
 template
-void update_kronmult_coefficients(PDE<double> const &pde,
-                                  options const &program_options,
-                                  imex_flag const imex,
-                                  global_kron_matrix<double> &mat);
+void update_global_coefficients(PDE<double> const &,
+                                options const &,
+                                adapt::distributed_grid<double> const &,
+                                imex_flag const,
+                                global_kron_matrix<double> &);
 template void
 set_local_pattern<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
@@ -1525,14 +1552,15 @@ compute_mem_usage<float>(PDE<float> const &,
                          options const &, imex_flag const, kron_sparse_cache &,
                          int, int64_t, bool);
 template global_kron_matrix<float>
-make_global_kron_matrix(PDE<float> const &pde,
-                        adapt::distributed_grid<float> const &dis_grid,
-                        options const &program_options);
+make_global_kron_matrix(PDE<float> const &,
+                        adapt::distributed_grid<float> const &,
+                        options const &);
 template
-void update_kronmult_coefficients(PDE<float> const &pde,
-                                  options const &program_options,
-                                  imex_flag const imex,
-                                  global_kron_matrix<float> &mat);
+void update_global_coefficients(PDE<float> const &,
+                                options const &,
+                                adapt::distributed_grid<float> const &,
+                                imex_flag const,
+                                global_kron_matrix<float> &);
 template void
 set_local_pattern<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,
