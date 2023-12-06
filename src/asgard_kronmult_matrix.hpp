@@ -958,8 +958,10 @@ public:
     //std::cerr << " y - ordered - end \n";
 
     rmap_.add_to_dof(yordered, y);
-    for(int i=0; i<rmap_.num_active(); i++)
+    for(int i=0; i<rmap_.num_active(); i++) {
       y[i] -= alpha * diag_correct_[imex][i] * x[i];
+      //std::cerr << " corr = " << diag_correct_[imex][i] << "  x[i] = " << x[i] << "\n";
+    }
   }
   //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
   void apply_increment(precision alpha, precision const *x, precision *y) const

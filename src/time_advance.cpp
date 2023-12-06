@@ -218,11 +218,21 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
     tools::time_event performance("kronmult");
     //operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
     //                                               fx.data());
+    //x[0] = 1.0;
     operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
     performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
-  for(auto z : fx) std::cerr << z << "\n";
+  //for(auto z : fx) std::cerr << z << "\n";
+
+  //for(int ii=0; ii < x.size(); ii++)
+  //{
+  //  std::fill(x.begin(), x.end(), 0);
+  //  x[ii] = 1.0;
+  //  operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
+  //  for(auto z : fx) std::cerr << z << "\n";
+  //  std::cerr << " -------------------------------- \n";
+  //}
 
   if (pde.num_sources > 0)
   {
@@ -254,9 +264,9 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
                                                    fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
-  std::cerr << " after rk step 2 \n";
-  for(auto z : fx) std::cerr << z << "\n";
-  std::cerr << " --------------- \n";
+  //std::cerr << " after rk step 2 \n";
+  //for(auto z : fx) std::cerr << z << "\n";
+  //std::cerr << " --------------- \n";
 
   if (pde.num_sources > 0)
   {
