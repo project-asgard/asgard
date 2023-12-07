@@ -1037,6 +1037,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
       fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
       fk::vector<precision> &vals = valst[t * num_dimensions + d];
+#pragma omp parallel for
       for(int i=0; i<dof_pattern.num_rows(); i++)
       {
         for(int j=dof_pattern.row_begin(i); j<dof_pattern.row_end(i); j++)
@@ -1233,7 +1234,7 @@ void set_local_pattern(PDE<precision> const &pde,
         }
         dc[row * tensor_size + tentry] += a;
       }
-      //std::cerr << "dc[" << row * (pdegree + 1) + p << "] = " << dc[row * (pdegree + 1) + p] << "\n";
+      //std::cerr << "dc[" << row * tensor_size + tentry << "] = " << dc[row * tensor_size + tentry] << "\n";
     }
   }
 }
