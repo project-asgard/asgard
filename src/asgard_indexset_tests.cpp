@@ -37,7 +37,7 @@ TEST_CASE("indexset sort", "[sort]")
   // check the sorted order
   for(int i=0; i<iset.num_indexes(); i++)
     for(int j=0; j<iset.num_dimensions(); j++)
-      REQUIRE(iset.index(i)[j] == sorted[2 * i + j]);
+      REQUIRE(iset[i][j] == sorted[2 * i + j]);
 
   dimension_sort dsort(iset);
   // number of 1d vectors

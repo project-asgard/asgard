@@ -12,6 +12,100 @@ namespace asgard
 {
 
 /*!
+ * \brief Helper wrapper for data that will be organized in two dimensional form
+ *
+ * See the vector2d and span2d that derive from this class,
+ * the purpose here is to reduce retyping of the same code.
+ */
+template<typename T, typename data_container>
+class organize2d
+{
+public:
+  //! \brief Virtual destructor.
+  virtual ~organize2d() = default;
+
+  //! \brief Returns the vector stride.
+  int64_t stride() const { return stride_; }
+  //! \brief Returns the vector stride.
+  int64_t num_strips() const { return num_strips_; }
+  //! \brief Returns the total number of entries.
+  int64_t total_size() const { return stride_ * num_strips_; }
+  //! \brief Returns true if empty.
+  bool empty() const { return (num_strips_ == 0); }
+
+  //! \brief Return pointer to the i-th strip.
+  T* operator[] (int64_t i) { return data_[i * stride_]; }
+  //! \brief Return const-pointer to the i-th strip.
+  T const * operator[] (int64_t i) const { return data_[i * stride_]; }
+
+protected:
+  //! \brief Constructor, not intended for public use.
+  organize2d(int64_t stride, int64_t num_strips)
+    : stride_(stride), num_strips_(num_strips)
+  {}
+
+  int64_t stride_, num_strips_;
+  data_container data_;
+};
+
+/*!
+ * \brief Wrapper around std::vector, but providing 2d organization of the data.
+ *
+ * The data is divided into contiguous strips of fixed size.
+ * The class provides easy access to individual strips, without the tedious
+ * i * stride + j notation and with easy check for sizes.
+ *
+ * Note: while this is similar to a matrix, there is no notion of rows or column
+ * and the data is not meant to represent a linear transformation.
+ *
+ * Allows access to the stride(), num_strips(), check for empty()
+ * and access to alias to any strip with the [] operator.
+ */
+template<typename T>
+class vector2d : public organize2d<T, std::vector<T>>
+{
+public:
+  //! \brief Make an empty vector
+  vector2d() : organize2d<T, std::vector<T>>::organize2d(0, 0) {}
+  //! \brief Make a vector with the given dimensions, initialize to 0.
+  vector2d(int64_t stride, int64_t num_strips)
+    : organize2d<T, std::vector<T>>::organize2d(stride, num_strips)
+  {
+    this->data_ = std::vector<T>(stride * num_strips);
+  }
+  //! \brief Append to the end of the vector, assuming one strip of entries.
+  void append(T const *p)
+  {
+    this->data_.insert(this->data_.end(), p, p + this->stride);
+    this->num_strips_ += 1;
+  }
+  //! \brief Append to the end of the vector.
+  void append(std::vector<T> const & p)
+  {
+    expect(static_cast<int64_t>(p.size()) % this->stride == 0);
+    this->data_.insert(this->data_.end(), p.begin(), p.end());
+    this->num_strips_ += static_cast<int64_t>(p.size()) / this->stride;
+  }
+};
+//! \brief Non-owning version of vector2d.
+template<typename T>
+class span2d : public organize2d<T, T*>
+{
+public:
+  //! \brief Make an empty vector
+  span2d() : organize2d<T, T*>::organize2d(0, 0)
+  {
+    this->data_ = nullptr;
+  }
+  //! \brief Make a vector with the given dimensions, initialize to 0.
+  span2d(int64_t stride, int64_t num_strips, T* data)
+    : organize2d<T, T*>::organize2d(stride, num_strips)
+  {
+    this->data_ = data;
+  }
+};
+
+/*!
  * \brief Contains a set of sorted multi-indexes
  *
  * For the given number of dimensions, the indexes are sorted
@@ -43,7 +137,7 @@ public:
   bool empty() const { return (num_indexes() == 0); }
 
   //! \brief Get the i-th index of the lexicographical order.
-  const int* index(int i) const
+  const int* operator[] (int i) const
   {
     return &indexes_[i * num_dimensions_];
   }
@@ -75,7 +169,7 @@ public:
   //! \brief Overload for std::vector
   int find(std::vector<int> const &idx) const
   {
-    expect(idx.size() == static_cast<size_t>(idx.size()));
+    expect(num_dimensions_ == static_cast<int>(idx.size()));
     return find(idx.data());
   }
 
@@ -88,7 +182,7 @@ protected:
   //! \brief Compare the multi-index to the one at the position current.
   match compare(int current, int const *b) const
   {
-    int const *a = index(current);
+    int const *a = (*this)[current];
     for(int j=0; j<num_dimensions_; j++) {
       if (a[j] < b[j]) return after_current;
       if (a[j] > b[j]) return before_current;
@@ -208,7 +302,7 @@ public:
   //! \brief Get the j-th global offset
   int map(int dimension, int j) const { return map_[dimension][j]; }
   //! \brief Get the 1d index of the j-th entry
-  int operator() (indexset const &iset, int dimension, int j) const { return iset.index(map_[dimension][j])[dimension]; }
+  int operator() (indexset const &iset, int dimension, int j) const { return iset[map_[dimension][j]][dimension]; }
 
 private:
   std::vector<std::vector<int>> map_;
@@ -256,28 +350,5 @@ index_map
 complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
                    connect_1d const &cell_pattern, int porder);
 
-
-/*
- * change the completion algorithm
- * 1. Take a list of indexes (as opposed to a set)
- * 2. Complete with the edge neighbors, padded to the end
- * 3. Complete with the polynomial dofs
- *    - take as inputs from both patterns
- *    - global index of the padded comes after (easier to remap)
- *    - the list has to be sorted to be searchable,
- *      but order in the list has to match ASGarD before the remap
- * 4. Remap to an index set that is complete
- * 5.
- *
- * Have the remap, patterns and new set as a new data-structure,
- * call it global remap.
- *
- * There is no "matrix" but a collection of terms (per dimension).
- * Updating the coefficients is done for all matrices (maybe)?
- * Hold all coefficients in one global matrix,
- * have a way to specify which term to use for the apply method.
- *
- */
-
-
 }
+

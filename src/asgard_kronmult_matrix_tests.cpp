@@ -485,7 +485,7 @@ void test_global_kron(int num_dimensions, int level)
 
   std::vector<precision> y_ref(x.size(), precision{0});
 
-  #pragma omp parallel for
+#pragma omp parallel for
   for(int m=0; m<num; m++)
   {
     for(int i=0; i<num; i++)
@@ -493,8 +493,7 @@ void test_global_kron(int num_dimensions, int level)
        precision t = 1;
        for(int d=0; d<num_dimensions; d++)
        {
-         int const op_index = conn.get_offset(iset.index(m)[d],
-                                              iset.index(i)[d]);
+         int const op_index = conn.get_offset(iset[m][d], iset[i][d]);
          if (op_index == -1)
          {
             t = 0;

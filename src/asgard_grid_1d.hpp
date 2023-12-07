@@ -172,6 +172,8 @@ public:
   /*!
    * \brief Construct a pattern including only the elements on the same level
    *        and connected by the edge (also includes the self-connection).
+   *
+   * Currently not used, but maybe modified and used in the future.
    */
   connect_1d(int const max_level, tag_level_edge_only)
       : levels(max_level), rows(1 << levels), pntr(rows + 1, 0),
@@ -232,13 +234,6 @@ public:
   /*!
    * \brief Creates a new connectivity matrix by expanding each element with
    *        a block of size (porder+1) by (porder+1)
-   *
-   * Note: in the self cell-to-cell connection, the degrees of freedom will
-   * only connect to self and not to the neighbors in the same cell.
-   *
-   * If we want to split a general matrix to a hierarchical and non-hierarchical
-   * components, then the self connection for the degrees of freedom will
-   * have to be handled by setting the matrix value to a numerical zero.
    */
   connect_1d(connect_1d const &elem_connect, int porder)
     : levels(-1), rows(elem_connect.rows * (porder+1)),
@@ -282,8 +277,9 @@ public:
 
   int get_offset(int row, int col) const
   {
-    // first two levels are large and trivial, no need to search
-    // NOT AFTER THE ADDED COMPLEXITY
+    // if we use the hierarchy with all elements connected by volume
+    // the first two elements have lots of connection which slows the search
+    // but the search result is trivial
     //if (row == 0)
     //  return col;
     //else if (row == 1)
@@ -310,6 +306,7 @@ public:
     return -1;
   }
 
+  //! \brief Total number of connections (non-zeros).
   int num_connections() const { return static_cast<int>(indx.size()); }
 
   int num_rows() const { return rows; }
@@ -320,22 +317,25 @@ public:
 
   int row_end(int row) const { return pntr[row + 1]; }
 
+  //! \brief Index at offset j.
   int operator[](int j) const { return indx[j]; }
 
   int max_loaded_level() const { return levels; }
 
   void dump() const // for debugging
   {
-    std::cerr << "dumping connectivity\n";
+    std::cerr << "dumping connectivity to std::cerr\n";
     for(int r=0; r < num_rows(); r++)
     {
       for(int j=row_begin(r); j<row_end(r); j++)
         std::cerr << indx[j] << "  ";
       std::cerr << "\n";
     }
+    std::cerr << "diag = ";
     for(int r=0; r < num_rows(); r++)
       std::cerr << diag[r] << "  ";
     std::cerr << "\n";
+    std::cerr << " ------------------ \n";
   }
 
 private:

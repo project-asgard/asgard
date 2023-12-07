@@ -92,8 +92,8 @@ dimension_sort::dimension_sort(indexset const &iset) : map_(iset.num_dimensions(
       // for each dimension, use the map to group points together
       std::iota(map_[d].begin(), map_[d].end(), 0);
       std::sort(map_[d].begin(), map_[d].end(), [&](int a, int b)->bool{
-        const int * idxa = iset.index(a);
-        const int * idxb = iset.index(b);
+        const int * idxa = iset[a];
+        const int * idxb = iset[b];
         for(int j=0; j<num_dimensions; j++) {
           if (j != d){
             if (idxa[j] < idxb[j]) return true;
@@ -129,13 +129,13 @@ dimension_sort::dimension_sort(indexset const &iset) : map_(iset.num_dimensions(
      #pragma omp parallel for
      for(int d=0; d<num_dimensions; d++)
      {
-       int const *c_index = iset.index(map_[d][0]);
+       int const *c_index = iset[map_[d][0]];
        pntr_[d].push_back(0);
        for(int i=1; i<num_indexes; i++) {
-         if (not match_outside_dim(d, c_index, iset.index(map_[d][i])))
+         if (not match_outside_dim(d, c_index, iset[map_[d][i]]))
          {
            pntr_[d].push_back(i);
-           c_index = iset.index(map_[d][i]);
+           c_index = iset[map_[d][i]];
          }
        }
        pntr_[d].push_back(num_indexes);
@@ -152,7 +152,7 @@ indexset compute_ancestry_completion(indexset const &iset,
   for(int i=0; i<iset.num_indexes(); i++)
   {
     // construct all parents, even considering the edges
-    std::vector<int> ancetor(iset.index(i), iset.index(i) + num_dimensions);
+    std::vector<int> ancetor(iset[i], iset[i] + num_dimensions);
     // check the parents in each direction
     for(int d=0; d<num_dimensions; d++)
     {
@@ -184,7 +184,7 @@ indexset compute_ancestry_completion(indexset const &iset,
       for(int i=0; i<pad_indexes.num_indexes(); i++)
       {
         // construct all parents, even considering the edges
-        std::vector<int> ancetor(pad_indexes.index(i), pad_indexes.index(i) + num_dimensions);
+        std::vector<int> ancetor(pad_indexes[i], pad_indexes[i] + num_dimensions);
         // check the parents in each direction
         for(int d=0; d<num_dimensions; d++)
         {
@@ -205,7 +205,7 @@ indexset compute_ancestry_completion(indexset const &iset,
       }
       else
       {
-        missing_ancestors.insert(missing_ancestors.end(), pad_indexes.index(0), pad_indexes.index(0) + pad_indexes.size());
+        missing_ancestors.insert(missing_ancestors.end(), pad_indexes[0], pad_indexes[0] + pad_indexes.size());
         pad_indexes = make_index_set(num_dimensions, missing_ancestors);
         last_added  = pad_indexes.num_indexes();
       }
@@ -226,8 +226,8 @@ complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
   for(int i=0; i<current_active_cells.num_indexes(); i++)
   {
     // construct all parents, even considering the edges
-    std::vector<int> ancetor(current_active_cells.index(i),
-                             current_active_cells.index(i) + num_dimensions);
+    std::vector<int> ancetor(current_active_cells[i],
+                             current_active_cells[i] + num_dimensions);
     // check the parents in each direction
     for(int d=0; d<num_dimensions; d++)
     {
@@ -261,7 +261,7 @@ complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
       for(int i=0; i<pad_indexes.num_indexes(); i++)
       {
         // construct all parents, even considering the edges
-        std::vector<int> ancetor(pad_indexes.index(i), pad_indexes.index(i) + num_dimensions);
+        std::vector<int> ancetor(pad_indexes[i], pad_indexes[i] + num_dimensions);
         // check the parents in each direction
         for(int d=0; d<num_dimensions; d++)
         {
@@ -289,7 +289,7 @@ complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
         pad_indexes = make_index_set(num_dimensions, missing_ancestors);
         last_added  = pad_indexes.num_indexes();
       }
-      missing_ancestors.insert(missing_ancestors.end(), pad_indexes.index(0), pad_indexes.index(0) + pad_indexes.size());
+      missing_ancestors.insert(missing_ancestors.end(), pad_indexes[0], pad_indexes[0] + pad_indexes.size());
     }
   }
 
