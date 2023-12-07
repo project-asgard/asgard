@@ -146,7 +146,7 @@ public:
     for(size_t i=0; i<map_.size(); i++)
       if (map_[i] < num_active_) {
         dof[map_[i]] = ordered[i];
-        //std::cerr << "dof[" << map_[i] << "] = " << ordered[i] << "\n";
+        //std::cerr << "dof[" << map_[i] << "] = " << ordered[i] << " i = " << i << "\n";
       }
 
   }
@@ -157,7 +157,7 @@ public:
     for(size_t i=0; i<map_.size(); i++)
       if (map_[i] < num_active_) {
         dof[map_[i]] += ordered[i];
-        //std::cerr << "dof[" << map_[i] << "] += " << ordered[i] << "\n";
+        //std::cerr << "dof[" << map_[i] << "] += " << ordered[i] << " i = " << i << "\n";
       }
   }
   int num_active() const { return num_active_; }

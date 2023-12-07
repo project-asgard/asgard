@@ -945,6 +945,7 @@ public:
     //}
 
     rmap_.to_ordered(x, expanded.data());
+    for(auto e : expanded) std::cerr << " ext e = " << e << "\n";
     precision *yordered = expanded.data() + iset_.num_indexes();
     std::fill_n(yordered, iset_.num_indexes(), 0);
     kronmult::global_kron(perms_, iset_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yordered, workspace.data());
