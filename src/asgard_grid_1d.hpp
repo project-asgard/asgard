@@ -248,8 +248,7 @@ public:
     pntr[0] = 0;
     for(int row=0; row<elem_connect.num_rows(); row++)
     {
-      // using one less element, since we will remove all but one of the diagonal entries
-      int elem_per_row = block_rows * (elem_connect.row_end(row) - elem_connect.row_begin(row) - 1) + 1;
+      int elem_per_row = block_rows * (elem_connect.row_end(row) - elem_connect.row_begin(row));
       for(int j=0; j<block_rows; j++)
         pntr[block_rows * row + j + 1] = pntr[block_rows * row + j] + elem_per_row;
     }
@@ -266,8 +265,12 @@ public:
             indx.push_back(block_rows * elem_connect[col] + k);
 
         // keep only one entry from the diagonal block
+        for(int k=0; k<j; k++)
+          indx.push_back(block_rows * elem_connect[elem_connect.row_diag(row)] + k);
         diag[block_rows * row + j] = static_cast<int>(indx.size());
         indx.push_back(block_rows * row + j);
+        for(int k=j+1; k<block_rows; k++)
+          indx.push_back(block_rows * elem_connect[elem_connect.row_diag(row)] + k);
 
         for(int col=elem_connect.row_diag(row)+1; col<elem_connect.row_end(row);
             col++)

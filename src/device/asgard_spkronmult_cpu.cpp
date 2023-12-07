@@ -147,14 +147,14 @@ void cpu_sparse(int const num_rows, int const pntr[], int const indx[],
             for (int s = 0; s < n; s++)
               for (int k = 0; k < n; k++)
                 W[s][k] += x[tj + n * j + k] * A[j * n + s];
-          for(int j=0; j<4; j++) std::cerr << "x[" << tj + j << "] = " << x[tj + j] << " :: A[" << j << "] = " << A[j] << "\n";
+          //for(int j=0; j<4; j++) std::cerr << "x[" << tj + j << "] = " << x[tj + j] << " :: A[" << j << "] = " << A[j] << "\n";
           A = &(vA[iA[ma++]]); // A0
           ASGARD_PRAGMA_OMP_SIMD(collapse(3))
           for (int k = 0; k < n; k++)
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
                 Y[k][s] += A[j * n + s] * W[k][j];
-          for(int j=0; j<4; j++) std::cerr << "W[" << j << "] = " << W[j/2][j%2] << " :: A[" << j << "] = " << A[j] << "\n";
+          //for(int j=0; j<4; j++) std::cerr << "W[" << j << "] = " << W[j/2][j%2] << " :: A[" << j << "] = " << A[j] << "\n";
           ASGARD_PRAGMA_OMP_SIMD(collapse(2))
           for (int j = 0; j < n; j++)
             for (int k = 0; k < n; k++)
@@ -164,7 +164,7 @@ void cpu_sparse(int const num_rows, int const pntr[], int const indx[],
                 y[ti + n * j + k] -= Y[j][k];
               else
                 y[ti + n * j + k] += alpha * Y[j][k];
-          for(int j=0; j<4; j++) std::cerr << "y[" << ti + j << "] = " << y[ti + j] << " :: Y[" << j << "] = " << Y[j/2][j%2] << "\n";
+          //for(int j=0; j<4; j++) std::cerr << "y[" << ti + j << "] = " << y[ti + j] << " :: Y[" << j << "] = " << Y[j/2][j%2] << "\n";
         }
         else if constexpr (dimensions == 3)
         {

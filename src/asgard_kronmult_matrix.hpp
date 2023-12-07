@@ -945,7 +945,7 @@ public:
     //}
 
     rmap_.to_ordered(x, expanded.data());
-    for(auto e : expanded) std::cerr << " ext e = " << e << "\n";
+    //for(auto e : expanded) std::cerr << " ext e = " << e << "\n";
     precision *yordered = expanded.data() + iset_.num_indexes();
     std::fill_n(yordered, iset_.num_indexes(), 0);
     kronmult::global_kron(perms_, iset_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yordered, workspace.data());
@@ -958,10 +958,10 @@ public:
     //std::cerr << " global kron flops = " << flop_counter << "\n";
 
     rmap_.add_to_dof(yordered, y);
-    for(int i=0; i<rmap_.num_active(); i++) {
-      y[i] -= alpha * diag_correct_[imex][i] * x[i];
-      //std::cerr << " corr = " << diag_correct_[imex][i] << "  x[" << i << "] = " << x[i] << "  original = " << y[i] + alpha * diag_correct_[imex][i] * x[i] << "\n";
-    }
+    //for(int i=0; i<rmap_.num_active(); i++) {
+    //  y[i] -= alpha * diag_correct_[imex][i] * x[i];
+    //  //std::cerr << " corr = " << diag_correct_[imex][i] << "  x[" << i << "] = " << x[i] << "  original = " << y[i] + alpha * diag_correct_[imex][i] * x[i] << "\n";
+    //}
   }
   //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
   void apply_increment(std::vector<int> const &used_terms, precision alpha, precision const *x, precision *y) const

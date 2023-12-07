@@ -160,42 +160,76 @@ make_kronmult_dense(PDE<precision> const &pde,
 #endif
 }
 
-/*!
- * \brief Returns true if the 1D elements are connected by edge
- *
- * The two elements are defined by (level L, index within the level is p)
- */
-inline bool check_connected_edge(int L1, int p1, int L2, int p2)
-{
-  if (L1 != L2) return false;
 
-  // periodic boundary
-  if ((p1 == 0 and p2 == ((1 << (L2 - 1)) - 1)) or
-      (p2 == 0 and p1 == ((1 << (L1 - 1)) - 1)))
-    return true;
-
-  return std::abs(p1 - p2) <= 1;
-}
 //! \brief Processes two multi-index and returns true if they are connected for all dimensions.
 inline bool check_connected_edge(int const num_dimensions, int const *const row,
                                  int const *const col)
 {
-  int edge_conn = 0;
+  // different levels, check if the points are connected by volume
+  auto check_diff_volumes = [](int l1, int p1, int l2, int p2)
+    ->bool {
+      if (l1 < l2)
+      {
+        while(l1 < l2)
+        {
+          l2--;
+          p2 /= 2;
+        }
+      }
+      else
+      {
+        while(l2 < l1)
+        {
+          l1--;
+          p1 /= 2;
+        }
+      }
+      return p1 == p2;
+    };
+
+  int edge_conn = 0, self_conn = 0;
   for (int j = 0; j < num_dimensions; j++)
   {
-    if (row[j] != col[j])
-      return false;
-    if (row[num_dimensions + j] == col[num_dimensions + j])
-      continue;
-    if ((row[num_dimensions + j] == 0 and col[num_dimensions + j] == ((1 << (col[j] - 1)) - 1)) or
-        (col[num_dimensions + j] == 0 and row[num_dimensions + j] == ((1 << (row[j] - 1)) - 1)))
-      edge_conn += 1;
-    else
-      edge_conn += std::abs(row[num_dimensions + j] - col[num_dimensions + j]);
+    if (row[j] == col[j]) // same level, consider only edge connections
+    {
+      if (row[num_dimensions + j] == col[num_dimensions + j])
+        self_conn += 1; // same element (probably no need to check) TODO!
+      else
+      {
+        if ((row[num_dimensions + j] == 0 and col[num_dimensions + j] == ((1 << (col[j] - 1)) - 1)) or
+            (col[num_dimensions + j] == 0 and row[num_dimensions + j] == ((1 << (row[j] - 1)) - 1)))
+          edge_conn += 1; // periodic boundary
+        else
+        {
+          if (std::abs(row[num_dimensions + j] - col[num_dimensions + j]) == 1)
+            edge_conn += 1; // adjacent elements
+          else
+            return false; // same level and not connected by edge or volume
+        }
+      }
+    }
+    else // different level, consider volume connection only
+    {
+      // if not connected by volume in higher d, then not connected at all
+      if (not (row[j] <= 1 or col[j] <= 1 or check_diff_volumes(row[j], row[num_dimensions+j], col[j], col[num_dimensions+j])))
+        return false;
+    }
+
+
+    //if (row[j] != col[j])
+    //  return false;
+    //if (row[num_dimensions + j] == col[num_dimensions + j])
+    //  continue;
+    //if ((row[num_dimensions + j] == 0 and col[num_dimensions + j] == ((1 << (col[j] - 1)) - 1)) or
+    //    (col[num_dimensions + j] == 0 and row[num_dimensions + j] == ((1 << (row[j] - 1)) - 1)))
+    //  edge_conn += 1;
+    //else
+    //  edge_conn += std::abs(row[num_dimensions + j] - col[num_dimensions + j]);
     if (edge_conn > 1)
       return false;
   }
-  return true;
+  return (edge_conn == 1);
+  //return (edge_conn == 1) or (edge_conn == 0 and self_conn == num_dimensions);
 }
 
 /*!
@@ -999,7 +1033,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
 
   connect_1d cell_pattern(max_level, asgard::connect_1d::level_edge_skip);
   connect_1d dof_pattern(cell_pattern, pdegree);
-  dof_pattern.dump();
+  //dof_pattern.dump();
 
   int const num_non_padded = grid.col_stop - grid.col_start + 1;
   std::vector<int> agard_indexes(num_dimensions * num_non_padded);
@@ -1057,9 +1091,9 @@ make_global_kron_matrix(PDE<precision> const &pde,
   }
 
   // make the pattern for the local contribution
-  int max_edge_conn = 1 + 2 * num_dimensions; // self, left, right in each dim
+  //int max_edge_conn = 1 + 2 * num_dimensions; // self, left, right in each dim
   std::vector<int> lpntr(grid.row_stop - grid.row_start + 2);
-  std::vector<int> all_indx(max_edge_conn * (lpntr.size() - 1), -1);
+  //std::vector<int> all_indx(max_edge_conn * (lpntr.size() - 1), -1);
 #pragma omp parallel for
     for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
     {
@@ -1074,8 +1108,9 @@ make_global_kron_matrix(PDE<precision> const &pde,
           //std::cerr << " edge connected: " << row << "  " << col << "\n";
           //for(int dd=0; dd<num_dimensions; dd++)
           //  std::cerr << "dim = " << dd << " : (" << row_coords[dd] << ", " << row_coords[dd + num_dimensions] << ") - (" << col_coords[dd] << ", " << col_coords[dd + num_dimensions] << ")\n";
-          all_indx[max_edge_conn * (row - grid.row_start) + lpntr[row - grid.row_start + 1]] = col - grid.col_start;
+          //all_indx[max_edge_conn * (row - grid.row_start) + lpntr[row - grid.row_start + 1]] = col - grid.col_start;
           lpntr[row - grid.row_start + 1]++;
+          //if (row == 12 and col == 5) std::cerr << " connected \n";
         }
       }
     }
@@ -1084,11 +1119,47 @@ make_global_kron_matrix(PDE<precision> const &pde,
     lpntr[i] += lpntr[i-1];
   int num_nonz = lpntr.back();
 
-  std::vector<int> lindx; // compress all_indx
-  lindx.reserve(num_nonz);
-  for(auto a : all_indx)
-    if (a > -1)
-      lindx.push_back(a);
+  std::vector<int> lindx(num_nonz); // compress all_indx
+
+  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
+  {
+    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+    int col = 0;
+    for(int j = lpntr[row]; j < lpntr[row + 1]; j++)
+    {
+      int const * col_coords =
+          flattened_table + 2 * num_dimensions * col;
+      while(not check_connected_edge(num_dimensions, row_coords, col_coords))
+      {
+        col += 1;
+        col_coords = flattened_table + 2 * num_dimensions * col;
+      }
+      //std::cerr << " connecting row = " << row << "  col = " << col << std::endl;
+      lindx[j] = col;
+      col += 1;
+    }
+
+
+    // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
+    // for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
+    // {
+    //   int const *const col_coords =
+    //       flattened_table + 2 * num_dimensions * col;
+    //   if (check_connected_edge(num_dimensions, row_coords, col_coords))
+    //   {
+    //     //std::cerr << " edge connected: " << row << "  " << col << "\n";
+    //     //for(int dd=0; dd<num_dimensions; dd++)
+    //     //  std::cerr << "dim = " << dd << " : (" << row_coords[dd] << ", " << row_coords[dd + num_dimensions] << ") - (" << col_coords[dd] << ", " << col_coords[dd + num_dimensions] << ")\n";
+    //     //all_indx[max_edge_conn * (row - grid.row_start) + lpntr[row - grid.row_start + 1]] = col - grid.col_start;
+    //     //lpntr[row - grid.row_start + 1]++;
+    //   }
+    // }
+  }
+
+
+  //for(auto a : all_indx)
+  //  if (a > -1)
+  //    lindx.push_back(a);
 
   //std::cerr << " pattern of edge connectivity\n";
   //std::cerr << grid.row_start << "  " << grid.row_stop << " - " << grid.col_start << "  " << grid.col_stop << "\n";
@@ -1100,7 +1171,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   // connect_1d edge_pattern(max_level, connect_1d::level_edge_only);
 
   return global_kron_matrix<precision>(std::move(dof_pattern), std::move(imap.iset), std::move(imap.map), std::move(dsort), std::move(valst),
-                                       connect_1d(max_level, connect_1d::level_edge_only), std::move(lpntr), std::move(lindx));
+                                       connect_1d(max_level), std::move(lpntr), std::move(lindx));
 }
 
 template<typename precision>
@@ -1208,16 +1279,16 @@ void set_local_pattern(PDE<precision> const &pde,
   dc = std::vector<precision>(num_dof, 0);
 
   std::vector<int> midx(num_dimensions);
-  std::cerr << " multi-indexes\n";
+  //std::cerr << " multi-indexes\n";
   for (int64_t row = 0; row < grid.row_stop + 1; row++)
   {
     int const *const row_coords = flattened_table + 2 * num_dimensions * row;
     for(int d=0; d<num_dimensions; d++)
     {
       midx[d] = (row_coords[d] == 0) ? 0 : ( (1 << (row_coords[d] - 1)) + row_coords[d + num_dimensions] );
-      std::cerr << midx[d] << "  ";
+      //std::cerr << midx[d] << "  ";
     }
-    std::cerr << "\n";
+    //std::cerr << "\n";
 
     for(int tentry = 0; tentry < tensor_size; tentry++)
     {
@@ -1433,11 +1504,11 @@ void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
           //if (dsort.map(dim, j) == 13){
           //    std::cerr << iset.index(13)[0] << ", " << iset.index(13)[1] << " x " << iset.index(dsort.map(dim, vec_j))[0] << ", " << iset.index(dsort.map(dim, vec_j))[1] << " || val = " << vals[mat_j] << "\n";
           //}
-          if (dsort.map(dim, j) == 5) {
-            int const id = dsort.map(dim, j);
-            std::cerr << iset.index(id)[0] << ", " << iset.index(id)[1] << " x " << iset.index(dsort.map(dim, vec_j))[0] << ", " << iset.index(dsort.map(dim, vec_j))[1]
-            << " || val = " << vals[mat_j] << " || x = " << x[dsort.map(dim, vec_j)] << "\n";
-          }
+          //if (dsort.map(dim, j) == 5) {
+          //  int const id = dsort.map(dim, j);
+          //  std::cerr << iset.index(id)[0] << ", " << iset.index(id)[1] << " x " << iset.index(dsort.map(dim, vec_j))[0] << ", " << iset.index(dsort.map(dim, vec_j))[1]
+          //  << " || val = " << vals[mat_j] << " || x = " << x[dsort.map(dim, vec_j)] << "\n";
+          //}
 
 
           // entry match, increment both indexes for the pattern
@@ -1475,12 +1546,12 @@ void global_kron(kron_permute const &perms,
 
     for(int t : terms)
     {
-      std::cerr << "\n   term = " << t << "\n";
+      //std::cerr << "\n   term = " << t << "\n";
       for(size_t i=0; i<perms.fill.size(); i++)
       {
 
-        std::cerr << " ------------------------------- \n ";
-        std::cerr << " applying: " << perms.direction[i][0] << "  " << perms.fill_name(i, 0) << "\n ";
+        //std::cerr << " ------------------------------- \n ";
+        //std::cerr << " applying: " << perms.direction[i][0] << "  " << perms.fill_name(i, 0) << "\n ";
         //global_kron_1d(term, x, w1, perms.direction[i][0], perms.fill[i][0]);
         global_kron_1d(iset, dsort, perms.direction[i][0], perms.fill[i][0],
                        conn, vals[t * num_dimensions + perms.direction[i][0]].data(), x, w1);
@@ -1488,8 +1559,8 @@ void global_kron(kron_permute const &perms,
         //std::cerr << "\n";
         for(int d=1; d<num_dimensions; d++)
         {
-          std::cerr << " ------------------------------- \n ";
-          std::cerr << " applying: " << perms.direction[i][d] << "  " << perms.fill_name(i, d) << "\n ";
+          //std::cerr << " ------------------------------- \n ";
+          //std::cerr << " applying: " << perms.direction[i][d] << "  " << perms.fill_name(i, d) << "\n ";
           //apply1D(term, w1, w2, perms.direction[i][d], perms.fill[i][d]);
           global_kron_1d(iset, dsort, perms.direction[i][d], perms.fill[i][d],
                          conn, vals[t * num_dimensions + perms.direction[i][d]].data(), w1, w2);
@@ -1575,6 +1646,7 @@ set_local_pattern<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,
                          options const &, imex_flag const,
                          global_kron_matrix<float> &);
+template class global_kron_matrix<float>;
 #endif
 
 } // namespace asgard
