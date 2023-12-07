@@ -398,11 +398,9 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
   {
     // very simple test
     asgard::connect_1d conn(levels[tcase], asgard::connect_1d::level_edge_skip);
-    std::vector<int> indexes(nindex[tcase]);
-    std::iota(indexes.begin(), indexes.end(), 0);
 
-    asgard::indexset iset = asgard::make_index_set(1, indexes);
-    asgard::dimension_sort dsort(iset);
+    asgard::vector2d<int> ilist(1, nindex[tcase]);
+    std::iota(ilist[0], ilist[0] + nindex[tcase], 0);
 
     // 1d, 1 term, random operator
     std::vector<asgard::fk::vector<TestType>> vals(1);
@@ -411,7 +409,7 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
       v = unif(park_miller);
 
     // random vector
-    std::vector<TestType> x(indexes.size());
+    std::vector<TestType> x(ilist.total_size());
     for(auto &v : x)
       v = unif(park_miller);
 
@@ -429,7 +427,7 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
     }
 
     //asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), std::move(rmap), std::move(dsort), 1, std::vector<asgard::fk::vector<TestType>>(vals));
-    asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), asgard::reindex_map(), std::move(dsort), std::vector<asgard::fk::vector<TestType>>(vals),
+    asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(ilist), 0, std::vector<asgard::fk::vector<TestType>>(vals),
     asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
 
     std::vector<TestType> y(x.size(), TestType{0});
@@ -465,8 +463,7 @@ void test_global_kron(int num_dimensions, int level)
 
   asgard::connect_1d conn(level, asgard::connect_1d::level_edge_skip);
 
-  asgard::indexset iset = asgard::make_index_set(num_dimensions, indexes);
-  asgard::dimension_sort dsort(iset);
+  asgard::vector2d<int> ilist(num_dimensions, indexes);
 
   // 1d, 1 term, random operator
   std::vector<asgard::fk::vector<precision>> vals(num_dimensions);
@@ -478,7 +475,7 @@ void test_global_kron(int num_dimensions, int level)
   }
 
   // random vector
-  int const num = iset.num_indexes();
+  int const num = ilist.num_strips();
   std::vector<precision> x(num);
   for(auto &v : x)
     v = unif(park_miller);
@@ -493,7 +490,7 @@ void test_global_kron(int num_dimensions, int level)
        precision t = 1;
        for(int d=0; d<num_dimensions; d++)
        {
-         int const op_index = conn.get_offset(iset[m][d], iset[i][d]);
+         int const op_index = conn.get_offset(ilist[m][d], ilist[i][d]);
          if (op_index == -1)
          {
             t = 0;
@@ -513,7 +510,7 @@ void test_global_kron(int num_dimensions, int level)
     }
   }
 
-  asgard::global_kron_matrix<precision> mat(std::move(conn), std::move(iset), asgard::reindex_map(), std::move(dsort), std::move(vals), asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
+  asgard::global_kron_matrix<precision> mat(std::move(conn), std::move(ilist), 0, std::move(vals), asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
 
   std::vector<precision> y(y_ref.size(), precision{0});
   mat.apply_increment({0}, precision{1}, x.data(), y.data());

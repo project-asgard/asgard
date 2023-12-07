@@ -34,9 +34,9 @@ public:
   bool empty() const { return (num_strips_ == 0); }
 
   //! \brief Return pointer to the i-th strip.
-  T* operator[] (int64_t i) { return data_[i * stride_]; }
+  T* operator[] (int64_t i) { return &data_[i * stride_]; }
   //! \brief Return const-pointer to the i-th strip.
-  T const * operator[] (int64_t i) const { return data_[i * stride_]; }
+  T const * operator[] (int64_t i) const { return &data_[i * stride_]; }
 
 protected:
   //! \brief Constructor, not intended for public use.
@@ -60,6 +60,9 @@ protected:
  *
  * Allows access to the stride(), num_strips(), check for empty()
  * and access to alias to any strip with the [] operator.
+ *
+ * Since this container owns the data, we can also append more strips and/or
+ * clear all the existing data.
  */
 template<typename T>
 class vector2d : public organize2d<T, std::vector<T>>
@@ -73,18 +76,32 @@ public:
   {
     this->data_ = std::vector<T>(stride * num_strips);
   }
-  //! \brief Append to the end of the vector, assuming one strip of entries.
-  void append(T const *p)
+  //! \brief Assume ownership of the data.
+  vector2d(int64_t stride, std::vector<int> data)
+    : organize2d<T, std::vector<T>>::organize2d(stride, 0)
   {
-    this->data_.insert(this->data_.end(), p, p + this->stride);
-    this->num_strips_ += 1;
+    expect(static_cast<int64_t>(data.size()) % this->stride_ == 0);
+    this->num_strips_ = static_cast<int64_t>(data.size()) / this->stride_;
+    this->data_ = std::move(data);
+  }
+  //! \brief Append to the end of the vector, assuming num_strips of data.
+  void append(T const *p, int64_t num_strips = 1)
+  {
+    this->data_.insert(this->data_.end(), p, p + this->stride_ * num_strips);
+    this->num_strips_ += num_strips;
   }
   //! \brief Append to the end of the vector.
   void append(std::vector<T> const & p)
   {
-    expect(static_cast<int64_t>(p.size()) % this->stride == 0);
+    expect(static_cast<int64_t>(p.size()) % this->stride_ == 0);
     this->data_.insert(this->data_.end(), p.begin(), p.end());
-    this->num_strips_ += static_cast<int64_t>(p.size()) / this->stride;
+    this->num_strips_ += static_cast<int64_t>(p.size()) / this->stride_;
+  }
+  //! \brief Remove all data but keep the stride.
+  void clear()
+  {
+    this->data_.clear();
+    this->num_strips_ = 0;
   }
 };
 //! \brief Non-owning version of vector2d.
@@ -105,6 +122,27 @@ public:
   }
 };
 
+//!\brief Helper to convert from asg index format to tasmanian format.
+inline int asg2tsg_convert(int asg_level, int asg_point)
+{
+  return (asg_level == 0) ? 0 : ((1 << (asg_level - 1)) + asg_point);
+}
+//!\brief Helper to convert from asg index format to tasmanian format.
+inline void asg2tsg_convert(int num_dimensions, int const *asg, int *tsg)
+{
+  for(int d = 0; d<num_dimensions; d++)
+    tsg[d] = asg2tsg_convert(asg[d], asg[d + num_dimensions]);
+}
+//!\brief Helper to convert from asg index format to tasmanian format.
+inline vector2d<int> asg2tsg_convert(int num_dimensions, int64_t num_indexes,
+                                     int const *asg)
+{
+  vector2d<int> tsg(num_dimensions, num_indexes);
+  for(int64_t i = 0; i < num_indexes; i++)
+    asg2tsg_convert(num_dimensions, asg + 2 * num_dimensions * i, tsg[i]);
+  return tsg;
+}
+
 /*!
  * \brief Contains a set of sorted multi-indexes
  *
@@ -114,6 +152,10 @@ public:
  * The purpose of this set is to establish an order between the multi-indexes
  * and the discretization cells that will be used to index the global degrees
  * of freedom.
+ *
+ * The structure is very similar to vector2d; however, the indexset always
+ * keeps the indexes stored in lexicographical, which also facilitates
+ * fast search to find the location of each index with the find() method.
  */
 class indexset {
 public:
@@ -172,6 +214,10 @@ public:
     expect(num_dimensions_ == static_cast<int>(idx.size()));
     return find(idx.data());
   }
+  //! \brief Boolean check if an entry is there or not.
+  bool missing(const int *idx) const { return (find(idx) == -1); }
+  //! \brief Boolean check if an entry is there or not.
+  bool missing(std::vector<int> const &idx) const { return missing(idx.data()); }
 
 protected:
   //! \brief Result of a comparison
@@ -199,68 +245,12 @@ private:
 /*!
  * \brief Factory method for constructing a set from unsorted and non-unique indexes.
  *
- * The indexes in the list a assumed unsorted and could have repeated entries,
- * the effective number of multi-indexes could be less.
+ * The set list could have repeated indexes.
  *
- * The size of indexes should be a multiple of the number of dimensions.
+ * Works with vector2d<int> and span2d<int>
  */
-indexset make_index_set(int num_dimensions, std::vector<int> const &indexes);
-
-class reindex_map
-{
-public:
-  reindex_map() : num_dimensions_(0), num_active_(0) {}
-
-  reindex_map(int num_dimensions, int num_active) : num_dimensions_(num_dimensions), num_active_(num_active){}
-
-  /*!
-   * \brief Sorts the given indexes into an index set and stores a map
-   *
-   * Holds a map of the sorted and unsorted indexes.
-   * The vector holding the indexes is assumed to contain only unique
-   * multi-indexes, but sorted in so particular order.
-   */
-  indexset remap(std::vector<int> const &indexes);
-
-  /*!
-   * \brief Map dof to internal order for the kronecker operation.
-   */
-  template<typename precision>
-  void to_ordered(precision const *dof, precision *ordered) const
-  {
-    for(size_t i=0; i<map_.size(); i++) {
-      ordered[i] = (map_[i] < num_active_) ? dof[map_[i]] : precision{0};
-      //std::cerr << "ordered[" << i << "] = dof[" << map_[i] << "] = " << dof[map_[i]] << "\n";
-    }
-  }
-  template<typename precision>
-  void to_dof(precision const *ordered, precision *dof) const
-  {
-    //std::cerr << " to dof map \n";
-    for(size_t i=0; i<map_.size(); i++)
-      if (map_[i] < num_active_) {
-        dof[map_[i]] = ordered[i];
-        //std::cerr << "dof[" << map_[i] << "] = " << ordered[i] << " i = " << i << "\n";
-      }
-
-  }
-  template<typename precision>
-  void add_to_dof(precision const *ordered, precision *dof) const
-  {
-    //std::cerr << " to dof map \n";
-    for(size_t i=0; i<map_.size(); i++)
-      if (map_[i] < num_active_) {
-        dof[map_[i]] += ordered[i];
-        //std::cerr << "dof[" << map_[i] << "] += " << ordered[i] << " i = " << i << "\n";
-      }
-  }
-  int num_active() const { return num_active_; }
-
-private:
-  int num_dimensions_;
-  int num_active_;
-  std::vector<int> map_;
-};
+template<typename data_container>
+indexset make_index_set(organize2d<int, data_container> const &indexes);
 
 /*!
  * \brief Splits the multi-index set into 1D vectors
@@ -291,6 +281,8 @@ public:
   dimension_sort() {}
   //! \brief Sort the indexes dimension by dimension.
   dimension_sort(indexset const &iset);
+  //! \brief Sort the unsorted list, dimension by dimension.
+  dimension_sort(vector2d<int> const &list);
 
   //! \brief Number of 1d vectors in dimensions dim
   int num_vecs(int dimension) const { return static_cast<int>(pntr_[dimension].size() -1); }
@@ -303,6 +295,8 @@ public:
   int map(int dimension, int j) const { return map_[dimension][j]; }
   //! \brief Get the 1d index of the j-th entry
   int operator() (indexset const &iset, int dimension, int j) const { return iset[map_[dimension][j]][dimension]; }
+  //! \brief Get the 1d index of the j-th entry
+  int operator() (vector2d<int> const &list, int dimension, int j) const { return list[map_[dimension][j]][dimension]; }
 
 private:
   std::vector<std::vector<int>> map_;
@@ -325,30 +319,15 @@ indexset compute_ancestry_completion(indexset const &iset,
 
 
 /*!
- * \brief Holds a map between a set of multi-indexes and degrees of freedom.
- */
-struct index_map
-{
-  index_map(int num_dimensions, int num_active, std::vector<int> const &indexes)
-    : map(num_dimensions, num_active), iset(map.remap(indexes))
-  {}
-  reindex_map map;
-  indexset iset;
-};
-
-/*!
- * \brief Completes the indexes with the edge parents and fills with the basis indexes.
+ * \brief Completes the cells to indexes of degrees of freedom
  *
- * \param cell_pattern is used to identify the connections on the level above,
- * it makes it easier to have a single swipe to identify all parents.
- * The \b cell_pattern must be created with connect_1d::level_edge_skip option.
+ * Given the active_cells and padded cells, the returned list of indexes
+ * will hold all indexes of the corresponding degrees of freedom.
  *
- * \param porder is the polynomial order of the in-cell basis,
- *               e.g., 0 for constants and 2 for quadratics
+ * porder counts 1 for linears, 2 for quadratics, and so on.
  */
-index_map
-complete_and_remap(int num_dimensions, std::vector<int> const &active_cells,
-                   connect_1d const &cell_pattern, int porder);
+vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
+                                  indexset const &pad_cells, int porder);
 
 }
 

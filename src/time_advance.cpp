@@ -213,32 +213,12 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   fk::vector<P> fx(row_size);
-
-  //for(int ii=0; ii < x.size(); ii++)
-  //for(int ii=5; ii < 6; ii++)
-  //for(int ii=1; ii < 152; ii++)
-  //{
-  //  std::fill(x.begin(), x.end(), 0);
-  //  x[ii] = 1.0;
-  //  operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
-  //  //for(auto z : fx) std::cerr << ii << " " << z << "\n";
-  //  //for(auto z : fx) std::cerr << z << "\n";
-  //  for(int z=0; z<fx.size(); z++)
-  //    std::cerr << z << "   " << fx[z] << "\n";
-  //  std::cerr << " -------------------------------- done = " << ii << "\n";
-  //}
-  //exit(1);
-
   {
     tools::time_event performance("kronmult");
-    //operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
-    //                                               fx.data());
-    //x[0] = 1.0;
     operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
     performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
-  //for(auto z : fx) std::cerr << z << "\n";
 
   if (pde.num_sources > 0)
   {
@@ -259,20 +239,11 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
 
   // -- RK step 2
   {
-    //tools::time_event performance(
-    //    "kronmult", operator_matrices[matrix_entry::regular].flops());
-    //operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
-    //                                               fx.data());
-
     tools::time_event performance(
         "kronmult", operator_matrices.flops(matrix_entry::regular));
-    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0,
-                                                   fx.data());
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
-  //std::cerr << " after rk step 2 \n";
-  //for(auto z : fx) std::cerr << z << "\n";
-  //std::cerr << " --------------- \n";
 
   if (pde.num_sources > 0)
   {
@@ -298,14 +269,8 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
 
   // -- RK step 3
   {
-    //tools::time_event performance("kronmult");
-    //operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
-    //                                               fx.data());
-    //performance.flops = operator_matrices[matrix_entry::regular].flops();
-
     tools::time_event performance("kronmult");
-    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0,
-                                                   fx.data());
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
     performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
@@ -825,25 +790,10 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   operator_matrices.reset_coefficients(matrix_entry::imex_explicit, pde,
                                        adaptive_grid, program_opts);
-  //operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
-  //                                     adaptive_grid, program_opts);
 
   // Explicit step f_1s = f_0 + dt A f_0
   tools::timer.start("explicit_1");
   fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
-
-  //for(int ii=0; ii < f.size(); ii++)
-  //for(int ii=0; ii < 1; ii++)
-  //{
-  //  std::fill(f.begin(), f.end(), 0);
-  //  std::fill(fx.begin(), fx.end(), 0);
-  //  f[ii] = 1.0;
-  //  operator_matrices.apply(matrix_entry::imex_explicit, 1.0, f.data(), 0.0, fx.data());
-  //  //operator_matrices.apply(matrix_entry::imex_implicit, 1.0, f.data(), 0.0, fx.data());
-  //  for(auto z : fx) std::cerr << z << "\n";
-  //  std::cerr << " -------------------------------- \n";
-  //}
-  //exit(1);
 
   {
 #ifdef KRON_MODE_GLOBAL
@@ -906,17 +856,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_1 = x_prev;
       }
     }
-
-    //for(int ii=0; ii < f_1.size(); ii++)
-    ////for(int ii=0; ii < 2; ii++)
-    //{
-    //  std::fill(f_1.begin(), f_1.end(), 0);
-    //  f_1[ii] = 1.0;
-    //  operator_matrices.apply(matrix_entry::imex_implicit, 1.0, f_1.data(), 0.0, f.data());
-    //  for(auto z : f) std::cerr << z << "\n";
-    //  std::cerr << " -------------------------------- \n";
-    //}
-    //exit(1);
 
 #ifdef KRON_MODE_GLOBAL
     pde.gmres_outputs[0] = solver::simple_gmres_euler<P, resource::host>(

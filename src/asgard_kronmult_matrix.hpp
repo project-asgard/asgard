@@ -809,7 +809,7 @@ namespace kronmult
  * The output is y = mat * x
  */
 template<typename precision>
-void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
+void global_kron_1d(vector2d<int> const &iset, dimension_sort const &dsort,
                      int dim, kron_permute::matrix_fill fill,
                      connect_1d const &conn, precision const *vals,
                      precision const *x, precision *y);
@@ -832,7 +832,7 @@ void global_kron_1d(indexset const &iset, dimension_sort const &dsort,
  */
 template<typename precision>
 void global_kron(kron_permute const &perms,
-                 indexset const &iset, dimension_sort const &dsort,
+                 vector2d<int> const &ilist, dimension_sort const &dsort,
                  connect_1d const &conn, std::vector<int> const &terms,
                  std::vector<fk::vector<precision>> const &vals,
                  precision alpha, precision const *x, precision *y,
@@ -848,7 +848,6 @@ class global_kron_matrix;
 template<typename precision>
 void update_global_coefficients(PDE<precision> const &pde,
                                 options const &program_options,
-                                adapt::distributed_grid<precision> const &grid,
                                 imex_flag const imex,
                                 global_kron_matrix<precision> &mat);
 
@@ -869,23 +868,24 @@ public:
   //! \brief Creates an empty matrix.
   global_kron_matrix() : conn_(1), edges_(1) {}
   //! \brief Creates an empty matrix.
-  global_kron_matrix(connect_1d &&conn, indexset &&iset, reindex_map &&rmap, dimension_sort &&dsort,
+  global_kron_matrix(connect_1d &&conn, vector2d<int> &&ilist, int64_t num_active,
                      std::vector<fk::vector<precision>> &&valA,
                      connect_1d &&edges,
                      std::vector<int> &&local_pntr, std::vector<int> &&local_indx)
-    : conn_(std::move(conn)), iset_(std::move(iset)), rmap_(std::move(rmap)), dsort_(std::move(dsort)),
-      perms_(iset_.num_dimensions()), vals(std::move(valA)),
+    : conn_(std::move(conn)), ilist_(std::move(ilist)),
+      num_dimensions_(ilist_.stride()), num_active_(num_active),
+      dsort_(ilist_), perms_(num_dimensions_), vals(std::move(valA)),
       edges_(std::move(edges)),
       local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
   {
     expect(vals.size() > 0);
-    expect(vals.size() % iset_.num_dimensions() == 0);
+    expect(vals.size() % num_dimensions_ == 0);
     //num_terms_ = static_cast<int>(vals.size() / iset_.num_dimensions());
     //term_groups[0] = std::vector<int>(num_terms_);
     //std::iota(term_groups[0].begin(), term_groups[0].end(), 0);
 
-    expanded  = fk::vector<precision>(2 * iset_.num_indexes());
-    workspace = fk::vector<precision>(2 * iset_.num_indexes());
+    expanded  = fk::vector<precision>(2 * ilist_.num_strips());
+    workspace = fk::vector<precision>(2 * ilist_.num_strips());
   }
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
   bool empty() const { return vals.empty(); }
@@ -898,7 +898,7 @@ public:
     if (used_terms.size() == 0)
     {
       if (beta != 0)
-        lib_dispatch::scal<resource::host>(rmap_.num_active(), beta, y, 1);
+        lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
       return;
     }
 
@@ -924,7 +924,7 @@ public:
 
 
    //flop_counter = tsize * (porder_ + 1) * local_opindex_[imex].size();
-   kronmult::cpu_sparse(iset_.num_dimensions(), porder_ + 1, local_pntr_.size() - 1,
+   kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
                         local_pntr_.data(), local_indx_.data(), used_terms.size(),
                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
                         alpha, x, beta, y);
@@ -944,11 +944,16 @@ public:
     //  }
     //}
 
-    rmap_.to_ordered(x, expanded.data());
+    //rmap_.to_ordered(x, expanded.data());
+    std::copy_n(x, num_active_, expanded.begin());
+    std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
     //for(auto e : expanded) std::cerr << " ext e = " << e << "\n";
-    precision *yordered = expanded.data() + iset_.num_indexes();
-    std::fill_n(yordered, iset_.num_indexes(), 0);
-    kronmult::global_kron(perms_, iset_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yordered, workspace.data());
+    precision *yglobal = expanded.data() + ilist_.num_strips();
+    std::fill_n(yglobal, ilist_.num_strips(), 0);
+    kronmult::global_kron(perms_, ilist_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yglobal, workspace.data());
+
+    lib_dispatch::axpy<resource::host>(num_active_, precision{1}, yglobal, 1, y, 1);
+
     //std::cerr << " y - ordered - begin \n";
     //for(int i=0; i<iset_.num_indexes(); i++)
     //  std::cerr << yordered[i] << "\n";
@@ -957,7 +962,7 @@ public:
     //flop_counter += rmap_.num_active();
     //std::cerr << " global kron flops = " << flop_counter << "\n";
 
-    rmap_.add_to_dof(yordered, y);
+    //rmap_.add_to_dof(yordered, y);
     //for(int i=0; i<rmap_.num_active(); i++) {
     //  y[i] -= alpha * diag_correct_[imex][i] * x[i];
     //  //std::cerr << " corr = " << diag_correct_[imex][i] << "  x[" << i << "] = " << x[i] << "  original = " << y[i] + alpha * diag_correct_[imex][i] * x[i] << "\n";
@@ -966,7 +971,7 @@ public:
   //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
   void apply_increment(std::vector<int> const &used_terms, precision alpha, precision const *x, precision *y) const
   {
-    kronmult::global_kron(perms_, iset_, dsort_, conn_, used_terms, vals, alpha, x, y, workspace.data());
+    kronmult::global_kron(perms_, ilist_, dsort_, conn_, used_terms, vals, alpha, x, y, workspace.data());
   }
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
@@ -979,7 +984,7 @@ public:
   //! \brief Allows overwriting of the loaded coefficients.
   fk::vector<precision>& get_values(int tterm, int dim)
   {
-    return vals[tterm * iset_.num_dimensions() + dim];
+    return vals[tterm * num_dimensions_ + dim];
   }
 
   //! \brief Check if the corresponding lock pattern is set.
@@ -999,7 +1004,6 @@ public:
   friend void update_global_coefficients<precision>(
     PDE<precision> const &pde,
     options const &program_options,
-    adapt::distributed_grid<precision> const &grid,
     imex_flag const imex,
     global_kron_matrix<precision> &mat);
 
@@ -1029,12 +1033,12 @@ private:
   // description of the multi-indexes and the sparsity pattern
   // global case data
   connect_1d conn_;
-  indexset iset_;
-  reindex_map rmap_;
+  vector2d<int> ilist_; // includes all polynomials and the padded indexes
+  int num_dimensions_;
+  int64_t num_active_;
   dimension_sort dsort_;
   kron_permute perms_;
   // data for the 1D tensors
-  //int num_terms_;
   std::vector<fk::vector<precision>> vals;
   // collections of terms
   std::array<std::vector<int>, 3> term_groups;
@@ -1048,7 +1052,6 @@ private:
   std::vector<int> local_indx_;
   std::array<std::vector<int>, 3> local_opindex_;
   std::array<std::vector<precision>, 3> local_opvalues_;
-  std::array<std::vector<precision>, 3> diag_correct_;
 };
 
 
@@ -1228,7 +1231,7 @@ struct matrix_list
     {
       if (kglobal.local_unset(entry))
         set_local_pattern(pde, grid, opts, imex(entry), kglobal);
-      update_global_coefficients(pde, opts, grid, imex(entry), kglobal);
+      update_global_coefficients(pde, opts, imex(entry), kglobal);
     }
 #else
     if (not(*this)[entry])

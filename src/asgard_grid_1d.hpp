@@ -342,7 +342,7 @@ private:
   // pntr and indx form a sparse matrix (row-compressed format)
   // describing the connections between the indexes
   // diag[i] holds the offset of the diagonal entry, i.e., indx[diag[i]] = i
-  //      it helps identify lowe/upper triangular part of the pattern
+  //         it helps identify lowe/upper triangular part of the pattern
   int levels;
   int rows;
   std::vector<int> pntr;
