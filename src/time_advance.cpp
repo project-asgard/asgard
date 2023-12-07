@@ -829,17 +829,17 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
 
   //for(int ii=0; ii < f.size(); ii++)
-  //for(int ii=0; ii < 1; ii++)
-  //{
-  //  std::fill(f.begin(), f.end(), 0);
-  //  std::fill(fx.begin(), fx.end(), 0);
-  //  f[ii] = 1.0;
-  //  operator_matrices.apply(matrix_entry::imex_explicit, 1.0, f.data(), 0.0, fx.data());
-  //  //operator_matrices.apply(matrix_entry::imex_implicit, 1.0, f.data(), 0.0, fx.data());
-  //  for(auto z : fx) std::cerr << z << "\n";
-  //  std::cerr << " -------------------------------- \n";
-  //}
-  //exit(1);
+  for(int ii=0; ii < 1; ii++)
+  {
+    std::fill(f.begin(), f.end(), 0);
+    std::fill(fx.begin(), fx.end(), 0);
+    f[ii] = 1.0;
+    operator_matrices.apply(matrix_entry::imex_explicit, 1.0, f.data(), 0.0, fx.data());
+    //operator_matrices.apply(matrix_entry::imex_implicit, 1.0, f.data(), 0.0, fx.data());
+    for(auto z : fx) std::cerr << z << "\n";
+    std::cerr << " -------------------------------- \n";
+  }
+  exit(1);
 
   {
 #ifdef KRON_MODE_GLOBAL
