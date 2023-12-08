@@ -902,71 +902,19 @@ public:
       return;
     }
 
-   //std::cerr << "local pattern \n";
-   //int const imex2 = (etype == matrix_entry::imex_explicit) ? 1 : ((etype == matrix_entry::imex_implicit) ? 2 : 0);
-   //for(int r=0; r<local_pntr_.size() - 1; r++){
-   //    for(int j=local_pntr_[r]; j<local_pntr_[r+1]; j++)
-   //      std::cerr << local_indx_[j] << "  ";
-   //    std::cerr << "\n";
-   //    auto ia = local_opindex_[imex2].begin() + local_pntr_[r] * used_terms.size() * iset_.num_dimensions();
-   //    for(int j=local_pntr_[r]; j<local_pntr_[r+1]; j++)
-   //      for(size_t t =0; t<used_terms.size(); t++)
-   //        for(int d =0; d<iset_.num_dimensions(); d++)
-   //          std::cerr << *ia++  << "  ";
-   //    std::cerr << "\n";
-   //}
-   //for(auto v : local_opvalues_[imex2])
-   //  std::cerr << v  << "  ";
-   //std::cerr << "\n";
-
-   //int64_t tsize = porder_ + 1;
-   //for(int d=1; d<iset_.num_dimensions(); d++) tsize *= porder_ + 1;
-
-
    //flop_counter = tsize * (porder_ + 1) * local_opindex_[imex].size();
    kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
                         local_pntr_.data(), local_indx_.data(), used_terms.size(),
                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
                         alpha, x, beta, y);
 
-    //std::cerr << " alpha = " << alpha << "   beta = " << beta << "\n";
-    //std::cerr << " x - y - raw - begin \n";
-    //for(int i=0; i<rmap_.num_active(); i++)
-    //  std::cerr << x[i] << "   " << y[i] << "\n";
-    //std::cerr << " y - raw - end \n";
-
-    //conn_.dump();
-    //for(size_t t = 0; t < used_terms.size(); t++) {
-    //  for(int d = 0; d < iset_.num_dimensions(); d++) {
-    //    for(auto v : vals[t * iset_.num_dimensions() + d])
-    //      std::cerr << v << "  ";
-    //    std::cerr << "\n";
-    //  }
-    //}
-
-    //rmap_.to_ordered(x, expanded.data());
     std::copy_n(x, num_active_, expanded.begin());
     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
-    //for(auto e : expanded) std::cerr << " ext e = " << e << "\n";
     precision *yglobal = expanded.data() + ilist_.num_strips();
     std::fill_n(yglobal, ilist_.num_strips(), 0);
     kronmult::global_kron(perms_, ilist_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yglobal, workspace.data());
 
     lib_dispatch::axpy<resource::host>(num_active_, precision{1}, yglobal, 1, y, 1);
-
-    //std::cerr << " y - ordered - begin \n";
-    //for(int i=0; i<iset_.num_indexes(); i++)
-    //  std::cerr << yordered[i] << "\n";
-    //std::cerr << " y - ordered - end \n";
-
-    //flop_counter += rmap_.num_active();
-    //std::cerr << " global kron flops = " << flop_counter << "\n";
-
-    //rmap_.add_to_dof(yordered, y);
-    //for(int i=0; i<rmap_.num_active(); i++) {
-    //  y[i] -= alpha * diag_correct_[imex][i] * x[i];
-    //  //std::cerr << " corr = " << diag_correct_[imex][i] << "  x[" << i << "] = " << x[i] << "  original = " << y[i] + alpha * diag_correct_[imex][i] * x[i] << "\n";
-    //}
   }
   //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
   void apply_increment(std::vector<int> const &used_terms, precision alpha, precision const *x, precision *y) const
@@ -1103,12 +1051,17 @@ template<typename precision>
 struct matrix_list
 {
   //! \brief Makes a list of uninitialized matrices
-  matrix_list() : matrices(3)
+  matrix_list()
+#ifndef KRON_MODE_GLOBAL
+   : matrices(3)
+#endif
   {
+#ifndef KRON_MODE_GLOBAL
     // make sure we have defined flags for all matrices
     expect(matrices.size() == flag_map.size());
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     load_stream = nullptr;
+#endif
 #endif
   }
   //! \brief Frees the matrix list and any cache vectors
@@ -1123,11 +1076,13 @@ struct matrix_list
 #endif
   }
 
+#ifndef KRON_MODE_GLOBAL
   //! \brief Returns an entry indexed by the enum
   kronmult_matrix<precision> &operator[](matrix_entry entry)
   {
     return matrices[static_cast<int>(entry)];
   }
+#endif
 
   void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
   {
@@ -1223,8 +1178,6 @@ struct matrix_list
                           options const &opts)
   {
 #ifdef KRON_MODE_GLOBAL
-    // kglobal = global_kron_matrix<precision>();
-    // make(entry, pde, grid, opts);
     if (not kglobal)
       make(entry, pde, grid, opts);
     else
@@ -1267,11 +1220,13 @@ struct matrix_list
 #endif
   }
 
-  //! \brief Holds the matrices
-  std::vector<kronmult_matrix<precision>> matrices;
-
+#ifdef KRON_MODE_GLOBAL
   //! \brief Holds the global part of the kron product
   global_kron_matrix<precision> kglobal;
+#else
+  //! \brief Holds the matrices
+  std::vector<kronmult_matrix<precision>> matrices;
+#endif
 
 private:
   //! \brief Maps the entry enum to the IMEX flag
@@ -1283,6 +1238,8 @@ private:
   static constexpr std::array<imex_flag, 3> flag_map = {
       imex_flag::unspecified, imex_flag::imex_explicit,
       imex_flag::imex_implicit};
+
+#ifdef KRON_MODE_GLOBAL
   //! \brief Cache holding the memory stats, limits bounds etc.
   memory_usage mem_stats;
 
@@ -1301,6 +1258,7 @@ private:
   mutable fk::vector<int, mem_type::owner, resource::device> icola;
   mutable fk::vector<int, mem_type::owner, resource::device> icolb;
   cudaStream_t load_stream;
+#endif
 #endif
 };
 
