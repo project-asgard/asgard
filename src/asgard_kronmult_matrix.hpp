@@ -832,7 +832,17 @@ template<typename precision>
 void global_kron(kron_permute const &perms,
                  vector2d<int> const &ilist, dimension_sort const &dsort,
                  connect_1d const &conn, std::vector<int> const &terms,
-                 std::vector<fk::vector<precision>> const &vals,
+                 std::vector<std::vector<precision>> const &vals,
+                 precision alpha, precision const *x, precision *y,
+                 precision *worspace);
+
+template<typename precision>
+void global_kron(kron_permute const &perms,
+                 std::vector<std::vector<int>> const &gpntr,
+                 std::vector<std::vector<int>> const &gindx,
+                 std::vector<std::vector<int>> const &gdiag,
+                 std::vector<std::vector<precision>> const &gvals,
+                 std::vector<int> const &terms,
                  precision alpha, precision const *x, precision *y,
                  precision *worspace);
 }
@@ -864,33 +874,43 @@ class global_kron_matrix
 {
 public:
   //! \brief Creates an empty matrix.
-  global_kron_matrix() : conn_(1), edges_(1) {}
+  global_kron_matrix() : conn_(1), flops_({0, 0, 0}), edges_(1) {}
   //! \brief Creates an empty matrix.
   global_kron_matrix(connect_1d &&conn, vector2d<int> &&ilist, int64_t num_active,
-                     std::vector<fk::vector<precision>> &&valA,
+                     std::vector<std::vector<int>> gpntr,
+                     std::vector<std::vector<int>> gindx,
+                     std::vector<std::vector<int>> gdiag,
+                     std::vector<std::vector<int>> givals,
+                     std::vector<std::vector<precision>> gvals,
                      connect_1d &&edges,
                      std::vector<int> &&local_pntr, std::vector<int> &&local_indx)
     : conn_(std::move(conn)), ilist_(std::move(ilist)),
       num_dimensions_(ilist_.stride()), num_active_(num_active),
-      dsort_(ilist_), perms_(num_dimensions_), vals(std::move(valA)),
-      edges_(std::move(edges)),
+      dsort_(ilist_), perms_(num_dimensions_), flops_({0, 0, 0}),
+      gpntr_(std::move(gpntr)),  gindx_(std::move(gindx)),
+      gdiag_(std::move(gdiag)), givals_(std::move(givals)),
+      gvals_(std::move(gvals)), edges_(std::move(edges)),
       local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
   {
-    expect(vals.size() > 0);
-    expect(vals.size() % num_dimensions_ == 0);
-    //num_terms_ = static_cast<int>(vals.size() / iset_.num_dimensions());
-    //term_groups[0] = std::vector<int>(num_terms_);
-    //std::iota(term_groups[0].begin(), term_groups[0].end(), 0);
+    expect(gvals_.size() > 0);
+    expect(gvals_.size() % num_dimensions_ == 0);
+    expect(gpntr_.size()  == static_cast<size_t>(num_dimensions_));
+    expect(gindx_.size()  == static_cast<size_t>(num_dimensions_));
+    expect(gdiag_.size()  == static_cast<size_t>(num_dimensions_));
+    expect(givals_.size() == static_cast<size_t>(num_dimensions_));
 
-    expanded  = fk::vector<precision>(2 * ilist_.num_strips());
-    workspace = fk::vector<precision>(2 * ilist_.num_strips());
+    expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
+
+    expanded  = std::vector<precision>(2 * ilist_.num_strips());
+    workspace = std::vector<precision>(2 * ilist_.num_strips());
   }
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
-  bool empty() const { return vals.empty(); }
+  bool empty() const { return gvals_.empty(); }
 
   //! \brief Apply the operator, including expanding and remapping.
   void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const
   {
+    tools::time_event kron_time_("kronmult global");
     int const imex = flag2int(etype);
     std::vector<int> const &used_terms = term_groups[imex];
     if (used_terms.size() == 0)
@@ -900,7 +920,6 @@ public:
       return;
     }
 
-   //flop_counter = tsize * (porder_ + 1) * local_opindex_[imex].size();
    kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
                         local_pntr_.data(), local_indx_.data(), used_terms.size(),
                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
@@ -909,28 +928,22 @@ public:
     std::copy_n(x, num_active_, expanded.begin());
     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
     precision *yglobal = expanded.data() + ilist_.num_strips();
-    std::fill_n(yglobal, ilist_.num_strips(), 0);
-    kronmult::global_kron(perms_, ilist_, dsort_, conn_, used_terms, vals, alpha, expanded.data(), yglobal, workspace.data());
+    kronmult::global_kron(perms_, gpntr_, gindx_, gdiag_, gvals_, used_terms, alpha, expanded.data(), yglobal, workspace.data());
 
     lib_dispatch::axpy<resource::host>(num_active_, precision{1}, yglobal, 1, y, 1);
   }
-  //! \brief Apply the hierarchical portion of the operator (made public for testing purposes).
-  void apply_increment(std::vector<int> const &used_terms, precision alpha, precision const *x, precision *y) const
-  {
-    kronmult::global_kron(perms_, ilist_, dsort_, conn_, used_terms, vals, alpha, x, y, workspace.data());
-  }
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
-  operator bool() const { return (not vals.empty()); }
+  operator bool() const { return (not gvals_.empty()); }
   //! \brief Return the entry connectivity (sparsity pattern).
   connect_1d const& connectivity() const { return conn_; }
   //! \brief Return the edge connectivity
   connect_1d const& edge_connectivity() const { return edges_; }
 
   //! \brief Allows overwriting of the loaded coefficients.
-  fk::vector<precision>& get_values(int tterm, int dim)
+  std::vector<precision>& get_values(int tterm, int dim)
   {
-    return vals[tterm * num_dimensions_ + dim];
+    return gvals_[tterm * num_dimensions_ + dim];
   }
 
   //! \brief Check if the corresponding lock pattern is set.
@@ -939,6 +952,10 @@ public:
     return local_opindex_[flag2int(etype)].empty();
   }
 
+  int64_t flops(matrix_entry etype) const
+  {
+    return flops_[flag2int(etype)];
+  }
 
   friend void set_local_pattern<precision>
     (PDE<precision> const &pde,
@@ -976,6 +993,7 @@ protected:
   }
 
 private:
+  static constexpr int num_variants = 3;
   // description of the multi-indexes and the sparsity pattern
   // global case data
   connect_1d conn_;
@@ -984,20 +1002,25 @@ private:
   int64_t num_active_;
   dimension_sort dsort_;
   kron_permute perms_;
+  std::array<int64_t, num_variants> flops_;
   // data for the 1D tensors
-  std::vector<fk::vector<precision>> vals;
+  std::vector<std::vector<int>> gpntr_;
+  std::vector<std::vector<int>> gindx_;
+  std::vector<std::vector<int>> gdiag_;
+  std::vector<std::vector<int>> givals_;
+  std::vector<std::vector<precision>> gvals_;
   // collections of terms
   std::array<std::vector<int>, 3> term_groups;
   // temp workspace (global case)
-  mutable fk::vector<precision> expanded;
-  mutable fk::vector<precision> workspace;
+  mutable std::vector<precision> expanded;
+  mutable std::vector<precision> workspace;
   // local case data, handles the neighbors on the same level
   int porder_;
   connect_1d edges_;
   std::vector<int> local_pntr_;
   std::vector<int> local_indx_;
-  std::array<std::vector<int>, 3> local_opindex_;
-  std::array<std::vector<precision>, 3> local_opvalues_;
+  std::array<std::vector<int>, num_variants> local_opindex_;
+  std::array<std::vector<precision>, num_variants> local_opvalues_;
 };
 
 
@@ -1093,7 +1116,7 @@ struct matrix_list
   int64_t flops(matrix_entry entry)
   {
       #ifdef KRON_MODE_GLOBAL
-      ignore(entry);
+      return kglobal.flops(entry);
       return 0;
       #else
       return matrices[static_cast<int>(entry)].flops();
@@ -1107,7 +1130,8 @@ struct matrix_list
 #ifdef KRON_MODE_GLOBAL
     if (not kglobal)
       kglobal = make_global_kron_matrix(pde, grid, opts);
-    set_local_pattern(pde, grid, opts, imex(entry), kglobal);
+    if (kglobal.local_unset(entry))
+      set_local_pattern(pde, grid, opts, imex(entry), kglobal);
 #else
     if (not mem_stats)
       mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), spcache);
@@ -1237,7 +1261,7 @@ private:
       imex_flag::unspecified, imex_flag::imex_explicit,
       imex_flag::imex_implicit};
 
-#ifdef KRON_MODE_GLOBAL
+#ifndef KRON_MODE_GLOBAL
   //! \brief Cache holding the memory stats, limits bounds etc.
   memory_usage mem_stats;
 

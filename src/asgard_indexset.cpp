@@ -130,6 +130,7 @@ dimension_sort::dimension_sort(vector2d<int> const &list) : map_(list.stride())
 {
   int num_dimensions = list.stride();
   int num_indexes    = list.num_strips();
+
   map_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
 
   #pragma omp parallel for
@@ -270,7 +271,7 @@ vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
   int64_t pterms = porder + 1;
 
   int64_t tsize = pterms;
-  for(int64_t d=1; d<num_dimensions; d++)
+  for(int64_t d = 1; d < num_dimensions; d++)
     tsize *= pterms;
 
   int64_t total_cells = num_active_cells + pad_cells.num_indexes();

@@ -403,8 +403,8 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
     std::iota(ilist[0], ilist[0] + nindex[tcase], 0);
 
     // 1d, 1 term, random operator
-    std::vector<asgard::fk::vector<TestType>> vals(1);
-    vals[0] = asgard::fk::vector<TestType>(conn.num_connections());
+    std::vector<std::vector<TestType>> vals(1);
+    vals[0] = std::vector<TestType>(conn.num_connections());
     for(auto &v : vals[0])
       v = unif(park_miller);
 
@@ -426,12 +426,13 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
       }
     }
 
-    //asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(iset), std::move(rmap), std::move(dsort), 1, std::vector<asgard::fk::vector<TestType>>(vals));
-    asgard::global_kron_matrix<TestType> mat(std::move(conn), std::move(ilist), 0, std::vector<asgard::fk::vector<TestType>>(vals),
-    asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
+    asgard::kron_permute perms(1);
+    asgard::dimension_sort dsort(ilist);
 
     std::vector<TestType> y(x.size(), TestType{0});
-    mat.apply_increment({0}, TestType{1}, x.data(), y.data());
+    std::vector<TestType> w(2 * y.size(), TestType{0});
+    asgard::kronmult::global_kron(perms, ilist, dsort, conn, {0}, vals,
+                                  TestType{1}, x.data(), y.data(), w.data());
 
     test_almost_equal(y, y_ref);
   }
@@ -466,10 +467,10 @@ void test_global_kron(int num_dimensions, int level)
   asgard::vector2d<int> ilist(num_dimensions, indexes);
 
   // 1d, 1 term, random operator
-  std::vector<asgard::fk::vector<precision>> vals(num_dimensions);
+  std::vector<std::vector<precision>> vals(num_dimensions);
   for(int d=0; d<num_dimensions; d++)
   {
-    vals[d] = asgard::fk::vector<precision>(conn.num_connections());
+    vals[d] = std::vector<precision>(conn.num_connections());
     for(auto &v : vals[d])
       v = unif(park_miller);
   }
@@ -499,25 +500,19 @@ void test_global_kron(int num_dimensions, int level)
          else
          {
             t *= vals[d][op_index];
-            //if (m == 1) std::cerr << "   t *= " << vals[d][op_index] << "\n";
          }
        }
-       //if (m == 1) {
-       //   std::cerr << " adding: " << x[i] << " x " << t << "\n";
-       //   std::cerr <<   iset.index(i)[0] << "   " << iset.index(i)[1] << "\n";
-       //}
        y_ref[m] += x[i] * t;
     }
   }
 
-  asgard::global_kron_matrix<precision> mat(std::move(conn), std::move(ilist), 0, std::move(vals), asgard::connect_1d(2), std::vector<int>(), std::vector<int>());
+  asgard::kron_permute perms(num_dimensions);
+  asgard::dimension_sort dsort(ilist);
 
   std::vector<precision> y(y_ref.size(), precision{0});
-  mat.apply_increment({0}, precision{1}, x.data(), y.data());
-
-  //std::cerr << " test with num_dimensions = " << num_dimensions << "\n";
-  //for(int i=0; i<num; i++)
-  //  std::cerr << y[i] << "  " << y_ref[i] << "\n";
+  std::vector<precision> w(2 * y.size(), precision{0});
+  asgard::kronmult::global_kron(perms, ilist, dsort, conn, {0}, vals,
+                                precision{1}, x.data(), y.data(), w.data());
 
   test_almost_equal(y, y_ref);
 }
@@ -525,7 +520,6 @@ void test_global_kron(int num_dimensions, int level)
 TEMPLATE_TEST_CASE("testing global kron 2d, constant basis", "[gkron 2d]", test_precs)
 {
   int l = GENERATE(1, 2, 3, 4, 5, 6);
-  //int l = 2;
   test_global_kron<TestType>(2, l);
 }
 
