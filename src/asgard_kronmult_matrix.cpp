@@ -1023,8 +1023,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
   auto const &grid = dis_grid.get_subgrid(get_rank());
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
 
-  int const porder         = pde.get_dimensions()[0].get_degree() - 1;
-  int const max_level      = (program_options.do_adapt_levels)
+  int const porder    = pde.get_dimensions()[0].get_degree() - 1;
+  int const max_level = (program_options.do_adapt_levels)
                                 ? program_options.max_level
                                 : pde.max_level;
   int const num_dimensions = pde.num_dims;
@@ -1132,10 +1132,10 @@ void set_local_pattern(PDE<precision> const &pde,
   auto const &grid = dis_grid.get_subgrid(get_rank());
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
 
-  int const pdegree        = pde.get_dimensions()[0].get_degree() - 1;
-  mat.porder_              = pdegree;
-  int const block_size     = (pdegree + 1) * (pdegree + 1);
-  int const max_level      = (program_options.do_adapt_levels)
+  int const pdegree    = pde.get_dimensions()[0].get_degree() - 1;
+  mat.porder_          = pdegree;
+  int const block_size = (pdegree + 1) * (pdegree + 1);
+  int const max_level  = (program_options.do_adapt_levels)
                                 ? program_options.max_level
                                 : pde.max_level;
   int const num_dimensions = pde.num_dims;
@@ -1174,9 +1174,8 @@ void set_local_pattern(PDE<precision> const &pde,
           compute_coefficient_offsets(edges, row_coords, col_coords, offsets);
 
           for (int t = 0; t < num_terms; t++)
-            for (int d = 0; d < num_dimensions; d++) {
+            for (int d = 0; d < num_dimensions; d++)
               *ia++ = (t * num_dimensions + d) * dim_block + offsets[d] * block_size;
-            }
         }
       }
     }
@@ -1275,7 +1274,8 @@ void update_global_coefficients(PDE<precision> const &pde,
   }
 }
 
-//int64_t flop_counter = 0;
+// int64_t flop_counter   = 0;
+// int64_t search_counter = 0;
 
 namespace kronmult
 {
@@ -1289,7 +1289,7 @@ void global_kron_1d(vector2d<int> const &ilist, dimension_sort const &dsort,
 
   // the sort splits the index set into sparse vectors
   int const num_vecs = dsort.num_vecs(dim);
-  //std::cerr << " num_vecs = " << num_vecs << "\n";
+
   // loop over all the sparse vectors
 #pragma omp parallel for
   for(int vec_id=0; vec_id<num_vecs; vec_id++)
@@ -1300,12 +1300,7 @@ void global_kron_1d(vector2d<int> const &ilist, dimension_sort const &dsort,
     // sparse matrix times a sparse vector requires pattern matching
     int const vec_begin = dsort.vec_begin(dim, vec_id);
     int const vec_end   = dsort.vec_end(dim, vec_id);
-    //std::cerr << "vec_begin, vec_end = " << vec_begin << "  " << vec_end << "\n";
-    //for(int j=vec_begin; j<vec_end; j++)
-    //{
-    //  //std::cerr << dsort_(iset_, 0, j) << ", " << dsort_(iset_, 1, j) << "\n";
-    //  std::cerr << iset_.index(dsort_.map(dim, j))[0] << ", " << iset_.index(dsort_.map(dim, j))[1] << "\n";
-    //}
+
     for(int j=vec_begin; j<vec_end; j++)
     {
       int row = dsort(ilist, dim, j); // 1D index of this output in y
@@ -1324,14 +1319,16 @@ void global_kron_1d(vector2d<int> const &ilist, dimension_sort const &dsort,
         if (vec_index < mat_index)
         {
           vec_j += 1;
+          // search_counter += 1;
         }
         else if (mat_index < vec_index)
         {
           mat_j += 1;
+          //search_counter += 1;
         }
         else // mat_index == vec_index, found matching entry, add to output
         {
-          //flop_counter += 1;
+          // flop_counter += 1;
           y[dsort.map(dim, j)] += x[dsort.map(dim, vec_j)] * vals[mat_j];
 
           // entry match, increment both indexes for the pattern
@@ -1351,6 +1348,9 @@ void global_kron(kron_permute const &perms,
                  precision alpha, precision const *x, precision *y,
                  precision *worspace)
 {
+  // flop_counter   = 0;
+  // search_counter = 0;
+
   int const num_dimensions = ilist.stride();
   if (num_dimensions == 1) // no need to split anything
   {
@@ -1378,12 +1378,13 @@ void global_kron(kron_permute const &perms,
                          conn, vals[t * num_dimensions + perms.direction[i][d]].data(), w1, w2);
           std::swap(w1, w2);
         }
-        //lib_dispatch::axpy<resource::host>(ilist.num_strips(), alpha, w1, 1, y, 1);
-        for(int64_t j=0; j<ilist.num_strips(); j++)
-          y[j] += alpha * w1[j];
+        lib_dispatch::axpy<resource::host>(ilist.num_strips(), alpha, w1, 1, y, 1);
       }
     }
   }
+
+  // std::cout << "flop_counter = " << flop_counter << ",  search_counter = "
+  //           << static_cast<double>(flop_counter) / static_cast<double>(search_counter) << "\n";
 }
 }
 

@@ -13,8 +13,6 @@
 
 #include "./device/asgard_kronmult.hpp"
 
-//#define KRON_MODE_GLOBAL
-
 // this interface between the low level kernels in src/device
 // and the higher level data-structures
 
@@ -1261,7 +1259,5 @@ private:
 #endif
 #endif
 };
-
-
 
 } // namespace asgard
