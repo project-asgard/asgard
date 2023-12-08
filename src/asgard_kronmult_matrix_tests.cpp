@@ -173,7 +173,6 @@ void test_kronmult_dense(int dimensions, int n, int num_terms,
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
 
-/*
 TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", test_precs)
 {
   std::vector<TestType> A    = {1, 2, 3, 4};
@@ -384,7 +383,6 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
 }
 
 #endif
-*/
 
 TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
 {

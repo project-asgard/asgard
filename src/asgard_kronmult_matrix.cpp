@@ -1308,6 +1308,28 @@ void set_local_pattern(PDE<precision> const &pde,
   std::cout << "     local: " << static_cast<double>(lflops) * 1.E-9 << " Gflops\n";
   std::cout << "     total: " << static_cast<double>(gflops + lflops) * 1.E-9 << " Gflops\n";
   mat.flops_[imex_indx] = gflops + lflops;
+
+  int64_t num_cints = 0;
+  int64_t num_cfps  = 0;
+  for(int d = 0; d < num_dimensions; d++)
+  {
+    num_cints += mat.gpntr_[d].size();
+    num_cints += mat.gindx_[d].size();
+    num_cints += mat.gdiag_[d].size();
+    num_cints += mat.givals_[d].size();
+    num_cfps  += mat.gvals_[d].size();
+  }
+  num_cfps += mat.expanded.size() + mat.workspace.size();
+  int64_t num_lints = mat.local_pntr_.size() + mat.local_indx_.size() + mat.local_opindex_[imex_indx].size();
+  int64_t num_lfps  = mat.local_opvalues_[imex_indx].size();
+  std::cout << "  -- memory usage:\n";
+  std::cout << "    common: " << get_MB<precision>(num_cfps) + get_MB<int>(num_cints) << "MB\n";
+  std::cout << "   variant: " << get_MB<precision>(num_lfps) + get_MB<int>(num_lints) << "MB\n";
+  int64_t total_mem = get_MB<precision>(num_lfps + num_cfps) + get_MB<int>(num_cints + num_lints);
+  if (total_mem > 1024)
+    std::cout << "     total: " << static_cast<double>(total_mem) / 1024.0 << "GB\n";
+  else
+    std::cout << "     total: " << total_mem << "MB\n";
 }
 
 template<typename precision>
@@ -1558,7 +1580,9 @@ void global_kron(kron_permute const &perms,
                          gvals[t * num_dimensions + dir], w1, w2);
           std::swap(w1, w2);
         }
-        lib_dispatch::axpy<resource::host>(num_rows, alpha, w1, 1, y, 1);
+        //lib_dispatch::axpy<resource::host>(num_rows, alpha, w1, 1, y, 1);
+        for(int64_t j = 0; j < num_rows; j++)
+          y[j] += alpha * w1[j];
       }
     }
   }

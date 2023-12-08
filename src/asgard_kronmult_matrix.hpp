@@ -930,7 +930,9 @@ public:
     precision *yglobal = expanded.data() + ilist_.num_strips();
     kronmult::global_kron(perms_, gpntr_, gindx_, gdiag_, gvals_, used_terms, alpha, expanded.data(), yglobal, workspace.data());
 
-    lib_dispatch::axpy<resource::host>(num_active_, precision{1}, yglobal, 1, y, 1);
+    //lib_dispatch::axpy<resource::host>(num_active_, precision{1}, yglobal, 1, y, 1);
+    for(int64_t i = 0; i < num_active_; i++)
+      y[i] += yglobal[i];
   }
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
@@ -1117,7 +1119,6 @@ struct matrix_list
   {
       #ifdef KRON_MODE_GLOBAL
       return kglobal.flops(entry);
-      return 0;
       #else
       return matrices[static_cast<int>(entry)].flops();
       #endif

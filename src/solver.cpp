@@ -103,7 +103,7 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
   return simple_gmres(
       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-        tools::time_event performance("kronmult - implicit", 0);
+        tools::time_event performance("kronmult - implicit", mat.flops(mentry));
         mat.apply(mentry, -dt * alpha, x_in.data(), beta, y.data());
         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
       },
