@@ -1348,6 +1348,7 @@ void global_kron(kron_permute const &perms,
                  precision alpha, precision const *x, precision *y,
                  precision *worspace)
 {
+  tools::time_event kron_time_("kronmult global");
   // flop_counter   = 0;
   // search_counter = 0;
 
