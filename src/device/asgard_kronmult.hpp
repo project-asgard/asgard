@@ -2,8 +2,10 @@
 
 #include <iostream>
 #include <set>
+#include <algorithm>
 
 #include "asgard_kronmult_common.hpp"
+#include "asgard_indexset.hpp"
 
 namespace asgard::kronmult
 {
@@ -128,6 +130,137 @@ void gpu_sparse(int const dimensions, int const n, int const output_size,
                 int const num_batch, int const ix[], int const iy[],
                 int const num_terms, int const iA[], T const vA[],
                 T const alpha, T const x[], T const beta, T y[]);
+#endif
+
+
+#ifdef KRON_MODE_GLOBAL
+/*!
+  * \brief Compute the permutations (upper/lower) for global kronecker operations
+  *
+  * This computes all the permutations for the given dimensions
+  * and sets up the fill and direction vector-of-vectors.
+  * Direction 0 will be set to full and all others will alternate
+  * between upper and lower.
+  *
+  * By default, the directions are in order (0, 1, 2, 3); however, if a term has
+  * entries (identity, term, identity, term), then the effective dimension is 2
+  * and first the permutation should be set for dimension 2,
+  * then we should call .remap_directions({1, 3}) to remap (0, 1) into the active
+  * directions of 1 and 3 (skipping the call to the identity.
+ */
+struct permutes
+{
+  //! \brief Indicates the fill of the matrix.
+  enum class matrix_fill { upper, both, lower };
+  //! \brief Matrix fill for each operation.
+  std::vector<std::vector<matrix_fill>> fill;
+  //! \brief Direction for each matrix operation.
+  std::vector<std::vector<int>> direction;
+  //! \brief Empty permutation list.
+  permutes() = default;
+  //! \brief Initialize the permutations.
+  permutes(int num_dimensions)
+  {
+    if (num_dimensions < 1) // could happen with identity operator term
+      return;
+
+    int num_permute = 1;
+    for(int d=0; d<num_dimensions-1; d++)
+      num_permute *= 2;
+
+    direction.resize(num_permute);
+    fill.resize(num_permute);
+    for(int perm=0; perm<num_permute; perm++)
+    {
+      direction[perm].resize(num_dimensions, 0);
+      fill[perm].resize(num_dimensions);
+      int t = perm;
+      for(int d=1; d<num_dimensions; d++)
+      {
+        // negative dimension means upper fill, positive for lower fill
+        direction[perm][d] = (t % 2 == 0) ? d : -d;
+        t /= 2;
+      }
+      // sort puts the upper matrices first
+      std::sort(direction[perm].begin(), direction[perm].end());
+      for(int d=0; d<num_dimensions; d++)
+      {
+        fill[perm][d] = (direction[perm][d] < 0) ? matrix_fill::upper :
+                         ((direction[perm][d] > 0) ? matrix_fill::lower :
+                                     matrix_fill::both);
+        direction[perm][d] = std::abs(direction[perm][d]);
+      }
+    }
+  }
+  //! \brief Convert the fill to a string (for debugging).
+  const char * fill_name(int perm, int stage) const
+  {
+    switch(fill[perm][stage])
+    {
+      case matrix_fill::upper: return "upper";
+      case matrix_fill::lower: return "lower";
+      default: return "full";
+    }
+  }
+  //! \brief Shows the number of dimensions considered in the permutation
+  int num_dimensions() const
+  {
+    return (direction.empty()) ? 0 : static_cast<int>(direction.front().size());
+  }
+  //! \brief Reindexes the dimensions to match the active (non-identity) dimensions
+  void remap_directions(std::vector<int> const &active_dirs)
+  {
+    for(auto &dirs : direction) // for all permutations
+      for(auto &d : dirs) // for all directions
+        d = active_dirs[d];
+  }
+};
+
+/*!
+ * \brief Perform global Kronecked product
+ *
+ * Reference algorithm using the multi-index data-structures directly.
+ *
+ * The permutations between upper/lower parts and the order of the directions
+ * is stored in \b kron_permute.
+ *
+ * The definition of the sparsity pattern and sets is the same as in
+ * global_kron_1d().
+ * The vals contains a vector for each dimension.
+ *
+ * The result is y += sum_{t in terms} alpha * mat_t * x
+ * i.e., one such operation has to be applied for each term.
+ *
+ * The size of the workspace must be twice the size of x/y,
+ * i.e., it must match 2 * iset.num_indexes()
+ */
+template<typename precision>
+void global_cpu(permutes const &perms,
+                vector2d<int> const &ilist, dimension_sort const &dsort,
+                connect_1d const &conn, std::vector<int> const &terms,
+                std::vector<std::vector<precision>> const &vals,
+                precision alpha, precision const *x, precision *y,
+                precision *worspace);
+
+/*!
+ * \brief Perform global Kronecked product
+ *
+ * Fast algorithm, using a sparsity pattern loaded into the vectors.
+ *
+ * The index vector lists gpntr, gindx, gdiag hold a vector for each dimension,
+ * this is the common part of the sparse matrices.
+ * The values gvals are number-of-terms X number-of-dimensions.
+ */
+template<typename precision>
+void global_cpu(int num_dimensions,
+                std::vector<permutes> const &perms,
+                std::vector<std::vector<int>> const &gpntr,
+                std::vector<std::vector<int>> const &gindx,
+                std::vector<std::vector<int>> const &gdiag,
+                std::vector<std::vector<precision>> const &gvals,
+                std::vector<int> const &terms,
+                precision alpha, precision const *x, precision *y,
+                precision *worspace);
 #endif
 
 } // namespace asgard::kronmult

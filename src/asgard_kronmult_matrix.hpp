@@ -9,8 +9,6 @@
 #include "elements.hpp"
 #include "pde.hpp"
 
-#include "asgard_indexset.hpp"
-
 #include "./device/asgard_kronmult.hpp"
 
 // this interface between the low level kernels in src/device
@@ -19,8 +17,9 @@
 namespace asgard
 {
 
-//extern int64_t flop_counter;
-
+/*!
+ * \brief Returns a list of terms matching the imex index.
+ */
 template<typename precision>
 std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
                                 imex_flag const imex);
@@ -740,115 +739,7 @@ enum matrix_entry
   imex_implicit = 2
 };
 
-//! \brief Compute the permutations (upper/lower) for global kronecker operations
-struct kron_permute
-{
-  //! \brief Indicates the fill of the matrix.
-  enum class matrix_fill { upper, both, lower };
-  //! \brief Matrix fill for each operation.
-  std::vector<std::vector<matrix_fill>> fill;
-  //! \brief Direction for each matrix operation.
-  std::vector<std::vector<int>> direction;
-  //! \brief Empty permutation list.
-  kron_permute() = default;
-  //! \brief Initialize the permutations.
-  kron_permute(int num_dimensions)
-  {
-    int num_permute = 1;
-    for(int d=0; d<num_dimensions-1; d++)
-      num_permute *= 2;
-
-    direction.resize(num_permute);
-    fill.resize(num_permute);
-    for(int perm=0; perm<num_permute; perm++)
-    {
-      direction[perm].resize(num_dimensions, 0);
-      fill[perm].resize(num_dimensions);
-      int t = perm;
-      for(int d=1; d<num_dimensions; d++)
-      {
-        // negative dimension means lower fill, positive for upper fill
-        direction[perm][d] = (t % 2 == 0) ? d : -d;
-        t /= 2;
-      }
-      std::sort(direction[perm].begin(), direction[perm].end()); // put lower matrices first
-      for(int d=0; d<num_dimensions; d++)
-      {
-        fill[perm][d] = (direction[perm][d] < 0) ? matrix_fill::upper :
-                         ((direction[perm][d] > 0) ? matrix_fill::lower :
-                                     matrix_fill::both);
-        direction[perm][d] = std::abs(direction[perm][d]);
-      }
-    }
-  }
-  const char * fill_name(int perm, int stage) const
-  {
-    switch(fill[perm][stage])
-    {
-      case matrix_fill::upper: return "upper";
-      case matrix_fill::lower: return "lower";
-      default: return "full";
-    }
-  }
-};
-
-namespace kronmult
-{
-/*!
- * \brief Perform 1D or one stage of a multi-stage global Kronecker product
- *
- * Given an indexset and that has been sorted by dimensions,
- * we perform one stage of a Kronecker product.
- *
- * The stage is applied on the dimension \b dim with a matrix that has
- * the given \b fill and 1D sparsity pattern provided by the connectivity
- * and values given by the \b vals array.
- *
- * The output is y = mat * x
- */
-template<typename precision>
-void global_kron_1d(vector2d<int> const &iset, dimension_sort const &dsort,
-                     int dim, kron_permute::matrix_fill fill,
-                     connect_1d const &conn, precision const *vals,
-                     precision const *x, precision *y);
-
-/*!
- * \brief Perform global Kronecked product
- *
- * The permutations between upper/lower parts and the order of the directions
- * is stored in \b kron_permute.
- *
- * The definition of the sparsity pattern and sets is the same as in
- * global_kron_1d().
- * The vals contains a vector for each dimension.
- *
- * The result is y += sum_{t in terms} alpha * mat_t * x
- * i.e., one such operation has to be applied for each term.
- *
- * The size of the workspace must be twice the size of x/y,
- * i.e., it must match 2 * iset.num_indexes()
- */
-template<typename precision>
-void global_kron(kron_permute const &perms,
-                 vector2d<int> const &ilist, dimension_sort const &dsort,
-                 connect_1d const &conn, std::vector<int> const &terms,
-                 std::vector<std::vector<precision>> const &vals,
-                 precision alpha, precision const *x, precision *y,
-                 precision *worspace);
-
-template<typename precision>
-void global_kron(kron_permute const &perms,
-                 std::vector<std::vector<int>> const &gpntr,
-                 std::vector<std::vector<int>> const &gindx,
-                 std::vector<std::vector<int>> const &gdiag,
-                 std::vector<std::vector<precision>> const &gvals,
-                 std::vector<int> const &terms,
-                 precision alpha, precision const *x, precision *y,
-                 precision *worspace);
-}
-
-
-
+#ifdef KRON_MODE_GLOBAL
 template<typename precision>
 class global_kron_matrix;
 
@@ -876,17 +767,18 @@ public:
   //! \brief Creates an empty matrix.
   global_kron_matrix() : conn_(1), flops_({0, 0, 0}), edges_(1) {}
   //! \brief Creates an empty matrix.
-  global_kron_matrix(connect_1d &&conn, vector2d<int> &&ilist, int64_t num_active,
+  global_kron_matrix(connect_1d conn, vector2d<int> ilist, int64_t num_active,
+                     std::vector<kronmult::permutes> perms,
                      std::vector<std::vector<int>> gpntr,
                      std::vector<std::vector<int>> gindx,
                      std::vector<std::vector<int>> gdiag,
                      std::vector<std::vector<int>> givals,
                      std::vector<std::vector<precision>> gvals,
-                     connect_1d &&edges,
-                     std::vector<int> &&local_pntr, std::vector<int> &&local_indx)
+                     connect_1d edges,
+                     std::vector<int> local_pntr, std::vector<int> local_indx)
     : conn_(std::move(conn)), ilist_(std::move(ilist)),
       num_dimensions_(ilist_.stride()), num_active_(num_active),
-      dsort_(ilist_), perms_(num_dimensions_), flops_({0, 0, 0}),
+      dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
       gpntr_(std::move(gpntr)),  gindx_(std::move(gindx)),
       gdiag_(std::move(gdiag)), givals_(std::move(givals)),
       gvals_(std::move(gvals)), edges_(std::move(edges)),
@@ -928,7 +820,8 @@ public:
     std::copy_n(x, num_active_, expanded.begin());
     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
     precision *yglobal = expanded.data() + ilist_.num_strips();
-    kronmult::global_kron(perms_, gpntr_, gindx_, gdiag_, gvals_, used_terms, alpha, expanded.data(), yglobal, workspace.data());
+    kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
+                         used_terms, alpha, expanded.data(), yglobal, workspace.data());
 
     //lib_dispatch::axpy<resource::host>(num_active_, precision{1}, yglobal, 1, y, 1);
     for(int64_t i = 0; i < num_active_; i++)
@@ -973,22 +866,12 @@ public:
     global_kron_matrix<precision> &mat);
 
 protected:
-  //! \brief Debug output purposes, converts the fill to a string
-  const char *fill_name(kron_permute::matrix_fill fill)
-  {
-    switch(fill)
-    {
-      case kron_permute::matrix_fill::upper: return "upper";
-      case kron_permute::matrix_fill::lower: return "lower";
-      default:
-        return "both";
-    }
-  }
-
+  //! \brief Convert the imex flag to an index of the arrays.
   static int flag2int(imex_flag imex)
   {
     return (imex == imex_flag::imex_implicit) ? 2 : ((imex == imex_flag::imex_explicit) ? 1 : 0);
   }
+  //! \brief Convert the matrix entry to an index of the arrays.
   static int flag2int(matrix_entry imex)
   {
     return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
@@ -1003,7 +886,7 @@ private:
   int num_dimensions_;
   int64_t num_active_;
   dimension_sort dsort_;
-  kron_permute perms_;
+  std::vector<kronmult::permutes> perms_;
   std::array<int64_t, num_variants> flops_;
   // data for the 1D tensors
   std::vector<std::vector<int>> gpntr_;
@@ -1025,7 +908,6 @@ private:
   std::array<std::vector<precision>, num_variants> local_opvalues_;
 };
 
-
 /*!
  * \brief Factory method for making a global kron matrix.
  */
@@ -1034,7 +916,7 @@ global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
                         options const &program_options);
-
+#endif
 
 /*!
  * \brief Compute the stats for the memory usage

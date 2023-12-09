@@ -384,6 +384,8 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
 
 #endif
 
+#ifdef KRON_MODE_GLOBAL
+
 TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
 {
   std::minstd_rand park_miller(42);
@@ -424,13 +426,13 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
       }
     }
 
-    asgard::kron_permute perms(1);
-    asgard::dimension_sort dsort(ilist);
+    asgard::kronmult::permutes perms(1);
+    asgard::dimension_sort     dsort(ilist);
 
     std::vector<TestType> y(x.size(), TestType{0});
     std::vector<TestType> w(2 * y.size(), TestType{0});
-    asgard::kronmult::global_kron(perms, ilist, dsort, conn, {0}, vals,
-                                  TestType{1}, x.data(), y.data(), w.data());
+    asgard::kronmult::global_cpu(perms, ilist, dsort, conn, {0}, vals,
+                                 TestType{1}, x.data(), y.data(), w.data());
 
     test_almost_equal(y, y_ref);
   }
@@ -504,13 +506,13 @@ void test_global_kron(int num_dimensions, int level)
     }
   }
 
-  asgard::kron_permute perms(num_dimensions);
-  asgard::dimension_sort dsort(ilist);
+  asgard::kronmult::permutes perms(num_dimensions);
+  asgard::dimension_sort     dsort(ilist);
 
   std::vector<precision> y(y_ref.size(), precision{0});
   std::vector<precision> w(2 * y.size(), precision{0});
-  asgard::kronmult::global_kron(perms, ilist, dsort, conn, {0}, vals,
-                                precision{1}, x.data(), y.data(), w.data());
+  asgard::kronmult::global_cpu(perms, ilist, dsort, conn, {0}, vals,
+                               precision{1}, x.data(), y.data(), w.data());
 
   test_almost_equal(y, y_ref);
 }
@@ -539,3 +541,5 @@ TEMPLATE_TEST_CASE("testing global kron 5d, constant basis", "[gkron 5d]", test_
   int l = GENERATE(1, 2, 3, 4, 5);
   test_global_kron<TestType>(5, l);
 }
+
+#endif

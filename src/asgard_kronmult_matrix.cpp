@@ -1014,6 +1014,18 @@ compute_mem_usage(PDE<P> const &pde,
   return stats;
 }
 
+#ifdef KRON_MODE_GLOBAL
+template<typename precision>
+bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
+{
+  auto const& tterm = pde.get_terms()[term_id][dim];
+  if (tterm.get_partial_terms().size() == 1)
+    return (tterm.get_partial_terms()[0].g_func     == nullptr and
+            tterm.get_partial_terms()[0].coeff_type == coefficient_type::mass);
+  else
+    return false;
+}
+
 template<typename precision>
 global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
@@ -1138,22 +1150,36 @@ make_global_kron_matrix(PDE<precision> const &pde,
 
   // copy out the matrices
   std::vector<std::vector<precision>> global_vals(num_terms * num_dimensions);
+  std::vector<kronmult::permutes> permutations;
+  permutations.reserve(num_terms);
+  std::vector<int> active_dirs(num_dimensions);
   for(int t=0; t<num_terms; t++)
   {
+    active_dirs.clear();
     for(int d=0; d<num_dimensions; d++)
     {
-      std::vector<precision> &vals = global_vals[t * num_dimensions + d];
-      std::vector<int> &ivals      = global_ivals[d];
+      if (not check_identity_term(pde, t, d))
+      {
+        active_dirs.push_back(d);
+        std::vector<precision> &vals = global_vals[t * num_dimensions + d];
+        std::vector<int> &ivals      = global_ivals[d];
 
-      int64_t num_entries = static_cast<int64_t>(global_indx[d].size());
+        int64_t num_entries = static_cast<int64_t>(global_indx[d].size());
 
-      vals = std::vector<precision>(num_entries);
-      fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
+        vals = std::vector<precision>(num_entries);
+        fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
 #pragma omp parallel for
-      for(int64_t i=0; i<num_entries; i++)
-        vals[i] = ops(ivals[2 * i], ivals[2 * i + 1]);
+        for(int64_t i=0; i<num_entries; i++)
+          vals[i] = ops(ivals[2 * i], ivals[2 * i + 1]);
+      }
     }
+    int const num_active = static_cast<int>(active_dirs.size());
+    permutations.push_back(kronmult::permutes(num_active));
+    if (num_active != num_dimensions)
+      permutations.back().remap_directions(active_dirs);
+    //if (num_active < num_dimensions)
+    //  std::cerr << " reduction from " << num_dimensions << " to " << num_active << "\n";
   }
 
   // make the pattern for the local contribution
@@ -1199,7 +1225,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   }
 
   return global_kron_matrix<precision>(
-    std::move(dof_pattern), std::move(ilist), num_active_dof,
+    std::move(dof_pattern), std::move(ilist), num_active_dof, std::move(permutations),
     std::move(global_pntr), std::move(global_indx), std::move(global_diag),
     std::move(global_ivals), std::move(global_vals),
     connect_1d(max_level), std::move(lpntr), std::move(lindx));
@@ -1291,12 +1317,10 @@ void set_local_pattern(PDE<precision> const &pde,
     }
   }
 
-  int64_t gflops = 0;
-  for(int d = 0; d < num_dimensions; d++)
-  {
-    gflops = static_cast<int64_t>(mat.gindx_[d].size());
-  }
-  gflops *= used_terms.size();
+  int64_t gflops = 0; // flops for global component
+  for(auto t : used_terms)
+    for(int d = 0; d < num_dimensions; d++)
+      gflops += mat.gvals_[t * num_dimensions + d].size();
 
   int64_t lflops = (mat.porder_ + 1);
   for(int d = 1; d < num_dimensions; d++)
@@ -1317,8 +1341,11 @@ void set_local_pattern(PDE<precision> const &pde,
     num_cints += mat.gindx_[d].size();
     num_cints += mat.gdiag_[d].size();
     num_cints += mat.givals_[d].size();
-    num_cfps  += mat.gvals_[d].size();
   }
+  for(auto t : used_terms)
+    for(int d = 0; d < num_dimensions; d++)
+      num_cfps  += mat.gvals_[t * num_dimensions + d].size();
+
   num_cfps += mat.expanded.size() + mat.workspace.size();
   int64_t num_lints = mat.local_pntr_.size() + mat.local_indx_.size() + mat.local_opindex_[imex_indx].size();
   int64_t num_lfps  = mat.local_opvalues_[imex_indx].size();
@@ -1363,6 +1390,8 @@ void update_global_coefficients(PDE<precision> const &pde,
     for(int d=0; d<num_dimensions; d++)
     {
       std::vector<precision> &vals = mat.gvals_[t * num_dimensions + d];
+      if (vals.empty()) // identity term, no values
+        continue;
       std::vector<int> &ivals      = mat.givals_[d];
 
       int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
@@ -1401,232 +1430,7 @@ void update_global_coefficients(PDE<precision> const &pde,
     }
   }
 }
-
-namespace kronmult
-{
-template<typename precision>
-void global_kron_1d(vector2d<int> const &ilist, dimension_sort const &dsort,
-                     int dim, kron_permute::matrix_fill fill,
-                     connect_1d const &conn, precision const *vals,
-                     precision const *x, precision *y)
-{
-  std::fill_n(y, ilist.num_strips(), precision{0});
-
-  // the sort splits the index set into sparse vectors
-  int const num_vecs = dsort.num_vecs(dim);
-
-  // loop over all the sparse vectors
-#pragma omp parallel for
-  for(int vec_id=0; vec_id<num_vecs; vec_id++)
-  {
-    // the vector is between vec_begin(dim, vec_id) and vec_end(dim, vec_id)
-    // the vector has to be multiplied by the upper/lower/both portion
-    // of a sparse matrix
-    // sparse matrix times a sparse vector requires pattern matching
-    int const vec_begin = dsort.vec_begin(dim, vec_id);
-    int const vec_end   = dsort.vec_end(dim, vec_id);
-
-    for(int j=vec_begin; j<vec_end; j++)
-    {
-      int row = dsort(ilist, dim, j); // 1D index of this output in y
-      int mat_begin = (fill == kron_permute::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
-      int mat_end   = (fill == kron_permute::matrix_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
-
-      // loop over the matrix row and the vector looking for matching non-zeros
-      int mat_j = mat_begin;
-      int vec_j = vec_begin;
-      while(mat_j < mat_end and vec_j < vec_end)
-      {
-        int const vec_index = dsort(ilist, dim, vec_j); // pattern index 1d
-        int const mat_index = conn[mat_j];
-        // the sort helps here, since indexes are in order, it is easy to
-        // match the index patterns
-        if (vec_index < mat_index)
-        {
-          vec_j += 1;
-          // search_counter += 1;
-        }
-        else if (mat_index < vec_index)
-        {
-          mat_j += 1;
-          //search_counter += 1;
-        }
-        else // mat_index == vec_index, found matching entry, add to output
-        {
-          // flop_counter += 1;
-          y[dsort.map(dim, j)] += x[dsort.map(dim, vec_j)] * vals[mat_j];
-
-          // entry match, increment both indexes for the pattern
-          vec_j += 1;
-          mat_j += 1;
-        }
-      }
-    }
-  }
-}
-
-template<typename precision>
-void global_kron(kron_permute const &perms,
-                 vector2d<int> const &ilist, dimension_sort const &dsort,
-                 connect_1d const &conn, std::vector<int> const &terms,
-                 std::vector<std::vector<precision>> const &vals,
-                 precision alpha, precision const *x, precision *y,
-                 precision *worspace)
-{
-  int const num_dimensions = ilist.stride();
-  if (num_dimensions == 1) // no need to split anything
-  {
-    for(int t : terms)
-    {
-      global_kron_1d(ilist, dsort, 0, kron_permute::matrix_fill::both, conn,
-                     vals[t].data(), x, worspace);
-      lib_dispatch::axpy<resource::host>(ilist.num_strips(), alpha, worspace, 1, y, 1);
-    }
-  }
-  else
-  {
-    precision *w1 = worspace;
-    precision *w2 = worspace + ilist.num_strips();
-
-    for(int t : terms)
-    {
-      for(size_t i=0; i < perms.fill.size(); i++)
-      {
-        global_kron_1d(ilist, dsort, perms.direction[i][0], perms.fill[i][0],
-                       conn, vals[t * num_dimensions + perms.direction[i][0]].data(), x, w1);
-        for(int d=1; d<num_dimensions; d++)
-        {
-          global_kron_1d(ilist, dsort, perms.direction[i][d], perms.fill[i][d],
-                         conn, vals[t * num_dimensions + perms.direction[i][d]].data(), w1, w2);
-          std::swap(w1, w2);
-        }
-        lib_dispatch::axpy<resource::host>(ilist.num_strips(), alpha, w1, 1, y, 1);
-      }
-    }
-  }
-}
-
-template<typename precision>
-void global_kron_1d(kron_permute::matrix_fill fill,
-                    std::vector<int> const &pntr,
-                    std::vector<int> const &indx,
-                    std::vector<int> const &diag,
-                    std::vector<precision> const &vals,
-                    precision const *x, precision *y)
-{
-  int64_t const num_rows = static_cast<int64_t>(pntr.size() - 1);
-  std::fill_n(y, num_rows, precision{0});
-  switch(fill)
-  {
-    case kron_permute::matrix_fill::upper:
-#pragma omp parallel for
-      for(int64_t r = 0; r < num_rows; r++)
-        for(int j = diag[r]; j < pntr[r + 1]; j++)
-          y[r] += vals[j] * x[indx[j]];
-      break;
-    case kron_permute::matrix_fill::lower:
-#pragma omp parallel for
-      for(int64_t r = 0; r < num_rows; r++)
-        for(int j = pntr[r]; j < diag[r]; j++)
-          y[r] += vals[j] * x[indx[j]];
-      break;
-    case kron_permute::matrix_fill::both:
-#pragma omp parallel for
-      for(int64_t r = 0; r < num_rows; r++)
-        for(int j = pntr[r]; j < pntr[r + 1]; j++)
-          y[r] += vals[j] * x[indx[j]];
-      break;
-  }
-}
-
-template<typename precision>
-void global_kron(kron_permute const &perms,
-                 std::vector<std::vector<int>> const &gpntr,
-                 std::vector<std::vector<int>> const &gindx,
-                 std::vector<std::vector<int>> const &gdiag,
-                 std::vector<std::vector<precision>> const &gvals,
-                 std::vector<int> const &terms,
-                 precision alpha, precision const *x, precision *y,
-                 precision *workspace)
-{
-  int const num_dimensions = static_cast<int>(perms.direction.front().size());
-  int64_t const num_rows   = static_cast<int64_t>(gpntr.front().size() - 1);
-
-  if (num_dimensions == 1) // no need to split anything
-  {
-    for(int t : terms)
-    {
-      global_kron_1d(kron_permute::matrix_fill::both, gpntr[0], gindx[0],
-                     gdiag[0], gvals[t], x, workspace);
-      lib_dispatch::axpy<resource::host>(num_rows, alpha, workspace, 1, y, 1);
-    }
-  }
-  else
-  {
-    precision *w1 = workspace;
-    precision *w2 = workspace + num_rows;
-
-    for(int t : terms)
-    {
-      for(size_t i=0; i < perms.fill.size(); i++)
-      {
-        int dir = perms.direction[i][0];
-        global_kron_1d(perms.fill[i][0], gpntr[dir], gindx[dir], gdiag[dir],
-                       gvals[t * num_dimensions + dir], x, w1);
-        for(int d = 1; d < num_dimensions; d++)
-        {
-          dir = perms.direction[i][d];
-          global_kron_1d(perms.fill[i][d], gpntr[dir], gindx[dir], gdiag[dir],
-                         gvals[t * num_dimensions + dir], w1, w2);
-          std::swap(w1, w2);
-        }
-        //lib_dispatch::axpy<resource::host>(num_rows, alpha, w1, 1, y, 1);
-        for(int64_t j = 0; j < num_rows; j++)
-          y[j] += alpha * w1[j];
-      }
-    }
-  }
-}
-
-#ifdef ASGARD_ENABLE_DOUBLE
-template
-void global_kron(kron_permute const &,
-                 std::vector<std::vector<int>> const &,
-                 std::vector<std::vector<int>> const &,
-                 std::vector<std::vector<int>> const &,
-                 std::vector<std::vector<double>> const &,
-                 std::vector<int> const &,
-                 double alpha, double const *x, double *y,
-                 double *workspace);
-
-template
-void global_kron(kron_permute const &perms,
-                 vector2d<int> const &ilist, dimension_sort const &dsort,
-                 connect_1d const &conn, std::vector<int> const &terms,
-                 std::vector<std::vector<double>> const &vals,
-                 double alpha, double const *x, double *y,
-                 double *worspace);
 #endif
-#ifdef ASGARD_ENABLE_FLOAT
-template
-void global_kron(kron_permute const &,
-                 std::vector<std::vector<int>> const &,
-                 std::vector<std::vector<int>> const &,
-                 std::vector<std::vector<int>> const &,
-                 std::vector<std::vector<float>> const &,
-                 std::vector<int> const &,
-                 float alpha, float const *x, float *y,
-                 float *workspace);
-template
-void global_kron(kron_permute const &perms,
-                 vector2d<int> const &ilist, dimension_sort const &dsort,
-                 connect_1d const &conn, std::vector<int> const &terms,
-                 std::vector<std::vector<float>> const &vals,
-                 float alpha, float const *x, float *y,
-                 float *worspace);
-#endif
-
-} // namespace kronmult
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template
@@ -1647,6 +1451,7 @@ compute_mem_usage<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
                           options const &, imex_flag const, kron_sparse_cache &,
                           int, int64_t, bool);
+#ifdef KRON_MODE_GLOBAL
 template global_kron_matrix<double>
 make_global_kron_matrix(PDE<double> const &,
                         adapt::distributed_grid<double> const &,
@@ -1662,6 +1467,7 @@ set_local_pattern<double>(PDE<double> const &,
                           options const &, imex_flag const,
                           global_kron_matrix<double> &);
 template class global_kron_matrix<double>;
+#endif
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1683,6 +1489,7 @@ compute_mem_usage<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,
                          options const &, imex_flag const, kron_sparse_cache &,
                          int, int64_t, bool);
+#ifdef KRON_MODE_GLOBAL
 template global_kron_matrix<float>
 make_global_kron_matrix(PDE<float> const &,
                         adapt::distributed_grid<float> const &,
@@ -1698,6 +1505,7 @@ set_local_pattern<float>(PDE<float> const &,
                          options const &, imex_flag const,
                          global_kron_matrix<float> &);
 template class global_kron_matrix<float>;
+#endif
 #endif
 
 } // namespace asgard

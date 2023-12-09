@@ -29,6 +29,7 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance);
 
+#ifdef KRON_MODE_GLOBAL
 template<typename P, resource resrc>
 gmres_info<P>
 simple_gmres_euler(const P dt, matrix_entry mentry,
@@ -36,6 +37,7 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
                    fk::vector<P, mem_type::owner, resrc> &x,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance);
+#endif
 
 template<typename P>
 int default_gmres_restarts(int num_cols);
