@@ -101,6 +101,8 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
                    int const restart, int const max_iter, P const tolerance)
 {
   static_assert(resrc == resource::host);
+  std::vector<P> const &pc = mat.get_diagonal_preconditioner();
+
   return simple_gmres(
       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
@@ -108,7 +110,13 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
         mat.apply(mentry, -dt * alpha, x_in.data(), beta, y.data());
         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
       },
-      fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
+      fk::vector<P, mem_type::view, resrc>(x), b,
+      [&](fk::vector<P, mem_type::view, resource::host> &x) -> void {
+        tools::time_event performance("kronmult - preconditioner", pc.size());
+#pragma omp parallel for
+        for (size_t i = 0; i < pc.size(); i++)
+          x[i] /= (1.0 - dt * pc[i]);
+      },
       restart, max_iter, tolerance);
 }
 #endif

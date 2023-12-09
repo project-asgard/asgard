@@ -1025,7 +1025,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
 
   int const porder    = pde.get_dimensions()[0].get_degree() - 1;
-  int const pterms    = pdegree + 1; // poly degrees of freedom
+  int const pterms    = porder + 1; // poly degrees of freedom
   int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level;
 
   int const num_dimensions = pde.num_dims;
@@ -1236,10 +1236,10 @@ void set_local_pattern(PDE<precision> const &pde,
   auto const &grid                 = dis_grid.get_subgrid(get_rank());
   int const *const flattened_table = dis_grid.get_table().get_active_table().data();
 
-  int const pdegree    = pde.get_dimensions()[0].get_degree() - 1;
-  mat.porder_          = pdegree;
-  int const pterms     = pdegree + 1; // poly degrees of freedom
-  int const block_size = (pdegree + 1) * (pdegree + 1);
+  int const porder     = pde.get_dimensions()[0].get_degree() - 1;
+  mat.porder_          = porder;
+  int const pterms     = porder + 1; // poly degrees of freedom
+  int const block_size = pterms * pterms;
   int const max_level  = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level;
 
   int const num_dimensions = pde.num_dims;
@@ -1305,15 +1305,49 @@ void set_local_pattern(PDE<precision> const &pde,
     }
   }
 
+  // compute the size of the in-cell degrees of freedom
+  int64_t tensor_size = pterms;
+  for (int d = 1; d < num_dimensions; d++)
+    tensor_size *= pterms;
+
+  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  {
+    // prepare a preconditioner
+    std::vector<precision> &pc = mat.pre_con_;
+    int64_t num_entries        = mat.num_active_;
+
+    pc.resize(num_entries);
+    std::vector<int> midx(num_dimensions); // multi-index for each row
+
+    for (int64_t row = 0; row < grid.row_stop + 1; row++)
+    {
+      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
+      asg2tsg_convert(num_dimensions, row_coords, midx.data());
+
+      for(int tentry=0; tentry<tensor_size; tentry++)
+      {
+        for (int t : used_terms)
+        {
+          precision a = 1;
+          int tt = tentry;
+          for (int d = num_dimensions - 1; d >= 0; d--)
+          {
+            int const rc = midx[d] * pterms + tt % pterms;
+            a *= pde.get_coefficients(t, d)(rc, rc);
+            tt /= pterms;
+          }
+          pc[row * tensor_size + tentry] += a;
+        }
+      }
+    }
+  }
+
   int64_t gflops = 0; // flops for global component
   for (auto t : used_terms)
     for (int d = 0; d < num_dimensions; d++)
       gflops += mat.gvals_[t * num_dimensions + d].size();
 
-  int64_t lflops = (mat.porder_ + 1);
-  for (int d = 1; d < num_dimensions; d++)
-    lflops *= pterms;
-  lflops *= pterms * mat.local_opindex_[imex_indx].size();
+  int64_t lflops = tensor_size * pterms * mat.local_opindex_[imex_indx].size();
 
   std::cout << "Kronmult using global algorithm:\n";
   std::cout << "    global: " << static_cast<double>(gflops) * 1.E-9 << " Gflops\n";

@@ -810,9 +810,9 @@ public:
   connect_1d const &edge_connectivity() const { return edges_; }
 
   //! \brief Allows overwriting of the loaded coefficients.
-  std::vector<precision> &get_values(int tterm, int dim)
+  std::vector<precision> const &get_diagonal_preconditioner() const
   {
-    return gvals_[tterm * num_dimensions_ + dim];
+    return pre_con_;
   }
 
   //! \brief Check if the corresponding lock pattern is set.
@@ -820,11 +820,12 @@ public:
   {
     return local_opindex_[flag2int(etype)].empty();
   }
-
+  //! \brief Return the number of flops for the current matrix type
   int64_t flops(matrix_entry etype) const
   {
     return flops_[flag2int(etype)];
   }
+
 
   friend void set_local_pattern<precision>(PDE<precision> const &pde,
                                            adapt::distributed_grid<precision> const &dis_grid,
@@ -878,6 +879,8 @@ private:
   std::vector<int> local_indx_;
   std::array<std::vector<int>, num_variants> local_opindex_;
   std::array<std::vector<precision>, num_variants> local_opvalues_;
+  // preconditioner
+  std::vector<precision> pre_con_;
 };
 
 /*!
