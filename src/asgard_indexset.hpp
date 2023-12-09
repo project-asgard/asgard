@@ -1,16 +1,15 @@
 #pragma once
 
-#include <vector>
-#include <memory>
 #include <algorithm>
+#include <memory>
 #include <numeric>
+#include <vector>
 
-#include "tools.hpp"
 #include "asgard_grid_1d.hpp"
+#include "tools.hpp"
 
 namespace asgard
 {
-
 /*!
  * \brief Helper wrapper for data that will be organized in two dimensional form
  *
@@ -34,14 +33,14 @@ public:
   bool empty() const { return (num_strips_ == 0); }
 
   //! \brief Return pointer to the i-th strip.
-  T* operator[] (int64_t i) { return &data_[i * stride_]; }
+  T *operator[](int64_t i) { return &data_[i * stride_]; }
   //! \brief Return const-pointer to the i-th strip.
-  T const * operator[] (int64_t i) const { return &data_[i * stride_]; }
+  T const *operator[](int64_t i) const { return &data_[i * stride_]; }
 
 protected:
   //! \brief Constructor, not intended for public use.
   organize2d(int64_t stride, int64_t num_strips)
-    : stride_(stride), num_strips_(num_strips)
+      : stride_(stride), num_strips_(num_strips)
   {}
 
   int64_t stride_, num_strips_;
@@ -72,17 +71,17 @@ public:
   vector2d() : organize2d<T, std::vector<T>>::organize2d(0, 0) {}
   //! \brief Make a vector with the given dimensions, initialize to 0.
   vector2d(int64_t stride, int64_t num_strips)
-    : organize2d<T, std::vector<T>>::organize2d(stride, num_strips)
+      : organize2d<T, std::vector<T>>::organize2d(stride, num_strips)
   {
     this->data_ = std::vector<T>(stride * num_strips);
   }
   //! \brief Assume ownership of the data.
   vector2d(int64_t stride, std::vector<int> data)
-    : organize2d<T, std::vector<T>>::organize2d(stride, 0)
+      : organize2d<T, std::vector<T>>::organize2d(stride, 0)
   {
     expect(static_cast<int64_t>(data.size()) % this->stride_ == 0);
     this->num_strips_ = static_cast<int64_t>(data.size()) / this->stride_;
-    this->data_ = std::move(data);
+    this->data_       = std::move(data);
   }
   //! \brief Append to the end of the vector, assuming num_strips of data.
   void append(T const *p, int64_t num_strips = 1)
@@ -91,7 +90,7 @@ public:
     this->num_strips_ += num_strips;
   }
   //! \brief Append to the end of the vector.
-  void append(std::vector<T> const & p)
+  void append(std::vector<T> const &p)
   {
     expect(static_cast<int64_t>(p.size()) % this->stride_ == 0);
     this->data_.insert(this->data_.end(), p.begin(), p.end());
@@ -106,17 +105,18 @@ public:
 };
 //! \brief Non-owning version of vector2d.
 template<typename T>
-class span2d : public organize2d<T, T*>
+class span2d : public organize2d<T, T *>
 {
 public:
   //! \brief Make an empty vector
-  span2d() : organize2d<T, T*>::organize2d(0, 0)
+  span2d()
+      : organize2d<T, T *>::organize2d(0, 0)
   {
     this->data_ = nullptr;
   }
   //! \brief Make a vector with the given dimensions, initialize to 0.
-  span2d(int64_t stride, int64_t num_strips, T* data)
-    : organize2d<T, T*>::organize2d(stride, num_strips)
+  span2d(int64_t stride, int64_t num_strips, T *data)
+      : organize2d<T, T *>::organize2d(stride, num_strips)
   {
     this->data_ = data;
   }
@@ -130,7 +130,7 @@ inline int asg2tsg_convert(int asg_level, int asg_point)
 //!\brief Helper to convert from asg index format to tasmanian format.
 inline void asg2tsg_convert(int num_dimensions, int const *asg, int *tsg)
 {
-  for(int d = 0; d<num_dimensions; d++)
+  for (int d = 0; d < num_dimensions; d++)
     tsg[d] = asg2tsg_convert(asg[d], asg[d + num_dimensions]);
 }
 //!\brief Helper to convert from asg index format to tasmanian format.
@@ -138,7 +138,7 @@ inline vector2d<int> asg2tsg_convert(int num_dimensions, int64_t num_indexes,
                                      int const *asg)
 {
   vector2d<int> tsg(num_dimensions, num_indexes);
-  for(int64_t i = 0; i < num_indexes; i++)
+  for (int64_t i = 0; i < num_indexes; i++)
     asg2tsg_convert(num_dimensions, asg + 2 * num_dimensions * i, tsg[i]);
   return tsg;
 }
@@ -157,13 +157,14 @@ inline vector2d<int> asg2tsg_convert(int num_dimensions, int64_t num_indexes,
  * keeps the indexes stored in lexicographical, which also facilitates
  * fast search to find the location of each index with the find() method.
  */
-class indexset {
+class indexset
+{
 public:
   //! \brief Creates an empty set.
   indexset() : num_dimensions_(0), num_indexes_(0) {}
   //! \brief Creates a new set from a vector of sorted indexes.
   indexset(int num_dimensions, std::vector<int> &&indexes)
-    : num_dimensions_(num_dimensions), indexes_(std::move(indexes))
+      : num_dimensions_(num_dimensions), indexes_(std::move(indexes))
   {
     expect(indexes.size() % num_dimensions_ == 0);
     num_indexes_ = static_cast<int>(indexes_.size() / num_dimensions_);
@@ -179,7 +180,7 @@ public:
   bool empty() const { return (num_indexes() == 0); }
 
   //! \brief Get the i-th index of the lexicographical order.
-  const int* operator[] (int i) const
+  const int *operator[](int i) const
   {
     return &indexes_[i * num_dimensions_];
   }
@@ -194,11 +195,11 @@ public:
       match cmp = compare(current, idx);
       if (cmp == before_current)
       {
-        last = current -1;
+        last = current - 1;
       }
       else if (cmp == after_current)
       {
-        first = current +1;
+        first = current + 1;
       }
       else // match_found
       {
@@ -223,15 +224,20 @@ protected:
   //! \brief Result of a comparison
   enum match
   {
-    before_current, match_found, after_current
+    before_current,
+    match_found,
+    after_current
   };
   //! \brief Compare the multi-index to the one at the position current.
   match compare(int current, int const *b) const
   {
     int const *a = (*this)[current];
-    for(int j=0; j<num_dimensions_; j++) {
-      if (a[j] < b[j]) return after_current;
-      if (a[j] > b[j]) return before_current;
+    for (int j = 0; j < num_dimensions_; j++)
+    {
+      if (a[j] < b[j])
+        return after_current;
+      if (a[j] > b[j])
+        return before_current;
     }
     return match_found;
   }
@@ -285,18 +291,18 @@ public:
   dimension_sort(vector2d<int> const &list);
 
   //! \brief Number of 1d vectors in dimensions dim
-  int num_vecs(int dimension) const { return static_cast<int>(pntr_[dimension].size() -1); }
+  int num_vecs(int dimension) const { return static_cast<int>(pntr_[dimension].size() - 1); }
   //! \brief Begin offset of the i-th vector
   int vec_begin(int dimension, int i) const { return pntr_[dimension][i]; }
   //! \brief End offset (one past the last entry) of the i-th vector
-  int vec_end(int dimension, int i) const { return pntr_[dimension][i+1]; }
+  int vec_end(int dimension, int i) const { return pntr_[dimension][i + 1]; }
 
   //! \brief Get the j-th global offset
   int map(int dimension, int j) const { return map_[dimension][j]; }
   //! \brief Get the 1d index of the j-th entry
-  int operator() (indexset const &iset, int dimension, int j) const { return iset[map_[dimension][j]][dimension]; }
+  int operator()(indexset const &iset, int dimension, int j) const { return iset[map_[dimension][j]][dimension]; }
   //! \brief Get the 1d index of the j-th entry
-  int operator() (vector2d<int> const &list, int dimension, int j) const { return list[map_[dimension][j]][dimension]; }
+  int operator()(vector2d<int> const &list, int dimension, int j) const { return list[map_[dimension][j]][dimension]; }
 
 private:
   std::vector<std::vector<int>> map_;
@@ -317,7 +323,6 @@ private:
 indexset compute_ancestry_completion(indexset const &iset,
                                      connect_1d const &pattern1d);
 
-
 /*!
  * \brief Completes the cells to indexes of degrees of freedom
  *
@@ -329,5 +334,4 @@ indexset compute_ancestry_completion(indexset const &iset,
 vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
                                   indexset const &pad_cells, int porder);
 
-}
-
+} // namespace asgard

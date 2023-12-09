@@ -7,5 +7,5 @@ echo "running clang format. pwd: $(pwd)"
 for file in $(find src -type f ! -iname "build_info.hpp.in")
 do
   echo ${file}
-  diff ${file} <(clang-format-12 ${file}) || exit
+  diff ${file} <(clang-format-12 -style=file ${file}) || exit
 done

@@ -1430,6 +1430,37 @@ void update_global_coefficients(PDE<precision> const &pde,
     }
   }
 }
+
+template<typename precision>
+void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const
+  {
+    tools::time_event kron_time_("kronmult global");
+    int const imex = flag2int(etype);
+
+    std::vector<int> const &used_terms = term_groups[imex];
+    if (used_terms.size() == 0)
+    {
+      if (beta != 0)
+        lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
+      return;
+    }
+
+    kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
+                         local_pntr_.data(), local_indx_.data(), used_terms.size(),
+                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
+                         alpha, x, beta, y);
+
+    std::copy_n(x, num_active_, expanded.begin());
+    std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
+    precision *yglobal = expanded.data() + ilist_.num_strips();
+    kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
+                         used_terms, alpha, expanded.data(), yglobal, workspace.data());
+
+#pragma omp parallel for
+    for (int64_t i = 0; i < num_active_; i++)
+      y[i] += yglobal[i];
+  }
+
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE

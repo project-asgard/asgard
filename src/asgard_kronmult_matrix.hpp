@@ -16,7 +16,6 @@
 
 namespace asgard
 {
-
 /*!
  * \brief Returns a list of terms matching the imex index.
  */
@@ -380,6 +379,7 @@ public:
         int *compute_buffer_rows = irowb.data();
         int *load_buffer_cols    = icola.data();
         int *compute_buffer_cols = icolb.data();
+
         auto stats1 = cudaMemcpyAsync(load_buffer, list_iA[0].data(),
                                       sizeof(int) * list_iA[0].size(),
                                       cudaMemcpyHostToDevice, load_stream);
@@ -776,19 +776,19 @@ public:
                      std::vector<std::vector<precision>> gvals,
                      connect_1d edges,
                      std::vector<int> local_pntr, std::vector<int> local_indx)
-    : conn_(std::move(conn)), ilist_(std::move(ilist)),
-      num_dimensions_(ilist_.stride()), num_active_(num_active),
-      dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
-      gpntr_(std::move(gpntr)),  gindx_(std::move(gindx)),
-      gdiag_(std::move(gdiag)), givals_(std::move(givals)),
-      gvals_(std::move(gvals)), edges_(std::move(edges)),
-      local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
+      : conn_(std::move(conn)), ilist_(std::move(ilist)),
+        num_dimensions_(ilist_.stride()), num_active_(num_active),
+        dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
+        gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
+        gdiag_(std::move(gdiag)), givals_(std::move(givals)),
+        gvals_(std::move(gvals)), edges_(std::move(edges)),
+        local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
   {
     expect(gvals_.size() > 0);
     expect(gvals_.size() % num_dimensions_ == 0);
-    expect(gpntr_.size()  == static_cast<size_t>(num_dimensions_));
-    expect(gindx_.size()  == static_cast<size_t>(num_dimensions_));
-    expect(gdiag_.size()  == static_cast<size_t>(num_dimensions_));
+    expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
+    expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
+    expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
     expect(givals_.size() == static_cast<size_t>(num_dimensions_));
 
     expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
@@ -800,43 +800,17 @@ public:
   bool empty() const { return gvals_.empty(); }
 
   //! \brief Apply the operator, including expanding and remapping.
-  void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const
-  {
-    tools::time_event kron_time_("kronmult global");
-    int const imex = flag2int(etype);
-    std::vector<int> const &used_terms = term_groups[imex];
-    if (used_terms.size() == 0)
-    {
-      if (beta != 0)
-        lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
-      return;
-    }
-
-   kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
-                        local_pntr_.data(), local_indx_.data(), used_terms.size(),
-                        local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                        alpha, x, beta, y);
-
-    std::copy_n(x, num_active_, expanded.begin());
-    std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
-    precision *yglobal = expanded.data() + ilist_.num_strips();
-    kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, alpha, expanded.data(), yglobal, workspace.data());
-
-    //lib_dispatch::axpy<resource::host>(num_active_, precision{1}, yglobal, 1, y, 1);
-    for(int64_t i = 0; i < num_active_; i++)
-      y[i] += yglobal[i];
-  }
+  void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const;
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
   operator bool() const { return (not gvals_.empty()); }
   //! \brief Return the entry connectivity (sparsity pattern).
-  connect_1d const& connectivity() const { return conn_; }
+  connect_1d const &connectivity() const { return conn_; }
   //! \brief Return the edge connectivity
-  connect_1d const& edge_connectivity() const { return edges_; }
+  connect_1d const &edge_connectivity() const { return edges_; }
 
   //! \brief Allows overwriting of the loaded coefficients.
-  std::vector<precision>& get_values(int tterm, int dim)
+  std::vector<precision> &get_values(int tterm, int dim)
   {
     return gvals_[tterm * num_dimensions_ + dim];
   }
@@ -852,18 +826,16 @@ public:
     return flops_[flag2int(etype)];
   }
 
-  friend void set_local_pattern<precision>
-    (PDE<precision> const &pde,
-     adapt::distributed_grid<precision> const &dis_grid,
-     options const &program_options, imex_flag const imex,
-     global_kron_matrix<precision> &mat);
-
+  friend void set_local_pattern<precision>(PDE<precision> const &pde,
+                                           adapt::distributed_grid<precision> const &dis_grid,
+                                           options const &program_options, imex_flag const imex,
+                                           global_kron_matrix<precision> &mat);
 
   friend void update_global_coefficients<precision>(
-    PDE<precision> const &pde,
-    options const &program_options,
-    imex_flag const imex,
-    global_kron_matrix<precision> &mat);
+      PDE<precision> const &pde,
+      options const &program_options,
+      imex_flag const imex,
+      global_kron_matrix<precision> &mat);
 
 protected:
   //! \brief Convert the imex flag to an index of the arrays.
@@ -958,7 +930,7 @@ struct matrix_list
   //! \brief Makes a list of uninitialized matrices
   matrix_list()
 #ifndef KRON_MODE_GLOBAL
-   : matrices(3)
+      : matrices(3)
 #endif
   {
 #ifndef KRON_MODE_GLOBAL
@@ -991,19 +963,19 @@ struct matrix_list
 
   void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
   {
-      #ifdef KRON_MODE_GLOBAL
-      kglobal.apply(entry, alpha, x, beta, y);
-      #else
-      matrices[static_cast<int>(entry)].apply(alpha, x, beta, y);
-      #endif
+#ifdef KRON_MODE_GLOBAL
+    kglobal.apply(entry, alpha, x, beta, y);
+#else
+    matrices[static_cast<int>(entry)].apply(alpha, x, beta, y);
+#endif
   }
   int64_t flops(matrix_entry entry)
   {
-      #ifdef KRON_MODE_GLOBAL
-      return kglobal.flops(entry);
-      #else
-      return matrices[static_cast<int>(entry)].flops();
-      #endif
+#ifdef KRON_MODE_GLOBAL
+    return kglobal.flops(entry);
+#else
+    return matrices[static_cast<int>(entry)].flops();
+#endif
   }
 
   //! \brief Make the matrix for the given entry
