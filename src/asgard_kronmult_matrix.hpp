@@ -870,6 +870,15 @@ public:
     return flops_[flag2int(etype)];
   }
 
+#ifdef ASGARD_USE_PINNED_MEMORY
+  //! \brief Returns the required pinned buffer size (in bytes)
+  size_t buffer_size() const
+  {
+    return static_cast<size_t>(num_active_ * sizeof(precision));
+  }
+  cudaStream_t io_stream;
+  precision *pinned_mem;
+#endif
 
   friend void set_local_pattern<precision>(PDE<precision> const &pde,
                                            adapt::distributed_grid<precision> const &dis_grid,
@@ -989,6 +998,11 @@ struct matrix_list
       : matrices(3)
 #endif
   {
+#ifdef ASGARD_USE_PINNED_MEMORY
+    io_stream = nullptr;
+    pinned_mem = nullptr;
+    pinned_mem_size = 0;
+#endif
 #ifndef KRON_MODE_GLOBAL
     // make sure we have defined flags for all matrices
     expect(matrices.size() == flag_map.size());
@@ -1000,6 +1014,16 @@ struct matrix_list
   //! \brief Frees the matrix list and any cache vectors
   ~matrix_list()
   {
+#ifdef ASGARD_USE_PINNED_MEMORY
+    if (io_stream != nullptr)
+    {
+      auto status = cudaStreamDestroy(io_stream);
+      expect(status == cudaSuccess);
+    }
+    if (pinned_mem != nullptr)
+      cudaFreeHost(pinned_mem);
+    pinned_mem_size = 0;
+#endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     if (load_stream != nullptr)
     {
@@ -1044,6 +1068,17 @@ struct matrix_list
       kglobal = make_global_kron_matrix(pde, grid, opts);
     if (kglobal.local_unset(entry))
       set_local_pattern(pde, grid, opts, imex(entry), kglobal);
+#ifdef ASGARD_USE_PINNED_MEMORY
+    kglobal.io_stream = io_stream;
+    if (pinned_mem_size < kglobal.buffer_size())
+    {
+      if (pinned_mem != nullptr)
+        cudaFreeHost(pinned_mem);
+      auto stat = cudaMallocHost((void**)&pinned_mem, kglobal.buffer_size());
+      expect(stat == cudaSuccess);
+    }
+    kglobal.pinned_mem = pinned_mem;
+#endif
 #else
     if (not mem_stats)
       mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), spcache);
@@ -1157,6 +1192,14 @@ struct matrix_list
 #ifdef KRON_MODE_GLOBAL
   //! \brief Holds the global part of the kron product
   global_kron_matrix<precision> kglobal;
+#ifdef ASGARD_USE_CUDA
+  //! \brief Stream to load/unload data asynchronously
+  cudaStream_t io_stream;
+  //! \brief Pinned memory buffer
+  precision * pinned_mem;
+  //! \brief Pinned memory size
+  size_t pinned_mem_size;
+#endif
 #else
   //! \brief Holds the matrices
   std::vector<kronmult_matrix<precision>> matrices;

@@ -120,6 +120,10 @@ if (ASGARD_USE_MPI AND KRON_MODE_GLOBAL)
   message(FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
 endif()
 
+if (KRON_MODE_GLOBAL AND ASGARD_USE_CUDA)
+  option (ASGARD_USE_PINNED_MEMORY "Selects the use of pinned memory for some  asynchronous I/O operations" ON)
+endif()
+
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")

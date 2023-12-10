@@ -23,3 +23,12 @@
 #define ASGARD_NUM_QUADRATURE @ASGARD_NUM_QUADRATURE@
 
 #cmakedefine KRON_MODE_GLOBAL
+#cmakedefine ASGARD_USE_PINNED_MEMORY
+
+// pinned memory works only with both cuda and global kronmult
+#ifndef ASGARD_USE_CUDA
+#undef ASGARD_USE_PINNED_MEMORY
+#endif
+#ifndef KRON_MODE_GLOBAL
+#undef ASGARD_USE_PINNED_MEMORY
+#endif

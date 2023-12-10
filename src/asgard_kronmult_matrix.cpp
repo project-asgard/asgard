@@ -1425,7 +1425,7 @@ void update_global_coefficients(PDE<precision> const &pde,
   if (num_terms == 0)
     return;
 
-  for (auto t : used_terms) // should be just the select terms
+  for (auto t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
     {
@@ -1492,6 +1492,26 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
   if constexpr (rec == resource::device)
   {
 #ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_PINNED_MEMORY
+    cudaMemcpyAsync(pinned_mem, x, num_active_ * sizeof(precision), cudaMemcpyDeviceToHost, io_stream);
+    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
+                         local_cols_.data(), local_rows_.data(), used_terms.size(),
+                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
+                         alpha, x, beta, y);
+
+    std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
+    precision *yglobal = expanded.data() + ilist_.num_strips();
+
+    cudaStreamSynchronize(io_stream);
+    std::copy_n(pinned_mem, num_active_, expanded.begin());
+    kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
+                         used_terms, alpha, expanded.data(), yglobal, workspace.data());
+
+    std::copy_n(yglobal, num_active_, pinned_mem);
+    cudaMemcpyAsync(ydev_.data(), pinned_mem, num_active_ * sizeof(precision), cudaMemcpyHostToDevice, io_stream);
+    cudaStreamSynchronize(io_stream);
+    lib_dispatch::axpy<resource::device>(num_active_, precision{1}, ydev_.data(), 1, y, 1);
+#else
     fk::copy_to_host<precision>(expanded.data(), x, num_active_); // can do asynchronously
 
     kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
@@ -1501,11 +1521,13 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
 
     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
     precision *yglobal = expanded.data() + ilist_.num_strips();
+
     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
                          used_terms, alpha, expanded.data(), yglobal, workspace.data());
 
     fk::copy_to_device<precision>(ydev_.data(), yglobal, num_active_);
     lib_dispatch::axpy<resource::device>(num_active_, precision{1}, ydev_.data(), 1, y, 1);
+#endif
 #endif
   }
   else
