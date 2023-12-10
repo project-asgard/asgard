@@ -7,6 +7,13 @@
 #include <type_traits>
 #include <vector>
 
+#include "build_info.hpp"
+
+#ifdef ASGARD_USE_CUDA
+#include <cuda.h>
+#include <cuda_runtime.h>
+#endif
+
 // simple profiling object
 // this is NOT thread safe for now - only one thread should be calling class
 // funcs at a time, if we need this, just need to wrap map access with locks
@@ -42,6 +49,11 @@ public:
 
   void stop(std::string const &identifier, double const flops = -1)
   {
+#ifdef ASGARD_USE_CUDA
+#ifndef NDEBUG
+    cudaDeviceSynchronize(); // needed for accurate kronmult timing
+#endif
+#endif
     expect(!identifier.empty());
     expect(id_to_start_.count(identifier) == 1);
     auto const beg = id_to_start_[identifier];

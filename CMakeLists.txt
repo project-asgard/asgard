@@ -111,9 +111,10 @@ set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
-option (KRON_MODE_GLOBAL "Global or local Kronecker products" OFF)
-if (ASGARD_USE_CUDA AND KRON_MODE_GLOBAL)
-  message(FATAL_ERROR "Global Kronecker is not yet implemented for the GPU")
+if (ASGARD_USE_MPI)
+  option (KRON_MODE_GLOBAL "Global or local Kronecker products" OFF)
+else()
+  option (KRON_MODE_GLOBAL "Global or local Kronecker products" ON)
 endif()
 if (ASGARD_USE_MPI AND KRON_MODE_GLOBAL)
   message(FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
@@ -331,6 +332,7 @@ target_sources (libasgard
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_cpu.cpp>
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_gpu_preconditioner.cpp>
 )
 target_precompile_headers (libasgard
                            PUBLIC
@@ -376,6 +378,7 @@ target_compile_definitions (libasgard
 if (ASGARD_USE_CUDA)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_gpu_preconditioner.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
     target_compile_features (libasgard PUBLIC cuda_std_14)

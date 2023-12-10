@@ -764,6 +764,14 @@ template<typename precision>
 class global_kron_matrix
 {
 public:
+#ifdef ASGARD_USE_CUDA
+  template<typename T>
+  using device_vector = gpu::vector<T>;
+#else
+  template<typename T>
+  using device_vector = std::vector<T>;
+#endif
+
   //! \brief Creates an empty matrix.
   global_kron_matrix() : conn_(1), flops_({0, 0, 0}), edges_(1) {}
   //! \brief Creates an empty matrix.
@@ -774,14 +782,14 @@ public:
                      std::vector<std::vector<int>> gdiag,
                      std::vector<std::vector<int>> givals,
                      std::vector<std::vector<precision>> gvals,
-                     connect_1d edges,
-                     std::vector<int> local_pntr, std::vector<int> local_indx)
+                     int porder, connect_1d edges,
+                     device_vector<int> local_pntr, device_vector<int> local_indx)
       : conn_(std::move(conn)), ilist_(std::move(ilist)),
         num_dimensions_(ilist_.stride()), num_active_(num_active),
         dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
         gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
-        gvals_(std::move(gvals)), edges_(std::move(edges)),
+        gvals_(std::move(gvals)), porder_(porder), edges_(std::move(edges)),
         local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
   {
     expect(gvals_.size() > 0);
@@ -793,6 +801,28 @@ public:
 
     expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
 
+#ifdef ASGARD_USE_CUDA
+// cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
+// gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
+// cpu version of lpntr and lindx are still needed for the loading of values
+    int tsize = int_pow(porder_ + 1, num_dimensions_);
+    int num_cells = static_cast<int>(local_pntr_.size() - 1);
+    std::vector<int> row_indx;
+    row_indx.reserve(local_indx_.size());
+    for (int r = 0; r < num_cells; r++)
+      for (int i = local_pntr_[r]; i < local_pntr_[r + 1]; i++)
+      row_indx.push_back(r * tsize);
+    local_rows_ = std::move(row_indx); // actually loads onto the gpu
+
+    std::vector<int> col_indx = local_indx_;
+    for (auto &c : col_indx)
+      c *= tsize;
+    local_cols_ = std::move(col_indx);
+
+    xdev_.resize(num_active_); // workspace on the gpu
+    ydev_.resize(num_active_);
+#endif
+
     expanded  = std::vector<precision>(2 * ilist_.num_strips());
     workspace = std::vector<precision>(2 * ilist_.num_strips());
   }
@@ -800,6 +830,7 @@ public:
   bool empty() const { return gvals_.empty(); }
 
   //! \brief Apply the operator, including expanding and remapping.
+  template<resource rec = resource::host>
   void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const;
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
@@ -810,9 +841,22 @@ public:
   connect_1d const &edge_connectivity() const { return edges_; }
 
   //! \brief Allows overwriting of the loaded coefficients.
-  std::vector<precision> const &get_diagonal_preconditioner() const
+  template<resource rec>
+  auto const &get_diagonal_preconditioner() const
   {
-    return pre_con_;
+#ifdef ASGARD_USE_CUDA
+      if constexpr (rec == resource::device)
+        return pre_con_;
+      else
+      {
+        if (cpu_pre_con_.empty())
+          cpu_pre_con_ = pre_con_;
+        return cpu_pre_con_;
+      }
+#else
+      static_assert(rec == resource::host, "GPU not enabled");
+      return pre_con_;
+#endif
   }
 
   //! \brief Check if the corresponding lock pattern is set.
@@ -877,10 +921,19 @@ private:
   connect_1d edges_;
   std::vector<int> local_pntr_;
   std::vector<int> local_indx_;
-  std::array<std::vector<int>, num_variants> local_opindex_;
-  std::array<std::vector<precision>, num_variants> local_opvalues_;
+#ifdef ASGARD_USE_CUDA
+  device_vector<int> local_rows_;
+  device_vector<int> local_cols_;
+  mutable device_vector<precision> xdev_;
+  mutable device_vector<precision> ydev_;
+#endif
+  std::array<device_vector<int>, num_variants> local_opindex_;
+  std::array<device_vector<precision>, num_variants> local_opvalues_;
   // preconditioner
-  std::vector<precision> pre_con_;
+  device_vector<precision> pre_con_;
+#ifdef ASGARD_USE_CUDA
+  mutable std::vector<precision> cpu_pre_con_; // cpu copy, if requested
+#endif
 };
 
 /*!
@@ -964,12 +1017,13 @@ struct matrix_list
   }
 #endif
 
+  template<resource rec = resource::host>
   void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
   {
 #ifdef KRON_MODE_GLOBAL
-    kglobal.apply(entry, alpha, x, beta, y);
+    kglobal.template apply<rec>(entry, alpha, x, beta, y);
 #else
-    matrices[static_cast<int>(entry)].apply(alpha, x, beta, y);
+    matrices[static_cast<int>(entry)].template apply<rec>(alpha, x, beta, y);
 #endif
   }
   int64_t flops(matrix_entry entry)

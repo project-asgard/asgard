@@ -798,7 +798,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   {
 #ifdef KRON_MODE_GLOBAL
     tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(matrix_entry::imex_explicit));
-    operator_matrices.apply(matrix_entry::imex_explicit,
+    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit,
         1.0, f.data(), 0.0, fx.data());
 #else
     tools::time_event kronm_(
@@ -858,7 +858,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     }
 
 #ifdef KRON_MODE_GLOBAL
-    pde.gmres_outputs[0] = solver::simple_gmres_euler<P, resource::host>(
+    pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
         f_1, f, restart, max_iter, tolerance);
 #else
@@ -895,7 +895,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   {
 #ifdef KRON_MODE_GLOBAL
     tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(matrix_entry::imex_explicit));
-    operator_matrices.apply(matrix_entry::imex_explicit,
+    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit,
         1.0, f_1.data(), 0.0, fx.data());
 #else
     tools::time_event kronm_(
@@ -958,7 +958,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                                          adaptive_grid, program_opts);
 
 #ifdef KRON_MODE_GLOBAL
-    pde.gmres_outputs[1] = solver::simple_gmres_euler<P, resource::host>(
+    pde.gmres_outputs[1] = solver::simple_gmres_euler(
         P{0.5} * pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
         f_2, f, restart, max_iter, tolerance);
 #else
