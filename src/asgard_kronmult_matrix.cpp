@@ -1002,6 +1002,54 @@ compute_mem_usage(PDE<P> const &pde,
 }
 
 #ifdef KRON_MODE_GLOBAL
+/*!
+ * \brief Takes a pattern and splits it into lower and upper portions
+ *
+ * The pntr, indx, and diag define standard row-compressed sparsity pattern,
+ * the method will split them into the lower (lpntr, lindx) and upper (upntr, lindx)
+ * The ivals are indexes of the values to be loaded from the coefficients,
+ * those will split as well.
+ */
+template<typename precision>
+void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
+                   std::vector<int> const &diag, std::vector<int> const &ivals,
+                   std::vector<int> &lpntr, std::vector<int> &lindx, std::vector<int> &livals,
+                   std::vector<int> &upntr, std::vector<int> &uindx, std::vector<int> &uivals)
+{
+  // copy the lower/upper part of the pattern into the vectors prefixed with "a"
+  lpntr.reserve(pntr.size());
+  upntr.reserve(pntr.size());
+  lindx.reserve(indx.size());
+  uindx.reserve(indx.size());
+  livals.reserve(ivals.size());
+  uivals.reserve(ivals.size());
+
+  std::vector<int> apntr(pntr.size());
+  std::vector<int> aindx;
+  aindx.reserve(indx.size());
+  std::vector<precision> avals;
+  avals.reserve(avals.size());
+
+  for (size_t r = 0; r < apntr.size(); r++)
+  {
+    lpntr.push_back(static_cast<int>(lindx.size()));
+    upntr.push_back(static_cast<int>(uindx.size()));
+
+    for (int j = pntr[r]; j < diag[r]; j++)
+    {
+      lindx.push_back(indx[j]);
+      livals.push_back(ivals[j]);
+    }
+    for (int j = diag[r]; j < pntr[r + 1]; j++)
+    {
+      uindx.push_back(indx[j]);
+      uivals.push_back(ivals[j]);
+    }
+  }
+  lpntr.push_back(static_cast<int>(lindx.size()));
+  upntr.push_back(static_cast<int>(uindx.size()));
+}
+
 template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 {
@@ -1132,6 +1180,33 @@ make_global_kron_matrix(PDE<precision> const &pde,
       }
     }
   }
+
+#ifdef ASGARD_USE_CUDA // split the patterns into threes
+  //if (num_dimensions > 1)
+  //{
+  //  std::vector<std::vector<int>> tpntr  = std::move(global_pntr);
+  //  std::vector<std::vector<int>> tindx  = std::move(global_indx);
+  //  std::vector<std::vector<int>> tivals = std::move(global_ivals);
+  //
+  //  std::vector<std::vector<int>> global_pntr(3 * num_dimensions - 2);
+  //  std::vector<std::vector<int>> global_indx(3 * num_dimensions - 2);
+  //  std::vector<std::vector<int>> global_ivals(3 * num_dimensions - 2);
+  //
+  //  global_pntr[0]  = std::move(tpntr[0]); // do not split dimension 0
+  //  global_indx[0]  = std::move(tindx[0]);
+  //  global_ivals[0] = std::move(tivals[0]);
+  //
+  //  for (int d = 1; d < num_dimensions; d++)
+  //  {
+  //    global_pntr[3 * (d - 1)]  = std::move(tpntr[d]); // do not split dimension 0
+  //    global_indx[3 * (d - 1)]  = std::move(tindx[d]);
+  //    global_ivals[3 * (d - 1)] = std::move(tivals[d]);
+  //    split_pattern(global_pntr[3 * (d - 1)], global_indx[3 * (d - 1)], global_diag[d], global_ivals[3 * (d - 1)],
+  //                  global_pntr[3 * (d - 1) + 1], global_indx[3 * (d - 1) + 1], global_ivals[3 * (d - 1) + 1],
+  //                  global_pntr[3 * (d - 1) + 2], global_indx[3 * (d - 1) + 2], global_ivals[3 * (d - 1) + 2]);
+  //  }
+  //}
+#endif
 
   // figure out the permutations pattern
   std::vector<kronmult::permutes> permutations;

@@ -382,6 +382,7 @@ target_compile_definitions (libasgard
 if (ASGARD_USE_CUDA)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_gpu.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_gpu_preconditioner.cpp
                                  PROPERTIES LANGUAGE CUDA)
 

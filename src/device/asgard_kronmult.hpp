@@ -276,6 +276,33 @@ void global_cpu(int num_dimensions,
                 std::vector<std::vector<precision>> const &gvals,
                 std::vector<int> const &terms, precision const *x, precision *y,
                 precision *worspace);
+
+#ifdef ASGARD_USE_CUDA
+template<typename precision>
+struct global_gpu_operations
+{
+  global_gpu_operations() : cuh_(nullptr), buffer(nullptr)
+  {}
+
+  global_gpu_operations(cusparseHandle_t cuh, int num_dimensions,
+                        std::vector<permutes> const &perms,
+                        std::vector<std::vector<int>> const &gpntr,
+                        std::vector<std::vector<int>> const &gindx,
+                        std::vector<std::vector<int>> const &gdiag,
+                        std::vector<std::vector<precision>> const &gvals,
+                        std::vector<int> const &terms,
+                        precision const *x, precision *y,
+                        precision *work1, precision *work2);
+
+  cusparseHandle_t cuh_;
+  std::vector<gpu::vector<int>> gpntr_;
+  std::vector<gpu::vector<int>> gindx_;
+  std::vector<gpu::vector<precision>> gvals_;
+
+  std::vector<gpu::sparse_matrix<precision>> mats_;
+  mutable precision *buffer;
+};
+#endif
 #endif
 
 } // namespace asgard::kronmult
