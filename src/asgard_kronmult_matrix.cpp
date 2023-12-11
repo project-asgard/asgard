@@ -1239,18 +1239,18 @@ void set_specific_mode(PDE<precision> const &pde,
     {
       if (not check_identity_term(pde, t, d))
       {
-        std::vector<precision> &vals = mat.gvals_[t * num_dimensions + d];
-        std::vector<int> &ivals      = mat.givals_[d];
+        std::vector<precision> &gvals = mat.gvals_[t * num_dimensions + d];
+        std::vector<int> &givals      = mat.givals_[d];
 
         int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
 
-        vals = std::vector<precision>(num_entries);
+        gvals = std::vector<precision>(num_entries);
 
         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
 #pragma omp parallel for
         for (int64_t i = 0; i < num_entries; i++)
-          vals[i] = ops(ivals[2 * i], ivals[2 * i + 1]);
+          gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
       }
     }
   }
@@ -1638,10 +1638,10 @@ template void set_specific_mode<float>(PDE<float> const &,
                                        options const &, imex_flag const,
                                        global_kron_matrix<float> &);
 template class global_kron_matrix<float>;
-template void global_kron_matrix<float>::template apply<resource::host>(
+template void global_kron_matrix<float>::apply<resource::host>(
     matrix_entry, float, float const *, float, float *) const;
 #ifdef ASGARD_USE_CUDA
-template void global_kron_matrix<float>::template apply<resource::device>(
+template void global_kron_matrix<float>::apply<resource::device>(
     matrix_entry, float, float const *, float, float *) const;
 #endif
 #endif
