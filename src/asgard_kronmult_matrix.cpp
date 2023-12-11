@@ -1005,12 +1005,10 @@ compute_mem_usage(PDE<P> const &pde,
 template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 {
-  auto const &tterm = pde.get_terms()[term_id][dim];
-  if (tterm.get_partial_terms().size() == 1)
-    return (tterm.get_partial_terms()[0].g_func == nullptr and
-            tterm.get_partial_terms()[0].coeff_type == coefficient_type::mass);
-  else
-    return false;
+  for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
+    if (pt.coeff_type != coefficient_type::mass or pt.g_func != nullptr or pt.lhs_mass_func != nullptr)
+      return false;
+  return true;
 }
 
 template<typename precision>
