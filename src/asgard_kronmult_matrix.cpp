@@ -186,14 +186,12 @@ inline bool check_connected_edge(int const num_dimensions, int const *const row,
     return p1 == p2;
   };
 
-  int edge_conn = 0, self_conn = 0;
+  int edge_conn = 0;
   for (int j = 0; j < num_dimensions; j++)
   {
     if (row[j] == col[j]) // same level, consider only edge connections
     {
-      if (row[num_dimensions + j] == col[num_dimensions + j])
-        self_conn += 1; // same element (probably no need to check) TODO!
-      else
+      if (row[num_dimensions + j] != col[num_dimensions + j])
       {
         if ((row[num_dimensions + j] == 0 and col[num_dimensions + j] == ((1 << (col[j] - 1)) - 1)) or
             (col[num_dimensions + j] == 0 and row[num_dimensions + j] == ((1 << (row[j] - 1)) - 1)))
@@ -1600,10 +1598,10 @@ template void set_specific_mode<double>(PDE<double> const &,
                                         options const &, imex_flag const,
                                         global_kron_matrix<double> &);
 template class global_kron_matrix<double>;
-template void global_kron_matrix<double>::template apply<resource::host>(
+template void global_kron_matrix<double>::apply<resource::host>(
     matrix_entry, double, double const *, double, double *) const;
 #ifdef ASGARD_USE_CUDA
-template void global_kron_matrix<double>::template apply<resource::device>(
+template void global_kron_matrix<double>::apply<resource::device>(
     matrix_entry, double, double const *, double, double *) const;
 #endif
 #endif

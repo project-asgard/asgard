@@ -1191,6 +1191,7 @@ struct matrix_list
   void clear(matrix_entry entry)
   {
 #ifdef KRON_MODE_GLOBAL
+    ignore(entry);
     if (kglobal)
       kglobal = global_kron_matrix<precision>();
 #else

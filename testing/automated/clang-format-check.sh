@@ -151,5 +151,5 @@ tools_tests.cpp
 for file in ${file_list[@]}
 do
   echo ./src/${file}
-  diff ./src/${file} <(clang-format-12 ./src/${file}) || exit
+  diff ./src/${file} <(clang-format-12 ./src/${file}) || exit 1;
 done
