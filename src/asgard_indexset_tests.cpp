@@ -161,39 +161,3 @@ TEST_CASE("testing completion", "[ancestry completion]")
   REQUIRE(completion[0][0] == 0);
   REQUIRE(completion[0][1] == 3);
 }
-
-/*
-TEST_CASE("remap testing", "[remap]")
-{
-  connect_1d cells(3, connect_1d::level_edge_skip);
-  int const porder = 1;
-  connect_1d basis(cells, porder);
-
-  int const num_dimensions = 2;
-  // selecting (1, 0) and (0, 1), i.e., missing (0, 0) and the order is reversed
-  std::vector<int> active_cells = {1, 0, 0, 1};
-
-  index_map imap = complete_and_remap(num_dimensions, active_cells, cells, porder);
-
-  REQUIRE(imap.iset.num_dimensions() ==  2);
-  REQUIRE(imap.iset.num_indexes()    == 12);
-
-  std::vector<int> gold_iset = {0, 0, 0, 1, 0, 2, 0, 3, // (0, 0), (0, 1) from padded cell (0, 0), and (0, 2), (0,3) from active cell (0, 1)
-                                1, 0, 1, 1, 1, 2, 1, 3,
-                                2, 0, 2, 1, 3, 0, 3, 1};
-
-  std::vector<int> x       = {1, 2, 3, 4, 6, 7, 8, 9};
-  std::vector<int> ordered(12, 5); // fill with 5 to see if zeros were put in
-  std::vector<int> ordered_gold = {0, 0, 6, 7, 0, 0, 8, 9, 1, 2, 3, 4};
-
-  imap.map.to_ordered(x.data(), ordered.data());
-  for(int i=0; i<12; i++)
-    REQUIRE(ordered[i] == ordered_gold[i]);
-
-  std::vector<int> dof(8, -1); // fill with -1 to see if all put correctly
-  imap.map.to_dof(ordered.data(), dof.data());
-  for(int i=0; i<8; i++)
-    REQUIRE(dof[i] == x[i]);
-
-}
-*/

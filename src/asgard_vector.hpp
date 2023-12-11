@@ -1117,6 +1117,12 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source, int,
 
 namespace gpu
 {
+/*!
+ * \brief Simple container for GPU data, interoperable with std::vector
+ *
+ * This simple container allows for RAII memory management,
+ * resizing (without relocating the data) and easy copy from/to std::vector
+ */
 template<typename T>
 class vector
 {

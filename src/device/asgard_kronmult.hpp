@@ -256,6 +256,10 @@ void global_cpu(permutes const &perms,
  * The index vector lists gpntr, gindx, gdiag hold a vector for each dimension,
  * this is the common part of the sparse matrices.
  * The values gvals are number-of-terms X number-of-dimensions.
+ *
+ * terms gives the subset of terms to use for this operation
+ *
+ * computes y += A * x
  */
 template<typename precision>
 void global_cpu(int num_dimensions,
@@ -264,8 +268,7 @@ void global_cpu(int num_dimensions,
                 std::vector<std::vector<int>> const &gindx,
                 std::vector<std::vector<int>> const &gdiag,
                 std::vector<std::vector<precision>> const &gvals,
-                std::vector<int> const &terms,
-                precision alpha, precision const *x, precision *y,
+                std::vector<int> const &terms, precision const *x, precision *y,
                 precision *worspace);
 #endif
 

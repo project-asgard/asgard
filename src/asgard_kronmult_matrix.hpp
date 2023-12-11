@@ -743,19 +743,32 @@ enum matrix_entry
 template<typename precision>
 class global_kron_matrix;
 
-//! \brief Update the global coefficients.
+/*!
+ * \brief Sets the values and coefficients for a specific imex flag
+ *
+ * After the common part of the matrix patterns has been identified,
+ * this sets the specific indexes and values for the given imex flag.
+ * This MUST be called before an evaluate with the corresponding imex flag
+ * can be issued.
+ */
 template<typename precision>
-void update_global_coefficients(PDE<precision> const &pde,
-                                options const &program_options,
-                                imex_flag const imex,
-                                global_kron_matrix<precision> &mat);
-
-//! \brief Update the local coefficients.
-template<typename precision>
-void set_local_pattern(PDE<precision> const &pde,
+void set_specific_mode(PDE<precision> const &pde,
                        adapt::distributed_grid<precision> const &dis_grid,
                        options const &program_options, imex_flag const imex,
                        global_kron_matrix<precision> &mat);
+
+/*!
+ * \brief Update the coefficients for the specific imex flag
+ *
+ * Once the coefficient data has changed, this will update the corresponding
+ * coefficients in the matrix without recomputing the fixed indexing component
+ * and while minimizing the number of allocations.
+ */
+template<typename precision>
+void update_matrix_coefficients(PDE<precision> const &pde,
+                                options const &program_options,
+                                imex_flag const imex,
+                                global_kron_matrix<precision> &mat);
 
 /*!
  * \brief Holds the data for a global Kronecker matrix
@@ -781,7 +794,6 @@ public:
                      std::vector<std::vector<int>> gindx,
                      std::vector<std::vector<int>> gdiag,
                      std::vector<std::vector<int>> givals,
-                     std::vector<std::vector<precision>> gvals,
                      int porder, connect_1d edges,
                      device_vector<int> local_pntr, device_vector<int> local_indx)
       : conn_(std::move(conn)), ilist_(std::move(ilist)),
@@ -789,11 +801,9 @@ public:
         dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
         gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
-        gvals_(std::move(gvals)), porder_(porder), edges_(std::move(edges)),
+        gvals_(perms_.size() * num_dimensions_), porder_(porder), edges_(std::move(edges)),
         local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
   {
-    expect(gvals_.size() > 0);
-    expect(gvals_.size() % num_dimensions_ == 0);
     expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
     expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
     expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
@@ -876,16 +886,22 @@ public:
   {
     return static_cast<size_t>(num_active_ * sizeof(precision));
   }
+  //! \brief Loaded form the operator container, stream for asynchronous I/O
   cudaStream_t io_stream;
+  //! \brief Loaded form the operator container, buffer for asynchronous I/O
   precision *pinned_mem;
 #endif
 
-  friend void set_local_pattern<precision>(PDE<precision> const &pde,
+  // made friends for two reasons
+  // 1. Keeps the matrix API free from references to pde, which will allow an easier
+  //    transition to a new API that does not require the PDE class
+  // 2. Give the ability to modify the internal without encumbering the matrix API
+  friend void set_specific_mode<precision>(PDE<precision> const &pde,
                                            adapt::distributed_grid<precision> const &dis_grid,
                                            options const &program_options, imex_flag const imex,
                                            global_kron_matrix<precision> &mat);
 
-  friend void update_global_coefficients<precision>(
+  friend void update_matrix_coefficients<precision>(
       PDE<precision> const &pde,
       options const &program_options,
       imex_flag const imex,
@@ -946,7 +962,9 @@ private:
 };
 
 /*!
- * \brief Factory method for making a global kron matrix.
+ * \brief Factory method for making a global kron matrix
+ *
+ * This sets up the common components of the matrix,
  */
 template<typename precision>
 global_kron_matrix<precision>
@@ -1067,15 +1085,17 @@ struct matrix_list
     if (not kglobal)
       kglobal = make_global_kron_matrix(pde, grid, opts);
     if (kglobal.local_unset(entry))
-      set_local_pattern(pde, grid, opts, imex(entry), kglobal);
+      set_specific_mode(pde, grid, opts, imex(entry), kglobal);
 #ifdef ASGARD_USE_PINNED_MEMORY
     kglobal.io_stream = io_stream;
-    if (pinned_mem_size < kglobal.buffer_size())
+    size_t required_pinned_size = kglobal.buffer_size();
+    if (pinned_mem_size < required_pinned_size)
     {
       if (pinned_mem != nullptr)
         cudaFreeHost(pinned_mem);
-      auto stat = cudaMallocHost((void**)&pinned_mem, kglobal.buffer_size());
+      auto stat = cudaMallocHost((void**)&pinned_mem, required_pinned_size);
       expect(stat == cudaSuccess);
+      pinned_mem_size = required_pinned_size;
     }
     kglobal.pinned_mem = pinned_mem;
 #endif
@@ -1152,8 +1172,8 @@ struct matrix_list
     else
     {
       if (kglobal.local_unset(entry))
-        set_local_pattern(pde, grid, opts, imex(entry), kglobal);
-      update_global_coefficients(pde, opts, imex(entry), kglobal);
+        set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+      update_matrix_coefficients(pde, opts, imex(entry), kglobal);
     }
 #else
     if (not(*this)[entry])
@@ -1192,7 +1212,7 @@ struct matrix_list
 #ifdef KRON_MODE_GLOBAL
   //! \brief Holds the global part of the kron product
   global_kron_matrix<precision> kglobal;
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_PINNED_MEMORY
   //! \brief Stream to load/unload data asynchronously
   cudaStream_t io_stream;
   //! \brief Pinned memory buffer

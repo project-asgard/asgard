@@ -115,29 +115,37 @@ void global_cpu_one(permutes::matrix_fill fill, int64_t num_rows,
                     std::vector<precision> const &vals,
                     precision const *x, precision *y)
 {
-  std::fill_n(y, num_rows, precision{0});
   switch(fill)
   {
     case permutes::matrix_fill::upper:
 #pragma omp parallel for
       for(int64_t r = 0; r < num_rows; r++)
+      {
+        y[r] = 0;
         ASGARD_PRAGMA_OMP_SIMD()
         for(int j = diag[r]; j < pntr[r + 1]; j++)
           y[r] += vals[j] * x[indx[j]];
+      }
       break;
     case permutes::matrix_fill::lower:
 #pragma omp parallel for
       for(int64_t r = 0; r < num_rows; r++)
+      {
+        y[r] = 0;
         ASGARD_PRAGMA_OMP_SIMD()
         for(int j = pntr[r]; j < diag[r]; j++)
           y[r] += vals[j] * x[indx[j]];
+      }
       break;
     case permutes::matrix_fill::both:
 #pragma omp parallel for
       for(int64_t r = 0; r < num_rows; r++)
+      {
+        y[r] = 0;
         ASGARD_PRAGMA_OMP_SIMD()
         for(int j = pntr[r]; j < pntr[r + 1]; j++)
           y[r] += vals[j] * x[indx[j]];
+      }
       break;
   }
 }
@@ -149,8 +157,7 @@ void global_cpu(int num_dimensions,
                 std::vector<std::vector<int>> const &gindx,
                 std::vector<std::vector<int>> const &gdiag,
                 std::vector<std::vector<precision>> const &gvals,
-                std::vector<int> const &terms,
-                precision alpha, precision const *x, precision *y,
+                std::vector<int> const &terms, precision const *x, precision *y,
                 precision *workspace)
 {
   int64_t const num_rows = static_cast<int64_t>(gpntr.front().size() - 1);
@@ -179,8 +186,9 @@ void global_cpu(int num_dimensions,
         std::swap(w1, w2);
       }
 
+#pragma omp parallel for
       for(int64_t j = 0; j < num_rows; j++)
-        y[j] += alpha * w1[j];
+        y[j] += w1[j];
     }
   }
 }
@@ -192,8 +200,7 @@ void global_cpu(int, std::vector<permutes> const &,
                 std::vector<std::vector<int>> const &,
                 std::vector<std::vector<int>> const &,
                 std::vector<std::vector<double>> const &,
-                std::vector<int> const &,
-                double alpha, double const *x, double *y,
+                std::vector<int> const &, double const *, double *,
                 double *workspace);
 
 template
@@ -211,8 +218,7 @@ void global_cpu(int, std::vector<permutes> const &,
                 std::vector<std::vector<int>> const &,
                 std::vector<std::vector<int>> const &,
                 std::vector<std::vector<float>> const &,
-                std::vector<int> const &,
-                float alpha, float const *x, float *y,
+                std::vector<int> const &, float const *, float *,
                 float *workspace);
 template
 void global_cpu(permutes const &perms,

@@ -1056,6 +1056,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
                                             std::vector<int>(num_all_dof));
   std::vector<std::vector<int>> global_ivals(num_dimensions);
 
+  // figure out the global Kronecker patterns of non-zeros and the corresponding values
   std::vector<int> nz_count(num_all_dof);
   for (int dim = 0; dim < num_dimensions; dim++)
   {
@@ -1136,8 +1137,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
     }
   }
 
-  // copy out the matrices
-  std::vector<std::vector<precision>> global_vals(num_terms * num_dimensions);
+  // figure out the permutations pattern
   std::vector<kronmult::permutes> permutations;
   permutations.reserve(num_terms);
   std::vector<int> active_dirs(num_dimensions);
@@ -1145,30 +1145,13 @@ make_global_kron_matrix(PDE<precision> const &pde,
   {
     active_dirs.clear();
     for (int d = 0; d < num_dimensions; d++)
-    {
       if (not check_identity_term(pde, t, d))
-      {
         active_dirs.push_back(d);
-        std::vector<precision> &vals = global_vals[t * num_dimensions + d];
-        std::vector<int> &ivals      = global_ivals[d];
 
-        int64_t num_entries = static_cast<int64_t>(global_indx[d].size());
-
-        vals = std::vector<precision>(num_entries);
-
-        fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
-
-#pragma omp parallel for
-        for (int64_t i = 0; i < num_entries; i++)
-          vals[i] = ops(ivals[2 * i], ivals[2 * i + 1]);
-      }
-    }
     int const num_active = static_cast<int>(active_dirs.size());
     permutations.push_back(kronmult::permutes(num_active));
     if (num_active != num_dimensions)
       permutations.back().remap_directions(active_dirs);
-    //if (num_active < num_dimensions)
-    //  std::cerr << " reduction from " << num_dimensions << " to " << num_active << "\n";
   }
 
   // make the pattern for the local contribution
@@ -1214,12 +1197,12 @@ make_global_kron_matrix(PDE<precision> const &pde,
   return global_kron_matrix<precision>(
       std::move(dof_pattern), std::move(ilist), num_active_dof, std::move(permutations),
       std::move(global_pntr), std::move(global_indx), std::move(global_diag),
-      std::move(global_ivals), std::move(global_vals),
+      std::move(global_ivals),
       porder, connect_1d(max_level), std::move(lpntr), std::move(lindx));
 }
 
 template<typename precision>
-void set_local_pattern(PDE<precision> const &pde,
+void set_specific_mode(PDE<precision> const &pde,
                        adapt::distributed_grid<precision> const &dis_grid,
                        options const &program_options, imex_flag const imex,
                        global_kron_matrix<precision> &mat)
@@ -1250,6 +1233,29 @@ void set_local_pattern(PDE<precision> const &pde,
   int const max_level  = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level;
 
   int const num_dimensions = pde.num_dims;
+
+  // set the global pattern
+  for (int t : used_terms)
+  {
+    for (int d = 0; d < num_dimensions; d++)
+    {
+      if (not check_identity_term(pde, t, d))
+      {
+        std::vector<precision> &vals = mat.gvals_[t * num_dimensions + d];
+        std::vector<int> &ivals      = mat.givals_[d];
+
+        int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
+
+        vals = std::vector<precision>(num_entries);
+
+        fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
+
+#pragma omp parallel for
+        for (int64_t i = 0; i < num_entries; i++)
+          vals[i] = ops(ivals[2 * i], ivals[2 * i + 1]);
+      }
+    }
+  }
 
   int64_t lda = pterms * fm::two_raised_to(max_level);
 
@@ -1396,7 +1402,7 @@ void set_local_pattern(PDE<precision> const &pde,
 }
 
 template<typename precision>
-void update_global_coefficients(PDE<precision> const &pde,
+void update_matrix_coefficients(PDE<precision> const &pde,
                                 options const &program_options,
                                 imex_flag const imex,
                                 global_kron_matrix<precision> &mat)
@@ -1505,12 +1511,12 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
     cudaStreamSynchronize(io_stream);
     std::copy_n(pinned_mem, num_active_, expanded.begin());
     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, alpha, expanded.data(), yglobal, workspace.data());
+                         used_terms, expanded.data(), yglobal, workspace.data());
 
     std::copy_n(yglobal, num_active_, pinned_mem);
     cudaMemcpyAsync(ydev_.data(), pinned_mem, num_active_ * sizeof(precision), cudaMemcpyHostToDevice, io_stream);
     cudaStreamSynchronize(io_stream);
-    lib_dispatch::axpy<resource::device>(num_active_, precision{1}, ydev_.data(), 1, y, 1);
+    lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
 #else
     fk::copy_to_host<precision>(expanded.data(), x, num_active_); // can do asynchronously
 
@@ -1523,10 +1529,10 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
     precision *yglobal = expanded.data() + ilist_.num_strips();
 
     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, alpha, expanded.data(), yglobal, workspace.data());
+                         used_terms, expanded.data(), yglobal, workspace.data());
 
     fk::copy_to_device<precision>(ydev_.data(), yglobal, num_active_);
-    lib_dispatch::axpy<resource::device>(num_active_, precision{1}, ydev_.data(), 1, y, 1);
+    lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
 #endif
 #endif
   }
@@ -1552,11 +1558,11 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
     precision *yglobal = expanded.data() + ilist_.num_strips();
     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, alpha, expanded.data(), yglobal, workspace.data());
+                         used_terms, expanded.data(), yglobal, workspace.data());
 
 #pragma omp parallel for
     for (int64_t i = 0; i < num_active_; i++)
-      y[i] += yglobal[i];
+      y[i] += alpha * yglobal[i];
   }
 }
 #endif
@@ -1584,11 +1590,11 @@ template global_kron_matrix<double>
 make_global_kron_matrix(PDE<double> const &,
                         adapt::distributed_grid<double> const &,
                         options const &);
-template void update_global_coefficients(PDE<double> const &,
+template void update_matrix_coefficients(PDE<double> const &,
                                          options const &,
                                          imex_flag const,
                                          global_kron_matrix<double> &);
-template void set_local_pattern<double>(PDE<double> const &,
+template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
                                         options const &, imex_flag const,
                                         global_kron_matrix<double> &);
@@ -1624,11 +1630,11 @@ template global_kron_matrix<float>
 make_global_kron_matrix(PDE<float> const &,
                         adapt::distributed_grid<float> const &,
                         options const &);
-template void update_global_coefficients(PDE<float> const &,
+template void update_matrix_coefficients(PDE<float> const &,
                                          options const &,
                                          imex_flag const,
                                          global_kron_matrix<float> &);
-template void set_local_pattern<float>(PDE<float> const &,
+template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,
                                        options const &, imex_flag const,
                                        global_kron_matrix<float> &);

@@ -22,6 +22,7 @@
 
 #define ASGARD_NUM_QUADRATURE @ASGARD_NUM_QUADRATURE@
 
+// both KRON_MODE_GLOBAL and ASGARD_USE_PINNED_MEMORY are temporary while kronmult is improving
 #cmakedefine KRON_MODE_GLOBAL
 #cmakedefine ASGARD_USE_PINNED_MEMORY
 
