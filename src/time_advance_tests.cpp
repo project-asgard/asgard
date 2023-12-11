@@ -90,8 +90,10 @@ void time_advance_test(parser const &parse,
     std::cout.setstate(std::ios_base::failbit);
     auto const time          = i * pde->get_dt();
     auto const update_system = i == 0;
+
     auto const method = opts.use_implicit_stepping ? time_advance::method::imp
                                                    : time_advance::method::exp;
+
     f_val = time_advance::adaptive_advance(method, *pde, operator_matrices,
                                            adaptive_grid, transformer, opts,
                                            f_val, time, update_system);

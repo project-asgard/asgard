@@ -812,16 +812,17 @@ public:
     expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
 
 #ifdef ASGARD_USE_CUDA
-// cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
-// gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
-// cpu version of lpntr and lindx are still needed for the loading of values
+    // cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
+    // gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
+    // cpu version of lpntr and lindx are still needed for the loading of values
     int tsize = int_pow(porder_ + 1, num_dimensions_);
+
     int num_cells = static_cast<int>(local_pntr_.size() - 1);
     std::vector<int> row_indx;
     row_indx.reserve(local_indx_.size());
     for (int r = 0; r < num_cells; r++)
       for (int i = local_pntr_[r]; i < local_pntr_[r + 1]; i++)
-      row_indx.push_back(r * tsize);
+        row_indx.push_back(r * tsize);
     local_rows_ = std::move(row_indx); // actually loads onto the gpu
 
     std::vector<int> col_indx = local_indx_;
@@ -855,17 +856,17 @@ public:
   auto const &get_diagonal_preconditioner() const
   {
 #ifdef ASGARD_USE_CUDA
-      if constexpr (rec == resource::device)
-        return pre_con_;
-      else
-      {
-        if (cpu_pre_con_.empty())
-          cpu_pre_con_ = pre_con_;
-        return cpu_pre_con_;
-      }
-#else
-      static_assert(rec == resource::host, "GPU not enabled");
+    if constexpr (rec == resource::device)
       return pre_con_;
+    else
+    {
+      if (cpu_pre_con_.empty())
+        cpu_pre_con_ = pre_con_;
+      return cpu_pre_con_;
+    }
+#else
+    static_assert(rec == resource::host, "GPU not enabled");
+    return pre_con_;
 #endif
   }
 
@@ -1017,8 +1018,9 @@ struct matrix_list
 #endif
   {
 #ifdef ASGARD_USE_PINNED_MEMORY
-    io_stream = nullptr;
+    io_stream  = nullptr;
     pinned_mem = nullptr;
+
     pinned_mem_size = 0;
 #endif
 #ifndef KRON_MODE_GLOBAL
@@ -1088,12 +1090,13 @@ struct matrix_list
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
 #ifdef ASGARD_USE_PINNED_MEMORY
     kglobal.io_stream = io_stream;
+
     size_t required_pinned_size = kglobal.buffer_size();
     if (pinned_mem_size < required_pinned_size)
     {
       if (pinned_mem != nullptr)
         cudaFreeHost(pinned_mem);
-      auto stat = cudaMallocHost((void**)&pinned_mem, required_pinned_size);
+      auto stat = cudaMallocHost((void **)&pinned_mem, required_pinned_size);
       expect(stat == cudaSuccess);
       pinned_mem_size = required_pinned_size;
     }
@@ -1216,7 +1219,7 @@ struct matrix_list
   //! \brief Stream to load/unload data asynchronously
   cudaStream_t io_stream;
   //! \brief Pinned memory buffer
-  precision * pinned_mem;
+  precision *pinned_mem;
   //! \brief Pinned memory size
   size_t pinned_mem_size;
 #endif

@@ -798,8 +798,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   {
 #ifdef KRON_MODE_GLOBAL
     tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(matrix_entry::imex_explicit));
-    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit,
-        1.0, f.data(), 0.0, fx.data());
+    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit, 1.0, f.data(), 0.0, fx.data());
 #else
     tools::time_event kronm_(
         "kronmult - explicit",
@@ -816,7 +815,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   exchange_results(reduced_fx, fx, elem_size, plan, get_rank());
   fm::axpy(fx, f, dt); // f here is f_1s
 #else
-  fm::axpy(fx, f, dt);   // f here is f_1s
+  fm::axpy(fx, f, dt); // f here is f_1s
 #endif
 
   tools::timer.stop("explicit_1");
@@ -895,8 +894,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   {
 #ifdef KRON_MODE_GLOBAL
     tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(matrix_entry::imex_explicit));
-    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit,
-        1.0, f_1.data(), 0.0, fx.data());
+    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit, 1.0, f_1.data(), 0.0, fx.data());
 #else
     tools::time_event kronm_(
         "kronmult - explicit",

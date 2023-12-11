@@ -1202,12 +1202,12 @@ public:
   //! \brief Returns const pointer to the first stored element.
   T const *data() const { return data_; }
   //! \brief Copy to a device array, the destination must be large enough
-  void copy_to_device(T * destination) const
+  void copy_to_device(T *destination) const
   {
     fk::copy_on_device<T>(destination, data_, size_);
   }
   //! \brief Copy to a host array, the destination must be large enough
-  void copy_to_host(T * destination) const
+  void copy_to_host(T *destination) const
   {
     fk::copy_to_host<T>(destination, data_, size_);
   }

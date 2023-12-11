@@ -67,7 +67,7 @@ bool data_match(vec_type_1 const &v1, vec_type_2 const &v2)
   std::vector<typename vec_type_2::value_type> y = v2;
   if (x.size() != y.size()) // something happened during copy
     return false;
-  for(size_t i = 0; i < x.size(); i++)
+  for (size_t i = 0; i < x.size(); i++)
     if (x[i] != y[i]) // this checks data copies, so it's OK for floating point numbers
       return false;
   return true;

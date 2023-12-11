@@ -1215,7 +1215,7 @@ void set_specific_mode(PDE<precision> const &pde,
   std::vector<precision> vals;
 #else
   // cpu mode, get refs to the std::vectors and load directly in
-  std::vector<int> &indx       = mat.local_opindex_[imex_indx];
+  std::vector<int> &indx = mat.local_opindex_[imex_indx];
   std::vector<precision> &vals = mat.local_opvalues_[imex_indx];
 #endif
 
@@ -1341,11 +1341,12 @@ void set_specific_mode(PDE<precision> const &pde,
       int const *const row_coords = flattened_table + 2 * num_dimensions * row;
       asg2tsg_convert(num_dimensions, row_coords, midx.data());
 
-      for(int tentry=0; tentry<tensor_size; tentry++)
+      for (int tentry = 0; tentry < tensor_size; tentry++)
       {
         for (int t : used_terms)
         {
           precision a = 1;
+
           int tt = tentry;
           for (int d = num_dimensions - 1; d >= 0; d--)
           {

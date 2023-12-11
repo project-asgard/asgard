@@ -2,13 +2,154 @@
 
 echo "running clang format. pwd: $(pwd)"
 
-# way too counter productive
-exit 0;
+# way too counter productive, disable most checks for now
+# will update the file list over time
+
+file_list=(
+device/asgard_glkronmult_cpu.cpp
+device/asgard_gpu_preconditioner.cpp
+device/asgard_kronmult_common.hpp
+device/asgard_kronmult.cpp
+device/asgard_kronmult_cpu.cpp
+device/asgard_kronmult_cpu_general.hpp
+device/asgard_kronmult_cycle1.hpp
+device/asgard_kronmult_cycle2.hpp
+device/asgard_kronmult_cyclex.hpp
+device/asgard_kronmult.hpp
+device/asgard_spkronmult.cpp
+device/asgard_spkronmult_cpu.cpp
+device/asgard_spkronmult_cpu_general.hpp
+device/asgard_spkronmult_cycle1.hpp
+device/asgard_spkronmult_cycle2.hpp
+device/asgard_spkronmult_cyclex.hpp
+#pde/pde_advection1.hpp
+#pde/pde_base.hpp
+pde/pde_collisional_landau_1x2v.hpp
+#pde/pde_collisional_landau_1x3v.hpp
+pde/pde_collisional_landau.hpp
+pde/pde_continuity1.hpp
+#pde/pde_continuity2.hpp
+#pde/pde_continuity3.hpp
+#pde/pde_continuity6.hpp
+#pde/pde_diffusion1.hpp
+pde/pde_diffusion2.hpp
+pde/pde_fokkerplanck1_4p3.hpp
+pde/pde_fokkerplanck1_4p4.hpp
+pde/pde_fokkerplanck1_4p5.hpp
+#pde/pde_fokkerplanck1_pitch_C.hpp
+pde/pde_fokkerplanck1_pitch_E.hpp
+pde/pde_fokkerplanck2_complete.hpp
+pde/pde_relaxation_1x1v.hpp
+pde/pde_relaxation_1x2v.hpp
+#pde/pde_relaxation_1x3v.hpp
+pde/pde_riemann_1x2v.hpp
+#pde/pde_riemann_1x3v.hpp
+pde/pde_two_stream.hpp
+pde/pde_vlasov_lb_full_f.hpp
+adapt.cpp
+adapt.hpp
+adapt_tests.cpp
+asgard_dimension.hpp
+asgard_dimension_tests.cpp
+asgard_discretization.hpp
+#asgard_discretization_tests.cpp
+asgard_field.hpp
+asgard_field_tests.cpp
+#asgard_grid_1d.hpp
+asgard_indexset.cpp
+asgard_indexset.hpp
+#asgard_indexset_tests.cpp
+asgard_kronmult_benchmark.cpp
+asgard_kronmult_matrix.cpp
+asgard_kronmult_matrix.hpp
+asgard_kronmult_matrix_tests.cpp
+asgard_kronmult_tests.hpp
+asgard_matrix.hpp
+asgard_mpi.h
+asgard_pde_system.hpp
+asgard_pde_system_tests.cpp
+asgard_resources_cuda.tpp
+asgard_resources_host.tpp
+asgard_resources.hpp
+asgard_resources_tests.cpp
+asgard_vector.hpp
+#basis.cpp
+basis.hpp
+#basis_tests.cpp
+batch.cpp
+#batch.hpp
+#batch_tests.cpp
+boundary_conditions.cpp
+boundary_conditions.hpp
+boundary_conditions_tests.cpp
+cblacs_grid.cpp
+cblacs_grid.hpp
+cblacs_grid_tests.cpp
+coefficients.cpp
+coefficients.hpp
+#coefficients_tests.cpp
+#distribution.cpp
+distribution.hpp
+#distribution_tests.cpp
+#elements.cpp
+elements.hpp
+#elements_tests.cpp
+fast_math.hpp
+#fast_math_tests.cpp
+io.hpp
+io_tests.cpp
+#lib_dispatch.cpp
+lib_dispatch.hpp
+#lib_dispatch_tests.cpp
+main.cpp
+#matlab_plot.cpp
+matlab_plot.hpp
+matlab_plot_tests.cpp
+matlab_utilities.cpp
+matlab_utilities.hpp
+matlab_utilities_tests.cpp
+#moment.cpp
+moment.hpp
+moment_tests.cpp
+pde.hpp
+#pde_tests.cpp
+permutations.cpp
+permutations.hpp
+permutations_tests.cpp
+program_options.cpp
+#program_options.hpp
+program_options_tests.cpp
+quadrature.cpp
+quadrature.hpp
+quadrature_tests.cpp
+scalapack_matrix_info.cpp
+scalapack_matrix_info.hpp
+scalapack_matrix_info_tests.cpp
+scalapack_vector_info.hpp
+scalapack_vector_info_tests.cpp
+#solver.cpp
+solver.hpp
+solver_tests.cpp
+sparse.hpp
+sparse_tests.cpp
+tensors.hpp
+#tensors_tests.cpp
+time_advance.cpp
+time_advance.hpp
+time_advance_tests.cpp
+tools.cpp
+tools.hpp
+tools_tests.cpp
+#transformations.cpp
+#transformations.hpp
+#transformations_tests.cpp
+)
 
 # clang-format should not be applied to non-C++ files
 # build_info.hpp.in is configured by CMake and has non C++ syntax
-for file in $(find src -type f ! -iname "build_info.hpp.in")
+# for file in $(find src -type f ! -iname "build_info.hpp.in")
+for file in ${file_list[@]}
 do
-  echo ${file}
-  diff ${file} <(clang-format-12 ${file}) || exit
+  echo ./src/${file}
+  diff ./src/${file} <(clang-format-12 ./src/${file}) || exit
 done

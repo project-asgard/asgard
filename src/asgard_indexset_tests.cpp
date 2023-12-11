@@ -7,12 +7,11 @@ using namespace asgard;
 void verify_1d(dimension_sort const &dsort, indexset const &iset, int dimension, int i,
                std::vector<int> const &offsets, std::vector<int> const &index1d)
 {
-  REQUIRE(dsort.vec_end(dimension, i) - dsort.vec_begin(dimension, i)
-          == static_cast<int>(offsets.size()));
+  REQUIRE(dsort.vec_end(dimension, i) - dsort.vec_begin(dimension, i) == static_cast<int>(offsets.size()));
   REQUIRE(offsets.size() == index1d.size()); // if this is off, the test is wrong
   auto ioff = offsets.begin();
   auto idx1 = index1d.begin();
-  for(int j=dsort.vec_begin(dimension, i); j < dsort.vec_end(dimension, i); j++)
+  for (int j = dsort.vec_begin(dimension, i); j < dsort.vec_end(dimension, i); j++)
   {
     REQUIRE(dsort.map(dimension, j) == *ioff++);
     REQUIRE(dsort(iset, dimension, j) == *idx1++);
@@ -28,9 +27,9 @@ TEST_CASE("data manipulation in 2d", "[order2d]")
   static_assert(std::is_copy_constructible<span2d<int>>::value);
 
   vector2d<int> data(2, 3);
-  REQUIRE(data.stride()     == 2);
+  REQUIRE(data.stride() == 2);
   REQUIRE(data.num_strips() == 3);
-  REQUIRE(data[1][0]        == 0);
+  REQUIRE(data[1][0] == 0);
 
   for(int i=0; i<3; i++)
     data[0][i] = i;
@@ -55,15 +54,15 @@ TEST_CASE("indexset sort", "[sort]")
   REQUIRE(iset.num_dimensions() == 2);
   REQUIRE(iset.num_indexes() == 5);
 
-  REQUIRE(iset.find({0, 1}) ==  1);
-  REQUIRE(iset.find({1, 1}) ==  3);
+  REQUIRE(iset.find({0, 1}) == 1);
+  REQUIRE(iset.find({1, 1}) == 3);
   REQUIRE(not iset.missing({1, 1}));
   REQUIRE(iset.find({0, 2}) == -1);
   REQUIRE(iset.missing({0, 2}));
 
   // check the sorted order
-  for(int i=0; i<iset.num_indexes(); i++)
-    for(int j=0; j<iset.num_dimensions(); j++)
+  for (int i = 0; i < iset.num_indexes(); i++)
+    for (int j = 0; j < iset.num_dimensions(); j++)
       REQUIRE(iset[i][j] == sorted[2 * i + j]);
 
   dimension_sort dsort(iset);
@@ -88,11 +87,11 @@ TEST_CASE("connectivity expand", "[connectivity]")
   REQUIRE(cells.num_connections() == 50);
 
   std::vector<int> gold_num_connect = {8, 8, 7, 7, 5, 5, 5, 5};
-  for(int row=0; row<cells.num_rows(); row++)
+  for (int row = 0; row < cells.num_rows(); row++)
     REQUIRE(gold_num_connect[row] == cells.row_end(row) - cells.row_begin(row));
 
   std::vector<int> gold_connect_row4 = {0, 1, 2, 3, 4};
-  for(int col=cells.row_begin(4); col<cells.row_end(4); col++)
+  for (int col = cells.row_begin(4); col < cells.row_end(4); col++)
     REQUIRE(gold_connect_row4[col - cells.row_begin(4)] == cells[col]);
 
   //connect_1d(cells, 0).dump(); // uncomment to double-check (non-automated)
@@ -101,17 +100,17 @@ TEST_CASE("connectivity expand", "[connectivity]")
   // i.e., each entry in the sparse matrix is replaced with a 3x3 block
   int const porder = 2;
   connect_1d expanded(cells, porder);
-  REQUIRE(expanded.num_rows() == (porder+1) * 8);
+  REQUIRE(expanded.num_rows() == (porder + 1) * 8);
   // there are fewer connection since we removed the self-connection
-  REQUIRE(expanded.num_connections() == 50 * (porder+1) * (porder+1));
+  REQUIRE(expanded.num_connections() == 50 * (porder + 1) * (porder + 1));
 
   // compare the connectivity to the 12-th element
   std::vector<int> gold_connect_row12 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
-  for(int col=expanded.row_begin(12); col<expanded.row_end(12); col++)
+  for (int col = expanded.row_begin(12); col < expanded.row_end(12); col++)
     REQUIRE(gold_connect_row12[col - expanded.row_begin(12)] == expanded[col]);
 
   // connectivity for 12 should be the same as 13
-  for(int col=expanded.row_begin(13); col<expanded.row_end(13); col++)
+  for (int col = expanded.row_begin(13); col < expanded.row_end(13); col++)
     REQUIRE(gold_connect_row12[col - expanded.row_begin(13)] == expanded[col]);
 }
 
@@ -128,14 +127,14 @@ TEST_CASE("testing edge connections", "[edge connect]")
   REQUIRE(cells.num_connections() == 42);
 
   std::vector<int> gold_num_connect = {1, 1, 2, 2};
-  while(gold_num_connect.size() < 16)
+  while (gold_num_connect.size() < 16)
     gold_num_connect.push_back(3);
-  for(int i=0; i<16; i++)
+  for (int i = 0; i < 16; i++)
     REQUIRE(cells.row_end(i) - cells.row_begin(i) == gold_num_connect[i]);
 
   // check the first two rows only
   std::vector<int> gold_connect = {0, 1, 2, 3, 2, 3, 4, 5, 7, 4, 5, 6, 5, 6, 7, 4, 6, 7};
-  for(int j=0; j<static_cast<int>(gold_connect.size()); j++)
+  for (int j = 0; j < static_cast<int>(gold_connect.size()); j++)
     REQUIRE(cells[j] == gold_connect[j]);
 }
 
@@ -147,12 +146,12 @@ TEST_CASE("testing completion", "[ancestry completion]")
 
   indexset completion = compute_ancestry_completion(incomplete, conn);
   REQUIRE(completion.num_dimensions() == incomplete.num_dimensions());
-  REQUIRE(completion.num_indexes()    == 3);
+  REQUIRE(completion.num_indexes() == 3);
 
   std::vector<int> gold_complete = {0, 0, 0, 1, 1, 0};
-  for(int i=0; i<3; i++)
-    for(int d=0; d<2; d++)
-      REQUIRE(completion[i][d] == gold_complete[2*i + d]);
+  for (int i = 0; i < 3; i++)
+    for (int d = 0; d < 2; d++)
+      REQUIRE(completion[i][d] == gold_complete[2 * i + d]);
 
   incomplete = indexset(2, {0, 0, 0, 1, 0, 2, 0, 5}); // missing (0, 3)
 

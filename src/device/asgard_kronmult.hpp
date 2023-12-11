@@ -1,11 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <set>
-#include <algorithm>
 
-#include "asgard_kronmult_common.hpp"
 #include "asgard_indexset.hpp"
+#include "asgard_kronmult_common.hpp"
 
 namespace asgard::kronmult
 {
@@ -138,7 +138,6 @@ template<typename T>
 void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
 #endif
 
-
 #ifdef KRON_MODE_GLOBAL
 /*!
   * \brief Compute the permutations (upper/lower) for global kronecker operations
@@ -157,7 +156,12 @@ void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
 struct permutes
 {
   //! \brief Indicates the fill of the matrix.
-  enum class matrix_fill { upper, both, lower };
+  enum class matrix_fill
+  {
+    upper,
+    both,
+    lower
+  };
   //! \brief Matrix fill for each operation.
   std::vector<std::vector<matrix_fill>> fill;
   //! \brief Direction for each matrix operation.
@@ -171,17 +175,17 @@ struct permutes
       return;
 
     int num_permute = 1;
-    for(int d=0; d<num_dimensions-1; d++)
+    for (int d = 0; d < num_dimensions - 1; d++)
       num_permute *= 2;
 
     direction.resize(num_permute);
     fill.resize(num_permute);
-    for(int perm=0; perm<num_permute; perm++)
+    for (int perm = 0; perm < num_permute; perm++)
     {
       direction[perm].resize(num_dimensions, 0);
       fill[perm].resize(num_dimensions);
       int t = perm;
-      for(int d=1; d<num_dimensions; d++)
+      for (int d = 1; d < num_dimensions; d++)
       {
         // negative dimension means upper fill, positive for lower fill
         direction[perm][d] = (t % 2 == 0) ? d : -d;
@@ -189,23 +193,25 @@ struct permutes
       }
       // sort puts the upper matrices first
       std::sort(direction[perm].begin(), direction[perm].end());
-      for(int d=0; d<num_dimensions; d++)
+      for (int d = 0; d < num_dimensions; d++)
       {
-        fill[perm][d] = (direction[perm][d] < 0) ? matrix_fill::upper :
-                         ((direction[perm][d] > 0) ? matrix_fill::lower :
-                                     matrix_fill::both);
+        fill[perm][d] = (direction[perm][d] < 0) ? matrix_fill::upper : ((direction[perm][d] > 0) ? matrix_fill::lower : matrix_fill::both);
+
         direction[perm][d] = std::abs(direction[perm][d]);
       }
     }
   }
   //! \brief Convert the fill to a string (for debugging).
-  const char * fill_name(int perm, int stage) const
+  const char *fill_name(int perm, int stage) const
   {
-    switch(fill[perm][stage])
+    switch (fill[perm][stage])
     {
-      case matrix_fill::upper: return "upper";
-      case matrix_fill::lower: return "lower";
-      default: return "full";
+    case matrix_fill::upper:
+      return "upper";
+    case matrix_fill::lower:
+      return "lower";
+    default:
+      return "full";
     }
   }
   //! \brief Shows the number of dimensions considered in the permutation
@@ -216,8 +222,8 @@ struct permutes
   //! \brief Reindexes the dimensions to match the active (non-identity) dimensions
   void remap_directions(std::vector<int> const &active_dirs)
   {
-    for(auto &dirs : direction) // for all permutations
-      for(auto &d : dirs) // for all directions
+    for (auto &dirs : direction) // for all permutations
+      for (auto &d : dirs)       // for all directions
         d = active_dirs[d];
   }
 };
