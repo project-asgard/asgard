@@ -20,7 +20,7 @@ template<typename T, typename data_container>
 class organize2d
 {
 public:
-  //! \brief Virtual destructor.
+  //! \brief Virtual destructor
   virtual ~organize2d() = default;
 
   //! \brief Returns the vector stride.
