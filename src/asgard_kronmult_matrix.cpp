@@ -1428,7 +1428,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
   if (num_terms == 0)
     return;
 
-  for (auto t : used_terms)
+  for (int t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
     {
