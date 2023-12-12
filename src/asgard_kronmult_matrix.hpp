@@ -804,14 +804,24 @@ public:
         gvals_(perms_.size() * num_dimensions_), porder_(porder), edges_(std::move(edges)),
         local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
   {
-    expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
-    expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
+#ifdef ASGARD_USE_CUDA
+    gvals_.resize(3 * perms_.size() * num_dimensions_);
     expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
-    expect(givals_.size() == static_cast<size_t>(num_dimensions_));
+    if (num_dimensions_ > 1)
+    {
+      expect(gpntr_.size() == static_cast<size_t>(3 * num_dimensions_));
+      expect(gindx_.size() == static_cast<size_t>(3 * num_dimensions_));
+      expect(givals_.size() == static_cast<size_t>(3 * num_dimensions_));
+    }
+    else
+    {
+      expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
+      expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
+      expect(givals_.size() == static_cast<size_t>(num_dimensions_));
+    }
 
     expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
 
-#ifdef ASGARD_USE_CUDA
     // cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
     // gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
     // cpu version of lpntr and lindx are still needed for the loading of values
@@ -832,6 +842,14 @@ public:
 
     xdev_.resize(num_active_); // workspace on the gpu
     ydev_.resize(num_active_);
+
+#else
+    expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
+    expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
+    expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
+    expect(givals_.size() == static_cast<size_t>(num_dimensions_));
+
+    expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
 #endif
   }
 
@@ -849,7 +867,12 @@ public:
     int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
     return gpu_global[imex_indx].workspace_size();
   }
-  void set_gk_buffer(void *buff) { gk_buffer = buff; }
+  void set_gk_buffer(void *buff)
+  {
+    for (auto &g : gpu_global)
+      if (g)
+        g.set_buffer(buff);
+  }
 #endif
 
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
@@ -909,10 +932,10 @@ public:
     scratch2 = d;
 #ifdef ASGARD_USE_CUDA
     // zero out the a-vector (maybe run a kernel here)
-    std::vector<precision> tmp(four_workspace_buffers_size(), precision{0});
-    fk::copy_on_device(a, tmp.data(), four_workspace_buffers_size());
+    std::vector<precision> tmp(ilist_.num_strips(), precision{0});
+    fk::copy_on_device(pad_x, tmp.data(), ilist_.num_strips());
 #else
-    std::fill_n(a, ilist_.num_strips(), precision{0});
+    std::fill_n(pad_x, ilist_.num_strips(), precision{0});
 #endif
   }
 
@@ -984,7 +1007,6 @@ private:
   std::vector<int> local_indx_;
 #ifdef ASGARD_USE_CUDA
   std::array<kronmult::global_gpu_operations<precision>, num_variants> gpu_global;
-  mutable void *gk_buffer;
   device_vector<int> local_rows_;
   device_vector<int> local_cols_;
   mutable device_vector<precision> xdev_;
@@ -1123,6 +1145,16 @@ struct matrix_list
 #ifdef KRON_MODE_GLOBAL
     if (not kglobal)
       kglobal = make_global_kron_matrix(pde, grid, opts);
+
+    // the buffers must be set before preset_gpu_gkron()
+    int64_t req4 = kglobal.four_workspace_buffers_size();
+    if (static_cast<int64_t>(workspaces[0].size()) < req4)
+      for(auto &w : workspaces)
+        w.resize(req4);
+    std::cerr << " workspaces[0].size() = " << workspaces[0].size() << "\n";
+    kglobal.set_four_buffers(workspaces[0].data(), workspaces[1].data(),
+                             workspaces[2].data(), workspaces[3].data());
+
     if (kglobal.local_unset(entry))
     {
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
@@ -1135,12 +1167,6 @@ struct matrix_list
 #endif
     }
 
-    int64_t req4 = kglobal.four_workspace_buffers_size();
-    if (static_cast<int64_t>(workspaces[0].size()) < req4)
-      for(auto &w : workspaces)
-        w.resize(req4);
-    kglobal.set_four_buffers(workspaces[0].data(), workspaces[1].data(),
-                             workspaces[2].data(), workspaces[3].data());
 #ifdef ASGARD_USE_PINNED_MEMORY
     kglobal.io_stream = io_stream;
 

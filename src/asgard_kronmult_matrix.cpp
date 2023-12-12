@@ -1023,7 +1023,7 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
   livals.reserve(ivals.size());
   uivals.reserve(ivals.size());
 
-  for (size_t r = 0; r < pntr.size(); r++)
+  for (size_t r = 0; r < pntr.size() - 1; r++)
   {
     lpntr.push_back(static_cast<int>(lindx.size()));
     upntr.push_back(static_cast<int>(uindx.size()));
@@ -1031,12 +1031,14 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
     for (int j = pntr[r]; j < diag[r]; j++)
     {
       lindx.push_back(indx[j]);
-      livals.push_back(ivals[j]);
+      livals.push_back(ivals[2 * j]);
+      livals.push_back(ivals[2 * j + 1]);
     }
     for (int j = diag[r]; j < pntr[r + 1]; j++)
     {
       uindx.push_back(indx[j]);
-      uivals.push_back(ivals[j]);
+      uivals.push_back(ivals[2 * j]);
+      uivals.push_back(ivals[2 * j + 1]);
     }
   }
   lpntr.push_back(static_cast<int>(lindx.size()));
@@ -1181,9 +1183,9 @@ make_global_kron_matrix(PDE<precision> const &pde,
     std::vector<std::vector<int>> tindx  = std::move(global_indx);
     std::vector<std::vector<int>> tivals = std::move(global_ivals);
 
-    std::vector<std::vector<int>> global_pntr(3 * num_dimensions);
-    std::vector<std::vector<int>> global_indx(3 * num_dimensions);
-    std::vector<std::vector<int>> global_ivals(3 * num_dimensions);
+    global_pntr  = std::vector<std::vector<int>>(3 * num_dimensions);
+    global_indx  = std::vector<std::vector<int>>(3 * num_dimensions);
+    global_ivals = std::vector<std::vector<int>>(3 * num_dimensions);
 
     for (int d = 0; d < num_dimensions; d++)
     {
@@ -1316,7 +1318,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
           int64_t num_entries = static_cast<int64_t>(mat.gindx_[iid].size());
 
-          gvals = std::vector<precision>(num_entries);
+          gvals.resize(num_entries);
 
 #pragma omp parallel for
           for (int64_t i = 0; i < num_entries; i++)
@@ -1328,7 +1330,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
         int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
 
-        gvals = std::vector<precision>(num_entries);
+        gvals.resize(num_entries);
 
 #pragma omp parallel for
         for (int64_t i = 0; i < num_entries; i++)
@@ -1601,6 +1603,14 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
   if constexpr (rec == resource::device)
   {
 #ifdef ASGARD_USE_CUDA
+    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
+                         local_cols_.data(), local_rows_.data(), used_terms.size(),
+                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
+                         alpha, x, beta, y);
+    fk::copy_on_device(pad_x, x, num_active_);
+    gpu_global[imex].execute();
+    lib_dispatch::axpy<resource::device>(num_active_, alpha, pad_y, 1, y, 1);
+
 // #ifdef ASGARD_USE_PINNED_MEMORY
 //     cudaMemcpyAsync(pinned_mem, x, num_active_ * sizeof(precision), cudaMemcpyDeviceToHost, io_stream);
 //     kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),

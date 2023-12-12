@@ -136,6 +136,7 @@ struct sparse_matrix
     auto status = cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, scale_factors_.data(),
                                desc_, x_, scale_factors_.data() + 1, y_, cusparse_dtype<T>::value,
                                CUSPARSE_SPMV_CSR_ALG1, workspace);
+    expect(status == CUSPARSE_STATUS_SUCCESS);
   }
 
   cusparseSpMatDescr_t desc_;

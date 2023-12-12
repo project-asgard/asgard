@@ -123,17 +123,14 @@ global_gpu_operations<precision>
   }
 }
 
+template<typename precision>
+void global_gpu_operations<precision>::update_vals()
+{
+  //
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct global_gpu_operations<double>;
-
-// template global_gpu_operations<double>::global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
-//                       std::vector<permutes> const &perms,
-//                       std::vector<std::vector<int>> const &gpntr,
-//                       std::vector<std::vector<int>> const &gindx,
-//                       std::vector<std::vector<precision>> const &gvals,
-//                       std::vector<int> const &terms,
-//                       precision const *x, precision *y,
-//                       precision *work1, precision *work2);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
 template struct global_gpu_operations<float>;

@@ -294,6 +294,9 @@ public:
                         precision *x, precision *y,
                         precision *work1, precision *work2);
 
+  //! \brief Update the values of the sparse matrices
+  void update_vals();
+
   //! \brief Returns the maximum size of the workspace
   int64_t workspace_size() const
   {
@@ -311,6 +314,8 @@ public:
     for(auto &m : mats_)
       m.apply(hndl_, buffer_);
   }
+  //! \brief Checks if the operation has been set
+  operator bool() const { return (not gpntr_.empty()); }
 
 private:
   gpu::sparse_handle::htype hndl_;
