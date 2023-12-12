@@ -306,14 +306,14 @@ public:
   int vec_end(int dimension, int i) const { return pntr_[dimension][i + 1]; }
 
   //! \brief Get the j-th global offset
-  int map(int dimension, int j) const { return map_[dimension][j]; }
+  int map(int dimension, int j) const { return iorder_[dimension][j]; }
   //! \brief Get the 1d index of the j-th entry
-  int operator()(indexset const &iset, int dimension, int j) const { return iset[map_[dimension][j]][dimension]; }
+  int operator()(indexset const &iset, int dimension, int j) const { return iset[iorder_[dimension][j]][dimension]; }
   //! \brief Get the 1d index of the j-th entry
-  int operator()(vector2d<int> const &list, int dimension, int j) const { return list[map_[dimension][j]][dimension]; }
+  int operator()(vector2d<int> const &list, int dimension, int j) const { return list[iorder_[dimension][j]][dimension]; }
 
 private:
-  std::vector<std::vector<int>> map_;
+  std::vector<std::vector<int>> iorder_;
   std::vector<std::vector<int>> pntr_;
 };
 

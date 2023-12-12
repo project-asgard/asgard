@@ -61,19 +61,19 @@ make_index_set(organize2d<int, int *> const &indexes);
 template indexset
 make_index_set(organize2d<int, int const *> const &indexes);
 
-dimension_sort::dimension_sort(indexset const &iset) : map_(iset.num_dimensions())
+dimension_sort::dimension_sort(indexset const &iset) : iorder_(iset.num_dimensions())
 {
   int num_dimensions = iset.num_dimensions();
   int num_indexes    = iset.num_indexes();
 
-  map_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
+  iorder_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
 
 #pragma omp parallel for
   for (int d = 0; d < num_dimensions - 1; d++)
   {
     // for each dimension, use the map to group points together
-    std::iota(map_[d].begin(), map_[d].end(), 0);
-    std::sort(map_[d].begin(), map_[d].end(), [&](int a, int b) -> bool {
+    std::iota(iorder_[d].begin(), iorder_[d].end(), 0);
+    std::sort(iorder_[d].begin(), iorder_[d].end(), [&](int a, int b) -> bool {
       const int *idxa = iset[a];
       const int *idxb = iset[b];
       for (int j = 0; j < num_dimensions; j++)
@@ -95,7 +95,7 @@ dimension_sort::dimension_sort(indexset const &iset) : map_(iset.num_dimensions(
     });
   }
   // no sort needed for the last dimenison
-  std::iota(map_[num_dimensions - 1].begin(), map_[num_dimensions - 1].end(), 0);
+  std::iota(iorder_[num_dimensions - 1].begin(), iorder_[num_dimensions - 1].end(), 0);
 
   // check if multi-indexes match in all but one dimension
   auto match_outside_dim = [&](int d, int const *a, int const *b) -> bool {
@@ -122,14 +122,14 @@ dimension_sort::dimension_sort(indexset const &iset) : map_(iset.num_dimensions(
 #pragma omp parallel for
     for (int d = 0; d < num_dimensions; d++)
     {
-      int const *c_index = iset[map_[d][0]];
+      int const *c_index = iset[iorder_[d][0]];
       pntr_[d].push_back(0);
       for (int i = 1; i < num_indexes; i++)
       {
-        if (not match_outside_dim(d, c_index, iset[map_[d][i]]))
+        if (not match_outside_dim(d, c_index, iset[iorder_[d][i]]))
         {
           pntr_[d].push_back(i);
-          c_index = iset[map_[d][i]];
+          c_index = iset[iorder_[d][i]];
         }
       }
       pntr_[d].push_back(num_indexes);
@@ -137,19 +137,19 @@ dimension_sort::dimension_sort(indexset const &iset) : map_(iset.num_dimensions(
   }
 }
 
-dimension_sort::dimension_sort(vector2d<int> const &list) : map_(list.stride())
+dimension_sort::dimension_sort(vector2d<int> const &list) : iorder_(list.stride())
 {
   int num_dimensions = list.stride();
   int num_indexes    = list.num_strips();
 
-  map_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
+  iorder_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
 
 #pragma omp parallel for
   for (int d = 0; d < num_dimensions; d++)
   {
     // for each dimension, use the map to group points together
-    std::iota(map_[d].begin(), map_[d].end(), 0);
-    std::sort(map_[d].begin(), map_[d].end(), [&](int a, int b) -> bool {
+    std::iota(iorder_[d].begin(), iorder_[d].end(), 0);
+    std::sort(iorder_[d].begin(), iorder_[d].end(), [&](int a, int b) -> bool {
       const int *idxa = list[a];
       const int *idxb = list[b];
       for (int j = 0; j < num_dimensions; j++)
@@ -196,14 +196,14 @@ dimension_sort::dimension_sort(vector2d<int> const &list) : map_(list.stride())
 #pragma omp parallel for
     for (int d = 0; d < num_dimensions; d++)
     {
-      int const *c_index = list[map_[d][0]];
+      int const *c_index = list[iorder_[d][0]];
       pntr_[d].push_back(0);
       for (int i = 1; i < num_indexes; i++)
       {
-        if (not match_outside_dim(d, c_index, list[map_[d][i]]))
+        if (not match_outside_dim(d, c_index, list[iorder_[d][i]]))
         {
           pntr_[d].push_back(i);
-          c_index = list[map_[d][i]];
+          c_index = list[iorder_[d][i]];
         }
       }
       pntr_[d].push_back(num_indexes);
