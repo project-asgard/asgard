@@ -1181,19 +1181,17 @@ make_global_kron_matrix(PDE<precision> const &pde,
     std::vector<std::vector<int>> tindx  = std::move(global_indx);
     std::vector<std::vector<int>> tivals = std::move(global_ivals);
 
-    std::vector<std::vector<int>> global_pntr(3 * num_dimensions - 2);
-    std::vector<std::vector<int>> global_indx(3 * num_dimensions - 2);
-    std::vector<std::vector<int>> global_ivals(3 * num_dimensions - 2);
+    std::vector<std::vector<int>> global_pntr(3 * num_dimensions);
+    std::vector<std::vector<int>> global_indx(3 * num_dimensions);
+    std::vector<std::vector<int>> global_ivals(3 * num_dimensions);
 
-    global_pntr[0]  = std::move(tpntr[0]); // do not split dimension 0
-    global_indx[0]  = std::move(tindx[0]);
-    global_ivals[0] = std::move(tivals[0]);
-
-    for (int d = 0; d < num_dimensions - 1; d++)
+    for (int d = 0; d < num_dimensions; d++)
     {
-      global_pntr[3 * (d - 1)]  = std::move(tpntr[d + 1]); // do not split dimension 0
-      global_indx[3 * (d - 1)]  = std::move(tindx[d + 1]);
-      global_ivals[3 * (d - 1)] = std::move(tivals[d + 1]);
+      global_pntr[3 * d]  = std::move(tpntr[d]); // copy the full pattern
+      global_indx[3 * d]  = std::move(tindx[d]);
+      global_ivals[3 * d] = std::move(tivals[d]);
+      if (d == 0) // never split pattern 0, the matrix is always used full
+        continue;
       split_pattern(global_pntr[3 * d], global_indx[3 * d], global_diag[d], global_ivals[3 * d],
                     global_pntr[3 * d + 1], global_indx[3 * d + 1], global_ivals[3 * d + 1],
                     global_pntr[3 * d + 2], global_indx[3 * d + 2], global_ivals[3 * d + 2]);
@@ -1201,7 +1199,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   }
 #endif
 
-  // figure out the permutations pattern
+  // figure out the permutation patterns
   std::vector<kronmult::permutes> permutations;
   permutations.reserve(num_terms);
   std::vector<int> active_dirs(num_dimensions);
@@ -1298,7 +1296,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   int const num_dimensions = pde.num_dims;
 
-  // set the global pattern
+  // set the values for the global pattern
   for (int t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
@@ -1310,8 +1308,8 @@ void set_specific_mode(PDE<precision> const &pde,
         int const num_mats = (d == 0) ? 1 : 3;
         for (int k = 0; k < num_mats; k++)
         {
-          int const iid = (d == 0) ? 0 : 3 * (d - 1) + k;
-          int const gid = t * (3 * (num_dimensions - 1) + 1) + iid;
+          int const iid = 3 * d + k;
+          int const gid = 3 * t * num_dimensions + iid;
 
           std::vector<precision> &gvals = mat.gvals_[gid];
           std::vector<int> &givals      = mat.givals_[iid];
@@ -1340,6 +1338,7 @@ void set_specific_mode(PDE<precision> const &pde,
     }
   }
 
+  // set the matrix indexes and values for the local component
   int64_t lda = pterms * fm::two_raised_to(max_level);
 
   int const num_terms = static_cast<int>(used_terms.size());
@@ -1519,19 +1518,19 @@ void update_matrix_coefficients(PDE<precision> const &pde,
   {
     for (int d = 0; d < num_dimensions; d++)
     {
+      if (mat.gvals_[3 * (t * num_dimensions + d)].empty()) // identity term
+          continue;
+
       fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 #ifdef ASGARD_USE_CUDA
       int const num_mats = (d == 0) ? 1 : 3;
       for (int k = 0; k < num_mats; k++)
       {
-        int const iid = (d == 0) ? 0 : 3 * (d - 1) + k;
-        int const gid = t * (3 * (num_dimensions - 1) + 1) + iid;
+        int const iid = 3 * d + k;
+        int const gid = 3 * t * num_dimensions + iid;
 
         std::vector<precision> &gvals = mat.gvals_[gid];
         std::vector<int> &givals      = mat.givals_[iid];
-
-        if (gvals.empty()) // identity term
-          continue;
 
         int64_t num_entries = static_cast<int64_t>(mat.gindx_[iid].size());
 
@@ -1543,9 +1542,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
       }
 #else
       std::vector<precision> &vals = mat.gvals_[t * num_dimensions + d];
-      if (vals.empty()) // identity term, no values
-        continue;
-      std::vector<int> &ivals = mat.givals_[d];
+      std::vector<int> &ivals      = mat.givals_[d];
 
       int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
 

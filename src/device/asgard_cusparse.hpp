@@ -50,6 +50,8 @@ struct sparse_handle
 
   operator cusparseHandle_t() const { return handle_; }
 
+  using htype = cusparseHandle_t;
+
   mutable cusparseHandle_t handle_;
 };
 
@@ -85,7 +87,7 @@ struct sparse_matrix
       y_(std::exchange(other.y_, nullptr))
   {}
 
-  sparse_matrix<T>& operator =(sparse_matrix<T> &&other)
+  sparse_matrix<T> &operator =(sparse_matrix<T> &&other)
   {
     sparse_matrix<T> tmp(std::move(other));
     std::swap(desc_, tmp.desc_);
@@ -95,7 +97,7 @@ struct sparse_matrix
   }
 
   sparse_matrix(sparse_matrix<T> const &other) = delete;
-  sparse_matrix<T>& operator =(sparse_matrix<T> const &other) = delete;
+  sparse_matrix<T> &operator =(sparse_matrix<T> const &other) = delete;
 
   ~sparse_matrix()
   {
@@ -122,8 +124,8 @@ struct sparse_matrix
     size_t buffer_size = 0;
 
     auto status = cusparseSpMV_bufferSize(
-        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, &scale_factors_[0], desc_, x_,
-        &scale_factors_[1], y_, cusparse_dtype<T>::value, CUSPARSE_SPMV_CSR_ALG1,
+        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, scale_factors_.data(), desc_, x_,
+        scale_factors_.data() + 1, y_, cusparse_dtype<T>::value, CUSPARSE_SPMV_CSR_ALG1,
         &buffer_size);
     expect(status == CUSPARSE_STATUS_SUCCESS);
     return buffer_size;
@@ -131,8 +133,8 @@ struct sparse_matrix
 
   void apply(cusparseHandle_t handle, T *workspace)
   {
-    auto status = cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, &scale_factors_[0],
-                               desc_, x_, &scale_factors_[1], y_, cusparse_dtype<T>::value,
+    auto status = cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, scale_factors_.data(),
+                               desc_, x_, scale_factors_.data() + 1, y_, cusparse_dtype<T>::value,
                                CUSPARSE_SPMV_CSR_ALG1, workspace);
   }
 

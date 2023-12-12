@@ -281,29 +281,35 @@ void global_cpu(int num_dimensions,
 template<typename precision>
 struct global_gpu_operations
 {
-  global_gpu_operations() : cuh_(nullptr), buffer(nullptr)
+  global_gpu_operations() : hndl_(nullptr), buffer(nullptr)
   {}
 
-  global_gpu_operations(gpu::sparse_handle const &cuh, int num_dimensions,
+  global_gpu_operations(gpu::sparse_handle const &hndl_, int num_dimensions,
                         std::vector<permutes> const &perms,
                         std::vector<std::vector<int>> const &gpntr,
                         std::vector<std::vector<int>> const &gindx,
-                        std::vector<std::vector<int>> const &gdiag,
                         std::vector<std::vector<precision>> const &gvals,
                         std::vector<int> const &terms,
                         precision const *x, precision *y,
                         precision *work1, precision *work2);
 
   //! \brief Returns the maximum size of the workspace
-  int64_t workspace_size(gpu::sparse_handle const &handle) const
+  int64_t workspace_size() const
   {
     size_t num = 0;
     for(auto const &m : mats_)
-      num = std::max(num, m.size_workspace(handle));
+      num = std::max(num, m.size_workspace(hndl_));
     return static_cast<int64_t>(num);
   }
 
-  cusparseHandle_t cuh_;
+  //! \brief Perform the global kron operation
+  void execute() const
+  {
+    for(auto const &m : mats_)
+      m.apply(hndl_, buffer);
+  }
+
+  gpu::sparse_handle::htype hndl_;
   std::vector<gpu::vector<int>> gpntr_;
   std::vector<gpu::vector<int>> gindx_;
   std::vector<gpu::vector<precision>> gvals_;

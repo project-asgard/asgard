@@ -834,6 +834,24 @@ public:
     ydev_.resize(num_active_);
 #endif
   }
+
+#ifdef ASGARD_USE_CUDA
+  void preset_gpu_gkron(sparse_handle const &hndl, imex_flag const imex)
+  {
+    int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
+
+    gpu_global[imex_indx] = kronmult::global_gpu_operations<precision>(
+        hndl, num_dimensions_, perms_, gpntr_, gindx_, gvals_,
+        mat.term_groups[imex_indx], pad_x, pad_y, scratch1, scratch2); 
+  }
+  size_t get_gpu_gkron_workspace(imex_flag const imex) const
+  {
+    int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
+    return gpu_global[imex_indx].workspace_size();
+  }
+  void set_gk_buffer(void *buff) { gk_buffer = buff; }
+#endif
+
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
   bool empty() const { return gvals_.empty(); }
 
@@ -889,7 +907,13 @@ public:
     pad_y = b;
     scratch1 = c;
     scratch2 = d;
+#ifdef ASGARD_USE_CUDA
+    // zero out the a-vector (maybe run a kernel here)
+    std::vector<precision> tmp(four_workspace_buffers_size(), precision{0});
+    copy_on_device(a, tmp.data(), four_workspace_buffers_size());
+#else
     std::fill_n(a, ilist_.num_strips(), precision{0});
+#endif
   }
 
 #ifdef ASGARD_USE_PINNED_MEMORY
@@ -959,6 +983,8 @@ private:
   std::vector<int> local_pntr_;
   std::vector<int> local_indx_;
 #ifdef ASGARD_USE_CUDA
+  std::array<kronmult::global_gpu_operations<precision>, num_variants> gpu_global;
+  mutable void *gk_buffer;
   device_vector<int> local_rows_;
   device_vector<int> local_cols_;
   mutable device_vector<precision> xdev_;
@@ -1098,7 +1124,16 @@ struct matrix_list
     if (not kglobal)
       kglobal = make_global_kron_matrix(pde, grid, opts);
     if (kglobal.local_unset(entry))
+    {
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+#ifdef ASGARD_USE_CUDA
+      kglobal.preset_gpu_gkron(sp_handle, imex(entire));
+      size_t bsize = kglobal.get_gpu_gkron_workspace(imex(entire));
+      if (gpu_sparse_buffer.size() < bsize)
+        gpu_sparse_buffer.resize(bsize);
+      kglobal.set_gk_buffer(gpu_sparse_buffer.data());
+#endif
+    }
 
     int64_t req4 = kglobal.four_workspace_buffers_size();
     if (static_cast<int64_t>(workspaces[0].size()) < req4)
@@ -1237,7 +1272,8 @@ struct matrix_list
 
   std::array<typename global_kron_matrix<precision>::device_vector<precision>, 4> workspaces;
 #ifdef ASGARD_USE_CUDA
-  gpu::vector<std::byte> cusparse_buffer;
+  gpu::sparse_handle sp_handle;
+  gpu::vector<std::byte> gpu_sparse_buffer;
 #endif
 #ifdef ASGARD_USE_PINNED_MEMORY
   //! \brief Stream to load/unload data asynchronously

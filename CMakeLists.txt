@@ -117,7 +117,7 @@ else()
   option (KRON_MODE_GLOBAL "Global or local Kronecker products" ON)
 endif()
 if (ASGARD_USE_MPI AND KRON_MODE_GLOBAL)
-  message(FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
+  message (FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
 endif()
 
 if (KRON_MODE_GLOBAL AND ASGARD_USE_CUDA)

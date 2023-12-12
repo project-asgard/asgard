@@ -57,28 +57,27 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 
 template<typename precision>
 global_gpu_operations::
-global_gpu_operations(gpu::sparse_handle const &cuh, int num_dimensions,
+global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
                       std::vector<permutes> const &perms,
                       std::vector<std::vector<int>> const &gpntr,
                       std::vector<std::vector<int>> const &gindx,
-                      std::vector<std::vector<int>> const &gdiag,
                       std::vector<std::vector<precision>> const &gvals,
                       std::vector<int> const &terms,
                       precision const *x, precision *y,
                       precision *work1, precision *work2)
     // each matrix has 3 potential variants (both, lower, upper)
-  : gpntr_(3 * gpntr.size()), gindx_(3 * gindx.size()), gvals_(3 * gvals.size()),
+  : hndl(hndl_), gpntr_(gpntr.size()), gindx_(gindx.size()), gvals_(gvals.size())
 {
   int64_t const num_rows = static_cast<int64_t>(gpntr.front().size() - 1);
 
-  mats_.reserve(terms.size() * num_dimensions) // max possible number of matrices
+  mats_.reserve(terms.size() * num_dimensions); // max possible number of matrices
 
   for (int t : terms)
   {
     // terms can have different effective dimension, since some of them are identity
     permutes const &perm = perms[t];
     int const dims       = perm.num_dimensions();
-    if (dims == 0)
+    if (dims == 0) // all terms here are identity, redundant term, why is it here?
       continue;
 
     for (size_t i = 0; i < perm.fill.size(); i++)
@@ -92,19 +91,21 @@ global_gpu_operations(gpu::sparse_handle const &cuh, int num_dimensions,
       {
         int dir                    = perm.direction[i][d];
         permutes::matrix_fill mode = perm.fill[i][d];
-        int const mode_id          = (mode == permutes::matrix_fill::both) ? 0 : ((mode == permutes::matrix_fill::lower) ? 1 : 0);
+        int const mode_id          = (mode == permutes::matrix_fill::both) ? 0 : ((mode == permutes::matrix_fill::lower) ? 1 : 2);
 
+        // pattern and value ids for the matrices
         int const pid = 3 * dir + mode_id;
         int const vid = 3 * (t * num_dimensions + dir) + mode_id;
 
-        if (gvals_[vid].empty()) // must build and load this pattern
-        {
-          split_pattern(gpntr[dir], gindx[dir], gdiag[dir], gvals[t * num_dimensions + dir],
-                        mode, gpntr_[pid], gindx_[pid], gvals_[vid]);
-        }
+        if (gpntr_[pid].empty())
+          gpntr_[pid] = gpntr[pid];
+        if (gindx_[pid].empty())
+          gindx_[pid] = gindx[pid];
+        if (gvals_[vid].empty())
+          gvals_[vid] = gvals[pid];
 
         mats_.push_back(gpu::sparse_matrix(num_rows, num_rows, gindx_[pid].size(),
-                                           gpntr_[pid].data(), gindx_[pid].data(), gvals_[vid].data());
+                                           gpntr_[pid].data(), gindx_[pid].data(), gvals_[vid].data()));
 
         if (d == 0 and d == dims - 1) // only one matrix
           mats_.back().set_vectors(num_rows, precision{1}, x, ybeta, y);
@@ -120,6 +121,13 @@ global_gpu_operations(gpu::sparse_handle const &cuh, int num_dimensions,
     }
   }
 }
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template class global_gpu_operations<double>;
+#endif
+#ifdef ASGARD_ENABLE_FLOAT
+template class global_gpu_operations<float>;
+#endif
 
 #endif
 #endif
