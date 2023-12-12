@@ -1070,8 +1070,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
         int64_t num_nz = 0;
         for (auto n : nz_count)
           num_nz += n;
-        indx  = std::vector<int>(num_nz);
-        ivals = std::vector<int>(2 * num_nz);
+        indx.resize(num_nz);
+        ivals.resize(2 * num_nz);
         for (size_t i = 1; i < pntr.size(); i++)
           pntr[i] = pntr[i - 1] + nz_count[i - 1];
       }
