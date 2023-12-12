@@ -199,7 +199,7 @@ inline bool check_connected_edge(int const num_dimensions, int const *const row,
         else
         {
           if (std::abs(row[num_dimensions + j] - col[num_dimensions + j]) == 1)
-            edge_conn += 1; // adjacent elements
+            ++edge_conn; // adjacent elements
           else
             return false; // same level and not connected by edge or volume
         }
