@@ -202,7 +202,7 @@ struct permutes
     }
   }
   //! \brief Convert the fill to a string (for debugging).
-  const char *fill_name(int perm, int stage) const
+  std::string_view fill_name(int perm, int stage) const
   {
     switch (fill[perm][stage])
     {
