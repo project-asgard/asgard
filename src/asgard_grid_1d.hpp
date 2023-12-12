@@ -33,7 +33,7 @@ public:
    *         max-level.
    */
   connect_1d(int const max_level, same_level neighbor = level_edge_include)
-      : levels(max_level), rows(1 << levels), pntr(rows + 1, 0),
+      : levels(max_level), rows(fm::two_raised_to(levels)), pntr(rows + 1, 0),
         indx(2 * rows), diag(rows)
   {
     std::vector<int> cell_per_level(levels + 2, 1);
