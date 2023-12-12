@@ -329,7 +329,7 @@ public:
     {
       for(int j=row_begin(r); j<row_end(r); j++)
         std::cerr << indx[j] << "  ";
-      std::cerr << "\n";
+      std::cerr << '\n';
     }
     std::cerr << "diag = ";
     for(int r=0; r < num_rows(); r++)
