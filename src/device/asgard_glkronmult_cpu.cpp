@@ -72,7 +72,7 @@ void global_cpu(permutes const &perms,
                 connect_1d const &conn, std::vector<int> const &terms,
                 std::vector<std::vector<precision>> const &vals,
                 precision alpha, precision const *x, precision *y,
-                precision *worspace)
+                precision *w1, precision *w2)
 {
   int const num_dimensions = ilist.stride();
   if (num_dimensions == 1) // no need to split anything
@@ -80,15 +80,12 @@ void global_cpu(permutes const &perms,
     for (int t : terms)
     {
       global_cpu_one(ilist, dsort, 0, permutes::matrix_fill::both, conn,
-                     vals[t].data(), x, worspace);
-      lib_dispatch::axpy<resource::host>(ilist.num_strips(), alpha, worspace, 1, y, 1);
+                     vals[t].data(), x, w1);
+      lib_dispatch::axpy<resource::host>(ilist.num_strips(), alpha, w1, 1, y, 1);
     }
   }
   else
   {
-    precision *w1 = worspace;
-    precision *w2 = worspace + ilist.num_strips();
-
     for (int t : terms)
     {
       for (size_t i = 0; i < perms.fill.size(); i++)
@@ -158,12 +155,9 @@ void global_cpu(int num_dimensions,
                 std::vector<std::vector<int>> const &gdiag,
                 std::vector<std::vector<precision>> const &gvals,
                 std::vector<int> const &terms, precision const *x, precision *y,
-                precision *workspace)
+                precision *w1, precision *w2)
 {
   int64_t const num_rows = static_cast<int64_t>(gpntr.front().size() - 1);
-
-  precision *w1 = workspace;
-  precision *w2 = workspace + num_rows;
 
   for (int t : terms)
   {
@@ -200,14 +194,14 @@ template void global_cpu(int, std::vector<permutes> const &,
                          std::vector<std::vector<int>> const &,
                          std::vector<std::vector<double>> const &,
                          std::vector<int> const &, double const *, double *,
-                         double *workspace);
+                         double *, double *);
 
 template void global_cpu(permutes const &perms,
                          vector2d<int> const &ilist, dimension_sort const &dsort,
                          connect_1d const &conn, std::vector<int> const &terms,
                          std::vector<std::vector<double>> const &vals,
                          double alpha, double const *x, double *y,
-                         double *worspace);
+                         double *, double *);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
 template void global_cpu(int, std::vector<permutes> const &,
@@ -216,13 +210,13 @@ template void global_cpu(int, std::vector<permutes> const &,
                          std::vector<std::vector<int>> const &,
                          std::vector<std::vector<float>> const &,
                          std::vector<int> const &, float const *, float *,
-                         float *workspace);
+                         float *, float *);
 template void global_cpu(permutes const &perms,
                          vector2d<int> const &ilist, dimension_sort const &dsort,
                          connect_1d const &conn, std::vector<int> const &terms,
                          std::vector<std::vector<float>> const &vals,
                          float alpha, float const *x, float *y,
-                         float *worspace);
+                         float *, float *);
 #endif
 
 #endif

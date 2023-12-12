@@ -430,9 +430,11 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
     asgard::dimension_sort dsort(ilist);
 
     std::vector<TestType> y(x.size(), TestType{0});
-    std::vector<TestType> w(2 * y.size(), TestType{0});
+    std::vector<TestType> w1(y.size(), TestType{0});
+    std::vector<TestType> w2(y.size(), TestType{0});
     asgard::kronmult::global_cpu(perms, ilist, dsort, conn, {0}, vals,
-                                 TestType{1}, x.data(), y.data(), w.data());
+                                 TestType{1}, x.data(), y.data(),
+                                 w1.data(), w1.data());
 
     test_almost_equal(y, y_ref);
   }
@@ -512,9 +514,11 @@ void test_global_kron(int num_dimensions, int level)
   asgard::dimension_sort dsort(ilist);
 
   std::vector<precision> y(y_ref.size(), precision{0});
-  std::vector<precision> w(2 * y.size(), precision{0});
+  std::vector<precision> w1(y.size(), precision{0});
+  std::vector<precision> w2(y.size(), precision{0});
   asgard::kronmult::global_cpu(perms, ilist, dsort, conn, {0}, vals,
-                               precision{1}, x.data(), y.data(), w.data());
+                               precision{1}, x.data(), y.data(),
+                               w1.data(), w2.data());
 
   test_almost_equal(y, y_ref);
 }

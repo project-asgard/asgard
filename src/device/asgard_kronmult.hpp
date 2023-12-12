@@ -252,7 +252,7 @@ void global_cpu(permutes const &perms,
                 connect_1d const &conn, std::vector<int> const &terms,
                 std::vector<std::vector<precision>> const &vals,
                 precision alpha, precision const *x, precision *y,
-                precision *worspace);
+                precision *worspace1, precision *worspace2);
 
 /*!
  * \brief Perform global Kronecked product
@@ -275,7 +275,7 @@ void global_cpu(int num_dimensions,
                 std::vector<std::vector<int>> const &gdiag,
                 std::vector<std::vector<precision>> const &gvals,
                 std::vector<int> const &terms, precision const *x, precision *y,
-                precision *worspace);
+                precision *worspace1, precision *worspace2);
 
 #ifdef ASGARD_USE_CUDA
 template<typename precision>
@@ -284,7 +284,7 @@ struct global_gpu_operations
   global_gpu_operations() : cuh_(nullptr), buffer(nullptr)
   {}
 
-  global_gpu_operations(cusparseHandle_t cuh, int num_dimensions,
+  global_gpu_operations(gpu::sparse_handle const &cuh, int num_dimensions,
                         std::vector<permutes> const &perms,
                         std::vector<std::vector<int>> const &gpntr,
                         std::vector<std::vector<int>> const &gindx,
@@ -293,6 +293,15 @@ struct global_gpu_operations
                         std::vector<int> const &terms,
                         precision const *x, precision *y,
                         precision *work1, precision *work2);
+
+  //! \brief Returns the maximum size of the workspace
+  int64_t workspace_size(gpu::sparse_handle const &handle) const
+  {
+    size_t num = 0;
+    for(auto const &m : mats_)
+      num = std::max(num, m.size_workspace(handle));
+    return static_cast<int64_t>(num);
+  }
 
   cusparseHandle_t cuh_;
   std::vector<gpu::vector<int>> gpntr_;

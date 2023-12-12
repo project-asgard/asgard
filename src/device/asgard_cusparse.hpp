@@ -48,7 +48,7 @@ struct sparse_handle
   sparse_handle(sparse_handle const &other) = delete;
   sparse_handle& operator =(sparse_handle &other) = delete;
 
-  operator cusparseHandle_t() { return handle_; }
+  operator cusparseHandle_t() const { return handle_; }
 
   mutable cusparseHandle_t handle_;
 };

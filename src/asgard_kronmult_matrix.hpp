@@ -833,9 +833,6 @@ public:
     xdev_.resize(num_active_); // workspace on the gpu
     ydev_.resize(num_active_);
 #endif
-
-    expanded  = std::vector<precision>(2 * ilist_.num_strips());
-    workspace = std::vector<precision>(2 * ilist_.num_strips());
   }
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
   bool empty() const { return gvals_.empty(); }
@@ -880,10 +877,24 @@ public:
   {
     return flops_[flag2int(etype)];
   }
+  //! \brief Padding requires 4 buffers of this size
+  int64_t four_workspace_buffers_size()
+  {
+    return ilist_.num_strips();
+  }
+  //! \brief Set the four buffers
+  void set_four_buffers(precision *a, precision *b, precision *c, precision *d)
+  {
+    pad_x = a;
+    pad_y = b;
+    scratch1 = c;
+    scratch2 = d;
+    std::fill_n(a, ilist_.num_strips(), precision{0});
+  }
 
 #ifdef ASGARD_USE_PINNED_MEMORY
   //! \brief Returns the required pinned buffer size (in bytes)
-  size_t buffer_size() const
+  size_t pinned_buffer_size() const
   {
     return static_cast<size_t>(num_active_ * sizeof(precision));
   }
@@ -940,8 +951,8 @@ private:
   // collections of terms
   std::array<std::vector<int>, 3> term_groups;
   // temp workspace (global case)
-  mutable std::vector<precision> expanded;
-  mutable std::vector<precision> workspace;
+  mutable precision *pad_x, *pad_y;
+  mutable precision *scratch1, *scratch2;
   // local case data, handles the neighbors on the same level
   int porder_;
   connect_1d edges_;
@@ -1088,10 +1099,17 @@ struct matrix_list
       kglobal = make_global_kron_matrix(pde, grid, opts);
     if (kglobal.local_unset(entry))
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+
+    int64_t req4 = kglobal.four_workspace_buffers_size();
+    if (static_cast<int64_t>(workspaces[0].size()) < req4)
+      for(auto &w : workspaces)
+        w.resize(req4);
+    kglobal.set_four_buffers(workspaces[0].data(), workspaces[1].data(),
+                             workspaces[2].data(), workspaces[3].data());
 #ifdef ASGARD_USE_PINNED_MEMORY
     kglobal.io_stream = io_stream;
 
-    size_t required_pinned_size = kglobal.buffer_size();
+    size_t required_pinned_size = kglobal.pinned_buffer_size();
     if (pinned_mem_size < required_pinned_size)
     {
       if (pinned_mem != nullptr)
@@ -1216,6 +1234,11 @@ struct matrix_list
 #ifdef KRON_MODE_GLOBAL
   //! \brief Holds the global part of the kron product
   global_kron_matrix<precision> kglobal;
+
+  std::array<typename global_kron_matrix<precision>::device_vector<precision>, 4> workspaces;
+#ifdef ASGARD_USE_CUDA
+  gpu::vector<std::byte> cusparse_buffer;
+#endif
 #ifdef ASGARD_USE_PINNED_MEMORY
   //! \brief Stream to load/unload data asynchronously
   cudaStream_t io_stream;

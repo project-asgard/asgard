@@ -1010,7 +1010,6 @@ compute_mem_usage(PDE<P> const &pde,
  * The ivals are indexes of the values to be loaded from the coefficients,
  * those will split as well.
  */
-template<typename precision>
 void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
                    std::vector<int> const &diag, std::vector<int> const &ivals,
                    std::vector<int> &lpntr, std::vector<int> &lindx, std::vector<int> &livals,
@@ -1024,13 +1023,7 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
   livals.reserve(ivals.size());
   uivals.reserve(ivals.size());
 
-  std::vector<int> apntr(pntr.size());
-  std::vector<int> aindx;
-  aindx.reserve(indx.size());
-  std::vector<precision> avals;
-  avals.reserve(avals.size());
-
-  for (size_t r = 0; r < apntr.size(); r++)
+  for (size_t r = 0; r < pntr.size(); r++)
   {
     lpntr.push_back(static_cast<int>(lindx.size()));
     upntr.push_back(static_cast<int>(uindx.size()));
@@ -1182,30 +1175,30 @@ make_global_kron_matrix(PDE<precision> const &pde,
   }
 
 #ifdef ASGARD_USE_CUDA // split the patterns into threes
-  //if (num_dimensions > 1)
-  //{
-  //  std::vector<std::vector<int>> tpntr  = std::move(global_pntr);
-  //  std::vector<std::vector<int>> tindx  = std::move(global_indx);
-  //  std::vector<std::vector<int>> tivals = std::move(global_ivals);
-  //
-  //  std::vector<std::vector<int>> global_pntr(3 * num_dimensions - 2);
-  //  std::vector<std::vector<int>> global_indx(3 * num_dimensions - 2);
-  //  std::vector<std::vector<int>> global_ivals(3 * num_dimensions - 2);
-  //
-  //  global_pntr[0]  = std::move(tpntr[0]); // do not split dimension 0
-  //  global_indx[0]  = std::move(tindx[0]);
-  //  global_ivals[0] = std::move(tivals[0]);
-  //
-  //  for (int d = 1; d < num_dimensions; d++)
-  //  {
-  //    global_pntr[3 * (d - 1)]  = std::move(tpntr[d]); // do not split dimension 0
-  //    global_indx[3 * (d - 1)]  = std::move(tindx[d]);
-  //    global_ivals[3 * (d - 1)] = std::move(tivals[d]);
-  //    split_pattern(global_pntr[3 * (d - 1)], global_indx[3 * (d - 1)], global_diag[d], global_ivals[3 * (d - 1)],
-  //                  global_pntr[3 * (d - 1) + 1], global_indx[3 * (d - 1) + 1], global_ivals[3 * (d - 1) + 1],
-  //                  global_pntr[3 * (d - 1) + 2], global_indx[3 * (d - 1) + 2], global_ivals[3 * (d - 1) + 2]);
-  //  }
-  //}
+  if (num_dimensions > 1)
+  {
+    std::vector<std::vector<int>> tpntr  = std::move(global_pntr);
+    std::vector<std::vector<int>> tindx  = std::move(global_indx);
+    std::vector<std::vector<int>> tivals = std::move(global_ivals);
+
+    std::vector<std::vector<int>> global_pntr(3 * num_dimensions - 2);
+    std::vector<std::vector<int>> global_indx(3 * num_dimensions - 2);
+    std::vector<std::vector<int>> global_ivals(3 * num_dimensions - 2);
+
+    global_pntr[0]  = std::move(tpntr[0]); // do not split dimension 0
+    global_indx[0]  = std::move(tindx[0]);
+    global_ivals[0] = std::move(tivals[0]);
+
+    for (int d = 0; d < num_dimensions - 1; d++)
+    {
+      global_pntr[3 * (d - 1)]  = std::move(tpntr[d + 1]); // do not split dimension 0
+      global_indx[3 * (d - 1)]  = std::move(tindx[d + 1]);
+      global_ivals[3 * (d - 1)] = std::move(tivals[d + 1]);
+      split_pattern(global_pntr[3 * d], global_indx[3 * d], global_diag[d], global_ivals[3 * d],
+                    global_pntr[3 * d + 1], global_indx[3 * d + 1], global_ivals[3 * d + 1],
+                    global_pntr[3 * d + 2], global_indx[3 * d + 2], global_ivals[3 * d + 2]);
+    }
+  }
 #endif
 
   // figure out the permutations pattern
@@ -1312,6 +1305,26 @@ void set_specific_mode(PDE<precision> const &pde,
     {
       if (not check_identity_term(pde, t, d))
       {
+        fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
+#ifdef ASGARD_USE_CUDA
+        int const num_mats = (d == 0) ? 1 : 3;
+        for (int k = 0; k < num_mats; k++)
+        {
+          int const iid = (d == 0) ? 0 : 3 * (d - 1) + k;
+          int const gid = t * (3 * (num_dimensions - 1) + 1) + iid;
+
+          std::vector<precision> &gvals = mat.gvals_[gid];
+          std::vector<int> &givals      = mat.givals_[iid];
+
+          int64_t num_entries = static_cast<int64_t>(mat.gindx_[iid].size());
+
+          gvals = std::vector<precision>(num_entries);
+
+#pragma omp parallel for
+          for (int64_t i = 0; i < num_entries; i++)
+            gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
+        }
+#else
         std::vector<precision> &gvals = mat.gvals_[t * num_dimensions + d];
         std::vector<int> &givals      = mat.givals_[d];
 
@@ -1319,11 +1332,10 @@ void set_specific_mode(PDE<precision> const &pde,
 
         gvals = std::vector<precision>(num_entries);
 
-        fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
-
 #pragma omp parallel for
         for (int64_t i = 0; i < num_entries; i++)
           gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
+#endif
       }
     }
   }
@@ -1460,7 +1472,7 @@ void set_specific_mode(PDE<precision> const &pde,
     for (int d = 0; d < num_dimensions; d++)
       num_cfps += mat.gvals_[t * num_dimensions + d].size();
 
-  num_cfps += mat.expanded.size() + mat.workspace.size();
+  num_cfps += 2 * mat.num_active_;
   int64_t num_lints = mat.local_pntr_.size() + mat.local_indx_.size() + mat.local_opindex_[imex_indx].size();
   int64_t num_lfps  = mat.local_opvalues_[imex_indx].size();
   std::cout << "  -- memory usage:\n";
@@ -1507,6 +1519,29 @@ void update_matrix_coefficients(PDE<precision> const &pde,
   {
     for (int d = 0; d < num_dimensions; d++)
     {
+      fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
+#ifdef ASGARD_USE_CUDA
+      int const num_mats = (d == 0) ? 1 : 3;
+      for (int k = 0; k < num_mats; k++)
+      {
+        int const iid = (d == 0) ? 0 : 3 * (d - 1) + k;
+        int const gid = t * (3 * (num_dimensions - 1) + 1) + iid;
+
+        std::vector<precision> &gvals = mat.gvals_[gid];
+        std::vector<int> &givals      = mat.givals_[iid];
+
+        if (gvals.empty()) // identity term
+          continue;
+
+        int64_t num_entries = static_cast<int64_t>(mat.gindx_[iid].size());
+
+        gvals = std::vector<precision>(num_entries);
+
+#pragma omp parallel for
+        for (int64_t i = 0; i < num_entries; i++)
+          gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
+      }
+#else
       std::vector<precision> &vals = mat.gvals_[t * num_dimensions + d];
       if (vals.empty()) // identity term, no values
         continue;
@@ -1514,11 +1549,10 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
       int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
 
-      fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
-
 #pragma omp parallel for
       for (int64_t i = 0; i < num_entries; i++)
         vals[i] = ops(ivals[2 * i], ivals[2 * i + 1]);
+#endif
     }
   }
 
@@ -1570,55 +1604,55 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
   if constexpr (rec == resource::device)
   {
 #ifdef ASGARD_USE_CUDA
-#ifdef ASGARD_USE_PINNED_MEMORY
-    cudaMemcpyAsync(pinned_mem, x, num_active_ * sizeof(precision), cudaMemcpyDeviceToHost, io_stream);
-    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
-                         local_cols_.data(), local_rows_.data(), used_terms.size(),
-                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                         alpha, x, beta, y);
-
-    std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
-    precision *yglobal = expanded.data() + ilist_.num_strips();
-
-    cudaStreamSynchronize(io_stream);
-    std::copy_n(pinned_mem, num_active_, expanded.begin());
-    kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, expanded.data(), yglobal, workspace.data());
-
-    std::copy_n(yglobal, num_active_, pinned_mem);
-    cudaMemcpyAsync(ydev_.data(), pinned_mem, num_active_ * sizeof(precision), cudaMemcpyHostToDevice, io_stream);
-    cudaStreamSynchronize(io_stream);
-    lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
-#else
-    fk::copy_to_host<precision>(expanded.data(), x, num_active_); // can do asynchronously
-
-    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
-                         local_cols_.data(), local_rows_.data(), used_terms.size(),
-                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                         alpha, x, beta, y);
-
-    std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
-    precision *yglobal = expanded.data() + ilist_.num_strips();
-
-    kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, expanded.data(), yglobal, workspace.data());
-
-    fk::copy_to_device<precision>(ydev_.data(), yglobal, num_active_);
-    lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
-#endif
+// #ifdef ASGARD_USE_PINNED_MEMORY
+//     cudaMemcpyAsync(pinned_mem, x, num_active_ * sizeof(precision), cudaMemcpyDeviceToHost, io_stream);
+//     kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
+//                          local_cols_.data(), local_rows_.data(), used_terms.size(),
+//                          local_opindex_[imex].data(), local_opvalues_[imex].data(),
+//                          alpha, x, beta, y);
+//
+//     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
+//     precision *yglobal = expanded.data() + ilist_.num_strips();
+//
+//     cudaStreamSynchronize(io_stream);
+//     std::copy_n(pinned_mem, num_active_, expanded.begin());
+//     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
+//                          used_terms, expanded.data(), yglobal, workspace.data());
+//
+//     std::copy_n(yglobal, num_active_, pinned_mem);
+//     cudaMemcpyAsync(ydev_.data(), pinned_mem, num_active_ * sizeof(precision), cudaMemcpyHostToDevice, io_stream);
+//     cudaStreamSynchronize(io_stream);
+//     lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
+// #else
+//     fk::copy_to_host<precision>(expanded.data(), x, num_active_); // can do asynchronously
+//
+//     kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
+//                          local_cols_.data(), local_rows_.data(), used_terms.size(),
+//                          local_opindex_[imex].data(), local_opvalues_[imex].data(),
+//                          alpha, x, beta, y);
+//
+//     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
+//     precision *yglobal = expanded.data() + ilist_.num_strips();
+//
+//     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
+//                          used_terms, expanded.data(), yglobal, workspace.data());
+//
+//     fk::copy_to_device<precision>(ydev_.data(), yglobal, num_active_);
+//     lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
+// #endif
 #endif
   }
   else
   {
 #ifdef ASGARD_USE_CUDA
-    // the local part can only be done on the GPU
-    fk::copy_to_device<precision>(xdev_.data(), x, xdev_.size());
-    fk::copy_to_device<precision>(ydev_.data(), y, ydev_.size());
-    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
-                         local_cols_.data(), local_rows_.data(), used_terms.size(),
-                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                         alpha, xdev_.data(), beta, ydev_.data());
-    fk::copy_to_host<precision>(y, ydev_.data(), ydev_.size());
+//    // the local part can only be done on the GPU
+//    fk::copy_to_device<precision>(xdev_.data(), x, xdev_.size());
+//    fk::copy_to_device<precision>(ydev_.data(), y, ydev_.size());
+//    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
+//                         local_cols_.data(), local_rows_.data(), used_terms.size(),
+//                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
+//                         alpha, xdev_.data(), beta, ydev_.data());
+//    fk::copy_to_host<precision>(y, ydev_.data(), ydev_.size());
 #else
     kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
                          local_pntr_.data(), local_indx_.data(), used_terms.size(),
@@ -1626,15 +1660,14 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
                          alpha, x, beta, y);
 #endif
 
-    std::copy_n(x, num_active_, expanded.begin());
-    std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
-    precision *yglobal = expanded.data() + ilist_.num_strips();
+    std::copy_n(x, num_active_, pad_x);
+    std::fill_n(pad_y, num_active_, precision{0});
     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, expanded.data(), yglobal, workspace.data());
+                         used_terms, pad_x, pad_y, scratch1, scratch2);
 
 #pragma omp parallel for
     for (int64_t i = 0; i < num_active_; i++)
-      y[i] += alpha * yglobal[i];
+      y[i] += alpha * pad_y[i];
   }
 }
 #endif

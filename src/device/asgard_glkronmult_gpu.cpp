@@ -57,7 +57,7 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 
 template<typename precision>
 global_gpu_operations::
-global_gpu_operations(cusparseHandle_t cuh, int num_dimensions,
+global_gpu_operations(gpu::sparse_handle const &cuh, int num_dimensions,
                       std::vector<permutes> const &perms,
                       std::vector<std::vector<int>> const &gpntr,
                       std::vector<std::vector<int>> const &gindx,
