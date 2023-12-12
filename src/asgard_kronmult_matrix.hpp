@@ -836,13 +836,13 @@ public:
   }
 
 #ifdef ASGARD_USE_CUDA
-  void preset_gpu_gkron(sparse_handle const &hndl, imex_flag const imex)
+  void preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex)
   {
     int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
 
     gpu_global[imex_indx] = kronmult::global_gpu_operations<precision>(
         hndl, num_dimensions_, perms_, gpntr_, gindx_, gvals_,
-        mat.term_groups[imex_indx], pad_x, pad_y, scratch1, scratch2); 
+        term_groups[imex_indx], pad_x, pad_y, scratch1, scratch2);
   }
   size_t get_gpu_gkron_workspace(imex_flag const imex) const
   {
@@ -910,7 +910,7 @@ public:
 #ifdef ASGARD_USE_CUDA
     // zero out the a-vector (maybe run a kernel here)
     std::vector<precision> tmp(four_workspace_buffers_size(), precision{0});
-    copy_on_device(a, tmp.data(), four_workspace_buffers_size());
+    fk::copy_on_device(a, tmp.data(), four_workspace_buffers_size());
 #else
     std::fill_n(a, ilist_.num_strips(), precision{0});
 #endif
@@ -1127,9 +1127,9 @@ struct matrix_list
     {
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
 #ifdef ASGARD_USE_CUDA
-      kglobal.preset_gpu_gkron(sp_handle, imex(entire));
-      size_t bsize = kglobal.get_gpu_gkron_workspace(imex(entire));
-      if (gpu_sparse_buffer.size() < bsize)
+      kglobal.preset_gpu_gkron(sp_handle, imex(entry));
+      size_t bsize = kglobal.get_gpu_gkron_workspace(imex(entry));
+      if (gpu_sparse_buffer.size() < static_cast<int64_t>(bsize))
         gpu_sparse_buffer.resize(bsize);
       kglobal.set_gk_buffer(gpu_sparse_buffer.data());
 #endif
