@@ -195,7 +195,7 @@ inline bool check_connected_edge(int const num_dimensions, int const *const row,
       {
         if ((row[num_dimensions + j] == 0 and col[num_dimensions + j] == ((1 << (col[j] - 1)) - 1)) or
             (col[num_dimensions + j] == 0 and row[num_dimensions + j] == ((1 << (row[j] - 1)) - 1)))
-          edge_conn += 1; // periodic boundary
+          ++edge_conn; // periodic boundary
         else
         {
           if (std::abs(row[num_dimensions + j] - col[num_dimensions + j]) == 1)
