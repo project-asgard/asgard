@@ -277,6 +277,7 @@ public:
 
   int get_offset(int row, int col) const
   {
+    // there is a potential for optimization here, look into it later
     // if we use the hierarchy with all elements connected by volume
     // the first two elements have lots of connection which slows the search
     // but the search result is trivial
@@ -334,7 +335,7 @@ public:
     std::cerr << "diag = ";
     for(int r=0; r < num_rows(); r++)
       std::cerr << diag[r] << "  ";
-    std::cerr << "\n";
+    std::cerr << '\n';
     std::cerr << " ------------------ \n";
   }
 
