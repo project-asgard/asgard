@@ -131,7 +131,7 @@ struct sparse_matrix
     return buffer_size;
   }
 
-  void apply(cusparseHandle_t handle, T *workspace)
+  void apply(cusparseHandle_t handle, void *workspace)
   {
     auto status = cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, scale_factors_.data(),
                                desc_, x_, scale_factors_.data() + 1, y_, cusparse_dtype<T>::value,

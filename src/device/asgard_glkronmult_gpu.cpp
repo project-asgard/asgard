@@ -56,17 +56,18 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 }
 
 template<typename precision>
-global_gpu_operations::
-global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
-                      std::vector<permutes> const &perms,
-                      std::vector<std::vector<int>> const &gpntr,
-                      std::vector<std::vector<int>> const &gindx,
-                      std::vector<std::vector<precision>> const &gvals,
-                      std::vector<int> const &terms,
-                      precision const *x, precision *y,
-                      precision *work1, precision *work2)
+global_gpu_operations<precision>
+::global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
+                        std::vector<permutes> const &perms,
+                        std::vector<std::vector<int>> const &gpntr,
+                        std::vector<std::vector<int>> const &gindx,
+                        std::vector<std::vector<precision>> const &gvals,
+                        std::vector<int> const &terms,
+                        precision *x, precision *y,
+                        precision *work1, precision *work2)
     // each matrix has 3 potential variants (both, lower, upper)
-  : hndl(hndl_), gpntr_(gpntr.size()), gindx_(gindx.size()), gvals_(gvals.size())
+  : hndl_(hndl), gpntr_(gpntr.size()), gindx_(gindx.size()), gvals_(gvals.size()),
+    buffer_(nullptr)
 {
   int64_t const num_rows = static_cast<int64_t>(gpntr.front().size() - 1);
 
@@ -125,14 +126,14 @@ global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct global_gpu_operations<double>;
 
-template global_gpu_operations<double>::global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
-                      std::vector<permutes> const &perms,
-                      std::vector<std::vector<int>> const &gpntr,
-                      std::vector<std::vector<int>> const &gindx,
-                      std::vector<std::vector<precision>> const &gvals,
-                      std::vector<int> const &terms,
-                      precision const *x, precision *y,
-                      precision *work1, precision *work2);
+// template global_gpu_operations<double>::global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
+//                       std::vector<permutes> const &perms,
+//                       std::vector<std::vector<int>> const &gpntr,
+//                       std::vector<std::vector<int>> const &gindx,
+//                       std::vector<std::vector<precision>> const &gvals,
+//                       std::vector<int> const &terms,
+//                       precision const *x, precision *y,
+//                       precision *work1, precision *work2);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
 template struct global_gpu_operations<float>;

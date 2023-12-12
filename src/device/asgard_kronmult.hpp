@@ -279,9 +279,10 @@ void global_cpu(int num_dimensions,
 
 #ifdef ASGARD_USE_CUDA
 template<typename precision>
-struct global_gpu_operations
+class global_gpu_operations
 {
-  global_gpu_operations() : hndl_(nullptr), buffer(nullptr)
+public:
+  global_gpu_operations() : hndl_(nullptr), buffer_(nullptr)
   {}
 
   global_gpu_operations(gpu::sparse_handle const &hndl_, int num_dimensions,
@@ -290,7 +291,7 @@ struct global_gpu_operations
                         std::vector<std::vector<int>> const &gindx,
                         std::vector<std::vector<precision>> const &gvals,
                         std::vector<int> const &terms,
-                        precision const *x, precision *y,
+                        precision *x, precision *y,
                         precision *work1, precision *work2);
 
   //! \brief Returns the maximum size of the workspace
@@ -301,21 +302,24 @@ struct global_gpu_operations
       num = std::max(num, m.size_workspace(hndl_));
     return static_cast<int64_t>(num);
   }
+  //! \brief Set the work-buffer for the gpu sparse method
+  void set_buffer(void *buffer) { buffer_ = buffer; }
 
   //! \brief Perform the global kron operation
   void execute() const
   {
-    for(auto const &m : mats_)
-      m.apply(hndl_, buffer);
+    for(auto &m : mats_)
+      m.apply(hndl_, buffer_);
   }
 
+private:
   gpu::sparse_handle::htype hndl_;
   std::vector<gpu::vector<int>> gpntr_;
   std::vector<gpu::vector<int>> gindx_;
   std::vector<gpu::vector<precision>> gvals_;
 
-  std::vector<gpu::sparse_matrix<precision>> mats_;
-  mutable precision *buffer;
+  mutable std::vector<gpu::sparse_matrix<precision>> mats_;
+  mutable void *buffer_;
 };
 #endif
 #endif
