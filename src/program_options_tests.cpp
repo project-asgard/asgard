@@ -105,6 +105,8 @@ TEST_CASE("parser constructor/getters", "[program_options]")
 
     auto const def_restart = parser::NO_USER_VALUE_STR;
 
+    auto const def_use_l2_nrm = parser::DEFAULT_USE_L2_NRM;
+
     auto const p = make_parser({});
 
     REQUIRE(p.get_degree() == def_degree);
@@ -130,6 +132,7 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     REQUIRE(p.get_gmres_outer_iterations() == def_outer_iterations);
     REQUIRE(p.get_max_adapt_levels() == def_max_adapt_levels);
     REQUIRE(p.get_restart_file() == def_restart);
+    REQUIRE(p.using_l2_nrm() == def_use_l2_nrm);
     REQUIRE(p.is_valid());
   }
 
@@ -201,6 +204,13 @@ TEST_CASE("parser constructor/getters", "[program_options]")
   {
     std::cerr.setstate(std::ios_base::failbit);
     parser const p = make_parser({"--thresh=-0.2"});
+    std::cerr.clear();
+    REQUIRE(!p.is_valid());
+  }
+  SECTION("providing use_l2_nrm but disabled adapt")
+  {
+    std::cerr.setstate(std::ios_base::failbit);
+    parser const p = make_parser({"--l_two"});
     std::cerr.clear();
     REQUIRE(!p.is_valid());
   }

@@ -30,13 +30,13 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
       2,  3,  4, 5, 6, 6, 5, 4, 3, 2, 10, 10, 10,
       10, 10, 7, 3, 5, 9, 9, 4, 5, 4, 5,  7};
 
-  TestType gold_norm = 4.0 * std::sqrt(66.0);
+  TestType const gold_l2_norm = 4.0 * std::sqrt(66.0);
 
   SECTION("fk::vector: owner, host")
   {
     TestType norm = fm::nrm2(v);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::vector: const view, host")
@@ -46,7 +46,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::nrm2(v_view_host);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::vector: view, host")
@@ -55,7 +55,35 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::nrm2(v_view_host);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
+  }
+
+  TestType const gold_inf_norm = v[10];
+
+  SECTION("fk::vector: owner, host")
+  {
+    TestType norm = fm::nrminf(v);
+
+    relaxed_fp_comparison(gold_inf_norm, norm);
+  }
+
+  SECTION("fk::vector: const view, host")
+  {
+    fk::vector<TestType, mem_type::const_view, resource::host> const
+        v_view_host(v);
+
+    TestType norm = fm::nrminf(v_view_host);
+
+    relaxed_fp_comparison(gold_inf_norm, norm);
+  }
+
+  SECTION("fk::vector: view, host")
+  {
+    fk::vector<TestType, mem_type::view, resource::host> const v_view_host(v);
+
+    TestType norm = fm::nrminf(v_view_host);
+
+    relaxed_fp_comparison(gold_inf_norm, norm);
   }
 
   /* matrix Frobenius norm tests */
@@ -72,7 +100,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
   {
     TestType norm = fm::frobenius(m);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::matrix: view, host")
@@ -81,7 +109,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::frobenius(m_view_host);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::matrix submatrix: view, host")
@@ -100,7 +128,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::frobenius(m_view_host);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::matrix submatrix: const view, host")

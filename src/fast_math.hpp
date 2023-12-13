@@ -27,6 +27,15 @@ inline constexpr T two_raised_to(T const exponent)
   return T{1} << exponent;
 }
 
+template<typename P, mem_type mem>
+P nrminf(fk::vector<P, mem> const &x)
+{
+  return std::abs(
+      *std::max_element(x.begin(), x.end(), [](P const a, P const b) {
+        return (std::abs(a) < std::abs(b));
+      }));
+}
+
 template<typename P, mem_type mem, resource resrc>
 P nrm2(fk::vector<P, mem, resrc> const &x)
 {
