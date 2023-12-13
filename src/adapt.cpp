@@ -261,7 +261,7 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
 {
-  P const max_elem   = fm::nrm2(x);
+  P const max_elem   = cli_opts.use_l2_nrm ? fm::nrm2(x) : fm::nrminf(x);
   P const global_max = get_global_max<P>(max_elem, this->plan_);
 
   auto const refine_threshold = cli_opts.adapt_threshold * global_max;
@@ -271,9 +271,10 @@ distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
   }
 
   auto const refine_check =
-      [refine_threshold](int64_t const,
-                         fk::vector<P, mem_type::const_view> const &element_x) {
-        auto const refined_max_elem = fm::nrm2(element_x);
+      [&cli_opts, refine_threshold](
+          int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
+        auto const refined_max_elem =
+            cli_opts.use_l2_nrm ? fm::nrm2(element_x) : fm::nrminf(element_x);
         return refined_max_elem >= refine_threshold;
       };
   auto const to_refine = filter_elements(refine_check, x);
@@ -284,7 +285,7 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
 {
-  P const max_elem         = fm::nrm2(x);
+  P const max_elem         = cli_opts.use_l2_nrm ? fm::nrm2(x) : fm::nrminf(x);
   P const global_max       = get_global_max<P>(max_elem, this->plan_);
   P const refine_threshold = cli_opts.adapt_threshold * global_max;
   if (refine_threshold <= 0.0)
@@ -295,12 +296,13 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
   auto const coarsen_threshold = refine_threshold * 0.1;
   auto const &table            = this->table_;
   auto const coarsen_check =
-      [&table, coarsen_threshold](
+      [&table, &cli_opts, coarsen_threshold](
           int64_t const elem_index,
           fk::vector<P, mem_type::const_view> const &element_x) {
-        P const coarsened_max_elem = fm::nrm2(element_x);
-        auto const coords          = table.get_coords(elem_index);
-        auto const min_level       = *std::min_element(
+        P const coarsened_max_elem =
+            cli_opts.use_l2_nrm ? fm::nrm2(element_x) : fm::nrminf(element_x);
+        auto const coords    = table.get_coords(elem_index);
+        auto const min_level = *std::min_element(
             coords.begin(), coords.begin() + coords.size() / 2);
         return std::abs(coarsened_max_elem) <= coarsen_threshold &&
                min_level >= 0;
