@@ -1610,62 +1610,31 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
     fk::copy_on_device(pad_x, x, num_active_);
     gpu_global[imex].execute();
     lib_dispatch::axpy<resource::device>(num_active_, alpha, pad_y, 1, y, 1);
-
-// #ifdef ASGARD_USE_PINNED_MEMORY
-//     cudaMemcpyAsync(pinned_mem, x, num_active_ * sizeof(precision), cudaMemcpyDeviceToHost, io_stream);
-//     kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
-//                          local_cols_.data(), local_rows_.data(), used_terms.size(),
-//                          local_opindex_[imex].data(), local_opvalues_[imex].data(),
-//                          alpha, x, beta, y);
-//
-//     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
-//     precision *yglobal = expanded.data() + ilist_.num_strips();
-//
-//     cudaStreamSynchronize(io_stream);
-//     std::copy_n(pinned_mem, num_active_, expanded.begin());
-//     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-//                          used_terms, expanded.data(), yglobal, workspace.data());
-//
-//     std::copy_n(yglobal, num_active_, pinned_mem);
-//     cudaMemcpyAsync(ydev_.data(), pinned_mem, num_active_ * sizeof(precision), cudaMemcpyHostToDevice, io_stream);
-//     cudaStreamSynchronize(io_stream);
-//     lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
-// #else
-//     fk::copy_to_host<precision>(expanded.data(), x, num_active_); // can do asynchronously
-//
-//     kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
-//                          local_cols_.data(), local_rows_.data(), used_terms.size(),
-//                          local_opindex_[imex].data(), local_opvalues_[imex].data(),
-//                          alpha, x, beta, y);
-//
-//     std::fill(expanded.begin() + num_active_, expanded.end(), precision{0});
-//     precision *yglobal = expanded.data() + ilist_.num_strips();
-//
-//     kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-//                          used_terms, expanded.data(), yglobal, workspace.data());
-//
-//     fk::copy_to_device<precision>(ydev_.data(), yglobal, num_active_);
-//     lib_dispatch::axpy<resource::device>(num_active_, alpha, ydev_.data(), 1, y, 1);
-// #endif
+#else
+    static_assert(rec == resource::host, "GPU not enabled");
 #endif
   }
   else
   {
 #ifdef ASGARD_USE_CUDA
-//    // the local part can only be done on the GPU
-//    fk::copy_to_device<precision>(xdev_.data(), x, xdev_.size());
-//    fk::copy_to_device<precision>(ydev_.data(), y, ydev_.size());
-//    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
-//                         local_cols_.data(), local_rows_.data(), used_terms.size(),
-//                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
-//                         alpha, xdev_.data(), beta, ydev_.data());
-//    fk::copy_to_host<precision>(y, ydev_.data(), ydev_.size());
+    // the local part can only be done on the GPU
+    fk::copy_to_device<precision>(xdev_.data(), x, xdev_.size());
+    fk::copy_to_device<precision>(ydev_.data(), y, ydev_.size());
+    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, ydev_.size(), local_cols_.size(),
+                         local_cols_.data(), local_rows_.data(), used_terms.size(),
+                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
+                         alpha, xdev_.data(), beta, ydev_.data());
+
+    fk::copy_on_device(pad_x, xdev_.data(), num_active_);
+    gpu_global[imex].execute();
+    lib_dispatch::axpy<resource::device>(num_active_, alpha, pad_y, 1, ydev_.data(), 1);
+
+    fk::copy_to_host<precision>(y, ydev_.data(), ydev_.size());
 #else
     kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
                          local_pntr_.data(), local_indx_.data(), used_terms.size(),
                          local_opindex_[imex].data(), local_opvalues_[imex].data(),
                          alpha, x, beta, y);
-#endif
 
     std::copy_n(x, num_active_, pad_x);
     std::fill_n(pad_y, num_active_, precision{0});
@@ -1675,6 +1644,7 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
 #pragma omp parallel for
     for (int64_t i = 0; i < num_active_; i++)
       y[i] += alpha * pad_y[i];
+#endif
   }
 }
 #endif

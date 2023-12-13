@@ -285,7 +285,7 @@ public:
   global_gpu_operations() : hndl_(nullptr), buffer_(nullptr)
   {}
 
-  global_gpu_operations(gpu::sparse_handle const &hndl_, int num_dimensions,
+  global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
                         std::vector<permutes> const &perms,
                         std::vector<std::vector<int>> const &gpntr,
                         std::vector<std::vector<int>> const &gindx,

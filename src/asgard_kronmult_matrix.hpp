@@ -926,14 +926,14 @@ public:
   //! \brief Set the four buffers
   void set_four_buffers(precision *a, precision *b, precision *c, precision *d)
   {
-    pad_x = a;
-    pad_y = b;
+    pad_x    = a;
+    pad_y    = b;
     scratch1 = c;
     scratch2 = d;
 #ifdef ASGARD_USE_CUDA
     // zero out the a-vector (maybe run a kernel here)
     std::vector<precision> tmp(ilist_.num_strips(), precision{0});
-    fk::copy_on_device(pad_x, tmp.data(), ilist_.num_strips());
+    fk::copy_to_device(pad_x, tmp.data(), ilist_.num_strips());
 #else
     std::fill_n(pad_x, ilist_.num_strips(), precision{0});
 #endif
@@ -1005,18 +1005,16 @@ private:
   connect_1d edges_;
   std::vector<int> local_pntr_;
   std::vector<int> local_indx_;
+  std::array<device_vector<int>, num_variants> local_opindex_;
+  std::array<device_vector<precision>, num_variants> local_opvalues_;
+  // preconditioner
+  device_vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA
   std::array<kronmult::global_gpu_operations<precision>, num_variants> gpu_global;
   device_vector<int> local_rows_;
   device_vector<int> local_cols_;
   mutable device_vector<precision> xdev_;
   mutable device_vector<precision> ydev_;
-#endif
-  std::array<device_vector<int>, num_variants> local_opindex_;
-  std::array<device_vector<precision>, num_variants> local_opvalues_;
-  // preconditioner
-  device_vector<precision> pre_con_;
-#ifdef ASGARD_USE_CUDA
   mutable std::vector<precision> cpu_pre_con_; // cpu copy, if requested
 #endif
 };
@@ -1151,7 +1149,7 @@ struct matrix_list
     if (static_cast<int64_t>(workspaces[0].size()) < req4)
       for(auto &w : workspaces)
         w.resize(req4);
-    std::cerr << " workspaces[0].size() = " << workspaces[0].size() << "\n";
+
     kglobal.set_four_buffers(workspaces[0].data(), workspaces[1].data(),
                              workspaces[2].data(), workspaces[3].data());
 

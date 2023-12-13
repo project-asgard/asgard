@@ -7,55 +7,6 @@ namespace asgard::kronmult
 #ifdef ASGARD_USE_CUDA
 
 template<typename precision>
-void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
-                   std::vector<int> const &diag, std::vector<precision> const &vals,
-                   permutes::matrix_fill mode,
-                   gpu::vector<int> &gpntr, gpu::vector<int> &gindx,
-                   gpu::vector<int> &gvals)
-{
-  if (mode == permutes::matrix_fill::both)
-  {
-    if (gpntr.empty())
-      gpntr = pntr;
-    if (gindx.empty())
-      gindx = indx;
-    gvals = vals;
-  }
-
-  // copy the lower/upper part of the pattern into the vectors prefixed with "a"
-  std::vector<int> apntr(pntr.size());
-  std::vector<int> aindx;
-  aindx.reserve(indx.size());
-  std::vector<precision> avals;
-  avals.reserve(avals.size());
-
-  for (size_t r = 0; r < apntr.size(); r++)
-  {
-    apntr[r] = static_cast<int>(aindx.size());
-    if (mode == permutes::matrix_fill::lower)
-      for (int j = pntr[r]; r < diag[r]; r++)
-      {
-        aindx.push_back(indx[j]);
-        avals.push_back(vals[j]);
-      }
-    else
-      for (int j = diag[r]; r < pntr[r + 1]; r++)
-      {
-        aindx.push_back(indx[j]);
-        avals.push_back(vals[j]);
-      }
-  }
-  apntr.back() = static_cast<int>(aindx.size());
-
-  // send the result to the gpu
-  if (gpntr.empty())
-    gpntr = apntr;
-  if (gindx.empty())
-    gindx = aindx;
-  gvals = avals;
-}
-
-template<typename precision>
 global_gpu_operations<precision>
 ::global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
                         std::vector<permutes> const &perms,
@@ -69,6 +20,9 @@ global_gpu_operations<precision>
   : hndl_(hndl), gpntr_(gpntr.size()), gindx_(gindx.size()), gvals_(gvals.size()),
     buffer_(nullptr)
 {
+  std::cout << " incom = " << gpntr.size()  << "  " << gindx.size()  << "  " << gvals.size()  << "\n";
+  std::cout << " pntrs = " << gpntr_.size() << "  " << gindx_.size() << "  " << gvals_.size() << "\n";
+
   int64_t const num_rows = static_cast<int64_t>(gpntr.front().size() - 1);
 
   mats_.reserve(terms.size() * num_dimensions); // max possible number of matrices
@@ -92,22 +46,28 @@ global_gpu_operations<precision>
       {
         int dir                    = perm.direction[i][d];
         permutes::matrix_fill mode = perm.fill[i][d];
-        int const mode_id          = (mode == permutes::matrix_fill::both) ? 0 : ((mode == permutes::matrix_fill::lower) ? 1 : 2);
+        int const mode_id          = (mode == permutes::matrix_fill::both) ? 0 :
+                                     ((mode == permutes::matrix_fill::lower) ? 1 : 2);
 
         // pattern and value ids for the matrices
         int const pid = 3 * dir + mode_id;
-        int const vid = 3 * (t * num_dimensions + dir) + mode_id;
+        int const vid = 3 * t * num_dimensions + pid;
 
         if (gpntr_[pid].empty())
           gpntr_[pid] = gpntr[pid];
         if (gindx_[pid].empty())
           gindx_[pid] = gindx[pid];
         if (gvals_[vid].empty())
-          gvals_[vid] = gvals[pid];
+          gvals_[vid] = gvals[vid];
 
-        mats_.push_back(gpu::sparse_matrix(num_rows, num_rows, gindx_[pid].size(),
-                                           gpntr_[pid].data(), gindx_[pid].data(), gvals_[vid].data()));
+        std::cout << " pid = " << pid << "  vid = " << vid << "\n";
+        std::cout << gpntr_[pid].size() << "  " << gindx_[pid].size() << "  " << gvals_[vid].size() << "\n";
 
+        mats_.push_back(gpu::sparse_matrix<precision>(num_rows, num_rows, gindx_[pid].size(),
+                                                      gpntr_[pid].data(), gindx_[pid].data(),
+                                                      gvals_[vid].data()));
+
+        std::cout << " d = " << d << "   dims = " << dims << "\n";
         if (d == 0 and d == dims - 1) // only one matrix
           mats_.back().set_vectors(num_rows, precision{1}, x, ybeta, y);
         else if (d == 0)
