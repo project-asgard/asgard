@@ -1310,13 +1310,13 @@ void set_specific_mode(PDE<precision> const &pde,
         int const num_mats = (d == 0) ? 1 : 3;
         for (int k = 0; k < num_mats; k++)
         {
-          int const iid = 3 * d + k;
-          int const gid = 3 * t * num_dimensions + iid;
+          int const pid = 3 * d + k;
+          int const vid = 3 * t * num_dimensions + pid;
 
-          std::vector<precision> &gvals = mat.gvals_[gid];
-          std::vector<int> &givals      = mat.givals_[iid];
+          std::vector<precision> &gvals = mat.gvals_[vid];
+          std::vector<int> &givals      = mat.givals_[pid];
 
-          int64_t num_entries = static_cast<int64_t>(mat.gindx_[iid].size());
+          int64_t num_entries = static_cast<int64_t>(mat.gindx_[pid].size());
 
           gvals.resize(num_entries);
 
@@ -1449,9 +1449,15 @@ void set_specific_mode(PDE<precision> const &pde,
   }
 
   int64_t gflops = 0; // flops for global component
+#ifdef ASGARD_USE_CUDA
+  for (auto t : used_terms)
+    for (int d = 0; d < num_dimensions; d++)
+      gflops += mat.gvals_[3 * t * num_dimensions + d].size();
+#else
   for (auto t : used_terms)
     for (int d = 0; d < num_dimensions; d++)
       gflops += mat.gvals_[t * num_dimensions + d].size();
+#endif
 
   int64_t lflops = tensor_size * pterms * mat.local_opindex_[imex_indx].size();
 
@@ -1463,7 +1469,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   int64_t num_cints = 0;
   int64_t num_cfps  = 0;
-  for (int d = 0; d < num_dimensions; d++)
+  for (size_t d = 0; d < mat.gpntr_.size(); d++)
   {
     num_cints += mat.gpntr_[d].size();
     num_cints += mat.gindx_[d].size();
@@ -1525,8 +1531,8 @@ void update_matrix_coefficients(PDE<precision> const &pde,
     {
       fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 #ifdef ASGARD_USE_CUDA
-      //if (mat.gvals_[3 * (t * num_dimensions + d)].empty()) // identity term
-      //    continue;
+      if (mat.gvals_[3 * (t * num_dimensions + d)].empty()) // identity term
+          continue;
 
       int const num_mats = (d == 0) ? 1 : 3;
       for (int k = 0; k < num_mats; k++)

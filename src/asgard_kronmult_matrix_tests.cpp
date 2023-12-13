@@ -583,6 +583,19 @@ TEMPLATE_TEST_CASE("testing cusparse functionality", "[cusparse]", test_precs)
 
   std::vector<TestType> y = gy;
   test_almost_equal(y, y_ref);
+
+  // change the values without changing the matrix object
+  vals = {2.0, 0.5, 1.0, 2.0, 1.0, 0.5, -2.0, 1.0, 1.0, -2.0};
+  std::fill(y_ref.begin(), y_ref.end(), TestType{0});
+
+  for (size_t r = 0; r < pntr.size() - 1; r++)
+    for (int j = pntr[r]; j < pntr[r + 1]; j++)
+      y_ref[r] += x[indx[j]] * vals[j]; // recompute y_ref
+
+  asgard::fk::copy_to_device(gvals.data(), vals.data(), vals.size());
+  mat.apply(cusparse, work.data());
+  y = gy;
+  test_almost_equal(y, y_ref);
 }
 #endif
 #endif
