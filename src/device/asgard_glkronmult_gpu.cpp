@@ -20,12 +20,12 @@ global_gpu_operations<precision>
   : hndl_(hndl), gpntr_(gpntr.size()), gindx_(gindx.size()), gvals_(gvals.size()),
     buffer_(nullptr)
 {
-  std::cout << " incom = " << gpntr.size()  << "  " << gindx.size()  << "  " << gvals.size()  << "\n";
-  std::cout << " pntrs = " << gpntr_.size() << "  " << gindx_.size() << "  " << gvals_.size() << "\n";
-
   int64_t const num_rows = static_cast<int64_t>(gpntr.front().size() - 1);
 
-  mats_.reserve(terms.size() * num_dimensions); // max possible number of matrices
+  size_t num_matrices = 0;
+  for (int t : terms)
+    num_matrices += perms[t].num_dimensions() * perms[t].fill.size();
+  mats_.reserve(num_matrices); // max possible number of matrices
 
   for (int t : terms)
   {
@@ -39,8 +39,6 @@ global_gpu_operations<precision>
     {
       precision *w1 = work1;
       precision *w2 = work2;
-
-      precision ybeta = (i == 0) ? 0 : 1; // first one zeros out y, then we increment
 
       for (int d = 0; d < dims; d++)
       {
@@ -60,14 +58,15 @@ global_gpu_operations<precision>
         if (gvals_[vid].empty())
           gvals_[vid] = gvals[vid];
 
-        std::cout << " pid = " << pid << "  vid = " << vid << "\n";
-        std::cout << gpntr_[pid].size() << "  " << gindx_[pid].size() << "  " << gvals_[vid].size() << "\n";
+        std::cout << " setting pid = " << pid << "  vid = " << vid << " with size = " << gvals_[vid].size() << "\n";
 
         mats_.push_back(gpu::sparse_matrix<precision>(num_rows, num_rows, gindx_[pid].size(),
                                                       gpntr_[pid].data(), gindx_[pid].data(),
                                                       gvals_[vid].data()));
 
-        std::cout << " d = " << d << "   dims = " << dims << "\n";
+        // first operation zeros out y, then we increment
+        precision ybeta = (mats_.size() == 1) ?  0 : 1;
+
         if (d == 0 and d == dims - 1) // only one matrix
           mats_.back().set_vectors(num_rows, precision{1}, x, ybeta, y);
         else if (d == 0)
@@ -81,12 +80,6 @@ global_gpu_operations<precision>
       }
     }
   }
-}
-
-template<typename precision>
-void global_gpu_operations<precision>::update_vals()
-{
-  //
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

@@ -777,13 +777,31 @@ template<typename precision>
 class global_kron_matrix
 {
 public:
+  //! \brief Several workspaces are needed
+  enum class workspace {
+      pad_x = 0, // padded entries for x/y
+      pad_y,
+      stage1,    // global kron workspace (stages)
+      stage2,
+#ifdef ASGARD_USE_CUDA
+      dev_x,     // move CPU data to the GPU
+      dev_y,
+      gsparse,   // cusparse workspace
+#endif
+      num_spaces
+  };
+
 #ifdef ASGARD_USE_CUDA
   template<typename T>
-  using device_vector = gpu::vector<T>;
+  using default_vector = gpu::vector<T>;
 #else
   template<typename T>
-  using device_vector = std::vector<T>;
+  using default_vector = std::vector<T>;
 #endif
+
+  //! \brief Workspace buffers held externally to minimize allocations
+  using workspace_type = std::array<default_vector<precision>,
+                                    static_cast<int>(workspace::num_spaces)>;
 
   //! \brief Creates an empty matrix.
   global_kron_matrix() : conn_(1), flops_({0, 0, 0}), edges_(1) {}
@@ -795,7 +813,7 @@ public:
                      std::vector<std::vector<int>> gdiag,
                      std::vector<std::vector<int>> givals,
                      int porder, connect_1d edges,
-                     device_vector<int> local_pntr, device_vector<int> local_indx)
+                     default_vector<int> local_pntr, default_vector<int> local_indx)
       : conn_(std::move(conn)), ilist_(std::move(ilist)),
         num_dimensions_(ilist_.stride()), num_active_(num_active),
         dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
@@ -839,10 +857,6 @@ public:
     for (auto &c : col_indx)
       c *= tsize;
     local_cols_ = std::move(col_indx);
-
-    xdev_.resize(num_active_); // workspace on the gpu
-    ydev_.resize(num_active_);
-
 #else
     expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
     expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
@@ -859,19 +873,17 @@ public:
     int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
 
     gpu_global[imex_indx] = kronmult::global_gpu_operations<precision>(
-        hndl, num_dimensions_, perms_, gpntr_, gindx_, gvals_,
-        term_groups[imex_indx], pad_x, pad_y, scratch1, scratch2);
-  }
-  size_t get_gpu_gkron_workspace(imex_flag const imex) const
-  {
-    int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
-    return gpu_global[imex_indx].workspace_size();
-  }
-  void set_gk_buffer(void *buff)
-  {
+        hndl, num_dimensions_, perms_, gpntr_, gindx_, gvals_, term_groups[imex_indx],
+        get_buffer<workspace::pad_x>(), get_buffer<workspace::pad_y>(),
+        get_buffer<workspace::stage1>(), get_buffer<workspace::stage2>());
+
+    size_t buff_size = gpu_global[imex_indx].size_workspace();
+    resize_buffer<workspace::gsparse>(buff_size);
+
+    // if buffer changed, we need to reset the rest of the kron operations
     for (auto &g : gpu_global)
       if (g)
-        g.set_buffer(buff);
+        g.set_buffer(get_buffer<workspace::gsparse>());
   }
 #endif
 
@@ -918,24 +930,19 @@ public:
   {
     return flops_[flag2int(etype)];
   }
-  //! \brief Padding requires 4 buffers of this size
-  int64_t four_workspace_buffers_size()
-  {
-    return ilist_.num_strips();
-  }
   //! \brief Set the four buffers
-  void set_four_buffers(precision *a, precision *b, precision *c, precision *d)
+  void set_workspace_buffers(workspace_type *work)
   {
-    pad_x    = a;
-    pad_y    = b;
-    scratch1 = c;
-    scratch2 = d;
+    work_ = work; // save a link to the pointers
+
+    resize_buffer<workspace::pad_x>(ilist_.num_strips());
+    resize_buffer<workspace::pad_y>(ilist_.num_strips());
+    resize_buffer<workspace::stage1>(ilist_.num_strips());
+    resize_buffer<workspace::stage2>(ilist_.num_strips());
+
 #ifdef ASGARD_USE_CUDA
-    // zero out the a-vector (maybe run a kernel here)
-    std::vector<precision> tmp(ilist_.num_strips(), precision{0});
-    fk::copy_to_device(pad_x, tmp.data(), ilist_.num_strips());
-#else
-    std::fill_n(pad_x, ilist_.num_strips(), precision{0});
+    resize_buffer<workspace::dev_x>(num_active_);
+    resize_buffer<workspace::dev_y>(num_active_);
 #endif
   }
 
@@ -977,6 +984,40 @@ protected:
   {
     return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
   }
+  // the workspace is kept externally to minimize allocations
+  mutable workspace_type *work_;
+
+  //! \brief Compile-time method to get a specific workspace
+  template<workspace wid>
+  precision *get_buffer() const
+  {
+    static_assert(wid != workspace::num_spaces,
+                  "no buffer associated with the last entry");
+    return (*work_)[static_cast<int>(wid)].data();
+  }
+  //! \brief Method to resize the buffer, if the size is insufficient
+  template<workspace wid>
+  void resize_buffer(int64_t min_size)
+  {
+    static_assert(wid != workspace::num_spaces,
+                  "no buffer associated with the last entry");
+    default_vector<precision> &w = (*work_)[static_cast<int>(wid)];
+    if (static_cast<int64_t>(w.size()) < min_size)
+    {
+      w.resize(min_size);
+      // x must always be padded by zeros
+      if constexpr(wid == workspace::pad_x)
+      {
+#ifdef ASGARD_USE_CUDA
+        // zero out the a-vector (maybe run a kernel here)
+        std::vector<precision> tmp(ilist_.num_strips(), precision{0});
+        fk::copy_to_device(w.data(), tmp.data(), ilist_.num_strips());
+#else
+        std::fill_n(w.data(), ilist_.num_strips(), precision{0});
+#endif
+      }
+    }
+  }
 
 private:
   static constexpr int num_variants = 3;
@@ -997,24 +1038,19 @@ private:
   std::vector<std::vector<precision>> gvals_;
   // collections of terms
   std::array<std::vector<int>, 3> term_groups;
-  // temp workspace (global case)
-  mutable precision *pad_x, *pad_y;
-  mutable precision *scratch1, *scratch2;
   // local case data, handles the neighbors on the same level
   int porder_;
   connect_1d edges_;
   std::vector<int> local_pntr_;
   std::vector<int> local_indx_;
-  std::array<device_vector<int>, num_variants> local_opindex_;
-  std::array<device_vector<precision>, num_variants> local_opvalues_;
+  std::array<default_vector<int>, num_variants> local_opindex_;
+  std::array<default_vector<precision>, num_variants> local_opvalues_;
   // preconditioner
-  device_vector<precision> pre_con_;
+  default_vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA
   std::array<kronmult::global_gpu_operations<precision>, num_variants> gpu_global;
-  device_vector<int> local_rows_;
-  device_vector<int> local_cols_;
-  mutable device_vector<precision> xdev_;
-  mutable device_vector<precision> ydev_;
+  default_vector<int> local_rows_;
+  default_vector<int> local_cols_;
   mutable std::vector<precision> cpu_pre_con_; // cpu copy, if requested
 #endif
 };
@@ -1142,26 +1178,17 @@ struct matrix_list
   {
 #ifdef KRON_MODE_GLOBAL
     if (not kglobal)
+    {
       kglobal = make_global_kron_matrix(pde, grid, opts);
-
-    // the buffers must be set before preset_gpu_gkron()
-    int64_t req4 = kglobal.four_workspace_buffers_size();
-    if (static_cast<int64_t>(workspaces[0].size()) < req4)
-      for(auto &w : workspaces)
-        w.resize(req4);
-
-    kglobal.set_four_buffers(workspaces[0].data(), workspaces[1].data(),
-                             workspaces[2].data(), workspaces[3].data());
+      // the buffers must be set before preset_gpu_gkron()
+      kglobal.set_workspace_buffers(&workspaces);
+    }
 
     if (kglobal.local_unset(entry))
     {
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
 #ifdef ASGARD_USE_CUDA
       kglobal.preset_gpu_gkron(sp_handle, imex(entry));
-      size_t bsize = kglobal.get_gpu_gkron_workspace(imex(entry));
-      if (gpu_sparse_buffer.size() < static_cast<int64_t>(bsize))
-        gpu_sparse_buffer.resize(bsize);
-      kglobal.set_gk_buffer(gpu_sparse_buffer.data());
 #endif
     }
 
@@ -1252,8 +1279,16 @@ struct matrix_list
     else
     {
       if (kglobal.local_unset(entry))
+      {
         set_specific_mode(pde, grid, opts, imex(entry), kglobal);
-      update_matrix_coefficients(pde, opts, imex(entry), kglobal);
+#ifdef ASGARD_USE_CUDA
+        kglobal.preset_gpu_gkron(sp_handle, imex(entry));
+#endif
+      }
+      // else
+      // {
+        update_matrix_coefficients(pde, opts, imex(entry), kglobal);
+      // }
     }
 #else
     if (not(*this)[entry])
@@ -1294,7 +1329,7 @@ struct matrix_list
   //! \brief Holds the global part of the kron product
   global_kron_matrix<precision> kglobal;
 
-  std::array<typename global_kron_matrix<precision>::device_vector<precision>, 4> workspaces;
+  typename global_kron_matrix<precision>::workspace_type workspaces;
 #ifdef ASGARD_USE_CUDA
   gpu::sparse_handle sp_handle;
   gpu::vector<std::byte> gpu_sparse_buffer;

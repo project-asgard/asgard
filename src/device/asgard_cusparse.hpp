@@ -24,6 +24,8 @@ struct sparse_handle
   {
     auto status = cusparseCreate(&handle_);
     expect(status == CUSPARSE_STATUS_SUCCESS);
+    status = cusparseSetPointerMode(handle_, CUSPARSE_POINTER_MODE_DEVICE);
+    expect(status == CUSPARSE_STATUS_SUCCESS);
   }
   ~sparse_handle()
   {
@@ -73,6 +75,7 @@ struct sparse_matrix
 {
   sparse_matrix(int64_t num_rows, int64_t num_cols, int64_t nnz,
                 int *pntr, int *indx, T *vals)
+    : desc_(nullptr), x_(nullptr), y_(nullptr)
   {
     auto status = cusparseCreateCsr(&desc_, num_rows, num_cols, nnz,
                                     pntr, indx, vals,
@@ -84,7 +87,8 @@ struct sparse_matrix
   sparse_matrix(sparse_matrix<T> &&other)
     : desc_(std::exchange(other.desc_, nullptr)),
       x_(std::exchange(other.x_, nullptr)),
-      y_(std::exchange(other.y_, nullptr))
+      y_(std::exchange(other.y_, nullptr)),
+      scale_factors_(std::move(other.scale_factors_))
   {}
 
   sparse_matrix<T> &operator =(sparse_matrix<T> &&other)
@@ -93,6 +97,7 @@ struct sparse_matrix
     std::swap(desc_, tmp.desc_);
     std::swap(x_, tmp.x_);
     std::swap(y_, tmp.y_);
+    std::swap(scale_factors_, tmp.scale_factors_);
     return *this;
   }
 
@@ -119,6 +124,7 @@ struct sparse_matrix
     scale_factors_ = std::vector<T>{alpha, beta};
   }
 
+  //! \brief The result is in units of the floating point type
   size_t size_workspace(cusparseHandle_t handle) const
   {
     size_t buffer_size = 0;
@@ -128,7 +134,7 @@ struct sparse_matrix
         scale_factors_.data() + 1, y_, cusparse_dtype<T>::value, CUSPARSE_SPMV_CSR_ALG1,
         &buffer_size);
     expect(status == CUSPARSE_STATUS_SUCCESS);
-    return buffer_size;
+    return 1 + buffer_size / sizeof(T);
   }
 
   void apply(cusparseHandle_t handle, void *workspace)

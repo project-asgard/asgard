@@ -294,11 +294,8 @@ public:
                         precision *x, precision *y,
                         precision *work1, precision *work2);
 
-  //! \brief Update the values of the sparse matrices
-  void update_vals();
-
   //! \brief Returns the maximum size of the workspace
-  int64_t workspace_size() const
+  int64_t size_workspace() const
   {
     size_t num = 0;
     for(auto const &m : mats_)
@@ -317,7 +314,20 @@ public:
   //! \brief Checks if the operation has been set
   operator bool() const { return (not gpntr_.empty()); }
 
-private:
+  //! \brief Returns true if the values at vid are not used
+  bool empty_values(int vid) const
+  {
+    return gvals_[vid].empty();
+  }
+
+  //! \brief Overwrites the existing values of a vector at vid
+  void update_values(int vid, std::vector<precision> const &cpu_values)
+  {
+    expect(gvals_[vid].size() == static_cast<int64_t>(cpu_values.size()));
+    fk::copy_to_device(gvals_[vid].data(), cpu_values.data(), gvals_[vid].size());
+  }
+
+//private:
   gpu::sparse_handle::htype hndl_;
   std::vector<gpu::vector<int>> gpntr_;
   std::vector<gpu::vector<int>> gindx_;

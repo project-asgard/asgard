@@ -552,6 +552,37 @@ TEMPLATE_TEST_CASE("testing global kron 5d, constant basis", "[gkron 5d]", test_
 TEMPLATE_TEST_CASE("testing cusparse functionality", "[cusparse]", test_precs)
 {
   asgard::gpu::sparse_handle cusparse;
+
+  std::vector<int> pntr      = {0, 2, 5, 8, 10};
+  std::vector<int> indx      = {0, 1, 0, 1, 2, 1, 2, 3, 2, 3};
+  std::vector<TestType> vals = {-2.0, 1.0, 1.0, -2.0, 1.0, 1.0, -2.0, 1.0, 1.0, -2.0};
+
+  std::vector<TestType> x     = {1.0, 2.0, 3.0, 4.0};
+  std::vector<TestType> y_ref(pntr.size() - 1, TestType{0});
+
+  for (size_t r = 0; r < pntr.size() - 1; r++)
+    for (int j = pntr[r]; j < pntr[r + 1]; j++)
+      y_ref[r] += x[indx[j]] * vals[j];
+
+  asgard::gpu::vector<int>      gpntr = pntr;
+  asgard::gpu::vector<int>      gindx = indx;
+  asgard::gpu::vector<TestType> gvals = vals;
+  asgard::gpu::vector<TestType> gx    = x;
+
+  asgard::gpu::vector<TestType> gy(gx.size());
+
+  asgard::gpu::sparse_matrix<TestType> mat(4, 4, indx.size(), gpntr.data(),
+                                           gindx.data(), gvals.data());
+
+  mat.set_vectors(4, TestType{1}, gx.data(), TestType{0}, gy.data());
+
+  size_t work_size = mat.size_workspace(cusparse);
+  asgard::gpu::vector<std::byte> work(work_size);
+
+  mat.apply(cusparse, work.data());
+
+  std::vector<TestType> y = gy;
+  test_almost_equal(y, y_ref);
 }
 #endif
 #endif
