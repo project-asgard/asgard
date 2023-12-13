@@ -147,7 +147,7 @@ int main(int argc, char **argv)
   int dense_size = 0;
   if (cli_input.get_realspace_output_freq() > 0)
   {
-    asgard::dense_space_size(*pde);
+    dense_size = asgard::dense_space_size(*pde);
     expect(dense_size > 0);
   }
   asgard::fk::vector<prec> real_space(dense_size);
