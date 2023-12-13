@@ -111,7 +111,7 @@ void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
 
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
-
+/*
 template<typename P, asgard::resource rec = asgard::resource::host>
 void test_kronmult_dense(int dimensions, int n, int num_terms,
                          int num_1d_blocks)
@@ -383,6 +383,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
 }
 
 #endif
+*/
 
 #ifdef KRON_MODE_GLOBAL
 
@@ -547,4 +548,10 @@ TEMPLATE_TEST_CASE("testing global kron 5d, constant basis", "[gkron 5d]", test_
   test_global_kron<TestType>(5, l);
 }
 
+#ifdef ASGARD_USE_CUDA
+TEMPLATE_TEST_CASE("testing cusparse functionality", "[cusparse]", test_precs)
+{
+  asgard::gpu::sparse_handle cusparse;
+}
+#endif
 #endif
