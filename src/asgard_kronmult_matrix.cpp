@@ -1473,9 +1473,11 @@ void set_specific_mode(PDE<precision> const &pde,
   {
     num_cints += mat.gpntr_[d].size();
     num_cints += mat.gindx_[d].size();
-    num_cints += mat.gdiag_[d].size();
     num_cints += mat.givals_[d].size();
   }
+  for (auto const &ddiag : mat.gdiag_)
+    num_cints += ddiag.size();
+
   for (auto t : used_terms)
     for (int d = 0; d < num_dimensions; d++)
       num_cfps += mat.gvals_[t * num_dimensions + d].size();
