@@ -301,22 +301,26 @@ template<typename precision>
 inline int dense_space_size(std::vector<dimension<precision>> const &dims)
 {
   /* determine the length of the realspace solution */
-  return std::accumulate(dims.cbegin(), dims.cend(), int{1},
-                         [](int const size, dimension<precision> const &dim) {
-                           return size * dense_dim_size(dim.get_degree(),
-                                                        dim.get_level());
-                         });
+  int64_t const dense_size = std::accumulate(
+      dims.cbegin(), dims.cend(), int64_t{1},
+      [](int64_t const size, dimension<precision> const &dim) {
+        return size * dense_dim_size(dim.get_degree(), dim.get_level());
+      });
+  expect(dense_size <= std::numeric_limits<int>::max());
+  return static_cast<int>(dense_size);
 }
 
 template<typename precision>
 inline int
 dense_space_size(std::vector<dimension_description<precision>> const &dims)
 {
-  return std::accumulate(
-      dims.cbegin(), dims.cend(), int{1},
-      [](int const size, dimension_description<precision> const &dim) {
+  int64_t const dense_size = std::accumulate(
+      dims.cbegin(), dims.cend(), int64_t{1},
+      [](int64_t const size, dimension_description<precision> const &dim) {
         return size * dense_dim_size(dim.degree, dim.level);
       });
+  expect(dense_size <= std::numeric_limits<int>::max());
+  return static_cast<int>(dense_size);
 }
 
 template<typename P>

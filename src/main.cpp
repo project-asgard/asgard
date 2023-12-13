@@ -144,7 +144,12 @@ int main(int argc, char **argv)
 
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
-  auto dense_size = asgard::dense_space_size(*pde);
+  int dense_size = 0;
+  if (cli_input.get_realspace_output_freq() > 0)
+  {
+    asgard::dense_space_size(*pde);
+    expect(dense_size > 0);
+  }
   asgard::fk::vector<prec> real_space(dense_size);
 
   // temporary workspaces for the transform
