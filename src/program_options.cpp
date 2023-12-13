@@ -308,7 +308,7 @@ parser::parser(int argc, char const *const *argv)
   if ((use_implicit_stepping || use_imex_stepping) && get_num_ranks() > 1)
   {
     auto const choice = solver_mapping.at(solver_str);
-    if (choice != solve_opts::scalapack)
+    if (choice == solve_opts::direct)
     {
       std::cerr << "Distribution not implemented for implicit stepping\n";
       valid = false;

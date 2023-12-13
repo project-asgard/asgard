@@ -119,13 +119,13 @@ void test_kronmult(parser const &parse, P const tol_factor)
   P const dt = pde->get_dt();
 
   // perform matrix-free gmres
-  fk::vector<P> const matrix_free_gmres = [&operator_matrices, &gold, &b,
+  fk::vector<P> const matrix_free_gmres = [&adaptive_grid, elem_size, &operator_matrices, &gold, &b,
                                            dt]() {
     fk::vector<P> x(gold);
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices, x,
+    solver::simple_gmres_euler(adaptive_grid, elem_size, dt, imex_flag::unspecified, operator_matrices, x,
                                b, restart, max_iter, tolerance);
     return x;
   }();
@@ -138,7 +138,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     fk::vector<P> x(gold);
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
+    solver::bicgstab_euler(adaptive_grid, elem_size, dt, imex_flag::unspecified, operator_matrices, x,
                            b, max_iter, tolerance);
     return x;
   }();
@@ -147,7 +147,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
 
 #ifdef ASGARD_USE_CUDA
   // perform matrix-free gmres
-  fk::vector<P> const mf_gpu_gmres = [&operator_matrices, &gold, &b, dt]() {
+  fk::vector<P> const mf_gpu_gmres = [&adaptive_grid, &operator_matrices, &gold, &b, dt]() {
     fk::vector<P, mem_type::owner, resource::device> x_d =
         gold.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
@@ -155,7 +155,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices,
+    solver::simple_gmres_euler(adaptive_grid, dt, imex_flag::unspecified, operator_matrices,
                                x_d, b_d, restart, max_iter, tolerance);
     return x_d.clone_onto_host();
   }();

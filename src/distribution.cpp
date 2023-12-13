@@ -315,7 +315,7 @@ void reduce_results(fk::vector<P, src_mem, resrc> const &source,
       MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
   expect(success == 0);
 
-  MPI_Datatype const mpi_type =
+  MPI_Datatype constexpr mpi_type =
       std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
   success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
                           source.size(), mpi_type, MPI_SUM, row_communicator);
@@ -326,6 +326,49 @@ void reduce_results(fk::vector<P, src_mem, resrc> const &source,
 
 #else
   fm::copy(source, dest);
+  return;
+#endif
+}
+
+template<typename P, std::enable_if_t<std::is_floating_point<P>::value, bool> = true>
+void reduce_results(P const source,
+                    P &dest,
+                    distribution_plan const &plan, int const my_rank)
+{
+  expect(my_rank >= 0);
+  expect(my_rank < static_cast<int>(plan.size()));
+
+#ifdef ASGARD_USE_MPI
+  if (plan.size() == 1)
+  {
+    dest = source;
+    return;
+  }
+
+  dest               = 0.;
+  int const num_cols = get_num_subgrid_cols(plan.size());
+
+  int const my_row = my_rank / num_cols;
+  int const my_col = my_rank % num_cols;
+
+  MPI_Comm row_communicator;
+  MPI_Comm const global_communicator = distro_handle.get_global_comm();
+
+  auto success =
+      MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
+  expect(success == 0);
+
+  MPI_Datatype constexpr mpi_type =
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
+  success = MPI_Allreduce((void *)&source, (void *)&dest,
+                          1, mpi_type, MPI_SUM, row_communicator);
+  expect(success == 0);
+
+  success = MPI_Comm_free(&row_communicator);
+  expect(success == 0);
+
+#else
+  dest = source;
   return;
 #endif
 }
@@ -1170,14 +1213,32 @@ void scatter_matrix(P const *A, int const *descA, P *A_distr,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
+template void reduce_results(double const source, double &dest,
+                             distribution_plan const &plan, int const my_rank);
+
 template void reduce_results(
     fk::vector<double, mem_type::owner, resource::host> const &source,
     fk::vector<double, mem_type::owner, resource::host> &dest,
     distribution_plan const &plan, int const my_rank);
 
+template void reduce_results(
+    fk::vector<double, mem_type::owner, resource::host> const &source,
+    fk::vector<double, mem_type::view, resource::host> &dest,
+    distribution_plan const &plan, int const my_rank);
+
 template void exchange_results(
     fk::vector<double, mem_type::owner, resource::host> const &source,
     fk::vector<double, mem_type::owner, resource::host> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    fk::vector<double, mem_type::view, resource::host> const &source,
+    fk::vector<double, mem_type::owner, resource::host> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    fk::vector<double, mem_type::owner, resource::host> const &source,
+    fk::vector<double, mem_type::view, resource::host> &dest,
     int const segment_size, distribution_plan const &plan, int const my_rank);
 
 #ifdef ASGARD_USE_CUDA
@@ -1220,9 +1281,17 @@ template void scatter_matrix<double>(double const *A, int const *descA,
 
 #ifdef ASGARD_ENABLE_FLOAT
 
+template void reduce_results(float const source, float &dest,
+                             distribution_plan const &plan, int const my_rank);
+
 template void
 reduce_results(fk::vector<float, mem_type::owner, resource::host> const &source,
                fk::vector<float, mem_type::owner, resource::host> &dest,
+               distribution_plan const &plan, int const my_rank);
+
+template void
+reduce_results(fk::vector<float, mem_type::owner, resource::host> const &source,
+               fk::vector<float, mem_type::view, resource::host> &dest,
                distribution_plan const &plan, int const my_rank);
 
 template void exchange_results(

@@ -238,6 +238,10 @@ template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
 void reduce_results(fk::vector<P, src_mem, resrc> const &source,
                     fk::vector<P, dst_mem, resrc> &dest,
                     distribution_plan const &plan, int const my_rank);
+template<typename P, std::enable_if_t<std::is_floating_point<P>::value, bool> = true>
+void reduce_results(P const source,
+                    P &dest,
+                    distribution_plan const &plan, int const my_rank);
 
 // generate a message list for each rank for exchange_results function;
 // conceptually an internal component function, exposed for testing

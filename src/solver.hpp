@@ -1,5 +1,6 @@
 #pragma once
 
+#include "adapt.hpp"
 #include "asgard_kron_operators.hpp"
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
@@ -30,7 +31,8 @@ bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 // solves ( I - dt * mat ) * x = b
 template<typename P, resource resrc>
 gmres_info<P>
-simple_gmres_euler(const P dt, imex_flag imex,
+simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const elem_size,
+                   const P dt, imex_flag imex,
                    kron_operators<P> const &ops,
                    fk::vector<P, mem_type::owner, resrc> &x,
                    fk::vector<P, mem_type::owner, resrc> const &b,
@@ -39,7 +41,8 @@ simple_gmres_euler(const P dt, imex_flag imex,
 // solves ( I - dt * mat ) * x = b
 template<typename P, resource resrc>
 gmres_info<P>
-bicgstab_euler(const P dt, imex_flag imex,
+bicgstab_euler(adapt::distributed_grid<P> const &adaptive_grid, int const elem_size,
+               const P dt, imex_flag imex,
                kron_operators<P> const &ops,
                fk::vector<P, mem_type::owner, resrc> &x,
                fk::vector<P, mem_type::owner, resrc> const &b,
