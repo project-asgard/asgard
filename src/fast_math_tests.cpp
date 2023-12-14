@@ -149,7 +149,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::nrm2(v_owner_dev);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::vector: const view, device")
@@ -162,7 +162,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::nrm2(v_view_dev);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::vector: view, device")
@@ -175,7 +175,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::nrm2(v_view_dev);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::matrix: owner, device")
@@ -185,7 +185,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::frobenius(m_owner_dev);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::matrix: view, device")
@@ -198,7 +198,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::frobenius(m_view_dev);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::matrix submatrix: view, device")
@@ -223,7 +223,7 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 
     TestType norm = fm::frobenius(m_view_dev);
 
-    relaxed_fp_comparison(gold_norm, norm);
+    relaxed_fp_comparison(gold_l2_norm, norm);
   }
 
   SECTION("fk::matrix submatrix: const view, device")
