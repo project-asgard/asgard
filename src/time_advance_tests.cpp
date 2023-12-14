@@ -163,12 +163,15 @@ parser make_basic_parser(std::string const &pde_choice,
                          fk::vector<int> starting_levels, int const degree,
                          double const cfl, bool full_grid,
                          int const num_time_steps, bool use_implicit,
-                         bool do_adapt_levels, double adapt_threshold)
+                         bool do_adapt_levels, double adapt_threshold,
+                         bool use_linf_nrm)
 {
   parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
                                    full_grid, num_time_steps, use_implicit);
   parser_mod::set(parse, parser_mod::do_adapt, do_adapt_levels);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
+  parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
+
   return parse;
 }
 parser make_basic_parser(std::string const &pde_choice,
@@ -176,11 +179,11 @@ parser make_basic_parser(std::string const &pde_choice,
                          double const cfl, bool full_grid,
                          int const num_time_steps, bool use_implicit,
                          bool do_adapt_levels, double adapt_threshold,
-                         std::string const &solver_str)
+                         bool use_linf_nrm, std::string const &solver_str)
 {
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
-                                   full_grid, num_time_steps, use_implicit,
-                                   do_adapt_levels, adapt_threshold);
+  parser parse = make_basic_parser(
+      pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps,
+      use_implicit, do_adapt_levels, adapt_threshold, use_linf_nrm);
   parser_mod::set(parse, parser_mod::solver_str, solver_str);
   return parse;
 }
@@ -284,10 +287,11 @@ TEST_CASE("adaptive time advance")
     auto const use_implicit    = true;
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 0.5e-1;
+    auto const use_linf_nrm    = true;
 
-    parser const parse =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          use_implicit, do_adapt_levels, adapt_threshold);
+    parser const parse = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
+        do_adapt_levels, adapt_threshold, use_linf_nrm);
 
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
@@ -299,7 +303,7 @@ TEST_CASE("adaptive time advance")
 
     parser const parse_scalapack = make_basic_parser(
         pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-        do_adapt_levels, adapt_threshold, solver_str);
+        do_adapt_levels, adapt_threshold, use_linf_nrm, solver_str);
 
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
@@ -320,10 +324,11 @@ TEST_CASE("adaptive time advance")
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 0.5e-1;
+    auto const use_linf_nrm    = true;
 
-    parser const parse =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          use_implicit, do_adapt_levels, adapt_threshold);
+    parser const parse = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
+        do_adapt_levels, adapt_threshold, use_linf_nrm);
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
     {
@@ -344,10 +349,11 @@ TEST_CASE("adaptive time advance")
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 1e-4;
+    auto const use_linf_nrm    = true;
 
-    parser const parse =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          use_implicit, do_adapt_levels, adapt_threshold);
+    parser const parse = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
+        do_adapt_levels, adapt_threshold, use_linf_nrm);
 
     // we do not gracefully handle coarsening below number of active ranks yet
     if (get_num_ranks() == 1)
@@ -369,10 +375,11 @@ TEST_CASE("adaptive time advance")
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 1e-4;
+    auto const use_linf_nrm    = true;
 
-    parser const parse =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          use_implicit, do_adapt_levels, adapt_threshold);
+    parser const parse = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
+        do_adapt_levels, adapt_threshold, use_linf_nrm);
 
     // we do not gracefully handle coarsening below number of active ranks yet
     if (get_num_ranks() == 1)
@@ -393,10 +400,11 @@ TEST_CASE("adaptive time advance")
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 1e-3;
+    auto const use_linf_nrm    = true;
 
-    parser const parse =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          use_implicit, do_adapt_levels, adapt_threshold);
+    parser const parse = make_basic_parser(
+        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
+        do_adapt_levels, adapt_threshold, use_linf_nrm);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -413,13 +421,12 @@ TEST_CASE("adaptive time advance")
     auto const full_grid       = false;
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
     auto const do_adapt_levels = true;
-    auto const use_l2_nrm      = true;
+    auto const use_linf_nrm    = false;
     auto const adapt_threshold = 1e-3;
 
-    parser parse =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          use_implicit, do_adapt_levels, adapt_threshold);
-    parser_mod::set(parse, parser_mod::use_l2_nrm, use_l2_nrm);
+    parser parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
+                                     num_steps, use_implicit, do_adapt_levels,
+                                     adapt_threshold, use_linf_nrm);
 
     time_advance_test(parse, gold_base, tol_factor);
   }
@@ -436,12 +443,16 @@ TEST_CASE("adaptive time advance")
     auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
     auto const do_adapt_levels = true;
     auto const adapt_threshold = 1e-3;
+    auto const use_linf_nrm    = true;
+
     fk::vector<int> max_adapt_level{6, 8};
 
-    parser parse =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          use_implicit, do_adapt_levels, adapt_threshold);
+    parser parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
+                                     num_steps, use_implicit, do_adapt_levels,
+                                     adapt_threshold, use_linf_nrm);
     parser_mod::set(parse, parser_mod::max_adapt_level, max_adapt_level);
+    parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
+
     time_advance_test(parse, gold_base, tol_factor);
   }
 }
