@@ -1043,6 +1043,28 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
   }
   lpntr.push_back(static_cast<int>(lindx.size()));
   upntr.push_back(static_cast<int>(uindx.size()));
+
+  std::cout << " sizes = " << lpntr.size() << "  " << upntr.size() << "\n";
+  for(size_t r=0; r<pntr.size() - 1; r++){
+    for (int j = pntr[r]; j < pntr[r + 1]; j++)
+      std::cout << indx[j] << "  ";
+    std::cout << "\n";
+  }
+  for(auto d : diag) std::cout << d << "  "; std::cout << "\n";
+  std::cout << "  lower \n";
+  for(size_t r=0; r<lpntr.size() - 1; r++){
+    for (int j = lpntr[r]; j < lpntr[r + 1]; j++)
+      std::cout << lindx[j] << "  ";
+    std::cout << "\n";
+  }
+  std::cout << "  upper \n";
+  for(size_t r=0; r<upntr.size() - 1; r++){
+    for (int j = upntr[r]; j < upntr[r + 1]; j++)
+      std::cout << uindx[j] << "  ";
+    std::cout << "\n";
+  }
+  std::cout << "  -----------------------------------  \n";
+
 }
 
 template<typename precision>
@@ -1672,6 +1694,19 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
                                          get_buffer<workspace::pad_y>(), 1,
                                          get_buffer<workspace::dev_y>(), 1);
 
+    std::vector<precision> cpuy = (*work_)[1];
+    //fk::copy_to_host(cpuy.data(), y, num_active_);
+    //for(auto y : cpuy) std::cout << y << " ";
+    //std::cout << "\n";
+    for(auto t : used_terms){
+        std::cout << " term = " << t << "\n";
+        for(int d=0; d<3 * num_dimensions_; d++){
+            std::vector<precision> cpu = gpu_global[imex].gvals_[3 * t * num_dimensions_ + d];
+            for(auto y : cpu) std::cout << y << " ";
+            std::cout << "\n";
+        }
+    }
+
     fk::copy_to_host<precision>(y, get_buffer<workspace::dev_y>(), num_active_);
 #else
     kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
@@ -1690,6 +1725,19 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
                          get_buffer<workspace::pad_y>(),
                          get_buffer<workspace::stage1>(),
                          get_buffer<workspace::stage2>());
+
+    //std::vector<precision> cpuy = (*work_)[1];
+    //fk::copy_to_host(cpuy.data(), y, num_active_);
+    //for(auto y : cpuy) std::cout << y << " ";
+    //std::cout << "\n";
+    for(auto t : used_terms){
+        std::cout << " term = " << t << "\n";
+        for(int d=0; d<num_dimensions_; d++){
+            std::vector<precision> cpu = gvals_[t * num_dimensions_ + d];
+            for(auto y : cpu) std::cout << y << " ";
+            std::cout << "\n";
+        }
+    }
 
     precision *py = get_buffer<workspace::pad_y>();
 #pragma omp parallel for
