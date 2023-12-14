@@ -1010,10 +1010,10 @@ protected:
       {
 #ifdef ASGARD_USE_CUDA
         // zero out the a-vector (maybe run a kernel here)
-        std::vector<precision> tmp(ilist_.num_strips(), precision{0});
-        fk::copy_to_device(w.data(), tmp.data(), ilist_.num_strips());
+        std::vector<precision> tmp(min_size, precision{0});
+        fk::copy_to_device(w.data(), tmp.data(), min_size);
 #else
-        std::fill_n(w.data(), ilist_.num_strips(), precision{0});
+        std::fill_n(w.data(), min_size, precision{0});
 #endif
       }
     }
@@ -1278,17 +1278,30 @@ struct matrix_list
       make(entry, pde, grid, opts);
     else
     {
-      if (kglobal.local_unset(entry))
-      {
+        // hard reset to elimiate the update from the question
+        kglobal = make_global_kron_matrix(pde, grid, opts);
+        // the buffers must be set before preset_gpu_gkron()
+        kglobal.set_workspace_buffers(&workspaces);
+
         set_specific_mode(pde, grid, opts, imex(entry), kglobal);
-#ifdef ASGARD_USE_CUDA
+  #ifdef ASGARD_USE_CUDA
         kglobal.preset_gpu_gkron(sp_handle, imex(entry));
-#endif
-      }
-      // else
-      // {
-        update_matrix_coefficients(pde, opts, imex(entry), kglobal);
-      // }
+  #endif
+      //}
+
+
+//       if (kglobal.local_unset(entry))
+//       {
+//         set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+// #ifdef ASGARD_USE_CUDA
+//         kglobal.preset_gpu_gkron(sp_handle, imex(entry));
+// #endif
+//       }
+//       // else
+//       // {
+//         update_matrix_coefficients(pde, opts, imex(entry), kglobal);
+//       // }
+//     }
     }
 #else
     if (not(*this)[entry])
