@@ -33,7 +33,8 @@ parser::parser(int argc, char const *const *argv)
           "Terms in legendre basis polynomials") |
       clara::detail::Opt(use_full_grid)["-f"]["--full_grid"](
           "Use full grid (vs. sparse grid)") |
-      clara::detail::Opt(use_l2_nrm)["--l_two"]("Use L2 norm (vs. Linf norm)") |
+      clara::detail::Opt(use_linf_nrm)["--l_inf"](
+          "Use Linf norm (vs. L2 norm)") |
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
       clara::detail::Opt(solver_str,
@@ -332,7 +333,7 @@ parser::parser(int argc, char const *const *argv)
               << '\n';
     valid = false;
   }
-  if (use_l2_nrm != DEFAULT_USE_L2_NRM && !do_adapt)
+  if (use_linf_nrm != DEFAULT_USE_LINF_NRM && !do_adapt)
   {
     std::cerr << "input adaptivity norm without enabling adaptivity..." << '\n';
     valid = false;
@@ -464,7 +465,7 @@ parser::parser(int argc, char const *const *argv)
 bool parser::using_implicit() const { return use_implicit_stepping; }
 bool parser::using_imex() const { return use_imex_stepping; }
 bool parser::using_full_grid() const { return use_full_grid; }
-bool parser::using_l2_nrm() const { return use_l2_nrm; }
+bool parser::using_linf_nrm() const { return use_linf_nrm; }
 bool parser::do_poisson_solve() const { return do_poisson; }
 bool parser::do_adapt_levels() const { return do_adapt; }
 bool parser::do_restart() const { return restart_file != NO_USER_VALUE_STR; }
@@ -559,8 +560,8 @@ void parser_mod::set(parser &p, parser_option_entry entry, bool value)
   case use_full_grid:
     p.use_full_grid = value;
     break;
-  case use_l2_nrm:
-    p.use_l2_nrm = value;
+  case use_linf_nrm:
+    p.use_linf_nrm = value;
     break;
   case do_poisson:
     p.do_poisson = value;

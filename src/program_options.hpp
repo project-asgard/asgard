@@ -218,7 +218,7 @@ public:
   static auto constexpr DEFAULT_USE_IMPLICIT      = false;
   static auto constexpr DEFAULT_USE_IMEX          = false;
   static auto constexpr DEFAULT_USE_FG            = false;
-  static auto constexpr DEFAULT_USE_L2_NRM        = false;
+  static auto constexpr DEFAULT_USE_LINF_NRM      = false;
   static auto constexpr DEFAULT_DO_POISSON        = false;
   static auto constexpr DEFAULT_DO_ADAPT          = false;
   static auto constexpr DEFAULT_PDE_STR           = "continuity_2";
@@ -256,9 +256,9 @@ public:
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS,
       fk::vector<int> const &max_adapt_levels_in = DEFAULT_MAX_ADAPT_LEVELS,
       std::string const restart_file_in          = NO_USER_VALUE_STR,
-      bool const use_l2_nrm_in                   = DEFAULT_USE_L2_NRM)
+      bool const use_linf_nrm_in                 = DEFAULT_USE_LINF_NRM)
       : use_implicit_stepping(use_implicit), use_full_grid(use_full_grid_in),
-        use_l2_nrm(use_l2_nrm_in), do_adapt(do_adapt_levels),
+        use_linf_nrm(use_linf_nrm_in), do_adapt(do_adapt_levels),
         starting_levels(starting_levels_in), degree(degree_in),
         max_level(max_level_in), mixed_grid_group(mixed_grid_group_in),
         num_time_steps(num_steps), cfl(cfl_in),
@@ -289,14 +289,14 @@ public:
       int const gmres_outer_iterations_in  = DEFAULT_GMRES_OUTER_ITERATIONS,
       fk::vector<int> const &max_adapt_levels_in = DEFAULT_MAX_ADAPT_LEVELS,
       std::string const restart_file_in          = NO_USER_VALUE_STR,
-      bool const use_l2_nrm_in                   = DEFAULT_USE_L2_NRM)
+      bool const use_linf_nrm_in                 = DEFAULT_USE_LINF_NRM)
       : parser(pde_mapping.at(pde_choice_in).pde_choice, starting_levels_in,
                degree_in, cfl_in, use_full_grid_in, max_level_in,
                mixed_grid_group_in, num_steps, use_implicit, do_adapt_levels,
                adapt_threshold_in, solver_str_in, use_imex, memory_limit_in,
                kmode_in, gmres_tolerance_in, gmres_inner_iterations_in,
                gmres_outer_iterations_in, max_adapt_levels_in, restart_file_in,
-               use_l2_nrm_in){};
+               use_linf_nrm_in){};
   /*!
    * \brief Simple utility to modify private members of the parser.
    */
@@ -305,7 +305,7 @@ public:
   bool using_implicit() const;
   bool using_imex() const;
   bool using_full_grid() const;
-  bool using_l2_nrm() const;
+  bool using_linf_nrm() const;
   bool do_poisson_solve() const;
   bool do_adapt_levels() const;
   bool do_restart() const;
@@ -393,7 +393,7 @@ private:
   bool use_implicit_stepping =
       DEFAULT_USE_IMPLICIT;            // enable implicit(/explicit) stepping
   bool use_full_grid = DEFAULT_USE_FG; // enable full(/sparse) grid
-  bool use_l2_nrm    = DEFAULT_USE_L2_NRM;
+  bool use_linf_nrm  = DEFAULT_USE_LINF_NRM;
   bool do_poisson = DEFAULT_DO_POISSON; // do poisson solve for electric field
   bool do_adapt   = DEFAULT_DO_ADAPT;   // adapt number of basis levels
 
@@ -478,7 +478,7 @@ struct parser_mod
     // bool values
     use_implicit_stepping,
     use_full_grid,
-    use_l2_nrm,
+    use_linf_nrm,
     do_poisson,
     do_adapt,
     use_imex_stepping,
@@ -524,7 +524,7 @@ public:
         gmres_outer_iterations(user_vals.get_gmres_outer_iterations()),
         use_implicit_stepping(user_vals.using_implicit()),
         use_full_grid(user_vals.using_full_grid()),
-        use_l2_nrm(user_vals.using_l2_nrm()),
+        use_linf_nrm(user_vals.using_linf_nrm()),
         do_poisson_solve(user_vals.do_poisson_solve()),
         do_adapt_levels(user_vals.do_adapt_levels()),
         solver(user_vals.get_selected_solver()),
@@ -554,7 +554,7 @@ public:
 
   bool const use_implicit_stepping;
   bool const use_full_grid;
-  bool const use_l2_nrm{false};
+  bool const use_linf_nrm{false};
   bool const do_poisson_solve;
   bool const do_adapt_levels;
 
