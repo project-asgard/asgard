@@ -1644,8 +1644,8 @@ void global_kron_matrix<precision>::apply(
 
   if constexpr (rec == resource::host)
   {
-    fk::copy_to_device<precision>(gpux, x, num_active_);
-    fk::copy_to_device<precision>(gpuy, y, num_active_);
+    fk::copy_to_device<precision>(get_buffer<workspace::dev_x>(), x, num_active_);
+    fk::copy_to_device<precision>(get_buffer<workspace::dev_y>(), y, num_active_);
   }
 
   kronmult::gpu_sparse(num_dimensions_, porder_ + 1, num_active_, local_cols_.size(),
