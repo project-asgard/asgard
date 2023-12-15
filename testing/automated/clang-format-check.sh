@@ -46,7 +46,7 @@ pde/pde_riemann_1x2v.hpp
 #pde/pde_riemann_1x3v.hpp
 pde/pde_two_stream.hpp
 pde/pde_vlasov_lb_full_f.hpp
-adapt.cpp
+#adapt.cpp
 adapt.hpp
 adapt_tests.cpp
 asgard_dimension.hpp
