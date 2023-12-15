@@ -102,7 +102,7 @@ template<resource out, resource in, typename P>
 void memcpy_1d(P *dest, P const *const source, int const num_elems)
 {
   cudaMemcpyKind constexpr kind = getCudaMemcpyKind(out, in);
-  auto const success = cudaMemcpy(dest, source, num_elems * sizeof(P), kind);
+  auto const success            = cudaMemcpy(dest, source, num_elems * sizeof(P), kind);
   expect(success == cudaSuccess);
 }
 

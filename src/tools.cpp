@@ -112,7 +112,7 @@ void simple_timer::get_timing_stats(
   {
     auto stats   = calculate_timing_stats(std::move(id), std::move(times));
     stat_map[id] = std::vector<double>{
-        stats.avg, stats.min,    stats.max,
+        stats.avg, stats.min, stats.max,
         stats.med, stats.gflops, static_cast<double>(stats.ncalls)};
   }
 }

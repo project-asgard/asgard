@@ -1112,4 +1112,121 @@ fk::vector<P, mem, resrc>::vector(fk::matrix<P, omem, resrc> const &source, int,
         int64_t{column_index} * source.stride() + int64_t{row_start}));
   }
 }
+
+#ifdef ASGARD_USE_CUDA
+
+namespace gpu
+{
+/*!
+ * \brief Simple container for GPU data, interoperable with std::vector
+ *
+ * This simple container allows for RAII memory management,
+ * resizing (without relocating the data) and easy copy from/to std::vector
+ */
+template<typename T>
+class vector
+{
+public:
+  //! \brief The value type.
+  using value_type = T;
+  //! \brief Construct an empty vector.
+  vector() : data_(nullptr), size_(0) {}
+  //! \brief Free all resouces.
+  ~vector()
+  {
+    if (data_ != nullptr)
+      fk::delete_device(data_);
+  }
+  //! \brief Construct a vector with given size.
+  vector(int64_t size) : data_(nullptr), size_(0)
+  {
+    this->resize(size);
+  }
+  //! \brief Move-constructor.
+  vector(vector<T> &&other)
+      : data_(std::exchange(other.data_, nullptr)),
+        size_(std::exchange(other.size_, 0))
+  {}
+  //! \brief Move-assignment.
+  vector &operator=(vector<T> &&other)
+  {
+    vector<T> temp(std::move(other));
+    std::swap(data_, temp.data_);
+    std::swap(size_, temp.size_);
+    return *this;
+  }
+  //! \brief Copy-constructor.
+  vector(vector<T> const &other) : vector()
+  {
+    *this = other;
+  }
+  //! \brief Copy-assignment.
+  vector<T> &operator=(vector<T> const &other)
+  {
+    this->resize(other.size());
+    fk::copy_on_device<T>(data_, other.data_, size_);
+    return *this;
+  }
+  //! \brief Constructor that copies from an existing std::vector
+  vector(std::vector<T> const &other) : vector()
+  {
+    *this = other;
+  }
+  //! \brief Copy the data from the std::vector
+  vector<T> &operator=(std::vector<T> const &other)
+  {
+    this->resize(other.size());
+    fk::copy_to_device<T>(data_, other.data(), size_);
+    return *this;
+  }
+  //! \brief Does not rellocate the data, i.e., if size changes all old data is lost.
+  void resize(int64_t new_size)
+  {
+    expect(new_size >= 0);
+    if (new_size != size_)
+    {
+      if (data_ != nullptr)
+        fk::delete_device<T>(data_);
+      fk::allocate_device<T>(data_, new_size, false);
+      size_ = new_size;
+    }
+  }
+  //! \brief Returns the number of elements inside the vector.
+  int64_t size() const { return size_; }
+  //! \brief Returns true if the size is zero, false otherwise.
+  bool empty() const { return (size_ == 0); }
+  //! \brief Clears all content.
+  void clear() { this->resize(0); }
+  //! \brief Returns pointer to the first stored element.
+  T *data() { return data_; }
+  //! \brief Returns const pointer to the first stored element.
+  T const *data() const { return data_; }
+  //! \brief Copy to a device array, the destination must be large enough
+  void copy_to_device(T *destination) const
+  {
+    fk::copy_on_device<T>(destination, data_, size_);
+  }
+  //! \brief Copy to a host array, the destination must be large enough
+  void copy_to_host(T *destination) const
+  {
+    fk::copy_to_host<T>(destination, data_, size_);
+  }
+  //! \brief Copy to a std::vector on the host.
+  std::vector<T> copy_to_host() const
+  {
+    std::vector<T> result(size_);
+    this->copy_to_host(result.data());
+    return result;
+  }
+  //! \brief Custom conversion, so we can assign to std::vector.
+  operator std::vector<T>() const { return this->copy_to_host(); }
+
+private:
+  T *data_;
+  int64_t size_;
+};
+
+} // namespace gpu
+#endif
+
 } // namespace asgard

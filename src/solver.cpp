@@ -91,6 +91,50 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
       restart, max_iter, tolerance);
 }
 
+#ifdef KRON_MODE_GLOBAL
+template<typename P>
+void apply_diagonal_precond(std::vector<P> const &pc, P dt,
+                            fk::vector<P, mem_type::view, resource::host> &x)
+{
+#pragma omp parallel for
+  for (size_t i = 0; i < pc.size(); i++)
+    x[i] /= (1.0 - dt * pc[i]);
+}
+#ifdef ASGARD_USE_CUDA
+template<typename P>
+void apply_diagonal_precond(gpu::vector<P> const &pc, P dt,
+                            fk::vector<P, mem_type::view, resource::device> &x)
+{
+  kronmult::gpu_precon_jacobi(pc.size(), dt, pc.data(), x.data());
+}
+#endif
+
+template<typename P, resource resrc>
+gmres_info<P>
+simple_gmres_euler(const P dt, matrix_entry mentry,
+                   global_kron_matrix<P> const &mat,
+                   fk::vector<P, mem_type::owner, resrc> &x,
+                   fk::vector<P, mem_type::owner, resrc> const &b,
+                   int const restart, int const max_iter, P const tolerance)
+{
+  auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
+
+  return simple_gmres(
+      [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
+          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
+        tools::time_event performance("kronmult - implicit", mat.flops(mentry));
+        mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
+        lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
+      },
+      fk::vector<P, mem_type::view, resrc>(x), b,
+      [&](fk::vector<P, mem_type::view, resrc> &x) -> void {
+          tools::time_event performance("kronmult - preconditioner", pc.size());
+          apply_diagonal_precond(pc, dt, x);
+      },
+      restart, max_iter, tolerance);
+}
+#endif
+
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
  * \returns default number of iterations before restart
@@ -386,6 +430,23 @@ simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
                    int const restart, int const max_iter,
                    double const tolerance);
 
+#ifdef KRON_MODE_GLOBAL
+template gmres_info<double>
+simple_gmres_euler(const double dt, matrix_entry mentry,
+                   global_kron_matrix<double> const &mat,
+                   fk::vector<double, mem_type::owner, resource::host> &x,
+                   fk::vector<double, mem_type::owner, resource::host> const &b,
+                   int const restart, int const max_iter, double const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<double>
+simple_gmres_euler(const double dt, matrix_entry mentry,
+                   global_kron_matrix<double> const &mat,
+                   fk::vector<double, mem_type::owner, resource::device> &x,
+                   fk::vector<double, mem_type::owner, resource::device> const &b,
+                   int const restart, int const max_iter, double const tolerance);
+#endif
+#endif
+
 template int default_gmres_restarts<double>(int num_cols);
 
 #ifdef ASGARD_USE_CUDA
@@ -420,6 +481,23 @@ simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
                    fk::vector<float> &x, fk::vector<float> const &b,
                    int const restart, int const max_iter,
                    float const tolerance);
+
+#ifdef KRON_MODE_GLOBAL
+template gmres_info<float>
+simple_gmres_euler(const float dt, matrix_entry mentry,
+                   global_kron_matrix<float> const &mat,
+                   fk::vector<float, mem_type::owner, resource::host> &x,
+                   fk::vector<float, mem_type::owner, resource::host> const &b,
+                   int const restart, int const max_iter, float const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<float>
+simple_gmres_euler(const float dt, matrix_entry mentry,
+                   global_kron_matrix<float> const &mat,
+                   fk::vector<float, mem_type::owner, resource::device> &x,
+                   fk::vector<float, mem_type::owner, resource::device> const &b,
+                   int const restart, int const max_iter, float const tolerance);
+#endif
+#endif
 
 template int default_gmres_restarts<float>(int num_cols);
 

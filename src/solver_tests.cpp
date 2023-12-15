@@ -103,8 +103,13 @@ void test_kronmult(parser const &parse, P const tol_factor)
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+#ifdef KRON_MODE_GLOBAL
+    solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
+                               b, restart, max_iter, tolerance);
+#else
     solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular], x,
                                b, restart, max_iter, tolerance);
+#endif
     return x;
   }();
 
@@ -119,8 +124,13 @@ void test_kronmult(parser const &parse, P const tol_factor)
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+#ifdef KRON_MODE_GLOBAL
+    solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
+                               x_d, b_d, restart, max_iter, tolerance);
+#else
     solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular],
                                x_d, b_d, restart, max_iter, tolerance);
+#endif
     return x_d.clone_onto_host();
   }();
 

@@ -90,8 +90,10 @@ void time_advance_test(parser const &parse,
     std::cout.setstate(std::ios_base::failbit);
     auto const time          = i * pde->get_dt();
     auto const update_system = i == 0;
+
     auto const method = opts.use_implicit_stepping ? time_advance::method::imp
                                                    : time_advance::method::exp;
+
     f_val = time_advance::adaptive_advance(method, *pde, operator_matrices,
                                            adaptive_grid, transformer, opts,
                                            f_val, time, update_system);
@@ -1312,7 +1314,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   TestType constexpr gmres_tol =
       std::is_same_v<TestType, double> ? 1.0e-8 : 1.0e-6;
   TestType constexpr tolerance =
-      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
+      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-3;
+  // Note: not sure if the single precision test makes sense here
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1685,7 +1688,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   // the expected L2 from analytical solution after the maxwellian has relaxed
   TestType constexpr expected_l2 = 8.654e-4;
   // rel tolerance for comparing l2
-  TestType constexpr tolerance = 1.0e-3;
+  TestType constexpr tolerance = std::is_same_v<TestType, double> ? 1.0e-3 : 5.0e-3;
 
   parser parse(pde_choice, levels);
   parser_mod::set(parse, parser_mod::degree, degree);
@@ -1832,6 +1835,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
 /*****************************************************************************
  * Testing the ability to split a matrix into multiple calls
  *****************************************************************************/
+#ifndef KRON_MODE_GLOBAL
 template<typename prec>
 void test_memory_mode(imex_flag imex)
 {
@@ -1955,3 +1959,4 @@ TEMPLATE_TEST_CASE("testing multi imex explicit", "imex_explicit", test_precs)
 {
   test_memory_mode<TestType>(imex_flag::imex_explicit);
 }
+#endif

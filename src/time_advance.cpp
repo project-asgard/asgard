@@ -213,12 +213,10 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   // FIXME eventually want to extract RK step into function
   // -- RK step 1
   fk::vector<P> fx(row_size);
-
   {
     tools::time_event performance("kronmult");
-    operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
-                                                   fx.data());
-    performance.flops = operator_matrices[matrix_entry::regular].flops();
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
+    performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -242,9 +240,8 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   // -- RK step 2
   {
     tools::time_event performance(
-        "kronmult", operator_matrices[matrix_entry::regular].flops());
-    operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
-                                                   fx.data());
+        "kronmult", operator_matrices.flops(matrix_entry::regular));
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -273,9 +270,8 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   // -- RK step 3
   {
     tools::time_event performance("kronmult");
-    operator_matrices[matrix_entry::regular].apply(1.0, x.data(), 0.0,
-                                                   fx.data());
-    performance.flops = operator_matrices[matrix_entry::regular].flops();
+    operator_matrices.apply(matrix_entry::regular, 1.0, x.data(), 0.0, fx.data());
+    performance.flops = operator_matrices.flops(matrix_entry::regular);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -438,9 +434,15 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     int const max_iter = program_opts.gmres_outer_iterations;
     fk::vector<P> fx(x);
     // TODO: do something better to save gmres output to pde
+#ifdef KRON_MODE_GLOBAL
+    pde.gmres_outputs[0] = solver::simple_gmres_euler<P, resource::host>(
+        pde.get_dt(), matrix_entry::regular, operator_matrices.kglobal,
+        fx, x, restart, max_iter, tolerance);
+#else
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrices[matrix_entry::regular], fx, x, restart,
-        max_iter, tolerance);
+        pde.get_dt(), operator_matrices[matrix_entry::regular],
+        fx, x, restart, max_iter, tolerance);
+#endif
     return fx;
   }
   return x;
@@ -792,12 +794,18 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   // Explicit step f_1s = f_0 + dt A f_0
   tools::timer.start("explicit_1");
   fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
+
   {
+#ifdef KRON_MODE_GLOBAL
+    tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(matrix_entry::imex_explicit));
+    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit, 1.0, f.data(), 0.0, fx.data());
+#else
     tools::time_event kronm_(
         "kronmult - explicit",
         operator_matrices[matrix_entry::imex_explicit].flops());
     operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
         1.0, f.data(), 0.0, fx.data());
+#endif
   }
 
 #ifndef ASGARD_USE_CUDA
@@ -807,7 +815,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   exchange_results(reduced_fx, fx, elem_size, plan, get_rank());
   fm::axpy(fx, f, dt); // f here is f_1s
 #else
-  fm::axpy(fx, f, dt);   // f here is f_1s
+  fm::axpy(fx, f, dt); // f here is f_1s
 #endif
 
   tools::timer.stop("explicit_1");
@@ -847,9 +855,16 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_1 = x_prev;
       }
     }
+
+#ifdef KRON_MODE_GLOBAL
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit], f_1, f,
-        restart, max_iter, tolerance);
+        pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
+        f_1, f, restart, max_iter, tolerance);
+#else
+    pde.gmres_outputs[0] = solver::simple_gmres_euler(
+        pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+        f_1, f, restart, max_iter, tolerance);
+#endif
     // save output of GMRES call to use in the second one
     f_1_output = f_1;
   }
@@ -877,11 +892,16 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   // Explicit step f_2s = 0.5*f_0 + 0.5*(f_1 + dt A f_1)
   {
+#ifdef KRON_MODE_GLOBAL
+    tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(matrix_entry::imex_explicit));
+    operator_matrices.template apply<imex_resrc>(matrix_entry::imex_explicit, 1.0, f_1.data(), 0.0, fx.data());
+#else
     tools::time_event kronm_(
         "kronmult - explicit",
         operator_matrices[matrix_entry::imex_explicit].flops());
     operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
         1.0, f_1.data(), 0.0, fx.data());
+#endif
   }
 
 #ifndef ASGARD_USE_CUDA
@@ -935,9 +955,16 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
+#ifdef KRON_MODE_GLOBAL
+    pde.gmres_outputs[1] = solver::simple_gmres_euler(
+        P{0.5} * pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
+        f_2, f, restart, max_iter, tolerance);
+#else
     pde.gmres_outputs[1] = solver::simple_gmres_euler(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
         f_2, f, restart, max_iter, tolerance);
+#endif
+
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)

@@ -17,6 +17,13 @@
 namespace asgard
 {
 /*!
+ * \brief Returns a list of terms matching the imex index.
+ */
+template<typename precision>
+std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
+                                imex_flag const imex);
+
+/*!
  * \brief Holds data for the pre-computed memory sizes.
  *
  * Also stores some kronmult data that can be easily reused in different
@@ -372,6 +379,7 @@ public:
         int *compute_buffer_rows = irowb.data();
         int *load_buffer_cols    = icola.data();
         int *compute_buffer_cols = icolb.data();
+
         auto stats1 = cudaMemcpyAsync(load_buffer, list_iA[0].data(),
                                       sizeof(int) * list_iA[0].size(),
                                       cudaMemcpyHostToDevice, load_stream);
@@ -731,6 +739,241 @@ enum matrix_entry
   imex_implicit = 2
 };
 
+#ifdef KRON_MODE_GLOBAL
+template<typename precision>
+class global_kron_matrix;
+
+/*!
+ * \brief Sets the values and coefficients for a specific imex flag
+ *
+ * After the common part of the matrix patterns has been identified,
+ * this sets the specific indexes and values for the given imex flag.
+ * This MUST be called before an evaluate with the corresponding imex flag
+ * can be issued.
+ */
+template<typename precision>
+void set_specific_mode(PDE<precision> const &pde,
+                       adapt::distributed_grid<precision> const &dis_grid,
+                       options const &program_options, imex_flag const imex,
+                       global_kron_matrix<precision> &mat);
+
+/*!
+ * \brief Update the coefficients for the specific imex flag
+ *
+ * Once the coefficient data has changed, this will update the corresponding
+ * coefficients in the matrix without recomputing the fixed indexing component
+ * and while minimizing the number of allocations.
+ */
+template<typename precision>
+void update_matrix_coefficients(PDE<precision> const &pde,
+                                options const &program_options,
+                                imex_flag const imex,
+                                global_kron_matrix<precision> &mat);
+
+/*!
+ * \brief Holds the data for a global Kronecker matrix
+ */
+template<typename precision>
+class global_kron_matrix
+{
+public:
+#ifdef ASGARD_USE_CUDA
+  template<typename T>
+  using device_vector = gpu::vector<T>;
+#else
+  template<typename T>
+  using device_vector = std::vector<T>;
+#endif
+
+  //! \brief Creates an empty matrix.
+  global_kron_matrix() : conn_(1), flops_({0, 0, 0}), edges_(1) {}
+  //! \brief Creates an empty matrix.
+  global_kron_matrix(connect_1d conn, vector2d<int> ilist, int64_t num_active,
+                     std::vector<kronmult::permutes> perms,
+                     std::vector<std::vector<int>> gpntr,
+                     std::vector<std::vector<int>> gindx,
+                     std::vector<std::vector<int>> gdiag,
+                     std::vector<std::vector<int>> givals,
+                     int porder, connect_1d edges,
+                     device_vector<int> local_pntr, device_vector<int> local_indx)
+      : conn_(std::move(conn)), ilist_(std::move(ilist)),
+        num_dimensions_(ilist_.stride()), num_active_(num_active),
+        dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
+        gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
+        gdiag_(std::move(gdiag)), givals_(std::move(givals)),
+        gvals_(perms_.size() * num_dimensions_), porder_(porder), edges_(std::move(edges)),
+        local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
+  {
+    expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
+    expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
+    expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
+    expect(givals_.size() == static_cast<size_t>(num_dimensions_));
+
+    expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
+
+#ifdef ASGARD_USE_CUDA
+    // cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
+    // gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
+    // cpu version of lpntr and lindx are still needed for the loading of values
+    int tsize = int_pow(porder_ + 1, num_dimensions_);
+
+    int num_cells = static_cast<int>(local_pntr_.size() - 1);
+    std::vector<int> row_indx;
+    row_indx.reserve(local_indx_.size());
+    for (int r = 0; r < num_cells; r++)
+      for (int i = local_pntr_[r]; i < local_pntr_[r + 1]; i++)
+        row_indx.push_back(r * tsize);
+    local_rows_ = std::move(row_indx); // actually loads onto the gpu
+
+    std::vector<int> col_indx = local_indx_;
+    for (auto &c : col_indx)
+      c *= tsize;
+    local_cols_ = std::move(col_indx);
+
+    xdev_.resize(num_active_); // workspace on the gpu
+    ydev_.resize(num_active_);
+#endif
+
+    expanded  = std::vector<precision>(2 * ilist_.num_strips());
+    workspace = std::vector<precision>(2 * ilist_.num_strips());
+  }
+  //! \brief Returns \b true if the matrix is empty, \b false otherwise.
+  bool empty() const { return gvals_.empty(); }
+
+  //! \brief Apply the operator, including expanding and remapping.
+  template<resource rec = resource::host>
+  void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const;
+
+  //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
+  operator bool() const { return (not gvals_.empty()); }
+  //! \brief Return the entry connectivity (sparsity pattern).
+  connect_1d const &connectivity() const { return conn_; }
+  //! \brief Return the edge connectivity
+  connect_1d const &edge_connectivity() const { return edges_; }
+
+  //! \brief Allows overwriting of the loaded coefficients.
+  template<resource rec>
+  auto const &get_diagonal_preconditioner() const
+  {
+#ifdef ASGARD_USE_CUDA
+    if constexpr (rec == resource::device)
+      return pre_con_;
+    else
+    {
+      if (cpu_pre_con_.empty())
+        cpu_pre_con_ = pre_con_;
+      return cpu_pre_con_;
+    }
+#else
+    static_assert(rec == resource::host, "GPU not enabled");
+    return pre_con_;
+#endif
+  }
+
+  //! \brief Check if the corresponding lock pattern is set.
+  bool local_unset(matrix_entry etype)
+  {
+    return local_opindex_[flag2int(etype)].empty();
+  }
+  //! \brief Return the number of flops for the current matrix type
+  int64_t flops(matrix_entry etype) const
+  {
+    return flops_[flag2int(etype)];
+  }
+
+#ifdef ASGARD_USE_PINNED_MEMORY
+  //! \brief Returns the required pinned buffer size (in bytes)
+  size_t buffer_size() const
+  {
+    return static_cast<size_t>(num_active_ * sizeof(precision));
+  }
+  //! \brief Loaded form the operator container, stream for asynchronous I/O
+  cudaStream_t io_stream;
+  //! \brief Loaded form the operator container, buffer for asynchronous I/O
+  precision *pinned_mem;
+#endif
+
+  // made friends for two reasons
+  // 1. Keeps the matrix API free from references to pde, which will allow an easier
+  //    transition to a new API that does not require the PDE class
+  // 2. Give the ability to modify the internal without encumbering the matrix API
+  friend void set_specific_mode<precision>(PDE<precision> const &pde,
+                                           adapt::distributed_grid<precision> const &dis_grid,
+                                           options const &program_options, imex_flag const imex,
+                                           global_kron_matrix<precision> &mat);
+
+  friend void update_matrix_coefficients<precision>(
+      PDE<precision> const &pde,
+      options const &program_options,
+      imex_flag const imex,
+      global_kron_matrix<precision> &mat);
+
+protected:
+  //! \brief Convert the imex flag to an index of the arrays.
+  static int flag2int(imex_flag imex)
+  {
+    return (imex == imex_flag::imex_implicit) ? 2 : ((imex == imex_flag::imex_explicit) ? 1 : 0);
+  }
+  //! \brief Convert the matrix entry to an index of the arrays.
+  static int flag2int(matrix_entry imex)
+  {
+    return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
+  }
+
+private:
+  static constexpr int num_variants = 3;
+  // description of the multi-indexes and the sparsity pattern
+  // global case data
+  connect_1d conn_;
+  vector2d<int> ilist_; // includes all polynomials and the padded indexes
+  int num_dimensions_;
+  int64_t num_active_;
+  dimension_sort dsort_;
+  std::vector<kronmult::permutes> perms_;
+  std::array<int64_t, num_variants> flops_;
+  // data for the 1D tensors
+  std::vector<std::vector<int>> gpntr_;
+  std::vector<std::vector<int>> gindx_;
+  std::vector<std::vector<int>> gdiag_;
+  std::vector<std::vector<int>> givals_;
+  std::vector<std::vector<precision>> gvals_;
+  // collections of terms
+  std::array<std::vector<int>, 3> term_groups;
+  // temp workspace (global case)
+  mutable std::vector<precision> expanded;
+  mutable std::vector<precision> workspace;
+  // local case data, handles the neighbors on the same level
+  int porder_;
+  connect_1d edges_;
+  std::vector<int> local_pntr_;
+  std::vector<int> local_indx_;
+#ifdef ASGARD_USE_CUDA
+  device_vector<int> local_rows_;
+  device_vector<int> local_cols_;
+  mutable device_vector<precision> xdev_;
+  mutable device_vector<precision> ydev_;
+#endif
+  std::array<device_vector<int>, num_variants> local_opindex_;
+  std::array<device_vector<precision>, num_variants> local_opvalues_;
+  // preconditioner
+  device_vector<precision> pre_con_;
+#ifdef ASGARD_USE_CUDA
+  mutable std::vector<precision> cpu_pre_con_; // cpu copy, if requested
+#endif
+};
+
+/*!
+ * \brief Factory method for making a global kron matrix
+ *
+ * This sets up the common components of the matrix,
+ */
+template<typename precision>
+global_kron_matrix<precision>
+make_global_kron_matrix(PDE<precision> const &pde,
+                        adapt::distributed_grid<precision> const &dis_grid,
+                        options const &program_options);
+#endif
+
 /*!
  * \brief Compute the stats for the memory usage
  *
@@ -769,17 +1012,38 @@ template<typename precision>
 struct matrix_list
 {
   //! \brief Makes a list of uninitialized matrices
-  matrix_list() : matrices(3)
+  matrix_list()
+#ifndef KRON_MODE_GLOBAL
+      : matrices(3)
+#endif
   {
+#ifdef ASGARD_USE_PINNED_MEMORY
+    io_stream  = nullptr;
+    pinned_mem = nullptr;
+
+    pinned_mem_size = 0;
+#endif
+#ifndef KRON_MODE_GLOBAL
     // make sure we have defined flags for all matrices
     expect(matrices.size() == flag_map.size());
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     load_stream = nullptr;
 #endif
+#endif
   }
   //! \brief Frees the matrix list and any cache vectors
   ~matrix_list()
   {
+#ifdef ASGARD_USE_PINNED_MEMORY
+    if (io_stream != nullptr)
+    {
+      auto status = cudaStreamDestroy(io_stream);
+      expect(status == cudaSuccess);
+    }
+    if (pinned_mem != nullptr)
+      cudaFreeHost(pinned_mem);
+    pinned_mem_size = 0;
+#endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     if (load_stream != nullptr)
     {
@@ -789,22 +1053,63 @@ struct matrix_list
 #endif
   }
 
+#ifndef KRON_MODE_GLOBAL
   //! \brief Returns an entry indexed by the enum
   kronmult_matrix<precision> &operator[](matrix_entry entry)
   {
     return matrices[static_cast<int>(entry)];
+  }
+#endif
+
+  template<resource rec = resource::host>
+  void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
+  {
+#ifdef KRON_MODE_GLOBAL
+    kglobal.template apply<rec>(entry, alpha, x, beta, y);
+#else
+    matrices[static_cast<int>(entry)].template apply<rec>(alpha, x, beta, y);
+#endif
+  }
+  int64_t flops(matrix_entry entry)
+  {
+#ifdef KRON_MODE_GLOBAL
+    return kglobal.flops(entry);
+#else
+    return matrices[static_cast<int>(entry)].flops();
+#endif
   }
 
   //! \brief Make the matrix for the given entry
   void make(matrix_entry entry, PDE<precision> const &pde,
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
+#ifdef KRON_MODE_GLOBAL
+    if (not kglobal)
+      kglobal = make_global_kron_matrix(pde, grid, opts);
+    if (kglobal.local_unset(entry))
+      set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+#ifdef ASGARD_USE_PINNED_MEMORY
+    kglobal.io_stream = io_stream;
+
+    size_t required_pinned_size = kglobal.buffer_size();
+    if (pinned_mem_size < required_pinned_size)
+    {
+      if (pinned_mem != nullptr)
+        cudaFreeHost(pinned_mem);
+      auto stat = cudaMallocHost((void **)&pinned_mem, required_pinned_size);
+      expect(stat == cudaSuccess);
+      pinned_mem_size = required_pinned_size;
+    }
+    kglobal.pinned_mem = pinned_mem;
+#endif
+#else
     if (not mem_stats)
       mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), spcache);
 
     if (not(*this)[entry])
       (*this)[entry] = make_kronmult_matrix(pde, grid, opts, mem_stats,
                                             imex(entry), spcache);
+
 #ifdef ASGARD_USE_CUDA
     if ((*this)[entry].input_size() != xdev.size())
     {
@@ -854,6 +1159,7 @@ struct matrix_list
     (*this)[entry].set_workspace_ooc(worka, workb, load_stream);
     (*this)[entry].set_workspace_ooc_sparse(irowa, irowb, icola, icolb);
 #endif
+#endif
   }
   /*!
    * \brief Either makes the matrix or if it exists, just updates only the
@@ -863,30 +1169,65 @@ struct matrix_list
                           adapt::distributed_grid<precision> const &grid,
                           options const &opts)
   {
+#ifdef KRON_MODE_GLOBAL
+    if (not kglobal)
+      make(entry, pde, grid, opts);
+    else
+    {
+      if (kglobal.local_unset(entry))
+        set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+      update_matrix_coefficients(pde, opts, imex(entry), kglobal);
+    }
+#else
     if (not(*this)[entry])
       make(entry, pde, grid, opts);
     else
       update_kronmult_coefficients(pde, opts, imex(entry), spcache,
                                    (*this)[entry]);
+#endif
   }
 
   //! \brief Clear the specified matrix
   void clear(matrix_entry entry)
   {
+#ifdef KRON_MODE_GLOBAL
+    ignore(entry);
+    if (kglobal)
+      kglobal = global_kron_matrix<precision>();
+#else
     if (matrices[static_cast<int>(entry)])
       matrices[static_cast<int>(entry)] = kronmult_matrix<precision>();
+#endif
   }
   //! \brief Clear all matrices
   void clear_all()
   {
+#ifdef KRON_MODE_GLOBAL
+    if (kglobal)
+      kglobal = global_kron_matrix<precision>();
+#else
     for (auto &matrix : matrices)
       if (matrix)
         matrix = kronmult_matrix<precision>();
     mem_stats.reset();
+#endif
   }
 
+#ifdef KRON_MODE_GLOBAL
+  //! \brief Holds the global part of the kron product
+  global_kron_matrix<precision> kglobal;
+#ifdef ASGARD_USE_PINNED_MEMORY
+  //! \brief Stream to load/unload data asynchronously
+  cudaStream_t io_stream;
+  //! \brief Pinned memory buffer
+  precision *pinned_mem;
+  //! \brief Pinned memory size
+  size_t pinned_mem_size;
+#endif
+#else
   //! \brief Holds the matrices
   std::vector<kronmult_matrix<precision>> matrices;
+#endif
 
 private:
   //! \brief Maps the entry enum to the IMEX flag
@@ -898,6 +1239,8 @@ private:
   static constexpr std::array<imex_flag, 3> flag_map = {
       imex_flag::unspecified, imex_flag::imex_explicit,
       imex_flag::imex_implicit};
+
+#ifndef KRON_MODE_GLOBAL
   //! \brief Cache holding the memory stats, limits bounds etc.
   memory_usage mem_stats;
 
@@ -916,6 +1259,7 @@ private:
   mutable fk::vector<int, mem_type::owner, resource::device> icola;
   mutable fk::vector<int, mem_type::owner, resource::device> icolb;
   cudaStream_t load_stream;
+#endif
 #endif
 };
 
