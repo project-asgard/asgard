@@ -778,17 +778,18 @@ class global_kron_matrix
 {
 public:
   //! \brief Several workspaces are needed
-  enum class workspace {
-      pad_x = 0, // padded entries for x/y
-      pad_y,
-      stage1,    // global kron workspace (stages)
-      stage2,
+  enum class workspace
+  {
+    pad_x = 0, // padded entries for x/y
+    pad_y,
+    stage1, // global kron workspace (stages)
+    stage2,
 #ifdef ASGARD_USE_CUDA
-      dev_x,     // move CPU data to the GPU
-      dev_y,
-      gsparse,   // cusparse workspace
+    dev_x, // move CPU data to the GPU
+    dev_y,
+    gsparse, // cusparse workspace
 #endif
-      num_spaces
+    num_spaces
   };
 
 #ifdef ASGARD_USE_CUDA
@@ -817,7 +818,7 @@ public:
                      std::vector<std::vector<int>> givals,
                      int porder, connect_1d edges,
                      default_vector<int> local_pntr, default_vector<int> local_indx)
-    :   num_dimensions_(num_dimensions), num_active_(num_active),
+      : num_dimensions_(num_dimensions), num_active_(num_active),
         num_padded_(num_padded), perms_(std::move(perms)), flops_({0, 0, 0}),
         gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
@@ -946,14 +947,12 @@ protected:
   //! \brief Convert the imex flag to an index of the arrays.
   static int flag2int(imex_flag imex)
   {
-    return (imex == imex_flag::imex_implicit) ? 2 :
-           ((imex == imex_flag::imex_explicit) ? 1 : 0);
+    return (imex == imex_flag::imex_implicit) ? 2 : ((imex == imex_flag::imex_explicit) ? 1 : 0);
   }
   //! \brief Convert the matrix entry to an index of the arrays.
   static int flag2int(matrix_entry imex)
   {
-    return (imex == matrix_entry::imex_implicit) ? 2 :
-           ((imex == matrix_entry::imex_explicit) ? 1 : 0);
+    return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
   }
   // the workspace is kept externally to minimize allocations
   mutable workspace_type *work_;
@@ -977,7 +976,7 @@ protected:
     {
       w.resize(min_size);
       // x must always be padded by zeros
-      if constexpr(wid == workspace::pad_x)
+      if constexpr (wid == workspace::pad_x)
       {
 #ifdef ASGARD_USE_CUDA
         // zero out the a-vector (maybe run a kernel here)

@@ -349,7 +349,7 @@ public:
   int64_t size_workspace() const
   {
     size_t num = 0;
-    for(auto const &m : mats_)
+    for (auto const &m : mats_)
       num = std::max(num, m.size_workspace(hndl_));
     return static_cast<int64_t>(num);
   }
@@ -359,7 +359,7 @@ public:
   //! \brief Perform the global kron operation
   void execute() const
   {
-    for(auto &m : mats_)
+    for (auto &m : mats_)
       m.apply(hndl_, buffer_);
   }
   //! \brief Checks if the operation has been set

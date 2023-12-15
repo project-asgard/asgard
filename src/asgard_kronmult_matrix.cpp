@@ -1326,7 +1326,7 @@ void set_specific_mode(PDE<precision> const &pde,
         }
 #else
         std::vector<precision> &gvals = mat.gvals_[t * num_dimensions + d];
-        std::vector<int> &givals      = mat.givals_[d];
+        std::vector<int> &givals = mat.givals_[d];
 
         int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
 
@@ -1498,7 +1498,7 @@ void set_specific_mode(PDE<precision> const &pde,
 #ifdef ASGARD_USE_CUDA
 template<typename precision>
 void global_kron_matrix<precision>::
-preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex)
+    preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex)
 {
   int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
 
@@ -1554,7 +1554,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
       fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 #ifdef ASGARD_USE_CUDA
       if (mat.gvals_[3 * (t * num_dimensions + d)].empty()) // identity term
-          continue;
+        continue;
 
       int const num_mats = (d == 0) ? 1 : 3;
       for (int k = 0; k < num_mats; k++)
@@ -1578,10 +1578,10 @@ void update_matrix_coefficients(PDE<precision> const &pde,
       }
 #else
       std::vector<precision> &vals = mat.gvals_[t * num_dimensions + d];
-      std::vector<int> &ivals      = mat.givals_[d];
+      std::vector<int> &ivals = mat.givals_[d];
 
       if (mat.gvals_[t * num_dimensions + d].empty()) // identity term
-          continue;
+        continue;
 
       int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
 

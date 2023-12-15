@@ -111,7 +111,7 @@ void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
 
   test_almost_equal(data->output_y, data->reference_y, 100);
 }
-/*
+
 template<typename P, asgard::resource rec = asgard::resource::host>
 void test_kronmult_dense(int dimensions, int n, int num_terms,
                          int num_1d_blocks)
@@ -381,9 +381,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
   int n = GENERATE(1, 2, 3); // TODO: n = 4
   test_kronmult_dense<TestType, asgard::resource::host>(6, n, 2, 1);
 }
-
 #endif
-*/
 
 #ifdef KRON_MODE_GLOBAL
 
@@ -557,15 +555,15 @@ TEMPLATE_TEST_CASE("testing cusparse functionality", "[cusparse]", test_precs)
   std::vector<int> indx      = {0, 1, 0, 1, 2, 1, 2, 3, 2, 3};
   std::vector<TestType> vals = {-2.0, 1.0, 1.0, -2.0, 1.0, 1.0, -2.0, 1.0, 1.0, -2.0};
 
-  std::vector<TestType> x     = {1.0, 2.0, 3.0, 4.0};
+  std::vector<TestType> x = {1.0, 2.0, 3.0, 4.0};
   std::vector<TestType> y_ref(pntr.size() - 1, TestType{0});
 
   for (size_t r = 0; r < pntr.size() - 1; r++)
     for (int j = pntr[r]; j < pntr[r + 1]; j++)
       y_ref[r] += x[indx[j]] * vals[j];
 
-  asgard::gpu::vector<int>      gpntr = pntr;
-  asgard::gpu::vector<int>      gindx = indx;
+  asgard::gpu::vector<int> gpntr      = pntr;
+  asgard::gpu::vector<int> gindx      = indx;
   asgard::gpu::vector<TestType> gvals = vals;
   asgard::gpu::vector<TestType> gx    = x;
 
