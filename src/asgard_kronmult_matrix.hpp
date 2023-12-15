@@ -792,9 +792,11 @@ public:
   };
 
 #ifdef ASGARD_USE_CUDA
+  //! \brief The default vector to use for data, gpu::vector for gpu
   template<typename T>
   using default_vector = gpu::vector<T>;
 #else
+  //! \brief The default vector to use for data, std::vector for the cpu
   template<typename T>
   using default_vector = std::vector<T>;
 #endif
@@ -868,23 +870,8 @@ public:
   }
 
 #ifdef ASGARD_USE_CUDA
-  void preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex)
-  {
-    int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
-
-    gpu_global[imex_indx] = kronmult::global_gpu_operations<precision>(
-        hndl, num_dimensions_, perms_, gpntr_, gindx_, gvals_, term_groups[imex_indx],
-        get_buffer<workspace::pad_x>(), get_buffer<workspace::pad_y>(),
-        get_buffer<workspace::stage1>(), get_buffer<workspace::stage2>());
-
-    size_t buff_size = gpu_global[imex_indx].size_workspace();
-    resize_buffer<workspace::gsparse>(buff_size);
-
-    // if buffer changed, we need to reset the rest of the kron operations
-    for (auto &g : gpu_global)
-      if (g)
-        g.set_buffer(get_buffer<workspace::gsparse>());
-  }
+  //! \brief Set the GPU side of the global kron
+  void preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex);
 #endif
 
   //! \brief Returns \b true if the matrix is empty, \b false otherwise.
@@ -892,7 +879,8 @@ public:
 
   //! \brief Apply the operator, including expanding and remapping.
   template<resource rec = resource::host>
-  void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const;
+  void apply(matrix_entry etype, precision alpha, precision const *x,
+             precision beta, precision *y) const;
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
   operator bool() const { return (not gvals_.empty()); }
@@ -946,18 +934,6 @@ public:
 #endif
   }
 
-#ifdef ASGARD_USE_PINNED_MEMORY
-  //! \brief Returns the required pinned buffer size (in bytes)
-  size_t pinned_buffer_size() const
-  {
-    return static_cast<size_t>(num_active_ * sizeof(precision));
-  }
-  //! \brief Loaded form the operator container, stream for asynchronous I/O
-  cudaStream_t io_stream;
-  //! \brief Loaded form the operator container, buffer for asynchronous I/O
-  precision *pinned_mem;
-#endif
-
   // made friends for two reasons
   // 1. Keeps the matrix API free from references to pde, which will allow an easier
   //    transition to a new API that does not require the PDE class
@@ -977,12 +953,14 @@ protected:
   //! \brief Convert the imex flag to an index of the arrays.
   static int flag2int(imex_flag imex)
   {
-    return (imex == imex_flag::imex_implicit) ? 2 : ((imex == imex_flag::imex_explicit) ? 1 : 0);
+    return (imex == imex_flag::imex_implicit) ? 2 :
+           ((imex == imex_flag::imex_explicit) ? 1 : 0);
   }
   //! \brief Convert the matrix entry to an index of the arrays.
   static int flag2int(matrix_entry imex)
   {
-    return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
+    return (imex == matrix_entry::imex_implicit) ? 2 :
+           ((imex == matrix_entry::imex_explicit) ? 1 : 0);
   }
   // the workspace is kept externally to minimize allocations
   mutable workspace_type *work_;
@@ -1110,12 +1088,6 @@ struct matrix_list
       : matrices(3)
 #endif
   {
-#ifdef ASGARD_USE_PINNED_MEMORY
-    io_stream  = nullptr;
-    pinned_mem = nullptr;
-
-    pinned_mem_size = 0;
-#endif
 #ifndef KRON_MODE_GLOBAL
     // make sure we have defined flags for all matrices
     expect(matrices.size() == flag_map.size());
@@ -1127,16 +1099,6 @@ struct matrix_list
   //! \brief Frees the matrix list and any cache vectors
   ~matrix_list()
   {
-#ifdef ASGARD_USE_PINNED_MEMORY
-    if (io_stream != nullptr)
-    {
-      auto status = cudaStreamDestroy(io_stream);
-      expect(status == cudaSuccess);
-    }
-    if (pinned_mem != nullptr)
-      cudaFreeHost(pinned_mem);
-    pinned_mem_size = 0;
-#endif
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     if (load_stream != nullptr)
     {
@@ -1154,6 +1116,7 @@ struct matrix_list
   }
 #endif
 
+  //! \brief Apply the given matrix entry
   template<resource rec = resource::host>
   void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
   {
@@ -1191,21 +1154,6 @@ struct matrix_list
       kglobal.preset_gpu_gkron(sp_handle, imex(entry));
 #endif
     }
-
-#ifdef ASGARD_USE_PINNED_MEMORY
-    kglobal.io_stream = io_stream;
-
-    size_t required_pinned_size = kglobal.pinned_buffer_size();
-    if (pinned_mem_size < required_pinned_size)
-    {
-      if (pinned_mem != nullptr)
-        cudaFreeHost(pinned_mem);
-      auto stat = cudaMallocHost((void **)&pinned_mem, required_pinned_size);
-      expect(stat == cudaSuccess);
-      pinned_mem_size = required_pinned_size;
-    }
-    kglobal.pinned_mem = pinned_mem;
-#endif
 #else
     if (not mem_stats)
       mem_stats = compute_mem_usage(pde, grid, opts, imex(entry), spcache);
@@ -1278,30 +1226,15 @@ struct matrix_list
       make(entry, pde, grid, opts);
     else
     {
-        // hard reset to elimiate the update from the question
-        kglobal = make_global_kron_matrix(pde, grid, opts);
-        // the buffers must be set before preset_gpu_gkron()
-        kglobal.set_workspace_buffers(&workspaces);
-
+      if (kglobal.local_unset(entry))
+      {
         set_specific_mode(pde, grid, opts, imex(entry), kglobal);
-  #ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_CUDA
         kglobal.preset_gpu_gkron(sp_handle, imex(entry));
-  #endif
-      //}
-
-
-//       if (kglobal.local_unset(entry))
-//       {
-//         set_specific_mode(pde, grid, opts, imex(entry), kglobal);
-// #ifdef ASGARD_USE_CUDA
-//         kglobal.preset_gpu_gkron(sp_handle, imex(entry));
-// #endif
-//       }
-//       // else
-//       // {
-//         update_matrix_coefficients(pde, opts, imex(entry), kglobal);
-//       // }
-//     }
+#endif
+      }
+      else
+        update_matrix_coefficients(pde, opts, imex(entry), kglobal);
     }
 #else
     if (not(*this)[entry])
@@ -1346,14 +1279,6 @@ struct matrix_list
 #ifdef ASGARD_USE_CUDA
   gpu::sparse_handle sp_handle;
   gpu::vector<std::byte> gpu_sparse_buffer;
-#endif
-#ifdef ASGARD_USE_PINNED_MEMORY
-  //! \brief Stream to load/unload data asynchronously
-  cudaStream_t io_stream;
-  //! \brief Pinned memory buffer
-  precision *pinned_mem;
-  //! \brief Pinned memory size
-  size_t pinned_mem_size;
 #endif
 #else
   //! \brief Holds the matrices

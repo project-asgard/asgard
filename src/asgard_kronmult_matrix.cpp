@@ -1043,28 +1043,6 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
   }
   lpntr.push_back(static_cast<int>(lindx.size()));
   upntr.push_back(static_cast<int>(uindx.size()));
-
-  std::cout << " sizes = " << lpntr.size() << "  " << upntr.size() << "\n";
-  for(size_t r=0; r<pntr.size() - 1; r++){
-    for (int j = pntr[r]; j < pntr[r + 1]; j++)
-      std::cout << indx[j] << "  ";
-    std::cout << "\n";
-  }
-  for(auto d : diag) std::cout << d << "  "; std::cout << "\n";
-  std::cout << "  lower \n";
-  for(size_t r=0; r<lpntr.size() - 1; r++){
-    for (int j = lpntr[r]; j < lpntr[r + 1]; j++)
-      std::cout << lindx[j] << "  ";
-    std::cout << "\n";
-  }
-  std::cout << "  upper \n";
-  for(size_t r=0; r<upntr.size() - 1; r++){
-    for (int j = upntr[r]; j < upntr[r + 1]; j++)
-      std::cout << uindx[j] << "  ";
-    std::cout << "\n";
-  }
-  std::cout << "  -----------------------------------  \n";
-
 }
 
 template<typename precision>
@@ -1517,13 +1495,34 @@ void set_specific_mode(PDE<precision> const &pde,
     std::cout << "     total: " << total_mem << "MB\n";
 }
 
+#ifdef ASGARD_USE_CUDA
+template<typename precision>
+void global_kron_matrix<precision>::
+preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex)
+{
+  int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
+
+  gpu_global[imex_indx] = kronmult::global_gpu_operations<precision>(
+      hndl, num_dimensions_, perms_, gpntr_, gindx_, gvals_, term_groups[imex_indx],
+      get_buffer<workspace::pad_x>(), get_buffer<workspace::pad_y>(),
+      get_buffer<workspace::stage1>(), get_buffer<workspace::stage2>());
+
+  size_t buff_size = gpu_global[imex_indx].size_workspace();
+  resize_buffer<workspace::gsparse>(buff_size);
+
+  // if buffer changed, we need to reset the rest of the kron operations
+  for (auto &g : gpu_global)
+    if (g)
+      g.set_buffer(get_buffer<workspace::gsparse>());
+}
+#endif
+
 template<typename precision>
 void update_matrix_coefficients(PDE<precision> const &pde,
                                 options const &program_options,
                                 imex_flag const imex,
                                 global_kron_matrix<precision> &mat)
 {
-  std::cout << "UPDATING!\n";
   int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
 
 #ifdef ASGARD_USE_CUDA
@@ -1550,7 +1549,6 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
   for (int t : used_terms)
   {
-    std::cout << "updating t = " << t << "\n";
     for (int d = 0; d < num_dimensions; d++)
     {
       fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
@@ -1567,8 +1565,6 @@ void update_matrix_coefficients(PDE<precision> const &pde,
         if (mat.gpu_global[imex_indx].empty_values(vid)) // vals not used
           continue;
 
-        // std::cout << " vid = " << vid << "\n";
-
         std::vector<precision> &gvals = mat.gvals_[vid];
         std::vector<int> &givals      = mat.givals_[pid];
 
@@ -1578,7 +1574,6 @@ void update_matrix_coefficients(PDE<precision> const &pde,
         for (int64_t i = 0; i < num_entries; i++)
           gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
 
-        std::cout << " updating imex = " << imex_indx << "  pid = " << pid << " vid = " << vid << "\n";
         mat.gpu_global[imex_indx].update_values(vid, gvals);
       }
 #else
@@ -1629,9 +1624,10 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
 template<typename precision>
 template<resource rec>
-void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const
+void global_kron_matrix<precision>::apply(
+    matrix_entry etype, precision alpha, precision const *x,
+    precision beta, precision *y) const
 {
-  //tools::time_event kron_time_("kronmult global");
   int const imex = flag2int(etype);
 
   std::vector<int> const &used_terms = term_groups[imex];
@@ -1642,114 +1638,49 @@ void global_kron_matrix<precision>::apply(matrix_entry etype, precision alpha, p
     return;
   }
 
-  if constexpr (rec == resource::device)
-  {
 #ifdef ASGARD_USE_CUDA
-    // std::vector<precision> cpuy(num_active_);
-    // fk::copy_to_host(cpuy.data(), y, num_active_);
-    // std::vector<precision> cpux(num_active_);
-    // fk::copy_to_host(cpux.data(), x, num_active_);
-    // apply<resource::host>(etype, alpha, cpux.data(), beta, cpuy.data());
-    // fk::copy_to_device(y, cpuy.data(), num_active_);
-    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, num_active_, local_cols_.size(),
-                         local_cols_.data(), local_rows_.data(), used_terms.size(),
-                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                         alpha, x, beta, y);
+  precision const *gpux = (rec == resource::device) ? x : get_buffer<workspace::dev_x>();
+  precision *gpuy       = (rec == resource::device) ? y : get_buffer<workspace::dev_y>();
 
-    //std::vector<precision> cpuy1 = (*work_)[1];
-    //fk::copy_to_host(cpuy1.data(), y, num_active_);
-    //for(auto y : cpuy1) std::cout << y << " ";
-    //std::cout << "\n\n";
-
-    fk::copy_on_device(get_buffer<workspace::pad_x>(), x, num_active_);
-    gpu_global[imex].execute();
-    lib_dispatch::axpy<resource::device>(num_active_, alpha,
-                                         get_buffer<workspace::pad_y>(), 1, y, 1);
-
-    //std::vector<precision> cpuy = (*work_)[1];
-    //fk::copy_to_host(cpuy.data(), y, num_active_);
-    //for(auto y : cpuy) std::cout << y << " ";
-    //std::cout << "\n";
-    //exit(1);
-#else
-    static_assert(rec == resource::host, "GPU not enabled");
-#endif
+  if constexpr (rec == resource::host)
+  {
+    fk::copy_to_device<precision>(gpux, x, num_active_);
+    fk::copy_to_device<precision>(gpuy, y, num_active_);
   }
-  else
-  {
-#ifdef ASGARD_USE_CUDA
-    // copy to the GPU, do work there, copy back
-    fk::copy_to_device<precision>(get_buffer<workspace::dev_x>(), x, num_active_);
-    fk::copy_to_device<precision>(get_buffer<workspace::dev_y>(), y, num_active_);
-    kronmult::gpu_sparse(num_dimensions_, porder_ + 1, num_active_, local_cols_.size(),
-                         local_cols_.data(), local_rows_.data(), used_terms.size(),
-                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                         alpha, get_buffer<workspace::dev_x>(),
-                         beta, get_buffer<workspace::dev_y>());
 
-    fk::copy_on_device(get_buffer<workspace::pad_x>(),
-                       get_buffer<workspace::dev_x>(), num_active_);
-    gpu_global[imex].execute();
-    lib_dispatch::axpy<resource::device>(num_active_, alpha,
-                                         get_buffer<workspace::pad_y>(), 1,
-                                         get_buffer<workspace::dev_y>(), 1);
+  kronmult::gpu_sparse(num_dimensions_, porder_ + 1, num_active_, local_cols_.size(),
+                       local_cols_.data(), local_rows_.data(), used_terms.size(),
+                       local_opindex_[imex].data(), local_opvalues_[imex].data(),
+                       alpha, gpux, beta, gpuy);
 
-    std::vector<precision> cpuy = (*work_)[1];
-    //fk::copy_to_host(cpuy.data(), y, num_active_);
-    //for(auto y : cpuy) std::cout << y << " ";
-    //std::cout << "\n";
-    for(auto t : used_terms){
-        std::cout << " term = " << t << "\n";
-        for(int d=0; d<3 * num_dimensions_; d++){
-            std::vector<precision> cpu = gpu_global[imex].gvals_[3 * t * num_dimensions_ + d];
-            for(auto y : cpu) std::cout << y << " ";
-            std::cout << "\n";
-        }
-    }
+  fk::copy_on_device(get_buffer<workspace::pad_x>(), gpux, num_active_);
+  gpu_global[imex].execute();
+  lib_dispatch::axpy<resource::device>(num_active_, alpha,
+                                       get_buffer<workspace::pad_y>(), 1, gpuy, 1);
 
-    fk::copy_to_host<precision>(y, get_buffer<workspace::dev_y>(), num_active_);
+  if constexpr (rec == resource::host)
+    fk::copy_to_host<precision>(y, gpuy, num_active_);
+
 #else
-    kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
-                         local_pntr_.data(), local_indx_.data(), used_terms.size(),
-                         local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                         alpha, x, beta, y);
 
-    //for(int i=0; i<num_active_; i++)
-    //  std::cout << y[i] << " ";
-    //std::cout << "\n\n";
+  kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
+                       local_pntr_.data(), local_indx_.data(), used_terms.size(),
+                       local_opindex_[imex].data(), local_opvalues_[imex].data(),
+                       alpha, x, beta, y);
 
-    std::copy_n(x, num_active_, get_buffer<workspace::pad_x>());
-    std::fill_n(get_buffer<workspace::pad_y>(), num_active_, precision{0});
-    kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-                         used_terms, get_buffer<workspace::pad_x>(),
-                         get_buffer<workspace::pad_y>(),
-                         get_buffer<workspace::stage1>(),
-                         get_buffer<workspace::stage2>());
+  std::copy_n(x, num_active_, get_buffer<workspace::pad_x>());
+  std::fill_n(get_buffer<workspace::pad_y>(), num_active_, precision{0});
+  kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
+                       used_terms, get_buffer<workspace::pad_x>(),
+                       get_buffer<workspace::pad_y>(),
+                       get_buffer<workspace::stage1>(),
+                       get_buffer<workspace::stage2>());
 
-    //std::vector<precision> cpuy = (*work_)[1];
-    //fk::copy_to_host(cpuy.data(), y, num_active_);
-    //for(auto y : cpuy) std::cout << y << " ";
-    //std::cout << "\n";
-    for(auto t : used_terms){
-        std::cout << " term = " << t << "\n";
-        for(int d=0; d<num_dimensions_; d++){
-            std::vector<precision> cpu = gvals_[t * num_dimensions_ + d];
-            for(auto y : cpu) std::cout << y << " ";
-            std::cout << "\n";
-        }
-    }
-
-    precision *py = get_buffer<workspace::pad_y>();
+  precision *py = get_buffer<workspace::pad_y>();
 #pragma omp parallel for
-    for (int64_t i = 0; i < num_active_; i++)
-      y[i] += alpha * py[i];
-
-    // for(int i=0; i<num_active_; i++)
-    //   std::cout << y[i] << " ";
-    // std::cout << "\n";
-    // exit(1);
+  for (int64_t i = 0; i < num_active_; i++)
+    y[i] += alpha * py[i];
 #endif
-  }
 }
 #endif
 

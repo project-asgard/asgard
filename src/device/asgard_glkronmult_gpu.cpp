@@ -27,6 +27,10 @@ global_gpu_operations<precision>
     num_matrices += perms[t].num_dimensions() * perms[t].fill.size();
   mats_.reserve(num_matrices); // max possible number of matrices
 
+  // the first matrix will zero out the y
+  // follow on operations will switch to increment after
+  precision ybeta = 0;
+
   for (int t : terms)
   {
     // terms can have different effective dimension, since some of them are identity
@@ -58,21 +62,22 @@ global_gpu_operations<precision>
         if (gvals_[vid].empty())
           gvals_[vid] = gvals[vid];
 
-        std::cout << " setting pid = " << pid << "  vid = " << vid << " with size = " << gvals_[vid].size() << "\n";
-
         mats_.push_back(gpu::sparse_matrix<precision>(num_rows, num_rows, gindx_[pid].size(),
                                                       gpntr_[pid].data(), gindx_[pid].data(),
                                                       gvals_[vid].data()));
 
-        // first operation zeros out y, then we increment
-        precision ybeta = (mats_.size() == 1) ?  0 : 1;
-
         if (d == 0 and d == dims - 1) // only one matrix
+        {
           mats_.back().set_vectors(num_rows, precision{1}, x, ybeta, y);
+          ybeta = precision{1};
+        }
         else if (d == 0)
           mats_.back().set_vectors(num_rows, precision{1}, x, precision{0}, w2);
         else if (d == dims - 1)
+        {
           mats_.back().set_vectors(num_rows, precision{1}, w1, ybeta, y);
+          ybeta = precision{1};
+        }
         else
           mats_.back().set_vectors(num_rows, precision{1}, w1, precision{0}, w2);
 

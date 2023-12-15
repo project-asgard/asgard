@@ -127,9 +127,9 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
       },
       fk::vector<P, mem_type::view, resrc>(x), b,
-      [&](fk::vector<P, mem_type::view, resrc> &x) -> void {
+      [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
           tools::time_event performance("kronmult - preconditioner", pc.size());
-          apply_diagonal_precond(pc, dt, x);
+          apply_diagonal_precond(pc, dt, x_in);
       },
       restart, max_iter, tolerance);
 }

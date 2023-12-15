@@ -245,9 +245,6 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  for(auto s : fx)
-    std::cout << s << "\n";
-
   if (pde.num_sources > 0)
   {
     auto const sources =
