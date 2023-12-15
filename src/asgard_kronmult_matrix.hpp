@@ -806,9 +806,10 @@ public:
                                     static_cast<int>(workspace::num_spaces)>;
 
   //! \brief Creates an empty matrix.
-  global_kron_matrix() : conn_(1), flops_({0, 0, 0}), edges_(1) {}
+  global_kron_matrix() : num_dimensions_(0), num_active_(0), num_padded_(0),
+                         flops_({0, 0, 0}), edges_(1) {}
   //! \brief Creates an empty matrix.
-  global_kron_matrix(connect_1d conn, vector2d<int> ilist, int64_t num_active,
+  global_kron_matrix(int num_dimensions, int64_t num_active, int64_t num_padded,
                      std::vector<kronmult::permutes> perms,
                      std::vector<std::vector<int>> gpntr,
                      std::vector<std::vector<int>> gindx,
@@ -816,9 +817,8 @@ public:
                      std::vector<std::vector<int>> givals,
                      int porder, connect_1d edges,
                      default_vector<int> local_pntr, default_vector<int> local_indx)
-      : conn_(std::move(conn)), ilist_(std::move(ilist)),
-        num_dimensions_(ilist_.stride()), num_active_(num_active),
-        dsort_(ilist_), perms_(std::move(perms)), flops_({0, 0, 0}),
+    :   num_dimensions_(num_dimensions), num_active_(num_active),
+        num_padded_(num_padded), perms_(std::move(perms)), flops_({0, 0, 0}),
         gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
         gvals_(perms_.size() * num_dimensions_), porder_(porder), edges_(std::move(edges)),
@@ -839,8 +839,6 @@ public:
       expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
       expect(givals_.size() == static_cast<size_t>(num_dimensions_));
     }
-
-    expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
 
     // cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
     // gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
@@ -864,9 +862,8 @@ public:
     expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
     expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
     expect(givals_.size() == static_cast<size_t>(num_dimensions_));
-
-    expect(gpntr_.front().size() == static_cast<size_t>(ilist_.num_strips() + 1));
 #endif
+    expect(gpntr_.front().size() == static_cast<size_t>(num_padded + 1));
   }
 
 #ifdef ASGARD_USE_CUDA
@@ -884,10 +881,6 @@ public:
 
   //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
   operator bool() const { return (not gvals_.empty()); }
-  //! \brief Return the entry connectivity (sparsity pattern).
-  connect_1d const &connectivity() const { return conn_; }
-  //! \brief Return the edge connectivity
-  connect_1d const &edge_connectivity() const { return edges_; }
 
   //! \brief Allows overwriting of the loaded coefficients.
   template<resource rec>
@@ -923,10 +916,10 @@ public:
   {
     work_ = work; // save a link to the pointers
 
-    resize_buffer<workspace::pad_x>(ilist_.num_strips());
-    resize_buffer<workspace::pad_y>(ilist_.num_strips());
-    resize_buffer<workspace::stage1>(ilist_.num_strips());
-    resize_buffer<workspace::stage2>(ilist_.num_strips());
+    resize_buffer<workspace::pad_x>(num_padded_);
+    resize_buffer<workspace::pad_y>(num_padded_);
+    resize_buffer<workspace::stage1>(num_padded_);
+    resize_buffer<workspace::stage2>(num_padded_);
 
 #ifdef ASGARD_USE_CUDA
     resize_buffer<workspace::dev_x>(num_active_);
@@ -1001,11 +994,9 @@ private:
   static constexpr int num_variants = 3;
   // description of the multi-indexes and the sparsity pattern
   // global case data
-  connect_1d conn_;
-  vector2d<int> ilist_; // includes all polynomials and the padded indexes
   int num_dimensions_;
   int64_t num_active_;
-  dimension_sort dsort_;
+  int64_t num_padded_;
   std::vector<kronmult::permutes> perms_;
   std::array<int64_t, num_variants> flops_;
   // data for the 1D tensors

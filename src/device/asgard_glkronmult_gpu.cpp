@@ -62,9 +62,11 @@ global_gpu_operations<precision>
         if (gvals_[vid].empty())
           gvals_[vid] = gvals[vid];
 
-        mats_.push_back(gpu::sparse_matrix<precision>(num_rows, num_rows, gindx_[pid].size(),
-                                                      gpntr_[pid].data(), gindx_[pid].data(),
-                                                      gvals_[vid].data()));
+        mats_.emplace_back(
+            gpu::sparse_matrix<precision>(num_rows, num_rows, gindx_[pid].size(),
+                                          gpntr_[pid].data(), gindx_[pid].data(),
+                                          gvals_[vid].data())
+        );
 
         if (d == 0 and d == dims - 1) // only one matrix
         {

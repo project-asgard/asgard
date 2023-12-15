@@ -1259,7 +1259,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   }
 
   return global_kron_matrix<precision>(
-      std::move(dof_pattern), std::move(ilist), num_active_dof, std::move(permutations),
+      num_dimensions, num_active_dof, ilist.num_strips(), std::move(permutations),
       std::move(global_pntr), std::move(global_indx), std::move(global_diag),
       std::move(global_ivals),
       porder, connect_1d(max_level), std::move(lpntr), std::move(lindx));

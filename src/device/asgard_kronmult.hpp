@@ -278,13 +278,64 @@ void global_cpu(int num_dimensions,
                 precision *worspace1, precision *worspace2);
 
 #ifdef ASGARD_USE_CUDA
+/*!
+ * \brief Handles a sequence of matrix-vectors operations for global Kronecker product
+ *
+ * The class manages multiple sparse-matrices, multiple terms, and permutations
+ * of lower/upper operations.
+ *
+ * The object holds non-owning alias to the sparse_handle.
+ *
+ * The number of dimensions input is the total dimensions of the problem,
+ * while the \b perms vector holds the effective directions and permutations
+ * for every operator term, i.e., terms with identity are removed from the
+ * product.
+ *
+ * \b gpntr and \b gindx describe the patterns of the global sparse matrices,
+ * each list holds 3 * num_dimensions number of entries, in turn corresponding
+ * to the full-pattern, lower-pattern and upper-patterns for each dimensions,
+ * e.g., the lower pattern for dimension dim is at 3 * dim + 1,
+ * while the upper pattern for dimension dim is at 3 * dim + 2.
+ *
+ * The lower and upper patterns for dimension zero are never used, since
+ * we don't need to split the matrix for the first active (non-identity)
+ * dimension for each term.
+ *
+ * The \b gvals follow the same sets of triplets for full-lower-upper patterns,
+ * repeated for each dimension for each term.
+ * For example, the values for the full pattern for term t in dimension dim
+ * will be at location 3 * (t * num_dimensions + dim), while the upper patterns
+ * is at 3 * (t * num_dimensions + dim) + 2
+ *
+ * The vectors corresponding to identity terms are empty and will not be used.
+ *
+ * \b terms indicates which terms to use for this global operation, e.g.,
+ * imex-explicit or regular (all terms). The values and permutations that
+ * are not listed in terms will not be used or accessed.
+ *
+ * x/y/work1/work2 are persistent vectors to be used for every call.
+ * All arrays must have equal length corresponding to the rows/columns of
+ * the sparse matrices, i.e., gpntr.front().size() - 1.
+ * Prior to the call to execute(), the inputs must be stored in x,
+ * while the outputs will be written to y.
+ *
+ * WARNING: the execute() method works with a side-effect, due to the way
+ * the cusparse interface works.
+ *
+ * The object will load the cpu data onto the gpu and will hold onto the vectors
+ * until it is destroyed.
+ * The values arrays can be overwritten later with the update_values() method,
+ * which takes an index similar to the example above and a vector with
+ * appropriate size.
+ */
 template<typename precision>
 class global_gpu_operations
 {
 public:
+  //! \brief Create an empty operation, cannot used
   global_gpu_operations() : hndl_(nullptr), buffer_(nullptr)
   {}
-
+  //! \brief Set new global Kronecker product, see the class description
   global_gpu_operations(gpu::sparse_handle const &hndl, int num_dimensions,
                         std::vector<permutes> const &perms,
                         std::vector<std::vector<int>> const &gpntr,
@@ -327,7 +378,7 @@ public:
     fk::copy_to_device(gvals_[vid].data(), cpu_values.data(), gvals_[vid].size());
   }
 
-//private:
+private:
   gpu::sparse_handle::htype hndl_;
   std::vector<gpu::vector<int>> gpntr_;
   std::vector<gpu::vector<int>> gindx_;
