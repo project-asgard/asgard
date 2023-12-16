@@ -1003,6 +1003,128 @@ compute_mem_usage(PDE<P> const &pde,
 
 #ifdef KRON_MODE_GLOBAL
 /*!
+ * \brief Constructs a preconditioner
+ *
+ * The preconditioner should go into another file, but that will come with a
+ * big cleanup of the kronmult logic (and the removal of the old code).
+ */
+template<typename precision>
+void build_preconditioner(PDE<precision> const &pde, int64_t const num_active,
+                          adapt::distributed_grid<precision> const &dis_grid,
+                          std::vector<int> const &used_terms,
+                          std::vector<precision> &pc)
+{
+  auto const &grid           = dis_grid.get_subgrid(get_rank());
+  int const *const asg_table = dis_grid.get_table().get_active_table().data();
+
+  expect(grid.row_start == 0); // cannot do MPI yet
+
+  int const pterms = pde.get_dimensions()[0].get_degree();
+
+  int num_dimensions  = pde.num_dims;
+  int64_t tensor_size = int_pow(pterms, num_dimensions);
+
+  if (pc.size() == 0)
+    pc.resize(num_active);
+  else
+  {
+    pc.resize(num_active);
+    std::fill(pc.begin(), pc.end(), precision{0});
+  }
+
+#pragma omp parallel
+  {
+    std::vector<int> midx(num_dimensions); // multi-index for each row
+
+#pragma omp for
+    for (int64_t row = 0; row < grid.row_stop + 1; row++)
+    {
+      int const *const row_coords = asg_table + 2 * num_dimensions * row;
+      asg2tsg_convert(num_dimensions, row_coords, midx.data());
+
+      for (int tentry = 0; tentry < tensor_size; tentry++)
+      {
+        for (int t : used_terms)
+        {
+          precision a = 1;
+
+          int tt = tentry;
+          for (int d = num_dimensions - 1; d >= 0; d--)
+          {
+            int const rc = midx[d] * pterms + tt % pterms;
+            a *= pde.get_coefficients(t, d)(rc, rc);
+            tt /= pterms;
+          }
+          pc[row * tensor_size + tentry] += a;
+        }
+      }
+    }
+  }
+}
+
+/*!
+ * \brief Walks over the sparse matrix pattern and makes call-back for each non-zero
+ *
+ * The sparse matrix is defined by a global list of indexes \b ilist, sorted
+ * along dimensions in a \b dsort and having 1D \b pattern.
+ * The matrix is constructed for dimension \b dim
+ * and the call-back method is called for each non-zero.
+ *
+ * The signature of the callback takes 4 integers:
+ * \code
+ *   auto callback = [](int global_row, int global_col, int row_1d, int col_1d)
+ *     -> void {
+ *        ...
+ *     };
+ * \endcode
+ */
+template<typename callback_type>
+void parse_sparse_pattern(vector2d<int> const &ilist, dimension_sort const &dsort,
+                          connect_1d const &pattern, int const dim,
+                          callback_type callback)
+{
+  int const num_vecs = dsort.num_vecs(dim);
+#pragma omp parallel for
+  for (int vec_id = 0; vec_id < num_vecs; vec_id++)
+  {
+    // the vector is between vec_begin(dim, vec_id) and vec_end(dim, vec_id)
+    // the vector has to be multiplied by the upper/lower/both portion
+    // of a sparse matrix
+    // sparse matrix times a sparse vector requires pattern matching
+    int const vec_begin = dsort.vec_begin(dim, vec_id);
+    int const vec_end   = dsort.vec_end(dim, vec_id);
+    for (int j = vec_begin; j < vec_end; j++)
+    {
+      int row       = dsort(ilist, dim, j); // 1D index of this output in y
+      int mat_begin = pattern.row_begin(row);
+      int mat_end   = pattern.row_end(row);
+
+      // loop over the matrix row and the vector looking for matching non-zeros
+      int mat_j = mat_begin;
+      int vec_j = vec_begin;
+      while (mat_j < mat_end and vec_j < vec_end)
+      {
+        int const vec_index = dsort(ilist, dim, vec_j); // pattern index 1d
+        int const mat_index = pattern[mat_j];
+        // the sort helps here, since indexes are in order, it is easy to
+        // match the index patterns
+        if (vec_index < mat_index)
+          vec_j += 1;
+        else if (mat_index < vec_index)
+          mat_j += 1;
+        else // mat_index == vec_index, found matching entry, add to output
+        {
+          callback(dsort.map(dim, j), dsort.map(dim, vec_j), row, mat_index);
+
+          vec_j += 1;
+          mat_j += 1;
+        }
+      }
+    }
+  }
+}
+
+/*!
  * \brief Takes a pattern and splits it into lower and upper portions
  *
  * The pntr, indx, and diag define standard row-compressed sparsity pattern,
@@ -1109,76 +1231,38 @@ make_global_kron_matrix(PDE<precision> const &pde,
     std::vector<int> &diag  = global_diag[dim];
     std::vector<int> &ivals = global_ivals[dim];
 
-    // we parse the pattern twice, once to find the number of non-zeros and
-    // and then to record the non-zeros in the indx structures
-    for (int stage = 0; stage < 2; stage++)
-    {
-      if (stage == 1)
-      {
-        int64_t num_nz = 0;
-        for (auto n : nz_count)
-          num_nz += n;
-        indx.resize(num_nz);
-        ivals.resize(2 * num_nz);
-        for (size_t i = 1; i < pntr.size(); i++)
-          pntr[i] = pntr[i - 1] + nz_count[i - 1];
-      }
-      std::fill(nz_count.begin(), nz_count.end(), 0);
-      // sparse sub-vectors after the sort in the given dimension
-      int const num_vecs = dsort.num_vecs(dim);
-      for (int vec_id = 0; vec_id < num_vecs; vec_id++)
-      {
-        // the vector is between vec_begin(dim, vec_id) and vec_end(dim, vec_id)
-        // the vector has to be multiplied by the upper/lower/both portion
-        // of a sparse matrix
-        // sparse matrix times a sparse vector requires pattern matching
-        int const vec_begin = dsort.vec_begin(dim, vec_id);
-        int const vec_end   = dsort.vec_end(dim, vec_id);
-        for (int j = vec_begin; j < vec_end; j++)
-        {
-          int row       = dsort(ilist, dim, j); // 1D index of this output in y
-          int mat_begin = dof_pattern.row_begin(row);
-          int mat_end   = dof_pattern.row_end(row);
+    std::fill(nz_count.begin(), nz_count.end(), 0);
+    // count the number of non-zeros
+    parse_sparse_pattern(ilist, dsort, dof_pattern, dim,
+                         [&](int grow, int, int, int)
+                           -> void {
+                               nz_count[grow] += 1;
+                           });
+    // allocate memory
+    int64_t num_nz = std::accumulate(nz_count.begin(), nz_count.end(), int64_t{0});
+    indx.resize(num_nz);
+    ivals.resize(2 * num_nz);
+    // set the row pointer offsets
+    for (size_t i = 1; i < pntr.size(); i++)
+      pntr[i] = pntr[i - 1] + nz_count[i - 1];
 
-          // loop over the matrix row and the vector looking for matching non-zeros
-          int mat_j = mat_begin;
-          int vec_j = vec_begin;
-          while (mat_j < mat_end and vec_j < vec_end)
-          {
-            int const vec_index = dsort(ilist, dim, vec_j); // pattern index 1d
-            int const mat_index = dof_pattern[mat_j];
-            // the sort helps here, since indexes are in order, it is easy to
-            // match the index patterns
-            if (vec_index < mat_index)
-              vec_j += 1;
-            else if (mat_index < vec_index)
-              mat_j += 1;
-            else // mat_index == vec_index, found matching entry, add to output
-            {
-              if (stage == 0)
-                nz_count[dsort.map(dim, j)] += 1;
-              else
-              {
-                int const g_row      = dsort.map(dim, j); // global row
-                int const idx_in_row = pntr[g_row] + nz_count[g_row];
+    std::fill(nz_count.begin(), nz_count.end(), 0);
+    // fill the pattern
+    parse_sparse_pattern(ilist, dsort, dof_pattern, dim,
+                         [&](int grow, int gcol, int prow, int pcol)
+                           -> void {
+                               int const j = pntr[grow] + nz_count[grow];
+                               indx[j]     = gcol; // global column
 
-                indx[idx_in_row]          = dsort.map(dim, vec_j);
-                ivals[2 * idx_in_row]     = row;
-                ivals[2 * idx_in_row + 1] = mat_index;
+                               // local offsets to load values from the operators
+                               ivals[2 * j]     = prow;
+                               ivals[2 * j + 1] = pcol;
 
-                if (g_row == indx[idx_in_row])
-                  diag[g_row] = idx_in_row;
+                               if (grow == gcol) // diagonal entry
+                                 diag[grow] = j;
 
-                nz_count[g_row] += 1;
-              }
-              // entry match, increment both indexes for the pattern
-              vec_j += 1;
-              mat_j += 1;
-            }
-          }
-        }
-      }
-    }
+                               nz_count[grow] += 1;
+                           });
   }
 
 #ifdef ASGARD_USE_CUDA // split the patterns into threes
@@ -1241,12 +1325,10 @@ void set_specific_mode(PDE<precision> const &pde,
 
   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
-  auto const &grid                 = dis_grid.get_subgrid(get_rank());
-  int const *const flattened_table = dis_grid.get_table().get_active_table().data();
+  constexpr int patterns_per_dim = mat.patterns_per_dim; // GPU: 3, CPU: 1
 
   int const porder     = pde.get_dimensions()[0].get_degree() - 1;
   mat.porder_          = porder;
-  int const pterms     = porder + 1; // poly degrees of freedom
 
   int const num_dimensions = pde.num_dims;
 
@@ -1258,12 +1340,12 @@ void set_specific_mode(PDE<precision> const &pde,
       if (not check_identity_term(pde, t, d))
       {
         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
-#ifdef ASGARD_USE_CUDA
-        int const num_mats = (d == 0) ? 1 : 3;
+
+        int const num_mats = (d == 0) ? 1 : patterns_per_dim;
         for (int k = 0; k < num_mats; k++)
         {
-          int const pid = 3 * d + k;
-          int const vid = 3 * t * num_dimensions + pid;
+          int const pid = patterns_per_dim * d + k;
+          int const vid = patterns_per_dim * t * num_dimensions + pid;
 
           std::vector<precision> &gvals = mat.gvals_[vid];
           std::vector<int> &givals      = mat.givals_[pid];
@@ -1276,62 +1358,19 @@ void set_specific_mode(PDE<precision> const &pde,
           for (int64_t i = 0; i < num_entries; i++)
             gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
         }
-#else
-        std::vector<precision> &gvals = mat.gvals_[t * num_dimensions + d];
-        std::vector<int> &givals = mat.givals_[d];
-
-        int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
-
-        gvals.resize(num_entries);
-
-#pragma omp parallel for
-        for (int64_t i = 0; i < num_entries; i++)
-          gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
-#endif
       }
     }
   }
 
-  // compute the size of the in-cell degrees of freedom
-  int64_t tensor_size = int_pow(pterms, num_dimensions);
-
   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
-  {
-    // prepare a preconditioner
+  { // prepare a preconditioner
 #ifdef ASGARD_USE_CUDA
-    std::vector<precision> pc;
+    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
+                         mat.cpu_pre_con_);
+    mat.pre_con_ = mat.cpu_pre_con_;
 #else
-    std::vector<precision> &pc = mat.pre_con_;
-#endif
-    int64_t num_entries = mat.num_active_;
-
-    pc.resize(num_entries);
-    std::vector<int> midx(num_dimensions); // multi-index for each row
-
-    for (int64_t row = 0; row < grid.row_stop + 1; row++)
-    {
-      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-      asg2tsg_convert(num_dimensions, row_coords, midx.data());
-
-      for (int tentry = 0; tentry < tensor_size; tentry++)
-      {
-        for (int t : used_terms)
-        {
-          precision a = 1;
-
-          int tt = tentry;
-          for (int d = num_dimensions - 1; d >= 0; d--)
-          {
-            int const rc = midx[d] * pterms + tt % pterms;
-            a *= pde.get_coefficients(t, d)(rc, rc);
-            tt /= pterms;
-          }
-          pc[row * tensor_size + tentry] += a;
-        }
-      }
-    }
-#ifdef ASGARD_USE_CUDA
-    mat.pre_con_ = pc;
+    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
+                         mat.pre_con_);
 #endif
   }
 
@@ -1400,7 +1439,8 @@ void global_kron_matrix<precision>::
 
 template<typename precision>
 void update_matrix_coefficients(PDE<precision> const &pde,
-                                imex_flag const imex,
+                                adapt::distributed_grid<precision> const &dis_grid,
+                                options const &program_options, imex_flag const imex,
                                 global_kron_matrix<precision> &mat)
 {
   int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
@@ -1453,6 +1493,18 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 #endif
       }
     }
+  }
+
+  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  { // prepare a preconditioner
+#ifdef ASGARD_USE_CUDA
+    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
+                         mat.cpu_pre_con_);
+    mat.pre_con_ = mat.cpu_pre_con_;
+#else
+    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
+                         mat.pre_con_);
+#endif
   }
 }
 
@@ -1544,7 +1596,9 @@ template global_kron_matrix<double>
 make_global_kron_matrix(PDE<double> const &,
                         adapt::distributed_grid<double> const &,
                         options const &);
-template void update_matrix_coefficients(PDE<double> const &, imex_flag const,
+template void update_matrix_coefficients(PDE<double> const &,
+                                         adapt::distributed_grid<double> const &,
+                                         options const &, imex_flag const,
                                          global_kron_matrix<double> &);
 template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
@@ -1582,7 +1636,9 @@ template global_kron_matrix<float>
 make_global_kron_matrix(PDE<float> const &,
                         adapt::distributed_grid<float> const &,
                         options const &);
-template void update_matrix_coefficients(PDE<float> const &, imex_flag const,
+template void update_matrix_coefficients(PDE<float> const &,
+                                         adapt::distributed_grid<float> const &,
+                                         options const &, imex_flag const,
                                          global_kron_matrix<float> &);
 template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,

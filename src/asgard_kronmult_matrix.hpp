@@ -766,7 +766,8 @@ void set_specific_mode(PDE<precision> const &pde,
  */
 template<typename precision>
 void update_matrix_coefficients(PDE<precision> const &pde,
-                                imex_flag const imex,
+                                adapt::distributed_grid<precision> const &dis_grid,
+                                options const &program_options, imex_flag const imex,
                                 global_kron_matrix<precision> &mat);
 
 /*!
@@ -921,7 +922,8 @@ public:
 
   friend void update_matrix_coefficients<precision>(
       PDE<precision> const &pde,
-      imex_flag const imex,
+      adapt::distributed_grid<precision> const &dis_grid,
+      options const &program_options, imex_flag const imex,
       global_kron_matrix<precision> &mat);
 
 protected:
@@ -984,9 +986,7 @@ private:
   default_vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA
   std::array<kronmult::global_gpu_operations<precision>, num_variants> gpu_global;
-//  default_vector<int> local_rows_;
-//  default_vector<int> local_cols_;
-  mutable std::vector<precision> cpu_pre_con_; // cpu copy, if requested
+  mutable std::vector<precision> cpu_pre_con_; // cpu copy
 #endif
 };
 
@@ -1191,7 +1191,7 @@ struct matrix_list
 #endif
       }
       else
-        update_matrix_coefficients(pde, imex(entry), kglobal);
+        update_matrix_coefficients(pde, grid, opts, imex(entry), kglobal);
     }
 #else
     if (not(*this)[entry])
