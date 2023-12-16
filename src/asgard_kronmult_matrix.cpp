@@ -1049,7 +1049,9 @@ template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 {
   for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
-    if (pt.coeff_type != coefficient_type::mass or pt.g_func != nullptr or pt.lhs_mass_func != nullptr)
+    if (pt.coeff_type != coefficient_type::mass or
+        pt.g_func != nullptr or
+        pt.lhs_mass_func != nullptr)
       return false;
   return true;
 }
@@ -1074,13 +1076,12 @@ make_global_kron_matrix(PDE<precision> const &pde,
   connect_1d cell_edges(max_level, asgard::connect_1d::level_edge_only);
   connect_1d dof_pattern(connect_1d(max_level), porder);
 
-  //connect_1d dof_pattern(cell_pattern, porder);
-  //dof_pattern.dump();
-
   int const num_non_padded   = grid.col_stop - grid.col_start + 1;
   vector2d<int> active_cells = asg2tsg_convert(num_dimensions, num_non_padded, flattened_table);
 
-  indexset pad_complete = compute_ancestry_completion(make_index_set(active_cells), cell_pattern, cell_edges);
+  indexset pad_complete = compute_ancestry_completion(
+      make_index_set(active_cells), cell_pattern, cell_edges
+      );
 
   vector2d<int> ilist = complete_poly_order(active_cells, pad_complete, porder);
   dimension_sort dsort(ilist);

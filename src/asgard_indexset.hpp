@@ -324,13 +324,27 @@ private:
  * will be ancestry complete.
  *
  * \param iset is the set to be completed
- * \param the lower-triangular part of the connect_1d pattern lists all
- *        ancestors for the ancestors, i.e., row i-th ancestors are in
+ * \param hierarchy of 1D connections where the lower-triangular part is
+ *        the ancestry list for each row, i.e., row i-th ancestors are
  *        listed between row_begin(i) and row_diag(i)
+ * \param level_edges holds only the edge connections between elements
+ *        one the same level of the hierarchy
+ *
+ * \returns a set of indexes so that the union of the original iset and
+ *          the result will have the following properties:
+ *
+ * - the union will hold the hierarchy completion of iset
+ * - the union will hold all edge neighbors of iset
+ * - the union is not hierarchy complete (padded edge cell may be missing ancestors)
+ * - the union is not complete with respect to the level_edges,
+ *   i.e., only the immediate neighbors are considered
+ *
+ * Those properties guarantees correctness of the global generalized Kronecker
+ * algorithm for the original indexes in iset.
  */
 indexset compute_ancestry_completion(indexset const &iset,
-                                     connect_1d const &pattern1d,
-                                     connect_1d const &pattern_edge);
+                                     connect_1d const &hierarchy,
+                                     connect_1d const &level_edges);
 
 /*!
  * \brief Completes the cells to indexes of degrees of freedom

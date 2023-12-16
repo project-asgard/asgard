@@ -211,34 +211,80 @@ dimension_sort::dimension_sort(vector2d<int> const &list) : iorder_(list.stride(
   }
 }
 
+/*!
+ * \brief Make a callback for all 1d ancestors of the set
+ *
+ * Given a set of indexes and 1d ancestry, constructs all the ancestors
+ * (on the fly, not explicitly) and makes a callback for each one.
+ * The ancestors work in 1d only, this does not consider the cross terms.
+ * - the method can be called recursively to process all ancestors in all
+ *   directions
+ * - the method work for cases like edge neighbors, where we process one
+ *   "parent" only
+ *
+ * The scratch-space must have size iset.num_dimensions() and will be filled
+ * with one ancestor at a time, but the user should not touch the scratch
+ * directly.
+ * The callback should be a callable that accepts std::vector<int> const&
+ *
+ * Usage:
+ * \code
+ *   std::vector<int> scratch(iset.num_dimensions());
+ *   parse_ancestry_1d(iset, connect_1d(max_level), scratch,
+ *                     [](std::vector<int> const &ancestor)
+ *                       -> void {
+ *                         if (iset.missing(ancestor))
+ *                           std::cout << " iset is not complete \n";
+ *                       });
+ * \endcode
+ *
+ */
+template<typename callback_lambda>
+void parse_ancestry_1d(indexset const &iset, connect_1d const &ancestry,
+                       std::vector<int> &scratch, callback_lambda callback)
+{
+  int const num_dimensions = iset.num_dimensions();
+  expect(scratch.size() == static_cast<size_t>(num_dimensions));
+
+  for (int i = 0; i < iset.num_indexes(); i++)
+  {
+    // construct all parents, even considering the edges
+    std::copy_n(iset[i], num_dimensions, scratch.begin());
+    // check the parents in each direction
+    for (int d = 0; d < num_dimensions; d++)
+    {
+      int const row = scratch[d];
+      for (int j = ancestry.row_begin(row); j < ancestry.row_diag(row); j++)
+      {
+        scratch[d] = ancestry[j];
+        callback(scratch);
+      }
+      scratch[d] = row;
+    }
+  }
+}
+
 indexset compute_ancestry_completion(indexset const &iset,
-                                     connect_1d const &pattern1d,
-                                     connect_1d const &pattern_edge)
+                                     connect_1d const &hierarchy,
+                                     connect_1d const &level_edges)
 {
   int const num_dimensions = iset.num_dimensions();
 
   // store all missing ancestors here
   vector2d<int> missing_ancestors(num_dimensions, 0);
 
+  // workspace for the algorithms
+  std::vector<int> scratch(num_dimensions);
+
   // do just one pass, considering the indexes in the iset only
-  std::vector<int> ancestor(num_dimensions);
-  for (int i = 0; i < iset.num_indexes(); i++)
-  {
-    // construct all parents, even considering the edges
-    std::copy_n(iset[i], num_dimensions, ancestor.begin());
-    // check the parents in each direction
-    for (int d = 0; d < num_dimensions; d++)
-    {
-      int const row = ancestor[d];
-      for (int j = pattern1d.row_begin(row); j < pattern1d.row_diag(row); j++)
-      {
-        ancestor[d] = pattern1d[j];
-        if (iset.missing(ancestor))
-          missing_ancestors.append(ancestor);
-      }
-      ancestor[d] = row;
-    }
-  }
+  // after this, missing_ancestors will hold those from iset
+  // we need to recurs only on the missing_ancestors from now on
+  parse_ancestry_1d(iset, hierarchy, scratch,
+                    [&](std::vector<int> const &ancestor)
+                      -> void {
+                          if (iset.missing(ancestor))
+                            missing_ancestors.append(ancestor);
+                      });
 
   bool ancestry_complete = missing_ancestors.empty();
 
@@ -253,23 +299,13 @@ indexset compute_ancestry_completion(indexset const &iset,
     // missing_ancestors holds the ones from this iteration only
     missing_ancestors.clear();
 
-    for (int i = 0; i < pad_indexes.num_indexes(); i++)
-    {
-      // construct all parents, even considering the edges
-      std::copy_n(pad_indexes[i], num_dimensions, ancestor.begin());
-      // check the parents in each direction
-      for (int d = 0; d < num_dimensions; d++)
-      {
-        int const row = ancestor[d];
-        for (int j = pattern1d.row_begin(row); j < pattern1d.row_diag(row); j++)
-        {
-          ancestor[d] = pattern1d[j];
-          if (iset.missing(ancestor) and pad_indexes.missing(ancestor))
-            missing_ancestors.append(ancestor);
-        }
-        ancestor[d] = row;
-      }
-    }
+    parse_ancestry_1d(pad_indexes, hierarchy, scratch,
+                      [&](std::vector<int> const &ancestor)
+                        -> void {
+                            if (iset.missing(ancestor) and
+                                pad_indexes.missing(ancestor))
+                              missing_ancestors.append(ancestor);
+                        });
 
     // check if every ancestor is already in either iset or pad_indexes
     ancestry_complete = missing_ancestors.empty();
@@ -284,26 +320,21 @@ indexset compute_ancestry_completion(indexset const &iset,
 
   missing_ancestors.clear();
 
-  int const total_indexes = pad_indexes.num_indexes() + iset.num_indexes();
-  for (int i = 0; i < total_indexes; i++)
-  {
-    // construct all parents, even considering the edges
-    std::copy_n(
-        (i < iset.num_indexes()) ? iset[i] : pad_indexes[i - iset.num_indexes()],
-        num_dimensions, ancestor.begin());
-    // check the parents in each direction
-    for (int d = 0; d < num_dimensions; d++)
-    {
-      int const row = ancestor[d];
-      for (int j = pattern_edge.row_begin(row); j < pattern_edge.row_diag(row); j++)
-      {
-        ancestor[d] = pattern1d[j];
-        if (iset.missing(ancestor) and pad_indexes.missing(ancestor))
-          missing_ancestors.append(ancestor);
-      }
-      ancestor[d] = row;
-    }
-  }
+  // add the edge neighbors, one pass only, no recursion
+  parse_ancestry_1d(iset, level_edges, scratch,
+                      [&](std::vector<int> const &ancestor)
+                        -> void {
+                            if (iset.missing(ancestor) and
+                                pad_indexes.missing(ancestor))
+                              missing_ancestors.append(ancestor);
+                        });
+  parse_ancestry_1d(pad_indexes, level_edges, scratch,
+                      [&](std::vector<int> const &ancestor)
+                        -> void {
+                            if (iset.missing(ancestor) and
+                                pad_indexes.missing(ancestor))
+                              missing_ancestors.append(ancestor);
+                        });
 
   if (not missing_ancestors.empty())
   {
