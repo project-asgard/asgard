@@ -212,7 +212,8 @@ dimension_sort::dimension_sort(vector2d<int> const &list) : iorder_(list.stride(
 }
 
 indexset compute_ancestry_completion(indexset const &iset,
-                                     connect_1d const &pattern1d)
+                                     connect_1d const &pattern1d,
+                                     connect_1d const &pattern_edge)
 {
   int const num_dimensions = iset.num_dimensions();
 
@@ -279,6 +280,36 @@ indexset compute_ancestry_completion(indexset const &iset,
       missing_ancestors.append(pad_indexes[0], pad_indexes.num_indexes());
       pad_indexes = make_index_set(missing_ancestors);
     }
+  }
+
+  missing_ancestors.clear();
+
+  int const total_indexes = pad_indexes.num_indexes() + iset.num_indexes();
+  for (int i = 0; i < total_indexes; i++)
+  {
+    // construct all parents, even considering the edges
+    std::copy_n(
+        (i < iset.num_indexes()) ? iset[i] : pad_indexes[i - iset.num_indexes()],
+        num_dimensions, ancestor.begin());
+    // check the parents in each direction
+    for (int d = 0; d < num_dimensions; d++)
+    {
+      int const row = ancestor[d];
+      for (int j = pattern_edge.row_begin(row); j < pattern_edge.row_diag(row); j++)
+      {
+        ancestor[d] = pattern1d[j];
+        if (iset.missing(ancestor) and pad_indexes.missing(ancestor))
+          missing_ancestors.append(ancestor);
+      }
+      ancestor[d] = row;
+    }
+  }
+
+  if (not missing_ancestors.empty())
+  {
+    // add the new indexes into the pad_indexes (could be improved)
+    missing_ancestors.append(pad_indexes[0], pad_indexes.num_indexes());
+    pad_indexes = make_index_set(missing_ancestors);
   }
 
   return pad_indexes;

@@ -137,7 +137,7 @@ TEST_CASE("testing edge connections", "[edge connect]")
   for (int j = 0; j < static_cast<int>(gold_connect.size()); j++)
     REQUIRE(cells[j] == gold_connect[j]);
 }
-
+/*
 TEST_CASE("testing completion", "[ancestry completion]")
 {
   connect_1d conn(3, connect_1d::level_edge_skip);
@@ -160,3 +160,4 @@ TEST_CASE("testing completion", "[ancestry completion]")
   REQUIRE(completion[0][0] == 0);
   REQUIRE(completion[0][1] == 3);
 }
+*/

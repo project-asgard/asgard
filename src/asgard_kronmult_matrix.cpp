@@ -1071,13 +1071,16 @@ make_global_kron_matrix(PDE<precision> const &pde,
   int const num_terms      = pde.num_terms;
 
   connect_1d cell_pattern(max_level, asgard::connect_1d::level_edge_skip);
-  connect_1d dof_pattern(cell_pattern, porder);
+  connect_1d cell_edges(max_level, asgard::connect_1d::level_edge_only);
+  connect_1d dof_pattern(connect_1d(max_level), porder);
+
+  //connect_1d dof_pattern(cell_pattern, porder);
   //dof_pattern.dump();
 
   int const num_non_padded   = grid.col_stop - grid.col_start + 1;
   vector2d<int> active_cells = asg2tsg_convert(num_dimensions, num_non_padded, flattened_table);
 
-  indexset pad_complete = compute_ancestry_completion(make_index_set(active_cells), cell_pattern);
+  indexset pad_complete = compute_ancestry_completion(make_index_set(active_cells), cell_pattern, cell_edges);
 
   vector2d<int> ilist = complete_poly_order(active_cells, pad_complete, porder);
   dimension_sort dsort(ilist);
@@ -1647,10 +1650,16 @@ void global_kron_matrix<precision>::apply(
     fk::copy_to_device<precision>(get_buffer<workspace::dev_y>(), y, num_active_);
   }
 
-  kronmult::gpu_sparse(num_dimensions_, porder_ + 1, num_active_, local_cols_.size(),
-                       local_cols_.data(), local_rows_.data(), used_terms.size(),
-                       local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                       alpha, gpux, beta, gpuy);
+  if (beta == 0)
+    //std::fill_n(y, num_active_, precision{0});
+    fk::copy_to_device<precision>(gpuy, std::vector<precision>(num_active_, precision{0}).data(), num_active_);
+  else
+    lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
+
+  //kronmult::gpu_sparse(num_dimensions_, porder_ + 1, num_active_, local_cols_.size(),
+  //                     local_cols_.data(), local_rows_.data(), used_terms.size(),
+  //                     local_opindex_[imex].data(), local_opvalues_[imex].data(),
+  //                     alpha, gpux, beta, gpuy);
 
   fk::copy_on_device(get_buffer<workspace::pad_x>(), gpux, num_active_);
   gpu_global[imex].execute();
@@ -1662,10 +1671,14 @@ void global_kron_matrix<precision>::apply(
 
 #else
 
-  kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
-                       local_pntr_.data(), local_indx_.data(), used_terms.size(),
-                       local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                       alpha, x, beta, y);
+  //kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
+  //                     local_pntr_.data(), local_indx_.data(), used_terms.size(),
+  //                     local_opindex_[imex].data(), local_opvalues_[imex].data(),
+  //                     alpha, x, beta, y);
+  if (beta == 0)
+    std::fill_n(y, num_active_, precision{0});
+  else
+    lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
 
   std::copy_n(x, num_active_, get_buffer<workspace::pad_x>());
   std::fill_n(get_buffer<workspace::pad_y>(), num_active_, precision{0});

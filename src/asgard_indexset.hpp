@@ -329,7 +329,8 @@ private:
  *        listed between row_begin(i) and row_diag(i)
  */
 indexset compute_ancestry_completion(indexset const &iset,
-                                     connect_1d const &pattern1d);
+                                     connect_1d const &pattern1d,
+                                     connect_1d const &pattern_edge);
 
 /*!
  * \brief Completes the cells to indexes of degrees of freedom
