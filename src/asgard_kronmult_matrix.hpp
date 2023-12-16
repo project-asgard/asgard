@@ -766,7 +766,6 @@ void set_specific_mode(PDE<precision> const &pde,
  */
 template<typename precision>
 void update_matrix_coefficients(PDE<precision> const &pde,
-                                options const &program_options,
                                 imex_flag const imex,
                                 global_kron_matrix<precision> &mat);
 
@@ -808,22 +807,19 @@ public:
 
   //! \brief Creates an empty matrix.
   global_kron_matrix() : num_dimensions_(0), num_active_(0), num_padded_(0),
-                         flops_({0, 0, 0}), edges_(1) {}
+                         flops_({0, 0, 0}) {}
   //! \brief Creates an empty matrix.
   global_kron_matrix(int num_dimensions, int64_t num_active, int64_t num_padded,
                      std::vector<kronmult::permutes> perms,
                      std::vector<std::vector<int>> gpntr,
                      std::vector<std::vector<int>> gindx,
                      std::vector<std::vector<int>> gdiag,
-                     std::vector<std::vector<int>> givals,
-                     int porder, connect_1d edges,
-                     default_vector<int> local_pntr, default_vector<int> local_indx)
+                     std::vector<std::vector<int>> givals)
       : num_dimensions_(num_dimensions), num_active_(num_active),
         num_padded_(num_padded), perms_(std::move(perms)), flops_({0, 0, 0}),
         gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
-        gvals_(perms_.size() * num_dimensions_), porder_(porder), edges_(std::move(edges)),
-        local_pntr_(std::move(local_pntr)), local_indx_(std::move(local_indx))
+        gvals_(perms_.size() * num_dimensions_)
   {
 #ifdef ASGARD_USE_CUDA
     gvals_.resize(3 * perms_.size() * num_dimensions_);
@@ -844,20 +840,20 @@ public:
     // cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
     // gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
     // cpu version of lpntr and lindx are still needed for the loading of values
-    int tsize = int_pow(porder_ + 1, num_dimensions_);
-
-    int num_cells = static_cast<int>(local_pntr_.size() - 1);
-    std::vector<int> row_indx;
-    row_indx.reserve(local_indx_.size());
-    for (int r = 0; r < num_cells; r++)
-      for (int i = local_pntr_[r]; i < local_pntr_[r + 1]; i++)
-        row_indx.push_back(r * tsize);
-    local_rows_ = std::move(row_indx); // actually loads onto the gpu
-
-    std::vector<int> col_indx = local_indx_;
-    for (auto &c : col_indx)
-      c *= tsize;
-    local_cols_ = std::move(col_indx);
+    // int tsize = int_pow(porder_ + 1, num_dimensions_);
+    //
+    // int num_cells = static_cast<int>(local_pntr_.size() - 1);
+    // std::vector<int> row_indx;
+    // row_indx.reserve(local_indx_.size());
+    // for (int r = 0; r < num_cells; r++)
+    //   for (int i = local_pntr_[r]; i < local_pntr_[r + 1]; i++)
+    //     row_indx.push_back(r * tsize);
+    // local_rows_ = std::move(row_indx); // actually loads onto the gpu
+    //
+    // std::vector<int> col_indx = local_indx_;
+    // for (auto &c : col_indx)
+    //   c *= tsize;
+    // local_cols_ = std::move(col_indx);
 #else
     expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
     expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
@@ -905,7 +901,8 @@ public:
   //! \brief Check if the corresponding lock pattern is set.
   bool local_unset(matrix_entry etype)
   {
-    return local_opindex_[flag2int(etype)].empty();
+    // return local_opindex_[flag2int(etype)].empty();
+    return (flops_[flag2int(etype)] == 0);
   }
   //! \brief Return the number of flops for the current matrix type
   int64_t flops(matrix_entry etype) const
@@ -939,7 +936,6 @@ public:
 
   friend void update_matrix_coefficients<precision>(
       PDE<precision> const &pde,
-      options const &program_options,
       imex_flag const imex,
       global_kron_matrix<precision> &mat);
 
@@ -1008,17 +1004,17 @@ private:
   std::array<std::vector<int>, 3> term_groups;
   // local case data, handles the neighbors on the same level
   int porder_;
-  connect_1d edges_;
-  std::vector<int> local_pntr_;
-  std::vector<int> local_indx_;
-  std::array<default_vector<int>, num_variants> local_opindex_;
-  std::array<default_vector<precision>, num_variants> local_opvalues_;
+  // connect_1d edges_;
+  // std::vector<int> local_pntr_;
+  // std::vector<int> local_indx_;
+  // std::array<default_vector<int>, num_variants> local_opindex_;
+  // std::array<default_vector<precision>, num_variants> local_opvalues_;
   // preconditioner
   default_vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA
   std::array<kronmult::global_gpu_operations<precision>, num_variants> gpu_global;
-  default_vector<int> local_rows_;
-  default_vector<int> local_cols_;
+//  default_vector<int> local_rows_;
+//  default_vector<int> local_cols_;
   mutable std::vector<precision> cpu_pre_con_; // cpu copy, if requested
 #endif
 };
@@ -1224,7 +1220,7 @@ struct matrix_list
 #endif
       }
       else
-        update_matrix_coefficients(pde, opts, imex(entry), kglobal);
+        update_matrix_coefficients(pde, imex(entry), kglobal);
     }
 #else
     if (not(*this)[entry])
