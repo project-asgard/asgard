@@ -15,6 +15,33 @@ namespace asgard::kronmult
 {
 #ifdef ASGARD_USE_CUDA
 
+namespace kernel
+{
+//! \brief Very simple kernel
+template<typename T>
+__global__ void set_buffer_to_zero(int64_t const num, T *x)
+{
+  int64_t i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  while(i < num)
+  {
+    x[i] = T{0};
+    i += gridDim.x * blockDim.x;
+  }
+}
+} // namespace kernel
+
+template<typename T>
+void set_gpu_buffer_to_zero(int64_t num, T *x)
+{
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
+
+  int num_blocks = std::min(max_blocks,
+                            static_cast<int>((num + max_threads - 1) / max_threads));
+  kernel::set_buffer_to_zero<T><<<num_blocks, max_threads>>>(num, x);
+}
+
 /*!
  * \brief Computes the team size for the given dims and n.
  *
@@ -542,6 +569,8 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
+template void set_gpu_buffer_to_zero(int64_t, double *);
+
 template void gpu_dense<double>(int const, int const, int const, int64_t const,
                                 int const, int const, int const[], int const,
                                 int const, double const *const[], int const,
@@ -551,6 +580,8 @@ template void gpu_dense<double>(int const, int const, int const, int64_t const,
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+
+template void set_gpu_buffer_to_zero(int64_t, float *);
 
 template void gpu_dense<float>(int const, int const, int const, int64_t const,
                                int const, int const, int const[], int const,

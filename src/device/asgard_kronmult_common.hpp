@@ -91,4 +91,52 @@ constexpr int ipow()
   return 0;
 }
 
+//! \brief Helper methods that will zero out a buffer
+template<resource rec, typename T>
+struct buff_utils
+{
+  //! \brief Set the first num entries of x to zero
+  static void set_to_zero(int64_t num, T *x)
+  {
+    static_assert(rec == resource::host);
+    std::fill_n(x, num, T{0});
+  }
+};
+
+//! \brief Method to zero out a buffer based on a resource type
+template<resource rec, typename T>
+void set_buffer_to_zero(int64_t num, T *x)
+{
+  buff_utils<rec, T>::set_to_zero(num, x);
+}
+//! \brief Helper method, fills the buffer with zeros
+template<typename T>
+void set_buffer_to_zero(std::vector<T> &x)
+{
+  std::fill(x.begin(), x.end(), T{0});
+}
+
+#ifdef ASGARD_USE_CUDA
+//! \brief Sets a device buffer to zeros
+template<typename T>
+void set_gpu_buffer_to_zero(int64_t num, T *x);
+
+//! \brief Specialization for the gpu case
+template<typename T>
+struct buff_utils<resource::device, T>
+{
+  //! \brief Set the first num entries of x to zero
+  static void set_to_zero(int64_t num, T *x)
+  {
+    set_gpu_buffer_to_zero(num, x);
+  }
+};
+//! \brief Helper method, fills the buffer with zeros
+template<typename T>
+void set_buffer_to_zero(gpu::vector<T> &x)
+{
+  set_gpu_buffer_to_zero(static_cast<int64_t>(x.size()), x.data());
+}
+#endif
+
 } // namespace asgard::kronmult

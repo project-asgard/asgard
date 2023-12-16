@@ -378,6 +378,20 @@ public:
     fk::copy_to_device(gvals_[vid].data(), cpu_values.data(), gvals_[vid].size());
   }
 
+  //! \brief Computes the memory usage, does not count the cusparse internals
+  int64_t memory() const
+  {
+    int64_t imem = 0; // ints
+    for (auto const &vec : gpntr_)
+      imem += vec.size();
+    for (auto const &vec : gindx_)
+      imem += vec.size();
+    int64_t fmem = 0; // float/doubles
+    for (auto const &vec : gvals_)
+      fmem += vec.size();
+    return imem * sizeof(int) + fmem * sizeof(precision);
+  }
+
 private:
   gpu::sparse_handle::htype hndl_;
   std::vector<gpu::vector<int>> gpntr_;

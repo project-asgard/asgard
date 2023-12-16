@@ -506,7 +506,7 @@ public:
                                int const num_terms, int64_t const num_batch)
   {
     return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size *
-           num_dimensions * num_terms * num_batch;
+           num_dimensions * num_terms * num_batch * 2;
   }
   //! \brief Defined if the matrix is dense or sparse
   bool is_dense() const
@@ -795,10 +795,14 @@ public:
   //! \brief The default vector to use for data, gpu::vector for gpu
   template<typename T>
   using default_vector = gpu::vector<T>;
+  //! \brief On the GPU, we split the patterns into triples
+  static constexpr int patterns_per_dim = 3;
 #else
   //! \brief The default vector to use for data, std::vector for the cpu
   template<typename T>
   using default_vector = std::vector<T>;
+  //! \brief On the CPU, use a single pattern per dimension
+  static constexpr int patterns_per_dim = 1;
 #endif
 
   //! \brief Workspace buffers held externally to minimize allocations
@@ -836,24 +840,6 @@ public:
       expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
       expect(givals_.size() == static_cast<size_t>(num_dimensions_));
     }
-
-    // cpu mode uses row-compressed format for the local matrix, (row, col) = (row, lindx[j]) for j = lpntr[row] ... lpntr[row+1]
-    // gpu mode uses pairs (row, col) = (lpntr[j], lindx[j]) AND both are pre-multiplied by the in-cell tensor size
-    // cpu version of lpntr and lindx are still needed for the loading of values
-    // int tsize = int_pow(porder_ + 1, num_dimensions_);
-    //
-    // int num_cells = static_cast<int>(local_pntr_.size() - 1);
-    // std::vector<int> row_indx;
-    // row_indx.reserve(local_indx_.size());
-    // for (int r = 0; r < num_cells; r++)
-    //   for (int i = local_pntr_[r]; i < local_pntr_[r + 1]; i++)
-    //     row_indx.push_back(r * tsize);
-    // local_rows_ = std::move(row_indx); // actually loads onto the gpu
-    //
-    // std::vector<int> col_indx = local_indx_;
-    // for (auto &c : col_indx)
-    //   c *= tsize;
-    // local_cols_ = std::move(col_indx);
 #else
     expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
     expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
@@ -898,16 +884,15 @@ public:
 #endif
   }
 
-  //! \brief Check if the corresponding lock pattern is set.
-  bool local_unset(matrix_entry etype)
-  {
-    // return local_opindex_[flag2int(etype)].empty();
-    return (flops_[flag2int(etype)] == 0);
-  }
   //! \brief Return the number of flops for the current matrix type
   int64_t flops(matrix_entry etype) const
   {
     return flops_[flag2int(etype)];
+  }
+  //! \brief Check if the corresponding lock pattern is set.
+  bool local_unset(matrix_entry etype) const
+  {
+    return (flops(etype) == 0);
   }
   //! \brief Set the four buffers
   void set_workspace_buffers(workspace_type *work)
@@ -958,7 +943,7 @@ protected:
   precision *get_buffer() const
   {
     static_assert(wid != workspace::num_spaces,
-                  "no buffer associated with the last entry");
+                  "no buffer associated with the last entry (num_spaces)");
     return (*work_)[static_cast<int>(wid)].data();
   }
   //! \brief Method to resize the buffer, if the size is insufficient
@@ -966,22 +951,14 @@ protected:
   void resize_buffer(int64_t min_size)
   {
     static_assert(wid != workspace::num_spaces,
-                  "no buffer associated with the last entry");
+                  "no buffer associated with the last entry (num_spaces)");
     default_vector<precision> &w = (*work_)[static_cast<int>(wid)];
     if (static_cast<int64_t>(w.size()) < min_size)
     {
       w.resize(min_size);
       // x must always be padded by zeros
       if constexpr (wid == workspace::pad_x)
-      {
-#ifdef ASGARD_USE_CUDA
-        // zero out the a-vector (maybe run a kernel here)
-        std::vector<precision> tmp(min_size, precision{0});
-        fk::copy_to_device(w.data(), tmp.data(), min_size);
-#else
-        std::fill_n(w.data(), min_size, precision{0});
-#endif
-      }
+        kronmult::set_buffer_to_zero(w);
     }
   }
 
@@ -1002,13 +979,7 @@ private:
   std::vector<std::vector<precision>> gvals_;
   // collections of terms
   std::array<std::vector<int>, 3> term_groups;
-  // local case data, handles the neighbors on the same level
   int porder_;
-  // connect_1d edges_;
-  // std::vector<int> local_pntr_;
-  // std::vector<int> local_indx_;
-  // std::array<default_vector<int>, num_variants> local_opindex_;
-  // std::array<default_vector<precision>, num_variants> local_opvalues_;
   // preconditioner
   default_vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA
