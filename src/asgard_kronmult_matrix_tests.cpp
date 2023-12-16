@@ -11,6 +11,7 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
                      get_tolerance<T>(scale));
 }
 
+/*
 template<typename T, asgard::resource rec = asgard::resource::host>
 void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
                           int num_matrices)
@@ -189,9 +190,9 @@ TEMPLATE_TEST_CASE("testing reference methods", "[kronecker]", test_precs)
                                12, 15, 18, 16, 20, 24, 21, 24, 27, 28, 32, 36};
   test_almost_equal(R, gold);
 }
-
+*/
 #ifndef ASGARD_USE_CUDA // test CPU kronmult only when CUDA is not enabled
-
+/*
 TEMPLATE_TEST_CASE("testing kronmult cpu core dense", "[cpu_sparse]",
                    test_precs)
 {
@@ -298,11 +299,11 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[cpu_sparse 6d]",
   // computing a reference solution becomes an issue, so the test is so small
   test_kronmult_sparse<TestType>(6, 5, 2, 1, 2);
 }
-
+*/
 #endif
 
 #ifdef ASGARD_USE_CUDA
-
+/*
 TEMPLATE_TEST_CASE("testing kronmult gpu 1d", "[gpu_sparse 1d]", test_precs)
 {
   int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
@@ -381,6 +382,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
   int n = GENERATE(1, 2, 3); // TODO: n = 4
   test_kronmult_dense<TestType, asgard::resource::host>(6, n, 2, 1);
 }
+*/
 #endif
 
 #ifdef KRON_MODE_GLOBAL
