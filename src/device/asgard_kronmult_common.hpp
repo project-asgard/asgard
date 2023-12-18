@@ -11,6 +11,8 @@
 #include <cuda_runtime.h>
 #include <sm_60_atomic_functions.h>
 
+#include "asgard_cusparse.hpp"
+
 #define ASGARD_GPU_WARP_SIZE 32
 
 #endif

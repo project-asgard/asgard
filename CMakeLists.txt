@@ -117,11 +117,7 @@ else()
   option (KRON_MODE_GLOBAL "Global or local Kronecker products" ON)
 endif()
 if (ASGARD_USE_MPI AND KRON_MODE_GLOBAL)
-  message(FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
-endif()
-
-if (KRON_MODE_GLOBAL AND ASGARD_USE_CUDA)
-  option (ASGARD_USE_PINNED_MEMORY "Selects the use of pinned memory for some  asynchronous I/O operations" ON)
+  message (FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
 endif()
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
@@ -336,6 +332,7 @@ target_sources (libasgard
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_cpu.cpp>
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_gpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_gpu_preconditioner.cpp>
 )
 target_precompile_headers (libasgard
@@ -382,6 +379,7 @@ target_compile_definitions (libasgard
 if (ASGARD_USE_CUDA)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_gpu.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_gpu_preconditioner.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
