@@ -333,7 +333,7 @@ target_sources (libasgard
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_gpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_gpu_preconditioner.cpp>
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp>
 )
 target_precompile_headers (libasgard
                            PUBLIC
@@ -380,7 +380,7 @@ if (ASGARD_USE_CUDA)
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_gpu.cpp
-                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_gpu_preconditioner.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
     target_compile_features (libasgard PUBLIC cuda_std_14)
