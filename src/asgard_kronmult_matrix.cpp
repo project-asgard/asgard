@@ -1449,13 +1449,12 @@ void set_specific_mode(PDE<precision> const &pde,
   }
 
   int64_t gflops = 0; // flops for global component
+
+  for (auto t : used_terms)
+    for (int d = 0; d < num_dimensions; d++)
 #ifdef ASGARD_USE_CUDA
-  for (auto t : used_terms)
-    for (int d = 0; d < num_dimensions; d++)
-      gflops += mat.gvals_[3 * t * num_dimensions + d].size();
+      gflops += mat.gvals_[3 * t * num_dimensions + 3 * d].size();
 #else
-  for (auto t : used_terms)
-    for (int d = 0; d < num_dimensions; d++)
       gflops += mat.gvals_[t * num_dimensions + d].size();
 #endif
 
