@@ -826,27 +826,21 @@ public:
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
         gvals_(perms_.size() * num_dimensions_)
   {
-#ifdef ASGARD_USE_CUDA
-    gvals_.resize(3 * perms_.size() * num_dimensions_);
+    gvals_.resize(patterns_per_dim * perms_.size() * num_dimensions_);
     expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
     if (num_dimensions_ > 1)
     {
-      expect(gpntr_.size() == static_cast<size_t>(3 * num_dimensions_));
-      expect(gindx_.size() == static_cast<size_t>(3 * num_dimensions_));
-      expect(givals_.size() == static_cast<size_t>(3 * num_dimensions_));
+      expect(gpntr_.size() == static_cast<size_t>(patterns_per_dim * num_dimensions_));
+      expect(gindx_.size() == static_cast<size_t>(patterns_per_dim * num_dimensions_));
+      expect(givals_.size() == static_cast<size_t>(patterns_per_dim * num_dimensions_));
     }
     else
-    {
-      expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
-      expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
-      expect(givals_.size() == static_cast<size_t>(num_dimensions_));
+    { // there is no split in a 1d context
+      expect(gpntr_.size() == 1);
+      expect(gindx_.size() == 1);
+      expect(givals_.size() == 1);
     }
-#else
-    expect(gpntr_.size() == static_cast<size_t>(num_dimensions_));
-    expect(gindx_.size() == static_cast<size_t>(num_dimensions_));
-    expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
-    expect(givals_.size() == static_cast<size_t>(num_dimensions_));
-#endif
+
     expect(gpntr_.front().size() == static_cast<size_t>(num_padded + 1));
   }
 

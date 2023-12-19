@@ -349,8 +349,9 @@ indexset compute_ancestry_completion(indexset const &iset,
 vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
                                   indexset const &pad_cells, int porder)
 {
-  expect(active_cells.stride() == pad_cells.num_dimensions());
-  int num_dimensions = pad_cells.num_dimensions();
+  expect(pad_cells.num_indexes() == 0 or
+         active_cells.stride() == pad_cells.num_dimensions());
+  int num_dimensions = active_cells.stride();
 
   int64_t num_active_cells = active_cells.num_strips();
 

@@ -1170,6 +1170,12 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 {
+  // int num_flux = 0;
+  // for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
+  //   if (pt.coeff_type == coefficient_type::div or pt.coeff_type == coefficient_type::grad)
+  //     num_flux += 1;
+  // std::cout << " term = " << term_id << "  num-flux terms = " << num_flux << "\n";
+
   for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
     if (pt.coeff_type != coefficient_type::mass or
         pt.g_func != nullptr or
@@ -1177,6 +1183,18 @@ bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
       return false;
   return true;
 }
+
+template<typename precision>
+bool get_flux_direction(PDE<precision> const &pde, int term_id)
+{
+  for (int d = 0; d < pde.num_dims; d++)
+    for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
+      if (pt.coeff_type == coefficient_type::div or
+          pt.coeff_type == coefficient_type::grad)
+          return d;
+  return -1;
+}
+
 
 template<typename precision>
 global_kron_matrix<precision>
@@ -1201,12 +1219,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
   int const num_non_padded   = grid.col_stop - grid.col_start + 1;
   vector2d<int> active_cells = asg2tsg_convert(num_dimensions, num_non_padded, flattened_table);
 
-  indexset pad_complete = compute_ancestry_completion(
-      make_index_set(active_cells), cell_pattern, cell_edges
-      );
-  node_out() << " number of padded cells: " << pad_complete.num_indexes() << "\n";
+  vector2d<int> ilist = complete_poly_order(active_cells, indexset(), porder);
 
-  vector2d<int> ilist = complete_poly_order(active_cells, pad_complete, porder);
   dimension_sort dsort(ilist);
 
   int64_t num_all_dof    = ilist.num_strips();
@@ -1281,8 +1295,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
       global_pntr[3 * d]  = std::move(tpntr[d]); // copy the full pattern
       global_indx[3 * d]  = std::move(tindx[d]);
       global_ivals[3 * d] = std::move(tivals[d]);
-      if (d == 0) // never split pattern 0, the matrix is always used full
-        continue;
+
       split_pattern(global_pntr[3 * d], global_indx[3 * d], global_diag[d], global_ivals[3 * d],
                     global_pntr[3 * d + 1], global_indx[3 * d + 1], global_ivals[3 * d + 1],
                     global_pntr[3 * d + 2], global_indx[3 * d + 2], global_ivals[3 * d + 2]);
@@ -1302,9 +1315,15 @@ make_global_kron_matrix(PDE<precision> const &pde,
         active_dirs.push_back(d);
 
     int const num_active = static_cast<int>(active_dirs.size());
+    if (num_active > 1)
+    {
+      int const flux_dir = get_flux_direction(pde, t);
+      if (flux_dir != active_dirs[0]) // make the flux direction first
+        std::swap(active_dirs[0], active_dirs[flux_dir]);
+    }
+
     permutations.push_back(kronmult::permutes(num_active));
-    if (num_active != num_dimensions)
-      permutations.back().remap_directions(active_dirs);
+    permutations.back().remap_directions(active_dirs);
   }
 
   return global_kron_matrix<precision>(
@@ -1333,6 +1352,8 @@ void set_specific_mode(PDE<precision> const &pde,
   int const num_dimensions = pde.num_dims;
 
   // set the values for the global pattern
+  // number of patterns per term per dimension to be considered
+  int const num_mats = (num_dimensions == 1) ? 1 : patterns_per_dim;
   for (int t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
@@ -1341,7 +1362,6 @@ void set_specific_mode(PDE<precision> const &pde,
       {
         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
-        int const num_mats = (d == 0) ? 1 : patterns_per_dim;
         for (int k = 0; k < num_mats; k++)
         {
           int const pid = patterns_per_dim * d + k;
@@ -1455,6 +1475,8 @@ void update_matrix_coefficients(PDE<precision> const &pde,
   if (num_terms == 0)
     return;
 
+  // number of matrices per term per dimension that should be considered
+  int const num_mats = (num_dimensions == 1) ? 1 : patterns_per_dim;
   for (int t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
@@ -1464,16 +1486,16 @@ void update_matrix_coefficients(PDE<precision> const &pde,
       if (mat.gvals_[patterns_per_dim * (t * num_dimensions + d)].empty())
         continue; // identity term
 
-      int const num_mats = (d == 0) ? 1 : patterns_per_dim;
       for (int k = 0; k < num_mats; k++)
       {
         int const pid = patterns_per_dim * d + k;
         int const vid = patterns_per_dim * t * num_dimensions + pid;
 
 #ifdef ASGARD_USE_CUDA
-        // it could happen that even though a term is not zero
+        // it could happen that even though a term is not identity
         // the specific values are not used in the permutations
-        // e.g., if the other terms are identity, we don't need lower/upper vals
+        // e.g., if the other terms are identity or this terms has the flux
+        // then we don't need lower/upper vals
         if (mat.gpu_global[imex_indx].empty_values(vid))
           continue;
 #endif
