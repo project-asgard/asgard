@@ -41,6 +41,8 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
   }
 }
 
+#ifndef KRON_MODE_GLOBAL
+
 void check_available_memory(int64_t baseline_memory, int64_t available_MB)
 {
   if (available_MB < 2)
@@ -1001,6 +1003,8 @@ compute_mem_usage(PDE<P> const &pde,
   return stats;
 }
 
+#endif // KRON_MODE_GLOBAL
+
 #ifdef KRON_MODE_GLOBAL
 /*!
  * \brief Constructs a preconditioner
@@ -1170,12 +1174,6 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 {
-  // int num_flux = 0;
-  // for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
-  //   if (pt.coeff_type == coefficient_type::div or pt.coeff_type == coefficient_type::grad)
-  //     num_flux += 1;
-  // std::cout << " term = " << term_id << "  num-flux terms = " << num_flux << "\n";
-
   for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
     if (pt.coeff_type != coefficient_type::mass or
         pt.g_func != nullptr or
@@ -1383,16 +1381,9 @@ void set_specific_mode(PDE<precision> const &pde,
   }
 
   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
-  { // prepare a preconditioner
-#ifdef ASGARD_USE_CUDA
-    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
-                         mat.cpu_pre_con_);
-    mat.pre_con_ = mat.cpu_pre_con_;
-#else
+    // prepare a preconditioner
     build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
                          mat.pre_con_);
-#endif
-  }
 
   // The cost is the total number of non-zeros in all matrices (non-identity)
   int64_t gflops = 0;
@@ -1519,13 +1510,10 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
   { // prepare a preconditioner
-#ifdef ASGARD_USE_CUDA
-    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
-                         mat.cpu_pre_con_);
-    mat.pre_con_ = mat.cpu_pre_con_;
-#else
     build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
                          mat.pre_con_);
+#ifdef ASGARD_USE_CUDA
+    mat.gpu_pre_con_.clear();
 #endif
   }
 }
@@ -1599,20 +1587,6 @@ void global_kron_matrix<precision>::apply(
 template std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,
                                          imex_flag const imex);
 
-template kronmult_matrix<double>
-make_kronmult_matrix<double>(PDE<double> const &,
-                             adapt::distributed_grid<double> const &,
-                             options const &, memory_usage const &,
-                             imex_flag const, kron_sparse_cache &, bool);
-template void
-update_kronmult_coefficients<double>(PDE<double> const &, options const &,
-                                     imex_flag const, kron_sparse_cache &,
-                                     kronmult_matrix<double> &);
-template memory_usage
-compute_mem_usage<double>(PDE<double> const &,
-                          adapt::distributed_grid<double> const &,
-                          options const &, imex_flag const, kron_sparse_cache &,
-                          int, int64_t, bool);
 #ifdef KRON_MODE_GLOBAL
 template global_kron_matrix<double>
 make_global_kron_matrix(PDE<double> const &,
@@ -1633,6 +1607,21 @@ template void global_kron_matrix<double>::apply<resource::host>(
 template void global_kron_matrix<double>::apply<resource::device>(
     matrix_entry, double, double const *, double, double *) const;
 #endif
+#else // KRON_MODE_GLOBAL
+template kronmult_matrix<double>
+make_kronmult_matrix<double>(PDE<double> const &,
+                             adapt::distributed_grid<double> const &,
+                             options const &, memory_usage const &,
+                             imex_flag const, kron_sparse_cache &, bool);
+template void
+update_kronmult_coefficients<double>(PDE<double> const &, options const &,
+                                     imex_flag const, kron_sparse_cache &,
+                                     kronmult_matrix<double> &);
+template memory_usage
+compute_mem_usage<double>(PDE<double> const &,
+                          adapt::distributed_grid<double> const &,
+                          options const &, imex_flag const, kron_sparse_cache &,
+                          int, int64_t, bool);
 #endif
 #endif
 
@@ -1640,19 +1629,6 @@ template void global_kron_matrix<double>::apply<resource::device>(
 template std::vector<int> get_used_terms(PDE<float> const &pde, options const &opts,
                                          imex_flag const imex);
 
-template kronmult_matrix<float>
-make_kronmult_matrix<float>(PDE<float> const &,
-                            adapt::distributed_grid<float> const &,
-                            options const &, memory_usage const &,
-                            imex_flag const, kron_sparse_cache &, bool);
-template void update_kronmult_coefficients<float>(PDE<float> const &, options const &,
-                                                  imex_flag const, kron_sparse_cache &,
-                                                  kronmult_matrix<float> &);
-template memory_usage
-compute_mem_usage<float>(PDE<float> const &,
-                         adapt::distributed_grid<float> const &,
-                         options const &, imex_flag const, kron_sparse_cache &,
-                         int, int64_t, bool);
 #ifdef KRON_MODE_GLOBAL
 template global_kron_matrix<float>
 make_global_kron_matrix(PDE<float> const &,
@@ -1673,6 +1649,20 @@ template void global_kron_matrix<float>::apply<resource::host>(
 template void global_kron_matrix<float>::apply<resource::device>(
     matrix_entry, float, float const *, float, float *) const;
 #endif
+#else // KRON_MODE_GLOBAL
+template kronmult_matrix<float>
+make_kronmult_matrix<float>(PDE<float> const &,
+                            adapt::distributed_grid<float> const &,
+                            options const &, memory_usage const &,
+                            imex_flag const, kron_sparse_cache &, bool);
+template void update_kronmult_coefficients<float>(PDE<float> const &, options const &,
+                                                  imex_flag const, kron_sparse_cache &,
+                                                  kronmult_matrix<float> &);
+template memory_usage
+compute_mem_usage<float>(PDE<float> const &,
+                         adapt::distributed_grid<float> const &,
+                         options const &, imex_flag const, kron_sparse_cache &,
+                         int, int64_t, bool);
 #endif
 #endif
 

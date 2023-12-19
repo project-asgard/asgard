@@ -9,6 +9,7 @@
 
 namespace asgard::kronmult
 {
+#ifndef KRON_MODE_GLOBAL
 /*!
  * \internal
  * \brief (internal use only) Indicates how to interpret the alpha/beta scalars.
@@ -130,12 +131,7 @@ void gpu_sparse(int const dimensions, int const n, int const output_size,
                 int const num_batch, int const ix[], int const iy[],
                 int const num_terms, int const iA[], T const vA[],
                 T const alpha, T const x[], T const beta, T y[]);
-
-/*!
- * \brief Applies the diagonal Euler preconditioner onto x.
- */
-template<typename T>
-void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
+#endif
 #endif
 
 #ifdef KRON_MODE_GLOBAL
@@ -401,6 +397,12 @@ private:
   mutable std::vector<gpu::sparse_matrix<precision>> mats_;
   mutable void *buffer_;
 };
+
+/*!
+ * \brief Applies the diagonal Euler preconditioner onto x.
+ */
+template<typename T>
+void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
 #endif
 #endif
 

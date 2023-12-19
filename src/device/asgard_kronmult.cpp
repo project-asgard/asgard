@@ -6,14 +6,9 @@
 #include "asgard_kronmult.hpp"
 
 #ifdef ASGARD_USE_CUDA
-#include "asgard_kronmult_cycle1.hpp"
-#include "asgard_kronmult_cycle2.hpp"
-#include "asgard_kronmult_cyclex.hpp"
-#endif
 
 namespace asgard::kronmult
 {
-#ifdef ASGARD_USE_CUDA
 
 namespace kernel
 {
@@ -41,6 +36,28 @@ void set_gpu_buffer_to_zero(int64_t num, T *x)
                             static_cast<int>((num + max_threads - 1) / max_threads));
   kernel::set_buffer_to_zero<T><<<num_blocks, max_threads>>>(num, x);
 }
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template void set_gpu_buffer_to_zero(int64_t, double *);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template void set_gpu_buffer_to_zero(int64_t, float *);
+#endif
+} // namespace asgard::kronmult
+#endif
+
+#ifndef KRON_MODE_GLOBAL
+
+#ifdef ASGARD_USE_CUDA
+#include "asgard_kronmult_cycle1.hpp"
+#include "asgard_kronmult_cycle2.hpp"
+#include "asgard_kronmult_cyclex.hpp"
+#endif
+
+namespace asgard::kronmult
+{
+#ifdef ASGARD_USE_CUDA
 
 /*!
  * \brief Computes the team size for the given dims and n.
@@ -569,8 +586,6 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-template void set_gpu_buffer_to_zero(int64_t, double *);
-
 template void gpu_dense<double>(int const, int const, int const, int64_t const,
                                 int const, int const, int const[], int const,
                                 int const, double const *const[], int const,
@@ -580,8 +595,6 @@ template void gpu_dense<double>(int const, int const, int const, int64_t const,
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-
-template void set_gpu_buffer_to_zero(int64_t, float *);
 
 template void gpu_dense<float>(int const, int const, int const, int64_t const,
                                int const, int const, int const[], int const,
@@ -593,3 +606,5 @@ template void gpu_dense<float>(int const, int const, int const, int64_t const,
 #endif
 
 } // namespace asgard::kronmult
+
+#endif // KMODE_GLOBAL

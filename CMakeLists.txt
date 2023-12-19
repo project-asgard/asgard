@@ -456,11 +456,13 @@ if (ASGARD_BUILD_TESTS)
     target_precompile_headers (tests_general_main REUSE_FROM libasgard)
   endif ()
 
-  # new kronmult benchmarking
-  add_executable(asgard_kronmult_benchmark ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_benchmark.cpp)
-  target_link_libraries (asgard_kronmult_benchmark PUBLIC libasgard)
-  target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/testing)
-  target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/)
+  if (NOT KRON_MODE_GLOBAL)
+    # new kronmult benchmarking
+    add_executable(asgard_kronmult_benchmark ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_benchmark.cpp)
+    target_link_libraries (asgard_kronmult_benchmark PUBLIC libasgard)
+    target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+    target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/)
+  endif()
 
   # components with MPI-enabled testing
   set (mpi_test_components

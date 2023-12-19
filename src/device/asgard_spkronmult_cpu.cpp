@@ -5,6 +5,8 @@
 
 #include "asgard_kronmult.hpp"
 
+#ifndef KRON_MODE_GLOBAL
+
 #include "asgard_spkronmult_cpu_general.hpp"
 
 namespace asgard::kronmult
@@ -782,3 +784,5 @@ template void cpu_sparse<float>(int const, int const, int const, int const[],
 #endif
 
 } // namespace asgard::kronmult
+
+#endif // KRON_MODE_GLOBAL

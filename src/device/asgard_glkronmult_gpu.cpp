@@ -51,8 +51,6 @@ global_gpu_operations<precision>
         int const mode_id          = (mode == permutes::matrix_fill::both) ? 0 :
                                      ((mode == permutes::matrix_fill::lower) ? 1 : 2);
 
-        std::cout << " permute, term = " << t << " - dir = " << dir << "  mode = " << perm.fill_name(i, d) << "\n";
-
         // pattern and value ids for the matrices
         int const pid = 3 * dir + mode_id;
         int const vid = 3 * t * num_dimensions + pid;

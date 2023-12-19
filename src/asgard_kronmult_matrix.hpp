@@ -23,6 +23,8 @@ template<typename precision>
 std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
                                 imex_flag const imex);
 
+#ifndef KRON_MODE_GLOBAL
+
 /*!
  * \brief Holds data for the pre-computed memory sizes.
  *
@@ -728,6 +730,8 @@ void update_kronmult_coefficients(PDE<P> const &pde,
                                   kron_sparse_cache &spcache,
                                   kronmult_matrix<P> &mat);
 
+#endif // KRON_MODE_GLOBAL
+
 //! \brief Expressive indexing for the matrices
 enum matrix_entry
 {
@@ -824,9 +828,8 @@ public:
         num_padded_(num_padded), perms_(std::move(perms)), flops_({0, 0, 0}),
         gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
-        gvals_(perms_.size() * num_dimensions_)
+        gvals_(patterns_per_dim * perms_.size() * num_dimensions_)
   {
-    gvals_.resize(patterns_per_dim * perms_.size() * num_dimensions_);
     expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
     if (num_dimensions_ > 1)
     {
@@ -845,7 +848,7 @@ public:
   }
 
 #ifdef ASGARD_USE_CUDA
-  //! \brief Set the GPU side of the global kron
+  //! \brief Set the GPU side of the global kron, needed for the handle
   void preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex);
 #endif
 
@@ -866,13 +869,13 @@ public:
   {
 #ifdef ASGARD_USE_CUDA
     if constexpr (rec == resource::device)
-      return pre_con_;
-    else
     {
-      if (cpu_pre_con_.empty())
-        cpu_pre_con_ = pre_con_;
-      return cpu_pre_con_;
+      if (gpu_pre_con_.empty())
+        gpu_pre_con_ = pre_con_;
+      return gpu_pre_con_;
     }
+    else
+      return pre_con_;
 #else
     static_assert(rec == resource::host, "GPU not enabled");
     return pre_con_;
@@ -909,10 +912,11 @@ public:
   // 1. Keeps the matrix API free from references to pde, which will allow an easier
   //    transition to a new API that does not require the PDE class
   // 2. Give the ability to modify the internal without encumbering the matrix API
-  friend void set_specific_mode<precision>(PDE<precision> const &pde,
-                                           adapt::distributed_grid<precision> const &dis_grid,
-                                           options const &program_options, imex_flag const imex,
-                                           global_kron_matrix<precision> &mat);
+  friend void set_specific_mode<precision>(
+      PDE<precision> const &pde,
+      adapt::distributed_grid<precision> const &dis_grid,
+      options const &program_options, imex_flag const imex,
+      global_kron_matrix<precision> &mat);
 
   friend void update_matrix_coefficients<precision>(
       PDE<precision> const &pde,
@@ -977,10 +981,10 @@ private:
   std::array<std::vector<int>, 3> term_groups;
   int porder_;
   // preconditioner
-  default_vector<precision> pre_con_;
+  std::vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA
   std::array<kronmult::global_gpu_operations<precision>, num_variants> gpu_global;
-  mutable std::vector<precision> cpu_pre_con_; // cpu copy
+  mutable gpu::vector<precision> gpu_pre_con_; // gpu copy
 #endif
 };
 
@@ -995,6 +999,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
                         options const &program_options);
 #endif
+
+#ifndef KRON_MODE_GLOBAL
 
 /*!
  * \brief Compute the stats for the memory usage
@@ -1022,6 +1028,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                   options const &program_options, imex_flag const imex,
                   kron_sparse_cache &spcache, int memory_limit_MB = 0,
                   int64_t index_limit = 2147483646, bool force_sparse = false);
+
+#endif // KRON_MODE_GLOBAL
 
 /*!
  * \brief Holds a list of matrices used for time-stepping.

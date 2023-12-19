@@ -5,6 +5,8 @@
 
 #include "asgard_kronmult.hpp"
 
+#ifndef KRON_MODE_GLOBAL
+
 #ifdef ASGARD_USE_CUDA
 #include "asgard_spkronmult_cycle1.hpp"
 #include "asgard_spkronmult_cycle2.hpp"
@@ -483,3 +485,5 @@ template void gpu_sparse<float>(int const, int const, int const, int const,
 #endif
 
 } // namespace asgard::kronmult
+
+#endif // KRON_MODE_GLOBAL
