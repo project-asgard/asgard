@@ -414,7 +414,7 @@ TEST_CASE("adaptive time advance")
   SECTION("continuity 2 explicit, l2 norm")
   {
     // Gold data was calculated with L^{\infty} norm
-    auto const tol_factor        = 0.00001;
+    auto const tol_factor        = static_cast<default_precision>(0.00001);
     std::string const pde_choice = "continuity_2";
     auto const degree            = 4;
     fk::vector<int> const levels{3, 3};
