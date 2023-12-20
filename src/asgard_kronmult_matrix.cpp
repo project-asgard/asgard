@@ -1342,7 +1342,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
-  constexpr int patterns_per_dim = mat.patterns_per_dim; // GPU: 3, CPU: 1
+  constexpr int patterns_per_dim = global_kron_matrix<precision>::patterns_per_dim;
 
   int const porder = pde.get_dimensions()[0].get_degree() - 1;
   mat.porder_      = porder;
@@ -1461,7 +1461,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
   int const num_dimensions = pde.num_dims;
 
-  constexpr int patterns_per_dim = mat.patterns_per_dim; // GPU: 3, CPU: 1
+  constexpr int patterns_per_dim = global_kron_matrix<precision>::patterns_per_dim;
 
   int const num_terms = static_cast<int>(used_terms.size());
   if (num_terms == 0)
