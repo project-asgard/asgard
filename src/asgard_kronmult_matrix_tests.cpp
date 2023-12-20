@@ -300,7 +300,6 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[cpu_sparse 6d]",
   // computing a reference solution becomes an issue, so the test is so small
   test_kronmult_sparse<TestType>(6, 5, 2, 1, 2);
 }
-*/
 #endif
 
 #ifdef ASGARD_USE_CUDA

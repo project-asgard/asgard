@@ -1189,10 +1189,9 @@ bool get_flux_direction(PDE<precision> const &pde, int term_id)
     for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
       if (pt.coeff_type == coefficient_type::div or
           pt.coeff_type == coefficient_type::grad)
-          return d;
+        return d;
   return -1;
 }
-
 
 template<typename precision>
 global_kron_matrix<precision>
@@ -1200,8 +1199,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
                         options const &program_options)
 {
-  auto const &grid                 = dis_grid.get_subgrid(get_rank());
-  int const *const flattened_table = dis_grid.get_table().get_active_table().data();
+  auto const &grid         = dis_grid.get_subgrid(get_rank());
+  int const *const asg_idx = dis_grid.get_table().get_active_table().data();
 
   int const porder    = pde.get_dimensions()[0].get_degree() - 1;
   int const pterms    = porder + 1; // poly degrees of freedom
@@ -1214,15 +1213,15 @@ make_global_kron_matrix(PDE<precision> const &pde,
   connect_1d cell_edges(max_level, asgard::connect_1d::level_edge_only);
   connect_1d dof_pattern(connect_1d(max_level), porder);
 
-  int const num_non_padded   = grid.col_stop - grid.col_start + 1;
-  vector2d<int> active_cells = asg2tsg_convert(num_dimensions, num_non_padded, flattened_table);
+  int const num_cells = grid.col_stop - grid.col_start + 1;
+  vector2d<int> cells = asg2tsg_convert(num_dimensions, num_cells, asg_idx);
 
-  vector2d<int> ilist = complete_poly_order(active_cells, indexset(), porder);
+  vector2d<int> ilist = complete_poly_order(cells, porder);
 
   dimension_sort dsort(ilist);
 
   int64_t num_all_dof    = ilist.num_strips();
-  int64_t num_active_dof = num_non_padded * pterms;
+  int64_t num_active_dof = num_cells * pterms;
   for (int d = 1; d < num_dimensions; d++)
     num_active_dof *= pterms;
 
@@ -1247,9 +1246,9 @@ make_global_kron_matrix(PDE<precision> const &pde,
     // count the number of non-zeros
     parse_sparse_pattern(ilist, dsort, dof_pattern, dim,
                          [&](int grow, int, int, int)
-                           -> void {
-                               nz_count[grow] += 1;
-                           });
+                             -> void {
+                           nz_count[grow] += 1;
+                         });
     // allocate memory
     int64_t num_nz = std::accumulate(nz_count.begin(), nz_count.end(), int64_t{0});
     indx.resize(num_nz);
@@ -1262,19 +1261,19 @@ make_global_kron_matrix(PDE<precision> const &pde,
     // fill the pattern
     parse_sparse_pattern(ilist, dsort, dof_pattern, dim,
                          [&](int grow, int gcol, int prow, int pcol)
-                           -> void {
-                               int const j = pntr[grow] + nz_count[grow];
-                               indx[j]     = gcol; // global column
+                             -> void {
+                           int const j = pntr[grow] + nz_count[grow];
+                           indx[j]     = gcol; // global column
 
-                               // local offsets to load values from the operators
-                               ivals[2 * j]     = prow;
-                               ivals[2 * j + 1] = pcol;
+                           // local offsets to load values from the operators
+                           ivals[2 * j]     = prow;
+                           ivals[2 * j + 1] = pcol;
 
-                               if (grow == gcol) // diagonal entry
-                                 diag[grow] = j;
+                           if (grow == gcol) // diagonal entry
+                             diag[grow] = j;
 
-                               nz_count[grow] += 1;
-                           });
+                           nz_count[grow] += 1;
+                         });
   }
 
 #ifdef ASGARD_USE_CUDA // split the patterns into threes
@@ -1294,9 +1293,10 @@ make_global_kron_matrix(PDE<precision> const &pde,
       global_indx[3 * d]  = std::move(tindx[d]);
       global_ivals[3 * d] = std::move(tivals[d]);
 
-      split_pattern(global_pntr[3 * d], global_indx[3 * d], global_diag[d], global_ivals[3 * d],
-                    global_pntr[3 * d + 1], global_indx[3 * d + 1], global_ivals[3 * d + 1],
-                    global_pntr[3 * d + 2], global_indx[3 * d + 2], global_ivals[3 * d + 2]);
+      split_pattern(
+          global_pntr[3 * d], global_indx[3 * d], global_diag[d], global_ivals[3 * d],
+          global_pntr[3 * d + 1], global_indx[3 * d + 1], global_ivals[3 * d + 1],
+          global_pntr[3 * d + 2], global_indx[3 * d + 2], global_ivals[3 * d + 2]);
     }
   }
 #endif
@@ -1344,8 +1344,8 @@ void set_specific_mode(PDE<precision> const &pde,
 
   constexpr int patterns_per_dim = mat.patterns_per_dim; // GPU: 3, CPU: 1
 
-  int const porder     = pde.get_dimensions()[0].get_degree() - 1;
-  mat.porder_          = porder;
+  int const porder = pde.get_dimensions()[0].get_degree() - 1;
+  mat.porder_      = porder;
 
   int const num_dimensions = pde.num_dims;
 
@@ -1362,6 +1362,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
         for (int k = 0; k < num_mats; k++)
         {
+          // pattern and values ids
           int const pid = patterns_per_dim * d + k;
           int const vid = patterns_per_dim * t * num_dimensions + pid;
 
@@ -1479,6 +1480,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
       for (int k = 0; k < num_mats; k++)
       {
+        // pattern and values ids
         int const pid = patterns_per_dim * d + k;
         int const vid = patterns_per_dim * t * num_dimensions + pid;
 

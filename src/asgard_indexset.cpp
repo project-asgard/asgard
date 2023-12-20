@@ -281,10 +281,10 @@ indexset compute_ancestry_completion(indexset const &iset,
   // we need to recurs only on the missing_ancestors from now on
   parse_ancestry_1d(iset, hierarchy, scratch,
                     [&](std::vector<int> const &ancestor)
-                      -> void {
-                          if (iset.missing(ancestor))
-                            missing_ancestors.append(ancestor);
-                      });
+                        -> void {
+                      if (iset.missing(ancestor))
+                        missing_ancestors.append(ancestor);
+                    });
 
   bool ancestry_complete = missing_ancestors.empty();
 
@@ -301,11 +301,11 @@ indexset compute_ancestry_completion(indexset const &iset,
 
     parse_ancestry_1d(pad_indexes, hierarchy, scratch,
                       [&](std::vector<int> const &ancestor)
-                        -> void {
-                            if (iset.missing(ancestor) and
-                                pad_indexes.missing(ancestor))
-                              missing_ancestors.append(ancestor);
-                        });
+                          -> void {
+                        if (iset.missing(ancestor) and
+                            pad_indexes.missing(ancestor))
+                          missing_ancestors.append(ancestor);
+                      });
 
     // check if every ancestor is already in either iset or pad_indexes
     ancestry_complete = missing_ancestors.empty();
@@ -322,19 +322,19 @@ indexset compute_ancestry_completion(indexset const &iset,
 
   // add the edge neighbors, one pass only, no recursion
   parse_ancestry_1d(iset, level_edges, scratch,
-                      [&](std::vector<int> const &ancestor)
+                    [&](std::vector<int> const &ancestor)
                         -> void {
-                            if (iset.missing(ancestor) and
-                                pad_indexes.missing(ancestor))
-                              missing_ancestors.append(ancestor);
-                        });
+                      if (iset.missing(ancestor) and
+                          pad_indexes.missing(ancestor))
+                        missing_ancestors.append(ancestor);
+                    });
   parse_ancestry_1d(pad_indexes, level_edges, scratch,
-                      [&](std::vector<int> const &ancestor)
+                    [&](std::vector<int> const &ancestor)
                         -> void {
-                            if (iset.missing(ancestor) and
-                                pad_indexes.missing(ancestor))
-                              missing_ancestors.append(ancestor);
-                        });
+                      if (iset.missing(ancestor) and
+                          pad_indexes.missing(ancestor))
+                        missing_ancestors.append(ancestor);
+                    });
 
   if (not missing_ancestors.empty())
   {
@@ -346,14 +346,11 @@ indexset compute_ancestry_completion(indexset const &iset,
   return pad_indexes;
 }
 
-vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
-                                  indexset const &pad_cells, int porder)
+vector2d<int> complete_poly_order(vector2d<int> const &active_cells, int porder)
 {
-  expect(pad_cells.num_indexes() == 0 or
-         active_cells.stride() == pad_cells.num_dimensions());
   int num_dimensions = active_cells.stride();
 
-  int64_t num_active_cells = active_cells.num_strips();
+  int64_t num_cells = active_cells.num_strips();
 
   int64_t pterms = porder + 1;
 
@@ -361,16 +358,14 @@ vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
   for (int64_t d = 1; d < num_dimensions; d++)
     tsize *= pterms;
 
-  int64_t total_cells = num_active_cells + pad_cells.num_indexes();
-
-  vector2d<int> indexes(num_dimensions, tsize * total_cells);
+  vector2d<int> indexes(num_dimensions, tsize * num_cells);
 
   // expand with the polynomial indexes in two stages
   // first work with the active_indexes, then with the padded ones
 #pragma omp parallel for
-  for (int64_t i = 0; i < total_cells; i++)
+  for (int64_t i = 0; i < num_cells; i++)
   {
-    int const *cell = (i < num_active_cells) ? active_cells[i] : pad_cells[i - num_active_cells];
+    int const *cell = active_cells[i];
 
     for (int64_t ipoly = 0; ipoly < tsize; ipoly++)
     {

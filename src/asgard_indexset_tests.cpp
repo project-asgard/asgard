@@ -31,7 +31,7 @@ TEST_CASE("data manipulation in 2d", "[order2d]")
   REQUIRE(data.num_strips() == 3);
   REQUIRE(data[1][0] == 0);
 
-  for(int i=0; i<3; i++)
+  for (int i = 0; i < 3; i++)
     data[0][i] = i;
   REQUIRE(data[1][0] == 2);
 
@@ -77,7 +77,7 @@ TEST_CASE("indexset sort", "[sort]")
   verify_1d(dsort, iset, 0, 1, {1, 3}, {0, 1});
   verify_1d(dsort, iset, 1, 0, {0, 1}, {0, 1});
   verify_1d(dsort, iset, 1, 1, {2, 3}, {0, 1});
-  verify_1d(dsort, iset, 1, 2, {4,}, {0,});
+  verify_1d(dsort, iset, 1, 2, std::vector<int>(1, 4), std::vector<int>(1, 0));
 }
 
 TEST_CASE("connectivity expand", "[connectivity]")
@@ -137,27 +137,3 @@ TEST_CASE("testing edge connections", "[edge connect]")
   for (int j = 0; j < static_cast<int>(gold_connect.size()); j++)
     REQUIRE(cells[j] == gold_connect[j]);
 }
-/*
-TEST_CASE("testing completion", "[ancestry completion]")
-{
-  connect_1d conn(3, connect_1d::level_edge_skip);
-
-  indexset incomplete(2, {1, 1});
-
-  indexset completion = compute_ancestry_completion(incomplete, conn);
-  REQUIRE(completion.num_dimensions() == incomplete.num_dimensions());
-  REQUIRE(completion.num_indexes() == 3);
-
-  std::vector<int> gold_complete = {0, 0, 0, 1, 1, 0};
-  for (int i = 0; i < 3; i++)
-    for (int d = 0; d < 2; d++)
-      REQUIRE(completion[i][d] == gold_complete[2 * i + d]);
-
-  incomplete = indexset(2, {0, 0, 0, 1, 0, 2, 0, 5}); // missing (0, 3)
-
-  completion = compute_ancestry_completion(incomplete, conn);
-  REQUIRE(completion.num_indexes() == 1);
-  REQUIRE(completion[0][0] == 0);
-  REQUIRE(completion[0][1] == 3);
-}
-*/

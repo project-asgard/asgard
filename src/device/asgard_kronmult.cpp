@@ -9,7 +9,6 @@
 
 namespace asgard::kronmult
 {
-
 namespace kernel
 {
 //! \brief Very simple kernel
@@ -18,7 +17,7 @@ __global__ void set_buffer_to_zero(int64_t const num, T *x)
 {
   int64_t i = threadIdx.x + blockIdx.x * blockDim.x;
 
-  while(i < num)
+  while (i < num)
   {
     x[i] = T{0};
     i += gridDim.x * blockDim.x;

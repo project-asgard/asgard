@@ -159,7 +159,6 @@ void global_cpu(int num_dimensions,
 {
   int64_t const num_rows = static_cast<int64_t>(gpntr.front().size() - 1);
 
-  //std::cout << " -- global_cpu() with num_dimensions = " << num_dimensions << "\n";
   for (int t : terms)
   {
     // terms can have different effective dimension, since some of them are identity
@@ -168,18 +167,13 @@ void global_cpu(int num_dimensions,
     if (dims == 0)
       continue;
 
-
     for (size_t i = 0; i < perm.fill.size(); i++)
     {
-      //std::cout << " permute, term = " << t << " - dir = " << perm.direction[i][0] << "  mode = " << perm.fill_name(i, 0) << "\n";
-
       int dir = perm.direction[i][0];
       global_cpu_one(perm.fill[i][0], num_rows, gpntr[dir], gindx[dir],
                      gdiag[dir], gvals[t * num_dimensions + dir], x, w1);
       for (int d = 1; d < dims; d++)
       {
-        //std::cout << " permute, term = " << t << " - dir = " << perm.direction[i][d] << "  mode = " << perm.fill_name(i, d) << "\n";
-
         dir = perm.direction[i][d];
         global_cpu_one(perm.fill[i][d], num_rows, gpntr[dir], gindx[dir],
                        gdiag[dir], gvals[t * num_dimensions + dir], w1, w2);
@@ -191,7 +185,6 @@ void global_cpu(int num_dimensions,
         y[j] += w1[j];
     }
   }
-  //std::cout << " -- done global_cpu()\n";
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

@@ -20,12 +20,17 @@ class connect_1d
 {
 public:
   //! \brief Indicates whether to include same level edge neighbours
-  enum same_level { level_edge_include, level_edge_skip };
+  enum same_level
+  {
+    level_edge_include,
+    level_edge_skip
+  };
   /*!
    * \brief Type tag indicating a pattern that includes only the cells on the
    * same level.
    */
-  struct tag_level_edge_only{};
+  struct tag_level_edge_only
+  {};
   //! \brief Instance of the tag for easy use.
   static tag_level_edge_only level_edge_only;
   /*!
@@ -166,6 +171,7 @@ public:
           indx.push_back(lend - downp);
       }
       pntr[i + 1] = static_cast<int>(indx.size()); // done with the right edge
+
     } // done with level, move to the next level
   }   // close the constructor
 
@@ -200,11 +206,12 @@ public:
       // look at previous levels, this level, follow on levels
 
       // start with the first cell, on the left edge
-      int i = level_size; // index of the first cell
+      int i   = level_size;                    // index of the first cell
       diag[i] = static_cast<int>(indx.size()); // self-connect
       indx.push_back(i);
       indx.push_back(i + 1); // connect to one to the left
-      if (l > 2) // at l==2, the i+1 cell is the right-most cell
+
+      if (l > 2)                                   // at l==2, the i+1 cell is the right-most cell
         indx.push_back(cell_per_level[l + 1] - 1); // connect to right edge
       pntr[i + 1] = static_cast<int>(indx.size()); // done with point
 
@@ -214,8 +221,9 @@ public:
         i++;
         indx.push_back(i - 1); // left-connect
         diag[i] = static_cast<int>(indx.size());
-        indx.push_back(i); // self-connect
+        indx.push_back(i);     // self-connect
         indx.push_back(i + 1); // right-connect
+
         pntr[i + 1] = static_cast<int>(indx.size()); // done with cell i
       }
 
@@ -225,9 +233,11 @@ public:
       if (l > 2) // at l==2  the i-1 cell is the left-most cell
         indx.push_back(cell_per_level[l]);
       indx.push_back(i - 1); // connect to the left-cell
+
       diag[i] = static_cast<int>(indx.size()); // self-connect
       indx.push_back(i);
       pntr[i + 1] = static_cast<int>(indx.size()); // done with the right edge
+
     } // done with level, move to the next level
   }   // close the constructor
 
@@ -236,40 +246,41 @@ public:
    *        a block of size (porder+1) by (porder+1)
    */
   connect_1d(connect_1d const &elem_connect, int porder)
-    : levels(-1), rows(elem_connect.rows * (porder+1)),
-      pntr(rows + 1, 0), diag(rows)
+      : levels(-1), rows(elem_connect.rows * (porder + 1)),
+        pntr(rows + 1, 0), diag(rows)
   {
     int const block_rows = porder + 1;
+
     pntr[0] = 0;
-    for(int row=0; row<elem_connect.num_rows(); row++)
+    for (int row = 0; row < elem_connect.num_rows(); row++)
     {
       int elem_per_row = block_rows * (elem_connect.row_end(row) - elem_connect.row_begin(row));
-      for(int j=0; j<block_rows; j++)
+      for (int j = 0; j < block_rows; j++)
         pntr[block_rows * row + j + 1] = pntr[block_rows * row + j] + elem_per_row;
     }
 
     // add the connectivity entries
     indx.reserve(pntr.back());
-    for(int row=0; row<elem_connect.num_rows(); row++)
+    for (int row = 0; row < elem_connect.num_rows(); row++)
     {
-      for(int j=0; j<block_rows; j++)
+      for (int j = 0; j < block_rows; j++)
       {
-        for(int col=elem_connect.row_begin(row); col<elem_connect.row_diag(row);
-            col++)
-          for(int k=0; k<block_rows; k++)
+        for (int col = elem_connect.row_begin(row); col < elem_connect.row_diag(row);
+             col++)
+          for (int k = 0; k < block_rows; k++)
             indx.push_back(block_rows * elem_connect[col] + k);
 
         // keep only one entry from the diagonal block
-        for(int k=0; k<j; k++)
+        for (int k = 0; k < j; k++)
           indx.push_back(block_rows * elem_connect[elem_connect.row_diag(row)] + k);
         diag[block_rows * row + j] = static_cast<int>(indx.size());
         indx.push_back(block_rows * row + j);
-        for(int k=j+1; k<block_rows; k++)
+        for (int k = j + 1; k < block_rows; k++)
           indx.push_back(block_rows * elem_connect[elem_connect.row_diag(row)] + k);
 
-        for(int col=elem_connect.row_diag(row)+1; col<elem_connect.row_end(row);
-            col++)
-          for(int k=0; k<block_rows; k++)
+        for (int col = elem_connect.row_diag(row) + 1; col < elem_connect.row_end(row);
+             col++)
+          for (int k = 0; k < block_rows; k++)
             indx.push_back(block_rows * elem_connect[col] + k);
       }
     }
@@ -326,14 +337,14 @@ public:
   void dump() const // for debugging
   {
     std::cerr << "dumping connectivity to std::cerr\n";
-    for(int r=0; r < num_rows(); r++)
+    for (int r = 0; r < num_rows(); r++)
     {
-      for(int j=row_begin(r); j<row_end(r); j++)
+      for (int j = row_begin(r); j < row_end(r); j++)
         std::cerr << indx[j] << "  ";
       std::cerr << '\n';
     }
     std::cerr << "diag = ";
-    for(int r=0; r < num_rows(); r++)
+    for (int r = 0; r < num_rows(); r++)
       std::cerr << diag[r] << "  ";
     std::cerr << '\n';
     std::cerr << " ------------------ \n";

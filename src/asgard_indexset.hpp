@@ -354,7 +354,6 @@ indexset compute_ancestry_completion(indexset const &iset,
  *
  * porder counts 1 for linears, 2 for quadratics, and so on.
  */
-vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
-                                  indexset const &pad_cells, int porder);
+vector2d<int> complete_poly_order(vector2d<int> const &active_cells, int porder);
 
 } // namespace asgard
