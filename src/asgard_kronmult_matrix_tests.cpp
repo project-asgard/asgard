@@ -398,7 +398,7 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
   for (size_t tcase = 0; tcase < nindex.size(); tcase++)
   {
     // very simple test
-    asgard::connect_1d conn(levels[tcase], asgard::connect_1d::level_edge_skip);
+    asgard::connect_1d conn(levels[tcase], asgard::connect_1d::hierarchy::volume);
 
     asgard::vector2d<int> ilist(1, nindex[tcase]);
     std::iota(ilist[0], ilist[0] + nindex[tcase], 0);
@@ -467,7 +467,7 @@ void test_global_kron(int num_dimensions, int level)
         return (L <= level);
       });
 
-  asgard::connect_1d conn(level, asgard::connect_1d::level_edge_skip);
+  asgard::connect_1d conn(level, asgard::connect_1d::hierarchy::volume);
 
   asgard::vector2d<int> ilist(num_dimensions, indexes);
 

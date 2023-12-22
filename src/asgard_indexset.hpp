@@ -343,17 +343,27 @@ private:
  * algorithm for the original indexes in iset.
  */
 indexset compute_ancestry_completion(indexset const &iset,
-                                     connect_1d const &hierarchy,
-                                     connect_1d const &level_edges);
+                                     connect_1d const &hierarchy);
 
 /*!
  * \brief Completes the cells to indexes of degrees of freedom
  *
- * Given the active_cells and padded cells, the returned list of indexes
+ * Given the cells, the returned list of indexes
  * will hold all indexes of the corresponding degrees of freedom.
  *
  * porder counts 1 for linears, 2 for quadratics, and so on.
  */
-vector2d<int> complete_poly_order(vector2d<int> const &active_cells, int porder);
+vector2d<int> complete_poly_order(vector2d<int> const &cells, int porder);
+
+/*!
+ * \brief Completes the cells to indexes of degrees of freedom
+ *
+ * Given the active cells and padded cells, the returned list of indexes
+ * will hold all indexes of the corresponding degrees of freedom.
+ *
+ * porder counts 1 for linears, 2 for quadratics, and so on.
+ */
+vector2d<int> complete_poly_order(vector2d<int> const &cells,
+                                  indexset const &padded, int porder);
 
 } // namespace asgard

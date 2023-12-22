@@ -265,8 +265,7 @@ void parse_ancestry_1d(indexset const &iset, connect_1d const &ancestry,
 }
 
 indexset compute_ancestry_completion(indexset const &iset,
-                                     connect_1d const &hierarchy,
-                                     connect_1d const &level_edges)
+                                     connect_1d const &hierarchy)
 {
   int const num_dimensions = iset.num_dimensions();
 
@@ -318,54 +317,29 @@ indexset compute_ancestry_completion(indexset const &iset,
     }
   }
 
-  missing_ancestors.clear();
-
-  // add the edge neighbors, one pass only, no recursion
-  parse_ancestry_1d(iset, level_edges, scratch,
-                    [&](std::vector<int> const &ancestor)
-                        -> void {
-                      if (iset.missing(ancestor) and
-                          pad_indexes.missing(ancestor))
-                        missing_ancestors.append(ancestor);
-                    });
-  parse_ancestry_1d(pad_indexes, level_edges, scratch,
-                    [&](std::vector<int> const &ancestor)
-                        -> void {
-                      if (iset.missing(ancestor) and
-                          pad_indexes.missing(ancestor))
-                        missing_ancestors.append(ancestor);
-                    });
-
-  if (not missing_ancestors.empty())
-  {
-    // add the new indexes into the pad_indexes (could be improved)
-    missing_ancestors.append(pad_indexes[0], pad_indexes.num_indexes());
-    pad_indexes = make_index_set(missing_ancestors);
-  }
-
   return pad_indexes;
 }
 
-vector2d<int> complete_poly_order(vector2d<int> const &active_cells, int porder)
+/*!
+ * \brief Helper method, fills the indexes with the polynomial degree of freedom
+ *
+ * The cells are the current set of cells to process,
+ * pterm is the number of polynomial terms,
+ * e.g., 2 for linear and 3 for quadratic.
+ * tsize is the size of the tensor within a cell,
+ * i.e., tsize = pterms to power num_dimensions
+ */
+template<typename itype>
+void complete_poly_order(span2d<itype> const &cells, int64_t pterms,
+                         int64_t tsize, span2d<int> indexes)
 {
-  int num_dimensions = active_cells.stride();
+  int num_dimensions = cells.stride();
+  int64_t num_cells  = cells.num_strips();
 
-  int64_t num_cells = active_cells.num_strips();
-
-  int64_t pterms = porder + 1;
-
-  int64_t tsize = pterms;
-  for (int64_t d = 1; d < num_dimensions; d++)
-    tsize *= pterms;
-
-  vector2d<int> indexes(num_dimensions, tsize * num_cells);
-
-  // expand with the polynomial indexes in two stages
-  // first work with the active_indexes, then with the padded ones
 #pragma omp parallel for
   for (int64_t i = 0; i < num_cells; i++)
   {
-    int const *cell = active_cells[i];
+    int const *cell = cells[i];
 
     for (int64_t ipoly = 0; ipoly < tsize; ipoly++)
     {
@@ -379,6 +353,55 @@ vector2d<int> complete_poly_order(vector2d<int> const &active_cells, int porder)
       }
     }
   }
+}
+
+vector2d<int> complete_poly_order(vector2d<int> const &cells, int porder)
+{
+  int num_dimensions = cells.stride();
+
+  int64_t num_cells = cells.num_strips();
+
+  int64_t pterms = porder + 1;
+
+  int64_t tsize = pterms;
+  for (int64_t d = 1; d < num_dimensions; d++)
+    tsize *= pterms;
+
+  vector2d<int> indexes(num_dimensions, tsize * num_cells);
+
+  complete_poly_order(
+      span2d(num_dimensions, num_cells, cells[0]), pterms, tsize,
+      span2d(num_dimensions, tsize * num_cells, indexes[0]));
+
+  return indexes;
+}
+
+vector2d<int> complete_poly_order(vector2d<int> const &cells,
+                                  indexset const &padded, int porder)
+{
+  expect(padded.num_indexes() == 0 or padded.num_dimensions() == cells.stride());
+
+  int num_dimensions = cells.stride();
+
+  int64_t num_cells  = cells.num_strips();
+  int64_t num_padded = padded.num_indexes();
+
+  int64_t pterms = porder + 1;
+
+  int64_t tsize = pterms;
+  for (int64_t d = 1; d < num_dimensions; d++)
+    tsize *= pterms;
+
+  vector2d<int> indexes(num_dimensions, tsize * (num_cells + num_padded));
+
+  complete_poly_order(
+      span2d(num_dimensions, num_cells, cells[0]), pterms, tsize,
+      span2d(num_dimensions, tsize * num_cells, indexes[0]));
+
+  if (num_padded > 0)
+    complete_poly_order(
+        span2d(num_dimensions, num_padded, padded[0]), pterms, tsize,
+        span2d(num_dimensions, tsize * num_padded, indexes[tsize * num_cells]));
 
   return indexes;
 }

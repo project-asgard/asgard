@@ -1209,14 +1209,16 @@ make_global_kron_matrix(PDE<precision> const &pde,
   int const num_dimensions = pde.num_dims;
   int const num_terms      = pde.num_terms;
 
-  connect_1d cell_pattern(max_level, asgard::connect_1d::level_edge_skip);
-  connect_1d cell_edges(max_level, asgard::connect_1d::level_edge_only);
+  connect_1d volumes(max_level, connect_1d::hierarchy::volume);
   connect_1d dof_pattern(connect_1d(max_level), porder);
 
   int const num_cells = grid.col_stop - grid.col_start + 1;
   vector2d<int> cells = asg2tsg_convert(num_dimensions, num_cells, asg_idx);
 
-  vector2d<int> ilist = complete_poly_order(cells, porder);
+  indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
+  std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
+
+  vector2d<int> ilist = complete_poly_order(cells, padded, porder);
 
   dimension_sort dsort(ilist);
 
@@ -1251,6 +1253,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
                          });
     // allocate memory
     int64_t num_nz = std::accumulate(nz_count.begin(), nz_count.end(), int64_t{0});
+
     indx.resize(num_nz);
     ivals.resize(2 * num_nz);
     // set the row pointer offsets
