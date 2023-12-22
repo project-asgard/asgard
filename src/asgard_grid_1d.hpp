@@ -34,7 +34,7 @@ public:
   connect_1d(int const max_level, hierarchy mode = hierarchy::full)
       : levels(max_level)
   {
-    switch(mode)
+    switch (mode)
     {
     case hierarchy::full:
       build_connections<hierarchy::full>();
@@ -197,13 +197,13 @@ protected:
         // edge cell is volume-connected left-most cell
         indx.push_back(cell_per_level[upl]);
         // edge connected to the right-most cell
-        if constexpr(mode == hierarchy::full)
+        if constexpr (mode == hierarchy::full)
           indx.push_back(cell_per_level[upl + 1] - 1);
       }
       // look at this level
       diag[i] = static_cast<int>(indx.size());
       indx.push_back(i);
-      if constexpr(mode == hierarchy::full)
+      if constexpr (mode == hierarchy::full)
       {
         indx.push_back(i + 1);
         // connect also to the right-most cell (periodic boundary)
@@ -219,7 +219,7 @@ protected:
         int lstart = cell_per_level[downl];
         for (int downp = 0; downp < cell_per_level[downl - l + 1]; downp++)
           indx.push_back(lstart + downp);
-        if constexpr(mode == hierarchy::full)
+        if constexpr (mode == hierarchy::full)
         {
           indx.push_back(lstart + cell_per_level[downl - l + 1]);
           indx.push_back(cell_per_level[downl + 1] - 1);
@@ -241,21 +241,21 @@ protected:
           int ancestor     = p / segment_size;
           int edge         = p - ancestor * segment_size; // p % segment_size
           // if on the left edge of the ancestor
-          if constexpr(mode == hierarchy::full)
+          if constexpr (mode == hierarchy::full)
             if (edge == 0)
               indx.push_back(cell_per_level[upl] + ancestor - 1);
           indx.push_back(cell_per_level[upl] + ancestor);
           // if on the right edge of the ancestor
-          if constexpr(mode == hierarchy::full)
+          if constexpr (mode == hierarchy::full)
             if (edge == segment_size - 1)
               indx.push_back(cell_per_level[upl] + ancestor + 1);
         }
         // on this level
-        if constexpr(mode == hierarchy::full)
+        if constexpr (mode == hierarchy::full)
           indx.push_back(i - 1);
         diag[i] = static_cast<int>(indx.size());
         indx.push_back(i);
-        if constexpr(mode == hierarchy::full)
+        if constexpr (mode == hierarchy::full)
           indx.push_back(i + 1);
         // kids on further levels
         int left_kid = p; // initialize, will be updated on first iteration
@@ -264,11 +264,11 @@ protected:
         {
           left_kid *= 2;
           num_kids *= 2;
-          if constexpr(mode == hierarchy::full)
+          if constexpr (mode == hierarchy::full)
             indx.push_back(cell_per_level[downl] + left_kid - 1);
           for (int j = left_kid; j < left_kid + num_kids; j++)
             indx.push_back(cell_per_level[downl] + j);
-          if constexpr(mode == hierarchy::full)
+          if constexpr (mode == hierarchy::full)
             indx.push_back(cell_per_level[downl] + left_kid + num_kids);
         }
         pntr[i + 1] = static_cast<int>(indx.size()); // done with cell i
@@ -282,13 +282,13 @@ protected:
       for (int upl = 2; upl < l; upl++)
       {
         // edge cell is edge connected to left most cell on each level
-        if constexpr(mode == hierarchy::full)
+        if constexpr (mode == hierarchy::full)
           indx.push_back(cell_per_level[upl]);
         // volume connected to the right most cell on each level
         indx.push_back(cell_per_level[upl + 1] - 1);
       }
       // at this level
-      if constexpr(mode == hierarchy::full)
+      if constexpr (mode == hierarchy::full)
       {
         // connect also to the left-most cell (periodic boundary)
         if (l > 2) // at level l = 2, left-most cell is i-1, don't double add
@@ -301,17 +301,18 @@ protected:
       for (int downl = l + 1; downl < levels + 1; downl++)
       {
         // left edge on the level
-        if constexpr(mode == hierarchy::full)
+        if constexpr (mode == hierarchy::full)
           indx.push_back(cell_per_level[downl]);
         // get the last bunch of cells at the level
         int lend   = cell_per_level[downl + 1] - 1;
         int lbegin = cell_per_level[downl - l + 1] - 1;
-        if constexpr(mode == hierarchy::full)
+        if constexpr (mode == hierarchy::full)
           lbegin += 1;
         for (int downp = lbegin; downp > -1; downp--)
           indx.push_back(lend - downp);
       }
       pntr[i + 1] = static_cast<int>(indx.size()); // done with the right edge
+
     } // done with level, move to the next level
   }   // done with the method
 
