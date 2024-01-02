@@ -7,7 +7,7 @@ echo "running clang format. pwd: $(pwd)"
 
 file_list=(
 device/asgard_glkronmult_cpu.cpp
-device/asgard_gpu_preconditioner.cpp
+device/asgard_preconditioner_gpu.cpp
 device/asgard_kronmult_common.hpp
 device/asgard_kronmult.cpp
 device/asgard_kronmult_cpu.cpp
@@ -55,10 +55,10 @@ asgard_discretization.hpp
 #asgard_discretization_tests.cpp
 asgard_field.hpp
 asgard_field_tests.cpp
-#asgard_grid_1d.hpp
+asgard_grid_1d.hpp
 asgard_indexset.cpp
 asgard_indexset.hpp
-#asgard_indexset_tests.cpp
+asgard_indexset_tests.cpp
 asgard_kronmult_benchmark.cpp
 asgard_kronmult_matrix.cpp
 asgard_kronmult_matrix.hpp

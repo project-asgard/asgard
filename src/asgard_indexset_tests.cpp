@@ -31,7 +31,7 @@ TEST_CASE("data manipulation in 2d", "[order2d]")
   REQUIRE(data.num_strips() == 3);
   REQUIRE(data[1][0] == 0);
 
-  for(int i=0; i<3; i++)
+  for (int i = 0; i < 3; i++)
     data[0][i] = i;
   REQUIRE(data[1][0] == 2);
 
@@ -77,20 +77,20 @@ TEST_CASE("indexset sort", "[sort]")
   verify_1d(dsort, iset, 0, 1, {1, 3}, {0, 1});
   verify_1d(dsort, iset, 1, 0, {0, 1}, {0, 1});
   verify_1d(dsort, iset, 1, 1, {2, 3}, {0, 1});
-  verify_1d(dsort, iset, 1, 2, {4,}, {0,});
+  verify_1d(dsort, iset, 1, 2, std::vector<int>(1, 4), std::vector<int>(1, 0));
 }
 
-TEST_CASE("connectivity expand", "[connectivity]")
+TEST_CASE("connectivity full and expanded to dof", "[connectivity]")
 {
-  connect_1d cells(3, connect_1d::level_edge_skip);
+  connect_1d cells(3, connect_1d::hierarchy::full);
   REQUIRE(cells.num_rows() == 8);
-  REQUIRE(cells.num_connections() == 50);
+  REQUIRE(cells.num_connections() == 60);
 
-  std::vector<int> gold_num_connect = {8, 8, 7, 7, 5, 5, 5, 5};
+  std::vector<int> gold_num_connect = {8, 8, 8, 8, 7, 7, 7, 7};
   for (int row = 0; row < cells.num_rows(); row++)
     REQUIRE(gold_num_connect[row] == cells.row_end(row) - cells.row_begin(row));
 
-  std::vector<int> gold_connect_row4 = {0, 1, 2, 3, 4};
+  std::vector<int> gold_connect_row4 = {0, 1, 2, 3, 4, 5, 7};
   for (int col = cells.row_begin(4); col < cells.row_end(4); col++)
     REQUIRE(gold_connect_row4[col - cells.row_begin(4)] == cells[col]);
 
@@ -102,61 +102,54 @@ TEST_CASE("connectivity expand", "[connectivity]")
   connect_1d expanded(cells, porder);
   REQUIRE(expanded.num_rows() == (porder + 1) * 8);
   // there are fewer connection since we removed the self-connection
-  REQUIRE(expanded.num_connections() == 50 * (porder + 1) * (porder + 1));
+  REQUIRE(expanded.num_connections() == 60 * (porder + 1) * (porder + 1));
 
-  // compare the connectivity to the 12-th element
-  std::vector<int> gold_connect_row12 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
-  for (int col = expanded.row_begin(12); col < expanded.row_end(12); col++)
-    REQUIRE(gold_connect_row12[col - expanded.row_begin(12)] == expanded[col]);
+  // compare the connectivity to the 12-th element (first in cell 4)
+  REQUIRE(expanded.row_end(12) - expanded.row_begin(12) == 21);
+  for (int col = 0; col < 18; col++)
+    REQUIRE(col == expanded[expanded.row_begin(12) + col]);
+  for (int col = 18; col < 21; col++)
+    REQUIRE(col + 3 == expanded[expanded.row_begin(12) + col]);
 
   // connectivity for 12 should be the same as 13
-  for (int col = expanded.row_begin(13); col < expanded.row_end(13); col++)
-    REQUIRE(gold_connect_row12[col - expanded.row_begin(13)] == expanded[col]);
+  REQUIRE(expanded.row_end(13) - expanded.row_begin(13) == 21);
+  for (int col = 0; col < 18; col++)
+    REQUIRE(col == expanded[expanded.row_begin(13) + col]);
+  for (int col = 18; col < 21; col++)
+    REQUIRE(col + 3 == expanded[expanded.row_begin(13) + col]);
+
+  cells = connect_1d(4, connect_1d::hierarchy::full);
+  cells.dump();
 }
 
-TEST_CASE("testing edge connections", "[edge connect]")
+TEST_CASE("testing volume connections", "[connectivity]")
 {
-  connect_1d cells(1, connect_1d::level_edge_only);
+  connect_1d cells(1, connect_1d::hierarchy::volume);
   // cells on level 0 and 1 only connect the themselves
   REQUIRE(cells.num_rows() == 2);
-  REQUIRE(cells.num_connections() == 2);
-  REQUIRE((cells[0] == 0 and cells[1] == 1));
+  REQUIRE(cells.num_connections() == 4);
+  REQUIRE((cells[0] == 0 and cells[3] == 1));
+  REQUIRE((cells[1] == 1 and cells[2] == 0));
 
-  cells = connect_1d(4, connect_1d::level_edge_only);
+  cells = connect_1d(4, connect_1d::hierarchy::volume);
   REQUIRE(cells.num_rows() == 16);
-  REQUIRE(cells.num_connections() == 42);
+  REQUIRE(cells.num_connections() == 114);
 
-  std::vector<int> gold_num_connect = {1, 1, 2, 2};
-  while (gold_num_connect.size() < 16)
-    gold_num_connect.push_back(3);
-  for (int i = 0; i < 16; i++)
-    REQUIRE(cells.row_end(i) - cells.row_begin(i) == gold_num_connect[i]);
+  std::vector<int> gold_connect = {0, 1, 2, 4, 8};
+  REQUIRE(cells.row_end(8) - cells.row_begin(8) ==
+          static_cast<int>(gold_connect.size()));
+  for (int j = cells.row_begin(8); j < cells.row_end(8); j++)
+    REQUIRE(cells[j] == gold_connect[j - cells.row_begin(8)]);
 
-  // check the first two rows only
-  std::vector<int> gold_connect = {0, 1, 2, 3, 2, 3, 4, 5, 7, 4, 5, 6, 5, 6, 7, 4, 6, 7};
-  for (int j = 0; j < static_cast<int>(gold_connect.size()); j++)
-    REQUIRE(cells[j] == gold_connect[j]);
-}
+  gold_connect = std::vector<int>{0, 1, 2, 5, 10, 11};
+  REQUIRE(cells.row_end(5) - cells.row_begin(5) ==
+          static_cast<int>(gold_connect.size()));
+  for (int j = cells.row_begin(5); j < cells.row_end(5); j++)
+    REQUIRE(cells[j] == gold_connect[j - cells.row_begin(5)]);
 
-TEST_CASE("testing completion", "[ancestry completion]")
-{
-  connect_1d conn(3, connect_1d::level_edge_skip);
-
-  indexset incomplete(2, {1, 1});
-
-  indexset completion = compute_ancestry_completion(incomplete, conn);
-  REQUIRE(completion.num_dimensions() == incomplete.num_dimensions());
-  REQUIRE(completion.num_indexes() == 3);
-
-  std::vector<int> gold_complete = {0, 0, 0, 1, 1, 0};
-  for (int i = 0; i < 3; i++)
-    for (int d = 0; d < 2; d++)
-      REQUIRE(completion[i][d] == gold_complete[2 * i + d]);
-
-  incomplete = indexset(2, {0, 0, 0, 1, 0, 2, 0, 5}); // missing (0, 3)
-
-  completion = compute_ancestry_completion(incomplete, conn);
-  REQUIRE(completion.num_indexes() == 1);
-  REQUIRE(completion[0][0] == 0);
-  REQUIRE(completion[0][1] == 3);
+  gold_connect = std::vector<int>{0, 1, 3, 6, 13};
+  REQUIRE(cells.row_end(13) - cells.row_begin(13) ==
+          static_cast<int>(gold_connect.size()));
+  for (int j = cells.row_begin(13); j < cells.row_end(13); j++)
+    REQUIRE(cells[j] == gold_connect[j - cells.row_begin(13)]);
 }

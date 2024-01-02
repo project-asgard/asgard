@@ -6,6 +6,49 @@
 #include "asgard_kronmult.hpp"
 
 #ifdef ASGARD_USE_CUDA
+
+namespace asgard::kronmult
+{
+namespace kernel
+{
+//! \brief Very simple kernel
+template<typename T>
+__global__ void set_buffer_to_zero(int64_t const num, T *x)
+{
+  int64_t i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  while (i < num)
+  {
+    x[i] = T{0};
+    i += gridDim.x * blockDim.x;
+  }
+}
+} // namespace kernel
+
+template<typename T>
+void set_gpu_buffer_to_zero(int64_t num, T *x)
+{
+  constexpr int max_blocks  = ASGARD_NUM_GPU_BLOCKS;
+  constexpr int max_threads = ASGARD_NUM_GPU_THREADS;
+
+  int num_blocks = std::min(max_blocks,
+                            static_cast<int>((num + max_threads - 1) / max_threads));
+  kernel::set_buffer_to_zero<T><<<num_blocks, max_threads>>>(num, x);
+}
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template void set_gpu_buffer_to_zero(int64_t, double *);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template void set_gpu_buffer_to_zero(int64_t, float *);
+#endif
+} // namespace asgard::kronmult
+#endif
+
+#ifndef KRON_MODE_GLOBAL
+
+#ifdef ASGARD_USE_CUDA
 #include "asgard_kronmult_cycle1.hpp"
 #include "asgard_kronmult_cycle2.hpp"
 #include "asgard_kronmult_cyclex.hpp"
@@ -562,3 +605,5 @@ template void gpu_dense<float>(int const, int const, int const, int64_t const,
 #endif
 
 } // namespace asgard::kronmult
+
+#endif // KMODE_GLOBAL

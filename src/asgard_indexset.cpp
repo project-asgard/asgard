@@ -211,33 +211,79 @@ dimension_sort::dimension_sort(vector2d<int> const &list) : iorder_(list.stride(
   }
 }
 
+/*!
+ * \brief Make a callback for all 1d ancestors of the set
+ *
+ * Given a set of indexes and 1d ancestry, constructs all the ancestors
+ * (on the fly, not explicitly) and makes a callback for each one.
+ * The ancestors work in 1d only, this does not consider the cross terms.
+ * - the method can be called recursively to process all ancestors in all
+ *   directions
+ * - the method work for cases like edge neighbors, where we process one
+ *   "parent" only
+ *
+ * The scratch-space must have size iset.num_dimensions() and will be filled
+ * with one ancestor at a time, but the user should not touch the scratch
+ * directly.
+ * The callback should be a callable that accepts std::vector<int> const&
+ *
+ * Usage:
+ * \code
+ *   std::vector<int> scratch(iset.num_dimensions());
+ *   parse_ancestry_1d(iset, connect_1d(max_level), scratch,
+ *                     [](std::vector<int> const &ancestor)
+ *                       -> void {
+ *                         if (iset.missing(ancestor))
+ *                           std::cout << " iset is not complete \n";
+ *                       });
+ * \endcode
+ *
+ */
+template<typename callback_lambda>
+void parse_ancestry_1d(indexset const &iset, connect_1d const &ancestry,
+                       std::vector<int> &scratch, callback_lambda callback)
+{
+  int const num_dimensions = iset.num_dimensions();
+  expect(scratch.size() == static_cast<size_t>(num_dimensions));
+
+  for (int i = 0; i < iset.num_indexes(); i++)
+  {
+    // construct all parents, even considering the edges
+    std::copy_n(iset[i], num_dimensions, scratch.begin());
+    // check the parents in each direction
+    for (int d = 0; d < num_dimensions; d++)
+    {
+      int const row = scratch[d];
+      for (int j = ancestry.row_begin(row); j < ancestry.row_diag(row); j++)
+      {
+        scratch[d] = ancestry[j];
+        callback(scratch);
+      }
+      scratch[d] = row;
+    }
+  }
+}
+
 indexset compute_ancestry_completion(indexset const &iset,
-                                     connect_1d const &pattern1d)
+                                     connect_1d const &hierarchy)
 {
   int const num_dimensions = iset.num_dimensions();
 
   // store all missing ancestors here
   vector2d<int> missing_ancestors(num_dimensions, 0);
 
+  // workspace for the algorithms
+  std::vector<int> scratch(num_dimensions);
+
   // do just one pass, considering the indexes in the iset only
-  std::vector<int> ancestor(num_dimensions);
-  for (int i = 0; i < iset.num_indexes(); i++)
-  {
-    // construct all parents, even considering the edges
-    std::copy_n(iset[i], num_dimensions, ancestor.begin());
-    // check the parents in each direction
-    for (int d = 0; d < num_dimensions; d++)
-    {
-      int const row = ancestor[d];
-      for (int j = pattern1d.row_begin(row); j < pattern1d.row_diag(row); j++)
-      {
-        ancestor[d] = pattern1d[j];
-        if (iset.missing(ancestor))
-          missing_ancestors.append(ancestor);
-      }
-      ancestor[d] = row;
-    }
-  }
+  // after this, missing_ancestors will hold those from iset
+  // we need to recurs only on the missing_ancestors from now on
+  parse_ancestry_1d(iset, hierarchy, scratch,
+                    [&](std::vector<int> const &ancestor)
+                        -> void {
+                      if (iset.missing(ancestor))
+                        missing_ancestors.append(ancestor);
+                    });
 
   bool ancestry_complete = missing_ancestors.empty();
 
@@ -252,23 +298,13 @@ indexset compute_ancestry_completion(indexset const &iset,
     // missing_ancestors holds the ones from this iteration only
     missing_ancestors.clear();
 
-    for (int i = 0; i < pad_indexes.num_indexes(); i++)
-    {
-      // construct all parents, even considering the edges
-      std::copy_n(pad_indexes[i], num_dimensions, ancestor.begin());
-      // check the parents in each direction
-      for (int d = 0; d < num_dimensions; d++)
-      {
-        int const row = ancestor[d];
-        for (int j = pattern1d.row_begin(row); j < pattern1d.row_diag(row); j++)
-        {
-          ancestor[d] = pattern1d[j];
-          if (iset.missing(ancestor) and pad_indexes.missing(ancestor))
-            missing_ancestors.append(ancestor);
-        }
-        ancestor[d] = row;
-      }
-    }
+    parse_ancestry_1d(pad_indexes, hierarchy, scratch,
+                      [&](std::vector<int> const &ancestor)
+                          -> void {
+                        if (iset.missing(ancestor) and
+                            pad_indexes.missing(ancestor))
+                          missing_ancestors.append(ancestor);
+                      });
 
     // check if every ancestor is already in either iset or pad_indexes
     ancestry_complete = missing_ancestors.empty();
@@ -284,30 +320,26 @@ indexset compute_ancestry_completion(indexset const &iset,
   return pad_indexes;
 }
 
-vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
-                                  indexset const &pad_cells, int porder)
+/*!
+ * \brief Helper method, fills the indexes with the polynomial degree of freedom
+ *
+ * The cells are the current set of cells to process,
+ * pterm is the number of polynomial terms,
+ * e.g., 2 for linear and 3 for quadratic.
+ * tsize is the size of the tensor within a cell,
+ * i.e., tsize = pterms to power num_dimensions
+ */
+template<typename itype>
+void complete_poly_order(span2d<itype> const &cells, int64_t pterms,
+                         int64_t tsize, span2d<int> indexes)
 {
-  expect(active_cells.stride() == pad_cells.num_dimensions());
-  int num_dimensions = pad_cells.num_dimensions();
+  int num_dimensions = cells.stride();
+  int64_t num_cells  = cells.num_strips();
 
-  int64_t num_active_cells = active_cells.num_strips();
-
-  int64_t pterms = porder + 1;
-
-  int64_t tsize = pterms;
-  for (int64_t d = 1; d < num_dimensions; d++)
-    tsize *= pterms;
-
-  int64_t total_cells = num_active_cells + pad_cells.num_indexes();
-
-  vector2d<int> indexes(num_dimensions, tsize * total_cells);
-
-  // expand with the polynomial indexes in two stages
-  // first work with the active_indexes, then with the padded ones
 #pragma omp parallel for
-  for (int64_t i = 0; i < total_cells; i++)
+  for (int64_t i = 0; i < num_cells; i++)
   {
-    int const *cell = (i < num_active_cells) ? active_cells[i] : pad_cells[i - num_active_cells];
+    int const *cell = cells[i];
 
     for (int64_t ipoly = 0; ipoly < tsize; ipoly++)
     {
@@ -321,6 +353,55 @@ vector2d<int> complete_poly_order(vector2d<int> const &active_cells,
       }
     }
   }
+}
+
+vector2d<int> complete_poly_order(vector2d<int> const &cells, int porder)
+{
+  int num_dimensions = cells.stride();
+
+  int64_t num_cells = cells.num_strips();
+
+  int64_t pterms = porder + 1;
+
+  int64_t tsize = pterms;
+  for (int64_t d = 1; d < num_dimensions; d++)
+    tsize *= pterms;
+
+  vector2d<int> indexes(num_dimensions, tsize * num_cells);
+
+  complete_poly_order(
+      span2d(num_dimensions, num_cells, cells[0]), pterms, tsize,
+      span2d(num_dimensions, tsize * num_cells, indexes[0]));
+
+  return indexes;
+}
+
+vector2d<int> complete_poly_order(vector2d<int> const &cells,
+                                  indexset const &padded, int porder)
+{
+  expect(padded.num_indexes() == 0 or padded.num_dimensions() == cells.stride());
+
+  int num_dimensions = cells.stride();
+
+  int64_t num_cells  = cells.num_strips();
+  int64_t num_padded = padded.num_indexes();
+
+  int64_t pterms = porder + 1;
+
+  int64_t tsize = pterms;
+  for (int64_t d = 1; d < num_dimensions; d++)
+    tsize *= pterms;
+
+  vector2d<int> indexes(num_dimensions, tsize * (num_cells + num_padded));
+
+  complete_poly_order(
+      span2d(num_dimensions, num_cells, cells[0]), pterms, tsize,
+      span2d(num_dimensions, tsize * num_cells, indexes[0]));
+
+  if (num_padded > 0)
+    complete_poly_order(
+        span2d(num_dimensions, num_padded, padded[0]), pterms, tsize,
+        span2d(num_dimensions, tsize * num_padded, indexes[tsize * num_cells]));
 
   return indexes;
 }

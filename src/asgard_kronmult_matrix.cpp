@@ -41,6 +41,8 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
   }
 }
 
+#ifndef KRON_MODE_GLOBAL
+
 void check_available_memory(int64_t baseline_memory, int64_t available_MB)
 {
   if (available_MB < 2)
@@ -1001,7 +1003,131 @@ compute_mem_usage(PDE<P> const &pde,
   return stats;
 }
 
+#endif // KRON_MODE_GLOBAL
+
 #ifdef KRON_MODE_GLOBAL
+/*!
+ * \brief Constructs a preconditioner
+ *
+ * The preconditioner should go into another file, but that will come with a
+ * big cleanup of the kronmult logic (and the removal of the old code).
+ */
+template<typename precision>
+void build_preconditioner(PDE<precision> const &pde, int64_t const num_active,
+                          adapt::distributed_grid<precision> const &dis_grid,
+                          std::vector<int> const &used_terms,
+                          std::vector<precision> &pc)
+{
+  auto const &grid           = dis_grid.get_subgrid(get_rank());
+  int const *const asg_table = dis_grid.get_table().get_active_table().data();
+
+  expect(grid.row_start == 0); // cannot do MPI yet
+
+  int const pterms = pde.get_dimensions()[0].get_degree();
+
+  int num_dimensions  = pde.num_dims;
+  int64_t tensor_size = int_pow(pterms, num_dimensions);
+
+  if (pc.size() == 0)
+    pc.resize(num_active);
+  else
+  {
+    pc.resize(num_active);
+    std::fill(pc.begin(), pc.end(), precision{0});
+  }
+
+#pragma omp parallel
+  {
+    std::vector<int> midx(num_dimensions); // multi-index for each row
+
+#pragma omp for
+    for (int64_t row = 0; row < grid.row_stop + 1; row++)
+    {
+      int const *const row_coords = asg_table + 2 * num_dimensions * row;
+      asg2tsg_convert(num_dimensions, row_coords, midx.data());
+
+      for (int tentry = 0; tentry < tensor_size; tentry++)
+      {
+        for (int t : used_terms)
+        {
+          precision a = 1;
+
+          int tt = tentry;
+          for (int d = num_dimensions - 1; d >= 0; d--)
+          {
+            int const rc = midx[d] * pterms + tt % pterms;
+            a *= pde.get_coefficients(t, d)(rc, rc);
+            tt /= pterms;
+          }
+          pc[row * tensor_size + tentry] += a;
+        }
+      }
+    }
+  }
+}
+
+/*!
+ * \brief Walks over the sparse matrix pattern and makes call-back for each non-zero
+ *
+ * The sparse matrix is defined by a global list of indexes \b ilist, sorted
+ * along dimensions in a \b dsort and having 1D \b pattern.
+ * The matrix is constructed for dimension \b dim
+ * and the call-back method is called for each non-zero.
+ *
+ * The signature of the callback takes 4 integers:
+ * \code
+ *   auto callback = [](int global_row, int global_col, int row_1d, int col_1d)
+ *     -> void {
+ *        ...
+ *     };
+ * \endcode
+ */
+template<typename callback_type>
+void parse_sparse_pattern(vector2d<int> const &ilist, dimension_sort const &dsort,
+                          connect_1d const &pattern, int const dim,
+                          callback_type callback)
+{
+  int const num_vecs = dsort.num_vecs(dim);
+#pragma omp parallel for
+  for (int vec_id = 0; vec_id < num_vecs; vec_id++)
+  {
+    // the vector is between vec_begin(dim, vec_id) and vec_end(dim, vec_id)
+    // the vector has to be multiplied by the upper/lower/both portion
+    // of a sparse matrix
+    // sparse matrix times a sparse vector requires pattern matching
+    int const vec_begin = dsort.vec_begin(dim, vec_id);
+    int const vec_end   = dsort.vec_end(dim, vec_id);
+    for (int j = vec_begin; j < vec_end; j++)
+    {
+      int row       = dsort(ilist, dim, j); // 1D index of this output in y
+      int mat_begin = pattern.row_begin(row);
+      int mat_end   = pattern.row_end(row);
+
+      // loop over the matrix row and the vector looking for matching non-zeros
+      int mat_j = mat_begin;
+      int vec_j = vec_begin;
+      while (mat_j < mat_end and vec_j < vec_end)
+      {
+        int const vec_index = dsort(ilist, dim, vec_j); // pattern index 1d
+        int const mat_index = pattern[mat_j];
+        // the sort helps here, since indexes are in order, it is easy to
+        // match the index patterns
+        if (vec_index < mat_index)
+          vec_j += 1;
+        else if (mat_index < vec_index)
+          mat_j += 1;
+        else // mat_index == vec_index, found matching entry, add to output
+        {
+          callback(dsort.map(dim, j), dsort.map(dim, vec_j), row, mat_index);
+
+          vec_j += 1;
+          mat_j += 1;
+        }
+      }
+    }
+  }
+}
+
 /*!
  * \brief Takes a pattern and splits it into lower and upper portions
  *
@@ -1049,9 +1175,22 @@ template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 {
   for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
-    if (pt.coeff_type != coefficient_type::mass or pt.g_func != nullptr or pt.lhs_mass_func != nullptr)
+    if (pt.coeff_type != coefficient_type::mass or
+        pt.g_func != nullptr or
+        pt.lhs_mass_func != nullptr)
       return false;
   return true;
+}
+
+template<typename precision>
+bool get_flux_direction(PDE<precision> const &pde, int term_id)
+{
+  for (int d = 0; d < pde.num_dims; d++)
+    for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
+      if (pt.coeff_type == coefficient_type::div or
+          pt.coeff_type == coefficient_type::grad)
+        return d;
+  return -1;
 }
 
 template<typename precision>
@@ -1060,8 +1199,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
                         options const &program_options)
 {
-  auto const &grid                 = dis_grid.get_subgrid(get_rank());
-  int const *const flattened_table = dis_grid.get_table().get_active_table().data();
+  auto const &grid         = dis_grid.get_subgrid(get_rank());
+  int const *const asg_idx = dis_grid.get_table().get_active_table().data();
 
   int const porder    = pde.get_dimensions()[0].get_degree() - 1;
   int const pterms    = porder + 1; // poly degrees of freedom
@@ -1070,20 +1209,21 @@ make_global_kron_matrix(PDE<precision> const &pde,
   int const num_dimensions = pde.num_dims;
   int const num_terms      = pde.num_terms;
 
-  connect_1d cell_pattern(max_level, asgard::connect_1d::level_edge_skip);
-  connect_1d dof_pattern(cell_pattern, porder);
-  //dof_pattern.dump();
+  connect_1d volumes(max_level, connect_1d::hierarchy::volume);
+  connect_1d dof_pattern(connect_1d(max_level), porder);
 
-  int const num_non_padded   = grid.col_stop - grid.col_start + 1;
-  vector2d<int> active_cells = asg2tsg_convert(num_dimensions, num_non_padded, flattened_table);
+  int const num_cells = grid.col_stop - grid.col_start + 1;
+  vector2d<int> cells = asg2tsg_convert(num_dimensions, num_cells, asg_idx);
 
-  indexset pad_complete = compute_ancestry_completion(make_index_set(active_cells), cell_pattern);
+  indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
+  std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
 
-  vector2d<int> ilist = complete_poly_order(active_cells, pad_complete, porder);
+  vector2d<int> ilist = complete_poly_order(cells, padded, porder);
+
   dimension_sort dsort(ilist);
 
   int64_t num_all_dof    = ilist.num_strips();
-  int64_t num_active_dof = num_non_padded * pterms;
+  int64_t num_active_dof = num_cells * pterms;
   for (int d = 1; d < num_dimensions; d++)
     num_active_dof *= pterms;
 
@@ -1104,76 +1244,39 @@ make_global_kron_matrix(PDE<precision> const &pde,
     std::vector<int> &diag  = global_diag[dim];
     std::vector<int> &ivals = global_ivals[dim];
 
-    // we parse the pattern twice, once to find the number of non-zeros and
-    // and then to record the non-zeros in the indx structures
-    for (int stage = 0; stage < 2; stage++)
-    {
-      if (stage == 1)
-      {
-        int64_t num_nz = 0;
-        for (auto n : nz_count)
-          num_nz += n;
-        indx.resize(num_nz);
-        ivals.resize(2 * num_nz);
-        for (size_t i = 1; i < pntr.size(); i++)
-          pntr[i] = pntr[i - 1] + nz_count[i - 1];
-      }
-      std::fill(nz_count.begin(), nz_count.end(), 0);
-      // sparse sub-vectors after the sort in the given dimension
-      int const num_vecs = dsort.num_vecs(dim);
-      for (int vec_id = 0; vec_id < num_vecs; vec_id++)
-      {
-        // the vector is between vec_begin(dim, vec_id) and vec_end(dim, vec_id)
-        // the vector has to be multiplied by the upper/lower/both portion
-        // of a sparse matrix
-        // sparse matrix times a sparse vector requires pattern matching
-        int const vec_begin = dsort.vec_begin(dim, vec_id);
-        int const vec_end   = dsort.vec_end(dim, vec_id);
-        for (int j = vec_begin; j < vec_end; j++)
-        {
-          int row       = dsort(ilist, dim, j); // 1D index of this output in y
-          int mat_begin = dof_pattern.row_begin(row);
-          int mat_end   = dof_pattern.row_end(row);
+    std::fill(nz_count.begin(), nz_count.end(), 0);
+    // count the number of non-zeros
+    parse_sparse_pattern(ilist, dsort, dof_pattern, dim,
+                         [&](int grow, int, int, int)
+                             -> void {
+                           nz_count[grow] += 1;
+                         });
+    // allocate memory
+    int64_t num_nz = std::accumulate(nz_count.begin(), nz_count.end(), int64_t{0});
 
-          // loop over the matrix row and the vector looking for matching non-zeros
-          int mat_j = mat_begin;
-          int vec_j = vec_begin;
-          while (mat_j < mat_end and vec_j < vec_end)
-          {
-            int const vec_index = dsort(ilist, dim, vec_j); // pattern index 1d
-            int const mat_index = dof_pattern[mat_j];
-            // the sort helps here, since indexes are in order, it is easy to
-            // match the index patterns
-            if (vec_index < mat_index)
-              vec_j += 1;
-            else if (mat_index < vec_index)
-              mat_j += 1;
-            else // mat_index == vec_index, found matching entry, add to output
-            {
-              if (stage == 0)
-                nz_count[dsort.map(dim, j)] += 1;
-              else
-              {
-                int const g_row      = dsort.map(dim, j); // global row
-                int const idx_in_row = pntr[g_row] + nz_count[g_row];
+    indx.resize(num_nz);
+    ivals.resize(2 * num_nz);
+    // set the row pointer offsets
+    for (size_t i = 1; i < pntr.size(); i++)
+      pntr[i] = pntr[i - 1] + nz_count[i - 1];
 
-                indx[idx_in_row]          = dsort.map(dim, vec_j);
-                ivals[2 * idx_in_row]     = row;
-                ivals[2 * idx_in_row + 1] = mat_index;
+    std::fill(nz_count.begin(), nz_count.end(), 0);
+    // fill the pattern
+    parse_sparse_pattern(ilist, dsort, dof_pattern, dim,
+                         [&](int grow, int gcol, int prow, int pcol)
+                             -> void {
+                           int const j = pntr[grow] + nz_count[grow];
+                           indx[j]     = gcol; // global column
 
-                if (g_row == indx[idx_in_row])
-                  diag[g_row] = idx_in_row;
+                           // local offsets to load values from the operators
+                           ivals[2 * j]     = prow;
+                           ivals[2 * j + 1] = pcol;
 
-                nz_count[g_row] += 1;
-              }
-              // entry match, increment both indexes for the pattern
-              vec_j += 1;
-              mat_j += 1;
-            }
-          }
-        }
-      }
-    }
+                           if (grow == gcol) // diagonal entry
+                             diag[grow] = j;
+
+                           nz_count[grow] += 1;
+                         });
   }
 
 #ifdef ASGARD_USE_CUDA // split the patterns into threes
@@ -1192,11 +1295,11 @@ make_global_kron_matrix(PDE<precision> const &pde,
       global_pntr[3 * d]  = std::move(tpntr[d]); // copy the full pattern
       global_indx[3 * d]  = std::move(tindx[d]);
       global_ivals[3 * d] = std::move(tivals[d]);
-      if (d == 0) // never split pattern 0, the matrix is always used full
-        continue;
-      split_pattern(global_pntr[3 * d], global_indx[3 * d], global_diag[d], global_ivals[3 * d],
-                    global_pntr[3 * d + 1], global_indx[3 * d + 1], global_ivals[3 * d + 1],
-                    global_pntr[3 * d + 2], global_indx[3 * d + 2], global_ivals[3 * d + 2]);
+
+      split_pattern(
+          global_pntr[3 * d], global_indx[3 * d], global_diag[d], global_ivals[3 * d],
+          global_pntr[3 * d + 1], global_indx[3 * d + 1], global_ivals[3 * d + 1],
+          global_pntr[3 * d + 2], global_indx[3 * d + 2], global_ivals[3 * d + 2]);
     }
   }
 #endif
@@ -1213,56 +1316,21 @@ make_global_kron_matrix(PDE<precision> const &pde,
         active_dirs.push_back(d);
 
     int const num_active = static_cast<int>(active_dirs.size());
+    if (num_active > 1)
+    {
+      int const flux_dir = get_flux_direction(pde, t);
+      if (flux_dir != active_dirs[0]) // make the flux direction first
+        std::swap(active_dirs[0], active_dirs[flux_dir]);
+    }
+
     permutations.push_back(kronmult::permutes(num_active));
-    if (num_active != num_dimensions)
-      permutations.back().remap_directions(active_dirs);
-  }
-
-  // make the pattern for the local contribution
-  std::vector<int> lpntr(grid.row_stop - grid.row_start + 2);
-#pragma omp parallel for
-  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
-  {
-    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-
-    for (int64_t col = grid.col_start; col < grid.col_stop + 1; col++)
-    {
-      int const *const col_coords = flattened_table + 2 * num_dimensions * col;
-      if (check_connected_edge(num_dimensions, row_coords, col_coords))
-        lpntr[row - grid.row_start + 1]++;
-    }
-  }
-
-  for (size_t i = 1; i < lpntr.size(); i++)
-    lpntr[i] += lpntr[i - 1];
-
-  int num_nonz = lpntr.back();
-
-  std::vector<int> lindx(num_nonz); // compress all_indx
-
-  for (int64_t row = grid.row_start; row < grid.row_stop + 1; row++)
-  {
-    int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-
-    int col = 0;
-    for (int j = lpntr[row]; j < lpntr[row + 1]; j++)
-    {
-      int const *col_coords = flattened_table + 2 * num_dimensions * col;
-      while (not check_connected_edge(num_dimensions, row_coords, col_coords))
-      {
-        col += 1;
-        col_coords = flattened_table + 2 * num_dimensions * col;
-      }
-      lindx[j] = col;
-      col += 1;
-    }
+    permutations.back().remap_directions(active_dirs);
   }
 
   return global_kron_matrix<precision>(
       num_dimensions, num_active_dof, ilist.num_strips(), std::move(permutations),
       std::move(global_pntr), std::move(global_indx), std::move(global_diag),
-      std::move(global_ivals),
-      porder, connect_1d(max_level), std::move(lpntr), std::move(lindx));
+      std::move(global_ivals));
 }
 
 template<typename precision>
@@ -1273,32 +1341,20 @@ void set_specific_mode(PDE<precision> const &pde,
 {
   int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
 
-#ifdef ASGARD_USE_CUDA
-  // gpu mode, load into std::vector and later send to the gpu
-  std::vector<int> indx;
-  std::vector<precision> vals;
-#else
-  // cpu mode, get refs to the std::vectors and load directly in
-  std::vector<int> &indx = mat.local_opindex_[imex_indx];
-  std::vector<precision> &vals = mat.local_opvalues_[imex_indx];
-#endif
-
   mat.term_groups[imex_indx] = get_used_terms(pde, program_options, imex);
 
   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
-  auto const &grid                 = dis_grid.get_subgrid(get_rank());
-  int const *const flattened_table = dis_grid.get_table().get_active_table().data();
+  constexpr int patterns_per_dim = global_kron_matrix<precision>::patterns_per_dim;
 
-  int const porder     = pde.get_dimensions()[0].get_degree() - 1;
-  mat.porder_          = porder;
-  int const pterms     = porder + 1; // poly degrees of freedom
-  int const block_size = pterms * pterms;
-  int const max_level  = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level;
+  int const porder = pde.get_dimensions()[0].get_degree() - 1;
+  mat.porder_      = porder;
 
   int const num_dimensions = pde.num_dims;
 
   // set the values for the global pattern
+  // number of patterns per term per dimension to be considered
+  int const num_mats = (num_dimensions == 1) ? 1 : patterns_per_dim;
   for (int t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
@@ -1306,12 +1362,12 @@ void set_specific_mode(PDE<precision> const &pde,
       if (not check_identity_term(pde, t, d))
       {
         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
-#ifdef ASGARD_USE_CUDA
-        int const num_mats = (d == 0) ? 1 : 3;
+
         for (int k = 0; k < num_mats; k++)
         {
-          int const pid = 3 * d + k;
-          int const vid = 3 * t * num_dimensions + pid;
+          // pattern and values ids
+          int const pid = patterns_per_dim * d + k;
+          int const vid = patterns_per_dim * t * num_dimensions + pid;
 
           std::vector<precision> &gvals = mat.gvals_[vid];
           std::vector<int> &givals      = mat.givals_[pid];
@@ -1324,174 +1380,48 @@ void set_specific_mode(PDE<precision> const &pde,
           for (int64_t i = 0; i < num_entries; i++)
             gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
         }
-#else
-        std::vector<precision> &gvals = mat.gvals_[t * num_dimensions + d];
-        std::vector<int> &givals = mat.givals_[d];
-
-        int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
-
-        gvals.resize(num_entries);
-
-#pragma omp parallel for
-        for (int64_t i = 0; i < num_entries; i++)
-          gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
-#endif
       }
     }
   }
-
-  // set the matrix indexes and values for the local component
-  int64_t lda = pterms * fm::two_raised_to(max_level);
-
-  int const num_terms = static_cast<int>(used_terms.size());
-  if (num_terms == 0)
-    return;
-
-  connect_1d const &edges = mat.edges_;
-  int const dim_block     = edges.num_connections() * block_size;
-  //edges.dump();
-
-  // load the indexes
-  indx.resize(mat.local_indx_.size() * num_terms * num_dimensions);
-#pragma omp parallel
-  {
-    std::vector<int> offsets(num_dimensions);
-
-#pragma omp for
-    for (int64_t row = 0; row < grid.row_stop + 1; row++)
-    {
-      auto ia = indx.begin() + num_dimensions * num_terms * mat.local_pntr_[row];
-
-      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-      // (L, p) = (row_coords[i], row_coords[i + num_dimensions])
-      for (int64_t j = mat.local_pntr_[row]; j < mat.local_pntr_[row + 1]; j++)
-      {
-        int const *const col_coords =
-            flattened_table + 2 * num_dimensions * mat.local_indx_[j];
-        compute_coefficient_offsets(edges, row_coords, col_coords, offsets);
-
-        for (int t = 0; t < num_terms; t++)
-          for (int d = 0; d < num_dimensions; d++)
-            *ia++ = (t * num_dimensions + d) * dim_block + offsets[d] * block_size;
-      }
-    }
-  }
-
-  // after local indexes, we need to work on the local values
-  vals.resize(num_terms * num_dimensions * dim_block);
-  for (int t = 0; t < num_terms; t++)
-  {
-    for (int d = 0; d < num_dimensions; d++)
-    {
-      auto iv = vals.begin() + (t * num_dimensions + d) * dim_block;
-
-      precision const *const ops = pde.get_coefficients(used_terms[t], d).data();
-
-      for (int cell = 0; cell < edges.num_rows(); cell++)
-      {
-        for (int j = edges.row_begin(cell); j < edges.row_end(cell); j++)
-        {
-          int const col = edges[j] * pterms;
-          for (int p = 0; p < pterms; p++)
-            iv = std::copy_n(ops + pterms * cell + lda * (col + p), pterms, iv);
-        }
-      }
-    }
-  }
-
-#ifdef ASGARD_USE_CUDA
-  // load to the gpu
-  mat.local_opindex_[imex_indx]  = indx;
-  mat.local_opvalues_[imex_indx] = vals;
-#endif
-
-  // compute the size of the in-cell degrees of freedom
-  int64_t tensor_size = int_pow(pterms, num_dimensions);
 
   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
-  {
     // prepare a preconditioner
-#ifdef ASGARD_USE_CUDA
-    std::vector<precision> pc;
-#else
-    std::vector<precision> &pc = mat.pre_con_;
-#endif
-    int64_t num_entries = mat.num_active_;
+    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
+                         mat.pre_con_);
 
-    pc.resize(num_entries);
-    std::vector<int> midx(num_dimensions); // multi-index for each row
-
-    for (int64_t row = 0; row < grid.row_stop + 1; row++)
-    {
-      int const *const row_coords = flattened_table + 2 * num_dimensions * row;
-      asg2tsg_convert(num_dimensions, row_coords, midx.data());
-
-      for (int tentry = 0; tentry < tensor_size; tentry++)
-      {
-        for (int t : used_terms)
-        {
-          precision a = 1;
-
-          int tt = tentry;
-          for (int d = num_dimensions - 1; d >= 0; d--)
-          {
-            int const rc = midx[d] * pterms + tt % pterms;
-            a *= pde.get_coefficients(t, d)(rc, rc);
-            tt /= pterms;
-          }
-          pc[row * tensor_size + tentry] += a;
-        }
-      }
-    }
-#ifdef ASGARD_USE_CUDA
-    mat.pre_con_ = pc;
-#endif
-  }
-
-  int64_t gflops = 0; // flops for global component
-
+  // The cost is the total number of non-zeros in all matrices (non-identity)
+  int64_t gflops = 0;
   for (auto t : used_terms)
     for (int d = 0; d < num_dimensions; d++)
-#ifdef ASGARD_USE_CUDA
-      gflops += mat.gvals_[3 * t * num_dimensions + 3 * d].size();
-#else
-      gflops += mat.gvals_[t * num_dimensions + d].size();
-#endif
-
-  int64_t lflops = tensor_size * pterms * mat.local_opindex_[imex_indx].size();
+      gflops += mat.gvals_[mat.patterns_per_dim * (t * num_dimensions + d)].size();
+  gflops *= 2; // matrix vector product uses multiply-add 2 flops per entry
 
   std::cout << "Kronmult using global algorithm:\n";
-  std::cout << "    global: " << static_cast<double>(gflops) * 1.E-9 << " Gflops\n";
-  std::cout << "     local: " << static_cast<double>(lflops) * 1.E-9 << " Gflops\n";
-  std::cout << "     total: " << static_cast<double>(gflops + lflops) * 1.E-9 << " Gflops\n";
-  mat.flops_[imex_indx] = gflops + lflops;
+  std::cout << "    work: " << static_cast<double>(gflops) * 1.E-9 << " Gflops\n";
+  mat.flops_[imex_indx] = std::max(gflops, int64_t{1}); // cannot be zero
 
-  int64_t num_cints = 0;
-  int64_t num_cfps  = 0;
+  int64_t num_ints = 0;
+  int64_t num_fps  = 0;
   for (size_t d = 0; d < mat.gpntr_.size(); d++)
   {
-    num_cints += mat.gpntr_[d].size();
-    num_cints += mat.gindx_[d].size();
-    num_cints += mat.givals_[d].size();
+    num_ints += mat.gpntr_[d].size();
+    num_ints += mat.gindx_[d].size();
+    num_ints += mat.givals_[d].size();
   }
   for (auto const &ddiag : mat.gdiag_)
-    num_cints += ddiag.size();
+    num_ints += ddiag.size();
 
   for (auto t : used_terms)
-    for (int d = 0; d < num_dimensions; d++)
-      num_cfps += mat.gvals_[t * num_dimensions + d].size();
+    for (int d = 0; d < num_dimensions * mat.patterns_per_dim; d++)
+      num_fps += mat.gvals_[mat.patterns_per_dim * t * num_dimensions + d].size();
 
-  num_cfps += 2 * mat.num_active_;
-  int64_t num_lints = mat.local_pntr_.size() + mat.local_indx_.size() + mat.local_opindex_[imex_indx].size();
-  int64_t num_lfps  = mat.local_opvalues_[imex_indx].size();
+  num_fps += 2 * mat.num_active_;
   std::cout << "  -- memory usage:\n";
-  std::cout << "    common: " << get_MB<precision>(num_cfps) + get_MB<int>(num_cints) << "MB\n";
-  std::cout << "   variant: " << get_MB<precision>(num_lfps) + get_MB<int>(num_lints) << "MB\n";
-  int64_t total_mem = get_MB<precision>(num_lfps + num_cfps) + get_MB<int>(num_cints + num_lints);
-  if (total_mem > 1024)
-    std::cout << "     total: " << static_cast<double>(total_mem) / 1024.0 << "GB\n";
+  int64_t total = get_MB<precision>(num_fps) + get_MB<int>(num_ints);
+  if (total > 1024)
+    std::cout << "    CPU: " << (1 + total / 1024) << "GB\n";
   else
-    std::cout << "     total: " << total_mem << "MB\n";
+    std::cout << "    CPU: " << total << "MB\n";
 }
 
 #ifdef ASGARD_USE_CUDA
@@ -1510,59 +1440,61 @@ void global_kron_matrix<precision>::
   resize_buffer<workspace::gsparse>(buff_size);
 
   // if buffer changed, we need to reset the rest of the kron operations
-  for (auto &g : gpu_global)
-    if (g)
-      g.set_buffer(get_buffer<workspace::gsparse>());
+  for (auto &glb : gpu_global)
+    if (glb)
+      glb.set_buffer(get_buffer<workspace::gsparse>());
+
+  int64_t total = gpu_global[imex_indx].memory() / (1024 * 1024);
+  if (total > 1024)
+    std::cout << "    GPU: " << (1 + total / 1024) << "GB\n";
+  else
+    std::cout << "    GPU: " << total << "MB\n";
 }
 #endif
 
 template<typename precision>
 void update_matrix_coefficients(PDE<precision> const &pde,
-                                options const &program_options,
-                                imex_flag const imex,
+                                adapt::distributed_grid<precision> const &dis_grid,
+                                options const &program_options, imex_flag const imex,
                                 global_kron_matrix<precision> &mat)
 {
   int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
 
-#ifdef ASGARD_USE_CUDA
-  std::vector<precision> lvals;
-#else
-  std::vector<precision> &lvals = mat.local_opvalues_[imex_indx];
-#endif
-
   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
-  int const pdegree        = pde.get_dimensions()[0].get_degree() - 1;
-  int const kron_size      = pdegree + 1;
   int const num_dimensions = pde.num_dims;
 
-  int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
-                                                  ? program_options.max_level
-                                                  : pde.max_level);
-
-  int const block_size = kron_size * kron_size;
+  constexpr int patterns_per_dim = global_kron_matrix<precision>::patterns_per_dim;
 
   int const num_terms = static_cast<int>(used_terms.size());
   if (num_terms == 0)
     return;
 
+  // number of matrices per term per dimension that should be considered
+  int const num_mats = (num_dimensions == 1) ? 1 : patterns_per_dim;
   for (int t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
     {
       fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
-#ifdef ASGARD_USE_CUDA
-      if (mat.gvals_[3 * (t * num_dimensions + d)].empty()) // identity term
-        continue;
 
-      int const num_mats = (d == 0) ? 1 : 3;
+      if (mat.gvals_[patterns_per_dim * (t * num_dimensions + d)].empty())
+        continue; // identity term
+
       for (int k = 0; k < num_mats; k++)
       {
-        int const pid = 3 * d + k;
-        int const vid = 3 * t * num_dimensions + pid;
+        // pattern and values ids
+        int const pid = patterns_per_dim * d + k;
+        int const vid = patterns_per_dim * t * num_dimensions + pid;
 
-        if (mat.gpu_global[imex_indx].empty_values(vid)) // vals not used
+#ifdef ASGARD_USE_CUDA
+        // it could happen that even though a term is not identity
+        // the specific values are not used in the permutations
+        // e.g., if the other terms are identity or this terms has the flux
+        // then we don't need lower/upper vals
+        if (mat.gpu_global[imex_indx].empty_values(vid))
           continue;
+#endif
 
         std::vector<precision> &gvals = mat.gvals_[vid];
         std::vector<int> &givals      = mat.givals_[pid];
@@ -1573,52 +1505,22 @@ void update_matrix_coefficients(PDE<precision> const &pde,
         for (int64_t i = 0; i < num_entries; i++)
           gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
 
-        mat.gpu_global[imex_indx].update_values(vid, gvals);
-      }
-#else
-      std::vector<precision> &vals = mat.gvals_[t * num_dimensions + d];
-      std::vector<int> &ivals = mat.givals_[d];
-
-      if (mat.gvals_[t * num_dimensions + d].empty()) // identity term
-        continue;
-
-      int64_t num_entries = static_cast<int64_t>(mat.gindx_[d].size());
-
-#pragma omp parallel for
-      for (int64_t i = 0; i < num_entries; i++)
-        vals[i] = ops(ivals[2 * i], ivals[2 * i + 1]);
-#endif
-    }
-  }
-
-  connect_1d const &edges = mat.edges_;
-  int const dim_block     = edges.num_connections() * block_size;
-
-  if (lvals.empty())
-    lvals.resize(num_terms * num_dimensions * dim_block);
-
-  for (int t = 0; t < num_terms; t++)
-  {
-    for (int d = 0; d < num_dimensions; d++)
-    {
-      auto iv = lvals.begin() + (t * num_dimensions + d) * dim_block;
-
-      precision const *const ops = pde.get_coefficients(used_terms[t], d).data();
-
-      for (int cell = 0; cell < edges.num_rows(); cell++)
-      {
-        for (int j = edges.row_begin(cell); j < edges.row_end(cell); j++)
-        {
-          int const col = edges[j] * kron_size;
-          for (int p = 0; p < kron_size; p++)
-            iv = std::copy_n(ops + kron_size * cell + lda * (col + p), kron_size, iv);
-        }
-      }
-    }
-  }
 #ifdef ASGARD_USE_CUDA
-  mat.local_opvalues_[imex_indx] = lvals;
+        // when using the CPU, we also have to push the values to the device
+        mat.gpu_global[imex_indx].update_values(vid, gvals);
 #endif
+      }
+    }
+  }
+
+  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  { // prepare a preconditioner
+    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
+                         mat.pre_con_);
+#ifdef ASGARD_USE_CUDA
+    mat.gpu_pre_con_.clear();
+#endif
+  }
 }
 
 template<typename precision>
@@ -1632,7 +1534,9 @@ void global_kron_matrix<precision>::apply(
   std::vector<int> const &used_terms = term_groups[imex];
   if (used_terms.size() == 0)
   {
-    if (beta != 0)
+    if (beta == 0)
+      kronmult::set_buffer_to_zero<rec>(num_active_, y);
+    else if (beta != 1)
       lib_dispatch::scal<rec>(num_active_, beta, y, 1);
     return;
   }
@@ -1644,16 +1548,17 @@ void global_kron_matrix<precision>::apply(
   if constexpr (rec == resource::host)
   {
     fk::copy_to_device<precision>(get_buffer<workspace::dev_x>(), x, num_active_);
-    fk::copy_to_device<precision>(get_buffer<workspace::dev_y>(), y, num_active_);
+    if (beta != 0)
+      fk::copy_to_device<precision>(get_buffer<workspace::dev_y>(), y, num_active_);
   }
 
-  kronmult::gpu_sparse(num_dimensions_, porder_ + 1, num_active_, local_cols_.size(),
-                       local_cols_.data(), local_rows_.data(), used_terms.size(),
-                       local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                       alpha, gpux, beta, gpuy);
+  if (beta == 0)
+    kronmult::set_gpu_buffer_to_zero(num_active_, gpuy);
+  else if (beta != 1)
+    lib_dispatch::scal<resource::device>(num_active_, beta, gpuy, 1);
 
   fk::copy_on_device(get_buffer<workspace::pad_x>(), gpux, num_active_);
-  gpu_global[imex].execute();
+  gpu_global[imex].execute(); // this is global kronmult
   lib_dispatch::axpy<resource::device>(num_active_, alpha,
                                        get_buffer<workspace::pad_y>(), 1, gpuy, 1);
 
@@ -1662,10 +1567,10 @@ void global_kron_matrix<precision>::apply(
 
 #else
 
-  kronmult::cpu_sparse(num_dimensions_, porder_ + 1, local_pntr_.size() - 1,
-                       local_pntr_.data(), local_indx_.data(), used_terms.size(),
-                       local_opindex_[imex].data(), local_opvalues_[imex].data(),
-                       alpha, x, beta, y);
+  if (beta == 0)
+    std::fill_n(y, num_active_, precision{0});
+  else
+    lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
 
   std::copy_n(x, num_active_, get_buffer<workspace::pad_x>());
   std::fill_n(get_buffer<workspace::pad_y>(), num_active_, precision{0});
@@ -1687,6 +1592,27 @@ void global_kron_matrix<precision>::apply(
 template std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,
                                          imex_flag const imex);
 
+#ifdef KRON_MODE_GLOBAL
+template global_kron_matrix<double>
+make_global_kron_matrix(PDE<double> const &,
+                        adapt::distributed_grid<double> const &,
+                        options const &);
+template void update_matrix_coefficients(PDE<double> const &,
+                                         adapt::distributed_grid<double> const &,
+                                         options const &, imex_flag const,
+                                         global_kron_matrix<double> &);
+template void set_specific_mode<double>(PDE<double> const &,
+                                        adapt::distributed_grid<double> const &,
+                                        options const &, imex_flag const,
+                                        global_kron_matrix<double> &);
+template class global_kron_matrix<double>;
+template void global_kron_matrix<double>::apply<resource::host>(
+    matrix_entry, double, double const *, double, double *) const;
+#ifdef ASGARD_USE_CUDA
+template void global_kron_matrix<double>::apply<resource::device>(
+    matrix_entry, double, double const *, double, double *) const;
+#endif
+#else // KRON_MODE_GLOBAL
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
                              adapt::distributed_grid<double> const &,
@@ -1701,26 +1627,6 @@ compute_mem_usage<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
                           options const &, imex_flag const, kron_sparse_cache &,
                           int, int64_t, bool);
-#ifdef KRON_MODE_GLOBAL
-template global_kron_matrix<double>
-make_global_kron_matrix(PDE<double> const &,
-                        adapt::distributed_grid<double> const &,
-                        options const &);
-template void update_matrix_coefficients(PDE<double> const &,
-                                         options const &,
-                                         imex_flag const,
-                                         global_kron_matrix<double> &);
-template void set_specific_mode<double>(PDE<double> const &,
-                                        adapt::distributed_grid<double> const &,
-                                        options const &, imex_flag const,
-                                        global_kron_matrix<double> &);
-template class global_kron_matrix<double>;
-template void global_kron_matrix<double>::apply<resource::host>(
-    matrix_entry, double, double const *, double, double *) const;
-#ifdef ASGARD_USE_CUDA
-template void global_kron_matrix<double>::apply<resource::device>(
-    matrix_entry, double, double const *, double, double *) const;
-#endif
 #endif
 #endif
 
@@ -1728,6 +1634,27 @@ template void global_kron_matrix<double>::apply<resource::device>(
 template std::vector<int> get_used_terms(PDE<float> const &pde, options const &opts,
                                          imex_flag const imex);
 
+#ifdef KRON_MODE_GLOBAL
+template global_kron_matrix<float>
+make_global_kron_matrix(PDE<float> const &,
+                        adapt::distributed_grid<float> const &,
+                        options const &);
+template void update_matrix_coefficients(PDE<float> const &,
+                                         adapt::distributed_grid<float> const &,
+                                         options const &, imex_flag const,
+                                         global_kron_matrix<float> &);
+template void set_specific_mode<float>(PDE<float> const &,
+                                       adapt::distributed_grid<float> const &,
+                                       options const &, imex_flag const,
+                                       global_kron_matrix<float> &);
+template class global_kron_matrix<float>;
+template void global_kron_matrix<float>::apply<resource::host>(
+    matrix_entry, float, float const *, float, float *) const;
+#ifdef ASGARD_USE_CUDA
+template void global_kron_matrix<float>::apply<resource::device>(
+    matrix_entry, float, float const *, float, float *) const;
+#endif
+#else // KRON_MODE_GLOBAL
 template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,
                             adapt::distributed_grid<float> const &,
@@ -1741,26 +1668,6 @@ compute_mem_usage<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,
                          options const &, imex_flag const, kron_sparse_cache &,
                          int, int64_t, bool);
-#ifdef KRON_MODE_GLOBAL
-template global_kron_matrix<float>
-make_global_kron_matrix(PDE<float> const &,
-                        adapt::distributed_grid<float> const &,
-                        options const &);
-template void update_matrix_coefficients(PDE<float> const &,
-                                         options const &,
-                                         imex_flag const,
-                                         global_kron_matrix<float> &);
-template void set_specific_mode<float>(PDE<float> const &,
-                                       adapt::distributed_grid<float> const &,
-                                       options const &, imex_flag const,
-                                       global_kron_matrix<float> &);
-template class global_kron_matrix<float>;
-template void global_kron_matrix<float>::apply<resource::host>(
-    matrix_entry, float, float const *, float, float *) const;
-#ifdef ASGARD_USE_CUDA
-template void global_kron_matrix<float>::apply<resource::device>(
-    matrix_entry, float, float const *, float, float *) const;
-#endif
 #endif
 #endif
 

@@ -11,6 +11,8 @@ void test_almost_equal(std::vector<T> const &x, std::vector<T> const &y,
                      get_tolerance<T>(scale));
 }
 
+#ifndef KRON_MODE_GLOBAL
+
 template<typename T, asgard::resource rec = asgard::resource::host>
 void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
                           int num_matrices)
@@ -298,7 +300,6 @@ TEMPLATE_TEST_CASE("testing kronmult cpu 6d-general", "[cpu_sparse 6d]",
   // computing a reference solution becomes an issue, so the test is so small
   test_kronmult_sparse<TestType>(6, 5, 2, 1, 2);
 }
-
 #endif
 
 #ifdef ASGARD_USE_CUDA
@@ -382,6 +383,7 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
   test_kronmult_dense<TestType, asgard::resource::host>(6, n, 2, 1);
 }
 #endif
+#endif // KRON_MODE_GLOBAL
 
 #ifdef KRON_MODE_GLOBAL
 
@@ -396,7 +398,7 @@ TEMPLATE_TEST_CASE("testing simple 1d", "[global kron]", test_precs)
   for (size_t tcase = 0; tcase < nindex.size(); tcase++)
   {
     // very simple test
-    asgard::connect_1d conn(levels[tcase], asgard::connect_1d::level_edge_skip);
+    asgard::connect_1d conn(levels[tcase], asgard::connect_1d::hierarchy::volume);
 
     asgard::vector2d<int> ilist(1, nindex[tcase]);
     std::iota(ilist[0], ilist[0] + nindex[tcase], 0);
@@ -465,7 +467,7 @@ void test_global_kron(int num_dimensions, int level)
         return (L <= level);
       });
 
-  asgard::connect_1d conn(level, asgard::connect_1d::level_edge_skip);
+  asgard::connect_1d conn(level, asgard::connect_1d::hierarchy::volume);
 
   asgard::vector2d<int> ilist(num_dimensions, indexes);
 
