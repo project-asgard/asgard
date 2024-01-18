@@ -423,6 +423,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
     fk::vector<P> tmp(size_r);
     exchange_results(x, tmp, size_r, adaptive_grid.get_distrib_plan(), get_rank());
+    return tmp;
 #else
     printf("Invalid getrs solver library specified\n");
     exit(1);
