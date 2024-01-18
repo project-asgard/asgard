@@ -351,7 +351,7 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
     {
       P const x_k = x_min + 0.5 * dx * (1.0 + lgwt[0][k]);
       phi[k]      = ((phi_max - phi_min) / (x_max - x_min)) * (x_k - x_min) + x_min;
-      E[k]        = (phi_max - phi_min) / (x_max - x_min);
+      E[k]        = -(phi_max - phi_min) / (x_max - x_min);
       tools::timer.stop("poisson_solver");
       return;
     }
