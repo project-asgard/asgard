@@ -193,6 +193,7 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
   return simple_gmres_euler(dt, mat, x, b, restart, max_iter, tolerance);
 #endif
 }
+#endif
 
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
@@ -813,6 +814,18 @@ bicgstab_euler(adapt::distributed_grid<double> const &adaptive_grid, int const e
                fk::vector<double, mem_type::owner, resource::device> &x,
                fk::vector<double, mem_type::owner, resource::device> const &b,
                int const max_iter, double const tolerance);
+
+template gmres_info<double>
+simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
+                   fk::vector<double> &x, fk::vector<double> const &b,
+                   int const restart, int const max_iter,
+                   double const tolerance);
+template gmres_info<double> simple_gmres_euler(
+    adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
+    double const dt, kronmult_matrix<double> const &mat,
+    fk::vector<double, mem_type::owner, resource::device> &x,
+    fk::vector<double, mem_type::owner, resource::device> const &b,
+    int const restart, int const max_iter, double const tolerance);
 #endif
 
 template int default_gmres_restarts<double>(int num_cols);
