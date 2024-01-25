@@ -104,6 +104,8 @@ void test_kronmult(parser const &parse, P const tol_factor)
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
 #ifdef KRON_MODE_GLOBAL
+    ignore(adaptive_grid);
+    ignore(elem_size);
     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
                                b, restart, max_iter, tolerance);
 #else
