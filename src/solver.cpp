@@ -702,7 +702,7 @@ simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid, const fl
 #else
 
 template gmres_info<float>
-simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid,
+simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid, int const elem_size,
                    float const dt, kronmult_matrix<float> const &mat,
                    fk::vector<float> &x, fk::vector<float> const &b,
                    int const restart, int const max_iter,
