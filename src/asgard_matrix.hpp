@@ -1,6 +1,7 @@
 #pragma once
 #include "build_info.hpp"
 
+#include "asgard_mpi.h"
 #include "asgard_resources.hpp"
 #include "lib_dispatch.hpp"
 #include "tools.hpp"
@@ -10,6 +11,8 @@
 #include <new>
 #include <string>
 #include <vector>
+
+#include <unistd.h>
 
 namespace asgard
 {
@@ -1203,6 +1206,24 @@ template<typename P, mem_type mem, resource resrc>
 template<resource, typename>
 void fk::matrix<P, mem, resrc>::print(std::string label) const
 {
+#ifdef ASGARD_USE_MPI
+  static int const rank = []() {
+    int my_rank;
+    auto const status =
+        MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    expect(status == 0);
+    return my_rank;
+  }();
+  static int const num_ranks = []() {
+    int output;
+    auto const status = MPI_Comm_size(MPI_COMM_WORLD, &output);
+    expect(status == 0);
+    return output;
+  }();
+  sleep(rank);
+  std::cout << "rank: " << rank << '\n';
+#endif
+
   if constexpr (mem == mem_type::owner)
     std::cout << label << "(owner)" << '\n';
 
@@ -1233,6 +1254,9 @@ void fk::matrix<P, mem, resrc>::print(std::string label) const
     }
     std::cout << '\n';
   }
+#ifdef ASGARD_USE_MPI
+  sleep(num_ranks - rank - 1);
+#endif
 }
 
 //
