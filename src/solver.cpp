@@ -133,7 +133,6 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
       fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
       restart, max_iter, tolerance);
 }
-#endif
 
 template<typename P, resource resrc>
 gmres_info<P>
@@ -167,6 +166,7 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
   return simple_gmres_euler(dt, mat, x, b, restart, max_iter, tolerance);
 #endif
 }
+#endif
 
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
@@ -624,13 +624,6 @@ simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
              fk::vector<double> const &b, fk::matrix<double> const &M,
              int const restart, int const max_iter, double const tolerance);
 
-template gmres_info<double>
-simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-                   double const dt, kronmult_matrix<double> const &mat,
-                   fk::vector<double> &x, fk::vector<double> const &b,
-                   int const restart, int const max_iter,
-                   double const tolerance);
-
 #ifdef KRON_MODE_GLOBAL
 template gmres_info<double>
 simple_gmres_euler(const double dt, matrix_entry mentry,
@@ -647,6 +640,13 @@ simple_gmres_euler(const double dt, matrix_entry mentry,
                    int const restart, int const max_iter, double const tolerance);
 #endif
 #else
+template gmres_info<double>
+simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
+                   double const dt, kronmult_matrix<double> const &mat,
+                   fk::vector<double> &x, fk::vector<double> const &b,
+                   int const restart, int const max_iter,
+                   double const tolerance);
+
 template gmres_info<double>
 simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
                    fk::vector<double> &x, fk::vector<double> const &b,
@@ -684,13 +684,6 @@ simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
              fk::vector<float> const &b, fk::matrix<float> const &M,
              int const restart, int const max_iter, float const tolerance);
 
-template gmres_info<float>
-simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid,
-                   float const dt, kronmult_matrix<float> const &mat,
-                   fk::vector<float> &x, fk::vector<float> const &b,
-                   int const restart, int const max_iter,
-                   float const tolerance);
-
 #ifdef KRON_MODE_GLOBAL
 template gmres_info<float>
 simple_gmres_euler(const float dt, matrix_entry mentry,
@@ -707,6 +700,14 @@ simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid, const fl
                    int const restart, int const max_iter, float const tolerance);
 #endif
 #else
+
+template gmres_info<float>
+simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid,
+                   float const dt, kronmult_matrix<float> const &mat,
+                   fk::vector<float> &x, fk::vector<float> const &b,
+                   int const restart, int const max_iter,
+                   float const tolerance);
+
 template gmres_info<float>
 simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
                    fk::vector<float> &x, fk::vector<float> const &b,

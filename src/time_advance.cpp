@@ -864,6 +864,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_1 = x_prev;
       }
     }
+
 #ifdef KRON_MODE_GLOBAL
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
