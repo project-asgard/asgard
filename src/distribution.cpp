@@ -330,7 +330,7 @@ void reduce_results(fk::vector<P, src_mem, resrc> const &source,
 #endif
 }
 
-template<typename P, std::enable_if_t<std::is_floating_point<P>::value, bool> = true>
+template<typename P, std::enable_if_t<std::is_floating_point<P>::value, bool>>
 void reduce_results(P const source,
                     P &dest,
                     distribution_plan const &plan, int const my_rank)
