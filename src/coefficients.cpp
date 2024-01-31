@@ -208,8 +208,10 @@ fk::matrix<P> generate_coefficients(
   // we do the two-step store because we cannot have 'static' bindings
   static auto const legendre_values =
       legendre_weights<P>(dim.get_degree(), -1.0, 1.0);
-  auto const [quadrature_points, quadrature_weights] = legendre_values;
-  auto const [legendre_poly_L, legendre_poly_R]      = [&]() {
+  auto const &quadrature_points  = legendre_values[0];
+  auto const &quadrature_weights = legendre_values[1];
+
+  auto const legendre_poly_LR = [&]() {
     auto [lP_L, lPP_L] = legendre(fk::vector<P>{-1}, dim.get_degree());
     lP_L               = lP_L * (1 / std::sqrt(grid_spacing));
     auto [lP_R, lPP_R] = legendre(fk::vector<P>{+1}, dim.get_degree());
@@ -219,14 +221,15 @@ fk::matrix<P> generate_coefficients(
     ignore(lPP_R);
     return std::array<fk::matrix<P>, 2>{lP_L, lP_R};
   }();
+  auto const &legendre_poly_L = legendre_poly_LR[0];
+  auto const &legendre_poly_R = legendre_poly_LR[1];
 
   auto const legendre_poly_L_t = fk::matrix<P>(legendre_poly_L).transpose();
   auto const legendre_poly_R_t = fk::matrix<P>(legendre_poly_R).transpose();
 
   // get the basis functions and derivatives for all k
   // this auto is std::array<fk::matrix<P>, 2>
-  auto const [legendre_poly,
-              legendre_prime] = [&, quadrature_points = quadrature_points]() {
+  auto const legendre_poly_prime = [&]() {
     auto [lP, lPP] = legendre(quadrature_points, dim.get_degree());
 
     lP  = lP * (1.0 / std::sqrt(grid_spacing));
@@ -235,12 +238,16 @@ fk::matrix<P> generate_coefficients(
     return std::array<fk::matrix<P>, 2>{lP, lPP};
   }();
 
+  auto const &legendre_poly  = legendre_poly_prime[0];
+  auto const &legendre_prime = legendre_poly_prime[1];
+
   auto const legendre_poly_t  = fk::matrix<P>(legendre_poly).transpose();
   auto const legendre_prime_t = fk::matrix<P>(legendre_prime).transpose();
 
   // get jacobian
   auto const jacobi = grid_spacing / 2;
 
+#pragma omp parallel for
   for (auto i = 0; i < num_cells; ++i)
   {
     // get left and right locations for this element
@@ -253,18 +260,14 @@ fk::matrix<P> generate_coefficients(
     auto const last    = dim.get_degree() * (num_cells - 1);
 
     // map quadrature points from [-1,1] to physical domain of this i element
-    fk::vector<P> const quadrature_points_i = [&, quadrature_points =
-                                                      quadrature_points]() {
+    fk::vector<P> const quadrature_points_i = [&]() {
       fk::vector<P> quadrature_points_copy(quadrature_points);
-      std::transform(
-          quadrature_points_copy.begin(), quadrature_points_copy.end(),
-          quadrature_points_copy.begin(), [&](P const elem) {
-            return ((elem + 1) / 2 + i) * grid_spacing + dim.domain_min;
-          });
+      for(auto &e : quadrature_points_copy)
+        e = (0.5 * e + 0.5 + i) * grid_spacing + dim.domain_min;
       return quadrature_points_copy;
     }();
 
-    fk::vector<P> const g_vector = [&, legendre_poly = legendre_poly]() {
+    fk::vector<P> const g_vector = [&]() {
       fk::vector<P> g(quadrature_points_i.size());
       for (auto j = 0; j < quadrature_points_i.size(); ++j)
       {
@@ -273,8 +276,7 @@ fk::matrix<P> generate_coefficients(
       return g;
     }();
 
-    auto const block = [&, legendre_poly = legendre_poly,
-                        quadrature_weights = quadrature_weights]() {
+    auto const block = [&]() {
       fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
       for (int j = 0; j < tmp.nrows(); j++)
@@ -428,7 +430,7 @@ fk::matrix<P> generate_coefficients(
                   (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
           trace_value_4 =
               (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
-                  central_coeff +
+                  central_coeff +central_coeff
               (legendre_poly_R_t * legendre_poly_L) *
                   (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
         }
@@ -572,20 +574,30 @@ fk::matrix<P> generate_coefficients(
         fk::matrix<P, mem_type::view> block1(coefficients, row1,
                                              row1 + dim.get_degree() - 1, col1,
                                              col1 + dim.get_degree() - 1);
-        block1 = block1 + trace_value_1;
+        //block1 = block1 + trace_value_1;
+        for(int j=0; j<trace_value_1.ncols(); j++)
+          for(int k=0; k<trace_value_1.nrows(); k++)
+            block1(k, j) += trace_value_1(k, j);
       }
 
       // Add trace part 2
       fk::matrix<P, mem_type::view> block2(coefficients, row2,
                                            row2 + dim.get_degree() - 1, col2,
                                            col2 + dim.get_degree() - 1);
-      block2 = block2 + trace_value_2;
+      //block2 = block2 + trace_value_2;
+      for(int j=0; j<trace_value_2.ncols(); j++)
+        for(int k=0; k<trace_value_2.nrows(); k++)
+          block2(k, j) += trace_value_2(k, j);
 
       // Add trace part 3
       fk::matrix<P, mem_type::view> block3(coefficients, row3,
                                            row3 + dim.get_degree() - 1, col3,
                                            col3 + dim.get_degree() - 1);
-      block3 = block3 + trace_value_3;
+      //block3 = block3 + trace_value_3;
+      for(int j=0; j<trace_value_3.ncols(); j++)
+        for(int k=0; k<trace_value_3.nrows(); k++)
+          block3(k, j) += trace_value_3(k, j);
+
       if (i != num_cells - 1 || left == boundary_condition::periodic ||
           right == boundary_condition::periodic)
       {
@@ -593,7 +605,10 @@ fk::matrix<P> generate_coefficients(
         fk::matrix<P, mem_type::view> block4(coefficients, row4,
                                              row4 + dim.get_degree() - 1, col4,
                                              col4 + dim.get_degree() - 1);
-        block4 = block4 + trace_value_4;
+        //block4 = block4 + trace_value_4;
+        for(int j=0; j<trace_value_4.ncols(); j++)
+          for(int k=0; k<trace_value_4.nrows(); k++)
+            block4(k, j) += trace_value_4(k, j);
       }
     }
   }
