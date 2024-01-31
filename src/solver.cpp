@@ -171,7 +171,7 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
 {
 #ifdef ASGARD_USE_MPI
   return simple_gmres(
-      adaptive_grid,
+      adaptive_grid, elem_size,
       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
         tools::time_event performance("kronmult - implicit", mat.flops());
