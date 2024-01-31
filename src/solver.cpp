@@ -110,8 +110,8 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
       },
       fk::vector<P, mem_type::view, resrc>(x), b,
       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
-          tools::time_event performance("kronmult - preconditioner", pc.size());
-          apply_diagonal_precond(pc, dt, x_in);
+        tools::time_event performance("kronmult - preconditioner", pc.size());
+        apply_diagonal_precond(pc, dt, x_in);
       },
       restart, max_iter, tolerance);
 }
@@ -301,6 +301,11 @@ template<typename P>
 void setup_poisson(const int N_elements, P const x_min, P const x_max,
                    fk::vector<P> &diag, fk::vector<P> &off_diag)
 {
+  // no need to solve on one element
+  if (N_elements == 1)
+  {
+    return;
+  }
   // sets up and factorizes the matrix to use in the poisson solver
   const P dx = (x_max - x_min) / static_cast<P>(N_elements);
 
@@ -338,6 +343,19 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
 
   auto const lgwt =
       legendre_weights<P>(degree + 1, -1.0, 1.0, quadrature_mode::use_degree);
+
+  // If only one element, skip poisson solve and solve via BCs
+  if (N_elements == 1)
+  {
+    for (int k = 0; k < degree + 1; k++)
+    {
+      P const x_k = x_min + 0.5 * dx * (1.0 + lgwt[0][k]);
+      phi[k]      = ((phi_max - phi_min) / (x_max - x_min)) * (x_k - x_min) + x_min;
+      E[k]        = -(phi_max - phi_min) / (x_max - x_min);
+    }
+    tools::timer.stop("poisson_solver");
+    return;
+  }
 
   int N_nodes = N_elements - 1;
 
