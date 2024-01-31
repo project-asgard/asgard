@@ -341,6 +341,16 @@ simple_gmres(adapt::distributed_grid<P> const &adaptive_grid,
              preconditioner_abstraction precondition, int restart,
              int max_outer_iterations, P tolerance)
 {
+  int num_rows = 0;
+  int num_cols = 0;
+  for (int i = 0; i < get_num_ranks(); ++i)
+  {
+    auto const &grid = adaptive_grid.get_subgrid(i);
+    num_rows         = std::max(num_rows, grid.row_stop + 1);
+    num_cols         = std::max(num_cols, grid.col_stop + 1);
+  }
+  expect(num_rows == num_cols);
+
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
   expect(tolerance >= std::numeric_limits<P>::epsilon());
@@ -349,18 +359,18 @@ simple_gmres(adapt::distributed_grid<P> const &adaptive_grid,
   expect(n == x.size());
 
   if (restart == parser::NO_USER_VALUE)
-    restart = default_gmres_restarts<P>(n);
+    restart = default_gmres_restarts<P>(num_rows);
   expect(restart > 0); // checked in program_options
-  if (restart > n)
+  if (restart > num_rows)
   {
     std::ostringstream err_msg;
     err_msg << "Number of inner iterations " << restart << " must be less than "
-            << n << "!";
+            << num_rows << "!";
     throw std::invalid_argument(err_msg.str());
   }
 
   if (max_outer_iterations == parser::NO_USER_VALUE)
-    max_outer_iterations = n;
+    max_outer_iterations = num_rows;
   expect(max_outer_iterations > 0); // checked in program_options
 
   // controls how often the inner residual print occurs
