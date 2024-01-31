@@ -144,7 +144,7 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
 {
 #ifdef ASGARD_USE_MPI
   return simple_gmres(
-      adaptive_grid,
+      adaptive_grid, elem_size,
       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
         tools::time_event performance("kronmult - implicit", mat.flops());
@@ -335,7 +335,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 template<typename P, resource resrc, typename matrix_abstraction,
          typename preconditioner_abstraction>
 gmres_info<P>
-simple_gmres(adapt::distributed_grid<P> const &adaptive_grid,
+simple_gmres(adapt::distributed_grid<P> const &adaptive_grid, int const elem_size,
              matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
              fk::vector<P, mem_type::owner, resrc> const &b,
              preconditioner_abstraction precondition, int restart,
@@ -350,6 +350,7 @@ simple_gmres(adapt::distributed_grid<P> const &adaptive_grid,
     num_cols         = std::max(num_cols, grid.col_stop + 1);
   }
   expect(num_rows == num_cols);
+  num_rows *= elem_size;
 
   if (tolerance == parser::NO_USER_VALUE_FP)
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
