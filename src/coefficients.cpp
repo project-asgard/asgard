@@ -266,13 +266,13 @@ fk::matrix<P> generate_coefficients(
   for (auto i = 0; i < num_cells; ++i)
   {
     // get left and right locations for this element
-    auto const x_left  = dim.domain_min + i * grid_spacing;
-    auto const x_right = x_left + grid_spacing;
+    P const x_left  = dim.domain_min + i * grid_spacing;
+    P const x_right = x_left + grid_spacing;
 
     // get index for current, first and last element
-    auto const current = dim.get_degree() * i;
-    auto const first   = 0;
-    auto const last    = dim.get_degree() * (num_cells - 1);
+    int const current = dim.get_degree() * i;
+    int const first   = 0;
+    int const last    = dim.get_degree() * (num_cells - 1);
 
     // map quadrature points from [-1,1] to physical domain of this i element
     fk::vector<P> const quadrature_points_i = [&]() {
@@ -294,24 +294,27 @@ fk::matrix<P> generate_coefficients(
     auto const block = [&]() {
       fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
-      for (int j = 0; j < tmp.nrows(); j++)
+      for (int k = 0; k < tmp.nrows(); k++)
       {
-        for (int k = 0; k < tmp.ncols(); k++)
+        P const c = g_vector(k) * quadrature_weights(k) * jacobi;
+
+        for (int j = 0; j < tmp.ncols(); j++)
         {
-          tmp(j, k) = g_vector(j) * legendre_poly(j, k) *
-                      quadrature_weights(j) * jacobi;
+          tmp(k, j) = c * legendre_poly(k, j);
         }
       }
       fk::matrix<P> output(dim.get_degree(), dim.get_degree());
 
       if (pterm.coeff_type == coefficient_type::mass)
       {
-        output = legendre_poly_t * tmp;
+        //output = legendre_poly_t * tmp;
+        fm::gemm(P{1}, legendre_poly_t, tmp, P{0}, output);
       }
       else if (pterm.coeff_type == coefficient_type::grad ||
                pterm.coeff_type == coefficient_type::div)
       {
-        output = legendre_prime_t * tmp * (-1);
+        //output = legendre_prime_t * tmp * (-1);
+        fm::gemm(P{-1}, legendre_prime_t, tmp, P{0}, output);
       }
       // If pterm.coeff_type == coefficient_type::penalty is true, there's
       // no volume term so the output is zeros.
