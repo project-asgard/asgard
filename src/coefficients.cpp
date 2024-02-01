@@ -254,13 +254,51 @@ fk::matrix<P> generate_coefficients(
   auto matrix_RtR = (legendre_poly_R_t * legendre_poly_R);
   auto matrix_RtL = (legendre_poly_R_t * legendre_poly_L);
 
+  // get index for first and last element
+  int const first   = 0;
+  int const last    = dim.get_degree() * (num_cells - 1);
+
 #pragma omp parallel
 {
+  fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
+  fk::matrix<P> block(dim.get_degree(), dim.get_degree());
 
   fk::matrix<P> trace_value_1(nrows, nrows);
   fk::matrix<P> trace_value_2(nrows, nrows);
   fk::matrix<P> trace_value_3(nrows, nrows);
   fk::matrix<P> trace_value_4(nrows, nrows);
+
+  auto apply_volume = [&](int i)->void {
+    int const current = dim.get_degree() * i;
+    int const current_stop = current + dim.get_degree() - 1;
+
+    if (pterm.coeff_type != coefficient_type::penalty) {
+      for (int k = 0; k < tmp.nrows(); k++)
+      {
+        P c = g_dv_func((0.5 * quadrature_points[k] + 0.5 + i) * grid_spacing
+                        + dim.domain_min, time);
+        c *= quadrature_weights(k) * jacobi;
+
+        for (int j = 0; j < tmp.ncols(); j++)
+          tmp(k, j) = c * legendre_poly(k, j);
+      }
+
+      if (pterm.coeff_type == coefficient_type::mass)
+      {
+        fm::gemm(P{1}, legendre_poly_t, tmp, P{0}, block);
+      }
+      else if (pterm.coeff_type == coefficient_type::grad ||
+               pterm.coeff_type == coefficient_type::div)
+      {
+        fm::gemm(P{-1}, legendre_prime_t, tmp, P{0}, block);
+      }
+
+      fk::matrix<P, mem_type::view> curr_block(coefficients, current,
+                                               current_stop, current,
+                                               current_stop);
+      fm::mat_axpy(block, curr_block);
+    }
+  };
 
 #pragma omp for
   for (auto i = 0; i < num_cells; ++i)
@@ -269,65 +307,10 @@ fk::matrix<P> generate_coefficients(
     P const x_left  = dim.domain_min + i * grid_spacing;
     P const x_right = x_left + grid_spacing;
 
-    // get index for current, first and last element
+    // get index for current block
     int const current = dim.get_degree() * i;
-    int const first   = 0;
-    int const last    = dim.get_degree() * (num_cells - 1);
 
-    // map quadrature points from [-1,1] to physical domain of this i element
-    fk::vector<P> const quadrature_points_i = [&]() {
-      fk::vector<P> quadrature_points_copy(quadrature_points);
-      for(auto &e : quadrature_points_copy)
-        e = (0.5 * e + 0.5 + i) * grid_spacing + dim.domain_min;
-      return quadrature_points_copy;
-    }();
-
-    fk::vector<P> const g_vector = [&]() {
-      fk::vector<P> g(quadrature_points_i.size());
-      for (auto j = 0; j < quadrature_points_i.size(); ++j)
-      {
-        g(j) = g_dv_func(quadrature_points_i(j), time);
-      }
-      return g;
-    }();
-
-    auto const block = [&]() {
-      fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
-
-      for (int k = 0; k < tmp.nrows(); k++)
-      {
-        P const c = g_vector(k) * quadrature_weights(k) * jacobi;
-
-        for (int j = 0; j < tmp.ncols(); j++)
-        {
-          tmp(k, j) = c * legendre_poly(k, j);
-        }
-      }
-      fk::matrix<P> output(dim.get_degree(), dim.get_degree());
-
-      if (pterm.coeff_type == coefficient_type::mass)
-      {
-        //output = legendre_poly_t * tmp;
-        fm::gemm(P{1}, legendre_poly_t, tmp, P{0}, output);
-      }
-      else if (pterm.coeff_type == coefficient_type::grad ||
-               pterm.coeff_type == coefficient_type::div)
-      {
-        //output = legendre_prime_t * tmp * (-1);
-        fm::gemm(P{-1}, legendre_prime_t, tmp, P{0}, output);
-      }
-      // If pterm.coeff_type == coefficient_type::penalty is true, there's
-      // no volume term so the output is zeros.
-      return output;
-    }();
-
-    // set the block at the correct position
-    fk::matrix<P> const curr_block =
-        fk::matrix<P, mem_type::view>(coefficients, current,
-                                      current + dim.get_degree() - 1, current,
-                                      current + dim.get_degree() - 1) +
-        block;
-    coefficients.set_submatrix(current, current, curr_block);
+    apply_volume(i);
 
     if (pterm.coeff_type == coefficient_type::grad ||
         pterm.coeff_type == coefficient_type::div ||
@@ -378,6 +361,7 @@ fk::matrix<P> generate_coefficients(
 //               (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
 
       P coeff = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      //fm::mat_axpy(coeff, matrix_LtR, trace_value_1);
       for(int j=0; j<nrows; j++)
         for(int k=0; k<nrows; k++)
           trace_value_1(k, j) = coeff * matrix_LtR(k, j);
@@ -649,8 +633,16 @@ fk::matrix<P> generate_coefficients(
             block4(k, j) += trace_value_4(k, j);
       }
     }
-  }
-}
+  } // for i
+
+//#pragma omp single
+//{
+  //int const i = 0;
+
+//} // #pragma omp single
+
+
+} // #pragma omp parallel
 
   if (pterm.coeff_type == coefficient_type::grad)
   {
