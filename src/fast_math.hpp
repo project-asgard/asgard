@@ -194,9 +194,9 @@ gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
   expect(C.ncols() == cols_B);
   expect(cols_A == rows_B);
 
-  int lda           = A.stride();
-  int ldb           = B.stride();
-  int ldc           = C.stride();
+  int lda = A.stride();
+  int ldb = B.stride();
+  int ldc = C.stride();
 
   char const transa = trans_A ? 't' : 'n';
   char const transb = trans_B ? 't' : 'n';
@@ -489,86 +489,6 @@ void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
         std::string("Argument " + std::to_string(info) +
                     " in call to pttrs() has an illegal value\n"));
   }
-}
-
-/** Add computes Y += X
- * \tparam P floating point double/float
- * \tparam mem_out memory type of the output, cannot be const_view
- * \tparam mem_in memory type of the input, can be anything
- *
- * \param X input matrix
- * \param Y output matrix
- */
-template<typename P, mem_type mem_out, mem_type mem_in>
-void mat_axpy(fk::matrix<P, mem_in> const &X, fk::matrix<P, mem_out> &Y) {
-  static_assert(mem_out != mem_type::const_view,
-                "cannot add into const-view matrix");
-  int const nrows = Y.nrows();
-  int const ncols = Y.ncols();
-  expect(X.nrows() == nrows);
-  expect(X.nrows() == ncols);
-  for(int j=0; j<ncols; j++)
-    for(int i=0; i<nrows; i++)
-      Y(i, j) += X(i, j);
-}
-/** Add computes Y += X
- * \tparam P floating point double/float
- * \tparam mem_out memory type of the output, cannot be const_view
- * \tparam mem_in memory type of the input, can be anything
- *
- * \param X input matrix
- * \param Y output matrix
- */
-template<typename P, mem_type mem_out, mem_type mem_in>
-void mat_axpy(typename fk::matrix<P, mem_in>::value_type alpha,
-              fk::matrix<P, mem_in> const &X, fk::matrix<P, mem_out> &Y) {
-  static_assert(mem_out != mem_type::const_view,
-                "cannot add into const-view matrix");
-  int const nrows = Y.nrows();
-  int const ncols = Y.ncols();
-  expect(X.nrows() == nrows);
-  expect(X.nrows() == ncols);
-  for(int j=0; j<ncols; j++)
-    for(int i=0; i<nrows; i++)
-      Y(i, j) += alpha * X(i, j);
-}
-/** Add computes Y = alpha * X
- * \tparam P floating point double/float
- * \tparam mem_out memory type of the output, cannot be const_view
- * \tparam mem_in memory type of the input, can be anything
- *
- * \param X input matrix
- * \param Y output matrix
- */
-template<typename P, mem_type mem_out, mem_type mem_in>
-void mat_copy(typename fk::matrix<P, mem_in>::value_type alpha,
-              fk::matrix<P, mem_in> const &X, fk::matrix<P, mem_out> &Y) {
-  static_assert(mem_out != mem_type::const_view,
-                "cannot add into const-view matrix");
-  int const nrows = Y.nrows();
-  int const ncols = Y.ncols();
-  expect(X.nrows() == nrows);
-  expect(X.nrows() == ncols);
-  for(int j=0; j<ncols; j++)
-    for(int i=0; i<nrows; i++)
-      Y(i, j) = alpha * X(i, j);
-}
-/** Sets Y = alpha
- * \tparam P floating point double/float
- * \tparam mem_out memory type of the output, cannot be const_view
- *
- * \param Y output matrix
- */
-template<typename P, mem_type mem_out, mem_type mem_in>
-void mat_set(typename fk::matrix<P, mem_out>::value_type alpha,
-             fk::matrix<P, mem_out> &Y) {
-  static_assert(mem_out != mem_type::const_view,
-                "cannot add into const-view matrix");
-  int const nrows = Y.nrows();
-  int const ncols = Y.ncols();
-  for(int j=0; j<ncols; j++)
-    for(int i=0; i<nrows; i++)
-      Y(i, j) = alpha;
 }
 
 #ifdef ASGARD_USE_SCALAPACK
