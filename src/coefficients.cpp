@@ -392,7 +392,7 @@ fk::matrix<P> generate_coefficients(
       coeff = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
       for(int j=0; j<nrows; j++)
         for(int k=0; k<nrows; k++)
-          trace_value_2(k, j) = coeff * matrix_LtR(k, j);
+          trace_value_2(k, j) = coeff * matrix_LtL(k, j);
 
       // trace_value_3 is the interaction on x_{i+1/2} --
       // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
