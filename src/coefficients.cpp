@@ -227,8 +227,6 @@ fk::matrix<P> generate_coefficients(
   auto const legendre_poly_L_t = fk::matrix<P>(legendre_poly_L).transpose();
   auto const legendre_poly_R_t = fk::matrix<P>(legendre_poly_R).transpose();
 
-  int const nrows = dim.get_degree();
-
   // get the basis functions and derivatives for all k
   // this auto is std::array<fk::matrix<P>, 2>
   auto const legendre_poly_prime = [&]() {
@@ -262,18 +260,18 @@ fk::matrix<P> generate_coefficients(
   auto matrix_RtR = (legendre_poly_R_t * legendre_poly_R);
   auto matrix_RtL = (legendre_poly_R_t * legendre_poly_L);
 
-  // get index for first and last element
-  int const first   = 0;
-  int const last    = dim.get_degree() * (num_cells - 1);
-
 #pragma omp parallel
 {
+  // each thread will allocate it's own tmp matrix
   fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
+  // tmp will be captured inside the closure
+  // no re-allocation will occur
   auto apply_volume = [&](int i)->void {
-    int const current = dim.get_degree() * i;
+    if (pterm.coeff_type != coefficient_type::penalty)
+    {
+      int const current = dim.get_degree() * i;
 
-    if (pterm.coeff_type != coefficient_type::penalty) {
       for (int k = 0; k < tmp.nrows(); k++)
       {
         P c = g_dv_func((0.5 * quadrature_points[k] + 0.5 + i) * grid_spacing
@@ -284,8 +282,9 @@ fk::matrix<P> generate_coefficients(
           tmp(k, j) = c * legendre_poly(k, j);
       }
 
-      fk::matrix<P, mem_type::view> blk(coefficients, current, current + porder,
-                                        current, current + porder);
+      fk::matrix<P, mem_type::view> blk(coefficients, current,
+                                        current + porder, current,
+                                        current + porder);
       if (pterm.coeff_type == coefficient_type::mass)
       {
         fm::gemm(P{1}, legendre_poly_t, tmp, P{1}, blk);
@@ -405,299 +404,101 @@ fk::matrix<P> generate_coefficients(
 
 #pragma omp single
 {
-  int const i = 0;
+  // special case, handle the left and right boundary conditions
+  // the first thread that exits the for-loop above will do this work
 
-  // get left and right locations for this element
-  P const x_left  = dim.domain_min + i * grid_spacing;
-  P const x_right = x_left + grid_spacing;
+  // need to consider various types of boundary conditions on left/right
+  // but we have a possible case of 1 cell, so left-most is also right-most
 
-  // get index for current block
-  int const current = dim.get_degree() * i;
+  // get index for the last element (first is zero)
+  int const last = dim.get_degree() * (num_cells - 1);
 
-  apply_volume(i);
+  apply_volume(0); // left-most cell
+  if (num_cells > 1) // if right-most is not left-most
+    apply_volume(num_cells - 1);
 
   if (pterm.coeff_type == coefficient_type::grad ||
       pterm.coeff_type == coefficient_type::div ||
       pterm.coeff_type == coefficient_type::penalty)
   {
-    P const central_coeff =
-        pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
+    P flux_left  = g_dv_func(dim.domain_min, time);
+    P flux_right = g_dv_func(dim.domain_min + grid_spacing, time);
 
-    if (num_cells == 1) // i == 0 and i == num_cells - 1
-    {
-      fk::matrix<P> trace_value_1(nrows, nrows);
-      fk::matrix<P> trace_value_2(nrows, nrows);
-      fk::matrix<P> trace_value_3(nrows, nrows);
-      fk::matrix<P> trace_value_4(nrows, nrows);
+    P c = 0;
 
-      P const flux_left  = g_dv_func(x_left, time);
-      P const flux_right = g_dv_func(x_right, time);
+    // handle the left-boundary
+    switch(pterm.ileft) {
+      case boundary_condition::dirichlet:
 
-      P coeff = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-      fm::mat_copy(coeff, matrix_LtR, trace_value_1);
-
-      coeff = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-      fm::mat_copy(coeff, matrix_LtL, trace_value_2);
-
-      coeff = central_coeff * (+1 * flux_right / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-      fm::mat_copy(coeff, matrix_RtR, trace_value_3);
-
-      coeff = central_coeff * (+1 * flux_right / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-      fm::mat_copy(coeff, matrix_RtL, trace_value_4);
-
-      // If dirichelt
-      // u^-_LEFT = g(LEFT)
-      // u^+_RIGHT = g(RIGHT)
-      boundary_condition const left  = pterm.ileft;
-      boundary_condition const right = pterm.iright;
-
-      // this case is broken for non-periodic boundary
-      // expect(left  == boundary_condition::periodic);
-      // expect(right == boundary_condition::periodic);
-
-      // Dirichlet Boundary Conditions
-      // For div and grad, the boundary is not part of the bilinear operator,
-      // but instead tranferred to the source.  Similar to an inflow condition.
-      // For penalty, the operator <|gfunc|/2*f,v> is applied for the case where
-      // f and v share the same volume support
-
-      // If statement checking coeff_type is because gfunc can evaluate to nan
-      // in 1/0 case.  Ex: gfunc = x, domain = [0,4] (possible in spherical
-      // coordinates)
-
-      if (left == boundary_condition::dirichlet) // left dirichlet
+      if (pterm.coeff_type == coefficient_type::penalty)
       {
-        trace_value_1 =
-            (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
-        if (pterm.coeff_type == coefficient_type::penalty)
-        {
-          trace_value_2 = (legendre_poly_L_t * legendre_poly_L) *
-                          (-1.0 * pterm.get_flux_scale() *
-                            std::abs(flux_left) / 2.0 * -1.0);
-        }
-        else
-        {
-          trace_value_2 =
-              (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) *
-              (-1);
-        }
-        trace_value_3 =
-            (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) *
-                central_coeff +
-            (legendre_poly_R_t * legendre_poly_R) *
-                (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-        trace_value_4 =
-            (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
-                central_coeff +
-            (legendre_poly_R_t * legendre_poly_L) *
-                (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+        c = -1.0 * pterm.get_flux_scale() * std::abs(flux_left) / 2.0 * -1.0;
+        coeff_axpy(0, 0, c, matrix_LtL);
       }
+      break;
 
-      if (right == boundary_condition::dirichlet) // right dirichlet
-      {
-        trace_value_1 =
-            (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) *
-                central_coeff +
-            (legendre_poly_L_t * legendre_poly_R) *
-                (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-        trace_value_2 =
-            (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) *
-                central_coeff +
-            (legendre_poly_L_t * legendre_poly_L) *
-                (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-        if (pterm.coeff_type == coefficient_type::penalty)
-        {
-          trace_value_3 =
-              (legendre_poly_R_t * legendre_poly_R) *
-              (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-        }
-        else
-        {
-          trace_value_3 =
-              (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) *
-              (+1);
-        }
-        trace_value_4 =
-            (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
-      }
+      case boundary_condition::neumann:
 
-      if (left == boundary_condition::neumann) // left neumann
-      {
-        trace_value_1 =
-            (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
-        if (pterm.coeff_type == coefficient_type::penalty)
-        {
-          trace_value_2 =
-              (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) *
-              (-1);
-        }
-        else
-        {
-          trace_value_2 =
-              (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left);
-        }
-        trace_value_3 =
-            (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) *
-                central_coeff +
-            (legendre_poly_R_t * legendre_poly_R) *
-                (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-        trace_value_4 =
-            (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
-                central_coeff +
-            (legendre_poly_R_t * legendre_poly_L) *
-                (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-      }
+      if (pterm.coeff_type != coefficient_type::penalty)
+        coeff_axpy(0, 0, - flux_left, matrix_LtL);
+      break;
 
-      if (right == boundary_condition::neumann) // right neumann
-      {
-        trace_value_1 =
-            (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) *
-                central_coeff +
-            (legendre_poly_L_t * legendre_poly_R) *
-                (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-        trace_value_2 =
-            (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) *
-                central_coeff +
-            (legendre_poly_L_t * legendre_poly_L) *
-                (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-        if (pterm.coeff_type == coefficient_type::penalty)
-        {
-          trace_value_3 =
-              (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) *
-              (+1);
-        }
-        else
-        {
-          trace_value_3 =
-              (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right);
-        }
-        trace_value_4 =
-            (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
-      }
+      default: // case boundary_condition::periodic
+      c = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      coeff_axpy(0, last, c, matrix_LtR);
 
-      // Add trace values to matrix
-      if (left == boundary_condition::periodic ||
-          right == boundary_condition::periodic)
-      {
-        fm::mat_axpy(trace_value_1, coefficients);
-        fm::mat_axpy(trace_value_4, coefficients);
-      }
-
-      fm::mat_axpy(trace_value_2, coefficients);
-      fm::mat_axpy(trace_value_3, coefficients);
-
+      c = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      coeff_axpy(0, 0, c, matrix_LtL);
+      break;
     }
-    else
-    {
-      P const flux_left  = g_dv_func(x_left, time);
-      P const flux_right = g_dv_func(x_right, time);
 
-      // If dirichelt
-      // u^-_LEFT = g(LEFT)
-      // u^+_RIGHT = g(RIGHT)
-
-      // Dirichlet Boundary Conditions
-      // For div and grad, the boundary is not part of the bilinear operator,
-      // but instead tranferred to the source.  Similar to an inflow condition.
-      // For penalty, the operator <|gfunc|/2*f,v> is applied for the case where
-      // f and v share the same volume support
-
-      // If statement checking coeff_type is because gfunc can evaluate to nan
-      // in 1/0 case.  Ex: gfunc = x, domain = [0,4] (possible in spherical
-      // coordinates)
-
-      P c = 0;
-
-      switch(pterm.ileft) {
-        case boundary_condition::dirichlet:
-
-        if (pterm.coeff_type == coefficient_type::penalty)
-        {
-          c = -1.0 * pterm.get_flux_scale() * std::abs(flux_left) / 2.0 * -1.0;
-          coeff_axpy(current, current, c, matrix_LtL);
-        }
-        break;
-
-        case boundary_condition::neumann:
-
-        if (pterm.coeff_type != coefficient_type::penalty)
-          coeff_axpy(current, current, - flux_left, matrix_LtL);
-        break;
-
-        default: // case boundary_condition::periodic
-        c = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-        coeff_axpy(current, last, c, matrix_LtR);
-
-        c = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-        coeff_axpy(current, current, c, matrix_LtL);
-        break;
-      }
-
-      // right boundary, it is interior
+    if (num_cells > 1) {
+      // right boundary of the left-most cell is in the interior
       c = (+1 * flux_right / 2) * central_coeff + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-      coeff_axpy(current, current, c, matrix_RtR);
+      coeff_axpy(0, 0, c, matrix_RtR);
 
       c = (+1 * flux_right / 2) * central_coeff + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-      coeff_axpy(current, current + porder + 1, c, matrix_RtL);
-    }
-  }
-} // #pragma omp single
+      coeff_axpy(0, porder + 1, c, matrix_RtL);
 
-#pragma omp single
-{
-  // if num_cells == 1 this work will be done above when i = 0
-  if (num_cells > 1) {
-    int const i = num_cells - 1;
+      // at this point, we are done with the left-most cell
+      // switch the flux to the right-most cell
 
-    // get left and right locations for this element
-    P const x_left  = dim.domain_min + i * grid_spacing;
-    P const x_right = x_left + grid_spacing;
+      flux_left  = g_dv_func(dim.domain_max - grid_spacing, time);
+      flux_right = g_dv_func(dim.domain_max, time);
 
-    // get index for current block
-    int const current = dim.get_degree() * i;
-
-    apply_volume(i);
-
-    if (pterm.coeff_type == coefficient_type::grad ||
-        pterm.coeff_type == coefficient_type::div ||
-        pterm.coeff_type == coefficient_type::penalty)
-    {
-      P const flux_left  = g_dv_func(x_left, time);
-      P const flux_right = g_dv_func(x_right, time);
-
-      P c = 0;
-
+      // left boundary of the right-most cell is in the interior
       c = (-1 * flux_left / 2) * central_coeff + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-      coeff_axpy(current, current - porder - 1, c, matrix_LtR);
+      coeff_axpy(last, last - porder - 1, c, matrix_LtR);
 
       c = (-1 * flux_left / 2) * central_coeff +  (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
-      coeff_axpy(current, current, c, matrix_LtL);
+      coeff_axpy(last, last, c, matrix_LtL);
+    }
 
-      switch(pterm.iright) {
-        case boundary_condition::dirichlet:
+    // handle the right boundary condition
+    switch(pterm.iright) {
+      case boundary_condition::dirichlet:
 
-        if (pterm.coeff_type == coefficient_type::penalty)
-        {
-          c = (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-          coeff_axpy(current, current, c, matrix_RtR);
-        }
-        break;
-
-        case boundary_condition::neumann:
-
-        if (pterm.coeff_type != coefficient_type::penalty)
-          coeff_axpy(current, current, flux_right, matrix_RtR);
-        break;
-
-        default: // case boundary_condition::periodic
-
-        c = (+1 * flux_right / 2) * central_coeff + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-        coeff_axpy(current, current, c, matrix_RtR);
-
-        c = (+1 * flux_right / 2) * central_coeff + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
-        coeff_axpy(current, first, c, matrix_RtL);
-        break;
+      if (pterm.coeff_type == coefficient_type::penalty)
+      {
+        c = (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+        coeff_axpy(last, last, c, matrix_RtR);
       }
+      break;
+
+      case boundary_condition::neumann:
+
+      if (pterm.coeff_type != coefficient_type::penalty)
+        coeff_axpy(last, last, flux_right, matrix_RtR);
+      break;
+
+      default: // case boundary_condition::periodic
+
+      c = (+1 * flux_right / 2) * central_coeff + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      coeff_axpy(last, last, c, matrix_RtR);
+
+      c = (+1 * flux_right / 2) * central_coeff + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      coeff_axpy(last, 0, c, matrix_RtL);
+      break;
     }
   }
 } // #pragma omp single
