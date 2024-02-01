@@ -227,6 +227,8 @@ fk::matrix<P> generate_coefficients(
   auto const legendre_poly_L_t = fk::matrix<P>(legendre_poly_L).transpose();
   auto const legendre_poly_R_t = fk::matrix<P>(legendre_poly_R).transpose();
 
+  int const nrows = dim.get_degree();
+
   // get the basis functions and derivatives for all k
   // this auto is std::array<fk::matrix<P>, 2>
   auto const legendre_poly_prime = [&]() {
@@ -247,7 +249,20 @@ fk::matrix<P> generate_coefficients(
   // get jacobian
   auto const jacobi = grid_spacing / 2;
 
-#pragma omp parallel for
+  auto matrix_LtR = (legendre_poly_L_t * legendre_poly_R);
+  auto matrix_LtL = (legendre_poly_L_t * legendre_poly_L);
+  auto matrix_RtR = (legendre_poly_R_t * legendre_poly_R);
+  auto matrix_RtL = (legendre_poly_R_t * legendre_poly_L);
+
+#pragma omp parallel
+{
+
+  fk::matrix<P> trace_value_1(nrows, nrows);
+  fk::matrix<P> trace_value_2(nrows, nrows);
+  fk::matrix<P> trace_value_3(nrows, nrows);
+  fk::matrix<P> trace_value_4(nrows, nrows);
+
+#pragma omp for
   for (auto i = 0; i < num_cells; ++i)
   {
     // get left and right locations for this element
@@ -353,41 +368,61 @@ fk::matrix<P> generate_coefficients(
       // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
       // f is a DG function with support on I_{i-1}
       // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = -p_L
-      auto trace_value_1 =
-          (legendre_poly_L_t * legendre_poly_R) * central_coeff *
-              (-1 * flux_left / 2) +
-          (legendre_poly_L_t * legendre_poly_R) *
-              (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+//       trace_value_1 =
+//           (legendre_poly_L_t * legendre_poly_R) * central_coeff *
+//               (-1 * flux_left / 2) +
+//           (legendre_poly_L_t * legendre_poly_R) *
+//               (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+
+      P coeff = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      for(int j=0; j<nrows; j++)
+        for(int k=0; k<nrows; k++)
+          trace_value_1(k, j) = coeff * matrix_LtR(k, j);
 
       // trace_value_2 is the interaction on x_{i-1/2} --
       // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
       // f is a DG function with support on I_{i}
       // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = -p_L
-      auto trace_value_2 =
-          (legendre_poly_L_t * legendre_poly_L) * central_coeff *
-              (-1 * flux_left / 2) +
-          (legendre_poly_L_t * legendre_poly_L) *
-              (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+//       auto trace_value_2 =
+//           (legendre_poly_L_t * legendre_poly_L) * central_coeff *
+//               (-1 * flux_left / 2) +
+//           (legendre_poly_L_t * legendre_poly_L) *
+//               (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+
+      coeff = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      for(int j=0; j<nrows; j++)
+        for(int k=0; k<nrows; k++)
+          trace_value_2(k, j) = coeff * matrix_LtR(k, j);
 
       // trace_value_3 is the interaction on x_{i+1/2} --
       // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
       // f is a DG function with support on I_{i}
       // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = p_R
-      auto trace_value_3 =
-          (legendre_poly_R_t * legendre_poly_R) * central_coeff *
-              (+1 * flux_right / 2) +
-          (legendre_poly_R_t * legendre_poly_R) *
-              (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+//       auto trace_value_3 =
+//           (legendre_poly_R_t * legendre_poly_R) * central_coeff *
+//               (+1 * flux_right / 2) +
+//           (legendre_poly_R_t * legendre_poly_R) *
+//               (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+
+      coeff = central_coeff * (+1 * flux_right / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      for(int j=0; j<nrows; j++)
+        for(int k=0; k<nrows; k++)
+          trace_value_3(k, j) = coeff * matrix_RtR(k, j);
 
       // trace_value_4 is the interaction on x_{i+1/2} --
       // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
       // f is a DG function with support on I_{i+1}
       // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = p_R
-      auto trace_value_4 =
-          (legendre_poly_R_t * legendre_poly_L) * central_coeff *
-              (+1 * flux_right / 2) +
-          (legendre_poly_R_t * legendre_poly_L) *
-              (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+//       auto trace_value_4 =
+//           (legendre_poly_R_t * legendre_poly_L) * central_coeff *
+//               (+1 * flux_right / 2) +
+//           (legendre_poly_R_t * legendre_poly_L) *
+//               (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+
+      coeff = central_coeff * (+1 * flux_right / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      for(int j=0; j<nrows; j++)
+        for(int k=0; k<nrows; k++)
+          trace_value_4(k, j) = coeff * matrix_RtL(k, j);
 
       // If dirichelt
       // u^-_LEFT = g(LEFT)
@@ -430,7 +465,7 @@ fk::matrix<P> generate_coefficients(
                   (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
           trace_value_4 =
               (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
-                  central_coeff +central_coeff
+                  central_coeff +
               (legendre_poly_R_t * legendre_poly_L) *
                   (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
         }
@@ -612,6 +647,7 @@ fk::matrix<P> generate_coefficients(
       }
     }
   }
+}
 
   if (pterm.coeff_type == coefficient_type::grad)
   {
