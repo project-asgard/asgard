@@ -532,6 +532,44 @@ void mat_axpy(typename fk::matrix<P, mem_in>::value_type alpha,
     for(int i=0; i<nrows; i++)
       Y(i, j) += alpha * X(i, j);
 }
+/** Add computes Y = alpha * X
+ * \tparam P floating point double/float
+ * \tparam mem_out memory type of the output, cannot be const_view
+ * \tparam mem_in memory type of the input, can be anything
+ *
+ * \param X input matrix
+ * \param Y output matrix
+ */
+template<typename P, mem_type mem_out, mem_type mem_in>
+void mat_copy(typename fk::matrix<P, mem_in>::value_type alpha,
+              fk::matrix<P, mem_in> const &X, fk::matrix<P, mem_out> &Y) {
+  static_assert(mem_out != mem_type::const_view,
+                "cannot add into const-view matrix");
+  int const nrows = Y.nrows();
+  int const ncols = Y.ncols();
+  expect(X.nrows() == nrows);
+  expect(X.nrows() == ncols);
+  for(int j=0; j<ncols; j++)
+    for(int i=0; i<nrows; i++)
+      Y(i, j) = alpha * X(i, j);
+}
+/** Sets Y = alpha
+ * \tparam P floating point double/float
+ * \tparam mem_out memory type of the output, cannot be const_view
+ *
+ * \param Y output matrix
+ */
+template<typename P, mem_type mem_out, mem_type mem_in>
+void mat_set(typename fk::matrix<P, mem_out>::value_type alpha,
+             fk::matrix<P, mem_out> &Y) {
+  static_assert(mem_out != mem_type::const_view,
+                "cannot add into const-view matrix");
+  int const nrows = Y.nrows();
+  int const ncols = Y.ncols();
+  for(int j=0; j<ncols; j++)
+    for(int i=0; i<nrows; i++)
+      Y(i, j) = alpha;
+}
 
 #ifdef ASGARD_USE_SCALAPACK
 // getrs - Solve Ax=B using LU factorization

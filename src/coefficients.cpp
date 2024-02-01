@@ -301,7 +301,7 @@ fk::matrix<P> generate_coefficients(
   };
 
 #pragma omp for
-  for (auto i = 0; i < num_cells; ++i)
+  for (auto i = 1; i < num_cells - 1; ++i)
   {
     // get left and right locations for this element
     P const x_left  = dim.domain_min + i * grid_spacing;
@@ -354,11 +354,632 @@ fk::matrix<P> generate_coefficients(
       // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
       // f is a DG function with support on I_{i-1}
       // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = -p_L
-//       trace_value_1 =
-//           (legendre_poly_L_t * legendre_poly_R) * central_coeff *
-//               (-1 * flux_left / 2) +
-//           (legendre_poly_L_t * legendre_poly_R) *
-//               (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      P coeff = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      fm::mat_copy(coeff, matrix_LtR, trace_value_1);
+
+      // trace_value_2 is the interaction on x_{i-1/2} --
+      // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
+      // f is a DG function with support on I_{i}
+      // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = -p_L
+      coeff = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      fm::mat_copy(coeff, matrix_LtL, trace_value_2);
+
+      // trace_value_3 is the interaction on x_{i+1/2} --
+      // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
+      // f is a DG function with support on I_{i}
+      // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = p_R
+      coeff = central_coeff * (+1 * flux_right / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      fm::mat_copy(coeff, matrix_RtR, trace_value_3);
+
+      // trace_value_4 is the interaction on x_{i+1/2} --
+      // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
+      // f is a DG function with support on I_{i+1}
+      // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = p_R
+
+      coeff = central_coeff * (+1 * flux_right / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      fm::mat_copy(coeff, matrix_RtL, trace_value_4);
+
+      // If dirichelt
+      // u^-_LEFT = g(LEFT)
+      // u^+_RIGHT = g(RIGHT)
+
+      // Dirichlet Boundary Conditions
+      // For div and grad, the boundary is not part of the bilinear operator,
+      // but instead tranferred to the source.  Similar to an inflow condition.
+      // For penalty, the operator <|gfunc|/2*f,v> is applied for the case where
+      // f and v share the same volume support
+
+      // If statement checking coeff_type is because gfunc can evaluate to nan
+      // in 1/0 case.  Ex: gfunc = x, domain = [0,4] (possible in spherical
+      // coordinates)
+
+      // If neumann
+      // (gradient u)*num_cells = g
+      // by splitting grad u = q by LDG methods, the B.C is changed to
+      // q*num_cells = g (=> q = g for 1D variable)
+      // only work for derivatives greater than 1
+
+      // Neumann boundary conditions
+      // For div and grad, the interior trace is used to calculate the flux,
+      // similar to an outflow boundary condition. For penalty, nothing is
+      // added.
+
+      int row1 = current;
+      int col1 = current - dim.get_degree();
+
+      int row2 = current;
+      int col2 = current;
+
+      int row3 = current;
+      int col3 = current;
+
+      int row4 = current;
+      int col4 = current + dim.get_degree();
+
+      // Add trace part 1
+      fk::matrix<P, mem_type::view> block1(coefficients, row1,
+                                            row1 + dim.get_degree() - 1, col1,
+                                            col1 + dim.get_degree() - 1);
+      fm::mat_axpy(trace_value_1, block1);
+
+      // Add trace part 2
+      fk::matrix<P, mem_type::view> block2(coefficients, row2,
+                                           row2 + dim.get_degree() - 1, col2,
+                                           col2 + dim.get_degree() - 1);
+      fm::mat_axpy(trace_value_2, block2);
+
+      // Add trace part 3
+      fk::matrix<P, mem_type::view> block3(coefficients, row3,
+                                           row3 + dim.get_degree() - 1, col3,
+                                           col3 + dim.get_degree() - 1);
+      fm::mat_axpy(trace_value_3, block3);
+
+      // Add trace part 4
+      fk::matrix<P, mem_type::view> block4(coefficients, row4,
+                                            row4 + dim.get_degree() - 1, col4,
+                                            col4 + dim.get_degree() - 1);
+      fm::mat_axpy(trace_value_4, block4);
+    }
+  } // for i
+
+#pragma omp single
+{
+  int const i = 0;
+
+  // get left and right locations for this element
+  P const x_left  = dim.domain_min + i * grid_spacing;
+  P const x_right = x_left + grid_spacing;
+
+  // get index for current block
+  int const current = dim.get_degree() * i;
+
+  apply_volume(i);
+
+  if (pterm.coeff_type == coefficient_type::grad ||
+      pterm.coeff_type == coefficient_type::div ||
+      pterm.coeff_type == coefficient_type::penalty)
+  {
+    P const central_coeff =
+        pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
+
+    if (num_cells == 1) { // i == 0 and i == num_cells - 1
+      P const flux_left  = g_dv_func(x_left, time);
+      P const flux_right = g_dv_func(x_right, time);
+
+      P coeff = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      fm::mat_copy(coeff, matrix_LtR, trace_value_1);
+
+      coeff = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      fm::mat_copy(coeff, matrix_LtL, trace_value_2);
+
+      coeff = central_coeff * (+1 * flux_right / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      fm::mat_copy(coeff, matrix_RtR, trace_value_3);
+
+      coeff = central_coeff * (+1 * flux_right / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      fm::mat_copy(coeff, matrix_RtL, trace_value_4);
+
+      // If dirichelt
+      // u^-_LEFT = g(LEFT)
+      // u^+_RIGHT = g(RIGHT)
+      boundary_condition const left  = pterm.ileft;
+      boundary_condition const right = pterm.iright;
+
+      // Dirichlet Boundary Conditions
+      // For div and grad, the boundary is not part of the bilinear operator,
+      // but instead tranferred to the source.  Similar to an inflow condition.
+      // For penalty, the operator <|gfunc|/2*f,v> is applied for the case where
+      // f and v share the same volume support
+
+      // If statement checking coeff_type is because gfunc can evaluate to nan
+      // in 1/0 case.  Ex: gfunc = x, domain = [0,4] (possible in spherical
+      // coordinates)
+
+      if (left == boundary_condition::dirichlet) // left dirichlet
+      {
+        if (i == 0)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_2 = (legendre_poly_L_t * legendre_poly_L) *
+                            (-1.0 * pterm.get_flux_scale() *
+                              std::abs(flux_left) / 2.0 * -1.0);
+          }
+          else
+          {
+            trace_value_2 =
+                (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) *
+                (-1);
+          }
+          trace_value_3 =
+              (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+          trace_value_4 =
+              (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+        }
+      }
+
+      if (right == boundary_condition::dirichlet) // right dirichlet
+      {
+        if (i == num_cells - 1)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          trace_value_2 =
+              (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * legendre_poly_R) *
+                (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+          }
+          else
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) *
+                (+1);
+          }
+          trace_value_4 =
+              (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
+        }
+      }
+
+      if (left == boundary_condition::neumann) // left neumann
+      {
+        if (i == 0)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_2 =
+                (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) *
+                (-1);
+          }
+          else
+          {
+            trace_value_2 =
+                (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left);
+          }
+          trace_value_3 =
+              (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+          trace_value_4 =
+              (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+        }
+      }
+
+      if (right == boundary_condition::neumann) // right neumann
+      {
+        if (i == num_cells - 1)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          trace_value_2 =
+              (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) *
+                (+1);
+          }
+          else
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right);
+          }
+          trace_value_4 =
+              (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
+        }
+      }
+
+      // Add trace values to matrix
+
+      int row1 = current;
+      int col1 = current - dim.get_degree();
+
+      int row2 = current;
+      int col2 = current;
+
+      int row3 = current;
+      int col3 = current;
+
+      int row4 = current;
+      int col4 = current + dim.get_degree();
+
+      if (left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        if (i == 0)
+        {
+          row1 = current;
+          col1 = last;
+        }
+        if (i == num_cells - 1)
+        {
+          row4 = current;
+          col4 = first;
+        }
+      }
+
+      if (i != 0 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 1
+        fk::matrix<P, mem_type::view> block1(coefficients, row1,
+                                              row1 + dim.get_degree() - 1, col1,
+                                              col1 + dim.get_degree() - 1);
+        //block1 = block1 + trace_value_1;
+        for(int j=0; j<trace_value_1.ncols(); j++)
+          for(int k=0; k<trace_value_1.nrows(); k++)
+            block1(k, j) += trace_value_1(k, j);
+      }
+
+      // Add trace part 2
+      fk::matrix<P, mem_type::view> block2(coefficients, row2,
+                                            row2 + dim.get_degree() - 1, col2,
+                                            col2 + dim.get_degree() - 1);
+      //block2 = block2 + trace_value_2;
+      for(int j=0; j<trace_value_2.ncols(); j++)
+        for(int k=0; k<trace_value_2.nrows(); k++)
+          block2(k, j) += trace_value_2(k, j);
+
+      // Add trace part 3
+      fk::matrix<P, mem_type::view> block3(coefficients, row3,
+                                            row3 + dim.get_degree() - 1, col3,
+                                            col3 + dim.get_degree() - 1);
+      //block3 = block3 + trace_value_3;
+      for(int j=0; j<trace_value_3.ncols(); j++)
+        for(int k=0; k<trace_value_3.nrows(); k++)
+          block3(k, j) += trace_value_3(k, j);
+
+      if (i != num_cells - 1 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 4
+        fk::matrix<P, mem_type::view> block4(coefficients, row4,
+                                              row4 + dim.get_degree() - 1, col4,
+                                              col4 + dim.get_degree() - 1);
+        //block4 = block4 + trace_value_4;
+        for(int j=0; j<trace_value_4.ncols(); j++)
+          for(int k=0; k<trace_value_4.nrows(); k++)
+            block4(k, j) += trace_value_4(k, j);
+      }
+    } else {
+      P const flux_left  = g_dv_func(x_left, time);
+      P const flux_right = g_dv_func(x_right, time);
+
+      P coeff = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      fm::mat_copy(coeff, matrix_LtR, trace_value_1);
+
+      coeff = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+      fm::mat_copy(coeff, matrix_LtL, trace_value_2);
+
+      coeff = central_coeff * (+1 * flux_right / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      fm::mat_copy(coeff, matrix_RtR, trace_value_3);
+
+      coeff = central_coeff * (+1 * flux_right / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+      fm::mat_copy(coeff, matrix_RtL, trace_value_4);
+
+      // If dirichelt
+      // u^-_LEFT = g(LEFT)
+      // u^+_RIGHT = g(RIGHT)
+      boundary_condition const left  = pterm.ileft;
+      boundary_condition const right = pterm.iright;
+
+      // Dirichlet Boundary Conditions
+      // For div and grad, the boundary is not part of the bilinear operator,
+      // but instead tranferred to the source.  Similar to an inflow condition.
+      // For penalty, the operator <|gfunc|/2*f,v> is applied for the case where
+      // f and v share the same volume support
+
+      // If statement checking coeff_type is because gfunc can evaluate to nan
+      // in 1/0 case.  Ex: gfunc = x, domain = [0,4] (possible in spherical
+      // coordinates)
+
+      if (left == boundary_condition::dirichlet) // left dirichlet
+      {
+        if (i == 0)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_2 = (legendre_poly_L_t * legendre_poly_L) *
+                            (-1.0 * pterm.get_flux_scale() *
+                              std::abs(flux_left) / 2.0 * -1.0);
+          }
+          else
+          {
+            trace_value_2 =
+                (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) *
+                (-1);
+          }
+          trace_value_3 =
+              (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+          trace_value_4 =
+              (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+        }
+      }
+
+      if (right == boundary_condition::dirichlet) // right dirichlet
+      {
+        if (i == num_cells - 1)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          trace_value_2 =
+              (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * legendre_poly_R) *
+                (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+          }
+          else
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) *
+                (+1);
+          }
+          trace_value_4 =
+              (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
+        }
+      }
+
+      if (left == boundary_condition::neumann) // left neumann
+      {
+        if (i == 0)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) * (-1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_2 =
+                (legendre_poly_L_t * (legendre_poly_L - legendre_poly_L)) *
+                (-1);
+          }
+          else
+          {
+            trace_value_2 =
+                (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left);
+          }
+          trace_value_3 =
+              (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+          trace_value_4 =
+              (legendre_poly_R_t * legendre_poly_L) * (+1 * flux_right / 2) *
+                  central_coeff +
+              (legendre_poly_R_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+        }
+      }
+
+      if (right == boundary_condition::neumann) // right neumann
+      {
+        if (i == num_cells - 1)
+        {
+          trace_value_1 =
+              (legendre_poly_L_t * legendre_poly_R) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_R) *
+                  (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          trace_value_2 =
+              (legendre_poly_L_t * legendre_poly_L) * (-1 * flux_left / 2) *
+                  central_coeff +
+              (legendre_poly_L_t * legendre_poly_L) *
+                  (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+          if (pterm.coeff_type == coefficient_type::penalty)
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) *
+                (+1);
+          }
+          else
+          {
+            trace_value_3 =
+                (legendre_poly_R_t * legendre_poly_R) * (+1 * flux_right);
+          }
+          trace_value_4 =
+              (legendre_poly_R_t * (legendre_poly_R - legendre_poly_R)) * (+1);
+        }
+      }
+
+      // Add trace values to matrix
+
+      int row1 = current;
+      int col1 = current - dim.get_degree();
+
+      int row2 = current;
+      int col2 = current;
+
+      int row3 = current;
+      int col3 = current;
+
+      int row4 = current;
+      int col4 = current + dim.get_degree();
+
+      if (left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        if (i == 0)
+        {
+          row1 = current;
+          col1 = last;
+        }
+        if (i == num_cells - 1)
+        {
+          row4 = current;
+          col4 = first;
+        }
+      }
+
+      if (i != 0 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 1
+        fk::matrix<P, mem_type::view> block1(coefficients, row1,
+                                              row1 + dim.get_degree() - 1, col1,
+                                              col1 + dim.get_degree() - 1);
+        //block1 = block1 + trace_value_1;
+        for(int j=0; j<trace_value_1.ncols(); j++)
+          for(int k=0; k<trace_value_1.nrows(); k++)
+            block1(k, j) += trace_value_1(k, j);
+      }
+
+      // Add trace part 2
+      fk::matrix<P, mem_type::view> block2(coefficients, row2,
+                                            row2 + dim.get_degree() - 1, col2,
+                                            col2 + dim.get_degree() - 1);
+      //block2 = block2 + trace_value_2;
+      for(int j=0; j<trace_value_2.ncols(); j++)
+        for(int k=0; k<trace_value_2.nrows(); k++)
+          block2(k, j) += trace_value_2(k, j);
+
+      // Add trace part 3
+      fk::matrix<P, mem_type::view> block3(coefficients, row3,
+                                            row3 + dim.get_degree() - 1, col3,
+                                            col3 + dim.get_degree() - 1);
+      //block3 = block3 + trace_value_3;
+      for(int j=0; j<trace_value_3.ncols(); j++)
+        for(int k=0; k<trace_value_3.nrows(); k++)
+          block3(k, j) += trace_value_3(k, j);
+
+      if (i != num_cells - 1 || left == boundary_condition::periodic ||
+          right == boundary_condition::periodic)
+      {
+        // Add trace part 4
+        fk::matrix<P, mem_type::view> block4(coefficients, row4,
+                                              row4 + dim.get_degree() - 1, col4,
+                                              col4 + dim.get_degree() - 1);
+        //block4 = block4 + trace_value_4;
+        for(int j=0; j<trace_value_4.ncols(); j++)
+          for(int k=0; k<trace_value_4.nrows(); k++)
+            block4(k, j) += trace_value_4(k, j);
+      }
+    }
+  }
+} // #pragma omp single
+
+
+#pragma omp single
+{
+  if (num_cells > 1) {
+    int const i = num_cells - 1;
+
+    // get left and right locations for this element
+    P const x_left  = dim.domain_min + i * grid_spacing;
+    P const x_right = x_left + grid_spacing;
+
+    // get index for current block
+    int const current = dim.get_degree() * i;
+
+    apply_volume(i);
+
+    if (pterm.coeff_type == coefficient_type::grad ||
+        pterm.coeff_type == coefficient_type::div ||
+        pterm.coeff_type == coefficient_type::penalty)
+    {
+      // setup numerical flux choice/boundary conditions
+      //
+      // - <funcCoef*{q},p>
+      //----------------------------------------------
+      // Numerical Flux is defined as
+      // Flux = {{f}} + C/2*[[u]]
+      //      = ( f_L + f_R )/2 + FunCoef*( u_R - u_L )/2
+      // [[v]] = v_R - v_L
+
+      // FIXME G functions should accept G(x,p,t,dat), since we don't know how
+      // the dat is going to be used in the G function (above it is used as
+      // linear multuplication but this is not always true)
+
+      // Penalty term is just <|gfunc|/2[[f]],[[v]]> so we need to remove the
+      // central flux <gfunc{{f}},[[v]]> from the operators
+      P const central_coeff =
+          pterm.coeff_type == coefficient_type::penalty ? 0.0 : 1.0;
+
+      P const flux_left  = g_dv_func(x_left, time);
+      P const flux_right = g_dv_func(x_right, time);
+
+      // get the "trace" values
+      // (values at the left and right of each element for all k)
+      // -------------------------------------------------------------------------
+      // More detailed explanation
+      // Each trace_value_ evaluates <FLUX_f,[[v]]>
+      // where v is a DG functions with support on I_i. The
+      // difference between the trace_values_ varies with the edge the flux
+      // is evaluated on and the support of the DG function f.
+      // The legendre_poly_X is the trace of f and legende_poly_X_t is for v
+      // We will use f=p_X for the polynomials where X=L (left boundary of cell)
+      // or X=R (right boundary of cell).  Similar for v but depends on the
+      // support
+
+      // trace_value_1 is the interaction on x_{i-1/2} --
+      // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
+      // f is a DG function with support on I_{i-1}
+      // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = -p_L
+  //       trace_value_1 =
+  //           (legendre_poly_L_t * legendre_poly_R) * central_coeff *
+  //               (-1 * flux_left / 2) +
+  //           (legendre_poly_L_t * legendre_poly_R) *
+  //               (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
 
       P coeff = central_coeff * (-1 * flux_left / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
       //fm::mat_axpy(coeff, matrix_LtR, trace_value_1);
@@ -370,11 +991,11 @@ fk::matrix<P> generate_coefficients(
       // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
       // f is a DG function with support on I_{i}
       // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = -p_L
-//       auto trace_value_2 =
-//           (legendre_poly_L_t * legendre_poly_L) * central_coeff *
-//               (-1 * flux_left / 2) +
-//           (legendre_poly_L_t * legendre_poly_L) *
-//               (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
+  //       auto trace_value_2 =
+  //           (legendre_poly_L_t * legendre_poly_L) * central_coeff *
+  //               (-1 * flux_left / 2) +
+  //           (legendre_poly_L_t * legendre_poly_L) *
+  //               (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
 
       coeff = central_coeff * (-1 * flux_left / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_left) / 2 * -1);
       for(int j=0; j<nrows; j++)
@@ -385,11 +1006,11 @@ fk::matrix<P> generate_coefficients(
       // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
       // f is a DG function with support on I_{i}
       // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = p_R
-//       auto trace_value_3 =
-//           (legendre_poly_R_t * legendre_poly_R) * central_coeff *
-//               (+1 * flux_right / 2) +
-//           (legendre_poly_R_t * legendre_poly_R) *
-//               (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+  //       auto trace_value_3 =
+  //           (legendre_poly_R_t * legendre_poly_R) * central_coeff *
+  //               (+1 * flux_right / 2) +
+  //           (legendre_poly_R_t * legendre_poly_R) *
+  //               (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
 
       coeff = central_coeff * (+1 * flux_right / 2) + (+1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
       for(int j=0; j<nrows; j++)
@@ -400,11 +1021,11 @@ fk::matrix<P> generate_coefficients(
       // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
       // f is a DG function with support on I_{i+1}
       // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = p_R
-//       auto trace_value_4 =
-//           (legendre_poly_R_t * legendre_poly_L) * central_coeff *
-//               (+1 * flux_right / 2) +
-//           (legendre_poly_R_t * legendre_poly_L) *
-//               (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
+  //       auto trace_value_4 =
+  //           (legendre_poly_R_t * legendre_poly_L) * central_coeff *
+  //               (+1 * flux_right / 2) +
+  //           (legendre_poly_R_t * legendre_poly_L) *
+  //               (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
 
       coeff = central_coeff * (+1 * flux_right / 2) + (-1 * pterm.get_flux_scale() * std::abs(flux_right) / 2 * +1);
       for(int j=0; j<nrows; j++)
@@ -437,7 +1058,7 @@ fk::matrix<P> generate_coefficients(
           {
             trace_value_2 = (legendre_poly_L_t * legendre_poly_L) *
                             (-1.0 * pterm.get_flux_scale() *
-                             std::abs(flux_left) / 2.0 * -1.0);
+                              std::abs(flux_left) / 2.0 * -1.0);
           }
           else
           {
@@ -594,8 +1215,8 @@ fk::matrix<P> generate_coefficients(
       {
         // Add trace part 1
         fk::matrix<P, mem_type::view> block1(coefficients, row1,
-                                             row1 + dim.get_degree() - 1, col1,
-                                             col1 + dim.get_degree() - 1);
+                                              row1 + dim.get_degree() - 1, col1,
+                                              col1 + dim.get_degree() - 1);
         //block1 = block1 + trace_value_1;
         for(int j=0; j<trace_value_1.ncols(); j++)
           for(int k=0; k<trace_value_1.nrows(); k++)
@@ -604,8 +1225,8 @@ fk::matrix<P> generate_coefficients(
 
       // Add trace part 2
       fk::matrix<P, mem_type::view> block2(coefficients, row2,
-                                           row2 + dim.get_degree() - 1, col2,
-                                           col2 + dim.get_degree() - 1);
+                                            row2 + dim.get_degree() - 1, col2,
+                                            col2 + dim.get_degree() - 1);
       //block2 = block2 + trace_value_2;
       for(int j=0; j<trace_value_2.ncols(); j++)
         for(int k=0; k<trace_value_2.nrows(); k++)
@@ -613,8 +1234,8 @@ fk::matrix<P> generate_coefficients(
 
       // Add trace part 3
       fk::matrix<P, mem_type::view> block3(coefficients, row3,
-                                           row3 + dim.get_degree() - 1, col3,
-                                           col3 + dim.get_degree() - 1);
+                                            row3 + dim.get_degree() - 1, col3,
+                                            col3 + dim.get_degree() - 1);
       //block3 = block3 + trace_value_3;
       for(int j=0; j<trace_value_3.ncols(); j++)
         for(int k=0; k<trace_value_3.nrows(); k++)
@@ -625,22 +1246,16 @@ fk::matrix<P> generate_coefficients(
       {
         // Add trace part 4
         fk::matrix<P, mem_type::view> block4(coefficients, row4,
-                                             row4 + dim.get_degree() - 1, col4,
-                                             col4 + dim.get_degree() - 1);
+                                              row4 + dim.get_degree() - 1, col4,
+                                              col4 + dim.get_degree() - 1);
         //block4 = block4 + trace_value_4;
         for(int j=0; j<trace_value_4.ncols(); j++)
           for(int k=0; k<trace_value_4.nrows(); k++)
             block4(k, j) += trace_value_4(k, j);
       }
     }
-  } // for i
-
-//#pragma omp single
-//{
-  //int const i = 0;
-
-//} // #pragma omp single
-
+  }
+} // #pragma omp single
 
 } // #pragma omp parallel
 
