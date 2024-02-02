@@ -455,6 +455,9 @@ fk::matrix<P> generate_coefficients(
           break;
 
         case boundary_condition::neumann:
+        // If penalty then we add nothing
+        // Else we want to standard (outflow) flux
+        // <gf,v> = <g{f}/2,v>
           if constexpr (coeff_type != coefficient_type::penalty)
             coeff_axpy(0, 0, -2.0 * fluxL2, matrix_LtL);
           break;
