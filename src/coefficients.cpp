@@ -270,13 +270,34 @@ fk::matrix<P> generate_coefficients(
   fk::matrix<P> matrix_RtL(legendre_poly_R.ncols(), legendre_poly_L.ncols());
   fm::gemm(legendre_poly_R, legendre_poly_L, matrix_RtL, true, false, P{1}, P{0});
 
+  // General algorithm
+  // For each cell, we need to compute the volume integral within the cell
+  // and then the fluxes given the neighboring cells to the left and right.
+  // Computing three blocks per cell with size (porder + 1) by (porder + 1)
+  // The blocks are denoted by:
+  //    (current, current - porder - 1)
+  //    (current, current),
+  //    (current, current + porder + 1)
+  // where "current" for cell "i" is "(porder + 1) * i"
+  //
+  // The key here is to add the properly scaled matrix LtR, LtL etc.
+  // to the correct block of the coefficients matrix.
+  //
+  // If using periodic boundary, the left-most and right-most cells wrap around
+  // i.e., the left cell for the left-most cell is the right-most cell.
+  // Even without periodicity, left/right-most cells need special consideration
+  // as they must use the Dirichlet or Neumann boundary condition in the flux.
+  // Thus, the main for-loop works only on the interior cells
+  // and the left most cell (0) and right most cell (num_cells - 1)
+  // are handled separately.
+
 #pragma omp parallel
   {
     // each thread will allocate it's own tmp matrix
     fk::matrix<P> tmp(legendre_poly.nrows(), legendre_poly.ncols());
 
-    // tmp will be captured inside the closure
-    // no re-allocation will occur
+    // tmp will be captured inside the lambda closure
+    // no allocations will occur per call
     auto apply_volume = [&](int i) -> void {
       // the penalty term does not include a volume integral
       if constexpr (coeff_type != coefficient_type::penalty)
@@ -298,7 +319,7 @@ fk::matrix<P> generate_coefficients(
                                           current + porder);
         if constexpr (coeff_type == coefficient_type::mass)
           // volume integral where phi is trial(tmp) and psi is test(legendre_poly)
-          //  \int phi(x)\psi(x) dx 
+          //  \int phi(x)\psi(x) dx
           fm::gemm(legendre_poly, tmp, blk, true, false, P{1}, P{1});
         else // div or grad falls here
           // -\int \phi(x)\psi'(x) dx
@@ -309,6 +330,8 @@ fk::matrix<P> generate_coefficients(
 #pragma omp for
     for (int i = 1; i < num_cells - 1; ++i)
     {
+      // looping over the interior cells
+
       // get left and right locations for this element
       P const x_left  = dim.domain_min + i * grid_spacing;
       P const x_right = x_left + grid_spacing;
@@ -365,6 +388,8 @@ fk::matrix<P> generate_coefficients(
         // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
         // f is a DG function with support on I_{i-1}
         // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = -p_L
+        // (in the code below and in all other cases, the expressions has been
+        //  simplified by applying the negative or positive -p_L)
         coeff_axpy(current, current - porder - 1, -fluxL2 - fluxL2abs, matrix_LtR);
 
         // trace_value_2 is the interaction on x_{i-1/2} --
@@ -398,12 +423,6 @@ fk::matrix<P> generate_coefficients(
         // If statement checking coeff_type is because gfunc can evaluate to nan
         // in 1/0 case.  Ex: gfunc = x, domain = [0,4] (possible in spherical
         // coordinates)
-
-        // If neumann
-        // (gradient u)*num_cells = g
-        // by splitting grad u = q by LDG methods, the B.C is changed to
-        // q*num_cells = g (=> q = g for 1D variable)
-        // only work for derivatives greater than 1
 
         // Neumann boundary conditions
         // For div and grad, the interior trace is used to calculate the flux,
@@ -447,17 +466,17 @@ fk::matrix<P> generate_coefficients(
         switch (pterm.ileft)
         {
         case boundary_condition::dirichlet:
-        // If penalty then we add <|g|/2[f],[v]>
-        // Else we're wanting no flux as this is handed by the
-        // boundary conditions.
+          // If penalty then we add <|g|/2[f],[v]>
+          // Else we're wanting no flux as this is handed by the
+          // boundary conditions.
           if constexpr (coeff_type == coefficient_type::penalty)
             coeff_axpy(0, 0, fluxL2abs, matrix_LtL);
           break;
 
         case boundary_condition::neumann:
-        // If penalty then we add nothing
-        // Else we want to standard (outflow) flux
-        // <gf,v> = <g{f}/2,v>
+          // If penalty then we add nothing
+          // Else we want to standard (outflow) flux
+          // <gf,v> = <g{f}/2,v>
           if constexpr (coeff_type != coefficient_type::penalty)
             coeff_axpy(0, 0, -2.0 * fluxL2, matrix_LtL);
           break;
