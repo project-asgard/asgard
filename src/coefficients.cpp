@@ -447,6 +447,9 @@ fk::matrix<P> generate_coefficients(
         switch (pterm.ileft)
         {
         case boundary_condition::dirichlet:
+        // If penalty then we add <|g|/2[f],[v]>
+        // Else we're wanting no flux as this is handed by the
+        // boundary conditions.
           if constexpr (coeff_type == coefficient_type::penalty)
             coeff_axpy(0, 0, fluxL2abs, matrix_LtL);
           break;
