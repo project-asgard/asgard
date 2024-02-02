@@ -228,9 +228,6 @@ fk::matrix<P> generate_coefficients(
   auto const &legendre_poly_L = legendre_poly_LR[0];
   auto const &legendre_poly_R = legendre_poly_LR[1];
 
-  auto const legendre_poly_L_t = fk::matrix<P>(legendre_poly_L).transpose();
-  auto const legendre_poly_R_t = fk::matrix<P>(legendre_poly_R).transpose();
-
   // get the basis functions and derivatives for all k
   // this auto is std::array<fk::matrix<P>, 2>
   auto const legendre_poly_prime = [&]() {
@@ -258,16 +255,20 @@ fk::matrix<P> generate_coefficients(
   auto const &legendre_poly  = legendre_poly_prime[0];
   auto const &legendre_prime = legendre_poly_prime[1];
 
-  auto const legendre_poly_t  = fk::matrix<P>(legendre_poly).transpose();
-  auto const legendre_prime_t = fk::matrix<P>(legendre_prime).transpose();
-
   // get jacobian
   auto const jacobi = grid_spacing / 2;
 
-  auto matrix_LtR = (legendre_poly_L_t * legendre_poly_R);
-  auto matrix_LtL = (legendre_poly_L_t * legendre_poly_L);
-  auto matrix_RtR = (legendre_poly_R_t * legendre_poly_R);
-  auto matrix_RtL = (legendre_poly_R_t * legendre_poly_L);
+  fk::matrix<P> matrix_LtR(legendre_poly_L.ncols(), legendre_poly_R.ncols());
+  fm::gemm(legendre_poly_L, legendre_poly_R, matrix_LtR, true, false, P{1}, P{0});
+
+  fk::matrix<P> matrix_LtL(legendre_poly_L.ncols(), legendre_poly_L.ncols());
+  fm::gemm(legendre_poly_L, legendre_poly_L, matrix_LtL, true, false, P{1}, P{0});
+
+  fk::matrix<P> matrix_RtR(legendre_poly_R.ncols(), legendre_poly_R.ncols());
+  fm::gemm(legendre_poly_R, legendre_poly_R, matrix_RtR, true, false, P{1}, P{0});
+
+  fk::matrix<P> matrix_RtL(legendre_poly_R.ncols(), legendre_poly_L.ncols());
+  fm::gemm(legendre_poly_R, legendre_poly_L, matrix_RtL, true, false, P{1}, P{0});
 
 #pragma omp parallel
   {
@@ -277,6 +278,7 @@ fk::matrix<P> generate_coefficients(
     // tmp will be captured inside the closure
     // no re-allocation will occur
     auto apply_volume = [&](int i) -> void {
+      // the penalty term does not include a volume integral
       if constexpr (coeff_type != coefficient_type::penalty)
       {
         int const current = dim.get_degree() * i;
@@ -295,9 +297,9 @@ fk::matrix<P> generate_coefficients(
                                           current + porder, current,
                                           current + porder);
         if constexpr (coeff_type == coefficient_type::mass)
-          fm::gemm(P{1}, legendre_poly_t, tmp, P{1}, blk);
+          fm::gemm(legendre_poly, tmp, blk, true, false, P{1}, P{1});
         else // div or grad falls here
-          fm::gemm(P{-1}, legendre_prime_t, tmp, P{1}, blk);
+          fm::gemm(legendre_prime, tmp, blk, true, false, P{-1}, P{1});
       }
     };
 
