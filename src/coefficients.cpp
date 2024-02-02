@@ -414,9 +414,6 @@ fk::matrix<P> generate_coefficients(
       // need to consider various types of boundary conditions on left/right
       // but we have a possible case of 1 cell, so left-most is also right-most
 
-      // get index for the last element (first is zero)
-      int const last = dim.get_degree() * (num_cells - 1);
-
       apply_volume(0);   // left-most cell
       if (num_cells > 1) // if right-most is not left-most
         apply_volume(num_cells - 1);
@@ -425,6 +422,9 @@ fk::matrix<P> generate_coefficients(
                     coeff_type == coefficient_type::div or
                     coeff_type == coefficient_type::penalty)
       {
+        // get index for the last element (first is zero)
+        int const last = dim.get_degree() * (num_cells - 1);
+
         P fluxL2 = 0.5 * g_dv_func(dim.domain_min, time);
         P fluxR2 = 0.5 * g_dv_func(dim.domain_min + grid_spacing, time);
 
