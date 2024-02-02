@@ -297,6 +297,8 @@ fk::matrix<P> generate_coefficients(
                                           current + porder, current,
                                           current + porder);
         if constexpr (coeff_type == coefficient_type::mass)
+          // volume integral where phi is trial(tmp) and psi is test(legendre_poly)
+          //  \int phi(x)\psi(x) dx 
           fm::gemm(legendre_poly, tmp, blk, true, false, P{1}, P{1});
         else // div or grad falls here
           fm::gemm(legendre_prime, tmp, blk, true, false, P{-1}, P{1});
