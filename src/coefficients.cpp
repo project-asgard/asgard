@@ -358,7 +358,8 @@ fk::matrix<P> generate_coefficients(
         // The legendre_poly_X is the trace of f and legende_poly_X_t is for v
         // We will use f=p_X for the polynomials where X=L (left boundary of cell)
         // or X=R (right boundary of cell).  Similar for v but depends on the
-        // support
+        // support.  Note matrix multiply ordering goes by
+        // v_mat^T * f_mat for <f,v>
 
         // trace_value_1 is the interaction on x_{i-1/2} --
         // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
