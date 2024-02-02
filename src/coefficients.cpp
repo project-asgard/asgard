@@ -301,6 +301,7 @@ fk::matrix<P> generate_coefficients(
           //  \int phi(x)\psi(x) dx 
           fm::gemm(legendre_poly, tmp, blk, true, false, P{1}, P{1});
         else // div or grad falls here
+          // -\int \phi(x)\psi'(x) dx
           fm::gemm(legendre_prime, tmp, blk, true, false, P{-1}, P{1});
       }
     };
