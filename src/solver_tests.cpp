@@ -147,7 +147,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
 
 #ifdef ASGARD_USE_CUDA
   // perform matrix-free gmres
-  fk::vector<P> const mf_gpu_gmres = [&adaptive_grid, &operator_matrices, &gold, &b, dt]() {
+  fk::vector<P> const mf_gpu_gmres = [&adaptive_grid, elem_size, &operator_matrices, &gold, &b, dt]() {
     fk::vector<P, mem_type::owner, resource::device> x_d =
         gold.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
