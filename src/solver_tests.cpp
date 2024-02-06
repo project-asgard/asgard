@@ -118,7 +118,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   rmse_comparison(gold, matrix_free_gmres, tol_factor);
 #ifdef ASGARD_USE_CUDA
   // perform matrix-free gmres
-  fk::vector<P> const mf_gpu_gmres = [&adaptive_grid, &operator_matrices, &gold, &b, dt]() {
+  fk::vector<P> const mf_gpu_gmres = [&adaptive_grid, elem_size, &operator_matrices, &gold, &b, dt]() {
     fk::vector<P, mem_type::owner, resource::device> x_d =
         gold.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
@@ -130,7 +130,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
                                x_d, b_d, restart, max_iter, tolerance);
 #else
-    solver::simple_gmres_euler(adaptive_grid, dt, operator_matrices[matrix_entry::regular],
+    solver::simple_gmres_euler(adaptive_grid, elem_size, dt, operator_matrices[matrix_entry::regular],
                                x_d, b_d, restart, max_iter, tolerance);
 #endif
     return x_d.clone_onto_host();

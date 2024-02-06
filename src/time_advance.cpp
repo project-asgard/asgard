@@ -523,8 +523,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   P const max          = pde.get_dimensions()[0].domain_max;
   int const N_elements = fm::two_raised_to(level);
 
-  auto nodes = gen_realspace_nodes(degree, level, min, max);
-
+  auto nodes          = gen_realspace_nodes(degree, level, min, max);
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
 #ifdef ASGARD_USE_CUDA
   fk::vector<P, mem_type::owner, imex_resrc> f = f_0.clone_onto_device();
   fk::vector<P, mem_type::owner, imex_resrc> f_orig_dev =
@@ -535,7 +535,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
-  int const elem_size    = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_local_rows = elem_size * grid.nrows();
 
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
