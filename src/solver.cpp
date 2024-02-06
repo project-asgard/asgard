@@ -358,7 +358,10 @@ simple_gmres(adapt::distributed_grid<P> const &adaptive_grid, int const elem_siz
 
   int const n = b.size();
   expect(n == x.size());
-
+  {
+    auto const &grid = adaptive_grid.get_subgrid(get_rank());
+    expect(n == elem_size*(grid.col_stop - grid.col_start + 1));
+  }
   if (restart == parser::NO_USER_VALUE)
     restart = default_gmres_restarts<P>(num_rows);
   expect(restart > 0); // checked in program_options
