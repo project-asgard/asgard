@@ -273,6 +273,7 @@ public:
   template<resource r_ = resrc, typename = enable_for_host<r_>>
   void dump_to_octave(std::filesystem::path const &filename) const;
 
+  using value_type     = P;
   using iterator       = matrix_iterator<P *, P &>;
   using const_iterator = matrix_iterator<P const *, P const &>;
 

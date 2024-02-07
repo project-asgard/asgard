@@ -194,21 +194,27 @@ gemm(fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
   expect(C.ncols() == cols_B);
   expect(cols_A == rows_B);
 
-  int lda           = A.stride();
-  int ldb           = B.stride();
-  int ldc           = C.stride();
-  P alpha_          = alpha;
-  P beta_           = beta;
+  int lda = A.stride();
+  int ldb = B.stride();
+  int ldc = C.stride();
+
   char const transa = trans_A ? 't' : 'n';
   char const transb = trans_B ? 't' : 'n';
-  int m             = rows_A;
-  int n             = cols_B;
-  int k             = rows_B;
 
-  lib_dispatch::gemm<resrc>(transa, transb, m, n, k, alpha_, A.data(), lda,
-                            B.data(), ldb, beta_, C.data(), ldc);
+  lib_dispatch::gemm<resrc>(transa, transb, rows_A, cols_B, rows_B, alpha, A.data(), lda,
+                            B.data(), ldb, beta, C.data(), ldc);
 
   return C;
+}
+
+// gemm - shortcut giving alpha/beta before the matrices and skips the transposes
+template<typename P, mem_type amem, mem_type bmem, mem_type cmem,
+         resource resrc>
+fk::matrix<P, cmem, resrc> &
+gemm(P const alpha, fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, resrc> const &B,
+     P const beta, fk::matrix<P, cmem, resrc> &C)
+{
+  return gemm(A, B, C, false, false, alpha, beta);
 }
 
 /** gesv - Solve Ax=B using LU decomposition
