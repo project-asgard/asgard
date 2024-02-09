@@ -17,43 +17,19 @@ namespace asgard
 //
 // The "continuity 1d" PDE
 //
-// 1D test case using the Continuity Equation, i.e.,
-// df/dt + df/dx = 0
+// 1D test case using the Continuity Equation of simple transport, i.e.,
 //
-// Physical intuition behind this equation:
+//                          df/dt + df/dx = S
 //
-// Let's rewrite the equation as
-//      -df/dt = df/dx.
-// This relates the change in f over time to the change in f over space.
-// More specifically, this equation says that the amount that f decreases by
-// over time is equivalent to the amount of f that escapes from the region.
-// In other words, f decreases over time at some location if f diverges from
-// that location (i.e., if there is a source there). In this case, the
-// divergence, df/dx, is 1-dimensional. Equivalently, one can negate both sides
-// to write the equation in terms of the convergence, -df/dx:
-//      df/dt = -df/dx.
-// This says that f increases over time at a point if f converges to that point
-// (i.e., if there is a sink there).
+// where S is an external source so that we may manufacutre a solution
 //
-// In a slightly more complex sense, let's consider the continuity equation that
-// is explicitly evaluated at a specific point, x', on some 1-dimensional grid:
-//      -df(x')/dt = df(x')/dx.
-// This says that when our code takes a discrete time step, dt, then the value
-// of f at x=x', f(x'), changes by df(x'). Importantly, in this equation,
-// -df(x')/dt = df(x')/dx, which implies that the df(x') with respect to time is
-// exactly compensated by a -df(x') with respect to space. The Continuity
-// Equation is thus an example of a conservation law. The amount of f(x') that
-// changes from one point of time to another does not disappear, the value is
-// simply displaced to a location x'+dx. In the case of a fluid (e.g. water)
-// that's flowing, this means that the amount of mass at some location will
-// change over time since the fluid is displaced over the neighboring region.
+// The analytic solution is given by
 //
-// Note that f can represent various physical quantities and f can be either a
-// vector or scalar field. f can be be mass density (a scalar) in the case of
-// hydrodynamics; it can be charge density (a scalar) in the case of
-// electrodynamics; and it can even be the electromagnetic energy density (a
-// scalar) that is stored in electric and magnetic fields, as in the case of
-// electromagnetism (see Poynting's Theorem).
+//                      f(x,t) = cos(2*pi*x)*sin(t)
+//
+// The corresponding source is 
+//
+//         S(x,t) = cos(2*pi*x)*cos(t) - 2*pi*sin(2*pi*x)*sin(t)
 //
 // ---------------------------------------------------------------------------
 template<typename P>
