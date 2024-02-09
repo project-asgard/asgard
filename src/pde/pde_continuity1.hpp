@@ -27,7 +27,7 @@ namespace asgard
 //
 //                      f(x,t) = cos(2*pi*x)*sin(t)
 //
-// The corresponding source is 
+// The corresponding source is
 //
 //         S(x,t) = cos(2*pi*x)*cos(t) - 2*pi*sin(2*pi*x)*sin(t)
 //
