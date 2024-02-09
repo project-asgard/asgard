@@ -332,7 +332,8 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
 #ifdef ASGARD_USE_SCALAPACK
   auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
-  fk::vector<P> x = col_to_row_major(x_orig, size);
+  fk::vector<P> x(size);
+  exchange_results(x_orig, x, size, adaptive_grid.get_distrib_plan(), get_rank());
 #else
   fk::vector<P> x(x_orig);
 #endif
@@ -398,7 +399,9 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
       fm::gesv(A, minfo, x, vinfo, ipiv);
       auto const size_r =
           elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
-      return row_to_col_major(x, size_r);
+      fk::vector<P> tmp(size_r);
+      exchange_results(x, tmp, size_r, adaptive_grid.get_distrib_plan(), get_rank());
+      return tmp;
 #else
       printf("Invalid gesv solver library specified\n");
       exit(1);
@@ -418,8 +421,9 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     fm::getrs(A, minfo, x, vinfo, ipiv);
     auto const size_r =
         elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
-    return row_to_col_major(x, size_r);
-    ;
+    fk::vector<P> tmp(size_r);
+    exchange_results(x, tmp, size_r, adaptive_grid.get_distrib_plan(), get_rank());
+    return tmp;
 #else
     printf("Invalid getrs solver library specified\n");
     exit(1);
