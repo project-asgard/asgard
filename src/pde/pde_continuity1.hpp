@@ -21,7 +21,7 @@ namespace asgard
 //
 //                          df/dt + df/dx = S
 //
-// where S is an external source so that we may manufacutre a solution
+// where S is an external source so that we may manufacture a solution
 //
 // The analytic solution is given by
 //
