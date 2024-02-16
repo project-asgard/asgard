@@ -2,6 +2,9 @@
 
 To cite the ASGarD code in your work, please use: [doi:10.11578/dc.20201125.5](https://www.osti.gov/doecode/biblio/48752)
 
+Papers using ASGarD:
+* [Sparse-grid Discontinuous Galerkin Methods for the Vlasov-Poisson-Lenard-Bernstein Model](https://arxiv.org/abs/2402.06493)
+
 The ASGarD project has the goal of building an solver specifically targeting
 high-dimensional PDEs where the "curse-of-dimensionality" has previously
 precluded useful continuum / Eularian (grid or mesh based as opposed to
