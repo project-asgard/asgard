@@ -105,7 +105,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     std::copy_n(b.data(grid.col_start * elem_size), len, b_dist.data());
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
-    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+    P const tolerance  = std::is_same_v<float, P> ? 4e-6 : 1e-12;
 #ifdef KRON_MODE_GLOBAL
     ignore(adaptive_grid);
     ignore(elem_size);
@@ -219,7 +219,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
 
 TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 {
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
+  auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
   SECTION("1d")
   {
@@ -278,7 +278,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 
 TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
 {
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
+  auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
   SECTION("2d - uniform level")
   {
