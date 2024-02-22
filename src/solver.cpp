@@ -808,6 +808,7 @@ simple_gmres_euler(const double dt, imex_flag imex,
                    fk::vector<double, mem_type::owner, resource::device> const &b,
                    int const restart, int const max_iter, double const tolerance);
 template gmres_info<double>
+<<<<<<< HEAD
 bicgstab_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
                const double dt, imex_flag imex,
                kron_operators<double> const &ops,
@@ -820,6 +821,14 @@ simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
                    fk::vector<double> &x, fk::vector<double> const &b,
                    int const restart, int const max_iter,
                    double const tolerance);
+=======
+simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
+                   double const dt, kronmult_matrix<double> const &mat,
+                   fk::vector<double> &x, fk::vector<double> const &b,
+                   int const restart, int const max_iter,
+                   double const tolerance);
+#ifdef ASGARD_USE_CUDA
+>>>>>>> caba075e... Fix CUDA build?
 template gmres_info<double> simple_gmres_euler(
     adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
     double const dt, kronmult_matrix<double> const &mat,
