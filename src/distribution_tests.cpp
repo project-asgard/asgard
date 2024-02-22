@@ -507,11 +507,10 @@ TEMPLATE_TEST_CASE("allreduce element across row", "[distribution]",
       std::vector<TestType> rank_outputs;
       for (int i = 0; i < static_cast<int>(plan.size()); ++i)
       {
-
         rank_outputs.push_back(i);
       }
       int const my_row = my_rank / get_num_subgrid_cols(num_ranks);
-      TestType gold;
+      TestType gold{0};
       for (int i = 0; i < static_cast<int>(rank_outputs.size()); ++i)
       {
         if (i / get_num_subgrid_cols(num_ranks) == my_row)
@@ -523,7 +522,7 @@ TEMPLATE_TEST_CASE("allreduce element across row", "[distribution]",
       auto const &x = rank_outputs[std::min(my_rank, static_cast<int>(plan.size()) - 1)];
       TestType fx = 0.;
       reduce_results(x, fx, plan, my_rank);
-      REQUIRE_THAT(fx, Catch::Matchers::WithinAbs(gold, 10. * std::numeric_limits<TestType>::epsilon()));
+      REQUIRE_THAT(fx, Catch::Matchers::WithinAbs(gold, std::numeric_limits<TestType>::epsilon()));
     }
 #else
     REQUIRE(true);
