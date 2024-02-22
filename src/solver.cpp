@@ -433,10 +433,9 @@ simple_gmres(adapt::distributed_grid<P> const &adaptive_grid, int const elem_siz
         reduce_results(coeffs_tmp, coeffs, plan, get_rank());
         fm::gemv(basis_v, coeffs, new_basis, false, P{-1.}, P{1.});
       }
-      P const local_nrm = std::pow(fm::nrm2(new_basis), 2);
+      P const local_nrm = fm::nrm2(new_basis);
       P nrm;
       reduce_results(local_nrm, nrm, plan, get_rank());
-      nrm = std::sqrt(nrm);
       new_basis.scale(P{1.} / nrm);
 
       for (int k = 0; k < inner_iterations; ++k)
