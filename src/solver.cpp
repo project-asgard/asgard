@@ -143,28 +143,29 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
                    int const restart, int const max_iter, P const tolerance)
 {
 #ifdef ASGARD_USE_MPI
-  return simple_gmres(
-      adaptive_grid, elem_size,
-      [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-        tools::time_event performance("kronmult - implicit", mat.flops());
-        auto plan = adaptive_grid.get_distrib_plan();
-        // switch to elem_size?
-        fk::vector<P, mem_type::owner, resrc> y_local(y.size()), y_tmp(y.size());
-        mat.template apply<resrc>(-dt * alpha, x_in.data(), P{0}, y_local.data());
-        reduce_results(y_local, y_tmp, plan, get_rank());
-        exchange_results(y_tmp, y_local, elem_size, plan, get_rank());
-        lib_dispatch::axpy<resrc>(y.size(), beta, y.data(), 1, y_local.data(), 1);
-        lib_dispatch::axpy<resrc>(y.size(), alpha, x.data(), 1, y_local.data(), 1);
-        y = y_local;
-      },
-      fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
-      restart, max_iter, tolerance);
+  if (get_num_ranks() > 1)
+    return simple_gmres(
+        adaptive_grid, elem_size,
+        [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
+            P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
+          tools::time_event performance("kronmult - implicit", mat.flops());
+          auto plan = adaptive_grid.get_distrib_plan();
+          // switch to elem_size?
+          fk::vector<P, mem_type::owner, resrc> y_local(y.size()), y_tmp(y.size());
+          mat.template apply<resrc>(-dt * alpha, x_in.data(), P{0}, y_local.data());
+          reduce_results(y_local, y_tmp, plan, get_rank());
+          exchange_results(y_tmp, y_local, elem_size, plan, get_rank());
+          lib_dispatch::axpy<resrc>(y.size(), beta, y.data(), 1, y_local.data(), 1);
+          lib_dispatch::axpy<resrc>(y.size(), alpha, x.data(), 1, y_local.data(), 1);
+          y = y_local;
+        },
+        fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
+        restart, max_iter, tolerance);
 #else
   ignore(adaptive_grid);
   ignore(elem_size);
-  return simple_gmres_euler(dt, mat, x, b, restart, max_iter, tolerance);
 #endif
+  return simple_gmres_euler(dt, mat, x, b, restart, max_iter, tolerance);
 }
 #endif
 
