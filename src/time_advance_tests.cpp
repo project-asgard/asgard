@@ -42,7 +42,7 @@ void time_advance_test(parser const &parse,
     return;
   }
 
-  if (num_ranks == 1 && parse.get_selected_solver() == solve_opts::scalapack)
+  if (num_ranks == 1 && parse.get_selected_solver() != solve_opts::direct)
   {
     // don't bother using scalapack with 1 rank
     return;
