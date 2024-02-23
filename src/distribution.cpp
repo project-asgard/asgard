@@ -315,7 +315,7 @@ void reduce_results(fk::vector<P, src_mem, resrc> const &source,
       MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
   expect(success == 0);
 
-  MPI_Datatype constexpr mpi_type =
+  MPI_Datatype const mpi_type =
       std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
   success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
                           source.size(), mpi_type, MPI_SUM, row_communicator);
@@ -358,7 +358,7 @@ void reduce_results(P const source,
       MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
   expect(success == 0);
 
-  MPI_Datatype constexpr mpi_type =
+  MPI_Datatype const mpi_type =
       std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
   success = MPI_Allreduce((void *)&source, (void *)&dest,
                           1, mpi_type, MPI_SUM, row_communicator);
