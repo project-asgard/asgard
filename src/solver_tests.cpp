@@ -127,8 +127,16 @@ void test_kronmult(parser const &parse, P const tol_factor)
     std::copy_n(b.data(grid.col_start * elem_size), len, b_dist.data());
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
+<<<<<<< HEAD
     P const tolerance  = std::is_same_v<float, P> ? 4e-6 : 1e-12;
     solver::simple_gmres_euler(adaptive_grid, elem_size, dt, imex_flag::unspecified, operator_matrices, x,
+=======
+    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+#ifdef KRON_MODE_GLOBAL
+    ignore(adaptive_grid);
+    ignore(elem_size);
+    solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
+>>>>>>> 1f21f3c7... revert precision regressions
                                b, restart, max_iter, tolerance);
     return x;
   }();
@@ -259,7 +267,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
 
 TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 {
-  auto constexpr tol_factor = get_tolerance<TestType>(1000);
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("1d")
   {
@@ -318,7 +326,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 
 TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
 {
-  auto constexpr tol_factor = get_tolerance<TestType>(1000);
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("2d - uniform level")
   {
