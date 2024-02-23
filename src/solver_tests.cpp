@@ -6,15 +6,16 @@
 
 using namespace asgard;
 
-struct distribution_test_init
+int main(int argc, char *argv[])
 {
-  distribution_test_init() { initialize_distribution(); }
-  ~distribution_test_init() { finalize_distribution(); }
-};
+  initialize_distribution();
 
-#ifdef ASGARD_USE_MPI
-static distribution_test_init const distrib_test_info;
-#endif
+  int result = Catch::Session().run(argc, argv);
+
+  finalize_distribution();
+
+  return result;
+}
 
 parser get_parser(PDE_opts const pde_choice,
                   fk::vector<int> const &starting_levels, int const degree,

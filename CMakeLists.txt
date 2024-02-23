@@ -468,6 +468,7 @@ if (ASGARD_BUILD_TESTS)
   set (mpi_test_components
     adapt
     distribution
+    solver
     time_advance
     asgard_discretization
   )
