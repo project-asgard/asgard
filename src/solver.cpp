@@ -156,7 +156,7 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
           reduce_results(y_local, y_tmp, plan, get_rank());
           exchange_results(y_tmp, y_local, elem_size, plan, get_rank());
           lib_dispatch::axpy<resrc>(y.size(), beta, y.data(), 1, y_local.data(), 1);
-          lib_dispatch::axpy<resrc>(y.size(), alpha, x.data(), 1, y_local.data(), 1);
+          lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y_local.data(), 1);
           y = y_local;
         },
         fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
