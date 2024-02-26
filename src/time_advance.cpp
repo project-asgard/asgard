@@ -342,7 +342,8 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   {
     auto const sources =
         get_sources(pde, adaptive_grid, transformer, time + dt);
-    fk::vector<P, mem_type::owner> sources_local(sources.size());
+    auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
+    fk::vector<P, mem_type::owner> sources_local(size);
     exchange_results(sources, sources_local, elem_size, plan, get_rank());
     fm::axpy(sources_local, x, dt);
   }
@@ -361,7 +362,8 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto const bc = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time + dt);
-  fk::vector<P, mem_type::owner> bc_local(bc.size());
+  auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
+  fk::vector<P, mem_type::owner> bc_local(size);
   exchange_results(bc, bc_local, elem_size, plan, get_rank());
   fm::axpy(bc_local, x, dt);
 

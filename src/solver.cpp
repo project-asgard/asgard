@@ -151,9 +151,11 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
           tools::time_event performance("kronmult - implicit", mat.flops());
           auto plan = adaptive_grid.get_distrib_plan();
           // switch to elem_size?
-          fk::vector<P, mem_type::owner, resrc> y_local(y.size()), y_tmp(y.size());
+          auto const size_r = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
+          fk::vector<P, mem_type::owner, resrc> y_local(size_r), y_tmp(size_r);
           mat.template apply<resrc>(-dt * alpha, x_in.data(), P{0}, y_local.data());
           reduce_results(y_local, y_tmp, plan, get_rank());
+          y_local.resize(y.size());
           exchange_results(y_tmp, y_local, elem_size, plan, get_rank());
           lib_dispatch::axpy<resrc>(y.size(), beta, y.data(), 1, y_local.data(), 1);
           lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y_local.data(), 1);
