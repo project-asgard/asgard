@@ -83,6 +83,11 @@ affiliations:
 date: 6 March 2024
 bibliography: paper.bib
 ---
+
+# Statement of Need
+
+The goal of ASGarD is to facilitate and promote the use of adaptive sparse-grid methods by domain scientists for the approximation of kinetic models by providing a robust yet flexible adaptive sparse-grid library.
+
 # Summary
 
 Many areas of science exhibit physical [^1] processes which are described by high dimensional partial differential equations (PDEs), e.g., the 4D [@dorf2013], 5D [@candy2009] and 6D models [@juno2018] describing magnetized fusion plasmas, models describing quantum chemistry, or derivatives pricing [@bandrauk2007]. In such problems, the so called "curse of dimensionality" whereby the number of degrees of freedom (or unknowns) required to be solved for scales as $N^D$ where $N$ is the number of grid points in any given dimension $D$. A simple, albeit naive, 6D example is demonstrated in the left panel of Figure \ref{fig:scaling}. With $N=1000$ grid points in each dimension, the memory required just to store the solution vector, not to mention forming the matrix required to advance such a system in time, would exceed an exabyte - and also the available memory on the largest of supercomputers available today. The right panel of Figure \ref{fig:scaling} demonstrates potential savings for a range of problem dimensionalities and grid resolution. While there are methods to simulate such high-dimensional systems, they are mostly based on Monte-Carlo methods [@e2020] which rely on a statistical sampling such that the resulting solutions include noise. Since the noise in such methods can only be reduced at a rate proportional to $\sqrt{N_p}$ where $N_p$ is the number of Monte-Carlo samples, there is a need for continuum, or grid / mesh based methods for high-dimensional problems which both do not suffer from noise and bypass the curse of dimensionality. Here we present a simulation framework which provides such a method using adaptive sparse grids [@pfluger2010].
