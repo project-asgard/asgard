@@ -18,7 +18,7 @@ namespace asgard
 
 template<typename P>
 std::enable_if_t<std::is_floating_point_v<P>, std::array<fk::matrix<P>, 2>>
-legendre(fk::vector<P> const domain, int const degree,
+legendre(fk::vector<P> const &domain, int const degree,
          legendre_normalization const normalization)
 {
   expect(degree >= 0);
@@ -362,7 +362,7 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template std::array<fk::matrix<double>, 2>
-legendre(fk::vector<double> const domain, int const degree,
+legendre(fk::vector<double> const &domain, int const degree,
          legendre_normalization const norm);
 
 template std::array<fk::vector<double>, 2>
@@ -372,7 +372,7 @@ legendre_weights(int const degree, double const lower_bound,
 
 #ifdef ASGARD_ENABLE_FLOAT
 template std::array<fk::matrix<float>, 2>
-legendre(fk::vector<float> const domain, int const degree,
+legendre(fk::vector<float> const &domain, int const degree,
          legendre_normalization const norm);
 
 template std::array<fk::vector<float>, 2>
