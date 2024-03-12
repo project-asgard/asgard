@@ -88,7 +88,7 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
 
     for (int dim = 0; dim < 2; dim++)
     {
-      fk::vector<double> gold = read_matrix_from_txt_file(
+      fk::vector<double> gold = read_matrix_from_txt_file<double>(
           matlab_plot_base_dir / (gold_file + std::to_string(dim) + ".dat"));
       fk::vector<double> nodes =
           ml_plot->generate_nodes(2, 2, min[dim], max[dim]);
@@ -103,7 +103,7 @@ TEST_CASE("generate plotting nodes", ml_plot_tag)
 
     for (int dim = 0; dim < 3; dim++)
     {
-      fk::vector<double> gold = read_matrix_from_txt_file(
+      fk::vector<double> gold = read_matrix_from_txt_file<double>(
           matlab_plot_base_dir / (gold_file + std::to_string(dim) + ".dat"));
       fk::vector<double> nodes =
           ml_plot->generate_nodes(3, 3, min[dim], max[dim]);
@@ -127,7 +127,7 @@ void test_element_coords(PDE_opts const pde_name, int const level,
 
   elements::table const table(make_options(opts), *pde);
 
-  fk::vector<double> gold           = read_matrix_from_txt_file(gold_file);
+  fk::vector<double> gold           = read_matrix_from_txt_file<double>(gold_file);
   fk::vector<double> element_coords = ml_plot->gen_elem_coords(*pde, table);
 
   REQUIRE(element_coords == gold);

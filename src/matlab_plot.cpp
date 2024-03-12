@@ -209,7 +209,7 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
   // TODO: fully implement the output_grid options from matlab (this is just
   // the 'else' case)
-  T const roots =
+  auto const roots =
       legendre_weights<T>(degree, -1.0, 1.0, quadrature_mode::use_degree)[0];
 
   unsigned int const dof = roots.size();
@@ -218,7 +218,7 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
   for (int i = 0; i < n; i++)
   {
-    fk::vector<T> p_val = legendre(roots, degree, legendre_normalization::lin);
+    auto p_val = legendre(roots, degree, legendre_normalization::lin);
 
     p_val[0] = p_val[0] * sqrt(1.0 / h);
 
@@ -516,7 +516,7 @@ matlab_plot::make_term(term<P> const &term, int const max_lev)
   ml_term[0]["time_dependent"] =
       factory_.createScalar<bool>(term.time_dependent);
   ml_term[0]["name"]         = factory_.createCharArray(term.name);
-  auto const &coeffs         = term.get_coefficients().clone_onto_host();
+  auto const &coeffs         = term.get_coefficients();
   ml_term[0]["coefficients"] = matrix_to_array(coeffs);
 
   auto const &pterms = term.get_partial_terms();
