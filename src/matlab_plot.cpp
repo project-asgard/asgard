@@ -218,10 +218,6 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 
   for (int i = 0; i < n; i++)
   {
-    auto p_val = legendre(roots, degree, legendre_normalization::lin);
-
-    p_val[0] = p_val[0] * sqrt(1.0 / h);
-
     std::vector<T> xi(dof);
     for (std::size_t j = 0; j < dof; j++)
     {
