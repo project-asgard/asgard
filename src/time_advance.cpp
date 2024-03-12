@@ -571,6 +571,9 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   auto do_poisson_update = [&](fk::vector<P, mem_type::owner, imex_resrc> const
                                    &f_in) {
+    fk::vector<P> poisson_source(quad_dense_size);
+    fk::vector<P> phi(quad_dense_size);
+    fk::vector<P> poisson_E(quad_dense_size);
     {
       tools::time_event pupdate_("poisson_update");
       // Get 0th moment
@@ -586,14 +589,11 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
       };
 
       // Compute source for poisson
-      fk::vector<P> poisson_source(quad_dense_size);
       std::transform(mom0_real.begin(), mom0_real.end(), poisson_source.begin(),
                      [](P const &x_v) {
                        return param_manager.get_parameter("S")->value(x_v, 0.0);
                      });
 
-      fk::vector<P> phi(quad_dense_size);
-      fk::vector<P> poisson_E(quad_dense_size);
       solver::poisson_solver(poisson_source, pde.poisson_diag,
                              pde.poisson_off_diag, phi, poisson_E,
                              ASGARD_NUM_QUADRATURE - 1, N_elements, min, max,
