@@ -6,6 +6,12 @@
 #include <type_traits>
 namespace asgard::ml
 {
+matlab_plot &matlab_plot::get_instance()
+{
+  static matlab_plot instance;
+  return instance;
+}
+
 void matlab_plot::connect_async()
 {
   if (!is_open())
@@ -68,15 +74,16 @@ void matlab_plot::connect(std::string const &name)
           // Make a new shared session in this case
           this->matlab_inst_ = matlab::engine::connectMATLAB();
           started_           = true;
-          return;
         }
       }
       // convert to utf16 for matlab
-      ml_string const name_conv =
-          matlab::engine::convertUTF8StringToUTF16String(session_name);
+      ml_string const name_conv = matlab::engine::convertUTF8StringToUTF16String(session_name);
       this->matlab_inst_ = matlab::engine::connectMATLAB(name_conv);
     }
   }
+  // Add the matlab scripts directory to the matlab path
+  this->add_param(std::string(ASGARD_SCRIPTS_DIR) + "matlab/");
+  this->call("addpath");
 }
 
 void matlab_plot::start(std::vector<ml_string> const &args)
@@ -84,6 +91,10 @@ void matlab_plot::start(std::vector<ml_string> const &args)
   if (!is_open())
   {
     this->matlab_inst_ = matlab::engine::startMATLAB(args);
+    started_           = true;
+    // Add the matlab scripts directory to the matlab path
+    this->add_param(std::string(ASGARD_SCRIPTS_DIR) + "matlab/");
+    this->call("addpath");
   }
 }
 
@@ -91,7 +102,12 @@ void matlab_plot::close()
 {
   if (is_open())
   {
-    matlab::engine::terminateEngineClient();
+    if (started_)
+    {
+      // Call matlab to wait for any open figure handles before closing
+      call("wait_for_plots");
+    }
+    this->matlab_inst_.reset();
   }
 }
 

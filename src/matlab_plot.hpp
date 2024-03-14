@@ -42,11 +42,7 @@ using ml_wksp_type = matlab::engine::WorkspaceType;
 class matlab_plot
 {
 public:
-  static matlab_plot &get_instance()
-  {
-    static matlab_plot instance;
-    return instance;
-  }
+  static matlab_plot &get_instance();
 
   ~matlab_plot()
   {
