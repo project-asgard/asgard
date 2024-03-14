@@ -240,10 +240,10 @@ parser::parser(int argc, char const *const *argv)
     valid = false;
   }
 
-#ifndef ASGARD_IO_HIGHFIVE
+#if not defined(ASGARD_IO_HIGHFIVE) && not defined(ASGARD_USE_MATLAB)
   if (realspace_output_freq > 0 || wavelet_output_freq > 0)
   {
-    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to write output" << '\n';
+    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to write output or ASGARD_USE_MATLAB to display output" << '\n';
     valid = false;
   }
 #endif
