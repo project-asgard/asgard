@@ -151,10 +151,10 @@ private:
   /* exact solutions */
   static fk::vector<P> exact_solution_0(fk::vector<P> const x, P const t = 0)
   {
-    ignore(t);
     fk::vector<P> fx(x.size());
+    P const time = source_0_t(t);
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x_v) { return std::cos(nu * x_v); });
+                   [time](P const &x_v) { return std::cos(nu * x_v) * time; });
     return fx;
   }
 

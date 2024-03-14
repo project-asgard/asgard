@@ -92,7 +92,7 @@ template<typename P, typename F>
 fk::vector<P> forward_transform(
     dimension<P> const &dim, F function, g_func_type<P> dv_func,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    P const t = 0)
+    P const time = 0)
 {
   int const num_levels = dim.get_level();
   int const degree     = dim.get_degree();
@@ -148,15 +148,15 @@ fk::vector<P> forward_transform(
     }();
 
     // get the f(v) initial condition at the quadrature points.
-    fk::vector<P> f_here = function(mapped_roots, t);
+    fk::vector<P> f_here = function(mapped_roots, time);
 
     // apply dv to f(v)
     if (dv_func)
     {
       std::transform(f_here.begin(), f_here.end(), mapped_roots.begin(),
                      f_here.begin(),
-                     [dv_func, t](P &f_elem, P const &x_elem) -> P {
-                       return f_elem * dv_func(x_elem, t);
+                     [dv_func, time](P &f_elem, P const &x_elem) -> P {
+                       return f_elem * dv_func(x_elem, time);
                      });
     }
 
