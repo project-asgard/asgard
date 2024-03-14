@@ -192,10 +192,6 @@ int main(int argc, char **argv)
         tmp_workspace, analytic_solution_realspace);
   }
 
-  // Add the matlab scripts directory to the matlab path
-  ml_plot.add_param(std::string(ASGARD_SCRIPTS_DIR) + "matlab/");
-  ml_plot.call("addpath");
-
   ml_plot.init_plotting(*pde, adaptive_grid.get_table());
   ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
                     analytic_solution_realspace);
