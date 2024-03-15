@@ -145,7 +145,7 @@ int main(int argc, char **argv)
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
   int dense_size = 0;
-  if (cli_input.get_realspace_output_freq() > 0)
+  if (cli_input.get_realspace_output_freq() > 0 or cli_input.get_plot_freq() > 0)
   {
     dense_size = asgard::dense_space_size(*pde);
     expect(dense_size > 0);
