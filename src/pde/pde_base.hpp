@@ -549,7 +549,7 @@ public:
       // each set of analytical solution functions must have num_dim functions
       for (const auto &md_func : exact_vector_funcs)
       {
-        expect(std::clamp(md_func.size(), static_cast<size_t>(num_dims), static_cast<size_t>(num_dims) + 1u) == md_func.size());
+        expect(md_func.size() == static_cast<size_t>(num_dims) or md_func.size() == static_cast<size_t>(num_dims + 1));
       }
     }
 
