@@ -151,17 +151,22 @@ private:
   /* exact solutions */
   static fk::vector<P> exact_solution_0(fk::vector<P> const x, P const t = 0)
   {
+    ignore(t);
     fk::vector<P> fx(x.size());
-    P const time = source_0_t(t);
     std::transform(x.begin(), x.end(), fx.begin(),
-                   [time](P const &x_v) { return std::cos(nu * x_v) * time; });
+                   [](P const &x_v) { return std::cos(nu * x_v); });
     return fx;
   }
 
-  static P exact_time(P const time) { return source_0_t(time); }
+  static fk::vector<P> exact_time(fk::vector<P> x, P const time)
+  {
+    x.resize(1);
+    x[0] = source_0_t(time);
+    return x;
+  }
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution_0};
+      exact_solution_0, exact_time};
 
   /* This is not used ever */
   inline static scalar_func<P> const exact_scalar_func_ = source_0_t;
