@@ -86,6 +86,13 @@ private:
 
   static P exact_time(P const time) { return std::sin(2.0 * time); }
 
+  static fk::vector<P> exact_time_v(fk::vector<P> x, P const time)
+  {
+    x.resize(1);
+    x[0] = exact_time(time);
+    return x;
+  }
+
   // specify source functions...
 
   // source 0
@@ -254,7 +261,7 @@ private:
 
   // define exact soln
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution_dim0, exact_solution_dim1};
+      exact_solution_dim0, exact_solution_dim1, exact_time_v};
 
   inline static scalar_func<P> const exact_scalar_func_ = exact_time;
 };
