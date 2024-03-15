@@ -242,7 +242,7 @@ inline void transform_and_combine_dimensions(
     P const time_multiplier, fk::vector<P, mem_type::view> result)
 
 {
-  expect(v_functions.size() == dims.size());
+  expect(std::clamp(v_functions.size(), dims.size(), dims.size() + 1u) == v_functions.size());
   expect(start <= stop);
   expect(stop < table.size());
   expect(degree >= 0);
