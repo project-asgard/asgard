@@ -114,13 +114,20 @@ private:
 
   static P exact_time(P const time)
   {
-    static double neg_two_pi_squared = -2.0 * PI * PI;
+    constexpr P neg_two_pi_squared = static_cast<P>(-2.0 * PI * PI);
 
     return std::exp(neg_two_pi_squared * time);
   }
 
+  static fk::vector<P> exact_time_v(fk::vector<P> x, P const time)
+  {
+    x.resize(1);
+    x[0] = exact_time(time);
+    return x;
+  }
+
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution, exact_solution};
+      exact_solution, exact_solution, exact_time_v};
 
   /* This is not used ever */
   static P exact_scalar_func(P const t)
