@@ -453,6 +453,83 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
   }
 }
 
+TEMPLATE_TEST_CASE("allreduce element across row", "[distribution]",
+                   test_precs)
+{
+  if (!is_active())
+  {
+    return;
+  }
+
+  SECTION("1 rank")
+  {
+    auto const num_ranks = 1;
+    auto const my_rank   = 0;
+    int const degree     = 4;
+    int const level      = 2;
+
+    options const o = make_options(
+        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    auto const pde =
+        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+    elements::table const table(o, *pde);
+
+    auto const plan = get_plan(num_ranks, table);
+
+    TestType const gold{42};
+    TestType const x = gold;
+    TestType fx = 0.;
+    reduce_results(x, fx, plan, my_rank);
+    REQUIRE(fx == gold);
+  }
+
+  SECTION("multiple ranks")
+  {
+#ifdef ASGARD_USE_MPI
+
+    int const my_rank   = distrib_test_info.get_my_rank();
+    int const num_ranks = distrib_test_info.get_num_ranks();
+
+    if (my_rank < num_ranks)
+    {
+      int const degree = 5;
+      int const level  = 4;
+
+      options const o = make_options(
+          {"-l", std::to_string(level), "-d", std::to_string(degree)});
+
+      auto const pde =
+          make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
+      elements::table const table(o, *pde);
+
+      auto const plan       = get_plan(num_ranks, table);
+
+      std::vector<TestType> rank_outputs;
+      for (int i = 0; i < static_cast<int>(plan.size()); ++i)
+      {
+        rank_outputs.push_back(i);
+      }
+      int const my_row = my_rank / get_num_subgrid_cols(num_ranks);
+      TestType gold{0};
+      for (int i = 0; i < static_cast<int>(rank_outputs.size()); ++i)
+      {
+        if (i / get_num_subgrid_cols(num_ranks) == my_row)
+        {
+          gold = gold + rank_outputs[i];
+        }
+      }
+
+      auto const &x = rank_outputs[std::min(my_rank, static_cast<int>(plan.size()) - 1)];
+      TestType fx = 0.;
+      reduce_results(x, fx, plan, my_rank);
+      REQUIRE_THAT(fx, Catch::Matchers::WithinAbs(gold, std::numeric_limits<TestType>::epsilon()));
+    }
+#else
+    REQUIRE(true);
+#endif
+  }
+}
+
 void generate_messages_test(int const num_ranks, elements::table const &table)
 {
   auto const plan     = get_plan(num_ranks, table);

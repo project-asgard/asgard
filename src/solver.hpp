@@ -1,5 +1,6 @@
 #pragma once
 
+#include "adapt.hpp"
 #include "asgard_kronmult_matrix.hpp"
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
@@ -34,7 +35,8 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
 // solves ( I - dt * mat ) * x = b
 template<typename P, resource resrc>
 gmres_info<P>
-simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
+simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const elem_size,
+                   P const dt, kronmult_matrix<P> const &mat,
                    fk::vector<P, mem_type::owner, resrc> &x,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance);

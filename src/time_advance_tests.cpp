@@ -36,7 +36,7 @@ void time_advance_test(parser const &parse,
 {
   auto const num_ranks = get_num_ranks();
   if (num_ranks > 1 && parse.using_implicit() &&
-      parse.get_selected_solver() != solve_opts::scalapack)
+      parse.get_selected_solver() == solve_opts::direct)
   {
     // distributed implicit stepping not implemented
     return;

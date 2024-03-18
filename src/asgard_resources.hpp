@@ -14,7 +14,7 @@
 namespace asgard
 {
 // used to suppress warnings in unused variables
-auto const ignore = [](auto ignored) { (void)ignored; };
+auto const ignore = [](auto const &ignored) { (void)ignored; };
 
 /*!
  * \brief Default precision to use, double if enabled and float otherwise.

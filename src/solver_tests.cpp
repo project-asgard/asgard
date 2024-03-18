@@ -6,15 +6,16 @@
 
 using namespace asgard;
 
-struct distribution_test_init
+int main(int argc, char *argv[])
 {
-  distribution_test_init() { initialize_distribution(); }
-  ~distribution_test_init() { finalize_distribution(); }
-};
+  initialize_distribution();
 
-#ifdef ASGARD_USE_MPI
-static distribution_test_init const distrib_test_info;
-#endif
+  int result = Catch::Session().run(argc, argv);
+
+  finalize_distribution();
+
+  return result;
+}
 
 parser get_parser(PDE_opts const pde_choice,
                   fk::vector<int> const &starting_levels, int const degree,
@@ -94,29 +95,34 @@ void test_kronmult(parser const &parse, P const tol_factor)
   asgard::matrix_list<P> operator_matrices;
   asgard::adapt::distributed_grid adaptive_grid(*pde, opts);
   operator_matrices.make(matrix_entry::regular, *pde, adaptive_grid, opts);
-  P const dt = pde->get_dt();
-
+  P const dt       = pde->get_dt();
+  auto const &grid = adaptive_grid.get_subgrid(get_rank());
   // perform matrix-free gmres
-  fk::vector<P> const matrix_free_gmres = [&operator_matrices, &gold, &b,
+  fk::vector<P> const matrix_free_gmres = [&adaptive_grid, elem_size, &grid, &operator_matrices, &gold, &b,
                                            dt]() {
-    fk::vector<P> x(gold);
+    int len = elem_size * (grid.col_stop - grid.col_start + 1);
+    fk::vector<P> x(len), b_dist(len);
+    std::copy_n(gold.data(grid.col_start * elem_size), len, x.data());
+    std::copy_n(b.data(grid.col_start * elem_size), len, b_dist.data());
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
 #ifdef KRON_MODE_GLOBAL
+    ignore(adaptive_grid);
+    ignore(elem_size);
     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
                                b, restart, max_iter, tolerance);
 #else
-    solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular], x,
-                               b, restart, max_iter, tolerance);
+    solver::simple_gmres_euler(adaptive_grid, elem_size, dt, operator_matrices[matrix_entry::regular], x,
+                               b_dist, restart, max_iter, tolerance);
 #endif
     return x;
   }();
-
-  rmse_comparison(gold, matrix_free_gmres, tol_factor);
+  fk::vector<P, mem_type::const_view> gold_dist(gold, grid.col_start * elem_size, (grid.col_stop + 1) * elem_size - 1);
+  rmse_comparison(gold_dist, matrix_free_gmres, tol_factor);
 #ifdef ASGARD_USE_CUDA
   // perform matrix-free gmres
-  fk::vector<P> const mf_gpu_gmres = [&operator_matrices, &gold, &b, dt]() {
+  fk::vector<P> const mf_gpu_gmres = [&adaptive_grid, elem_size, &operator_matrices, &gold, &b, dt]() {
     fk::vector<P, mem_type::owner, resource::device> x_d =
         gold.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
@@ -128,7 +134,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
                                x_d, b_d, restart, max_iter, tolerance);
 #else
-    solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular],
+    solver::simple_gmres_euler(adaptive_grid, elem_size, dt, operator_matrices[matrix_entry::regular],
                                x_d, b_d, restart, max_iter, tolerance);
 #endif
     return x_d.clone_onto_host();

@@ -329,6 +329,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto const dt       = pde.get_dt();
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  auto const &plan    = adaptive_grid.get_distrib_plan();
 
 #ifdef ASGARD_USE_SCALAPACK
   auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
@@ -341,9 +342,11 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   {
     auto const sources =
         get_sources(pde, adaptive_grid, transformer, time + dt);
-    fm::axpy(sources, x, dt);
+    auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
+    fk::vector<P, mem_type::owner> sources_local(size);
+    exchange_results(sources, sources_local, elem_size, plan, get_rank());
+    fm::axpy(sources_local, x, dt);
   }
-
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
   int const A_local_rows = elem_size * grid.nrows();
   int const A_local_cols = elem_size * grid.ncols();
@@ -359,7 +362,10 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto const bc = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
       time + dt);
-  fm::axpy(bc, x, dt);
+  auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
+  fk::vector<P, mem_type::owner> bc_local(size);
+  exchange_results(bc, bc_local, elem_size, plan, get_rank());
+  fm::axpy(bc_local, x, dt);
 
   if (solver != solve_opts::gmres && (first_time || update_system))
   {
@@ -444,6 +450,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         fx, x, restart, max_iter, tolerance);
 #else
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
+        adaptive_grid, elem_size,
         pde.get_dt(), operator_matrices[matrix_entry::regular],
         fx, x, restart, max_iter, tolerance);
 #endif
@@ -518,8 +525,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   P const max          = pde.get_dimensions()[0].domain_max;
   int const N_elements = fm::two_raised_to(level);
 
-  auto nodes = gen_realspace_nodes(degree, level, min, max);
-
+  auto nodes          = gen_realspace_nodes(degree, level, min, max);
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
 #ifdef ASGARD_USE_CUDA
   fk::vector<P, mem_type::owner, imex_resrc> f = f_0.clone_onto_device();
   fk::vector<P, mem_type::owner, imex_resrc> f_orig_dev =
@@ -530,7 +537,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
-  int const elem_size    = static_cast<int>(std::pow(degree, pde.num_dims));
   int const A_local_rows = elem_size * grid.nrows();
 
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
@@ -866,6 +872,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_1, f, restart, max_iter, tolerance);
 #else
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
+        adaptive_grid, elem_size,
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
         f_1, f, restart, max_iter, tolerance);
 #endif
@@ -965,6 +972,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_2, f, restart, max_iter, tolerance);
 #else
     pde.gmres_outputs[1] = solver::simple_gmres_euler(
+        adaptive_grid, elem_size,
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
         f_2, f, restart, max_iter, tolerance);
 #endif
