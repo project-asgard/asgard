@@ -28,7 +28,8 @@ if num_dims==1
 end
 
 if num_dims==2
-   
+
+
     x = nodes{1};
     y = nodes{2};
     
@@ -55,7 +56,7 @@ if num_dims==2
     % Overplot analytic solution
     
     if ~isempty(solutions)
-        f_slice_analytic = f_nD_analytic(sy,:);
+        f_slice_analytic = f_nD_analytic(:,sy);
         hold on;
         plot(x,f_slice_analytic,'-');
         hold off;
@@ -75,7 +76,7 @@ if num_dims==2
     title(title_info);
     
     if ~isempty(solutions)
-        f_slice_analytic = f_nD_analytic(:,sx);
+        f_slice_analytic = f_nD_analytic(sx,:);
         hold on;
         plot(y,f_slice_analytic,'-');
         hold off;
@@ -87,18 +88,18 @@ if num_dims==2
     ax1 = subplot(2,2,3);
     f_nD_with_noise = f_nD;
     f_nD_with_noise(1,1) = f_nD_with_noise(1,1)*1.0001;
-    contourf(y,x,f_nD_with_noise,'LineColor','none');
+    contourf(y,x,f_nD,'LineColor','none');
     title('numeric 2D solution');
     
     if nargin >= 5
         hold on
-        scatter(element_coordinates(:,1),element_coordinates(:,2),60,'+','MarkerEdgeColor','black')
+        scatter(element_coordinates(:,2),element_coordinates(:,1),60,'+','MarkerEdgeColor','black')
         hold off
     end
     
     if ~isempty(solutions) && norm(f_nD_analytic-f_nD_analytic(1,1))>0
         ax2 = subplot(2,2,4);
-        contourf(x,y,f_nD_analytic);
+        contourf(y,x,f_nD_analytic);
         title('analytic 2D solution');
     end
  
