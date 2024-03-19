@@ -42,8 +42,8 @@ if num_dims==2
     if ny > 2
         sy = sy+2; % just to get off the exact middle
     end
-    
-    f_slice = f_nD(sy,:);
+
+    f_slice = f_nD(:,sy);
     x = nodes{1};
     y = nodes{2};
     ax1 = subplot(2,2,1);
@@ -65,8 +65,8 @@ if num_dims==2
     if nx > 2
         sx = sx+2; % just to get off the exact middle
     end
-    
-    f_slice = f_nD(:,sx);
+
+    f_slice = f_nD(sx,:);
     x = nodes{1};
     y = nodes{2};
     ax1 = subplot(2,2,2);
@@ -87,7 +87,7 @@ if num_dims==2
     ax1 = subplot(2,2,3);
     f_nD_with_noise = f_nD;
     f_nD_with_noise(1,1) = f_nD_with_noise(1,1)*1.0001;
-    contourf(x,y,f_nD_with_noise,'LineColor','none');
+    contourf(y,x,f_nD_with_noise,'LineColor','none');
     title('numeric 2D solution');
     
     if nargin >= 5
