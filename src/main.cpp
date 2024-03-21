@@ -366,7 +366,7 @@ int main(int argc, char **argv)
                         analytic_solution_realspace);
 
       // only plot pde params if the pde has them
-      if (asgard::parameter_manager<prec>::get_instance().get_num_parameters() >
+      if (false && asgard::parameter_manager<prec>::get_instance().get_num_parameters() >
           0)
       {
         // vlasov pde params plot
