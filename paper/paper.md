@@ -96,7 +96,7 @@ The Adaptive Sparse Grid Discretization (ASGarD) code is a framework specificall
 
 # Statement of Need
 
-The goal of ASGarD is to facilitate and promote the use of adaptive sparse-grid methods by domain scientists for the approximation of kinetic models. ASGarD provides a robust yet flexible adaptive sparse-grid library for solviong PDEs where the "curse-of-dimensionality" and computational complexity previously restricted researchers to Monte-Carlo sampling simulation.
+The goal of ASGarD is to facilitate and promote the use of adaptive sparse-grid methods by domain scientists for the approximation of kinetic models. ASGarD provides a robust yet flexible adaptive sparse-grid library for solving PDEs where the "curse-of-dimensionality" and computational complexity previously restricted domain scientists to Monte-Carlo sampling simulation.
 
 # Acknowledgements
 
