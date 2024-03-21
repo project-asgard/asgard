@@ -179,9 +179,10 @@ int main(int argc, char **argv)
   ml_plot.connect(cli_input.get_ml_session_string());
   asgard::node_out() << "  connected to MATLAB" << '\n';
 
-  asgard::fk::vector<prec> analytic_solution_realspace(dense_size);
+  asgard::fk::vector<prec> analytic_solution_realspace;
   if (pde->has_analytic_soln)
   {
+    analytic_solution_realspace.resize(dense_size);
     // generate the analytic solution at t=0
     auto const analytic_solution_init = sum_separable_funcs(
         pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
@@ -365,7 +366,7 @@ int main(int argc, char **argv)
                         analytic_solution_realspace);
 
       // only plot pde params if the pde has them
-      if (asgard::parameter_manager<prec>::get_instance().get_num_parameters() >
+      if (false && asgard::parameter_manager<prec>::get_instance().get_num_parameters() >
           0)
       {
         // vlasov pde params plot
