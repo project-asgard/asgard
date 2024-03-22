@@ -37,16 +37,13 @@ authors:
     orcid: 0000-0001-8808-9844
     affiliation: 1
   - name: Hao Lau
-    orcid: 0000-0000-0000-0000
     affiliation: 1
   - name: M. Graham Lopez
     orcid: 0000-0002-5375-2105
     affiliation: 1
   - name: Adam McDaniel
-    orcid: 0000-0000-0000-0000
     affiliation: "1, 4"
   - name: B.Tyler McDaniel
-    orcid: 0000-0000-0000-0000
     affiliation: "1, 2"
   - name: Lin Mu
     orcid: 0000-0002-2669-2696
@@ -55,10 +52,8 @@ authors:
     orcid: 0000-0002-7471-6840
     affiliation: 1
   - name: Hugo Brunie
-    orcid: 0000-0000-0000-0000
     affiliation: "5, 6, 7"
   - name: Nestor Demeure
-    orcid: 0000-0000-0000-0000
     affiliation: "5, 6"
   - name: Cory D Hauck
     orcid: 0000-0001-5559-502X
