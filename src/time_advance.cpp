@@ -541,8 +541,6 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   if (first_time || update_system)
   {
     tools::time_event performance("update_system");
-    std::cout << " dim0 lev = " << level << "\n";
-    std::cout << " dim1 lev = " << pde.get_dimensions()[1].get_level() << "\n";
     for (auto &m : pde.moments)
     {
       m.createFlist(pde, program_opts);
