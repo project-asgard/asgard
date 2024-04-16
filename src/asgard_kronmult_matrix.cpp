@@ -134,7 +134,7 @@ make_kronmult_dense(PDE<precision> const &pde,
   int64_t flps = kronmult_matrix<precision>::compute_flops(
       num_dimensions, kron_size, num_terms, int64_t{num_rows} * num_cols);
 
-  std::cout << "  kronmult dense matrix size: " << num_rows << '\n';
+  std::cout << "  kronmult dense matrix size: " << num_rows << " rows/cols\n";
   std::cout << "  -- work: " << flps * 1.E-9 << " Gflops\n";
 
   std::cout << "  -- memory usage: "
