@@ -134,13 +134,12 @@ make_kronmult_dense(PDE<precision> const &pde,
   int64_t flps = kronmult_matrix<precision>::compute_flops(
       num_dimensions, kron_size, num_terms, int64_t{num_rows} * num_cols);
 
-  std::cout << "  kronmult dense matrix: " << num_rows << " by " << num_cols
-            << "\n";
-  std::cout << "        Gflops per call: " << flps * 1.E-9 << "\n";
+  std::cout << "  kronmult dense matrix size: " << num_rows << '\n';
+  std::cout << "  -- work: " << flps * 1.E-9 << " Gflops\n";
 
-  std::cout << "        memory usage (MB): "
+  std::cout << "  -- memory usage: "
             << get_MB<precision>(terms.size()) + get_MB<int>(elem.size())
-            << "\n";
+            << "MB\n";
 
 #ifdef ASGARD_USE_CUDA
   std::vector<fk::vector<precision, mem_type::owner, resource::device>>
@@ -617,25 +616,24 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #endif
   }
 
-  std::cout << "  kronmult sparse matrix fill: "
+  std::cout << "  kronmult local, sparse matrix fill: "
             << 100.0 * double(spcache.num_nonz) /
                    (double(num_rows) * double(num_cols))
             << "%\n";
 
   int64_t flops = kronmult_matrix<precision>::compute_flops(
       num_dimensions, kron_size, num_terms, spcache.num_nonz);
-  std::cout << "              Gflops per call: " << flops * 1.E-9 << "\n";
+  std::cout << "  -- work: " << flops * 1.E-9 << " Gflops\n";
 
 #ifdef ASGARD_USE_CUDA
   if (mem_stats.kron_call == memory_usage::one_call)
   {
-    std::cout << "        memory usage (unique): "
+    std::cout << "  -- memory usage (unique): "
               << get_MB<int>(list_row_indx[0].size()) +
                      get_MB<int>(list_col_indx[0].size()) +
                      get_MB<int>(list_iA[0].size()) +
                      get_MB<precision>(vA.size())
               << "\n";
-    std::cout << "        memory usage (shared): 0\n";
     return kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         list_row_indx[0].clone_onto_device(),
