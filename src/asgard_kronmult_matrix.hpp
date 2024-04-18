@@ -954,12 +954,10 @@ protected:
                   "no buffer associated with the last entry (num_spaces)");
     default_vector<precision> &w = (*work_)[static_cast<int>(wid)];
     if (static_cast<int64_t>(w.size()) < min_size)
-    {
       w.resize(min_size);
-      // x must always be padded by zeros
-      if constexpr (wid == workspace::pad_x)
-        kronmult::set_buffer_to_zero(w);
-    }
+    // x must always be padded by zeros
+    if constexpr (wid == workspace::pad_x)
+      kronmult::set_buffer_to_zero(w);
   }
 
 private:
