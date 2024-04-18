@@ -137,20 +137,25 @@ public:
 
   int max_loaded_level() const { return levels; }
 
-  void dump() const // for debugging
+  void print(std::ostream &os = std::cout) const // for debugging
   {
-    std::cerr << "dumping connectivity to std::cerr\n";
-    for (int r = 0; r < num_rows(); r++)
+    for (int r = 0; r < rows; r++)
     {
-      for (int j = row_begin(r); j < row_end(r); j++)
-        std::cerr << indx[j] << "  ";
-      std::cerr << '\n';
+      os << "row = " << std::setw(3) << r << ": "
+         << std::setw(3) << indx[row_begin(r)];
+      for (int j = row_begin(r) + 1; j < row_end(r); j++)
+        os << " " << std::setw(3) << indx[j];
+      os << '\n';
     }
-    std::cerr << "diag = ";
-    for (int r = 0; r < num_rows(); r++)
-      std::cerr << diag[r] << "  ";
-    std::cerr << '\n';
-    std::cerr << " ------------------ \n";
+    if (rows == 0)
+    {
+      os << "diag = <connect_1d pattern is empty> \n";
+      return;
+    }
+    os << "diag = " << std::setw(3) << diag[0];
+    for (int r = 1; r < rows; r++)
+      os << " " << std::setw(3) << diag[r];
+    os << '\n';
   }
 
 protected:

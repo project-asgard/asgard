@@ -94,7 +94,7 @@ TEST_CASE("connectivity full and expanded to dof", "[connectivity]")
   for (int col = cells.row_begin(4); col < cells.row_end(4); col++)
     REQUIRE(gold_connect_row4[col - cells.row_begin(4)] == cells[col]);
 
-  //connect_1d(cells, 0).dump(); // uncomment to double-check (non-automated)
+  //connect_1d(cells, 0).print(std::cerr); // uncomment for manual check
 
   // expand the cells by adding the degrees of freedom for quadratic basis
   // i.e., each entry in the sparse matrix is replaced with a 3x3 block
@@ -119,7 +119,7 @@ TEST_CASE("connectivity full and expanded to dof", "[connectivity]")
     REQUIRE(col + 3 == expanded[expanded.row_begin(13) + col]);
 
   cells = connect_1d(4, connect_1d::hierarchy::full);
-  cells.dump();
+  cells.print();
 }
 
 TEST_CASE("testing volume connections", "[connectivity]")
