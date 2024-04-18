@@ -192,6 +192,11 @@ public:
   {
     return &indexes_[i * num_dimensions_];
   }
+  //! \brief Get the i-th index of the lexicographical order.
+  const int *index(int i) const
+  {
+    return (*this)[i];
+  }
 
   //! \brief Find the index in the sorted list, returns -1 if missing
   int find(const int *idx) const
@@ -227,6 +232,70 @@ public:
   bool missing(const int *idx) const { return (find(idx) == -1); }
   //! \brief Boolean check if an entry is there or not.
   bool missing(std::vector<int> const &idx) const { return missing(idx.data()); }
+
+  //! \brief Union this set with another
+  indexset &operator+=(indexset const &iset)
+  {
+    expect(iset.num_dimensions_ == num_dimensions_);
+    if (iset.num_indexes_ == 0)
+      return *this;
+
+    std::vector<int> union_set;
+    union_set.reserve(iset.indexes_.size() + indexes_.size());
+
+    int ia = 0;
+    int ib = 0;
+    while (ia < num_indexes_ and ib < iset.num_indexes_)
+    {
+      match cmp = compare(ia, iset[ib]);
+      if (cmp == match::before_current)
+      {
+        union_set.insert(union_set.end(), iset[ib], iset[ib] + num_dimensions_);
+        ib++;
+      }
+      else if (cmp == match::after_current)
+      {
+        union_set.insert(union_set.end(), index(ia),
+                         index(ia) + num_dimensions_);
+        ia++;
+      }
+      else
+      {
+        union_set.insert(union_set.end(), index(ia),
+                         index(ia) + num_dimensions_);
+        ia++;
+        ib++;
+      }
+    }
+    if (ia < num_indexes_)
+      union_set.insert(union_set.end(), (*this)[ia],
+                       (*this)[ia] + (num_indexes_ - ia) * num_dimensions_);
+    else if (ib < iset.num_indexes_)
+      union_set.insert(union_set.end(), iset[ib],
+                       iset[ib] + (iset.num_indexes_ - ib) * num_dimensions_);
+
+    indexes_     = std::move(union_set);
+    num_indexes_ = static_cast<int>(indexes_.size() / num_dimensions_);
+    return *this;
+  }
+
+  //! \brief Print a single index, for debugging purposes.
+  void print(int index, std::ostream &os = std::cout)
+  {
+    expect(index >= 0 and index < num_indexes_);
+    os << std::setw(3) << indexes_[index * num_dimensions_];
+    for (int j = 1; j < num_dimensions_; j++)
+      os << " " << std::setw(3) << indexes_[index * num_dimensions_ + j];
+  }
+  //! \brief Print the entire set, one index per row.
+  void print(std::ostream &os = std::cout)
+  {
+    for (int i = 0; i < num_indexes_; i++)
+    {
+      print(i, os);
+      os << '\n';
+    }
+  }
 
 protected:
   //! \brief Result of a comparison
