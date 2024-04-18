@@ -43,6 +43,33 @@ TEST_CASE("data manipulation in 2d", "[order2d]")
   REQUIRE(spdata[1][2] == 4);
 }
 
+TEST_CASE("indexset union", "[union]")
+{
+  std::vector<int> data1 = {0, 0, 0, 1, 0, 2, 1, 1, 1, 4};
+  std::vector<int> data2 = {0, 0, 0, 3, 1, 1, 1, 5};
+  std::vector<int> ref   = {0, 0, 0, 1, 0, 2, 0, 3, 1, 1, 1, 4, 1, 5};
+  indexset iset1(2, std::vector<int>(data1));
+  indexset iset2(2, std::vector<int>(data2));
+
+  indexset u = iset1;
+  u += iset2;
+
+  REQUIRE(u.num_indexes() == 7);
+  for (size_t i = 0; i < ref.size(); i++)
+    REQUIRE(u[0][i] == ref[i]);
+
+  u = iset2;
+  REQUIRE(u.num_indexes() == iset2.num_indexes());
+  for (int i = 0; i < iset2.num_indexes(); i++)
+    for (int d = 0; d < iset2.num_dimensions(); d++)
+      REQUIRE(u[i][d] == iset2[i][d]);
+
+  u += iset1;
+  REQUIRE(u.num_indexes() == 7);
+  for (size_t i = 0; i < ref.size(); i++)
+    REQUIRE(u[0][i] == ref[i]);
+}
+
 TEST_CASE("indexset sort", "[sort]")
 {
   // indexes (0, 0), (0, 1), (1, 0), (1, 1), (2, 0)
