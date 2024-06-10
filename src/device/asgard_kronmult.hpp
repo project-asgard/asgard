@@ -404,6 +404,31 @@ private:
 template<typename T>
 void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
 #endif
+
+// Block Global Section, work directly with the index set
+// reduces the precomputed indexes and memory footprint
+
+#ifdef KRON_MODE_GLOBAL_BLOCK
+
+template<typename precision>
+struct block_global_workspace {
+  std::vector<precision> w1, w2;
+  std::vector<std::vector<int64_t>> row_map;
+};
+
+// block-size = n^num_dimensions but saves work recomputing
+template<typename precision>
+void global_cpu(int num_dimensions, int n, int64_t block_size,
+                vector2d<int> const &ilist, dimension_sort const &dsort,
+                std::vector<permutes> const &perms,
+                std::vector<bool> const &has_flux,
+                connect_1d const &conn_volumes, connect_1d const &conn_full,
+                std::vector<std::vector<precision>> const &gvals,
+                std::vector<int> const &terms,
+                precision const x[], precision y[],
+                block_global_workspace<precision> &workspace);
+
+#endif
 #endif
 
 } // namespace asgard::kronmult

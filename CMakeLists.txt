@@ -113,12 +113,18 @@ option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 if (ASGARD_USE_MPI)
   option (KRON_MODE_GLOBAL "Global or local Kronecker products" OFF)
+  option (KRON_MODE_GLOBAL_BLOCK "Use block variant for global kron" OFF)
 else()
   option (KRON_MODE_GLOBAL "Global or local Kronecker products" ON)
+  option (KRON_MODE_GLOBAL_BLOCK "Use block variant for global kron" ON)
+endif()
+if (KRON_MODE_GLOBAL_BLOCK AND NOT KRON_MODE_GLOBAL)
+  message (FATAL_ERROR "KRON_MODE_GLOBAL_BLOCK=ON kronmult requires global KRON_MODE_GLOBAL=ON")
 endif()
 if (ASGARD_USE_MPI AND KRON_MODE_GLOBAL)
   message (FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
 endif()
+
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
@@ -332,6 +338,7 @@ target_sources (libasgard
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_cpu.cpp>
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_bcpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_gpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp>
 )

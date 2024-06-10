@@ -1600,6 +1600,71 @@ void global_kron_matrix<precision>::apply(
 }
 #endif
 
+template<typename precision>
+block_global_kron_matrix<precision>
+make_block_global_kron_matrix(PDE<precision> const &pde,
+                              adapt::distributed_grid<precision> const &dis_grid,
+                              options const &program_options,
+                              kronmult::block_global_workspace<precision> &workspace)
+{
+  auto const &grid         = dis_grid.get_subgrid(get_rank());
+  int const *const asg_idx = dis_grid.get_table().get_active_table().data();
+
+  int const porder    = pde.get_dimensions()[0].get_degree() - 1;
+  int const pterms    = porder + 1; // poly degrees of freedom
+  int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level;
+
+  int const num_dimensions = pde.num_dims;
+  int const num_terms      = pde.num_terms;
+
+  int64_t block_size = pterms;
+  for (int d = 1; d < num_dimensions; d++)
+    block_size *= pterms;
+
+  connect_1d fluxes(max_level, connect_1d::hierarchy::full);
+  connect_1d volumes(max_level, connect_1d::hierarchy::volume);
+
+  int const num_cells = grid.col_stop - grid.col_start + 1;
+  vector2d<int> cells = asg2tsg_convert(num_dimensions, num_cells, asg_idx);
+
+  indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
+  std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
+
+  if (padded.num_indexes() > 0)
+    cells.append(padded[0], padded.num_indexes());
+
+  dimension_sort dsort(cells);
+
+  // figure out the permutation patterns
+  std::vector<kronmult::permutes> permutations;
+  permutations.reserve(num_terms);
+  std::vector<int> active_dirs(num_dimensions);
+  for (int t = 0; t < num_terms; t++)
+  {
+    active_dirs.clear();
+    for (int d = 0; d < num_dimensions; d++)
+      if (not check_identity_term(pde, t, d))
+        active_dirs.push_back(d);
+
+    int const num_active = static_cast<int>(active_dirs.size());
+    if (num_active > 1)
+    {
+      int const flux_dir = get_flux_direction(pde, t);
+      if (flux_dir != active_dirs[0]) // make the flux direction first
+        std::swap(active_dirs[0], active_dirs[flux_dir]);
+    }
+
+    permutations.push_back(kronmult::permutes(num_active));
+    permutations.back().remap_directions(active_dirs);
+  }
+
+//   return global_kron_matrix<precision>(
+//       num_dimensions, num_active_dof, ilist.num_strips(), std::move(permutations),
+//       std::move(global_pntr), std::move(global_indx), std::move(global_diag),
+//       std::move(global_ivals));
+}
+
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,
                                          imex_flag const imex);
@@ -1624,6 +1689,15 @@ template void global_kron_matrix<double>::apply<resource::host>(
 template void global_kron_matrix<double>::apply<resource::device>(
     matrix_entry, double, double const *, double, double *) const;
 #endif
+
+#ifdef KRON_MODE_GLOBAL_BLOCK
+template block_global_kron_matrix<double>
+make_block_global_kron_matrix<double>(PDE<double> const &,
+                                      adapt::distributed_grid<double> const &,
+                                      options const &,
+                                      kronmult::block_global_workspace<double> &workspace);
+#endif
+
 #else // KRON_MODE_GLOBAL
 template kronmult_matrix<double>
 make_kronmult_matrix<double>(PDE<double> const &,
@@ -1666,6 +1740,15 @@ template void global_kron_matrix<float>::apply<resource::host>(
 template void global_kron_matrix<float>::apply<resource::device>(
     matrix_entry, float, float const *, float, float *) const;
 #endif
+
+#ifdef KRON_MODE_GLOBAL_BLOCK
+template block_global_kron_matrix<float>
+make_block_global_kron_matrix<float>(PDE<float> const &,
+                                     adapt::distributed_grid<float> const &,
+                                     options const &,
+                                     kronmult::block_global_workspace<float> &workspace);
+#endif
+
 #else // KRON_MODE_GLOBAL
 template kronmult_matrix<float>
 make_kronmult_matrix<float>(PDE<float> const &,

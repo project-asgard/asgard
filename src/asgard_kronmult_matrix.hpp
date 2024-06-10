@@ -1029,6 +1029,8 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
 
 #endif // KRON_MODE_GLOBAL
 
+#ifndef KRON_MODE_GLOBAL_BLOCK
+
 /*!
  * \brief Holds a list of matrices used for time-stepping.
  *
@@ -1275,5 +1277,184 @@ private:
 #endif
 #endif
 };
+
+#else
+
+template<typename precision>
+class block_global_kron_matrix {
+public:
+  block_global_kron_matrix() : conn_volumes_(1), conn_full_(1) {}
+
+  block_global_kron_matrix(int num_dimensions, int blockn, int64_t block_size,
+                           vector2d<int> &&ilist, dimension_sort &&dsort,
+                           std::vector<kronmult::permutes> &&perms, std::vector<bool> &&has_flux,
+                           connect_1d &&conn_volumes, connect_1d &&conn_full,
+                           std::vector<std::vector<precision>> &&gvals,
+                           std::array<std::vector<int>, 3> &&term_groups,
+                           kronmult::block_global_workspace<precision> &workspace)
+  : num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
+    ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
+    has_flux_(std::move(has_flux)), conn_volumes_(std::move(conn_volumes)),
+    conn_full_(std::move(conn_full)), gvals_(std::move(gvals)),
+    term_groups_(std::move(term_groups)), workspace_(workspace)
+  {}
+
+  // made friends for two reasons
+  // 1. Keeps the matrix API free from references to pde, which will allow an easier
+  //    transition to a new API that does not require the PDE class
+  // 2. Give the ability to modify the internal without encumbering the matrix API
+//   friend void set_specific_mode<precision>(
+//       PDE<precision> const &pde,
+//       adapt::distributed_grid<precision> const &dis_grid,
+//       options const &program_options, imex_flag const imex,
+//       global_kron_matrix<precision> &mat);
+//
+//   friend void update_matrix_coefficients<precision>(
+//       PDE<precision> const &pde,
+//       adapt::distributed_grid<precision> const &dis_grid,
+//       options const &program_options, imex_flag const imex,
+//       global_kron_matrix<precision> &mat);
+
+
+private:
+  int num_dimensions_, blockn_;
+  int64_t block_size_;
+  vector2d<int> ilist_;
+  dimension_sort dsort_;
+  std::vector<kronmult::permutes> perms_;
+  std::vector<bool> has_flux_;
+  connect_1d conn_volumes_, conn_full_;
+
+  std::vector<std::vector<precision>> gvals_;
+  std::array<std::vector<int>, 3> term_groups_;
+  kronmult::block_global_workspace<precision> &workspace_;
+};
+
+template<typename precision>
+block_global_kron_matrix<precision>
+make_block_global_kron_matrix(PDE<precision> const &pde,
+                              adapt::distributed_grid<precision> const &dis_grid,
+                              options const &program_options,
+                              kronmult::block_global_workspace<precision> &workspace);
+
+template<typename precision>
+struct matrix_list
+{
+  //! \brief Makes a list of uninitialized matrices
+  matrix_list() {}
+
+  //! \brief Frees the matrix list and any cache vectors
+  ~matrix_list() {}
+
+  //! \brief Apply the given matrix entry
+  template<resource rec = resource::host>
+  void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
+  {
+// #ifdef KRON_MODE_GLOBAL
+//     kglobal.template apply<rec>(entry, alpha, x, beta, y);
+// #else
+//     matrices[static_cast<int>(entry)].template apply<rec>(alpha, x, beta, y);
+// #endif
+  }
+
+  //int64_t flops(matrix_entry entry)
+  int64_t flops(matrix_entry)
+  {
+    return 1000000;
+// #ifdef KRON_MODE_GLOBAL
+//     return kglobal.flops(entry);
+// #else
+//     return matrices[static_cast<int>(entry)].flops();
+// #endif
+  }
+
+  //! \brief Make the matrix for the given entry
+  void make(matrix_entry entry, PDE<precision> const &pde,
+            adapt::distributed_grid<precision> const &grid, options const &opts)
+  {
+// #ifdef KRON_MODE_GLOBAL
+//     if (not kglobal)
+//     {
+//       kglobal = make_global_kron_matrix(pde, grid, opts);
+//       // the buffers must be set before preset_gpu_gkron()
+//       kglobal.set_workspace_buffers(&workspaces);
+//     }
+//
+//     if (kglobal.local_unset(entry))
+//     {
+//       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+// #ifdef ASGARD_USE_CUDA
+//       kglobal.preset_gpu_gkron(sp_handle, imex(entry));
+// #endif
+//     }
+  }
+
+  /*!
+   * \brief Either makes the matrix or if it exists, just updates only the
+   *        coefficients
+   */
+  void reset_coefficients(matrix_entry entry, PDE<precision> const &pde,
+                          adapt::distributed_grid<precision> const &grid,
+                          options const &opts)
+  {
+// #ifdef KRON_MODE_GLOBAL
+//     if (not kglobal)
+//       make(entry, pde, grid, opts);
+//     else
+//     {
+//       if (kglobal.local_unset(entry))
+//       {
+//         set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+// #ifdef ASGARD_USE_CUDA
+//         kglobal.preset_gpu_gkron(sp_handle, imex(entry));
+// #endif
+//       }
+//       else
+//         update_matrix_coefficients(pde, grid, opts, imex(entry), kglobal);
+//     }
+// #else
+  }
+
+  //! \brief Clear the specified matrix
+  //void clear(matrix_entry entry)
+  void clear(matrix_entry entry)
+  {
+// #ifdef KRON_MODE_GLOBAL
+//     ignore(entry);
+//     if (kglobal)
+//       kglobal = global_kron_matrix<precision>();
+// #else
+  }
+  //! \brief Clear all matrices
+  void clear_all()
+  {
+// #ifdef KRON_MODE_GLOBAL
+//     if (kglobal)
+//       kglobal = global_kron_matrix<precision>();
+// #else
+  }
+
+  //! \brief Holds the global part of the kron product
+  //global_kron_matrix<precision> kglobal;
+
+
+private:
+  int num_active_, num_padded_;
+
+
+  //! \brief Maps the entry enum to the IMEX flag
+  static imex_flag imex(matrix_entry entry)
+  {
+    return flag_map[static_cast<int>(entry)];
+  }
+  //! \brief Maps imex flags to integers
+  static constexpr std::array<imex_flag, 3> flag_map = {
+      imex_flag::unspecified, imex_flag::imex_explicit,
+      imex_flag::imex_implicit};
+};
+
+
+
+#endif
 
 } // namespace asgard
