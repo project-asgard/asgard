@@ -1327,7 +1327,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
     if (num_active > 1)
     {
       int const flux_dir = get_flux_direction(pde, t);
-      if (flux_dir != active_dirs[0]) // make the flux direction first
+      if (flux_dir > -1 and flux_dir != active_dirs[0]) // make the flux direction first
         std::swap(active_dirs[0], active_dirs[flux_dir]);
     }
 
