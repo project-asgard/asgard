@@ -140,8 +140,10 @@ void global_cpu_one(permutes::matrix_fill fill, int64_t num_rows,
     {
       y[r] = 0;
       ASGARD_PRAGMA_OMP_SIMD()
-      for (int j = pntr[r]; j < pntr[r + 1]; j++)
+      for (int j = pntr[r]; j < pntr[r + 1]; j++) {
         y[r] += vals[j] * x[indx[j]];
+        //std::cout << vals[j] << "   " << x[indx[j]] << "  " << y[r] << "\n";
+      }
     }
     break;
   }
@@ -172,6 +174,9 @@ void global_cpu(int num_dimensions,
       int dir = perm.direction[i][0];
       global_cpu_one(perm.fill[i][0], num_rows, gpntr[dir], gindx[dir],
                      gdiag[dir], gvals[t * num_dimensions + dir], x, w1);
+
+      // std::cout << " done with one\n";
+
       for (int d = 1; d < dims; d++)
       {
         dir = perm.direction[i][d];

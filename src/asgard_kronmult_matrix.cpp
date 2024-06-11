@@ -1621,29 +1621,12 @@ void block_global_kron_matrix<precision>::apply(
     return;
 
   std::copy_n(x, num_active_, workspace_->x.begin());
-  std::fill_n(workspace_->y.begin(), num_active_, precision{0});
-
-//   kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
-//                        used_terms, get_buffer<workspace::pad_x>(),
-//                        get_buffer<workspace::pad_y>(),
-//                        get_buffer<workspace::stage1>(),
-//                        get_buffer<workspace::stage2>());
+  std::fill_n(workspace_->y.begin(), num_padded_, precision{0});
 
   kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
                        perms_, flux_dir_, conn_volumes_, conn_full_,
                        gvals_, used_terms, workspace_->x.data(), workspace_->y.data(),
                        *workspace_);
-
-// template<typename precision>
-// void global_cpu(int num_dimensions, int n, int64_t block_size,
-//                 vector2d<int> const &ilist, dimension_sort const &dsort,
-//                 std::vector<permutes> const &perms,
-//                 std::vector<bool> const &has_flux,
-//                 connect_1d const &conn_volumes, connect_1d const &conn_full,
-//                 std::vector<std::vector<precision>> const &gvals,
-//                 std::vector<int> const &terms,
-//                 precision const x[], precision y[],
-//                 block_global_workspace<precision> &workspace);
 
   precision *py = workspace_->y.data();
 #pragma omp parallel for
@@ -1712,20 +1695,21 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
     permutations.back().remap_directions(active_dirs);
   }
 
-  int64_t num_active = cells.num_strips() * block_size;
-  workspace->x.resize(num_active);
-  workspace->y.resize(num_active);
-  workspace->w1.resize(num_active);
-  workspace->w2.resize(num_active);
+  int64_t num_padded = cells.num_strips() * block_size;
+  workspace->x.resize(num_padded);
+  std::fill(workspace->x.begin(), workspace->x.end(), precision{0});
+  workspace->y.resize(num_padded);
+  workspace->w1.resize(num_padded);
+  workspace->w2.resize(num_padded);
 
   std::cout << " num_terms = " << num_terms
             << " flux_dir.size() = " << flux_dir.size()
-            << " num_active = " << num_active
+            << " num_padded = " << num_padded
             << " num_cells = " << num_cells
             << "\n";
 
   return block_global_kron_matrix<precision>(
-      num_cells * block_size, cells.num_strips() * block_size,
+      num_cells * block_size, num_padded,
       num_dimensions, pterms, block_size,
       std::move(cells), std::move(dsort), std::move(permutations),
       std::move(flux_dir), std::move(volumes), std::move(fluxes),
@@ -1748,10 +1732,11 @@ void set_specific_mode(PDE<precision> const &pde,
 
   int const num_dimensions = pde.num_dims;
 
-  std::cout << " mat.gvals_.size() = " << mat.gvals_.size() << "\n";
+  std::cout << " setting mode n = " << n << " num_dimensions = " << num_dimensions << "\n";
 
   for (int t : used_terms)
   {
+    std::cout << " term = " << t << "\n";
     for (int d = 0; d < num_dimensions; d++)
     {
       if (not check_identity_term(pde, t, d))
@@ -1759,6 +1744,7 @@ void set_specific_mode(PDE<precision> const &pde,
         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
         connect_1d const &conn = (mat.flux_dir_[t] == d) ? mat.conn_full_ : mat.conn_volumes_;
+        std::cout << " mat.flux_dir_[t] = " << mat.flux_dir_[t] << "  d = "  << d << "\n";
 
         mat.gvals_[t * num_dimensions + d].resize(n * n * conn.num_connections());
 

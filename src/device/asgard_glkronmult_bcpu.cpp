@@ -28,6 +28,9 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
         for (int s = 0; s < n; s++)
           for (int k = 0; k < n; k++)
             y[s * n + k] += A[j * n + s] * x[n * j + k];
+//       std::cout << "y = " << y[0] << "  " << y[1] << "  " << y[2] << "  " << y[3] << "\n";
+//       std::cout << "x = " << x[0] << "  " << x[1] << "  " << x[2] << "  " << x[3] << "\n";
+//       std::cout << "A = " << A[0] << "  " << A[1] << "  " << A[2] << "  " << A[3] << "\n";
     }
     else
     {
@@ -83,16 +86,19 @@ void global_cpu(int64_t block_size,
       {
         // row in the 1d pattern
         int const row = dsort(ilist, dim, rj);
-        precision *local_y = &y[ xidx[row] ];
+        precision *const local_y = &y[ xidx[row] ];
 
         // columns for the 1d pattern
         int col_begin = (fill == permutes::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
         int col_end   = (fill == permutes::matrix_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
 
+        for (int j = 0; j < block_size; j++)
+          local_y[j] = precision{0};
+
         for (int c = col_begin; c < col_end; c++)
         {
           int const j = conn[c];
-          if (x[ xidx[j] ] != -1)
+          if (xidx[j] != -1)
             gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[ xidx[j] ], local_y);
         }
       }
@@ -300,7 +306,9 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
                 precision const x[], precision y[],
                 block_global_workspace<precision> &workspace)
 {
-  int64_t const num_entries = block_size * ilist.total_size();
+  int64_t const num_entries = block_size * ilist.num_strips();
+
+  std::cout << " block_size = " << block_size << " ilist.num_strips() = " << ilist.num_strips() << "\n";
 
   if (static_cast<int64_t>(workspace.w1.size()) < num_entries)
     workspace.w1.resize(num_entries);
@@ -322,10 +330,10 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
     {
       int dir = perm.direction[i][0];
 
-      if (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1)
-        std::cout << " using flux\n";
-      else
-        std::cout << " no flux\n";
+//       if (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1)
+//         std::cout << " using flux\n";
+//       else
+//         std::cout << " no flux\n";
 
       global_cpu(num_dimensions, n, block_size, ilist, dsort, dir, perm.fill[i][0],
                  (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
