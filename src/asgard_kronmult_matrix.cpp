@@ -1636,6 +1636,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
   dimension_sort dsort(cells);
 
   // figure out the permutation patterns
+  std::vector<bool> has_flux(num_terms, false);
   std::vector<kronmult::permutes> permutations;
   permutations.reserve(num_terms);
   std::vector<int> active_dirs(num_dimensions);
@@ -1647,10 +1648,11 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
         active_dirs.push_back(d);
 
     int const num_active = static_cast<int>(active_dirs.size());
-    if (num_active > 1)
-    {
-      int const flux_dir = get_flux_direction(pde, t);
-      if (flux_dir != active_dirs[0]) // make the flux direction first
+
+    int const flux_dir = get_flux_direction(pde, t);
+    if (flux_dir > -1) {
+      has_flux[t] = true;
+      if (num_active > 1 and flux_dir != active_dirs[0]) // make the flux direction first
         std::swap(active_dirs[0], active_dirs[flux_dir]);
     }
 
@@ -1658,12 +1660,106 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
     permutations.back().remap_directions(active_dirs);
   }
 
-//   return global_kron_matrix<precision>(
-//       num_dimensions, num_active_dof, ilist.num_strips(), std::move(permutations),
-//       std::move(global_pntr), std::move(global_indx), std::move(global_diag),
-//       std::move(global_ivals));
+  return block_global_kron_matrix<precision>(
+      num_dimensions, pterms, block_size,
+      std::move(cells), std::move(dsort), std::move(permutations),
+      std::move(has_flux), std::move(volumes), std::move(fluxes),
+      workspace);
 }
 
+template<typename precision>
+void set_specific_mode(PDE<precision> const &pde,
+                       adapt::distributed_grid<precision> const &dis_grid,
+                       options const &program_options, imex_flag const imex,
+                       block_global_kron_matrix<precision> &mat)
+{
+//   int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
+//
+//   mat.term_groups[imex_indx] = get_used_terms(pde, program_options, imex);
+//
+//   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
+//
+//   constexpr int patterns_per_dim = global_kron_matrix<precision>::patterns_per_dim;
+//
+//   int const porder = pde.get_dimensions()[0].get_degree() - 1;
+//   mat.porder_      = porder;
+//
+//   int const num_dimensions = pde.num_dims;
+//
+//   // set the values for the global pattern
+//   // number of patterns per term per dimension to be considered
+//   int const num_mats = (num_dimensions == 1) ? 1 : patterns_per_dim;
+//   for (int t : used_terms)
+//   {
+//     for (int d = 0; d < num_dimensions; d++)
+//     {
+//       if (not check_identity_term(pde, t, d))
+//       {
+//         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
+//
+//         for (int k = 0; k < num_mats; k++)
+//         {
+//           // pattern and values ids
+//           int const pid = patterns_per_dim * d + k;
+//           int const vid = patterns_per_dim * t * num_dimensions + pid;
+//
+//           std::vector<precision> &gvals = mat.gvals_[vid];
+//           std::vector<int> &givals      = mat.givals_[pid];
+//
+//           int64_t num_entries = static_cast<int64_t>(mat.gindx_[pid].size());
+//
+//           gvals.resize(num_entries);
+//
+// #pragma omp parallel for
+//           for (int64_t i = 0; i < num_entries; i++)
+//             gvals[i] = ops(givals[2 * i], givals[2 * i + 1]);
+//         }
+//       }
+//     }
+//   }
+//
+//   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+//     // prepare a preconditioner
+//     build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
+//                          mat.pre_con_);
+//
+//   // The cost is the total number of non-zeros in all matrices (non-identity)
+//   int64_t gflops = 0;
+//   for (auto t : used_terms)
+//     for (int d = 0; d < num_dimensions; d++)
+//       gflops += mat.gvals_[mat.patterns_per_dim * (t * num_dimensions + d)].size();
+//   gflops *= 2; // matrix vector product uses multiply-add 2 flops per entry
+//
+//   std::cout << "  kronmult using global algorithm\n";
+//   std::cout << "  -- work: " << static_cast<double>(gflops) * 1.E-9 << " Gflops\n";
+//   mat.flops_[imex_indx] = std::max(gflops, int64_t{1}); // cannot be zero
+//
+//   int64_t num_ints = 0;
+//   int64_t num_fps  = 0;
+//   for (size_t d = 0; d < mat.gpntr_.size(); d++)
+//   {
+//     num_ints += mat.gpntr_[d].size();
+//     num_ints += mat.gindx_[d].size();
+//     num_ints += mat.givals_[d].size();
+//   }
+//   for (auto const &ddiag : mat.gdiag_)
+//     num_ints += ddiag.size();
+//
+//   for (auto t : used_terms)
+//     for (int d = 0; d < num_dimensions * mat.patterns_per_dim; d++)
+//       num_fps += mat.gvals_[mat.patterns_per_dim * t * num_dimensions + d].size();
+//
+//   num_fps += 2 * mat.num_active_;
+//   std::cout << "  -- memory usage:";
+//   int64_t total = get_MB<precision>(num_fps) + get_MB<int>(num_ints);
+//   if (total > 1024)
+//     std::cout << "  CPU: " << (1 + total / 1024) << "GB";
+//   else
+//     std::cout << "  CPU: " << total << "MB";
+// #ifndef ASGARD_USE_CUDA
+//   std::cout << '\n';
+// #endif
+}
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,

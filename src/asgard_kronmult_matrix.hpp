@@ -1289,26 +1289,23 @@ public:
                            vector2d<int> &&ilist, dimension_sort &&dsort,
                            std::vector<kronmult::permutes> &&perms, std::vector<bool> &&has_flux,
                            connect_1d &&conn_volumes, connect_1d &&conn_full,
-                           std::vector<std::vector<precision>> &&gvals,
-                           std::array<std::vector<int>, 3> &&term_groups,
                            kronmult::block_global_workspace<precision> &workspace)
   : num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
     ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
     has_flux_(std::move(has_flux)), conn_volumes_(std::move(conn_volumes)),
-    conn_full_(std::move(conn_full)), gvals_(std::move(gvals)),
-    term_groups_(std::move(term_groups)), workspace_(workspace)
+    conn_full_(std::move(conn_full)), workspace_(workspace)
   {}
 
   // made friends for two reasons
   // 1. Keeps the matrix API free from references to pde, which will allow an easier
   //    transition to a new API that does not require the PDE class
   // 2. Give the ability to modify the internal without encumbering the matrix API
-//   friend void set_specific_mode<precision>(
-//       PDE<precision> const &pde,
-//       adapt::distributed_grid<precision> const &dis_grid,
-//       options const &program_options, imex_flag const imex,
-//       global_kron_matrix<precision> &mat);
-//
+  friend void set_specific_mode<precision>(
+      PDE<precision> const &pde,
+      adapt::distributed_grid<precision> const &dis_grid,
+      options const &program_options, imex_flag const imex,
+      block_global_kron_matrix<precision> &mat);
+
 //   friend void update_matrix_coefficients<precision>(
 //       PDE<precision> const &pde,
 //       adapt::distributed_grid<precision> const &dis_grid,
@@ -1336,6 +1333,13 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
                               adapt::distributed_grid<precision> const &dis_grid,
                               options const &program_options,
                               kronmult::block_global_workspace<precision> &workspace);
+
+template<typename precision>
+void set_specific_mode<precision>(
+      PDE<precision> const &pde,
+      adapt::distributed_grid<precision> const &dis_grid,
+      options const &program_options, imex_flag const imex,
+      block_global_kron_matrix<precision> &mat);
 
 template<typename precision>
 struct matrix_list
