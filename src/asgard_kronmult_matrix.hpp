@@ -1281,18 +1281,28 @@ private:
 #else
 
 template<typename precision>
+class block_global_kron_matrix;
+
+template<typename precision>
+void set_specific_mode(
+      PDE<precision> const &pde,
+      adapt::distributed_grid<precision> const &dis_grid,
+      options const &program_options, imex_flag const imex,
+      block_global_kron_matrix<precision> &mat);
+
+template<typename precision>
 class block_global_kron_matrix {
 public:
   block_global_kron_matrix() : conn_volumes_(1), conn_full_(1) {}
 
   block_global_kron_matrix(int num_dimensions, int blockn, int64_t block_size,
                            vector2d<int> &&ilist, dimension_sort &&dsort,
-                           std::vector<kronmult::permutes> &&perms, std::vector<bool> &&has_flux,
+                           std::vector<kronmult::permutes> &&perms, std::vector<int> &&flux_dir_,
                            connect_1d &&conn_volumes, connect_1d &&conn_full,
                            kronmult::block_global_workspace<precision> &workspace)
   : num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
     ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
-    has_flux_(std::move(has_flux)), conn_volumes_(std::move(conn_volumes)),
+    flux_dir_(std::move(flux_dir_)), conn_volumes_(std::move(conn_volumes)),
     conn_full_(std::move(conn_full)), workspace_(workspace)
   {}
 
@@ -1313,18 +1323,32 @@ public:
 //       global_kron_matrix<precision> &mat);
 
 
+  //! \brief Convert the imex flag to an index of the arrays.
+  static int flag2int(imex_flag imex)
+  {
+    return (imex == imex_flag::imex_implicit) ? 2 : ((imex == imex_flag::imex_explicit) ? 1 : 0);
+  }
+  //! \brief Convert the matrix entry to an index of the arrays.
+  static int flag2int(matrix_entry imex)
+  {
+    return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
+  }
+
 private:
   int num_dimensions_, blockn_;
   int64_t block_size_;
   vector2d<int> ilist_;
   dimension_sort dsort_;
   std::vector<kronmult::permutes> perms_;
-  std::vector<bool> has_flux_;
+  std::vector<int> flux_dir_;
   connect_1d conn_volumes_, conn_full_;
 
   std::vector<std::vector<precision>> gvals_;
   std::array<std::vector<int>, 3> term_groups_;
   kronmult::block_global_workspace<precision> &workspace_;
+
+  // preconditioner
+  std::vector<precision> pre_con_;
 };
 
 template<typename precision>
@@ -1334,12 +1358,6 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
                               options const &program_options,
                               kronmult::block_global_workspace<precision> &workspace);
 
-template<typename precision>
-void set_specific_mode<precision>(
-      PDE<precision> const &pde,
-      adapt::distributed_grid<precision> const &dis_grid,
-      options const &program_options, imex_flag const imex,
-      block_global_kron_matrix<precision> &mat);
 
 template<typename precision>
 struct matrix_list
@@ -1440,7 +1458,6 @@ struct matrix_list
 
   //! \brief Holds the global part of the kron product
   //global_kron_matrix<precision> kglobal;
-
 
 private:
   int num_active_, num_padded_;
