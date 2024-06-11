@@ -1196,7 +1196,8 @@ bool get_flux_direction(PDE<precision> const &pde, int term_id)
   for (int d = 0; d < pde.num_dims; d++)
     for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
       if (pt.coeff_type == coefficient_type::div or
-          pt.coeff_type == coefficient_type::grad)
+          pt.coeff_type == coefficient_type::grad or
+          pt.coeff_type == coefficient_type::penalty)
         return d;
   return -1;
 }
