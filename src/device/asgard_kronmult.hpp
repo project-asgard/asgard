@@ -412,6 +412,7 @@ void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
 
 template<typename precision>
 struct block_global_workspace {
+  std::vector<precision> x, y;
   std::vector<precision> w1, w2;
   std::vector<std::vector<int64_t>> row_map;
 };
@@ -421,7 +422,7 @@ template<typename precision>
 void global_cpu(int num_dimensions, int n, int64_t block_size,
                 vector2d<int> const &ilist, dimension_sort const &dsort,
                 std::vector<permutes> const &perms,
-                std::vector<bool> const &has_flux,
+                std::vector<int> const &flux_dir,
                 connect_1d const &conn_volumes, connect_1d const &conn_full,
                 std::vector<std::vector<precision>> const &gvals,
                 std::vector<int> const &terms,

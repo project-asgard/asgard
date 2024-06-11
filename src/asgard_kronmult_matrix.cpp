@@ -1600,12 +1600,64 @@ void global_kron_matrix<precision>::apply(
 }
 #endif
 
+#ifdef KRON_MODE_GLOBAL_BLOCK
+
+template<typename precision>
+template<resource rec>
+void block_global_kron_matrix<precision>::apply(
+    matrix_entry etype, precision alpha, precision const *x,
+    precision beta, precision *y) const
+{
+  int const imex = flag2int(etype);
+
+  std::vector<int> const &used_terms = term_groups_[imex];
+
+  if (beta == 0)
+    kronmult::set_buffer_to_zero<rec>(num_active_, y);
+  else
+    lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
+
+  if (used_terms.size() == 0)
+    return;
+
+  std::copy_n(x, num_active_, workspace_->x.begin());
+  std::fill_n(workspace_->y.begin(), num_active_, precision{0});
+
+//   kronmult::global_cpu(num_dimensions_, perms_, gpntr_, gindx_, gdiag_, gvals_,
+//                        used_terms, get_buffer<workspace::pad_x>(),
+//                        get_buffer<workspace::pad_y>(),
+//                        get_buffer<workspace::stage1>(),
+//                        get_buffer<workspace::stage2>());
+
+  kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
+                       perms_, flux_dir_, conn_volumes_, conn_full_,
+                       gvals_, used_terms, workspace_->x.data(), workspace_->y.data(),
+                       *workspace_);
+
+// template<typename precision>
+// void global_cpu(int num_dimensions, int n, int64_t block_size,
+//                 vector2d<int> const &ilist, dimension_sort const &dsort,
+//                 std::vector<permutes> const &perms,
+//                 std::vector<bool> const &has_flux,
+//                 connect_1d const &conn_volumes, connect_1d const &conn_full,
+//                 std::vector<std::vector<precision>> const &gvals,
+//                 std::vector<int> const &terms,
+//                 precision const x[], precision y[],
+//                 block_global_workspace<precision> &workspace);
+
+  precision *py = workspace_->y.data();
+#pragma omp parallel for
+  for (int64_t i = 0; i < num_active_; i++)
+    y[i] += alpha * py[i];
+
+}
+
 template<typename precision>
 block_global_kron_matrix<precision>
 make_block_global_kron_matrix(PDE<precision> const &pde,
                               adapt::distributed_grid<precision> const &dis_grid,
                               options const &program_options,
-                              kronmult::block_global_workspace<precision> &workspace)
+                              kronmult::block_global_workspace<precision> *workspace)
 {
   auto const &grid         = dis_grid.get_subgrid(get_rank());
   int const *const asg_idx = dis_grid.get_table().get_active_table().data();
@@ -1660,7 +1712,20 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
     permutations.back().remap_directions(active_dirs);
   }
 
+  int64_t num_active = cells.num_strips() * block_size;
+  workspace->x.resize(num_active);
+  workspace->y.resize(num_active);
+  workspace->w1.resize(num_active);
+  workspace->w2.resize(num_active);
+
+  std::cout << " num_terms = " << num_terms
+            << " flux_dir.size() = " << flux_dir.size()
+            << " num_active = " << num_active
+            << " num_cells = " << num_cells
+            << "\n";
+
   return block_global_kron_matrix<precision>(
+      num_cells * block_size, cells.num_strips() * block_size,
       num_dimensions, pterms, block_size,
       std::move(cells), std::move(dsort), std::move(permutations),
       std::move(flux_dir), std::move(volumes), std::move(fluxes),
@@ -1679,9 +1744,11 @@ void set_specific_mode(PDE<precision> const &pde,
 
   std::vector<int> const &used_terms = mat.term_groups_[imex_indx];
 
-  int const porder = mat.blockn_;
+  int const n = mat.blockn_;
 
   int const num_dimensions = pde.num_dims;
+
+  std::cout << " mat.gvals_.size() = " << mat.gvals_.size() << "\n";
 
   for (int t : used_terms)
   {
@@ -1693,13 +1760,13 @@ void set_specific_mode(PDE<precision> const &pde,
 
         connect_1d const &conn = (mat.flux_dir_[t] == d) ? mat.conn_full_ : mat.conn_volumes_;
 
-        mat.gvals_[t * num_dimensions + d].resize(porder * porder * conn.num_connections());
+        mat.gvals_[t * num_dimensions + d].resize(n * n * conn.num_connections());
 
         precision *A = mat.gvals_[t * num_dimensions + d].data();
         for (int r = 0; r < conn.num_rows(); r++)
           for (int j = conn.row_begin(r); j < conn.row_end(r); j++)
-            for (int k = 0; k < porder; k++)
-              A = std::copy_n(ops.data(r * porder, conn[j] * porder + k), porder, A);
+            for (int k = 0; k < n; k++)
+              A = std::copy_n(ops.data(r * n, conn[j] * n + k), n, A);
       }
     }
   }
@@ -1709,43 +1776,10 @@ void set_specific_mode(PDE<precision> const &pde,
     build_preconditioner(pde, mat.ilist_.num_strips() * mat.block_size_, dis_grid,
                          used_terms, mat.pre_con_);
 
-//   // The cost is the total number of non-zeros in all matrices (non-identity)
-//   int64_t gflops = 0;
-//   for (auto t : used_terms)
-//     for (int d = 0; d < num_dimensions; d++)
-//       gflops += mat.gvals_[mat.patterns_per_dim * (t * num_dimensions + d)].size();
-//   gflops *= 2; // matrix vector product uses multiply-add 2 flops per entry
-//
-//   std::cout << "  kronmult using global algorithm\n";
-//   std::cout << "  -- work: " << static_cast<double>(gflops) * 1.E-9 << " Gflops\n";
-//   mat.flops_[imex_indx] = std::max(gflops, int64_t{1}); // cannot be zero
-//
-//   int64_t num_ints = 0;
-//   int64_t num_fps  = 0;
-//   for (size_t d = 0; d < mat.gpntr_.size(); d++)
-//   {
-//     num_ints += mat.gpntr_[d].size();
-//     num_ints += mat.gindx_[d].size();
-//     num_ints += mat.givals_[d].size();
-//   }
-//   for (auto const &ddiag : mat.gdiag_)
-//     num_ints += ddiag.size();
-//
-//   for (auto t : used_terms)
-//     for (int d = 0; d < num_dimensions * mat.patterns_per_dim; d++)
-//       num_fps += mat.gvals_[mat.patterns_per_dim * t * num_dimensions + d].size();
-//
-//   num_fps += 2 * mat.num_active_;
-//   std::cout << "  -- memory usage:";
-//   int64_t total = get_MB<precision>(num_fps) + get_MB<int>(num_ints);
-//   if (total > 1024)
-//     std::cout << "  CPU: " << (1 + total / 1024) << "GB";
-//   else
-//     std::cout << "  CPU: " << total << "MB";
-// #ifndef ASGARD_USE_CUDA
-//   std::cout << '\n';
-// #endif
+  std::cout << " cointing the flops in the block-matrix case is hard ...\n";
 }
+
+#endif // KRON_MODE_GLOBAL_BLOCK
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,
@@ -1773,11 +1807,15 @@ template void global_kron_matrix<double>::apply<resource::device>(
 #endif
 
 #ifdef KRON_MODE_GLOBAL_BLOCK
+template class block_global_kron_matrix<double>;
+template void block_global_kron_matrix<double>::apply<resource::host>(
+    matrix_entry, double, double const *, double, double *) const;
+
 template block_global_kron_matrix<double>
 make_block_global_kron_matrix<double>(PDE<double> const &,
                                       adapt::distributed_grid<double> const &,
                                       options const &,
-                                      kronmult::block_global_workspace<double> &workspace);
+                                      kronmult::block_global_workspace<double> *workspace);
 template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
                                         options const &, imex_flag const,
@@ -1828,11 +1866,16 @@ template void global_kron_matrix<float>::apply<resource::device>(
 #endif
 
 #ifdef KRON_MODE_GLOBAL_BLOCK
+template class block_global_kron_matrix<float>;
+
+template void block_global_kron_matrix<double>::apply<resource::host>(
+    matrix_entry, double, double const *, double, double *) const;
+
 template block_global_kron_matrix<float>
 make_block_global_kron_matrix<float>(PDE<float> const &,
                                      adapt::distributed_grid<float> const &,
                                      options const &,
-                                     kronmult::block_global_workspace<float> &workspace);
+                                     kronmult::block_global_workspace<float> *workspace);
 template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,
                                        options const &, imex_flag const,

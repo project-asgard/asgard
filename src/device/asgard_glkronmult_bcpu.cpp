@@ -69,17 +69,17 @@ void global_cpu(int64_t block_size,
     if (static_cast<int>(xidx.size()) < conn.num_rows())
       xidx.resize(conn.num_rows(), -1);
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp for schedule(dynamic)
     for (int vec_id = 0; vec_id < num_vecs; vec_id++)
     {
       int const vec_begin = dsort.vec_begin(dim, vec_id);
       int const vec_end   = dsort.vec_end(dim, vec_id);
       // map the indexes of present entries
-      for (int j=vec_begin; j<vec_end; j++)
+      for (int j = vec_begin; j < vec_end; j++)
         xidx[ dsort(ilist, dim, j) ] = dsort.map(dim, j) * block_size;
 
       // matrix-vector product using xidx as a row
-      for (int rj=vec_begin; rj<vec_end; rj++)
+      for (int rj = vec_begin; rj < vec_end; rj++)
       {
         // row in the 1d pattern
         int const row = dsort(ilist, dim, rj);
@@ -93,12 +93,12 @@ void global_cpu(int64_t block_size,
         {
           int const j = conn[c];
           if (x[ xidx[j] ] != -1)
-            gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * j], &x[ xidx[j] ], local_y);
+            gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[ xidx[j] ], local_y);
         }
       }
 
       // restore the entries
-      for(int j=vec_begin; j<vec_end; j++)
+      for (int j = vec_begin; j < vec_end; j++)
         xidx[ dsort(ilist, dim, j) ] = -1;
     }
   }
@@ -293,7 +293,7 @@ template<typename precision>
 void global_cpu(int num_dimensions, int n, int64_t block_size,
                 vector2d<int> const &ilist, dimension_sort const &dsort,
                 std::vector<permutes> const &perms,
-                std::vector<bool> const &has_flux,
+                std::vector<int> const &flux_dir,
                 connect_1d const &conn_volumes, connect_1d const &conn_full,
                 std::vector<std::vector<precision>> const &gvals,
                 std::vector<int> const &terms,
@@ -322,15 +322,20 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
     {
       int dir = perm.direction[i][0];
 
+      if (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1)
+        std::cout << " using flux\n";
+      else
+        std::cout << " no flux\n";
+
       global_cpu(num_dimensions, n, block_size, ilist, dsort, dir, perm.fill[i][0],
-                 (perm.fill[i][0] == permutes::matrix_fill::both and has_flux[t]) ? conn_full : conn_volumes,
+                 (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
                  gvals[t * num_dimensions + dir], x, w1, workspace.row_map);
 
       for (int d = 1; d < dims; d++)
       {
         dir = perm.direction[i][d];
         global_cpu(num_dimensions, n, block_size, ilist, dsort, dir, perm.fill[i][d],
-                   (perm.fill[i][d] == permutes::matrix_fill::both and has_flux[t]) ? conn_full : conn_volumes,
+                   (perm.fill[i][d] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
                    gvals[t * num_dimensions + dir], w1, w2, workspace.row_map);
         std::swap(w1, w2);
       }
@@ -348,7 +353,7 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
 template void global_cpu<double>(int, int, int64_t,
                                  vector2d<int> const &, dimension_sort const &,
                                  std::vector<permutes> const &,
-                                 std::vector<bool> const &, connect_1d const &,
+                                 std::vector<int> const &, connect_1d const &,
                                  connect_1d const &, std::vector<std::vector<double>> const &,
                                  std::vector<int> const &, double const[], double[],
                                  block_global_workspace<double> &);
@@ -359,7 +364,7 @@ template void global_cpu<double>(int, int, int64_t,
 
 template void global_cpu<float>(int, int, int64_t, std::vector<permutes> const &,
                                 vector2d<int> const &, dimension_sort const &,
-                                std::vector<bool> const &, connect_1d const &,
+                                std::vector<int> const &, connect_1d const &,
                                 connect_1d const &, std::vector<std::vector<float>> const &,
                                 std::vector<int> const &, float const[], float[],
                                 block_global_workspace<float> &);

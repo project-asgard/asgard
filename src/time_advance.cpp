@@ -439,12 +439,9 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     fk::vector<P> fx(x);
     // TODO: do something better to save gmres output to pde
 #ifdef KRON_MODE_GLOBAL
-#ifdef KRON_MODE_GLOBAL_BLOCK
-#else
     pde.gmres_outputs[0] = solver::simple_gmres_euler<P, resource::host>(
         pde.get_dt(), matrix_entry::regular, operator_matrices.kglobal,
         fx, x, restart, max_iter, tolerance);
-#endif
 #else
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), operator_matrices[matrix_entry::regular],
