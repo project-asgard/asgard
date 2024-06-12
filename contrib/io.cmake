@@ -44,7 +44,7 @@ function (get_hdf5)
         ExternalProject_Add (hdf5-ext
           UPDATE_COMMAND ""
           PREFIX contrib/hdf5
-          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
           DOWNLOAD_NO_PROGRESS 1
           CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/autogen.sh
           COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
