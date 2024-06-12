@@ -225,10 +225,6 @@ void cpu_dense(int const num_rows, int num_cols, int const num_terms,
               for (int k = 0; k < n; k++)
                 W[s][k] += x[tj + n * j + k] * A[j * n + s];
 
-          //std::cout << "y = " << y[0] << "  " << y[1] << "  " << y[2] << "  " << y[3] << "\n";
-          //std::cout << "x = " << x[tj + 0] << "  " << x[tj + 1] << "  " << x[tj + 2] << "  " << x[tj + 3] << "\n";
-          //std::cout << "A = " << A[0] << "  " << A[1] << "  " << A[2] << "  " << A[3] << "\n";
-
           A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
           ASGARD_PRAGMA_OMP_SIMD(collapse(3))
           for (int k = 0; k < n; k++)

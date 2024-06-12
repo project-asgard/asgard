@@ -12,6 +12,13 @@ namespace asgard::kronmult
 template<typename precision, int num_dimensions, int dim, int n>
 void gbkron_mult_add(precision const A[], precision const x[], precision y[])
 {
+  if constexpr (n == 1) // dimension does not matter here
+  {
+    y[0] += A[0] * x[0];
+    return;
+  }
+
+  static_assert(num_dimensions >= 1 and num_dimensions <= 6);
   if constexpr (num_dimensions == 1)
   {
     ASGARD_PRAGMA_OMP_SIMD(collapse(2))
@@ -25,21 +32,133 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
     {
       ASGARD_PRAGMA_OMP_SIMD(collapse(3))
       for (int j = 0; j < n; j++)
-        for (int s = 0; s < n; s++)
-          for (int k = 0; k < n; k++)
-            y[s * n + k] += A[j * n + s] * x[n * j + k];
-//       std::cout << "y = " << y[0] << "  " << y[1] << "  " << y[2] << "  " << y[3] << "\n";
-//       std::cout << "x = " << x[0] << "  " << x[1] << "  " << x[2] << "  " << x[3] << "\n";
-//       std::cout << "A = " << A[0] << "  " << A[1] << "  " << A[2] << "  " << A[3] << "\n";
+        for (int k = 0; k < n; k++)
+          for (int s = 0; s < n; s++)
+            y[s + k * n] += A[j * n + s] * x[j + k * n];
     }
     else
     {
       ASGARD_PRAGMA_OMP_SIMD(collapse(3))
-      for (int k = 0; k < n; k++)
+      for (int j = 0; j < n; j++)
+        for (int s = 0; s < n; s++)
+          for (int k = 0; k < n; k++)
+            y[k + s * n] += A[j * n + s] * x[k + j * n];
+    }
+  }
+  else if constexpr (num_dimensions == 3)
+  {
+    if constexpr (dim == 2)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(4))
+      for (int l = 0; l < n; l++)
+        for (int k = 0; k < n; k++)
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+              y[l * n * n + k * n + s] += A[j * n + s] * x[l * n * n + n * k + j];
+    }
+    else if constexpr (dim == 1)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(4))
+      for (int l = 0; l < n; l++)
         for (int j = 0; j < n; j++)
           for (int s = 0; s < n; s++)
-            y[k * n + s] += A[j * n + s] * x[k * n + j];
+            for (int k = 0; k < n; k++)
+              y[l * n * n + s * n + k] += x[l * n * n + j * n + k] * A[j * n + s];
     }
+    else // dim == 0
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(4))
+      for (int j = 0; j < n; j++)
+        for (int s = 0; s < n; s++)
+          for (int l = 0; l < n; l++)
+            for (int k = 0; k < n; k++)
+              y[s * n * n + l * n + k] += x[n * n * j + n * l + k] * A[j * n + s];
+    }
+  }
+  else if constexpr (num_dimensions == 4)
+  {
+    if constexpr (dim == 3)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+      for (int p = 0; p < n; p++)
+        for (int l = 0; l < n; l++)
+          for (int k = 0; k < n; k++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
+                y[p * n * n *n + l * n * n + k * n + s] += A[j * n + s] * x[p * n * n * n + l * n * n + k * n + j];
+    }
+    else if constexpr (dim == 2)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+      for (int p = 0; p < n; p++)
+        for (int l = 0; l < n; l++)
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+              for (int k = 0; k < n; k++)
+                y[p * n * n * n + l * n * n + s * n + k] += x[p * n * n * n + l * n * n + j * n + k] * A[j * n + s];
+    }
+    else if constexpr (dim == 1)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+      for (int p = 0; p < n; p++)
+        for (int j = 0; j < n; j++)
+          for (int s = 0; s < n; s++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                y[p * n * n * n + s * n * n + l * n + k] += x[p * n * n * n + j * n * n + l * n + k] * A[j * n + s];
+    }
+    else // dim == 0
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+      for (int j = 0; j < n; j++)
+        for (int s = 0; s < n; s++)
+          for (int p = 0; p < n; p++)
+            for (int l = 0; l < n; l++)
+              for (int k = 0; k < n; k++)
+                y[s * n * n * n + p * n * n + l * n + k] +=
+                    x[n * n * n * j + n * n * p + n * l + k] *
+                    A[j * n + s];
+    }
+          // P W[n][n][n][n] = {{{{{0}}}}}, Y[n][n][n][n] = {{{{{0}}}}};
+          // P const *A = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+          // for (int j = 0; j < n; j++)
+          //   for (int s = 0; s < n; s++)
+          //     for (int p = 0; p < n; p++)
+          //       for (int l = 0; l < n; l++)
+          //         for (int k = 0; k < n; k++)
+          //           W[s][p][l][k] +=
+          //               x[tj + n * n * n * j + n * n * p + n * l + k] *
+          //               A[j * n + s];
+          // A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+          // for (int p = 0; p < n; p++)
+          //   for (int j = 0; j < n; j++)
+          //     for (int s = 0; s < n; s++)
+          //       for (int l = 0; l < n; l++)
+          //         for (int k = 0; k < n; k++)
+          //           Y[p][s][l][k] += W[p][j][l][k] * A[j * n + s];
+          // std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W) / sizeof(P),
+          //           P{0.});
+          // A = &vA[t][2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+          // for (int p = 0; p < n; p++)
+          //   for (int l = 0; l < n; l++)
+          //     for (int j = 0; j < n; j++)
+          //       for (int s = 0; s < n; s++)
+          //         for (int k = 0; k < n; k++)
+          //           W[p][l][s][k] += Y[p][l][j][k] * A[j * n + s];
+          // std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(P),
+          //           P{0.});
+          // A = &vA[t][3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+          // for (int p = 0; p < n; p++)
+          //   for (int l = 0; l < n; l++)
+          //     for (int k = 0; k < n; k++)
+          //       for (int j = 0; j < n; j++)
+          //         for (int s = 0; s < n; s++)
+          //           Y[p][l][k][s] += A[j * n + s] * W[p][l][k][j];
+
   }
 }
 
@@ -51,6 +170,7 @@ void global_cpu(int64_t block_size,
                 precision const x[], precision y[],
                 std::vector<std::vector<int64_t>> &row_wspace)
 {
+  //std::cout << " ------------------------------------------------------ \n";
   constexpr int n2 = n * n;
 
   int const num_vecs = dsort.num_vecs(dim);
@@ -308,7 +428,7 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
 {
   int64_t const num_entries = block_size * ilist.num_strips();
 
-  std::cout << " block_size = " << block_size << " ilist.num_strips() = " << ilist.num_strips() << "\n";
+  //std::cout << " block_size = " << block_size << " ilist.num_strips() = " << ilist.num_strips() << "\n";
 
   if (static_cast<int64_t>(workspace.w1.size()) < num_entries)
     workspace.w1.resize(num_entries);
@@ -321,25 +441,20 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
   for (int t : terms)
   {
     // terms can have different effective dimension, since some of them are identity
-    permutes const &perm = perms[t];
-    int const dims       = perm.num_dimensions();
-    if (dims == 0)
+    permutes const &perm  = perms[t];
+    int const active_dims = perm.num_dimensions();
+    if (active_dims == 0)
       continue;
 
     for (size_t i = 0; i < perm.fill.size(); i++)
     {
       int dir = perm.direction[i][0];
 
-//       if (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1)
-//         std::cout << " using flux\n";
-//       else
-//         std::cout << " no flux\n";
-
       global_cpu(num_dimensions, n, block_size, ilist, dsort, dir, perm.fill[i][0],
                  (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
                  gvals[t * num_dimensions + dir], x, w1, workspace.row_map);
 
-      for (int d = 1; d < dims; d++)
+      for (int d = 1; d < active_dims; d++)
       {
         dir = perm.direction[i][d];
         global_cpu(num_dimensions, n, block_size, ilist, dsort, dir, perm.fill[i][d],

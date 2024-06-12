@@ -1191,7 +1191,7 @@ bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 }
 
 template<typename precision>
-bool get_flux_direction(PDE<precision> const &pde, int term_id)
+int get_flux_direction(PDE<precision> const &pde, int term_id)
 {
   for (int d = 0; d < pde.num_dims(); d++)
     for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
@@ -1319,21 +1319,17 @@ make_global_kron_matrix(PDE<precision> const &pde,
   std::vector<int> active_dirs(num_dimensions);
   for (int t = 0; t < num_terms; t++)
   {
+    int const flux_dir = get_flux_direction(pde, t);
+
     active_dirs.clear();
     for (int d = 0; d < num_dimensions; d++)
-      if (not check_identity_term(pde, t, d))
+      if (not check_identity_term(pde, t, d)) {
         active_dirs.push_back(d);
+        if (d == flux_dir and active_dirs.size() > 1)
+          std::swap(active_dirs.front(), active_dirs.back());
+      }
 
-    int const num_active = static_cast<int>(active_dirs.size());
-    if (num_active > 1)
-    {
-      int const flux_dir = get_flux_direction(pde, t);
-      if (flux_dir > -1 and flux_dir != active_dirs[0]) // make the flux direction first
-        std::swap(active_dirs[0], active_dirs[flux_dir]);
-    }
-
-    permutations.push_back(kronmult::permutes(num_active));
-    permutations.back().remap_directions(active_dirs);
+    permutations.push_back(kronmult::permutes(active_dirs));
   }
 
   return global_kron_matrix<precision>(
@@ -1612,9 +1608,10 @@ void block_global_kron_matrix<precision>::apply(
 
   std::vector<int> const &used_terms = term_groups_[imex];
 
-  if (beta == 0)
+  if (beta == 0) {
+    //std::cout << " setting zero\n";
     kronmult::set_buffer_to_zero<rec>(num_active_, y);
-  else
+  } else
     lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
 
   if (used_terms.size() == 0)
@@ -1677,22 +1674,19 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
   std::vector<int> active_dirs(num_dimensions);
   for (int t = 0; t < num_terms; t++)
   {
+    flux_dir[t] = get_flux_direction(pde, t);
+
     active_dirs.clear();
+    // add only the dimensions that are not identity
+    // make sure that the flux direction comes first
     for (int d = 0; d < num_dimensions; d++)
-      if (not check_identity_term(pde, t, d))
+      if (not check_identity_term(pde, t, d)) {
         active_dirs.push_back(d);
+        if (d == flux_dir[t] and active_dirs.size() > 1)
+          std::swap(active_dirs.front(), active_dirs.back());
+      }
 
-    int const num_active = static_cast<int>(active_dirs.size());
-
-    int const fdir = get_flux_direction(pde, t);
-    if (fdir > -1) {
-      flux_dir[t] = fdir;
-      if (num_active > 1 and fdir != active_dirs[0]) // make the flux direction first
-        std::swap(active_dirs[0], active_dirs[fdir]);
-    }
-
-    permutations.push_back(kronmult::permutes(num_active));
-    permutations.back().remap_directions(active_dirs);
+    permutations.push_back(kronmult::permutes(active_dirs));
   }
 
   int64_t num_padded = cells.num_strips() * block_size;
@@ -1704,8 +1698,8 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
 
   std::cout << " num_terms = " << num_terms
             << " flux_dir.size() = " << flux_dir.size()
-            << " num_padded = " << num_padded
             << " num_cells = " << num_cells
+            << " num_padded = " << num_padded
             << "\n";
 
   return block_global_kron_matrix<precision>(
@@ -1732,11 +1726,10 @@ void set_specific_mode(PDE<precision> const &pde,
 
   int const num_dimensions = pde.num_dims;
 
-  std::cout << " setting mode n = " << n << " num_dimensions = " << num_dimensions << "\n";
+  //std::cout << " setting mode n = " << n << " num_dimensions = " << num_dimensions << "\n";
 
   for (int t : used_terms)
   {
-    std::cout << " term = " << t << "\n";
     for (int d = 0; d < num_dimensions; d++)
     {
       if (not check_identity_term(pde, t, d))
@@ -1744,7 +1737,6 @@ void set_specific_mode(PDE<precision> const &pde,
         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
         connect_1d const &conn = (mat.flux_dir_[t] == d) ? mat.conn_full_ : mat.conn_volumes_;
-        std::cout << " mat.flux_dir_[t] = " << mat.flux_dir_[t] << "  d = "  << d << "\n";
 
         mat.gvals_[t * num_dimensions + d].resize(n * n * conn.num_connections());
 

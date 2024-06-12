@@ -197,6 +197,11 @@ struct permutes
       }
     }
   }
+  permutes(std::vector<int> const &active_dirs)
+    : permutes(static_cast<int>(active_dirs.size()))
+  {
+    remap_directions(active_dirs);
+  }
   //! \brief Convert the fill to a string (for debugging).
   std::string_view fill_name(int perm, int stage) const
   {
