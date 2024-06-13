@@ -85,7 +85,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
           for (int k = 0; k < n; k++)
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
-                y[p * n * n *n + l * n * n + k * n + s] += A[j * n + s] * x[p * n * n * n + l * n * n + k * n + j];
+                y[p * ipow<n, 3>() + l * n * n + k * n + s] += A[j * n + s] * x[p * ipow<n, 3>() + l * n * n + k * n + j];
     }
     else if constexpr (dim == 2)
     {
@@ -95,7 +95,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
           for (int j = 0; j < n; j++)
             for (int s = 0; s < n; s++)
               for (int k = 0; k < n; k++)
-                y[p * n * n * n + l * n * n + s * n + k] += x[p * n * n * n + l * n * n + j * n + k] * A[j * n + s];
+                y[p * ipow<n, 3>() + l * n * n + s * n + k] += x[p * ipow<n, 3>() + l * n * n + j * n + k] * A[j * n + s];
     }
     else if constexpr (dim == 1)
     {
@@ -105,7 +105,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
           for (int s = 0; s < n; s++)
             for (int l = 0; l < n; l++)
               for (int k = 0; k < n; k++)
-                y[p * n * n * n + s * n * n + l * n + k] += x[p * n * n * n + j * n * n + l * n + k] * A[j * n + s];
+                y[p * ipow<n, 3>() + s * n * n + l * n + k] += x[p * ipow<n, 3>() + j * n * n + l * n + k] * A[j * n + s];
     }
     else // dim == 0
     {
@@ -119,47 +119,154 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
                     x[n * n * n * j + n * n * p + n * l + k] *
                     A[j * n + s];
     }
-          // P W[n][n][n][n] = {{{{{0}}}}}, Y[n][n][n][n] = {{{{{0}}}}};
-          // P const *A = &vA[t][n * n * (ix[0] * num_1d_blocks + iy[0])];
-          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
+  }
+  else if constexpr (num_dimensions == 5)
+  {
+    if constexpr (dim == 4)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(6))
+      for (int v = 0; v < n; v++)
+        for (int p = 0; p < n; p++)
+          for (int l = 0; l < n; l++)
+            for (int k = 0; k < n; k++)
+              for (int j = 0; j < n; j++)
+                for (int s = 0; s < n; s++)
+                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + k * n + s]
+                    += A[j * n + s] * x[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + k * n + j];
+    }
+    else if constexpr (dim == 3)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(6))
+      for (int v = 0; v < n; v++)
+        for (int p = 0; p < n; p++)
+          for (int l = 0; l < n; l++)
+            for (int j = 0; j < n; j++)
+              for (int s = 0; s < n; s++)
+                for (int k = 0; k < n; k++)
+                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + s * n + k]
+                    += x[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + j * n + k] * A[j * n + s];
+    }
+    else if constexpr (dim == 2)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(6))
+      for (int v = 0; v < n; v++)
+        for (int p = 0; p < n; p++)
+          for (int j = 0; j < n; j++)
+            for (int s = 0; s < n; s++)
+              for (int l = 0; l < n; l++)
+                for (int k = 0; k < n; k++)
+                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + s * n * n + l * n + k]
+                    += x[v * ipow<n, 4>() + p * ipow<n, 3>() + j * n * n + l * n + k] * A[j * n + s];
+    }
+    else if constexpr (dim == 1)
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(6))
+      for (int v = 0; v < n; v++)
+        for (int j = 0; j < n; j++)
+          for (int s = 0; s < n; s++)
+            for (int p = 0; p < n; p++)
+              for (int l = 0; l < n; l++)
+                for (int k = 0; k < n; k++)
+                  y[v * ipow<n, 4>() + s * ipow<n, 3>() + p * n * n + l * n + k]
+                    += x[v * ipow<n, 4>() + j * ipow<n, 3>() + p * n * n + l * n + k] * A[j * n + s];
+    }
+    else // dim == 0
+    {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(6))
+      for (int j = 0; j < n; j++)
+        for (int s = 0; s < n; s++)
+          for (int v = 0; v < n; v++)
+            for (int p = 0; p < n; p++)
+              for (int l = 0; l < n; l++)
+                for (int k = 0; k < n; k++)
+                  y[s * ipow<n, 4>() + v * ipow<n, 3>() + p * n * n + l * n + k] +=
+                      x[ipow<n, 4>() * j + ipow<n, 3>() * v + n * n * p +
+                        n * l + k] *
+                      A[j * n + s];
+    }
+  }
+  else if constexpr (num_dimensions == 6)
+  {
+    if constexpr (dim == 5)
+    {
+
+    }
+  }
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(7))
           // for (int j = 0; j < n; j++)
           //   for (int s = 0; s < n; s++)
+          //     for (int w = 0; w < n; w++)
+          //       for (int v = 0; v < n; v++)
+          //         for (int p = 0; p < n; p++)
+          //           for (int l = 0; l < n; l++)
+          //             for (int k = 0; k < n; k++)
+          //               W[s][w][v][p][l][k] +=
+          //                   x[tj + n * n * n * n * n * j + n * n * n * n * w +
+          //                     n * n * n * v + n * n * p + n * l + k] *
+          //                   A[j * n + s];
+          // A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(7))
+          // for (int w = 0; w < n; w++)
+          //   for (int j = 0; j < n; j++)
+          //     for (int s = 0; s < n; s++)
+          //       for (int v = 0; v < n; v++)
+          //         for (int p = 0; p < n; p++)
+          //           for (int l = 0; l < n; l++)
+          //             for (int k = 0; k < n; k++)
+          //               Y[w][s][v][p][l][k] +=
+          //                   W[w][j][v][p][l][k] * A[j * n + s];
+          // std::fill(&W[0][0][0][0][0][0],
+          //           &W[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
+          // A = &vA[t][2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2])];
+          // for (int w = 0; w < n; w++)
+          //   for (int v = 0; v < n; v++)
+          //     for (int j = 0; j < n; j++)
+          //       for (int s = 0; s < n; s++)
+          //         for (int p = 0; p < n; p++)
+          //           for (int l = 0; l < n; l++)
+          //             for (int k = 0; k < n; k++)
+          //               W[w][v][s][p][l][k] +=
+          //                   Y[w][v][j][p][l][k] * A[j * n + s];
+          // std::fill(&Y[0][0][0][0][0][0],
+          //           &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
+          // A = &vA[t][3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(7))
+          // for (int w = 0; w < n; w++)
+          //   for (int v = 0; v < n; v++)
+          //     for (int p = 0; p < n; p++)
+          //       for (int j = 0; j < n; j++)
+          //         for (int s = 0; s < n; s++)
+          //           for (int l = 0; l < n; l++)
+          //             for (int k = 0; k < n; k++)
+          //               Y[w][v][p][s][l][k] +=
+          //                   W[w][v][p][j][l][k] * A[j * n + s];
+          // std::fill(&W[0][0][0][0][0][0],
+          //           &W[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
+          // A = &vA[t][4 * vstride + n * n * (ix[4] * num_1d_blocks + iy[4])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(7))
+          // for (int w = 0; w < n; w++)
+          //   for (int v = 0; v < n; v++)
+          //     for (int p = 0; p < n; p++)
+          //       for (int l = 0; l < n; l++)
+          //         for (int j = 0; j < n; j++)
+          //           for (int s = 0; s < n; s++)
+          //             for (int k = 0; k < n; k++)
+          //               W[w][v][p][l][s][k] +=
+          //                   Y[w][v][p][l][j][k] * A[j * n + s];
+          // std::fill(&Y[0][0][0][0][0][0],
+          //           &Y[0][0][0][0][0][0] + sizeof(W) / sizeof(P), P{0.});
+          // A = &vA[t][5 * vstride + n * n * (ix[5] * num_1d_blocks + iy[5])];
+          // ASGARD_PRAGMA_OMP_SIMD(collapse(7))
+          // for (int w = 0; w < n; w++)
+          //   for (int v = 0; v < n; v++)
           //     for (int p = 0; p < n; p++)
           //       for (int l = 0; l < n; l++)
           //         for (int k = 0; k < n; k++)
-          //           W[s][p][l][k] +=
-          //               x[tj + n * n * n * j + n * n * p + n * l + k] *
-          //               A[j * n + s];
-          // A = &vA[t][vstride + n * n * (ix[1] * num_1d_blocks + iy[1])];
-          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
-          // for (int p = 0; p < n; p++)
-          //   for (int j = 0; j < n; j++)
-          //     for (int s = 0; s < n; s++)
-          //       for (int l = 0; l < n; l++)
-          //         for (int k = 0; k < n; k++)
-          //           Y[p][s][l][k] += W[p][j][l][k] * A[j * n + s];
-          // std::fill(&W[0][0][0][0], &W[0][0][0][0] + sizeof(W) / sizeof(P),
-          //           P{0.});
-          // A = &vA[t][2 * vstride + n * n * (ix[2] * num_1d_blocks + iy[2])];
-          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
-          // for (int p = 0; p < n; p++)
-          //   for (int l = 0; l < n; l++)
-          //     for (int j = 0; j < n; j++)
-          //       for (int s = 0; s < n; s++)
-          //         for (int k = 0; k < n; k++)
-          //           W[p][l][s][k] += Y[p][l][j][k] * A[j * n + s];
-          // std::fill(&Y[0][0][0][0], &Y[0][0][0][0] + sizeof(W) / sizeof(P),
-          //           P{0.});
-          // A = &vA[t][3 * vstride + n * n * (ix[3] * num_1d_blocks + iy[3])];
-          // ASGARD_PRAGMA_OMP_SIMD(collapse(5))
-          // for (int p = 0; p < n; p++)
-          //   for (int l = 0; l < n; l++)
-          //     for (int k = 0; k < n; k++)
-          //       for (int j = 0; j < n; j++)
-          //         for (int s = 0; s < n; s++)
-          //           Y[p][l][k][s] += A[j * n + s] * W[p][l][k][j];
+          //           for (int j = 0; j < n; j++)
+          //             for (int s = 0; s < n; s++)
+          //               Y[w][v][p][l][k][s] +=
+          //                   A[j * n + s] * W[w][v][p][l][k][j];
 
-  }
 }
 
 template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim, int n>
