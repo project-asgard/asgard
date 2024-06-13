@@ -98,6 +98,13 @@ struct gmres_info
 };
 
 template<typename P>
+struct bicgstab_info
+{
+  P error;
+  int iterations;
+};
+
+template<typename P>
 struct adaptive_info
 {
   // Holds the DOF count for each coarsen and refine step for the current time
