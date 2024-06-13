@@ -135,3 +135,4 @@ bicgstab_euler(const P dt, kronmult_matrix<P> const &mat,
       restart, max_iter, tolerance);
 }
 #endif
+} // namespace asgard::solver
