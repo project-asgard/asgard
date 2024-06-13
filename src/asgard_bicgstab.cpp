@@ -135,4 +135,95 @@ bicgstab_euler(const P dt, kronmult_matrix<P> const &mat,
       restart, max_iter, tolerance);
 }
 #endif
+
+// simple, node-local test version
+template<typename P, resource resrc, typename matrix_abstraction,
+         typename preconditioner_abstraction>
+bicgstab_info<P>
+bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
+         fk::vector<P, mem_type::owner, resrc> const &b,
+         preconditioner_abstraction precondition, int restart,
+         int max_outer_iterations, P tolerance)
+{
+  P tol;
+  int max_iter;
+  return bicgstab_info<P>{tol, max_iter};
+}
+
+#ifdef ASGARD_ENABLE_DOUBLE
+
+template bicgstab_info<double>
+bicgstab(fk::matrix<double> const &A, fk::vector<double> &x,
+         fk::vector<double> const &b, fk::matrix<double> const &M,
+         int const restart, int const max_iter, double const tolerance);
+
+#ifdef KRON_MODE_GLOBAL
+template bicgstab_info<double>
+bicgstab_euler(const double dt, matrix_entry mentry,
+               global_kron_matrix<double> const &mat,
+               fk::vector<double, mem_type::owner, resource::host> &x,
+               fk::vector<double, mem_type::owner, resource::host> const &b,
+               int const restart, int const max_iter, double const tolerance);
+#ifdef ASGARD_USE_CUDA
+template bicgstab_info<double>
+bicgstab_euler(const double dt, matrix_entry mentry,
+               global_kron_matrix<double> const &mat,
+               fk::vector<double, mem_type::owner, resource::device> &x,
+               fk::vector<double, mem_type::owner, resource::device> const &b,
+               int const restart, int const max_iter, double const tolerance);
+#endif
+#else
+template bicgstab_info<double>
+bicgstab_euler(const double dt, kronmult_matrix<double> const &mat,
+               fk::vector<double> &x, fk::vector<double> const &b,
+               int const restart, int const max_iter,
+               double const tolerance);
+#ifdef ASGARD_USE_CUDA
+template bicgstab_info<double> bicgstab_euler(
+    const double dt, kronmult_matrix<double> const &mat,
+    fk::vector<double, mem_type::owner, resource::device> &x,
+    fk::vector<double, mem_type::owner, resource::device> const &b,
+    int const restart, int const max_iter, double const tolerance);
+#endif
+#endif
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+
+template bicgstab_info<float>
+bicgstab(fk::matrix<float> const &A, fk::vector<float> &x,
+         fk::vector<float> const &b, fk::matrix<float> const &M,
+         int const restart, int const max_iter, float const tolerance);
+
+#ifdef KRON_MODE_GLOBAL
+template bicgstab_info<float>
+bicgstab_euler(const float dt, matrix_entry mentry,
+               global_kron_matrix<float> const &mat,
+               fk::vector<float, mem_type::owner, resource::host> &x,
+               fk::vector<float, mem_type::owner, resource::host> const &b,
+               int const restart, int const max_iter, float const tolerance);
+#ifdef ASGARD_USE_CUDA
+template bicgstab_info<float>
+bicgstab_euler(const float dt, matrix_entry mentry,
+               global_kron_matrix<float> const &mat,
+               fk::vector<float, mem_type::owner, resource::device> &x,
+               fk::vector<float, mem_type::owner, resource::device> const &b,
+               int const restart, int const max_iter, float const tolerance);
+#endif
+#else
+template bicgstab_info<float>
+bicgstab_euler(const float dt, kronmult_matrix<float> const &mat,
+               fk::vector<float> &x, fk::vector<float> const &b,
+               int const restart, int const max_iter,
+               float const tolerance);
+#ifdef ASGARD_USE_CUDA
+template bicgstab_info<float> bicgstab_euler(
+    const float dt, kronmult_matrix<float> const &mat,
+    fk::vector<float, mem_type::owner, resource::device> &x,
+    fk::vector<float, mem_type::owner, resource::device> const &b,
+    int const restart, int const max_iter, float const tolerance);
+#endif
+#endif
+#endif
+
 } // namespace asgard::solver
