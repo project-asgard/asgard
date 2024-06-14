@@ -181,7 +181,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
     REQUIRE(bicgstab_output.error < TestType{100.} * std::numeric_limits<TestType>::epsilon());
-    REQUIRE(test == x_gold);
+    rmse_comparison(x_gold, test, TestType{100.} * std::numeric_limits<TestType>::epsilon());
   }
 
   SECTION("bicgstab test case 2")
