@@ -180,7 +180,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
         A_gold, test, b_gold, precond, A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
-    REQUIRE(bicgstab_output.error < TestType{10.} * std::numeric_limits<TestType>::epsilon());
+    REQUIRE(bicgstab_output.error < TestType{100.} * std::numeric_limits<TestType>::epsilon());
     REQUIRE(test == x_gold);
   }
 

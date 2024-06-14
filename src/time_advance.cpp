@@ -362,7 +362,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
       time + dt);
   fm::axpy(bc, x, dt);
 
-  if ((solver != solve_opts::gmres || solver != solve_opts::bicgstab) && (first_time || update_system))
+  if ((solver != solve_opts::gmres && solver != solve_opts::bicgstab) && (first_time || update_system))
   {
     first_time = false;
 
