@@ -175,12 +175,10 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     max_iter = n;
   expect(max_iter > 0); // checked in program_options
 
-  P resid;
   fk::vector<P> rho_1(1), rho_2(1), alpha(1), beta(1), omega(1);
   fk::vector<P> p, phat, s, shat, t, v;
 
   P normb = fm::nrm2(b);
-  //fk::vector r = b - A * x;
   fk::vector<P> r = b;
   mat(P{-1.}, x, P{1.}, fk::vector<P, mem_type::view>(r));
 
@@ -189,11 +187,9 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   if (normb == 0.0)
     normb = 1;
 
-  if (resid = fm::nrm2(r) / normb, resid <= tol)
+  P resid = fm::nrm2(r) / normb;
+  if (resid <= tol)
   {
-    //tol = resid;
-    //max_iter = 0;
-    //return 0;
     return gmres_info<P>{resid, 0};
   }
 
@@ -202,8 +198,6 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     rho_1(0) = lib_dispatch::dot(rtilde.size(), rtilde.data(), 1, r.data(), 1);
     if (rho_1(0) == 0)
     {
-      // tol = norm(r) / normb;
-      // return 2;
       return gmres_info<P>{resid, i};
     }
     if (i == 1)
@@ -220,11 +214,10 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view>(v));
     alpha(0) = rho_1(0) / lib_dispatch::dot(rtilde.size(), rtilde.data(), 1, v.data(), 1);
     s        = r - alpha(0) * v;
-    if ((resid = fm::nrm2(s) / normb) < tol)
+    resid    = fm::nrm2(s) / normb;
+    if (resid < tol)
     {
       x = x + alpha(0) * phat;
-      //tol = resid;
-      //return 0;
       return gmres_info<P>{resid, i};
     }
     shat.resize(s.size()) = s;
@@ -237,22 +230,16 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     r        = s - omega(0) * t;
 
     rho_2(0) = rho_1(0);
-    if ((resid = fm::nrm2(r) / normb) < tol)
+    resid    = fm::nrm2(r) / normb;
+    if (resid < tol)
     {
-      //tol = resid;
-      //max_iter = i;
-      //return 0;
       return gmres_info<P>{resid, i};
     }
     if (omega(0) == 0)
     {
-      // tol = norm(r) / normb;
-      // return 3;
       return gmres_info<P>{fm::nrm2(r) / normb, i};
     }
   }
-  // tol = resid;
-  // return 1;
   return gmres_info<P>{resid, max_iter};
 }
 
