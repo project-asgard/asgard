@@ -456,7 +456,6 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                            program_opts);
     P const tolerance  = program_opts.gmres_tolerance;
     int const max_iter = program_opts.gmres_outer_iterations;
-    std::cout << "max_iter: " << max_iter << std::endl;
     fk::vector<P> fx(x);
     // TODO: do something better to save gmres output to pde
 #ifdef KRON_MODE_GLOBAL
