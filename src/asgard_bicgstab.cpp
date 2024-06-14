@@ -199,16 +199,17 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
       return bicgstab_info<P>{resid, i};
     }
     if (i == 1)
-      p = r;
+      p.resize(r.size()) = r;
     else
     {
       beta(0) = (rho_1(0) / rho_2(0)) * (alpha(0) / omega(0));
       p       = r + beta(0) * (p - omega(0) * v);
     }
-    phat = p;
+    phat.resize(p.size()) = p;
     fk::vector<P, mem_type::view> phat_v(phat);
     precondition(phat_v);
-    mat(P{1.}, fk::vector<P, mem_type::view>(phat), P{0.}, fk::vector<P, mem_type::view>(v));
+    v.resize(phat_v.size());
+    mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view>(v));
     alpha(0) = rho_1(0) / lib_dispatch::dot(rtilde.size(), rtilde.data(), 1, v.data(), 1);
     s        = r - alpha(0) * v;
     if ((resid = fm::nrm2(s) / normb) < tol)
@@ -218,10 +219,11 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
       //return 0;
       return bicgstab_info<P>{resid, i};
     }
-    shat = s;
+    shat.resize(s.size()) = s;
     fk::vector<P, mem_type::view> shat_v(shat);
     precondition(shat_v);
-    mat(P{1.}, fk::vector<P, mem_type::view>(shat), P{0.}, fk::vector<P, mem_type::view>(t));
+    t.resize(shat.size());
+    mat(P{1.}, shat_v, P{0.}, fk::vector<P, mem_type::view>(t));
     omega(0) = lib_dispatch::dot(t.size(), t.data(), 1, s.data(), 1) / lib_dispatch::dot(t.size(), t.data(), 1, t.data(), 1);
     x        = x + alpha(0) * phat + omega(0) * shat;
     r        = s - omega(0) * t;
