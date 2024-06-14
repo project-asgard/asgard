@@ -163,7 +163,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
     fk::vector<TestType> test(x_gold.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    bicgstab_info<TestType> const bicgstab_output = solver::bicgstab(
+    gmres_info<TestType> const bicgstab_output = solver::bicgstab(
         A_gold, test, b_gold, fk::matrix<TestType>(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
@@ -176,7 +176,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
     fk::vector<TestType> test(x_gold.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    bicgstab_info<TestType> const bicgstab_output = solver::bicgstab(
+    gmres_info<TestType> const bicgstab_output = solver::bicgstab(
         A_gold, test, b_gold, precond, A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
@@ -189,7 +189,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
     fk::vector<TestType> test(x_gold_2.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    bicgstab_info<TestType> const bicgstab_output = solver::bicgstab(
+    gmres_info<TestType> const bicgstab_output = solver::bicgstab(
         A_gold, test, b_gold_2, fk::matrix<TestType>(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
@@ -201,7 +201,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
   {
     fk::vector<TestType> test(x_gold_2.size());
     std::cout.setstate(std::ios_base::failbit);
-    bicgstab_info<TestType> const bicgstab_output = solver::bicgstab(
+    gmres_info<TestType> const bicgstab_output = solver::bicgstab(
         A_gold, test, b_gold_2, precond, A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();

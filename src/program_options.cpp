@@ -38,7 +38,7 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
           "Use implicit time advance (vs. explicit)") |
       clara::detail::Opt(solver_str,
-                         "direct|gmres|scalapack")["-s"]["--solver"](
+                         "direct|gmres|bicgstab|scalapack")["-s"]["--solver"](
           "Solver to use for implicit advance") |
       clara::detail::Opt(starting_levels_str,
                          "e.g. for 2d PDE: \"3 2\"")["-l"]["--levels"](

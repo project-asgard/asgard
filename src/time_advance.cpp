@@ -1,5 +1,6 @@
 #include "time_advance.hpp"
 #include "adapt.hpp"
+#include "asgard_bicgstab.hpp"
 #include "batch.hpp"
 #include "boundary_conditions.hpp"
 #include "coefficients.hpp"
@@ -361,7 +362,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
       time + dt);
   fm::axpy(bc, x, dt);
 
-  if (solver != solve_opts::gmres && (first_time || update_system))
+  if ((solver != solve_opts::gmres || solver != solve_opts::bicgstab) && (first_time || update_system))
   {
     first_time = false;
 
@@ -446,6 +447,25 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), operator_matrices[matrix_entry::regular],
         fx, x, restart, max_iter, tolerance);
+#endif
+    return fx;
+  }
+  else if (solver == solve_opts::bicgstab)
+  {
+    operator_matrices.make(matrix_entry::regular, pde, adaptive_grid,
+                           program_opts);
+    P const tolerance  = program_opts.gmres_tolerance;
+    int const max_iter = program_opts.gmres_outer_iterations;
+    fk::vector<P> fx(x);
+    // TODO: do something better to save gmres output to pde
+#ifdef KRON_MODE_GLOBAL
+    pde.gmres_outputs[0] = solver::bicgstab_euler<P, resource::host>(
+        pde.get_dt(), matrix_entry::regular, operator_matrices.kglobal,
+        fx, x, max_iter, tolerance);
+#else
+    pde.gmres_outputs[0] = solver::bicgstab_euler(
+        pde.get_dt(), operator_matrices[matrix_entry::regular],
+        fx, x, max_iter, tolerance);
 #endif
     return fx;
   }

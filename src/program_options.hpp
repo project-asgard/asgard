@@ -17,6 +17,7 @@ enum class solve_opts
 {
   direct,
   gmres,
+  bicgstab,
   scalapack
 };
 
@@ -26,6 +27,7 @@ using solve_map_t = std::map<std::string_view, solve_opts>;
 static solve_map_t const solver_mapping = {
     {"direct", solve_opts::direct},
     {"gmres", solve_opts::gmres},
+    {"bicgstab", solve_opts::bicgstab},
     {"scalapack", solve_opts::scalapack}};
 
 // the choices for supported PDE types
