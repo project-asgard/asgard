@@ -501,6 +501,13 @@ inline void fk::copy_vector(fk::vector<P, mem, resrc> &dest,
 // fk::vector class implementation starts here
 //
 //-----------------------------------------------------------------------------
+
+template<typename P>
+fk::vector<P> operator*(P a, const fk::vector<P> b)
+{
+  return b * a;
+}
+
 template<typename P, mem_type mem, resource resrc>
 fk::vector<P, mem, resrc>::vector() : data_{nullptr}, size_{0}
 {}
