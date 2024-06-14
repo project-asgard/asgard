@@ -306,4 +306,3 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
     test_kronmult(test_parse, tol_factor);
   }
 }
-}
