@@ -503,7 +503,7 @@ inline void fk::copy_vector(fk::vector<P, mem, resrc> &dest,
 //-----------------------------------------------------------------------------
 
 template<typename P>
-fk::vector<P> operator*(P a, const fk::vector<P> b)
+fk::vector<P> operator*(P a, const fk::vector<P> &b)
 {
   return b * a;
 }
