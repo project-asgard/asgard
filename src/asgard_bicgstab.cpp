@@ -164,8 +164,16 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
          preconditioner_abstraction precondition,
          int max_iter, P tol)
 {
-  //BiCGSTAB(const Matrix &A, Vector &x, const Vector &b,
-  //         const Preconditioner &M, int &max_iter, Real &tol)
+  if (tol == parser::NO_USER_VALUE_FP)
+    tol = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+  expect(tol >= std::numeric_limits<P>::epsilon());
+
+  int const n = b.size();
+  expect(n == x.size());
+
+  if (max_iter == parser::NO_USER_VALUE)
+    max_iter = n;
+  expect(max_iter > 0); // checked in program_options
 
   P resid;
   fk::vector<P> rho_1(1), rho_2(1), alpha(1), beta(1), omega(1);

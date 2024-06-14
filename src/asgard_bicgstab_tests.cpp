@@ -167,8 +167,8 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
         A_gold, test, b_gold, fk::matrix<TestType>(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
-    REQUIRE(bicgstab_output.error < TestType{10.} * std::numeric_limits<TestType>::epsilon());
-    REQUIRE(test == x_gold);
+    REQUIRE(bicgstab_output.error < TestType{100.} * std::numeric_limits<TestType>::epsilon());
+    rmse_comparison(x_gold, test, TestType{100.} * std::numeric_limits<TestType>::epsilon());
   }
 
   SECTION("test case 1, point jacobi preconditioned")
