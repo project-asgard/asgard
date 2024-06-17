@@ -551,7 +551,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
         std::vector<fk::matrix<P>> kron_vals;
         fk::matrix<P> kron0(1, 1);
         // if using imex, include only terms that match the flag
-        if (imex == imex_flag::unspecified || terms[k][0].flag == imex)
+        if (imex == imex_flag::unspecified || terms[k][0].flag() == imex)
         {
           kron0(0, 0) = 1.0;
         }

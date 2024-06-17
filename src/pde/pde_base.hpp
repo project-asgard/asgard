@@ -323,7 +323,7 @@ public:
   term(bool const time_dependent_in, std::string const name_in,
        std::initializer_list<partial_term<P>> const partial_terms,
        imex_flag const flag_in = imex_flag::unspecified)
-      : time_dependent(time_dependent_in), name(name_in), flag(flag_in),
+      : time_dependent_(time_dependent_in), name_(name_in), flag_(flag_in),
         partial_terms_(partial_terms)
   {}
 
@@ -425,13 +425,17 @@ public:
     }
   }
 
-  // public but const data. no getters
-  bool time_dependent;
-  std::string name;
+  bool time_dependent() const { return time_dependent_; }
+  std::string const &name() const { return name_; }
 
-  imex_flag flag;
+  imex_flag flag() const { return flag_; }
 
 private:
+  bool time_dependent_;
+  std::string name_;
+
+  imex_flag flag_;
+
   std::vector<partial_term<P>> partial_terms_;
 
   // operator matrix for this term at a single dimension

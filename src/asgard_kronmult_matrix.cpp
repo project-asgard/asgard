@@ -34,7 +34,7 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
     std::vector<int> terms;
     terms.reserve(pde.num_terms);
     for (int t = 0; t < pde.num_terms; t++)
-      if (pde.get_terms()[t][0].flag == imex)
+      if (pde.get_terms()[t][0].flag() == imex)
         terms.push_back(t);
 
     return terms;

@@ -34,7 +34,7 @@ void generate_all_coefficients(
       auto const &partial_terms = term_1D.get_partial_terms();
 
       // skip regenerating coefficients that are constant in time
-      if (!term_1D.time_dependent && time > 0.0)
+      if (!term_1D.time_dependent() && time > 0.0)
       {
         continue;
       }
