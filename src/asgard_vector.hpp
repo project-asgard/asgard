@@ -282,14 +282,14 @@ public:
    *  \param right elements on rhs for addition.
    *  \return vector with results of element-wise addition.
    */
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P> operator+(vector<P, omem> const &right) const;
+  template<mem_type omem, typename P_ = P, typename = std::enable_if_t<std::is_floating_point_v<P_>>>
+  vector<P, mem_type::owner, resrc> operator+(vector<P, omem, resrc> const &right) const;
   /*! element-wise subtraction
    *  \param right elements on rhs for subtraction.
    *  \return vector with results of element-wise subtraction.
    */
-  template<mem_type omem, resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P> operator-(vector<P, omem> const &right) const;
+  template<mem_type omem, typename P_ = P, typename = std::enable_if_t<std::is_floating_point_v<P_>>>
+  vector<P, mem_type::owner, resrc> operator-(vector<P, omem, resrc> const &right) const;
   /*! dot product of two vectors
    *  \param right elements on rhs for dot product.
    *  \return scalar result of dot product.
@@ -306,8 +306,7 @@ public:
    *  \param value value to multiply each element by
    *  \return result of vector*scalar product.
    */
-  template<resource r_ = resrc, typename = enable_for_host<r_>>
-  vector<P> operator*(P const) const;
+  vector<P, mem_type::owner, resrc> operator*(P const) const;
 
   /*! perform the matrix kronecker product by interpreting vector
    *  operands/return vector as single column matrices.
@@ -502,8 +501,8 @@ inline void fk::copy_vector(fk::vector<P, mem, resrc> &dest,
 //
 //-----------------------------------------------------------------------------
 
-template<typename P>
-fk::vector<P> operator*(P a, const fk::vector<P> &b)
+template<typename P, mem_type mem, resource resrc>
+fk::vector<P, mem, resrc> operator*(P a, const fk::vector<P, mem, resrc> &b)
 {
   return b * a;
 }
@@ -872,14 +871,13 @@ bool fk::vector<P, mem, resrc>::operator<(vector<P, omem> const &other) const
 // vector addition operator
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
-fk::vector<P>
-fk::vector<P, mem, resrc>::operator+(vector<P, omem> const &right) const
+template<mem_type omem, typename, typename>
+fk::vector<P, mem_type::owner, resrc>
+fk::vector<P, mem, resrc>::operator+(vector<P, omem, resrc> const &right) const
 {
   expect(size() == right.size());
-  vector<P> ans(size());
-  for (auto i = 0; i < size(); ++i)
-    ans(i) = (*this)(i) + right(i);
+  vector<P, mem_type::owner, resrc> ans(right);
+  lib_dispatch::axpy<resrc>(size(), P{1}, data(), 1, ans.data(), 1);
   return ans;
 }
 
@@ -887,14 +885,13 @@ fk::vector<P, mem, resrc>::operator+(vector<P, omem> const &right) const
 // vector subtraction operator
 //
 template<typename P, mem_type mem, resource resrc>
-template<mem_type omem, resource, typename>
-fk::vector<P>
-fk::vector<P, mem, resrc>::operator-(vector<P, omem> const &right) const
+template<mem_type omem, typename, typename>
+fk::vector<P, mem_type::owner, resrc>
+fk::vector<P, mem, resrc>::operator-(vector<P, omem, resrc> const &right) const
 {
   expect(size() == right.size());
-  vector<P> ans(size());
-  for (auto i = 0; i < size(); ++i)
-    ans(i) = (*this)(i)-right(i);
+  vector<P, mem_type::owner, resrc> ans(*this);
+  lib_dispatch::axpy<resrc>(size(), P{-1}, right.data(), 1, ans.data(), 1);
   return ans;
 }
 
@@ -933,11 +930,10 @@ fk::vector<P, mem, resrc>::operator*(fk::matrix<P, omem, resrc> const &A) const
 // vector*scalar multiplication operator
 //
 template<typename P, mem_type mem, resource resrc>
-template<resource, typename>
-fk::vector<P> fk::vector<P, mem, resrc>::operator*(P const x) const
+fk::vector<P, mem_type::owner, resrc> fk::vector<P, mem, resrc>::operator*(P const x) const
 {
-  vector<P> a(*this);
-  lib_dispatch::scal(a.size(), x, a.data(), 1);
+  vector<P, mem_type::owner, resrc> a(*this);
+  lib_dispatch::scal<resrc>(a.size(), x, a.data(), 1);
   return a;
 }
 

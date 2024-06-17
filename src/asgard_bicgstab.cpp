@@ -176,16 +176,16 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   expect(max_iter > 0); // checked in program_options
 
   fk::vector<P> rho_1(1), rho_2(1), alpha(1), beta(1), omega(1);
-  fk::vector<P> p, phat, s, shat, t, v;
+  fk::vector<P, mem_type::owner, resrc> p, phat, s, shat, t, v;
 
   P normb = fm::nrm2(b);
-  fk::vector<P> r = b;
-  mat(P{-1.}, x, P{1.}, fk::vector<P, mem_type::view>(r));
+  fk::vector<P, mem_type::owner, resrc> r = b;
+  mat(P{-1.}, x, P{1.}, fk::vector<P, mem_type::view, resrc>(r));
 
-  fk::vector<P> rtilde = r;
+  fk::vector<P, mem_type::owner, resrc> rtilde = r;
 
-  if (normb == 0.0)
-    normb = 1;
+  if (normb == 0.)
+    normb = 1.;
 
   P resid = fm::nrm2(r) / normb;
   if (resid <= tol)
@@ -195,24 +195,26 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 
   for (int i = 1; i <= max_iter; i++)
   {
-    rho_1(0) = lib_dispatch::dot(rtilde.size(), rtilde.data(), 1, r.data(), 1);
+    rho_1(0) = lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, r.data(), 1);
     if (rho_1(0) == 0)
     {
       return gmres_info<P>{resid, i};
     }
     if (i == 1)
+    {
       p.resize(r.size()) = r;
+    }
     else
     {
       beta(0) = (rho_1(0) / rho_2(0)) * (alpha(0) / omega(0));
       p       = r + beta(0) * (p - omega(0) * v);
     }
     phat.resize(p.size()) = p;
-    fk::vector<P, mem_type::view> phat_v(phat);
+    fk::vector<P, mem_type::view, resrc> phat_v(phat);
     precondition(phat_v);
     v.resize(phat_v.size());
-    mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view>(v));
-    alpha(0) = rho_1(0) / lib_dispatch::dot(rtilde.size(), rtilde.data(), 1, v.data(), 1);
+    mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(v));
+    alpha(0) = rho_1(0) / lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, v.data(), 1);
     s        = r - alpha(0) * v;
     resid    = fm::nrm2(s) / normb;
     if (resid < tol)
@@ -221,11 +223,11 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
       return gmres_info<P>{resid, i};
     }
     shat.resize(s.size()) = s;
-    fk::vector<P, mem_type::view> shat_v(shat);
+    fk::vector<P, mem_type::view, resrc> shat_v(shat);
     precondition(shat_v);
     t.resize(shat.size());
-    mat(P{1.}, shat_v, P{0.}, fk::vector<P, mem_type::view>(t));
-    omega(0) = lib_dispatch::dot(t.size(), t.data(), 1, s.data(), 1) / lib_dispatch::dot(t.size(), t.data(), 1, t.data(), 1);
+    mat(P{1.}, shat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(t));
+    omega(0) = lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, s.data(), 1) / lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, t.data(), 1);
     x        = x + alpha(0) * phat + omega(0) * shat;
     r        = s - omega(0) * t;
 
