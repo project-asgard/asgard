@@ -158,30 +158,30 @@ public:
 
   P get_flux_scale() const { return static_cast<P>(flux); };
 
-  coefficient_type const coeff_type;
+  coefficient_type coeff_type;
 
-  g_func_type<P> const g_func;
-  g_func_type<P> const lhs_mass_func;
+  g_func_type<P> g_func;
+  g_func_type<P> lhs_mass_func;
 
-  flux_type const flux;
+  flux_type flux;
 
-  boundary_condition const left;
+  boundary_condition left;
 
-  boundary_condition const right;
+  boundary_condition right;
 
-  boundary_condition const ileft;
-  boundary_condition const iright;
+  boundary_condition ileft;
+  boundary_condition iright;
 
-  homogeneity const left_homo;
-  homogeneity const right_homo;
-  std::vector<vector_func<P>> const left_bc_funcs;
-  std::vector<vector_func<P>> const right_bc_funcs;
-  scalar_func<P> const left_bc_time_func;
-  scalar_func<P> const right_bc_time_func;
+  homogeneity left_homo;
+  homogeneity right_homo;
+  std::vector<vector_func<P>> left_bc_funcs;
+  std::vector<vector_func<P>> right_bc_funcs;
+  scalar_func<P> left_bc_time_func;
+  scalar_func<P> right_bc_time_func;
 
-  g_func_type<P> const dv_func;
+  g_func_type<P> dv_func;
 
-  fk::matrix<P> const get_coefficients(int const level) const
+  fk::matrix<P>  get_coefficients(int const level) const
   {
     // returns precomputed inv(mass) * coeff for this level
     expect(static_cast<int>(coefficients_.size()) > level);
@@ -384,10 +384,10 @@ public:
   }
 
   // public but const data. no getters
-  bool const time_dependent;
-  std::string const name;
+  bool time_dependent;
+  std::string name;
 
-  imex_flag const flag;
+  imex_flag flag;
 
 private:
   std::vector<partial_term<P>> partial_terms_;
@@ -414,8 +414,8 @@ public:
   {}
 
   // public but const data. no getters
-  std::vector<vector_func<P>> const source_funcs;
-  scalar_func<P> const time_func;
+  std::vector<vector_func<P>> source_funcs;
+  scalar_func<P> time_func;
 };
 
 template<typename P>
@@ -525,16 +525,53 @@ public:
       bool const has_analytic_soln_in         = false,
       std::vector<moment<P>> const moments_in = {},
       bool const do_collision_operator_in     = true)
-      : num_dims(num_dims_in), num_sources(num_sources_in),
-        num_terms(get_num_terms(cli_input, max_num_terms)),
-        max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
-        exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
-        exact_time(check_exact_time(exact_time_in)),
-        do_poisson_solve(do_poisson_solve_in),
-        do_collision_operator(do_collision_operator_in),
-        has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
-        terms_(terms)
+      // : num_dims(num_dims_in), num_sources(num_sources_in),
+      //   num_terms(get_num_terms(cli_input, max_num_terms)),
+      //   max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
+      //   exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
+      //   exact_time(check_exact_time(exact_time_in)),
+      //   do_poisson_solve(do_poisson_solve_in),
+      //   do_collision_operator(do_collision_operator_in),
+      //   has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
+      //   terms_(terms)
   {
+    initialize(cli_input, num_dims_in, num_sources_in,
+      max_num_terms, dimensions, terms, sources_in,
+      exact_vector_funcs_in,
+      exact_time_in, get_dt,
+      do_poisson_solve_in,
+      has_analytic_soln_in,
+      moments_in,
+      do_collision_operator_in);
+  }
+
+  void initialize(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+      int const max_num_terms, std::vector<dimension<P>> const dimensions,
+      term_set<P> const terms, std::vector<source<P>> const sources_in,
+      std::vector<md_func_type<P>> const exact_vector_funcs_in,
+      scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
+      bool const do_poisson_solve_in          = false,
+      bool const has_analytic_soln_in         = false,
+      std::vector<moment<P>> const moments_in = {},
+      bool const do_collision_operator_in     = true)
+  {
+    num_dims    = num_dims_in;
+    num_sources = num_sources_in;
+    num_terms   = get_num_terms(cli_input, max_num_terms);
+    max_level   = get_max_level(cli_input, dimensions);
+
+    sources            = std::move(sources_in);
+    exact_vector_funcs = std::move(exact_vector_funcs_in);
+    moments            = std::move(moments_in);
+
+    exact_time = check_exact_time(exact_time_in);
+
+    do_poisson_solve      = do_poisson_solve_in;
+    do_collision_operator = do_collision_operator_in;
+    has_analytic_soln     = has_analytic_soln_in;
+    dimensions_           = std::move(dimensions);
+    terms_                = std::move(terms);
+
     expect(num_dims > 0);
     expect(num_sources >= 0);
     expect(num_terms > 0);
@@ -724,18 +761,18 @@ public:
   {}
 
   // public but const data.
-  int const num_dims;
-  int const num_sources;
-  int const num_terms;
-  int const max_level;
+  int num_dims;
+  int num_sources;
+  int num_terms;
+  int max_level;
 
-  std::vector<source<P>> const sources;
-  std::vector<md_func_type<P>> const exact_vector_funcs;
+  std::vector<source<P>> sources;
+  std::vector<md_func_type<P>> exact_vector_funcs;
   std::vector<moment<P>> moments;
-  scalar_func<P> const exact_time;
-  bool const do_poisson_solve;
-  bool const do_collision_operator;
-  bool const has_analytic_soln;
+  scalar_func<P> exact_time;
+  bool do_poisson_solve;
+  bool do_collision_operator;
+  bool has_analytic_soln;
   // data for poisson solver
   fk::vector<P> poisson_diag;
   fk::vector<P> poisson_off_diag;

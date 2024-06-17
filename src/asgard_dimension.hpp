@@ -273,11 +273,11 @@ struct dimension_set
 template<typename P>
 struct dimension
 {
-  P const domain_min;
-  P const domain_max;
-  std::vector<vector_func<P>> const initial_condition;
-  g_func_type<P> const volume_jacobian_dV;
-  std::string const name;
+  P domain_min;
+  P domain_max;
+  std::vector<vector_func<P>> initial_condition;
+  g_func_type<P> volume_jacobian_dV;
+  std::string name;
   dimension(P const d_min, P const d_max, int const level, int const degree,
             vector_func<P> const initial_condition_in,
             g_func_type<P> const volume_jacobian_dV_in,
