@@ -15,11 +15,20 @@ class PDE_vlasov_two_stream : public PDE<P>
 {
 public:
   PDE_vlasov_two_stream(parser const &cli_input)
-      : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
-               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
-               do_collision_operator_)
   {
+    std::vector<dimension<P>> dimensions = {
+      dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
+                   initial_condition_dim_x_0, nullptr, "x"),
+      dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
+                   initial_condition_dim_v_0, nullptr, "v")
+    };
+
+    // using empty instances for exact_vector_funcs and exact_time
+    this->initialize(cli_input, num_dims_, num_sources_, num_terms_, dimensions,
+                     terms_, sources_, std::vector<md_func_type<P>>{}, scalar_func<P>{},
+                     get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
+                     do_collision_operator_);
+
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
     param_manager.add_parameter(parameter<P>{"theta", theta});
@@ -63,17 +72,6 @@ private:
         });
     return fx;
   }
-
-  /* Define the dimension */
-  inline static dimension<P> const dim_0 =
-      dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
-                   initial_condition_dim_x_0, nullptr, "x");
-
-  inline static dimension<P> const dim_1 =
-      dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
-                   initial_condition_dim_v_0, nullptr, "v");
-
-  inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
   /* Define the moments */
   static fk::vector<P> moment0_f1(fk::vector<P> const &x, P const t = 0)
@@ -300,9 +298,6 @@ private:
   inline static std::vector<term<P>> const terms_4 = {E_mass_x_neg, div_v_up};
 
   inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_4};
-
-  inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
-  inline static scalar_func<P> const exact_scalar_func_               = {};
 
   static P get_dt_(dimension<P> const &dim)
   {
