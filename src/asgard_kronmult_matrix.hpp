@@ -1309,7 +1309,8 @@ public:
     conn_full_(std::move(conn_full)), gvals_(flux_dir_.size() * num_dimensions_),
     workspace_(workspace)
   {
-    std::cout << " in contructor gvals_.size() = " << gvals_.size() << "\n";
+    for (auto &f : flops_)
+      f = -1;
   }
 
   template<resource rec>
@@ -1341,8 +1342,15 @@ public:
   int64_t flops(matrix_entry etype) const
   {
     // return flops_[flag2int(etype)];
-    ignore(etype);
-    return 1000000;
+    int i = flag2int(etype);
+    if (flops_[i] == -1)
+    {
+      flops_[i] = kronmult::block_global_count_flops(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
+                       perms_, flux_dir_, conn_volumes_, conn_full_,
+                       term_groups_[i], *workspace_);
+      std::cout << " number of flops: " << flops_[i] * 1.E-9 << "Gflops\n";
+    }
+    return flops_[i];
   }
 
   // made friends for two reasons
@@ -1367,6 +1375,8 @@ public:
   }
 
 private:
+  static constexpr int num_variants = 3;
+
   int64_t num_active_, num_padded_;
   int num_dimensions_, blockn_;
   int64_t block_size_;
@@ -1379,6 +1389,8 @@ private:
   std::vector<std::vector<precision>> gvals_;
   std::array<std::vector<int>, 3> term_groups_;
   mutable kronmult::block_global_workspace<precision>* workspace_;
+
+  mutable std::array<int64_t, num_variants> flops_;
 
   // preconditioner
   std::vector<precision> pre_con_;
@@ -1409,10 +1421,10 @@ struct matrix_list
   }
 
   //int64_t flops(matrix_entry entry)
-  int64_t flops(matrix_entry)
+  int64_t flops(matrix_entry entry)
   {
     // counting the flops in this case is very hard ...
-    return 1000000;
+    return kglobal.flops(entry);
   }
 
   //! \brief Make the matrix for the given entry
@@ -1471,8 +1483,6 @@ private:
       imex_flag::unspecified, imex_flag::imex_explicit,
       imex_flag::imex_implicit};
 };
-
-
 
 #endif
 

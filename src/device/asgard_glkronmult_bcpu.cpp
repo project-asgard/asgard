@@ -268,6 +268,8 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
   }
 }
 
+int64_t number_of_blocks_;
+
 template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim, int n>
 void global_cpu(int64_t block_size,
                 vector2d<int> const &ilist, dimension_sort const &dsort,
@@ -318,14 +320,21 @@ void global_cpu(int64_t block_size,
         int col_begin = (fill == permutes::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
         int col_end   = (fill == permutes::matrix_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
 
-        for (int j = 0; j < block_size; j++)
-          local_y[j] = precision{0};
+        if constexpr (n != -1)
+          for (int j = 0; j < block_size; j++)
+            local_y[j] = precision{0};
 
         for (int c = col_begin; c < col_end; c++)
         {
           int const j = conn[c];
           if (xidx[j] != -1)
-            gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[ xidx[j] ], local_y);
+          {
+            if constexpr (n == -1)
+              #pragma omp atomic
+              number_of_blocks_ += 1;
+            else
+              gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[ xidx[j] ], local_y);
+          }
         }
       }
 
@@ -346,6 +355,9 @@ void global_cpu(int n, int64_t block_size,
 {
   switch(n)
   {
+    case -1: // special case: count the number of flops
+      global_cpu<precision, fill, num_dimensions, dim, -1>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
     case 1: // pwconstant
       global_cpu<precision, fill, num_dimensions, dim, 1>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
       break;
@@ -534,8 +546,6 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
 {
   int64_t const num_entries = block_size * ilist.num_strips();
 
-  //std::cout << " block_size = " << block_size << " ilist.num_strips() = " << ilist.num_strips() << "\n";
-
   if (static_cast<int64_t>(workspace.w1.size()) < num_entries)
     workspace.w1.resize(num_entries);
   if (static_cast<int64_t>(workspace.w2.size()) < num_entries)
@@ -576,6 +586,45 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
   }
 }
 
+template<typename precision>
+int64_t block_global_count_flops(
+    int num_dimensions, int n, int64_t block_size,
+    vector2d<int> const &ilist, dimension_sort const &dsort,
+    std::vector<permutes> const &perms,
+    std::vector<int> const &flux_dir,
+    connect_1d const &conn_volumes, connect_1d const &conn_full,
+    std::vector<int> const &terms,
+    block_global_workspace<precision> &workspace)
+{
+  number_of_blocks_ = 0;
+
+  for (int t : terms)
+  {
+    // terms can have different effective dimension, since some of them are identity
+    permutes const &perm  = perms[t];
+    int const active_dims = perm.num_dimensions();
+    if (active_dims == 0)
+      continue;
+
+    for (size_t i = 0; i < perm.fill.size(); i++)
+    {
+      int dir = perm.direction[i][0];
+
+      for (int d = 0; d < active_dims; d++)
+      {
+        dir = perm.direction[i][d];
+        global_cpu<precision>(num_dimensions, -1, block_size, ilist, dsort, dir, perm.fill[i][d],
+                   (perm.fill[i][d] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
+                   std::vector<precision>{}, nullptr, nullptr, workspace.row_map);
+      }
+    }
+  }
+
+  for (int d = 0; d <= num_dimensions; d++)
+    number_of_blocks_ *= n;
+
+  return number_of_blocks_;
+}
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
@@ -587,6 +636,15 @@ template void global_cpu<double>(int, int, int64_t,
                                  std::vector<int> const &, double const[], double[],
                                  block_global_workspace<double> &);
 
+template int64_t block_global_count_flops<double>(
+    int num_dimensions, int n, int64_t block_size,
+    vector2d<int> const &ilist, dimension_sort const &dsort,
+    std::vector<permutes> const &perms,
+    std::vector<int> const &flux_dir,
+    connect_1d const &conn_volumes, connect_1d const &conn_full,
+    std::vector<int> const &terms,
+    block_global_workspace<double> &workspace);
+
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -597,6 +655,16 @@ template void global_cpu<float>(int, int, int64_t, std::vector<permutes> const &
                                 connect_1d const &, std::vector<std::vector<float>> const &,
                                 std::vector<int> const &, float const[], float[],
                                 block_global_workspace<float> &);
+
+template int64_t block_global_count_flops<float>(
+    int num_dimensions, int n, int64_t block_size,
+    vector2d<int> const &ilist, dimension_sort const &dsort,
+    std::vector<permutes> const &perms,
+    std::vector<int> const &flux_dir,
+    connect_1d const &conn_volumes, connect_1d const &conn_full,
+    std::vector<int> const &terms,
+    block_global_workspace<float> &workspace);
+
 #endif
 
 #endif

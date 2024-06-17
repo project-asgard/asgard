@@ -1608,10 +1608,9 @@ void block_global_kron_matrix<precision>::apply(
 
   std::vector<int> const &used_terms = term_groups_[imex];
 
-  if (beta == 0) {
-    //std::cout << " setting zero\n";
+  if (beta == 0)
     kronmult::set_buffer_to_zero<rec>(num_active_, y);
-  } else
+  else
     lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
 
   if (used_terms.size() == 0)
@@ -1622,14 +1621,13 @@ void block_global_kron_matrix<precision>::apply(
 
   kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
                        perms_, flux_dir_, conn_volumes_, conn_full_,
-                       gvals_, used_terms, workspace_->x.data(), workspace_->y.data(),
-                       *workspace_);
+                       gvals_, used_terms, workspace_->x.data(),
+                       workspace_->y.data(), *workspace_);
 
-  precision *py = workspace_->y.data();
+  precision const *py = workspace_->y.data();
 #pragma omp parallel for
   for (int64_t i = 0; i < num_active_; i++)
     y[i] += alpha * py[i];
-
 }
 
 template<typename precision>
@@ -1691,16 +1689,10 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
 
   int64_t num_padded = cells.num_strips() * block_size;
   workspace->x.resize(num_padded);
-  std::fill(workspace->x.begin(), workspace->x.end(), precision{0});
+  std::fill_n(workspace->x.begin(), num_padded, precision{0});
   workspace->y.resize(num_padded);
   workspace->w1.resize(num_padded);
   workspace->w2.resize(num_padded);
-
-  std::cout << " num_terms = " << num_terms
-            << " flux_dir.size() = " << flux_dir.size()
-            << " num_cells = " << num_cells
-            << " num_padded = " << num_padded
-            << "\n";
 
   return block_global_kron_matrix<precision>(
       num_cells * block_size, num_padded,
@@ -1725,8 +1717,6 @@ void set_specific_mode(PDE<precision> const &pde,
   int const n = mat.blockn_;
 
   int const num_dimensions = pde.num_dims;
-
-  //std::cout << " setting mode n = " << n << " num_dimensions = " << num_dimensions << "\n";
 
   for (int t : used_terms)
   {
@@ -1753,8 +1743,6 @@ void set_specific_mode(PDE<precision> const &pde,
     // prepare a preconditioner
     build_preconditioner(pde, mat.ilist_.num_strips() * mat.block_size_, dis_grid,
                          used_terms, mat.pre_con_);
-
-  std::cout << " cointing the flops in the block-matrix case is hard ...\n";
 }
 
 #endif // KRON_MODE_GLOBAL_BLOCK

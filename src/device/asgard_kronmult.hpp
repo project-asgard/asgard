@@ -434,6 +434,16 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
                 precision const x[], precision y[],
                 block_global_workspace<precision> &workspace);
 
+template<typename precision>
+int64_t block_global_count_flops(
+    int num_dimensions, int n, int64_t block_size,
+    vector2d<int> const &ilist, dimension_sort const &dsort,
+    std::vector<permutes> const &perms,
+    std::vector<int> const &flux_dir,
+    connect_1d const &conn_volumes, connect_1d const &conn_full,
+    std::vector<int> const &terms,
+    block_global_workspace<precision> &workspace);
+
 #endif
 #endif
 
