@@ -99,14 +99,14 @@ void test_compute_boundary_condition(PDE<P> &pde,
             std::to_string(term_num) + "t_" + std::to_string(dim_num) + "dim_" +
             std::to_string(p_num) + "p.dat";
         partial_term<P> const &p_term = partial_terms[p_num];
-        if (p_term.left_homo == homogeneity::inhomogeneous)
+        if (p_term.left_homo() == homogeneity::inhomogeneous)
         {
-          REQUIRE(static_cast<int>(p_term.left_bc_funcs.size()) > dim_num);
+          REQUIRE(static_cast<int>(p_term.left_bc_funcs().size()) > dim_num);
 
           fk::vector<P> const left_bc =
               boundary_conditions::compute_left_boundary_condition(
-                  p_term.g_func, p_term.dv_func, time, d,
-                  p_term.left_bc_funcs[dim_num]);
+                  p_term.g_func(), p_term.dv_func(), time, d,
+                  p_term.left_bc_funcs()[dim_num]);
 
           /* compare to gold left bc */
           fk::vector<P> const gold_left_bc_vector =
@@ -114,14 +114,14 @@ void test_compute_boundary_condition(PDE<P> &pde,
           rmse_comparison(gold_left_bc_vector, left_bc, tol_factor);
         }
 
-        if (p_term.right_homo == homogeneity::inhomogeneous)
+        if (p_term.right_homo() == homogeneity::inhomogeneous)
         {
-          REQUIRE(static_cast<int>(p_term.right_bc_funcs.size()) > dim_num);
+          REQUIRE(static_cast<int>(p_term.right_bc_funcs().size()) > dim_num);
 
           fk::vector<P> const right_bc =
               boundary_conditions::compute_right_boundary_condition(
-                  p_term.g_func, p_term.dv_func, time, d,
-                  p_term.right_bc_funcs[dim_num]);
+                  p_term.g_func(), p_term.dv_func(), time, d,
+                  p_term.right_bc_funcs()[dim_num]);
           /* compare to gold right bc */
 
           std::string const gold_right_filename =

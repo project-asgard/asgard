@@ -43,7 +43,7 @@ void generate_all_coefficients(
       {
         // TODO: refactor these changes, this is slow!
         partial_term<P> const lhs_mass_pterm = partial_term<P>(
-            coefficient_type::mass, partial_terms[k].lhs_mass_func, nullptr,
+            coefficient_type::mass, partial_terms[k].lhs_mass_func(), nullptr,
             flux_type::central, boundary_condition::periodic,
             boundary_condition::periodic, homogeneity::homogeneous,
             homogeneity::homogeneous, {}, nullptr, {}, nullptr,
@@ -62,7 +62,7 @@ void generate_all_coefficients(
         //{
         auto const dof  = dim.get_degree() * fm::two_raised_to(dim.get_level());
         auto result_tmp = result.extract_submatrix(0, 0, dof, dof);
-        if (partial_terms[k].dv_func || partial_terms[k].g_func)
+        if (partial_terms[k].dv_func() || partial_terms[k].g_func())
         {
           auto mass_tmp = mass_coeff.extract_submatrix(0, 0, dof, dof);
           fm::gesv(mass_tmp, result_tmp, ipiv);
@@ -100,7 +100,7 @@ void generate_all_coefficients_max_level(
       {
         // TODO: refactor these changes, this is slow!
         partial_term<P> const lhs_mass_pterm = partial_term<P>(
-            coefficient_type::mass, partial_terms[k].lhs_mass_func, nullptr,
+            coefficient_type::mass, partial_terms[k].lhs_mass_func(), nullptr,
             flux_type::central, boundary_condition::periodic,
             boundary_condition::periodic, homogeneity::homogeneous,
             homogeneity::homogeneous, {}, nullptr, {}, nullptr,
@@ -116,7 +116,7 @@ void generate_all_coefficients_max_level(
         {
           auto result = generate_coefficients<P>(
               dim, partial_terms[k], transformer, level, time, rotate);
-          if (partial_terms[k].dv_func || partial_terms[k].g_func)
+          if (partial_terms[k].dv_func() || partial_terms[k].g_func())
           {
             auto const dof = dim.get_degree() * fm::two_raised_to(level);
             auto mass_tmp  = mass_coeff.extract_submatrix(0, 0, dof, dof);
@@ -173,10 +173,10 @@ fk::matrix<P> generate_coefficients(
   expect(transformer.degree == dim.get_degree());
   expect(transformer.max_level >= dim.get_level());
   expect(level <= transformer.max_level);
-  expect(coeff_type == pterm.coeff_type);
+  expect(coeff_type == pterm.coeff_type());
 
-  auto g_dv_func = [g_func  = pterm.g_func,
-                    dv_func = pterm.dv_func]() -> g_func_type<P> {
+  auto g_dv_func = [g_func  = pterm.g_func(),
+                    dv_func = pterm.dv_func()]() -> g_func_type<P> {
     if (g_func && dv_func)
     {
       return [g_func, dv_func](P const x, P const t) {
@@ -185,7 +185,7 @@ fk::matrix<P> generate_coefficients(
     }
     else if (g_func)
     {
-      return [g_func](P const x, P const t) { return g_func(x, t); };
+      return [=](P const x, P const t) { return g_func(x, t); };
     }
     else if (dv_func)
     {
@@ -463,7 +463,7 @@ fk::matrix<P> generate_coefficients(
         }
 
         // handle the left-boundary
-        switch (pterm.ileft)
+        switch (pterm.ileft())
         {
         case boundary_condition::dirichlet:
           // If penalty then we add <|g|/2[f],[v]>
@@ -514,7 +514,7 @@ fk::matrix<P> generate_coefficients(
         }
 
         // handle the right boundary condition
-        switch (pterm.iright)
+        switch (pterm.iright())
         {
         case boundary_condition::dirichlet:
           if constexpr (coeff_type == coefficient_type::penalty)
@@ -565,7 +565,7 @@ fk::matrix<P> generate_coefficients(
     basis::wavelet_transform<P, resource::host> const &transformer,
     int const level, P const time, bool const rotate)
 {
-  switch (pterm.coeff_type)
+  switch (pterm.coeff_type())
   {
   case coefficient_type::mass:
     return generate_coefficients<P, coefficient_type::mass>(dim, pterm, transformer, level, time, rotate);

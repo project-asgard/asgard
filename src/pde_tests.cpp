@@ -327,7 +327,7 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
         for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
         {
           fk::vector<TestType> transformed(x);
-          auto const &g_func = partial_terms[k].g_func;
+          auto const &g_func = partial_terms[k].g_func();
           if (g_func)
           {
             std::transform(x.begin(), x.end(), transformed.begin(),
@@ -345,7 +345,7 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
           rmse_comparison(transformed, gold_pterm, tol_factor);
 
           fk::vector<TestType> dv(x);
-          auto const &dv_func = partial_terms[k].dv_func;
+          auto const &dv_func = partial_terms[k].dv_func();
           if (dv_func)
           {
             std::transform(x.begin(), x.end(), dv.begin(),

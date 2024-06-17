@@ -1182,10 +1182,10 @@ bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
   // In the edge case, identity will be multiplied instead of ignored
   // resulting in extra work but correct output.
   for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
-    if (pt.coeff_type != coefficient_type::mass or
-        pt.g_func != nullptr or
-        pt.lhs_mass_func != nullptr or
-        pt.dv_func != nullptr)
+    if (pt.coeff_type() != coefficient_type::mass or
+        pt.g_func() != nullptr or
+        pt.lhs_mass_func() != nullptr or
+        pt.dv_func() != nullptr)
       return false;
   return true;
 }
@@ -1195,9 +1195,9 @@ bool get_flux_direction(PDE<precision> const &pde, int term_id)
 {
   for (int d = 0; d < pde.num_dims; d++)
     for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
-      if (pt.coeff_type == coefficient_type::div or
-          pt.coeff_type == coefficient_type::grad or
-          pt.coeff_type == coefficient_type::penalty)
+      if (pt.coeff_type() == coefficient_type::div or
+          pt.coeff_type() == coefficient_type::grad or
+          pt.coeff_type() == coefficient_type::penalty)
         return d;
   return -1;
 }

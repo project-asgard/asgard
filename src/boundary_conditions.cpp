@@ -56,14 +56,14 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
       {
         partial_term<P> const &p_term = partial_terms[p_num];
 
-        if (p_term.left_homo == homogeneity::inhomogeneous)
+        if (p_term.left_homo() == homogeneity::inhomogeneous)
         {
           fk::vector<P> trace_bc = compute_left_boundary_condition(
-              p_term.g_func, p_term.dv_func, t_init, d,
-              p_term.left_bc_funcs[dim_num]);
+              p_term.g_func(), p_term.dv_func(), t_init, d,
+              p_term.left_bc_funcs()[dim_num]);
 
           std::vector<fk::vector<P>> p_term_left_bcs = generate_partial_bcs(
-              dimensions, dim_num, p_term.left_bc_funcs, transformer, t_init,
+              dimensions, dim_num, p_term.left_bc_funcs(), transformer, t_init,
               terms_vec, partial_terms, p_num, std::move(trace_bc));
 
           fk::vector<P> combined =
@@ -73,14 +73,14 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
           left_pvecs.emplace_back(std::move(combined));
         }
 
-        if (p_term.right_homo == homogeneity::inhomogeneous)
+        if (p_term.right_homo() == homogeneity::inhomogeneous)
         {
           fk::vector<P> trace_bc = compute_right_boundary_condition(
-              p_term.g_func, p_term.dv_func, t_init, d,
-              p_term.right_bc_funcs[dim_num]);
+              p_term.g_func(), p_term.dv_func(), t_init, d,
+              p_term.right_bc_funcs()[dim_num]);
 
           std::vector<fk::vector<P>> p_term_right_bcs = generate_partial_bcs(
-              dimensions, dim_num, p_term.right_bc_funcs, transformer, t_init,
+              dimensions, dim_num, p_term.right_bc_funcs(), transformer, t_init,
               terms_vec, partial_terms, p_num, std::move(trace_bc));
 
           fk::vector<P> combined =
@@ -133,17 +133,17 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
       {
         partial_term<P> const &p_term = partial_terms[p_num];
 
-        if (p_term.left_homo == homogeneity::inhomogeneous)
+        if (p_term.left_homo() == homogeneity::inhomogeneous)
         {
           fm::axpy(left_bc_parts[term_num][dim_num][left_index++], bc,
-                   p_term.left_bc_time_func ? p_term.left_bc_time_func(time)
-                                            : time);
+                   p_term.left_bc_time_func() ? p_term.left_bc_time_func()(time)
+                                              : time);
         }
-        if (p_term.right_homo == homogeneity::inhomogeneous)
+        if (p_term.right_homo() == homogeneity::inhomogeneous)
         {
           fm::axpy(right_bc_parts[term_num][dim_num][right_index++], bc,
-                   p_term.right_bc_time_func ? p_term.right_bc_time_func(time)
-                                             : time);
+                   p_term.right_bc_time_func() ? p_term.right_bc_time_func()(time)
+                                               : time);
         }
       }
     }
@@ -284,7 +284,7 @@ std::vector<fk::vector<P>> generate_partial_bcs(
         dimensions[dim_num].get_degree() *
         fm::two_raised_to(dimensions[dim_num].get_level());
     auto const &f = bc_funcs[dim_num];
-    auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func;
+    auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func();
     vector_func<P> bc_func;
     if (g)
     {
@@ -304,7 +304,7 @@ std::vector<fk::vector<P>> generate_partial_bcs(
     }
     partial_bc_vecs.push_back(
         forward_transform(dimensions[dim_num], bc_func,
-                          terms[dim_num].get_partial_terms()[p_index].dv_func,
+                          terms[dim_num].get_partial_terms()[p_index].dv_func(),
                           transformer, time));
     // Apply inverse mat
     std::vector<int> ipiv(degrees_freedom_1d_other);

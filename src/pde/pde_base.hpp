@@ -146,40 +146,17 @@ public:
                scalar_func<P> const right_bc_time_func_in          = nullptr,
                g_func_type<P> const dv_func_in                     = nullptr)
 
-      : coeff_type(coeff_type_in), g_func(g_func_in),
-        lhs_mass_func(lhs_mass_func_in), flux(set_flux(flux_in)), left(left_in),
-        right(right_in), ileft(set_bilinear_boundary(left_in)),
-        iright(set_bilinear_boundary(right_in)), left_homo(left_homo_in),
-        right_homo(right_homo_in), left_bc_funcs(left_bc_funcs_in),
-        right_bc_funcs(right_bc_funcs_in),
-        left_bc_time_func(left_bc_time_func_in),
-        right_bc_time_func(right_bc_time_func_in), dv_func(dv_func_in)
+      : coeff_type_(coeff_type_in), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(set_flux(flux_in)), left_(left_in),
+        right_(right_in), ileft_(set_bilinear_boundary(left_in)),
+        iright_(set_bilinear_boundary(right_in)), left_homo_(left_homo_in),
+        right_homo_(right_homo_in), left_bc_funcs_(left_bc_funcs_in),
+        right_bc_funcs_(right_bc_funcs_in),
+        left_bc_time_func_(left_bc_time_func_in),
+        right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
   {}
 
-  P get_flux_scale() const { return static_cast<P>(flux); };
-
-  coefficient_type coeff_type;
-
-  g_func_type<P> g_func;
-  g_func_type<P> lhs_mass_func;
-
-  flux_type flux;
-
-  boundary_condition left;
-
-  boundary_condition right;
-
-  boundary_condition ileft;
-  boundary_condition iright;
-
-  homogeneity left_homo;
-  homogeneity right_homo;
-  std::vector<vector_func<P>> left_bc_funcs;
-  std::vector<vector_func<P>> right_bc_funcs;
-  scalar_func<P> left_bc_time_func;
-  scalar_func<P> right_bc_time_func;
-
-  g_func_type<P> dv_func;
+  P get_flux_scale() const { return static_cast<P>(flux_); };
 
   fk::matrix<P>  get_coefficients(int const level) const
   {
@@ -245,7 +222,7 @@ public:
     // Instead we have another BC flag IBCL/IBCR which will build the
     // bilinear form with respect to Dirichlet/Free boundary
     // conditions while leaving the BC routine unaffected.
-    if (coeff_type == coefficient_type::grad)
+    if (coeff_type_ == coefficient_type::grad)
     {
       if (bc == boundary_condition::dirichlet)
       {
@@ -261,7 +238,7 @@ public:
 
   flux_type set_flux(flux_type const flux_in)
   {
-    if (coeff_type == coefficient_type::grad)
+    if (coeff_type_ == coefficient_type::grad)
     {
       // Switch the upwinding direction
       return static_cast<flux_type>(-static_cast<P>(flux_in));
@@ -269,7 +246,72 @@ public:
     return flux_in;
   }
 
+  coefficient_type coeff_type() const { return coeff_type_; }
+
+  g_func_type<P> const &g_func() const { return g_func_; }
+  g_func_type<P> const &lhs_mass_func() const { return lhs_mass_func_; }
+
+  flux_type flux() const { return flux_; }
+
+  boundary_condition left() const { return left_; }
+
+  boundary_condition right() const { return right_; }
+
+  boundary_condition ileft() const { return ileft_; }
+  boundary_condition iright() const { return iright_; }
+
+  homogeneity left_homo() const { return left_homo_; };
+  homogeneity right_homo() const { return right_homo_; };
+
+  std::vector<vector_func<P>> const &left_bc_funcs() const
+  {
+    return left_bc_funcs_;
+  };
+  std::vector<vector_func<P>> const &right_bc_funcs() const
+  {
+    return right_bc_funcs_;
+  };
+
+  scalar_func<P> const &left_bc_time_func() const
+  {
+    return left_bc_time_func_;
+  }
+
+  scalar_func<P> const &right_bc_time_func() const
+  {
+    return right_bc_time_func_;
+  }
+
+  g_func_type<P> const &dv_func() const
+  {
+    return dv_func_;
+  }
+
 private:
+  coefficient_type coeff_type_;
+
+  g_func_type<P> g_func_;
+  g_func_type<P> lhs_mass_func_;
+
+  flux_type flux_;
+
+  boundary_condition left_;
+
+  boundary_condition right_;
+
+  boundary_condition ileft_;
+  boundary_condition iright_;
+
+  homogeneity left_homo_;
+  homogeneity right_homo_;
+
+  std::vector<vector_func<P>> left_bc_funcs_;
+  std::vector<vector_func<P>> right_bc_funcs_;
+
+  scalar_func<P> left_bc_time_func_;
+  scalar_func<P> right_bc_time_func_;
+  g_func_type<P> dv_func_;
+
   std::vector<fk::matrix<P>> coefficients_;
   fk::matrix<P> mass_;
 };
@@ -652,15 +694,15 @@ public:
 
         for (auto &p : term_1D.get_partial_terms())
         {
-          if (p.left_homo == homogeneity::homogeneous)
-            expect(static_cast<int>(p.left_bc_funcs.size()) == 0);
-          else if (p.left_homo == homogeneity::inhomogeneous)
-            expect(static_cast<int>(p.left_bc_funcs.size()) == num_dims);
+          if (p.left_homo() == homogeneity::homogeneous)
+            expect(static_cast<int>(p.left_bc_funcs().size()) == 0);
+          else if (p.left_homo() == homogeneity::inhomogeneous)
+            expect(static_cast<int>(p.left_bc_funcs().size()) == num_dims);
 
-          if (p.right_homo == homogeneity::homogeneous)
-            expect(static_cast<int>(p.right_bc_funcs.size()) == 0);
-          else if (p.right_homo == homogeneity::inhomogeneous)
-            expect(static_cast<int>(p.right_bc_funcs.size()) == num_dims);
+          if (p.right_homo() == homogeneity::homogeneous)
+            expect(static_cast<int>(p.right_bc_funcs().size()) == 0);
+          else if (p.right_homo() == homogeneity::inhomogeneous)
+            expect(static_cast<int>(p.right_bc_funcs().size()) == num_dims);
         }
       }
     }
