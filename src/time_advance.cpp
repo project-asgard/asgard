@@ -33,9 +33,9 @@ get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
   for (auto const &source : pde.sources)
   {
     auto const source_vect = transform_and_combine_dimensions(
-        pde, source.source_funcs, grid.get_table(), transformer,
+        pde, source.source_funcs(), grid.get_table(), transformer,
         my_subgrid.row_start, my_subgrid.row_stop, degree, time,
-        source.time_func(time));
+        source.time_func()(time));
     fm::axpy(source_vect, sources);
   }
   return sources;

@@ -456,12 +456,15 @@ public:
   source(std::vector<vector_func<P>> const source_funcs_in,
          scalar_func<P> const time_func_in)
 
-      : source_funcs(source_funcs_in), time_func(time_func_in)
+      : source_funcs_(source_funcs_in), time_func_(time_func_in)
   {}
 
-  // public but const data. no getters
-  std::vector<vector_func<P>> source_funcs;
-  scalar_func<P> time_func;
+  std::vector<vector_func<P>> const &source_funcs() const { return source_funcs_; }
+  scalar_func<P> const &time_func() const { return time_func_; }
+
+private:
+  std::vector<vector_func<P>> source_funcs_;
+  scalar_func<P> time_func_;
 };
 
 template<typename P>
@@ -547,6 +550,7 @@ template<typename P>
 class PDE
 {
 public:
+  PDE() : num_dims(0), num_sources(0), num_terms(0), max_level(0) {}
   PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources_in,
@@ -733,7 +737,7 @@ public:
     // check all sources
     for (auto const &s : sources)
     {
-      expect(s.source_funcs.size() == static_cast<unsigned>(num_dims));
+      expect(s.source_funcs().size() == static_cast<unsigned>(num_dims));
     }
 
     // set the dt
