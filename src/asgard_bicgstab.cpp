@@ -175,8 +175,7 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     max_iter = n;
   expect(max_iter > 0); // checked in program_options
 
-  fk::vector<P> rho_1(1), rho_2(1), alpha(1), beta(1), omega(1);
-  fk::vector<P, mem_type::owner, resrc> p, phat, s, shat, t, v;
+  fk::vector<P, mem_type::owner, resrc> p(n), phat(n), s(n), shat(n), t(n), v(n);
 
   P normb = fm::nrm2(b);
   fk::vector<P, mem_type::owner, resrc> r = b;
@@ -193,55 +192,59 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     return gmres_info<P>{resid, 0};
   }
 
+  P rho_2 = 0;
+  P alpha = 0;
+  P omega = 0;
   for (int i = 1; i <= max_iter; i++)
   {
-    rho_1(0) = lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, r.data(), 1);
-    if (rho_1(0) == 0)
+    P rho_1 = lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, r.data(), 1);
+
+    if (rho_1 == 0)
     {
       return gmres_info<P>{resid, i};
     }
     if (i == 1)
     {
-      p.resize(r.size()) = r;
+      p = r;
     }
     else
     {
-      beta(0) = (rho_1(0) / rho_2(0)) * (alpha(0) / omega(0));
-      fm::axpy(v, p, P{-1} * omega(0));
-      p = r + beta(0) * p;
+      P const beta = (rho_1 / rho_2) * (alpha / omega);
+      phat         = p;
+      fm::axpy(v, phat, P{-1} * omega);
+      p = r;
+      fm::axpy(phat, p, beta);
     }
-    phat.resize(p.size()) = p;
+    phat = p;
     fk::vector<P, mem_type::view, resrc> phat_v(phat);
     precondition(phat_v);
-    v.resize(phat_v.size());
     mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(v));
-    alpha(0) = rho_1(0) / lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, v.data(), 1);
-    s.resize(r.size()) = r;
-    fm::axpy(v, s, P{-1} * alpha(0));
+    alpha = rho_1 / lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, v.data(), 1);
+    s     = r;
+    fm::axpy(v, s, P{-1} * alpha);
     resid    = fm::nrm2(s) / normb;
     if (resid < tol)
     {
-      fm::axpy(phat, x, alpha(0));
+      fm::axpy(phat, x, alpha);
       return gmres_info<P>{resid, i};
     }
-    shat.resize(s.size()) = s;
+    shat = s;
     fk::vector<P, mem_type::view, resrc> shat_v(shat);
     precondition(shat_v);
-    t.resize(shat.size());
     mat(P{1.}, shat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(t));
-    omega(0) = lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, s.data(), 1) / lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, t.data(), 1);
-    fm::axpy(phat, x, alpha(0));
-    fm::axpy(shat, x, omega(0));
+    omega = lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, s.data(), 1) / lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, t.data(), 1);
+    fm::axpy(phat, x, alpha);
+    fm::axpy(shat, x, omega);
     r = s;
-    fm::axpy(t, r, P{-1} * omega(0));
+    fm::axpy(t, r, P{-1} * omega);
 
-    rho_2(0) = rho_1(0);
-    resid    = fm::nrm2(r) / normb;
+    rho_2 = rho_1;
+    resid = fm::nrm2(r) / normb;
     if (resid < tol)
     {
       return gmres_info<P>{resid, i};
     }
-    if (omega(0) == 0)
+    if (omega == 0)
     {
       return gmres_info<P>{fm::nrm2(r) / normb, i};
     }
