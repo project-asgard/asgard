@@ -207,7 +207,8 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     else
     {
       beta(0) = (rho_1(0) / rho_2(0)) * (alpha(0) / omega(0));
-      p       = r + beta(0) * (p - omega(0) * v);
+      fm::axpy(v, p, P{-1} * omega(0));
+      p = r + beta(0) * p;
     }
     phat.resize(p.size()) = p;
     fk::vector<P, mem_type::view, resrc> phat_v(phat);
@@ -215,11 +216,12 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     v.resize(phat_v.size());
     mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(v));
     alpha(0) = rho_1(0) / lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, v.data(), 1);
-    s        = r - alpha(0) * v;
+    s.resize(r.size()) = r;
+    fm::axpy(v, s, P{-1} * alpha(0));
     resid    = fm::nrm2(s) / normb;
     if (resid < tol)
     {
-      x = x + alpha(0) * phat;
+      fm::axpy(phat, x, alpha(0));
       return gmres_info<P>{resid, i};
     }
     shat.resize(s.size()) = s;
@@ -228,8 +230,10 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     t.resize(shat.size());
     mat(P{1.}, shat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(t));
     omega(0) = lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, s.data(), 1) / lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, t.data(), 1);
-    x        = x + alpha(0) * phat + omega(0) * shat;
-    r        = s - omega(0) * t;
+    fm::axpy(phat, x, alpha(0));
+    fm::axpy(shat, x, omega(0));
+    r = s;
+    fm::axpy(t, r, P{-1} * omega(0));
 
     rho_2(0) = rho_1(0);
     resid    = fm::nrm2(r) / normb;
