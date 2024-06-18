@@ -877,7 +877,8 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         f_1 = x_prev;
       }
     }
-
+    if (solver == solve_opts::gmres)
+    {
 #ifdef KRON_MODE_GLOBAL
     pde.gmres_outputs[0] = solver::simple_gmres_euler(
         pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
@@ -887,6 +888,19 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
         f_1, f, restart, max_iter, tolerance);
 #endif
+    }
+    else if (solver == solve_opts::bicgstab)
+    {
+#ifdef KRON_MODE_GLOBAL
+      pde.gmres_outputs[0] = solver::bicgstab_euler(
+          pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
+          f_1, f, max_iter, tolerance);
+#else
+      pde.gmres_outputs[0] = solver::bicgstab_euler(
+          pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+          f_1, f, max_iter, tolerance);
+#endif
+    }
     // save output of GMRES call to use in the second one
     f_1_output = f_1;
   }
@@ -977,15 +991,30 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
     operator_matrices.reset_coefficients(matrix_entry::imex_implicit, pde,
                                          adaptive_grid, program_opts);
 
+    if (solver == solve_opts::gmres)
+    {
 #ifdef KRON_MODE_GLOBAL
-    pde.gmres_outputs[1] = solver::simple_gmres_euler(
-        P{0.5} * pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
-        f_2, f, restart, max_iter, tolerance);
+      pde.gmres_outputs[1] = solver::simple_gmres_euler(
+          P{0.5} * pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
+          f_2, f, restart, max_iter, tolerance);
 #else
     pde.gmres_outputs[1] = solver::simple_gmres_euler(
         P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
         f_2, f, restart, max_iter, tolerance);
 #endif
+    }
+    else if (solver == solve_opts::bicgstab)
+    {
+#ifdef KRON_MODE_GLOBAL
+      pde.gmres_outputs[1] = solver::bicgstab_euler(
+          P{0.5} * pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
+          f_2, f, max_iter, tolerance);
+#else
+      pde.gmres_outputs[1] = solver::bicgstab_euler(
+          P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
+          f_2, f, max_iter, tolerance);
+#endif
+    }
 
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
