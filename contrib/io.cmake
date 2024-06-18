@@ -56,7 +56,7 @@ function (get_hdf5)
         ExternalProject_Add (hdf5-ext
           UPDATE_COMMAND ""
           PREFIX contrib/hdf5
-          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.bz2
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
           DOWNLOAD_NO_PROGRESS 1
           CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5-ext/configure --prefix=${hdf5_contrib_path}
           BUILD_COMMAND make
@@ -98,7 +98,7 @@ if (ASGARD_IO_HIGHFIVE)
 
     message (STATUS "downloading HighFive from github")
     execute_process (
-      COMMAND git clone https://github.com/BlueBrain/HighFive .
+      COMMAND git clone --depth 1 --branch v2.9.0 https://github.com/BlueBrain/HighFive .
       WORKING_DIRECTORY ${highfive_PATH}
       RESULT_VARIABLE download
       OUTPUT_QUIET
@@ -109,6 +109,13 @@ if (ASGARD_IO_HIGHFIVE)
     endif ()
   else ()
     message (STATUS "using contrib HighFive at ${highfive_PATH}")
+    execute_process (
+      COMMAND git fetch -t COMMAND git reset --hard v2.9.0
+      WORKING_DIRECTORY ${highfive_PATH}
+      RESULT_VARIABLE download
+      OUTPUT_QUIET
+      ERROR_QUIET
+      )
   endif ()
 
   add_library (highfive INTERFACE)
