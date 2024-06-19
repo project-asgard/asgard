@@ -255,7 +255,7 @@ parser::parser(int argc, char const *const *argv)
     valid = false;
   }
 
-  if (use_imex_stepping && solver_str == "none")
+  if (use_imex_stepping && solver_str != "bicgstab")
   {
     // imex defaults to gmres
     solver_str = "gmres";
@@ -386,7 +386,7 @@ parser::parser(int argc, char const *const *argv)
     valid = false;
   }
 
-  if (solver != solve_opts::gmres && gmres_tolerance != NO_USER_VALUE_FP)
+  if (solver != solve_opts::gmres && solver != solve_opts::bicgstab && gmres_tolerance != NO_USER_VALUE_FP)
   {
     std::cerr << "gmres tolerance has no effect with solver = " << solver_str
               << '\n';
@@ -409,7 +409,7 @@ parser::parser(int argc, char const *const *argv)
               << '\n';
     valid = false;
   }
-  if (solver != solve_opts::gmres && gmres_outer_iterations != NO_USER_VALUE)
+  if (solver != solve_opts::gmres && solver != solve_opts::bicgstab && gmres_outer_iterations != NO_USER_VALUE)
   {
     std::cerr << "Number of gmres outer iterations has no effect with solver = "
               << solver_str << '\n';
