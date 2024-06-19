@@ -283,7 +283,12 @@ void global_cpu(int64_t block_size,
 
   int const num_vecs = dsort.num_vecs(dim);
 
+#ifdef _OPENMP
   int const max_threads = omp_get_max_threads();
+#else
+  int max_threads = 1;
+#endif
+
   if (static_cast<int>(row_wspace.size()) < max_threads)
     row_wspace.resize(max_threads);
 
