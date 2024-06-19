@@ -17,11 +17,10 @@ public:
   PDE_vlasov_two_stream(parser const &cli_input)
   {
     std::vector<dimension<P>> dimensions = {
-      dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
-                   initial_condition_dim_x_0, nullptr, "x"),
-      dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
-                   initial_condition_dim_v_0, nullptr, "v")
-    };
+        dimension<P>(-2.0 * PI, 2.0 * PI, 4, default_degree,
+                     initial_condition_dim_x_0, nullptr, "x"),
+        dimension<P>(-2.0 * PI, 2.0 * PI, 3, default_degree,
+                     initial_condition_dim_v_0, nullptr, "v")};
 
     // using empty instances for exact_vector_funcs and exact_time
     this->initialize(cli_input, num_dims_, num_sources_, num_terms_, dimensions,
