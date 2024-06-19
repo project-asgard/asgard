@@ -1834,8 +1834,8 @@ template void global_kron_matrix<float>::apply<resource::device>(
 #ifdef KRON_MODE_GLOBAL_BLOCK
 template class block_global_kron_matrix<float>;
 
-template void block_global_kron_matrix<double>::apply<resource::host>(
-    matrix_entry, double, double const *, double, double *) const;
+template void block_global_kron_matrix<float>::apply<resource::host>(
+    matrix_entry, float, float const *, float, float *) const;
 
 template block_global_kron_matrix<float>
 make_block_global_kron_matrix<float>(PDE<float> const &,

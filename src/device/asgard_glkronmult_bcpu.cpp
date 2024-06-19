@@ -649,8 +649,9 @@ template int64_t block_global_count_flops<double>(
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-template void global_cpu<float>(int, int, int64_t, std::vector<permutes> const &,
+template void global_cpu<float>(int, int, int64_t,
                                 vector2d<int> const &, dimension_sort const &,
+                                std::vector<permutes> const &,
                                 std::vector<int> const &, connect_1d const &,
                                 connect_1d const &, std::vector<std::vector<float>> const &,
                                 std::vector<int> const &, float const[], float[],
