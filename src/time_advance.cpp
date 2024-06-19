@@ -553,7 +553,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
       // expect(m.get_moment_matrix().nrows() > 0);
     }
 
-    if (pde.do_poisson_solve)
+    if (pde.do_poisson_solve())
     {
       // Setup poisson matrix initially
       solver::setup_poisson(N_elements, min, max, pde.poisson_diag,
@@ -785,7 +785,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
         }
       };
 
-  if (pde.do_poisson_solve)
+  if (pde.do_poisson_solve())
   {
     do_poisson_update(f);
   }
@@ -832,7 +832,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   int const max_iter = program_opts.gmres_outer_iterations;
   fk::vector<P, mem_type::owner, imex_resrc> f_1(f.size());
   fk::vector<P, mem_type::owner, imex_resrc> f_1_output(f.size());
-  if (pde.do_collision_operator)
+  if (pde.do_collision_operator())
   {
     // Update coeffs
     generate_all_coefficients<P>(pde, transformer);
@@ -884,7 +884,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.start("explicit_2");
   fm::copy(f_orig_dev, f); // f here is now f_0
 
-  if (pde.do_poisson_solve)
+  if (pde.do_poisson_solve())
   {
     do_poisson_update(f_1);
   }
@@ -919,7 +919,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   fm::axpy(f_1, f);    // f is now f_0 + f_2
   fm::scal(P{0.5}, f); // f = 0.5 * (f_0 + f_2) = f_2s
   tools::timer.stop("explicit_2");
-  if (pde.do_collision_operator)
+  if (pde.do_collision_operator())
   {
     tools::timer.start("implicit_2");
   }
@@ -929,7 +929,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   tools::timer.stop("implicit_2_mom");
 
   // Implicit step f_2: f_2 - dt B f_2 = f_2s
-  if (pde.do_collision_operator)
+  if (pde.do_collision_operator())
   {
     // Update coeffs
     tools::timer.start("implicit_2_coeff");

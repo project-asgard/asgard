@@ -273,7 +273,7 @@ int main(int argc, char **argv)
     asgard::tools::timer.stop(time_id);
 
     // print root mean squared error from analytic solution
-    if (pde->has_analytic_soln)
+    if (pde->has_analytic_soln())
     {
       // get analytic solution at time(step+1)
       auto const analytic_solution = sum_separable_funcs(

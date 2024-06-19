@@ -575,15 +575,6 @@ public:
       bool const has_analytic_soln_in         = false,
       std::vector<moment<P>> const moments_in = {},
       bool const do_collision_operator_in     = true)
-      // : num_dims(num_dims_in), num_sources(num_sources_in),
-      //   num_terms(get_num_terms(cli_input, max_num_terms)),
-      //   max_level(get_max_level(cli_input, dimensions)), sources(sources_in),
-      //   exact_vector_funcs(exact_vector_funcs_in), moments(moments_in),
-      //   exact_time(check_exact_time(exact_time_in)),
-      //   do_poisson_solve(do_poisson_solve_in),
-      //   do_collision_operator(do_collision_operator_in),
-      //   has_analytic_soln(has_analytic_soln_in), dimensions_(dimensions),
-      //   terms_(terms)
   {
     initialize(cli_input, num_dims_in, num_sources_in,
       max_num_terms, dimensions, terms, sources_in,
@@ -614,13 +605,13 @@ public:
     exact_vector_funcs = std::move(exact_vector_funcs_in);
     moments            = std::move(moments_in);
 
-    exact_time = check_exact_time(exact_time_in);
+    exact_time_ = check_exact_time(exact_time_in);
 
-    do_poisson_solve      = do_poisson_solve_in;
-    do_collision_operator = do_collision_operator_in;
-    has_analytic_soln     = has_analytic_soln_in;
-    dimensions_           = std::move(dimensions);
-    terms_                = std::move(terms);
+    do_poisson_solve_      = do_poisson_solve_in;
+    do_collision_operator_ = do_collision_operator_in;
+    has_analytic_soln_     = has_analytic_soln_in;
+    dimensions_            = std::move(dimensions);
+    terms_                 = std::move(terms);
 
     expect(num_dims > 0);
     expect(num_sources >= 0);
@@ -631,7 +622,7 @@ public:
     expect(sources.size() == static_cast<unsigned>(num_sources));
 
     // ensure analytic solution functions were provided if this flag is set
-    if (has_analytic_soln)
+    if (has_analytic_soln_)
     {
       // each set of analytical solution functions must have num_dim functions
       for (const auto &md_func : exact_vector_funcs)
@@ -803,10 +794,10 @@ public:
       : num_dims(1), num_sources(pde.sources.size()),
         num_terms(pde.get_terms().size()), max_level(pde.max_level),
         sources(pde.sources), exact_vector_funcs(pde.exact_vector_funcs),
-        moments(pde.moments), exact_time(pde.exact_time),
-        do_poisson_solve(pde.do_poisson_solve),
-        do_collision_operator(pde.do_collision_operator),
-        has_analytic_soln(pde.has_analytic_soln),
+        moments(pde.moments), exact_time_(pde.exact_time()),
+        do_poisson_solve_(pde.do_poisson_solve()),
+        do_collision_operator_(pde.do_collision_operator()),
+        has_analytic_soln_(pde.has_analytic_soln()),
         dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
   {}
 
@@ -819,10 +810,11 @@ public:
   std::vector<source<P>> sources;
   std::vector<md_func_type<P>> exact_vector_funcs;
   std::vector<moment<P>> moments;
-  scalar_func<P> exact_time;
-  bool do_poisson_solve;
-  bool do_collision_operator;
-  bool has_analytic_soln;
+  scalar_func<P> const& exact_time() const { return exact_time_; }
+  bool do_poisson_solve() const { return do_poisson_solve_; }
+  bool do_collision_operator() const { return do_collision_operator_; }
+  bool has_analytic_soln() const { return has_analytic_soln_; }
+
   // data for poisson solver
   fk::vector<P> poisson_diag;
   fk::vector<P> poisson_off_diag;
@@ -834,7 +826,7 @@ public:
   std::vector<gmres_info<P>> gmres_outputs;
   adaptive_info<P> adapt_info;
 
-  virtual ~PDE() {}
+  virtual ~PDE() = default;
 
   std::vector<dimension<P>> const &get_dimensions() const
   {
@@ -1016,6 +1008,11 @@ private:
       return exact_time_func;
     }
   }
+
+  scalar_func<P> exact_time_;
+  bool do_poisson_solve_;
+  bool do_collision_operator_;
+  bool has_analytic_soln_;
 
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
