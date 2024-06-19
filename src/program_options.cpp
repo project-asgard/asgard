@@ -255,9 +255,9 @@ parser::parser(int argc, char const *const *argv)
     valid = false;
   }
 
-  if (use_imex_stepping)
+  if (use_imex_stepping && solver_str == "none")
   {
-    // imex only uses gmres
+    // imex defaults to gmres
     solver_str = "gmres";
   }
 
@@ -297,9 +297,9 @@ parser::parser(int argc, char const *const *argv)
   }
 
 #ifdef ASGARD_USE_CUDA
-  if (use_implicit_stepping && solver_str != "gmres")
+  if (use_implicit_stepping && solver_str != "gmres" && solver_str != "bicgstab")
   {
-    std::cerr << "GPU acceleration for implicit stepping only supports gmres\n";
+    std::cerr << "GPU acceleration for implicit stepping only supports bicgstab or gmres\n";
     valid = false;
   }
 #endif
