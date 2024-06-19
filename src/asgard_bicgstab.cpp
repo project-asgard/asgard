@@ -197,8 +197,7 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   P omega = 0;
   for (int i = 1; i <= max_iter; i++)
   {
-    P rho_1 = lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, r.data(), 1);
-
+    P rho_1 = rtilde * r;
     if (rho_1 == 0)
     {
       return gmres_info<P>{resid, i};
@@ -219,7 +218,7 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     fk::vector<P, mem_type::view, resrc> phat_v(phat);
     precondition(phat_v);
     mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(v));
-    alpha = rho_1 / lib_dispatch::dot<resrc, P>(rtilde.size(), rtilde.data(), 1, v.data(), 1);
+    alpha = rho_1 / (rtilde * v);
     s     = r;
     fm::axpy(v, s, P{-1} * alpha);
     resid    = fm::nrm2(s) / normb;
@@ -232,7 +231,7 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     fk::vector<P, mem_type::view, resrc> shat_v(shat);
     precondition(shat_v);
     mat(P{1.}, shat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(t));
-    omega = lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, s.data(), 1) / lib_dispatch::dot<resrc, P>(t.size(), t.data(), 1, t.data(), 1);
+    omega = (t * s) / (t * t);
     fm::axpy(phat, x, alpha);
     fm::axpy(shat, x, omega);
     r = s;

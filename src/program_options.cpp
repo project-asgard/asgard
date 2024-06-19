@@ -606,6 +606,7 @@ void parser_mod::set(parser &p, parser_option_entry entry,
   {
   case solver_str:
     p.solver_str = value;
+    p.solver     = solver_mapping.at(value);
     break;
   case pde_str:
     p.pde_str    = value;

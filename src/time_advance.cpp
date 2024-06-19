@@ -901,6 +901,10 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
           f_1, f, max_iter, tolerance);
 #endif
     }
+    else
+    {
+      throw std::runtime_error("imex solver must be gmres or bicgstab.");
+    }
     // save output of GMRES call to use in the second one
     f_1_output = f_1;
   }
@@ -1015,7 +1019,10 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
           f_2, f, max_iter, tolerance);
 #endif
     }
-
+    else
+    {
+      throw std::runtime_error("imex solver must be gmres or bicgstab.");
+    }
     tools::timer.stop("implicit_2_solve");
     tools::timer.stop("implicit_2");
     if constexpr (imex_resrc == resource::device)
