@@ -1341,14 +1341,24 @@ public:
   //! \brief Return the number of flops for the current matrix type
   int64_t flops(matrix_entry etype) const
   {
-    // return flops_[flag2int(etype)];
     int i = flag2int(etype);
     if (flops_[i] == -1)
     {
       flops_[i] = kronmult::block_global_count_flops(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
                        perms_, flux_dir_, conn_volumes_, conn_full_,
                        term_groups_[i], *workspace_);
-      std::cout << " number of flops: " << flops_[i] * 1.E-9 << "Gflops\n";
+      switch(etype) {
+        case matrix_entry::regular:
+          std::cout << "regular block-global kronmult matrix\n";
+          break;
+        case matrix_entry::imex_explicit:
+          std::cout << "imex-explicit block-global kronmult matrix\n";
+          break;
+        case matrix_entry::imex_implicit:
+          std::cout << "imex-implicit block-global kronmult matrix\n";
+          break;
+      };
+      std::cout << "   -- number of flops: " << flops_[i] * 1.E-9 << "Gflops\n";
     }
     return flops_[i];
   }
@@ -1420,10 +1430,8 @@ struct matrix_list
     kglobal.template apply<rec>(entry, alpha, x, beta, y);
   }
 
-  //int64_t flops(matrix_entry entry)
   int64_t flops(matrix_entry entry)
   {
-    // counting the flops in this case is very hard ...
     return kglobal.flops(entry);
   }
 
