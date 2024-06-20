@@ -51,7 +51,7 @@ public:
         // Otherwise, use the max_level defined in the PDE (max level of all
         // dims)
         wavelet_transform(program_opts.do_adapt_levels ? program_opts.max_level
-                                                       : pde.max_level,
+                                                       : pde.max_level(),
                           pde.get_dimensions()[0].get_degree(), quiet)
   {}
 

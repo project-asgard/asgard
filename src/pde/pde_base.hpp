@@ -51,7 +51,7 @@ enum class homogeneity
 // helper - single element size
 auto const element_segment_size = [](auto const &pde) {
   int const degree = pde.get_dimensions()[0].get_degree();
-  return static_cast<int>(std::pow(degree, pde.num_dims));
+  return static_cast<int>(std::pow(degree, pde.num_dims()));
 };
 
 // ---------------------------------------------------------------------------
@@ -550,7 +550,7 @@ template<typename P>
 class PDE
 {
 public:
-  PDE() : num_dims(0), num_sources(0), num_terms(0), max_level(0) {}
+  PDE() : num_dims_(0), num_sources_(0), num_terms_(0), max_level_(0) {}
   PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources_in,
@@ -596,14 +596,14 @@ public:
       std::vector<moment<P>> const moments_in = {},
       bool const do_collision_operator_in     = true)
   {
-    num_dims    = num_dims_in;
-    num_sources = num_sources_in;
-    num_terms   = get_num_terms(cli_input, max_num_terms);
-    max_level   = get_max_level(cli_input, dimensions);
+    num_dims_    = num_dims_in;
+    num_sources_ = num_sources_in;
+    num_terms_   = get_num_terms(cli_input, max_num_terms);
+    max_level_   = get_max_level(cli_input, dimensions);
 
-    sources            = std::move(sources_in);
-    exact_vector_funcs = std::move(exact_vector_funcs_in);
-    moments            = std::move(moments_in);
+    sources_            = std::move(sources_in);
+    exact_vector_funcs_ = std::move(exact_vector_funcs_in);
+    moments             = std::move(moments_in);
 
     exact_time_ = check_exact_time(exact_time_in);
 
@@ -613,34 +613,34 @@ public:
     dimensions_            = std::move(dimensions);
     terms_                 = std::move(terms);
 
-    expect(num_dims > 0);
-    expect(num_sources >= 0);
-    expect(num_terms > 0);
+    expect(num_dims_ > 0);
+    expect(num_sources_ >= 0);
+    expect(num_terms_ > 0);
 
-    expect(dimensions.size() == static_cast<unsigned>(num_dims));
+    expect(dimensions.size() == static_cast<unsigned>(num_dims_));
     expect(terms.size() == static_cast<unsigned>(max_num_terms));
-    expect(sources.size() == static_cast<unsigned>(num_sources));
+    expect(sources_.size() == static_cast<unsigned>(num_sources_));
 
     // ensure analytic solution functions were provided if this flag is set
     if (has_analytic_soln_)
     {
       // each set of analytical solution functions must have num_dim functions
-      for (const auto &md_func : exact_vector_funcs)
+      for (const auto &md_func : exact_vector_funcs_)
       {
-        expect(md_func.size() == static_cast<size_t>(num_dims) or md_func.size() == static_cast<size_t>(num_dims + 1));
+        expect(md_func.size() == static_cast<size_t>(num_dims_) or md_func.size() == static_cast<size_t>(num_dims_ + 1));
       }
     }
 
     // modify for appropriate level/degree
     // if default lev/degree not used
     auto const user_levels = cli_input.get_starting_levels().size();
-    if (user_levels != 0 && user_levels != num_dims)
+    if (user_levels != 0 && user_levels != num_dims_)
     {
       std::cerr << "failed to parse dimension-many starting levels - parsed "
                 << user_levels << " levels\n";
       exit(1);
     }
-    if (user_levels == num_dims)
+    if (user_levels == num_dims_)
     {
       auto counter = 0;
       for (dimension<P> &d : dimensions_)
@@ -662,7 +662,7 @@ public:
           terms_.erase(terms_.begin() + i);
         }
       }
-      expect(terms_.size() == static_cast<unsigned>(num_terms));
+      expect(terms_.size() == static_cast<unsigned>(num_terms_));
     }
 
     auto const cli_degree = cli_input.get_degree();
@@ -680,13 +680,13 @@ public:
     // check all terms
     for (auto &term_list : terms_)
     {
-      expect(term_list.size() == static_cast<unsigned>(num_dims));
+      expect(term_list.size() == static_cast<unsigned>(num_dims_));
       for (auto &term_1D : term_list)
       {
         expect(term_1D.get_partial_terms().size() > 0);
 
         auto const max_dof =
-            fm::two_raised_to(static_cast<int64_t>(max_level)) * degree;
+            fm::two_raised_to(static_cast<int64_t>(max_level_)) * degree;
         expect(max_dof < INT_MAX);
 
         term_1D.set_coefficients(eye<P>(max_dof));
@@ -696,12 +696,12 @@ public:
           if (p.left_homo() == homogeneity::homogeneous)
             expect(static_cast<int>(p.left_bc_funcs().size()) == 0);
           else if (p.left_homo() == homogeneity::inhomogeneous)
-            expect(static_cast<int>(p.left_bc_funcs().size()) == num_dims);
+            expect(static_cast<int>(p.left_bc_funcs().size()) == num_dims_);
 
           if (p.right_homo() == homogeneity::homogeneous)
             expect(static_cast<int>(p.right_bc_funcs().size()) == 0);
           else if (p.right_homo() == homogeneity::inhomogeneous)
-            expect(static_cast<int>(p.right_bc_funcs().size()) == num_dims);
+            expect(static_cast<int>(p.right_bc_funcs().size()) == num_dims_);
         }
       }
     }
@@ -715,9 +715,9 @@ public:
     }
 
     // initialize mass matrices to a default value
-    for (auto i = 0; i < num_dims; ++i)
+    for (auto i = 0; i < num_dims_; ++i)
     {
-      for (int level = 0; level <= max_level; ++level)
+      for (int level = 0; level <= max_level_; ++level)
       {
         auto const dof = fm::two_raised_to(level) * degree;
         expect(dof < INT_MAX);
@@ -726,9 +726,9 @@ public:
     }
 
     // check all sources
-    for (auto const &s : sources)
+    for (auto const &s : sources_)
     {
-      expect(s.source_funcs().size() == static_cast<unsigned>(num_dims));
+      expect(s.source_funcs().size() == static_cast<unsigned>(num_dims_));
     }
 
     // set the dt
@@ -748,7 +748,7 @@ public:
       auto md_funcs = m.get_md_funcs();
       for (auto md_func : md_funcs)
       {
-        expect(md_func.size() == static_cast<unsigned>(num_dims) + 1);
+        expect(md_func.size() == static_cast<unsigned>(num_dims_) + 1);
       }
     }
 
@@ -762,17 +762,17 @@ public:
     gmres_outputs.resize(cli_input.using_imex() ? 2 : 1);
 
     // hack to preallocate empty matrix for pterm coefficients for adapt
-    for (auto i = 0; i < num_dims; ++i)
+    for (auto i = 0; i < num_dims_; ++i)
     {
       auto const &dim = this->get_dimensions()[i];
-      for (auto j = 0; j < num_terms; ++j)
+      for (auto j = 0; j < num_terms_; ++j)
       {
         auto const &term_1D       = this->get_terms()[j][i];
         auto const &partial_terms = term_1D.get_partial_terms();
         for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
         {
           std::vector<fk::matrix<P>> pterm_coeffs;
-          for (int level = 0; level <= max_level; ++level)
+          for (int level = 0; level <= max_level_; ++level)
           {
             auto const dof = dim.get_degree() * fm::two_raised_to(level);
             fk::matrix<P> result_tmp = eye<P>(dof);
@@ -791,10 +791,10 @@ public:
   // TODO: there is likely a better way to do this. Another option is to flatten
   // element table to 1D (see hash_table_2D_to_1D.m)
   PDE(const PDE &pde, int)
-      : num_dims(1), num_sources(pde.sources.size()),
-        num_terms(pde.get_terms().size()), max_level(pde.max_level),
-        sources(pde.sources), exact_vector_funcs(pde.exact_vector_funcs),
-        moments(pde.moments), exact_time_(pde.exact_time()),
+      : moments(pde.moments), num_dims_(1), num_sources_(pde.sources_.size()),
+        num_terms_(pde.get_terms().size()), max_level_(pde.max_level_),
+        sources_(pde.sources_), exact_vector_funcs_(pde.exact_vector_funcs_),
+        exact_time_(pde.exact_time()),
         do_poisson_solve_(pde.do_poisson_solve()),
         do_collision_operator_(pde.do_collision_operator()),
         has_analytic_soln_(pde.has_analytic_soln()),
@@ -802,13 +802,17 @@ public:
   {}
 
   // public but const data.
-  int num_dims;
-  int num_sources;
-  int num_terms;
-  int max_level;
+  int num_dims() const { return num_dims_; }
+  int num_sources() const { return num_sources_; }
+  int num_terms() const { return num_terms_; }
+  int max_level() const { return max_level_; }
 
-  std::vector<source<P>> sources;
-  std::vector<md_func_type<P>> exact_vector_funcs;
+  std::vector<source<P>> const &sources() const { return sources_; };
+  std::vector<md_func_type<P>> const &exact_vector_funcs() const
+  {
+    return exact_vector_funcs_;
+  }
+
   std::vector<moment<P>> moments;
   scalar_func<P> const& exact_time() const { return exact_time_; }
   bool do_poisson_solve() const { return do_poisson_solve_; }
@@ -840,9 +844,9 @@ public:
   fk::matrix<P> const &get_coefficients(int const term, int const dim) const
   {
     expect(term >= 0);
-    expect(term < num_terms);
+    expect(term < num_terms_);
     expect(dim >= 0);
-    expect(dim < num_dims);
+    expect(dim < num_dims_);
     return terms_[term][dim].get_coefficients();
   }
 
@@ -852,9 +856,9 @@ public:
   set_coefficients(fk::matrix<P> const &coeffs, int const term, int const dim)
   {
     expect(term >= 0);
-    expect(term < num_terms);
+    expect(term < num_terms_);
     expect(dim >= 0);
-    expect(dim < num_dims);
+    expect(dim < num_dims_);
     terms_[term][dim].set_coefficients(coeffs);
   }
 
@@ -862,9 +866,9 @@ public:
                                 fk::matrix<P> const &&coeffs)
   {
     expect(term >= 0);
-    expect(term < num_terms);
+    expect(term < num_terms_);
     expect(dim >= 0);
-    expect(dim < num_dims);
+    expect(dim < num_dims_);
     terms_[term][dim].set_partial_coefficients(std::move(coeffs), pterm,
                                                dimensions_[dim].get_degree(),
                                                dimensions_[dim].get_level());
@@ -874,9 +878,9 @@ public:
                                 std::vector<fk::matrix<P>> const &coeffs)
   {
     expect(term >= 0);
-    expect(term < num_terms);
+    expect(term < num_terms_);
     expect(dim >= 0);
-    expect(dim < num_dims);
+    expect(dim < num_dims_);
     terms_[term][dim].set_partial_coefficients(coeffs, pterm);
   }
 
@@ -884,9 +888,9 @@ public:
                     fk::matrix<P> const &mass)
   {
     expect(term >= 0);
-    expect(term < num_terms);
+    expect(term < num_terms_);
     expect(dim >= 0);
-    expect(dim < num_dims);
+    expect(dim < num_dims_);
     terms_[term][dim].set_lhs_mass(mass, pterm);
   }
 
@@ -894,16 +898,16 @@ public:
                     fk::matrix<P> &&mass)
   {
     expect(term >= 0);
-    expect(term < num_terms);
+    expect(term < num_terms_);
     expect(dim >= 0);
-    expect(dim < num_dims);
+    expect(dim < num_dims_);
     terms_[term][dim].set_lhs_mass(mass, std::move(pterm));
   }
 
   void update_dimension(int const dim_index, int const new_level)
   {
     assert(dim_index >= 0);
-    assert(dim_index < num_dims);
+    assert(dim_index < num_dims_);
     assert(new_level >= 0);
 
     dimensions_[dim_index].set_level(new_level);
@@ -912,8 +916,8 @@ public:
   void rechain_dimension(int const dim_index)
   {
     expect(dim_index >= 0);
-    expect(dim_index < num_dims);
-    for (auto i = 0; i < num_terms; ++i)
+    expect(dim_index < num_dims_);
+    for (auto i = 0; i < num_terms_; ++i)
     {
       terms_[i][dim_index].rechain_coefficients(dimensions_[dim_index]);
     }
@@ -923,7 +927,7 @@ public:
                                  int const level)
   {
     assert(dim_index >= 0);
-    assert(dim_index < num_dims);
+    assert(dim_index < num_dims_);
 
     dimensions_[dim_index].set_mass_matrix(std::move(mass), level);
   }
@@ -1008,6 +1012,14 @@ private:
       return exact_time_func;
     }
   }
+
+  int num_dims_;
+  int num_sources_;
+  int num_terms_;
+  int max_level_;
+
+  std::vector<source<P>> sources_;
+  std::vector<md_func_type<P>> exact_vector_funcs_;
 
   scalar_func<P> exact_time_;
   bool do_poisson_solve_;

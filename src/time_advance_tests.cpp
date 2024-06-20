@@ -107,7 +107,7 @@ void time_advance_test(parser const &parse,
 
     // each rank generates partial answer
     auto const dof =
-        static_cast<int>(std::pow(parse.get_degree(), pde->num_dims));
+        static_cast<int>(std::pow(parse.get_degree(), pde->num_dims()));
     auto const subgrid = adaptive_grid.get_subgrid(get_rank());
     REQUIRE((subgrid.col_stop + 1) * dof - 1 <= gold.size());
     auto const my_gold = fk::vector<P, mem_type::const_view>(
@@ -1749,7 +1749,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
     if (i == opts.num_time_steps - 1)
     {
       fk::vector<TestType> const analytic_solution = sum_separable_funcs(
-          pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
+          pde->exact_vector_funcs(), pde->get_dimensions(), adaptive_grid,
           transformer, degree, time + pde->get_dt());
 
       // calculate L2 error between simulation and analytical solution

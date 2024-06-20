@@ -28,9 +28,9 @@ get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
   auto const my_subgrid = grid.get_subgrid(get_rank());
   // FIXME assume uniform degree
   auto const degree = pde.get_dimensions()[0].get_degree();
-  auto const dof    = std::pow(degree, pde.num_dims) * my_subgrid.nrows();
+  auto const dof    = std::pow(degree, pde.num_dims()) * my_subgrid.nrows();
   fk::vector<P> sources(dof);
-  for (auto const &source : pde.sources)
+  for (auto const &source : pde.sources())
   {
     auto const source_vect = transform_and_combine_dimensions(
         pde, source.source_funcs(), grid.get_table(), transformer,
@@ -220,7 +220,7 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  if (pde.num_sources > 0)
+  if (pde.num_sources() > 0)
   {
     auto const sources = get_sources(pde, adaptive_grid, transformer, time);
     fm::axpy(sources, reduced_fx);
@@ -245,7 +245,7 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  if (pde.num_sources > 0)
+  if (pde.num_sources() > 0)
   {
     auto const sources =
         get_sources(pde, adaptive_grid, transformer, time + c2 * dt);
@@ -275,7 +275,7 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  if (pde.num_sources > 0)
+  if (pde.num_sources() > 0)
   {
     auto const sources =
         get_sources(pde, adaptive_grid, transformer, time + c3 * dt);
@@ -328,7 +328,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
   auto const &table   = adaptive_grid.get_table();
   auto const dt       = pde.get_dt();
   int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims()));
 
 #ifdef ASGARD_USE_SCALAPACK
   auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
@@ -337,7 +337,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 #else
   fk::vector<P> x(x_orig);
 #endif
-  if (pde.num_sources > 0)
+  if (pde.num_sources() > 0)
   {
     auto const sources =
         get_sources(pde, adaptive_grid, transformer, time + dt);
@@ -530,7 +530,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
   auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
-  int const elem_size    = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const elem_size    = static_cast<int>(std::pow(degree, pde.num_dims()));
   int const A_local_rows = elem_size * grid.nrows();
 
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
@@ -665,7 +665,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
           return interp1(nodes, mom1_real, {x_v})[0] /
                  param_manager.get_parameter("n")->value(x_v, t);
         };
-        if (pde.num_dims == 3 && pde.moments.size() > 3)
+        if (pde.num_dims() == 3 && pde.moments.size() > 3)
         {
           // Calculate additional moments for PDEs with more than one velocity
           // dimension
@@ -714,7 +714,7 @@ imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
                    0.5 * (std::pow(u1, 2) + std::pow(u2, 2));
           };
         }
-        else if (pde.num_dims == 4 && pde.moments.size() > 6)
+        else if (pde.num_dims() == 4 && pde.moments.size() > 6)
         {
           // Moments for 1X3V case
           // TODO: this will be refactored to replace dimension cases in the

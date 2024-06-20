@@ -45,7 +45,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   auto const gen = [&dist, &mersenne_engine]() {
     return dist(mersenne_engine);
   };
-  auto const elem_size  = static_cast<int>(std::pow(degree, pde->num_dims));
+  auto const elem_size  = static_cast<int>(std::pow(degree, pde->num_dims()));
   fk::vector<P> const b = [&table, gen, elem_size]() {
     fk::vector<P> output(elem_size * table.size());
     std::generate(output.begin(), output.end(), gen);

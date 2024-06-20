@@ -25,15 +25,15 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
 {
   if (not opts.use_imex_stepping)
   {
-    std::vector<int> terms(pde.num_terms);
+    std::vector<int> terms(pde.num_terms());
     std::iota(terms.begin(), terms.end(), 0); // fills with 0, 1, 2, 3 ...
     return terms;
   }
   else
   {
     std::vector<int> terms;
-    terms.reserve(pde.num_terms);
-    for (int t = 0; t < pde.num_terms; t++)
+    terms.reserve(pde.num_terms());
+    for (int t = 0; t < pde.num_terms(); t++)
       if (pde.get_terms()[t][0].flag() == imex)
         terms.push_back(t);
 
@@ -1023,7 +1023,7 @@ void build_preconditioner(PDE<precision> const &pde, int64_t const num_active,
 
   int const pterms = pde.get_dimensions()[0].get_degree();
 
-  int num_dimensions  = pde.num_dims;
+  int num_dimensions  = pde.num_dims();
   int64_t tensor_size = int_pow(pterms, num_dimensions);
 
   if (pc.size() == 0)
@@ -1193,7 +1193,7 @@ bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
 template<typename precision>
 bool get_flux_direction(PDE<precision> const &pde, int term_id)
 {
-  for (int d = 0; d < pde.num_dims; d++)
+  for (int d = 0; d < pde.num_dims(); d++)
     for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
       if (pt.coeff_type() == coefficient_type::div or
           pt.coeff_type() == coefficient_type::grad or
@@ -1213,10 +1213,10 @@ make_global_kron_matrix(PDE<precision> const &pde,
 
   int const porder    = pde.get_dimensions()[0].get_degree() - 1;
   int const pterms    = porder + 1; // poly degrees of freedom
-  int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level;
+  int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level();
 
-  int const num_dimensions = pde.num_dims;
-  int const num_terms      = pde.num_terms;
+  int const num_dimensions = pde.num_dims();
+  int const num_terms      = pde.num_terms();
 
   connect_1d volumes(max_level, connect_1d::hierarchy::volume);
   connect_1d dof_pattern(connect_1d(max_level), porder);
@@ -1359,7 +1359,7 @@ void set_specific_mode(PDE<precision> const &pde,
   int const porder = pde.get_dimensions()[0].get_degree() - 1;
   mat.porder_      = porder;
 
-  int const num_dimensions = pde.num_dims;
+  int const num_dimensions = pde.num_dims();
 
   // set the values for the global pattern
   // number of patterns per term per dimension to be considered
@@ -1474,7 +1474,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
-  int const num_dimensions = pde.num_dims;
+  int const num_dimensions = pde.num_dims();
 
   constexpr int patterns_per_dim = global_kron_matrix<precision>::patterns_per_dim;
 

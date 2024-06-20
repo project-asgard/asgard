@@ -23,12 +23,12 @@ void generate_all_coefficients(
   tools::time_event time_generating_("gen_coefficients");
   expect(time >= 0.0);
 
-  for (auto i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims(); ++i)
   {
     auto const &dim = pde.get_dimensions()[i];
     std::vector<int> ipiv(dim.get_degree() *
                           fm::two_raised_to(dim.get_level()));
-    for (auto j = 0; j < pde.num_terms; ++j)
+    for (auto j = 0; j < pde.num_terms(); ++j)
     {
       auto const &term_1D       = pde.get_terms()[j][i];
       auto const &partial_terms = term_1D.get_partial_terms();
@@ -87,11 +87,11 @@ void generate_all_coefficients_max_level(
   tools::time_event time_generating_("gen_coefficients");
   expect(time >= 0.0);
 
-  for (auto i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims(); ++i)
   {
     auto const &dim = pde.get_dimensions()[i];
-    std::vector<int> ipiv(dim.get_degree() * fm::two_raised_to(pde.max_level));
-    for (auto j = 0; j < pde.num_terms; ++j)
+    std::vector<int> ipiv(dim.get_degree() * fm::two_raised_to(pde.max_level()));
+    for (auto j = 0; j < pde.num_terms(); ++j)
     {
       auto const &term_1D       = pde.get_terms()[j][i];
       auto const &partial_terms = term_1D.get_partial_terms();
@@ -107,12 +107,12 @@ void generate_all_coefficients_max_level(
             dim.volume_jacobian_dV);
 
         auto mass_coeff = generate_coefficients<P>(
-            dim, lhs_mass_pterm, transformer, pde.max_level, time, rotate);
+            dim, lhs_mass_pterm, transformer, pde.max_level(), time, rotate);
 
         // precompute inv(mass) * coeff for each level up to max level
         std::vector<fk::matrix<P>> pterm_coeffs;
 
-        for (int level = 0; level <= pde.max_level; ++level)
+        for (int level = 0; level <= pde.max_level(); ++level)
         {
           auto result = generate_coefficients<P>(
               dim, partial_terms[k], transformer, level, time, rotate);
@@ -137,11 +137,11 @@ template<typename P>
 void generate_dimension_mass_mat(
     PDE<P> &pde, basis::wavelet_transform<P, resource::host> const &transformer)
 {
-  for (auto i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims(); ++i)
   {
     auto &dim = pde.get_dimensions()[i];
 
-    for (int level = 0; level <= pde.max_level; ++level)
+    for (int level = 0; level <= pde.max_level(); ++level)
     {
       partial_term<P> const lhs_mass_pterm = partial_term<P>(
           coefficient_type::mass, nullptr, nullptr, flux_type::central,

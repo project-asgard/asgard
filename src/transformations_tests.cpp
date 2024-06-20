@@ -17,7 +17,7 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
                              int const num_ranks  = 1,
                              bool const full_grid = false)
 {
-  int const dims = pde.num_dims;
+  int const dims = pde.num_dims();
 
   // FIXME assuming uniform degree across dims
   dimension const dim = pde.get_dimensions()[0];
@@ -36,7 +36,7 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
 
   std::vector<fk::vector<P>> vectors;
   P counter = 1.0;
-  for (int i = 0; i < pde.num_dims; ++i)
+  for (int i = 0; i < pde.num_dims(); ++i)
   {
     int const vect_size         = dims * fm::two_raised_to(lev);
     fk::vector<P> const vect_1d = [&counter, vect_size] {
@@ -191,7 +191,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
     auto const arbitrary_func = [](P const x) { return 2.0 * x; };
 
     auto const wave_space_size =
-        static_cast<uint64_t>(table.size()) * std::pow(degree, pde.num_dims);
+        static_cast<uint64_t>(table.size()) * std::pow(degree, pde.num_dims());
     expect(wave_space_size < INT_MAX);
     fk::vector<P> wave_space_in(wave_space_size);
 

@@ -33,9 +33,9 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
   auto const filename_base = gold_path + "_l" + lev_string + "d" +
                              std::to_string(parse.get_degree()) + "_";
 
-  for (auto d = 0; d < pde->num_dims; ++d)
+  for (auto d = 0; d < pde->num_dims(); ++d)
   {
-    for (auto t = 0; t < pde->num_terms; ++t)
+    for (auto t = 0; t < pde->num_terms(); ++t)
     {
       auto const filename = filename_base + std::to_string(t + 1) + "_" +
                             std::to_string(d + 1) + ".dat";
@@ -333,9 +333,9 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
     generate_all_coefficients(*pde, transformer, time, true);
 
     int row = 0;
-    for (auto i = 0; i < pde->num_dims; ++i)
+    for (auto i = 0; i < pde->num_dims(); ++i)
     {
-      for (auto j = 0; j < pde->num_terms; ++j)
+      for (auto j = 0; j < pde->num_terms(); ++j)
       {
         auto const &term_1D       = pde->get_terms()[j][i];
         auto const &partial_terms = term_1D.get_partial_terms();

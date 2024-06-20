@@ -473,7 +473,7 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
                          fk::vector<int> const &coords)
 {
   fk::vector<int> indices(coords.size());
-  for (int d = 0; d < pde.num_dims; ++d)
+  for (int d = 0; d < pde.num_dims(); ++d)
   {
     indices(d) = coords(d) * degree;
   }
@@ -491,7 +491,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims));
+  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims()));
 
   int const A_cols = elem_size * grid.ncols();
   int const A_rows = elem_size * grid.nrows();
@@ -502,9 +502,9 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
   std::map<key_type, val_type> coef_cache;
 
   // copy coefficients to host for subsequent use
-  for (int k = 0; k < pde.num_terms; ++k)
+  for (int k = 0; k < pde.num_terms(); ++k)
   {
-    for (int d = 0; d < pde.num_dims; d++)
+    for (int d = 0; d < pde.num_dims(); d++)
     {
       coef_cache.emplace(key_type(k, d), pde.get_coefficients(k, d));
     }
@@ -520,7 +520,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
     // calculate from the level/cell indices for each
     // dimension
     fk::vector<int> const coords = elem_table.get_coords(i);
-    expect(coords.size() == pde.num_dims * 2);
+    expect(coords.size() == pde.num_dims() * 2);
     fk::vector<int> const elem_indices = linearize(coords);
 
     int const global_row = i * elem_size;
@@ -537,7 +537,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
     {
       // get linearized indices for this connected element
       fk::vector<int> const coords_nD = elem_table.get_coords(j);
-      expect(coords_nD.size() == pde.num_dims * 2);
+      expect(coords_nD.size() == pde.num_dims() * 2);
       fk::vector<int> const connected_indices = linearize(coords_nD);
 
       // calculate the col portion of the
@@ -546,7 +546,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
       fk::vector<int> const operator_col =
           linear_coords_to_indices(pde, degree, connected_indices);
 
-      for (int k = 0; k < pde.num_terms; ++k)
+      for (int k = 0; k < pde.num_terms(); ++k)
       {
         std::vector<fk::matrix<P>> kron_vals;
         fk::matrix<P> kron0(1, 1);
@@ -560,7 +560,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
           kron0(0, 0) = 0.0;
         }
         kron_vals.push_back(std::move(kron0));
-        for (int d = 0; d < pde.num_dims; d++)
+        for (int d = 0; d < pde.num_dims(); d++)
         {
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
               coef_cache[key_type(k, d)], operator_row(d),

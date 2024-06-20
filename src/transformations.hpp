@@ -204,17 +204,17 @@ inline fk::vector<P> transform_and_combine_dimensions(
     int const start, int const stop, int const degree, P const time = 0.0,
     P const time_multiplier = 1.0)
 {
-  expect(static_cast<int>(v_functions.size()) == pde.num_dims);
+  expect(static_cast<int>(v_functions.size()) == pde.num_dims());
   expect(start <= stop);
   expect(stop < table.size());
   expect(degree > 0);
 
   std::vector<fk::vector<P>> dimension_components;
-  dimension_components.reserve(pde.num_dims);
+  dimension_components.reserve(pde.num_dims());
 
   auto const &dimensions = pde.get_dimensions();
 
-  for (int i = 0; i < pde.num_dims; ++i)
+  for (int i = 0; i < pde.num_dims(); ++i)
   {
     auto const &dim = dimensions[i];
     dimension_components.push_back(forward_transform<P>(

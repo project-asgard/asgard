@@ -94,7 +94,7 @@ int main(int argc, char **argv)
   asgard::adapt::distributed_grid adaptive_grid(*pde, opts);
   asgard::node_out() << "  degrees of freedom: "
                      << adaptive_grid.size() * static_cast<uint64_t>(std::pow(
-                                                   degree, pde->num_dims))
+                                                   degree, pde->num_dims()))
                      << '\n';
 
   asgard::node_out() << "  generating: basis operator..." << '\n';
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
       adaptive_grid.get_initial_condition(*pde, transformer, opts);
   asgard::node_out() << "  degrees of freedom (post initial adapt): "
                      << adaptive_grid.size() * static_cast<uint64_t>(std::pow(
-                                                   degree, pde->num_dims))
+                                                   degree, pde->num_dims()))
                      << '\n';
 
   // -- regen mass mats after init conditions - TODO: check dims/rechaining?
@@ -277,7 +277,7 @@ int main(int argc, char **argv)
     {
       // get analytic solution at time(step+1)
       auto const analytic_solution = sum_separable_funcs(
-          pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
+          pde->exact_vector_funcs(), pde->get_dimensions(), adaptive_grid,
           transformer, degree, time + pde->get_dt());
 
       // calculate root mean squared error

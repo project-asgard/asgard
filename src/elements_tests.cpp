@@ -44,18 +44,18 @@ void test_element_table(PDE_opts const pde_choice,
     // test id to coord mapping
     auto const &test_coords = elem_table.get_coords(i);
     fk::vector<int> const gold_coords =
-        gold_table.extract_submatrix(i, 0, 1, pde->num_dims * 2);
+        gold_table.extract_submatrix(i, 0, 1, pde->num_dims() * 2);
     fk::vector<int> const mapped_coords =
-        elements::map_to_coords(test_id, opts.max_level, pde->num_dims);
+        elements::map_to_coords(test_id, opts.max_level, pde->num_dims());
     REQUIRE(mapped_coords == test_coords);
     REQUIRE(gold_coords == test_coords);
 
     // test mapping back to id
     auto const mapped_id =
-        elements::map_to_id(mapped_coords, opts.max_level, pde->num_dims);
+        elements::map_to_id(mapped_coords, opts.max_level, pde->num_dims());
     REQUIRE(mapped_id == gold_id);
 
-    auto const coord_size         = pde->num_dims * 2;
+    auto const coord_size         = pde->num_dims() * 2;
     auto const element_flat_index = static_cast<int64_t>(coord_size) * i;
     fk::vector<int, mem_type::const_view> const flat_coords(
         flat_table, element_flat_index, element_flat_index + coord_size - 1);
@@ -219,7 +219,7 @@ void test_element_deletion(PDE_opts const pde_choice,
   REQUIRE(elem_table.size() ==
           old_size - static_cast<int>(indices_to_delete.size()));
   auto const &flat_table = elem_table.get_active_table();
-  auto const coord_size  = pde->num_dims * 2;
+  auto const coord_size  = pde->num_dims() * 2;
   REQUIRE(flat_table.size() / coord_size == elem_table.size());
 
   // check that deleted ids are not present in table

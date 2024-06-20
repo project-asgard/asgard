@@ -95,7 +95,7 @@ void moment<P>::createMomentReducedMatrix(PDE<P> const &pde,
                                           elements::table const &hash_table)
 {
   tools::time_event performance("createMomentMatrix");
-  switch (pde.num_dims)
+  switch (pde.num_dims())
   {
   case 2:
     createMomentReducedMatrix_nd<1>(pde, hash_table);

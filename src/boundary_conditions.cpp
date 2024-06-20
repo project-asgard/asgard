@@ -110,7 +110,7 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
 {
   fk::vector<P> bc(
       (stop_element - start_element + 1) *
-      std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims));
+      std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims()));
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 

@@ -16,7 +16,7 @@ void test_initial_condition(PDE<P> const &pde, std::filesystem::path base_dir,
                             fk::vector<P> const &x)
 {
   auto const filename = base_dir.filename().string();
-  for (auto i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims(); ++i)
   {
     auto const gold = read_vector_from_txt_file<P>(base_dir.replace_filename(
         filename + "initial_dim" + std::to_string(i) + ".dat"));
@@ -39,11 +39,11 @@ void test_exact_solution(PDE<P> const &pde, std::filesystem::path base_dir,
 
   auto constexpr tol_factor = get_tolerance<P>(10);
   auto const filename       = base_dir.filename().string();
-  for (auto i = 0; i < pde.num_dims; ++i)
+  for (auto i = 0; i < pde.num_dims(); ++i)
   {
     auto const gold = read_vector_from_txt_file<P>(base_dir.replace_filename(
         filename + "exact_dim" + std::to_string(i) + ".dat"));
-    auto const fx   = pde.exact_vector_funcs[0][i](x, time);
+    auto const fx   = pde.exact_vector_funcs()[0][i](x, time);
     rmse_comparison(fx, gold, tol_factor);
   }
 
@@ -60,20 +60,20 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
   auto constexpr tol_factor = get_tolerance<P>(10);
   auto const filename       = base_dir.filename().string();
 
-  for (auto i = 0; i < pde.num_sources; ++i)
+  for (auto i = 0; i < pde.num_sources(); ++i)
   {
     auto const source_string = filename + "source" + std::to_string(i) + "_";
-    for (auto j = 0; j < pde.num_dims; ++j)
+    for (auto j = 0; j < pde.num_dims(); ++j)
     {
       auto const full_path = base_dir.replace_filename(
           source_string + "dim" + std::to_string(j) + ".dat");
       auto const gold = read_vector_from_txt_file<P>(full_path);
-      auto const fx   = pde.sources[i].source_funcs()[j](x, time);
+      auto const fx   = pde.sources()[i].source_funcs()[j](x, time);
       rmse_comparison(fx, gold, tol_factor);
     }
     P const gold = read_scalar_from_txt_file(
         base_dir.replace_filename(source_string + "time.dat"));
-    auto const fx = pde.sources[i].time_func()(time);
+    auto const fx = pde.sources()[i].time_func()(time);
     relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
   }
 }
@@ -318,9 +318,9 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
         pde_base_dir / (filename + "dvfuncs.dat"));
 
     int row = 0;
-    for (auto i = 0; i < pde->num_dims; ++i)
+    for (auto i = 0; i < pde->num_dims(); ++i)
     {
-      for (auto j = 0; j < pde->num_terms; ++j)
+      for (auto j = 0; j < pde->num_terms(); ++j)
       {
         auto const &term_1D       = pde->get_terms()[j][i];
         auto const &partial_terms = term_1D.get_partial_terms();
@@ -403,6 +403,6 @@ TEST_CASE("testing pde term selection", "[pde]")
   parser const parse = make_parser({"-p", pde_choice, "--terms", active_terms});
   auto const pde     = make_PDE<default_precision>(parse);
 
-  REQUIRE(pde->num_terms == 4);
+  REQUIRE(pde->num_terms() == 4);
   REQUIRE(pde->get_terms().size() == 4);
 }
