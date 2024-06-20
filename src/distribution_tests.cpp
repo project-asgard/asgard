@@ -695,7 +695,7 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", test_precs)
       auto const pde =
           make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
       auto const segment_size =
-          static_cast<int>(std::pow(degree, pde->num_dims));
+          static_cast<int>(std::pow(degree, pde->num_dims()));
 
       elements::table const table(o, *pde);
       if (num_ranks > table.size())
@@ -775,7 +775,7 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", test_precs)
 
       auto const plan = get_plan(num_ranks, table);
       auto const segment_size =
-          static_cast<int>(std::pow(degree, pde->num_dims));
+          static_cast<int>(std::pow(degree, pde->num_dims()));
 
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {
