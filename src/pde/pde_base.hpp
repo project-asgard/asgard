@@ -1028,7 +1028,7 @@ private:
     }
     else
     {
-      return exact_time_func;
+      return std::move(exact_time_func);
     }
   }
 

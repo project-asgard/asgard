@@ -69,14 +69,14 @@ make_kronmult_dense(PDE<precision> const &pde,
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
-  int const num_dimensions = pde.num_dims;
+  int const num_dimensions = pde.num_dims();
   int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
                                                   ? program_options.max_level
-                                                  : pde.max_level);
+                                                  : pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
   std::vector<int> const used_terms = get_used_terms(pde, program_options, imex);
@@ -337,14 +337,14 @@ make_kronmult_sparse(PDE<precision> const &pde,
   tools::time_event performance_("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
-  int const num_dimensions = pde.num_dims;
+  int const num_dimensions = pde.num_dims();
   int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
                                                   ? program_options.max_level
-                                                  : pde.max_level);
+                                                  : pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
   std::vector<int> const used_terms =
@@ -713,12 +713,12 @@ void update_kronmult_coefficients(PDE<P> const &pde,
                                   kronmult_matrix<P> &mat)
 {
   tools::time_event kron_time_("kronmult-update-coefficients");
-  int const num_dimensions = pde.num_dims;
+  int const num_dimensions = pde.num_dims();
   int const kron_size      = pde.get_dimensions()[0].get_degree();
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
                                                   ? program_options.max_level
-                                                  : pde.max_level);
+                                                  : pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
   std::vector<int> const used_terms =
@@ -817,7 +817,7 @@ compute_mem_usage(PDE<P> const &pde,
                   int64_t index_limit, bool force_sparse)
 {
   auto const &grid         = discretization.get_subgrid(get_rank());
-  int const num_dimensions = pde.num_dims;
+  int const num_dimensions = pde.num_dims();
   int const kron_size      = pde.get_dimensions()[0].get_degree();
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
@@ -833,7 +833,7 @@ compute_mem_usage(PDE<P> const &pde,
 
   // parameters common to the dense and sparse cases
   // matrices_per_prod is the number of matrices per Kronecker product
-  int64_t matrices_per_prod = pde.num_terms * num_dimensions;
+  int64_t matrices_per_prod = pde.num_terms() * num_dimensions;
 
   // base_line_entries are the entries that must always be loaded in GPU memory
   // first we compute the size of the state vectors (x and y) and then we
@@ -845,7 +845,7 @@ compute_mem_usage(PDE<P> const &pde,
   if (program_options.kmode == kronmult_mode::dense and not force_sparse)
   {
     // assume all terms will be loaded into the GPU, as one IMEX flag or another
-    for (int t = 0; t < pde.num_terms; t++)
+    for (int t = 0; t < pde.num_terms(); t++)
       for (int d = 0; d < num_dimensions; d++)
         base_line_entries += pde.get_coefficients(t, d).size();
 
@@ -892,8 +892,8 @@ compute_mem_usage(PDE<P> const &pde,
   else
   { // sparse mode
     // if possible, keep the 1d connectivity matrix
-    if (pde.max_level != spcache.cells1d.max_loaded_level())
-      spcache.cells1d = connect_1d(pde.max_level);
+    if (pde.max_level() != spcache.cells1d.max_loaded_level())
+      spcache.cells1d = connect_1d(pde.max_level());
 
     int const *const flattened_table =
         discretization.get_table().get_active_table().data();
@@ -936,7 +936,7 @@ compute_mem_usage(PDE<P> const &pde,
     }
 
     base_line_entries += spcache.cells1d.num_connections() * num_dimensions *
-                         pde.num_terms * kron_size * kron_size;
+                         pde.num_terms() * kron_size * kron_size;
 
     stats.baseline_memory = 1 + static_cast<int>(get_MB<P>(base_line_entries));
 
@@ -958,7 +958,7 @@ compute_mem_usage(PDE<P> const &pde,
     }
     else
     {
-      int min_terms = pde.num_terms;
+      int min_terms = pde.num_terms();
       if (imex != imex_flag::unspecified)
       {
         std::vector<int> const explicit_terms =
