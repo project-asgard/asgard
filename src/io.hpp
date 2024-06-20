@@ -165,8 +165,8 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   H5Easy::dump(file, "degree", dims[0].get_degree());
   H5Easy::dump(file, "dt", pde.get_dt());
   H5Easy::dump(file, "time", time);
-  H5Easy::dump(file, "ndims", pde.num_dims);
-  H5Easy::dump(file, "max_level", pde.max_level);
+  H5Easy::dump(file, "ndims", pde.num_dims());
+  H5Easy::dump(file, "max_level", pde.max_level());
   H5Easy::dump(file, "dof", dof);
   H5Easy::dump(file, "cli", cli_input.cli_opts);
   for (size_t dim = 0; dim < dims.size(); ++dim)
@@ -459,7 +459,7 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
   pde.E_field = std::move(
       fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("Efield"))));
 
-  for (int dim = 0; dim < pde.num_dims; ++dim)
+  for (int dim = 0; dim < pde.num_dims(); ++dim)
   {
     int level = H5Easy::load<int>(
         file, std::string("dim" + std::to_string(dim) + "_level"));
