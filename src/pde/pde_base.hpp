@@ -587,14 +587,33 @@ public:
   }
 
   void initialize(parser const &cli_input, int const num_dims_in, int const num_sources_in,
-      int const max_num_terms, std::vector<dimension<P>> const dimensions,
-      term_set<P> const terms, std::vector<source<P>> const sources_in,
-      std::vector<md_func_type<P>> const exact_vector_funcs_in,
-      scalar_func<P> const exact_time_in, dt_func<P> const get_dt,
-      bool const do_poisson_solve_in          = false,
-      bool const has_analytic_soln_in         = false,
-      std::vector<moment<P>> const moments_in = {},
-      bool const do_collision_operator_in     = true)
+      int const max_num_terms, std::vector<dimension<P>> const &dimensions,
+      term_set<P> const &terms, std::vector<source<P>> const &sources_in,
+      std::vector<md_func_type<P>> const &exact_vector_funcs_in,
+      scalar_func<P> const &exact_time_in, dt_func<P> const &get_dt,
+      bool const do_poisson_solve_in           = false,
+      bool const has_analytic_soln_in          = false,
+      std::vector<moment<P>> const &moments_in = {},
+      bool const do_collision_operator_in      = true)
+  {
+    this->initialize(cli_input, num_dims_in, num_sources_in, max_num_terms,
+                     std::vector<dimension<P>>(dimensions), term_set<P>(terms),
+                     std::vector<source<P>>(sources_in),
+                     std::vector<md_func_type<P>>(exact_vector_funcs_in),
+                     scalar_func<P>(exact_time_in), dt_func<P>(get_dt), do_poisson_solve_in,
+                     has_analytic_soln_in, std::vector<moment<P>>(moments_in),
+                     do_collision_operator_in);
+  }
+
+  void initialize(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+      int const max_num_terms, std::vector<dimension<P>> &&dimensions,
+      term_set<P> &&terms, std::vector<source<P>> &&sources_in,
+      std::vector<md_func_type<P>> &&exact_vector_funcs_in,
+      scalar_func<P> &&exact_time_in, dt_func<P> &&get_dt,
+      bool const do_poisson_solve_in      = false,
+      bool const has_analytic_soln_in     = false,
+      std::vector<moment<P>> &&moments_in = {},
+      bool const do_collision_operator_in = true)
   {
     num_dims_    = num_dims_in;
     num_sources_ = num_sources_in;
@@ -605,7 +624,7 @@ public:
     exact_vector_funcs_ = std::move(exact_vector_funcs_in);
     moments             = std::move(moments_in);
 
-    exact_time_ = check_exact_time(exact_time_in);
+    exact_time_ = check_exact_time(std::move(exact_time_in));
 
     do_poisson_solve_      = do_poisson_solve_in;
     do_collision_operator_ = do_collision_operator_in;
@@ -617,8 +636,8 @@ public:
     expect(num_sources_ >= 0);
     expect(num_terms_ > 0);
 
-    expect(dimensions.size() == static_cast<unsigned>(num_dims_));
-    expect(terms.size() == static_cast<unsigned>(max_num_terms));
+    expect(dimensions_.size() == static_cast<unsigned>(num_dims_));
+    expect(terms_.size() == static_cast<unsigned>(max_num_terms));
     expect(sources_.size() == static_cast<unsigned>(num_sources_));
 
     // ensure analytic solution functions were provided if this flag is set
@@ -997,7 +1016,7 @@ private:
     }
   }
 
-  scalar_func<P> check_exact_time(scalar_func<P> const &exact_time_func)
+  scalar_func<P> check_exact_time(scalar_func<P> &&exact_time_func)
   {
     // check if the PDE exact time function was defined, or return an empty one
     if (!exact_time_func)
