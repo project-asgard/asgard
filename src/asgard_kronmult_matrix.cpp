@@ -1062,6 +1062,7 @@ void build_preconditioner(PDE<precision> const &pde, int64_t const num_active,
       }
     }
   }
+  std::fill(pc.begin(), pc.end(), precision{1});
 }
 
 /*!
