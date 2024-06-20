@@ -63,12 +63,13 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
   for (auto i = 0; i < pde.num_sources(); ++i)
   {
     auto const source_string = filename + "source" + std::to_string(i) + "_";
+    auto const &source_funcs = pde.sources()[i].source_funcs();
     for (auto j = 0; j < pde.num_dims(); ++j)
     {
       auto const full_path = base_dir.replace_filename(
           source_string + "dim" + std::to_string(j) + ".dat");
       auto const gold = read_vector_from_txt_file<P>(full_path);
-      auto const fx   = pde.sources()[i].source_funcs()[j](x, time);
+      auto const fx   = source_funcs[j](x, time);
       rmse_comparison(fx, gold, tol_factor);
     }
     P const gold = read_scalar_from_txt_file(
