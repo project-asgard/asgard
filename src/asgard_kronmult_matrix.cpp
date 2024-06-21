@@ -1642,10 +1642,10 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
 
   int const porder    = pde.get_dimensions()[0].get_degree() - 1;
   int const pterms    = porder + 1; // poly degrees of freedom
-  int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level;
+  int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level();
 
-  int const num_dimensions = pde.num_dims;
-  int const num_terms      = pde.num_terms;
+  int const num_dimensions = pde.num_dims();
+  int const num_terms      = pde.num_terms();
 
   int64_t block_size = pterms;
   for (int d = 1; d < num_dimensions; d++)
@@ -1716,7 +1716,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   int const n = mat.blockn_;
 
-  int const num_dimensions = pde.num_dims;
+  int const num_dimensions = pde.num_dims();
 
   for (int t : used_terms)
   {
