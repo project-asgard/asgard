@@ -237,11 +237,6 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
   P const rk_scale_1 = a21 * dt;
   fm::axpy(rk_1, x, rk_scale_1);
 
-  // -- RK step 2
-//   std::cout << " ---------------------------------- \n";
-//   for(auto s : x)
-//     std::cout << s << "\n";
-//   std::cout << " ---------------------------------- \n";
   {
     tools::time_event performance(
         "kronmult", operator_matrices.flops(matrix_entry::regular));

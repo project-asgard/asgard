@@ -140,9 +140,8 @@ void global_cpu_one(permutes::matrix_fill fill, int64_t num_rows,
     {
       y[r] = 0;
       ASGARD_PRAGMA_OMP_SIMD()
-      for (int j = pntr[r]; j < pntr[r + 1]; j++) {
+      for (int j = pntr[r]; j < pntr[r + 1]; j++)
         y[r] += vals[j] * x[indx[j]];
-      }
     }
     break;
   }

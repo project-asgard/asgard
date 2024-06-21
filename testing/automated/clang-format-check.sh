@@ -7,6 +7,7 @@ echo "running clang format. pwd: $(pwd)"
 
 file_list=(
 device/asgard_glkronmult_cpu.cpp
+device/asgard_glkronmult_bcpu.cpp
 device/asgard_preconditioner_gpu.cpp
 device/asgard_kronmult_common.hpp
 device/asgard_kronmult.cpp

@@ -1285,14 +1285,14 @@ class block_global_kron_matrix;
 
 template<typename precision>
 void set_specific_mode(
-      PDE<precision> const &pde,
-      adapt::distributed_grid<precision> const &dis_grid,
-      options const &program_options, imex_flag const imex,
-      block_global_kron_matrix<precision> &mat);
-
+    PDE<precision> const &pde,
+    adapt::distributed_grid<precision> const &dis_grid,
+    options const &program_options, imex_flag const imex,
+    block_global_kron_matrix<precision> &mat);
 
 template<typename precision>
-class block_global_kron_matrix {
+class block_global_kron_matrix
+{
 public:
   block_global_kron_matrix() : num_dimensions_(0), conn_volumes_(1), conn_full_(1), workspace_(nullptr) {}
 
@@ -1302,12 +1302,12 @@ public:
                            std::vector<kronmult::permutes> &&perms, std::vector<int> &&flux_dir,
                            connect_1d &&conn_volumes, connect_1d &&conn_full,
                            kronmult::block_global_workspace<precision> *workspace)
-  : num_active_(num_active), num_padded_(num_padded),
-    num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
-    ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
-    flux_dir_(std::move(flux_dir)), conn_volumes_(std::move(conn_volumes)),
-    conn_full_(std::move(conn_full)), gvals_(flux_dir_.size() * num_dimensions_),
-    workspace_(workspace)
+      : num_active_(num_active), num_padded_(num_padded),
+        num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
+        ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
+        flux_dir_(std::move(flux_dir)), conn_volumes_(std::move(conn_volumes)),
+        conn_full_(std::move(conn_full)), gvals_(flux_dir_.size() * num_dimensions_),
+        workspace_(workspace)
   {
     for (auto &f : flops_)
       f = -1;
@@ -1316,7 +1316,7 @@ public:
   template<resource rec>
   void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const;
 
-  operator bool () const { return (num_dimensions_ > 0); }
+  operator bool() const { return (num_dimensions_ > 0); }
 
   bool specific_is_set(matrix_entry etype)
   {
@@ -1330,7 +1330,7 @@ public:
     return false;
   }
 
-    //! \brief Allows overwriting of the loaded coefficients.
+  //! \brief Allows overwriting of the loaded coefficients.
   template<resource rec>
   auto const &get_diagonal_preconditioner() const
   {
@@ -1345,18 +1345,19 @@ public:
     if (flops_[i] == -1)
     {
       flops_[i] = kronmult::block_global_count_flops(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
-                       perms_, flux_dir_, conn_volumes_, conn_full_,
-                       term_groups_[i], *workspace_);
-      switch(etype) {
-        case matrix_entry::regular:
-          std::cout << "regular block-global kronmult matrix\n";
-          break;
-        case matrix_entry::imex_explicit:
-          std::cout << "imex-explicit block-global kronmult matrix\n";
-          break;
-        case matrix_entry::imex_implicit:
-          std::cout << "imex-implicit block-global kronmult matrix\n";
-          break;
+                                                     perms_, flux_dir_, conn_volumes_, conn_full_,
+                                                     term_groups_[i], *workspace_);
+      switch (etype)
+      {
+      case matrix_entry::regular:
+        std::cout << "regular block-global kronmult matrix\n";
+        break;
+      case matrix_entry::imex_explicit:
+        std::cout << "imex-explicit block-global kronmult matrix\n";
+        break;
+      case matrix_entry::imex_implicit:
+        std::cout << "imex-implicit block-global kronmult matrix\n";
+        break;
       };
       std::cout << "   -- number of flops: " << flops_[i] * 1.E-9 << "Gflops\n";
     }
@@ -1398,7 +1399,7 @@ private:
 
   std::vector<std::vector<precision>> gvals_;
   std::array<std::vector<int>, 3> term_groups_;
-  mutable kronmult::block_global_workspace<precision>* workspace_;
+  mutable kronmult::block_global_workspace<precision> *workspace_;
 
   mutable std::array<int64_t, num_variants> flops_;
 
@@ -1412,7 +1413,6 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
                               adapt::distributed_grid<precision> const &dis_grid,
                               options const &program_options,
                               kronmult::block_global_workspace<precision> *workspace);
-
 
 template<typename precision>
 struct matrix_list
@@ -1439,10 +1439,12 @@ struct matrix_list
   void make(matrix_entry entry, PDE<precision> const &pde,
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
-    if (not kglobal) {
+    if (not kglobal)
+    {
       kglobal = make_block_global_kron_matrix(pde, grid, opts, &workspace);
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
-    } else if (not kglobal.specific_is_set(entry))
+    }
+    else if (not kglobal.specific_is_set(entry))
       set_specific_mode(pde, grid, opts, imex(entry), kglobal);
   }
 

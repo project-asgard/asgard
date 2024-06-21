@@ -198,7 +198,7 @@ struct permutes
     }
   }
   permutes(std::vector<int> const &active_dirs)
-    : permutes(static_cast<int>(active_dirs.size()))
+      : permutes(static_cast<int>(active_dirs.size()))
   {
     remap_directions(active_dirs);
   }
@@ -416,7 +416,8 @@ void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
 #ifdef KRON_MODE_GLOBAL_BLOCK
 
 template<typename precision>
-struct block_global_workspace {
+struct block_global_workspace
+{
   std::vector<precision> x, y;
   std::vector<precision> w1, w2;
   std::vector<std::vector<int64_t>> row_map;

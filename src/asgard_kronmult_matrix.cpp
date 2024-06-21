@@ -1323,7 +1323,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
 
     active_dirs.clear();
     for (int d = 0; d < num_dimensions; d++)
-      if (not check_identity_term(pde, t, d)) {
+      if (not check_identity_term(pde, t, d))
+      {
         active_dirs.push_back(d);
         if (d == flux_dir and active_dirs.size() > 1)
           std::swap(active_dirs.front(), active_dirs.back());
@@ -1678,7 +1679,8 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
     // add only the dimensions that are not identity
     // make sure that the flux direction comes first
     for (int d = 0; d < num_dimensions; d++)
-      if (not check_identity_term(pde, t, d)) {
+      if (not check_identity_term(pde, t, d))
+      {
         active_dirs.push_back(d);
         if (d == flux_dir[t] and active_dirs.size() > 1)
           std::swap(active_dirs.front(), active_dirs.back());

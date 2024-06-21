@@ -131,8 +131,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
             for (int k = 0; k < n; k++)
               for (int j = 0; j < n; j++)
                 for (int s = 0; s < n; s++)
-                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + k * n + s]
-                    += A[j * n + s] * x[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + k * n + j];
+                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + k * n + s] += A[j * n + s] * x[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + k * n + j];
     }
     else if constexpr (dim == 3)
     {
@@ -143,8 +142,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
             for (int j = 0; j < n; j++)
               for (int s = 0; s < n; s++)
                 for (int k = 0; k < n; k++)
-                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + s * n + k]
-                    += x[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + j * n + k] * A[j * n + s];
+                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + s * n + k] += x[v * ipow<n, 4>() + p * ipow<n, 3>() + l * n * n + j * n + k] * A[j * n + s];
     }
     else if constexpr (dim == 2)
     {
@@ -155,8 +153,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
             for (int s = 0; s < n; s++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
-                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + s * n * n + l * n + k]
-                    += x[v * ipow<n, 4>() + p * ipow<n, 3>() + j * n * n + l * n + k] * A[j * n + s];
+                  y[v * ipow<n, 4>() + p * ipow<n, 3>() + s * n * n + l * n + k] += x[v * ipow<n, 4>() + p * ipow<n, 3>() + j * n * n + l * n + k] * A[j * n + s];
     }
     else if constexpr (dim == 1)
     {
@@ -167,8 +164,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
             for (int p = 0; p < n; p++)
               for (int l = 0; l < n; l++)
                 for (int k = 0; k < n; k++)
-                  y[v * ipow<n, 4>() + s * ipow<n, 3>() + p * n * n + l * n + k]
-                    += x[v * ipow<n, 4>() + j * ipow<n, 3>() + p * n * n + l * n + k] * A[j * n + s];
+                  y[v * ipow<n, 4>() + s * ipow<n, 3>() + p * n * n + l * n + k] += x[v * ipow<n, 4>() + j * ipow<n, 3>() + p * n * n + l * n + k] * A[j * n + s];
     }
     else // dim == 0
     {
@@ -312,14 +308,15 @@ void global_cpu(int64_t block_size,
       int const vec_end   = dsort.vec_end(dim, vec_id);
       // map the indexes of present entries
       for (int j = vec_begin; j < vec_end; j++)
-        xidx[ dsort(ilist, dim, j) ] = dsort.map(dim, j) * block_size;
+        xidx[dsort(ilist, dim, j)] = dsort.map(dim, j) * block_size;
 
       // matrix-vector product using xidx as a row
       for (int rj = vec_begin; rj < vec_end; rj++)
       {
         // row in the 1d pattern
         int const row = dsort(ilist, dim, rj);
-        precision *const local_y = &y[ xidx[row] ];
+
+        precision *const local_y = &y[xidx[row]];
 
         // columns for the 1d pattern
         int col_begin = (fill == permutes::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
@@ -335,17 +332,17 @@ void global_cpu(int64_t block_size,
           if (xidx[j] != -1)
           {
             if constexpr (n == -1)
-              #pragma omp atomic
+#pragma omp atomic
               number_of_blocks_ += 1;
             else
-              gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[ xidx[j] ], local_y);
+              gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[xidx[j]], local_y);
           }
         }
       }
 
       // restore the entries
       for (int j = vec_begin; j < vec_end; j++)
-        xidx[ dsort(ilist, dim, j) ] = -1;
+        xidx[dsort(ilist, dim, j)] = -1;
     }
   }
 }
@@ -358,25 +355,25 @@ void global_cpu(int n, int64_t block_size,
                 precision const x[], precision y[],
                 std::vector<std::vector<int64_t>> &row_wspace)
 {
-  switch(n)
+  switch (n)
   {
-    case -1: // special case: count the number of flops
-      global_cpu<precision, fill, num_dimensions, dim, -1>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-      break;
-    case 1: // pwconstant
-      global_cpu<precision, fill, num_dimensions, dim, 1>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-      break;
-    case 2: // linear
-      global_cpu<precision, fill, num_dimensions, dim, 2>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-      break;
-    case 3: // quadratic
-      global_cpu<precision, fill, num_dimensions, dim, 3>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-      break;
-    case 4: // cubic
-      global_cpu<precision, fill, num_dimensions, dim, 4>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-      break;
-    default:
-      throw std::runtime_error("(kronmult) unimplemented n for given number of dims");
+  case -1: // special case: count the number of flops
+    global_cpu<precision, fill, num_dimensions, dim, -1>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+    break;
+  case 1: // pwconstant
+    global_cpu<precision, fill, num_dimensions, dim, 1>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+    break;
+  case 2: // linear
+    global_cpu<precision, fill, num_dimensions, dim, 2>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+    break;
+  case 3: // quadratic
+    global_cpu<precision, fill, num_dimensions, dim, 3>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+    break;
+  case 4: // cubic
+    global_cpu<precision, fill, num_dimensions, dim, 4>(block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+    break;
+  default:
+    throw std::runtime_error("(kronmult) unimplemented n for given number of dims");
   };
 }
 
@@ -402,80 +399,80 @@ void global_cpu(int n, int64_t block_size,
   }
   else if constexpr (num_dimensions == 3)
   {
-    switch(dim)
+    switch (dim)
     {
-      case 0:
-        global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 1:
-        global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      default: // case 2:
-        global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
+    case 0:
+      global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 1:
+      global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    default: // case 2:
+      global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
     }
   }
   else if constexpr (num_dimensions == 4)
   {
-    switch(dim)
+    switch (dim)
     {
-      case 0:
-        global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 1:
-        global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 2:
-        global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      default: // case 3:
-        global_cpu<precision, fill, num_dimensions, 3>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
+    case 0:
+      global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 1:
+      global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 2:
+      global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    default: // case 3:
+      global_cpu<precision, fill, num_dimensions, 3>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
     }
   }
   else if constexpr (num_dimensions == 5)
   {
-    switch(dim)
+    switch (dim)
     {
-      case 0:
-        global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 1:
-        global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 2:
-        global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 3:
-        global_cpu<precision, fill, num_dimensions, 3>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      default: // case 4:
-        global_cpu<precision, fill, num_dimensions, 4>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
+    case 0:
+      global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 1:
+      global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 2:
+      global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 3:
+      global_cpu<precision, fill, num_dimensions, 3>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    default: // case 4:
+      global_cpu<precision, fill, num_dimensions, 4>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
     }
   }
   else // num_dimensions == 6
   {
-    switch(dim)
+    switch (dim)
     {
-      case 0:
-        global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 1:
-        global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 2:
-        global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 3:
-        global_cpu<precision, fill, num_dimensions, 3>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      case 4:
-        global_cpu<precision, fill, num_dimensions, 4>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
-      default: // case 5:
-        global_cpu<precision, fill, num_dimensions, 5>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
-        break;
+    case 0:
+      global_cpu<precision, fill, num_dimensions, 0>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 1:
+      global_cpu<precision, fill, num_dimensions, 1>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 2:
+      global_cpu<precision, fill, num_dimensions, 2>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 3:
+      global_cpu<precision, fill, num_dimensions, 3>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    case 4:
+      global_cpu<precision, fill, num_dimensions, 4>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
+    default: // case 5:
+      global_cpu<precision, fill, num_dimensions, 5>(n, block_size, ilist, dsort, conn, vals, x, y, row_wspace);
+      break;
     }
   }
 }
@@ -488,28 +485,28 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
                 precision const x[], precision y[],
                 std::vector<std::vector<int64_t>> &row_wspace)
 {
-  switch(num_dimensions)
+  switch (num_dimensions)
   {
-    case 1:
-      global_cpu<precision, fill, 1>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    case 2:
-      global_cpu<precision, fill, 2>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    case 3:
-      global_cpu<precision, fill, 3>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    case 4:
-      global_cpu<precision, fill, 4>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    case 5:
-      global_cpu<precision, fill, 5>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    case 6:
-      global_cpu<precision, fill, 6>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    default:
-      throw std::runtime_error("(kronmult) works with only up to 6 dimensions");
+  case 1:
+    global_cpu<precision, fill, 1>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  case 2:
+    global_cpu<precision, fill, 2>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  case 3:
+    global_cpu<precision, fill, 3>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  case 4:
+    global_cpu<precision, fill, 4>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  case 5:
+    global_cpu<precision, fill, 5>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  case 6:
+    global_cpu<precision, fill, 6>(n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  default:
+    throw std::runtime_error("(kronmult) works with only up to 6 dimensions");
   };
 }
 
@@ -521,20 +518,17 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
                 precision const x[], precision y[],
                 std::vector<std::vector<int64_t>> &row_wspace)
 {
-  switch(fill)
+  switch (fill)
   {
-    case permutes::matrix_fill::lower:
-      global_cpu<precision, permutes::matrix_fill::lower>
-        (num_dimensions, n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    case permutes::matrix_fill::upper:
-      global_cpu<precision, permutes::matrix_fill::upper>
-        (num_dimensions, n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
-    default: // case permutes::matrix_fill::both:
-      global_cpu<precision, permutes::matrix_fill::both>
-        (num_dimensions, n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
-      break;
+  case permutes::matrix_fill::lower:
+    global_cpu<precision, permutes::matrix_fill::lower>(num_dimensions, n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  case permutes::matrix_fill::upper:
+    global_cpu<precision, permutes::matrix_fill::upper>(num_dimensions, n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
+  default: // case permutes::matrix_fill::both:
+    global_cpu<precision, permutes::matrix_fill::both>(num_dimensions, n, block_size, ilist, dsort, dim, conn, vals, x, y, row_wspace);
+    break;
   }
 }
 
@@ -619,8 +613,8 @@ int64_t block_global_count_flops(
       {
         dir = perm.direction[i][d];
         global_cpu<precision>(num_dimensions, -1, block_size, ilist, dsort, dir, perm.fill[i][d],
-                   (perm.fill[i][d] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
-                   std::vector<precision>{}, nullptr, nullptr, workspace.row_map);
+                              (perm.fill[i][d] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
+                              std::vector<precision>{}, nullptr, nullptr, workspace.row_map);
       }
     }
   }
