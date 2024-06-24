@@ -424,7 +424,7 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     P rho_1 = rtilde * r;
     if (rho_1 == 0)
     {
-      return gmres_info<P>{resid, i};
+      throw std::runtime_error("BiCGSTAB method failed. rho_1 == 0");
     }
     if (i == 1)
     {
@@ -469,9 +469,10 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     }
     if (omega == 0)
     {
-      return gmres_info<P>{fm::nrm2(r) / normb, i};
+      throw std::runtime_error("BiCGSTAB method failed. omega == 0");
     }
   }
+  std::cout << "Warning: No convergence within max_iter = " << max_iter << " iterations\n";
   return gmres_info<P>{resid, max_iter};
 }
 

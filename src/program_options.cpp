@@ -82,11 +82,11 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(kmode_str, "dense/sparse")["--kron-mode"](
           "Select dense (default) or sparse mode for the kronmult operations") |
       clara::detail::Opt(gmres_tolerance, "tol > 0")["--tol"](
-          "Tolerance used to determine convergence in gmres solver") |
+          "Tolerance used to determine convergence in bicgstab/gmres solvers") |
       clara::detail::Opt(gmres_inner_iterations, "inner_it > 0")["--inner_it"](
           "Number of inner iterations in gmres solver") |
       clara::detail::Opt(gmres_outer_iterations, "outer_it > 0")["--outer_it"](
-          "Number of outer iterations in gmres solver") |
+          "Number of max/outer iterations in bicgstab/gmres solver") |
       clara::detail::Opt(max_adapt_levels_str, "")["--max_adapt_levels"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
       clara::detail::Opt(restart_file, "filename")["--restart"](
