@@ -664,47 +664,6 @@ poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
                double const x_min, double const x_max, double const phi_min,
                double const phi_max, poisson_bc const bc);
 
-#endif
-
-#ifdef ASGARD_ENABLE_FLOAT
-
-template gmres_info<float>
-simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
-             fk::vector<float> const &b, fk::matrix<float> const &M,
-             int const restart, int const max_iter, float const tolerance);
-
-#ifdef KRON_MODE_GLOBAL
-template gmres_info<float>
-simple_gmres_euler(const float dt, matrix_entry mentry,
-                   global_kron_matrix<float> const &mat,
-                   fk::vector<float, mem_type::owner, resource::host> &x,
-                   fk::vector<float, mem_type::owner, resource::host> const &b,
-                   int const restart, int const max_iter, float const tolerance);
-#ifdef ASGARD_USE_CUDA
-template gmres_info<float>
-simple_gmres_euler(const float dt, matrix_entry mentry,
-                   global_kron_matrix<float> const &mat,
-                   fk::vector<float, mem_type::owner, resource::device> &x,
-                   fk::vector<float, mem_type::owner, resource::device> const &b,
-                   int const restart, int const max_iter, float const tolerance);
-#endif
-#else
-template gmres_info<float>
-simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
-                   fk::vector<float> &x, fk::vector<float> const &b,
-                   int const restart, int const max_iter,
-                   float const tolerance);
-#ifdef ASGARD_USE_CUDA
-template gmres_info<float> simple_gmres_euler(
-    const float dt, kronmult_matrix<float> const &mat,
-    fk::vector<float, mem_type::owner, resource::device> &x,
-    fk::vector<float, mem_type::owner, resource::device> const &b,
-    int const restart, int const max_iter, float const tolerance);
-#endif
-#endif
-
-#ifdef ASGARD_ENABLE_DOUBLE
-
 template gmres_info<double>
 bicgstab(fk::matrix<double> const &A, fk::vector<double> &x,
          fk::vector<double> const &b, fk::matrix<double> const &M,
@@ -744,6 +703,41 @@ template gmres_info<double> bicgstab_euler(
 #ifdef ASGARD_ENABLE_FLOAT
 
 template gmres_info<float>
+simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
+             fk::vector<float> const &b, fk::matrix<float> const &M,
+             int const restart, int const max_iter, float const tolerance);
+
+#ifdef KRON_MODE_GLOBAL
+template gmres_info<float>
+simple_gmres_euler(const float dt, matrix_entry mentry,
+                   global_kron_matrix<float> const &mat,
+                   fk::vector<float, mem_type::owner, resource::host> &x,
+                   fk::vector<float, mem_type::owner, resource::host> const &b,
+                   int const restart, int const max_iter, float const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<float>
+simple_gmres_euler(const float dt, matrix_entry mentry,
+                   global_kron_matrix<float> const &mat,
+                   fk::vector<float, mem_type::owner, resource::device> &x,
+                   fk::vector<float, mem_type::owner, resource::device> const &b,
+                   int const restart, int const max_iter, float const tolerance);
+#endif
+#else
+template gmres_info<float>
+simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
+                   fk::vector<float> &x, fk::vector<float> const &b,
+                   int const restart, int const max_iter,
+                   float const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<float> simple_gmres_euler(
+    const float dt, kronmult_matrix<float> const &mat,
+    fk::vector<float, mem_type::owner, resource::device> &x,
+    fk::vector<float, mem_type::owner, resource::device> const &b,
+    int const restart, int const max_iter, float const tolerance);
+#endif
+#endif
+
+template gmres_info<float>
 bicgstab(fk::matrix<float> const &A, fk::vector<float> &x,
          fk::vector<float> const &b, fk::matrix<float> const &M,
          int const max_iter, float const tolerance);
@@ -775,7 +769,6 @@ template gmres_info<float> bicgstab_euler(
     fk::vector<float, mem_type::owner, resource::device> &x,
     fk::vector<float, mem_type::owner, resource::device> const &b,
     int const max_iter, float const tolerance);
-#endif
 #endif
 #endif
 
