@@ -1301,7 +1301,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
 TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
 {
-  using namespace std::literals;
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
   {
@@ -1323,7 +1322,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   parser_mod::set(parse, parser_mod::degree, degree);
   parser_mod::set(parse, parser_mod::dt, 0.019634954084936);
   parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres"s);
+  parser_mod::set(parse, parser_mod::solver_str, "gmres");
   parser_mod::set(parse, parser_mod::use_full_grid, true);
   parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
   parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
@@ -1405,7 +1404,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
 #ifdef ASGARD_ENABLE_DOUBLE
 TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 {
-  using namespace std::literals;
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
   {
@@ -1424,7 +1422,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   parser_mod::set(parse, parser_mod::degree, degree);
   parser_mod::set(parse, parser_mod::dt, 6.25e-3);
   parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres"s);
+  parser_mod::set(parse, parser_mod::solver_str, "gmres");
   parser_mod::set(parse, parser_mod::use_full_grid, true);
   parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
 
@@ -1536,7 +1534,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
                    double)
 {
-  using namespace std::literals;
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
   {
@@ -1555,7 +1552,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   parser_mod::set(parse, parser_mod::degree, degree);
   parser_mod::set(parse, parser_mod::dt, 6.25e-3);
   parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres"s);
+  parser_mod::set(parse, parser_mod::solver_str, "gmres");
   parser_mod::set(parse, parser_mod::use_full_grid, false);
   parser_mod::set(parse, parser_mod::do_adapt, true);
   parser_mod::set(parse, parser_mod::max_level, 5);
@@ -1678,7 +1675,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
 
 TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
 {
-  using namespace std::literals;
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
   {
@@ -1702,7 +1698,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   parser_mod::set(parse, parser_mod::degree, degree);
   parser_mod::set(parse, parser_mod::dt, 5.0e-4);
   parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres"s);
+  parser_mod::set(parse, parser_mod::solver_str, "gmres");
   parser_mod::set(parse, parser_mod::use_full_grid, true);
   parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
   parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
@@ -1786,7 +1782,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
 TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
                    test_precs)
 {
-  using namespace std::literals;
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
   {
@@ -1802,7 +1797,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
   parser_mod::set(parse, parser_mod::degree, degree);
   parser_mod::set(parse, parser_mod::dt, 5.0e-4);
   parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres"s);
+  parser_mod::set(parse, parser_mod::solver_str, "gmres");
   parser_mod::set(parse, parser_mod::use_full_grid, true);
   parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
 
@@ -1817,7 +1812,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
 TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
                    test_precs)
 {
-  using namespace std::literals;
   // Disable test for MPI - IMEX needs to be tested further with MPI
   if (!is_active() || get_num_ranks() > 1)
   {
@@ -1833,7 +1827,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
   parser_mod::set(parse, parser_mod::degree, degree);
   parser_mod::set(parse, parser_mod::dt, 5.0e-4);
   parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres"s);
+  parser_mod::set(parse, parser_mod::solver_str, "gmres");
   parser_mod::set(parse, parser_mod::use_full_grid, true);
   parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
 

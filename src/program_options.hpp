@@ -500,10 +500,9 @@ struct parser_mod
   static void set(parser &p, parser_option_entry entry, int value);
   static void set(parser &p, parser_option_entry entry, bool value);
   static void set(parser &p, parser_option_entry entry, double value);
-  static void
-  set(parser &p, parser_option_entry entry, std::string const &value);
-  static void
-  set(parser &p, parser_option_entry entry, fk::vector<int> const &value);
+  static void set(parser &p, parser_option_entry entry, const char *value);
+  static void set(parser &p, parser_option_entry entry, std::string const &value);
+  static void set(parser &p, parser_option_entry entry, fk::vector<int> const &value);
 };
 
 // simple class to hold non-pde user options

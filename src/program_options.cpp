@@ -600,6 +600,12 @@ void parser_mod::set(parser &p, parser_option_entry entry, double value)
 }
 
 void parser_mod::set(parser &p, parser_option_entry entry,
+                     const char *value)
+{
+  parser_mod::set(p, entry, std::string(value));
+}
+
+void parser_mod::set(parser &p, parser_option_entry entry,
                      std::string const &value)
 {
   switch (entry)
