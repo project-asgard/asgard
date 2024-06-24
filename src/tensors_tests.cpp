@@ -322,7 +322,7 @@ TEMPLATE_TEST_CASE("fk::vector interface: constructors, copy/move", "[tensors]",
   }
 } // end fk::vector constructors, copy/move
 
-TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs)
+TEMPLATE_TEST_CASE("fk::vector operators", "[tensors]", test_precs, int)
 {
   fk::vector<TestType> const gold{2, 3, 4, 5, 6};
 
