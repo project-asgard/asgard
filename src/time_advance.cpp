@@ -1,6 +1,5 @@
 #include "time_advance.hpp"
 #include "adapt.hpp"
-#include "asgard_bicgstab.hpp"
 #include "batch.hpp"
 #include "boundary_conditions.hpp"
 #include "coefficients.hpp"

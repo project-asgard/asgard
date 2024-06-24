@@ -73,6 +73,28 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                         tolerance);
 }
 
+// simple, node-local test version
+template<typename P>
+gmres_info<P>
+bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
+         fk::matrix<P> const &M, int const max_iter,
+         P const tolerance)
+{
+  auto dense_matrix_wrapper =
+      [&A](P const alpha, fk::vector<P, mem_type::view> const x_in,
+           P const beta, fk::vector<P, mem_type::view> y) {
+        fm::gemv(A, x_in, y, false, alpha, beta);
+      };
+  if (M.size() > 0)
+    return bicgstab(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x),
+                    b, dense_preconditioner(M), max_iter,
+                    tolerance);
+  else
+    return bicgstab(dense_matrix_wrapper, fk::vector<P, mem_type::view>(x),
+                    b, no_op_preconditioner<P>(), max_iter,
+                    tolerance);
+}
+
 #ifdef KRON_MODE_GLOBAL
 template<typename P>
 void apply_diagonal_precond(std::vector<P> const &pc, P dt,
@@ -115,6 +137,30 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
       },
       restart, max_iter, tolerance);
 }
+template<typename P, resource resrc>
+gmres_info<P>
+bicgstab_euler(const P dt, matrix_entry mentry,
+               global_kron_matrix<P> const &mat,
+               fk::vector<P, mem_type::owner, resrc> &x,
+               fk::vector<P, mem_type::owner, resrc> const &b,
+               int const max_iter, P const tolerance)
+{
+  auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
+
+  return bicgstab(
+      [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
+          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
+        tools::time_event performance("kronmult - implicit", mat.flops(mentry));
+        mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
+        lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
+      },
+      fk::vector<P, mem_type::view, resrc>(x), b,
+      [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
+        tools::time_event performance("kronmult - preconditioner", pc.size());
+        apply_diagonal_precond(pc, dt, x_in);
+      },
+      max_iter, tolerance);
+}
 #else
 template<typename P, resource resrc>
 gmres_info<P>
@@ -132,6 +178,23 @@ simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
       },
       fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
       restart, max_iter, tolerance);
+}
+template<typename P, resource resrc>
+gmres_info<P>
+bicgstab_euler(const P dt, kronmult_matrix<P> const &mat,
+               fk::vector<P, mem_type::owner, resrc> &x,
+               fk::vector<P, mem_type::owner, resrc> const &b,
+               int const max_iter, P const tolerance)
+{
+  return bicgstab(
+      [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
+          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
+        tools::time_event performance("kronmult - implicit", mat.flops());
+        mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
+        lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
+      },
+      fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
+      max_iter, tolerance);
 }
 #endif
 
@@ -295,6 +358,121 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
   std::cout << "GMRES complete with error: " << outer_res << '\n';
   std::cout << total_iterations << " iterations\n";
   return gmres_info<P>{outer_res, total_iterations};
+}
+
+//*****************************************************************
+// Iterative template routine -- BiCGSTAB
+//
+// BiCGSTAB solves the unsymmetric linear system Ax = b
+// using the Preconditioned BiConjugate Gradient Stabilized method
+//
+// BiCGSTAB follows the algorithm described on p. 27 of the
+// SIAM Templates book.
+//
+// The return value indicates convergence within max_iter (input)
+// iterations (0), or no convergence within max_iter iterations (1).
+//
+// Upon successful return, output arguments have the following values:
+//
+//        x  --  approximate solution to Ax = b
+// max_iter  --  the number of iterations performed before the
+//               tolerance was reached
+//      tol  --  the residual after the final iteration
+//
+//*****************************************************************
+template<typename P, resource resrc, typename matrix_abstraction,
+         typename preconditioner_abstraction>
+gmres_info<P>
+bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
+         fk::vector<P, mem_type::owner, resrc> const &b,
+         preconditioner_abstraction precondition,
+         int max_iter, P tol)
+{
+  if (tol == parser::NO_USER_VALUE_FP)
+    tol = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+  expect(tol >= std::numeric_limits<P>::epsilon());
+
+  int const n = b.size();
+  expect(n == x.size());
+
+  if (max_iter == parser::NO_USER_VALUE)
+    max_iter = n;
+  expect(max_iter > 0); // checked in program_options
+
+  fk::vector<P, mem_type::owner, resrc> p(n), phat(n), s(n), shat(n), t(n), v(n);
+
+  P normb                                 = fm::nrm2(b);
+  fk::vector<P, mem_type::owner, resrc> r = b;
+  mat(P{-1.}, x, P{1.}, fk::vector<P, mem_type::view, resrc>(r));
+
+  fk::vector<P, mem_type::owner, resrc> rtilde = r;
+
+  if (normb == 0.)
+    normb = 1.;
+
+  P resid = fm::nrm2(r) / normb;
+  if (resid <= tol)
+  {
+    return gmres_info<P>{resid, 0};
+  }
+
+  P rho_2 = 0;
+  P alpha = 0;
+  P omega = 0;
+  for (int i = 1; i <= max_iter; i++)
+  {
+    P rho_1 = rtilde * r;
+    if (rho_1 == 0)
+    {
+      return gmres_info<P>{resid, i};
+    }
+    if (i == 1)
+    {
+      p = r;
+    }
+    else
+    {
+      P const beta = (rho_1 / rho_2) * (alpha / omega);
+      phat         = p;
+      fm::axpy(v, phat, P{-1} * omega);
+      p = r;
+      fm::axpy(phat, p, beta);
+    }
+    phat = p;
+    fk::vector<P, mem_type::view, resrc> phat_v(phat);
+    precondition(phat_v);
+    mat(P{1.}, phat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(v));
+    alpha = rho_1 / (rtilde * v);
+    s     = r;
+    fm::axpy(v, s, P{-1} * alpha);
+    resid = fm::nrm2(s) / normb;
+    if (resid < tol)
+    {
+      fm::axpy(phat, x, alpha);
+      return gmres_info<P>{resid, i};
+    }
+    shat = s;
+    fk::vector<P, mem_type::view, resrc> shat_v(shat);
+    precondition(shat_v);
+    mat(P{1.}, shat_v, P{0.}, fk::vector<P, mem_type::view, resrc>(t));
+    omega = (t * s) / (t * t);
+    fm::axpy(phat, x, alpha);
+    fm::axpy(shat, x, omega);
+    r = s;
+    fm::axpy(t, r, P{-1} * omega);
+
+    rho_2 = rho_1;
+    resid = fm::nrm2(r) / normb;
+    if (resid < tol)
+    {
+      return gmres_info<P>{resid, i};
+    }
+    if (omega == 0)
+    {
+      return gmres_info<P>{fm::nrm2(r) / normb, i};
+    }
+  }
+  return gmres_info<P>{resid, max_iter};
 }
 
 template<typename P>
@@ -521,6 +699,82 @@ template gmres_info<float> simple_gmres_euler(
     fk::vector<float, mem_type::owner, resource::device> &x,
     fk::vector<float, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, float const tolerance);
+#endif
+#endif
+
+#ifdef ASGARD_ENABLE_DOUBLE
+
+template gmres_info<double>
+bicgstab(fk::matrix<double> const &A, fk::vector<double> &x,
+         fk::vector<double> const &b, fk::matrix<double> const &M,
+         int const max_iter, double const tolerance);
+
+#ifdef KRON_MODE_GLOBAL
+template gmres_info<double>
+bicgstab_euler(const double dt, matrix_entry mentry,
+               global_kron_matrix<double> const &mat,
+               fk::vector<double, mem_type::owner, resource::host> &x,
+               fk::vector<double, mem_type::owner, resource::host> const &b,
+               int const max_iter, double const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<double>
+bicgstab_euler(const double dt, matrix_entry mentry,
+               global_kron_matrix<double> const &mat,
+               fk::vector<double, mem_type::owner, resource::device> &x,
+               fk::vector<double, mem_type::owner, resource::device> const &b,
+               int const max_iter, double const tolerance);
+#endif
+#else
+template gmres_info<double>
+bicgstab_euler(const double dt, kronmult_matrix<double> const &mat,
+               fk::vector<double> &x, fk::vector<double> const &b,
+               int const max_iter,
+               double const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<double> bicgstab_euler(
+    const double dt, kronmult_matrix<double> const &mat,
+    fk::vector<double, mem_type::owner, resource::device> &x,
+    fk::vector<double, mem_type::owner, resource::device> const &b,
+    int const max_iter, double const tolerance);
+#endif
+#endif
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+
+template gmres_info<float>
+bicgstab(fk::matrix<float> const &A, fk::vector<float> &x,
+         fk::vector<float> const &b, fk::matrix<float> const &M,
+         int const max_iter, float const tolerance);
+
+#ifdef KRON_MODE_GLOBAL
+template gmres_info<float>
+bicgstab_euler(const float dt, matrix_entry mentry,
+               global_kron_matrix<float> const &mat,
+               fk::vector<float, mem_type::owner, resource::host> &x,
+               fk::vector<float, mem_type::owner, resource::host> const &b,
+               int const max_iter, float const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<float>
+bicgstab_euler(const float dt, matrix_entry mentry,
+               global_kron_matrix<float> const &mat,
+               fk::vector<float, mem_type::owner, resource::device> &x,
+               fk::vector<float, mem_type::owner, resource::device> const &b,
+               int const max_iter, float const tolerance);
+#endif
+#else
+template gmres_info<float>
+bicgstab_euler(const float dt, kronmult_matrix<float> const &mat,
+               fk::vector<float> &x, fk::vector<float> const &b,
+               int const max_iter,
+               float const tolerance);
+#ifdef ASGARD_USE_CUDA
+template gmres_info<float> bicgstab_euler(
+    const float dt, kronmult_matrix<float> const &mat,
+    fk::vector<float, mem_type::owner, resource::device> &x,
+    fk::vector<float, mem_type::owner, resource::device> const &b,
+    int const max_iter, float const tolerance);
+#endif
 #endif
 #endif
 

@@ -290,7 +290,6 @@ set (components
      time_advance
      tools
      transformations
-     asgard_bicgstab
      asgard_field
      asgard_dimension
      asgard_discretization
