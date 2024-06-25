@@ -1418,7 +1418,7 @@ template<typename precision>
 struct matrix_list
 {
   //! \brief Makes a list of uninitialized matrices
-  matrix_list() {}
+  matrix_list() = default;
 
   //! \brief Frees the matrix list and any cache vectors
   ~matrix_list() = default;
