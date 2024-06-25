@@ -27,12 +27,11 @@ bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
          fk::matrix<P> const &M, int const max_iter,
          P const tolerance);
 
-#ifdef KRON_MODE_GLOBAL
 // solves ( I - dt * mat ) * x = b
 template<typename P, resource resrc>
 gmres_info<P>
-simple_gmres_euler(const P dt, matrix_entry mentry,
-                   global_kron_matrix<P> const &mat,
+simple_gmres_euler(const P dt, imex_flag imex,
+                   kron_operators<P> const &ops,
                    fk::vector<P, mem_type::owner, resrc> &x,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance);
@@ -40,11 +39,16 @@ simple_gmres_euler(const P dt, matrix_entry mentry,
 // solves ( I - dt * mat ) * x = b
 template<typename P, resource resrc>
 gmres_info<P>
-bicgstab_euler(const P dt, matrix_entry mentry,
-               global_kron_matrix<P> const &mat,
+bicgstab_euler(const P dt, imex_flag imex,
+               kron_operators<P> const &ops,
                fk::vector<P, mem_type::owner, resrc> &x,
                fk::vector<P, mem_type::owner, resrc> const &b,
                int const max_iter, P const tolerance);
+
+
+
+#ifdef KRON_MODE_GLOBAL
+
 
 #ifdef KRON_MODE_GLOBAL_BLOCK
 template<typename P, resource resrc>

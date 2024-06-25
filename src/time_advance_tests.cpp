@@ -84,7 +84,7 @@ void time_advance_test(parser const &parse,
 
   fk::vector<P> f_val(initial_condition);
 
-  asgard::matrix_list<P> operator_matrices;
+  asgard::kron_operators<P> operator_matrices;
 
   // -- time loop
   for (auto i = 0; i < opts.num_time_steps; ++i)
@@ -1360,7 +1360,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   generate_dimension_mass_mat(*pde, transformer);
 
   fk::vector<TestType> f_val(initial_condition);
-  asgard::matrix_list<TestType> operator_matrices;
+  asgard::kron_operators<TestType> operator_matrices;
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
@@ -1459,7 +1459,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   generate_dimension_mass_mat(*pde, transformer);
 
   fk::vector<TestType> f_val(initial_condition);
-  asgard::matrix_list<TestType> operator_matrices;
+  asgard::kron_operators<TestType> operator_matrices;
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
@@ -1592,7 +1592,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   generate_dimension_mass_mat(*pde, transformer);
 
   fk::vector<TestType> f_val(initial_condition);
-  asgard::matrix_list<TestType> operator_matrices;
+  asgard::kron_operators<TestType> operator_matrices;
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
@@ -1736,7 +1736,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   generate_dimension_mass_mat(*pde, transformer);
 
   fk::vector<TestType> f_val(initial_condition);
-  asgard::matrix_list<TestType> operator_matrices;
+  asgard::kron_operators<TestType> operator_matrices;
 
   // -- time loop
   for (int i = 0; i < opts.num_time_steps; ++i)

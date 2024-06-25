@@ -89,6 +89,7 @@ enum class imex_flag
   imex_explicit = 1,
   imex_implicit = 2,
 };
+int constexpr num_imex_variants = 3;
 
 template<typename P>
 struct gmres_info

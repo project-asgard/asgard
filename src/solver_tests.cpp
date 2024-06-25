@@ -113,9 +113,9 @@ void test_kronmult(parser const &parse, P const tol_factor)
 
   rmse_comparison(gold, bicgstab, tol_factor);
 
-  asgard::matrix_list<P> operator_matrices;
+  asgard::kron_operators<P> operator_matrices;
   asgard::adapt::distributed_grid adaptive_grid(*pde, opts);
-  operator_matrices.make(matrix_entry::regular, *pde, adaptive_grid, opts);
+  operator_matrices.make(imex_flag::unspecified, *pde, adaptive_grid, opts);
   P const dt = pde->get_dt();
 
   // perform matrix-free gmres
@@ -125,13 +125,15 @@ void test_kronmult(parser const &parse, P const tol_factor)
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-#ifdef KRON_MODE_GLOBAL
-    solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
+    solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices, x,
                                b, restart, max_iter, tolerance);
-#else
-    solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular], x,
-                               b, restart, max_iter, tolerance);
-#endif
+// #ifdef KRON_MODE_GLOBAL
+//     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
+//                                b, restart, max_iter, tolerance);
+// #else
+//     solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular], x,
+//                                b, restart, max_iter, tolerance);
+// #endif
     return x;
   }();
 
@@ -143,13 +145,15 @@ void test_kronmult(parser const &parse, P const tol_factor)
     fk::vector<P> x(gold);
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-#ifdef KRON_MODE_GLOBAL
-    solver::bicgstab_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
+    solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
                            b, max_iter, tolerance);
-#else
-    solver::bicgstab_euler(dt, operator_matrices[matrix_entry::regular], x,
-                           b, max_iter, tolerance);
-#endif
+// #ifdef KRON_MODE_GLOBAL
+//     solver::bicgstab_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
+//                            b, max_iter, tolerance);
+// #else
+//     solver::bicgstab_euler(dt, operator_matrices[matrix_entry::regular], x,
+//                            b, max_iter, tolerance);
+// #endif
     return x;
   }();
 
@@ -165,13 +169,15 @@ void test_kronmult(parser const &parse, P const tol_factor)
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-#ifdef KRON_MODE_GLOBAL
-    solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
+    solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices,
                                x_d, b_d, restart, max_iter, tolerance);
-#else
-    solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular],
-                               x_d, b_d, restart, max_iter, tolerance);
-#endif
+// #ifdef KRON_MODE_GLOBAL
+//     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
+//                                x_d, b_d, restart, max_iter, tolerance);
+// #else
+//     solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular],
+//                                x_d, b_d, restart, max_iter, tolerance);
+// #endif
     return x_d.clone_onto_host();
   }();
 
@@ -185,13 +191,15 @@ void test_kronmult(parser const &parse, P const tol_factor)
         b.clone_onto_device();
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-#ifdef KRON_MODE_GLOBAL
-    solver::bicgstab_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
+    solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices,
                            x_d, b_d, max_iter, tolerance);
-#else
-    solver::bicgstab_euler(dt, operator_matrices[matrix_entry::regular],
-                           x_d, b_d, max_iter, tolerance);
-#endif
+// #ifdef KRON_MODE_GLOBAL
+//     solver::bicgstab_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
+//                            x_d, b_d, max_iter, tolerance);
+// #else
+//     solver::bicgstab_euler(dt, operator_matrices[matrix_entry::regular],
+//                            x_d, b_d, max_iter, tolerance);
+// #endif
     return x_d.clone_onto_host();
   }();
 

@@ -25,7 +25,7 @@ static constexpr resource imex_resrc = resource::host;
 template<typename P>
 fk::vector<P>
 adaptive_advance(method const step_method, PDE<P> &pde,
-                 matrix_list<P> &operator_matrices,
+                 kron_operators<P> &operator_matrices,
                  adapt::distributed_grid<P> &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts, fk::vector<P> const &x,
@@ -36,7 +36,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 // on exit, the next solution vector is stored in x.
 template<typename P>
 fk::vector<P>
-explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
+explicit_advance(PDE<P> const &pde, kron_operators<P> &operator_matrices,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
@@ -46,7 +46,7 @@ explicit_advance(PDE<P> const &pde, matrix_list<P> &operator_matrices,
 
 template<typename P>
 fk::vector<P>
-implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
+implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
                  options const &program_opts,
@@ -57,7 +57,7 @@ implicit_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
 
 template<typename P>
 fk::vector<P>
-imex_advance(PDE<P> &pde, matrix_list<P> &operator_matrices,
+imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
              adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
              options const &program_opts,
