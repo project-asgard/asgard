@@ -1368,12 +1368,12 @@ public:
   //! \brief Convert the imex flag to an index of the arrays.
   static int flag2int(imex_flag imex)
   {
-    return return static_cast<int>(imex);
+    return static_cast<int>(imex);
   }
   //! \brief Convert the matrix entry to an index of the arrays.
   static int flag2int(matrix_entry imex)
   {
-    return return static_cast<int>(imex);
+    return static_cast<int>(imex);
   }
 
 private:
