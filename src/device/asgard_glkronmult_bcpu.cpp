@@ -598,7 +598,7 @@ int64_t block_global_count_flops(
 {
   number_of_blocks_ = 0;
 
-  for (int t : terms)
+  for (int const t : terms)
   {
     // terms can have different effective dimension, since some of them are identity
     permutes const &perm  = perms[t];
