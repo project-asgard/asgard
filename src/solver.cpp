@@ -210,7 +210,6 @@ bicgstab_euler(const P dt, matrix_entry mentry,
 }
 #endif
 
->>>>>>> a2712e4a (replaced the matrix with block-global)
 #else
 template<typename P, resource resrc>
 gmres_info<P>
