@@ -127,13 +127,6 @@ void test_kronmult(parser const &parse, P const tol_factor)
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices, x,
                                b, restart, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
-//                                b, restart, max_iter, tolerance);
-// #else
-//     solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular], x,
-//                                b, restart, max_iter, tolerance);
-// #endif
     return x;
   }();
 
@@ -147,13 +140,6 @@ void test_kronmult(parser const &parse, P const tol_factor)
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
                            b, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//     solver::bicgstab_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
-//                            b, max_iter, tolerance);
-// #else
-//     solver::bicgstab_euler(dt, operator_matrices[matrix_entry::regular], x,
-//                            b, max_iter, tolerance);
-// #endif
     return x;
   }();
 
@@ -171,13 +157,6 @@ void test_kronmult(parser const &parse, P const tol_factor)
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices,
                                x_d, b_d, restart, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//     solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
-//                                x_d, b_d, restart, max_iter, tolerance);
-// #else
-//     solver::simple_gmres_euler(dt, operator_matrices[matrix_entry::regular],
-//                                x_d, b_d, restart, max_iter, tolerance);
-// #endif
     return x_d.clone_onto_host();
   }();
 
@@ -193,13 +172,6 @@ void test_kronmult(parser const &parse, P const tol_factor)
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices,
                            x_d, b_d, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//     solver::bicgstab_euler(dt, matrix_entry::regular, operator_matrices.kglobal,
-//                            x_d, b_d, max_iter, tolerance);
-// #else
-//     solver::bicgstab_euler(dt, operator_matrices[matrix_entry::regular],
-//                            x_d, b_d, max_iter, tolerance);
-// #endif
     return x_d.clone_onto_host();
   }();
 

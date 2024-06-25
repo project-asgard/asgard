@@ -752,7 +752,6 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
                   kron_sparse_cache &spcache, int memory_limit_MB = 0,
                   int64_t index_limit = 2147483646, bool force_sparse = false);
 
-
 /*!
  * \brief Holds a list of matrices used for time-stepping.
  *
@@ -1243,7 +1242,6 @@ private:
   gpu::sparse_handle sp_handle;
   gpu::vector<std::byte> gpu_sparse_buffer;
 #endif
-
 };
 #endif // end ifndef KRON_MODE_GLOBAL_BLOCK
 #endif // end ifdef KRON_MODE_GLOBAL

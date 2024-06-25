@@ -213,9 +213,9 @@ explicit_advance(PDE<P> const &pde, kron_operators<P> &operator_matrices,
   // -- RK step 1
   fk::vector<P> fx(row_size);
   {
-    tools::time_event performance("kronmult");
+    tools::time_event performance(
+        "kronmult", operator_matrices.flops(imex_flag::unspecified));
     operator_matrices.apply(imex_flag::unspecified, 1.0, x.data(), 0.0, fx.data());
-    performance.flops = operator_matrices.flops(imex_flag::unspecified);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -267,9 +267,9 @@ explicit_advance(PDE<P> const &pde, kron_operators<P> &operator_matrices,
 
   // -- RK step 3
   {
-    tools::time_event performance("kronmult");
+    tools::time_event performance(
+        "kronmult", operator_matrices.flops(imex_flag::unspecified));
     operator_matrices.apply(imex_flag::unspecified, 1.0, x.data(), 0.0, fx.data());
-    performance.flops = operator_matrices.flops(imex_flag::unspecified);
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -439,15 +439,6 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
     pde.gmres_outputs[0] = solver::simple_gmres_euler<P, resource::host>(
         pde.get_dt(), imex_flag::unspecified, operator_matrices,
         fx, x, restart, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//     pde.gmres_outputs[0] = solver::simple_gmres_euler<P, resource::host>(
-//         pde.get_dt(), imex_flag::unspecified, operator_matrices.kglobal,
-//         fx, x, restart, max_iter, tolerance);
-// #else
-//     pde.gmres_outputs[0] = solver::simple_gmres_euler(
-//         pde.get_dt(), operator_matrices[imex_flag::unspecified],
-//         fx, x, restart, max_iter, tolerance);
-// #endif
     return fx;
   }
   else if (solver == solve_opts::bicgstab)
@@ -461,15 +452,6 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
     pde.gmres_outputs[0] = solver::bicgstab_euler<P, resource::host>(
         pde.get_dt(), imex_flag::unspecified, operator_matrices,
         fx, x, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//     pde.gmres_outputs[0] = solver::bicgstab_euler<P, resource::host>(
-//         pde.get_dt(), matrix_entry::regular, operator_matrices.kglobal,
-//         fx, x, max_iter, tolerance);
-// #else
-//     pde.gmres_outputs[0] = solver::bicgstab_euler(
-//         pde.get_dt(), operator_matrices[imex_flag::unspecified],
-//         fx, x, max_iter, tolerance);
-// #endif
     return fx;
   }
   return x;
@@ -821,26 +803,18 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
 
   {
-//#ifdef KRON_MODE_GLOBAL
-    tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(imex_flag::imex_explicit));
+    tools::time_event kronm_(
+        "kronmult - explicit", operator_matrices.flops(imex_flag::imex_explicit));
     operator_matrices.template apply<imex_resrc>(imex_flag::imex_explicit, 1.0, f.data(), 0.0, fx.data());
-// #else
-//     tools::time_event kronm_(
-//         "kronmult - explicit",
-//         operator_matrices[imex_flag::imex_explicit].flops());
-//     operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
-//         1.0, f.data(), 0.0, fx.data());
-// #endif
   }
 
 #ifndef ASGARD_USE_CUDA
   reduce_results(fx, reduced_fx, plan, get_rank());
 
-  // fk::vector<P, mem_type::owner, resource::host> f_1s(f_0.size());
   exchange_results(reduced_fx, fx, elem_size, plan, get_rank());
   fm::axpy(fx, f, dt); // f here is f_1s
 #else
-  fm::axpy(fx, f, dt); // f here is f_1s
+  fm::axpy(fx, f, dt);   // f here is f_1s
 #endif
 
   tools::timer.stop("explicit_1");
@@ -885,30 +859,12 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
       pde.gmres_outputs[0] = solver::simple_gmres_euler(
           pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_1, f, restart, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//       pde.gmres_outputs[0] = solver::simple_gmres_euler(
-//           pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
-//           f_1, f, restart, max_iter, tolerance);
-// #else
-//       pde.gmres_outputs[0] = solver::simple_gmres_euler(
-//           pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-//           f_1, f, restart, max_iter, tolerance);
-// #endif
     }
     else if (solver == solve_opts::bicgstab)
     {
       pde.gmres_outputs[0] = solver::bicgstab_euler(
           pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_1, f, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//       pde.gmres_outputs[0] = solver::bicgstab_euler(
-//           pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
-//           f_1, f, max_iter, tolerance);
-// #else
-//       pde.gmres_outputs[0] = solver::bicgstab_euler(
-//           pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-//           f_1, f, max_iter, tolerance);
-// #endif
     }
     else
     {
@@ -941,17 +897,9 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
 
   // Explicit step f_2s = 0.5*f_0 + 0.5*(f_1 + dt A f_1)
   {
-    tools::time_event kronm_("kronmult - explicit", operator_matrices.flops(imex_flag::imex_explicit));
+    tools::time_event kronm_(
+        "kronmult - explicit", operator_matrices.flops(imex_flag::imex_explicit));
     operator_matrices.template apply<imex_resrc>(imex_flag::imex_explicit, 1.0, f_1.data(), 0.0, fx.data());
-// #ifdef KRON_MODE_GLOBAL
-//
-// #else
-//     tools::time_event kronm_(
-//         "kronmult - explicit",
-//         operator_matrices[matrix_entry::imex_explicit].flops());
-//     operator_matrices[matrix_entry::imex_explicit].template apply<imex_resrc>(
-//         1.0, f_1.data(), 0.0, fx.data());
-// #endif
   }
 
 #ifndef ASGARD_USE_CUDA
@@ -1010,30 +958,12 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
       pde.gmres_outputs[1] = solver::simple_gmres_euler(
           P{0.5} * pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_2, f, restart, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//       pde.gmres_outputs[1] = solver::simple_gmres_euler(
-//           P{0.5} * pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
-//           f_2, f, restart, max_iter, tolerance);
-// #else
-//       pde.gmres_outputs[1] = solver::simple_gmres_euler(
-//           P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-//           f_2, f, restart, max_iter, tolerance);
-// #endif
     }
     else if (solver == solve_opts::bicgstab)
     {
       pde.gmres_outputs[1] = solver::bicgstab_euler(
           P{0.5} * pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_2, f, max_iter, tolerance);
-// #ifdef KRON_MODE_GLOBAL
-//       pde.gmres_outputs[1] = solver::bicgstab_euler(
-//           P{0.5} * pde.get_dt(), matrix_entry::imex_implicit, operator_matrices.kglobal,
-//           f_2, f, max_iter, tolerance);
-// #else
-//       pde.gmres_outputs[1] = solver::bicgstab_euler(
-//           P{0.5} * pde.get_dt(), operator_matrices[matrix_entry::imex_implicit],
-//           f_2, f, max_iter, tolerance);
-// #endif
     }
     else
     {
