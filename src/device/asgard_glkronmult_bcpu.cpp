@@ -608,22 +608,16 @@ int64_t block_global_count_flops(
 
     for (size_t i = 0; i < perm.fill.size(); i++)
     {
-      int dir = perm.direction[i][0];
-
       for (int d = 0; d < active_dims; d++)
       {
-        dir = perm.direction[i][d];
-        global_cpu<precision>(num_dimensions, -1, block_size, ilist, dsort, dir, perm.fill[i][d],
+        global_cpu<precision>(num_dimensions, -1, block_size, ilist, dsort, perm.direction[i][d], perm.fill[i][d],
                               (perm.fill[i][d] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
                               std::vector<precision>{}, nullptr, nullptr, workspace.row_map);
       }
     }
   }
 
-  for (int d = 0; d <= num_dimensions; d++)
-    number_of_blocks_ *= n;
-
-  return number_of_blocks_;
+  return number_of_blocks_ * fm::ipow<int64_t>(n, num_dimensions);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

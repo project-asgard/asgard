@@ -27,6 +27,16 @@ inline constexpr T two_raised_to(T const exponent)
   return T{1} << exponent;
 }
 
+template<typename T = int64_t>
+inline constexpr T ipow(T base, int exponent)
+{
+  expect(exponent >= 1);
+  T result = base;
+  for (int e = 1; e < exponent; e++)
+    result *= base;
+  return result;
+}
+
 template<typename P, mem_type mem>
 P nrminf(fk::vector<P, mem> const &x)
 {

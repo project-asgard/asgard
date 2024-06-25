@@ -7,10 +7,6 @@
 #include <cuda_runtime.h>
 #endif
 
-#ifdef ASGARD_USE_OPENMP
-#include <omp.h>
-#endif
-
 #include <cstdlib>
 #include <limits.h>
 #include <mutex>
@@ -361,8 +357,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const num_1d = spcache.cells1d.num_connections();
 
 #ifdef ASGARD_USE_CUDA
-  int const tensor_size = kronmult_matrix<precision>::compute_tensor_size(
-      num_dimensions, kron_size);
+  int const tensor_size = fm::ipow<int>(kron_size, num_dimensions);
 #endif
 
   // storing the 1D operator matrices by 1D row and column
@@ -839,8 +834,7 @@ compute_mem_usage(PDE<P> const &pde,
   // first we compute the size of the state vectors (x and y) and then we
   // add the size of the coefficients (based on sparse/dense mode)
   int64_t base_line_entries =
-      (num_rows + num_cols) *
-      kronmult_matrix<P>::compute_tensor_size(num_dimensions, kron_size);
+      (num_rows + num_cols) * fm::ipow<int64_t>(kron_size, num_dimensions);
 
   if (program_options.kmode == kronmult_mode::dense and not force_sparse)
   {
@@ -1648,9 +1642,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
   int const num_dimensions = pde.num_dims();
   int const num_terms      = pde.num_terms();
 
-  int64_t block_size = pterms;
-  for (int d = 1; d < num_dimensions; d++)
-    block_size *= pterms;
+  int64_t block_size = fm::ipow(pterms, num_dimensions);
 
   connect_1d fluxes(max_level, connect_1d::hierarchy::full);
   connect_1d volumes(max_level, connect_1d::hierarchy::volume);

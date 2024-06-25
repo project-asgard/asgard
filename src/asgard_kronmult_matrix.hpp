@@ -123,11 +123,10 @@ public:
   kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(0),
-        tensor_size_(0), flops_(0), list_row_stride_(0), row_offset_(0),
+        tensor_size_(fm::ipow(kron_size_, num_dimensions_)),
+        flops_(0), list_row_stride_(0), row_offset_(0),
         col_offset_(0), num_1d_blocks_(0)
-  {
-    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
-  }
+  {}
 
   template<resource input_mode>
   kronmult_matrix(
@@ -169,9 +168,9 @@ public:
       term_pntr_[t] = terms_[t].data();
 #endif
 
-    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+    tensor_size_ = fm::ipow(kron_size_, num_dimensions_);
 
-    flops_ = int64_t(tensor_size_) * kron_size_ * num_rows_ * num_cols_ *
+    flops_ = tensor_size_ * kron_size_ * num_rows_ * num_cols_ *
              num_terms_ * num_dimensions_;
   }
 
@@ -258,9 +257,9 @@ public:
 
     expect(not row_indx_.empty() and not col_indx_.empty());
 
-    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+    tensor_size_ = fm::ipow(kron_size_, num_dimensions_);
 
-    flops_ = int64_t(tensor_size_) * kron_size_ * iA.size();
+    flops_ = tensor_size_ * kron_size_ * iA.size();
 
 #ifdef ASGARD_USE_CUDA
     expect(row_indx_.size() == col_indx_.size());
@@ -495,19 +494,11 @@ public:
   //! \brief Returns the number of flops in a single call to apply()
   int64_t flops() const { return flops_; }
 
-  //! \brief Helper, computes the size of a tensor for the given parameters.
-  static int compute_tensor_size(int const num_dimensions, int const kron_size)
-  {
-    int tensor_size = kron_size;
-    for (int d = 1; d < num_dimensions; d++)
-      tensor_size *= kron_size;
-    return tensor_size;
-  }
   //! \brief Helper, computes the number of flops for each call to apply.
   static int64_t compute_flops(int const num_dimensions, int const kron_size,
                                int const num_terms, int64_t const num_batch)
   {
-    return int64_t(compute_tensor_size(num_dimensions, kron_size)) * kron_size *
+    return fm::ipow(kron_size, num_dimensions) * kron_size *
            num_dimensions * num_terms * num_batch * 2;
   }
   //! \brief Defined if the matrix is dense or sparse
@@ -618,7 +609,7 @@ private:
 
     expect(row_indx_.empty() == col_indx_.empty());
 
-    tensor_size_ = compute_tensor_size(num_dimensions_, kron_size_);
+    tensor_size_ = fm::ipow(kron_size_, num_dimensions_);
 
     flops_ = 0;
     for (auto const &a : list_iA)
@@ -631,7 +622,7 @@ private:
   int num_rows_;
   int num_cols_;
   int num_terms_;
-  int tensor_size_;
+  int64_t tensor_size_;
   int64_t flops_;
 
 #ifdef ASGARD_USE_CUDA
@@ -1463,7 +1454,6 @@ struct matrix_list
   }
 
   //! \brief Clear the specified matrix
-  //void clear(matrix_entry entry)
   void clear(matrix_entry entry)
   {
     ignore(entry);

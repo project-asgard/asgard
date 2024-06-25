@@ -41,8 +41,7 @@ void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
 
 #ifdef ASGARD_USE_CUDA
 
-  int tensor_size =
-      asgard::kronmult_matrix<T>::compute_tensor_size(dimensions, n);
+  int const tensor_size = asgard::fm::ipow<int>(n, dimensions);
 
   asgard::fk::vector<int> row_indx(num_rows * num_rows);
   asgard::fk::vector<int> col_indx(num_rows * num_rows);

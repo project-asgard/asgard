@@ -252,6 +252,20 @@ TEMPLATE_TEST_CASE("fm::two_raised_to", "[fast_math]", int, long, long long,
   }
 }
 
+TEMPLATE_TEST_CASE("fm::ipow", "[fast_math]", int, int64_t)
+{
+  SECTION("pow")
+  {
+    REQUIRE(fm::ipow(3, 3) == 27);
+    REQUIRE(fm::ipow(3, 4) == 81);
+    REQUIRE(fm::ipow(10, 1) == 10);
+    REQUIRE(fm::ipow(10, 4) == 10000);
+    REQUIRE(fm::ipow(4, 3) == fm::ipow(2, 6));
+    for (int e = 1; e < 10; e++)
+      REQUIRE(fm::ipow(2, e) == fm::two_raised_to(e));
+  }
+}
+
 TEMPLATE_TEST_CASE("fm::gemm", "[fast_math]", test_precs, int)
 {
   // clang-format off
