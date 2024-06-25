@@ -1318,6 +1318,7 @@ public:
     for (int d = 0; d < num_dimensions_; d++)
       if (not gvals_[terms.front() * num_dimensions_ + d].empty())
         return true;
+
     return false;
   }
 

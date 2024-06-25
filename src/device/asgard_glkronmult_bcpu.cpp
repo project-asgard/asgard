@@ -275,7 +275,6 @@ void global_cpu(int64_t block_size,
                 precision const x[], precision y[],
                 std::vector<std::vector<int64_t>> &row_wspace)
 {
-  //std::cout << " ------------------------------------------------------ \n";
   constexpr int n2 = n * n;
 
   int const num_vecs = dsort.num_vecs(dim);
@@ -329,14 +328,14 @@ void global_cpu(int64_t block_size,
 
         for (int c = col_begin; c < col_end; c++)
         {
-          int const j = conn[c];
-          if (xidx[j] != -1)
+          int64_t const xj = xidx[conn[c]];
+          if (xj != -1)
           {
             if constexpr (n == -1)
 #pragma omp atomic
               number_of_blocks_ += 1;
             else
-              gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[xidx[j]], local_y);
+              gbkron_mult_add<precision, num_dimensions, dim, n>(&vals[n2 * c], &x[xj], local_y);
           }
         }
       }
@@ -554,6 +553,17 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
   precision *w1 = workspace.w1.data();
   precision *w2 = workspace.w2.data();
 
+  auto get_connect_1d = [&](int const &fdir, permutes::matrix_fill const &fill)
+      -> connect_1d const & {
+    // if the term has flux, i.e., fdir != -1
+    // then the direction using fill::both will use the flux+volume connectivity
+    // otherwise we will use only the volume connectivity
+    if (fdir != -1 and fill == permutes::matrix_fill::both)
+      return conn_full;
+    else
+      return conn_volumes;
+  };
+
   for (int t : terms)
   {
     // terms can have different effective dimension, since some of them are identity
@@ -567,14 +577,14 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
       int dir = perm.direction[i][0];
 
       global_cpu(num_dimensions, n, block_size, ilist, dsort, dir, perm.fill[i][0],
-                 (perm.fill[i][0] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
+                 get_connect_1d(flux_dir[t], perm.fill[i][0]),
                  gvals[t * num_dimensions + dir], x, w1, workspace.row_map);
 
       for (int d = 1; d < active_dims; d++)
       {
         dir = perm.direction[i][d];
         global_cpu(num_dimensions, n, block_size, ilist, dsort, dir, perm.fill[i][d],
-                   (perm.fill[i][d] == permutes::matrix_fill::both and flux_dir[t] != -1) ? conn_full : conn_volumes,
+                   get_connect_1d(flux_dir[t], perm.fill[i][d]),
                    gvals[t * num_dimensions + dir], w1, w2, workspace.row_map);
         std::swap(w1, w2);
       }

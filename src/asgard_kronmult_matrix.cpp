@@ -37,6 +37,15 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
   }
 }
 
+template<typename precision>
+vector2d<int> get_cells(int num_dimensions, adapt::distributed_grid<precision> const &dis_grid)
+{
+  auto const &grid         = dis_grid.get_subgrid(get_rank());
+  int const *const asg_idx = dis_grid.get_table().get_active_table().data();
+  int const num_cells      = grid.col_stop - grid.col_start + 1;
+  return asg2tsg_convert(num_dimensions, num_cells, asg_idx);
+}
+
 #ifndef KRON_MODE_GLOBAL
 
 void check_available_memory(int64_t baseline_memory, int64_t available_MB)
@@ -1632,9 +1641,6 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
                               options const &program_options,
                               kronmult::block_global_workspace<precision> *workspace)
 {
-  auto const &grid         = dis_grid.get_subgrid(get_rank());
-  int const *const asg_idx = dis_grid.get_table().get_active_table().data();
-
   int const porder    = pde.get_dimensions()[0].get_degree() - 1;
   int const pterms    = porder + 1; // poly degrees of freedom
   int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level();
@@ -1647,8 +1653,8 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
   connect_1d fluxes(max_level, connect_1d::hierarchy::full);
   connect_1d volumes(max_level, connect_1d::hierarchy::volume);
 
-  int const num_cells = grid.col_stop - grid.col_start + 1;
-  vector2d<int> cells = asg2tsg_convert(num_dimensions, num_cells, asg_idx);
+  vector2d<int> cells = get_cells(num_dimensions, dis_grid);
+  int const num_cells = cells.num_strips();
 
   indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
   std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
@@ -1678,7 +1684,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
           std::swap(active_dirs.front(), active_dirs.back());
       }
 
-    permutations.push_back(kronmult::permutes(active_dirs));
+    permutations.emplace_back(active_dirs);
   }
 
   int64_t num_padded = cells.num_strips() * block_size;
