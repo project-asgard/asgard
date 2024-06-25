@@ -1421,7 +1421,7 @@ struct matrix_list
   matrix_list() {}
 
   //! \brief Frees the matrix list and any cache vectors
-  ~matrix_list() {}
+  ~matrix_list() = default;
 
   //! \brief Apply the given matrix entry
   template<resource rec = resource::host>
