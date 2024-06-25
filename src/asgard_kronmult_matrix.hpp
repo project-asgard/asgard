@@ -864,7 +864,7 @@ struct kron_operators
                           options const &opts)
   {
     int const ientry = static_cast<int>(entry);
-    if (matrices[ientry])
+    if (not matrices[ientry])
       make(entry, pde, grid, opts);
     else
       update_kronmult_coefficients(pde, opts, entry, spcache,
