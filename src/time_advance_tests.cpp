@@ -1871,22 +1871,24 @@ void test_memory_mode(imex_flag imex)
   kron_sparse_cache spcache_null1, spcache_one;
   memory_usage memory_one =
       compute_mem_usage(*pde, grid, opts, imex, spcache_null1);
-  auto mat_one              = make_kronmult_matrix(*pde, grid, opts, memory_one,
-                                      imex_flag::unspecified, spcache_null1);
+
+  auto mat_one = make_local_kronmult_matrix(
+      *pde, grid, opts, memory_one, imex_flag::unspecified, spcache_null1);
   memory_usage spmemory_one = compute_mem_usage(
       *pde, grid, opts, imex, spcache_one, 6, 2147483646, force_sparse);
-  auto spmat_one = make_kronmult_matrix(*pde, grid, opts, spmemory_one, imex,
-                                        spcache_one, force_sparse);
+  auto spmat_one = make_local_kronmult_matrix(
+      *pde, grid, opts, spmemory_one, imex, spcache_one, force_sparse);
 
   kron_sparse_cache spcache_null2, spcache_multi;
   memory_usage memory_multi =
       compute_mem_usage(*pde, grid, opts, imex, spcache_null2, 0, 8000);
-  auto mat_multi =
-      make_kronmult_matrix(*pde, grid, opts, memory_multi, imex, spcache_null2);
+
+  auto mat_multi = make_local_kronmult_matrix(
+      *pde, grid, opts, memory_multi, imex, spcache_null2);
   memory_usage spmemory_multi = compute_mem_usage(
       *pde, grid, opts, imex, spcache_multi, 6, 8000, force_sparse);
-  auto spmat_multi = make_kronmult_matrix(*pde, grid, opts, spmemory_multi,
-                                          imex, spcache_multi, force_sparse);
+  auto spmat_multi = make_local_kronmult_matrix(
+      *pde, grid, opts, spmemory_multi, imex, spcache_multi, force_sparse);
 
   REQUIRE(mat_one.is_onecall());
   REQUIRE(spmat_one.is_onecall());

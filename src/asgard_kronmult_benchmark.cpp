@@ -85,25 +85,7 @@ int main(int argc, char **argv)
     ip++;
   }
 
-  asgard::kronmult_matrix<precision> mat;
-
-#ifdef ASGARD_USE_CUDA
-  // mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
-  //                                          num_terms, iA.clone_onto_device(),
-  //                                          vA.clone_onto_device());
-  //
-  // asgard::fk::vector<precision, asgard::mem_type::owner,
-  //                    asgard::resource::device>
-  //     xdev(mat.input_size());
-  // asgard::fk::vector<precision, asgard::mem_type::owner,
-  //                    asgard::resource::device>
-  //     ydev(mat.output_size());
-  // mat.set_workspace(xdev, ydev);
-#else
-  // mat = asgard::kronmult_matrix<precision>(dimensions, n, num_rows, num_rows,
-  //                                          num_terms, std::move(iA),
-  //                                          std::move(vA));
-#endif
+  asgard::local_kronmult_matrix<precision> mat;
 
   // dry run to wake up the devices
   mat.apply(1.0, data->input_x.data(), 1.0, data->output_y.data());

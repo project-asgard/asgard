@@ -67,7 +67,7 @@ void check_available_memory(int64_t baseline_memory, int64_t available_MB)
 }
 
 template<typename precision>
-kronmult_matrix<precision>
+local_kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
                     options const &program_options, imex_flag const imex)
@@ -88,8 +88,8 @@ make_kronmult_dense(PDE<precision> const &pde,
   int const num_terms               = static_cast<int>(used_terms.size());
 
   if (used_terms.empty())
-    return asgard::kronmult_matrix<precision>(num_dimensions, kron_size,
-                                              num_rows, num_cols);
+    return asgard::local_kronmult_matrix<precision>(num_dimensions, kron_size,
+                                                    num_rows, num_cols);
 
   constexpr resource mode = resource::host;
 
@@ -136,7 +136,7 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
-  int64_t flps = kronmult_matrix<precision>::compute_flops(
+  int64_t flps = local_kronmult_matrix<precision>::compute_flops(
       num_dimensions, kron_size, num_terms, int64_t{num_rows} * num_cols);
 
   std::cout << "  kronmult dense matrix size: " << num_rows << " rows/cols\n";
@@ -154,12 +154,12 @@ make_kronmult_dense(PDE<precision> const &pde,
 
   auto gpu_elem = elem.clone_onto_device();
 
-  return asgard::kronmult_matrix<precision>(
+  return asgard::local_kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
       std::move(gpu_terms), std::move(gpu_elem), grid.row_start, grid.col_start,
       num_1d_blocks);
 #else
-  return asgard::kronmult_matrix<precision>(
+  return asgard::local_kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
       std::move(terms), std::move(elem), grid.row_start, grid.col_start,
       num_1d_blocks);
@@ -332,7 +332,7 @@ void compute_coefficient_offsets(kron_sparse_cache const &spcache,
 }
 
 template<typename precision>
-kronmult_matrix<precision>
+local_kronmult_matrix<precision>
 make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
                      options const &program_options,
@@ -357,8 +357,8 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const num_terms = static_cast<int>(used_terms.size());
 
   if (used_terms.empty())
-    return asgard::kronmult_matrix<precision>(num_dimensions, kron_size,
-                                              num_rows, num_cols);
+    return asgard::local_kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols);
 
   // size of the small kron matrices
   int const kron_squared = kron_size * kron_size;
@@ -625,7 +625,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
                    (double(num_rows) * double(num_cols))
             << "%\n";
 
-  int64_t flops = kronmult_matrix<precision>::compute_flops(
+  int64_t flops = local_kronmult_matrix<precision>::compute_flops(
       num_dimensions, kron_size, num_terms, spcache.num_nonz);
   std::cout << "  -- work: " << flops * 1.E-9 << " Gflops\n";
 
@@ -638,7 +638,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
                      get_MB<int>(list_iA[0].size()) +
                      get_MB<precision>(vA.size())
               << "\n";
-    return kronmult_matrix<precision>(
+    return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         list_row_indx[0].clone_onto_device(),
         list_col_indx[0].clone_onto_device(), list_iA[0].clone_onto_device(),
@@ -653,7 +653,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
               << 2 * get_MB<int>(mem_stats.work_size) +
                      4 * get_MB<int>(mem_stats.row_work_size)
               << "\n";
-    return kronmult_matrix<precision>(
+    return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
         vA.clone_onto_device());
@@ -675,15 +675,15 @@ make_kronmult_sparse(PDE<precision> const &pde,
     }
     std::cout << "        memory usage (MB): "
               << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
-    return kronmult_matrix<precision>(num_dimensions, kron_size, num_rows,
-                                      num_cols, num_terms, std::move(gpu_row),
-                                      std::move(gpu_col), std::move(gpu_iA),
-                                      vA.clone_onto_device());
+    return local_kronmult_matrix<precision>(
+        num_dimensions, kron_size, num_rows, num_cols, num_terms,
+        std::move(gpu_row), std::move(gpu_col), std::move(gpu_iA),
+        vA.clone_onto_device());
 #endif
   }
 #else
 
-  return kronmult_matrix<precision>(
+  return local_kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
       std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
       std::move(vA));
@@ -692,11 +692,11 @@ make_kronmult_sparse(PDE<precision> const &pde,
 }
 
 template<typename P>
-kronmult_matrix<P>
-make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                     options const &cli_opts, memory_usage const &mem_stats,
-                     imex_flag const imex, kron_sparse_cache &spcache,
-                     bool force_sparse)
+local_kronmult_matrix<P>
+make_local_kronmult_matrix(
+    PDE<P> const &pde, adapt::distributed_grid<P> const &grid, options const &cli_opts,
+    memory_usage const &mem_stats, imex_flag const imex, kron_sparse_cache &spcache,
+    bool force_sparse)
 {
   if (cli_opts.kmode == kronmult_mode::dense and not force_sparse)
   {
@@ -714,7 +714,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
                                   options const &program_options,
                                   imex_flag const imex,
                                   kron_sparse_cache &spcache,
-                                  kronmult_matrix<P> &mat)
+                                  local_kronmult_matrix<P> &mat)
 {
   tools::time_event kron_time_("kronmult-update-coefficients");
   int const num_dimensions = pde.num_dims();
@@ -1788,15 +1788,14 @@ template void global_kron_matrix<double>::apply<resource::device>(
 #endif // KRON_MODE_GLOBAL_BLOCK
 
 #else // KRON_MODE_GLOBAL
-template kronmult_matrix<double>
-make_kronmult_matrix<double>(PDE<double> const &,
-                             adapt::distributed_grid<double> const &,
-                             options const &, memory_usage const &,
-                             imex_flag const, kron_sparse_cache &, bool);
+template local_kronmult_matrix<double>
+make_local_kronmult_matrix<double>(
+    PDE<double> const &, adapt::distributed_grid<double> const &,
+    options const &, memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
 template void
 update_kronmult_coefficients<double>(PDE<double> const &, options const &,
                                      imex_flag const, kron_sparse_cache &,
-                                     kronmult_matrix<double> &);
+                                     local_kronmult_matrix<double> &);
 template memory_usage
 compute_mem_usage<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
@@ -1848,14 +1847,13 @@ template void global_kron_matrix<float>::apply<resource::device>(
 #endif // KRON_MODE_GLOBAL_BLOCK
 
 #else // KRON_MODE_GLOBAL
-template kronmult_matrix<float>
-make_kronmult_matrix<float>(PDE<float> const &,
-                            adapt::distributed_grid<float> const &,
-                            options const &, memory_usage const &,
-                            imex_flag const, kron_sparse_cache &, bool);
+template local_kronmult_matrix<float>
+make_local_kronmult_matrix<float>(
+    PDE<float> const &, adapt::distributed_grid<float> const &,
+    options const &, memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
 template void update_kronmult_coefficients<float>(PDE<float> const &, options const &,
                                                   imex_flag const, kron_sparse_cache &,
-                                                  kronmult_matrix<float> &);
+                                                  local_kronmult_matrix<float> &);
 template memory_usage
 compute_mem_usage<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,

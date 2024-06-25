@@ -113,18 +113,18 @@ struct kron_sparse_cache
  * Each row/column entry corresponds to a Kronecker product.
  */
 template<typename precision>
-class kronmult_matrix
+class local_kronmult_matrix
 {
 public:
   //! \brief Creates uninitialized matrix cannot be used except to be reinitialized.
-  kronmult_matrix()
+  local_kronmult_matrix()
       : num_dimensions_(0), kron_size_(0), num_rows_(0), num_cols_(0),
         num_terms_(0), tensor_size_(0), flops_(0), list_row_stride_(0),
         row_offset_(0), col_offset_(0), num_1d_blocks_(0)
   {}
 
   //! \brief Creates a zero/empty matrix no terms.
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols)
+  local_kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(0),
         tensor_size_(fm::ipow(kron_size_, num_dimensions_)),
@@ -133,7 +133,7 @@ public:
   {}
 
   template<resource input_mode>
-  kronmult_matrix(
+  local_kronmult_matrix(
       int num_dimensions, int kron_size, int num_rows, int num_cols,
       int num_terms,
       std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&terms,
@@ -236,12 +236,13 @@ public:
    * product uses tensors at row_indx[i] and col_indx[i].
    */
   template<resource input_mode>
-  kronmult_matrix(int num_dimensions, int kron_size, int num_rows, int num_cols,
-                  int num_terms,
-                  fk::vector<int, mem_type::owner, input_mode> &&row_indx,
-                  fk::vector<int, mem_type::owner, input_mode> &&col_indx,
-                  fk::vector<int, mem_type::owner, input_mode> &&index_A,
-                  fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+  local_kronmult_matrix(
+      int num_dimensions, int kron_size, int num_rows, int num_cols,
+      int num_terms,
+      fk::vector<int, mem_type::owner, input_mode> &&row_indx,
+      fk::vector<int, mem_type::owner, input_mode> &&col_indx,
+      fk::vector<int, mem_type::owner, input_mode> &&index_A,
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
@@ -285,16 +286,16 @@ public:
    *         for the CPU and device when CUDA is enabled
    */
   template<resource multi_mode, resource input_mode>
-  kronmult_matrix(
+  local_kronmult_matrix(
       int num_dimensions, int kron_size, int num_rows, int num_cols,
       int num_terms,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&row_indx,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&col_indx,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
       fk::vector<precision, mem_type::owner, input_mode> &&values_A)
-      : kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
-                        num_terms, 0, std::move(row_indx), std::move(col_indx),
-                        std::move(list_index_A), std::move(values_A))
+      : local_kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
+                              num_terms, 0, std::move(row_indx), std::move(col_indx),
+                              std::move(list_index_A), std::move(values_A))
   {
     expect(not(list_row_indx_.empty() and list_col_indx_.empty()));
   }
@@ -574,7 +575,7 @@ public:
 private:
   //! \brief Multi-call constructors delegate to this one, handles list_row_stride_
   template<resource multi_mode, resource input_mode>
-  kronmult_matrix(
+  local_kronmult_matrix(
       int num_dimensions, int kron_size, int num_rows, int num_cols,
       int num_terms, int list_row_stride,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
@@ -702,11 +703,11 @@ private:
  * \param force_sparse (testing purposes only) forces a sparse matrix
  */
 template<typename P>
-kronmult_matrix<P>
-make_kronmult_matrix(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                     options const &program_options,
-                     memory_usage const &mem_stats, imex_flag const imex,
-                     kron_sparse_cache &spcache, bool force_sparse = false);
+local_kronmult_matrix<P>
+make_local_kronmult_matrix(
+    PDE<P> const &pde, adapt::distributed_grid<P> const &grid, options const &program_options,
+    memory_usage const &mem_stats, imex_flag const imex, kron_sparse_cache &spcache,
+    bool force_sparse = false);
 
 /*!
  * \brief Update the coefficients stored in the matrix without changing the rest
@@ -723,7 +724,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
                                   options const &program_options,
                                   imex_flag const imex,
                                   kron_sparse_cache &spcache,
-                                  kronmult_matrix<P> &mat);
+                                  local_kronmult_matrix<P> &mat);
 
 /*!
  * \brief Compute the stats for the memory usage
@@ -801,8 +802,8 @@ struct kron_operators
 
     int const ientry = static_cast<int>(entry);
     if (not matrices[ientry])
-      matrices[ientry] = make_kronmult_matrix(pde, grid, opts, mem_stats,
-                                              entry, spcache);
+      matrices[ientry] = make_local_kronmult_matrix(
+          pde, grid, opts, mem_stats, entry, spcache);
 
 #ifdef ASGARD_USE_CUDA
     if (matrices[ientry].input_size() != xdev.size())
@@ -875,13 +876,13 @@ struct kron_operators
   {
     for (auto &matrix : matrices)
       if (matrix)
-        matrix = kronmult_matrix<precision>();
+        matrix = local_kronmult_matrix<precision>();
     mem_stats.reset();
   }
 
 private:
   //! \brief Holds the matrices
-  std::array<kronmult_matrix<precision>, num_imex_variants> matrices;
+  std::array<local_kronmult_matrix<precision>, num_imex_variants> matrices;
 
   //! \brief Cache holding the memory stats, limits bounds etc.
   memory_usage mem_stats;

@@ -37,7 +37,7 @@ void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
     ip++;
   }
 
-  asgard::kronmult_matrix<T> kmat;
+  asgard::local_kronmult_matrix<T> kmat;
 
 #ifdef ASGARD_USE_CUDA
 
@@ -54,7 +54,7 @@ void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
       col_indx[i * num_rows + j] = j * tensor_size;
     }
   }
-  kmat = asgard::kronmult_matrix<T>(
+  kmat = asgard::local_kronmult_matrix<T>(
       dimensions, n, num_rows, num_rows, num_terms,
       row_indx.clone_onto_device(), col_indx.clone_onto_device(),
       iA.clone_onto_device(), vA.clone_onto_device());
@@ -83,9 +83,9 @@ void test_kronmult_sparse(int dimensions, int n, int num_rows, int num_terms,
   std::vector<asgard::fk::vector<int>> list_iA;
   list_iA.push_back(iA);
 
-  kmat = asgard::kronmult_matrix<T>(dimensions, n, num_rows, num_rows,
-                                    num_terms, std::move(pntr), std::move(indx),
-                                    std::move(list_iA), std::move(vA));
+  kmat = asgard::local_kronmult_matrix<T>(
+      dimensions, n, num_rows, num_rows, num_terms,
+      std::move(pntr), std::move(indx), std::move(list_iA), std::move(vA));
 
 #endif
 
@@ -145,7 +145,7 @@ void test_kronmult_dense(int dimensions, int n, int num_terms,
   asgard::fk::copy_to_device(xdev.data(), data->input_x.data(), xdev.size());
   asgard::fk::copy_to_device(ydev.data(), data->output_y.data(), ydev.size());
 
-  asgard::kronmult_matrix<P> kmat(
+  asgard::local_kronmult_matrix<P> kmat(
       dimensions, n, data->num_rows(), data->num_rows(), num_terms,
       std::move(gpu_terms), std::move(elem), 0, 0, num_1d_blocks);
 
