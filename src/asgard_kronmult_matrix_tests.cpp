@@ -163,7 +163,7 @@ void test_kronmult_dense(int dimensions, int n, int num_terms,
   }
 
 #else
-  asgard::kronmult_matrix<P> kmat(
+  asgard::local_kronmult_matrix<P> kmat(
       dimensions, n, data->num_rows(), data->num_rows(), num_terms,
       std::move(data->coefficients), asgard::fk::vector<int>(data->elem), 0, 0,
       num_1d_blocks);
