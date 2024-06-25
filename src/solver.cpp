@@ -711,6 +711,15 @@ simple_gmres_euler(const double dt, imex_flag imex,
                    fk::vector<double, mem_type::owner, resource::host> const &b,
                    int const restart, int const max_iter, double const tolerance);
 
+#ifdef ASGARD_USE_CUDA
+template gmres_info<double>
+simple_gmres_euler(const double dt, imex_flag imex,
+                   kron_operators<double> const &ops,
+                   fk::vector<double, mem_type::owner, resource::device> &x,
+                   fk::vector<double, mem_type::owner, resource::device> const &b,
+                   int const restart, int const max_iter, double const tolerance);
+#endif
+
 #ifdef KRON_MODE_GLOBAL
 
 // #ifdef KRON_MODE_GLOBAL_BLOCK
@@ -769,6 +778,15 @@ bicgstab(fk::matrix<double> const &A, fk::vector<double> &x,
          fk::vector<double> const &b, fk::matrix<double> const &M,
          int const max_iter, double const tolerance);
 
+#ifdef ASGARD_USE_CUDA
+template gmres_info<double>
+bicgstab_euler(const double dt, imex_flag imex,
+               kron_operators<double> const &ops,
+               fk::vector<double, mem_type::owner, resource::device> &x,
+               fk::vector<double, mem_type::owner, resource::device> const &b,
+               int const max_iter, double const tolerance);
+#endif
+
 #ifdef KRON_MODE_GLOBAL
 
 #ifdef KRON_MODE_GLOBAL_BLOCK
@@ -826,6 +844,21 @@ bicgstab_euler(const float dt, imex_flag imex,
                fk::vector<float, mem_type::owner, resource::host> const &b,
                int const max_iter, float const tolerance);
 
+#ifdef ASGARD_USE_CUDA
+template gmres_info<float>
+simple_gmres_euler(const float dt, imex_flag imex,
+                   kron_operators<float> const &ops,
+                   fk::vector<float, mem_type::owner, resource::device> &x,
+                   fk::vector<float, mem_type::owner, resource::device> const &b,
+                   int const restart, int const max_iter, float const tolerance);
+
+template gmres_info<float>
+bicgstab_euler(const float dt, imex_flag imex,
+               kron_operators<float> const &ops,
+               fk::vector<float, mem_type::owner, resource::device> &x,
+               fk::vector<float, mem_type::owner, resource::device> const &b,
+               int const max_iter, float const tolerance);
+#endif
 
 #ifdef KRON_MODE_GLOBAL
 // template gmres_info<float>

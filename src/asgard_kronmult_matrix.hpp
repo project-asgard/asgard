@@ -810,7 +810,7 @@ struct kron_operators
     {
       xdev = fk::vector<precision, mem_type::owner, resource::device>();
       xdev = fk::vector<precision, mem_type::owner, resource::device>(
-          (*this)[entry].input_size());
+          matrices[ientry].input_size());
     }
     if (matrices[ientry].output_size() != ydev.size())
     {
