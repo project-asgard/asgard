@@ -96,6 +96,7 @@ bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 }
 
 #ifdef KRON_MODE_GLOBAL
+// preconditiner is only available in global mode
 template<typename P>
 void apply_diagonal_precond(std::vector<P> const &pc, P dt,
                             fk::vector<P, mem_type::view, resource::host> &x)
@@ -173,113 +174,6 @@ bicgstab_euler(const P dt, imex_flag imex,
 #endif
       }, max_iter, tolerance);
 }
-
-
-#ifdef KRON_MODE_GLOBAL
-// template<typename P>
-// void apply_diagonal_precond(std::vector<P> const &pc, P dt,
-//                             fk::vector<P, mem_type::view, resource::host> &x)
-// {
-// #pragma omp parallel for
-//   for (size_t i = 0; i < pc.size(); i++)
-//     x[i] /= (1.0 - dt * pc[i]);
-// }
-// #ifdef ASGARD_USE_CUDA
-// template<typename P>
-// void apply_diagonal_precond(gpu::vector<P> const &pc, P dt,
-//                             fk::vector<P, mem_type::view, resource::device> &x)
-// {
-//   kronmult::gpu_precon_jacobi(pc.size(), dt, pc.data(), x.data());
-// }
-// #endif
-
-
-
-// #ifdef KRON_MODE_GLOBAL_BLOCK
-// template<typename P, resource resrc>
-// gmres_info<P>
-// simple_gmres_euler(const P dt, matrix_entry mentry,
-//                    block_global_kron_matrix<P> const &mat,
-//                    fk::vector<P, mem_type::owner, resrc> &x,
-//                    fk::vector<P, mem_type::owner, resrc> const &b,
-//                    int const restart, int const max_iter, P const tolerance)
-// {
-//   auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
-//
-//   return simple_gmres(
-//       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-//           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-//         tools::time_event performance("kronmult - implicit", mat.flops(mentry));
-//         mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
-//         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
-//       },
-//       fk::vector<P, mem_type::view, resrc>(x), b,
-//       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
-//         tools::time_event performance("kronmult - preconditioner", pc.size());
-//         apply_diagonal_precond(pc, dt, x_in);
-//       }, restart, max_iter, tolerance);
-// }
-// template<typename P, resource resrc>
-// gmres_info<P>
-// bicgstab_euler(const P dt, matrix_entry mentry,
-//                block_global_kron_matrix<P> const &mat,
-//                fk::vector<P, mem_type::owner, resrc> &x,
-//                fk::vector<P, mem_type::owner, resrc> const &b,
-//                int const max_iter, P const tolerance)
-// {
-//   auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
-//
-//   return bicgstab(
-//     [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-//           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-//         tools::time_event performance("kronmult - implicit", mat.flops(mentry));
-//         mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
-//         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
-//       },
-//       fk::vector<P, mem_type::view, resrc>(x), b,
-//       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
-//         tools::time_event performance("kronmult - preconditioner", pc.size());
-//         apply_diagonal_precond(pc, dt, x_in);
-//       }, max_iter, tolerance);
-// }
-// #endif
-
-#else
-// template<typename P, resource resrc>
-// gmres_info<P>
-// simple_gmres_euler(const P dt, kronmult_matrix<P> const &mat,
-//                    fk::vector<P, mem_type::owner, resrc> &x,
-//                    fk::vector<P, mem_type::owner, resrc> const &b,
-//                    int const restart, int const max_iter, P const tolerance)
-// {
-//   return simple_gmres(
-//       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-//           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-//         tools::time_event performance("kronmult - implicit", mat.flops());
-//         mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
-//         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
-//       },
-//       fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
-//       restart, max_iter, tolerance);
-// }
-// template<typename P, resource resrc>
-// gmres_info<P>
-// bicgstab_euler(const P dt, kronmult_matrix<P> const &mat,
-//                fk::vector<P, mem_type::owner, resrc> &x,
-//                fk::vector<P, mem_type::owner, resrc> const &b,
-//                int const max_iter, P const tolerance)
-// {
-//   return bicgstab(
-//       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-//           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-//         tools::time_event performance("kronmult - implicit", mat.flops());
-//         mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
-//         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
-//       },
-//       fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
-//       max_iter, tolerance);
-// }
-#endif
 
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
@@ -703,6 +597,10 @@ template gmres_info<double>
 simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
              fk::vector<double> const &b, fk::matrix<double> const &M,
              int const restart, int const max_iter, double const tolerance);
+template gmres_info<double>
+bicgstab(fk::matrix<double> const &A, fk::vector<double> &x,
+         fk::vector<double> const &b, fk::matrix<double> const &M,
+         int const max_iter, double const tolerance);
 
 template gmres_info<double>
 simple_gmres_euler(const double dt, imex_flag imex,
@@ -711,6 +609,13 @@ simple_gmres_euler(const double dt, imex_flag imex,
                    fk::vector<double, mem_type::owner, resource::host> const &b,
                    int const restart, int const max_iter, double const tolerance);
 
+template gmres_info<double>
+bicgstab_euler(const double dt, imex_flag imex,
+               kron_operators<double> const &ops,
+               fk::vector<double, mem_type::owner, resource::host> &x,
+               fk::vector<double, mem_type::owner, resource::host> const &b,
+               int const max_iter, double const tolerance);
+
 #ifdef ASGARD_USE_CUDA
 template gmres_info<double>
 simple_gmres_euler(const double dt, imex_flag imex,
@@ -718,39 +623,12 @@ simple_gmres_euler(const double dt, imex_flag imex,
                    fk::vector<double, mem_type::owner, resource::device> &x,
                    fk::vector<double, mem_type::owner, resource::device> const &b,
                    int const restart, int const max_iter, double const tolerance);
-#endif
-
-#ifdef KRON_MODE_GLOBAL
-
-// #ifdef KRON_MODE_GLOBAL_BLOCK
-// template gmres_info<double>
-// simple_gmres_euler(const double dt, matrix_entry mentry,
-//                    block_global_kron_matrix<double> const &mat,
-//                    fk::vector<double, mem_type::owner, resource::host> &x,
-//                    fk::vector<double, mem_type::owner, resource::host> const &b,
-//                    int const restart, int const max_iter, double const tolerance);
-// #endif
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<double>
-// simple_gmres_euler(const double dt, matrix_entry mentry,
-//                    global_kron_matrix<double> const &mat,
-//                    fk::vector<double, mem_type::owner, resource::device> &x,
-//                    fk::vector<double, mem_type::owner, resource::device> const &b,
-//                    int const restart, int const max_iter, double const tolerance);
-// #endif
-#else
-// template gmres_info<double>
-// simple_gmres_euler(const double dt, kronmult_matrix<double> const &mat,
-//                    fk::vector<double> &x, fk::vector<double> const &b,
-//                    int const restart, int const max_iter,
-//                    double const tolerance);
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<double> simple_gmres_euler(
-//     const double dt, kronmult_matrix<double> const &mat,
-//     fk::vector<double, mem_type::owner, resource::device> &x,
-//     fk::vector<double, mem_type::owner, resource::device> const &b,
-//     int const restart, int const max_iter, double const tolerance);
-// #endif
+template gmres_info<double>
+bicgstab_euler(const double dt, imex_flag imex,
+               kron_operators<double> const &ops,
+               fk::vector<double, mem_type::owner, resource::device> &x,
+               fk::vector<double, mem_type::owner, resource::device> const &b,
+               int const max_iter, double const tolerance);
 #endif
 
 template int default_gmres_restarts<double>(int num_cols);
@@ -765,70 +643,18 @@ poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
                fk::vector<double> &E, int const degree, int const N_elements,
                double const x_min, double const x_max, double const phi_min,
                double const phi_max, poisson_bc const bc);
-
-template gmres_info<double>
-bicgstab_euler(const double dt, imex_flag imex,
-               kron_operators<double> const &ops,
-               fk::vector<double, mem_type::owner, resource::host> &x,
-               fk::vector<double, mem_type::owner, resource::host> const &b,
-               int const max_iter, double const tolerance);
-
-template gmres_info<double>
-bicgstab(fk::matrix<double> const &A, fk::vector<double> &x,
-         fk::vector<double> const &b, fk::matrix<double> const &M,
-         int const max_iter, double const tolerance);
-
-#ifdef ASGARD_USE_CUDA
-template gmres_info<double>
-bicgstab_euler(const double dt, imex_flag imex,
-               kron_operators<double> const &ops,
-               fk::vector<double, mem_type::owner, resource::device> &x,
-               fk::vector<double, mem_type::owner, resource::device> const &b,
-               int const max_iter, double const tolerance);
-#endif
-
-#ifdef KRON_MODE_GLOBAL
-
-#ifdef KRON_MODE_GLOBAL_BLOCK
-// template gmres_info<double>
-// bicgstab_euler(const double dt, matrix_entry mentry,
-//                block_global_kron_matrix<double> const &mat,
-//                fk::vector<double, mem_type::owner, resource::host> &x,
-//                fk::vector<double, mem_type::owner, resource::host> const &b,
-//                int const max_iter, double const tolerance);
-// #endif
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<double>
-// bicgstab_euler(const double dt, matrix_entry mentry,
-//                global_kron_matrix<double> const &mat,
-//                fk::vector<double, mem_type::owner, resource::device> &x,
-//                fk::vector<double, mem_type::owner, resource::device> const &b,
-//                int const max_iter, double const tolerance);
-// #endif
-#else
-// template gmres_info<double>
-// bicgstab_euler(const double dt, kronmult_matrix<double> const &mat,
-//                fk::vector<double> &x, fk::vector<double> const &b,
-//                int const max_iter,
-//                double const tolerance);
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<double> bicgstab_euler(
-//     const double dt, kronmult_matrix<double> const &mat,
-//     fk::vector<double, mem_type::owner, resource::device> &x,
-//     fk::vector<double, mem_type::owner, resource::device> const &b,
-//     int const max_iter, double const tolerance);
-// #endif
-#endif // KRON_MODE_GLOBAL_BLOCK
-#endif // KRON_MODE_GLOBAL
-
-#endif
+#endif // ASGARD_ENABLE_DOUBLE
 
 #ifdef ASGARD_ENABLE_FLOAT
-
 template gmres_info<float>
 simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
              fk::vector<float> const &b, fk::matrix<float> const &M,
              int const restart, int const max_iter, float const tolerance);
+
+template gmres_info<float>
+bicgstab(fk::matrix<float> const &A, fk::vector<float> &x,
+         fk::vector<float> const &b, fk::matrix<float> const &M,
+         int const max_iter, float const tolerance);
 
 template gmres_info<float>
 simple_gmres_euler(const float dt, imex_flag imex,
@@ -860,89 +686,6 @@ bicgstab_euler(const float dt, imex_flag imex,
                int const max_iter, float const tolerance);
 #endif
 
-#ifdef KRON_MODE_GLOBAL
-// template gmres_info<float>
-// simple_gmres_euler(const float dt, matrix_entry mentry,
-//                    global_kron_matrix<float> const &mat,
-//                    fk::vector<float, mem_type::owner, resource::host> &x,
-//                    fk::vector<float, mem_type::owner, resource::host> const &b,
-//                    int const restart, int const max_iter, float const tolerance);
-
-// #ifdef KRON_MODE_GLOBAL_BLOCK
-// template gmres_info<float>
-// simple_gmres_euler(const float dt, matrix_entry mentry,
-//                    block_global_kron_matrix<float> const &mat,
-//                    fk::vector<float, mem_type::owner, resource::host> &x,
-//                    fk::vector<float, mem_type::owner, resource::host> const &b,
-//                    int const restart, int const max_iter, float const tolerance);
-// #endif
-
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<float>
-// simple_gmres_euler(const float dt, matrix_entry mentry,
-//                    global_kron_matrix<float> const &mat,
-//                    fk::vector<float, mem_type::owner, resource::device> &x,
-//                    fk::vector<float, mem_type::owner, resource::device> const &b,
-//                    int const restart, int const max_iter, float const tolerance);
-// #endif
-#else
-// template gmres_info<float>
-// simple_gmres_euler(const float dt, kronmult_matrix<float> const &mat,
-//                    fk::vector<float> &x, fk::vector<float> const &b,
-//                    int const restart, int const max_iter,
-//                    float const tolerance);
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<float> simple_gmres_euler(
-//     const float dt, kronmult_matrix<float> const &mat,
-//     fk::vector<float, mem_type::owner, resource::device> &x,
-//     fk::vector<float, mem_type::owner, resource::device> const &b,
-//     int const restart, int const max_iter, float const tolerance);
-// #endif
-#endif
-
-template gmres_info<float>
-bicgstab(fk::matrix<float> const &A, fk::vector<float> &x,
-         fk::vector<float> const &b, fk::matrix<float> const &M,
-         int const max_iter, float const tolerance);
-
-#ifdef KRON_MODE_GLOBAL
-// template gmres_info<float>
-// bicgstab_euler(const float dt, matrix_entry mentry,
-//                global_kron_matrix<float> const &mat,
-//                fk::vector<float, mem_type::owner, resource::host> &x,
-//                fk::vector<float, mem_type::owner, resource::host> const &b,
-//                int const max_iter, float const tolerance);
-// #ifdef KRON_MODE_GLOBAL_BLOCK
-// template gmres_info<float>
-// bicgstab_euler(const float dt, matrix_entry mentry,
-//                block_global_kron_matrix<float> const &mat,
-//                fk::vector<float, mem_type::owner, resource::host> &x,
-//                fk::vector<float, mem_type::owner, resource::host> const &b,
-//                int const max_iter, float const tolerance);
-// #endif
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<float>
-// bicgstab_euler(const float dt, matrix_entry mentry,
-//                global_kron_matrix<float> const &mat,
-//                fk::vector<float, mem_type::owner, resource::device> &x,
-//                fk::vector<float, mem_type::owner, resource::device> const &b,
-//                int const max_iter, float const tolerance);
-// #endif
-#else
-// template gmres_info<float>
-// bicgstab_euler(const float dt, kronmult_matrix<float> const &mat,
-//                fk::vector<float> &x, fk::vector<float> const &b,
-//                int const max_iter,
-//                float const tolerance);
-// #ifdef ASGARD_USE_CUDA
-// template gmres_info<float> bicgstab_euler(
-//     const float dt, kronmult_matrix<float> const &mat,
-//     fk::vector<float, mem_type::owner, resource::device> &x,
-//     fk::vector<float, mem_type::owner, resource::device> const &b,
-//     int const max_iter, float const tolerance);
-// #endif
-#endif
-
 template int default_gmres_restarts<float>(int num_cols);
 
 template void setup_poisson(const int N_elements, float const x_min,
@@ -955,7 +698,6 @@ poisson_solver(fk::vector<float> const &source, fk::vector<float> const &A_D,
                fk::vector<float> &E, int const degree, int const N_elements,
                float const x_min, float const x_max, float const phi_min,
                float const phi_max, poisson_bc const bc);
-
-#endif
+#endif // ASGARD_ENABLE_FLOAT
 
 } // namespace asgard::solver
