@@ -1720,7 +1720,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   int const num_dimensions = pde.num_dims();
 
-  for (int t : used_terms)
+  for (int const t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
     {
