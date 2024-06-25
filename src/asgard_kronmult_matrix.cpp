@@ -1067,6 +1067,42 @@ void build_preconditioner(PDE<precision> const &pde, int64_t const num_active,
   }
 }
 
+//! Returns true if the current term is identity and can be omitted
+template<typename precision>
+bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
+{
+  // Check that the volumne jacobian in this dimension is not identity,
+  if (pde.get_dimensions()[dim].volume_jacobian_dV != nullptr)
+    return false;
+  // Now check g_func, the lhs_func, and local surface jacobian are identity.
+  // TODO: There is an edge case where the mass matrices with the same volume
+  // jacobians can cancel out, but this requires us to know that both the
+  // dimensions' and the local terms' volume jacobian are equal.
+  // In the edge case, identity will be multiplied instead of ignored
+  // resulting in extra work but correct output.
+  for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
+    if (pt.coeff_type() != coefficient_type::mass or
+        pt.g_func() != nullptr or
+        pt.lhs_mass_func() != nullptr or
+        pt.dv_func() != nullptr)
+      return false;
+  return true;
+}
+
+//! Return the direction of the flux term or -1 for mass term
+template<typename precision>
+int get_flux_direction(PDE<precision> const &pde, int term_id)
+{
+  for (int d = 0; d < pde.num_dims(); d++)
+    for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
+      if (pt.coeff_type() == coefficient_type::div or
+          pt.coeff_type() == coefficient_type::grad or
+          pt.coeff_type() == coefficient_type::penalty)
+        return d;
+  return -1;
+}
+
+#ifndef KRON_MODE_GLOBAL_BLOCK
 /*!
  * \brief Walks over the sparse matrix pattern and makes call-back for each non-zero
  *
@@ -1173,47 +1209,11 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 }
 
 template<typename precision>
-bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
-{
-  // Check that the volumne jacobian in this dimension is not identity,
-  if (pde.get_dimensions()[dim].volume_jacobian_dV != nullptr)
-    return false;
-  // Now check g_func, the lhs_func, and local surface jacobian are identity.
-  // TODO: There is an edge case where the mass matrices with the same volume
-  // jacobians can cancel out, but this requires us to know that both the
-  // dimensions' and the local terms' volume jacobian are equal.
-  // In the edge case, identity will be multiplied instead of ignored
-  // resulting in extra work but correct output.
-  for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
-    if (pt.coeff_type() != coefficient_type::mass or
-        pt.g_func() != nullptr or
-        pt.lhs_mass_func() != nullptr or
-        pt.dv_func() != nullptr)
-      return false;
-  return true;
-}
-
-template<typename precision>
-int get_flux_direction(PDE<precision> const &pde, int term_id)
-{
-  for (int d = 0; d < pde.num_dims(); d++)
-    for (auto const &pt : pde.get_terms()[term_id][d].get_partial_terms())
-      if (pt.coeff_type() == coefficient_type::div or
-          pt.coeff_type() == coefficient_type::grad or
-          pt.coeff_type() == coefficient_type::penalty)
-        return d;
-  return -1;
-}
-
-template<typename precision>
 global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
                         options const &program_options)
 {
-  auto const &grid         = dis_grid.get_subgrid(get_rank());
-  int const *const asg_idx = dis_grid.get_table().get_active_table().data();
-
   int const porder    = pde.get_dimensions()[0].get_degree() - 1;
   int const pterms    = porder + 1; // poly degrees of freedom
   int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level();
@@ -1224,8 +1224,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
   connect_1d volumes(max_level, connect_1d::hierarchy::volume);
   connect_1d dof_pattern(connect_1d(max_level), porder);
 
-  int const num_cells = grid.col_stop - grid.col_start + 1;
-  vector2d<int> cells = asg2tsg_convert(num_dimensions, num_cells, asg_idx);
+  vector2d<int> cells = get_cells(num_dimensions, dis_grid);
+  int const num_cells = cells.num_strips();
 
   indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
   std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
@@ -1235,9 +1235,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   dimension_sort dsort(ilist);
 
   int64_t num_all_dof    = ilist.num_strips();
-  int64_t num_active_dof = num_cells * pterms;
-  for (int d = 1; d < num_dimensions; d++)
-    num_active_dof *= pterms;
+  int64_t num_active_dof = num_cells * fm::ipow(pterms, num_dimensions);
 
   // form the 1D pattern for the matrices in each dimension
   std::vector<std::vector<int>> global_pntr(num_dimensions,
@@ -1333,7 +1331,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
           std::swap(active_dirs.front(), active_dirs.back());
       }
 
-    permutations.push_back(kronmult::permutes(active_dirs));
+    permutations.emplace_back(active_dirs);
   }
 
   return global_kron_matrix<precision>(
@@ -1348,7 +1346,7 @@ void set_specific_mode(PDE<precision> const &pde,
                        options const &program_options, imex_flag const imex,
                        global_kron_matrix<precision> &mat)
 {
-  int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
+  int const imex_indx = static_cast<int>(imex);
 
   mat.term_groups[imex_indx] = get_used_terms(pde, program_options, imex);
 
@@ -1441,7 +1439,7 @@ template<typename precision>
 void global_kron_matrix<precision>::
     preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex)
 {
-  int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
+  int const imex_indx = static_cast<int>(imex);
 
   gpu_global[imex_indx] = kronmult::global_gpu_operations<precision>(
       hndl, num_dimensions_, perms_, gpntr_, gindx_, gvals_, term_groups[imex_indx],
@@ -1470,7 +1468,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
                                 options const &program_options, imex_flag const imex,
                                 global_kron_matrix<precision> &mat)
 {
-  int const imex_indx = global_kron_matrix<precision>::flag2int(imex);
+  int const imex_indx = static_cast<int>(imex);
 
   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
@@ -1484,7 +1482,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
   // number of matrices per term per dimension that should be considered
   int const num_mats = (num_dimensions == 1) ? 1 : patterns_per_dim;
-  for (int t : used_terms)
+  for (int const t : used_terms)
   {
     for (int d = 0; d < num_dimensions; d++)
     {
@@ -1538,10 +1536,10 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 template<typename precision>
 template<resource rec>
 void global_kron_matrix<precision>::apply(
-    matrix_entry etype, precision alpha, precision const *x,
+    imex_flag etype, precision alpha, precision const *x,
     precision beta, precision *y) const
 {
-  int const imex = flag2int(etype);
+  int const imex = static_cast<int>(etype);
 
   std::vector<int> const &used_terms = term_groups[imex];
   if (used_terms.size() == 0)
@@ -1598,7 +1596,8 @@ void global_kron_matrix<precision>::apply(
     y[i] += alpha * py[i];
 #endif
 }
-#endif
+#endif // end ifndef KRON_MODE_GLOBAL_BLOCK
+#endif // end ifdef KRON_MODE_GLOBAL
 
 #ifdef KRON_MODE_GLOBAL_BLOCK
 
@@ -1752,26 +1751,6 @@ template std::vector<int> get_used_terms(PDE<double> const &pde, options const &
                                          imex_flag const imex);
 
 #ifdef KRON_MODE_GLOBAL
-template global_kron_matrix<double>
-make_global_kron_matrix(PDE<double> const &,
-                        adapt::distributed_grid<double> const &,
-                        options const &);
-template void update_matrix_coefficients(PDE<double> const &,
-                                         adapt::distributed_grid<double> const &,
-                                         options const &, imex_flag const,
-                                         global_kron_matrix<double> &);
-template void set_specific_mode<double>(PDE<double> const &,
-                                        adapt::distributed_grid<double> const &,
-                                        options const &, imex_flag const,
-                                        global_kron_matrix<double> &);
-template class global_kron_matrix<double>;
-template void global_kron_matrix<double>::apply<resource::host>(
-    matrix_entry, double, double const *, double, double *) const;
-#ifdef ASGARD_USE_CUDA
-template void global_kron_matrix<double>::apply<resource::device>(
-    matrix_entry, double, double const *, double, double *) const;
-#endif
-
 #ifdef KRON_MODE_GLOBAL_BLOCK
 template class block_global_kron_matrix<double>;
 template void block_global_kron_matrix<double>::apply<resource::host>(
@@ -1786,7 +1765,27 @@ template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
                                         options const &, imex_flag const,
                                         block_global_kron_matrix<double> &);
+#else
+template global_kron_matrix<double>
+make_global_kron_matrix(PDE<double> const &,
+                        adapt::distributed_grid<double> const &,
+                        options const &);
+template void update_matrix_coefficients(PDE<double> const &,
+                                         adapt::distributed_grid<double> const &,
+                                         options const &, imex_flag const,
+                                         global_kron_matrix<double> &);
+template void set_specific_mode<double>(PDE<double> const &,
+                                        adapt::distributed_grid<double> const &,
+                                        options const &, imex_flag const,
+                                        global_kron_matrix<double> &);
+template class global_kron_matrix<double>;
+template void global_kron_matrix<double>::apply<resource::host>(
+    imex_flag, double, double const *, double, double *) const;
+#ifdef ASGARD_USE_CUDA
+template void global_kron_matrix<double>::apply<resource::device>(
+    imex_flag, double, double const *, double, double *) const;
 #endif
+#endif // KRON_MODE_GLOBAL_BLOCK
 
 #else // KRON_MODE_GLOBAL
 template kronmult_matrix<double>
@@ -1811,26 +1810,6 @@ template std::vector<int> get_used_terms(PDE<float> const &pde, options const &o
                                          imex_flag const imex);
 
 #ifdef KRON_MODE_GLOBAL
-template global_kron_matrix<float>
-make_global_kron_matrix(PDE<float> const &,
-                        adapt::distributed_grid<float> const &,
-                        options const &);
-template void update_matrix_coefficients(PDE<float> const &,
-                                         adapt::distributed_grid<float> const &,
-                                         options const &, imex_flag const,
-                                         global_kron_matrix<float> &);
-template void set_specific_mode<float>(PDE<float> const &,
-                                       adapt::distributed_grid<float> const &,
-                                       options const &, imex_flag const,
-                                       global_kron_matrix<float> &);
-template class global_kron_matrix<float>;
-template void global_kron_matrix<float>::apply<resource::host>(
-    matrix_entry, float, float const *, float, float *) const;
-#ifdef ASGARD_USE_CUDA
-template void global_kron_matrix<float>::apply<resource::device>(
-    matrix_entry, float, float const *, float, float *) const;
-#endif
-
 #ifdef KRON_MODE_GLOBAL_BLOCK
 template class block_global_kron_matrix<float>;
 
@@ -1846,7 +1825,27 @@ template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,
                                        options const &, imex_flag const,
                                        block_global_kron_matrix<float> &);
+#else
+template global_kron_matrix<float>
+make_global_kron_matrix(PDE<float> const &,
+                        adapt::distributed_grid<float> const &,
+                        options const &);
+template void update_matrix_coefficients(PDE<float> const &,
+                                         adapt::distributed_grid<float> const &,
+                                         options const &, imex_flag const,
+                                         global_kron_matrix<float> &);
+template void set_specific_mode<float>(PDE<float> const &,
+                                       adapt::distributed_grid<float> const &,
+                                       options const &, imex_flag const,
+                                       global_kron_matrix<float> &);
+template class global_kron_matrix<float>;
+template void global_kron_matrix<float>::apply<resource::host>(
+    imex_flag, float, float const *, float, float *) const;
+#ifdef ASGARD_USE_CUDA
+template void global_kron_matrix<float>::apply<resource::device>(
+    imex_flag, float, float const *, float, float *) const;
 #endif
+#endif // KRON_MODE_GLOBAL_BLOCK
 
 #else // KRON_MODE_GLOBAL
 template kronmult_matrix<float>
