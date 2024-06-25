@@ -919,12 +919,12 @@ protected:
   //! \brief Convert the imex flag to an index of the arrays.
   static int flag2int(imex_flag imex)
   {
-    return (imex == imex_flag::imex_implicit) ? 2 : ((imex == imex_flag::imex_explicit) ? 1 : 0);
+    return static_cast<int>(imex);
   }
   //! \brief Convert the matrix entry to an index of the arrays.
   static int flag2int(matrix_entry imex)
   {
-    return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
+    return static_cast<int>(imex);
   }
   // the workspace is kept externally to minimize allocations
   mutable workspace_type *work_;
@@ -1368,12 +1368,12 @@ public:
   //! \brief Convert the imex flag to an index of the arrays.
   static int flag2int(imex_flag imex)
   {
-    return (imex == imex_flag::imex_implicit) ? 2 : ((imex == imex_flag::imex_explicit) ? 1 : 0);
+    return return static_cast<int>(imex);
   }
   //! \brief Convert the matrix entry to an index of the arrays.
   static int flag2int(matrix_entry imex)
   {
-    return (imex == matrix_entry::imex_implicit) ? 2 : ((imex == matrix_entry::imex_explicit) ? 1 : 0);
+    return return static_cast<int>(imex);
   }
 
 private:

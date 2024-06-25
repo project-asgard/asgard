@@ -85,9 +85,9 @@ enum class flux_type
 
 enum class imex_flag
 {
-  unspecified,
-  imex_explicit,
-  imex_implicit,
+  unspecified = 0,
+  imex_explicit = 1,
+  imex_implicit = 2,
 };
 
 template<typename P>
