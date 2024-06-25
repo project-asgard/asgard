@@ -317,7 +317,7 @@ void global_cpu(int64_t block_size,
         // row in the 1d pattern
         int const row = dsort(ilist, dim, rj);
 
-        precision *const local_y = &y[xidx[row]];
+        precision *const local_y = y + xidx[row];
 
         // columns for the 1d pattern
         int col_begin = (fill == permutes::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
