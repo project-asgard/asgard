@@ -224,6 +224,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
     }
     else if constexpr (dim == 2)
     {
+      ASGARD_PRAGMA_OMP_SIMD(collapse(7))
       for (int w = 0; w < n; w++)
         for (int v = 0; v < n; v++)
           for (int j = 0; j < n; j++)
