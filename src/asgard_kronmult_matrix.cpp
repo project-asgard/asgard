@@ -1604,10 +1604,10 @@ void global_kron_matrix<precision>::apply(
 template<typename precision>
 template<resource rec>
 void block_global_kron_matrix<precision>::apply(
-    matrix_entry etype, precision alpha, precision const *x,
+    imex_flag etype, precision alpha, precision const *x,
     precision beta, precision *y) const
 {
-  int const imex = flag2int(etype);
+  int const imex = static_cast<int>(etype);
 
   std::vector<int> const &used_terms = term_groups_[imex];
 
@@ -1707,7 +1707,7 @@ void set_specific_mode(PDE<precision> const &pde,
                        options const &program_options, imex_flag const imex,
                        block_global_kron_matrix<precision> &mat)
 {
-  int const imex_indx = block_global_kron_matrix<precision>::flag2int(imex);
+  int const imex_indx = static_cast<int>(imex);
 
   mat.term_groups_[imex_indx] = get_used_terms(pde, program_options, imex);
 
@@ -1754,7 +1754,7 @@ template std::vector<int> get_used_terms(PDE<double> const &pde, options const &
 #ifdef KRON_MODE_GLOBAL_BLOCK
 template class block_global_kron_matrix<double>;
 template void block_global_kron_matrix<double>::apply<resource::host>(
-    matrix_entry, double, double const *, double, double *) const;
+    imex_flag, double, double const *, double, double *) const;
 
 template block_global_kron_matrix<double>
 make_block_global_kron_matrix<double>(PDE<double> const &,
@@ -1814,7 +1814,7 @@ template std::vector<int> get_used_terms(PDE<float> const &pde, options const &o
 template class block_global_kron_matrix<float>;
 
 template void block_global_kron_matrix<float>::apply<resource::host>(
-    matrix_entry, float, float const *, float, float *) const;
+    imex_flag, float, float const *, float, float *) const;
 
 template block_global_kron_matrix<float>
 make_block_global_kron_matrix<float>(PDE<float> const &,

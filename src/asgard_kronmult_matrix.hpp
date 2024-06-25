@@ -871,15 +871,8 @@ struct kron_operators
                                    matrices[ientry]);
   }
 
-  //! \brief Clear the specified matrix
-  void clear(imex_flag entry)
-  {
-    int const ientry = static_cast<int>(entry);
-    if (matrices[ientry])
-      matrices[ientry] = kronmult_matrix<precision>();
-  }
   //! \brief Clear all matrices
-  void clear_all()
+  void clear()
   {
     for (auto &matrix : matrices)
       if (matrix)
@@ -1227,15 +1220,8 @@ struct kron_operators
     }
   }
 
-  //! \brief Clear the specified matrix
-  void clear(imex_flag entry)
-  {
-    ignore(entry);
-    if (kglobal)
-      kglobal = global_kron_matrix<precision>();
-  }
   //! \brief Clear all matrices
-  void clear_all()
+  void clear()
   {
     if (kglobal)
       kglobal = global_kron_matrix<precision>();
@@ -1299,13 +1285,13 @@ public:
   }
 
   template<resource rec>
-  void apply(matrix_entry etype, precision alpha, precision const *x, precision beta, precision *y) const;
+  void apply(imex_flag etype, precision alpha, precision const *x, precision beta, precision *y) const;
 
   operator bool() const { return (num_dimensions_ > 0); }
 
-  bool specific_is_set(matrix_entry etype)
+  bool specific_is_set(imex_flag etype)
   {
-    std::vector<int> const &terms = term_groups_[flag2int(etype)];
+    std::vector<int> const &terms = term_groups_[static_cast<int>(etype)];
     if (terms.empty())
       return true; // nothing to set, so we're OK
 
@@ -1325,9 +1311,9 @@ public:
   }
 
   //! \brief Return the number of flops for the current matrix type
-  int64_t flops(matrix_entry etype) const
+  int64_t flops(imex_flag etype) const
   {
-    int i = flag2int(etype);
+    int i = static_cast<int>(etype);
     if (flops_[i] == -1)
     {
       flops_[i] = kronmult::block_global_count_flops(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
@@ -1335,13 +1321,13 @@ public:
                                                      term_groups_[i], *workspace_);
       switch (etype)
       {
-      case matrix_entry::regular:
+      case imex_flag::unspecified:
         std::cout << "regular block-global kronmult matrix\n";
         break;
-      case matrix_entry::imex_explicit:
+      case imex_flag::imex_explicit:
         std::cout << "imex-explicit block-global kronmult matrix\n";
         break;
-      case matrix_entry::imex_implicit:
+      case imex_flag::imex_implicit:
         std::cout << "imex-implicit block-global kronmult matrix\n";
         break;
       };
@@ -1360,20 +1346,7 @@ public:
       options const &program_options, imex_flag const imex,
       block_global_kron_matrix<precision> &mat);
 
-  //! \brief Convert the imex flag to an index of the arrays.
-  static int flag2int(imex_flag imex)
-  {
-    return static_cast<int>(imex);
-  }
-  //! \brief Convert the matrix entry to an index of the arrays.
-  static int flag2int(matrix_entry imex)
-  {
-    return static_cast<int>(imex);
-  }
-
 private:
-  static constexpr int num_variants = 3;
-
   int64_t num_active_, num_padded_;
   int num_dimensions_, blockn_;
   int64_t block_size_;
@@ -1387,7 +1360,7 @@ private:
   std::array<std::vector<int>, 3> term_groups_;
   mutable kronmult::block_global_workspace<precision> *workspace_;
 
-  mutable std::array<int64_t, num_variants> flops_;
+  mutable std::array<int64_t, num_imex_variants> flops_;
 
   // preconditioner
   std::vector<precision> pre_con_;
@@ -1401,82 +1374,65 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
                               kronmult::block_global_workspace<precision> *workspace);
 
 template<typename precision>
-struct matrix_list
+struct kron_operators
 {
-  //! \brief Makes a list of uninitialized matrices
-  matrix_list() = default;
-
-  //! \brief Frees the matrix list and any cache vectors
-  ~matrix_list() = default;
-
   //! \brief Apply the given matrix entry
   template<resource rec = resource::host>
-  void apply(matrix_entry entry, precision alpha, precision const x[], precision beta, precision y[])
+  void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
   {
     kglobal.template apply<rec>(entry, alpha, x, beta, y);
   }
 
-  int64_t flops(matrix_entry entry)
+  int64_t flops(imex_flag entry) const
   {
     return kglobal.flops(entry);
   }
 
   //! \brief Make the matrix for the given entry
-  void make(matrix_entry entry, PDE<precision> const &pde,
+  void make(imex_flag entry, PDE<precision> const &pde,
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
     if (not kglobal)
     {
       kglobal = make_block_global_kron_matrix(pde, grid, opts, &workspace);
-      set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+      set_specific_mode(pde, grid, opts, entry, kglobal);
     }
     else if (not kglobal.specific_is_set(entry))
-      set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+      set_specific_mode(pde, grid, opts, entry, kglobal);
   }
 
   /*!
    * \brief Either makes the matrix or if it exists, just updates only the
    *        coefficients
    */
-  void reset_coefficients(matrix_entry entry, PDE<precision> const &pde,
+  void reset_coefficients(imex_flag entry, PDE<precision> const &pde,
                           adapt::distributed_grid<precision> const &grid,
                           options const &opts)
   {
     if (not kglobal)
       make(entry, pde, grid, opts);
     else
-      set_specific_mode(pde, grid, opts, imex(entry), kglobal);
+      set_specific_mode(pde, grid, opts, entry, kglobal);
   }
 
-  //! \brief Clear the specified matrix
-  void clear(matrix_entry entry)
-  {
-    ignore(entry);
-    if (kglobal)
-      kglobal = block_global_kron_matrix<precision>();
-  }
   //! \brief Clear all matrices
-  void clear_all()
+  void clear()
   {
     if (kglobal)
       kglobal = block_global_kron_matrix<precision>();
   }
 
-  //! \brief Holds the global part of the kron product
-  block_global_kron_matrix<precision> kglobal;
+  //! \brief Returns the preconditioner.
+  template<resource rec>
+  auto const &get_diagonal_preconditioner() const
+  {
+    return kglobal.template get_diagonal_preconditioner<rec>();
+  }
 
 private:
-  kronmult::block_global_workspace<precision> workspace;
+  block_global_kron_matrix<precision> kglobal;
 
-  //! \brief Maps the entry enum to the IMEX flag
-  static imex_flag imex(matrix_entry entry)
-  {
-    return flag_map[static_cast<int>(entry)];
-  }
-  //! \brief Maps imex flags to integers
-  static constexpr std::array<imex_flag, 3> flag_map = {
-      imex_flag::unspecified, imex_flag::imex_explicit,
-      imex_flag::imex_implicit};
+  kronmult::block_global_workspace<precision> workspace;
 };
 
 #endif

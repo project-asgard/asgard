@@ -82,7 +82,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
 
   // clear the matrices if the coarsening removed indexes
   if (old_size != adaptive_grid.size())
-    operator_matrices.clear_all();
+    operator_matrices.clear();
 
   // save coarsen stats
   pde.adapt_info.initial_dof = old_size;
@@ -146,7 +146,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
     else
     {
       // added more indexes, matrices will have to be remade
-      operator_matrices.clear_all();
+      operator_matrices.clear();
 
       y = adaptive_grid.redistribute_solution(y, old_plan, old_size);
 

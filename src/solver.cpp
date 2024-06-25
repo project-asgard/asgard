@@ -195,54 +195,54 @@ bicgstab_euler(const P dt, imex_flag imex,
 
 
 
-#ifdef KRON_MODE_GLOBAL_BLOCK
-template<typename P, resource resrc>
-gmres_info<P>
-simple_gmres_euler(const P dt, matrix_entry mentry,
-                   block_global_kron_matrix<P> const &mat,
-                   fk::vector<P, mem_type::owner, resrc> &x,
-                   fk::vector<P, mem_type::owner, resrc> const &b,
-                   int const restart, int const max_iter, P const tolerance)
-{
-  auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
-
-  return simple_gmres(
-      [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-        tools::time_event performance("kronmult - implicit", mat.flops(mentry));
-        mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
-        lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
-      },
-      fk::vector<P, mem_type::view, resrc>(x), b,
-      [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
-        tools::time_event performance("kronmult - preconditioner", pc.size());
-        apply_diagonal_precond(pc, dt, x_in);
-      }, restart, max_iter, tolerance);
-}
-template<typename P, resource resrc>
-gmres_info<P>
-bicgstab_euler(const P dt, matrix_entry mentry,
-               block_global_kron_matrix<P> const &mat,
-               fk::vector<P, mem_type::owner, resrc> &x,
-               fk::vector<P, mem_type::owner, resrc> const &b,
-               int const max_iter, P const tolerance)
-{
-  auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
-
-  return bicgstab(
-    [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-        tools::time_event performance("kronmult - implicit", mat.flops(mentry));
-        mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
-        lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
-      },
-      fk::vector<P, mem_type::view, resrc>(x), b,
-      [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
-        tools::time_event performance("kronmult - preconditioner", pc.size());
-        apply_diagonal_precond(pc, dt, x_in);
-      }, max_iter, tolerance);
-}
-#endif
+// #ifdef KRON_MODE_GLOBAL_BLOCK
+// template<typename P, resource resrc>
+// gmres_info<P>
+// simple_gmres_euler(const P dt, matrix_entry mentry,
+//                    block_global_kron_matrix<P> const &mat,
+//                    fk::vector<P, mem_type::owner, resrc> &x,
+//                    fk::vector<P, mem_type::owner, resrc> const &b,
+//                    int const restart, int const max_iter, P const tolerance)
+// {
+//   auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
+//
+//   return simple_gmres(
+//       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
+//           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
+//         tools::time_event performance("kronmult - implicit", mat.flops(mentry));
+//         mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
+//         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
+//       },
+//       fk::vector<P, mem_type::view, resrc>(x), b,
+//       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
+//         tools::time_event performance("kronmult - preconditioner", pc.size());
+//         apply_diagonal_precond(pc, dt, x_in);
+//       }, restart, max_iter, tolerance);
+// }
+// template<typename P, resource resrc>
+// gmres_info<P>
+// bicgstab_euler(const P dt, matrix_entry mentry,
+//                block_global_kron_matrix<P> const &mat,
+//                fk::vector<P, mem_type::owner, resrc> &x,
+//                fk::vector<P, mem_type::owner, resrc> const &b,
+//                int const max_iter, P const tolerance)
+// {
+//   auto const &pc = mat.template get_diagonal_preconditioner<resrc>();
+//
+//   return bicgstab(
+//     [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
+//           P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
+//         tools::time_event performance("kronmult - implicit", mat.flops(mentry));
+//         mat.template apply<resrc>(mentry, -dt * alpha, x_in.data(), beta, y.data());
+//         lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
+//       },
+//       fk::vector<P, mem_type::view, resrc>(x), b,
+//       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
+//         tools::time_event performance("kronmult - preconditioner", pc.size());
+//         apply_diagonal_precond(pc, dt, x_in);
+//       }, max_iter, tolerance);
+// }
+// #endif
 
 #else
 // template<typename P, resource resrc>
