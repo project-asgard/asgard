@@ -198,24 +198,6 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
 }
 #endif
 
-template<typename P, resource resrc>
-gmres_info<P>
-bicgstab_euler(const P dt, kronmult_matrix<P> const &mat,
-               fk::vector<P, mem_type::owner, resrc> &x,
-               fk::vector<P, mem_type::owner, resrc> const &b,
-               int const max_iter, P const tolerance)
-{
-  return bicgstab(
-      [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
-          P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-        tools::time_event performance("kronmult - implicit", mat.flops());
-        mat.template apply<resrc>(-dt * alpha, x_in.data(), beta, y.data());
-        lib_dispatch::axpy<resrc>(y.size(), alpha, x_in.data(), 1, y.data(), 1);
-      },
-      fk::vector<P, mem_type::view, resrc>(x), b, no_op_preconditioner<P>(),
-      max_iter, tolerance);
-}
-
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
  * \returns default number of iterations before restart
