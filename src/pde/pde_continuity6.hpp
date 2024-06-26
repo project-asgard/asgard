@@ -124,19 +124,17 @@ private:
     return fx;
   }
 
-  static P exact_time(P const time) { return std::sin(targ * time); }
-
-  static fk::vector<P> exact_time_v(fk::vector<P> x, P const time)
+  static fk::vector<P> exact_time(fk::vector<P>, P const time)
   {
-    x.resize(1);
-    x[0] = exact_time(time);
-    return x;
+    return {
+        std::sin(targ * time),
+    };
   }
 
   // define exact soln
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
       exact_solution_x, exact_solution_y, exact_solution_z,
-      exact_solution_vx, exact_solution_vy, exact_solution_vz, exact_time_v};
+      exact_solution_vx, exact_solution_vy, exact_solution_vz, exact_time};
 
   // specify source functions...
 
