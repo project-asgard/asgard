@@ -11,26 +11,6 @@ Provides the following variables:
 
 include (FindPackageHandleStandardArgs)
 
-#-------------------------------------------------------------------------------
-#  Setup a menu of BLAS/LAPACK venders.
-#-------------------------------------------------------------------------------
-set (BLA_VENDOR All CACHE STRING "BLAS/LAPACK Vendor")
-set_property (CACHE BLA_VENDOR PROPERTY STRINGS
-              All
-              ACML ACML_MP ACML_GPU
-              Apple NAS
-              Arm Arm_mp Arm_ilp64 Arm_ilp64_mp
-              ATLAS
-              FLAME
-              FlexiBLAS
-              Fujitsu_SSL2 Fujitsu_SSL2BLAMP
-              IBMESSL
-              Intel10_32 Intel10_64lp Intel10_64lp_seq Intel10_64ilp Intel10_64ilp_seq Intel10_64_dyn
-              NVHPC
-              OpenBLAS
-              SCSL
-)
-
 #  Check for platform provided BLAS and LAPACK libaries. If these were not found
 #  then build the openblas library.
 if (NOT ${ASGARD_BUILD_OPENBLAS})
@@ -38,16 +18,7 @@ if (NOT ${ASGARD_BUILD_OPENBLAS})
     find_package (LAPACK)
 
     if (NOT ${BLAS_FOUND} OR NOT ${LAPACK_FOUND})
-
-        if (ASGARD_RECOMMENDED_DEFAULTS)
-        #  Set the ASGARD_BUILD_OPENBLAS option to true in cmake since we now
-        #  need to build OpenBLAS.
-            set (ASGARD_BUILD_OPENBLAS ON CACHE BOOL "Download and build our own OpenBLAS" FORCE)
-        else()
-        #  without ASGARD_RECOMMENDED_DEFAULTS, assume that the user has
-        #  system BLAS/LAPACK that the user wants to utilize
-            message(FATAL_ERROR "Could not find system BLAS or LAPACK, use -DASGARD_BUILD_OPENBLAS=ON to download/compile OpenBLAS")
-        endif ()
+        message(FATAL_ERROR "Could not find system BLAS or LAPACK, use -DASGARD_BUILD_OPENBLAS=ON to download/compile OpenBLAS, or load/install the appropriate package and set BLA_VENDOR (see cmake documentation)")
     endif ()
 endif ()
 
