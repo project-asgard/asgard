@@ -9,6 +9,12 @@
 
 namespace asgard::kronmult
 {
+/*!
+ * \brief Applies the diagonal Euler preconditioner onto x.
+ */
+template<typename T>
+void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
+
 #ifndef KRON_MODE_GLOBAL
 /*!
  * \internal
@@ -402,12 +408,6 @@ private:
   mutable std::vector<gpu::sparse_matrix<precision>> mats_;
   mutable void *buffer_;
 };
-
-/*!
- * \brief Applies the diagonal Euler preconditioner onto x.
- */
-template<typename T>
-void gpu_precon_jacobi(int64_t size, T dt, T const prec[], T x[]);
 #endif
 
 // Block Global Section, work directly with the index set

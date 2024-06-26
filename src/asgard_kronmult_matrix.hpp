@@ -138,12 +138,12 @@ public:
       int num_terms,
       std::vector<fk::vector<precision, mem_type::owner, input_mode>> &&terms,
       fk::vector<int, mem_type::owner, input_mode> &&elem, int row_offset,
-      int col_offset, int num_1d_blocks)
+      int col_offset, int num_1d_blocks, std::vector<precision> &&prec)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), terms_(std::move(terms)), elem_(std::move(elem)),
         row_offset_(row_offset), col_offset_(col_offset),
-        num_1d_blocks_(num_1d_blocks)
+        num_1d_blocks_(num_1d_blocks), pre_con_(std::move(prec))
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -242,13 +242,14 @@ public:
       fk::vector<int, mem_type::owner, input_mode> &&row_indx,
       fk::vector<int, mem_type::owner, input_mode> &&col_indx,
       fk::vector<int, mem_type::owner, input_mode> &&index_A,
-      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A,
+      std::vector<precision> &&prec)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), row_indx_(std::move(row_indx)),
         col_indx_(std::move(col_indx)), iA(std::move(index_A)),
         list_row_stride_(0), vA(std::move(values_A)), row_offset_(0),
-        col_offset_(0), num_1d_blocks_(0)
+        col_offset_(0), num_1d_blocks_(0), pre_con_(std::move(prec))
   {
 #ifdef ASGARD_USE_CUDA
     static_assert(
@@ -292,10 +293,12 @@ public:
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&row_indx,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&col_indx,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
-      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A,
+      std::vector<precision> &&prec)
       : local_kronmult_matrix(num_dimensions, kron_size, num_rows, num_cols,
                               num_terms, 0, std::move(row_indx), std::move(col_indx),
-                              std::move(list_index_A), std::move(values_A))
+                              std::move(list_index_A), std::move(values_A),
+                              std::move(prec))
   {
     expect(not(list_row_indx_.empty() and list_col_indx_.empty()));
   }
@@ -572,6 +575,25 @@ public:
 #endif
   }
 
+  //! \brief Returns the preconditioner.
+  template<resource rec>
+  auto const &get_diagonal_preconditioner() const
+  {
+#ifdef ASGARD_USE_CUDA
+    if constexpr (rec == resource::device)
+    {
+      if (gpu_pre_con_.empty())
+        gpu_pre_con_ = pre_con_;
+      return gpu_pre_con_;
+    }
+    else
+      return pre_con_;
+#else
+    static_assert(rec == resource::host, "GPU not enabled");
+    return pre_con_;
+#endif
+  }
+
 private:
   //! \brief Multi-call constructors delegate to this one, handles list_row_stride_
   template<resource multi_mode, resource input_mode>
@@ -583,13 +605,14 @@ private:
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> const
           &&col_indx,
       std::vector<fk::vector<int, mem_type::owner, multi_mode>> &&list_index_A,
-      fk::vector<precision, mem_type::owner, input_mode> &&values_A)
+      fk::vector<precision, mem_type::owner, input_mode> &&values_A,
+      std::vector<precision> &&prec)
       : num_dimensions_(num_dimensions), kron_size_(kron_size),
         num_rows_(num_rows), num_cols_(num_cols), num_terms_(num_terms),
         tensor_size_(1), list_row_stride_(list_row_stride),
         list_row_indx_(std::move(row_indx)),
         list_col_indx_(std::move(col_indx)), list_iA(std::move(list_index_A)),
-        vA(std::move(values_A))
+        vA(std::move(values_A)), pre_con_(std::move(prec))
   {
 #ifdef ASGARD_USE_CUDA
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
@@ -675,6 +698,12 @@ private:
   fk::vector<precision *, mem_type::owner, data_mode> term_pntr_;
   fk::vector<int, mem_type::owner, data_mode> elem_;
   int row_offset_, col_offset_, num_1d_blocks_;
+
+  // preconditioner
+  std::vector<precision> pre_con_;
+#ifdef ASGARD_USE_CUDA
+  mutable gpu::vector<precision> gpu_pre_con_; // gpu copy
+#endif
 };
 
 /*!
@@ -878,6 +907,16 @@ struct kron_operators
       if (matrix)
         matrix = local_kronmult_matrix<precision>();
     mem_stats.reset();
+  }
+
+  //! \brief Returns the preconditioner.
+  template<resource rec>
+  auto const &get_diagonal_preconditioner() const
+  {
+    if (matrices[static_cast<int>(imex_flag::imex_implicit)])
+      return matrices[static_cast<int>(imex_flag::imex_implicit)].template get_diagonal_preconditioner<rec>();
+    else
+      return matrices[static_cast<int>(imex_flag::unspecified)].template get_diagonal_preconditioner<rec>();
   }
 
 private:

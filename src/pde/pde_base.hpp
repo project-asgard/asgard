@@ -633,7 +633,7 @@ public:
     dimensions_            = std::move(dimensions);
     terms_                 = std::move(terms);
 
-    expect(num_dims_ > 0);
+    expect(num_dims_ > 0 and num_dims_ <= max_num_dimensions);
     expect(num_sources_ >= 0);
     expect(num_terms_ > 0);
 

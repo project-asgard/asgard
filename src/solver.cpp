@@ -95,7 +95,6 @@ bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
                     tolerance);
 }
 
-#ifdef KRON_MODE_GLOBAL
 // preconditiner is only available in global mode
 template<typename P>
 void apply_diagonal_precond(std::vector<P> const &pc, P dt,
@@ -113,7 +112,6 @@ void apply_diagonal_precond(gpu::vector<P> const &pc, P dt,
   kronmult::gpu_precon_jacobi(pc.size(), dt, pc.data(), x.data());
 }
 #endif
-#endif
 
 template<typename P, resource resrc>
 gmres_info<P>
@@ -123,9 +121,7 @@ simple_gmres_euler(const P dt, imex_flag imex,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance)
 {
-#ifdef KRON_MODE_GLOBAL
   auto const &pc = ops.template get_diagonal_preconditioner<resrc>();
-#endif
 
   return simple_gmres(
       [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
@@ -136,12 +132,8 @@ simple_gmres_euler(const P dt, imex_flag imex,
       },
       fk::vector<P, mem_type::view, resrc>(x), b,
       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
-#ifdef KRON_MODE_GLOBAL
         tools::time_event performance("kronmult - preconditioner", pc.size());
         apply_diagonal_precond(pc, dt, x_in);
-#else
-        ignore(x_in); // no preconditioner for local kronmult
-#endif
       },
       restart, max_iter, tolerance);
 }
@@ -153,9 +145,7 @@ bicgstab_euler(const P dt, imex_flag imex,
                fk::vector<P, mem_type::owner, resrc> const &b,
                int const max_iter, P const tolerance)
 {
-#ifdef KRON_MODE_GLOBAL
   auto const &pc = ops.template get_diagonal_preconditioner<resrc>();
-#endif
 
   return bicgstab(
     [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
@@ -166,12 +156,8 @@ bicgstab_euler(const P dt, imex_flag imex,
       },
       fk::vector<P, mem_type::view, resrc>(x), b,
       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
-#ifdef KRON_MODE_GLOBAL
         tools::time_event performance("kronmult - preconditioner", pc.size());
         apply_diagonal_precond(pc, dt, x_in);
-#else
-        ignore(x_in); // no preconditioner for local kronmult
-#endif
       }, max_iter, tolerance);
 }
 

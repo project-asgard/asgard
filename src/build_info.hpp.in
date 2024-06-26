@@ -24,3 +24,17 @@
 
 #cmakedefine KRON_MODE_GLOBAL
 #cmakedefine KRON_MODE_GLOBAL_BLOCK
+
+// fixed variables, maybe adjust later using CMake
+// for now, we can keep project-wide constants here
+namespace asgard
+{
+/*!
+ * Small scratch-space arrays are needed in many places in the code,
+ * it is better to allocate those as std::array and void runtime
+ * alloation and the heap altogether.
+ * However, we need to know the size which is unknown until runtime.
+ * This is a workaround that lets us have a max size.
+ */
+inline constexpr int max_num_dimensions = 6;
+}

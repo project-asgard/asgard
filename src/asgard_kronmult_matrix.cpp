@@ -46,6 +46,66 @@ vector2d<int> get_cells(int num_dimensions, adapt::distributed_grid<precision> c
   return asg2tsg_convert(num_dimensions, num_cells, asg_idx);
 }
 
+/*!
+ * \brief Constructs a preconditioner
+ *
+ * The preconditioner should go into another file, but that will come with a
+ * big cleanup of the kronmult logic (and the removal of the old code).
+ */
+template<typename precision>
+void build_preconditioner(PDE<precision> const &pde,
+                          adapt::distributed_grid<precision> const &dis_grid,
+                          std::vector<int> const &used_terms,
+                          std::vector<precision> &pc)
+{
+  auto const &grid           = dis_grid.get_subgrid(get_rank());
+  int const *const asg_table = dis_grid.get_table().get_active_table().data();
+
+  int const num_rows = grid.row_stop - grid.row_start + 1;
+
+  int const pterms = pde.get_dimensions()[0].get_degree();
+
+  int num_dimensions  = pde.num_dims();
+  int64_t tensor_size = int_pow(pterms, num_dimensions);
+
+  if (pc.size() == 0)
+    pc.resize(tensor_size * num_rows);
+  else
+  {
+    pc.resize(tensor_size * num_rows);
+    std::fill(pc.begin(), pc.end(), precision{0});
+  }
+
+#pragma omp parallel
+  {
+    std::array<int, max_num_dimensions> midx;
+
+#pragma omp for
+    for (int64_t row = 0; row < num_rows; row++)
+    {
+      int const *const row_coords = asg_table + 2 * num_dimensions * (grid.row_start + row);
+      asg2tsg_convert(num_dimensions, row_coords, midx.data());
+
+      for (int tentry = 0; tentry < tensor_size; tentry++)
+      {
+        for (int t : used_terms)
+        {
+          precision a = 1;
+
+          int tt = tentry;
+          for (int d = num_dimensions - 1; d >= 0; d--)
+          {
+            int const rc = midx[d] * pterms + tt % pterms;
+            a *= pde.get_coefficients(t, d)(rc, rc);
+            tt /= pterms;
+          }
+          pc[row * tensor_size + tentry] += a;
+        }
+      }
+    }
+  }
+}
+
 #ifndef KRON_MODE_GLOBAL
 
 void check_available_memory(int64_t baseline_memory, int64_t available_MB)
@@ -136,6 +196,11 @@ make_kronmult_dense(PDE<precision> const &pde,
     }
   }
 
+  std::vector<precision> prec;
+  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+    // prepare a preconditioner
+    build_preconditioner(pde, discretization, used_terms, prec);
+
   int64_t flps = local_kronmult_matrix<precision>::compute_flops(
       num_dimensions, kron_size, num_terms, int64_t{num_rows} * num_cols);
 
@@ -157,12 +222,12 @@ make_kronmult_dense(PDE<precision> const &pde,
   return asgard::local_kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
       std::move(gpu_terms), std::move(gpu_elem), grid.row_start, grid.col_start,
-      num_1d_blocks);
+      num_1d_blocks, std::move(prec));
 #else
   return asgard::local_kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
       std::move(terms), std::move(elem), grid.row_start, grid.col_start,
-      num_1d_blocks);
+      num_1d_blocks, std::move(prec));
 #endif
 }
 
@@ -365,10 +430,6 @@ make_kronmult_sparse(PDE<precision> const &pde,
 
   int const num_1d = spcache.cells1d.num_connections();
 
-#ifdef ASGARD_USE_CUDA
-  int const tensor_size = fm::ipow<int>(kron_size, num_dimensions);
-#endif
-
   // storing the 1D operator matrices by 1D row and column
   // each connected pair of 1D cells will be associated with a block
   //  of operator coefficients
@@ -398,7 +459,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const *const flattened_table =
       discretization.get_table().get_active_table().data();
 
-#ifndef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_CUDA
+  int const tensor_size = fm::ipow<int>(kron_size, num_dimensions);
+#else
   std::vector<int> row_group_pntr; // group rows in the CPU case
 #endif
 
@@ -620,6 +683,11 @@ make_kronmult_sparse(PDE<precision> const &pde,
 #endif
   }
 
+  std::vector<precision> prec;
+  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+    // prepare a preconditioner
+    build_preconditioner(pde, discretization, used_terms, prec);
+
   std::cout << "  kronmult local, sparse matrix fill: "
             << 100.0 * double(spcache.num_nonz) /
                    (double(num_rows) * double(num_cols))
@@ -642,7 +710,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         list_row_indx[0].clone_onto_device(),
         list_col_indx[0].clone_onto_device(), list_iA[0].clone_onto_device(),
-        vA.clone_onto_device());
+        vA.clone_onto_device(), std::move(prec));
   }
   else
   {
@@ -656,7 +724,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
     return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
-        vA.clone_onto_device());
+        vA.clone_onto_device(), std::move(prec));
 #else
     std::vector<fk::vector<int, mem_type::owner, resource::device>> gpu_iA(
         list_iA.size());
@@ -678,7 +746,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
     return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         std::move(gpu_row), std::move(gpu_col), std::move(gpu_iA),
-        vA.clone_onto_device());
+        vA.clone_onto_device(), std::move(prec));
 #endif
   }
 #else
@@ -686,7 +754,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   return local_kronmult_matrix<precision>(
       num_dimensions, kron_size, num_rows, num_cols, num_terms,
       std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
-      std::move(vA));
+      std::move(vA), std::move(prec));
 
 #endif
 }
@@ -1007,66 +1075,6 @@ compute_mem_usage(PDE<P> const &pde,
 #endif // KRON_MODE_GLOBAL
 
 #ifdef KRON_MODE_GLOBAL
-/*!
- * \brief Constructs a preconditioner
- *
- * The preconditioner should go into another file, but that will come with a
- * big cleanup of the kronmult logic (and the removal of the old code).
- */
-template<typename precision>
-void build_preconditioner(PDE<precision> const &pde, int64_t const num_active,
-                          adapt::distributed_grid<precision> const &dis_grid,
-                          std::vector<int> const &used_terms,
-                          std::vector<precision> &pc)
-{
-  auto const &grid           = dis_grid.get_subgrid(get_rank());
-  int const *const asg_table = dis_grid.get_table().get_active_table().data();
-
-  expect(grid.row_start == 0); // cannot do MPI yet
-
-  int const pterms = pde.get_dimensions()[0].get_degree();
-
-  int num_dimensions  = pde.num_dims();
-  int64_t tensor_size = int_pow(pterms, num_dimensions);
-
-  if (pc.size() == 0)
-    pc.resize(num_active);
-  else
-  {
-    pc.resize(num_active);
-    std::fill(pc.begin(), pc.end(), precision{0});
-  }
-
-#pragma omp parallel
-  {
-    std::vector<int> midx(num_dimensions); // multi-index for each row
-
-#pragma omp for
-    for (int64_t row = 0; row < grid.row_stop + 1; row++)
-    {
-      int const *const row_coords = asg_table + 2 * num_dimensions * row;
-      asg2tsg_convert(num_dimensions, row_coords, midx.data());
-
-      for (int tentry = 0; tentry < tensor_size; tentry++)
-      {
-        for (int t : used_terms)
-        {
-          precision a = 1;
-
-          int tt = tentry;
-          for (int d = num_dimensions - 1; d >= 0; d--)
-          {
-            int const rc = midx[d] * pterms + tt % pterms;
-            a *= pde.get_coefficients(t, d)(rc, rc);
-            tt /= pterms;
-          }
-          pc[row * tensor_size + tentry] += a;
-        }
-      }
-    }
-  }
-}
-
 //! Returns true if the current term is identity and can be omitted
 template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
@@ -1393,8 +1401,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
     // prepare a preconditioner
-    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
-                         mat.pre_con_);
+    build_preconditioner(pde, dis_grid, used_terms, mat.pre_con_);
 
   // The cost is the total number of non-zeros in all matrices (non-identity)
   int64_t gflops = 0;
@@ -1525,8 +1532,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
 
   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
   { // prepare a preconditioner
-    build_preconditioner(pde, mat.num_active_, dis_grid, used_terms,
-                         mat.pre_con_);
+    build_preconditioner(pde, dis_grid, used_terms, mat.pre_con_);
 #ifdef ASGARD_USE_CUDA
     mat.gpu_pre_con_.clear();
 #endif
@@ -1740,8 +1746,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
     // prepare a preconditioner
-    build_preconditioner(pde, mat.ilist_.num_strips() * mat.block_size_, dis_grid,
-                         used_terms, mat.pre_con_);
+    build_preconditioner(pde, dis_grid, used_terms, mat.pre_con_);
 }
 
 #endif // KRON_MODE_GLOBAL_BLOCK
