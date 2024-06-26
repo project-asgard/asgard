@@ -115,7 +115,9 @@ private:
   static fk::vector<P> exact_time(fk::vector<P>, P const time)
   {
     constexpr P neg_two_pi_squared = static_cast<P>(-2.0 * PI * PI);
-    return {std::exp(neg_two_pi_squared * time),};
+    return {
+        std::exp(neg_two_pi_squared * time),
+    };
   }
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {

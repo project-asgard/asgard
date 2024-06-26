@@ -80,7 +80,9 @@ private:
 
   static fk::vector<P> exact_time(fk::vector<P>, P const time)
   {
-    return {std::sin(time),};
+    return {
+        std::sin(time),
+    };
   }
 
   // specify source functions...
