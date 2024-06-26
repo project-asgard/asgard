@@ -14,7 +14,7 @@ class PDE_diffusion_1d : public PDE<P>
 public:
   PDE_diffusion_1d(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
   {}
 
@@ -158,18 +158,13 @@ private:
     return fx;
   }
 
-  static fk::vector<P> exact_time(fk::vector<P> x, P const time)
+  static fk::vector<P> exact_time(fk::vector<P>, P const time)
   {
-    x.resize(1);
-    x[0] = source_0_t(time);
-    return x;
+    return {source_0_t(time),};
   }
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
       exact_solution_0, exact_time};
-
-  /* This is not used ever */
-  inline static scalar_func<P> const exact_scalar_func_ = source_0_t;
 
   static P get_dt_(dimension<P> const &dim)
   {

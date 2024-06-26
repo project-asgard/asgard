@@ -16,7 +16,7 @@ class PDE_vlasov_lb : public PDE<P>
 public:
   PDE_vlasov_lb(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)
   {
     param_manager.add_parameter(parameter<P>{"n", n});
@@ -356,7 +356,6 @@ private:
                                             terms_5};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
-  inline static scalar_func<P> const exact_scalar_func_               = {};
 
   static P get_dt_(dimension<P> const &dim)
   {

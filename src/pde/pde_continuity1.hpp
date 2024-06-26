@@ -38,7 +38,7 @@ class PDE_continuity_1d : public PDE<P>
 public:
   PDE_continuity_1d(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
   {}
 
@@ -78,13 +78,9 @@ private:
     return fx;
   }
 
-  static P exact_time(P const time) { return std::sin(time); }
-
-  static fk::vector<P> exact_time_v(fk::vector<P> x, P const time)
+  static fk::vector<P> exact_time(fk::vector<P>, P const time)
   {
-    x.resize(1);
-    x[0] = exact_time(time);
-    return x;
+    return {std::sin(time),};
   }
 
   // specify source functions...
@@ -166,8 +162,6 @@ private:
 
   // define exact soln functions
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution_dim0, exact_time_v};
-
-  inline static scalar_func<P> const exact_scalar_func_ = exact_time;
+      exact_solution_dim0, exact_time};
 };
 } // namespace asgard

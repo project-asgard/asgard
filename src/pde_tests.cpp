@@ -49,7 +49,7 @@ void test_exact_solution(PDE<P> const &pde, std::filesystem::path base_dir,
 
   P const gold = read_scalar_from_txt_file(
       base_dir.replace_filename(filename + "exact_time.dat"));
-  P const fx = pde.exact_time()(time);
+  P const fx = pde.exact_time(time);
   relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
 }
 

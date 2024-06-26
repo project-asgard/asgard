@@ -19,7 +19,7 @@ class PDE_advection_1d : public PDE<P>
 public:
   PDE_advection_1d(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
   {}
 
@@ -65,16 +65,9 @@ private:
     return fx;
   }
 
-  static P exact_time(P const time)
-  {
-    ignore(time);
-    return 1.0;
-  }
-
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
       exact_solution_dim0};
 
-  inline static scalar_func<P> const exact_scalar_func_ = exact_time;
   // =========================================================================
 
   // Sources =================================================================

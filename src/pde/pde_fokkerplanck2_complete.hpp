@@ -50,7 +50,7 @@ class PDE_fokkerplanck_2d_complete : public PDE<P>
 public:
   PDE_fokkerplanck_2d_complete(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
   {}
 
@@ -794,6 +794,5 @@ private:
   // -------------------------------------------------
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
-  inline static scalar_func<P> const exact_scalar_func_               = {};
 };
 } // namespace asgard

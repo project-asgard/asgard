@@ -14,7 +14,7 @@ class PDE_diffusion_2d : public PDE<P>
 public:
   PDE_diffusion_2d(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
   {}
 
@@ -112,22 +112,14 @@ private:
     return fx;
   }
 
-  static P exact_time(P const time)
+  static fk::vector<P> exact_time(fk::vector<P>, P const time)
   {
     constexpr P neg_two_pi_squared = static_cast<P>(-2.0 * PI * PI);
-
-    return std::exp(neg_two_pi_squared * time);
-  }
-
-  static fk::vector<P> exact_time_v(fk::vector<P> x, P const time)
-  {
-    x.resize(1);
-    x[0] = exact_time(time);
-    return x;
+    return {std::exp(neg_two_pi_squared * time),};
   }
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
-      exact_solution, exact_solution, exact_time_v};
+      exact_solution, exact_solution, exact_time};
 
   /* This is not used ever */
   static P exact_scalar_func(P const t)
@@ -136,8 +128,6 @@ private:
 
     return std::exp(neg_two_pi_squared * t);
   }
-
-  inline static scalar_func<P> const exact_scalar_func_ = exact_scalar_func;
 
   static P get_dt_(dimension<P> const &dim)
   {

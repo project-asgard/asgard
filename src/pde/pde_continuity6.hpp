@@ -27,7 +27,7 @@ class PDE_continuity_6d : public PDE<P>
 public:
   PDE_continuity_6d(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
   {}
 
@@ -797,7 +797,5 @@ private:
   /* this corresponds to the aggregation of TERM_ND objects in matlab */
   inline static term_set<P> const terms_ = {terms0_, terms1_, terms2_,
                                             terms3_, terms4_, terms5_};
-
-  inline static scalar_func<P> const exact_scalar_func_ = exact_time;
 };
 } // namespace asgard

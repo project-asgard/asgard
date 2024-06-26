@@ -45,7 +45,6 @@ public:
                                  std::vector<term<P>>{E_mass_x_neg, div_v_up}},
                      std::vector<source<P>>{},       // no sources
                      std::vector<md_func_type<P>>{}, // no exact solution
-                     scalar_func<P>{},               // no exact time
                      get_dt_, do_poisson_solve, has_analytic_soln,
                      std::vector<moment<P>>{moment0, moment1, moment2}, // moments
                      do_collision_operator);

@@ -38,7 +38,7 @@ class PDE_fokkerplanck_1d_pitch_E : public PDE<P>
 public:
   PDE_fokkerplanck_1d_pitch_E(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)
   {}
 
@@ -93,12 +93,6 @@ private:
       f(i) = t1 / t2 * t3;
     }
     return f;
-  }
-
-  static P analytic_solution_time(P const time)
-  {
-    ignore(time);
-    return 1.0;
   }
 
   // specify source functions...
@@ -179,8 +173,5 @@ private:
   // define exact soln functions
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {
       analytic_solution_dim0};
-
-  inline static scalar_func<P> const exact_scalar_func_ =
-      analytic_solution_time;
 };
 } // namespace asgard

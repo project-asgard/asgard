@@ -16,7 +16,7 @@ class PDE_collisional_landau_1x3v : public PDE<P>
 public:
   PDE_collisional_landau_1x3v(parser const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_, exact_scalar_func_,
+               terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
                do_collision_operator_)
   {
@@ -554,8 +554,6 @@ private:
       terms_im_7, terms_im_8, terms_im_9};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
-
-  inline static scalar_func<P> const exact_scalar_func_ = {};
 
   static P get_dt_(dimension<P> const &dim)
   {
