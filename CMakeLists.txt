@@ -67,7 +67,7 @@ endforeach()
 # https://blog.kitware.com/cmake-and-the-default-build-type/
 set (default_build_type "Release")
 if (EXISTS "${CMAKE_SOURCE_DIR}/.git")
-  set (default_build_type "Debug")
+  set (default_build_type "RelWithDebInfo")
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -76,7 +76,7 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
        STRING "Choose the type of build." FORCE)
   # Set the possible values of build type for cmake-gui
   set_property (CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    "Debug" "Release" "RelWithDebInfo")
 else ()
   message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 endif ()
