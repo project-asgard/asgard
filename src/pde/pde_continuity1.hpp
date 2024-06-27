@@ -62,10 +62,7 @@ private:
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    fk::vector<P> fx(x.size());
-    std::transform(x.begin(), x.end(), fx.begin(),
-                   [](P const &x_v) { return std::cos(2.0 * PI * x_v); });
-    return fx;
+    return fk::vector<P>(x.size()); // initializes to 0
   }
 
   // specify exact solution vectors/time function...

@@ -135,7 +135,7 @@ distributed_grid<P>::distributed_grid(options const &cli_opts,
 // FIXME assumes uniform degree across levels
 template<typename P>
 fk::vector<P> distributed_grid<P>::get_initial_condition(
-    std::vector<dimension<P>> &dims, P const mult, int const num_terms,
+    std::vector<dimension<P>> &dims, int const num_terms,
     std::vector<std::vector<term<P>>> &terms,
     basis::wavelet_transform<P, resource::host> const &transformer,
     options const &cli_opts)
@@ -163,8 +163,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   }
 
   P const time             = 0;
-  auto const initial_unref = [this, &v_functions, &dims, &transformer, time,
-                              mult]() {
+  auto const initial_unref = [this, &v_functions, &dims, &transformer, time]() {
     auto const subgrid     = this->get_subgrid(get_rank());
     auto const vector_size = (subgrid.col_stop - subgrid.col_start + 1) *
                              std::pow(dims[0].get_degree(), dims.size());
@@ -175,8 +174,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
       // PR
       auto const combined = transform_and_combine_dimensions(
           dims, v_functions[i], this->get_table(), transformer,
-          subgrid.col_start, subgrid.col_stop, dims[0].get_degree(), time,
-          mult);
+          subgrid.col_start, subgrid.col_stop, dims[0].get_degree(), time);
       initial = initial + combined;
     }
     return initial;
@@ -212,7 +210,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 template<typename P>
 void distributed_grid<P>::get_initial_condition(
     options const &cli_opts, std::vector<dimension<P>> const &dims,
-    std::vector<vector_func<P>> const &v_functions, P const mult,
+    std::vector<vector_func<P>> const &v_functions,
     basis::wavelet_transform<P, resource::host> const &transformer,
     fk::vector<P, mem_type::view> result)
 {
@@ -223,7 +221,7 @@ void distributed_grid<P>::get_initial_condition(
   // TODO temp add scalar time func to initial conditions with multi-D func PR
   transform_and_combine_dimensions(
       dims, v_functions, this->get_table(), transformer, subgrid.col_start,
-      subgrid.col_stop, dims[0].get_degree(), time, mult, result);
+      subgrid.col_stop, dims[0].get_degree(), time, 1.0, result);
 }
 
 template<typename P>

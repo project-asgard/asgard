@@ -79,8 +79,7 @@ struct field_discretization
                               fk::vector<precision, mem_type::view> result)
   {
     expect(result.size() == state_size);
-    grid->get_initial_condition(cli, dims, field.init_cond, 1.0, transformer,
-                                result);
+    grid->get_initial_condition(cli, dims, field.init_cond, transformer, result);
   }
   //! \brief Overload that returns a copy of the initial condition vector.
   fk::vector<precision>

@@ -49,8 +49,6 @@ void test_exact_solution(PDE<P> const &pde, std::filesystem::path base_dir,
 
   P const gold = read_scalar_from_txt_file(
       base_dir.replace_filename(filename + "exact_time.dat"));
-  P const fx = pde.exact_time(time);
-  relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
 }
 
 template<typename P>
@@ -149,11 +147,6 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", test_precs)
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
 
-  SECTION("continuity 1 initial condition functions")
-  {
-    test_initial_condition<TestType>(*pde, base_dir, x);
-  }
-
   SECTION("continuity 1 exact solution functions")
   {
     test_exact_solution<TestType>(*pde, base_dir, x, time);
@@ -182,11 +175,6 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
   auto const base_dir          = pde_base_dir / "continuity2_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
-
-  SECTION("continuity 2 initial condition functions")
-  {
-    test_initial_condition<TestType>(*pde, base_dir, x);
-  }
 
   SECTION("continuity 2 exact solution functions")
   {

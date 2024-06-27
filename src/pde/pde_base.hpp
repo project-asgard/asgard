@@ -835,16 +835,6 @@ public:
   {
     return exact_vector_funcs_;
   }
-  bool has_exact_time() const
-  {
-    return has_analytic_soln_ and
-        static_cast<int>(exact_vector_funcs_.back().size()) == num_dims_ + 1;
-  }
-  P exact_time(P time) const
-  {
-    fk::vector<P> dummy;
-    return exact_vector_funcs_.back().back()(dummy, time)[0];
-  }
 
   std::vector<moment<P>> moments;
   bool do_poisson_solve() const { return do_poisson_solve_; }
