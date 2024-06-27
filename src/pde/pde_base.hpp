@@ -652,7 +652,7 @@ public:
     // modify for appropriate level/degree
     // if default lev/degree not used
     auto const user_levels = cli_input.get_starting_levels().size();
-    if (user_levels != 0 && user_levels != num_dims_)
+    if (user_levels >= 2 && user_levels != num_dims_)
     {
       std::cerr << "failed to parse dimension-many starting levels - parsed "
                 << user_levels << " levels\n";
@@ -667,6 +667,12 @@ public:
         expect(num_levels >= 0);
         d.set_level(num_levels);
       }
+    }
+    else if (user_levels == 1)
+    {
+      auto const num_levels = cli_input.get_starting_levels()[0];
+      for (dimension<P> &d : dimensions_)
+        d.set_level(num_levels);
     }
 
     auto const num_active_terms = cli_input.get_active_terms().size();
