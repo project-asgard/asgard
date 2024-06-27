@@ -46,9 +46,6 @@ void test_exact_solution(PDE<P> const &pde, std::filesystem::path base_dir,
     auto const fx   = pde.exact_vector_funcs()[0][i](x, time);
     rmse_comparison(fx, gold, tol_factor);
   }
-
-  P const gold = read_scalar_from_txt_file(
-      base_dir.replace_filename(filename + "exact_time.dat"));
 }
 
 template<typename P>

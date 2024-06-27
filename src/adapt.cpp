@@ -221,7 +221,7 @@ void distributed_grid<P>::get_initial_condition(
   // TODO temp add scalar time func to initial conditions with multi-D func PR
   transform_and_combine_dimensions(
       dims, v_functions, this->get_table(), transformer, subgrid.col_start,
-      subgrid.col_stop, dims[0].get_degree(), time, 1.0, result);
+      subgrid.col_stop, dims[0].get_degree(), time, P{1.0}, result);
 }
 
 template<typename P>
