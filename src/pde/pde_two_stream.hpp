@@ -25,11 +25,6 @@ public:
     bool constexpr has_analytic_soln     = false;
     int constexpr default_degree         = 3;
 
-    term_set<P> terms = {std::vector<term<P>>{term_e1x, term_e1v},
-                         std::vector<term<P>>{term_e2x, term_e2v},
-                         std::vector<term<P>>{E_mass_x_pos, div_v_dn},
-                         std::vector<term<P>>{E_mass_x_neg, div_v_up}};
-
     // using empty instances for exact_vector_funcs and exact_time
     this->initialize(cli_input, num_dims, num_sources, num_terms,
                      // defining the dimensions
