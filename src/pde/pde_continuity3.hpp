@@ -52,19 +52,19 @@ private:
   initial_condition_dim0(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    return fk::vector<P>(std::vector<P>(x.size(), 0.0));
+    return fk::vector<P>(x.size());
   }
   static fk::vector<P>
   initial_condition_dim1(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    return fk::vector<P>(std::vector<P>(x.size(), 0.0));
+    return fk::vector<P>(x.size());
   }
   static fk::vector<P>
   initial_condition_dim2(fk::vector<P> const x, P const t = 0)
   {
     ignore(t);
-    return fk::vector<P>(std::vector<P>(x.size(), 0.0));
+    return fk::vector<P>(x.size());
   }
 
   // specify exact solution vectors/time function...
