@@ -470,8 +470,8 @@ bool parser::do_poisson_solve() const { return do_poisson; }
 bool parser::do_adapt_levels() const { return do_adapt; }
 bool parser::do_restart() const { return restart_file != NO_USER_VALUE_STR; }
 
-fk::vector<int> parser::get_starting_levels() const { return starting_levels; }
-fk::vector<int> parser::get_active_terms() const { return active_terms; }
+fk::vector<int> const &parser::get_starting_levels() const { return starting_levels; }
+fk::vector<int> const &parser::get_active_terms() const { return active_terms; }
 int parser::get_degree() const { return degree; }
 int parser::get_max_level() const { return max_level; }
 int parser::get_mixed_grid_group() const { return mixed_grid_group; }

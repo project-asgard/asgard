@@ -312,8 +312,8 @@ public:
   bool do_adapt_levels() const;
   bool do_restart() const;
 
-  fk::vector<int> get_starting_levels() const;
-  fk::vector<int> get_active_terms() const;
+  fk::vector<int>  const &get_starting_levels() const;
+  fk::vector<int>  const &get_active_terms() const;
 
   int get_degree() const;
   int get_max_level() const;
