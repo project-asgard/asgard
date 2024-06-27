@@ -306,6 +306,8 @@ set (components
      asgard_pde_system
      asgard_kronmult_matrix
      asgard_indexset
+     asgard_interpolation1d
+     asgard_interpolation
 )
 
 if (ASGARD_IO_HIGHFIVE)

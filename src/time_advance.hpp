@@ -1,6 +1,6 @@
 #pragma once
 #include "adapt.hpp"
-#include "asgard_kronmult_matrix.hpp"
+#include "asgard_kron_operators.hpp"
 #include "asgard_vector.hpp"
 #include "boundary_conditions.hpp"
 #include "program_options.hpp"

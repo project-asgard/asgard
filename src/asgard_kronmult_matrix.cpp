@@ -1755,6 +1755,8 @@ void set_specific_mode(PDE<precision> const &pde,
 template std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,
                                          imex_flag const imex);
 
+template vector2d<int> get_cells(int, adapt::distributed_grid<double> const &);
+
 #ifdef KRON_MODE_GLOBAL
 #ifdef KRON_MODE_GLOBAL_BLOCK
 template class block_global_kron_matrix<double>;
@@ -1812,6 +1814,8 @@ compute_mem_usage<double>(PDE<double> const &,
 #ifdef ASGARD_ENABLE_FLOAT
 template std::vector<int> get_used_terms(PDE<float> const &pde, options const &opts,
                                          imex_flag const imex);
+
+template vector2d<int> get_cells(int, adapt::distributed_grid<float> const &);
 
 #ifdef KRON_MODE_GLOBAL
 #ifdef KRON_MODE_GLOBAL_BLOCK

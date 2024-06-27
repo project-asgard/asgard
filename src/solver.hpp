@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_kronmult_matrix.hpp"
+#include "asgard_kron_operators.hpp"
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
 #include "batch.hpp"

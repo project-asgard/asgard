@@ -5,6 +5,7 @@
 #include <set>
 
 #include "asgard_indexset.hpp"
+#include "asgard_interpolation1d.hpp"
 #include "asgard_kronmult_common.hpp"
 
 namespace asgard::kronmult
@@ -437,13 +438,26 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
 
 template<typename precision>
 int64_t block_global_count_flops(
-    int num_dimensions, int n, int64_t block_size,
+    int num_dimensions, int64_t block_size,
     vector2d<int> const &ilist, dimension_sort const &dsort,
     std::vector<permutes> const &perms,
     std::vector<int> const &flux_dir,
     connect_1d const &conn_volumes, connect_1d const &conn_full,
     std::vector<int> const &terms,
     block_global_workspace<precision> &workspace);
+
+template<typename precision>
+void global_cpu(int num_dimensions, int n, int64_t block_size,
+                vector2d<int> const &ilist, dimension_sort const &dsort,
+                permutes const &perm, connect_1d const &vconn,
+                precision const gvals[], precision const x[], precision y[],
+                block_global_workspace<precision> &workspace);
+
+template<typename precision>
+void globalsv_cpu(int num_dimensions, int n, vector2d<int> const &ilist,
+                  dimension_sort const &dsort, connect_1d const &vconn,
+                  precision const gvals[], precision y[],
+                  block_global_workspace<precision> &workspace);
 
 #endif
 #endif

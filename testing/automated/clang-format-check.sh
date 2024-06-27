@@ -60,6 +60,11 @@ asgard_grid_1d.hpp
 asgard_indexset.cpp
 asgard_indexset.hpp
 asgard_indexset_tests.cpp
+asgard_interpolation1d.hpp
+asgard_interpolation1d.cpp
+#asgard_interpolation1d_tests.cpp
+asgard_interpolation.hpp
+#asgard_interpolation_tests.cpp
 asgard_kronmult_benchmark.cpp
 asgard_kronmult_matrix.cpp
 asgard_kronmult_matrix.hpp

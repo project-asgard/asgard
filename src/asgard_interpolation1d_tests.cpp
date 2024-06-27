@@ -1,0 +1,222 @@
+#include "tests_general.hpp"
+
+#include "adapt.hpp"
+#include "asgard_interptest_common.hpp"
+#include "program_options.hpp"
+#include "tools.hpp"
+
+using namespace asgard;
+
+#ifdef KRON_MODE_GLOBAL_BLOCK
+
+/////////////////////////////////////////////////////////////////////
+//  Testing the loaded interpolation nodes
+/////////////////////////////////////////////////////////////////////
+TEMPLATE_TEST_CASE("1d interpolation nodes", "[linear]", test_precs)
+{
+  constexpr TestType tol = (std::is_same_v<TestType, double>) ? 1.E-15 : 1.E-7;
+
+  constexpr int order = 1;
+  connect_1d conn(1, connect_1d::hierarchy::volume);
+  wavelet_interp1d<order, TestType> wavint(&conn);
+
+  REQUIRE(wavint.num_loaded_nodes() == 4);
+
+  std::array<TestType, 4> lev1 = {1.0 / 3.0, 2.0 / 3.0, 1.0 / 6.0, 5.0 / 6.0};
+  for (int i = 0; i < 4; i++)
+    REQUIRE(std::abs(wavint.node(i) - lev1[i]) < tol);
+
+  conn = connect_1d(2, connect_1d::hierarchy::volume);
+  wavint = wavelet_interp1d<order, TestType>(&conn);
+  std::array<TestType, 8> lev2 = {1.0 / 3.0, 2.0 / 3.0, 1.0 / 6.0, 5.0 / 6.0,
+                                  1.0 / 12.0, 5.0 / 12.0, 7.0 / 12.0, 11.0 / 12.0};
+  for (int i = 0; i < 8; i++)
+    REQUIRE(std::abs(wavint.node(i) - lev2[i]) < tol);
+}
+
+/////////////////////////////////////////////////////////////////////
+//  Testing the evaluation of the projection onto the interp. nodes
+/////////////////////////////////////////////////////////////////////
+template<int order, typename precision, typename fcall_type>
+void project_inver(int num_levels, fcall_type fcall)
+{
+  constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
+  constexpr int pterms = order + 1; // polynomial terms are one more than the degree
+
+  auto ffunc = [&](fk::vector<precision> const &x, precision const)
+      -> fk::vector<precision> {
+    fk::vector<precision> fx(x.size());
+    for (int i = 0; i < fx.size(); i++)
+      fx[i] = fcall(x[i]);
+    return fx;
+  };
+
+  dimension<precision> dim(0, 1, num_levels, pterms, ffunc, nullptr, "testdim");
+
+  std::vector<dimension<precision>> dims = {dim, };
+
+  parser const cli_input = make_empty_parser();
+  bool constexpr quiet = true;
+  asgard::basis::wavelet_transform<precision, asgard::resource::host>
+      transformer(cli_input, pterms, quiet);
+
+  adapt::distributed_grid<precision> grid(cli_input, dims);
+
+  // project the function onto the wavelet basis
+  fk::vector<precision> proj(fm::ipow(2, num_levels) * pterms);
+  grid.get_initial_condition(
+      options(cli_input), dims,
+      std::vector<vector_func<precision>>{ffunc, },
+      1.0, transformer, fk::vector<precision, mem_type::view>(proj));
+
+  // for (auto x : proj) std::cout << x << "\n";
+
+  vector2d<int> cells = get_cells<precision>(1, grid);
+  dimension_sort dsort(cells);
+  kronmult::permutes perms(1);
+
+  connect_1d conn(num_levels, connect_1d::hierarchy::volume);
+  wavelet_interp1d<order, precision> wavint(&conn);
+  kronmult::block_global_workspace<precision> workspace;
+
+  std::vector<precision> nodal(pterms * cells.num_strips());
+  kronmult::global_cpu(1, pterms, pterms, cells, dsort, perms, conn,
+                       wavint.get_eval_matrix(), proj.data(), nodal.data(),
+                       workspace);
+
+  for (int i = 0; i < cells.num_strips(); i++)
+  {
+    int const idx = cells[i][0];
+    for (int j = 0; j < pterms; j++)
+    {
+//       std::cout << " at node: " << wavint.node(idx * pterms + j)
+//                 << " expected: " << fcall(wavint.node(idx * pterms + j))
+//                 << " computed: " << nodal[i * pterms +j] << '\n';
+      REQUIRE(std::abs(fcall(wavint.node(idx * pterms + j)) - nodal[i * pterms + j]) < tol);
+    }
+  }
+}
+
+TEMPLATE_TEST_CASE("simple 1d interpolation", "[linear]", test_precs)
+{
+  for (int l = 1; l < 8; l++)
+    project_inver<1, TestType>(l, test_functions<TestType>::one);
+
+  for (int l = 1; l < 8; l++)
+    project_inver<1, TestType>(l, test_functions<TestType>::lag1);
+
+  for (int l = 1; l < 8; l++)
+    project_inver<1, TestType>(l, test_functions<TestType>::lin);
+
+  for (int l = 1; l < 8; l++)
+    project_inver<1, TestType>(l, test_functions<TestType>::lin1);
+
+  for (int l = 2; l < 8; l++)
+    project_inver<1, TestType>(l, test_functions<TestType>::lin2);
+
+  for (int l = 3; l < 8; l++)
+    project_inver<1, TestType>(l, test_functions<TestType>::lin3);
+}
+
+/////////////////////////////////////////////////////////////////////
+//  Testing the computation of the hierarchical interp. coefficients
+/////////////////////////////////////////////////////////////////////
+template<int order, typename precision, typename fcall_type>
+void project_inver(int num_levels, int exact_basis, fcall_type fcall)
+{
+  constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
+  constexpr int pterms = order + 1; // polynomial terms are one more than the degree
+
+  vector2d<int> cells(1, fm::ipow(2, num_levels));
+  for (int i = 0; i < cells.num_strips(); i++)
+    cells[i][0] = i;
+
+  dimension_sort dsort(cells);
+
+  connect_1d conn(num_levels, connect_1d::hierarchy::volume);
+  wavelet_interp1d<order, precision> wavint(&conn);
+  kronmult::block_global_workspace<precision> workspace;
+
+  std::vector<precision> vals(fm::ipow(2, num_levels) * pterms);
+  for (size_t i = 0; i < vals.size(); i++)
+    vals[i] = fcall(wavint.node(i));
+
+  kronmult::globalsv_cpu(1, pterms, cells, dsort, conn,
+                         wavint.get_interp_matrix(), vals.data(), workspace);
+
+  // for (auto v : vals) std::cout << v << "\n";
+
+  REQUIRE(std::abs(vals[exact_basis] - 1) < tol);
+
+  precision nrm = 0;
+  for (auto v : vals)
+    nrm += v * v;
+
+  REQUIRE(std::abs(nrm - 1) < tol);
+}
+
+TEMPLATE_TEST_CASE("simple 1d hierarchial coefficients", "[linear]", test_precs)
+{
+  for (int l = 2; l < 5; l++)
+    project_inver<1, TestType>(l, 0, test_functions<TestType>::ibasis0);
+  for (int l = 2; l < 5; l++)
+    project_inver<1, TestType>(l, 1, test_functions<TestType>::ibasis1);
+  for (int l = 2; l < 6; l++)
+    project_inver<1, TestType>(l, 2, test_functions<TestType>::ibasis2);
+  for (int l = 2; l < 6; l++)
+    project_inver<1, TestType>(l, 3, test_functions<TestType>::ibasis3);
+}
+
+/////////////////////////////////////////////////////////////////////
+//  Testing the loaded integrals
+/////////////////////////////////////////////////////////////////////
+TEMPLATE_TEST_CASE("1d integration blocks", "[linear]", test_precs)
+{
+  constexpr TestType tol = (std::is_same_v<TestType, double>) ? 1.E-15 : 1.E-5;
+
+  // no-scaling case, using only canonical integrals
+  constexpr int order = 1;
+  connect_1d conn(1, connect_1d::hierarchy::volume);
+  wavelet_interp1d<order, TestType> wavint(&conn);
+
+  std::array<double, 16> lev1 = {
+    1.0/2.0, -std::sqrt(3.0) / 2.0, 1.0/2.0, std::sqrt(3.0) / 2.0,
+    1.0/4.0, -std::sqrt(3.0) / 4.0, 1.0/4.0, std::sqrt(3.0) / 4.0,
+    0.0, 0.0, 0.0, 0.0,
+    std::sqrt(3.0) / 4.0, -1.0 / 4.0, std::sqrt(3.0) / 4.0, 1.0 / 4.0,
+  };
+  for (size_t i = 0; i < lev1.size(); i++)
+    REQUIRE(std::abs(wavint.get_integ_matrix()[i] - lev1[i]) < tol);
+
+  connect_1d conn2(2, connect_1d::hierarchy::volume);
+  wavelet_interp1d<order, TestType> wavint2(&conn2);
+
+  std::array<double, 56> lev2 = {
+      1.0/2.0, -std::sqrt(3.0) / 2.0, 1.0/2.0, std::sqrt(3.0) / 2.0, // cell 0-0
+      1.0/4.0, -std::sqrt(3.0) / 4.0, 1.0/4.0, std::sqrt(3.0) / 4.0, // cell 0-1
+      1.0/8.0, -std::sqrt(3.0) / 8.0, 1.0/8.0, 0, // cell 0-2
+      1.0/8.0, 0, 1.0/8.0, std::sqrt(3.0) / 8.0, // cell 0-3
+      // second row of the large block-sparse matrix
+      0.0, 0.0, 0.0, 0.0, // cell 1-0 (connected but the basis is orthogonal)
+      std::sqrt(3.0) / 4.0, -1.0 / 4.0, std::sqrt(3.0) / 4.0, 1.0 / 4.0, // cell 1-1
+      std::sqrt(3.0) / 8.0, -1.0/8.0, -std::sqrt(3.0) / 8.0, 1.0 / 4.0, // cell 1-2
+      -std::sqrt(3.0) / 8.0, -1.0/4.0, std::sqrt(3.0) / 8.0, 1.0/8.0, // cell 1-3
+      // third row of the large block-sparse matrix
+      0.0, 0.0, 0.0, 0.0, // cell 2-0
+      0.0, 0.0, 0.0, 0.0, // cell 2-1
+      std::sqrt(2.0) * std::sqrt(3.0) / 8.0, -std::sqrt(2.0) / 8.0, std::sqrt(2.0) * std::sqrt(3.0) / 8.0, std::sqrt(2.0) / 8.0,
+      // fourth row of the large block-sparse matrix
+      0.0, 0.0, 0.0, 0.0, // cell 3-0
+      0.0, 0.0, 0.0, 0.0, // cell 3-1
+      std::sqrt(2.0) * std::sqrt(3.0) / 8.0, -std::sqrt(2.0) / 8.0, std::sqrt(2.0) * std::sqrt(3.0) / 8.0, std::sqrt(2.0) / 8.0,
+  };
+  for (size_t i = 0; i < lev2.size(); i++)
+    REQUIRE(std::abs(wavint2.get_integ_matrix()[i] - lev2[i]) < tol);
+}
+
+#else
+TEST_CASE("interpolation disabled", "[disabled]")
+{
+  REQUIRE(true);
+}
+#endif // KRON_MODE_GLOBAL_BLOCK
