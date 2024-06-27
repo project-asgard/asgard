@@ -52,7 +52,6 @@ public:
   {
     return this->get_initial_condition(
         pde.get_dimensions(),
-//        pde.has_exact_time() ? pde.exact_time(0.0) : static_cast<P>(1.0),
         pde.num_terms(), pde.get_terms(), transformer, cli_opts);
   }
 
