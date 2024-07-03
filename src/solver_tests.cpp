@@ -160,7 +160,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::simple_gmres_euler(adaptive_grid, dt, imex_flag::unspecified, operator_matrices,
+    solver::simple_gmres_euler(adaptive_grid, elem_size, dt, imex_flag::unspecified, operator_matrices,
                                x_d, b_d, restart, max_iter, tolerance);
     return x_d.clone_onto_host();
   }();

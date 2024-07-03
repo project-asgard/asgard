@@ -805,12 +805,6 @@ bicgstab_euler(const double dt, imex_flag imex,
 
 #ifdef ASGARD_USE_CUDA
 template gmres_info<double>
-simple_gmres_euler(const double dt, imex_flag imex,
-                   kron_operators<double> const &ops,
-                   fk::vector<double, mem_type::owner, resource::device> &x,
-                   fk::vector<double, mem_type::owner, resource::device> const &b,
-                   int const restart, int const max_iter, double const tolerance);
-template gmres_info<double>
 bicgstab_euler(const double dt, imex_flag imex,
                kron_operators<double> const &ops,
                fk::vector<double, mem_type::owner, resource::device> &x,
@@ -819,17 +813,11 @@ bicgstab_euler(const double dt, imex_flag imex,
 
 template gmres_info<double>
 simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-                   const double dt, kron_operators<double> const &ops,
-                   fk::vector<double> &x, fk::vector<double> const &b,
+                   const double dt, imex_flag imex, kron_operators<double> const &ops,
+                   fk::vector<double, mem_type::owner, resource::device> &x,
+                   fk::vector<double, mem_type::owner, resource::device> const &b,
                    int const restart, int const max_iter,
                    double const tolerance);
-
-template gmres_info<double> simple_gmres_euler(
-    adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-    double const dt, kron_operators<double> const &ops,
-    fk::vector<double, mem_type::owner, resource::device> &x,
-    fk::vector<double, mem_type::owner, resource::device> const &b,
-    int const restart, int const max_iter, double const tolerance);
 #endif
 
 template int default_gmres_restarts<double>(int num_cols);
@@ -874,7 +862,7 @@ bicgstab_euler(const float dt, imex_flag imex,
 
 #ifdef ASGARD_USE_CUDA
 template gmres_info<float>
-simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
+simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid, int const elem_size,
                    const float dt, imex_flag imex,
                    kron_operators<float> const &ops,
                    fk::vector<float, mem_type::owner, resource::device> &x,

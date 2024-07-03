@@ -528,8 +528,7 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   P const max          = pde.get_dimensions()[0].domain_max;
   int const N_elements = fm::two_raised_to(level);
 
-  auto nodes          = gen_realspace_nodes(degree, level, min, max);
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims()));
+  auto nodes = gen_realspace_nodes(degree, level, min, max);
 #ifdef ASGARD_USE_CUDA
   fk::vector<P, mem_type::owner, imex_resrc> f = f_0.clone_onto_device();
   fk::vector<P, mem_type::owner, imex_resrc> f_orig_dev =
@@ -537,13 +536,13 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
 #else
   fk::vector<P, mem_type::owner, imex_resrc> f          = f_0;
   fk::vector<P, mem_type::owner, imex_resrc> f_orig_dev = f_0;
-
+#endif
   auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
+  int const elem_size    = static_cast<int>(std::pow(degree, pde.num_dims()));
   int const A_local_rows = elem_size * grid.nrows();
 
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
-#endif
 
   // Create moment matrices that take DG function in (x,v) and transfer to DG
   // function in x
@@ -818,6 +817,7 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   exchange_results(reduced_fx, fx, elem_size, plan, get_rank());
   fm::axpy(fx, f, dt); // f here is f_1s
 #else
+  ignore(plan);
   fm::axpy(fx, f, dt);   // f here is f_1s
 #endif
 
