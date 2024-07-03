@@ -176,12 +176,12 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
         adaptive_grid, elem_size,
         [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
             P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-          tools::time_event performance("kronmult - implicit", ops.flops());
+          tools::time_event performance("kronmult - implicit", ops.flops(imex));
           auto plan = adaptive_grid.get_distrib_plan();
           // switch to elem_size?
           auto const size_r = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
           fk::vector<P, mem_type::owner, resrc> y_local(size_r), y_tmp(size_r);
-          ops.template apply<resrc>(-dt * alpha, x_in.data(), P{0}, y_local.data());
+          ops.template apply<resrc>(imex, -dt * alpha, x_in.data(), P{0}, y_local.data());
           reduce_results(y_local, y_tmp, plan, get_rank());
           y_local.resize(y.size());
           exchange_results(y_tmp, y_local, elem_size, plan, get_rank());
