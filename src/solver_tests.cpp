@@ -117,7 +117,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   asgard::kron_operators<P> operator_matrices;
   asgard::adapt::distributed_grid adaptive_grid(*pde, opts);
   operator_matrices.make(imex_flag::unspecified, *pde, adaptive_grid, opts);
-  P const dt = pde->get_dt();
+  P const dt       = pde->get_dt();
   auto const &grid = adaptive_grid.get_subgrid(get_rank());
   // perform matrix-free gmres
   fk::vector<P> const matrix_free_gmres = [&adaptive_grid, elem_size, &grid, &operator_matrices, &gold, &b,
@@ -128,16 +128,8 @@ void test_kronmult(parser const &parse, P const tol_factor)
     std::copy_n(b.data(grid.col_start * elem_size), len, b_dist.data());
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
-<<<<<<< HEAD
     P const tolerance  = std::is_same_v<float, P> ? 4e-6 : 1e-12;
     solver::simple_gmres_euler(adaptive_grid, elem_size, dt, imex_flag::unspecified, operator_matrices, x,
-=======
-    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-#ifdef KRON_MODE_GLOBAL
-    ignore(adaptive_grid);
-    ignore(elem_size);
-    solver::simple_gmres_euler(dt, matrix_entry::regular, operator_matrices.kglobal, x,
->>>>>>> 1f21f3c7... revert precision regressions
                                b, restart, max_iter, tolerance);
     return x;
   }();
@@ -151,7 +143,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
     fk::vector<P> x(gold);
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::bicgstab_euler(adaptive_grid, elem_size, dt, imex_flag::unspecified, operator_matrices, x,
+    solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
                            b, max_iter, tolerance);
     return x;
   }();

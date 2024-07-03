@@ -328,7 +328,7 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims()));
   auto const &plan    = adaptive_grid.get_distrib_plan();
-  auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
+  auto const size     = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
 
 #ifdef ASGARD_USE_SCALAPACK
   fk::vector<P> x(size);
@@ -964,7 +964,6 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
           adaptive_grid, elem_size,
           P{0.5} * pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_2, f, restart, max_iter, tolerance);
-
     }
     else if (solver == solve_opts::bicgstab)
     {

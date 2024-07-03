@@ -41,8 +41,7 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
 // solves ( I - dt * mat ) * x = b
 template<typename P, resource resrc>
 gmres_info<P>
-bicgstab_euler(adapt::distributed_grid<P> const &adaptive_grid, int const elem_size,
-               const P dt, imex_flag imex,
+bicgstab_euler(const P dt, imex_flag imex,
                kron_operators<P> const &ops,
                fk::vector<P, mem_type::owner, resrc> &x,
                fk::vector<P, mem_type::owner, resrc> const &b,

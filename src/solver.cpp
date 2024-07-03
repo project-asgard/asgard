@@ -164,7 +164,8 @@ bicgstab_euler(const P dt, imex_flag imex,
 template<typename P, resource resrc>
 gmres_info<P>
 simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const elem_size,
-                   P dt, kronmult_matrix<P> const &mat,
+                   P const dt, imex_flag imex,
+                   kron_operators<P> const &ops,
                    fk::vector<P, mem_type::owner, resrc> &x,
                    fk::vector<P, mem_type::owner, resrc> const &b,
                    int const restart, int const max_iter, P const tolerance)
@@ -175,12 +176,12 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
         adaptive_grid, elem_size,
         [&](P const alpha, fk::vector<P, mem_type::view, resrc> const x_in,
             P const beta, fk::vector<P, mem_type::view, resrc> y) -> void {
-          tools::time_event performance("kronmult - implicit", mat.flops());
+          tools::time_event performance("kronmult - implicit", ops.flops());
           auto plan = adaptive_grid.get_distrib_plan();
           // switch to elem_size?
           auto const size_r = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
           fk::vector<P, mem_type::owner, resrc> y_local(size_r), y_tmp(size_r);
-          mat.template apply<resrc>(-dt * alpha, x_in.data(), P{0}, y_local.data());
+          ops.template apply<resrc>(-dt * alpha, x_in.data(), P{0}, y_local.data());
           reduce_results(y_local, y_tmp, plan, get_rank());
           y_local.resize(y.size());
           exchange_results(y_tmp, y_local, elem_size, plan, get_rank());
@@ -194,9 +195,8 @@ simple_gmres_euler(adapt::distributed_grid<P> const &adaptive_grid, int const el
   ignore(adaptive_grid);
   ignore(elem_size);
 #endif
-  return simple_gmres_euler(dt, mat, x, b, restart, max_iter, tolerance);
+  return simple_gmres_euler(dt, imex, ops, x, b, restart, max_iter, tolerance);
 }
-#endif
 
 /*! Generates a default number inner iterations when no use input is given
  * \param num_cols Number of columns in the A matrix.
@@ -811,8 +811,7 @@ simple_gmres_euler(const double dt, imex_flag imex,
                    fk::vector<double, mem_type::owner, resource::device> const &b,
                    int const restart, int const max_iter, double const tolerance);
 template gmres_info<double>
-bicgstab_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-               const double dt, imex_flag imex,
+bicgstab_euler(const double dt, imex_flag imex,
                kron_operators<double> const &ops,
                fk::vector<double, mem_type::owner, resource::device> &x,
                fk::vector<double, mem_type::owner, resource::device> const &b,
@@ -820,14 +819,14 @@ bicgstab_euler(adapt::distributed_grid<double> const &adaptive_grid, int const e
 
 template gmres_info<double>
 simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-                   const double dt, kronmult_matrix<double> const &mat,
+                   const double dt, kron_operators<double> const &ops,
                    fk::vector<double> &x, fk::vector<double> const &b,
                    int const restart, int const max_iter,
                    double const tolerance);
 
 template gmres_info<double> simple_gmres_euler(
     adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-    double const dt, kronmult_matrix<double> const &mat,
+    double const dt, kron_operators<double> const &ops,
     fk::vector<double, mem_type::owner, resource::device> &x,
     fk::vector<double, mem_type::owner, resource::device> const &b,
     int const restart, int const max_iter, double const tolerance);
@@ -859,7 +858,7 @@ bicgstab(fk::matrix<float> const &A, fk::vector<float> &x,
          int const max_iter, float const tolerance);
 
 template gmres_info<float>
-simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
+simple_gmres_euler(adapt::distributed_grid<float> const &adaptive_grid, int const elem_size,
                    const float dt, imex_flag imex,
                    kron_operators<float> const &ops,
                    fk::vector<float, mem_type::owner, resource::host> &x,
@@ -867,8 +866,7 @@ simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int con
                    int const restart, int const max_iter, float const tolerance);
 
 template gmres_info<float>
-bicgstab_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-               const float dt, imex_flag imex,
+bicgstab_euler(const float dt, imex_flag imex,
                kron_operators<float> const &ops,
                fk::vector<float, mem_type::owner, resource::host> &x,
                fk::vector<float, mem_type::owner, resource::host> const &b,
@@ -884,8 +882,7 @@ simple_gmres_euler(adapt::distributed_grid<double> const &adaptive_grid, int con
                    int const restart, int const max_iter, float const tolerance);
 
 template gmres_info<float>
-bicgstab_euler(adapt::distributed_grid<double> const &adaptive_grid, int const elem_size,
-              const float dt, imex_flag imex,
+bicgstab_euler(const float dt, imex_flag imex,
                kron_operators<float> const &ops,
                fk::vector<float, mem_type::owner, resource::device> &x,
                fk::vector<float, mem_type::owner, resource::device> const &b,
