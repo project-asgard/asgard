@@ -874,15 +874,14 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
 
   for (size_t i = 0; i < perm.fill.size(); i++)
   {
-    int dir = perm.direction[i][0];
+    auto &dir = perm.direction[i];
 
-    global_cpu(num_dimensions, n, ilist, dsort, dir, perm.fill[i][0],
+    global_cpu(num_dimensions, n, ilist, dsort, dir[0], perm.fill[i][0],
                vconn, gvals, x, w1, workspace.row_map);
 
     for (int d = 1; d < num_dimensions; d++)
     {
-      dir = perm.direction[i][d];
-      global_cpu(num_dimensions, n, ilist, dsort, dir, perm.fill[i][d],
+      global_cpu(num_dimensions, n, ilist, dsort, dir[d], perm.fill[i][d],
                  vconn, gvals, w1, w2, workspace.row_map);
       std::swap(w1, w2);
     }
