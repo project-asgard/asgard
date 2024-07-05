@@ -408,7 +408,7 @@ void globalsv_cpu(vector2d<int> const &ilist, dimension_sort const &dsort,
           {
             if constexpr (n == -1)
 #pragma omp atomic
-              number_of_blocks_ += 1;
+              ++number_of_blocks_;
             else
               gbkron_mult_add<precision, num_dimensions, dim, n>(vals + n2 * c, y + xj, local_y);
           }
