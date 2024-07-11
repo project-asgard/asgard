@@ -282,13 +282,13 @@ int main(int argc, char **argv)
 
       // calculate root mean squared error
       auto const RMSE = [&]() {
-        prec s{0}, d{0};
+        prec s{0};
         for (int i = 0; i < f_val.size(); i++)
         {
-          d = f_val[i] - analytic_solution[i];
+          prec const d = f_val[i] - analytic_solution[i];
           s += d * d;
         }
-        return std::sqrt(s);
+        return std::sqrt(s / f_val.size());
       }();
       auto const relative_error =
           RMSE / asgard::inf_norm(analytic_solution) * 100;
