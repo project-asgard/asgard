@@ -281,14 +281,14 @@ int main(int argc, char **argv)
           transformer, degree, time + pde->get_dt());
 
       // calculate root mean squared error
-      auto const diff = f_val - analytic_solution;
-      auto const RMSE = [&diff]() {
-        asgard::fk::vector<prec> squared(diff);
-        std::transform(squared.begin(), squared.end(), squared.begin(),
-                       [](prec const &elem) { return elem * elem; });
-        auto const mean = std::accumulate(squared.begin(), squared.end(), 0.0) /
-                          squared.size();
-        return std::sqrt(mean);
+      auto const RMSE = [&]() {
+        prec s{0}, d{0};
+        for (int i = 0; i < f_val.size(); i++)
+        {
+          d = f_val[i] - analytic_solution[i];
+          s += d * d;
+        }
+        return std::sqrt(s);
       }();
       auto const relative_error =
           RMSE / asgard::inf_norm(analytic_solution) * 100;
