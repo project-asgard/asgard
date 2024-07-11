@@ -5,10 +5,6 @@
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
-#include "tools.hpp"
-#include <algorithm>
-#include <cmath>
-#include <numeric>
 
 namespace asgard
 {

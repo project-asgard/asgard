@@ -10,12 +10,6 @@
 #include "fast_math.hpp"
 #include "pde.hpp"
 #include "quadrature.hpp"
-#include "tools.hpp"
-
-#include <algorithm>
-#include <cmath>
-#include <type_traits>
-#include <vector>
 
 namespace asgard
 {

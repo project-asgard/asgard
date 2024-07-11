@@ -2,7 +2,6 @@
 #include "build_info.hpp"
 #include "distribution.hpp"
 #include "sparse.hpp"
-#include "tools.hpp"
 
 // ==========================================================================
 // external declarations for calling blas routines linked with -lblas

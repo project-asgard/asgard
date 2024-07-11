@@ -5,7 +5,6 @@
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "lib_dispatch.hpp"
-#include "tools.hpp"
 
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>

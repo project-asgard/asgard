@@ -7,9 +7,7 @@
 #include "matlab_utilities.hpp"
 #include "pde.hpp"
 #include "quadrature.hpp"
-#include "tools.hpp"
 #include "transformations.hpp"
-#include <numeric>
 
 namespace asgard
 {

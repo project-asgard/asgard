@@ -5,13 +5,9 @@
 #include "clara.hpp"
 #pragma GCC diagnostic pop
 #include "distribution.hpp"
-#include "tools.hpp"
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
 #endif
-
-#include <iostream>
-#include <string>
 
 namespace asgard
 {

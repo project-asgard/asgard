@@ -1,17 +1,6 @@
 #pragma once
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <iostream>
-#include <map>
-#include <math.h>
-#include <memory>
-#include <string>
-#include <typeinfo>
-#include <vector>
 
 #include "../quadrature.hpp"
-#include "../tools.hpp"
 #include "pde_base.hpp"
 
 namespace asgard

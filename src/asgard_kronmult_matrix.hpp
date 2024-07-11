@@ -1050,9 +1050,15 @@ make_global_kron_matrix(PDE<precision> const &pde,
 template<typename precision>
 struct kron_operators
 {
-  //! \brief Apply the given matrix entry
   template<resource rec = resource::host>
   void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
+  {
+    apply<rec>(entry, 0, alpha, x, beta, y);
+  }
+
+  //! \brief Apply the given matrix entry
+  template<resource rec = resource::host>
+  void apply(imex_flag entry, precision, precision alpha, precision const x[], precision beta, precision y[]) const
   {
     kglobal.template apply<rec>(entry, alpha, x, beta, y);
   }
@@ -1148,27 +1154,41 @@ template<typename precision>
 class block_global_kron_matrix
 {
 public:
-  block_global_kron_matrix() : num_dimensions_(0), conn_volumes_(1), conn_full_(1), workspace_(nullptr) {}
+  block_global_kron_matrix() : num_dimensions_(0), conn_volumes_(nullptr), conn_full_(nullptr), workspace_(nullptr) {}
 
   block_global_kron_matrix(int64_t num_active, int64_t num_padded,
                            int num_dimensions, int blockn, int64_t block_size,
                            vector2d<int> &&ilist, dimension_sort &&dsort,
                            std::vector<kronmult::permutes> &&perms, std::vector<int> &&flux_dir,
-                           connect_1d &&conn_volumes, connect_1d &&conn_full,
+                           connect_1d const *conn_volumes, connect_1d const *conn_full,
                            kronmult::block_global_workspace<precision> *workspace)
       : num_active_(num_active), num_padded_(num_padded),
         num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
         ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
-        flux_dir_(std::move(flux_dir)), conn_volumes_(std::move(conn_volumes)),
-        conn_full_(std::move(conn_full)), gvals_(flux_dir_.size() * num_dimensions_),
+        flux_dir_(std::move(flux_dir)), conn_volumes_(conn_volumes),
+        conn_full_(conn_full), gvals_(flux_dir_.size() * num_dimensions_),
         workspace_(workspace)
   {
     for (auto &f : flops_)
       f = -1;
   }
 
+  /*!
+   * \brief Does the matrix vector product and appends into y
+   *
+   * The problme must be staged before this call, this is done by the
+   * kron_operators apply method, in order to compbine the staging for
+   * the interpolation and separable linear application (this method).
+   *
+   * The assumption are:
+   *  - y has been scaled by beta
+   *  - x is padded and stored in workspace->x
+   *
+   * This only computes y += alpha * A * workspace->x,
+   * where A corresponds to the imex etype flag.
+   */
   template<resource rec>
-  void apply(imex_flag etype, precision alpha, precision const *x, precision beta, precision *y) const;
+  void apply(imex_flag etype, precision alpha, precision *y) const;
 
   operator bool() const { return (num_dimensions_ > 0); }
 
@@ -1201,7 +1221,7 @@ public:
     {
       flops_[i] = kronmult::block_global_count_flops(
           num_dimensions_, block_size_, ilist_, dsort_, perms_,
-          flux_dir_, conn_volumes_, conn_full_, term_groups_[i], *workspace_);
+          flux_dir_, *conn_volumes_, *conn_full_, term_groups_[i], *workspace_);
       switch (etype)
       {
       case imex_flag::unspecified:
@@ -1219,9 +1239,14 @@ public:
     return flops_[i];
   }
 
-  connect_1d const &get_volume_conn() const { return conn_volumes_; };
   vector2d<int> const &get_cells() const { return ilist_; };
   dimension_sort const &get_dsort() const { return dsort_; };
+  int64_t num_active() const { return num_active_; }
+
+  bool is_active(imex_flag etype) const
+  {
+    return not term_groups_[static_cast<int>(etype)].empty();
+  }
 
   // made friends for two reasons
   // 1. Keeps the matrix API free from references to pde, which will allow an easier
@@ -1241,10 +1266,12 @@ private:
   dimension_sort dsort_;
   std::vector<kronmult::permutes> perms_;
   std::vector<int> flux_dir_;
-  connect_1d conn_volumes_, conn_full_;
+  connect_1d const *conn_volumes_;
+  connect_1d const *conn_full_;
 
   std::vector<std::vector<precision>> gvals_;
   std::array<std::vector<int>, 3> term_groups_;
+
   mutable kronmult::block_global_workspace<precision> *workspace_;
 
   mutable std::array<int64_t, num_imex_variants> flops_;
@@ -1257,7 +1284,7 @@ template<typename precision>
 block_global_kron_matrix<precision>
 make_block_global_kron_matrix(PDE<precision> const &pde,
                               adapt::distributed_grid<precision> const &dis_grid,
-                              options const &program_options,
+                              connect_1d const *volumes, connect_1d const *fluxes,
                               kronmult::block_global_workspace<precision> *workspace);
 
 #endif

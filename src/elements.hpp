@@ -5,12 +5,6 @@
 #include "pde.hpp"
 #include "permutations.hpp"
 #include "program_options.hpp"
-#include "tools.hpp"
-#include <algorithm>
-#include <list>
-#include <map>
-#include <unordered_map>
-#include <vector>
 
 namespace asgard::elements
 {

@@ -3,7 +3,6 @@
 #include "adapt.hpp"
 #include "asgard_interptest_common.hpp"
 #include "program_options.hpp"
-#include "tools.hpp"
 
 using namespace asgard;
 
@@ -20,7 +19,7 @@ TEMPLATE_TEST_CASE("1d interpolation nodes", "[linear]", test_precs)
   connect_1d conn(1, connect_1d::hierarchy::volume);
   wavelet_interp1d<order, TestType> wavint(&conn);
 
-  REQUIRE(wavint.num_loaded_nodes() == 4);
+  REQUIRE(wavint.nodes().size() == 4);
 
   std::array<TestType, 4> lev1 = {1.0 / 3.0, 2.0 / 3.0, 1.0 / 6.0, 5.0 / 6.0};
   for (int i = 0; i < 4; i++)
@@ -69,8 +68,6 @@ void project_inver(int num_levels, fcall_type fcall)
       std::vector<vector_func<precision>>{ffunc, },
       1.0, transformer, fk::vector<precision, mem_type::view>(proj));
 
-  // for (auto x : proj) std::cout << x << "\n";
-
   vector2d<int> cells = get_cells<precision>(1, grid);
   dimension_sort dsort(cells);
   kronmult::permutes perms(1);
@@ -81,19 +78,14 @@ void project_inver(int num_levels, fcall_type fcall)
 
   std::vector<precision> nodal(pterms * cells.num_strips());
   kronmult::global_cpu(1, pterms, pterms, cells, dsort, perms, conn,
-                       wavint.get_eval_matrix(), proj.data(), nodal.data(),
+                       wavint.proj2node(), proj.data(), nodal.data(),
                        workspace);
 
   for (int i = 0; i < cells.num_strips(); i++)
   {
     int const idx = cells[i][0];
     for (int j = 0; j < pterms; j++)
-    {
-//       std::cout << " at node: " << wavint.node(idx * pterms + j)
-//                 << " expected: " << fcall(wavint.node(idx * pterms + j))
-//                 << " computed: " << nodal[i * pterms +j] << '\n';
       REQUIRE(std::abs(fcall(wavint.node(idx * pterms + j)) - nodal[i * pterms + j]) < tol);
-    }
   }
 }
 
@@ -114,7 +106,7 @@ TEMPLATE_TEST_CASE("simple 1d interpolation", "[linear]", test_precs)
   for (int l = 2; l < 8; l++)
     project_inver<1, TestType>(l, test_functions<TestType>::lin2);
 
-  for (int l = 3; l < 8; l++)
+  for (int l = 3; l < 9; l++)
     project_inver<1, TestType>(l, test_functions<TestType>::lin3);
 }
 
@@ -142,9 +134,7 @@ void project_inver(int num_levels, int exact_basis, fcall_type fcall)
     vals[i] = fcall(wavint.node(i));
 
   kronmult::globalsv_cpu(1, pterms, cells, dsort, conn,
-                         wavint.get_interp_matrix(), vals.data(), workspace);
-
-  // for (auto v : vals) std::cout << v << "\n";
+                         wavint.node2hier(), vals.data(), workspace);
 
   REQUIRE(std::abs(vals[exact_basis] - 1) < tol);
 
@@ -185,8 +175,9 @@ TEMPLATE_TEST_CASE("1d integration blocks", "[linear]", test_precs)
     0.0, 0.0, 0.0, 0.0,
     std::sqrt(3.0) / 4.0, -1.0 / 4.0, std::sqrt(3.0) / 4.0, 1.0 / 4.0,
   };
+
   for (size_t i = 0; i < lev1.size(); i++)
-    REQUIRE(std::abs(wavint.get_integ_matrix()[i] - lev1[i]) < tol);
+    REQUIRE(std::abs(wavint.hier2proj()[i] - lev1[i]) < tol);
 
   connect_1d conn2(2, connect_1d::hierarchy::volume);
   wavelet_interp1d<order, TestType> wavint2(&conn2);
@@ -211,7 +202,7 @@ TEMPLATE_TEST_CASE("1d integration blocks", "[linear]", test_precs)
       std::sqrt(2.0) * std::sqrt(3.0) / 8.0, -std::sqrt(2.0) / 8.0, std::sqrt(2.0) * std::sqrt(3.0) / 8.0, std::sqrt(2.0) / 8.0,
   };
   for (size_t i = 0; i < lev2.size(); i++)
-    REQUIRE(std::abs(wavint2.get_integ_matrix()[i] - lev2[i]) < tol);
+    REQUIRE(std::abs(wavint2.hier2proj()[i] - lev2[i]) < tol);
 }
 
 #else

@@ -1,4 +1,4 @@
-#include "tools.hpp"
+#include "asgard_tools.hpp"
 
 #include <cuda_runtime.h>
 

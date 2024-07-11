@@ -34,27 +34,29 @@ public:
   wavelet_interp1d(connect_1d const *conn_in) : conn(conn_in)
   {
     cache_nodes();
-    prepare_wmatrix();
-    prepare_imatrix();
-    prepare_iematrix();
+    prepare_proj2node();
+    prepare_node2hier();
+    prepare_hier2proj();
   }
 
   //! location of each node on canonical interval (0, 1)
-  precision node(int i) const { return nodes[i]; }
+  precision node(int i) const { return nodes_[i]; }
+  //! returns the entire nodes vector
+  std::vector<precision> const &nodes() const { return nodes_; }
   //! get the wavelet values matrix
-  precision const *get_eval_matrix() const
+  precision const *proj2node() const
   {
-    return eval_matrix.data();
+    return proj2node_.data();
   }
   //! get the interpolation values matrix
-  precision const *get_interp_matrix() const
+  precision const *node2hier() const
   {
-    return interp_matrix.data();
+    return node2hier_.data();
   }
   //! get the integration matrix (mass)
-  precision const *get_integ_matrix() const
+  precision const *hier2proj() const
   {
-    return ie_matrix.data();
+    return hier2proj_.data();
   }
   //! get the connectivity patter
   connect_1d const &get_conn() const { return *conn; }
@@ -63,8 +65,6 @@ public:
   static constexpr int num_cell_nodes() { return pterms; }
   //! the loaded max number of levels
   int max_level() const { return conn->max_loaded_level(); }
-  //! the number of loaded nodes
-  size_t num_loaded_nodes() const { return nodes.size(); }
 
 protected:
   //! pre-computed constats, std::sqrt(2.0)
@@ -72,29 +72,33 @@ protected:
   //! pre-computed constats, std::sqrt(3.0)
   static precision constexpr s3 = 1.73205080756887729; // sqrt(3.0)
 
+  //! creates the interpolation nodes
   void cache_nodes();
-  void prepare_wmatrix();
-  void prepare_imatrix();
-  void prepare_iematrix();
+  //! creates the matrix for projection-to-nodal values
+  void prepare_proj2node();
+  //! creates the matrix for nodal-to-(interp)hierarchical values/coeffs
+  void prepare_node2hier();
+  //! creates the matrix for (interp)hierarchical-to-projection coeffs
+  void prepare_hier2proj();
 
+  // helper methods that find the values of interp. and proj. wavelet
+  // at normalized nodes. There is a second layer of scaling and
+  // corrections based on the level and support in the prepare functions.
   void make_wavelet_wmat0(std::array<precision, pterms> const &nodes,
-                          std::array<precision, matsize> &mat);
-  //! evaluates the wavelets on a canonical nodes0/1
+                          precision mat[]);
   void make_wavelet_wmat(std::array<precision, pterms> const &nodes,
-                         std::array<precision, matsize> &mat);
-  //! evaluates the wavelets on a canonical nodes0/1
+                         precision mat[]);
   void make_wavelet_imat0(std::array<precision, pterms> const &nodes,
-                          std::array<precision, matsize> &mat);
-  //! evaluates the wavelets on a canonical nodes0/1
+                          precision mat[]);
   void make_wavelet_imat(std::array<precision, pterms> const &nodes,
-                         std::array<precision, matsize> &mat);
+                         precision mat[]);
 
 private:
   connect_1d const *conn;
-  std::vector<precision> nodes;
-  std::vector<precision> eval_matrix;
-  std::vector<precision> interp_matrix;
-  std::vector<precision> ie_matrix;
+  std::vector<precision> nodes_;
+  std::vector<precision> proj2node_;
+  std::vector<precision> node2hier_;
+  std::vector<precision> hier2proj_;
 };
 
 #endif // KRON_MODE_GLOBAL_BLOCK

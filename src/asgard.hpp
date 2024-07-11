@@ -2,11 +2,10 @@
 
 #include "batch.hpp"
 
-#include "build_info.hpp"
+#include "asgard_tools.hpp"
 #include "coefficients.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
-#include "tools.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"

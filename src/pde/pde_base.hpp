@@ -1,22 +1,11 @@
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <iostream>
-#include <limits.h>
-#include <map>
-#include <memory>
-#include <string>
-#include <typeinfo>
-#include <vector>
-
 #include "../asgard_dimension.hpp"
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
 #include "../moment.hpp"
 #include "../program_options.hpp"
-#include "../tools.hpp"
+#include "../asgard_indexset.hpp"
 
 namespace asgard
 {
@@ -662,7 +651,7 @@ public:
 
     expect(num_dims_ > 0 and num_dims_ <= max_num_dimensions);
     expect(num_sources_ >= 0);
-    expect(num_terms_ > 0);
+    expect(num_terms_ > 0 or (num_terms_ == 0 and has_interp()));
 
     expect(dimensions_.size() == static_cast<unsigned>(num_dims_));
     expect(terms_.size() == static_cast<unsigned>(max_num_terms));
@@ -835,6 +824,8 @@ public:
         }
       }
     }
+
+    expect(not (!!interp_nox_ and !!interp_x_));
   }
 
   constexpr static int extract_dim0 = 1;
@@ -1000,6 +991,110 @@ public:
     expect(dt > 0.0);
     dt_ = dt;
   }
+
+  //! Return true if any kind of interpolation has been enabled
+  bool has_interp() const
+  {
+    return !!interp_nox_ or !!interp_x_ or !!interp_initial_ or !!interp_exact_;
+  }
+
+  //! Returns the total area/volume of the domain
+  void get_domain_bounds(std::array<P, max_num_dimensions> &dmin,
+                         std::array<P, max_num_dimensions> &dmax) const
+  {
+    for (int i = 0; i < num_dims_; i++)
+    {
+      dmin[i] = dimensions_[i].domain_min;
+      dmax[i] = dimensions_[i].domain_max;
+    }
+  }
+
+  /*!
+   * \brief Interpolation operator that does not have explicit dependence on space.
+   *
+   * Examples of no explicit dependence on x:
+   *    F(t, u(t, x)) = t * u(t, x)
+   *    F(t, u(t, x)) = u(t, x)^2
+   *
+   * Set by the derived classes with
+   * \code
+   *   this->interp_nox_ =
+   * [](P t, std::vector<P> const &u, std::vector<P> &F)->void
+   * {
+   *   for (size_t i = 0; i < u.size(); i++)
+   *     F[i] = t * u[i];
+   *  // alternative: F[i] = u[i] * u[i];
+   * }
+   * \endcode
+   */
+  std::function<void(P t, std::vector<P> const &, std::vector<P> &)> const &
+  interp_nox() const { return interp_nox_; }
+
+  /*!
+   * \brief Interpolation operator that has explicit dependence on space.
+   *
+   * Examples of no explicit dependence on x:
+   *    F(t, u(t, x)) = t * (x_1 + x_2) * u(t, x)
+   *    F(t, u(t, x)) = sin(x_1) * cos(x_2)
+   * the second example is a forcing term with no dependence on u(t, x)
+   *
+   * Set by the derived classes with
+   * \code
+   *   this->interp_x_ =
+   * [](P t, vector2d<P> const &x, std::vector<P> const &u, std::vector<P> &F)
+   *   ->void
+   * {
+   *   for (size_t i = 0; i < u.size(); i++)
+   *     F[i] = t * (x[i][0] + x[i][1]) * u[i];
+   *  // forcing exmaple: F[i] = std::sin(x[i][0]) * std::cos(x[i][1])
+   * }
+   * \endcode
+   */
+  std::function<void(P t, vector2d<P> const &, std::vector<P> const &, std::vector<P> &)> const &
+  interp_x() const { return interp_x_; }
+
+  /*!
+   * \brief Define non-separable initial conditions.
+   *
+   * Set by the derived classes with
+   * \code
+   *   this->interp_initial_ =
+   * [](vector2d<P> const &x, std::vector<P> &u)
+   *   ->void
+   * {
+   *   for (size_t i = 0; i < u.size(); i++)
+   *     u[i] = x[i][0] + x[i][1];
+   * }
+   * \endcode
+   */
+  std::function<void(vector2d<P> const &, std::vector<P> &)> const &
+  interp_initial() const { return interp_initial_; }
+
+  /*!
+   * \brief Define non-separable exact solution.
+   *
+   * Set by the derived classes with
+   * \code
+   *   this->interp_exact_ =
+   * [](P t, vector2d<P> const &x, std::vector<P> &u)
+   *   ->void
+   * {
+   *   for (size_t i = 0; i < u.size(); i++)
+   *     u[i] = t + x[i][0] + x[i][1];
+   * }
+   * \endcode
+   */
+  std::function<void(P t, vector2d<P> const &, std::vector<P> &)> const &
+  interp_exact() const { return interp_exact_; }
+
+protected:
+  std::function<void(P t, std::vector<P> const &, std::vector<P> &)> interp_nox_;
+
+  std::function<void(P t, vector2d<P> const &, std::vector<P> const &, std::vector<P> &)> interp_x_;
+
+  std::function<void(vector2d<P> const &, std::vector<P> &)> interp_initial_;
+
+  std::function<void(P t, vector2d<P> const &, std::vector<P> &)> interp_exact_;
 
 private:
   int get_num_terms(parser const &cli_input, int const max_num_terms) const

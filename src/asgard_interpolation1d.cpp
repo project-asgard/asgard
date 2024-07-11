@@ -9,8 +9,8 @@ struct linear
 {
   static P constexpr s3 = 1.73205080756887729; // sqrt(3.0)
   // projection basis
-  static P plag0(P) { return 1; }
-  static P plag1(P x) { return 2 * s3 * x - s3; }
+  static P pleg0(P) { return 1; }
+  static P pleg1(P x) { return 2 * s3 * x - s3; }
   static P pwav0L(P x) { return s3 * (1 - 4 * x); }
   static P pwav0R(P x) { return s3 * (-3 + 4 * x); }
   static P pwav1L(P x) { return -1 + 6 * x; }
@@ -82,8 +82,8 @@ struct linear
 template<typename P>
 struct linear_integrator
 {
-  static constexpr auto plag0  = linear<P>::plag0;
-  static constexpr auto plag1  = linear<P>::plag1;
+  static constexpr auto pleg0  = linear<P>::pleg0;
+  static constexpr auto pleg1  = linear<P>::pleg1;
   static constexpr auto pwav0L = linear<P>::pwav0L;
   static constexpr auto pwav0R = linear<P>::pwav0R;
   static constexpr auto pwav1L = linear<P>::pwav1L;
@@ -109,26 +109,26 @@ struct linear_integrator
   // level 0 vs. level 0
   static constexpr void lb00(P mat[])
   {
-    mat[0] = w * (plag0(x0) * ibas0(x0) + plag0(x1) * ibas0(x1));
-    mat[1] = w * (plag1(x0) * ibas0(x0) + plag1(x1) * ibas0(x1));
-    mat[2] = w * (plag0(x0) * ibas1(x0) + plag0(x1) * ibas1(x1));
-    mat[3] = w * (plag1(x0) * ibas1(x0) + plag1(x1) * ibas1(x1));
+    mat[0] = w * (pleg0(x0) * ibas0(x0) + pleg0(x1) * ibas0(x1));
+    mat[1] = w * (pleg1(x0) * ibas0(x0) + pleg1(x1) * ibas0(x1));
+    mat[2] = w * (pleg0(x0) * ibas1(x0) + pleg0(x1) * ibas1(x1));
+    mat[3] = w * (pleg1(x0) * ibas1(x0) + pleg1(x1) * ibas1(x1));
   }
   // projection legendre basis (level 0) vs. interpolation level 1
   static constexpr void li01(P mat[])
   {
-    mat[0] = wL * (plag0(x0L) * iwav0L(x0L) + plag0(x1L) * iwav0L(x1L));
-    mat[1] = wL * (plag1(x0L) * iwav0L(x0L) + plag1(x1L) * iwav0L(x1L));
-    mat[2] = wR * (plag0(x0R) * iwav1R(x0R) + plag0(x1R) * iwav1R(x1R));
-    mat[3] = wR * (plag1(x0R) * iwav1R(x0R) + plag1(x1R) * iwav1R(x1R));
+    mat[0] = wL * (pleg0(x0L) * iwav0L(x0L) + pleg0(x1L) * iwav0L(x1L));
+    mat[1] = wL * (pleg1(x0L) * iwav0L(x0L) + pleg1(x1L) * iwav0L(x1L));
+    mat[2] = wR * (pleg0(x0R) * iwav1R(x0R) + pleg0(x1R) * iwav1R(x1R));
+    mat[3] = wR * (pleg1(x0R) * iwav1R(x0R) + pleg1(x1R) * iwav1R(x1R));
   }
   // projection legendre basis (level 0) vs. interpolation level x
   static constexpr void li0x(P xl, P scale, std::array<P, 4> &mat)
   {
-    mat[0] = wL * (plag0(xl + scale * x0L) * iwav0L(x0L) + plag0(xl + scale * x1L) * iwav0L(x1L));
-    mat[1] = wL * (plag1(xl + scale * x0L) * iwav0L(x0L) + plag1(xl + scale * x1L) * iwav0L(x1L));
-    mat[2] = wR * (plag0(xl + scale * x0R) * iwav1R(x0R) + plag0(xl + scale * x1R) * iwav1R(x1R));
-    mat[3] = wR * (plag1(xl + scale * x0R) * iwav1R(x0R) + plag1(xl + scale * x1R) * iwav1R(x1R));
+    mat[0] = wL * (pleg0(xl + scale * x0L) * iwav0L(x0L) + pleg0(xl + scale * x1L) * iwav0L(x1L));
+    mat[1] = wL * (pleg1(xl + scale * x0L) * iwav0L(x0L) + pleg1(xl + scale * x1L) * iwav0L(x1L));
+    mat[2] = wR * (pleg0(xl + scale * x0R) * iwav1R(x0R) + pleg0(xl + scale * x1R) * iwav1R(x1R));
+    mat[3] = wR * (pleg1(xl + scale * x0R) * iwav1R(x0R) + pleg1(xl + scale * x1R) * iwav1R(x1R));
   }
   // projection basis (level 1) vs. interpolation level 0
   static constexpr void wb10(P mat[])
@@ -200,22 +200,20 @@ struct linear_integrator
 
 template<int order, typename precision>
 void wavelet_interp1d<order, precision>::make_wavelet_wmat0(
-    std::array<precision, pterms> const &x,
-    std::array<precision, matsize> &mat)
+    std::array<precision, pterms> const &x, precision mat[])
 {
   if constexpr (order == 1)
   {
-    mat[0] = linear<precision>::plag0(x[0]);
-    mat[1] = linear<precision>::plag0(x[1]);
-    mat[2] = linear<precision>::plag1(x[0]);
-    mat[3] = linear<precision>::plag1(x[1]);
+    mat[0] = linear<precision>::pleg0(x[0]);
+    mat[1] = linear<precision>::pleg0(x[1]);
+    mat[2] = linear<precision>::pleg1(x[0]);
+    mat[3] = linear<precision>::pleg1(x[1]);
   }
 }
 
 template<int order, typename precision>
 void wavelet_interp1d<order, precision>::make_wavelet_imat0(
-    std::array<precision, pterms> const &x,
-    std::array<precision, matsize> &mat)
+    std::array<precision, pterms> const &x, precision mat[])
 {
   if constexpr (order == 1)
   {
@@ -228,8 +226,7 @@ void wavelet_interp1d<order, precision>::make_wavelet_imat0(
 
 template<int order, typename precision>
 void wavelet_interp1d<order, precision>::make_wavelet_wmat(
-    std::array<precision, pterms> const &x,
-    std::array<precision, matsize> &mat)
+    std::array<precision, pterms> const &x, precision mat[])
 {
   if constexpr (order == 1)
   {
@@ -249,8 +246,7 @@ void wavelet_interp1d<order, precision>::make_wavelet_wmat(
 
 template<int order, typename precision>
 void wavelet_interp1d<order, precision>::make_wavelet_imat(
-    std::array<precision, pterms> const &x,
-    std::array<precision, matsize> &mat)
+    std::array<precision, pterms> const &x, precision mat[])
 {
   if constexpr (order == 1)
   {
@@ -268,11 +264,14 @@ void wavelet_interp1d<order, precision>::make_wavelet_imat(
   }
 }
 
+// the algorithms behind the 3 prepare methods are similar
+// the ideal is to allocate the matrix and write over the blocks
+// the goal is to do so sequentially with minimal indexing work
 template<int order, typename precision>
-void wavelet_interp1d<order, precision>::prepare_wmatrix()
+void wavelet_interp1d<order, precision>::prepare_proj2node()
 {
-  eval_matrix.resize(conn->num_connections() * matsize);
-  auto em = eval_matrix.begin();
+  proj2node_.resize(conn->num_connections() * matsize);
+  auto em = proj2node_.data();
 
   // functions 0/1 at nodes 0/1
   std::array<precision, matsize> local_mat;
@@ -281,23 +280,18 @@ void wavelet_interp1d<order, precision>::prepare_wmatrix()
 
   for (int row = 0; row < conn->num_rows(); row++)
   {
-    for (int i = 0; i < pterms; i++)
-      x[i] = nodes[pterms * row + i];
+    std::copy_n(nodes_.begin() + pterms * row, pterms, x.begin());
 
-    // cell 0 is always connected
-    make_wavelet_wmat0(x, local_mat);
-    em = std::copy(local_mat.begin(), local_mat.end(), em);
-    //eval_matrix.insert(eval_matrix.end(), local_mat.begin(), local_mat.end());
+    // cells 0 and 1 are always connected
+    make_wavelet_wmat0(x, em);
+    em += matsize;
+    make_wavelet_wmat(x, em);
+    em += matsize;
 
-    // cell 1 is always connected
-    make_wavelet_wmat(x, local_mat);
-    em = std::copy(local_mat.begin(), local_mat.end(), em);
-    //eval_matrix.insert(eval_matrix.end(), local_mat.begin(), local_mat.end());
-
-    int level  = 1; // keep track of which level the cell belong
     int lbegin = 2; // first cell on each level
 
-    precision scale = s2;
+    precision scale     = s2;
+    precision cell_size = 0.5;
 
     // using the wavelet functions
     int const row_start = conn->row_begin(row) + 2;
@@ -306,16 +300,13 @@ void wavelet_interp1d<order, precision>::prepare_wmatrix()
     {
       int const col = (*conn)[c]; // connected cell
 
-      // get the level for the current cell
-      // void intlog2 since cells in conn are ordered
-      while (4 * level <= col)
+      // move to the next level
+      while (col >= 2 * lbegin)
       {
-        ++level;
         lbegin *= 2;
         scale *= s2;
+        cell_size *= 0.5;
       }
-
-      precision cell_size = std::pow(precision{0.5}, level);
 
       precision xl = cell_size * (col - lbegin);
 
@@ -323,7 +314,7 @@ void wavelet_interp1d<order, precision>::prepare_wmatrix()
       for (int i = 0; i < pterms; i++)
         nx[i] = (x[i] - xl) / cell_size;
 
-      make_wavelet_wmat(nx, local_mat);
+      make_wavelet_wmat(nx, local_mat.data());
       for (int i = 0; i < pterms; i++)
         if (nx[i] < precision{0} or nx[i] > precision{1})
           for (int j = 0; j < pterms; j++)
@@ -338,9 +329,13 @@ void wavelet_interp1d<order, precision>::prepare_wmatrix()
 }
 
 template<int order, typename precision>
-void wavelet_interp1d<order, precision>::prepare_imatrix()
+void wavelet_interp1d<order, precision>::prepare_node2hier()
 {
-  interp_matrix.resize(conn->num_connections() * matsize);
+  node2hier_.resize(conn->num_connections() * matsize);
+
+  // computing the hierarchical coefficients uses only the lower triangular
+  // part of the connectivity pattern with implicit identity blocks
+  // along the diagona
 
   // functions 0/1 at nodes 0/1
   std::array<precision, matsize> local_mat;
@@ -348,30 +343,29 @@ void wavelet_interp1d<order, precision>::prepare_imatrix()
   std::array<precision, pterms> nx;
 
   // row zero is irrelevant (won't be used)
-  auto em = interp_matrix.begin() + matsize * conn->row_begin(1);
+  auto em = node2hier_.data() + matsize * conn->row_begin(1);
+
   // row one is trivial as it contains only one block
-  for (int i = 0; i < pterms; i++)
-    x[i] = nodes[pterms + i];
-  make_wavelet_imat0(x, local_mat);
-  std::copy(local_mat.begin(), local_mat.end(), em);
+  std::copy_n(nodes_.begin() + pterms, pterms, x.begin());
+  make_wavelet_imat0(x, em);
   // jump to row 2
-  em = interp_matrix.begin() + matsize * (conn->row_begin(2));
+  em = node2hier_.data() + matsize * conn->row_begin(2);
 
   for (int row = 2; row < conn->num_rows(); row++)
   {
-    for (int i = 0; i < pterms; i++)
-      x[i] = nodes[pterms * row + i];
+    std::copy_n(nodes_.begin() + row * pterms, pterms, x.begin());
 
     // cell 0 is always connected
-    make_wavelet_imat0(x, local_mat);
-    em = std::copy(local_mat.begin(), local_mat.end(), em);
+    make_wavelet_imat0(x, em);
+    em += matsize;
 
     // cell 1 is always connected
-    make_wavelet_imat(x, local_mat);
-    em = std::copy(local_mat.begin(), local_mat.end(), em);
+    make_wavelet_imat(x, em);
+    em += matsize;
 
-    int level  = 1; // keep track of which level the cell belong
-    int lbegin = 2; // first cell on each level
+    int lbegin = 2; // level begin, first cell on each level
+
+    precision cell_size = 0.5;
 
     int const row_start = conn->row_begin(row) + 2;
     int const row_diag  = conn->row_diag(row);
@@ -379,15 +373,12 @@ void wavelet_interp1d<order, precision>::prepare_imatrix()
     {
       int const col = (*conn)[c]; // connected cell
 
-      // get the level for the current cell
-      // void intlog2 since cells in conn are ordered
-      if (4 * level <= col)
+      // if reached the next leve, adjust constants
+      if (col >= 2 * lbegin)
       {
-        ++level;
-        lbegin *= 2;
+        lbegin *= 2;      // adjust starting index
+        cell_size *= 0.5; // cells shrink in size
       }
-
-      precision cell_size = std::pow(precision{0.5}, level);
 
       precision xl = cell_size * (col - lbegin);
 
@@ -395,7 +386,7 @@ void wavelet_interp1d<order, precision>::prepare_imatrix()
       for (int i = 0; i < pterms; i++)
         nx[i] = (x[i] - xl) / cell_size;
 
-      make_wavelet_imat(nx, local_mat);
+      make_wavelet_imat(nx, local_mat.data());
       for (int i = 0; i < pterms; i++)
         if (nx[i] < precision{0} or nx[i] > precision{1})
           for (int j = 0; j < pterms; j++)
@@ -404,37 +395,37 @@ void wavelet_interp1d<order, precision>::prepare_imatrix()
       em = std::copy(local_mat.begin(), local_mat.end(), em);
     }
 
+    // ignore the rest of the pattern, won't be used
     em += matsize * (conn->row_end(row) - row_diag);
   }
-  expect(em == interp_matrix.end());
+  expect(em == (node2hier_.data() + node2hier_.size()));
 }
 
 template<int order, typename precision>
-void wavelet_interp1d<order, precision>::prepare_iematrix()
+void wavelet_interp1d<order, precision>::prepare_hier2proj()
 {
-  ie_matrix.resize(conn->num_connections() * matsize);
+  hier2proj_.resize(conn->num_connections() * matsize);
 
   // unscaled values for the integrals
   std::array<precision, matsize> local_mat;
 
   // row zero, first two cells have global support
-  linear_integrator<precision>::lb00(ie_matrix.data());
-  linear_integrator<precision>::li01(ie_matrix.data() + matsize);
+  linear_integrator<precision>::lb00(hier2proj_.data());
+  linear_integrator<precision>::li01(hier2proj_.data() + matsize);
 
-  auto em = ie_matrix.begin() + 2 * matsize;
+  auto em = hier2proj_.data() + 2 * matsize;
 
   // if a block is already computed in local_mat, scale by s and add to
-  // the ie_matrix using the iterator em
+  // the hier2proj using the iterator em
   auto add_block = [&](precision s)
       -> void {
 #pragma omp simd
     for (int i = 0; i < matsize; i++)
-      *(em + i) = local_mat[i] * s;
+      em[i] = local_mat[i] * s;
     em += matsize;
   };
 
-  int level  = 2;
-  int lbegin = 2;
+  int lbegin = 2; // level begin index
 
   precision w = 0.5; // quadrature scale
 
@@ -444,9 +435,8 @@ void wavelet_interp1d<order, precision>::prepare_iematrix()
   {
     int const col = (*conn)[c]; // connected cell
 
-    if (2 * level <= col)
+    if (col >= 2 * lbegin)
     {
-      ++level;     // moving to a new level
       lbegin *= 2; // reset the index of first cell in the level
       w *= 0.5;    // effective size of integration domain drops by 2
     }
@@ -458,22 +448,21 @@ void wavelet_interp1d<order, precision>::prepare_iematrix()
   }
 
   // row one, first 2 cells use full support (no-scale)
-  linear_integrator<precision>::wb10(&*em);
+  linear_integrator<precision>::wb10(em);
   em += matsize;
 
   linear_integrator<precision>::wixx(local_mat);
   em = std::copy(local_mat.begin(), local_mat.end(), em);
 
-  level  = 2;
   lbegin = 2;
   w      = 0.5; // quadrature scale
 
   for (int c = conn->row_begin(1) + 2; c < conn->row_end(1); c++)
   {
     int const col = (*conn)[c]; // connected cell
-    if (2 * level <= col)
+
+    if (col >= 2 * lbegin)
     {
-      ++level;     // moving to a new level
       lbegin *= 2; // reset the index of first cell in the level
       w *= 0.5;    // effective size of integration domain drops by 2
     }
@@ -485,22 +474,20 @@ void wavelet_interp1d<order, precision>::prepare_iematrix()
   }
 
   // rows 2 and onwards
-  int plevel   = 2;   // level of the projection functions
   int pbegin   = 2;   // index of the level of proj. functions
   precision ps = s2;  // projection basis function scale
   precision pw = 0.5; // proj. domain scale
 
   for (int row = 2; row < conn->num_rows(); row++)
   {
-    if (2 * plevel <= row)
+    if (row >= 2 * pbegin)
     {
-      ++plevel;
       pbegin *= 2;
       ps *= s2;
       pw *= 0.5;
     }
 
-    // handle functions larger than this one
+    // 1. handle functions larger than this one
     precision rl = pw * (row - pbegin);
 
     // starting the row with cells with larger support, the intergation
@@ -515,16 +502,14 @@ void wavelet_interp1d<order, precision>::prepare_iematrix()
     linear_integrator<precision>::wii(rl, pw, local_mat);
     add_block(iscale);
 
-    level  = 2;
     lbegin = 2;
     w      = 0.5; // quadrature scale for the columns
 
     for (int c = conn->row_begin(row) + 2; c < conn->row_diag(row); c++)
     {
       int const col = (*conn)[c]; // connected cell
-      if (2 * level <= col)
+      if (col >= 2 * lbegin)
       {
-        ++level;     // moving to a new level
         lbegin *= 2; // reset the index of first cell in the level
         w *= 0.5;    // effective size of integration domain drops by 2
       }
@@ -535,22 +520,21 @@ void wavelet_interp1d<order, precision>::prepare_iematrix()
       add_block(iscale);
     }
 
-    // the self-connection is handled here
+    // 2. the self-connection is handled here
     linear_integrator<precision>::wixx(local_mat);
     add_block(iscale);
 
+    // 3. handle functions with smaller support
     // now switching the logic, the row cell will be the larger cell
     // there's only one connection at this level, so updating the variables
-    ++level;
     lbegin *= 2;
     w *= 0.5;
 
     for (int c = conn->row_diag(row) + 1; c < conn->row_end(row); c++)
     {
       int const col = (*conn)[c]; // connected cell
-      if (2 * level <= col)
+      if (col >= 2 * lbegin)
       {
-        ++level;     // moving to a new level
         lbegin *= 2; // reset the index of first cell in the level
         w *= 0.5;    // effective size of integration domain drops by 2
       }
@@ -569,34 +553,36 @@ void wavelet_interp1d<order, precision>::cache_nodes()
   if constexpr (order == 1)
   {
     int const mlevel = conn->max_loaded_level();
-    nodes.reserve(pterms * conn->num_rows());
+    nodes_.resize(pterms * conn->num_rows());
 
-    nodes.push_back(precision{1.0} / precision{3.0});
-    nodes.push_back(precision{2.0} / precision{3.0});
+    nodes_[0] = precision{1.0} / precision{3.0};
+    nodes_[1] = precision{2.0} / precision{3.0};
     if (mlevel == 0)
       return;
 
-    nodes.push_back(precision{1.0} / precision{6.0});
-    nodes.push_back(precision{5.0} / precision{6.0});
+    nodes_[2] = precision{1.0} / precision{6.0};
+    nodes_[3] = precision{5.0} / precision{6.0};
 
-    precision num = 0.0; // numerator
-    precision den = 6.0; // denominator
+    int num_points = 2; // number of points on level 1
+
+    auto em = nodes_.begin() + 4;
+
+    precision num  = 0.0;       // numerator
+    precision step = 1.0 / 6.0; // denominator
     for (int l = 2; l <= mlevel; l++)
     {
-      int const np = fm::two_raised_to(l) - 2;
-      den *= 2;
+      num_points *= 2; // double the level above
+      step *= 0.5;     // denominator drops by factor 2
       num = 1;
-      nodes.push_back(num / den);
-      for (int p = 0; p < np; p += 2)
+      for (int p = 0; p < num_points; p += 2)
       {
+        *em++ = num * step;
         num += 4;
-        nodes.push_back(num / den);
+        *em++ = num * step;
         num += 2;
-        nodes.push_back(num / den);
       }
-      num += 4;
-      nodes.push_back(num / den);
     }
+    expect(em == nodes_.end());
   }
 }
 

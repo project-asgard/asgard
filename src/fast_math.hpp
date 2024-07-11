@@ -4,13 +4,9 @@
 #include "lib_dispatch.hpp"
 #include "program_options.hpp"
 #include "sparse.hpp"
-#include "tools.hpp"
 #ifdef ASGARD_USE_SCALAPACK
 #include "scalapack_vector_info.hpp"
 #endif
-#include <numeric>
-#include <sstream>
-#include <stdexcept>
 
 namespace asgard::fm
 {
@@ -65,6 +61,47 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
   if (x.empty())
     return 0.0;
   return lib_dispatch::nrm2<resrc>(x.size(), x.data(), 1);
+}
+
+/*!
+ * \brief Comptues the l-inf norm of the difference between x and y
+ *
+ * This works with all std::vector, std::array and fk::vector.
+ * Does not work with GPU vectors and does not check if the data is on the device.
+ */
+template<typename vecx, typename vecy>
+auto diff_inf(vecx const &x, vecy const &y)
+{
+  using precision = typename vecx::value_type;
+  using index     = decltype(x.size());
+  expect(x.size() == static_cast<index>(y.size()));
+
+  precision m{0};
+  for (index i = index{0}; i < x.size(); i++)
+    m = std::max(m, std::abs(x[i] - y[i]));
+  return m;
+}
+
+/*!
+ * \brief Comptues the root-mean-square-error between two vectors
+ *
+ * This works with all std::vector, std::array and fk::vector.
+ * Does not work with GPU vectors and does not check if the data is on the device.
+ */
+template<typename vecx, typename vecy>
+auto rmserr(vecx const &x, vecy const &y)
+{
+  using precision = typename vecx::value_type;
+  using index     = decltype(x.size());
+  expect(x.size() == y.size());
+
+  precision err{0};
+  for (index i = index{0}; i < x.size(); i++)
+  {
+    precision const d = x[i] - y[i];
+    err += d * d;
+  }
+  return std::sqrt(err / x.size());
 }
 
 /* Frobenius norm of owner matrix */

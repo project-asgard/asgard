@@ -3,11 +3,6 @@
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
 #include "matlab_utilities.hpp"
-#include "tools.hpp"
-#include <algorithm>
-#include <cmath>
-#include <numeric>
-#include <vector>
 
 namespace asgard::permutations
 {
@@ -21,9 +16,9 @@ get_lequal(int const num_dims, int const limit, bool const order_by_n)
   expect(limit >= 0);
 
   return select_indexex(num_dims, order_by_n, false,
-                        [&](std::vector<int> const &index) -> bool {
+                        [&](std::array<int, max_num_dimensions> const &index) -> bool {
                           int level = index[0];
-                          for (size_t i = 1; i < index.size(); i++)
+                          for (int i = 1; i < num_dims; i++)
                             level += index[i];
                           return (level <= limit);
                         });
@@ -42,9 +37,9 @@ fk::matrix<int> get_lequal_multi(fk::vector<int> const &levels,
   expect(limit >= 0);
 
   return select_indexex(num_dims, true, not increasing_sum_order,
-                        [&](std::vector<int> const &index) -> bool {
+                        [&](std::array<int, max_num_dimensions> const &index) -> bool {
                           int level = 0;
-                          for (size_t i = 0; i < index.size(); i++)
+                          for (int i = 0; i < num_dims; i++)
                           {
                             if (index[i] > levels(i))
                               return false;
@@ -66,7 +61,7 @@ get_mix_leqmax_multi(fk::vector<int> const &levels, int const num_dims,
   expect(mixed_max[1] >= 0);
 
   return select_indexex(num_dims, true, not increasing_sum_order,
-                        [&](std::vector<int> const &index) -> bool {
+                        [&](std::array<int, max_num_dimensions> const &index) -> bool {
                           // check first group
                           int level_g1 = 0;
                           for (int i = 0; i < num_first_group; i++)

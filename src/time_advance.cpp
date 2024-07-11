@@ -7,7 +7,6 @@
 #include "elements.hpp"
 #include "fast_math.hpp"
 #include "solver.hpp"
-#include "tools.hpp"
 #ifdef ASGARD_USE_SCALAPACK
 #include "cblacs_grid.hpp"
 #include "scalapack_vector_info.hpp"
@@ -15,7 +14,6 @@
 #ifdef ASGARD_USE_MATLAB
 #include "matlab_plot.hpp"
 #endif
-#include <climits>
 
 namespace asgard::time_advance
 {
@@ -215,7 +213,7 @@ explicit_advance(PDE<P> const &pde, kron_operators<P> &operator_matrices,
   {
     tools::time_event performance(
         "kronmult", operator_matrices.flops(imex_flag::unspecified));
-    operator_matrices.apply(imex_flag::unspecified, 1.0, x.data(), 0.0, fx.data());
+    operator_matrices.apply(imex_flag::unspecified, time, 1.0, x.data(), 0.0, fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
@@ -236,23 +234,24 @@ explicit_advance(PDE<P> const &pde, kron_operators<P> &operator_matrices,
   P const rk_scale_1 = a21 * dt;
   fm::axpy(rk_1, x, rk_scale_1);
 
+  P const t2 = time + c2 * dt;
   {
     tools::time_event performance(
         "kronmult", operator_matrices.flops(imex_flag::unspecified));
-    operator_matrices.apply(imex_flag::unspecified, 1.0, x.data(), 0.0, fx.data());
+    operator_matrices.apply(imex_flag::unspecified, t2, 1.0, x.data(), 0.0, fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources() > 0)
   {
     auto const sources =
-        get_sources(pde, adaptive_grid, transformer, time + c2 * dt);
+        get_sources(pde, adaptive_grid, transformer, t2);
     fm::axpy(sources, reduced_fx);
   }
 
   fk::vector<P> const bc1 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
-      time + c2 * dt);
+      t2);
   fm::axpy(bc1, reduced_fx);
 
   fk::vector<P> rk_2(x_orig.size());
@@ -266,23 +265,24 @@ explicit_advance(PDE<P> const &pde, kron_operators<P> &operator_matrices,
   fm::axpy(rk_2, x, rk_scale_2b);
 
   // -- RK step 3
+  P const t3 = time + c3 * dt;
   {
     tools::time_event performance(
         "kronmult", operator_matrices.flops(imex_flag::unspecified));
-    operator_matrices.apply(imex_flag::unspecified, 1.0, x.data(), 0.0, fx.data());
+    operator_matrices.apply(imex_flag::unspecified, t3, 1.0, x.data(), 0.0, fx.data());
   }
   reduce_results(fx, reduced_fx, plan, get_rank());
 
   if (pde.num_sources() > 0)
   {
     auto const sources =
-        get_sources(pde, adaptive_grid, transformer, time + c3 * dt);
+        get_sources(pde, adaptive_grid, transformer, t3);
     fm::axpy(sources, reduced_fx);
   }
 
   auto const bc2 = boundary_conditions::generate_scaled_bc(
       unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
-      time + c3 * dt);
+      t3);
   fm::axpy(bc2, reduced_fx);
 
   fk::vector<P> rk_3(x_orig.size());

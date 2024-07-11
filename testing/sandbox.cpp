@@ -4,7 +4,6 @@
 #include "coefficients.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
-#include "tools.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
@@ -20,17 +19,12 @@
 #include "asgard_vector.hpp"
 #include "time_advance.hpp"
 #include "transformations.hpp"
-#include <numeric>
 
 #include "asgard_kronmult_tests.hpp"
 
 using namespace asgard;
 
-#ifdef ASGARD_USE_DOUBLE_PREC
-using prec = double;
-#else
-using prec = float;
-#endif
+using prec = asgard::default_precision;
 
 int main(int, char **)
 {

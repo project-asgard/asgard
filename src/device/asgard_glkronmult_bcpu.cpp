@@ -856,6 +856,64 @@ template<typename precision>
 void global_cpu(int num_dimensions, int n, int64_t block_size,
                 vector2d<int> const &ilist, dimension_sort const &dsort,
                 permutes const &perm, connect_1d const &vconn,
+                precision const gvals[], precision alpha, precision const x[],
+                precision y[], block_global_workspace<precision> &workspace)
+{
+  int64_t const num_entries = block_size * ilist.num_strips();
+
+  if (static_cast<int64_t>(workspace.w1.size()) < num_entries)
+    workspace.w1.resize(num_entries);
+  if (static_cast<int64_t>(workspace.w2.size()) < num_entries)
+    workspace.w2.resize(num_entries);
+
+  precision *w1 = workspace.w1.data();
+  precision *w2 = workspace.w2.data();
+
+  // terms can have different effective dimension, since some of them are identity
+  expect(num_dimensions == perm.num_dimensions());
+
+  size_t const num_perms = perm.fill.size();
+  for (size_t i = 0; i < num_perms; i++)
+  {
+    auto &dir = perm.direction[i];
+
+    global_cpu(num_dimensions, n, ilist, dsort, dir[0], perm.fill[i][0],
+               vconn, gvals, x, w1, workspace.row_map);
+
+    for (int d = 1; d < num_dimensions; d++)
+    {
+      global_cpu(num_dimensions, n, ilist, dsort, dir[d], perm.fill[i][d],
+                 vconn, gvals, w1, w2, workspace.row_map);
+      std::swap(w1, w2);
+    }
+
+    if (i == 0)
+    {
+      if (perm.fill.size() == 1)
+#pragma omp parallel for
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] = alpha * w1[j];
+      else
+        std::copy_n(w1, num_entries, y);
+    }
+    else
+    {
+      if (i + 1 == num_perms)
+#pragma omp parallel for
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] = alpha * (y[j] + w1[j]);
+      else
+#pragma omp parallel for
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] += w1[j];
+    }
+  }
+}
+
+template<typename precision>
+void global_cpu(int num_dimensions, int n, int64_t block_size,
+                vector2d<int> const &ilist, dimension_sort const &dsort,
+                permutes const &perm, connect_1d const &vconn,
                 precision const gvals[], precision const x[], precision y[],
                 block_global_workspace<precision> &workspace)
 {
@@ -886,9 +944,12 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
       std::swap(w1, w2);
     }
 
+    if (i == 0)
+      std::copy_n(w1, num_entries, y);
+    else
 #pragma omp parallel for
-    for (int64_t j = 0; j < num_entries; j++)
-      y[j] += w1[j];
+      for (int64_t j = 0; j < num_entries; j++)
+        y[j] += w1[j];
   }
 }
 
@@ -926,6 +987,11 @@ template void global_cpu<double>(
     permutes const &, connect_1d const &, double const[], double const[],
     double[], block_global_workspace<double> &);
 
+template void global_cpu<double>(
+    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+    permutes const &, connect_1d const &, double const[], double,
+    double const[], double[], block_global_workspace<double> &);
+
 template void globalsv_cpu(
     int, int, vector2d<int> const &, dimension_sort const &,
     connect_1d const &, double const[], double[],
@@ -955,6 +1021,11 @@ template void global_cpu<float>(
     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
     permutes const &, connect_1d const &, float const[], float const[],
     float[], block_global_workspace<float> &);
+
+template void global_cpu<float>(
+    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+    permutes const &, connect_1d const &, float const[], float,
+    float const[], float[], block_global_workspace<float> &);
 
 template void globalsv_cpu(
     int, int, vector2d<int> const &, dimension_sort const &,

@@ -2,7 +2,6 @@
 #include "basis.hpp"
 #include "elements.hpp"
 #include "sparse.hpp"
-#include "tools.hpp"
 #include "transformations.hpp"
 
 namespace asgard

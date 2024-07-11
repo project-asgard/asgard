@@ -1,8 +1,6 @@
+#include "asgard_tools.hpp"
+
 #include "tests_general.hpp"
-#include "tools.hpp"
-#include <algorithm>
-#include <random>
-#include <sstream>
 
 using namespace asgard;
 

@@ -302,7 +302,6 @@ set (components
      tensors
      sparse
      time_advance
-     tools
      transformations
      asgard_field
      asgard_dimension
@@ -313,6 +312,7 @@ set (components
      asgard_indexset
      asgard_interpolation1d
      asgard_interpolation
+     asgard_tools
      asgard
 )
 

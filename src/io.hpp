@@ -3,11 +3,11 @@
 #include "build_info.hpp"
 
 #include "asgard_matrix.hpp"
+#include "asgard_tools.hpp"
 #include "asgard_vector.hpp"
 #include "pde.hpp"
 #include "program_options.hpp"
 #include "solver.hpp"
-#include "tools.hpp"
 #include "transformations.hpp"
 
 // workaround for missing include issue with highfive

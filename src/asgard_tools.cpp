@@ -1,11 +1,4 @@
-#include "tools.hpp"
-#include <algorithm>
-// FIXME use string format after C++20
-// #include <format>
-#include <cstdio>
-#include <math.h>
-#include <numeric>
-#include <sstream>
+#include "asgard_tools.hpp"
 
 namespace asgard::tools
 {

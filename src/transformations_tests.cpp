@@ -3,10 +3,7 @@
 #include "matlab_utilities.hpp"
 #include "pde.hpp"
 #include "tests_general.hpp"
-#include "tools.hpp"
 #include "transformations.hpp"
-#include <climits>
-#include <numeric>
 
 static auto const transformations_base_dir = gold_base_dir / "transformations";
 

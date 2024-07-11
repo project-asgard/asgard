@@ -2,9 +2,6 @@
 #include "distribution.hpp"
 #include "fast_math.hpp"
 #include "quadrature.hpp"
-#include "tools.hpp"
-#include <algorithm>
-#include <stdexcept>
 
 namespace asgard::solver
 {

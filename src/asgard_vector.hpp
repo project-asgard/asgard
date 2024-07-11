@@ -1,15 +1,6 @@
 #pragma once
-#include "build_info.hpp"
 
 #include "asgard_resources.hpp"
-#include "lib_dispatch.hpp"
-#include "tools.hpp"
-
-#include <filesystem>
-#include <memory>
-#include <new>
-#include <string>
-#include <vector>
 
 namespace asgard
 {
@@ -57,6 +48,8 @@ class vector
   friend class vector;
 
 public:
+  //! \brief Value type of the container
+  using value_type = P;
   /*! constructor
    * \brief creates an empty vector.
    */

@@ -31,17 +31,18 @@ namespace asgard::permutations
  * dimension.
  */
 inline std::vector<int> generate_lower_index_set(
-    size_t num_dims, std::function<bool(std::vector<int> const &index)> inside)
+    size_t num_dims, std::function<bool(std::array<int, max_num_dimensions> const &index)> inside)
 {
   size_t c   = 0;
   bool is_in = true;
-  std::vector<int> root(num_dims, 0);
+  std::array<int, max_num_dimensions> root;
+  std::fill_n(root.begin(), num_dims, 0);
   std::vector<int> indexes;
   while (is_in || (c < num_dims))
   {
     if (is_in)
     {
-      indexes.insert(indexes.end(), root.begin(), root.end());
+      indexes.insert(indexes.end(), root.begin(), root.begin() + num_dims);
       c = 0;
       root[c]++;
     }
@@ -69,11 +70,12 @@ inline std::vector<int> generate_lower_index_set(
  * with sum of the entries equal to L.
  */
 inline std::vector<std::vector<int>> generate_lower_index_level_sets(
-    size_t num_dims, std::function<bool(std::vector<int> const &index)> inside)
+    size_t num_dims, std::function<bool(std::array<int, max_num_dimensions> const &index)> inside)
 {
   size_t c = 0, level = 0;
   bool is_in = true;
-  std::vector<int> root(num_dims, 0);
+  std::array<int, max_num_dimensions> root;
+  std::fill_n(root.begin(), num_dims, 0);
   std::vector<std::vector<int>> indexes(1);
   while (is_in || (c < num_dims))
   {
@@ -81,11 +83,11 @@ inline std::vector<std::vector<int>> generate_lower_index_level_sets(
     {
       if (level == indexes.size())
       {
-        indexes.push_back(std::vector<int>(root));
+        indexes.emplace_back(root.begin(), root.begin() + num_dims);
       }
       else
       {
-        indexes[level].insert(indexes[level].end(), root.begin(), root.end());
+        indexes[level].insert(indexes[level].end(), root.begin(), root.begin() + num_dims);
       }
       c = 0;
       root[c]++;
@@ -99,7 +101,7 @@ inline std::vector<std::vector<int>> generate_lower_index_level_sets(
         break;
       root[c]++;
       level = root[0];
-      for (size_t i = 1; i < root.size(); i++)
+      for (size_t i = 1; i < num_dims; i++)
         level += root[i];
     }
     is_in = inside(root);
@@ -204,8 +206,9 @@ inline fk::matrix<int> transp_data(int const num_dims, bool levels_in_reverse,
  * \returns fk::matrix<int> containing the selected multi-indexes
  */
 inline fk::matrix<int>
-select_indexex(int const num_dims, bool order_by_n, bool levels_in_reverse,
-               std::function<bool(std::vector<int> const &index)> inside)
+select_indexex(
+    int const num_dims, bool order_by_n, bool levels_in_reverse,
+    std::function<bool(std::array<int, max_num_dimensions> const &index)> inside)
 {
   if (order_by_n)
   {

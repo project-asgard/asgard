@@ -61,61 +61,100 @@ public:
     return nodes;
   }
 
-  //! convert projected coefficients to nodal values
-  void get_nodal_values(vector2d<int> const &cells,
-                        dimension_sort const &dsort,
+  /*!
+   * \brief convert projected coefficients to nodal values
+   *
+   * nodal = scale * proj2node * proj
+   *
+   * scale should be 1 / sqrt(size/area/volume of the domain)
+   */
+  void get_nodal_values(vector2d<int> const &cells, dimension_sort const &dsort,
+                        precision scale,
                         precision const proj[], precision nodal[]) const
   {
     kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
-                         wav1d.get_conn(), wav1d.get_eval_matrix(), proj, nodal,
-                         *workspace_);
+                         wav1d.get_conn(), wav1d.proj2node(), scale, proj,
+                         nodal, *workspace_);
   }
 
-  //! compute hierarchical coefficients
+  /*!
+   * \brief convert nodal values to hierarchical interpolation coefficients
+   *
+   * nodal = node2hier^{-1} * nodal (inversion/solve)
+   */
   void compute_hierarchical_coeffs(vector2d<int> const &cells,
                                    dimension_sort const &dsort,
                                    precision nodal[]) const
   {
     kronmult::globalsv_cpu(num_dimenisons_, pterms, cells, dsort, wav1d.get_conn(),
-                           wav1d.get_interp_matrix(), nodal, *workspace_);
+                           wav1d.node2hier(), nodal, *workspace_);
   }
 
-  //! convert interpolation coefficients to projection coefficients
+  /*!
+   * \brief converts hierarchical interpolation coefficients to projection coefficients
+   *
+   * proj = scale * hier2proj * interp
+   *
+   * The scale should be sqrt(size/area/volume of the domain)
+   */
   void get_projection_coeffs(vector2d<int> const &cells,
                              dimension_sort const &dsort,
-                             precision const interp[], precision proj[]) const
+                             precision scale,
+                             precision const hier[], precision proj[]) const
   {
     kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
-                         wav1d.get_conn(), wav1d.get_integ_matrix(), interp, proj,
+                         wav1d.get_conn(), wav1d.hier2proj(), scale, hier, proj,
                          *workspace_);
   }
-
-  //! overload accepting a vector
-  void compute_hierarchical_coeffs(vector2d<int> const &cells,
-                                   dimension_sort const &dsort,
-                                   std::vector<precision> &nodal) const
+  /*!
+   * \brief converts hierarchical interpolation coefficients to projection coefficients
+   *
+   * proj = hier2proj * interp
+   *
+   * Uses scale = 1 for situations when the scaling will be applied externally,
+   * e.g., in conjuction with another operation.
+   */
+  void get_projection_coeffs(vector2d<int> const &cells,
+                             dimension_sort const &dsort,
+                             precision const hier[], precision proj[]) const
   {
-    expect(static_cast<int64_t>(nodal.size()) == cells.num_strips() * block_size);
-    compute_hierarchical_coeffs(cells, dsort, nodal.data());
+    kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
+                         wav1d.get_conn(), wav1d.hier2proj(), hier, proj,
+                         *workspace_);
   }
 
   //! overload getting data from the global matrix
   void get_nodal_values(block_global_kron_matrix<precision> const &mat,
-                        precision const proj[], precision nodal[]) const
+                        precision scale,
+                        std::vector<precision> const &proj,
+                        std::vector<precision> &nodal) const
   {
-    get_nodal_values(mat.get_cells(), mat.get_dsort(), proj, nodal);
+    get_nodal_values(mat.get_cells(), mat.get_dsort(), scale, proj.data(),
+                     nodal.data());
   }
+
   //! overload getting data from the global matrix
   void compute_hierarchical_coeffs(block_global_kron_matrix<precision> const &mat,
-                                   precision nodal[]) const
+                                   std::vector<precision> &nodal) const
   {
-    compute_hierarchical_coeffs(mat.get_cells(), mat.get_dsort(), nodal);
+    compute_hierarchical_coeffs(mat.get_cells(), mat.get_dsort(), nodal.data());
   }
   //! overload getting data from the global matrix
   void get_projection_coeffs(block_global_kron_matrix<precision> const &mat,
-                             precision const interp[], precision proj[]) const
+                             std::vector<precision> const &interp,
+                             std::vector<precision> &proj) const
   {
-    get_nodal_values(mat.get_cells(), mat.get_dsort(), interp, proj);
+    get_projection_coeffs(
+        mat.get_cells(), mat.get_dsort(), interp.data(), proj.data());
+  }
+  //! overload getting data from the global matrix
+  void get_projection_coeffs(block_global_kron_matrix<precision> const &mat,
+                             precision scale,
+                             std::vector<precision> const &interp,
+                             std::vector<precision> &proj) const
+  {
+    get_projection_coeffs(
+        mat.get_cells(), mat.get_dsort(), scale, interp.data(), proj.data());
   }
 
 private:

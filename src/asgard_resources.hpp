@@ -5,11 +5,8 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-#include "build_info.hpp"
+#include "asgard_tools.hpp"
 #include "lib_dispatch.hpp"
-
-#include <cstdint>
-#include <type_traits>
 
 namespace asgard
 {

@@ -1,16 +1,10 @@
 #include "asgard_kronmult_matrix.hpp"
 #include "batch.hpp"
 #include "lib_dispatch.hpp"
-#include "tools.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cuda_runtime.h>
 #endif
-
-#include <cstdlib>
-#include <limits.h>
-#include <mutex>
-#include <vector>
 
 namespace asgard
 {
@@ -66,7 +60,7 @@ void build_preconditioner(PDE<precision> const &pde,
   int const pterms = pde.get_dimensions()[0].get_degree();
 
   int num_dimensions  = pde.num_dims();
-  int64_t tensor_size = int_pow(pterms, num_dimensions);
+  int64_t tensor_size = fm::ipow(pterms, num_dimensions);
 
   if (pc.size() == 0)
     pc.resize(tensor_size * num_rows);
@@ -1610,26 +1604,16 @@ void global_kron_matrix<precision>::apply(
 template<typename precision>
 template<resource rec>
 void block_global_kron_matrix<precision>::apply(
-    imex_flag etype, precision alpha, precision const *x,
-    precision beta, precision *y) const
+    imex_flag etype, precision alpha, precision *y) const
 {
   int const imex = static_cast<int>(etype);
 
   std::vector<int> const &used_terms = term_groups_[imex];
 
-  if (beta == 0)
-    kronmult::set_buffer_to_zero<rec>(num_active_, y);
-  else
-    lib_dispatch::scal<resource::host>(num_active_, beta, y, 1);
-
-  if (used_terms.size() == 0)
-    return;
-
-  std::copy_n(x, num_active_, workspace_->x.begin());
   std::fill_n(workspace_->y.begin(), num_padded_, precision{0});
 
   kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
-                       perms_, flux_dir_, conn_volumes_, conn_full_,
+                       perms_, flux_dir_, *conn_volumes_, *conn_full_,
                        gvals_, used_terms, workspace_->x.data(),
                        workspace_->y.data(), *workspace_);
 
@@ -1643,25 +1627,21 @@ template<typename precision>
 block_global_kron_matrix<precision>
 make_block_global_kron_matrix(PDE<precision> const &pde,
                               adapt::distributed_grid<precision> const &dis_grid,
-                              options const &program_options,
+                              connect_1d const *volumes, connect_1d const *fluxes,
                               kronmult::block_global_workspace<precision> *workspace)
 {
-  int const porder    = pde.get_dimensions()[0].get_degree() - 1;
-  int const pterms    = porder + 1; // poly degrees of freedom
-  int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level();
+  int const porder = pde.get_dimensions()[0].get_degree() - 1;
+  int const pterms = porder + 1; // poly degrees of freedom
 
   int const num_dimensions = pde.num_dims();
   int const num_terms      = pde.num_terms();
 
   int64_t block_size = fm::ipow(pterms, num_dimensions);
 
-  connect_1d fluxes(max_level, connect_1d::hierarchy::full);
-  connect_1d volumes(max_level, connect_1d::hierarchy::volume);
-
   vector2d<int> cells = get_cells(num_dimensions, dis_grid);
   int const num_cells = cells.num_strips();
 
-  indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
+  indexset padded = compute_ancestry_completion(make_index_set(cells), *volumes);
   std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
 
   if (padded.num_indexes() > 0)
@@ -1703,7 +1683,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
       num_cells * block_size, num_padded,
       num_dimensions, pterms, block_size,
       std::move(cells), std::move(dsort), std::move(permutations),
-      std::move(flux_dir), std::move(volumes), std::move(fluxes),
+      std::move(flux_dir), volumes, fluxes,
       workspace);
 }
 
@@ -1731,7 +1711,7 @@ void set_specific_mode(PDE<precision> const &pde,
       {
         fk::matrix<precision> const &ops = pde.get_coefficients(t, d);
 
-        connect_1d const &conn = (mat.flux_dir_[t] == d) ? mat.conn_full_ : mat.conn_volumes_;
+        connect_1d const &conn = (mat.flux_dir_[t] == d) ? *mat.conn_full_ : *mat.conn_volumes_;
 
         mat.gvals_[t * num_dimensions + d].resize(n * n * conn.num_connections());
 
@@ -1761,12 +1741,12 @@ template vector2d<int> get_cells(int, adapt::distributed_grid<double> const &);
 #ifdef KRON_MODE_GLOBAL_BLOCK
 template class block_global_kron_matrix<double>;
 template void block_global_kron_matrix<double>::apply<resource::host>(
-    imex_flag, double, double const *, double, double *) const;
+    imex_flag, double, double *) const;
 
 template block_global_kron_matrix<double>
 make_block_global_kron_matrix<double>(PDE<double> const &,
                                       adapt::distributed_grid<double> const &,
-                                      options const &,
+                                      connect_1d const *, connect_1d const *,
                                       kronmult::block_global_workspace<double> *workspace);
 template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
@@ -1822,12 +1802,12 @@ template vector2d<int> get_cells(int, adapt::distributed_grid<float> const &);
 template class block_global_kron_matrix<float>;
 
 template void block_global_kron_matrix<float>::apply<resource::host>(
-    imex_flag, float, float const *, float, float *) const;
+    imex_flag, float, float *) const;
 
 template block_global_kron_matrix<float>
 make_block_global_kron_matrix<float>(PDE<float> const &,
                                      adapt::distributed_grid<float> const &,
-                                     options const &,
+                                     connect_1d const *, connect_1d const *,
                                      kronmult::block_global_workspace<float> *workspace);
 template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,

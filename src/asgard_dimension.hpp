@@ -1,22 +1,10 @@
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <iostream>
-#include <limits.h>
-#include <map>
-#include <memory>
-#include <string>
-#include <typeinfo>
-#include <vector>
-
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "program_options.hpp"
-#include "tools.hpp"
 
 namespace asgard
 {

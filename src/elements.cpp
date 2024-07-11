@@ -5,15 +5,6 @@
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
 #include "program_options.hpp"
-#include "tools.hpp"
-
-#include <cmath>
-#include <functional>
-#include <limits>
-#include <map>
-#include <numeric>
-#include <unordered_set>
-#include <vector>
 
 namespace asgard::elements
 {

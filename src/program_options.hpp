@@ -1,14 +1,6 @@
 #pragma once
 
 #include "asgard_vector.hpp"
-#include "tools.hpp"
-
-#include <limits>
-#include <map>
-#include <sstream>
-#include <string>
-#include <string_view>
-#include <vector>
 
 namespace asgard
 {

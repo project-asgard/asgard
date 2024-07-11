@@ -4,9 +4,6 @@
 #include "coefficients.hpp"
 #include "fast_math.hpp"
 #include "tests_general.hpp"
-#include "tools.hpp"
-#include <numeric>
-#include <random>
 
 #ifdef ASGARD_ENABLE_DOUBLE
 #ifdef ASGARD_ENABLE_FLOAT

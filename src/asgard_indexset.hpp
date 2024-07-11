@@ -1,12 +1,6 @@
 #pragma once
 
-#include <algorithm>
-#include <memory>
-#include <numeric>
-#include <vector>
-
 #include "asgard_grid_1d.hpp"
-#include "tools.hpp"
 
 namespace asgard
 {
@@ -141,14 +135,6 @@ inline vector2d<int> asg2tsg_convert(int num_dimensions, int64_t num_indexes,
   for (int64_t i = 0; i < num_indexes; i++)
     asg2tsg_convert(num_dimensions, asg + 2 * num_dimensions * i, tsg[i]);
   return tsg;
-}
-//! \brief Helper to compute integer power function, exact but not cheap.
-inline int64_t int_pow(int64_t base, int pow)
-{
-  int64_t result = 1;
-  for (int p = 0; p < pow; p++)
-    result *= base;
-  return result;
 }
 
 /*!

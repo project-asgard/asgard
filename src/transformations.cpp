@@ -4,11 +4,6 @@
 #include "batch.hpp"
 #include "matlab_utilities.hpp"
 #include "quadrature.hpp"
-#include "tools.hpp"
-#include <algorithm>
-#include <climits>
-#include <cmath>
-#include <numeric>
 
 namespace asgard
 {

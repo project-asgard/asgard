@@ -1,11 +1,5 @@
 #include "quadrature.hpp"
 #include "matlab_utilities.hpp"
-#include "tools.hpp"
-
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <functional>
 
 namespace asgard
 {

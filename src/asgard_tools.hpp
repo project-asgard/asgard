@@ -1,10 +1,37 @@
 #pragma once
+// one place for all std headers
+#include <algorithm>
+#include <array>
 #include <cassert>
 #include <chrono>
+#include <climits>
+#include <cmath>
+#include <csignal>
+#include <cstdint>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iomanip>
 #include <iostream>
+#include <limits>
+#include <list>
 #include <map>
+#include <math.h>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <numeric>
+#include <optional>
+#include <random>
+#include <sstream>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
+#include <typeinfo>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "build_info.hpp"

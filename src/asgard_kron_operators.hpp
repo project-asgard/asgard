@@ -4,7 +4,6 @@
 
 namespace asgard
 {
-
 #ifndef KRON_MODE_GLOBAL
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -35,10 +34,16 @@ struct kron_operators
 #endif
   }
 
-  //! \brief Apply the given matrix entry
   template<resource rec = resource::host>
   void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
   {
+    apply<rec>(entry, 0, alpha, x, beta, y);
+  }
+  //! \brief Apply the given matrix entry
+  template<resource rec = resource::host>
+  void apply(imex_flag entry, precision time, precision alpha, precision const x[], precision beta, precision y[]) const
+  {
+    ignore(time);
     matrices[static_cast<int>(entry)].template apply<rec>(alpha, x, beta, y);
   }
   int64_t flops(imex_flag entry) const
@@ -174,11 +179,51 @@ private:
 template<typename precision>
 struct kron_operators
 {
-  //! \brief Apply the given matrix entry
+  kron_operators() : pde_(nullptr), conn_volumes_(1), conn_full_(1) {}
+
   template<resource rec = resource::host>
   void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
   {
-    kglobal.template apply<rec>(entry, alpha, x, beta, y);
+    apply<rec>(entry, precision{0}, alpha, x, beta, y);
+  }
+
+  //! \brief Apply the given matrix entry
+  template<resource rec = resource::host>
+  void apply(imex_flag entry, precision time, precision alpha, precision const x[], precision beta, precision y[]) const
+  {
+    // prep stage for the operator application
+    // apply the beta parameter, all operations are incremental
+    if (beta == 0)
+      kronmult::set_buffer_to_zero<rec>(kglobal.num_active(), y);
+    else
+      lib_dispatch::scal<resource::host>(kglobal.num_active(), beta, y, 1);
+
+    // if any work will be done, copy x into the padded workspace
+    if (kglobal.is_active(entry) or interp)
+      std::copy_n(x, kglobal.num_active(), workspace.x.begin());
+
+    kglobal.template apply<rec>(entry, alpha, y);
+
+    if (interp)
+    {
+      // using the fact that workspace.x contains the padded values of x
+      // and workspace.y is extra scratch space that can be used here
+      interp.get_nodal_values(kglobal, domain_scale, workspace.x, workspace.y);
+      if (pde_->interp_nox())
+      {
+        pde_->interp_nox()(time, workspace.y, finterp);
+      }
+      else // must be interp_x
+      {
+        check_make_inodes();
+        pde_->interp_x()(time, inodes, workspace.y, finterp);
+      }
+      interp.compute_hierarchical_coeffs(kglobal, finterp);
+      interp.get_projection_coeffs(kglobal, finterp, workspace.y);
+      alpha /= domain_scale;
+      for (int64_t i = 0; i < kglobal.num_active(); i++)
+        y[i] += alpha * workspace.y[i];
+    }
   }
 
   int64_t flops(imex_flag entry) const
@@ -190,10 +235,37 @@ struct kron_operators
   void make(imex_flag entry, PDE<precision> const &pde,
             adapt::distributed_grid<precision> const &grid, options const &opts)
   {
+    if (pde_ == nullptr and pde.has_interp())
+    {
+      pde.get_domain_bounds(dmin, dslope);
+      domain_scale = precision{1};
+      for (int d = 0; d < pde.num_dims(); d++)
+      {
+        dslope[d] -= dmin[d];
+        domain_scale *= dslope[d];
+      }
+      domain_scale = precision{1} / std::sqrt(domain_scale);
+    }
+    int const max_level = (opts.do_adapt_levels) ? opts.max_level : pde.max_level();
+    if (conn_volumes_.max_loaded_level() != max_level)
+    { // TODO do we need to do this when level decreases and how do we recycle data
+      conn_volumes_ = connect_1d(max_level, connect_1d::hierarchy::volume);
+      conn_full_    = connect_1d(max_level, connect_1d::hierarchy::full);
+      if (pde.has_interp())
+      {
+        pde_   = &pde;
+        interp = interpolation(pde_->num_dims(), &conn_volumes_, &workspace);
+      }
+    }
     if (not kglobal)
     {
-      kglobal = make_block_global_kron_matrix(pde, grid, opts, &workspace);
+      kglobal = make_block_global_kron_matrix(pde, grid, &conn_volumes_, &conn_full_, &workspace);
       set_specific_mode(pde, grid, opts, entry, kglobal);
+      if (interp)
+      {
+        finterp.resize(workspace.x.size());
+        inodes.clear();
+      }
     }
     else if (not kglobal.specific_is_set(entry))
       set_specific_mode(pde, grid, opts, entry, kglobal);
@@ -227,14 +299,80 @@ struct kron_operators
     return kglobal.template get_diagonal_preconditioner<rec>();
   }
 
+  /*!
+   * \brief Returns the inteprolation nodes, uses the padded grid.
+   *
+   * Used for computing the initial conditions and exact solution.
+   */
+  vector2d<precision> const &get_inodes() const
+  {
+    if (not interp)
+      throw std::runtime_error("get_inodes() requires enabled interpolation and made operators");
+    check_make_inodes();
+    return inodes;
+  }
+
+  /*!
+   * \brief Convert to nodal values at the inodes, uses the padded grid.
+   *
+   * Gives the nodal values of the solution at the inodes.
+   */
+  std::vector<precision> get_nodals(precision const x[]) const
+  {
+    if (not interp or not kglobal)
+      throw std::runtime_error("get_nodals() requires enabled interpolation and made operators");
+    std::copy_n(x, kglobal.num_active(), workspace.x.begin());
+    interp.get_nodal_values(kglobal, domain_scale, workspace.x, finterp);
+    return finterp;
+  }
+  /*!
+   * \brief Convert to projection from noal values, uses the padded grid.
+   *
+   * Puts the output inside the container_type
+   * (works with std::vector and fk::vector),
+   * the size will be set to include any padding.
+   */
+  template<typename container_type> // std::vector or fk::vector
+  void get_project(precision const nodal[], container_type &proj) const
+  {
+    if (not interp or not kglobal)
+      throw std::runtime_error("get_nodals() requires enabled interpolation and made operators");
+    proj.resize(workspace.x.size());
+    std::copy_n(nodal, kglobal.num_active(), workspace.x.begin());
+    interp.compute_hierarchical_coeffs(kglobal, workspace.x);
+    interp.get_projection_coeffs(kglobal.get_cells(), kglobal.get_dsort(),
+                                 precision{1} / domain_scale,
+                                 workspace.x.data(), proj.data());
+  }
+
 private:
+  void check_make_inodes() const
+  {
+    if (inodes.empty())
+    {
+      inodes = interp.get_nodes(kglobal.get_cells());
+      for (int64_t i = 0; i < inodes.num_strips(); i++)
+      {
+        for (int d = 0; d < pde_->num_dims(); d++)
+          inodes[i][d] = dmin[d] + inodes[i][d] * dslope[d];
+      }
+    }
+  }
+
+  PDE<precision> const *pde_;
+  precision domain_scale;
+  std::array<precision, max_num_dimensions> dmin, dslope;
+  connect_1d conn_volumes_, conn_full_;
+
   block_global_kron_matrix<precision> kglobal;
 
   interpolation<precision> interp;
+  mutable vector2d<precision> inodes;
 
-  kronmult::block_global_workspace<precision> workspace;
+  mutable kronmult::block_global_workspace<precision> workspace;
+  mutable std::vector<precision> finterp; // scratch used only for interpolation
 };
 
 #endif
 
-}
+} // namespace asgard

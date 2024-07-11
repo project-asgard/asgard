@@ -62,9 +62,11 @@ asgard_indexset.hpp
 asgard_indexset_tests.cpp
 asgard_interpolation1d.hpp
 asgard_interpolation1d.cpp
+asgard_interptest_common.hpp
 #asgard_interpolation1d_tests.cpp
 asgard_interpolation.hpp
 #asgard_interpolation_tests.cpp
+asgard_kron_operators.hpp
 asgard_kronmult_benchmark.cpp
 asgard_kronmult_matrix.cpp
 asgard_kronmult_matrix.hpp
@@ -78,6 +80,10 @@ asgard_resources_cuda.tpp
 asgard_resources_host.tpp
 asgard_resources.hpp
 asgard_resources_tests.cpp
+#asgard_testpdes_interpolation.hpp
+asgard_tools.cpp
+asgard_tools.hpp
+asgard_tools_tests.cpp
 asgard_vector.hpp
 #basis.cpp
 basis.hpp
@@ -143,9 +149,6 @@ tensors.hpp
 time_advance.cpp
 time_advance.hpp
 time_advance_tests.cpp
-tools.cpp
-tools.hpp
-tools_tests.cpp
 #transformations.cpp
 #transformations.hpp
 #transformations_tests.cpp

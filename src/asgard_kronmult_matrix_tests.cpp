@@ -457,15 +457,17 @@ int int_log2(int x)
 template<typename precision>
 void test_global_kron(int num_dimensions, int level)
 {
+  int constexpr max_num_dimensions = asgard::max_num_dimensions;
+
   std::minstd_rand park_miller(42);
   std::uniform_real_distribution<precision> unif(-1.0, 1.0);
 
   auto indexes = asgard::permutations::generate_lower_index_set(
       num_dimensions,
-      [&](std::vector<int> const &index) -> bool {
+      [&](std::array<int, max_num_dimensions> const &index) -> bool {
         int L = 0;
-        for (auto const &i : index)
-          L += int_log2(i);
+        for (int i = 0; i < num_dimensions; i++)
+          L += int_log2(index[i]);
         return (L <= level);
       });
 
