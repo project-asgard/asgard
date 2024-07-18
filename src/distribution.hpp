@@ -2,7 +2,7 @@
 #include "build_info.hpp"
 #include "elements.hpp"
 
-#include "asgard_mpi.h"
+#include "asgard_mpi.hpp"
 
 #ifdef ASGARD_USE_SCALAPACK
 #include "cblacs_grid.hpp"

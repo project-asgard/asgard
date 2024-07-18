@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_mpi.h"
+#include "asgard_mpi.hpp"
 namespace asgard
 {
 class cblacs_grid

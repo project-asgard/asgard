@@ -53,4 +53,4 @@ if (NOT EXISTS ${Clara_PATH}/clara.hpp)
 endif ()
 
 add_library (clara INTERFACE)
-target_include_directories (clara INTERFACE ${Clara_PATH})
+target_include_directories (clara INTERFACE $<BUILD_INTERFACE:${Clara_PATH}>)

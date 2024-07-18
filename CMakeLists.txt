@@ -272,9 +272,9 @@ set_target_properties(libasgard PROPERTIES OUTPUT_NAME "asgard"
                                            SOVERSION ${asgard_VERSION_MAJOR}
                                            VERSION   ${PROJECT_VERSION})
 
-if (build_hdf5)
-    add_dependencies (libasgard hdf5-ext)
-endif ()
+if (ASGARD_BUILD_HDF5)
+  add_dependencies (libasgard hdf5_external)
+endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
@@ -308,6 +308,7 @@ set (components
      asgard_indexset
      asgard_interpolation1d
      asgard_interpolation
+     asgard
 )
 
 if (ASGARD_IO_HIGHFIVE)
@@ -370,11 +371,11 @@ target_link_libraries (libasgard
                        PUBLIC
                        $<$<BOOL:${scalapack_FOUND}>:scalapack>
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
-                       $<$<BOOL:${LINALG_FOUND}>:LINALG::LINALG>
+                       $<$<BOOL:${LINALG_FOUND}>:asgard::LINALG>
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
                        clara
-                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:highfive>
-                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:hdf5>
+                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_highfive>
+                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_hdf5>
                        $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_ENGINE_LIBRARY}>
                        $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_DATAARRAY_LIBRARY}>
 )
@@ -568,3 +569,72 @@ if (ASGARD_BUILD_TESTS)
   message(STATUS "")
 
 endif ()
+
+#-------------------------------------------------------------------------------
+# Building the examples to make sure they build but will not run here
+#-------------------------------------------------------------------------------
+add_executable(example_continuity_2d "${CMAKE_CURRENT_SOURCE_DIR}/examples/continuity_2d.cpp")
+target_link_libraries(example_continuity_2d libasgard)
+
+#-------------------------------------------------------------------------------
+# Installing the library as stand-alone
+#-------------------------------------------------------------------------------
+include(CMakePackageConfigHelpers)
+
+target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>)
+
+set_target_properties(asgard_exe PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
+if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
+  set_target_properties(libasgard PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
+  set_target_properties(libasgard PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
+  set_target_properties(asgard_exe PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
+endif()
+
+
+foreach (_asg_target clara asgard_highfive asgard_hdf5 libasgard asgard_exe)
+  if (TARGET ${_asg_target})
+    install(TARGETS ${_asg_target}
+            EXPORT  "asgard-export"
+            RUNTIME DESTINATION "bin"
+            LIBRARY DESTINATION "lib"
+            ARCHIVE DESTINATION "lib")
+  endif()
+endforeach()
+
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.hpp" PATTERN "*.tpp")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp" "${CMAKE_CURRENT_SOURCE_DIR}/contrib/clara/clara.hpp"
+        DESTINATION include)
+
+configure_file(examples/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt @ONLY)
+configure_file(testing/TestingCMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt @ONLY)
+configure_file(testing/test_post_install.sh ${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh @ONLY)
+add_custom_target(test_install COMMAND "${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh")
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/examples/"
+        DESTINATION share/asgard/examples
+        FILES_MATCHING PATTERN "*.cpp")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt"
+        DESTINATION share/asgard/examples)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt"
+        DESTINATION share/asgard/testing)
+
+install(EXPORT "asgard-export" DESTINATION "lib/${CMAKE_PROJECT_NAME}" FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
+
+if (TARGET asgard_highfive)
+  # must install the highfive dependency
+  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/contrib/highfive/include/"
+          DESTINATION include)
+endif()
+
+configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/asgard-config.cmake"
+                              "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake"
+                              INSTALL_DESTINATION "lib/asgard/")
+write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
+                                 COMPATIBILITY AnyNewerVersion)
+# INSTALL_DESTINATION above seems to refer to something else, asgard-config.cmake must be installed explicitly
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake" "${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
+        DESTINATION "lib/asgard/"
+        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)

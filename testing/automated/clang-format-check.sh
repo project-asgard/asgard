@@ -71,7 +71,7 @@ asgard_kronmult_matrix.hpp
 asgard_kronmult_matrix_tests.cpp
 asgard_kronmult_tests.hpp
 asgard_matrix.hpp
-asgard_mpi.h
+asgard_mpi.hpp
 asgard_pde_system.hpp
 asgard_pde_system_tests.cpp
 asgard_resources_cuda.tpp

@@ -74,7 +74,7 @@ extern "C"
 #include <new>
 #include <type_traits>
 
-#include "asgard_mpi.h"
+#include "asgard_mpi.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>

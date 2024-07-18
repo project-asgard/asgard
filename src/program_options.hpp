@@ -33,6 +33,7 @@ static solve_map_t const solver_mapping = {
 // the choices for supported PDE types
 enum class PDE_opts
 {
+  custom, // user provided pde
   advection_1,
   continuity_1,
   continuity_2,
@@ -99,6 +100,9 @@ public:
 //
 using pde_map_t                    = std::map<std::string, PDE_descriptor>;
 static pde_map_t const pde_mapping = {
+    {"custom",
+     PDE_descriptor("user provided pde, can be omitted from the cli options",
+                    PDE_opts::custom)},
     {"continuity_1",
      PDE_descriptor("1D test case, continuity equation: df/dt + df/dx = 0",
                     PDE_opts::continuity_1)},
@@ -223,8 +227,8 @@ public:
   static auto constexpr DEFAULT_USE_LINF_NRM      = false;
   static auto constexpr DEFAULT_DO_POISSON        = false;
   static auto constexpr DEFAULT_DO_ADAPT          = false;
-  static auto constexpr DEFAULT_PDE_STR           = "continuity_2";
-  static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::continuity_2;
+  static auto constexpr DEFAULT_PDE_STR           = "custom";
+  static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::custom;
   static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
   static auto constexpr DEFAULT_SOLVER_STR        = std::string_view("direct");
   static auto constexpr DEFAULT_PDE_SELECTED_CASE = PDE_case_opts::case0;

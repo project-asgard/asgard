@@ -25,7 +25,7 @@ endif ()
 #-------------------------------------------------------------------------------
 #  Setup and build OpenBLAS if ASGARD_BUILD_OPENBLAS is ON
 #-------------------------------------------------------------------------------
-if (${ASGARD_BUILD_OPENBLAS})
+if (ASGARD_BUILD_OPENBLAS)
     register_project (openblas
                       OPENBLAS
                       https://github.com/xianyi/OpenBLAS.git
@@ -75,27 +75,32 @@ if (${ASGARD_BUILD_OPENBLAS})
         configure_file (${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS/${header}
                         ${FETCHCONTENT_BASE_DIR}/openblas-build/${header}
                         COPYONLY)
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS/${header}
+                DESTINATION include/)
     endforeach ()
+
+    install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/openblas-build/lib/"
+            DESTINATION lib)
 
     set (BLAS_FOUND 1)
     set (LAPACK_FOUND 1)
     find_package_handle_standard_args (LINALG
                                        REQUIRED_VARS BLAS_FOUND LAPACK_FOUND)
 
-    add_library (LINALG::LINALG INTERFACE IMPORTED)
-    target_link_libraries (LINALG::LINALG
+    add_library (asgard::LINALG INTERFACE IMPORTED)
+    target_link_libraries (asgard::LINALG
                            INTERFACE
                            openblas
     )
 
 #  Manually set the openblas include directory since openblas only sets the
 #  include directory for the install.
-    target_include_directories (LINALG::LINALG
+    target_include_directories (asgard::LINALG
                                 INTERFACE
                                 ${FETCHCONTENT_BASE_DIR}/openblas-build
     )
 
-    target_compile_definitions (LINALG::LINALG
+    target_compile_definitions (asgard::LINALG
                                 INTERFACE
                                 ASGARD_OPENBLAS
     )
@@ -103,14 +108,14 @@ else ()
     find_package_handle_standard_args (LINALG
                                        REQUIRED_VARS BLAS_FOUND LAPACK_FOUND)
 
-    add_library (LINALG::LINALG INTERFACE IMPORTED)
-    target_link_libraries (LINALG::LINALG
+    add_library (asgard::LINALG INTERFACE IMPORTED)
+    target_link_libraries (asgard::LINALG
                            INTERFACE
                            $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS>
                            $<$<BOOL:${LAPACK_FOUND}>:LAPACK::LAPACK>
     )
 
-    target_compile_definitions (LINALG::LINALG
+    target_compile_definitions (asgard::LINALG
                                 INTERFACE
                                 $<$<OR:$<AND:$<PLATFORM_ID:Darwin>,$<STREQUAL:${BLA_VENDOR},All>>,$<STREQUAL:${BLA_VENDOR},Apple>,$<STREQUAL:${BLA_VENDOR},NAS>>:ASGARD_ACCELERATE>
                                 $<$<STREQUAL:${BLA_VENDOR},OpenBLAS>:ASGARD_OPENBLAS>

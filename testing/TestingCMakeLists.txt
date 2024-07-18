@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.19)
+
+project(asgard_testing VERSION @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ LANGUAGES CXX)
+enable_testing()
+
+message(STATUS "Testing the ASGarD installation ...")
+
+find_package(asgard @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ PATHS "@CMAKE_INSTALL_PREFIX@")
+
+add_subdirectory("@CMAKE_INSTALL_PREFIX@/share/asgard/examples" examples_cxx)
+
+add_test(continuity_2d  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/example_continuity_2d")

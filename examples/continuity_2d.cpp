@@ -1,0 +1,258 @@
+#include "asgard.hpp"
+
+// if ASGarD is compiled with double precision, this defaults to double
+// if only single precision is avaiable, this will be float
+using precision = asgard::default_precision;
+
+// this problem is identical to PDE_continuity2d
+// the only difference is that it is set as a stand-alone example
+// and it is not incorporated into the core library
+class example_continuity2d : public asgard::PDE<precision>
+{
+public:
+  // ratio of circumference to diameter of a circle
+  static constexpr precision PI = 3.141592653589793;
+
+  // short-hand notation of the asgard vector
+  using vector = asgard::fk::vector<precision>;
+  // short-hand notation for the asgard 1d dimension
+  using dimension = asgard::dimension<precision>;
+
+  // short-hand notations
+  // a collection of PDE operators (term_set) is broken up into separable
+  //   multidimensional terms (term_md)
+  // each multidimensional terms has num-dimensions 1d components (term1d)
+  // each one dimensional term consists of one or more partial terms
+  using partial_term_1d = asgard::partial_term<precision>;
+  using term_1d = asgard::term<precision>;
+  using term_md = std::vector<asgard::term<precision>>;
+  // term_set is actually std::vector<term_md>
+  using term_set = asgard::term_set<precision>;
+
+  // short-hand notation
+  using source     = asgard::source<precision>;
+  using source_set = std::vector<source>;
+
+  example_continuity2d(asgard::parser const &cli_input)
+  {
+    // these fields check correctness of the specification
+    int constexpr num_dimensions = 2;
+    int constexpr num_sources    = 3;
+    int constexpr num_terms      = 2;
+
+    // the Poisson solver is not used here
+    bool constexpr do_poisson_solve  = false;
+
+    // flagging terms as time_independent (using the false value)
+    // improves speed by keeping some constant matrices across time-steps
+    bool constexpr time_independent = false;
+
+    // define the two dimensional domain and provide the initial conditions
+    // the level and degree can be modified via the command line arguments
+    dimension dim0(-1.0,                // domain min
+                   1.0,                 // domain max
+                   2,                   // levels
+                   2,                   // degree
+                   initial_condition_x, // initial condition
+                   nullptr,             // Cartesian coordinates
+                   "x");                // reference name
+
+    dimension dim1(-2.0,                // domain min
+                   2.0,                 // domain max
+                   2,                   // levels
+                   2,                   // degree
+                   initial_condition_y, // initial condition
+                   nullptr,             // Cartesian coordinates
+                   "y");                // reference name
+
+    // building up the divergence operator from simple components
+    partial_term_1d par_diff(
+        asgard::coefficient_type::div, // uses derivative
+        op_coeff,                      // -1.0
+        nullptr,                       // no r.h.s. mass component
+        asgard::flux_type::downwind,
+        asgard::boundary_condition::periodic,
+        asgard::boundary_condition::periodic);
+
+    partial_term_1d par_mass(
+        asgard::coefficient_type::mass, // mass matrix, identity
+        nullptr,                        // no coefficient (Cartesian domain)
+        nullptr,                        // no r.h.s. mass component
+        asgard::flux_type::central,
+        asgard::boundary_condition::periodic,
+        asgard::boundary_condition::periodic);
+
+    term_1d diff_x(time_independent, "v_x.d_dx", {par_diff});
+    term_1d mass_y(time_independent, "mass_y", {par_mass});
+
+    term_1d mass_x(time_independent, "mass_x", {par_mass});
+    term_1d diff_y(time_independent, "v_y.d_dy", {par_diff});
+
+    term_set terms = {
+        term_md{diff_x, mass_y},
+        term_md{mass_x, diff_y}
+    };
+
+    // in order to manufacture a specific analytic solution
+    // we use artificial source terms that more-or-less cancel the derivatives
+    // see the comments before the definition of diff_time
+    // each separable source consists of num-dimensions spacial funcitons
+    // and a time function
+    source s0({initial_condition_dx, initial_condition_y},  exact_sol_time);
+    source s1({initial_condition_x,  initial_condition_dy}, exact_sol_time);
+    source s2({initial_condition_x,  initial_condition_y},  exact_solution_dt);
+
+    source_set sources = {s0, s1, s2};
+
+    // the PDE has analytic solution
+    // the computed solution will be verified against the analytic one
+    // the solution is the product of the the 3 functions
+    static bool constexpr has_analytic_solution = true;
+    std::vector<asgard::vector_func<precision>> exact_solution = {
+        initial_condition_x, initial_condition_y, exact_solution_time};
+
+    // once all the components are prepared, the PDE must be initialized
+    // this is done at the end of the constructor
+    this->initialize(
+        cli_input, // allows modifications, e.g., override mesh level
+        num_dimensions, num_sources, num_terms,  // for sanity-check purposes
+        std::vector<dimension>{dim0, dim1}, // domain
+        terms, sources, exact_solution,
+        get_dt, do_poisson_solve, has_analytic_solution);
+  }
+
+private:
+  //
+  // function definitions needed to build up the dimension, terms and sources
+  //
+
+  // for all funtions, the "vector x" indicates a batch of quadrature points
+  // in the corresponding dimension (e.g., dim0 or dim1)
+  // the output should be a vector with the same size holding f(x)
+  // funcitons also accept a "time" variable but it is often ignored
+
+  // specify initial condition vector functions...
+  static vector initial_condition_x(vector const x, precision const = 0)
+  {
+    // ignored parameter corresponds to time
+    vector fx(x.size());
+    for (int i = 0; i < x.size(); i++)
+      fx[i] = std::cos(PI * x[i]);
+    return fx;
+  }
+
+  static vector initial_condition_y(vector const x, precision const = 0)
+  {
+    // ignored parameter corresponds to time
+    vector fx(x.size());
+    for (int i = 0; i < x.size(); i++)
+      fx[i] =  std::cos(precision{2.0} * PI * x[i]);
+    return fx;
+  }
+
+  // specify exact solution, which is
+  // initial_condition_dim0 * initial_condition_dim1 * exact_solution_time
+  static vector exact_solution_time(vector const, precision const t = 0)
+  {
+    // unlike the previous functions, the time variable is used
+    // while the x-variable is ignored
+    return {
+        std::sin(precision{2.0} * t),
+    };
+  }
+
+  // specify source functions...
+  // we are using the method of manufactured solutions where we create
+  // a source that will cancel most of the the PDE terms and result in problem
+  // with known analytic solution
+
+  // to this end, we need the derivatives
+  // of the three components of the exact solution
+
+  static vector initial_condition_dx(vector const x, precision const = 0)
+  {
+    // ignored parameter corresponds to time
+    vector fx(x.size());
+    for (int i = 0; i < x.size(); i++)
+      fx[i] = - PI * std::sin(PI * x[i]);
+    return fx;
+  }
+
+  static vector initial_condition_dy(vector const x, precision const = 0)
+  {
+    // ignored parameter corresponds to time
+    vector fx(x.size());
+    for (int i = 0; i < x.size(); i++)
+      fx[i] = precision{2.0} * PI * std::cos(precision{2.0} * PI * x[i]);
+    return fx;
+  }
+
+  // derivative of exact_solution_time
+  static precision exact_solution_dt(precision const t)
+  {
+    return precision{2.0} * std::cos(precision{2.0} * t);
+  }
+
+  // work around some inconsistent API, sorry ...
+  static precision exact_sol_time(precision const t)
+  {
+    return exact_solution_time(vector(), t)[0];
+  }
+
+  // a bit of a misnomer, this is a scaling factor applied to dt
+  // in conjuction with the CFL conidition provided from the command line
+  // (note: this is probably not fully supported at the moment)
+  static precision get_dt(asgard::dimension<precision> const &dim)
+  {
+    precision const x_range = dim.domain_max - dim.domain_min;
+    precision const dx      = x_range / asgard::fm::two_raised_to(dim.get_level());
+    // return dx; this will be scaled by CFL
+    // from command line
+    return dx;
+  }
+
+  // operator coefficient
+  static precision op_coeff(precision const, precision const)
+  {
+    // the signature is op_coeff(x, t) where x is in space and t is time
+    // here we are using a simple operator with just -1.0
+    return -1.0;
+  }
+
+};
+
+int main(int argc, char **argv)
+{
+  // if using MPI, this will call MPI_Init()
+  // with or without MPI, this sets the ASGarD environment
+  auto const [my_rank, num_ranks] = asgard::initialize_distribution();
+
+  // kill off unused processes (MPI only)
+  if (my_rank >= num_ranks)
+  {
+    asgard::finalize_distribution();
+    return 0;
+  }
+
+  // parse the command line inputs
+  asgard::parser const cli_input(argc, argv);
+
+  // if custom command line inputs are used, this check can be skipped
+  if (!cli_input.is_valid())
+  {
+    asgard::node_out() << "invalid cli string; exiting\n";
+    exit(-1);
+  }
+
+  // create an instance of the PDE that we want to solve
+  // pde has type std::unique_ptr<asgard::PDE<precision>>
+  auto pde = asgard::make_custom_pde<example_continuity2d>(cli_input);
+
+  // main call to asgard, does all the work
+  asgard::simulate(cli_input, pde);
+
+  // call MPI_Finalize() and/or cleanup after the simulation
+  asgard::finalize_distribution();
+
+  return 0;
+}
