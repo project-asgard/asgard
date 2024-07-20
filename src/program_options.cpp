@@ -100,6 +100,11 @@ parser::parser(int argc, char const *const *argv)
     valid = false;
   }
 
+  // default to max-level 8 but if max level is not explicitly given
+  // and the active levels exceed 8, then bump up the max-level
+  bool const missing_max_level = (max_level == DEFAULT_MAX_LEVEL);
+  max_level = std::max(max_level, 8);
+
   for (int i = 1; i < argc; i++)
   {
     this->cli_opts.push_back(std::string(argv[i]));
@@ -175,6 +180,10 @@ parser::parser(int argc, char const *const *argv)
     starting_levels.resize(starting_lev.size()) = starting_lev;
     // check that at least one level is greater than 0
     int lev_sum = 0;
+    if (missing_max_level)
+      for (auto const lev : starting_levels)
+        max_level = std::max(max_level, lev);
+
     for (auto const lev : starting_levels)
     {
       if (lev < 0)
@@ -438,6 +447,10 @@ parser::parser(int argc, char const *const *argv)
           << '\n';
       valid = false;
     }
+    if (missing_max_level)
+      for (int i = 0; i < max_adapt_levels.size(); ++i)
+        max_level = std::max(max_level, max_adapt_levels[i]);
+
     for (int i = 0; i < max_adapt_levels.size(); ++i)
     {
       if (max_adapt_levels[i] < 0)

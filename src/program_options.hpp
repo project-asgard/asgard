@@ -212,7 +212,7 @@ public:
 
   static auto constexpr DEFAULT_CFL               = 0.01;
   static auto constexpr DEFAULT_ADAPT_THRESH      = 1e-3;
-  static auto constexpr DEFAULT_MAX_LEVEL         = 8;
+  static auto constexpr DEFAULT_MAX_LEVEL         = -1;
   static auto constexpr DEFAULT_MIXED_GRID_GROUP  = -1;
   static auto constexpr DEFAULT_TIME_STEPS        = 10;
   static auto constexpr DEFAULT_WRITE_FREQ        = 0;
