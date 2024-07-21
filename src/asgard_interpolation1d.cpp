@@ -1,28 +1,10 @@
 #include "asgard_interpolation1d.hpp"
 
+#include "asgard_wavelet_basis.hpp"
+
 namespace asgard
 {
 #ifdef KRON_MODE_GLOBAL_BLOCK
-
-template<typename P>
-struct linear
-{
-  static P constexpr s3 = 1.73205080756887729; // sqrt(3.0)
-  // projection basis
-  static P pleg0(P) { return 1; }
-  static P pleg1(P x) { return 2 * s3 * x - s3; }
-  static P pwav0L(P x) { return s3 * (1 - 4 * x); }
-  static P pwav0R(P x) { return s3 * (-3 + 4 * x); }
-  static P pwav1L(P x) { return -1 + 6 * x; }
-  static P pwav1R(P x) { return -5 + 6 * x; }
-  // interpolation basis
-  static P ibas0(P x) { return -3 * x + 2; }
-  static P ibas1(P x) { return 3 * x - 1; }
-  static P iwav0L(P x) { return -6 * x + 2; }
-  static P iwav0R(P) { return 0; }
-  static P iwav1L(P) { return 0; }
-  static P iwav1R(P x) { return 6 * x - 4; }
-};
 
 /*
  * The 0 level basis (Legendre polynomials or simple Lagrane ones)
@@ -82,16 +64,16 @@ struct linear
 template<typename P>
 struct linear_integrator
 {
-  static constexpr auto pleg0  = linear<P>::pleg0;
-  static constexpr auto pleg1  = linear<P>::pleg1;
-  static constexpr auto pwav0L = linear<P>::pwav0L;
-  static constexpr auto pwav0R = linear<P>::pwav0R;
-  static constexpr auto pwav1L = linear<P>::pwav1L;
-  static constexpr auto pwav1R = linear<P>::pwav1R;
-  static constexpr auto ibas0  = linear<P>::ibas0;
-  static constexpr auto ibas1  = linear<P>::ibas1;
-  static constexpr auto iwav0L = linear<P>::iwav0L;
-  static constexpr auto iwav1R = linear<P>::iwav1R;
+  static constexpr auto pleg0  = linear_basis<P>::pleg0;
+  static constexpr auto pleg1  = linear_basis<P>::pleg1;
+  static constexpr auto pwav0L = linear_basis<P>::pwav0L;
+  static constexpr auto pwav0R = linear_basis<P>::pwav0R;
+  static constexpr auto pwav1L = linear_basis<P>::pwav1L;
+  static constexpr auto pwav1R = linear_basis<P>::pwav1R;
+  static constexpr auto ibas0  = linear_basis<P>::ibas0;
+  static constexpr auto ibas1  = linear_basis<P>::ibas1;
+  static constexpr auto iwav0L = linear_basis<P>::iwav0L;
+  static constexpr auto iwav1R = linear_basis<P>::iwav1R;
 
   // Gauss-Legendre quadrature on (0, 1), 2 points
   static P constexpr x0 = 0.21132486540518712;
@@ -204,10 +186,10 @@ void wavelet_interp1d<order, precision>::make_wavelet_wmat0(
 {
   if constexpr (order == 1)
   {
-    mat[0] = linear<precision>::pleg0(x[0]);
-    mat[1] = linear<precision>::pleg0(x[1]);
-    mat[2] = linear<precision>::pleg1(x[0]);
-    mat[3] = linear<precision>::pleg1(x[1]);
+    mat[0] = linear_basis<precision>::pleg0(x[0]);
+    mat[1] = linear_basis<precision>::pleg0(x[1]);
+    mat[2] = linear_basis<precision>::pleg1(x[0]);
+    mat[3] = linear_basis<precision>::pleg1(x[1]);
   }
 }
 
@@ -217,10 +199,10 @@ void wavelet_interp1d<order, precision>::make_wavelet_imat0(
 {
   if constexpr (order == 1)
   {
-    mat[0] = -linear<precision>::ibas0(x[0]);
-    mat[1] = -linear<precision>::ibas0(x[1]);
-    mat[2] = -linear<precision>::ibas1(x[0]);
-    mat[3] = -linear<precision>::ibas1(x[1]);
+    mat[0] = -linear_basis<precision>::ibas0(x[0]);
+    mat[1] = -linear_basis<precision>::ibas0(x[1]);
+    mat[2] = -linear_basis<precision>::ibas1(x[0]);
+    mat[3] = -linear_basis<precision>::ibas1(x[1]);
   }
 }
 
@@ -233,13 +215,13 @@ void wavelet_interp1d<order, precision>::make_wavelet_wmat(
     for (int i = 0; i < 2; i++)
       if (x[i] < 0.5) // using the left sections of the wavelets
       {
-        mat[i]     = linear<precision>::pwav0L(x[i]);
-        mat[i + 2] = linear<precision>::pwav1L(x[i]);
+        mat[i]     = linear_basis<precision>::pwav0L(x[i]);
+        mat[i + 2] = linear_basis<precision>::pwav1L(x[i]);
       }
       else // using the right section
       {
-        mat[i]     = linear<precision>::pwav0R(x[i]);
-        mat[i + 2] = linear<precision>::pwav1R(x[i]);
+        mat[i]     = linear_basis<precision>::pwav0R(x[i]);
+        mat[i + 2] = linear_basis<precision>::pwav1R(x[i]);
       }
   }
 }
@@ -253,13 +235,13 @@ void wavelet_interp1d<order, precision>::make_wavelet_imat(
     for (int i = 0; i < 2; i++)
       if (x[i] < 0.5) // using the left sections of the wavelets
       {
-        mat[i]     = -linear<precision>::iwav0L(x[i]);
-        mat[i + 2] = -linear<precision>::iwav1L(x[i]);
+        mat[i]     = -linear_basis<precision>::iwav0L(x[i]);
+        mat[i + 2] = -linear_basis<precision>::iwav1L(x[i]);
       }
       else // using the right section
       {
-        mat[i]     = -linear<precision>::iwav0R(x[i]);
-        mat[i + 2] = -linear<precision>::iwav1R(x[i]);
+        mat[i]     = -linear_basis<precision>::iwav0R(x[i]);
+        mat[i + 2] = -linear_basis<precision>::iwav1R(x[i]);
       }
   }
 }

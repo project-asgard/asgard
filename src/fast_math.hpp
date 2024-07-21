@@ -42,6 +42,36 @@ inline int intlog2(int x)
     result++;
   return result;
 }
+// computes std::pow( 2, std::floor( std::log2(x) ) )
+// using only integer bit-shifts
+inline int int2_raised_to_log2(int x)
+{
+  int result = 1;
+  while (x >>= 1)
+    result <<= 1;
+  return result;
+}
+// two outputs in one operation
+// computes int2_raised_to_log2(i) and std::pow(std::sqrt(2.0), intlog2(i))
+inline void intlog2_pow2pows2(int x, int &i2l2, double &is2l2)
+{
+  i2l2  = 1;
+  is2l2 = 1.0;
+  while (x >>= 1)
+  {
+    i2l2 <<= 1;
+    is2l2 *= 1.41421356237309505; // sqrt(2.0)
+  }
+}
+// computes std::pow( 0.5, std::floor( std::log2(x) ) )
+// uses faster logic
+inline double half_raided_to_intlog2(int x)
+{
+  double result = 1.0;
+  while (x >>= 1)
+    result *= 0.5;
+  return result;
+}
 
 template<typename P, mem_type mem>
 P nrminf(fk::vector<P, mem> const &x)

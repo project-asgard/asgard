@@ -88,6 +88,7 @@ endif()
 
 # set up possible commandline input variable defaults (override with -D)
 include(CMakeDependentOption)
+option (BUILD_SHARED_LIBS "Build the ASGarD library with dynamic or static linking" ON)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
 option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
@@ -110,6 +111,7 @@ cmake_dependent_option (ASGARD_USE_SCALAPACK "Use optional scalapack linear alge
 option (ASGARD_USE_MATLAB "Optional MATLAB plotting support for asgard" OFF)
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
+option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
 
 set (ASGARD_PRECISIONS "float;double" CACHE STRING "Select floating point precision, supported values are 'float', 'double' or 'float;double'")
 set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;double")
@@ -202,6 +204,52 @@ endif()
 if (ASGARD_USE_MATLAB)
     find_package(Matlab REQUIRED) # Should there be a minimum MATLAB version needed?
 endif ()
+
+if (ASGARD_USE_PYTHON)
+    if (NOT BUILD_SHARED_LIBS)
+        message(FATAL_ERROR "The ASGarD python module requires shared libraries, set -DBUILD_SHARED_LIBS=ON")
+    endif()
+    find_package(Python 3.0 REQUIRED COMPONENTS Interpreter)
+
+    # CMake accepts YES, ON or 1 in either upper or lower case
+    # some configured scripts use only ON as a valid value
+    set(ASGARD_USE_PYTHON ON)
+
+    # the python module should be available and working from both the build and install folders
+    # hence, we do the configuration twice
+    set(__pyasgard_libasgard_path__ "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/asgard_config.py")
+
+    # put the module and all testing files into the build tree
+    foreach(_asg_pybuildfile asgard.py pyasgard_test.py)
+        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
+                           COMMAND "${CMAKE_COMMAND}"
+                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
+                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}"
+                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}")
+        list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
+    endforeach()
+    foreach(_asg_pybuildfile continuity_2d.py)
+        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}"
+                           COMMAND "${CMAKE_COMMAND}"
+                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}
+                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}"
+                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}")
+        list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}")
+    endforeach()
+    add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
+
+    # install the module without the testing files
+    set(__pyasgard_libasgard_path__ "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages")
+
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py" DESTINATION "${_asgard_python_path}")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard.py" DESTINATION "${_asgard_python_path}")
+    foreach(_asg_pybuildfile example_continuity_2d.py)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" DESTINATION "${CMAKE_INSTALL_PREFIX}/share/asgard/examples/")
+    endforeach()
+endif()
 
 if (ASGARD_USE_MPI)
     find_package(MPI REQUIRED)
@@ -308,6 +356,7 @@ set (components
      asgard_indexset
      asgard_interpolation1d
      asgard_interpolation
+     asgard_reconstruct
      asgard_tools
      asgard
 )
@@ -483,11 +532,6 @@ if (ASGARD_BUILD_TESTS)
     adapt
     distribution
     time_advance
-    asgard_discretization
-  )
-  set (mpi_single_node_components # eventually there will be none
-    asgard_discretization
-    asgard_pde_system
   )
 
   if (ASGARD_USE_SCALAPACK)
@@ -523,9 +567,6 @@ if (ASGARD_BUILD_TESTS)
         if (${test_ranks} GREATER ${MPIEXEC_MAX_NUMPROCS})
             set(test_ranks ${MPIEXEC_MAX_NUMPROCS})
         endif ()
-        if (${component} IN_LIST mpi_single_node_components)
-          set(test_ranks "1")
-        endif()
 
         foreach (rank RANGE 1 ${test_ranks})
           add_test (NAME ${component}-test-mpi_${rank}
@@ -555,13 +596,18 @@ if (ASGARD_BUILD_TESTS)
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     set_tests_properties (${component}-test PROPERTIES PROCESSORS 2 ENVIRONMENT OMP_NUM_THREADS=2)
-  endforeach ()
+
+  endforeach()
+
+  if (ASGARD_USE_PYTHON)
+    add_test(NAME pyreconstruct-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
+  endif()
 
 # assuming testing makes us into a stand-alone project, so be more verbose
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
   message(STATUS "ASGarD build options (summary):")
-  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_MATLAB KRON_MODE_GLOBAL KRON_MODE_GLOBAL_BLOCK)
+  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_CUDA ASGARD_USE_MATLAB ASGARD_USE_PYTHON ASGARD_IO_HIGHFIVE KRON_MODE_GLOBAL KRON_MODE_GLOBAL_BLOCK)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_CUDA)
@@ -617,6 +663,10 @@ configure_file(examples/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/examples/CMak
 configure_file(testing/TestingCMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt @ONLY)
 configure_file(testing/test_post_install.sh ${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh @ONLY)
 add_custom_target(test_install COMMAND "${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh")
+
+configure_file(asgard-env.sh ${CMAKE_CURRENT_BINARY_DIR}/asgard-env.sh @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-env.sh"
+        DESTINATION bin)
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/examples/"
         DESTINATION share/asgard/examples

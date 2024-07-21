@@ -52,6 +52,7 @@ target_link_libraries(asgard::asgard INTERFACE libasgard)
 set(asgard_OPENMP_FOUND "@ASGARD_USE_OPENMP@")
 set(asgard_MPI_FOUND    "@ASGARD_USE_MPI@")
 set(asgard_CUDA_FOUND   "@ASGARD_USE_CUDA@")
+set(asgard_PYTHON_FOUND "@ASGARD_USE_PYTHON@")
 set(asgard_HDF5_FOUND   "@ASGARD_IO_HIGHFIVE@")
 
 set(_asgard_modules "")

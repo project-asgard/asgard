@@ -143,7 +143,7 @@ private:
     // ignored parameter corresponds to time
     vector fx(x.size());
     for (int i = 0; i < x.size(); i++)
-      fx[i] =  std::cos(precision{2.0} * M_PI * x[i]);
+      fx[i] =  std::sin(precision{2.0} * M_PI * x[i]);
     return fx;
   }
 

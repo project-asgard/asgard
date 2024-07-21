@@ -1154,7 +1154,9 @@ template<typename precision>
 class block_global_kron_matrix
 {
 public:
-  block_global_kron_matrix() : num_dimensions_(0), conn_volumes_(nullptr), conn_full_(nullptr), workspace_(nullptr) {}
+  block_global_kron_matrix()
+      : num_active_(0), num_padded_(0), num_dimensions_(0), blockn_(0), block_size_(0),
+        conn_volumes_(nullptr), conn_full_(nullptr), workspace_(nullptr) {}
 
   block_global_kron_matrix(int64_t num_active, int64_t num_padded,
                            int num_dimensions, int blockn, int64_t block_size,

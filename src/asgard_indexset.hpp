@@ -161,11 +161,11 @@ public:
       : num_dimensions_(num_dimensions), indexes_(std::move(indexes))
   {
     expect(indexes.size() % num_dimensions_ == 0);
-    num_indexes_ = static_cast<int>(indexes_.size() / num_dimensions_);
+    num_indexes_ = static_cast<int64_t>(indexes_.size() / num_dimensions_);
   }
 
   //! \brief Returns the number of stored multi-indexes.
-  int num_indexes() const { return num_indexes_; }
+  int64_t num_indexes() const { return num_indexes_; }
   //! \brief Returns the number of dimensions.
   int num_dimensions() const { return num_dimensions_; }
   //! \brief Total number of integer entries.
@@ -185,10 +185,10 @@ public:
   }
 
   //! \brief Find the index in the sorted list, returns -1 if missing
-  int find(const int *idx) const
+  int64_t find(const int *idx) const
   {
-    int first = 0, last = num_indexes_ - 1;
-    int current = (first + last) / 2;
+    int64_t first = 0, last = num_indexes_ - 1;
+    int64_t current = (first + last) / 2;
     while (first <= last)
     {
       match cmp = compare(current, idx);
@@ -229,8 +229,8 @@ public:
     std::vector<int> union_set;
     union_set.reserve(iset.indexes_.size() + indexes_.size());
 
-    int ia = 0;
-    int ib = 0;
+    int64_t ia = 0;
+    int64_t ib = 0;
     while (ia < num_indexes_ and ib < iset.num_indexes_)
     {
       match cmp = compare(ia, iset[ib]);
@@ -276,7 +276,7 @@ public:
   //! \brief Print the entire set, one index per row.
   void print(std::ostream &os = std::cout)
   {
-    for (int i = 0; i < num_indexes_; i++)
+    for (int64_t i = 0; i < num_indexes_; i++)
     {
       print(i, os);
       os << '\n';
@@ -292,7 +292,7 @@ protected:
     after_current
   };
   //! \brief Compare the multi-index to the one at the position current.
-  match compare(int current, int const *b) const
+  match compare(int64_t current, int const *b) const
   {
     int const *a = (*this)[current];
     for (int j = 0; j < num_dimensions_; j++)
@@ -307,7 +307,7 @@ protected:
 
 private:
   int num_dimensions_;
-  int num_indexes_;
+  int64_t num_indexes_;
   std::vector<int> indexes_;
 };
 

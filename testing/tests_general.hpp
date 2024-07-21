@@ -6,17 +6,8 @@
 
 #pragma once
 
-#include "build_info.hpp"
-#include "src/fast_math.hpp"
-#include "src/pde.hpp"
-#include "src/program_options.hpp"
-#include "src/quadrature.hpp"
+#include "asgard.hpp"
 #include <catch2/catch_all.hpp>
-#include <filesystem>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
 
 /*!
  * \defgroup AsgardTesting Miscellaneous testing utilities
