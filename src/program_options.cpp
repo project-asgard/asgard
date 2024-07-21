@@ -103,6 +103,7 @@ parser::parser(int argc, char const *const *argv)
   // default to max-level 8 but if max level is not explicitly given
   // and the active levels exceed 8, then bump up the max-level
   bool const missing_max_level = (max_level == DEFAULT_MAX_LEVEL);
+
   max_level = std::max(max_level, 8);
 
   for (int i = 1; i < argc; i++)

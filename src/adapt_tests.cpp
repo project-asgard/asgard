@@ -127,6 +127,7 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]",
                degree);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
   parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
+  parser_mod::set(parse, parser_mod::max_level, 8);
   test_adapt<TestType>(parse, adapt_base_dir / "continuity1_l4_d3_");
 }
 
@@ -144,6 +145,7 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", test_precs)
                degree);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
   parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
+  parser_mod::set(parse, parser_mod::max_level, 8);
 
   // temporarily disable test for MPI due to table elements < num ranks
   if (get_num_ranks() == 1)
@@ -167,6 +169,7 @@ TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
                degree);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
   parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
+  parser_mod::set(parse, parser_mod::max_level, 8);
   test_adapt<TestType>(parse, adapt_base_dir / "continuity3_l4_d4_");
 }
 
@@ -215,6 +218,7 @@ TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", test_precs)
   parser_mod::set(parse, parser_mod::do_adapt, true);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
   parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
+  parser_mod::set(parse, parser_mod::max_level, 8);
 
   // don't test this in the MPI case -- too small to split table
   if (get_num_ranks() == 1)
@@ -239,6 +243,7 @@ TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", test_precs)
   parser_mod::set(parse, parser_mod::do_adapt, true);
   parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
   parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
+  parser_mod::set(parse, parser_mod::max_level, 8);
 
   test_initial<TestType>(parse,
                          adapt_base_dir / "diffusion2_l2_d3_initial.dat");

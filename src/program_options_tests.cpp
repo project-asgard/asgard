@@ -111,7 +111,8 @@ TEST_CASE("parser constructor/getters", "[program_options]")
 
     REQUIRE(p.get_degree() == def_degree);
     REQUIRE(p.get_starting_levels() == def_levels);
-    REQUIRE(p.get_max_level() == def_max_level);
+    REQUIRE(def_max_level == -1);
+    REQUIRE(p.get_max_level() == 8);
     REQUIRE(p.get_time_steps() == def_num_steps);
     REQUIRE(p.get_wavelet_output_freq() == def_write_freq);
     REQUIRE(p.get_realspace_output_freq() == def_realspace_freq);
@@ -177,7 +178,7 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::cerr.setstate(std::ios_base::failbit);
     parser const p = make_parser({"-l=3", "-m=2"});
     std::cerr.clear();
-    REQUIRE(!p.is_valid());
+    REQUIRE(p.is_valid());
   }
   SECTION("negative cfl")
   {

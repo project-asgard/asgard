@@ -140,6 +140,8 @@ parser make_basic_parser(std::string const &pde_choice,
   parser_mod::set(parse, parser_mod::use_full_grid, full_grid);
   parser_mod::set(parse, parser_mod::num_time_steps, num_time_steps);
   parser_mod::set(parse, parser_mod::cfl, cfl);
+  // lots of tests assume max-level 8, which is an old behavior
+  parser_mod::set(parse, parser_mod::max_level, 8);
   return parse;
 }
 parser make_basic_parser(std::string const &pde_choice,
