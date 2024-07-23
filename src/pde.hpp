@@ -54,24 +54,13 @@ namespace asgard
 //
 // ---------------------------------------------------------------------------
 
-template<typename type_to_test, typename control_type = void>
-struct has_precision_mode : std::false_type
-{};
-
-template<typename type_to_test>
-struct has_precision_mode<type_to_test, std::void_t<typename type_to_test::precision_mode>> : std::true_type
-{};
-
 template<typename pde_class>
 auto make_custom_pde(parser const &cli_input)
 {
-  static_assert(has_precision_mode<pde_class>::value,
-                "incorrect precision_mode, the pde_class must inherit from PDE<float> or PDE<double>");
+  static_assert(std::is_base_of_v<PDE<float>, pde_class> or std::is_base_of_v<PDE<double>, pde_class>,
+                "the requested PDE class must inherit from the asgard::PDE base-class");
 
   using precision = typename pde_class::precision_mode;
-
-  static_assert(std::is_base_of<PDE<precision>, pde_class>::value,
-                "the requested PDE class must inherit from the asgard::PDE base-class");
 
   return std::unique_ptr<PDE<precision>>(std::make_unique<pde_class>(cli_input));
 }
