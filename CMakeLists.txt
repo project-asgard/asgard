@@ -81,6 +81,11 @@ else ()
   message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 endif ()
 
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set_property(CACHE CMAKE_INSTALL_PREFIX PROPERTY VALUE "${CMAKE_CURRENT_BINARY_DIR}/asgard_install")
+endif()
+
+
 # set up possible commandline input variable defaults (override with -D)
 include(CMakeDependentOption)
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
@@ -498,6 +503,10 @@ if (ASGARD_BUILD_TESTS)
     target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
+
+    if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
+      set_target_properties(${component}-tests PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
+    endif()
 
     if (ASGARD_USE_MPI)
       if (${component} IN_LIST mpi_test_components)
