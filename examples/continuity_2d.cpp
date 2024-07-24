@@ -10,9 +10,6 @@ using precision = asgard::default_precision;
 class example_continuity2d : public asgard::PDE<precision>
 {
 public:
-  // ratio of circumference to diameter of a circle
-  static constexpr precision PI = 3.141592653589793;
-
   // short-hand notation of the asgard vector
   using vector = asgard::fk::vector<precision>;
   // short-hand notation for the asgard 1d dimension
@@ -30,8 +27,8 @@ public:
   using term_set = asgard::term_set<precision>;
 
   // short-hand notation
-  using source     = asgard::source<precision>;
-  using source_set = std::vector<source>;
+  using source_md  = asgard::source<precision>;
+  using source_set = std::vector<source_md>;
 
   example_continuity2d(asgard::parser const &cli_input)
   {
@@ -66,50 +63,50 @@ public:
                    "y");                // reference name
 
     // building up the divergence operator from simple components
-    partial_term_1d par_diff(
+    partial_term_1d par_derivative(
         asgard::coefficient_type::div, // uses derivative
-        op_coeff,                      // -1.0
-        nullptr,                       // no r.h.s. mass component
+        op_coeff,                      // -1.0 (appears on the r.h.s)
+        nullptr,                       // no l.h.s. coefficient
         asgard::flux_type::downwind,
         asgard::boundary_condition::periodic,
         asgard::boundary_condition::periodic);
 
     partial_term_1d par_mass(
         asgard::coefficient_type::mass, // mass matrix, identity
-        nullptr,                        // no coefficient (Cartesian domain)
-        nullptr,                        // no r.h.s. mass component
+        nullptr,                        // no r.h.s. coefficient
+        nullptr,                        // no l.h.s. coefficient
         asgard::flux_type::central,
         asgard::boundary_condition::periodic,
         asgard::boundary_condition::periodic);
 
-    term_1d diff_x(time_independent, "v_x.d_dx", {par_diff});
+    term_1d d_x(time_independent, "d_x", {par_derivative});
     term_1d mass_y(time_independent, "mass_y", {par_mass});
 
     term_1d mass_x(time_independent, "mass_x", {par_mass});
-    term_1d diff_y(time_independent, "v_y.d_dy", {par_diff});
+    term_1d d_y(time_independent, "d_y", {par_derivative});
 
     term_set terms = {
-        term_md{diff_x, mass_y},
-        term_md{mass_x, diff_y}
+        term_md{d_x, mass_y},
+        term_md{mass_x, d_y}
     };
-
-    // in order to manufacture a specific analytic solution
-    // we use artificial source terms that more-or-less cancel the derivatives
-    // see the comments before the definition of diff_time
-    // each separable source consists of num-dimensions spacial funcitons
-    // and a time function
-    source s0({initial_condition_dx, initial_condition_y},  exact_sol_time);
-    source s1({initial_condition_x,  initial_condition_dy}, exact_sol_time);
-    source s2({initial_condition_x,  initial_condition_y},  exact_solution_dt);
-
-    source_set sources = {s0, s1, s2};
 
     // the PDE has analytic solution
     // the computed solution will be verified against the analytic one
     // the solution is the product of the the 3 functions
     static bool constexpr has_analytic_solution = true;
     std::vector<asgard::vector_func<precision>> exact_solution = {
-        initial_condition_x, initial_condition_y, exact_solution_time};
+        initial_condition_x, initial_condition_y, exact_time_vector};
+
+    // in order to manufacture a specific analytic solution
+    // we use artificial source terms that balance the derivatives
+    // see the comments before the definition of diff_time
+    // each separable source consists of num-dimensions spacial funcitons
+    // and a time function
+    source_md s0({initial_condition_dx, initial_condition_y},  exact_solution_time);
+    source_md s1({initial_condition_x,  initial_condition_dy}, exact_solution_time);
+    source_md s2({initial_condition_x,  initial_condition_y},  exact_solution_dt);
+
+    source_set sources = {s0, s1, s2};
 
     // once all the components are prepared, the PDE must be initialized
     // this is done at the end of the constructor
@@ -129,61 +126,68 @@ private:
   // for all funtions, the "vector x" indicates a batch of quadrature points
   // in the corresponding dimension (e.g., dim0 or dim1)
   // the output should be a vector with the same size holding f(x)
-  // funcitons also accept a "time" variable but it is often ignored
+  // funcitons also accept a "time" scalar but it is often ignored
 
   // specify initial condition vector functions...
-  static vector initial_condition_x(vector const x, precision const = 0)
+  static vector initial_condition_x(vector const &x, precision const = 0)
   {
     // ignored parameter corresponds to time
     vector fx(x.size());
     for (int i = 0; i < x.size(); i++)
-      fx[i] = std::cos(PI * x[i]);
+      fx[i] = std::cos(M_PI * x[i]);
     return fx;
   }
 
-  static vector initial_condition_y(vector const x, precision const = 0)
+  static vector initial_condition_y(vector const &x, precision const = 0)
   {
     // ignored parameter corresponds to time
     vector fx(x.size());
     for (int i = 0; i < x.size(); i++)
-      fx[i] =  std::cos(precision{2.0} * PI * x[i]);
+      fx[i] =  std::cos(precision{2.0} * M_PI * x[i]);
     return fx;
   }
 
   // specify exact solution, which is
   // initial_condition_dim0 * initial_condition_dim1 * exact_solution_time
-  static vector exact_solution_time(vector const, precision const t = 0)
+
+  // The exact_solution_time() has two signatures:
+  // - scalar-to-scalar signature used in the source definitions
+  // - vector signature that matches the signature of the initial conditions
+  static precision exact_solution_time(precision const t)
   {
-    // unlike the previous functions, the time variable is used
+    return std::sin(precision{2.0} * t);
+  }
+
+  static vector exact_time_vector(vector const &, precision const t = 0)
+  {
+    // unlike the initial condition functions, the time variable is used
     // while the x-variable is ignored
     return {
-        std::sin(precision{2.0} * t),
+        exact_solution_time(t),
     };
   }
 
   // specify source functions...
   // we are using the method of manufactured solutions where we create
-  // a source that will cancel most of the the PDE terms and result in problem
+  // a source that will balance the PDE terms and result in problem
   // with known analytic solution
 
   // to this end, we need the derivatives
   // of the three components of the exact solution
 
-  static vector initial_condition_dx(vector const x, precision const = 0)
+  static vector initial_condition_dx(vector const &x, precision const = 0)
   {
-    // ignored parameter corresponds to time
     vector fx(x.size());
     for (int i = 0; i < x.size(); i++)
-      fx[i] = - PI * std::sin(PI * x[i]);
+      fx[i] = - M_PI * std::sin(M_PI * x[i]);
     return fx;
   }
 
-  static vector initial_condition_dy(vector const x, precision const = 0)
+  static vector initial_condition_dy(vector const &x, precision const = 0)
   {
-    // ignored parameter corresponds to time
     vector fx(x.size());
     for (int i = 0; i < x.size(); i++)
-      fx[i] = precision{2.0} * PI * std::cos(precision{2.0} * PI * x[i]);
+      fx[i] = precision{2.0} * M_PI * std::cos(precision{2.0} * M_PI * x[i]);
     return fx;
   }
 
@@ -191,12 +195,6 @@ private:
   static precision exact_solution_dt(precision const t)
   {
     return precision{2.0} * std::cos(precision{2.0} * t);
-  }
-
-  // work around some inconsistent API, sorry ...
-  static precision exact_sol_time(precision const t)
-  {
-    return exact_solution_time(vector(), t)[0];
   }
 
   // a bit of a misnomer, this is a scaling factor applied to dt

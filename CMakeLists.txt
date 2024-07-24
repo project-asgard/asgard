@@ -645,5 +645,4 @@ write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/asgard-config-vers
                                  COMPATIBILITY AnyNewerVersion)
 # INSTALL_DESTINATION above seems to refer to something else, asgard-config.cmake must be installed explicitly
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake" "${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
-        DESTINATION "lib/asgard/"
-        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+        DESTINATION "lib/asgard/")
