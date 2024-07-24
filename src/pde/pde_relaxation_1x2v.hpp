@@ -271,7 +271,7 @@ private:
   }
 
   inline static const partial_term<P> i1_pterm_v = partial_term<P>(
-      coefficient_type::div, i1_g2, nullptr, flux_type::downwind,
+      coefficient_type::div, i1_g2, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i1v =

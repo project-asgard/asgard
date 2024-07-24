@@ -130,7 +130,7 @@ public:
     std::vector<dimen> domain = {dim0, dim1};
 
     partial_term_1d par_der(
-        coefficient_type::div, op_coeff, nullptr, flux_type::downwind,
+        coefficient_type::div, op_coeff, nullptr, flux_type::upwind,
         boundary_condition::periodic, boundary_condition::periodic);
 
     partial_term_1d par_mass(
@@ -270,7 +270,7 @@ public:
     }
 
     partial_term_1d par_der(
-        coefficient_type::div, neg_one, nullptr, flux_type::downwind,
+        coefficient_type::div, neg_one, nullptr, flux_type::upwind,
         boundary_condition::dirichlet, boundary_condition::dirichlet,
         homogeneity::homogeneous, homogeneity::homogeneous);
 

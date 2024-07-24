@@ -230,7 +230,7 @@ private:
   }
 
   inline static const partial_term<P> e1_pterm_x = partial_term<P>(
-      coefficient_type::div, e1_g1, nullptr, flux_type::downwind,
+      coefficient_type::div, e1_g1, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e1_pterm_v = partial_term<P>(
@@ -267,7 +267,7 @@ private:
   }
 
   inline static const partial_term<P> e2_pterm_x = partial_term<P>(
-      coefficient_type::div, e2_g1, nullptr, flux_type::upwind,
+      coefficient_type::div, e2_g1, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e2_pterm_v = partial_term<P>(
@@ -315,7 +315,7 @@ private:
               {pterm_E_mass_x_pos}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_dn = partial_term<P>(
-      coefficient_type::div, negOne, nullptr, flux_type::downwind,
+      coefficient_type::div, negOne, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
@@ -348,7 +348,7 @@ private:
               {pterm_E_mass_x_neg}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_up = partial_term<P>(
-      coefficient_type::div, negOne, nullptr, flux_type::upwind,
+      coefficient_type::div, negOne, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
@@ -386,7 +386,7 @@ private:
   }
 
   inline static const partial_term<P> nu_v_pterm = partial_term<P>(
-      coefficient_type::div, nu_v_func, nullptr, flux_type::downwind,
+      coefficient_type::div, nu_v_func, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const nu_v_term =

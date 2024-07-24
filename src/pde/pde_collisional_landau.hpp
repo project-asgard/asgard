@@ -189,7 +189,7 @@ private:
   }
 
   inline static const partial_term<P> e1_pterm_x = partial_term<P>(
-      coefficient_type::div, e1_g1, nullptr, flux_type::downwind,
+      coefficient_type::div, e1_g1, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e1_pterm_v = partial_term<P>(
@@ -225,7 +225,7 @@ private:
   }
 
   inline static const partial_term<P> e2_pterm_x = partial_term<P>(
-      coefficient_type::div, e2_g1, nullptr, flux_type::upwind,
+      coefficient_type::div, e2_g1, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> e2_pterm_v = partial_term<P>(
@@ -309,7 +309,7 @@ private:
               {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
+      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
@@ -347,7 +347,7 @@ private:
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static const partial_term<P> i1_pterm_v = partial_term<P>(
-      coefficient_type::div, i1_g2, nullptr, flux_type::downwind,
+      coefficient_type::div, i1_g2, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i1x =
@@ -462,7 +462,7 @@ private:
   }
 
   inline static const partial_term<P> e_penalty_pterm = partial_term<P>(
-      coefficient_type::penalty, penalty_func, nullptr, flux_type::downwind,
+      coefficient_type::penalty, penalty_func, nullptr, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::neumann,
       homogeneity::homogeneous, homogeneity::homogeneous);
 

@@ -66,9 +66,9 @@ enum class coefficient_type
 enum class flux_type
 {
 
-  downwind      = -1,
+  upwind        = -1,
   central       = 0,
-  upwind        = 1,
+  downwind      = 1,
   lax_friedrich = 0
 };
 

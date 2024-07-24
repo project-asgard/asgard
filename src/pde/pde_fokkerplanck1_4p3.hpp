@@ -130,7 +130,7 @@ private:
   }
 
   inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_1, nullptr, flux_type::downwind,
+      coefficient_type::div, g_func_1, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
       nullptr, dV_func);

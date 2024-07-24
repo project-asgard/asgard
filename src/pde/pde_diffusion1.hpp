@@ -48,7 +48,7 @@ private:
 
   /* Define terms */
   inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
+      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::neumann);
 
   static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
@@ -72,7 +72,7 @@ private:
   // TODO: Add interior penalty terms?
   // TODO: update nu value, check initial conditions
   inline static const partial_term<P> partial_term_1 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr, flux_type::upwind,
+      coefficient_type::grad, nullptr, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::inhomogeneous, homogeneity::inhomogeneous, {bc_func},
       bc_time_func, {bc_func}, bc_time_func);
@@ -99,7 +99,7 @@ private:
     return penalty;
   }
   inline static const partial_term<P> partial_term_2 = partial_term<P>(
-      coefficient_type::div, g3, nullptr, flux_type::downwind,
+      coefficient_type::div, g3, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
       nullptr, nullptr);

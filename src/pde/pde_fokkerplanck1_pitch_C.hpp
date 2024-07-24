@@ -143,24 +143,24 @@ private:
   //    termC_z.type = 'diff';
   // eq1 : 1 * d/dx (1-z^2) q
   //    termC_z.G1 = @(z,p,t,dat) 1-z.^2;
-  //    termC_z.LF1 = -1; % upwind left
+  //    termC_z.LF1 = -1; % downwind left
   //    termC_z.BCL1 = 'D';
   //    termC_z.BCR1 = 'D';
   // eq2 : q = df/dx
   //    termC_z.G2 = @(z,p,t,dat) z*0+1;
-  //    termC_z.LF2 = +1; % upwind right
+  //    termC_z.LF2 = +1; % downwind right
   //    termC_z.BCL2 = 'N';
   //    termC_z.BCR2 = 'N';
 
   inline static partial_term<P> const partial_term_0 =
       partial_term<P>(coefficient_type::div, nullptr, nullptr,
-                      flux_type::downwind, boundary_condition::dirichlet,
+                      flux_type::upwind, boundary_condition::dirichlet,
                       boundary_condition::dirichlet, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
   inline static partial_term<P> const partial_term_1 =
       partial_term<P>(coefficient_type::grad, nullptr, nullptr,
-                      flux_type::upwind, boundary_condition::neumann,
+                      flux_type::downwind, boundary_condition::neumann,
                       boundary_condition::neumann, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 

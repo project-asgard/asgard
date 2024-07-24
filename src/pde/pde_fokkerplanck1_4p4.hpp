@@ -157,7 +157,7 @@ private:
 
   inline static partial_term<P> const partial_term_0 =
       partial_term<P>(coefficient_type::div, g_func_t1_z, nullptr,
-                      flux_type::downwind, boundary_condition::dirichlet,
+                      flux_type::upwind, boundary_condition::dirichlet,
                       boundary_condition::dirichlet, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
@@ -172,13 +172,13 @@ private:
   // +C * d/dz( (1-z^2) df/dz )
   inline static partial_term<P> const partial_term_1 =
       partial_term<P>(coefficient_type::div, nullptr, nullptr,
-                      flux_type::downwind, boundary_condition::dirichlet,
+                      flux_type::upwind, boundary_condition::dirichlet,
                       boundary_condition::dirichlet, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 
   inline static partial_term<P> const partial_term_2 =
       partial_term<P>(coefficient_type::grad, nullptr, nullptr,
-                      flux_type::upwind, boundary_condition::neumann,
+                      flux_type::downwind, boundary_condition::neumann,
                       boundary_condition::neumann, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 

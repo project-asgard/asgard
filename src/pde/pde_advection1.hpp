@@ -134,8 +134,8 @@ private:
       coefficient_type::div, // type
       g_func_0,              // g func
       nullptr,               // lhs
-      flux_type::downwind,   // flux = "-1" (downwind), "0" (central), "+1"
-                             // (upwind)
+      flux_type::upwind,     // flux = "-1" (upwind), "0" (central), "+1"
+
       boundary_condition::dirichlet, // left boundary condition type ("D", "N",
                                      // "P")
       boundary_condition::neumann,   // right boundary condition type,

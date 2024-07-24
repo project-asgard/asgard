@@ -150,11 +150,11 @@ private:
   //
   // term2_z.type = 'grad'; % grad (see coeff_matrix.m for available types)
   // term2_z.G = @(z,p,t,dat) -1.*(1-z.^2); % G function for use in coeff_matrix
-  // construction. term2_z.LF = -1; % Upwind term2_z.name = 'd_dz';
+  // construction. term2_z.LF = -1; % D-Upwind term2_z.name = 'd_dz';
 
   inline static partial_term<P> const partial_term_0 =
       partial_term<P>(coefficient_type::div, g_func_1, nullptr,
-                      flux_type::downwind, boundary_condition::neumann,
+                      flux_type::upwind, boundary_condition::neumann,
                       boundary_condition::neumann, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
 

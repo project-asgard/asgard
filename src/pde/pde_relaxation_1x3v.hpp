@@ -390,7 +390,7 @@ private:
   }
 
   inline static const partial_term<P> nu_v_pterm = partial_term<P>(
-      coefficient_type::div, nu_v_func, nullptr, flux_type::downwind,
+      coefficient_type::div, nu_v_func, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const nu_v_term =

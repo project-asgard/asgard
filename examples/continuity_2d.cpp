@@ -67,7 +67,7 @@ public:
         asgard::coefficient_type::div, // uses derivative
         op_coeff,                      // -1.0 (appears on the r.h.s)
         nullptr,                       // no l.h.s. coefficient
-        asgard::flux_type::downwind,
+        asgard::flux_type::upwind,
         asgard::boundary_condition::periodic,
         asgard::boundary_condition::periodic);
 

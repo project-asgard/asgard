@@ -416,13 +416,13 @@ private:
 
   // 1. create partial_terms
   inline static partial_term<P> const c1_pterm1 =
-      partial_term<P>(coefficient_type::div, c1_g1, nullptr, flux_type::upwind,
+      partial_term<P>(coefficient_type::div, c1_g1, nullptr, flux_type::downwind,
                       boundary_condition::dirichlet,
                       boundary_condition::neumann, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_p);
   inline static partial_term<P> const c1_pterm2 =
       partial_term<P>(coefficient_type::grad, c1_g1, nullptr,
-                      flux_type::downwind, boundary_condition::neumann,
+                      flux_type::upwind, boundary_condition::neumann,
                       boundary_condition::dirichlet, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_p);
   inline static partial_term<P> const c1_pterm3 =
@@ -458,7 +458,7 @@ private:
   // 1. create partial_terms
   inline static partial_term<P> const c2_pterm1 =
       partial_term<P>(coefficient_type::div, c2_g1, nullptr,
-                      flux_type::downwind, boundary_condition::neumann,
+                      flux_type::upwind, boundary_condition::neumann,
                       boundary_condition::dirichlet, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_p);
   inline static partial_term<P> const c2_pterm2 =
@@ -501,13 +501,13 @@ private:
       nullptr, dV_p3);
 
   inline static partial_term<P> const c3_pterm2 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
+      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
       nullptr, dV_z3);
 
   inline static partial_term<P> const c3_pterm3 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr, flux_type::downwind,
+      coefficient_type::grad, nullptr, nullptr, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::neumann,
       homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
       nullptr, dV_z3);
@@ -550,7 +550,7 @@ private:
   // 1. create partial_terms
   inline static partial_term<P> const e1_pterm1 =
       partial_term<P>(coefficient_type::div, e1_g1, nullptr,
-                      flux_type::downwind, boundary_condition::dirichlet,
+                      flux_type::upwind, boundary_condition::dirichlet,
                       boundary_condition::neumann, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_p);
   inline static partial_term<P> const e1_pterm2 =
@@ -593,7 +593,7 @@ private:
 
   // 1. create partial_terms
   inline static partial_term<P> const e2_pterm1 =
-      partial_term<P>(coefficient_type::div, e2_g1, nullptr, flux_type::upwind,
+      partial_term<P>(coefficient_type::div, e2_g1, nullptr, flux_type::downwind,
                       boundary_condition::neumann,
                       boundary_condition::dirichlet, homogeneity::homogeneous,
                       homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_p);
@@ -628,7 +628,7 @@ private:
       homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
       nullptr, dV_p3);
   inline static partial_term<P> const e3_pterm2 = partial_term<P>(
-      coefficient_type::div, e3_g2, nullptr, flux_type::downwind,
+      coefficient_type::div, e3_g2, nullptr, flux_type::upwind,
       boundary_condition::neumann, boundary_condition::neumann,
       homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
       nullptr, dV_z3);

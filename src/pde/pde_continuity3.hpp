@@ -302,7 +302,7 @@ private:
 
   // term 0
   inline static partial_term<P> const partial_term_t0_d0 = partial_term<P>(
-      coefficient_type::div, g_func_t0_d0, nullptr, flux_type::downwind,
+      coefficient_type::div, g_func_t0_d0, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term0_dim0_ = term<P>(false, // time-dependent
@@ -313,7 +313,7 @@ private:
 
   // term 1
   inline static partial_term<P> const partial_term_t1_d1 = partial_term<P>(
-      coefficient_type::div, g_func_t1_d1, nullptr, flux_type::downwind,
+      coefficient_type::div, g_func_t1_d1, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term1_dim1_ = term<P>(false, // time-dependent
@@ -324,7 +324,7 @@ private:
 
   // term 2
   inline static partial_term<P> const partial_term_t2_d2 = partial_term<P>(
-      coefficient_type::div, g_func_t2_d2, nullptr, flux_type::downwind,
+      coefficient_type::div, g_func_t2_d2, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term2_dim2_ = term<P>(false, // time-dependent

@@ -729,7 +729,7 @@ private:
 
   // term 0
   inline static partial_term<P> const partial_term_0_x_ = partial_term<P>(
-      coefficient_type::div, gx, nullptr, flux_type::downwind,
+      coefficient_type::div, gx, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term0_x_ = term<P>(false,      // time-dependent
@@ -739,7 +739,7 @@ private:
                                                       I_,       I_, I_};
   // term 1
   inline static partial_term<P> const partial_term_1_y_ = partial_term<P>(
-      coefficient_type::div, gy, nullptr, flux_type::downwind,
+      coefficient_type::div, gy, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term1_y_ = term<P>(false,      // time-dependent
@@ -749,7 +749,7 @@ private:
                                                       I_, I_,       I_};
   // term 2
   inline static partial_term<P> const partial_term_2_z_ = partial_term<P>(
-      coefficient_type::div, gz, nullptr, flux_type::downwind,
+      coefficient_type::div, gz, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term2_z_ = term<P>(false,      // time-dependent
@@ -760,7 +760,7 @@ private:
                                                       I_, I_, I_};
   // term 3
   inline static partial_term<P> const partial_term_3_vx_ = partial_term<P>(
-      coefficient_type::div, gvx, nullptr, flux_type::downwind,
+      coefficient_type::div, gvx, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term3_vx_ = term<P>(false,       // time-dependent
@@ -771,7 +771,7 @@ private:
                                                       term3_vx_, I_, I_};
   // term 4
   inline static partial_term<P> const partial_term_4_vy_ = partial_term<P>(
-      coefficient_type::div, gvy, nullptr, flux_type::downwind,
+      coefficient_type::div, gvy, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term4_vy_ = term<P>(false,       // time-dependent
@@ -782,7 +782,7 @@ private:
                                                       I_, term4_vy_, I_};
   // term 5
   inline static partial_term<P> const partial_term_5_vz_ = partial_term<P>(
-      coefficient_type::div, gvz, nullptr, flux_type::downwind,
+      coefficient_type::div, gvz, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term5_vz_ = term<P>(false,       // time-dependent
