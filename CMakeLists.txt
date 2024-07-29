@@ -303,11 +303,7 @@ set (components
      sparse
      time_advance
      transformations
-     asgard_field
-     asgard_dimension
-     asgard_discretization
      asgard_resources
-     asgard_pde_system
      asgard_kronmult_matrix
      asgard_indexset
      asgard_interpolation1d

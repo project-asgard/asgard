@@ -36,12 +36,6 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     quadrature_mode const quad_mode = quadrature_mode::use_degree);
 
 template<typename P>
-std::vector<fk::matrix<P>> gen_realspace_transform(
-    std::vector<dimension_description<P>> const &pde,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    quadrature_mode const quad_mode = quadrature_mode::use_degree);
-
-template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
     elements::table const &table,
@@ -54,15 +48,6 @@ template<typename P>
 void wavelet_to_realspace(
     std::vector<dimension<P>> const &pde, fk::vector<P> const &wave_space,
     elements::table const &table,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space,
-    quadrature_mode const quad_mode = quadrature_mode::use_degree);
-
-template<typename P>
-void wavelet_to_realspace(
-    std::vector<dimension_description<P>> const &pde,
-    fk::vector<P> const &wave_space, elements::table const &table,
     basis::wavelet_transform<P, resource::host> const &transformer,
     std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
     fk::vector<P> &real_space,
@@ -299,19 +284,6 @@ inline int dense_space_size(std::vector<dimension<precision>> const &dims)
       dims.cbegin(), dims.cend(), int64_t{1},
       [](int64_t const size, dimension<precision> const &dim) {
         return size * dense_dim_size(dim.get_degree(), dim.get_level());
-      });
-  expect(dense_size <= std::numeric_limits<int>::max());
-  return static_cast<int>(dense_size);
-}
-
-template<typename precision>
-inline int
-dense_space_size(std::vector<dimension_description<precision>> const &dims)
-{
-  int64_t const dense_size = std::accumulate(
-      dims.cbegin(), dims.cend(), int64_t{1},
-      [](int64_t const size, dimension_description<precision> const &dim) {
-        return size * dense_dim_size(dim.degree, dim.level);
       });
   expect(dense_size <= std::numeric_limits<int>::max());
   return static_cast<int>(dense_size);

@@ -160,47 +160,6 @@ gen_realspace_nodes(int const degree, int const level, P const min, P const max,
 }
 
 template<typename P>
-std::vector<fk::matrix<P>> gen_realspace_transform(
-    std::vector<dimension_description<P>> const &dims,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    quadrature_mode const quad_mode)
-{
-  /* contains a basis matrix for each dimension */
-  std::vector<fk::matrix<P>> real_space_transform;
-  real_space_transform.reserve(dims.size());
-
-  for (size_t i = 0; i < dims.size(); i++)
-  {
-    /* get the ith dimension */
-    dimension_description<P> const &d = dims[i];
-    int const level                   = d.level;
-    int const n_segments              = fm::two_raised_to(level);
-    int const deg_freedom_1d          = d.degree * n_segments;
-    P const normalize                 = (d.d_max - d.d_min) / n_segments;
-    /* create matrix of Legendre polynomial basis functions evaluated at the
-     * roots */
-    auto const roots = legendre_weights<P>(d.degree, -1, 1, quad_mode)[0];
-    fk::matrix<P> dimension_transform(roots.size() * n_segments,
-                                      deg_freedom_1d);
-    /* normalized legendre transformation matrix. Column i is legendre
-       polynomial of degree i. element (i, j) is polynomial evaluated at jth
-       root of the highest degree polynomial */
-    fk::matrix<P> const basis = legendre<P>(roots, d.degree)[0] *
-                                (static_cast<P>(1.0) / std::sqrt(normalize));
-    /* set submatrices of dimension_transform */
-    for (int j = 0; j < n_segments; j++)
-    {
-      int const diagonal_pos = d.degree * j;
-      dimension_transform.set_submatrix(roots.size() * j, diagonal_pos, basis);
-    }
-    real_space_transform.push_back(transformer.apply(dimension_transform, level,
-                                                     basis::side::right,
-                                                     basis::transpose::trans));
-  }
-  return real_space_transform;
-}
-
-template<typename P>
 void wavelet_to_realspace(
     PDE<P> const &pde, fk::vector<P> const &wave_space,
     elements::table const &table,
@@ -247,63 +206,6 @@ void wavelet_to_realspace(
       auto const id =
           elements::get_1d_index(coords(j), coords(j + dims.size()));
       auto const degree = dims[j].get_degree();
-      fk::matrix<P, mem_type::const_view> sub_matrix(
-          real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
-          id * degree, (id + 1) * degree - 1);
-      kron_matrices.push_back(sub_matrix);
-    }
-
-    /* create a view of a section of the wave space vector */
-    fk::vector<P, mem_type::const_view> const x(wave_space, i * stride,
-                                                (i + 1) * stride - 1);
-
-    chain.emplace_back(kron_matrices, x, workspace, real_space_accumulator);
-  }
-
-  /* clear out the vector */
-  real_space.scale(0);
-
-  for (auto const &link : chain)
-  {
-    link.execute();
-    real_space = real_space + real_space_accumulator;
-  }
-}
-
-template<typename P>
-void wavelet_to_realspace(
-    std::vector<dimension_description<P>> const &dims,
-    fk::vector<P> const &wave_space, elements::table const &table,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    std::array<fk::vector<P, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<P> &real_space, quadrature_mode const quad_mode)
-{
-  std::vector<batch_chain<P, resource::host>> chain;
-
-  /* generate the wavelet-to-real-space transformation matrices for each
-   * dimension */
-  std::vector<fk::matrix<P>> real_space_transform =
-      gen_realspace_transform(dims, transformer, quad_mode);
-
-  // FIXME Assume the degree in the first dimension is equal across all the
-  // remaining dimensions
-  auto const stride = std::pow(dims[0].degree, dims.size());
-
-  fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
-  fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
-      accumulator);
-
-  for (int64_t i = 0; i < table.size(); i++)
-  {
-    std::vector<fk::matrix<P, mem_type::const_view>> kron_matrices;
-    kron_matrices.reserve(dims.size());
-    auto const coords = table.get_coords(i);
-
-    for (size_t j = 0; j < dims.size(); j++)
-    {
-      auto const id =
-          elements::get_1d_index(coords(j), coords(j + dims.size()));
-      auto const degree = dims[j].degree;
       fk::matrix<P, mem_type::const_view> sub_matrix(
           real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
           id * degree, (id + 1) * degree - 1);
@@ -444,10 +346,6 @@ template std::vector<fk::matrix<double>> gen_realspace_transform(
     std::vector<dimension<double>> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
     quadrature_mode const quad_mode);
-template std::vector<fk::matrix<double>> gen_realspace_transform(
-    std::vector<dimension_description<double>> const &pde,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    quadrature_mode const quad_mode);
 template void wavelet_to_realspace(
     PDE<double> const &pde, fk::vector<double> const &wave_space,
     elements::table const &table,
@@ -457,13 +355,6 @@ template void wavelet_to_realspace(
     fk::vector<double> &real_space, quadrature_mode const quad_mode);
 template void wavelet_to_realspace(
     std::vector<dimension<double>> const &pde,
-    fk::vector<double> const &wave_space, elements::table const &table,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    std::array<fk::vector<double, mem_type::view, resource::host>, 2>
-        &workspace,
-    fk::vector<double> &real_space, quadrature_mode const quad_mode);
-template void wavelet_to_realspace(
-    std::vector<dimension_description<double>> const &pde,
     fk::vector<double> const &wave_space, elements::table const &table,
     basis::wavelet_transform<double, resource::host> const &transformer,
     std::array<fk::vector<double, mem_type::view, resource::host>, 2>
@@ -499,10 +390,6 @@ template std::vector<fk::matrix<float>> gen_realspace_transform(
     std::vector<dimension<float>> const &pde,
     basis::wavelet_transform<float, resource::host> const &transformer,
     quadrature_mode const quad_mode);
-template std::vector<fk::matrix<float>> gen_realspace_transform(
-    std::vector<dimension_description<float>> const &pde,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    quadrature_mode const quad_mode);
 template void wavelet_to_realspace(
     PDE<float> const &pde, fk::vector<float> const &wave_space,
     elements::table const &table,
@@ -511,12 +398,6 @@ template void wavelet_to_realspace(
     fk::vector<float> &real_space, quadrature_mode const quad_mode);
 template void wavelet_to_realspace(
     std::vector<dimension<float>> const &pde,
-    fk::vector<float> const &wave_space, elements::table const &table,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
-    fk::vector<float> &real_space, quadrature_mode const quad_mode);
-template void wavelet_to_realspace(
-    std::vector<dimension_description<float>> const &pde,
     fk::vector<float> const &wave_space, elements::table const &table,
     basis::wavelet_transform<float, resource::host> const &transformer,
     std::array<fk::vector<float, mem_type::view, resource::host>, 2> &workspace,
