@@ -143,7 +143,7 @@ private:
       id_to_start_;
 };
 
-extern simple_timer timer;
+inline simple_timer timer;
 
 /*!
  * Allows for RAII style of timing for blocks of code.
@@ -170,3 +170,96 @@ struct time_event
 };
 
 } // namespace asgard::tools
+
+namespace asgard
+{
+/*!
+ * \brief Iterator/generator for a sequence of integers
+ *
+ * This is needed for the indexof template
+ *
+ * Technically satisfies the requirements for legacy iterator
+ * but do not use directly, will be used internally in indexof
+ */
+template<typename idx_type = int64_t>
+struct index_iterator {
+  using iterator_category = std::random_access_iterator_tag;
+
+  using value_type      = idx_type;
+  using difference_type = idx_type;
+  using reference       = idx_type &;
+  using pointer         = idx_type *;
+
+  idx_type &operator *() { return value_; }
+  idx_type const &operator *() const { return value_; }
+  bool operator != (index_iterator const &other) const { return value_ != other.value_; }
+  index_iterator &operator++ () { ++value_; return *this; }
+  index_iterator &operator++ (int) { return index_iterator{value_++}; }
+  index_iterator &operator-- () { --value_; return *this; }
+  index_iterator &operator-- (int) { return index_iterator{value_--}; }
+
+  idx_type value_;
+};
+
+/*!
+ * \brief Allows for range for-loops but using indexes
+ *
+ * There is a repeated pattern in coding when cross-referencing entries
+ * between different vectors:
+ * \code
+ *   for (size_t i = 0; i < u.size(); i++)
+ *     u[i] = std::sqrt(x[i]);
+ * \endcode
+ * The operation can be done with a std::transform but it leads to a messy
+ * lambda capture and potential shadow. The index can be used to cross
+ * reference more complex structures where iterators would be messy and
+ * non-trivial, e.g., rows/columns of a matrix, sparse grid indexes, or
+ * entries in a vector2d. The index also helps keep a more expressive
+ * mathematical notation.
+ *
+ * On the other hand, the pattern is tedious to write over and over.
+ *
+ * This template provides an alternative and allows for syntax like:
+ * \code
+ *   for (auto i : indexof(u)) // i is int64_t
+ *     u[i] = std::sqrt(x[i]);
+ *
+ *   for (auto i : indexof<int>(u)) // i is int
+ *     u[i] = std::sqrt(x[i]);
+ *
+ *   for (auto i : indexof<size_t>(1, num_dimensions)) // i is size_t
+ *     u[i] = std::sqrt(x[i]);
+ * \endcode
+ *
+ * At -O3 Godbolt compiler profile yields the same code as for the constructs
+ * for-indexof and the regular for-loop.
+ */
+template<typename idx_type = int64_t>
+struct indexof
+{
+  template<typename vector_type>
+  indexof(vector_type const &f)
+      : beg_(0), end_(static_cast<idx_type>(f.size()))
+    {}
+  indexof(int num)
+      : beg_(0), end_(static_cast<idx_type>(num))
+    {}
+  indexof(int64_t num)
+      : beg_(0), end_(static_cast<idx_type>(num))
+    {}
+  indexof(size_t num)
+      : beg_(0), end_(static_cast<idx_type>(num))
+    {}
+  template<typename cidx_type>
+  indexof(cidx_type b, cidx_type e)
+      : beg_(b), end_(e)
+    {}
+
+  index_iterator<idx_type> begin() const { return index_iterator<idx_type>{beg_}; }
+  index_iterator<idx_type> end() const { return index_iterator<idx_type>{end_}; }
+
+  idx_type beg_;
+  idx_type end_;
+};
+
+}

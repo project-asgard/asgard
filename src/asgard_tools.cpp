@@ -110,6 +110,4 @@ void simple_timer::get_timing_stats(
   }
 }
 
-simple_timer timer;
-
 } // namespace asgard::tools
