@@ -233,23 +233,6 @@ TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("inf_norm function", "[matlab]", test_precs)
-{
-  SECTION("zeros -- vector")
-  {
-    fk::vector<TestType> const vec{0, 0, 0, 0, 0};
-    TestType const gold = 0;
-    REQUIRE(inf_norm(vec) == gold);
-  }
-
-  SECTION("plus and minus -- vector")
-  {
-    fk::vector<TestType> const vec{1, -1, 1, -4};
-    TestType const gold = 4;
-    REQUIRE(inf_norm(vec) == gold);
-  }
-}
-
 TEST_CASE("read_vector_from_bin_file returns expected vector", "[matlab]")
 {
   SECTION("read_vector_from_bin_file gets 100-element row vector")

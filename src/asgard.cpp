@@ -250,17 +250,8 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
           transformer, degree, time + pde->get_dt());
 
       // calculate root mean squared error
-      auto const RMSE = [&]() {
-        precision s{0};
-        for (int j = 0; j < f_val.size(); j++)
-        {
-          precision const d = f_val[j] - analytic_solution[j];
-          s += d * d;
-        }
-        return std::sqrt(s / f_val.size());
-      }();
-      auto const relative_error =
-          RMSE / inf_norm(analytic_solution) * 100;
+      auto const RMSE = fm::rmserr(f_val, analytic_solution);
+      auto const relative_error = 100 * RMSE  / fm::nrminf(analytic_solution);
       auto const [rmse_errors, relative_errors] =
           gather_errors<precision>(RMSE, relative_error);
       expect(rmse_errors.size() == relative_errors.size());

@@ -74,10 +74,6 @@ fk::vector<P> polyval(fk::vector<P> const &p, fk::vector<P> const &x);
 template<typename P>
 P l2_norm(fk::vector<P> const &vec);
 
-// norm( , 'inf') function, only for real vectors (infinity-norm)
-template<typename P>
-P inf_norm(fk::vector<P> const &vec);
-
 // find the indices in an fk::vector for which the predicate is true
 template<typename P, typename Func>
 fk::vector<int> find(fk::vector<P> const vect, Func pred)

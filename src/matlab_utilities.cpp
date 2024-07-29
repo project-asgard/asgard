@@ -168,19 +168,6 @@ P l2_norm(fk::vector<P> const &vec)
   return std::sqrt(accum);
 }
 
-// norm( , 'inf') function, only for real vectors (infinity-norm)
-template<typename P>
-P inf_norm(fk::vector<P> const &vec)
-{
-  auto abs_compare = [](P const a, P const b) {
-    return (std::abs(a) < std::abs(b));
-  };
-
-  P const result =
-      std::abs(*std::max_element(vec.begin(), vec.end(), abs_compare));
-  return result;
-}
-
 //-----------------------------------------------------------------------------
 //
 // these binary files can be generated from matlab or octave with
@@ -531,7 +518,6 @@ template fk::matrix<double> eye(int const M, int const N);
 template double polyval(fk::vector<double> const &p, double const x);
 
 template double l2_norm(fk::vector<double> const &vec);
-template double inf_norm(fk::vector<double> const &vec);
 template fk::vector<double>
 polyval(fk::vector<double> const &p, fk::vector<double> const &x);
 
@@ -560,7 +546,6 @@ template fk::vector<float> linspace(float const start, float const end,
 template fk::matrix<float> eye(int const M = 1);
 template float polyval(fk::vector<float> const &p, float const x);
 template float l2_norm(fk::vector<float> const &vec);
-template float inf_norm(fk::vector<float> const &vec);
 
 template fk::vector<float>
 polyval(fk::vector<float> const &p, fk::vector<float> const &x);
