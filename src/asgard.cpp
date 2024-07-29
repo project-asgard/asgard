@@ -305,14 +305,13 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
 #ifdef ASGARD_IO_HIGHFIVE
     if (opts.should_output_wavelet(i))
     {
-      write_output(*pde, cli_input, f_val, time, i + 1, f_val.size(),
-                   adaptive_grid.get_table(), "asgard_wavelet");
+      write_output(*pde, cli_input, f_val, time + pde->get_dt(), i + 1,
+                   f_val.size(), adaptive_grid.get_table(), "asgard_wavelet");
     }
     if (opts.should_output_realspace(i))
     {
-      write_output(*pde, cli_input, real_space, time, i + 1,
-                   f_val.size(), adaptive_grid.get_table(),
-                   "asgard_real");
+      write_output(*pde, cli_input, real_space, time + pde->get_dt(), i + 1,
+                   f_val.size(), adaptive_grid.get_table(), "asgard_real");
     }
 #endif
 
@@ -357,7 +356,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
         ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, n_nodes);
         ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, u_nodes);
         ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, th_nodes);
-        ml_plot.add_param(time);
+        ml_plot.add_param(time + pde->get_dt());
         ml_plot.call("vlasov_params");
       }
     }
