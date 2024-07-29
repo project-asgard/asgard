@@ -222,7 +222,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   for (auto i = start_step; i < opts.num_time_steps; ++i)
   {
     // take a time advance step
-    auto const time          = (i + 1) * pde->get_dt();
+    auto const time          = i * pde->get_dt();
     auto const update_system = i == 0;
     auto const method =
         opts.use_implicit_stepping
