@@ -50,12 +50,6 @@ pde/pde_vlasov_lb_full_f.hpp
 #adapt.cpp
 adapt.hpp
 adapt_tests.cpp
-asgard_dimension.hpp
-asgard_dimension_tests.cpp
-asgard_discretization.hpp
-#asgard_discretization_tests.cpp
-asgard_field.hpp
-asgard_field_tests.cpp
 asgard_grid_1d.hpp
 asgard_indexset.cpp
 asgard_indexset.hpp
@@ -74,8 +68,6 @@ asgard_kronmult_matrix_tests.cpp
 asgard_kronmult_tests.hpp
 asgard_matrix.hpp
 asgard_mpi.hpp
-asgard_pde_system.hpp
-asgard_pde_system_tests.cpp
 asgard_resources_cuda.tpp
 asgard_resources_host.tpp
 asgard_resources.hpp
