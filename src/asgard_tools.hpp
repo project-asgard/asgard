@@ -182,7 +182,8 @@ namespace asgard
  * but do not use directly, will be used internally in indexof
  */
 template<typename idx_type = int64_t>
-struct index_iterator {
+struct index_iterator
+{
   using iterator_category = std::random_access_iterator_tag;
 
   using value_type      = idx_type;
@@ -190,13 +191,21 @@ struct index_iterator {
   using reference       = idx_type &;
   using pointer         = idx_type *;
 
-  idx_type &operator *() { return value_; }
-  idx_type const &operator *() const { return value_; }
-  bool operator != (index_iterator const &other) const { return value_ != other.value_; }
-  index_iterator &operator++ () { ++value_; return *this; }
-  index_iterator &operator++ (int) { return index_iterator{value_++}; }
-  index_iterator &operator-- () { --value_; return *this; }
-  index_iterator &operator-- (int) { return index_iterator{value_--}; }
+  idx_type &operator*() { return value_; }
+  idx_type const &operator*() const { return value_; }
+  bool operator!=(index_iterator const &other) const { return value_ != other.value_; }
+  index_iterator &operator++()
+  {
+    ++value_;
+    return *this;
+  }
+  index_iterator &operator++(int) { return index_iterator{value_++}; }
+  index_iterator &operator--()
+  {
+    --value_;
+    return *this;
+  }
+  index_iterator &operator--(int) { return index_iterator{value_--}; }
 
   idx_type value_;
 };
@@ -240,20 +249,20 @@ struct indexof
   template<typename vector_type>
   indexof(vector_type const &f)
       : beg_(0), end_(static_cast<idx_type>(f.size()))
-    {}
+  {}
   indexof(int num)
       : beg_(0), end_(static_cast<idx_type>(num))
-    {}
+  {}
   indexof(int64_t num)
       : beg_(0), end_(static_cast<idx_type>(num))
-    {}
+  {}
   indexof(size_t num)
       : beg_(0), end_(static_cast<idx_type>(num))
-    {}
+  {}
   template<typename cidx_type>
   indexof(cidx_type b, cidx_type e)
       : beg_(b), end_(e)
-    {}
+  {}
 
   index_iterator<idx_type> begin() const { return index_iterator<idx_type>{beg_}; }
   index_iterator<idx_type> end() const { return index_iterator<idx_type>{end_}; }
@@ -262,4 +271,4 @@ struct indexof
   idx_type end_;
 };
 
-}
+} // namespace asgard
