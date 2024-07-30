@@ -1,11 +1,6 @@
 #pragma once
 
-#include "batch.hpp"
-
-#include "asgard_tools.hpp"
 #include "coefficients.hpp"
-#include "distribution.hpp"
-#include "elements.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
 #include "io.hpp"
@@ -19,12 +14,7 @@
 #include "matlab_plot.hpp"
 #endif
 
-#include "asgard_vector.hpp"
-#include "pde.hpp"
-#include "program_options.hpp"
 #include "time_advance.hpp"
-#include "transformations.hpp"
-#include <numeric>
 
 namespace asgard
 {

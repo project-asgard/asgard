@@ -1,5 +1,4 @@
 #include "program_options.hpp"
-#include "build_info.hpp"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wshadow"
 #include "clara.hpp"

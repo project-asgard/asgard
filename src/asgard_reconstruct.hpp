@@ -1,7 +1,6 @@
 #pragma once
 
 #include "asgard_interpolation.hpp"
-#include "elements.hpp"
 
 namespace asgard
 {
