@@ -28,7 +28,7 @@ public:
   static constexpr int matsize = pterms * pterms;
 
   //! null constructor
-  wavelet_interp1d() : conn(nullptr)
+  wavelet_interp1d()
   {}
   //! cache interpolation points and transformation matrices
   wavelet_interp1d(connect_1d const *conn_in) : conn(conn_in)
@@ -94,7 +94,7 @@ protected:
                          precision mat[]);
 
 private:
-  connect_1d const *conn;
+  connect_1d const *conn = nullptr;
   std::vector<precision> nodes_;
   std::vector<precision> proj2node_;
   std::vector<precision> node2hier_;

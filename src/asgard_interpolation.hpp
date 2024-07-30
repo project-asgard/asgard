@@ -19,7 +19,7 @@ class interpolation
 {
 public:
   //! constructs and empty interpolation class
-  interpolation() : num_dimenisons_(0), block_size(0), workspace_(nullptr)
+  interpolation()
   {}
   //! convert to true if the class has been initialized
   operator bool() const { return (num_dimenisons_ > 0); }
@@ -158,14 +158,14 @@ public:
   }
 
 private:
-  int num_dimenisons_;
+  int num_dimenisons_         = 0;
   static constexpr int pterms = 2; // remove static later
-  int64_t block_size;
+  int64_t block_size          = 0;
   kronmult::permutes perms;
 
   wavelet_interp1d<1, precision> wav1d;
 
-  mutable kronmult::block_global_workspace<precision> *workspace_;
+  mutable kronmult::block_global_workspace<precision> *workspace_ = nullptr;
 };
 
 #endif
