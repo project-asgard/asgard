@@ -97,8 +97,6 @@ While GitHub Topics reports 65 public repositories for the discontinuous-Galerki
 
 # Acknowledgements
 
-Notice: This manuscript has been authored by UT-Battelle, LLC under Contract No. DE-AC05-00OR22725 with the U.S. Department of Energy.  The publisher, by accepting the article for publication, acknowledges that the U.S. Government retains a non-exclusive, paid up, irrevocable, world-wide license to publish or reproduce the published form of the manuscript, or allow others to do so, for U.S. Government purposes. The DOE will provide public access to these results in accordance with the DOE Public Access Plan (http://energy.gov/downloads/doe-public-access-plan).
-
 This material is based upon work partially supported by the U.S. Department of Energy, Office of Science, Office of Advanced Scientific Computing Research, as part of 
 their Applied Mathematics Research Program; the U.S. Department of Energy, Office of Science, Office of Fusion Energy Science as part of their Fusion Research Energy Program;
 and the Laboratory Directed Research and Development Program of Oak Ridge National Laboratory (ORNL), managed by UT-Battelle, LLC for the U.S. Department of Energy under
