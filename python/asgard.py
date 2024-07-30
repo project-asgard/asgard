@@ -103,7 +103,7 @@ class pde_snapshot:
         The min/max values of x are provided in the dims list.
         The dims list also holds nominal values for the fixed dimensions.
         '''
-        assert len(dims) == self.num_dimensions, "the length of dims must match num_dimensions"
+        assert len(dims) == self.num_dimensions, "the length of dims (%d) must match num_dimensions (%d)" % (len(dims), self.num_dimensions)
 
         irange = -1
         minmax = None
@@ -132,13 +132,7 @@ class pde_snapshot:
             else:
                 pnts[:, i] = dims[i] * np.ones(x.shape)
 
-        presult = np.zeros(x.shape)
-        libasgard.asgard_reconstruct_solution(self.recsol,
-                                              np.ctypeslib.as_ctypes(pnts.reshape(-1,)),
-                                              pnts.shape[0],
-                                              np.ctypeslib.as_ctypes(presult))
-
-        return presult, x
+        return self.evaluate(pnts).reshape(x.shape), x
 
     def plot_data2d(self, dims, num_points = 32):
         '''
@@ -202,10 +196,15 @@ class pde_snapshot:
             if not isinstance(dims[i], (list, tuple)):
                 pgrid[:, i] = dims[i]
 
-        presult = np.zeros(XX.shape)
-        libasgard.asgard_reconstruct_solution(self.recsol,
-                                              np.ctypeslib.as_ctypes(pgrid.reshape(-1,)),
-                                              pgrid.shape[0],
-                                              np.ctypeslib.as_ctypes(presult.reshape(-1,)))
+        return self.evaluate(pgrid).reshape(XX.shape), XX, YY
 
-        return presult, XX, YY
+    def evaluate(self, points):
+        assert len(points.shape) == 2, 'points must be a 2d numpy array with num-columns equal to self.num_dimensions'
+        assert points.shape[1] == self.num_dimensions, 'points.shape[1] (%d) must be equal to self.num_dimensions (%d)' % (points.shape[1], self.num_dimensions)
+
+        presult = np.empty((points.shape[0], ), np.float64)
+        libasgard.asgard_reconstruct_solution(self.recsol,
+                                              np.ctypeslib.as_ctypes(points.reshape(-1,)),
+                                              points.shape[0],
+                                              np.ctypeslib.as_ctypes(presult.reshape(-1,)))
+        return presult

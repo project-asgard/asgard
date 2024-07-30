@@ -247,8 +247,34 @@ if (ASGARD_USE_PYTHON)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py" DESTINATION "${_asgard_python_path}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard.py" DESTINATION "${_asgard_python_path}")
     foreach(_asg_pybuildfile example_continuity_2d.py)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" DESTINATION "${CMAKE_INSTALL_PREFIX}/share/asgard/examples/")
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" DESTINATION share/asgard/examples/)
     endforeach()
+
+    # MATLAB section, always installed with python but it doesn't have to run
+    set(_asgardpy_exe_ "PYTHONPATH=\\\"\$PYTHONPATH:${CMAKE_CURRENT_BINARY_DIR}\\\" ${Python_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/asgard_matlab.py")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_file_stats.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_file_stats.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot1d.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_plot1d.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot2d.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_plot2d.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_evaluate.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_evaluate.m" @ONLY)
+    set(_asgardpy_exe_ "PYTHONPATH=\\\"\$PYTHONPATH:${_asgard_python_path}\\\" ${Python_EXECUTABLE} ${CMAKE_INSTALL_PREFIX}/share/asgard/matlab/asgard_matlab.py")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_file_stats.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_file_stats.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot1d.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_plot1d.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot2d.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_plot2d.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_evaluate.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_evaluate.m" @ONLY)
+    install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/"
+            DESTINATION share/asgard/matlab
+            FILES_MATCHING PATTERN "*.m")
+
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/examples/continuity_2d.m" "${CMAKE_CURRENT_BINARY_DIR}/example_continuity_2d.m" @ONLY)
+    foreach(_asg_pybuildfile example_continuity_2d.m)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" DESTINATION share/asgard/examples)
+    endforeach()
+
+    set(_asgard_matlab_pypath_ "${CMAKE_CURRENT_BINARY_DIR}")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_matlab.py" "${CMAKE_CURRENT_BINARY_DIR}/asgard_matlab.py" @ONLY)
+    set(_asgard_matlab_pypath_ "${_asgard_python_path}")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_matlab.py" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_matlab.py" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_matlab.py" DESTINATION share/asgard/matlab)
 endif()
 
 if (ASGARD_USE_MPI)
