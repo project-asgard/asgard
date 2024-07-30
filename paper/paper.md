@@ -15,7 +15,7 @@ authors:
   - name: Miroslav K Stoyanov
     orcid: 0000-0002-8199-5577
     affiliation: 1
-  - name: Stefan Schanke
+  - name: Stefan Schnake
     orcid: 0000-0002-1518-3538
     affiliation: 1
   - name: Eirik Endeve
