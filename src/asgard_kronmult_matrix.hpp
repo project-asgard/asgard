@@ -652,13 +652,13 @@ private:
     flops_ *= int64_t{tensor_size_} * kron_size_;
   }
 
-  int num_dimensions_;
-  int kron_size_; // i.e., n - size of the matrices
-  int num_rows_;
-  int num_cols_;
-  int num_terms_;
-  int64_t tensor_size_;
-  int64_t flops_;
+  int num_dimensions_  = 0;
+  int kron_size_       = 0; // i.e., n - size of the matrices
+  int num_rows_        = 0;
+  int num_cols_        = 0;
+  int num_terms_       = 0;
+  int64_t tensor_size_ = 0;
+  int64_t flops_       = 0;
 
 #ifdef ASGARD_USE_CUDA
   // indicates that the input vectors for single-call-mode will be on the GPU
@@ -704,7 +704,9 @@ private:
   std::vector<fk::vector<precision, mem_type::owner, data_mode>> terms_;
   fk::vector<precision *, mem_type::owner, data_mode> term_pntr_;
   fk::vector<int, mem_type::owner, data_mode> elem_;
-  int row_offset_, col_offset_, num_1d_blocks_;
+  int row_offset_    = 0;
+  int col_offset_    = 0;
+  int num_1d_blocks_ = 0;
 
   // preconditioner
   std::vector<precision> pre_con_;
@@ -1007,9 +1009,9 @@ protected:
 private:
   // description of the multi-indexes and the sparsity pattern
   // global case data
-  int num_dimensions_;
-  int64_t num_active_;
-  int64_t num_padded_;
+  int num_dimensions_ = 0;
+  int64_t num_active_ = 0;
+  int64_t num_padded_ = 0;
   std::vector<kronmult::permutes> perms_;
   std::array<int64_t, num_imex_variants> flops_;
   // data for the 1D tensors
@@ -1020,7 +1022,7 @@ private:
   std::vector<std::vector<precision>> gvals_;
   // collections of terms
   std::array<std::vector<int>, 3> term_groups;
-  int porder_;
+  int porder_ = 0;
   // preconditioner
   std::vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA
@@ -1154,9 +1156,7 @@ template<typename precision>
 class block_global_kron_matrix
 {
 public:
-  block_global_kron_matrix()
-      : num_active_(0), num_padded_(0), num_dimensions_(0), blockn_(0), block_size_(0),
-        conn_volumes_(nullptr), conn_full_(nullptr), workspace_(nullptr) {}
+  block_global_kron_matrix() {}
 
   block_global_kron_matrix(int64_t num_active, int64_t num_padded,
                            int num_dimensions, int blockn, int64_t block_size,
@@ -1261,20 +1261,22 @@ public:
       block_global_kron_matrix<precision> &mat);
 
 private:
-  int64_t num_active_, num_padded_;
-  int num_dimensions_, blockn_;
-  int64_t block_size_;
+  int64_t num_active_ = 0;
+  int64_t num_padded_ = 0;
+  int num_dimensions_ = 0;
+  int blockn_         = 0;
+  int64_t block_size_ = 0;
   vector2d<int> ilist_;
   dimension_sort dsort_;
   std::vector<kronmult::permutes> perms_;
   std::vector<int> flux_dir_;
-  connect_1d const *conn_volumes_;
-  connect_1d const *conn_full_;
+  connect_1d const *conn_volumes_ = nullptr;
+  connect_1d const *conn_full_    = nullptr;
 
   std::vector<std::vector<precision>> gvals_;
   std::array<std::vector<int>, 3> term_groups_;
 
-  mutable kronmult::block_global_workspace<precision> *workspace_;
+  mutable kronmult::block_global_workspace<precision> *workspace_ = nullptr;
 
   mutable std::array<int64_t, num_imex_variants> flops_;
 
