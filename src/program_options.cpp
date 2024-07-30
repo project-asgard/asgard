@@ -42,6 +42,8 @@ parser::parser(int argc, char const *const *argv)
       clara::detail::Opt(max_level,
                          "integer >= all starting levels")["-m"]["--max_level"](
           "Maximum hierarchical levels (resolution) for adaptivity") |
+      clara::detail::Opt(libinfo)["-v"]["--version"](
+          "Show information about this build.") |
       clara::detail::Opt(mixed_grid_group,
                          "integer < num dimensions")["--mixed_grid_group"](
           "Dimension group size for first sparse grid in the mixed "

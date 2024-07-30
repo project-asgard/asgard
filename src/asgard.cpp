@@ -8,6 +8,12 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
 {
   options const opts(cli_input);
 
+  if (cli_input.show_libinfo())
+  {
+    print_info();
+    return;
+  }
+
   node_out() << "Branch: " << GIT_BRANCH << '\n';
   node_out() << "Commit Summary: " << GIT_COMMIT_HASH
                      << GIT_COMMIT_SUMMARY << '\n';
@@ -394,5 +400,50 @@ template void simulate(parser const &cli_input, std::unique_ptr<PDE<double>> &pd
 #ifdef ASGARD_ENABLE_FLOAT
 template void simulate(parser const &cli_input, std::unique_ptr<PDE<float>> &pde);
 #endif
+
+void print_info(std::ostream &os)
+{
+  os << "\nASGarD v" << ASGARD_VERSION << "  git-hash: " << GIT_COMMIT_HASH << "\n";
+  os << "git-branch (" << GIT_BRANCH << ")\n";
+#ifdef KRON_MODE_GLOBAL
+#ifdef KRON_MODE_GLOBAL_BLOCK
+  os << "Kronmult method          Block-Global\n";
+#else
+  os << "Kronmult method          Global\n";
+#endif
+#else
+  os << "Kronmult method          Local\n";
+#endif
+#ifdef ASGARD_USE_CUDA
+  os << "GPU Acceleration         CUDA\n";
+#else
+  os << "GPU Acceleration         Disabled\n";
+#endif
+#ifdef ASGARD_USE_OPENMP
+  os << "OpenMP multithreading    Enablded\n";
+#else
+  os << "OpenMP multithreading    Disabled\n";
+#endif
+#ifdef ASGARD_USE_MPI
+  os << "MPI distributed grid     Enabled\n";
+#else
+  os << "MPI distributed grid     Disabled\n";
+#endif
+#ifdef ASGARD_IO_HIGHFIVE
+  os << "HDF5 - HighFive I/O      Enabled\n";
+#else
+  os << "HDF5 - HighFive I/O      Disabled\n";
+#endif
+#ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_ENABLE_FLOAT
+  os << "Available precisions     double/float\n";
+#else
+  os << "Available precision      double\n";
+#endif
+#else
+  os << "Available precision      float\n";
+#endif
+  os << '\n';
+}
 
 } // namespace asgard

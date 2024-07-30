@@ -40,4 +40,6 @@ void simulate(parser const &cli_input)
   simulate(cli_input, pde);
 }
 
+void print_info(std::ostream &os = std::cout);
+
 }

@@ -219,6 +219,7 @@ public:
   static auto constexpr DEFAULT_USE_LINF_NRM      = false;
   static auto constexpr DEFAULT_DO_POISSON        = false;
   static auto constexpr DEFAULT_DO_ADAPT          = false;
+  static auto constexpr DEFAULT_SHOW_INFO         = false;
   static auto constexpr DEFAULT_PDE_STR           = "custom";
   static auto constexpr DEFAULT_PDE_OPT           = PDE_opts::custom;
   static auto constexpr DEFAULT_SOLVER            = solve_opts::direct;
@@ -348,6 +349,8 @@ public:
 
   bool is_valid() const;
 
+  bool show_libinfo() const { return libinfo; }
+
   fk::vector<int> get_max_adapt_levels() const;
 
 private:
@@ -426,6 +429,8 @@ private:
   // max(abs(x)) for solution vector x * adapt_thresh
   // is the threshold for refining elements
   double adapt_threshold = DEFAULT_ADAPT_THRESH;
+
+  bool libinfo = DEFAULT_SHOW_INFO;
 
   // default
   std::string pde_str = DEFAULT_PDE_STR;
