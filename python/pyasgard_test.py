@@ -60,7 +60,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
         libasgard = asgard.libasgard
         pntr = libasgard.asgard_make_dreconstruct_solution(
                 1, num_cells, np.ctypeslib.as_ctypes(cells),
-                2, np.ctypeslib.as_ctypes(state))
+                1, np.ctypeslib.as_ctypes(state))
 
         libasgard.asgard_reconstruct_solution_setbounds(
             pntr, np.ctypeslib.as_ctypes(dmin), np.ctypeslib.as_ctypes(dmax))
@@ -101,7 +101,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
         libasgard = asgard.libasgard
         pntr = libasgard.asgard_make_dreconstruct_solution(
                 2, num_cells, np.ctypeslib.as_ctypes(cells),
-                2, np.ctypeslib.as_ctypes(state))
+                1, np.ctypeslib.as_ctypes(state))
 
         libasgard.asgard_reconstruct_solution_setbounds(
             pntr, np.ctypeslib.as_ctypes(dmin), np.ctypeslib.as_ctypes(dmax))
@@ -151,7 +151,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
     # simple IO test
     def test_simple1d(self):
         print("\ntesting 1d plot")
-        os.system("./asgard -p continuity_1 -d 2 -l 6 -w 10 -t 0.01 1>/dev/null")
+        os.system("./asgard -p continuity_1 -d 1 -l 6 -w 10 -t 0.01 1>/dev/null")
 
         self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_1")
 
@@ -178,7 +178,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
 
     def test_simple2d(self):
         print("\ntesting 2d plot")
-        os.system("./asgard -p continuity_2 -d 2 -l 6 -w 10 -t 0.00001 1>/dev/null")
+        os.system("./asgard -p continuity_2 -d 1 -l 6 -w 10 -t 0.00001 1>/dev/null")
 
         self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_2")
 
@@ -211,7 +211,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
 
     def test_simple3d(self):
         print("\ntesting 3d plot (longer test)")
-        os.system("./asgard -p continuity_3 -d 2 -l 8 -w 10 -t 0.0001 1>/dev/null")
+        os.system("./asgard -p continuity_3 -d 1 -l 8 -w 10 -t 0.0001 1>/dev/null")
 
         self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_3")
 

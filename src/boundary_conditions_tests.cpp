@@ -94,7 +94,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
            ++p_num)
       {
         std::string const gold_filename =
-            gold_filename_prefix + "_bcL_" + std::to_string(d.get_degree()) +
+            gold_filename_prefix + "_bcL_" + std::to_string(d.get_degree() + 1) +
             "d_" + std::to_string(d.get_level()) + "l_" +
             std::to_string(term_num) + "t_" + std::to_string(dim_num) + "dim_" +
             std::to_string(p_num) + "p.dat";
@@ -146,7 +146,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
   {
     /* setup stuff */
     int const level  = 5;
-    int const degree = 5;
+    int const degree = 4;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
     auto const opts = make_options(
@@ -253,37 +253,37 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
   auto const gold_filename_prefix =
       boundary_conditions_base_dir / "compute_diffusion1";
 
-  SECTION("diffusion_1 level 2 degree 2")
+  SECTION("diffusion_1 level 2 degree 1")
   {
     int const level  = 2;
-    int const degree = 2;
+    int const degree = 1;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
 
-  SECTION("diffusion_1 level 4 degree 4")
+  SECTION("diffusion_1 level 4 degree 3")
   {
     int const level  = 4;
+    int const degree = 3;
+    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+
+    test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
+  }
+
+  SECTION("diffusion_1 level 5 degree 4")
+  {
+    int const level  = 5;
     int const degree = 4;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
 
-  SECTION("diffusion_1 level 5 degree 5")
-  {
-    int const level  = 5;
-    int const degree = 5;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-
-    test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
-  }
-
-  SECTION("diffusion_2 level 3 degree 3")
+  SECTION("diffusion_2 level 3 degree 2")
   {
     int const level  = 3;
-    int const degree = 3;
+    int const degree = 2;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
     auto const gold_prefix =
@@ -298,53 +298,53 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]",
 {
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
-  SECTION("diffusion_1 level 2 degree 2")
+  SECTION("diffusion_1 level 2 degree 1")
   {
     int const level  = 2;
-    int const degree = 2;
+    int const degree = 1;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
     auto const gold_filename = boundary_conditions_base_dir /
                                ("vector_diffusion1_l" + std::to_string(level) +
-                                "_d" + std::to_string(degree) + ".dat");
+                                "_d" + std::to_string(degree + 1) + ".dat");
 
     test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
 
-  SECTION("diffusion_1 level 4 degree 4")
+  SECTION("diffusion_1 level 4 degree 3")
   {
     int const level  = 4;
+    int const degree = 3;
+    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+
+    auto const gold_filename = boundary_conditions_base_dir /
+                               ("vector_diffusion1_l" + std::to_string(level) +
+                                "_d" + std::to_string(degree + 1) + ".dat");
+
+    test_boundary_condition_vector(*pde, gold_filename, tol_factor);
+  }
+  SECTION("diffusion_1 level 5 degree 4")
+  {
+    int const level  = 5;
     int const degree = 4;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
 
     auto const gold_filename = boundary_conditions_base_dir /
                                ("vector_diffusion1_l" + std::to_string(level) +
-                                "_d" + std::to_string(degree) + ".dat");
-
-    test_boundary_condition_vector(*pde, gold_filename, tol_factor);
-  }
-  SECTION("diffusion_1 level 5 degree 5")
-  {
-    int const level  = 5;
-    int const degree = 5;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-
-    auto const gold_filename = boundary_conditions_base_dir /
-                               ("vector_diffusion1_l" + std::to_string(level) +
-                                "_d" + std::to_string(degree) + ".dat");
+                                "_d" + std::to_string(degree + 1) + ".dat");
 
     test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }
 
-  SECTION("diffusion_2 level 3 degree 3")
+  SECTION("diffusion_2 level 3 degree 2")
   {
     int const level  = 3;
-    int const degree = 3;
+    int const degree = 2;
     auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
 
     auto const gold_filename = boundary_conditions_base_dir /
                                ("vector_diffusion2_l" + std::to_string(level) +
-                                "_d" + std::to_string(degree) + ".dat");
+                                "_d" + std::to_string(degree + 1) + ".dat");
 
     test_boundary_condition_vector(*pde, gold_filename, tol_factor);
   }

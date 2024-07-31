@@ -474,7 +474,7 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
   fk::vector<int> indices(coords.size());
   for (int d = 0; d < pde.num_dims(); ++d)
   {
-    indices(d) = coords(d) * degree;
+    indices(d) = coords(d) * (degree + 1);
   }
   return indices;
 }
@@ -490,7 +490,7 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
 {
   // assume uniform degree for now
   int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims()));
+  int const elem_size = fm::ipow(degree + 1, pde.num_dims());
 
   int const A_cols = elem_size * grid.ncols();
   int const A_rows = elem_size * grid.nrows();
@@ -563,8 +563,8 @@ void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
         {
           fk::matrix<P, mem_type::view> op_view = fk::matrix<P, mem_type::view>(
               coef_cache[key_type(k, d)], operator_row(d),
-              operator_row(d) + degree - 1, operator_col(d),
-              operator_col(d) + degree - 1);
+              operator_row(d) + degree, operator_col(d),
+              operator_col(d) + degree);
           fk::matrix<P> k_new = kron_vals[d].kron(op_view);
           kron_vals.push_back(std::move(k_new));
         }

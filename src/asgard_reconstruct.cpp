@@ -9,7 +9,7 @@ template<typename precision>
 reconstruct_solution::reconstruct_solution(
     int dims, int64_t num_cells, int const asg_cells[],
     int degree, precision const solution[])
-    : pterms_(degree), block_size_(fm::ipow(pterms_, dims)), domain_scale(1.0)
+    : pterms_(degree + 1), block_size_(fm::ipow(pterms_, dims)), domain_scale(1.0)
 {
   vector2d<int> raw_cells(dims, num_cells);
   for (int64_t i = 0; i < num_cells; i++)

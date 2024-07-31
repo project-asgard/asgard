@@ -13,7 +13,7 @@ if (~isfile('example_continuity_2d'))
 end
 
 % command to run the executable and generate the output file
-command = ['./example_continuity_2d -p continuity_2 -d 2 -l 6 -w 10 -n 10 -t 0.0001'];
+command = ['./example_continuity_2d -p continuity_2 -d 1 -l 6 -w 10 -n 10 -t 0.0001'];
 
 [status, cmdout] = system(command, '-echo');
 

@@ -36,11 +36,11 @@ TEMPLATE_TEST_CASE("1d interpolation nodes", "[linear]", test_precs)
 /////////////////////////////////////////////////////////////////////
 //  Testing the evaluation of the projection onto the interp. nodes
 /////////////////////////////////////////////////////////////////////
-template<int order, typename precision, typename fcall_type>
+template<int degree, typename precision, typename fcall_type>
 void project_inver(int num_levels, fcall_type fcall)
 {
   constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
-  constexpr int pterms = order + 1; // polynomial terms are one more than the degree
+  constexpr int pterms = degree + 1; // polynomial terms are one more than the degree
 
   auto ffunc = [&](fk::vector<precision> const &x, precision const)
       -> fk::vector<precision> {
@@ -50,14 +50,14 @@ void project_inver(int num_levels, fcall_type fcall)
     return fx;
   };
 
-  dimension<precision> dim(0, 1, num_levels, pterms, ffunc, nullptr, "testdim");
+  dimension<precision> dim(0, 1, num_levels, degree, ffunc, nullptr, "testdim");
 
   std::vector<dimension<precision>> dims = {dim, };
 
   parser const cli_input = make_empty_parser();
   bool constexpr quiet = true;
   asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(cli_input, pterms, quiet);
+      transformer(cli_input, degree, quiet);
 
   adapt::distributed_grid<precision> grid(cli_input, dims);
 
@@ -73,7 +73,7 @@ void project_inver(int num_levels, fcall_type fcall)
   kronmult::permutes perms(1);
 
   connect_1d conn(num_levels, connect_1d::hierarchy::volume);
-  wavelet_interp1d<order, precision> wavint(&conn);
+  wavelet_interp1d<degree, precision> wavint(&conn);
   kronmult::block_global_workspace<precision> workspace;
 
   std::vector<precision> nodal(pterms * cells.num_strips());

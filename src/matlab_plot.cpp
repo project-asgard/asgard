@@ -220,7 +220,7 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
 {
   // Trimmed version of matrix_plot_D.m to get only the nodes
   int const n        = pow(2, level);
-  int const mat_dims = degree * n;
+  int const mat_dims = (degree + 1) * n;
   T const h          = (max - min) / n;
 
   // TODO: fully implement the output_grid options from matlab (this is just
@@ -240,12 +240,12 @@ fk::vector<T> matlab_plot::generate_nodes(int const degree, int const level,
       xi[j] = (0.5 * (roots(j) + 1.0) + i) * h + min;
     }
 
-    std::vector<int> Iu(degree);
-    for (int j = 0, je = degree - 1; j < je; j++)
+    std::vector<int> Iu(degree + 1);
+    for (int j = 0, je = degree; j < je; j++)
     {
       Iu[j] = dof * i + j + 1;
     }
-    Iu[degree - 1] = dof * (i + 1);
+    Iu[degree] = dof * (i + 1);
 
     for (std::size_t j = 0; j < dof; j++)
     {

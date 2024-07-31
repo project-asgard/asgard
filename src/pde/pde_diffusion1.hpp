@@ -42,7 +42,7 @@ private:
 
   /* Define the dimension */
   inline static dimension<P> const dim_0 =
-      dimension<P>(0, 1, 3, 2, initial_condition_dim0, nullptr, "x");
+      dimension<P>(0, 1, 3, 1, initial_condition_dim0, nullptr, "x");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0};
 

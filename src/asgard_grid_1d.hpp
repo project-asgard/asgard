@@ -46,13 +46,13 @@ public:
   }
   /*!
    * \brief Creates a new connectivity matrix by expanding each element with
-   *        a block of size (porder+1) by (porder+1)
+   *        a block of size (degree+1) by (degree+1)
    */
-  connect_1d(connect_1d const &elem_connect, int porder)
-      : levels(-1), rows(elem_connect.rows * (porder + 1)),
+  connect_1d(connect_1d const &elem_connect, int degree)
+      : levels(-1), rows(elem_connect.rows * (degree + 1)),
         pntr(rows + 1, 0), diag(rows)
   {
-    int const block_rows = porder + 1;
+    int const block_rows = degree + 1;
 
     pntr[0] = 0;
     for (int row = 0; row < elem_connect.num_rows(); row++)

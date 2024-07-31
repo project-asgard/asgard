@@ -56,7 +56,7 @@ struct dimension
 
     for (int i = 0; i <= level_; ++i)
     {
-      auto const max_dof = fm::two_raised_to(i) * degree_;
+      auto const max_dof = fm::two_raised_to(i) * (degree + 1);
       expect(max_dof < INT_MAX);
       this->mass_.push_back(eye<P>(max_dof));
     }
@@ -84,7 +84,7 @@ struct dimension
 
   void set_degree(int const degree)
   {
-    expect(degree > 0);
+    expect(degree >= 0);
     degree_ = degree;
   }
 

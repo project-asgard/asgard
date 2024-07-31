@@ -274,7 +274,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   }();
 
   fk::vector<int> dev_table_builder;
-  int64_t dof = std::pow(dims[0].get_degree(), dims.size());
+  int64_t dof = fm::ipow(dims[0].get_degree() + 1, dims.size());
 
   // get a rough DOF estimate used to pre-allocate the element table
   if (opts.use_full_grid)

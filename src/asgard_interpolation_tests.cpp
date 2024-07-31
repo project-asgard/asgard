@@ -63,7 +63,7 @@ void project_inver_md(int num_dimensions, int num_levels,
 {
   constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
 
-  constexpr int pterms = 2;
+  constexpr int degree = 1;
 
   std::vector<vector_func<precision>> funcs;
   for (int d = 0; d < num_dimensions; d++)
@@ -79,7 +79,7 @@ void project_inver_md(int num_dimensions, int num_levels,
   std::vector<dimension<precision>> dims;
   dims.reserve(num_dimensions);
   for (int d = 0; d < num_dimensions; d++)
-    dims.emplace_back(0, 1, num_levels, pterms, funcs[d],
+    dims.emplace_back(0, 1, num_levels, degree, funcs[d],
                       nullptr, std::string("dim") + std::to_string(d));
 
   connect_1d conn(num_levels, connect_1d::hierarchy::volume);
@@ -90,7 +90,7 @@ void project_inver_md(int num_dimensions, int num_levels,
   parser_mod::set(mockcli, parser_mod::max_level, std::max(8, num_levels));
   bool constexpr quiet = true;
   asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(mockcli, pterms, quiet);
+      transformer(mockcli, degree, quiet);
 
   adapt::distributed_grid<precision> grid(mockcli, dims);
 
@@ -233,7 +233,7 @@ void proj_interp_md(int num_dimensions, int num_levels,
 {
   constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-4;
 
-  constexpr int pterms = 2;
+  constexpr int degree = 1;
 
   std::vector<vector_func<precision>> funcs;
   for (int d = 0; d < num_dimensions; d++)
@@ -249,7 +249,7 @@ void proj_interp_md(int num_dimensions, int num_levels,
   std::vector<dimension<precision>> dims;
   dims.reserve(num_dimensions);
   for (int d = 0; d < num_dimensions; d++)
-    dims.emplace_back(0, 1, num_levels, pterms, funcs[d],
+    dims.emplace_back(0, 1, num_levels, degree, funcs[d],
                       nullptr, std::string("dim") + std::to_string(d));
 
   connect_1d conn(num_levels, connect_1d::hierarchy::volume);
@@ -259,7 +259,7 @@ void proj_interp_md(int num_dimensions, int num_levels,
   parser const cli_input = make_empty_parser();
   bool constexpr quiet = true;
   asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(cli_input, pterms, quiet);
+      transformer(cli_input, degree, quiet);
 
   adapt::distributed_grid<precision> grid(cli_input, dims);
 
@@ -396,7 +396,7 @@ TEMPLATE_TEST_CASE("random data", "[linear]", test_precs)
 TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
 {
   parser parse("continuity_1", {6, });
-  parser_mod::set(parse, parser_mod::degree, 2);
+  parser_mod::set(parse, parser_mod::degree, 1);
   parser_mod::set(parse, parser_mod::use_full_grid, false);
   parser_mod::set(parse, parser_mod::num_time_steps, 30);
   parser_mod::set(parse, parser_mod::dt, 1.0e-4);
@@ -419,7 +419,7 @@ TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
   REQUIRE(err < tol);
 
   parser parse2("continuity_1", {6, });
-  parser_mod::set(parse2, parser_mod::degree, 2);
+  parser_mod::set(parse2, parser_mod::degree, 1);
   parser_mod::set(parse2, parser_mod::use_full_grid, false);
   parser_mod::set(parse2, parser_mod::num_time_steps, 30);
   parser_mod::set(parse2, parser_mod::dt, 1.0e-4);
@@ -441,7 +441,7 @@ TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
 TEMPLATE_TEST_CASE("2d continuity_2 with interp", "[linear]", test_precs)
 {
   parser parse("continuity_1", {8, });
-  parser_mod::set(parse, parser_mod::degree, 2);
+  parser_mod::set(parse, parser_mod::degree, 1);
   parser_mod::set(parse, parser_mod::use_full_grid, false);
   parser_mod::set(parse, parser_mod::num_time_steps, 20);
   parser_mod::set(parse, parser_mod::dt, 1.0e-4);
@@ -479,7 +479,7 @@ TEMPLATE_TEST_CASE("2d continuity_2 with interp", "[linear]", test_precs)
 TEMPLATE_TEST_CASE("2d interp initial conditions", "[linear]", test_precs)
 {
   parser parse("continuity_1", {8, });
-  parser_mod::set(parse, parser_mod::degree, 2);
+  parser_mod::set(parse, parser_mod::degree, 1);
   parser_mod::set(parse, parser_mod::use_full_grid, false);
   parser_mod::set(parse, parser_mod::num_time_steps, 30);
   parser_mod::set(parse, parser_mod::dt, 1.0e-4);

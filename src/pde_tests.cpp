@@ -82,7 +82,7 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
 TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", test_precs)
 {
   auto const level  = 3;
-  auto const degree = 2;
+  auto const degree = 1;
   auto const pde    = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
   auto const base_dir          = pde_base_dir / "diffusion_2_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
@@ -111,7 +111,7 @@ TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", test_precs)
 TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
 {
   auto const level  = 3;
-  auto const degree = 2;
+  auto const degree = 1;
   auto const pde    = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
   auto const base_dir          = pde_base_dir / "diffusion_1_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
@@ -173,11 +173,11 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", test_precs)
     REQUIRE(dt == gold);
   }
 }
-TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
+TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 3",
                    "[pde]", test_precs)
 {
   auto const level  = 5;
-  auto const degree = 4;
+  auto const degree = 3;
   auto const pde    = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
   auto const base_dir          = pde_base_dir / "continuity2_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
@@ -211,7 +211,7 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 4",
 TEMPLATE_TEST_CASE("testing continuity 3 implementations", "[pde]", test_precs)
 {
   auto const level  = 5;
-  auto const degree = 4;
+  auto const degree = 3;
   auto const pde    = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
   auto const base_dir          = pde_base_dir / "continuity_3_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
@@ -374,7 +374,7 @@ TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", test_precs)
 {
   std::string const pde_choice = "vlasov";
   fk::vector<int> const levels{4, 3};
-  auto const degree               = 3;
+  auto const degree               = 2;
   auto const cfl                  = 0.01;
   auto const full_grid            = true;
   static auto constexpr num_steps = 1;

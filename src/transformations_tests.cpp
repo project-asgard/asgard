@@ -16,18 +16,17 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
 {
   int const dims = pde.num_dims();
 
-  // FIXME assuming uniform degree across dims
   dimension const dim = pde.get_dimensions()[0];
   int const lev       = dim.get_level();
-  int const deg       = dim.get_degree();
+  int const degree    = dim.get_degree();
 
   std::string const filename =
-      "combine_dim_dim" + std::to_string(dims) + "_deg" + std::to_string(deg) +
+      "combine_dim_dim" + std::to_string(dims) + "_deg" + std::to_string(degree + 1) +
       "_lev" + std::to_string(lev) + "_" + (full_grid ? "fg" : "sg") + ".dat";
 
   std::string const grid_str = full_grid ? "-f" : "";
   options const o            = make_options(
-      {"-d", std::to_string(deg), "-l", std::to_string(lev), grid_str});
+      {"-d", std::to_string(degree), "-l", std::to_string(lev), grid_str});
 
   elements::table const t(o, pde);
 
@@ -52,13 +51,13 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
   for (auto const &[rank, grid] : plan)
   {
     int const rank_start =
-        grid.row_start * static_cast<int>(std::pow(deg, dims));
+        grid.row_start * fm::ipow(degree + 1, dims);
     int const rank_stop =
-        (grid.row_stop + 1) * static_cast<int>(std::pow(deg, dims)) - 1;
+        (grid.row_stop + 1) * fm::ipow(degree + 1, dims) - 1;
     fk::vector<P, mem_type::const_view> const gold_partial(gold, rank_start,
                                                            rank_stop);
     fk::vector<P> const test_partial = combine_dimensions(
-        deg, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, time);
+        degree, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, time);
     REQUIRE(test_partial == gold_partial);
     test.set_subvector(rank_start, test_partial);
   }
@@ -67,30 +66,30 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
 
 TEMPLATE_TEST_CASE("combine dimensions", "[transformations]", test_precs)
 {
-  SECTION("combine dimensions, dim = 2, deg = 2, lev = 3, 1 rank")
+  SECTION("combine dimensions, dim = 2, degree = 2, lev = 3, 1 rank")
   {
     int const lev       = 3;
-    int const deg       = 2;
-    auto const pde      = make_PDE<TestType>(PDE_opts::continuity_2, lev, deg);
+    int const degree    = 1;
+    auto const pde      = make_PDE<TestType>(PDE_opts::continuity_2, lev, degree);
     TestType const time = 2.0;
     test_combine_dimensions(*pde, time);
   }
 
-  SECTION("combine dimensions, dim = 2, deg = 2, lev = 3, 8 ranks")
+  SECTION("combine dimensions, dim = 2, degree = 1, lev = 3, 8 ranks")
   {
     int const lev       = 3;
-    int const deg       = 2;
-    auto const pde      = make_PDE<TestType>(PDE_opts::continuity_2, lev, deg);
+    int const degree    = 1;
+    auto const pde      = make_PDE<TestType>(PDE_opts::continuity_2, lev, degree);
     int const num_ranks = 8;
     TestType const time = 2.0;
     test_combine_dimensions(*pde, time, num_ranks);
   }
 
-  SECTION("combine dimensions, dim = 3, deg = 3, lev = 2, full grid")
+  SECTION("combine dimensions, dim = 3, degree = 2, lev = 2, full grid")
   {
     int const lev        = 2;
-    int const deg        = 3;
-    auto const pde       = make_PDE<TestType>(PDE_opts::continuity_3, lev, deg);
+    int const degree     = 2;
+    auto const pde       = make_PDE<TestType>(PDE_opts::continuity_3, lev, degree);
     int const num_ranks  = 20;
     TestType const time  = 2.5;
     bool const full_grid = true;
@@ -103,9 +102,9 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-  SECTION("transform(2, 2, -1, 1, double)")
+  SECTION("transform(1, 2, -1, 1, double)")
   {
-    int const degree     = 2;
+    int const degree     = 1;
     int const levels     = 2;
     auto const double_it = [](fk::vector<TestType> x, TestType t) {
       ignore(t);
@@ -127,7 +126,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 
     auto const gold = read_vector_from_txt_file<TestType>(
         transformations_base_dir /
-        ("forward_transform_" + std::to_string(degree) + "_" +
+        ("forward_transform_" + std::to_string(degree + 1) + "_" +
          std::to_string(levels) + "_neg1_pos1_double.dat"));
 
     fk::vector<TestType> const test =
@@ -136,9 +135,9 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
     rmse_comparison(gold, test, tol_factor);
   }
 
-  SECTION("transform(3, 4, -2.0, 2.0, double plus)")
+  SECTION("transform(2, 4, -2.0, 2.0, double plus)")
   {
-    int const degree       = 3;
+    int const degree       = 2;
     int const levels       = 4;
     auto const double_plus = [](fk::vector<TestType> x, TestType t) {
       ignore(t);
@@ -160,7 +159,7 @@ TEMPLATE_TEST_CASE("forward multi-wavelet transform", "[transformations]",
 
     fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
         transformations_base_dir /
-        ("forward_transform_" + std::to_string(degree) + "_" +
+        ("forward_transform_" + std::to_string(degree + 1) + "_" +
          std::to_string(levels) + "_neg2_pos2_doubleplus.dat"));
     fk::vector<TestType> const test =
         forward_transform<TestType>(dim, double_plus, tenth_func, transformer);
@@ -174,7 +173,6 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
                                std::string const &gold_filename,
                                P const tol_factor)
 {
-  // FIXME assume uniform level and degree
   auto const &d     = pde.get_dimensions()[0];
   auto const level  = d.get_level();
   auto const degree = d.get_degree();
@@ -188,7 +186,7 @@ void test_wavelet_to_realspace(PDE<P> const &pde,
     auto const arbitrary_func = [](P const x) { return 2.0 * x; };
 
     auto const wave_space_size =
-        static_cast<uint64_t>(table.size()) * std::pow(degree, pde.num_dims());
+        static_cast<uint64_t>(table.size()) * fm::ipow(degree + 1, pde.num_dims());
     expect(wave_space_size < INT_MAX);
     fk::vector<P> wave_space_in(wave_space_size);
 
@@ -222,7 +220,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", test_precs)
   SECTION("wavelet_to_realspace_1")
   {
     int const level  = 8;
-    int const degree = 7;
+    int const degree = 6;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_1, level, degree);
     auto const gold_filename =
         transformations_base_dir / "wavelet_to_realspace_continuity_1.dat";
@@ -234,7 +232,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", test_precs)
   SECTION("wavelet_to_realspace_2")
   {
     int const level  = 4;
-    int const degree = 5;
+    int const degree = 4;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
     auto const gold_filename =
         transformations_base_dir / "wavelet_to_realspace_continuity_2.dat";
@@ -246,7 +244,7 @@ TEMPLATE_TEST_CASE("wavelet_to_realspace", "[transformations]", test_precs)
   SECTION("wavelet_to_realspace_3")
   {
     int const level  = 3;
-    int const degree = 4;
+    int const degree = 3;
     auto const pde = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
     auto const gold_filename =
         transformations_base_dir / "wavelet_to_realspace_continuity_3.dat";
@@ -262,7 +260,6 @@ void test_gen_realspace_transform(PDE<P> const &pde,
                                   std::string const &gold_filename,
                                   P const tol_factor)
 {
-  // FIXME assumes uniform level and degree across dims
   auto const level  = pde.get_dimensions()[0].get_level();
   auto const degree = pde.get_dimensions()[0].get_degree();
   auto const opts =
@@ -284,7 +281,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", test_precs)
   SECTION("gen_realspace_transform_1")
   {
     int const level  = 7;
-    int const degree = 7;
+    int const degree = 6;
     auto const gold_directory =
         transformations_base_dir / "matrix_plot_D/continuity_1";
     std::string const gold_filename = "matrix_plot_D_";
@@ -298,7 +295,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", test_precs)
   SECTION("gen_realspace_transform_2")
   {
     int const level  = 7;
-    int const degree = 6;
+    int const degree = 5;
     auto const gold_directory =
         transformations_base_dir / "matrix_plot_D/continuity_2";
     std::string const gold_filename = "matrix_plot_D_";
@@ -311,7 +308,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", test_precs)
   SECTION("gen_realspace_transform_3")
   {
     int const level  = 6;
-    int const degree = 5;
+    int const degree = 4;
     auto const gold_directory =
         transformations_base_dir / "matrix_plot_D/continuity_3/";
     std::string const gold_filename = "matrix_plot_D_";
@@ -324,7 +321,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", test_precs)
   SECTION("gen_realspace_transform_6")
   {
     int const level  = 2;
-    int const degree = 3;
+    int const degree = 2;
     auto const gold_directory =
         transformations_base_dir / "matrix_plot_D/continuity_6";
     std::string const gold_filename = "matrix_plot_D_";

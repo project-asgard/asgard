@@ -28,9 +28,9 @@ public:
    * \param num_cells is the number of sparse grid cells (multi-indexes)
    * \param asg_cells is an array of size 2 * dims * num_cells containing
    *                  the multi-indexes in ASGarD format (level, index)
-   * \param degree is the number of polynomial terms (ASGarD degree)
+   * \param degree is the polynomial order
    * \param solution is the current set of coefficients representing
-   *                 the PDE solution, size is (degree^dims) * num_cells
+   *                 the PDE solution, size is (degree + 1)^dims * num_cells
    */
   template<typename precision>
   reconstruct_solution(int dims, int64_t num_cells, int const asg_cells[],

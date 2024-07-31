@@ -23,7 +23,7 @@ public:
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = false;
-    int constexpr default_degree         = 3;
+    int constexpr default_degree         = 2;
 
     // using empty instances for exact_vector_funcs and exact_time
     this->initialize(cli_input, num_dims, num_sources, num_terms,

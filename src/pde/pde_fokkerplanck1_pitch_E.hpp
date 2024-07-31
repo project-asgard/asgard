@@ -137,7 +137,7 @@ private:
       dimension<P>(-1.0,                   // domain min
                    1.0,                    // domain max
                    2,                      // levels
-                   2,                      // degree
+                   1,                      // degree
                    initial_condition_dim0, // initial condition
                    nullptr,
                    "x"); // name

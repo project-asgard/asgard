@@ -160,9 +160,9 @@ parser::parser(int argc, char const *const *argv)
     cfl = DEFAULT_CFL;
   }
 
-  if (degree < 1 && degree != NO_USER_VALUE)
+  if (degree < 0 && degree != NO_USER_VALUE)
   {
-    std::cerr << "Degree must be a natural number" << '\n';
+    std::cerr << "degree must be a non-negative number" << '\n';
     valid = false;
   }
 

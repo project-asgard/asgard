@@ -132,7 +132,6 @@ distributed_grid<P>::distributed_grid(options const &cli_opts,
   plan_ = get_plan(get_num_ranks(), table_);
 }
 
-// FIXME assumes uniform degree across levels
 template<typename P>
 fk::vector<P> distributed_grid<P>::get_initial_condition(
     std::vector<dimension<P>> &dims, P const mult, int const num_terms,
@@ -167,7 +166,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
                               mult]() {
     auto const subgrid     = this->get_subgrid(get_rank());
     auto const vector_size = (subgrid.col_stop - subgrid.col_start + 1) *
-                             std::pow(dims[0].get_degree(), dims.size());
+                             fm::ipow(dims[0].get_degree() + 1, dims.size());
     fk::vector<P> initial(vector_size);
     for (size_t i = 0; i < v_functions.size(); i++)
     {

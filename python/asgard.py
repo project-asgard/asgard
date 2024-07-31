@@ -45,9 +45,8 @@ class pde_snapshot:
             # print(fdata.keys())
 
             self.num_dimensions = fdata['ndims'][()]
-            self.pterms         = fdata['degree'][()]
-            self.porder         = self.pterms - 1
-            assert self.porder == 1, "only works with linear basis, others will be coming soon"
+            self.degree         = fdata['degree'][()]
+            assert self.degree == 1, "only works with linear basis, others will be coming soon"
 
             self.state = fdata['soln'][()]
             self.cells = fdata['elements'][()]
@@ -84,12 +83,12 @@ class pde_snapshot:
             self.double_precision = True
             self.recsol = libasgard.asgard_make_dreconstruct_solution(
                 self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                self.pterms, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+                self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
         else:
             self.double_precision = False
             self.recsol = libasgard.asgard_make_freconstruct_solution(
                 self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                self.pterms, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+                self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
 
         libasgard.asgard_reconstruct_solution_setbounds(self.recsol,
                                                         np.ctypeslib.as_ctypes(self.dimension_min.reshape(-1,)),

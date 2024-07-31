@@ -189,7 +189,7 @@ private:
       dimension<P>(-1.0,                   // domain min
                    1.0,                    // domain max
                    2,                      // levels
-                   2,                      // degree
+                   1,                      // degree
                    initial_condition_dim0, // initial condition
                    nullptr,                // volume portion
                    "x");                   // name
@@ -198,7 +198,7 @@ private:
       dimension<P>(-2.0,                   // domain min
                    2.0,                    // domain max
                    2,                      // levels
-                   2,                      // degree
+                   1,                      // degree
                    initial_condition_dim1, // initial condition
                    nullptr,                // volume portion
                    "y");                   // name

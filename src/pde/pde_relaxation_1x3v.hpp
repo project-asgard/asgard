@@ -40,7 +40,7 @@ private:
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = true;
-  static int constexpr default_degree          = 3;
+  static int constexpr default_degree          = 2;
 
   static P constexpr nu = 1e3;
 

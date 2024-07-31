@@ -57,10 +57,10 @@ void build_preconditioner(PDE<precision> const &pde,
 
   int const num_rows = grid.row_stop - grid.row_start + 1;
 
-  int const pterms = pde.get_dimensions()[0].get_degree();
+  int const pdofs = pde.get_dimensions()[0].get_degree() + 1;
 
   int num_dimensions  = pde.num_dims();
-  int64_t tensor_size = fm::ipow(pterms, num_dimensions);
+  int64_t tensor_size = fm::ipow(pdofs, num_dimensions);
 
   if (pc.size() == 0)
     pc.resize(tensor_size * num_rows);
@@ -89,9 +89,9 @@ void build_preconditioner(PDE<precision> const &pde,
           int tt = tentry;
           for (int d = num_dimensions - 1; d >= 0; d--)
           {
-            int const rc = midx[d] * pterms + tt % pterms;
+            int const rc = midx[d] * pdofs + tt % pdofs;
             a *= pde.get_coefficients(t, d)(rc, rc);
-            tt /= pterms;
+            tt /= pdofs;
           }
           pc[row * tensor_size + tentry] += a;
         }
@@ -129,7 +129,7 @@ make_kronmult_dense(PDE<precision> const &pde,
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims();
-  int const kron_size      = pde.get_dimensions()[0].get_degree();
+  int const kron_size      = pde.get_dimensions()[0].get_degree() + 1;
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
@@ -402,7 +402,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims();
-  int const kron_size      = pde.get_dimensions()[0].get_degree();
+  int const kron_size      = pde.get_dimensions()[0].get_degree() + 1;
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
@@ -780,7 +780,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 {
   tools::time_event kron_time_("kronmult-update-coefficients");
   int const num_dimensions = pde.num_dims();
-  int const kron_size      = pde.get_dimensions()[0].get_degree();
+  int const kron_size      = pde.get_dimensions()[0].get_degree() + 1;
 
   int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
                                                   ? program_options.max_level
@@ -884,7 +884,7 @@ compute_mem_usage(PDE<P> const &pde,
 {
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims();
-  int const kron_size      = pde.get_dimensions()[0].get_degree();
+  int const kron_size      = pde.get_dimensions()[0].get_degree() + 1;
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
@@ -1216,15 +1216,14 @@ make_global_kron_matrix(PDE<precision> const &pde,
                         adapt::distributed_grid<precision> const &dis_grid,
                         options const &program_options)
 {
-  int const porder    = pde.get_dimensions()[0].get_degree() - 1;
-  int const pterms    = porder + 1; // poly degrees of freedom
+  int const degree    = pde.get_dimensions()[0].get_degree();
   int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level();
 
   int const num_dimensions = pde.num_dims();
   int const num_terms      = pde.num_terms();
 
   connect_1d volumes(max_level, connect_1d::hierarchy::volume);
-  connect_1d dof_pattern(connect_1d(max_level), porder);
+  connect_1d dof_pattern(connect_1d(max_level), degree);
 
   vector2d<int> cells = get_cells(num_dimensions, dis_grid);
   int const num_cells = cells.num_strips();
@@ -1232,12 +1231,12 @@ make_global_kron_matrix(PDE<precision> const &pde,
   indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
   std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
 
-  vector2d<int> ilist = complete_poly_order(cells, padded, porder);
+  vector2d<int> ilist = complete_poly_order(cells, padded, degree);
 
   dimension_sort dsort(ilist);
 
   int64_t num_all_dof    = ilist.num_strips();
-  int64_t num_active_dof = num_cells * fm::ipow(pterms, num_dimensions);
+  int64_t num_active_dof = num_cells * fm::ipow(degree + 1, num_dimensions);
 
   // form the 1D pattern for the matrices in each dimension
   std::vector<std::vector<int>> global_pntr(num_dimensions,
@@ -1356,8 +1355,7 @@ void set_specific_mode(PDE<precision> const &pde,
 
   constexpr int patterns_per_dim = global_kron_matrix<precision>::patterns_per_dim;
 
-  int const porder = pde.get_dimensions()[0].get_degree() - 1;
-  mat.porder_      = porder;
+  mat.degree_ = pde.get_dimensions()[0].get_degree();
 
   int const num_dimensions = pde.num_dims();
 
@@ -1630,13 +1628,12 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
                               connect_1d const *volumes, connect_1d const *fluxes,
                               kronmult::block_global_workspace<precision> *workspace)
 {
-  int const porder = pde.get_dimensions()[0].get_degree() - 1;
-  int const pterms = porder + 1; // poly degrees of freedom
+  int const degree = pde.get_dimensions()[0].get_degree();
 
   int const num_dimensions = pde.num_dims();
   int const num_terms      = pde.num_terms();
 
-  int64_t block_size = fm::ipow(pterms, num_dimensions);
+  int64_t block_size = fm::ipow(degree + 1, num_dimensions);
 
   vector2d<int> cells = get_cells(num_dimensions, dis_grid);
   int const num_cells = cells.num_strips();
@@ -1681,7 +1678,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
 
   return block_global_kron_matrix<precision>(
       num_cells * block_size, num_padded,
-      num_dimensions, pterms, block_size,
+      num_dimensions, degree + 1, block_size,
       std::move(cells), std::move(dsort), std::move(permutations),
       std::move(flux_dir), volumes, fluxes,
       workspace);

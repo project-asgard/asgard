@@ -33,7 +33,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   generate_all_coefficients(*pde, transformer);
 
   // assume uniform degree across dimensions
-  auto const degree = pde->get_dimensions()[0].get_degree();
+  int const degree = pde->get_dimensions()[0].get_degree();
 
   elements::table const table(opts, *pde);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
@@ -45,7 +45,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   auto const gen = [&dist, &mersenne_engine]() {
     return dist(mersenne_engine);
   };
-  auto const elem_size  = static_cast<int>(std::pow(degree, pde->num_dims()));
+  auto const elem_size  = fm::ipow(degree + 1, pde->num_dims());
   fk::vector<P> const b = [&table, gen, elem_size]() {
     fk::vector<P> output(elem_size * table.size());
     std::generate(output.begin(), output.end(), gen);
@@ -260,7 +260,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
   SECTION("1d")
   {
     auto const pde_choice        = PDE_opts::continuity_1;
-    auto const degree            = 2;
+    auto const degree            = 1;
     auto const levels            = fk::vector<int>{3};
     auto const workspace_size_MB = 1000;
     parser const test_parse =
@@ -271,7 +271,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
   SECTION("2d - uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 3;
+    auto const degree            = 2;
     auto const levels            = fk::vector<int>{2, 2};
     auto const workspace_size_MB = 1000;
     parser const test_parse =
@@ -281,7 +281,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
   SECTION("2d - non-uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 3;
+    auto const degree            = 2;
     auto const levels            = fk::vector<int>{3, 2};
     auto const workspace_size_MB = 1000;
     parser const test_parse =
@@ -292,7 +292,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
   SECTION("6d - uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_6;
-    auto const degree            = 2;
+    auto const degree            = 1;
     auto const levels            = fk::vector<int>{2, 2, 2, 2, 2, 2};
     auto const workspace_size_MB = 1000;
     parser const test_parse =
@@ -303,7 +303,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
   SECTION("6d - non-uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_6;
-    auto const degree            = 1;
+    auto const degree            = 0;
     auto const levels            = fk::vector<int>{2, 2, 2, 3, 2, 2};
     auto const workspace_size_MB = 1000;
     parser const test_parse =
@@ -319,7 +319,7 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
   SECTION("2d - uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 2;
+    auto const degree            = 1;
     auto const levels            = fk::vector<int>{6, 6};
     auto const workspace_size_MB = 80; // small enough to decompose the problem
     parser const test_parse =
@@ -330,7 +330,7 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
   SECTION("2d - non-uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 2;
+    auto const degree            = 1;
     auto const levels            = fk::vector<int>{6, 5};
     auto const workspace_size_MB = 80; // small enough to decompose the problem
     parser const test_parse =
@@ -341,7 +341,7 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
   SECTION("6d - uniform level")
   {
     auto const pde_choice        = PDE_opts::continuity_6;
-    auto const degree            = 2;
+    auto const degree            = 1;
     auto const levels            = fk::vector<int>{2, 2, 2, 2, 2, 2};
     auto const workspace_size_MB = 80; // small enough to decompose the problem
     parser const test_parse =
@@ -356,14 +356,16 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", test_precs)
   {
     int const N_elements = 128;
     int const N_nodes    = N_elements + 1;
-    int const degree     = 2;
+    int const degree     = 1;
 
     TestType const x_min   = -2.0 * M_PI;
     TestType const x_max   = 2.0 * M_PI;
     TestType const phi_min = 0.0;
     TestType const phi_max = 0.0;
 
-    int const N = (degree + 1) * N_elements;
+    int const pdof = degree + 1;
+
+    int const N = (pdof + 1) * N_elements;
     fk::vector<TestType> poisson_source(N);
     fk::vector<TestType> poisson_phi(N);
     fk::vector<TestType> poisson_E(N);
@@ -384,13 +386,14 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", test_precs)
     }
 
     // Set Source in DG Elements //
-    auto const lgwt = legendre_weights<TestType>(degree + 1, -1.0, 1.0,
+    auto const lgwt = legendre_weights<TestType>(pdof, -1.0, 1.0,
                                                  quadrature_mode::use_degree);
+
     for (int i = 0; i < N_elements; i++)
     {
-      for (int q = 0; q < degree + 1; q++)
+      for (int q = 0; q < pdof + 1; q++)
       {
-        int k             = i * (degree + 1) + q;
+        int k             = i * (pdof + 1) + q;
         TestType x_q      = lgwt[0][q];
         x[k]              = x_e[i] + 0.5 * dx * (1.0 + x_q);
         poisson_source[k] = 0.5 * (1.0 - 0.5 * std::cos(0.5 * x[k])) - 1.0;
@@ -404,14 +407,14 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", test_precs)
     TestType error = 0.0;
     for (int i = 0; i < N_elements; i++)
     {
-      for (int q = 0; q < degree + 1; q++)
+      for (int q = 0; q < pdof + 1; q++)
       {
-        int k = i * (degree + 1) + q;
+        int k = i * (pdof + 1) + q;
         error += std::pow(poisson_phi[k] + (1.0 + std::cos(0.5 * x[k])), 2);
       }
     }
 
-    error = std::sqrt(error) / ((degree + 1) * N_elements);
+    error = std::sqrt(error) / ((pdof + 1) * N_elements);
     REQUIRE(error < 5.0e-5);
   }
 }

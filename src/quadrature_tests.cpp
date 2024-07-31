@@ -17,8 +17,9 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
     fk::matrix<TestType> const deriv_gold = {{0.0}};
 
     fk::vector<TestType> const in = {-1.0};
-    int const degree              = 0;
-    auto const [poly, deriv]      = legendre(in, degree);
+    // TODO: understand why was this set to 0 before the change to degree?
+    int const degree         = 0;
+    auto const [poly, deriv] = legendre(in, degree);
 
     REQUIRE(poly == poly_gold);
     REQUIRE(deriv == deriv_gold);
@@ -32,7 +33,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
         quadrature_base_dir / "legendre_deriv_neg1_2.dat");
 
     fk::vector<TestType> const in = {-1.0};
-    int const degree              = 2;
+    int const degree              = 1;
     auto const [poly, deriv]      = legendre(in, degree);
 
     REQUIRE(poly == poly_gold);
@@ -49,7 +50,7 @@ TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
 
     fk::vector<TestType> const in = linspace<TestType>(-2.5, 3.0, 11);
 
-    int const degree         = 5;
+    int const degree         = 4;
     auto const [poly, deriv] = legendre(in, degree);
 
     TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-15 : 1e-6;
@@ -64,7 +65,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
 {
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-15 : 1e-6;
 
-  SECTION("legendre_weights(10, -1, 1)")
+  SECTION("legendre_weights(9, -1, 1)")
   {
     fk::matrix<TestType> const roots_gold = read_matrix_from_txt_file<TestType>(
         quadrature_base_dir / "lgwt_roots_10_neg1_1.dat");
@@ -73,7 +74,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
         read_matrix_from_txt_file<TestType>(quadrature_base_dir /
                                             "lgwt_weights_10_neg1_1.dat");
 
-    int const n                     = 10;
+    int const n                     = 9;
     TestType const a                = -1;
     TestType const b                = 1;
     quadrature_mode const quad_mode = quadrature_mode::use_degree;
@@ -84,7 +85,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
     rmse_comparison(weights, fk::vector<TestType>(weights_gold), tol_factor);
   }
 
-  SECTION("legendre_weights(32, -5, 2)")
+  SECTION("legendre_weights(31, -5, 2)")
   {
     fk::matrix<TestType> const roots_gold = read_matrix_from_txt_file<TestType>(
         quadrature_base_dir / "lgwt_roots_32_neg5_2.dat");
@@ -92,7 +93,7 @@ TEMPLATE_TEST_CASE("legendre weights and roots function", "[matlab]",
         read_matrix_from_txt_file<TestType>(quadrature_base_dir /
                                             "lgwt_weights_32_neg5_2.dat");
 
-    int const n                     = 32;
+    int const n                     = 31;
     TestType const a                = -5;
     TestType const b                = 2;
     quadrature_mode const quad_mode = quadrature_mode::use_degree;

@@ -663,7 +663,7 @@ private:
   inline static dimension<P> const x_ = dimension<P>(-1.0, // domain min
                                                      1.0,  // domain max
                                                      2,    // levels
-                                                     2,    // degree
+                                                     1,    // degree
                                                      f0,   // initial condition
                                                      nullptr,
                                                      "x"); // name
@@ -671,7 +671,7 @@ private:
   inline static dimension<P> const y_ = dimension<P>(-2.0, // domain min
                                                      2.0,  // domain max
                                                      2,    // levels
-                                                     2,    // degree
+                                                     1,    // degree
                                                      f0,   // initial condition
                                                      nullptr,
                                                      "y"); // name
@@ -679,7 +679,7 @@ private:
   inline static dimension<P> const z_ = dimension<P>(-3.0, // domain min
                                                      3.0,  // domain max
                                                      2,    // levels
-                                                     2,    // degree
+                                                     1,    // degree
                                                      f0,   // initial condition
                                                      nullptr,
                                                      "z"); // name
@@ -687,7 +687,7 @@ private:
   inline static dimension<P> const vx_ = dimension<P>(-10.0, // domain min
                                                       10.0,  // domain max
                                                       2,     // levels
-                                                      2,     // degree
+                                                      1,     // degree
                                                       f0, // initial condition
                                                       nullptr,
                                                       "vx"); // name
@@ -695,7 +695,7 @@ private:
   inline static dimension<P> const vy_ = dimension<P>(-20.0, // domain min
                                                       20.0,  // domain max
                                                       2,     // levels
-                                                      2,     // degree
+                                                      1,     // degree
                                                       f0, // initial condition
                                                       nullptr,
                                                       "vy"); // name
@@ -703,7 +703,7 @@ private:
   inline static dimension<P> const vz_ = dimension<P>(-30.0, // domain min
                                                       30.0,  // domain max
                                                       2,     // levels
-                                                      2,     // degree
+                                                      1,     // degree
                                                       f0, // initial condition
                                                       nullptr,
                                                       "z"); // name

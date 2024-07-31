@@ -27,7 +27,7 @@ TEST_CASE("parser constructor/getters", "[program_options]")
     std::string const pde_choice   = "continuity_3";
     PDE_opts const pde             = PDE_opts::continuity_3;
     std::string const input_levels = "3 4 5";
-    int const degree               = 4;
+    int const degree               = 3;
     int const write                = 1;
     int const realspace            = 1;
     double const cfl               = 2.0;

@@ -15,17 +15,19 @@ namespace asgard
 template<typename P>
 std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 {
-  expect(degree > 0);
+  expect(degree >= 0);
+
+  int const pdof = degree + 1;
 
   // These are the function outputs
   // g0,g1,h0, and h1 are two-scale coefficients
   // The returned phi_co is the wavelet basis
   // scalet_coefficients are the scaling function basis
-  fk::matrix<P> g0(degree, degree);
-  fk::matrix<P> g1(degree, degree);
-  fk::matrix<P> h0(degree, degree);
-  fk::matrix<P> h1(degree, degree);
-  fk::matrix<P> scalet_coefficients(degree, degree);
+  fk::matrix<P> g0(pdof, pdof);
+  fk::matrix<P> g1(pdof, pdof);
+  fk::matrix<P> h0(pdof, pdof);
+  fk::matrix<P> h1(pdof, pdof);
+  fk::matrix<P> scalet_coefficients(pdof, pdof);
 
   // Set up parameters for quadrature - used for inner product evaluation
   // In this routine there are three intervals for the quadrature
@@ -42,11 +44,11 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // work with degree 0
   // the recurrence relation used here can be found at
   // http://mathworld.wolfram.com/LegendrePolynomial.html equation (43)
-  int const size_legendre = degree + 2;
+  int const size_legendre = degree + 3;
   fk::matrix<P> legendre(size_legendre, size_legendre);
   legendre(0, size_legendre - 1) = 1.0;
   legendre(1, size_legendre - 2) = 1.0;
-  for (int row_pos = 0; row_pos < degree - 2; ++row_pos)
+  for (int row_pos = 0; row_pos < degree - 1; ++row_pos)
   {
     // The Legendre polynomial of order row_pos+2 is constructed
     // from Legendre polynomial order row_pos and row_pos+1
@@ -104,16 +106,16 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // phi_co is the coefficients of the polynomials
   //        f_j = |  x^(j-1) on (0,1)
   //              | -x^(j-1) on (-1,0)
-  fk::matrix<P> phi_co(degree * 2, degree);
-  for (int i = 0; i < degree; ++i)
+  fk::matrix<P> phi_co(pdof * 2, pdof);
+  for (int i = 0; i < pdof; ++i)
   {
-    phi_co(degree - i - 1, i)     = -1;
-    phi_co(2 * degree - i - 1, i) = 1;
+    phi_co(pdof - i - 1, i)     = -1;
+    phi_co(2 * pdof - i - 1, i) = 1;
   }
 
   scalet_coefficients.set_submatrix(
       0, 0,
-      legendre.extract_submatrix(0, size_legendre - degree, degree, degree));
+      legendre.extract_submatrix(0, size_legendre - pdof, pdof, pdof));
 
   auto const weighted_sum_products = [&](fk::vector<P> const vect_1,
                                          fk::vector<P> const vect_2,
@@ -133,17 +135,17 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   // elem_2 - scalet_coefficients (Legendre Poly.) from -1 to 0
   // elem_3 - phi_co from 0 to 1
   // elem_4 - scalet_coefficients (Legendre Poly.) from 0 to 1
-  for (int row_pos = 0; row_pos < degree; ++row_pos)
+  for (int row_pos = 0; row_pos < pdof; ++row_pos)
   {
-    fk::vector<P> proj(degree);
-    for (int row_2 = 0; row_2 < degree; ++row_2)
+    fk::vector<P> proj(pdof);
+    for (int row_2 = 0; row_2 < pdof; ++row_2)
     {
       fk::vector<P> const elem_1 =
           polyval(get_row(phi_co, row_pos), roots_neg1to0);
       fk::vector<P> const elem_2 =
           polyval(get_row(scalet_coefficients, row_2), roots_neg1to0);
       fk::vector<P> const elem_3 =
-          polyval(get_row(phi_co, row_pos + degree), roots_0to1);
+          polyval(get_row(phi_co, row_pos + pdof), roots_0to1);
       fk::vector<P> const elem_4 =
           polyval(get_row(scalet_coefficients, row_2), roots_0to1);
 
@@ -152,27 +154,27 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
       proj = proj + (get_row(scalet_coefficients, row_2) * sum);
     }
     phi_co.update_row(row_pos, (get_row(phi_co, row_pos) - proj));
-    phi_co.update_row(row_pos + degree,
-                      (get_row(phi_co, row_pos + degree) - proj));
+    phi_co.update_row(row_pos + pdof,
+                      (get_row(phi_co, row_pos + pdof) - proj));
   }
 
   // Gram-Schmidt orthogonalization of phi_co
-  // with respect to each degree less than itself
+  // with respect to each pdof less than itself
   // e.g. row k is orthogonalized with respect to rows k-1, k-2 to zero
-  // row k+degree is orthogonalized with respect to rows
-  // k+degree-1, k+degree-2, to degree
+  // row k+pdof is orthogonalized with respect to rows
+  // k+pdof-1, k+pdof-2, to pdof
   // The inner products are taken of:
   // elem_1 - phi_co from -1 to 0 of order k
   // elem_2 - phi_co from -1 to 0 of order k-1
   // elem_3 - phi_co from 0 to 1 - of order k
   // elem_4 - phi_co from 0 to 1 - of order k-1
-  // sum_1 is the inner product of polynomial degree k
-  //    with polynomial degree k-1
-  // sum_2 is the norm of polynomial degree k-1
-  for (int row_pos = 1; row_pos < degree; ++row_pos)
+  // sum_1 is the inner product of polynomial pdof k
+  //    with polynomial pdof k-1
+  // sum_2 is the norm of polynomial pdof k-1
+  for (int row_pos = 1; row_pos < pdof; ++row_pos)
   {
-    fk::vector<P> proj_1(degree);
-    fk::vector<P> proj_2(degree);
+    fk::vector<P> proj_1(pdof);
+    fk::vector<P> proj_2(pdof);
     for (int row_2 = 0; row_2 < row_pos; ++row_2)
     {
       fk::vector<P> const elem_1 =
@@ -180,9 +182,9 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
       fk::vector<P> const elem_2 =
           polyval(get_row(phi_co, row_2), roots_neg1to0);
       fk::vector<P> const elem_3 =
-          polyval(get_row(phi_co, row_pos + degree), roots_0to1);
+          polyval(get_row(phi_co, row_pos + pdof), roots_0to1);
       fk::vector<P> const elem_4 =
-          polyval(get_row(phi_co, row_2 + degree), roots_0to1);
+          polyval(get_row(phi_co, row_2 + pdof), roots_0to1);
 
       P const sum_1 = weighted_sum_products(elem_1, elem_2, weights_neg1to0) +
                       weighted_sum_products(elem_3, elem_4, weights_0to1);
@@ -191,7 +193,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
                       weighted_sum_products(elem_4, elem_4, weights_0to1);
 
       fk::vector<P> proj_1_add = get_row(phi_co, row_2) * sum_1;
-      fk::vector<P> proj_2_add = get_row(phi_co, row_2 + degree) * sum_1;
+      fk::vector<P> proj_2_add = get_row(phi_co, row_2 + pdof) * sum_1;
       for (int i = 0; i < proj_1_add.size(); ++i)
       {
         proj_1_add(i) /= sum_2;
@@ -202,23 +204,23 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
     }
 
     phi_co.update_row(row_pos, (get_row(phi_co, row_pos) - proj_1));
-    phi_co.update_row(row_pos + degree,
-                      (get_row(phi_co, row_pos + degree) - proj_2));
+    phi_co.update_row(row_pos + pdof,
+                      (get_row(phi_co, row_pos + pdof) - proj_2));
   }
 
   // Normalization of phi_co basis vectors
-  for (int row_pos = 0; row_pos < degree; ++row_pos)
+  for (int row_pos = 0; row_pos < pdof; ++row_pos)
   {
     fk::vector<P> const elem_1 =
         polyval(get_row(phi_co, row_pos), roots_neg1to0);
     fk::vector<P> const elem_2 =
-        polyval(get_row(phi_co, row_pos + degree), roots_0to1);
+        polyval(get_row(phi_co, row_pos + pdof), roots_0to1);
 
     P const sum = weighted_sum_products(elem_1, elem_1, weights_neg1to0) +
                   weighted_sum_products(elem_2, elem_2, weights_0to1);
 
     fk::vector<P> row   = get_row(phi_co, row_pos);
-    fk::vector<P> row_2 = get_row(phi_co, row_pos + degree);
+    fk::vector<P> row_2 = get_row(phi_co, row_pos + pdof);
 
     for (int i = 0; i < row.size(); ++i)
     {
@@ -227,35 +229,35 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
     }
 
     phi_co.update_row(row_pos, row);
-    phi_co.update_row(row_pos + degree, row_2);
+    phi_co.update_row(row_pos + pdof, row_2);
   }
 
-  // build a degree by degree matrix with alternating rows
+  // build a pdof by pdof matrix with alternating rows
   // of -1.0 and 1.0, then stack it vertically
   // This restores sign of polynomials after normalization
-  fk::matrix<P> rep_mat(2 * degree, degree);
-  std::vector<P> const pos_one(degree, 1.0);
-  std::vector<P> const neg_one(degree, -1.0);
-  for (int i = 0; i < degree; ++i)
+  fk::matrix<P> rep_mat(2 * pdof, pdof);
+  std::vector<P> const pos_one(pdof, 1.0);
+  std::vector<P> const neg_one(pdof, -1.0);
+  for (int i = 0; i < pdof; ++i)
   {
     if ((i % 2) == 0)
     {
       rep_mat.update_row(i, pos_one);
-      rep_mat.update_row(i + degree, pos_one);
+      rep_mat.update_row(i + pdof, pos_one);
     }
     else
     {
       rep_mat.update_row(i, neg_one);
-      rep_mat.update_row(i + degree, neg_one);
+      rep_mat.update_row(i + pdof, neg_one);
     }
   }
 
-  // reverse the rows of degree by degree
+  // reverse the rows of pdof by pdof
   // vertical slices of phi_co
   for (int i = 0; i < 2; ++i)
   {
     fk::matrix<P> phi_co_part =
-        phi_co.extract_submatrix(i * degree, 0, degree, degree);
+        phi_co.extract_submatrix(i * pdof, 0, pdof, pdof);
     fk::matrix<P> const phi_co_part_copy(phi_co_part);
     for (int j = 0; j < phi_co_part.nrows(); ++j)
     {
@@ -263,7 +265,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
           phi_co_part.nrows() - 1 - j, 0, 1, phi_co_part.ncols());
       phi_co_part.update_row(j, new_row);
     }
-    phi_co.set_submatrix(i * degree, 0, phi_co_part);
+    phi_co.set_submatrix(i * pdof, 0, phi_co_part);
   }
 
   // finally, multiply the two elementwise
@@ -294,9 +296,9 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
   //   with the scalet functions of a lower level
   // elem_5 is the scalet functions on (0,1)
 
-  for (int row = 0; row < degree; ++row)
+  for (int row = 0; row < pdof; ++row)
   {
-    for (int col = 0; col < degree; ++col)
+    for (int col = 0; col < pdof; ++col)
     {
       fk::vector<P> const elem_1 =
           polyval(get_row(scalet_coefficients, row), roots_neg1to0);
@@ -317,7 +319,7 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
                      std::sqrt(2.0);
 
       fk::vector<P> const elem_5 =
-          polyval(get_row(phi_co, row + degree), roots_0to1);
+          polyval(get_row(phi_co, row + pdof), roots_0to1);
       g1(row, col) = 2.0 * weighted_sum_products(elem_5, elem_2, weights_0to1) /
                      std::sqrt(2.0);
     }
@@ -349,9 +351,10 @@ std::array<fk::matrix<P>, 6> generate_multi_wavelets(int const degree)
 template<typename R>
 fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
 {
-  expect(degree > 0);
+  expect(degree >= 0);
   expect(num_levels > 1);
 
+  int const pdof      = degree + 1;
   int const max_level = fm::two_raised_to(num_levels);
 
   // this is to get around unused warnings
@@ -361,7 +364,7 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   ignore(phi_co);
   ignore(scale_co);
 
-  fk::matrix<R> fmwt(degree * max_level, degree * max_level);
+  fk::matrix<R> fmwt(pdof * max_level, pdof * max_level);
 
   fk::matrix<R> const h_block = fk::matrix<R>(h0.nrows(), h0.ncols() * 2)
                                     .set_submatrix(0, 0, h0)
@@ -374,33 +377,33 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   // the lower half is set in the same manner, but with g_block
   for (int i = 0; i < max_level / 2; ++i)
   {
-    fmwt.set_submatrix(degree * i, 2 * degree * i, h_block);
-    fmwt.set_submatrix(degree * (i + max_level / 2), 2 * degree * i, g_block);
+    fmwt.set_submatrix(pdof * i, 2 * pdof * i, h_block);
+    fmwt.set_submatrix(pdof * (i + max_level / 2), 2 * pdof * i, g_block);
   }
 
-  fk::matrix<R> fmwt_comp = eye<R>(degree * max_level, degree * max_level);
+  fk::matrix<R> fmwt_comp = eye<R>(pdof * max_level, pdof * max_level);
 
   int const n = std::floor(std::log2(max_level));
   for (int j = 1; j <= n; j++)
   {
-    fk::matrix<R> cfmwt(degree * max_level, degree * max_level);
+    fk::matrix<R> cfmwt(pdof * max_level, pdof * max_level);
     if (j == 1)
     {
       cfmwt = fmwt;
     }
     else
     {
-      int const cn = fm::two_raised_to(n - j + 1) * degree;
+      int const cn = fm::two_raised_to(n - j + 1) * pdof;
 
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
-      cfmwt.set_submatrix(cn, cn, eye<R>(degree * max_level - cn));
+      cfmwt.set_submatrix(cn, cn, eye<R>(pdof * max_level - cn));
       cfmwt.set_submatrix(
           0, 0,
           fk::matrix<R, mem_type::const_view>(fmwt, 0, cn / 2 - 1, 0, cn - 1));
       cfmwt.set_submatrix(cn / 2, 0,
                           fk::matrix<R, mem_type::const_view>(
-                              fmwt, degree * max_level / 2,
-                              degree * max_level / 2 + cn / 2 - 1, 0, cn - 1));
+                              fmwt, pdof * max_level / 2,
+                              pdof * max_level / 2 + cn / 2 - 1, 0, cn - 1));
     }
     fmwt_comp = cfmwt * fmwt_comp;
   }
@@ -425,7 +428,6 @@ operator_two_scale(int const degree, int const num_levels);
 
 namespace basis
 {
-// FIXME assumes same degree for all dimensions
 template<typename P, resource resrc>
 wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
                                                int const max_degree,
@@ -435,19 +437,21 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until
   // c++20)
+  int const pdof = degree + 1;
+
   auto const ignore = [](auto ignored) { (void)ignored; };
   auto const [h0, h1, g0, g1, phi_co, scale_co] =
       generate_multi_wavelets<P>(degree);
   ignore(phi_co);
   ignore(scale_co);
 
-  auto const fmwt_size = degree * fm::two_raised_to(max_level);
+  int const fmwt_size = pdof * fm::two_raised_to(max_level);
 
   std::vector<fk::matrix<P>> block_builder(max_level * 2);
 
-  fk::matrix<P> g_mat(degree, fmwt_size);
-  fk::matrix<P> h_mat = fk::matrix<P>(degree, fmwt_size)
-                            .set_submatrix(0, 0, eye<P>(degree, degree));
+  fk::matrix<P> g_mat(pdof, fmwt_size);
+  fk::matrix<P> h_mat = fk::matrix<P>(pdof, fmwt_size)
+                            .set_submatrix(0, 0, eye<P>(pdof, pdof));
 
   // main loop - build the blocks with small gemms
   for (auto j = max_level - 1; j >= 0; --j)
@@ -456,30 +460,30 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
     auto const block_ncols = fmwt_size / num_cells;
     auto const ncols_h     = block_ncols / 2;
 
-    fk::matrix<P> h_tmp(degree, ncols_h);
-    fk::matrix<P, mem_type::view> h_view(h_mat, 0, degree - 1, 0, ncols_h - 1);
+    fk::matrix<P> h_tmp(pdof, ncols_h);
+    fk::matrix<P, mem_type::view> h_view(h_mat, 0, pdof - 1, 0, ncols_h - 1);
     h_tmp = h_view;
 
-    fk::matrix<P, mem_type::view> g_view(g_mat, 0, degree - 1, 0, ncols_h - 1);
+    fk::matrix<P, mem_type::view> g_view(g_mat, 0, pdof - 1, 0, ncols_h - 1);
     fm::gemm(g0, h_tmp, g_view);
 
-    fk::matrix<P, mem_type::view> g_view_2(g_mat, 0, degree - 1, ncols_h,
+    fk::matrix<P, mem_type::view> g_view_2(g_mat, 0, pdof - 1, ncols_h,
                                            ncols_h * 2 - 1);
     fm::gemm(g1, h_tmp, g_view_2);
 
     fm::gemm(h0, h_tmp, h_view);
 
-    fk::matrix<P, mem_type::view> h_view_2(h_mat, 0, degree - 1, ncols_h,
+    fk::matrix<P, mem_type::view> h_view_2(h_mat, 0, pdof - 1, ncols_h,
                                            ncols_h * 2 - 1);
     fm::gemm(h1, h_tmp, h_view_2);
 
-    fk::matrix<P, mem_type::const_view> const g_block(g_mat, 0, degree - 1, 0,
+    fk::matrix<P, mem_type::const_view> const g_block(g_mat, 0, pdof - 1, 0,
                                                       block_ncols - 1);
-    block_builder[j * 2 + 1].clear_and_resize(degree, block_ncols) = g_block;
+    block_builder[j * 2 + 1].clear_and_resize(pdof, block_ncols) = g_block;
 
-    fk::matrix<P, mem_type::const_view> const h_block(h_mat, 0, degree - 1, 0,
+    fk::matrix<P, mem_type::const_view> const h_block(h_mat, 0, pdof - 1, 0,
                                                       block_ncols - 1);
-    block_builder[j * 2].clear_and_resize(degree, block_ncols) = h_block;
+    block_builder[j * 2].clear_and_resize(pdof, block_ncols) = h_block;
   }
 
   // how much space are we using?
@@ -546,7 +550,9 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
 
   expect(level <= max_level);
 
-  auto const op_size = fm::two_raised_to(level) * degree;
+  int pdof = degree + 1;
+
+  auto const op_size = fm::two_raised_to(level) * pdof;
   if (transform_side == basis::side::right)
   {
     expect(coefficients.ncols() == op_size);
@@ -572,7 +578,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     if (transform_trans == basis::transpose::trans)
     {
       fk::matrix<P, mem_type::const_view, resrc> const B(
-          coefficients, 0, degree - 1, 0, coefficients.ncols() - 1);
+          coefficients, 0, pdof - 1, 0, coefficients.ncols() - 1);
       fk::matrix<P, mem_type::view, resrc> C(transformed, 0, op_size - 1, 0,
                                              coefficients.ncols() - 1);
 
@@ -582,7 +588,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     {
       fk::matrix<P, mem_type::const_view, resrc> const B(
           coefficients, 0, op_size - 1, 0, coefficients.ncols() - 1);
-      fk::matrix<P, mem_type::view, resrc> C(transformed, 0, degree - 1, 0,
+      fk::matrix<P, mem_type::view, resrc> C(transformed, 0, pdof - 1, 0,
                                              coefficients.ncols() - 1);
 
       fm::gemm(first_block, B, C, do_trans);
@@ -595,14 +601,14 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
       fk::matrix<P, mem_type::const_view, resrc> const A(
           coefficients, 0, coefficients.nrows() - 1, 0, op_size - 1);
       fk::matrix<P, mem_type::view, resrc> C(
-          transformed, 0, coefficients.nrows() - 1, 0, degree - 1);
+          transformed, 0, coefficients.nrows() - 1, 0, pdof - 1);
 
       fm::gemm(A, first_block, C, false, do_trans);
     }
     else
     {
       fk::matrix<P, mem_type::const_view, resrc> const A(
-          coefficients, 0, coefficients.nrows() - 1, 0, degree - 1);
+          coefficients, 0, coefficients.nrows() - 1, 0, pdof - 1);
       fk::matrix<P, mem_type::view, resrc> C(
           transformed, 0, coefficients.nrows() - 1, 0, op_size - 1);
 
@@ -612,7 +618,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
 
   // remaining levels
   auto const block_offset = (max_level - level) * 2 + 1;
-  auto degree_start       = degree;
+  auto degree_start       = pdof;
 
   for (auto i = 0; i < level; ++i)
   {
@@ -628,7 +634,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
     {
       auto const cell_start = j * cell_size;
       auto const cell_end   = cell_start + cell_size - 1;
-      auto const degree_end = degree_start + degree - 1;
+      auto const degree_end = degree_start + pdof - 1;
 
       if (transform_side == basis::side::left)
       {

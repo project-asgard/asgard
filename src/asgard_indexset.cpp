@@ -324,13 +324,13 @@ indexset compute_ancestry_completion(indexset const &iset,
  * \brief Helper method, fills the indexes with the polynomial degree of freedom
  *
  * The cells are the current set of cells to process,
- * pterm is the number of polynomial terms,
+ * pdof is the number of polynomial terms,
  * e.g., 2 for linear and 3 for quadratic.
  * tsize is the size of the tensor within a cell,
- * i.e., tsize = pterms to power num_dimensions
+ * i.e., tsize = pdof to power num_dimensions
  */
 template<typename itype>
-void complete_poly_order(span2d<itype> const &cells, int64_t pterms,
+void complete_poly_order(span2d<itype> const &cells, int64_t pdof,
                          int64_t tsize, span2d<int> indexes)
 {
   int num_dimensions = cells.stride();
@@ -348,59 +348,55 @@ void complete_poly_order(span2d<itype> const &cells, int64_t pterms,
 
       for (int d = num_dimensions - 1; d >= 0; d--)
       {
-        idx[d] = cell[d] * pterms + static_cast<int>(t % pterms);
-        t /= pterms;
+        idx[d] = cell[d] * pdof + static_cast<int>(t % pdof);
+        t /= pdof;
       }
     }
   }
 }
 
-vector2d<int> complete_poly_order(vector2d<int> const &cells, int porder)
+vector2d<int> complete_poly_order(vector2d<int> const &cells, int degree)
 {
-  int num_dimensions = cells.stride();
+  int const num_dimensions = cells.stride();
 
-  int64_t num_cells = cells.num_strips();
+  int64_t const num_cells = cells.num_strips();
 
-  int64_t pterms = porder + 1;
+  int64_t const pdof = degree + 1;
 
-  int64_t tsize = pterms;
-  for (int64_t d = 1; d < num_dimensions; d++)
-    tsize *= pterms;
+  int64_t const tsize = fm::ipow(pdof, num_dimensions);
 
   vector2d<int> indexes(num_dimensions, tsize * num_cells);
 
   complete_poly_order(
-      span2d(num_dimensions, num_cells, cells[0]), pterms, tsize,
+      span2d(num_dimensions, num_cells, cells[0]), pdof, tsize,
       span2d(num_dimensions, tsize * num_cells, indexes[0]));
 
   return indexes;
 }
 
 vector2d<int> complete_poly_order(vector2d<int> const &cells,
-                                  indexset const &padded, int porder)
+                                  indexset const &padded, int degree)
 {
   expect(padded.num_indexes() == 0 or padded.num_dimensions() == cells.stride());
 
   int num_dimensions = cells.stride();
 
-  int64_t num_cells  = cells.num_strips();
-  int64_t num_padded = padded.num_indexes();
+  int64_t const num_cells  = cells.num_strips();
+  int64_t const num_padded = padded.num_indexes();
 
-  int64_t pterms = porder + 1;
+  int64_t const pdof = degree + 1;
 
-  int64_t tsize = pterms;
-  for (int64_t d = 1; d < num_dimensions; d++)
-    tsize *= pterms;
+  int64_t const tsize = fm::ipow(pdof, num_dimensions);
 
   vector2d<int> indexes(num_dimensions, tsize * (num_cells + num_padded));
 
   complete_poly_order(
-      span2d(num_dimensions, num_cells, cells[0]), pterms, tsize,
+      span2d(num_dimensions, num_cells, cells[0]), pdof, tsize,
       span2d(num_dimensions, tsize * num_cells, indexes[0]));
 
   if (num_padded > 0)
     complete_poly_order(
-        span2d(num_dimensions, num_padded, padded[0]), pterms, tsize,
+        span2d(num_dimensions, num_padded, padded[0]), pdof, tsize,
         span2d(num_dimensions, tsize * num_padded, indexes[tsize * num_cells]));
 
   return indexes;

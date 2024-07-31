@@ -344,7 +344,7 @@ private:
       dimension<P>(p_domain_min,        // domain min
                    p_domain_max,        // domain max
                    2,                   // levels
-                   2,                   // degree
+                   1,                   // degree
                    initial_condition_p, // initial condition
                    volume_jacobian_dV_p,
                    "p"); // name
@@ -356,7 +356,7 @@ private:
       dimension<P>(z_domain_min,        // domain min
                    z_domain_max,        // domain max
                    2,                   // levels
-                   2,                   // degree
+                   1,                   // degree
                    initial_condition_z, // initial condition
                    nullptr,
                    "z"); // name

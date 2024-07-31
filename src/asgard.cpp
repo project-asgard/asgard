@@ -39,7 +39,23 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   node_out() << "ASGarD problem configuration:" << '\n';
   node_out() << "  selected PDE: " << cli_input.get_pde_string()
              << '\n';
-  node_out() << "  degree: " << degree << '\n';
+  switch (degree)
+  {
+  case 0:
+    node_out() << "  degree: constant (0) \n";
+    break;
+  case 1:
+    node_out() << "  degree: linear (1) \n";
+    break;
+  case 2:
+    node_out() << "  degree: quadratic (2) \n";
+    break;
+  case 3:
+    node_out() << "  degree: cubic (3) \n";
+    break;
+  default:
+    node_out() << "  degree: " << degree << '\n';
+  };
   node_out() << "  N steps: " << opts.num_time_steps << '\n';
   node_out() << "  write freq: " << opts.wavelet_output_freq << '\n';
   node_out() << "  realspace freq: " << opts.realspace_output_freq
@@ -68,8 +84,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
 
   adapt::distributed_grid adaptive_grid(*pde, opts);
   node_out() << "  degrees of freedom: "
-             << adaptive_grid.size() * static_cast<uint64_t>(std::pow(
-                                           degree, pde->num_dims()))
+             << adaptive_grid.size() * fm::ipow(degree + 1, pde->num_dims())
              << '\n';
 
   node_out() << "  generating: basis operator..." << '\n';
@@ -86,8 +101,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   auto initial_condition =
       adaptive_grid.get_initial_condition(*pde, transformer, opts);
   node_out() << "  degrees of freedom (post initial adapt): "
-                     << adaptive_grid.size() * static_cast<uint64_t>(std::pow(
-                                                   degree, pde->num_dims()))
+                     << adaptive_grid.size() * fm::ipow(degree + 1, pde->num_dims())
                      << '\n';
 
   // -- regen mass mats after init conditions - TODO: check dims/rechaining?
@@ -173,7 +187,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   std::vector<size_t> sizes(pde->num_dims);
   for (int i = 0; i < pde->num_dims; i++)
   {
-    sizes[i] = pde->get_dimensions()[i].get_degree() *
+    sizes[i] = (pde->get_dimensions()[i].get_degree() + 1) *
                fm::two_raised_to(pde->get_dimensions()[i].get_level());
   }
   ml_plot.set_var("initial_condition",

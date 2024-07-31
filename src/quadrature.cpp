@@ -18,13 +18,15 @@ legendre(fk::vector<P> const &domain, int const degree,
   expect(degree >= 0);
   expect(domain.size() > 0);
 
+  int const pdof = degree + 1;
+
   // allocate and zero the output Legendre polynomials, their derivatives
-  fk::matrix<P> legendre(domain.size(), std::max(1, degree));
-  fk::matrix<P> legendre_prime(domain.size(), std::max(1, degree));
+  fk::matrix<P> legendre(domain.size(), std::max(1, pdof));
+  fk::matrix<P> legendre_prime(domain.size(), std::max(1, pdof));
 
   legendre.update_col(0, std::vector<P>(domain.size(), static_cast<P>(1.0)));
 
-  if (degree >= 2)
+  if (pdof >= 2)
   {
     legendre.update_col(1, domain);
     legendre_prime.update_col(
@@ -33,7 +35,7 @@ legendre(fk::vector<P> const &domain, int const degree,
 
   // if we are working to update column "n", then "_order" is the previous
   // column (i.e. n-1), and "_(order + 1)" is the one before that
-  if (degree >= 3)
+  if (pdof >= 3)
   {
     // initial values for n-1, n-2
     fk::vector<P> legendre_order =
@@ -46,7 +48,7 @@ legendre(fk::vector<P> const &domain, int const degree,
         legendre_prime.extract_submatrix(0, 0, domain.size(), 1);
 
     // set remaining columns
-    for (int i = 0; i < (degree - 2); ++i)
+    for (int i = 0; i < (pdof - 2); ++i)
     {
       int const n            = i + 1;
       int const column_index = i + 2;
@@ -81,7 +83,8 @@ legendre(fk::vector<P> const &domain, int const degree,
   }
 
   // "normalizing"
-  for (int i = 0; i < degree; ++i)
+  int const maxi = (degree == 0) ? 0 : pdof;
+  for (int i = 0; i < maxi; ++i)
   {
     P dscale = -1;
     if (normalization == legendre_normalization::unnormalized)
@@ -116,12 +119,12 @@ legendre(fk::vector<P> const &domain, int const degree,
   for (int i : out_of_range)
   {
     legendre.update_row(
-        i, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
+        i, std::vector<P>(std::max(pdof, 1), static_cast<P>(0.0)));
     legendre_prime.update_row(
-        i, std::vector<P>(std::max(degree, 1), static_cast<P>(0.0)));
+        i, std::vector<P>(std::max(pdof, 1), static_cast<P>(0.0)));
   }
 
-  if (degree > 0)
+  if (pdof > 0 and degree > 0)
   {
     // "scaling to use normalization
     legendre       = legendre * static_cast<P>(std::sqrt(2.0));
@@ -157,16 +160,16 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
                  no_deduce<P> const upper_bound,
                  quadrature_mode const quad_mode)
 {
-  expect(degree > 0);
+  expect(degree >= 0);
   expect(lower_bound < upper_bound);
 
   auto const default_quad_number = [](int const degree_in) {
     static int constexpr minimum_quadrature = ASGARD_NUM_QUADRATURE;
-    return std::max(minimum_quadrature, degree_in + 1);
+    return std::max(minimum_quadrature, degree_in + 2); // degree + 1
   };
 
   int const num_points = quad_mode == quadrature_mode::use_degree
-                             ? degree
+                             ? degree + 1
                              : default_quad_number(degree);
 
   // prepare output vectors

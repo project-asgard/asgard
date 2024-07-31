@@ -263,7 +263,7 @@ private:
       dimension<P>(-1.0,                   // domain min
                    1.0,                    // domain max
                    2,                      // levels
-                   5,                      // degree
+                   4,                      // degree
                    initial_condition_dim0, // initial condition
                    nullptr,
                    "x"); // name
@@ -272,7 +272,7 @@ private:
       dimension<P>(-2.0,                   // domain min
                    2.0,                    // domain max
                    2,                      // levels
-                   4,                      // degree
+                   3,                      // degree
                    initial_condition_dim1, // initial condition
                    nullptr,
                    "y"); // name
@@ -281,7 +281,7 @@ private:
       dimension<P>(-3.0,                   // domain min
                    3.0,                    // domain max
                    2,                      // levels
-                   3,                      // degree
+                   2,                      // degree
                    initial_condition_dim2, // initial condition
                    nullptr,
                    "z"); // name

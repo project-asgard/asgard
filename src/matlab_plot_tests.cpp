@@ -119,7 +119,7 @@ void test_element_coords(PDE_opts const pde_name, int const level,
 {
   auto const pde                = make_PDE<double>(pde_name, level, degree);
   std::vector<std::string> opts = {"-l", std::to_string(level), "-d",
-                                   std::to_string(degree)};
+                                   std::to_string(degree + 1)};
   if (fullgrid)
   {
     opts.push_back("-f");
@@ -140,7 +140,7 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
   SECTION("continuity2d, SG")
   {
     int const level      = 2;
-    int const degree     = 3;
+    int const degree     = 2;
     auto const gold_file = matlab_plot_base_dir / "elements_2d_l2_d3_SG.dat";
 
     test_element_coords(PDE_opts::continuity_2, level, degree, gold_file,
@@ -150,7 +150,7 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
   SECTION("continuity2d, FG")
   {
     int const level      = 2;
-    int const degree     = 3;
+    int const degree     = 2;
     auto const gold_file = matlab_plot_base_dir / "elements_2d_l2_d3_FG.dat";
 
     test_element_coords(PDE_opts::continuity_2, level, degree, gold_file, true);
@@ -159,7 +159,7 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
   SECTION("continuity3d, SG")
   {
     int const level      = 2;
-    int const degree     = 3;
+    int const degree     = 2;
     auto const gold_file = matlab_plot_base_dir / "elements_3d_l2_d3_SG.dat";
 
     test_element_coords(PDE_opts::continuity_3, level, degree, gold_file,
@@ -169,7 +169,7 @@ TEST_CASE("generate element coords for plotting", ml_plot_tag)
   SECTION("continuity3d, FG")
   {
     int const level      = 2;
-    int const degree     = 3;
+    int const degree     = 2;
     auto const gold_file = matlab_plot_base_dir / "elements_3d_l2_d3_FG.dat";
 
     test_element_coords(PDE_opts::continuity_3, level, degree, gold_file, true);

@@ -24,7 +24,7 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
   fk::vector<int> const levels{5, 5};
 
   parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, 4);
+  parser_mod::set(parse, parser_mod::degree, 3);
   parser_mod::set(parse, parser_mod::cfl, 0.01);
   parser_mod::set(parse, parser_mod::use_full_grid, false);
   parser_mod::set(parse, parser_mod::num_time_steps, 5);
@@ -58,7 +58,7 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, 3);
+  parser_mod::set(parse, parser_mod::degree, 2);
   parser_mod::set(parse, parser_mod::cfl, 0.01);
   parser_mod::set(parse, parser_mod::use_full_grid, true);
   parser_mod::set(parse, parser_mod::num_time_steps, 1);

@@ -24,7 +24,7 @@ void generate_all_coefficients(
   for (auto i = 0; i < pde.num_dims(); ++i)
   {
     auto const &dim = pde.get_dimensions()[i];
-    std::vector<int> ipiv(dim.get_degree() *
+    std::vector<int> ipiv((dim.get_degree() + 1) *
                           fm::two_raised_to(dim.get_level()));
     for (auto j = 0; j < pde.num_terms(); ++j)
     {
@@ -58,7 +58,7 @@ void generate_all_coefficients(
 
         // for (int level = 0; level <= dim.get_level(); ++level)
         //{
-        auto const dof  = dim.get_degree() * fm::two_raised_to(dim.get_level());
+        auto const dof  = (dim.get_degree() + 1) * fm::two_raised_to(dim.get_level());
         auto result_tmp = result.extract_submatrix(0, 0, dof, dof);
         if (partial_terms[k].dv_func() || partial_terms[k].g_func())
         {
@@ -88,7 +88,7 @@ void generate_all_coefficients_max_level(
   for (auto i = 0; i < pde.num_dims(); ++i)
   {
     auto const &dim = pde.get_dimensions()[i];
-    std::vector<int> ipiv(dim.get_degree() * fm::two_raised_to(pde.max_level()));
+    std::vector<int> ipiv((dim.get_degree() + 1) * fm::two_raised_to(pde.max_level()));
     for (auto j = 0; j < pde.num_terms(); ++j)
     {
       auto const &term_1D       = pde.get_terms()[j][i];
@@ -116,7 +116,7 @@ void generate_all_coefficients_max_level(
               dim, partial_terms[k], transformer, level, time, rotate);
           if (partial_terms[k].dv_func() || partial_terms[k].g_func())
           {
-            auto const dof = dim.get_degree() * fm::two_raised_to(level);
+            auto const dof = (dim.get_degree() + 1) * fm::two_raised_to(level);
             auto mass_tmp  = mass_coeff.extract_submatrix(0, 0, dof, dof);
             fm::gesv(mass_tmp, result, ipiv);
           }
@@ -203,7 +203,7 @@ fk::matrix<P> generate_coefficients(
   auto const num_cells = fm::two_raised_to(level);
 
   auto const grid_spacing       = (dim.domain_max - dim.domain_min) / num_cells;
-  auto const degrees_freedom_1d = dim.get_degree() * num_cells;
+  auto const degrees_freedom_1d = (dim.get_degree() + 1) * num_cells;
   fk::matrix<P> coefficients(degrees_freedom_1d, degrees_freedom_1d);
 
   // get quadrature points and quadrature_weights.
@@ -237,16 +237,16 @@ fk::matrix<P> generate_coefficients(
     return std::array<fk::matrix<P>, 2>{lP, lPP};
   }();
 
-  int const porder = dim.get_degree() - 1;
+  int const degree = dim.get_degree();
 
   // adds a matrix mat (scaled by alpha) into a block of coefficients
   auto coeff_axpy = [&](int begin, int end, P alpha, fk::matrix<P> const &mat)
       -> void {
-    fk::matrix<P, mem_type::view> blk(coefficients, begin, begin + porder,
-                                      end, end + porder);
+    fk::matrix<P, mem_type::view> blk(coefficients, begin, begin + degree,
+                                      end, end + degree);
 
-    for (int j = 0; j <= porder; j++)
-      for (int i = 0; i <= porder; i++)
+    for (int j = 0; j <= degree; j++)
+      for (int i = 0; i <= degree; i++)
         blk(i, j) += alpha * mat(i, j);
   };
 
@@ -271,12 +271,12 @@ fk::matrix<P> generate_coefficients(
   // General algorithm
   // For each cell, we need to compute the volume integral within the cell
   // and then the fluxes given the neighboring cells to the left and right.
-  // Computing three blocks per cell with size (porder + 1) by (porder + 1)
+  // Computing three blocks per cell with size (degree + 1) by (degree + 1)
   // The blocks are denoted by:
-  //    (current, current - porder - 1)
+  //    (current, current - degree - 1)
   //    (current, current),
-  //    (current, current + porder + 1)
-  // where "current" for cell "i" is "(porder + 1) * i"
+  //    (current, current + degree + 1)
+  // where "current" for cell "i" is "(degree + 1) * i"
   //
   // The key here is to add the properly scaled matrix LtR, LtL etc.
   // to the correct block of the coefficients matrix.
@@ -300,7 +300,7 @@ fk::matrix<P> generate_coefficients(
       // the penalty term does not include a volume integral
       if constexpr (coeff_type != coefficient_type::penalty)
       {
-        int const current = dim.get_degree() * i;
+        int const current = (dim.get_degree() + 1) * i;
 
         for (int k = 0; k < tmp.nrows(); k++)
         {
@@ -313,8 +313,8 @@ fk::matrix<P> generate_coefficients(
         }
 
         fk::matrix<P, mem_type::view> blk(coefficients, current,
-                                          current + porder, current,
-                                          current + porder);
+                                          current + degree, current,
+                                          current + degree);
         if constexpr (coeff_type == coefficient_type::mass)
           // volume integral where phi is trial(tmp) and psi is test(legendre_poly)
           //  \int phi(x)\psi(x) dx
@@ -335,7 +335,7 @@ fk::matrix<P> generate_coefficients(
       P const x_right = x_left + grid_spacing;
 
       // get index for current block
-      int const current = dim.get_degree() * i;
+      int const current = (dim.get_degree() + 1) * i;
 
       apply_volume(i);
 
@@ -388,7 +388,7 @@ fk::matrix<P> generate_coefficients(
         // In this case:  {{f}} = p_R/2, [[f]] = p_R, [[v]] = -p_L
         // (in the code below and in all other cases, the expressions has been
         //  simplified by applying the negative or positive -p_L)
-        coeff_axpy(current, current - porder - 1, -fluxL2 - fluxL2abs, matrix_LtR);
+        coeff_axpy(current, current - degree - 1, -fluxL2 - fluxL2abs, matrix_LtR);
 
         // trace_value_2 is the interaction on x_{i-1/2} --
         // the edge between cell I_{i-1} and I_i or the left boundary of I_i.
@@ -406,7 +406,7 @@ fk::matrix<P> generate_coefficients(
         // the edge between cell I_i and I_{i+1} or the right boundary of I_i.
         // f is a DG function with support on I_{i+1}
         // In this case:  {{f}} = p_L/2, [[f]] = -p_L, [[v]] = p_R
-        coeff_axpy(current, current + porder + 1, fluxR2 - fluxR2abs, matrix_RtL);
+        coeff_axpy(current, current + degree + 1, fluxR2 - fluxR2abs, matrix_RtL);
 
         // If dirichelt
         // u^-_LEFT = g(LEFT)
@@ -446,7 +446,7 @@ fk::matrix<P> generate_coefficients(
                     coeff_type == coefficient_type::penalty)
       {
         // get index for the last element (first is zero)
-        int const last = dim.get_degree() * (num_cells - 1);
+        int const last = (dim.get_degree() + 1) * (num_cells - 1);
 
         P fluxL2 = 0.5 * g_dv_func(dim.domain_min, time);
         P fluxR2 = 0.5 * g_dv_func(dim.domain_min + grid_spacing, time);
@@ -489,7 +489,7 @@ fk::matrix<P> generate_coefficients(
         {
           // right boundary of the left-most cell is in the interior
           coeff_axpy(0, 0, fluxR2 + fluxR2abs, matrix_RtR);
-          coeff_axpy(0, porder + 1, fluxR2 - fluxR2abs, matrix_RtL);
+          coeff_axpy(0, degree + 1, fluxR2 - fluxR2abs, matrix_RtL);
 
           // at this point, we are done with the left-most cell
           // switch the flux to the right-most cell
@@ -507,7 +507,7 @@ fk::matrix<P> generate_coefficients(
           }
 
           // left boundary of the right-most cell is in the interior
-          coeff_axpy(last, last - porder - 1, -fluxL2 - fluxL2abs, matrix_LtR);
+          coeff_axpy(last, last - degree - 1, -fluxL2 - fluxL2abs, matrix_LtR);
           coeff_axpy(last, last, -fluxL2 + fluxL2abs, matrix_LtL);
         }
 

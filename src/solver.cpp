@@ -480,13 +480,15 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
 
   P const dx = (x_max - x_min) / static_cast<P>(N_elements);
 
+  int const pdof = degree + 1;
+
   auto const lgwt =
-      legendre_weights<P>(degree + 1, -1.0, 1.0, quadrature_mode::use_degree);
+      legendre_weights<P>(pdof, -1.0, 1.0, quadrature_mode::use_degree);
 
   // If only one element, skip poisson solve and solve via BCs
   if (N_elements == 1)
   {
-    for (int k = 0; k < degree + 1; k++)
+    for (int k = 0; k < pdof + 1; k++)
     {
       P const x_k = x_min + 0.5 * dx * (1.0 + lgwt[0][k]);
       phi[k]      = ((phi_max - phi_min) / (x_max - x_min)) * (x_k - x_min) + x_min;
@@ -504,9 +506,9 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   {
     for (int i = 0; i < N_elements; i++)
     {
-      for (int q = 0; q < degree + 1; q++)
+      for (int q = 0; q < pdof + 1; q++)
       {
-        ave_source += 0.5 * dx * lgwt[1][q] * source[i * (degree + 1) + q];
+        ave_source += 0.5 * dx * lgwt[1][q] * source[i * (pdof + 1) + q];
       }
     }
     ave_source /= (x_max - x_min);
@@ -517,11 +519,11 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   for (int i = 0; i < N_nodes; i++)
   {
     b[i] = 0.0;
-    for (int q = 0; q < degree + 1; q++)
+    for (int q = 0; q < pdof + 1; q++)
     {
       b[i] += 0.25 * dx * lgwt[1][q] *
-              (source[(i) * (degree + 1) + q] * (1.0 + lgwt[0][q]) +
-               source[(i + 1) * (degree + 1) + q] * (1.0 - lgwt[0][q]) -
+              (source[(i) * (pdof + 1) + q] * (1.0 + lgwt[0][q]) +
+               source[(i + 1) * (pdof + 1) + q] * (1.0 - lgwt[0][q]) -
                2.0 * ave_source);
     }
   }
@@ -533,7 +535,7 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   P const dg = (phi_max - phi_min) / (x_max - x_min);
 
   // First Element //
-  for (int k = 0; k < degree + 1; k++)
+  for (int k = 0; k < pdof + 1; k++)
   {
     P const x_k = x_min + 0.5 * dx * (1.0 + lgwt[0][k]);
     P const g_k = phi_min + dg * (x_k - x_min);
@@ -546,9 +548,9 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
   // Interior Elements //
   for (int i = 1; i < N_elements - 1; i++)
   {
-    for (int q = 0; q < degree + 1; q++)
+    for (int q = 0; q < pdof + 1; q++)
     {
-      int const k = i * (degree + 1) + q;
+      int const k = i * (pdof + 1) + q;
       P const x_k = (x_min + i * dx) + 0.5 * dx * (1.0 + lgwt[0][q]);
       P const g_k = phi_min + dg * (x_k - x_min);
 
@@ -562,9 +564,9 @@ void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
 
   // Last Element //
   int const i = N_elements - 1;
-  for (int q = 0; q < degree + 1; q++)
+  for (int q = 0; q < pdof + 1; q++)
   {
-    int const k = i * (degree + 1) + q;
+    int const k = i * (pdof + 1) + q;
     P const x_k = (x_min + i * dx) + 0.5 * dx * (1.0 + lgwt[0][q]);
     P const g_k = phi_min + dg * (x_k - x_min);
 

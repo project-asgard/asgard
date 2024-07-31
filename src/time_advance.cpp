@@ -24,9 +24,9 @@ get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
             P const time)
 {
   auto const my_subgrid = grid.get_subgrid(get_rank());
-  // FIXME assume uniform degree
+
   auto const degree = pde.get_dimensions()[0].get_degree();
-  auto const dof    = std::pow(degree, pde.num_dims()) * my_subgrid.nrows();
+  auto const dof    = fm::ipow(degree + 1, pde.num_dims()) * my_subgrid.nrows();
   fk::vector<P> sources(dof);
   for (auto const &source : pde.sources())
   {
@@ -326,7 +326,7 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   auto const &table   = adaptive_grid.get_table();
   auto const dt       = pde.get_dt();
   int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = static_cast<int>(std::pow(degree, pde.num_dims()));
+  int const elem_size = fm::ipow(degree + 1, pde.num_dims());
 
 #ifdef ASGARD_USE_SCALAPACK
   auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
@@ -510,7 +510,7 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   // Create workspace for wavelet transform
   int const dense_size      = dense_space_size(pde_1d);
   int const quad_dense_size = dense_dim_size(
-      ASGARD_NUM_QUADRATURE, pde_1d.get_dimensions()[0].get_level());
+      ASGARD_NUM_QUADRATURE - 1, pde_1d.get_dimensions()[0].get_level());
   fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
       fk::vector<P, mem_type::view, resource::host>(workspace, 0,
@@ -535,7 +535,7 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
 
   auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
-  int const elem_size    = static_cast<int>(std::pow(degree, pde.num_dims()));
+  int const elem_size    = fm::ipow(degree + 1, pde.num_dims());
   int const A_local_rows = elem_size * grid.nrows();
 
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
@@ -599,7 +599,7 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
 
       solver::poisson_solver(poisson_source, pde.poisson_diag,
                              pde.poisson_off_diag, phi, poisson_E,
-                             ASGARD_NUM_QUADRATURE - 1, N_elements, min, max,
+                             ASGARD_NUM_QUADRATURE - 2, N_elements, min, max,
                              static_cast<P>(0.0), static_cast<P>(0.0),
                              solver::poisson_bc::periodic);
 

@@ -53,7 +53,7 @@ static distribution_test_init const distrib_test_info;
 template<typename P>
 void test_multiwavelet_gen(int const degree, P const tol_factor)
 {
-  std::string const out_base = "multiwavelet_" + std::to_string(degree) + "_";
+  std::string const out_base = "multiwavelet_" + std::to_string(degree + 1) + "_";
 
   auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
       generate_multi_wavelets<P>(degree);
@@ -65,7 +65,7 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
     auto const g1_string = transformations_base_dir / (out_base + "g1.dat");
     auto const scale_string =
         transformations_base_dir / (out_base + "scale_co.dat");
-    if (degree < 2)
+    if (degree < 1)
     {
       auto const h0_out =
           fk::matrix<P>{{static_cast<P>(read_scalar_from_txt_file(h0_string))}};
@@ -109,6 +109,12 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
+  SECTION("Multiwavelet generation, degree = 0")
+  {
+    int const degree = 0;
+    test_multiwavelet_gen<TestType>(degree, tol_factor);
+  }
+
   SECTION("Multiwavelet generation, degree = 1")
   {
     int const degree = 1;
@@ -126,19 +132,13 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
     int const degree = 3;
     test_multiwavelet_gen<TestType>(degree, tol_factor);
   }
-
-  SECTION("Multiwavelet generation, degree = 4")
-  {
-    int const degree = 4;
-    test_multiwavelet_gen<TestType>(degree, tol_factor);
-  }
 }
 
 template<typename P>
 void test_operator_two_scale(int const levels, int const degree)
 {
   auto filename = transformations_base_dir /
-                  ("operator_two_scale_" + std::to_string(degree) + "_" +
+                  ("operator_two_scale_" + std::to_string(degree + 1) + "_" +
                    std::to_string(levels) + ".dat");
   fk::matrix<P> const gold = read_matrix_from_txt_file<P>(filename);
   fk::matrix<P> const test = operator_two_scale<P>(degree, levels);
@@ -151,34 +151,34 @@ void test_operator_two_scale(int const levels, int const degree)
 TEMPLATE_TEST_CASE("operator_two_scale function working appropriately",
                    "[transformations]", test_precs)
 {
-  SECTION("operator_two_scale(2, 2)")
+  SECTION("operator_two_scale(2, 1)")
   {
-    int const degree = 2;
+    int const degree = 1;
     int const levels = 2;
     test_operator_two_scale<TestType>(levels, degree);
   }
-  SECTION("operator_two_scale(2, 3)")
+  SECTION("operator_two_scale(3, 1)")
   {
-    int const degree = 2;
+    int const degree = 1;
     int const levels = 3;
     test_operator_two_scale<TestType>(levels, degree);
   }
-  SECTION("operator_two_scale(4, 3)")
+  SECTION("operator_two_scale(3, 3)")
+  {
+    int const degree = 3;
+    int const levels = 3;
+    test_operator_two_scale<TestType>(levels, degree);
+  }
+  SECTION("operator_two_scale(5, 4)")
   {
     int const degree = 4;
-    int const levels = 3;
-    test_operator_two_scale<TestType>(levels, degree);
-  }
-  SECTION("operator_two_scale(5, 5)")
-  {
-    int const degree = 5;
     int const levels = 5;
     test_operator_two_scale<TestType>(levels, degree);
   }
 
-  SECTION("operator_two_scale(2, 6)")
+  SECTION("operator_two_scale(6, 2)")
   {
-    int const degree = 2;
+    int const degree = 1;
     int const levels = 6;
     test_operator_two_scale<TestType>(levels, degree);
   }
@@ -208,7 +208,7 @@ void test_fmwt_block_generation(int const level, int const degree)
   {
     auto basis_base_dir        = gold_base_dir / "basis";
     std::string const gold_str = "transform_blocks_l" + std::to_string(level) +
-                                 "_d" + std::to_string(degree) + "_" +
+                                 "_d" + std::to_string(degree + 1) + "_" +
                                  std::to_string(++ctr) + ".dat";
     fk::matrix<P> const gold =
         read_matrix_from_txt_file<P>(basis_base_dir / gold_str);
@@ -229,27 +229,27 @@ TEMPLATE_TEST_CASE_SIG("wavelet constructor", "[basis]",
                        ((typename TestType, resource resrc), TestType, resrc),
                        mtest_precs)
 {
-  SECTION("level 2 degree 2")
+  SECTION("level 2 degree 1")
   {
-    auto const degree = 2;
+    auto const degree = 1;
     auto const levels = 2;
     test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-  SECTION("level 2 degree 5")
+  SECTION("level 2 degree 4")
   {
-    auto const degree = 5;
+    auto const degree = 4;
     auto const levels = 2;
     test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-  SECTION("level 5 degree 2")
+  SECTION("level 5 degree 1")
   {
-    auto const degree = 2;
+    auto const degree = 1;
     auto const levels = 5;
     test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
-  SECTION("level 5 degree 5")
+  SECTION("level 5 degree 4")
   {
-    auto const degree = 5;
+    auto const degree = 4;
     auto const levels = 5;
     test_fmwt_block_generation<TestType, resrc>(levels, degree);
   }
@@ -281,7 +281,7 @@ void test_fmwt_application(int const level, int const degree)
   for (auto l = 2; l <= forward_transform.max_level; ++l)
   {
     auto const degrees_freedom =
-        fm::two_raised_to(l) * forward_transform.degree;
+        fm::two_raised_to(l) * (forward_transform.degree + 1);
     auto const to_transform = [&gen, degrees_freedom]() {
       fk::matrix<P> matrix(degrees_freedom, degrees_freedom);
       std::generate(matrix.begin(), matrix.end(), gen);
@@ -396,45 +396,45 @@ TEMPLATE_TEST_CASE_SIG("wavelet transform", "[basis]",
                        ((typename TestType, resource resrc), TestType, resrc),
                        mtest_precs)
 {
-  SECTION("level 2 degree 2")
+  SECTION("level 2 degree 1")
   {
-    auto const degree = 2;
+    auto const degree = 1;
     auto const levels = 2;
 
     test_fmwt_application<TestType, resrc>(levels, degree);
   }
-  SECTION("level 2 degree 5")
-  {
-    auto const degree = 5;
-    auto const levels = 2;
-
-    test_fmwt_application<TestType, resrc>(levels, degree);
-  }
-  SECTION("level 5 degree 3")
-  {
-    auto const degree = 3;
-    auto const levels = 5;
-
-    test_fmwt_application<TestType, resrc>(levels, degree);
-  }
-  SECTION("level 5 degree 6")
-  {
-    auto const degree = 6;
-    auto const levels = 5;
-
-    test_fmwt_application<TestType, resrc>(levels, degree);
-  }
-
-  SECTION("level 8 degree 4")
+  SECTION("level 2 degree 4")
   {
     auto const degree = 4;
+    auto const levels = 2;
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
+  }
+  SECTION("level 5 degree 2")
+  {
+    auto const degree = 2;
+    auto const levels = 5;
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
+  }
+  SECTION("level 5 degree 5")
+  {
+    auto const degree = 5;
+    auto const levels = 5;
+
+    test_fmwt_application<TestType, resrc>(levels, degree);
+  }
+
+  SECTION("level 8 degree 3")
+  {
+    auto const degree = 3;
     auto const levels = 8;
 
     test_fmwt_application<TestType, resrc>(levels, degree);
   }
-  SECTION("level 8 degree 5")
+  SECTION("level 8 degree 4")
   {
-    auto const degree = 5;
+    auto const degree = 4;
     auto const levels = 8;
 
     test_fmwt_application<TestType, resrc>(levels, degree);

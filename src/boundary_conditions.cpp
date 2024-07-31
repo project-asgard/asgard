@@ -109,7 +109,7 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
 {
   fk::vector<P> bc(
       (stop_element - start_element + 1) *
-      std::pow(pde.get_dimensions()[0].get_degree(), pde.num_dims()));
+      fm::ipow(pde.get_dimensions()[0].get_degree() + 1, pde.num_dims()));
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
@@ -169,7 +169,7 @@ compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   P const domain_per_cell = domain_extent / total_cells;
 
-  P const dof = degree * total_cells;
+  P const dof = (degree + 1) * total_cells;
 
   fk::vector<P> bc(dof);
 
@@ -197,7 +197,7 @@ compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   legendre_polys_at_value.scale(scale_factor);
 
-  fk::vector<P, mem_type::view> destination_slice(bc, 0, degree - 1);
+  fk::vector<P, mem_type::view> destination_slice(bc, 0, degree);
 
   expect(destination_slice.size() == legendre_polys_at_value.size());
 
@@ -225,7 +225,7 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   P const domain_per_cell = domain_extent / total_cells;
 
-  P const dof = degree * total_cells;
+  P const dof = (degree + 1) * total_cells;
 
   fk::vector<P> bc(dof);
 
@@ -251,8 +251,8 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   legendre_polys_at_value.scale(scale_factor);
 
-  int const start_index = degree * (total_cells - 1);
-  int const stop_index  = degree * total_cells - 1;
+  int const start_index = (degree + 1) * (total_cells - 1);
+  int const stop_index  = (degree + 1) * total_cells - 1;
   fk::vector<P, mem_type::view> destination_slice(bc, start_index, stop_index);
 
   destination_slice = fk::vector<P>(legendre_polys_at_value);
@@ -273,14 +273,14 @@ std::vector<fk::vector<P>> generate_partial_bcs(
 
   std::vector<fk::vector<P>> partial_bc_vecs;
   auto const degrees_freedom_1d =
-      dimensions[d_index].get_degree() *
+      (dimensions[d_index].get_degree() + 1) *
       fm::two_raised_to(dimensions[d_index].get_level());
 
   for (int dim_num = 0; dim_num < static_cast<int>(dimensions.size());
        ++dim_num)
   {
     auto const degrees_freedom_1d_other =
-        dimensions[dim_num].get_degree() *
+        (dimensions[dim_num].get_degree() + 1) *
         fm::two_raised_to(dimensions[dim_num].get_level());
     auto const &f = bc_funcs[dim_num];
     auto const &g = terms[dim_num].get_partial_terms()[p_index].g_func();

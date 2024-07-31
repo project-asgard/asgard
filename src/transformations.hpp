@@ -80,7 +80,7 @@ fk::vector<P> forward_transform(
 
   expect(num_levels >= 0);
   expect(num_levels <= transformer.max_level);
-  expect(degree > 0);
+  expect(degree >= 0);
   expect(domain_max > domain_min);
 
   // check to make sure the F function arg is a function type
@@ -96,7 +96,7 @@ fk::vector<P> forward_transform(
   // get grid spacing.
   // hate this name TODO
   int const n                  = fm::two_raised_to(num_levels);
-  int const degrees_freedom_1d = degree * n;
+  int const degrees_freedom_1d = (degree + 1) * n;
 
   // get the Legendre basis function evaluated at the Legendre-Gauss nodes   //
   // up to order k
@@ -147,7 +147,7 @@ fk::vector<P> forward_transform(
     // generate the coefficients for DG basis
     fk::vector<P> coeffs = basis * f_here;
 
-    transformed.set_subvector(i * degree, coeffs);
+    transformed.set_subvector(i * (degree + 1), coeffs);
   }
   transformed = transformed * (normalize / 2.0);
 
@@ -186,7 +186,7 @@ inline fk::vector<P> transform_and_combine_dimensions(
   expect(static_cast<int>(v_functions.size()) == pde.num_dims());
   expect(start <= stop);
   expect(stop < table.size());
-  expect(degree > 0);
+  expect(degree >= 0);
 
   std::vector<fk::vector<P>> dimension_components;
   dimension_components.reserve(pde.num_dims());
@@ -256,7 +256,7 @@ inline fk::vector<P> transform_and_combine_dimensions(
     P const time_multiplier = 1.0)
 {
   int64_t const vector_size =
-      (stop - start + 1) * std::pow(degree, dims.size());
+      (stop - start + 1) * fm::ipow(degree + 1, dims.size());
   expect(vector_size < INT_MAX);
   fk::vector<P> result(vector_size);
   transform_and_combine_dimensions(dims, v_functions, table, transformer, start,
@@ -273,7 +273,7 @@ inline int dense_space_size(PDE<P> const &pde)
 
 inline int dense_dim_size(int const degree, int const level)
 {
-  return degree * fm::two_raised_to(level);
+  return (degree + 1) * fm::two_raised_to(level);
 }
 
 template<typename precision>

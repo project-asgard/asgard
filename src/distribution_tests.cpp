@@ -160,7 +160,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("1 rank, whole problem")
   {
-    int const degree = 4;
+    int const degree = 3;
     int const level  = 4;
 
     options const o = make_options(
@@ -183,7 +183,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("2 ranks")
   {
-    int const degree = 6;
+    int const degree = 5;
     int const level  = 5;
 
     options const o = make_options(
@@ -215,7 +215,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("4 ranks - even/square")
   {
-    int const degree = 10;
+    int const degree = 9;
     int const level  = 7;
 
     options const o = make_options(
@@ -263,7 +263,7 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("9 ranks - odd/square")
   {
-    int const degree = 4;
+    int const degree = 3;
     int const level  = 5;
 
     options const o = make_options(
@@ -303,7 +303,7 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("1 rank")
   {
-    int const degree = 3;
+    int const degree = 2;
     int const level  = 2;
 
     options const o = make_options(
@@ -321,7 +321,7 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("2 ranks - also, test 3rd rank ignored")
   {
-    int const degree = 8;
+    int const degree = 7;
     int const level  = 5;
 
     options const o = make_options(
@@ -351,7 +351,7 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("20 ranks")
   {
-    int const degree = 5;
+    int const degree = 4;
     int const level  = 5;
 
     options const o = make_options(
@@ -382,7 +382,7 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
   {
     auto const num_ranks = 1;
     auto const my_rank   = 0;
-    int const degree     = 4;
+    int const degree     = 3;
     int const level      = 2;
 
     options const o = make_options(
@@ -409,7 +409,7 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
 
     if (my_rank < num_ranks)
     {
-      int const degree = 5;
+      int const degree = 4;
       int const level  = 4;
 
       options const o = make_options(
@@ -571,7 +571,7 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("one rank, small problem")
   {
-    int const degree = 2;
+    int const degree = 1;
     int const level  = 2;
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -586,7 +586,7 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("one rank, larger problem")
   {
-    int const degree = 4;
+    int const degree = 3;
     int const level  = 3;
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -601,7 +601,7 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("perfect square number of ranks, small")
   {
-    int const degree = 3;
+    int const degree = 2;
     int const level  = 4;
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -616,7 +616,7 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("perfect square number of ranks, large")
   {
-    int const degree = 6;
+    int const degree = 5;
     int const level  = 5;
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -631,7 +631,7 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("even but not square, small")
   {
-    int const degree = 5;
+    int const degree = 4;
     int const level  = 8;
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -646,7 +646,7 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("even but not square, large")
   {
-    int const degree = 3;
+    int const degree = 2;
     int const level  = 2;
     options const o  = make_options(
         {"-l", std::to_string(level), "-d", std::to_string(degree)});
@@ -686,7 +686,7 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", test_precs)
     int const num_ranks = distrib_test_info.get_num_ranks();
     if (my_rank < num_ranks)
     {
-      int const degree = 4;
+      int const degree = 3;
       int const level  = 6;
 
       options const o = make_options(
@@ -694,8 +694,7 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", test_precs)
 
       auto const pde =
           make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-      auto const segment_size =
-          static_cast<int>(std::pow(degree, pde->num_dims()));
+      int64_t const segment_size = fm::ipow(degree + 1, pde->num_dims());
 
       elements::table const table(o, *pde);
       if (num_ranks > table.size())
@@ -759,7 +758,7 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", test_precs)
 
     if (my_rank < num_ranks)
     {
-      int const degree = 2;
+      int const degree = 1;
       int const level  = 2;
 
       options const o = make_options(
@@ -774,8 +773,8 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", test_precs)
       }
 
       auto const plan = get_plan(num_ranks, table);
-      auto const segment_size =
-          static_cast<int>(std::pow(degree, pde->num_dims()));
+
+      int64_t const segment_size = fm::ipow(degree + 1, pde->num_dims());
 
       // create the system vector
       fk::vector<TestType> const fx = [&table, segment_size]() {

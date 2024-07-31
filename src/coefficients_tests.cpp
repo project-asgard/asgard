@@ -29,9 +29,8 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
         return accum + std::to_string(dim.get_level()) + "_";
       });
 
-  // FIXME assume uniform degree across dimensions here
   auto const filename_base = gold_path + "_l" + lev_string + "d" +
-                             std::to_string(parse.get_degree()) + "_";
+                             std::to_string(parse.get_degree() + 1) + "_";
 
   for (auto d = 0; d < pde->num_dims(); ++d)
   {
@@ -45,7 +44,7 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
 
       auto const &dim = pde->get_dimensions()[d];
       auto const degrees_freedom_1d =
-          dim.get_degree() * fm::two_raised_to(dim.get_level());
+          (dim.get_degree() + 1) * fm::two_raised_to(dim.get_level());
       fk::matrix<P, mem_type::const_view> const test(
           full_coeff, 0, degrees_freedom_1d - 1, 0, degrees_freedom_1d - 1);
 
@@ -60,17 +59,17 @@ TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", test_precs)
   auto const gold_path      = coefficients_base_dir / "diffusion2_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
-  SECTION("level 3, degree 5")
+  SECTION("level 3, degree 4")
   {
-    auto const degree = 5;
+    auto const degree = 4;
     auto const levels = fk::vector<int>{3, 3};
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
 
-  SECTION("non-uniform level: levels 2, 3, degree 5")
+  SECTION("non-uniform level: levels 2, 3, degree 4")
   {
-    auto const degree = 5;
+    auto const degree = 4;
     auto const levels = fk::vector<int>{2, 3};
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
@@ -83,10 +82,10 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", test_precs)
   auto const gold_path      = coefficients_base_dir / "diffusion1_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(10000);
 
-  SECTION("level 5, degree 6")
+  SECTION("level 5, degree 5")
   {
     auto const levels = fk::vector<int>{5};
-    auto const degree = 6;
+    auto const degree = 5;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -98,10 +97,10 @@ TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", test_precs)
   auto const gold_path  = coefficients_base_dir / "continuity1_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
-  SECTION("level 2, degree 2 (default)")
+  SECTION("level 2, degree 1 (default)")
   {
     auto const levels = fk::vector<int>{2};
-    auto const degree = 2;
+    auto const degree = 1;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -113,18 +112,18 @@ TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", test_precs)
   auto const gold_path  = coefficients_base_dir / "continuity2_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-  SECTION("level 4, degree 3")
+  SECTION("level 4, degree 2")
   {
     auto const levels = fk::vector<int>{4, 4};
-    auto const degree = 3;
+    auto const degree = 2;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
 
-  SECTION("non-uniform level: levels 4, 5, degree 3")
+  SECTION("non-uniform level: levels 4, 5, degree 2")
   {
     auto const levels = fk::vector<int>{4, 5};
-    auto const degree = 3;
+    auto const degree = 2;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -136,18 +135,18 @@ TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", test_precs)
   auto const pde_choice = PDE_opts::continuity_3;
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-  SECTION("level 4, degree 4")
+  SECTION("level 4, degree 3")
   {
     auto const levels = fk::vector<int>{4, 4, 4};
-    auto const degree = 4;
+    auto const degree = 3;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
 
-  SECTION("non uniform level: levels 2, 3, 2, degree 4")
+  SECTION("non uniform level: levels 2, 3, 2, degree 3")
   {
     auto const levels = fk::vector<int>{2, 3, 2};
-    auto const degree = 4;
+    auto const degree = 3;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -159,18 +158,18 @@ TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", test_precs)
   auto const pde_choice = PDE_opts::continuity_6;
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
-  SECTION("level 2, degree 4")
+  SECTION("level 2, degree 3")
   {
     auto const levels = fk::vector<int>{2, 2, 2, 2, 2, 2};
-    auto const degree = 4;
+    auto const degree = 3;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
 
-  SECTION("non uniform level: levels 2, 3, 3, 3, 2, 4, degree 4")
+  SECTION("non uniform level: levels 2, 3, 3, 3, 2, 4, degree 3")
   {
     auto const levels = fk::vector<int>{2, 3, 3, 3, 2, 4};
-    auto const degree = 4;
+    auto const degree = 3;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -184,10 +183,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
       coefficients_base_dir / "fokkerplanck1_4p1a_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-  SECTION("level 4, degree 3")
+  SECTION("level 4, degree 2")
   {
     auto const levels = fk::vector<int>{4};
-    auto const degree = 3;
+    auto const degree = 2;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -201,10 +200,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case2 terms", "[coefficients]",
       coefficients_base_dir / "fokkerplanck1_pitch_E_case2_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-  SECTION("level 4, degree 3")
+  SECTION("level 4, degree 2")
   {
     auto const levels = fk::vector<int>{4};
-    auto const degree = 3;
+    auto const degree = 2;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -217,10 +216,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_pitch_C terms", "[coefficients]", test_precs)
       coefficients_base_dir / "fokkerplanck1_4p2_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-5;
 
-  SECTION("level 5, degree 2")
+  SECTION("level 5, degree 1")
   {
     auto const levels = fk::vector<int>{5};
-    auto const degree = 2;
+    auto const degree = 1;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -233,10 +232,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", test_precs)
       coefficients_base_dir / "fokkerplanck1_4p3_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-13 : 1e-4;
 
-  SECTION("level 2, degree 5")
+  SECTION("level 2, degree 4")
   {
     auto const levels = fk::vector<int>{2};
-    auto const degree = 5;
+    auto const degree = 4;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -249,10 +248,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", test_precs)
       coefficients_base_dir / "fokkerplanck1_4p4_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-6;
 
-  SECTION("level 5, degree 3")
+  SECTION("level 5, degree 2")
   {
     auto const levels = fk::vector<int>{5};
-    auto const degree = 3;
+    auto const degree = 2;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -265,10 +264,10 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", test_precs)
       coefficients_base_dir / "fokkerplanck1_4p5_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-4;
 
-  SECTION("level 3, degree 5")
+  SECTION("level 3, degree 4")
   {
     auto const levels = fk::vector<int>{3};
-    auto const degree = 5;
+    auto const degree = 4;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -283,33 +282,33 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
   auto const pde_choice     = PDE_opts::fokkerplanck_2d_complete_case4;
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-12 : 1e-3;
 
-  SECTION("level 3, degree 3")
+  SECTION("level 3, degree 2")
   {
     auto const levels = fk::vector<int>{3, 3};
-    auto const degree = 3;
+    auto const degree = 2;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
 
-  SECTION("level 4, degree 4")
+  SECTION("level 4, degree 3")
   {
     auto const levels = fk::vector<int>{4, 4};
-    auto const degree = 4;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
-  }
-  SECTION("non-uniform levels: 2, 3, deg 3")
-  {
-    auto const levels = fk::vector<int>{2, 3};
     auto const degree = 3;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
+  SECTION("non-uniform levels: 2, 3, degree 2")
+  {
+    auto const levels = fk::vector<int>{2, 3};
+    auto const degree = 2;
+    parser const test_parse(pde_choice, levels, degree);
+    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+  }
 
-  SECTION("non-uniform levels: 4, 2, deg 4")
+  SECTION("non-uniform levels: 4, 2, degree 3")
   {
     auto const levels = fk::vector<int>{4, 2};
-    auto const degree = 4;
+    auto const degree = 3;
     parser const test_parse(pde_choice, levels, degree);
     test_coefficients<TestType>(test_parse, gold_path, tol_factor);
   }
@@ -320,7 +319,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
         std::string(gold_path) + "_lhsmass.dat");
 
     auto const levels = fk::vector<int>{4, 4};
-    int const degree  = 4;
+    int const degree  = 3;
 
     parser const test_parse(pde_choice, levels, degree);
     auto pde = make_PDE<TestType>(test_parse);
@@ -341,7 +340,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
         auto const &partial_terms = term_1D.get_partial_terms();
         for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
         {
-          int const dof = degree * fm::two_raised_to(levels(i));
+          int const dof = (degree + 1) * fm::two_raised_to(levels(i));
 
           auto const mass =
               partial_terms[k].get_lhs_mass().extract_submatrix(0, 0, dof, dof);
@@ -373,10 +372,10 @@ TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", test_precs)
   auto const do_adapt_levels      = false;
   auto const adapt_threshold      = 0.5e-1;
 
-  SECTION("level [4,3], degree 3")
+  SECTION("level [4,3], degree 2")
   {
     auto const levels = fk::vector<int>{4, 3};
-    auto const degree = 3;
+    auto const degree = 2;
 
     parser const test_parse(pde_choice, levels, degree, cfl, full_grid,
                             parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
@@ -392,10 +391,10 @@ TEMPLATE_TEST_CASE("penalty check", "[coefficients]", test_precs)
   vector_func<TestType> ic = {partial_term<TestType>::null_vector_func};
   g_func_type<TestType> gfunc;
 
-  SECTION("level 4, degree 3")
+  SECTION("level 4, degree 2")
   {
     int const level  = 4;
-    int const degree = 3;
+    int const degree = 2;
     basis::wavelet_transform<TestType, resource::host> waves(level, degree,
                                                              true);
 

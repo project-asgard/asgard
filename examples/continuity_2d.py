@@ -24,7 +24,7 @@ if __name__ == '__main__':
         exit(1)
 
     print("asgard: running the continuity example")
-    os.system("./example_continuity_2d -p continuity_2 -d 2 -l 6 -w 10 -n 10 -t 0.0001")
+    os.system("./example_continuity_2d -p continuity_2 -d 1 -l 6 -w 10 -n 10 -t 0.0001")
 
     # the example above will run for 10 time steps and the -w 10 options
     # will tell the code to output on the final 10-th step

@@ -38,7 +38,7 @@ public:
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = true;
-    int constexpr default_degree         = 2;
+    int constexpr default_degree         = 1;
 
     partial_term<P> pterm = partial_term<P>(
         coefficient_type::mass, negid, nullptr, flux_type::central,

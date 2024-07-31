@@ -330,7 +330,7 @@ TEST_CASE("1d mapping functions", "[element_table]")
 TEST_CASE("static helper - cell builder", "[element_table]")
 {
   auto const levels = 3;
-  auto const degree = 2;
+  auto const degree = 1;
 
   auto const pde =
       make_PDE<default_precision>(PDE_opts::continuity_1, levels, degree);

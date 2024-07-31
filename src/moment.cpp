@@ -84,7 +84,7 @@ linear_coords_to_indices(PDE<P> const &pde, int const degree,
   fk::vector<int> indices(coords.size());
   for (int d = 0; d < pde.num_dims; ++d)
   {
-    indices(d) = coords(d) * degree;
+    indices(d) = coords(d) * (degree + 1);
   }
   return indices;
 }
@@ -140,15 +140,14 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
   }
 
   expect(pde.get_dimensions().size() == nvdim + 1);
-  int const n = static_cast<int>(std::pow(
-                    pde.get_dimensions()[v_dim_1].get_degree(), nvdim + 1)) *
+  int const n = fm::ipow(pde.get_dimensions()[v_dim_1].get_degree() + 1, nvdim + 1) *
                 num_ele;
   auto const &dim = pde.get_dimensions()[x_dim];
-  int const rows  = fm::two_raised_to(dim.get_level()) * dim.get_degree();
+  int const rows  = fm::two_raised_to(dim.get_level()) * (dim.get_degree() + 1);
 
   std::multimap<int, dense_item<P>> moment_mat;
 
-  int const deg = pde.get_dimensions()[v_dim_1].get_degree();
+  int const pdof = pde.get_dimensions()[v_dim_1].get_degree() + 1;
 
   // TODO: this should be refactored into a sparse matrix
   for (int i = 0; i < num_ele; i++)
@@ -157,50 +156,50 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
     fk::vector<int> const coords       = hash_table.get_coords(i);
     fk::vector<int> const elem_indices = linearize(coords);
 
-    for (int j = 0; j < deg; j++)
+    for (int j = 0; j < pdof; j++)
     {
-      int const ind_i = elem_indices(x_dim) * deg + j; // row_idx
-      for (int vdeg1 = 0; vdeg1 < deg; vdeg1++)
+      int const ind_i = elem_indices(x_dim) * pdof + j; // row_idx
+      for (int vdeg1 = 0; vdeg1 < pdof; vdeg1++)
       {
         if (nvdim == 1)
         {
           // "2D" case (v_dim = 1)
-          int const ind_j = i * static_cast<int>(std::pow(deg, 2)) + j * deg;
+          int const ind_j = i * fm::ipow(pdof, 2) + j * pdof;
           moment_mat.insert(
               {ind_i, dense_item<P>{ind_i, ind_j + vdeg1,
-                                    g_vec_1(elem_indices(1) * deg + vdeg1)}});
+                                    g_vec_1(elem_indices(1) * pdof + vdeg1)}});
         }
         else
         {
-          for (int vdeg2 = 0; vdeg2 < deg; vdeg2++)
+          for (int vdeg2 = 0; vdeg2 < pdof; vdeg2++)
           {
             if (nvdim == 2)
             {
               // "3D" case (v_dim = 2)
-              int const ind_j = i * static_cast<int>(std::pow(deg, 3)) +
-                                j * static_cast<int>(std::pow(deg, 2)) +
-                                deg * vdeg1 + vdeg2;
+              int const ind_j = i * fm::ipow(pdof, 3) +
+                                j * fm::ipow(pdof, 2) +
+                                pdof * vdeg1 + vdeg2;
               moment_mat.insert(
                   {ind_i,
                    dense_item<P>{ind_i, ind_j,
-                                 g_vec_1(elem_indices(1) * deg + vdeg1) *
-                                     g_vec_2(elem_indices(2) * deg + vdeg2)}});
+                                 g_vec_1(elem_indices(1) * pdof + vdeg1) *
+                                     g_vec_2(elem_indices(2) * pdof + vdeg2)}});
             }
             else if (nvdim == 3)
             {
               // "4D" case (v_dim = 3)
-              for (int vdeg3 = 0; vdeg3 < deg; vdeg3++)
+              for (int vdeg3 = 0; vdeg3 < pdof; vdeg3++)
               {
-                int const ind_j = i * static_cast<int>(std::pow(deg, 4)) +
-                                  j * static_cast<int>(std::pow(deg, 3)) +
-                                  static_cast<int>(std::pow(deg, 2)) * vdeg1 +
-                                  vdeg2 * deg + vdeg3;
+                int const ind_j = i * fm::ipow(pdof, 4) +
+                                  j * fm::ipow(pdof, 3) +
+                                  fm::ipow(pdof, 2) * vdeg1 +
+                                  vdeg2 * pdof + vdeg3;
                 moment_mat.insert(
                     {ind_i, dense_item<P>{
                                 ind_i, ind_j,
-                                g_vec_1(elem_indices(1) * deg + vdeg1) *
-                                    g_vec_2(elem_indices(2) * deg + vdeg2) *
-                                    g_vec_3(elem_indices(3) * deg + vdeg3)}});
+                                g_vec_1(elem_indices(1) * pdof + vdeg1) *
+                                    g_vec_2(elem_indices(2) * pdof + vdeg2) *
+                                    g_vec_3(elem_indices(3) * pdof + vdeg3)}});
               }
             }
           }

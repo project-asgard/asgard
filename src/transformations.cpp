@@ -90,7 +90,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     dimension<P> const &d    = dims[i];
     int const level          = d.get_level();
     int const n_segments     = fm::two_raised_to(level);
-    int const deg_freedom_1d = d.get_degree() * n_segments;
+    int const deg_freedom_1d = (d.get_degree() + 1) * n_segments;
     P const normalize        = (d.domain_max - d.domain_min) / n_segments;
     /* create matrix of Legendre polynomial basis functions evaluated at the
      * roots */
@@ -105,7 +105,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     /* set submatrices of dimension_transform */
     for (int j = 0; j < n_segments; j++)
     {
-      int const diagonal_pos = d.get_degree() * j;
+      int const diagonal_pos = (d.get_degree() + 1) * j;
       dimension_transform.set_submatrix(roots.size() * j, diagonal_pos, basis);
     }
     real_space_transform.push_back(transformer.apply(dimension_transform, level,
@@ -129,7 +129,7 @@ gen_realspace_nodes(int const degree, int const level, P const min, P const max,
 
   // TODO: refactor this whole function.. it does a lot of unnecessary things
   int const mat_dims =
-      quad_mode == quadrature_mode::use_degree ? degree * n : dof * n;
+      quad_mode == quadrature_mode::use_degree ? (degree + 1) * n : dof * n;
   fk::vector<P> nodes(mat_dims);
   for (int i = 0; i < n; i++)
   {
@@ -187,9 +187,7 @@ void wavelet_to_realspace(
   std::vector<fk::matrix<P>> real_space_transform =
       gen_realspace_transform(dims, transformer, quad_mode);
 
-  // FIXME Assume the degree in the first dimension is equal across all the
-  // remaining dimensions
-  auto const stride = std::pow(dims[0].get_degree(), dims.size());
+  int64_t const stride = fm::ipow(dims[0].get_degree() + 1, dims.size());
 
   fk::vector<P, mem_type::owner, resource::host> accumulator(real_space.size());
   fk::vector<P, mem_type::view, resource::host> real_space_accumulator(
@@ -208,7 +206,7 @@ void wavelet_to_realspace(
       auto const degree = dims[j].get_degree();
       fk::matrix<P, mem_type::const_view> sub_matrix(
           real_space_transform[j], 0, real_space_transform[j].nrows() - 1,
-          id * degree, (id + 1) * degree - 1);
+          id * (degree + 1), (id + 1) * (degree + 1) - 1);
       kron_matrices.push_back(sub_matrix);
     }
 
@@ -242,8 +240,10 @@ void combine_dimensions(int const degree, elements::table const &table,
   expect(stop_element >= start_element);
   expect(stop_element < table.size());
 
+  int const pblock = degree + 1;
+
   int64_t const vector_size =
-      (stop_element - start_element + 1) * std::pow(degree, num_dims);
+      (stop_element - start_element + 1) * fm::ipow(pblock, num_dims);
 
   // FIXME here we want to catch the 64-bit solution vector problem
   // and halt execution if we spill over. there is an open issue for this
@@ -259,15 +259,15 @@ void combine_dimensions(int const degree, elements::table const &table,
       // iterating over cell coords;
       // first num_dims entries in coords are level coords
       int const id = elements::get_1d_index(coords(j), coords(j + num_dims));
-      int const index_start = id * degree;
-      // index_start and index_end describe a subvector of length degree;
+      int const index_start = id * pblock;
+      // index_start and index_end describe a subvector of length degree + 1;
       // for deg = 1, this is a vector of one element
       int const index_end =
-          degree > 1 ? (((id + 1) * degree) - 1) : index_start;
+          degree > 0 ? (((id + 1) * pblock) - 1) : index_start;
       kron_list.push_back(vectors[j].extract(index_start, index_end));
     }
-    int const start_index = (i - start_element) * std::pow(degree, num_dims);
-    int const stop_index  = start_index + std::pow(degree, num_dims) - 1;
+    int const start_index = (i - start_element) * fm::ipow(pblock, num_dims);
+    int const stop_index  = start_index + fm::ipow(pblock, num_dims) - 1;
 
     // call kron_d and put the output in the right place of the result
     fk::vector<P, mem_type::view>(result, start_index, stop_index) =
@@ -275,8 +275,6 @@ void combine_dimensions(int const degree, elements::table const &table,
   }
 }
 
-// FIXME this function will need to change once dimensions can have different
-// degree...
 // combine components and create the portion of the multi-d vector associated
 // with the provided start and stop element bounds (inclusive)
 template<typename P>
@@ -287,7 +285,7 @@ combine_dimensions(int const degree, elements::table const &table,
                    P const time_scale)
 {
   int64_t const vector_size =
-      (stop_element - start_element + 1) * std::pow(degree, vectors.size());
+      (stop_element - start_element + 1) * fm::ipow(degree + 1, vectors.size());
 
   // FIXME here we want to catch the 64-bit solution vector problem
   // and halt execution if we spill over. there is an open issue for this
@@ -310,7 +308,7 @@ fk::vector<P> sum_separable_funcs(
 {
   auto const my_subgrid = grid.get_subgrid(get_rank());
   // FIXME assume uniform degree
-  auto const dof = std::pow(degree, dims.size()) * my_subgrid.nrows();
+  int64_t const dof = fm::ipow(degree + 1, dims.size()) * my_subgrid.nrows();
   fk::vector<P> combined(dof);
   for (auto const &md_func : funcs)
   {

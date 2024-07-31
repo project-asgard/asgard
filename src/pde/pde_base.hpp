@@ -40,7 +40,7 @@ enum class homogeneity
 // helper - single element size
 auto const element_segment_size = [](auto const &pde) {
   int const degree = pde.get_dimensions()[0].get_degree();
-  return static_cast<int>(std::pow(degree, pde.num_dims()));
+  return fm::ipow(degree + 1, pde.num_dims());
 };
 
 // ---------------------------------------------------------------------------
@@ -158,16 +158,16 @@ public:
 
   fk::matrix<P> const &get_lhs_mass() const { return mass_; }
 
-  void set_coefficients(fk::matrix<P> const &new_coefficients, int const deg,
+  void set_coefficients(fk::matrix<P> const &new_coefficients, int const degree,
                         int const max_level)
   {
     coefficients_.clear();
 
     // precompute inv(mass) * coeff for each level up to max level
-    std::vector<int> ipiv(deg * fm::two_raised_to(max_level));
+    std::vector<int> ipiv((degree + 1) * fm::two_raised_to(max_level));
     for (int level = 0; level <= max_level; ++level)
     {
-      auto const dof = deg * fm::two_raised_to(level);
+      auto const dof = (degree + 1) * fm::two_raised_to(level);
       fk::matrix<P> result(new_coefficients, 0, dof - 1, 0, dof - 1);
       auto mass_tmp = mass_.extract_submatrix(0, 0, dof, dof);
       fm::gesv(mass_tmp, result, ipiv);
@@ -376,7 +376,7 @@ public:
     int const level = adapted_dim.get_level();
 
     auto const new_dof =
-        adapted_dim.get_degree() * fm::two_raised_to(level);
+        (adapted_dim.get_degree() + 1) * fm::two_raised_to(level);
     expect(coefficients_.nrows() == coefficients_.ncols());
 
     if (partial_terms_.empty())
@@ -710,7 +710,7 @@ public:
     auto const cli_degree = cli_input.get_degree();
     if (cli_degree != parser::NO_USER_VALUE)
     {
-      expect(cli_degree > 0);
+      expect(cli_degree >= 0);
       for (dimension<P> &d : dimensions_)
       {
         d.set_degree(cli_degree);
@@ -728,7 +728,7 @@ public:
         expect(term_1D.get_partial_terms().size() > 0);
 
         auto const max_dof =
-            fm::two_raised_to(static_cast<int64_t>(max_level_)) * degree;
+            fm::two_raised_to(static_cast<int64_t>(max_level_)) * (degree + 1);
         expect(max_dof < INT_MAX);
 
         term_1D.set_coefficients(eye<P>(max_dof));
@@ -751,7 +751,7 @@ public:
     // check all dimensions
     for (auto const &d : dimensions_)
     {
-      expect(d.get_degree() > 0);
+      expect(d.get_degree() >= 0);
       expect(d.get_level() >= 0);
       expect(d.domain_max > d.domain_min);
     }
@@ -761,7 +761,7 @@ public:
     {
       for (int level = 0; level <= max_level_; ++level)
       {
-        auto const dof = fm::two_raised_to(level) * degree;
+        auto const dof = fm::two_raised_to(level) * (degree + 1);
         expect(dof < INT_MAX);
         update_dimension_mass_mat(i, std::move(eye<P>(dof)), level);
       }
@@ -816,7 +816,7 @@ public:
           std::vector<fk::matrix<P>> pterm_coeffs;
           for (int level = 0; level <= max_level_; ++level)
           {
-            auto const dof = dim.get_degree() * fm::two_raised_to(level);
+            auto const dof = (dim.get_degree() + 1) * fm::two_raised_to(level);
             fk::matrix<P> result_tmp = eye<P>(dof);
             pterm_coeffs.emplace_back(std::move(result_tmp));
           }

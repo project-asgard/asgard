@@ -99,7 +99,7 @@ private:
       0.0,  // domain min
       M_PI, // domain max
       4,    // levels - default (changed on command line with option -l)
-      3,    // degree - default (changed on command line with option -d)
+      2,    // degree - default (changed on command line with option -d)
       initial_condition_dim0, // initial condition function
       nullptr,                // volume
       "x"                     // name of dimension

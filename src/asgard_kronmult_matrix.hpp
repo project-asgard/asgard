@@ -196,7 +196,7 @@ public:
    * \param num_dimensions is the number of dimensions
    * \param kron_size is the size of the matrices in the kron-product
    *        i.e., called n in the compute routines and tied to the polynomial
-   *        degree kron_size = 1 for constants, 2 for linears, 3 for quadratics
+   *        degree, kron_size = 1 for constants, 2 for linears, 3 for quadratics
    *        and so on
    * \param num_rows is the number of output blocks
    * \param num_columns is the number of kron-products for each output block,
@@ -1022,7 +1022,7 @@ private:
   std::vector<std::vector<precision>> gvals_;
   // collections of terms
   std::array<std::vector<int>, 3> term_groups;
-  int porder_ = 0;
+  int degree_ = 0;
   // preconditioner
   std::vector<precision> pre_con_;
 #ifdef ASGARD_USE_CUDA

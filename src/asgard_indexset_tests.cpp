@@ -125,11 +125,11 @@ TEST_CASE("connectivity full and expanded to dof", "[connectivity]")
 
   // expand the cells by adding the degrees of freedom for quadratic basis
   // i.e., each entry in the sparse matrix is replaced with a 3x3 block
-  int const porder = 2;
-  connect_1d expanded(cells, porder);
-  REQUIRE(expanded.num_rows() == (porder + 1) * 8);
+  int const degree = 2;
+  connect_1d expanded(cells, degree);
+  REQUIRE(expanded.num_rows() == (degree + 1) * 8);
   // there are fewer connection since we removed the self-connection
-  REQUIRE(expanded.num_connections() == 60 * (porder + 1) * (porder + 1));
+  REQUIRE(expanded.num_connections() == 60 * (degree + 1) * (degree + 1));
 
   // compare the connectivity to the 12-th element (first in cell 4)
   REQUIRE(expanded.row_end(12) - expanded.row_begin(12) == 21);

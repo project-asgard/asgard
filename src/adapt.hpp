@@ -21,8 +21,8 @@ namespace asgard::adapt
 // the purpose of this class is to adapt the set of the active elements given
 // the coefficients in the initial condition/solution vector x. during gemv that
 // drives explicit time advance, for each term, each element connection reads
-// from a deg^dim segment x beginning at x[i*deg^dim] and writes deg^dim
-// coefficients to y[j*deg^dim].
+// from a n^dim segment x beginning at x[i*n^dim] and writes n^dim
+// coefficients to y[j*n^dim], where n = degree + 1.
 
 // elements responsible for coefficients with low absolute value may be removed
 // from the grid (grid coarsening) elements responsible for coefficients with
