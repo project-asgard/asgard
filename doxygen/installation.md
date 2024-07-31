@@ -13,22 +13,22 @@
 Minimum requirements run ASGarD
 * a C/C++ compiler with support for C++-17
 * [CMake](https://cmake.org/) build system
-* [Basic Linear Algebra Subroutine (BLAS)](https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms) and [Linear Algebra PACKage](http://www.netlib.org/lapack/)
+* [Basic Linear Algebra Subroutine (BLAS)](https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms) and [Linear Algebra PACKage (LAPACK)](http://www.netlib.org/lapack/)
     * many optimized BLAS and LAPACK implementations exist, e.g., OpenBLAS, MKL, Blis/Flame
 * GIT which works with CMake to find additional dependencies for testing
 
 Recommended but optional
 * [OpenMP](https://en.wikipedia.org/wiki/OpenMP) for CPU multi-threading
-    * supported by GCC and most recent versions of Clang
+    * supported by GCC and most recent versions of Clang (16 or newer)
 * If you have Nvidia GPU ASGarD can take advantage of the [linear algebra libraries](https://developer.nvidia.com/cublas) and custom [CUDA kernels](https://developer.nvidia.com/cuda-zone)
-* [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format) and [HighFive](https://bluebrain.github.io/HighFive/) libraries to output the solution
+* [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format) and [HighFive](https://bluebrain.github.io/HighFive/) libraries to output the solution state
 * Python bindings using [h5py](https://www.h5py.org/) and [numpy](https://numpy.org/) for easier visualization and HDF5 post-processing
 
 Other CMake options
-* dynamic/shared libraries are used by default, static build is possible `-DBUILD_SHARED_LIBS=OFF`
+* dynamic/shared libraries are used by default, static build is possible with `-DBUILD_SHARED_LIBS=OFF`
     * Python bindings require shared libraries
 * tests with CMake's ctest are enabled by default, disable with `-DASGARD_BUILD_TESTS=OFF`
-* ASGarD builds with both single (float) and double precision pick one for faster compile time
+* ASGarD builds with both single (float) and double precision, pick just one for faster compile time
 
 ASGarD has the ability to automatically download and install OpenBLAS and HDF5.
 However, it is recommended to use system provided libraries, available in most Linux distributions and HPC systems.
@@ -63,9 +63,10 @@ CMake uses out-of-source build, clone the repo and build in a subfolder
   cmake install .
 ```
 
-On a OSX system, users have reported instabilities with homebrew provided HDF5.
-Also, OpenMP has limited benefits, due to what appears to be kernel scheduling.
-The BLAS/LAPACK acceleration need a flag to be set to the most recent mode.
+On a OSX system, users have reported instabilities with the homebrew provided HDF5,
+especially on Apple M chips.
+Also, OpenMP has limited benefits, due to what appears to be kernel scheduling overhead.
+The BLAS/LAPACK acceleration needs a flag to enable the most recent mode.
 ```
   cmake \
     -D CMAKE_BUILD_TYPE=Release \
@@ -79,9 +80,9 @@ The BLAS/LAPACK acceleration need a flag to be set to the most recent mode.
     ..
 ```
 
-The installation step is required to use ASGarD as a library for an external project
-allowing the user to define their own PDE specification.
-The currently available equations and all build tools can be used directly from the
+The installation step is required to use ASGarD as a library for an external project,
+allowing the user to define their own PDE specification without intruding into the ASGarD code.
+However, the currently available equations and all tools can be used directly from the
 build folder.
 
 It is recommended to use a dedicated `CMAKE_INSTALL_PREFIX` as opposed to common
