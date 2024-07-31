@@ -69,7 +69,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   }();
 
   // perform gmres with system matrix A
-  fk::vector<P> const gmres = [&pde, &table, &my_subgrid, &gold, &b,
+  fk::vector<P> const gmres = [&pde, &table, &my_subgrid, &b,
                                elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
@@ -92,7 +92,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   rmse_comparison(gold, gmres, tol_factor);
 
   // perform bicgstab with system matrix A
-  fk::vector<P> const bicgstab = [&pde, &table, &my_subgrid, &gold, &b,
+  fk::vector<P> const bicgstab = [&pde, &table, &my_subgrid, &b,
                                   elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
@@ -119,7 +119,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   P const dt = pde->get_dt();
 
   // perform matrix-free gmres
-  fk::vector<P> const matrix_free_gmres = [&operator_matrices, &gold, &b,
+  fk::vector<P> const matrix_free_gmres = [&operator_matrices, &b,
                                            dt]() {
     fk::vector<P> x(b);
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
@@ -133,7 +133,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   rmse_comparison(gold, matrix_free_gmres, tol_factor);
 
   // perform matrix-free bicgstab
-  fk::vector<P> const matrix_free_bicgstab = [&operator_matrices, &gold, &b,
+  fk::vector<P> const matrix_free_bicgstab = [&operator_matrices, &b,
                                               dt]() {
     fk::vector<P> x(b);
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
