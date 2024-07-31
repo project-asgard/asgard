@@ -49,4 +49,4 @@ Oak Ridge National Laboratory.
 *  cmake 3.19
 *  BLAS/LAPACK
 
-See the detailed [installation](Doxygen/Installation.md) instructions.
+See the detailed [installation](doxygen/installation.md) instructions.
