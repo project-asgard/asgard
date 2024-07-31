@@ -27,13 +27,13 @@ set(DOXYGEN_PROJECT_NUMBER "")
 
 doxygen_add_docs(asgard_doxygen
                  README.md
-                 #doxygen/installation.md
+                 doxygen/installation.md
                  #doxygen/basic_usage.md
                  src/program_options.hpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")
 
 # asgard_doxygen is not automatically added to "all"
-# must add a depenendence to ensure
+# must add a dependence to ensure it will build
 add_dependencies(asgard_exe asgard_doxygen)
 install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../html DESTINATION "share/asgard/docs")
