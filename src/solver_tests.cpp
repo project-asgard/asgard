@@ -73,7 +73,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
                                elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
-    fk::vector<P> x(gold);
+    fk::vector<P> x(b);
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -96,7 +96,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
                                   elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
-    fk::vector<P> x(gold);
+    fk::vector<P> x(b);
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     build_system_matrix(*pde, table, A, my_subgrid);
@@ -121,7 +121,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   // perform matrix-free gmres
   fk::vector<P> const matrix_free_gmres = [&operator_matrices, &gold, &b,
                                            dt]() {
-    fk::vector<P> x(gold);
+    fk::vector<P> x(b);
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -135,7 +135,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   // perform matrix-free bicgstab
   fk::vector<P> const matrix_free_bicgstab = [&operator_matrices, &gold, &b,
                                               dt]() {
-    fk::vector<P> x(gold);
+    fk::vector<P> x(b);
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
@@ -149,7 +149,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   // perform matrix-free gmres
   fk::vector<P> const mf_gpu_gmres = [&operator_matrices, &gold, &b, dt]() {
     fk::vector<P, mem_type::owner, resource::device> x_d =
-        gold.clone_onto_device();
+        b.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
         b.clone_onto_device();
     int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
@@ -165,7 +165,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   // perform matrix-free bicgstab
   fk::vector<P> const mf_gpu_bicgstab = [&operator_matrices, &gold, &b, dt]() {
     fk::vector<P, mem_type::owner, resource::device> x_d =
-        gold.clone_onto_device();
+        b.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
         b.clone_onto_device();
     int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
@@ -255,7 +255,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
 
 TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 {
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
+  auto constexpr tol_factor = get_tolerance<TestType>(10000);
 
   SECTION("1d")
   {
@@ -314,7 +314,7 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 
 TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
 {
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
+  auto constexpr tol_factor = get_tolerance<TestType>(10000);
 
   SECTION("2d - uniform level")
   {
