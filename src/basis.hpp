@@ -38,20 +38,13 @@ public:
   wavelet_transform(int const max_level_in, int const max_degree,
                     bool const quiet = true);
 
-  wavelet_transform(options const &program_opts, int const max_degree,
-                    bool const quiet = true)
-      : wavelet_transform(program_opts.max_level, max_degree, quiet)
-  {}
-
-  wavelet_transform(options const &program_opts, PDE<P> const &pde,
-                    bool const quiet = true)
+  wavelet_transform(PDE<P> const &pde, bool const quiet = true)
       : // Choose which max level to use depending on whether adaptivity is
         // enabled.
         // If adaptivity is enabled, use the program_opts.max_level
         // Otherwise, use the max_level defined in the PDE (max level of all
         // dims)
-        wavelet_transform(program_opts.do_adapt_levels ? program_opts.max_level
-                                                       : pde.max_level(),
+        wavelet_transform(pde.max_level(),
                           pde.get_dimensions()[0].get_degree(), quiet)
   {}
 

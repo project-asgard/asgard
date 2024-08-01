@@ -81,9 +81,10 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
 
 TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", test_precs)
 {
-  auto const level  = 3;
-  auto const degree = 1;
-  auto const pde    = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+  // auto const level  = 3;
+  // auto const degree = 1;
+  auto const pde    = make_PDE<TestType>("-p diffusion_2 -l 3 -d 1");
+
   auto const base_dir          = pde_base_dir / "diffusion_2_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
@@ -98,21 +99,22 @@ TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", test_precs)
     test_exact_solution<TestType>(*pde, base_dir, x, time);
   }
 
+  // CFL not really working
   SECTION("diffusion 2 dt")
   {
     auto filename = base_dir.filename().string();
     TestType const gold =
         read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
+    TestType const dt = pde->get_dt() / 0.01;
     REQUIRE(dt == gold);
   }
 }
 
 TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
 {
-  auto const level  = 3;
-  auto const degree = 1;
-  auto const pde    = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+  // auto const level  = 3;
+  // auto const degree = 1;
+  auto const pde    = make_PDE<TestType>("-p diffusion_1 -l 3 -d 1");
   auto const base_dir          = pde_base_dir / "diffusion_1_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
@@ -137,14 +139,14 @@ TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
     auto filename = base_dir.filename().string();
     TestType const gold =
         read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
+    TestType const dt = pde->get_dt() / 0.01;
     REQUIRE(dt == gold);
   }
 }
 
 TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", test_precs)
 {
-  auto const pde               = make_PDE<TestType>(PDE_opts::continuity_1);
+  auto const pde               = make_PDE<TestType>("-p continuity_1");
   auto const base_dir          = pde_base_dir / "continuity_1_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
@@ -169,16 +171,15 @@ TEMPLATE_TEST_CASE("testing contuinity 1 implementations", "[pde]", test_precs)
     auto filename = base_dir.filename().string();
     TestType const gold =
         read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
+    TestType const dt = pde->get_dt() / 0.01;
     REQUIRE(dt == gold);
   }
 }
+
 TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 3",
                    "[pde]", test_precs)
 {
-  auto const level  = 5;
-  auto const degree = 3;
-  auto const pde    = make_PDE<TestType>(PDE_opts::continuity_2, level, degree);
+  auto const pde    = make_PDE<TestType>("-p continuity_2 -l 5 -d 3");
   auto const base_dir          = pde_base_dir / "continuity2_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
@@ -203,16 +204,14 @@ TEMPLATE_TEST_CASE("testing contuinity 2 implementations, level 5, degree 3",
     auto filename = base_dir.filename().string();
     TestType const gold =
         read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
+    TestType const dt = pde->get_dt() / 0.01;
     REQUIRE(dt == gold);
   }
 }
 
 TEMPLATE_TEST_CASE("testing continuity 3 implementations", "[pde]", test_precs)
 {
-  auto const level  = 5;
-  auto const degree = 3;
-  auto const pde    = make_PDE<TestType>(PDE_opts::continuity_3, level, degree);
+  auto const pde    = make_PDE<TestType>("-p continuity_3 -l 5 -d 3");
   auto const base_dir          = pde_base_dir / "continuity_3_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
@@ -237,15 +236,15 @@ TEMPLATE_TEST_CASE("testing continuity 3 implementations", "[pde]", test_precs)
     auto filename = base_dir.filename().string();
     TestType const gold =
         read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
+    TestType const dt = pde->get_dt() / 0.01;
     REQUIRE(dt == gold);
   }
 }
 
 TEMPLATE_TEST_CASE("testing continuity 6 implementations", "[pde]", test_precs)
 {
-  auto const level    = 3;
-  auto const pde      = make_PDE<TestType>(PDE_opts::continuity_6, level);
+  //auto const level    = 3;
+  auto const pde      = make_PDE<TestType>("-p continuity_6 -l 3");
   auto const base_dir = pde_base_dir / "continuity_6_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
@@ -270,7 +269,7 @@ TEMPLATE_TEST_CASE("testing continuity 6 implementations", "[pde]", test_precs)
     auto filename = base_dir.filename().string();
     TestType const gold =
         read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / parser::DEFAULT_CFL;
+    TestType const dt = pde->get_dt() / 0.01;
     REQUIRE(dt == gold);
   }
 }
@@ -278,11 +277,7 @@ TEMPLATE_TEST_CASE("testing continuity 6 implementations", "[pde]", test_precs)
 TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
                    "[pde]", test_precs)
 {
-  int const level  = 5;
-  int const degree = 4;
-
-  auto const pde = make_PDE<TestType>(PDE_opts::fokkerplanck_2d_complete_case4,
-                                      level, degree);
+  auto const pde = make_PDE<TestType>("-p fokkerplanck_2d_complete_case4 -l 5 -d 4");
   auto const base_dir          = pde_base_dir / "fokkerplanck2_complete_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
   TestType const time          = 5;
@@ -372,21 +367,15 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
 
 TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", test_precs)
 {
-  std::string const pde_choice = "vlasov";
-  fk::vector<int> const levels{4, 3};
-  auto const degree               = 2;
-  auto const cfl                  = 0.01;
-  auto const full_grid            = true;
-  static auto constexpr num_steps = 1;
-  auto const use_implicit         = false;
-  auto const do_adapt_levels      = false;
-  auto const adapt_threshold      = 0.5e-1;
+  prog_opts opts;
+  opts.pde_choice     = PDE_opts::vlasov_lb_full_f;
+  opts.degree         = 2;
+  opts.start_levels   = {4, 3};
+  opts.grid           = grid_type::dense;
+  opts.num_time_steps = 1;
 
-  parser const parse(pde_choice, levels, degree, cfl, full_grid,
-                     parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
-                     do_adapt_levels, adapt_threshold);
-
-  auto const pde               = make_PDE<TestType>(parse);
+  auto const pde = make_PDE<TestType>(opts);
+  //auto const pde               = make_PDE<TestType>(parse);
   auto const base_dir          = pde_base_dir / "vlasov_lb_full_f_";
   fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
 
@@ -394,16 +383,4 @@ TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", test_precs)
   {
     test_initial_condition<TestType>(*pde, base_dir, x);
   }
-}
-
-TEST_CASE("testing pde term selection", "[pde]")
-{
-  std::string const pde_choice   = "fokkerplanck_2d_complete_case4";
-  std::string const active_terms = "1 1 0 1 0 1";
-
-  parser const parse = make_parser({"-p", pde_choice, "--terms", active_terms});
-  auto const pde     = make_PDE<default_precision>(parse);
-
-  REQUIRE(pde->num_terms() == 4);
-  REQUIRE(pde->get_terms().size() == 4);
 }

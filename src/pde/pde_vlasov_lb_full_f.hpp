@@ -14,7 +14,7 @@ template<typename P>
 class PDE_vlasov_lb : public PDE<P>
 {
 public:
-  PDE_vlasov_lb(parser const &cli_input)
+  PDE_vlasov_lb(prog_opts const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_)

@@ -5,14 +5,15 @@
 template<typename P>
 void test_compile()
 {
-  asgard::parser cli_mock(asgard::PDE_opts::custom,
-                          asgard::fk::vector<int>{2, 2});
+  asgard::prog_opts opts;
+  opts.pde_choice   = asgard::PDE_opts::custom;
+  opts.start_levels = {2, 2};
 
   asgard::PDE<P> empty_pde;
   asgard::ignore(empty_pde);
 
   auto diff_pde =
-        asgard::make_custom_pde<asgard::PDE_diffusion_2d<P>>(cli_mock);
+        asgard::make_custom_pde<asgard::PDE_diffusion_2d<P>>(opts);
 
   static_assert(std::is_same_v<decltype(diff_pde),
                                std::unique_ptr<asgard::PDE<P>>>);

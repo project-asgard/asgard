@@ -10,17 +10,29 @@ static auto const elements_base_dir = gold_base_dir / "element_table";
 
 using namespace asgard;
 
-void test_element_table(PDE_opts const pde_choice,
-                        fk::vector<int> const &levels,
-                        std::string const &gold_filename,
-                        int64_t const max_level, bool const full_grid = false)
+// elopts, helper opts maker for this set of tests
+prog_opts elopts(PDE_opts const pde_choice,
+                 std::vector<int> const &levels,
+                 int const max_level, bool const full_grid)
 {
-  auto const degree = parser::NO_USER_VALUE;
-  auto const cfl    = parser::DEFAULT_CFL;
-  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
-  options const opts(cli_mock);
-  auto const pde = make_PDE<default_precision>(cli_mock);
-  elements::table const elem_table(opts, *pde);
+  prog_opts opts;
+  opts.pde_choice    = pde_choice;
+  opts.start_levels  = levels;
+  opts.max_levels    = std::vector<int>(levels.size(), max_level);
+
+  opts.grid = (full_grid) ? grid_type::dense : grid_type::sparse;
+  return opts;
+}
+
+void test_element_table(PDE_opts const pde_choice,
+                        std::vector<int> const &levels,
+                        std::string const &gold_filename,
+                        int const max_level, bool const full_grid = false)
+{
+  auto opts = elopts(pde_choice, levels, max_level, full_grid);
+
+  auto const pde = make_PDE<default_precision>(opts);
+  elements::table const elem_table(*pde);
 
   fk::matrix<int> const gold_table =
       read_matrix_from_txt_file<int>(gold_filename);
@@ -46,13 +58,13 @@ void test_element_table(PDE_opts const pde_choice,
     fk::vector<int> const gold_coords =
         gold_table.extract_submatrix(i, 0, 1, pde->num_dims() * 2);
     fk::vector<int> const mapped_coords =
-        elements::map_to_coords(test_id, opts.max_level, pde->num_dims());
+        elements::map_to_coords(test_id, max_level, pde->num_dims());
     REQUIRE(mapped_coords == test_coords);
     REQUIRE(gold_coords == test_coords);
 
     // test mapping back to id
     auto const mapped_id =
-        elements::map_to_id(mapped_coords, opts.max_level, pde->num_dims());
+        elements::map_to_id(mapped_coords, max_level, pde->num_dims());
     REQUIRE(mapped_id == gold_id);
 
     auto const coord_size         = pde->num_dims() * 2;
@@ -64,16 +76,14 @@ void test_element_table(PDE_opts const pde_choice,
 }
 
 void test_child_discovery(PDE_opts const pde_choice,
-                          fk::vector<int> const &levels,
+                          std::vector<int> const &levels,
                           std::string const &gold_filename,
-                          int64_t const max_level, bool const full_grid = false)
+                          int const max_level, bool const full_grid = false)
 {
-  auto const degree = parser::NO_USER_VALUE;
-  auto const cfl    = parser::DEFAULT_CFL;
-  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
-  options const opts(cli_mock);
-  auto const pde = make_PDE<default_precision>(cli_mock);
-  elements::table const elem_table(opts, *pde);
+  auto opts = elopts(pde_choice, levels, max_level, full_grid);
+
+  auto const pde = make_PDE<default_precision>(opts);
+  elements::table const elem_table(*pde);
 
   fk::vector<int> const gold_child_vect =
       read_vector_from_txt_file<int>(gold_filename);
@@ -84,7 +94,7 @@ void test_child_discovery(PDE_opts const pde_choice,
     std::list<int64_t> output;
     for (int64_t i = 0; i < elem_table.size(); ++i)
     {
-      output.splice(output.end(), elem_table.get_child_elements(i, opts));
+      output.splice(output.end(), elem_table.get_child_elements(i, opts.max_levels));
     }
     return output;
   }();
@@ -93,16 +103,14 @@ void test_child_discovery(PDE_opts const pde_choice,
 }
 
 void test_element_addition(PDE_opts const pde_choice,
-                           fk::vector<int> const &levels,
-                           int64_t const max_level,
+                           std::vector<int> const &levels,
+                           int const max_level,
                            bool const full_grid = false)
 {
-  auto const degree = parser::NO_USER_VALUE;
-  auto const cfl    = parser::DEFAULT_CFL;
-  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
-  options const opts(cli_mock);
-  auto const pde = make_PDE<default_precision>(cli_mock);
-  elements::table elem_table(opts, *pde);
+  auto opts = elopts(pde_choice, levels, max_level, full_grid);
+
+  auto const pde = make_PDE<default_precision>(opts);
+  elements::table elem_table(*pde);
 
   // store existing ids
   auto const active_ids = [&elem_table]() {
@@ -128,12 +136,12 @@ void test_element_addition(PDE_opts const pde_choice,
     for (int64_t i = 0; i < elem_table.size(); i += n)
     {
       ids_to_add.splice(ids_to_add.end(),
-                        elem_table.get_child_elements(i, opts));
+                        elem_table.get_child_elements(i, opts.max_levels));
       // and sometimes refine a contiguous element
       if ((counter++ % 2) == 0 && (i + 1) < elem_table.size())
       {
         ids_to_add.splice(ids_to_add.end(),
-                          elem_table.get_child_elements(i + 1, opts));
+                          elem_table.get_child_elements(i + 1, opts.max_levels));
       }
     }
     return ids_to_add;
@@ -153,23 +161,21 @@ void test_element_addition(PDE_opts const pde_choice,
 
   auto const old_size = elem_table.size();
   std::vector<int64_t> ids_to_add(id_list.begin(), id_list.end());
-  auto const num_added = elem_table.add_elements(ids_to_add, opts.max_level);
+  auto const num_added = elem_table.add_elements(ids_to_add);
 
   REQUIRE(num_added == should_add);
   REQUIRE(elem_table.size() == old_size + should_add);
 }
 
 void test_element_deletion(PDE_opts const pde_choice,
-                           fk::vector<int> const &levels,
-                           int64_t const max_level,
+                           std::vector<int> const &levels,
+                           int const max_level,
                            bool const full_grid = false)
 {
-  auto const degree = parser::NO_USER_VALUE;
-  auto const cfl    = parser::DEFAULT_CFL;
-  parser const cli_mock(pde_choice, levels, degree, cfl, full_grid, max_level);
-  options const opts(cli_mock);
-  auto const pde = make_PDE<default_precision>(cli_mock);
-  elements::table elem_table(opts, *pde);
+  auto opts = elopts(pde_choice, levels, max_level, full_grid);
+
+  auto const pde = make_PDE<default_precision>(opts);
+  elements::table elem_table(*pde);
 
   // delete every nth element,
   auto const n        = 5;
@@ -244,8 +250,8 @@ void test_element_deletion(PDE_opts const pde_choice,
 
 TEST_CASE("element table object", "[element_table]")
 {
-  std::vector<fk::vector<int>> const test_levels{{7}, {5, 2}, {3, 2, 3}};
-  auto const max_level = 7;
+  std::vector<std::vector<int>> const test_levels{{7}, {5, 2}, {3, 2, 3}};
+  int const max_level = 7;
   std::vector<PDE_opts> const test_pdes{
       PDE_opts::continuity_1, PDE_opts::continuity_2, PDE_opts::continuity_3};
 
@@ -258,8 +264,8 @@ TEST_CASE("element table object", "[element_table]")
 
     for (auto i = 0; i < static_cast<int>(test_levels.size()); ++i)
     {
-      auto const levels = test_levels[i];
-      auto const choice = test_pdes[i];
+      auto const &levels = test_levels[i];
+      auto const &choice = test_pdes[i];
 
       auto const full_gold_str =
           elements_base_dir /
@@ -281,8 +287,8 @@ TEST_CASE("element table object", "[element_table]")
 
     for (auto i = 0; i < static_cast<int>(test_levels.size()); ++i)
     {
-      auto const levels = test_levels[i];
-      auto const choice = test_pdes[i];
+      auto const &levels = test_levels[i];
+      auto const &choice = test_pdes[i];
 
       auto const full_gold_str =
           elements_base_dir /
@@ -307,23 +313,24 @@ TEST_CASE("element table object", "[element_table]")
 
 TEST_CASE("1d mapping functions", "[element_table]")
 {
-  std::vector<fk::vector<int>> const pairs = {{0, 0}, {1, 0}, {2, 1}, {12, 5},
-                                              {7, 0}, {4, 6}, {9, 3}, {30, 20}};
-  std::string const gold_base              = "1d_index_";
+  std::vector<std::array<int, 2>> const pairs =
+        {{0, 0}, {1, 0}, {2, 1}, {12, 5}, {7, 0}, {4, 6}, {9, 3}, {30, 20}};
+
+  std::string const gold_base = "1d_index_";
   for (auto const &pair : pairs)
   {
     REQUIRE(pair.size() == 2);
-    auto const id              = elements::get_1d_index(pair(0), pair(1));
-    std::string const filename = gold_base + std::to_string(pair(0)) + "_" +
-                                 std::to_string(pair(1)) + ".dat";
+    auto const id              = elements::get_1d_index(pair[0], pair[1]);
+    std::string const filename = gold_base + std::to_string(pair[0]) + "_" +
+                                 std::to_string(pair[1]) + ".dat";
     auto const gold = static_cast<int64_t>(
         read_scalar_from_txt_file(elements_base_dir / filename));
     REQUIRE(id + 1 == gold);
 
     // map back to pair
     auto const [lev, cell] = elements::get_level_cell(id);
-    REQUIRE(lev == pair(0));
-    REQUIRE(cell == pair(1));
+    REQUIRE(lev == pair[0]);
+    REQUIRE(cell == pair[1]);
   }
 }
 
@@ -332,11 +339,11 @@ TEST_CASE("static helper - cell builder", "[element_table]")
   auto const levels = 3;
   auto const degree = 1;
 
-  auto const pde =
-      make_PDE<default_precision>(PDE_opts::continuity_1, levels, degree);
-  elements::table const t(make_options({"-l", std::to_string(levels), "-d",
-                                        std::to_string(degree)}),
-                          *pde);
+  auto opts = elopts(PDE_opts::continuity_1, {levels, }, levels, false);
+  opts.degree = degree;
+
+  auto const pde = make_PDE<default_precision>(opts);
+  elements::table const t(*pde);
 
   SECTION("cell index set builder")
   {

@@ -221,7 +221,7 @@ if (ASGARD_USE_PYTHON)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/asgard_config.py")
 
     # put the module and all testing files into the build tree
-    foreach(_asg_pybuildfile asgard.py pyasgard_test.py)
+    foreach(_asg_pybuildfile asgard.py pyasgard_test.py sandbox.py)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
                            COMMAND "${CMAKE_COMMAND}"
                            ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
@@ -449,7 +449,6 @@ target_link_libraries (libasgard
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
                        $<$<BOOL:${LINALG_FOUND}>:asgard::LINALG>
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
-                       clara
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_highfive>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_hdf5>
                        $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_ENGINE_LIBRARY}>
@@ -668,7 +667,7 @@ if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
 endif()
 
 
-foreach (_asg_target clara asgard_highfive asgard_hdf5 libasgard asgard_exe)
+foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
   if (TARGET ${_asg_target})
     install(TARGETS ${_asg_target}
             EXPORT  "asgard-export"
@@ -682,7 +681,7 @@ endforeach()
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
         DESTINATION include
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.tpp")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp" "${CMAKE_CURRENT_SOURCE_DIR}/contrib/clara/clara.hpp"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp"
         DESTINATION include)
 
 configure_file(examples/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt @ONLY)

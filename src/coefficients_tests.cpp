@@ -12,13 +12,13 @@ static auto const coefficients_base_dir = gold_base_dir / "coefficients";
 using namespace asgard;
 
 template<typename P>
-void test_coefficients(parser const &parse, std::string const &gold_path,
+void test_coefficients(prog_opts const &opts, std::string const &gold_path,
                        P const tol_factor = get_tolerance<P>(10),
                        bool const rotate  = true)
 {
-  auto pde = make_PDE<P>(parse);
-  options const opts(parse);
-  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
+  auto pde = make_PDE<P>(opts);
+
+  basis::wavelet_transform<P, resource::host> const transformer(*pde);
   P const time = 0.0;
   generate_dimension_mass_mat(*pde, transformer);
   generate_all_coefficients(*pde, transformer, time, rotate);
@@ -30,7 +30,7 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
       });
 
   auto const filename_base = gold_path + "_l" + lev_string + "d" +
-                             std::to_string(parse.get_degree() + 1) + "_";
+                             std::to_string(pde->options().degree.value() + 1) + "_";
 
   for (auto d = 0; d < pde->num_dims(); ++d)
   {
@@ -55,221 +55,215 @@ void test_coefficients(parser const &parse, std::string const &gold_path,
 
 TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", test_precs)
 {
-  auto const pde_choice     = PDE_opts::diffusion_2;
   auto const gold_path      = coefficients_base_dir / "diffusion2_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
+  prog_opts opts;
+  opts.pde_choice = PDE_opts::diffusion_2;
+
   SECTION("level 3, degree 4")
   {
-    auto const degree = 4;
-    auto const levels = fk::vector<int>{3, 3};
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.degree       = 4;
+    opts.start_levels = {3, 3};
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 
   SECTION("non-uniform level: levels 2, 3, degree 4")
   {
-    auto const degree = 4;
-    auto const levels = fk::vector<int>{2, 3};
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.degree       = 4;
+    opts.start_levels = {2, 3};
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", test_precs)
 {
-  auto const pde_choice     = PDE_opts::diffusion_1;
   auto const gold_path      = coefficients_base_dir / "diffusion1_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(10000);
 
   SECTION("level 5, degree 5")
   {
-    auto const levels = fk::vector<int>{5};
-    auto const degree = 5;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    auto opts = make_opts("-p diffusion_1 -l 5 -d 5");
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", test_precs)
 {
-  auto const pde_choice = PDE_opts::continuity_1;
   auto const gold_path  = coefficients_base_dir / "continuity1_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
 
   SECTION("level 2, degree 1 (default)")
   {
-    auto const levels = fk::vector<int>{2};
-    auto const degree = 1;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    auto opts = make_opts("-p continuity_1 -l 2 -d 1");
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", test_precs)
 {
-  auto const pde_choice = PDE_opts::continuity_2;
-  auto const gold_path  = coefficients_base_dir / "continuity2_coefficients";
+  auto const gold_path      = coefficients_base_dir / "continuity2_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(100);
+
+  prog_opts opts;
+  opts.pde_choice = PDE_opts::continuity_2;
 
   SECTION("level 4, degree 2")
   {
-    auto const levels = fk::vector<int>{4, 4};
-    auto const degree = 2;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {4, 4};
+    opts.degree       = 2;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 
   SECTION("non-uniform level: levels 4, 5, degree 2")
   {
-    auto const levels = fk::vector<int>{4, 5};
-    auto const degree = 2;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {4, 5};
+    opts.degree       = 2;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", test_precs)
 {
-  auto const gold_path  = coefficients_base_dir / "continuity3_coefficients";
-  auto const pde_choice = PDE_opts::continuity_3;
+  auto const gold_path      = coefficients_base_dir / "continuity3_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(100);
+
+  prog_opts opts;
+  opts.pde_choice = PDE_opts::continuity_3;
 
   SECTION("level 4, degree 3")
   {
-    auto const levels = fk::vector<int>{4, 4, 4};
-    auto const degree = 3;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {4, 4, 4};
+    opts.degree       = 3;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 
   SECTION("non uniform level: levels 2, 3, 2, degree 3")
   {
-    auto const levels = fk::vector<int>{2, 3, 2};
-    auto const degree = 3;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {2, 3, 2};
+    opts.degree       = 3;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", test_precs)
 {
-  auto const gold_path  = coefficients_base_dir / "continuity6_coefficients";
-  auto const pde_choice = PDE_opts::continuity_6;
+  auto const gold_path      = coefficients_base_dir / "continuity6_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(1000);
+
+  prog_opts opts;
+  opts.pde_choice = PDE_opts::continuity_6;
 
   SECTION("level 2, degree 3")
   {
-    auto const levels = fk::vector<int>{2, 2, 2, 2, 2, 2};
-    auto const degree = 3;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = std::vector<int>(6, 2);
+    opts.degree       = 3;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 
   SECTION("non uniform level: levels 2, 3, 3, 3, 2, 4, degree 3")
   {
-    auto const levels = fk::vector<int>{2, 3, 3, 3, 2, 4};
-    auto const degree = 3;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {2, 3, 3, 3, 2, 4};
+    opts.degree       = 3;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
                    test_precs)
 {
-  auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case1;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p1a_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("level 4, degree 2")
   {
-    auto const levels = fk::vector<int>{4};
-    auto const degree = 2;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    prog_opts opts;
+    opts.pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case1;
+    opts.start_levels = {4, };
+    opts.degree       = 2;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case2 terms", "[coefficients]",
                    test_precs)
 {
-  auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case2;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_pitch_E_case2_coefficients";
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("level 4, degree 2")
   {
-    auto const levels = fk::vector<int>{4};
-    auto const degree = 2;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    prog_opts opts;
+    opts.pde_choice = PDE_opts::fokkerplanck_1d_pitch_E_case2;
+    opts.start_levels = {4, };
+    opts.degree       = 2;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_pitch_C terms", "[coefficients]", test_precs)
 {
-  auto const pde_choice = PDE_opts::fokkerplanck_1d_pitch_C;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p2_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-5;
 
   SECTION("level 5, degree 1")
   {
-    auto const levels = fk::vector<int>{5};
-    auto const degree = 1;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    prog_opts opts;
+    opts.pde_choice = PDE_opts::fokkerplanck_1d_pitch_C;
+    opts.start_levels = {5, };
+    opts.degree       = 1;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p3 terms", "[coefficients]", test_precs)
 {
-  auto const pde_choice = PDE_opts::fokkerplanck_1d_4p3;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p3_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-13 : 1e-4;
 
   SECTION("level 2, degree 4")
   {
-    auto const levels = fk::vector<int>{2};
-    auto const degree = 4;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    prog_opts opts;
+    opts.pde_choice = PDE_opts::fokkerplanck_1d_4p3;
+    opts.start_levels = {2, };
+    opts.degree       = 4;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p4 terms", "[coefficients]", test_precs)
 {
-  auto const pde_choice = PDE_opts::fokkerplanck_1d_4p4;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p4_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-6;
 
   SECTION("level 5, degree 2")
   {
-    auto const levels = fk::vector<int>{5};
-    auto const degree = 2;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    prog_opts opts;
+    opts.pde_choice = PDE_opts::fokkerplanck_1d_4p4;
+    opts.start_levels = {5, };
+    opts.degree       = 2;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
 TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", test_precs)
 {
-  auto const pde_choice = PDE_opts::fokkerplanck_1d_4p5;
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p5_coefficients";
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-4;
 
   SECTION("level 3, degree 4")
   {
-    auto const levels = fk::vector<int>{3};
-    auto const degree = 4;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    prog_opts opts;
+    opts.pde_choice   = PDE_opts::fokkerplanck_1d_4p5;
+    opts.start_levels = {3, };
+    opts.degree       = 4;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 
@@ -279,38 +273,36 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck2_complete_coefficients";
 
-  auto const pde_choice     = PDE_opts::fokkerplanck_2d_complete_case4;
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-12 : 1e-3;
+
+  prog_opts opts;
+  opts.pde_choice = PDE_opts::fokkerplanck_2d_complete_case4;
 
   SECTION("level 3, degree 2")
   {
-    auto const levels = fk::vector<int>{3, 3};
-    auto const degree = 2;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {3, 3};
+    opts.degree       = 2;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 
   SECTION("level 4, degree 3")
   {
-    auto const levels = fk::vector<int>{4, 4};
-    auto const degree = 3;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {4, 4};
+    opts.degree       = 3;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
   SECTION("non-uniform levels: 2, 3, degree 2")
   {
-    auto const levels = fk::vector<int>{2, 3};
-    auto const degree = 2;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {2, 3};
+    opts.degree       = 2;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 
   SECTION("non-uniform levels: 4, 2, degree 3")
   {
-    auto const levels = fk::vector<int>{4, 2};
-    auto const degree = 3;
-    parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    opts.start_levels = {4, 2};
+    opts.degree       = 3;
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 
   SECTION("pterm lhs mass")
@@ -318,15 +310,13 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
     fk::matrix<TestType> const gold = read_matrix_from_txt_file<TestType>(
         std::string(gold_path) + "_lhsmass.dat");
 
-    auto const levels = fk::vector<int>{4, 4};
     int const degree  = 3;
+    opts.start_levels = {4, 4};
+    opts.degree       = degree;
 
-    parser const test_parse(pde_choice, levels, degree);
-    auto pde = make_PDE<TestType>(test_parse);
-    options const opts(test_parse);
+    auto pde = make_PDE<TestType>(opts);
 
-    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                         *pde);
+    basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
     TestType const time = 0.0;
     generate_dimension_mass_mat(*pde, transformer);
     generate_all_coefficients(*pde, transformer, time, true);
@@ -340,7 +330,7 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
         auto const &partial_terms = term_1D.get_partial_terms();
         for (auto k = 0; k < static_cast<int>(partial_terms.size()); ++k)
         {
-          int const dof = (degree + 1) * fm::two_raised_to(levels(i));
+          int const dof = (degree + 1) * fm::two_raised_to(opts.start_levels[i]);
 
           auto const mass =
               partial_terms[k].get_lhs_mass().extract_submatrix(0, 0, dof, dof);
@@ -362,27 +352,19 @@ TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", test_precs)
   auto const gold_path =
       coefficients_base_dir / "vlasov_lb_full_f_coefficients";
 
-  auto const pde_choice     = PDE_opts::vlasov_lb_full_f;
   TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-12 : 1e-3;
 
-  auto const cfl                  = 0.01;
-  auto const full_grid            = true;
-  static auto constexpr num_steps = 1;
-  auto const use_implicit         = false;
-  auto const do_adapt_levels      = false;
-  auto const adapt_threshold      = 0.5e-1;
+  prog_opts opts;
+  opts.pde_choice     = PDE_opts::vlasov_lb_full_f;
+  opts.grid           = grid_type::dense;
+  opts.num_time_steps = 1;
 
   SECTION("level [4,3], degree 2")
   {
-    auto const levels = fk::vector<int>{4, 3};
-    auto const degree = 2;
+    opts.start_levels = {4, 3};
+    opts.degree       = 2;
 
-    parser const test_parse(pde_choice, levels, degree, cfl, full_grid,
-                            parser::DEFAULT_MAX_LEVEL, num_steps, use_implicit,
-                            do_adapt_levels, adapt_threshold);
-
-    // parser const test_parse(pde_choice, levels, degree);
-    test_coefficients<TestType>(test_parse, gold_path, tol_factor);
+    test_coefficients<TestType>(opts, gold_path, tol_factor);
   }
 }
 

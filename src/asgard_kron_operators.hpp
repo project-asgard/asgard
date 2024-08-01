@@ -53,15 +53,15 @@ struct kron_operators
 
   //! \brief Make the matrix for the given entry
   void make(imex_flag entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid, options const &opts)
+            adapt::distributed_grid<precision> const &grid)
   {
     if (not mem_stats)
-      mem_stats = compute_mem_usage(pde, grid, opts, entry, spcache);
+      mem_stats = compute_mem_usage(pde, grid, entry, spcache);
 
     int const ientry = static_cast<int>(entry);
     if (not matrices[ientry])
       matrices[ientry] = make_local_kronmult_matrix(
-          pde, grid, opts, mem_stats, entry, spcache);
+          pde, grid, mem_stats, entry, spcache);
 
 #ifdef ASGARD_USE_CUDA
     if (matrices[ientry].input_size() != xdev.size())
@@ -118,14 +118,13 @@ struct kron_operators
    *        coefficients
    */
   void reset_coefficients(imex_flag entry, PDE<precision> const &pde,
-                          adapt::distributed_grid<precision> const &grid,
-                          options const &opts)
+                          adapt::distributed_grid<precision> const &grid)
   {
     int const ientry = static_cast<int>(entry);
     if (not matrices[ientry])
-      make(entry, pde, grid, opts);
+      make(entry, pde, grid);
     else
-      update_kronmult_coefficients(pde, opts, entry, spcache,
+      update_kronmult_coefficients(pde, entry, spcache,
                                    matrices[ientry]);
   }
 
@@ -233,7 +232,7 @@ struct kron_operators
 
   //! \brief Make the matrix for the given entry
   void make(imex_flag entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid, options const &opts)
+            adapt::distributed_grid<precision> const &grid)
   {
     if (pde_ == nullptr and pde.has_interp())
     {
@@ -246,7 +245,7 @@ struct kron_operators
       }
       domain_scale = precision{1} / std::sqrt(domain_scale);
     }
-    int const max_level = (opts.do_adapt_levels) ? opts.max_level : pde.max_level();
+    int const max_level = pde.max_level();
     if (conn_volumes_.max_loaded_level() != max_level)
     { // TODO do we need to do this when level decreases and how do we recycle data
       conn_volumes_ = connect_1d(max_level, connect_1d::hierarchy::volume);
@@ -260,7 +259,7 @@ struct kron_operators
     if (not kglobal)
     {
       kglobal = make_block_global_kron_matrix(pde, grid, &conn_volumes_, &conn_full_, &workspace);
-      set_specific_mode(pde, grid, opts, entry, kglobal);
+      set_specific_mode(pde, grid, entry, kglobal);
       if (interp)
       {
         finterp.resize(workspace.x.size());
@@ -268,7 +267,7 @@ struct kron_operators
       }
     }
     else if (not kglobal.specific_is_set(entry))
-      set_specific_mode(pde, grid, opts, entry, kglobal);
+      set_specific_mode(pde, grid, entry, kglobal);
   }
 
   /*!
@@ -276,13 +275,12 @@ struct kron_operators
    *        coefficients
    */
   void reset_coefficients(imex_flag entry, PDE<precision> const &pde,
-                          adapt::distributed_grid<precision> const &grid,
-                          options const &opts)
+                          adapt::distributed_grid<precision> const &grid)
   {
     if (not kglobal)
-      make(entry, pde, grid, opts);
+      make(entry, pde, grid);
     else
-      set_specific_mode(pde, grid, opts, entry, kglobal);
+      set_specific_mode(pde, grid, entry, kglobal);
   }
 
   //! \brief Clear all matrices

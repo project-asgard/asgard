@@ -23,32 +23,24 @@ TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
   std::string const pde_choice = "diffusion_2";
   fk::vector<int> const levels{5, 5};
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, 3);
-  parser_mod::set(parse, parser_mod::cfl, 0.01);
-  parser_mod::set(parse, parser_mod::use_full_grid, false);
-  parser_mod::set(parse, parser_mod::num_time_steps, 5);
-  parser_mod::set(parse, parser_mod::use_implicit_stepping, true);
-  parser_mod::set(parse, parser_mod::do_adapt, true);
-  parser_mod::set(parse, parser_mod::adapt_threshold, 0.5e-1);
+  auto pde = make_PDE<TestType>("-p diffusion_2 -l 5 -d 3 -n 5 -sm impl -a 0.5e-1");
+  //options const opts(parse);
+  elements::table const check(*pde);
 
-  auto pde = make_PDE<TestType>(parse);
-  options const opts(parse);
-  elements::table const check(opts, *pde);
-
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                       *pde);
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
 
   // -- set coeffs
   generate_all_coefficients(*pde, transformer);
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   std::vector<vector_func<TestType>> md_func;
   SECTION("Constructor") { moment<TestType> mymoment({md_func}); }
+  // this is compile/crash test, if we got this fast we're good
+  REQUIRE(true);
 }
 
 TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
@@ -57,37 +49,33 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
   fk::vector<int> const levels{4, 3};
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, 2);
-  parser_mod::set(parse, parser_mod::cfl, 0.01);
-  parser_mod::set(parse, parser_mod::use_full_grid, true);
-  parser_mod::set(parse, parser_mod::num_time_steps, 1);
-  parser_mod::set(parse, parser_mod::use_implicit_stepping, false);
-  parser_mod::set(parse, parser_mod::do_adapt, false);
-  parser_mod::set(parse, parser_mod::adapt_threshold, 0.5e-1);
+  prog_opts opts;
+  opts.pde_choice     = PDE_opts::vlasov_lb_full_f;
+  opts.start_levels   = {4, 3};
+  opts.degree         = 2;
+  opts.grid           = grid_type::dense;
+  opts.num_time_steps = 1;
 
-  auto pde = make_PDE<TestType>(parse);
-  options const opts(parse);
-  elements::table const check(opts, *pde);
+  auto pde = make_PDE<TestType>(opts);
+  elements::table const check(*pde);
 
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                       *pde);
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
 
   // -- set coeffs
   generate_all_coefficients(*pde, transformer);
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   auto moments = pde->moments;
   REQUIRE(moments.size() > 0);
 
   for (size_t i = 0; i < moments.size(); ++i)
   {
-    moments[i].createFlist(*pde, opts);
-    moments[i].createMomentVector(*pde, opts, check);
+    moments[i].createFlist(*pde);
+    moments[i].createMomentVector(*pde, check);
     moments[i].createMomentReducedMatrix(*pde, check);
 
     auto const gold_filename =

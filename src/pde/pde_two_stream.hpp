@@ -14,7 +14,7 @@ template<typename P>
 class PDE_vlasov_two_stream : public PDE<P>
 {
 public:
-  PDE_vlasov_two_stream(parser const &cli_input)
+  PDE_vlasov_two_stream(prog_opts const &cli_input)
   {
     int constexpr num_dims          = 2;
     int constexpr num_sources       = 0;

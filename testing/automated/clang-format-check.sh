@@ -120,8 +120,8 @@ pde.hpp
 permutations.cpp
 permutations.hpp
 permutations_tests.cpp
-program_options.cpp
-#program_options.hpp
+#program_options.cpp
+program_options.hpp
 program_options_tests.cpp
 quadrature.cpp
 quadrature.hpp

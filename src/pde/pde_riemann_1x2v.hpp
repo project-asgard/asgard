@@ -16,7 +16,7 @@ template<typename P>
 class PDE_riemann_1x2v : public PDE<P>
 {
 public:
-  PDE_riemann_1x2v(parser const &cli_input)
+  PDE_riemann_1x2v(prog_opts const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,

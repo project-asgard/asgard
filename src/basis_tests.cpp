@@ -189,18 +189,14 @@ void test_fmwt_block_generation(int const level, int const degree)
 {
   P constexpr tol = std::is_same_v<P, float> ? 1e-4 : 1e-13;
 
-  // none of these options matter except for max level and degree
-  auto const pde_choice = "diffusion_2";
-  auto const num_dims   = 2;
-
-  parser const parse(pde_choice,
-                     fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-                     parser::DEFAULT_CFL, parser::DEFAULT_USE_IMPLICIT, level);
-  auto const pde = make_PDE<P>(parse);
-  options const opts(parse);
+  prog_opts opts;
+  opts.pde_choice = PDE_opts::diffusion_2; // not really relevant
+  opts.start_levels = {level, };
+  opts.degree = degree;
+  auto const pde = make_PDE<P>(opts);
 
   auto const quiet = true;
-  basis::wavelet_transform<P, resrc> const forward_transform(opts, *pde, quiet);
+  basis::wavelet_transform<P, resrc> const forward_transform(*pde, quiet);
   auto const &blocks = forward_transform.get_blocks();
 
   auto ctr = 0;
@@ -261,15 +257,15 @@ void test_fmwt_application(int const level, int const degree)
 {
   P constexpr tol = std::is_same_v<P, double> ? 1e-15 : 1e-5;
 
-  auto const pde_choice = "diffusion_2";
-  auto const num_dims   = 2;
-  parser const parse(pde_choice,
-                     fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-                     parser::DEFAULT_CFL, parser::DEFAULT_USE_IMPLICIT, level);
-  auto const pde = make_PDE<P>(parse);
-  options const opts(parse);
+  prog_opts opts;
+  opts.pde_choice = PDE_opts::diffusion_2; // irrelevant to the test
+  opts.start_levels = {level,};
+  opts.degree = degree;
+
+  auto const pde = make_PDE<P>(opts);
+
   auto const quiet = true;
-  basis::wavelet_transform<P, resrc> const forward_transform(opts, *pde, quiet);
+  basis::wavelet_transform<P, resrc> const forward_transform(*pde, quiet);
 
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());

@@ -55,7 +55,7 @@ namespace asgard
 // ---------------------------------------------------------------------------
 
 template<typename pde_class>
-auto make_custom_pde(parser const &cli_input)
+auto make_custom_pde(prog_opts const &cli_input)
 {
   static_assert(std::is_base_of_v<PDE<float>, pde_class> or std::is_base_of_v<PDE<double>, pde_class>,
                 "the requested PDE class must inherit from the asgard::PDE base-class");
@@ -66,9 +66,10 @@ auto make_custom_pde(parser const &cli_input)
 }
 
 template<typename P>
-std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
+std::unique_ptr<PDE<P>> make_PDE(prog_opts const &cli_input)
 {
-  switch (cli_input.get_selected_pde())
+  rassert(cli_input.pde_choice, "cannot create an unspecified PDE");
+  switch (cli_input.pde_choice.value())
   {
   case PDE_opts::continuity_1:
     return std::make_unique<PDE_continuity_1d<P>>(cli_input);
@@ -136,120 +137,10 @@ std::unique_ptr<PDE<P>> make_PDE(parser const &cli_input)
   }
 }
 
-// WARNING for tests only!
-// features rely on options, parser, and PDE constructed w/ same arguments
-// shim for easy PDE creation in tests
 template<typename P>
-std::unique_ptr<PDE<P>>
-make_PDE(PDE_opts const pde_choice, fk::vector<int> levels,
-         int const degree = parser::NO_USER_VALUE,
-         double const cfl = parser::DEFAULT_CFL)
+std::unique_ptr<PDE<P>> make_PDE(std::string const &opts)
 {
-  return make_PDE<P>(parser(pde_choice, levels, degree, cfl));
+  return make_PDE<P>(make_opts(opts));
 }
 
-// old tests based on uniform level need conversion
-template<typename P>
-std::unique_ptr<PDE<P>>
-make_PDE(PDE_opts const pde_choice, int const level = parser::NO_USER_VALUE,
-         int const degree = parser::NO_USER_VALUE,
-         double const cfl = parser::DEFAULT_CFL)
-{
-  auto const levels = [level, pde_choice]() {
-    if (level == parser::NO_USER_VALUE)
-    {
-      return fk::vector<int>();
-    }
-
-    switch (pde_choice)
-    {
-    case PDE_opts::continuity_1:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::continuity_2:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::continuity_3:
-      return fk::vector<int>(std::vector<int>(3, level));
-
-    case PDE_opts::continuity_6:
-      return fk::vector<int>(std::vector<int>(6, level));
-
-    case PDE_opts::fokkerplanck_1d_pitch_E_case1:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::fokkerplanck_1d_pitch_E_case2:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::fokkerplanck_1d_pitch_C:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::fokkerplanck_1d_4p3:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::fokkerplanck_1d_4p4:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::fokkerplanck_1d_4p5:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::fokkerplanck_2d_complete_case1:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::fokkerplanck_2d_complete_case2:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::fokkerplanck_2d_complete_case3:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::fokkerplanck_2d_complete_case4:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::diffusion_1:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::diffusion_2:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::advection_1:
-      return fk::vector<int>(std::vector<int>(1, level));
-
-    case PDE_opts::vlasov_lb_full_f:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::vlasov_two_stream:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::relaxation_1x1v:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::relaxation_1x2v:
-      return fk::vector<int>(std::vector<int>(3, level));
-
-    case PDE_opts::relaxation_1x3v:
-      return fk::vector<int>(std::vector<int>(4, level));
-
-    case PDE_opts::riemann_1x2v:
-      return fk::vector<int>(std::vector<int>(3, level));
-
-    case PDE_opts::riemann_1x3v:
-      return fk::vector<int>(std::vector<int>(4, level));
-
-    case PDE_opts::collisional_landau:
-      return fk::vector<int>(std::vector<int>(2, level));
-
-    case PDE_opts::collisional_landau_1x2v:
-      return fk::vector<int>(std::vector<int>(3, level));
-
-    case PDE_opts::collisional_landau_1x3v:
-      return fk::vector<int>(std::vector<int>(4, level));
-
-    default:
-      std::cout << "Invalid pde choice" << std::endl;
-      exit(-1);
-    }
-  }();
-
-  return make_PDE<P>(parser(pde_choice, levels, degree, cfl));
-}
 } // namespace asgard

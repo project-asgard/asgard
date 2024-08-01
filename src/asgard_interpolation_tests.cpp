@@ -36,7 +36,6 @@ TEMPLATE_TEST_CASE("md interpolation nodes", "[linear]", test_precs)
 {
   constexpr TestType tol = (std::is_same_v<TestType, double>) ? 1.E-15 : 1.E-7;
 
-  //constexpr int order = 1;
   connect_1d conn(2, connect_1d::hierarchy::volume);
   kronmult::block_global_workspace<TestType> workspace;
   interpolation<TestType> interp(2, &conn, &workspace);
@@ -65,6 +64,8 @@ void project_inver_md(int num_dimensions, int num_levels,
 
   constexpr int degree = 1;
 
+  nullpde<precision> pde(num_dimensions, prog_opts(), num_levels, degree);
+
   std::vector<vector_func<precision>> funcs;
   for (int d = 0; d < num_dimensions; d++)
     funcs.push_back([&, d](fk::vector<precision> const &x, precision const)
@@ -86,13 +87,11 @@ void project_inver_md(int num_dimensions, int num_levels,
   kronmult::block_global_workspace<precision> workspace;
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
-  parser mockcli = make_empty_parser();
-  parser_mod::set(mockcli, parser_mod::max_level, std::max(8, num_levels));
   bool constexpr quiet = true;
   asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(mockcli, degree, quiet);
+      transformer(pde, quiet);
 
-  adapt::distributed_grid<precision> grid(mockcli, dims);
+  adapt::distributed_grid<precision> grid(pde);
 
   vector2d<int> cells = get_cells<precision>(num_dimensions, grid);
   dimension_sort dsort(cells);
@@ -100,8 +99,7 @@ void project_inver_md(int num_dimensions, int num_levels,
 
   // project the function onto the wavelet basis
   fk::vector<precision> proj(cells.num_strips() * fm::ipow(2, num_dimensions));
-  grid.get_initial_condition(
-      options(mockcli), dims, funcs,
+  grid.get_initial_condition(pde.get_dimensions(), funcs,
       1.0, transformer, fk::vector<precision, mem_type::view>(proj));
 
   std::vector<precision> nodal(proj.size());
@@ -256,12 +254,12 @@ void proj_interp_md(int num_dimensions, int num_levels,
   kronmult::block_global_workspace<precision> workspace;
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
-  parser const cli_input = make_empty_parser();
+  nullpde<precision> pde(num_dimensions, prog_opts(), num_levels, degree);
   bool constexpr quiet = true;
   asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(cli_input, degree, quiet);
+      transformer(pde, quiet);
 
-  adapt::distributed_grid<precision> grid(cli_input, dims);
+  adapt::distributed_grid<precision> grid(pde);
 
   vector2d<int> cells = get_cells<precision>(num_dimensions, grid);
   dimension_sort dsort(cells);
@@ -270,10 +268,8 @@ void proj_interp_md(int num_dimensions, int num_levels,
   // project the function onto the wavelet basis
   fk::vector<precision> proj(cells.num_strips() * fm::ipow(2, num_dimensions));
   grid.get_initial_condition(
-      options(cli_input), dims, funcs,
-      1.0, transformer, fk::vector<precision, mem_type::view>(proj));
-
-  // for (auto x : proj) std::cout << x << "\n";
+      pde.get_dimensions(), funcs, 1.0, transformer,
+      fk::vector<precision, mem_type::view>(proj));
 
   std::vector<precision> nodal(proj.size());
   interp.get_nodal_values(cells, dsort, 1, proj.data(), nodal.data());
@@ -395,11 +391,7 @@ TEMPLATE_TEST_CASE("random data", "[linear]", test_precs)
 /////////////////////////////////////////////////////////////////////
 TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
 {
-  parser parse("continuity_1", {6, });
-  parser_mod::set(parse, parser_mod::degree, 1);
-  parser_mod::set(parse, parser_mod::use_full_grid, false);
-  parser_mod::set(parse, parser_mod::num_time_steps, 30);
-  parser_mod::set(parse, parser_mod::dt, 1.0e-4);
+  auto opts = make_opts("-p custom -l 6 -d 1 -n 30 -dt 1.0e-4");
 
   bool constexpr interp_mode = true;
   bool constexpr regular_mode = false;
@@ -408,27 +400,21 @@ TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
 
   std::vector<TestType> err_interp, err_regular;
 
-  std::unique_ptr<PDE<TestType>> pde_int = std::make_unique<testode<TestType, interp_mode, testode_modes::expdecay>>(parse);
-  std::unique_ptr<PDE<TestType>> pde_reg = std::make_unique<testode<TestType, regular_mode, testode_modes::expdecay>>(parse);
+  std::unique_ptr<PDE<TestType>> pde_int = std::make_unique<testode<TestType, interp_mode, testode_modes::expdecay>>(opts);
+  std::unique_ptr<PDE<TestType>> pde_reg = std::make_unique<testode<TestType, regular_mode, testode_modes::expdecay>>(opts);
 
-  err_interp = time_advance_errors(pde_int, parse);
-  err_regular = time_advance_errors(pde_reg, parse);
+  err_interp = time_advance_errors(pde_int);
+  err_regular = time_advance_errors(pde_reg);
 
   REQUIRE(err_interp.size() == err_regular.size());
   TestType err = fm::diff_inf(err_interp, err_regular);
   REQUIRE(err < tol);
 
-  parser parse2("continuity_1", {6, });
-  parser_mod::set(parse2, parser_mod::degree, 1);
-  parser_mod::set(parse2, parser_mod::use_full_grid, false);
-  parser_mod::set(parse2, parser_mod::num_time_steps, 30);
-  parser_mod::set(parse2, parser_mod::dt, 1.0e-4);
+  pde_int = std::make_unique<testode<TestType, interp_mode, testode_modes::expexp>>(opts);
+  pde_reg = std::make_unique<testode<TestType, regular_mode, testode_modes::expexp>>(opts);
 
-  pde_int = std::make_unique<testode<TestType, interp_mode, testode_modes::expexp>>(parse2);
-  pde_reg = std::make_unique<testode<TestType, regular_mode, testode_modes::expexp>>(parse2);
-
-  err_interp = time_advance_errors(pde_int, parse2);
-  err_regular = time_advance_errors(pde_reg, parse2);
+  err_interp = time_advance_errors(pde_int);
+  err_regular = time_advance_errors(pde_reg);
 
   REQUIRE(err_interp.size() == err_regular.size());
   err = fm::diff_inf(err_interp, err_regular);
@@ -440,18 +426,14 @@ TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
 /////////////////////////////////////////////////////////////////////
 TEMPLATE_TEST_CASE("2d continuity_2 with interp", "[linear]", test_precs)
 {
-  parser parse("continuity_1", {8, });
-  parser_mod::set(parse, parser_mod::degree, 1);
-  parser_mod::set(parse, parser_mod::use_full_grid, false);
-  parser_mod::set(parse, parser_mod::num_time_steps, 20);
-  parser_mod::set(parse, parser_mod::dt, 1.0e-4);
+  auto opts = make_opts("-p custom -l 8 -d 1 -n 20 -dt 1.0e-4");
 
   std::vector<TestType> errs;
 
   std::unique_ptr<PDE<TestType>> pde_int =
-      std::make_unique<testforcing<TestType, testforcing_modes::interp_exact>>(parse);
+      std::make_unique<testforcing<TestType, testforcing_modes::interp_exact>>(opts);
 
-  errs = time_advance_errors(pde_int, parse);
+  errs = time_advance_errors(pde_int);
 
   TestType max_err = 0;
 
@@ -461,9 +443,9 @@ TEMPLATE_TEST_CASE("2d continuity_2 with interp", "[linear]", test_precs)
   REQUIRE(max_err < 5.E-6);
 
   std::unique_ptr<PDE<TestType>> pde_sep =
-      std::make_unique<testforcing<TestType, testforcing_modes::separable_exact>>(parse);
+      std::make_unique<testforcing<TestType, testforcing_modes::separable_exact>>(opts);
 
-  errs = time_advance_errors(pde_sep, parse);
+  errs = time_advance_errors(pde_sep);
 
   max_err = 0;
 
@@ -478,24 +460,20 @@ TEMPLATE_TEST_CASE("2d continuity_2 with interp", "[linear]", test_precs)
 /////////////////////////////////////////////////////////////////////
 TEMPLATE_TEST_CASE("2d interp initial conditions", "[linear]", test_precs)
 {
-  parser parse("continuity_1", {8, });
-  parser_mod::set(parse, parser_mod::degree, 1);
-  parser_mod::set(parse, parser_mod::use_full_grid, false);
-  parser_mod::set(parse, parser_mod::num_time_steps, 30);
-  parser_mod::set(parse, parser_mod::dt, 1.0e-4);
+  auto opts = make_opts("-p custom -l 8 -d 1 -n 30 -dt 1.0e-4");
 
   TestType constexpr tol = 5.E-6;
 
   std::vector<TestType> ierrs, perrs;
 
-  bool constexpr interp_ic = true; // interpolate initial-cond
-  bool constexpr proj_ic = false; // project intiial-cond
+  bool constexpr interp_ic = true;  // interpolate initial-cond
+  bool constexpr proj_ic   = false; // project intiial-cond
 
-  std::unique_ptr<PDE<TestType>> ipde = std::make_unique<testic<TestType, interp_ic>>(parse);
-  std::unique_ptr<PDE<TestType>> ppde = std::make_unique<testic<TestType, proj_ic>>(parse);
+  std::unique_ptr<PDE<TestType>> ipde = std::make_unique<testic<TestType, interp_ic>>(opts);
+  std::unique_ptr<PDE<TestType>> ppde = std::make_unique<testic<TestType, proj_ic>>(opts);
 
-  ierrs = time_advance_errors(ipde, parse);
-  perrs = time_advance_errors(ppde, parse);
+  ierrs = time_advance_errors(ipde);
+  perrs = time_advance_errors(ppde);
 
   REQUIRE(ierrs.size() == perrs.size());
   TestType err = fm::diff_inf(ierrs, perrs);

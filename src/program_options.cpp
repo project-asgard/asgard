@@ -1,692 +1,721 @@
 #include "program_options.hpp"
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#include "clara.hpp"
-#pragma GCC diagnostic pop
-#include "distribution.hpp"
-#ifdef ASGARD_IO_HIGHFIVE
-#include "io.hpp"
-#endif
 
 namespace asgard
 {
-parser::parser(int argc, char const *const *argv)
+split_views split_argv(std::string_view const &opts)
 {
-  bool show_help        = false;
-  bool show_pdes        = false;
-  std::string kmode_str = "dense";
-  // Parsing...
-  auto cli =
-      clara::detail::Help(show_help) |
-      clara::detail::Opt(show_pdes)["-a"]["--available_pdes"](
-          "Print available pdes (for -p argument) and exit") |
-      clara::detail::Opt(cfl, "positive float")["-c"]["--cfl"](
-          "The Courant-Friedrichs-Lewy (CFL) condition") |
-      clara::detail::Opt(dt,
-                         "positive float")["-t"]["--dt"]("Size of time steps") |
-      clara::detail::Opt(degree, "positive integer")["-d"]["--degree"](
-          "Terms in legendre basis polynomials") |
-      clara::detail::Opt(use_full_grid)["-f"]["--full_grid"](
-          "Use full grid (vs. sparse grid)") |
-      clara::detail::Opt(use_linf_nrm)["--l_inf"](
-          "Use Linf norm (vs. L2 norm)") |
-      clara::detail::Opt(use_implicit_stepping)["-i"]["--implicit"](
-          "Use implicit time advance (vs. explicit)") |
-      clara::detail::Opt(solver_str,
-                         "direct|gmres|bicgstab|scalapack")["-s"]["--solver"](
-          "Solver to use for implicit advance") |
-      clara::detail::Opt(starting_levels_str,
-                         "e.g. for 2d PDE: \"3 2\"")["-l"]["--levels"](
-          "Stating hierarchical levels (resolution)") |
-      clara::detail::Opt(max_level,
-                         "integer >= all starting levels")["-m"]["--max_level"](
-          "Maximum hierarchical levels (resolution) for adaptivity") |
-      clara::detail::Opt(libinfo)["-v"]["--version"](
-          "Show information about this build.") |
-      clara::detail::Opt(mixed_grid_group,
-                         "integer < num dimensions")["--mixed_grid_group"](
-          "Dimension group size for first sparse grid in the mixed "
-          "sparse-dense grid") |
-      clara::detail::Opt(num_time_steps,
-                         "positive integer")["-n"]["--num_steps"](
-          "Number of iterations") |
-      clara::detail::Opt(pde_str, "e.g. continuity2")["-p"]["--pde"](
-          "PDE to solve; use -a option to print list of choices") |
-      clara::detail::Opt(do_poisson)["-e"]["--electric_solve"](
-          "Do poisson solve for electric field") |
-      clara::detail::Opt(wavelet_output_freq,
-                         "0-num_time_steps")["-w"]["--wave_freq"](
-          "Frequency in steps for writing wavelet space "
-          "output") |
-      clara::detail::Opt(realspace_output_freq,
-                         "0-num_time_steps")["-r"]["--real_freq"](
-          "Frequency in steps for writing realspace output") |
-      clara::detail::Opt(do_adapt)["--adapt"]("Enable/disable adaptivity") |
-      clara::detail::Opt(adapt_threshold, " 0>threshold<1 ")["--thresh"](
-          "Relative threshold for adaptivity") |
-      clara::detail::Opt(matlab_name, "session name")["--matlab_name"](
-          "Name of a shared MATLAB session to connect to") |
-      clara::detail::Opt(plot_freq, "0-num_time_steps")["--plot_freq"](
-          "Frequency in steps for displaying plots") |
-      clara::detail::Opt(active_terms_str, "e.g. \"1 1 1 0 0 0\"")["--terms"](
-          "Select specific terms to use (1 = on, 0 = off)") |
-      clara::detail::Opt(use_imex_stepping)["-x"]["--imex"](
-          "Use IMEX (implicit-explicit) time advance (vs. explicit or "
-          "implicit)") |
-      clara::detail::Opt(memory_limit, "size > 0")["--memory"](
-          "Maximum workspace size in MB that will be resident on an "
-          "accelerator") |
-      clara::detail::Opt(kmode_str, "dense/sparse")["--kron-mode"](
-          "Select dense (default) or sparse mode for the kronmult operations") |
-      clara::detail::Opt(gmres_tolerance, "tol > 0")["--tol"](
-          "Tolerance used to determine convergence in bicgstab/gmres solvers") |
-      clara::detail::Opt(gmres_inner_iterations, "inner_it > 0")["--inner_it"](
-          "Number of inner iterations in gmres solver") |
-      clara::detail::Opt(gmres_outer_iterations, "outer_it > 0")["--outer_it"](
-          "Number of max/outer iterations in bicgstab/gmres solver") |
-      clara::detail::Opt(max_adapt_levels_str, "")["--max_adapt_levels"](
-          "Maximum hierarchical levels (resolution) for adaptivity") |
-      clara::detail::Opt(restart_file, "filename")["--restart"](
-          "Load a HDF5 file to restart from");
-
-  auto result = cli.parse(clara::detail::Args(argc, argv));
-  if (!result)
+  std::stringstream inopts{std::string(opts)};
+  std::vector<std::string> splits;
+  while (!inopts.eof())
   {
-    std::cerr << "Error in command line parsing: " << result.errorMessage()
-              << '\n';
-    valid = false;
+    splits.emplace_back();
+    inopts >> splits.back();
   }
+  return split_views(std::move(splits));
+}
 
-  // default to max-level 8 but if max level is not explicitly given
-  // and the active levels exceed 8, then bump up the max-level
-  bool const missing_max_level = (max_level == DEFAULT_MAX_LEVEL);
+prog_opts::prog_opts(int const argc, char const *const *argv,
+                     bool ignore_unknown)
+{
+  std::vector<std::string_view> view_argv;
+  view_argv.reserve(argc);
+  for (auto i : indexof(argc))
+    view_argv.emplace_back(argv[i]);
 
-  max_level = std::max(max_level, 8);
+  process_inputs(view_argv, ignore_unknown);
+}
 
-  for (int i = 1; i < argc; i++)
-  {
-    this->cli_opts.push_back(std::string(argv[i]));
-  }
+void prog_opts::print_help(std::ostream &os)
+{
+// keep the padding to 100 characters                                                      100 -> //
+// ---------------------------------------------------------------------------------------------- //
+  os << R"help(
 
-  if (show_help)
-  {
-    std::cerr << cli << '\n';
-  }
-  if (show_pdes)
-  {
-    print_available_pdes();
-  }
-  if (show_help || show_pdes)
-  {
-    exit(0);
-  }
+Options          Short   Value      Description
+-help/--help     -h/-?   -          Show help information (this text).
+--version        -v      -          Show version, git info and build options.
+-pde?            -p?     -          Show list of builtin PDEs.
+-pde             -p      string     accepts: PDEs shown by -p?
+                                    Indicates the PDE to use from the list builtin PDEs,
+                                    defaults to custom PDE and should not be used by
+                                    custom projects.
+-title             -     string     Human redable string focused on organizing i/o files,
+                                    will be saved, reloaded and printed to the screen.
+                                    If omitted, the string will assume the name of the PDE.
+-subtitle          -     string     An addition to the title, optional use.
 
-  if (do_restart())
+<<< discretization of the domain options >>>
+-grid            -g      string     accepts: sparse/dense/full/mixed/mix
+                                    Sparse grid is the standard approach for error balance.
+                                    Dense grid (also full) will uniformly fill the domain
+                                    but at a very high cost in 3d and above.
+                                    The mixed grid (also mix) takes a dense tensor of two sparse
+                                    grids, must provide an additional 'int' indicating the number
+                                    of dimensions to use in the first sparse grid.
+-degree          -d      int        accepts: non-negative integer
+                                    Polynomial degree for the basis, constant (0), linear (1),
+                                    quadratic (2) or so on.
+-start-levels    -l      int/list   accepts: one int or one int per dimension
+                                    The starting level for the simulation, can be one int
+                                    indicating uniform initial level or a list of ints
+                                    indicating the level per-dimension.
+                                    If missing, the default level will be used as defined
+                                    in the PDE class specification.
+-max-levels      -m      int/list   accepts: one int or one int per dimension
+                                    Maximum level for the refinement process,
+                                    if missing, the starting levels will be used as the max.
+
+-adapt           -a      double     Enable grid adaptivity and set the tolerance threshold.
+-adapt-norm      -an     string     accepts: linf/l2
+                                    The norm to use for the refinement criteria.
+
+<<< time stepping options >>>
+-step-method     -s      string     accepts: expl/impl/imex
+                                    indicates explicit (rk3), explicit (backward-Euler) or
+                                    imex (implicit-explicit) time-stepping scheme.
+-num-steps       -n      int        Positive integer indicating the number of time steps to take.
+-dt                      double     Fixed time step to use (must be positive).
+
+<<< i/o options >>>
+-wave-freq       -w      int        Interval (in time steps) for outputting the hierarchical
+                                    wavelet data, compatible with Python plotting.
+-restart                 filename   Wavelet output file to restart the simulation.
+
+<<< solvers and linear algebra options >>>
+-kron-mode       -       string     accepts: dense/sparse
+                                    Applies to the local Kronmult algorithms, the sparse approach
+                                    results in flop savings but, also high additional RAM usage
+                                    due to the extra indexing.
+-solver          -sv     string     accepts: direct/gmres/bicgstab (implicit/imex methods only)
+                                    Direct: use LAPACK, expensive but stable.
+                                    GMRES: general but sensitive to restart selection.
+                                    bicgstab: cheaper alternative to GMRES
+-isolve-tol      -ist    double     Iterative solver tolerance, applies to GMRES and BICG.
+-isolve-iter     -isi    double     Iterative solver maximum number of iterations,
+                                    for GMRES this is the number of inner iterations.
+-isolve-outer    -iso    double     (GMRES only) The maximum number of outer GMRES iterations.
+
+Coming soon:
+-time            -t      double     Final time for integration.
+
+Leaving soon:
+-real-freq       -r      int        Interval for reconstructing the solution onto
+                                    a dense grid and output the result.
+                                    This is wasteful and deprecated in favor of the wavelet
+                                    output combined with the snapshot reconstruction in Python.
+
+-memory                  int        Memory limit for the GPU, applied to the earlier versions
+                                    of Kronmult, where data was kept in CPU RAM and moved
+                                    on-the-fly in an out-of-core algorithm. The data-transfer
+                                    cost makes the approach impractical.
+
+)help";
+}
+
+void prog_opts::print_pde_help(std::ostream &os)
+{
+// keep the padding to 100 characters                                                      100 -> //
+// ---------------------------------------------------------------------------------------------- //
+  os << R"help(
+
+Option          Description
+custom          (default) user provided pde, can be omitted for the custom projects
+continuity_1    1D test case, continuity equation: df/dt + df/dx = 0
+continuity_2    2D test case, continuity equation: df/dt + df/dx + df/dy = 0"
+continuity_3    3D test case, continuity equation, df/dt + v.grad(f) = 0 where v={1,1,1}
+continuity_6    6D test case, continuity equation, df/dt + v.grad(f) = 0 where v={1,1,3,4,3,2}"
+diffusion_1     1D diffusion equation: df/dt = d^2 f/dx^2
+diffusion_2     2D (1x-1y) heat equation. df/dt = d^2 f/dx^2 + d^2 f/dy^2
+advection_1     1D test using continuity equation. df/dt = -2*df/dx - 2*sin(x)
+vlasov          Vlasov lb full f. df/dt = -v*grad_x f + div_v((v-u)f + theta*grad_v f)
+two_stream      Vlasov two-stream. df/dt = -v*grad_x f -E*grad_v f
+
+fokkerplanck_1d_pitch_E_case1    1D pitch angle collisional term:
+                                 df/dt = d/dz ( (1-z^2) df/dz, f0 is constant.
+
+fokkerplanck_1d_pitch_E_case2    1D pitch angle collisional term:
+                                 df/dt = d/dz ( (1-z^2) df/dz, f0 is gaussian.
+
+fokkerplanck_1d_pitch_C        1D pitch angle collisional term: df/dt = d/dz ( (1-z^2) df/dz
+fokkerplanck_1d_4p3            Radiation damping term: df/dt = -d/dz ( z(1-z^2)f )
+fokkerplanck_1d_4p4            Evolution of f's pitch angle dependence with electric
+                               field acceleration/collision:
+                               df/dt = -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz)
+fokkerplanck_1d_4p5            Same as 4p4, but with radiation damping:
+                               df/dt = -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz)
+                                       -R d/dz(z(1-z^2) f)
+
+fokkerplanck_2d_complete_case1    Full PDE from the 2D runaway electron paper:
+                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 1
+fokkerplanck_2d_complete_case2    Full PDE from the 2D runaway electron paper:
+                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 2
+fokkerplanck_2d_complete_case3    Full PDE from the 2D runaway electron paper:
+                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 3
+fokkerplanck_2d_complete_case4    Full PDE from the 2D runaway electron paper:
+                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 4
+
+relaxation_1x1v    Relaxation 1x1v. df/dt = div_{v} v f + d_{v} -u f  + d_{v}(th q), q = d_{v} f
+relaxation_1x2v    Relaxation 1x2v.
+                   df/dt = div_{v1} v_1 f + d_{v1} -u_1 f + div_{v2} v_2 f
+                          + d_{v2} -u_2 f + d_{v1}(th q),
+                   q = d_{v1} f + d_{v2}(th q), q = d_{v2} f
+
+relaxation_1x3v    Relaxation 1x3v.
+                   df/dt = div_{v1} v_1 f + d_{v1} -u_1 f + div_{v2} v_2 f
+                          + d_{v2} -u_2 f + d_{v1}(th q),
+                   q = d_{v1} f + d_{v2}(th q), q = d_{v2} f
+
+riemann_1x2v    Riemann 1x2v
+riemann_1x3v    Riemann 1x3v
+
+landau         Collisional Landau.
+               df/dt = -v*grad_x f -E*grad_v f + div_v((v-u)f + theta*grad_v f)
+landau_1x2v    Collisional Landau 1x2v.
+               df/dt = -v*grad_x f -E*grad_v f + div_v((v-u)f + theta*grad_v f)
+landau_1x3v    Collisional Landau 1x3v.
+               df/dt == -v*grad_x f -E*grad_v f + div_v((v-u)f + theta*grad_v f)
+
+)help";
+}
+
+void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
+                               bool ignore_unknown)
+{
+  std::map<std::string_view, optentry> commands = {
+      {"help", optentry::show_help}, {"-help", optentry::show_help}, {"--help", optentry::show_help},
+      {"-h", optentry::show_help}, {"-?", optentry::show_help},
+      {"--version", optentry::version_help}, {"-version", optentry::version_help},
+      {"version", optentry::version_help}, {"-v", optentry::version_help},
+      {"-pde?", optentry::pde_help}, {"-p?", optentry::pde_help},
+      {"-pde", optentry::pde_choice}, {"-p", optentry::pde_choice},
+      {"-title", optentry::title},
+      {"-subtitle", optentry::subtitle},
+      {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
+      {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
+      {"-adapt-norm", optentry::adapt_norm}, {"-an", optentry::adapt_norm},
+      {"-electric-solve", optentry::set_electric}, {"-es", optentry::set_electric},
+      {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
+      {"-start-levels", optentry::start_levels}, {"-l", optentry::start_levels},
+      {"-max-levels", optentry::max_levels}, {"-m", optentry::max_levels},
+      {"-degree", optentry::degree}, {"-d", optentry::degree},
+      {"-num-steps", optentry::num_time_steps}, {"-n", optentry::num_time_steps},
+      {"-wave-freq", optentry::wavelet_output_freq}, {"-w", optentry::wavelet_output_freq},
+      {"-real-freq", optentry::realspace_output_freq}, {"-r", optentry::realspace_output_freq},
+      {"-dt", optentry::dt},
+      {"-available-pdes", optentry::pde_help},
+      {"-solver", optentry::solver}, {"-sv", optentry::solver},
+      {"-memory", optentry::memory_limit},
+      {"-kron-mode", optentry::kron_mode},
+      {"-isolve-tol", optentry::isol_tolerance}, {"-ist", optentry::isol_tolerance},
+      {"-isolve-iter", optentry::isol_iterations}, {"-isi", optentry::isol_iterations},
+      {"-isolve-outer", optentry::isol_outer_iterations},
+      {"-iso", optentry::isol_outer_iterations},
+      {"-restart", optentry::restart_file},
+  };
+
+  auto iarg = argv.cbegin();
+
+  auto report_no_value = [&]()
+      -> std::string {
+    return std::string(*iarg) + " must be followed by a value, see "
+           + std::string(argv.front()) + " -help";
+  };
+  auto report_wrong_value = [&]()
+      -> std::string {
+    return std::string("invalid value for ") + std::string(*(iarg - 1))
+           + ", see " + std::string(argv.front()) + " -help";
+  };
+  auto report_wrong_pde = [&]()
+      -> std::string {
+    return std::string("invalid pde '") + std::string(*iarg) + "', see '"
+           + std::string(argv.front()) + " -pde?' for full list";
+  };
+
+  auto move_process_next = [&]()
+      -> std::optional<std::string_view>
   {
-#ifdef ASGARD_IO_HIGHFIVE
-    if (std::filesystem::exists(get_restart_file()))
-    {
-      asgard::read_restart_metadata<double>(*this, get_restart_file());
+    if (iarg + 1 == argv.end())
+      return {};
+    return *++iarg;
+  };
+
+  // on entry into the loop, iarg is incremented ignoring argv[0]
+  // argv[0] is the name of the executable
+  while (++iarg != argv.end())
+  {
+    auto imap = commands.find(*iarg);
+    if (imap == commands.end())
+    { // entry not found
+      if (not ignore_unknown)
+        std::cerr << "  unrecognized option: " << *iarg << "\n";
+      externals.emplace_back(*iarg);
+      continue;
     }
+
+    switch (imap->second)
+    {
+    case optentry::show_help:
+      show_help = true;
+      break;
+    case optentry::version_help:
+      show_version = true;
+      break;
+    case optentry::pde_help:
+      show_pde_help = true;
+      break;
+    case optentry::grid_mode: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "sparse")
+        grid = grid_type::sparse;
+      else if (*selected == "dense" or *selected == "full")
+        grid = grid_type::dense;
+      else if (*selected == "mixed" or *selected == "mix")
+      {
+        auto s2 = move_process_next();
+        if (not s2)
+          throw std::runtime_error(report_no_value());
+        try {
+          grid        = grid_type::mixed;
+          mgrid_group = std::stoi(s2->data());
+        } catch(std::invalid_argument &) {
+          throw std::runtime_error(report_wrong_value());
+        } catch(std::out_of_range &) {
+          throw std::runtime_error(report_wrong_value());
+        }
+      }
+      else
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::step_method: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "expl")
+        step_method = time_advance::method::exp;
+      else if (*selected == "impl")
+        step_method = time_advance::method::imp;
+      else if (*selected == "imex")
+        step_method = time_advance::method::imex;
+      else {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::adapt_norm: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "l2")
+        anorm = adapt_norm::l2;
+      else if (*selected == "linf")
+        anorm = adapt_norm::linf;
+      else {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::set_electric:
+    set_electric = true;
+    break;
+    case optentry::start_levels: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      start_levels = parse_ints(selected->data());
+      if (start_levels.empty())
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::max_levels: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      max_levels = parse_ints(selected->data());
+      if (max_levels.empty())
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::degree: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        degree = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::num_time_steps: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        num_time_steps = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::wavelet_output_freq: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        wavelet_output_freq = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::realspace_output_freq: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        realspace_output_freq = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::dt: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        dt = std::stod(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::adapt_threshold: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        adapt_threshold = std::stod(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::solver: {
+      // with only a handful of solvers we don't need to use a map here
+      // if we go to 20+ solvers we may change that
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "direct")
+        solver = solve_opts::direct;
+      else if (*selected == "gmres")
+        solver = solve_opts::gmres;
+      else if (*selected == "bicgstab")
+        solver = solve_opts::bicgstab;
+      else if (*selected == "scalapack")
+        solver = solve_opts::scalapack;
+      else
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::memory_limit: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        memory_limit = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::kron_mode: {
+      // this may go away soon, does not apply to global-kron
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "sparse")
+        kron_mode = kronmult_mode::sparse;
+      else if (*selected == "dense")
+        kron_mode = kronmult_mode::dense;
+      else
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::isol_tolerance: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        isolver_tolerance = std::stod(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::isol_iterations: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        isolver_iterations = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::isol_outer_iterations: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        isolver_outer_iterations = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::restart_file: {
+      // this may go away soon, does not apply to global-kron
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      restart_file = *selected;
+    }
+    break;
+    case optentry::pde_choice: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      pde_choice = get_pde_opt(*selected);
+      if (not pde_choice)
+        throw std::runtime_error(report_wrong_pde());
+      if (title.empty())
+        title = *selected;
+    }
+    break;
+    case optentry::title: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      title = *selected;
+      if (title.empty())
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::subtitle: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      subtitle = *selected;
+    }
+    break;
+    };
+  }
+}
+
+std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
+{
+  std::map<std::string_view, PDE_opts> pdes = {
+      {"custom", PDE_opts::custom},
+      {"continuity_1", PDE_opts::continuity_1},
+      {"continuity_2", PDE_opts::continuity_2},
+      {"continuity_3", PDE_opts::continuity_3},
+      {"continuity_6", PDE_opts::continuity_6},
+      {"fokkerplanck_1d_pitch_E_case1", PDE_opts::fokkerplanck_1d_pitch_E_case1},
+      {"fokkerplanck_1d_pitch_E_case2", PDE_opts::fokkerplanck_1d_pitch_E_case2},
+      {"fokkerplanck_1d_pitch_C", PDE_opts::fokkerplanck_1d_pitch_C},
+      {"fokkerplanck_1d_4p3", PDE_opts::fokkerplanck_1d_4p3},
+      {"fokkerplanck_1d_4p4", PDE_opts::fokkerplanck_1d_4p4},
+      {"fokkerplanck_1d_4p5", PDE_opts::fokkerplanck_1d_4p5},
+      {"fokkerplanck_2d_complete_case1", PDE_opts::fokkerplanck_2d_complete_case1},
+      {"fokkerplanck_2d_complete_case2", PDE_opts::fokkerplanck_2d_complete_case2},
+      {"fokkerplanck_2d_complete_case3", PDE_opts::fokkerplanck_2d_complete_case3},
+      {"fokkerplanck_2d_complete_case4", PDE_opts::fokkerplanck_2d_complete_case4},
+      {"diffusion_1", PDE_opts::diffusion_1},
+      {"diffusion_2", PDE_opts::diffusion_2},
+      {"advection_1", PDE_opts::advection_1},
+      {"vlasov", PDE_opts::vlasov_lb_full_f},
+      {"two_stream", PDE_opts::vlasov_two_stream},
+      {"relaxation_1x1v", PDE_opts::relaxation_1x1v},
+      {"relaxation_1x2v", PDE_opts::relaxation_1x2v},
+      {"relaxation_1x3v", PDE_opts::relaxation_1x3v},
+      {"riemann_1x2v", PDE_opts::riemann_1x2v},
+      {"riemann_1x3v", PDE_opts::riemann_1x3v},
+      {"landau", PDE_opts::collisional_landau},
+      {"landau_1x2v", PDE_opts::collisional_landau_1x2v},
+      {"landau_1x3v", PDE_opts::collisional_landau_1x3v},
+  };
+
+  auto imap = pdes.find(pde_str);
+
+  return (imap != pdes.end()) ? imap->second : std::optional<PDE_opts>();
+}
+
+void prog_opts::print(std::ostream &os) const
+{
+  os << "ASGarD problem configuration:\n";
+  os << "  title: " << title << '\n';
+  if (not subtitle.empty())
+    os << "  sub:   " << subtitle << '\n';
+
+  os << "discretization:\n";
+  if (degree)
+    switch (degree.value())
+    {
+    case 0:
+      os << "  degree: constant (0) \n";
+      break;
+    case 1:
+      os << "  degree: linear (1) \n";
+      break;
+    case 2:
+      os << "  degree: quadratic (2) \n";
+      break;
+    case 3:
+      os << "  degree: cubic (3) \n";
+      break;
+    default:
+      os << "  degree: " << degree.value() << '\n';
+    };
+
+  if (grid)
+    switch (grid.value())
+    {
+    case grid_type::dense:
+      os << "  gird mode: dense/full grid\n";
+      break;
+    case grid_type::mixed:
+      os << "  gird mode: mixed (tensor of two sparse grids)\n";
+      if (mgrid_group)
+        os << "  group size: " << mgrid_group.value() << '\n';
+      else
+        os << "  -- warning: missing mixed group size\n";
+      break;
+    default:
+      os << "  gird mode: sparse grid\n";
+      break;
+    };
+
+  if (not start_levels.empty())
+    os << "  start levels: " << start_levels_str() << '\n';
+
+  if (not max_levels.empty())
+    os << "    max levels: " << max_levels_str() << '\n';
+
+  if (adapt_threshold)
+  {
+    os << "  adaptive tolerance: " << adapt_threshold.value() << '\n';
+    if (anorm and anorm.value() == adapt_norm::l2)
+      os << "  adaptive norm: l2\n";
     else
+      os << "  adaptive norm: l-infty\n";
+  }
+  else
+    os << "  non-adaptive grid\n";
+
+  os << "time stepping:\n";
+  if (step_method)
+    switch (step_method.value())
     {
-      std::cerr << "Could not open restart file '" << get_restart_file()
-                << "'\n";
-      valid = false;
-    }
+    case time_advance::method::imex:
+      os << "  method: IMEX\n";
+      break;
+    case time_advance::method::imp:
+      os << "  method: Backward Euler\n";
+      break;
+    default:
+      os << "  method: RK3\n";
+      break;
+    };
+
+  if (dt)
+    os << "  time-step (dt): " << dt.value() << '\n';
+
+  if (num_time_steps)
+    os << "  number of time-steps: " << num_time_steps.value() << '\n';
+  else
+    os << "  -- warning: missing number of time steps\n";
+
+  if (restart_file.empty() and not wavelet_output_freq and not realspace_output_freq)
+    os << "input-output (i/o): none\n";
+  else
+    os << "input-output (i/o):\n";
+  if (not restart_file.empty())
+    os << "  restarting from: " << restart_file << '\n';
+  if (wavelet_output_freq)
+    os << "  write freq: " << wavelet_output_freq.value() << '\n';
+  if (realspace_output_freq)
+    os << "  realspace freq: " << realspace_output_freq.value() << '\n';
+}
+
+void prog_opts::print_version_help(std::ostream &os)
+{
+  os << "\nASGarD v" << ASGARD_VERSION << "  git-hash: " << GIT_COMMIT_HASH << "\n";
+  os << "git-branch (" << GIT_BRANCH << ")\n";
+#ifdef KRON_MODE_GLOBAL
+#ifdef KRON_MODE_GLOBAL_BLOCK
+  os << "Kronmult method          Block-Global\n";
 #else
-    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to use restart option"
-              << '\n';
-    valid = false;
+  os << "Kronmult method          Global\n";
 #endif
-  }
-
-  // Validation...
-  if (cfl != NO_USER_VALUE_FP)
-  {
-    if (cfl <= 0.0)
-    {
-      std::cerr << "CFL must be positive" << '\n';
-      valid = false;
-    }
-    if (dt != NO_USER_VALUE_FP)
-    {
-      std::cerr << "CFL and explicit dt options are mutually exclusive" << '\n';
-      valid = false;
-    }
-  }
-  else
-  {
-    cfl = DEFAULT_CFL;
-  }
-
-  if (degree < 0 && degree != NO_USER_VALUE)
-  {
-    std::cerr << "degree must be a non-negative number" << '\n';
-    valid = false;
-  }
-
-  if (starting_levels_str != NO_USER_VALUE_STR)
-  {
-    auto const starting_lev = ints_from_string(starting_levels_str);
-    if (starting_lev.empty())
-    {
-      std::cerr << "Failed to parse starting levels from input argument"
-                << '\n';
-      valid = false;
-    }
-    starting_levels.resize(starting_lev.size()) = starting_lev;
-    // check that at least one level is greater than 0
-    int lev_sum = 0;
-    if (missing_max_level)
-      for (auto const lev : starting_levels)
-        max_level = std::max(max_level, lev);
-
-    for (auto const lev : starting_levels)
-    {
-      if (lev < 0)
-      {
-        std::cerr << "Level must be >= 0" << '\n';
-        valid = false;
-      }
-      if (max_level < lev)
-      {
-        std::cerr
-            << "Maximum level must be greater than or equal to starting level"
-            << '\n';
-        valid = false;
-      }
-      lev_sum += lev;
-    }
-    if (lev_sum == 0 && starting_lev.size() > 1)
-    {
-      std::cerr << "At least one level must be > 0" << '\n';
-      valid = false;
-    }
-  }
-  if (memory_limit <= 0)
-  {
-    std::cerr << "Kronmult max memory size must be a positive integer\n";
-    valid = false;
-  }
-  if (dt != NO_USER_VALUE_FP && dt <= 0.0)
-  {
-    std::cerr << "Provided dt must be positive" << '\n';
-    valid = false;
-  }
-  if (num_time_steps < 1)
-  {
-    std::cerr << "Number of timesteps must be a natural number" << '\n';
-    valid = false;
-  }
-
-  if (auto const choice = pde_mapping.find(pde_str);
-      choice != pde_mapping.end())
-  {
-    pde_choice = choice->second.pde_choice;
-  }
-  else
-  {
-    std::cerr << "Invalid pde choice; see options.hpp for valid choices"
-              << '\n';
-    valid = false;
-  }
-  if (realspace_output_freq < 0 || wavelet_output_freq < 0 || plot_freq < 0)
-  {
-    std::cerr << "Write and plot frequencies must be non-negative" << '\n';
-    valid = false;
-  }
-
-  if (realspace_output_freq > num_time_steps ||
-      wavelet_output_freq > num_time_steps)
-  {
-    std::cerr
-        << "Requested a write or plot frequency > number of steps - no output "
-           "will be produced"
-        << '\n';
-    valid = false;
-  }
-
-#if not defined(ASGARD_IO_HIGHFIVE) && not defined(ASGARD_USE_MATLAB)
-  if (realspace_output_freq > 0 || wavelet_output_freq > 0)
-  {
-    std::cerr << "Must build with ASGARD_IO_HIGHFIVE to write output or ASGARD_USE_MATLAB to display output" << '\n';
-    valid = false;
-  }
+#else
+  os << "Kronmult method          Local\n";
 #endif
-
-  if (use_implicit_stepping && use_imex_stepping)
-  {
-    std::cerr << "Invalid time stepping choice: only implicit or imex can be "
-                 "selected, not both.\n";
-    valid = false;
-  }
-
-  if (use_imex_stepping && solver_str != "bicgstab")
-  {
-    // imex defaults to gmres
-    solver_str = "gmres";
-  }
-
-  if (use_implicit_stepping || use_imex_stepping)
-  {
-    if (solver_str == "none")
-    {
-      solver_str = "direct";
-    }
-#ifndef ASGARD_USE_SCALAPACK
-    if (solver_str == "scalapack")
-    {
-      std::cerr
-          << "Invalid solver choice; ASGarD not built with SCALAPACK option "
-             "enabled\n";
-      valid = false;
-    }
-#endif
-    if (auto const choice = solver_mapping.find(solver_str);
-        choice != solver_mapping.end())
-    {
-      solver = choice->second;
-    }
-    else
-    {
-      std::cerr << "Invalid solver choice; see options.hpp for valid choices\n";
-      valid = false;
-    }
-  }
-  else // explicit time advance
-  {
-    if (solver_str != "none")
-    {
-      std::cerr << "Must set implicit (-i) flag to select a solver\n";
-      valid = false;
-    }
-  }
-
 #ifdef ASGARD_USE_CUDA
-  if (use_implicit_stepping && solver_str != "gmres" && solver_str != "bicgstab")
-  {
-    std::cerr << "GPU acceleration for implicit stepping only supports bicgstab or gmres\n";
-    valid = false;
-  }
+  os << "GPU Acceleration         CUDA\n";
+#else
+  os << "GPU Acceleration         Disabled\n";
 #endif
-
+#ifdef ASGARD_USE_OPENMP
+  os << "OpenMP multithreading    Enablded\n";
+#else
+  os << "OpenMP multithreading    Disabled\n";
+#endif
 #ifdef ASGARD_USE_MPI
-  if ((use_implicit_stepping || use_imex_stepping) && get_num_ranks() > 1)
-  {
-    auto const choice = solver_mapping.at(solver_str);
-    if (choice != solve_opts::scalapack)
-    {
-      std::cerr << "Distribution not implemented for implicit stepping\n";
-      valid = false;
-    }
-  }
-  if (realspace_output_freq > 0)
-  {
-    std::cerr << "Distribution does not yet support realspace transform\n";
-    valid = false;
-  }
+  os << "MPI distributed grid     Enabled\n";
+#else
+  os << "MPI distributed grid     Disabled\n";
 #endif
-
-  if (adapt_threshold > 1.0 || adapt_threshold <= 0)
-  {
-    std::cerr << "input adaptivity threshold between 0 and 1, exclusive"
-              << '\n';
-    valid = false;
-  }
-  if (adapt_threshold != DEFAULT_ADAPT_THRESH && !do_adapt)
-  {
-    std::cerr << "input adaptivity threshold without enabling adaptivity..."
-              << '\n';
-    valid = false;
-  }
-  if (use_linf_nrm != DEFAULT_USE_LINF_NRM && !do_adapt)
-  {
-    std::cerr << "input adaptivity norm without enabling adaptivity..." << '\n';
-    valid = false;
-  }
-
-#ifndef ASGARD_USE_MATLAB
-  if (matlab_name != NO_USER_VALUE_STR)
-  {
-    std::cerr << "Must be built with ASGARD_USE_MATLAB to use Matlab" << '\n';
-    valid = false;
-  }
-  if (plot_freq != DEFAULT_PLOT_FREQ)
-  {
-    std::cerr << "Must be built with ASGARD_USE_MATLAB to plot results" << '\n';
-    valid = false;
-  }
+#ifdef ASGARD_IO_HIGHFIVE
+  os << "HDF5 - HighFive I/O      Enabled\n";
+#else
+  os << "HDF5 - HighFive I/O      Disabled\n";
 #endif
-
-  if (active_terms_str != NO_USER_VALUE_STR)
-  {
-    auto const starting_terms = ints_from_string(active_terms_str);
-    if (starting_terms.empty())
-    {
-      std::cerr << "Failed to parse active terms from input argument" << '\n';
-      valid = false;
-    }
-    active_terms.resize(starting_terms.size()) = starting_terms;
-    for (auto const term : active_terms)
-    {
-      if (term != 0 && term != 1)
-      {
-        std::cerr << "Term must be 0 or 1" << '\n';
-        valid = false;
-      }
-    }
-  }
-
-  if (kmode_str == "dense")
-  {
-    kmode = kronmult_mode::dense;
-  }
-  else if (kmode_str == "sparse")
-  {
-    kmode = kronmult_mode::sparse;
-  }
-  else
-  {
-    std::cerr << "kron_mode is set to: '" << kmode_str
-              << " but it must be either 'dense' or 'sparse'\n";
-    valid = false;
-  }
-
-  if (solver != solve_opts::gmres && solver != solve_opts::bicgstab && gmres_tolerance != NO_USER_VALUE_FP)
-  {
-    std::cerr << "gmres tolerance has no effect with solver = " << solver_str
-              << '\n';
-    valid = false;
-  }
-  if (gmres_tolerance != NO_USER_VALUE_FP && gmres_tolerance <= 0.0)
-  {
-    std::cerr << "Provided gmres tolerance must be positive" << '\n';
-    valid = false;
-  }
-  if (solver != solve_opts::gmres && gmres_inner_iterations != NO_USER_VALUE)
-  {
-    std::cerr << "gmres innter iterations has no effect with solver = "
-              << solver_str << '\n';
-    valid = false;
-  }
-  if (gmres_inner_iterations != NO_USER_VALUE && gmres_inner_iterations < 1)
-  {
-    std::cerr << "Number of gmres inner iterations must be a natural number"
-              << '\n';
-    valid = false;
-  }
-  if (solver != solve_opts::gmres && solver != solve_opts::bicgstab && gmres_outer_iterations != NO_USER_VALUE)
-  {
-    std::cerr << "Number of gmres outer iterations has no effect with solver = "
-              << solver_str << '\n';
-    valid = false;
-  }
-  if (gmres_outer_iterations != NO_USER_VALUE && gmres_outer_iterations < 1)
-  {
-    std::cerr << "Number of gmres outer iterations must be a natural number"
-              << '\n';
-    valid = false;
-  }
-  if (max_adapt_levels_str != NO_USER_VALUE_STR)
-  {
-    max_adapt_levels = ints_from_string(max_adapt_levels_str);
-    if (max_adapt_levels.empty())
-    {
-      std::cerr
-          << "Failed to parse maximum adaptivity levels from input argument"
-          << '\n';
-      valid = false;
-    }
-    if (!max_adapt_levels.empty() && !do_adapt)
-    {
-      std::cerr
-          << "input maximum adaptivity levels without enabling adaptivity..."
-          << '\n';
-      valid = false;
-    }
-    if (missing_max_level)
-      for (int i = 0; i < max_adapt_levels.size(); ++i)
-        max_level = std::max(max_level, max_adapt_levels[i]);
-
-    for (int i = 0; i < max_adapt_levels.size(); ++i)
-    {
-      if (max_adapt_levels[i] < 0)
-      {
-        std::cerr << "Level must be >= 0" << '\n';
-        valid = false;
-      }
-      if (max_adapt_levels[i] < starting_levels[i])
-      {
-        std::cerr
-            << "Maximum level must be greater than or equal to starting level"
-            << '\n';
-        valid = false;
-      }
-      if (max_adapt_levels[i] > max_level)
-      {
-        std::cerr << "Maximum level must be less than or equal to maximum level"
-                  << '\n';
-        valid = false;
-      }
-    }
-  }
+#ifdef ASGARD_ENABLE_DOUBLE
+#ifdef ASGARD_ENABLE_FLOAT
+  os << "Available precisions     double/float\n";
+#else
+  os << "Available precision      double\n";
+#endif
+#else
+  os << "Available precision      float\n";
+#endif
+  os << '\n';
 }
 
-bool parser::using_implicit() const { return use_implicit_stepping; }
-bool parser::using_imex() const { return use_imex_stepping; }
-bool parser::using_full_grid() const { return use_full_grid; }
-bool parser::using_linf_nrm() const { return use_linf_nrm; }
-bool parser::do_poisson_solve() const { return do_poisson; }
-bool parser::do_adapt_levels() const { return do_adapt; }
-bool parser::do_restart() const { return restart_file != NO_USER_VALUE_STR; }
-
-fk::vector<int> const &parser::get_starting_levels() const { return starting_levels; }
-fk::vector<int> const &parser::get_active_terms() const { return active_terms; }
-int parser::get_degree() const { return degree; }
-int parser::get_max_level() const { return max_level; }
-int parser::get_mixed_grid_group() const { return mixed_grid_group; }
-int parser::get_time_steps() const { return num_time_steps; }
-int parser::get_memory_limit() const { return memory_limit; }
-kronmult_mode parser::get_kmode() const { return kmode; }
-int parser::get_wavelet_output_freq() const { return wavelet_output_freq; }
-int parser::get_realspace_output_freq() const { return realspace_output_freq; }
-int parser::get_gmres_inner_iterations() const
-{
-  return gmres_inner_iterations;
-}
-int parser::get_gmres_outer_iterations() const
-{
-  return gmres_outer_iterations;
-}
-
-fk::vector<int> parser::get_max_adapt_levels() const
-{
-  return max_adapt_levels;
-}
-
-double parser::get_cfl() const { return cfl; }
-double parser::get_dt() const { return dt; }
-double parser::get_adapt_thresh() const { return adapt_threshold; }
-double parser::get_gmres_tolerance() const { return gmres_tolerance; }
-
-std::string parser::get_pde_string() const { return pde_str; }
-std::string parser::get_solver_string() const { return solver_str; }
-std::string parser::get_restart_file() const { return restart_file; }
-
-PDE_opts parser::get_selected_pde() const { return pde_choice; }
-solve_opts parser::get_selected_solver() const { return solver; }
-
-std::string parser::get_ml_session_string() const { return matlab_name; }
-int parser::get_plot_freq() const { return plot_freq; }
-
-bool parser::is_valid() const { return valid; }
-
-void parser_mod::set(parser &p, parser_option_entry entry, int value)
-{
-  switch (entry)
-  {
-  case degree:
-    p.degree = value;
-    break;
-  case max_level:
-    p.max_level = value;
-    break;
-  case mixed_grid_group:
-    p.mixed_grid_group = value;
-    break;
-  case num_time_steps:
-    p.num_time_steps = value;
-    break;
-  case wavelet_output_freq:
-    p.wavelet_output_freq = value;
-    break;
-  case realspace_output_freq:
-    p.realspace_output_freq = value;
-    break;
-  case plot_freq:
-    p.plot_freq = value;
-    break;
-  case memory_limit:
-    p.memory_limit = value;
-    break;
-  case gmres_inner_iterations:
-    p.gmres_inner_iterations = value;
-    break;
-  case gmres_outer_iterations:
-    p.gmres_outer_iterations = value;
-    break;
-  default:
-    throw std::runtime_error(
-        "Insider parser_mod::set, setting int to non-int entry.");
-  }
-}
-void parser_mod::set(parser &p, parser_option_entry entry, bool value)
-{
-  switch (entry)
-  {
-  case use_implicit_stepping:
-    p.use_implicit_stepping = value;
-    break;
-  case use_full_grid:
-    p.use_full_grid = value;
-    break;
-  case use_linf_nrm:
-    p.use_linf_nrm = value;
-    break;
-  case do_poisson:
-    p.do_poisson = value;
-    break;
-  case do_adapt:
-    p.do_adapt = value;
-    break;
-  case use_imex_stepping:
-    p.use_imex_stepping = value;
-    break;
-  default:
-    throw std::runtime_error(
-        "Insider parser_mod::set, setting bool to non-bool entry.");
-  }
-}
-void parser_mod::set(parser &p, parser_option_entry entry, double value)
-{
-  switch (entry)
-  {
-  case cfl:
-    p.cfl = value;
-    break;
-  case dt:
-    p.dt = value;
-    break;
-  case adapt_threshold:
-    p.adapt_threshold = value;
-    break;
-  case gmres_tolerance:
-    p.gmres_tolerance = value;
-    break;
-  default:
-    throw std::runtime_error(
-        "Insider parser_mod::set, setting double to non-double entry.");
-  }
-}
-
-void parser_mod::set(parser &p, parser_option_entry entry,
-                     const char *value)
-{
-  parser_mod::set(p, entry, std::string(value));
-}
-
-void parser_mod::set(parser &p, parser_option_entry entry,
-                     std::string const &value)
-{
-  switch (entry)
-  {
-  case solver_str:
-    p.solver_str = value;
-    p.solver     = solver_mapping.at(value);
-    break;
-  case pde_str:
-    p.pde_str    = value;
-    p.pde_choice = pde_mapping.at(value).pde_choice;
-    break;
-  case starting_levels_str:
-    p.starting_levels_str = value;
-    break;
-  case restart_file:
-    p.restart_file = value;
-    break;
-  default:
-    throw std::runtime_error(
-        "Insider parser_mod::set, setting std::string to non-string entry.");
-  }
-}
-
-void parser_mod::set(parser &p, parser_option_entry entry,
-                     fk::vector<int> const &value)
-{
-  switch (entry)
-  {
-  case max_adapt_level:
-    p.max_adapt_levels.resize(value.size()) = value;
-    break;
-  default:
-    throw std::runtime_error("Insider parser_mod::set, setting fk::vector<int> "
-                             "to non-vector entry.");
-  }
-}
-
-bool options::should_output_wavelet(int const i) const
-{
-  return write_at_step(i, wavelet_output_freq);
-}
-
-bool options::should_output_realspace(int const i) const
-{
-  return write_at_step(i, realspace_output_freq);
-}
-
-bool options::should_plot(int const i) const
-{
-  return write_at_step(i, plot_freq);
-}
-
-bool options::write_at_step(int const i, int const freq) const
-{
-  expect(i >= 0);
-  expect(freq >= 0);
-
-  if (freq == 0)
-  {
-    return false;
-  }
-  if (freq == 1)
-  {
-    return true;
-  }
-  if ((i + 1) % freq == 0)
-  {
-    return true;
-  }
-  return false;
-}
 } // namespace asgard

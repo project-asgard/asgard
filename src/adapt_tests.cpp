@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 }
 
 template<typename P>
-void test_adapt(parser const &problem, std::filesystem::path gold_base)
+void test_adapt(prog_opts const &opts, std::filesystem::path gold_base)
 {
   auto const prefix = gold_base.filename().string();
   gold_base.remove_filename();
@@ -83,18 +83,20 @@ void test_adapt(parser const &problem, std::filesystem::path gold_base)
   auto const gold_refine_table =
       fk::matrix<int>(read_matrix_from_txt_file<int>(table_refine_path));
 
-  auto const pde = make_PDE<P>(problem);
-  options const opts(problem);
-  adapt::distributed_grid<P> refine_grid(*pde, opts);
+  auto const pde = make_PDE<P>(opts);
+  // using second opts after reset from the pde
+  auto const &opts2 = pde->options();
+
+  adapt::distributed_grid<P> refine_grid(*pde);
   auto const my_subgrid   = refine_grid.get_subgrid(get_rank());
   auto const segment_size = element_segment_size(*pde);
   auto const my_fval_orig =
       fval_orig.extract(my_subgrid.col_start * segment_size,
                         (my_subgrid.col_stop + 1) * segment_size - 1);
 
-  auto const test_refine = refine_grid.refine(my_fval_orig, opts);
-  adapt::distributed_grid<P> coarse_grid(*pde, opts);
-  auto const test_coarse = coarse_grid.coarsen(my_fval_orig, opts);
+  auto const test_refine = refine_grid.refine(my_fval_orig, opts2);
+  adapt::distributed_grid<P> coarse_grid(*pde);
+  auto const test_coarse = coarse_grid.coarsen(my_fval_orig, opts2);
   test_tables(coarse_grid.get_table(), gold_coarse_table);
   test_tables(refine_grid.get_table(), gold_refine_table);
 
@@ -119,16 +121,12 @@ TEMPLATE_TEST_CASE("adapt - 1d, scattered coarsen/refine", "[adapt]",
     return;
   }
 
-  auto const degree     = 2;
-  auto const level      = 4;
-  auto const pde_choice = PDE_opts::continuity_1;
-  auto const num_dims   = 1;
-  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
-               degree);
-  parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
-  parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
-  parser_mod::set(parse, parser_mod::max_level, 8);
-  test_adapt<TestType>(parse, adapt_base_dir / "continuity1_l4_d3_");
+  auto opts = make_opts("-p continuity_1 -d 2 -l 4 -m 8");
+
+  opts.adapt_threshold = adapt_threshold;
+  opts.anorm           = adapt_norm::linf;
+
+  test_adapt<TestType>(opts, adapt_base_dir / "continuity1_l4_d3_");
 }
 
 TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", test_precs)
@@ -137,20 +135,16 @@ TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", test_precs)
   {
     return;
   }
-  auto const degree     = 1;
-  auto const level      = 5;
-  auto const pde_choice = PDE_opts::continuity_2;
-  auto const num_dims   = 2;
-  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
-               degree);
-  parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
-  parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
-  parser_mod::set(parse, parser_mod::max_level, 8);
+
+  auto opts = make_opts("-p continuity_2 -d 1 -l 5 -m 8");
+
+  opts.adapt_threshold = adapt_threshold;
+  opts.anorm           = adapt_norm::linf;
 
   // temporarily disable test for MPI due to table elements < num ranks
   if (get_num_ranks() == 1)
   {
-    test_adapt<default_precision>(parse, adapt_base_dir / "continuity2_l5_d2_");
+    test_adapt<default_precision>(opts, adapt_base_dir / "continuity2_l5_d2_");
   }
 }
 
@@ -161,20 +155,17 @@ TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
   {
     return;
   }
-  auto const degree     = 3;
-  auto const level      = 4;
-  auto const pde_choice = PDE_opts::continuity_3;
-  auto const num_dims   = 3;
-  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
-               degree);
-  parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
-  parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
-  parser_mod::set(parse, parser_mod::max_level, 8);
-  test_adapt<TestType>(parse, adapt_base_dir / "continuity3_l4_d4_");
+
+  auto opts = make_opts("-p continuity_3 -d 3 -l 4 -m 8");
+
+  opts.adapt_threshold = adapt_threshold;
+  opts.anorm           = adapt_norm::linf;
+
+  test_adapt<TestType>(opts, adapt_base_dir / "continuity3_l4_d4_");
 }
 
 template<typename P>
-void test_initial(parser const &problem, std::string const &gold_filepath)
+void test_initial(prog_opts const &opts, std::string const &gold_filepath)
 {
   auto const gold = [&gold_filepath]() {
     auto raw = read_vector_from_txt_file<P>(gold_filepath);
@@ -185,16 +176,16 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
         [](P old_value) { return std::abs(old_value) < 1.e-14; }, 0.0);
     return raw;
   }();
-  auto const pde = make_PDE<P>(problem);
-  options const opts(problem);
+  auto const pde = make_PDE<P>(opts);
+
   auto const quiet = true;
-  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde,
+  basis::wavelet_transform<P, resource::host> const transformer(*pde,
                                                                 quiet);
-  adapt::distributed_grid<P> adaptive_grid(*pde, opts);
+  adapt::distributed_grid<P> adaptive_grid(*pde);
   generate_dimension_mass_mat<P>(*pde, transformer);
 
   auto const test =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   REQUIRE(gold.size() >= test.size());
 
@@ -209,21 +200,15 @@ void test_initial(parser const &problem, std::string const &gold_filepath)
 
 TEMPLATE_TEST_CASE("initial - diffusion 1d", "[adapt]", test_precs)
 {
-  auto const degree     = 3;
-  auto const level      = 3;
-  auto const pde_choice = PDE_opts::diffusion_1;
-  auto const num_dims   = 1;
-  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
-               degree);
-  parser_mod::set(parse, parser_mod::do_adapt, true);
-  parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
-  parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
-  parser_mod::set(parse, parser_mod::max_level, 8);
+  auto opts = make_opts("-p diffusion_1 -d 3 -l 3 -m 8");
+
+  opts.adapt_threshold = adapt_threshold;
+  opts.anorm           = adapt_norm::linf;
 
   // don't test this in the MPI case -- too small to split table
   if (get_num_ranks() == 1)
   {
-    test_initial<TestType>(parse,
+    test_initial<TestType>(opts,
                            adapt_base_dir / "diffusion1_l3_d4_initial.dat");
   }
 }
@@ -234,17 +219,12 @@ TEMPLATE_TEST_CASE("initial - diffusion 2d", "[adapt]", test_precs)
   {
     return;
   }
-  auto const degree     = 2;
-  auto const level      = 2;
-  auto const pde_choice = PDE_opts::diffusion_2;
-  auto const num_dims   = 2;
-  parser parse(pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)),
-               degree);
-  parser_mod::set(parse, parser_mod::do_adapt, true);
-  parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
-  parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
-  parser_mod::set(parse, parser_mod::max_level, 8);
 
-  test_initial<TestType>(parse,
+  auto opts = make_opts("-p diffusion_2 -d 2 -l 2 -m 8");
+
+  opts.adapt_threshold = adapt_threshold;
+  opts.anorm           = adapt_norm::linf;
+
+  test_initial<TestType>(opts,
                          adapt_base_dir / "diffusion2_l2_d3_initial.dat");
 }

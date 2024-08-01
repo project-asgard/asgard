@@ -174,6 +174,18 @@ struct time_event
 namespace asgard
 {
 /*!
+ * \brief Runtime assert, throw runtime error with the file, line, and info.
+ *
+ * Similar to cassert but is not disabled in Release mode.
+ * Used to sanitize the user input.
+ */
+#define rassert(_result_, _info_)                                                                                   \
+  if (!(_result_))                                                                                                  \
+  {                                                                                                                 \
+    throw std::runtime_error(std::string((_info_)) + " @file: " + __FILE__ + " line: " + std::to_string(__LINE__)); \
+  }
+
+/*!
  * \brief Iterator/generator for a sequence of integers
  *
  * This is needed for the indexof template

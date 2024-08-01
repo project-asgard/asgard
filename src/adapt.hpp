@@ -37,41 +37,38 @@ template<typename P>
 class distributed_grid
 {
 public:
-  distributed_grid(options const &cli_options,
-                   std::vector<dimension<P>> const &dims);
+  distributed_grid(int max_level, prog_opts const &options);
 
-  distributed_grid(PDE<P> const &pde, options const &cli_options)
-      : distributed_grid(cli_options, pde.get_dimensions())
+  distributed_grid(PDE<P> const &pde)
+      : distributed_grid(pde.max_level(), pde.options())
   {}
 
   // driver routines
   fk::vector<P> get_initial_condition(
       PDE<P> &pde,
-      basis::wavelet_transform<P, resource::host> const &transformer,
-      options const &cli_opts)
+      basis::wavelet_transform<P, resource::host> const &transformer)
   {
     return this->get_initial_condition(
         pde.get_dimensions(),
         pde.has_exact_time() ? pde.exact_time(0.0) : static_cast<P>(1.0),
-        pde.num_terms(), pde.get_terms(), transformer, cli_opts);
+        pde.num_terms(), pde.get_terms(), transformer, pde.options());
   }
 
   fk::vector<P> get_initial_condition(
       std::vector<dimension<P>> &dims, P const mult, int const num_terms,
       std::vector<std::vector<term<P>>> &terms,
       basis::wavelet_transform<P, resource::host> const &transformer,
-      options const &cli_opts);
+      prog_opts const &cli_opts);
 
   void get_initial_condition(
-      options const &cli_opts, std::vector<dimension<P>> const &dims,
+      std::vector<dimension<P>> const &dims,
       std::vector<vector_func<P>> const &v_functions, P const mult,
       basis::wavelet_transform<P, resource::host> const &transformer,
       fk::vector<P, mem_type::view> result);
 
-  fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
-                                 options const &cli_opts);
+  fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x);
   fk::vector<P>
-  refine_solution(PDE<P> &pde, fk::vector<P> const &x, options const &cli_opts);
+  refine_solution(PDE<P> &pde, fk::vector<P> const &x);
 
   fk::vector<P> redistribute_solution(fk::vector<P> const &x,
                                       distribution_plan const &old_plan,
@@ -84,8 +81,8 @@ public:
   // not being "reshuffled", i.e., elements only deleted (coarsening) with
   // left shift to fill deleted segments of the element grid, or added
   // (refinement) to the end of the element grid
-  fk::vector<P> refine(fk::vector<P> const &x, options const &cli_opts);
-  fk::vector<P> coarsen(fk::vector<P> const &x, options const &cli_opts);
+  fk::vector<P> refine(fk::vector<P> const &x, prog_opts const &cli_opts);
+  fk::vector<P> coarsen(fk::vector<P> const &x, prog_opts const &cli_opts);
 
   distributed_grid(distributed_grid const &) = delete;
   distributed_grid &operator=(distributed_grid const &) = delete;
@@ -100,9 +97,9 @@ public:
   }
 
   void
-  recreate_table(std::vector<int64_t> const &element_ids, int const max_level)
+  recreate_table(std::vector<int64_t> const &element_ids)
   {
-    table_.recreate_from_elements(element_ids, max_level);
+    table_.recreate_from_elements(element_ids);
 
     plan_ = get_plan(get_num_ranks(), table_);
   }
@@ -112,7 +109,8 @@ public:
 
 private:
   fk::vector<P> refine_elements(std::vector<int64_t> const &indices_to_refine,
-                                options const &opts, fk::vector<P> const &x);
+                                std::vector<int> const &max_levels,
+                                fk::vector<P> const &x);
   fk::vector<P> remove_elements(std::vector<int64_t> const &indices_to_remove,
                                 fk::vector<P> const &x);
 
@@ -150,6 +148,7 @@ private:
 
   elements::table table_;
   distribution_plan plan_;
+  int max_level_;
 };
 
 } // namespace asgard::adapt

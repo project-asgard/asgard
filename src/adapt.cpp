@@ -125,9 +125,8 @@ static void update_levels(elements::table const &adapted_table,
 }
 
 template<typename P>
-distributed_grid<P>::distributed_grid(options const &cli_opts,
-                                      std::vector<dimension<P>> const &dims)
-    : table_(cli_opts, dims)
+distributed_grid<P>::distributed_grid(int max_level, prog_opts const &options)
+    : table_(max_level, options), max_level_(max_level)
 {
   plan_ = get_plan(get_num_ranks(), table_);
 }
@@ -137,7 +136,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     std::vector<dimension<P>> &dims, P const mult, int const num_terms,
     std::vector<std::vector<term<P>>> &terms,
     basis::wavelet_transform<P, resource::host> const &transformer,
-    options const &cli_opts)
+    prog_opts const &options)
 {
   // get unrefined condition
 
@@ -181,7 +180,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
     return initial;
   };
 
-  if (!cli_opts.do_adapt_levels)
+  if (not options.adapt_threshold)
   {
     return initial_unref();
   }
@@ -192,7 +191,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   while (refining)
   {
     auto const old_y   = fk::vector<P>(refine_y);
-    auto const refined = this->refine(old_y, cli_opts);
+    auto const refined = this->refine(old_y, options);
     refining           = old_y.size() != refined.size();
     // update_levels(this->get_table(), pde);
     update_levels(this->get_table(), dims, num_terms, terms);
@@ -202,7 +201,7 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
   }
 
   // coarsen
-  auto const coarse_y = this->coarsen(refine_y, cli_opts);
+  auto const coarse_y = this->coarsen(refine_y, options);
   update_levels(this->get_table(), dims, num_terms, terms);
 
   return initial_unref();
@@ -210,12 +209,11 @@ fk::vector<P> distributed_grid<P>::get_initial_condition(
 
 template<typename P>
 void distributed_grid<P>::get_initial_condition(
-    options const &cli_opts, std::vector<dimension<P>> const &dims,
+    std::vector<dimension<P>> const &dims,
     std::vector<vector_func<P>> const &v_functions, P const mult,
     basis::wavelet_transform<P, resource::host> const &transformer,
     fk::vector<P, mem_type::view> result)
 {
-  ignore(cli_opts);
   // get unrefined condition
   P const time       = 0;
   auto const subgrid = this->get_subgrid(get_rank());
@@ -227,10 +225,9 @@ void distributed_grid<P>::get_initial_condition(
 
 template<typename P>
 fk::vector<P>
-distributed_grid<P>::coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
-                                      options const &cli_opts)
+distributed_grid<P>::coarsen_solution(PDE<P> &pde, fk::vector<P> const &x)
 {
-  auto const coarse_y = this->coarsen(x, cli_opts);
+  auto const coarse_y = this->coarsen(x, pde.options());
   auto const rechain  = true;
   update_levels(this->get_table(), pde, rechain);
   return coarse_y;
@@ -238,10 +235,9 @@ distributed_grid<P>::coarsen_solution(PDE<P> &pde, fk::vector<P> const &x,
 
 template<typename P>
 fk::vector<P>
-distributed_grid<P>::refine_solution(PDE<P> &pde, fk::vector<P> const &x,
-                                     options const &cli_opts)
+distributed_grid<P>::refine_solution(PDE<P> &pde, fk::vector<P> const &x)
 {
-  auto const refine_y = this->refine(x, cli_opts);
+  auto const refine_y = this->refine(x, pde.options());
   auto const rechain  = true;
   update_levels(this->get_table(), pde, rechain);
   return refine_y;
@@ -258,35 +254,39 @@ distributed_grid<P>::redistribute_solution(fk::vector<P> const &x,
 
 template<typename P>
 fk::vector<P>
-distributed_grid<P>::refine(fk::vector<P> const &x, options const &cli_opts)
+distributed_grid<P>::refine(fk::vector<P> const &x, prog_opts const &options)
 {
-  P const max_elem   = cli_opts.use_linf_nrm ? fm::nrminf(x) : fm::nrm2(x);
+  adapt_norm const anorm = options.anorm.value();
+
+  P const max_elem   = anorm == adapt_norm::linf ? fm::nrminf(x) : fm::nrm2(x);
   P const global_max = get_global_max<P>(max_elem, this->plan_);
 
-  auto const refine_threshold = cli_opts.adapt_threshold * global_max;
+  auto const refine_threshold = options.adapt_threshold.value() * global_max;
   if (refine_threshold <= 0.0)
   {
     return x;
   }
 
   auto const refine_check =
-      [&cli_opts, refine_threshold](
+      [anorm, refine_threshold](
           int64_t const, fk::vector<P, mem_type::const_view> const &element_x) {
         auto const refined_max_elem =
-            cli_opts.use_linf_nrm ? fm::nrminf(element_x) : fm::nrm2(element_x);
+            anorm == adapt_norm::linf ? fm::nrminf(element_x) : fm::nrm2(element_x);
         return refined_max_elem >= refine_threshold;
       };
   auto const to_refine = filter_elements(refine_check, x);
-  return this->refine_elements(to_refine, cli_opts, x);
+  return this->refine_elements(to_refine, options.max_levels, x);
 }
 
 template<typename P>
 fk::vector<P>
-distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
+distributed_grid<P>::coarsen(fk::vector<P> const &x, prog_opts const &options)
 {
-  P const max_elem   = cli_opts.use_linf_nrm ? fm::nrminf(x) : fm::nrm2(x);
+  adapt_norm const anorm = options.anorm.value();
+
+  P const max_elem   = anorm == adapt_norm::linf ? fm::nrminf(x) : fm::nrm2(x);
   P const global_max = get_global_max<P>(max_elem, this->plan_);
-  P const refine_threshold = cli_opts.adapt_threshold * global_max;
+  P const refine_threshold = options.adapt_threshold.value() * global_max;
   if (refine_threshold <= 0.0)
   {
     return x;
@@ -295,11 +295,11 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
   auto const coarsen_threshold = refine_threshold * 0.1;
   auto const &table            = this->table_;
   auto const coarsen_check =
-      [&table, &cli_opts, coarsen_threshold](
+      [&table, anorm, coarsen_threshold](
           int64_t const elem_index,
           fk::vector<P, mem_type::const_view> const &element_x) {
         P const coarsened_max_elem =
-            cli_opts.use_linf_nrm ? fm::nrminf(element_x) : fm::nrm2(element_x);
+            anorm == adapt_norm::linf ? fm::nrminf(element_x) : fm::nrm2(element_x);
         auto const coords    = table.get_coords(elem_index);
         auto const min_level = *std::min_element(
             coords.begin(), coords.begin() + coords.size() / 2);
@@ -313,14 +313,14 @@ distributed_grid<P>::coarsen(fk::vector<P> const &x, options const &cli_opts)
 
 template<typename P>
 fk::vector<P> distributed_grid<P>::refine_elements(
-    std::vector<int64_t> const &indices_to_refine, options const &opts,
-    fk::vector<P> const &x)
+    std::vector<int64_t> const &indices_to_refine,
+    std::vector<int> const &max_levels, fk::vector<P> const &x)
 {
   std::list<int64_t> child_ids;
   for (auto const parent_index : indices_to_refine)
   {
     child_ids.splice(child_ids.end(),
-                     table_.get_child_elements(parent_index, opts));
+                     table_.get_child_elements(parent_index, max_levels));
   }
 
   // need to preserve ordering for testing
@@ -346,7 +346,7 @@ fk::vector<P> distributed_grid<P>::refine_elements(
     return x;
   }
 
-  auto const added    = table_.add_elements(all_child_ids, opts.max_level);
+  auto const added    = table_.add_elements(all_child_ids);
   auto new_plan       = get_plan(get_num_ranks(), table_);
   auto const remapper = remap_for_addtl(table_.size() - added);
   fk::vector<P> y     = redistribute_vector(x, plan_, new_plan, remapper);

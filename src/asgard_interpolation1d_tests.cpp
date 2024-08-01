@@ -1,8 +1,6 @@
 #include "tests_general.hpp"
 
-#include "adapt.hpp"
-#include "asgard_interptest_common.hpp"
-#include "program_options.hpp"
+#include "asgard_testpdes_interpolation.hpp"
 
 using namespace asgard;
 
@@ -39,8 +37,10 @@ TEMPLATE_TEST_CASE("1d interpolation nodes", "[linear]", test_precs)
 template<int degree, typename precision, typename fcall_type>
 void project_inver(int num_levels, fcall_type fcall)
 {
+  nullpde<precision> pde(1, prog_opts(), num_levels);
+
   constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
-  constexpr int pterms = degree + 1; // polynomial terms are one more than the degree
+  constexpr int pdof = degree + 1; // polynomial terms are one more than the degree
 
   auto ffunc = [&](fk::vector<precision> const &x, precision const)
       -> fk::vector<precision> {
@@ -54,18 +54,17 @@ void project_inver(int num_levels, fcall_type fcall)
 
   std::vector<dimension<precision>> dims = {dim, };
 
-  parser const cli_input = make_empty_parser();
+  //parser const cli_input = make_empty_parser();
   bool constexpr quiet = true;
-  asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(cli_input, degree, quiet);
+  basis::wavelet_transform<precision, asgard::resource::host>
+      transformer(num_levels, degree, quiet);
 
-  adapt::distributed_grid<precision> grid(cli_input, dims);
+  adapt::distributed_grid<precision> grid(pde);
 
   // project the function onto the wavelet basis
-  fk::vector<precision> proj(fm::ipow(2, num_levels) * pterms);
+  fk::vector<precision> proj(fm::ipow(2, num_levels) * pdof);
   grid.get_initial_condition(
-      options(cli_input), dims,
-      std::vector<vector_func<precision>>{ffunc, },
+      pde.get_dimensions(), std::vector<vector_func<precision>>{ffunc, },
       1.0, transformer, fk::vector<precision, mem_type::view>(proj));
 
   vector2d<int> cells = get_cells<precision>(1, grid);
@@ -76,16 +75,16 @@ void project_inver(int num_levels, fcall_type fcall)
   wavelet_interp1d<degree, precision> wavint(&conn);
   kronmult::block_global_workspace<precision> workspace;
 
-  std::vector<precision> nodal(pterms * cells.num_strips());
-  kronmult::global_cpu(1, pterms, pterms, cells, dsort, perms, conn,
+  std::vector<precision> nodal(pdof * cells.num_strips());
+  kronmult::global_cpu(1, pdof, pdof, cells, dsort, perms, conn,
                        wavint.proj2node(), proj.data(), nodal.data(),
                        workspace);
 
   for (int i = 0; i < cells.num_strips(); i++)
   {
     int const idx = cells[i][0];
-    for (int j = 0; j < pterms; j++)
-      REQUIRE(std::abs(fcall(wavint.node(idx * pterms + j)) - nodal[i * pterms + j]) < tol);
+    for (int j = 0; j < pdof; j++)
+      REQUIRE(std::abs(fcall(wavint.node(idx * pdof + j)) - nodal[i * pdof + j]) < tol);
   }
 }
 

@@ -36,7 +36,7 @@ template<typename P, PDE_case_opts user_case = PDE_case_opts::case0>
 class PDE_fokkerplanck_1d_pitch_E : public PDE<P>
 {
 public:
-  PDE_fokkerplanck_1d_pitch_E(parser const &cli_input)
+  PDE_fokkerplanck_1d_pitch_E(prog_opts const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)

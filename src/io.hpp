@@ -86,7 +86,7 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
 
 template<typename P>
 void generate_initial_moments(
-    PDE<P> &pde, options const &program_opts,
+    PDE<P> &pde,
     adapt::distributed_grid<P> const &adaptive_grid,
     asgard::basis::wavelet_transform<P, resource::host> const &transformer,
     fk::vector<P> const &initial_condition)
@@ -94,7 +94,7 @@ void generate_initial_moments(
   // create 1D version of PDE and element table for wavelet->realspace
   // mappings
   PDE pde_1d = PDE(pde, PDE<P>::extract_dim0);
-  adapt::distributed_grid adaptive_grid_1d(pde_1d, program_opts);
+  adapt::distributed_grid adaptive_grid_1d(pde_1d);
 
   // Create workspace for wavelet transform
   int const dense_size = dense_space_size(pde_1d);
@@ -106,6 +106,7 @@ void generate_initial_moments(
         asgard::dense_dim_size(ASGARD_NUM_QUADRATURE, dims[i].get_level());
   }
 
+  std::cout << " gen 3\n";
   fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
       fk::vector<P, mem_type::view, resource::host>(workspace, 0,
@@ -119,6 +120,7 @@ void generate_initial_moments(
 #endif
   for (size_t i = 0; i < pde.moments.size(); ++i)
   {
+    std::cout << " gen 4\n";
     pde.moments[i].createMomentReducedMatrix(pde, adaptive_grid.get_table());
 #ifdef ASGARD_USE_CUDA
     fk::vector<P, mem_type::owner, resource::device> moment_vec(dense_size);
@@ -138,7 +140,7 @@ void generate_initial_moments(
 }
 
 template<typename P>
-void write_output(PDE<P> const &pde, parser const &cli_input,
+void write_output(PDE<P> const &pde,
                   fk::vector<P> const &vec, P const time, int const file_index,
                   int const dof, elements::table const &hash_table,
                   std::string const output_dataset_name = "asgard")
@@ -160,15 +162,20 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
   plist.add(HighFive::Chunking(hsize_t{64}));
   plist.add(HighFive::Deflate(9));
 
+  auto const &options = pde.options();
+
+  H5Easy::dump(file, "title", options.title);
+  H5Easy::dump(file, "subtitle", options.subtitle);
+
   auto const dims = pde.get_dimensions();
-  H5Easy::dump(file, "pde", cli_input.get_pde_string());
+  H5Easy::dump(file, "pde", options.pde_choice ? static_cast<int>(options.pde_choice.value()) : -1);
   H5Easy::dump(file, "degree", dims[0].get_degree());
   H5Easy::dump(file, "dt", pde.get_dt());
   H5Easy::dump(file, "time", time);
   H5Easy::dump(file, "ndims", pde.num_dims());
-  H5Easy::dump(file, "max_level", pde.max_level());
+  H5Easy::dump(file, "max_levels", options.max_levels);
   H5Easy::dump(file, "dof", dof);
-  H5Easy::dump(file, "cli", cli_input.cli_opts);
+  // H5Easy::dump(file, "cli", cli_input.cli_opts); // seems too much
   for (size_t dim = 0; dim < dims.size(); ++dim)
   {
     auto const nodes =
@@ -185,6 +192,8 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_max",
                  dims[dim].domain_max);
   }
+
+  std::cout << " elements.size() = " << hash_table.get_active_table().size() << '\n';
 
   auto &elements = hash_table.get_active_table();
   file.createDataSet<int>(
@@ -223,22 +232,14 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
                  pde.gmres_outputs[i].iterations, opts);
   }
 
-  H5Easy::dump(file, "do_adapt", cli_input.do_adapt_levels());
-  H5Easy::dump(file, "using_fullgrid", cli_input.using_full_grid());
-  H5Easy::dump(file, "starting_levels",
-               cli_input.get_starting_levels().to_std());
-  if (cli_input.get_active_terms().size() > 0)
-  {
-    // save list of terms this was run with if --terms option used
-    H5Easy::dump(file, "active_terms", cli_input.get_active_terms().to_std());
-  }
-  if (cli_input.do_adapt_levels())
-  {
-    H5Easy::dump(file, "adapt_thresh", cli_input.get_adapt_thresh());
+  bool const do_adapt = !!options.adapt_threshold;
+  H5Easy::dump(file, "do_adapt", do_adapt);
+  H5Easy::dump(file, "grid_type", static_cast<int>(options.grid.value()));
+  H5Easy::dump(file, "starting_levels", options.start_levels);
 
-    // save the max adaptivity levels for each dimension
-    H5Easy::dump(file, "max_adapt_levels",
-                 cli_input.get_max_adapt_levels().to_std());
+  if (do_adapt)
+  {
+    H5Easy::dump(file, "adapt_thresh", options.adapt_threshold.value());
 
     // if using adaptivity, save some stats about DOF coarsening/refining and
     // GMRES stats for each adapt step
@@ -275,28 +276,9 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
     }
   }
 
-  P gmres_tol = cli_input.get_gmres_tolerance();
-  if (gmres_tol == parser::NO_USER_VALUE_FP)
-  {
-    gmres_tol = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-  }
-  H5Easy::dump(file, "gmres_tolerance", gmres_tol);
-
-  int gmres_restart = cli_input.get_gmres_inner_iterations();
-  if (gmres_restart == parser::NO_USER_VALUE)
-  {
-    // calculate default based on size of solution vector
-    gmres_restart = solver::default_gmres_restarts<P>(vec.size());
-  }
-  H5Easy::dump(file, "gmres_restart", gmres_restart);
-
-  int gmres_max_iter = cli_input.get_gmres_outer_iterations();
-  if (gmres_max_iter == parser::NO_USER_VALUE)
-  {
-    // default value is to use size of solution vector
-    gmres_max_iter = vec.size();
-  }
-  H5Easy::dump(file, "gmres_max_iter", gmres_max_iter);
+  H5Easy::dump(file, "isolver_tolerance", options.isolver_tolerance.value());
+  H5Easy::dump(file, "isolver_iterations", options.isolver_iterations.value());
+  H5Easy::dump(file, "isolver_outer_iterations", options.isolver_outer_iterations.value());
 
   // save some basic build info
   H5Easy::dump(file, "GIT_BRANCH", std::string(GIT_BRANCH));
@@ -333,7 +315,7 @@ void write_output(PDE<P> const &pde, parser const &cli_input,
 }
 
 template<typename P>
-void read_restart_metadata(parser &user_vals, std::string const &restart_file)
+void read_restart_metadata(prog_opts &options, std::string const &restart_file)
 {
   std::cout << "--- Reading metadata from restart file '" << restart_file
             << "' ---\n";
@@ -345,13 +327,16 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
 
   HighFive::File file(restart_file, HighFive::File::ReadOnly);
 
-  std::string const pde_string =
-      H5Easy::load<std::string>(file, std::string("pde"));
-  int const degree = H5Easy::load<int>(file, std::string("degree"));
-  P const dt       = H5Easy::load<P>(file, std::string("dt"));
-  P const time     = H5Easy::load<P>(file, std::string("time"));
+  options.title    = H5Easy::load<std::string>(file, "title");
+  options.subtitle = H5Easy::load<std::string>(file, "subtitle");
 
-  int const ndims = H5Easy::load<int>(file, std::string("ndims"));
+  int const pde_choice = H5Easy::load<int>(file, "pde");
+
+  int const degree = H5Easy::load<int>(file, "degree");
+  P const dt       = H5Easy::load<P>(file, "dt");
+  P const time     = H5Easy::load<P>(file, "time");
+
+  int const ndims = H5Easy::load<int>(file, "ndims");
   std::string levels;
   for (int dim = 0; dim < ndims; ++dim)
   {
@@ -359,65 +344,46 @@ void read_restart_metadata(parser &user_vals, std::string const &restart_file)
         file, std::string("dim" + std::to_string(dim) + "_level")));
     levels += " ";
   }
-  int const max_level = H5Easy::load<int>(file, std::string("max_level"));
-  int const dof       = H5Easy::load<int>(file, std::string("dof"));
-  bool const use_fg   = H5Easy::load<bool>(file, std::string("using_fullgrid"));
 
-  // if the user requested a FG but the restart is a SG, let the user know the
-  // FG option is ignored
-  if (user_vals.using_full_grid() && !use_fg)
-  {
-    std::cerr << "WARN: Requested FG but restart file contains a SG. The FG "
-                 "option will be ignored."
-              << std::endl;
-    // ensure FG is disabled in CLI since we always use the grid from the
-    // restart file
-    parser_mod::set(user_vals, parser_mod::use_full_grid, false);
-  }
+  int const dof   = H5Easy::load<int>(file, "dof");
+  int const gridt = H5Easy::load<int>(file, "grid_type");
+
+  options.grid = static_cast<grid_type>(gridt);
 
   // TODO: this will be used for validation in the future
   ignore(dof);
 
-  parser_mod::set(user_vals, parser_mod::pde_str, pde_string);
-  parser_mod::set(user_vals, parser_mod::degree, degree);
-  parser_mod::set(user_vals, parser_mod::dt, dt);
-  parser_mod::set(user_vals, parser_mod::starting_levels_str, levels);
-  parser_mod::set(user_vals, parser_mod::max_level, max_level);
+  if (pde_choice < 0 and options.pde_choice)
+    options.pde_choice.reset();
+  else
+    options.pde_choice = static_cast<PDE_opts>(pde_choice);
+
+  options.degree = degree;
+  options.dt     = dt;
 
   // check if the restart file was run with adaptivity
   bool const restart_used_adapt =
       H5Easy::load<bool>(file, std::string("do_adapt"));
 
+  options.max_levels =
+      H5Easy::load<std::vector<int>>(file, std::string("max_levels"));
+
+  assert(options.max_levels.size() == static_cast<size_t>(ndims));
+
   // restore the max adaptivity levels if set in the file
   std::string max_adapt_str;
   if (restart_used_adapt)
   {
-    std::vector<int> max_adapt_levels =
-        H5Easy::load<std::vector<int>>(file, std::string("max_adapt_levels"));
-    assert(max_adapt_levels.size() == static_cast<size_t>(ndims));
-
-    parser_mod::set(user_vals, parser_mod::max_adapt_level,
-                    fk::vector<int>(max_adapt_levels));
-
-    for (size_t lev = 0; lev < max_adapt_levels.size(); lev++)
+    for (size_t lev = 0; lev < options.max_levels.size(); lev++)
     {
-      max_adapt_str += std::to_string(max_adapt_levels[lev]);
-      if (lev < max_adapt_levels.size() - 1)
+      max_adapt_str += std::to_string(options.max_levels[lev]);
+      if (lev < options.max_levels.size() - 1)
         max_adapt_str += " ";
     }
   }
 
-  std::cout << "  - PDE: " << pde_string << ", ndims = " << ndims
-            << ", degree = " << degree << '\n';
-  std::cout << "  - time = " << time << ", dt = " << dt << '\n';
-  std::cout << "  - file used adaptivity = "
-            << (restart_used_adapt ? "true" : "false") << '\n';
-  if (restart_used_adapt)
-  {
-    std::cout << "    - max_level = " << max_level
-              << ", max_adapt_levels = " << max_adapt_str << '\n';
-  }
-  std::cout << "---------------" << '\n';
+  if (get_local_rank() == 0)
+    options.print();
 }
 
 template<typename P>

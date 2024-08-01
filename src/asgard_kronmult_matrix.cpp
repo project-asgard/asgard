@@ -8,18 +8,11 @@
 
 namespace asgard
 {
-//! \brief Extract the actual set of terms based on options and imex flags
+//! \brief Extract the actual set of terms based on the pde
 template<typename precision>
-std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
-                                imex_flag const imex)
+std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex)
 {
-  if (not opts.use_imex_stepping)
-  {
-    std::vector<int> terms(pde.num_terms());
-    std::iota(terms.begin(), terms.end(), 0); // fills with 0, 1, 2, 3 ...
-    return terms;
-  }
-  else
+  if (pde.use_imex()) // respect the imex flag
   {
     std::vector<int> terms;
     terms.reserve(pde.num_terms());
@@ -27,6 +20,12 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
       if (pde.get_terms()[t][0].flag() == imex)
         terms.push_back(t);
 
+    return terms;
+  }
+  else // take all terms
+  {
+    std::vector<int> terms(pde.num_terms());
+    std::iota(terms.begin(), terms.end(), 0); // fills with 0, 1, 2, 3 ...
     return terms;
   }
 }
@@ -124,7 +123,7 @@ template<typename precision>
 local_kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
-                    options const &program_options, imex_flag const imex)
+                    imex_flag const imex)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -133,12 +132,10 @@ make_kronmult_dense(PDE<precision> const &pde,
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
-  int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
-                                                  ? program_options.max_level
-                                                  : pde.max_level());
+  int64_t lda = kron_size * fm::two_raised_to(pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
-  std::vector<int> const used_terms = get_used_terms(pde, program_options, imex);
+  std::vector<int> const used_terms = get_used_terms(pde, imex);
   int const num_terms               = static_cast<int>(used_terms.size());
 
   if (used_terms.empty())
@@ -191,7 +188,7 @@ make_kronmult_dense(PDE<precision> const &pde,
   }
 
   std::vector<precision> prec;
-  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  if (imex == imex_flag::imex_implicit or pde.use_implicit())
     // prepare a preconditioner
     build_preconditioner(pde, discretization, used_terms, prec);
 
@@ -394,7 +391,6 @@ template<typename precision>
 local_kronmult_matrix<precision>
 make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
-                     options const &program_options,
                      memory_usage const &mem_stats, imex_flag const imex,
                      kron_sparse_cache &spcache)
 {
@@ -406,13 +402,11 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
-  int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
-                                                  ? program_options.max_level
-                                                  : pde.max_level());
+  int64_t lda = kron_size * fm::two_raised_to(pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
-  std::vector<int> const used_terms =
-      get_used_terms(pde, program_options, imex);
+  std::vector<int> const used_terms = get_used_terms(pde, imex);
+
   int const num_terms = static_cast<int>(used_terms.size());
 
   if (used_terms.empty())
@@ -678,7 +672,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   }
 
   std::vector<precision> prec;
-  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  if (imex == imex_flag::imex_implicit or pde.use_implicit())
     // prepare a preconditioner
     build_preconditioner(pde, discretization, used_terms, prec);
 
@@ -756,25 +750,22 @@ make_kronmult_sparse(PDE<precision> const &pde,
 template<typename P>
 local_kronmult_matrix<P>
 make_local_kronmult_matrix(
-    PDE<P> const &pde, adapt::distributed_grid<P> const &grid, options const &cli_opts,
+    PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
     memory_usage const &mem_stats, imex_flag const imex, kron_sparse_cache &spcache,
     bool force_sparse)
 {
-  if (cli_opts.kmode == kronmult_mode::dense and not force_sparse)
+  if (pde.kron_mod() == kronmult_mode::dense and not force_sparse)
   {
-    return make_kronmult_dense<P>(pde, grid, cli_opts, imex);
+    return make_kronmult_dense<P>(pde, grid, imex);
   }
   else
   {
-    return make_kronmult_sparse<P>(pde, grid, cli_opts, mem_stats, imex,
-                                   spcache);
+    return make_kronmult_sparse<P>(pde, grid, mem_stats, imex, spcache);
   }
 }
 
 template<typename P>
-void update_kronmult_coefficients(PDE<P> const &pde,
-                                  options const &program_options,
-                                  imex_flag const imex,
+void update_kronmult_coefficients(PDE<P> const &pde, imex_flag const imex,
                                   kron_sparse_cache &spcache,
                                   local_kronmult_matrix<P> &mat)
 {
@@ -782,13 +773,11 @@ void update_kronmult_coefficients(PDE<P> const &pde,
   int const num_dimensions = pde.num_dims();
   int const kron_size      = pde.get_dimensions()[0].get_degree() + 1;
 
-  int64_t lda = kron_size * fm::two_raised_to((program_options.do_adapt_levels)
-                                                  ? program_options.max_level
-                                                  : pde.max_level());
+  int64_t lda = kron_size * fm::two_raised_to(pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
-  std::vector<int> const used_terms =
-      get_used_terms(pde, program_options, imex);
+  std::vector<int> const used_terms = get_used_terms(pde, imex);
+
   int const num_terms = static_cast<int>(used_terms.size());
 
   if (num_terms == 0)
@@ -878,9 +867,9 @@ template<typename P>
 memory_usage
 compute_mem_usage(PDE<P> const &pde,
                   adapt::distributed_grid<P> const &discretization,
-                  options const &program_options, imex_flag const imex,
-                  kron_sparse_cache &spcache, int memory_limit_MB,
-                  int64_t index_limit, bool force_sparse)
+                  imex_flag const imex, kron_sparse_cache &spcache,
+                  int memory_limit_MB, int64_t index_limit,
+                  bool force_sparse)
 {
   auto const &grid         = discretization.get_subgrid(get_rank());
   int const num_dimensions = pde.num_dims();
@@ -892,7 +881,7 @@ compute_mem_usage(PDE<P> const &pde,
 
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
   if (memory_limit_MB == 0)
-    memory_limit_MB = program_options.memory_limit;
+    memory_limit_MB = pde.memory_limit();
 #else
   ignore(memory_limit_MB);
 #endif
@@ -907,7 +896,7 @@ compute_mem_usage(PDE<P> const &pde,
   int64_t base_line_entries =
       (num_rows + num_cols) * fm::ipow<int64_t>(kron_size, num_dimensions);
 
-  if (program_options.kmode == kronmult_mode::dense and not force_sparse)
+  if (pde.kron_mod() == kronmult_mode::dense and not force_sparse)
   {
     // assume all terms will be loaded into the GPU, as one IMEX flag or another
     for (int t = 0; t < pde.num_terms(); t++)
@@ -1027,9 +1016,9 @@ compute_mem_usage(PDE<P> const &pde,
       if (imex != imex_flag::unspecified)
       {
         std::vector<int> const explicit_terms =
-            get_used_terms(pde, program_options, imex_flag::imex_explicit);
+            get_used_terms(pde, imex_flag::imex_explicit);
         std::vector<int> const implicit_terms =
-            get_used_terms(pde, program_options, imex_flag::imex_implicit);
+            get_used_terms(pde, imex_flag::imex_implicit);
         min_terms = std::min(explicit_terms.size(), implicit_terms.size());
       }
 
@@ -1213,11 +1202,10 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 template<typename precision>
 global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
-                        adapt::distributed_grid<precision> const &dis_grid,
-                        options const &program_options)
+                        adapt::distributed_grid<precision> const &dis_grid)
 {
   int const degree    = pde.get_dimensions()[0].get_degree();
-  int const max_level = (program_options.do_adapt_levels) ? program_options.max_level : pde.max_level();
+  int const max_level = pde.max_level();
 
   int const num_dimensions = pde.num_dims();
   int const num_terms      = pde.num_terms();
@@ -1344,12 +1332,12 @@ make_global_kron_matrix(PDE<precision> const &pde,
 template<typename precision>
 void set_specific_mode(PDE<precision> const &pde,
                        adapt::distributed_grid<precision> const &dis_grid,
-                       options const &program_options, imex_flag const imex,
+                       imex_flag const imex,
                        global_kron_matrix<precision> &mat)
 {
   int const imex_indx = static_cast<int>(imex);
 
-  mat.term_groups[imex_indx] = get_used_terms(pde, program_options, imex);
+  mat.term_groups[imex_indx] = get_used_terms(pde, imex);
 
   std::vector<int> const &used_terms = mat.term_groups[imex_indx];
 
@@ -1391,7 +1379,7 @@ void set_specific_mode(PDE<precision> const &pde,
     }
   }
 
-  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  if (imex == imex_flag::imex_implicit or pde.use_implicit())
     // prepare a preconditioner
     build_preconditioner(pde, dis_grid, used_terms, mat.pre_con_);
 
@@ -1464,7 +1452,7 @@ void global_kron_matrix<precision>::
 template<typename precision>
 void update_matrix_coefficients(PDE<precision> const &pde,
                                 adapt::distributed_grid<precision> const &dis_grid,
-                                options const &program_options, imex_flag const imex,
+                                imex_flag const imex,
                                 global_kron_matrix<precision> &mat)
 {
   int const imex_indx = static_cast<int>(imex);
@@ -1522,7 +1510,7 @@ void update_matrix_coefficients(PDE<precision> const &pde,
     }
   }
 
-  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  if (imex == imex_flag::imex_implicit or pde.use_implicit())
   { // prepare a preconditioner
     build_preconditioner(pde, dis_grid, used_terms, mat.pre_con_);
 #ifdef ASGARD_USE_CUDA
@@ -1687,12 +1675,12 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
 template<typename precision>
 void set_specific_mode(PDE<precision> const &pde,
                        adapt::distributed_grid<precision> const &dis_grid,
-                       options const &program_options, imex_flag const imex,
+                       imex_flag const imex,
                        block_global_kron_matrix<precision> &mat)
 {
   int const imex_indx = static_cast<int>(imex);
 
-  mat.term_groups_[imex_indx] = get_used_terms(pde, program_options, imex);
+  mat.term_groups_[imex_indx] = get_used_terms(pde, imex);
 
   std::vector<int> const &used_terms = mat.term_groups_[imex_indx];
 
@@ -1721,7 +1709,7 @@ void set_specific_mode(PDE<precision> const &pde,
     }
   }
 
-  if (imex == imex_flag::imex_implicit or program_options.use_implicit_stepping)
+  if (imex == imex_flag::imex_implicit or pde.use_implicit())
     // prepare a preconditioner
     build_preconditioner(pde, dis_grid, used_terms, mat.pre_con_);
 }
@@ -1729,7 +1717,7 @@ void set_specific_mode(PDE<precision> const &pde,
 #endif // KRON_MODE_GLOBAL_BLOCK
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template std::vector<int> get_used_terms(PDE<double> const &pde, options const &opts,
+template std::vector<int> get_used_terms(PDE<double> const &pde,
                                          imex_flag const imex);
 
 template vector2d<int> get_cells(int, adapt::distributed_grid<double> const &);
@@ -1747,20 +1735,19 @@ make_block_global_kron_matrix<double>(PDE<double> const &,
                                       kronmult::block_global_workspace<double> *workspace);
 template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
-                                        options const &, imex_flag const,
+                                        imex_flag const,
                                         block_global_kron_matrix<double> &);
 #else
 template global_kron_matrix<double>
 make_global_kron_matrix(PDE<double> const &,
-                        adapt::distributed_grid<double> const &,
-                        options const &);
+                        adapt::distributed_grid<double> const &);
 template void update_matrix_coefficients(PDE<double> const &,
                                          adapt::distributed_grid<double> const &,
-                                         options const &, imex_flag const,
+                                         imex_flag const,
                                          global_kron_matrix<double> &);
 template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
-                                        options const &, imex_flag const,
+                                        imex_flag const,
                                         global_kron_matrix<double> &);
 template class global_kron_matrix<double>;
 template void global_kron_matrix<double>::apply<resource::host>(
@@ -1775,21 +1762,21 @@ template void global_kron_matrix<double>::apply<resource::device>(
 template local_kronmult_matrix<double>
 make_local_kronmult_matrix<double>(
     PDE<double> const &, adapt::distributed_grid<double> const &,
-    options const &, memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
+    memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
 template void
-update_kronmult_coefficients<double>(PDE<double> const &, options const &,
-                                     imex_flag const, kron_sparse_cache &,
+update_kronmult_coefficients<double>(PDE<double> const &, imex_flag const,
+                                     kron_sparse_cache &,
                                      local_kronmult_matrix<double> &);
 template memory_usage
 compute_mem_usage<double>(PDE<double> const &,
                           adapt::distributed_grid<double> const &,
-                          options const &, imex_flag const, kron_sparse_cache &,
+                          imex_flag const, kron_sparse_cache &,
                           int, int64_t, bool);
 #endif
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template std::vector<int> get_used_terms(PDE<float> const &pde, options const &opts,
+template std::vector<int> get_used_terms(PDE<float> const &pde,
                                          imex_flag const imex);
 
 template vector2d<int> get_cells(int, adapt::distributed_grid<float> const &);
@@ -1808,20 +1795,19 @@ make_block_global_kron_matrix<float>(PDE<float> const &,
                                      kronmult::block_global_workspace<float> *workspace);
 template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,
-                                       options const &, imex_flag const,
+                                       imex_flag const,
                                        block_global_kron_matrix<float> &);
 #else
 template global_kron_matrix<float>
 make_global_kron_matrix(PDE<float> const &,
-                        adapt::distributed_grid<float> const &,
-                        options const &);
+                        adapt::distributed_grid<float> const &);
 template void update_matrix_coefficients(PDE<float> const &,
                                          adapt::distributed_grid<float> const &,
-                                         options const &, imex_flag const,
+                                         imex_flag const,
                                          global_kron_matrix<float> &);
 template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,
-                                       options const &, imex_flag const,
+                                       imex_flag const,
                                        global_kron_matrix<float> &);
 template class global_kron_matrix<float>;
 template void global_kron_matrix<float>::apply<resource::host>(
@@ -1836,14 +1822,14 @@ template void global_kron_matrix<float>::apply<resource::device>(
 template local_kronmult_matrix<float>
 make_local_kronmult_matrix<float>(
     PDE<float> const &, adapt::distributed_grid<float> const &,
-    options const &, memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
-template void update_kronmult_coefficients<float>(PDE<float> const &, options const &,
+    memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
+template void update_kronmult_coefficients<float>(PDE<float> const &,
                                                   imex_flag const, kron_sparse_cache &,
                                                   local_kronmult_matrix<float> &);
 template memory_usage
 compute_mem_usage<float>(PDE<float> const &,
                          adapt::distributed_grid<float> const &,
-                         options const &, imex_flag const, kron_sparse_cache &,
+                         imex_flag const, kron_sparse_cache &,
                          int, int64_t, bool);
 #endif
 #endif

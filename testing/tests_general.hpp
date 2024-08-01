@@ -152,11 +152,6 @@ make_dummy_dim(int const level = 0, int const degree = 0,
                               degree, initial_condition, name);
 }
 
-// WARNING for tests only!
-// features rely on options, parser, and PDE constructed w/ same arguments
-asgard::options make_options(std::vector<std::string> const arguments);
-asgard::parser make_parser(std::vector<std::string> const arguments);
-
 template<typename T>
 std::string to_string_with_precision(T const a_value, int const precision = 6)
 {
@@ -268,16 +263,3 @@ P nrm2_dist(asgard::fk::vector<P> const &x, asgard::fk::vector<P> const &y)
   }
   return std::sqrt(l2);
 }
-
-namespace asgard
-{
-/*!
- * \ingroup AsgardTesting
- * \brief Create a parser with no parameters.
- */
-inline parser make_empty_parser()
-{
-  const char *ename = "asgard";
-  return parser(1, &ename); // dummy parser
-}
-} // namespace asgard

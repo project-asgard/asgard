@@ -44,6 +44,9 @@ class pde_snapshot:
             # keep this for reference of the keys that we may need
             # print(fdata.keys())
 
+            self.title    = fdata['title'][()].decode("utf-8")
+            self.subtitle = fdata['subtitle'][()].decode("utf-8")
+
             self.num_dimensions = fdata['ndims'][()]
             self.degree         = fdata['degree'][()]
             assert self.degree == 1, "only works with linear basis, others will be coming soon"
@@ -207,3 +210,12 @@ class pde_snapshot:
                                               points.shape[0],
                                               np.ctypeslib.as_ctypes(presult.reshape(-1,)))
         return presult
+
+    def __str__(self):
+        s = "title: %s\n" % self.title
+        if self.subtitle != "":
+            s += "  sub: %s\n" % self.subtitle
+        s += "  num-dimensions: %d\n" % self.num_dimensions
+        s += "  degree:         %d\n" % self.degree
+        s += "  time:           %f" % self.time
+        return s

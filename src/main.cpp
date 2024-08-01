@@ -15,12 +15,7 @@ int main(int argc, char **argv)
   }
 
   // -- parse cli
-  asgard::parser const cli_input(argc, argv);
-  if (!cli_input.is_valid())
-  {
-    asgard::node_out() << "invalid cli string; exiting\n";
-    exit(-1);
-  }
+  asgard::prog_opts const cli_input(argc, argv);
 
   // main call to asgard, does all the work
   asgard::simulate<precision>(cli_input);

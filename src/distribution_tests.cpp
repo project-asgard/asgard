@@ -22,6 +22,8 @@ static distribution_test_init distrib_test_info;
 
 using namespace asgard;
 
+using P = default_precision;
+
 int main(int argc, char *argv[])
 {
   auto const [rank, total_ranks] = initialize_distribution();
@@ -160,15 +162,9 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("1 rank, whole problem")
   {
-    int const degree = 3;
-    int const level  = 4;
+    auto const pde = make_PDE<P>("-p continuity_2 -d 3 -l 4");
 
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-
-    elements::table const table(o, *pde);
+    elements::table const table(*pde);
 
     int const num_ranks = 1;
     int const my_rank   = 0;
@@ -183,15 +179,8 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("2 ranks")
   {
-    int const degree = 5;
-    int const level  = 5;
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_2 -d 5 -l 5");
+    elements::table const table(*pde);
 
     int const num_ranks  = 2;
     int const first_rank = 0;
@@ -215,15 +204,8 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("4 ranks - even/square")
   {
-    int const degree = 9;
-    int const level  = 7;
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_3 -d 9 -l 7");
+    elements::table const table(*pde);
 
     int const num_ranks  = 4;
     int const first_rank = 0;
@@ -263,15 +245,8 @@ TEST_CASE("rank subgrid function", "[distribution]")
 
   SECTION("9 ranks - odd/square")
   {
-    int const degree = 3;
-    int const level  = 5;
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_6, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_6 -d 3 -l 5");
+    elements::table const table(*pde);
 
     int const num_ranks = 9;
 
@@ -279,10 +254,10 @@ TEST_CASE("rank subgrid function", "[distribution]")
     for (int i = 0; i < num_ranks; ++i)
     {
       element_subgrid const e(get_subgrid(num_ranks, i, table));
-      REQUIRE(std::abs(e.nrows() - e.ncols()) <
-              2); // square number of ranks should produce square subgrids
-                  // left over elements are greedily assigned, maximum
-                  // difference between row/col number should be one
+      REQUIRE(std::abs(e.nrows() - e.ncols()) < 2);
+      // square number of ranks should produce square subgrids
+      // left over elements are greedily assigned, maximum
+      // difference between row/col number should be one
 
       plan.emplace(i, e);
     }
@@ -303,15 +278,8 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("1 rank")
   {
-    int const degree = 2;
-    int const level  = 2;
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_2 -d 2 -l 2");
+    elements::table const table(*pde);
 
     int const num_ranks = 1;
 
@@ -321,15 +289,8 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("2 ranks - also, test 3rd rank ignored")
   {
-    int const degree = 7;
-    int const level  = 5;
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_2 -d 7 -l 5");
+    elements::table const table(*pde);
 
     int const num_ranks = 2;
     auto const plan     = get_plan(num_ranks, table);
@@ -351,15 +312,8 @@ TEST_CASE("distribution plan function", "[distribution]")
 
   SECTION("20 ranks")
   {
-    int const degree = 4;
-    int const level  = 5;
-
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_2 -d 4 -l 5");
+    elements::table const table(*pde);
 
     int const num_ranks = 20;
     auto const plan     = get_plan(num_ranks, table);
@@ -382,14 +336,9 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
   {
     auto const num_ranks = 1;
     auto const my_rank   = 0;
-    int const degree     = 3;
-    int const level      = 2;
 
-    options const o = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_2 -d 3 -l 2");
+    elements::table const table(*pde);
 
     auto const plan = get_plan(num_ranks, table);
 
@@ -409,15 +358,8 @@ TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
 
     if (my_rank < num_ranks)
     {
-      int const degree = 4;
-      int const level  = 4;
-
-      options const o = make_options(
-          {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-      auto const pde =
-          make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
-      elements::table const table(o, *pde);
+      auto const pde = make_PDE<P>("-p continuity_3 -d 4 -l 4");
+      elements::table const table(*pde);
 
       auto const plan       = get_plan(num_ranks, table);
       int const vector_size = 10;
@@ -571,14 +513,8 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("one rank, small problem")
   {
-    int const degree = 1;
-    int const level  = 2;
-    options const o  = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_1, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_1 -l 2 -d 1");
+    elements::table const table(*pde);
 
     int const num_ranks = 1;
     generate_messages_test(num_ranks, table);
@@ -586,14 +522,8 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("one rank, larger problem")
   {
-    int const degree = 3;
-    int const level  = 3;
-    options const o  = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_3 -d 3 -l 3");
+    elements::table const table(*pde);
 
     int const num_ranks = 1;
     generate_messages_test(num_ranks, table);
@@ -601,14 +531,8 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("perfect square number of ranks, small")
   {
-    int const degree = 2;
-    int const level  = 4;
-    options const o  = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_2 -d 2 -l 4");
+    elements::table const table(*pde);
 
     int const num_ranks = 9;
     generate_messages_test(num_ranks, table);
@@ -616,14 +540,8 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("perfect square number of ranks, large")
   {
-    int const degree = 5;
-    int const level  = 5;
-    options const o  = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_3, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<default_precision>("-p continuity_3 -d 5 -l 5");
+    elements::table const table(*pde);
 
     int const num_ranks = 36;
     generate_messages_test(num_ranks, table);
@@ -631,14 +549,8 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("even but not square, small")
   {
-    int const degree = 4;
-    int const level  = 8;
-    options const o  = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_1, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_1 -d 4 -l 8");
+    elements::table const table(*pde);
 
     int const num_ranks = 20;
     generate_messages_test(num_ranks, table);
@@ -646,14 +558,8 @@ TEST_CASE("generate messages tests", "[distribution]")
 
   SECTION("even but not square, large")
   {
-    int const degree = 2;
-    int const level  = 2;
-    options const o  = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-    auto const pde =
-        make_PDE<default_precision>(PDE_opts::continuity_6, level, degree);
-    elements::table const table(o, *pde);
+    auto const pde = make_PDE<P>("-p continuity_6 -d 2 -l 2");
+    elements::table const table(*pde);
 
     int const num_ranks = 32;
     generate_messages_test(num_ranks, table);
@@ -687,16 +593,11 @@ TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", test_precs)
     if (my_rank < num_ranks)
     {
       int const degree = 3;
-      int const level  = 6;
 
-      options const o = make_options(
-          {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-      auto const pde =
-          make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
+      auto const pde = make_PDE<P>("-p continuity_2 -d 3 -l 6");
       int64_t const segment_size = fm::ipow(degree + 1, pde->num_dims());
 
-      elements::table const table(o, *pde);
+      elements::table const table(*pde);
       if (num_ranks > table.size())
       {
         return;
@@ -759,14 +660,9 @@ TEMPLATE_TEST_CASE("gather results tests", "[distribution]", test_precs)
     if (my_rank < num_ranks)
     {
       int const degree = 1;
-      int const level  = 2;
 
-      options const o = make_options(
-          {"-l", std::to_string(level), "-d", std::to_string(degree)});
-
-      auto const pde =
-          make_PDE<default_precision>(PDE_opts::continuity_2, level, degree);
-      elements::table const table(o, *pde);
+      auto const pde = make_PDE<P>("-p continuity_2 -d 1 -l 2");
+      elements::table const table(*pde);
       if (table.size() < num_ranks)
       {
         return;
@@ -1093,14 +989,12 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
 
   SECTION("two/four rank -- coarsen/delete from ends")
   {
-    auto const test_levels = fk::vector<int>{3, 4};
-    auto const test_pde    = PDE_opts::continuity_2;
-    auto const degree      = parser::NO_USER_VALUE;
-    auto const cfl         = parser::DEFAULT_CFL;
-    parser const cli_mock(test_pde, test_levels, degree, cfl);
-    options const opts(cli_mock);
-    auto const pde = make_PDE<default_precision>(cli_mock);
-    elements::table table(opts, *pde);
+    prog_opts opts;
+    opts.pde_choice   = PDE_opts::continuity_2;
+    opts.start_levels = {3, 4};
+
+    auto const pde = make_PDE<P>(opts);
+    elements::table table(*pde);
 
     auto const num_ranks = 2;
     auto const old_plan  = get_plan(num_ranks, table);
@@ -1132,14 +1026,12 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
 
   SECTION("two/four rank -- intermittent coarsen/deletion")
   {
-    auto const test_levels = fk::vector<int>{2, 3, 5};
-    auto const test_pde    = PDE_opts::continuity_3;
-    auto const degree      = parser::NO_USER_VALUE;
-    auto const cfl         = parser::DEFAULT_CFL;
-    parser const cli_mock(test_pde, test_levels, degree, cfl);
-    options const opts(cli_mock);
-    auto const pde = make_PDE<default_precision>(cli_mock);
-    elements::table table(opts, *pde);
+    prog_opts opts;
+    opts.pde_choice   = PDE_opts::continuity_3;
+    opts.start_levels = {2, 3, 5};
+
+    auto const pde = make_PDE<P>(opts);
+    elements::table table(*pde);
 
     auto const num_ranks = 2;
     auto const old_plan  = get_plan(num_ranks, table);
@@ -1201,14 +1093,12 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
 
   SECTION("9 (odd/perfect square) rank -- coarsen")
   {
-    auto const test_levels = fk::vector<int>{2, 3, 4, 3, 2, 3};
-    auto const test_pde    = PDE_opts::continuity_6;
-    auto const degree      = parser::NO_USER_VALUE;
-    auto const cfl         = parser::DEFAULT_CFL;
-    parser const cli_mock(test_pde, test_levels, degree, cfl);
-    options const opts(cli_mock);
-    auto const pde = make_PDE<default_precision>(cli_mock);
-    elements::table table(opts, *pde);
+    prog_opts opts;
+    opts.pde_choice   = PDE_opts::continuity_6;
+    opts.start_levels = {2, 3, 4, 3, 2, 3};
+
+    auto const pde = make_PDE<P>(opts);
+    elements::table table(*pde);
 
     auto const num_ranks = 9;
     auto const old_plan  = get_plan(num_ranks, table);
@@ -1239,14 +1129,12 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
 
   SECTION("9 rank -- refine")
   {
-    auto const test_levels = fk::vector<int>{2, 3, 4, 3, 2, 3};
-    auto const test_pde    = PDE_opts::continuity_6;
-    auto const degree      = parser::NO_USER_VALUE;
-    auto const cfl         = parser::DEFAULT_CFL;
-    parser const cli_mock(test_pde, test_levels, degree, cfl);
-    options const opts(cli_mock);
-    auto const pde = make_PDE<default_precision>(cli_mock);
-    elements::table table(opts, *pde);
+    prog_opts opts;
+    opts.pde_choice   = PDE_opts::continuity_6;
+    opts.start_levels = {2, 3, 4, 3, 2, 3};
+
+    auto const pde = make_PDE<P>(opts);
+    elements::table table(*pde);
 
     auto const num_ranks = 9;
     auto const old_plan  = get_plan(num_ranks, table);

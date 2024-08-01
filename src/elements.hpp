@@ -52,12 +52,11 @@ map_to_coords(int64_t const id, int const max_level, int const num_dims);
 class table
 {
 public:
-  template<typename P>
-  table(options const &opts, std::vector<dimension<P>> const &dims);
+  table(int const max_level, prog_opts const &options);
 
   template<typename P>
-  table(options const &opts, PDE<P> const &pde)
-      : table(opts, pde.get_dimensions())
+  table(PDE<P> const &pde)
+      : table(pde.max_level(), pde.options())
   {}
 
   // get id of element given its 0,...,n index in active elements
@@ -83,11 +82,12 @@ public:
   // manually add elements by id
   // returns number of elements added - ignore ids already present
   int64_t
-  add_elements(std::vector<int64_t> const &element_ids, int const max_level);
+  add_elements(std::vector<int64_t> const &element_ids);
 
   // get element id of all children of an element (by index) for refinement
   std::list<int64_t>
-  get_child_elements(int64_t const index, options const &opts) const;
+  get_child_elements(int64_t const index,
+                     std::vector<int> const &max_adapt_level) const;
 
   // get flattened element table for device
   fk::vector<int> const &get_active_table() const { return active_table_; }
@@ -99,8 +99,7 @@ public:
     return active_element_ids_.size();
   }
 
-  void recreate_from_elements(std::vector<int64_t> const &element_ids,
-                              int const max_level);
+  void recreate_from_elements(std::vector<int64_t> const &element_ids);
 
   // static construction helper
   // conceptually private, exposed for testing
@@ -116,6 +115,8 @@ private:
 
   // table of active elements staged for on-device kron list building
   fk::vector<int> active_table_;
+
+  int max_level_; // needed for coord translation
 };
 
 } // end namespace asgard::elements

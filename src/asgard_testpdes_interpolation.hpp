@@ -11,6 +11,75 @@
 
 using namespace asgard;
 
+template<typename P>
+class nullpde final : public PDE<P>
+{
+public:
+  nullpde(int num_dims, prog_opts const &options,
+          int levels = -1, int degree = -1)
+  {
+    int constexpr num_sources       = 0;
+    int constexpr num_terms         = 1;
+    bool constexpr do_poisson_solve = false;
+    // disable implicit steps in IMEX
+    bool constexpr do_collision_operator = false;
+    bool constexpr has_analytic_soln     = false;
+
+    if (options.start_levels.empty())
+    {
+      if (levels < 0)
+        levels = 2;
+    }
+    else
+    {
+      if (levels < 0)
+        levels = options.start_levels.front();
+    }
+
+    if (not options.degree)
+    {
+      if (degree < 0)
+        degree = 1;
+    }
+    else
+    {
+      if (degree < 0)
+        degree = options.degree.value();
+    }
+
+    std::vector<dimension<P>> dims(
+        num_dims, dimension<P>(0.0, 1.0, levels, degree,
+                               one, nullptr, "x"));
+
+    partial_term<P> pterm = partial_term<P>(
+        coefficient_type::mass, negid, nullptr, flux_type::central,
+        boundary_condition::periodic, boundary_condition::periodic);
+
+    term<P> fterm(false, "-u", {pterm, }, imex_flag::unspecified);
+
+    term_set<P> terms
+        = std::vector<std::vector<term<P>>>{std::vector<term<P>>(num_dims, fterm)};
+
+    this->initialize(options, num_dims, num_sources, num_terms,
+                     dims, terms, std::vector<source<P>>{},
+                     std::vector<md_func_type<P>>{{}},
+                     get_dt_, do_poisson_solve, has_analytic_soln,
+                     std::vector<moment<P>>{}, do_collision_operator);
+  }
+
+private:
+  static fk::vector<P>
+  one(fk::vector<P> const &x, P const = 0)
+  {
+    fk::vector<P> fx(x.size());
+    for (int i = 0; i < x.size(); i++)
+        fx[i] = P{1};
+    return fx;
+  }
+  static P negid(P const, P const = 0) { return -1.0; }
+  static P get_dt_(dimension<P> const &) { return 1.0; }
+};
+
 // this is part of testing, rename it in case of a conflict
 enum class testode_modes
 {
@@ -29,7 +98,7 @@ template<typename P, bool interp_mode, testode_modes imode>
 class testode final : public PDE<P>
 {
 public:
-  testode(parser const &cli_input)
+  testode(prog_opts const &options)
   {
     int constexpr num_dims          = 1;
     int constexpr num_sources       = 0;
@@ -58,7 +127,7 @@ public:
     else
       terms = std::vector<std::vector<term<P>>>{std::vector<term<P>>{fterm,}};
 
-    this->initialize(cli_input, num_dims, num_sources, num_terms,
+    this->initialize(options, num_dims, num_sources, num_terms,
                      std::vector<dimension<P>>{
                          dimension<P>(0.0, 1.0, 4, default_degree,
                                       component_x, nullptr, "x")},
@@ -115,7 +184,7 @@ public:
   using partial_term_1d = partial_term<precision>;
   using term_1d         = term<precision>;
 
-  testforcing(asgard::parser const &cli_input)
+  testforcing(prog_opts const &options)
   {
     int constexpr num_dimensions = 2;
     int constexpr num_sources    = 0;
@@ -179,7 +248,7 @@ public:
       };
 
     this->initialize(
-        cli_input, num_dimensions, num_sources, num_terms,
+        options, num_dimensions, num_sources, num_terms,
         domain, terms, sources, {exact_solution},
         get_dt, do_poisson_solve, has_analytic_solution);
   }
@@ -242,7 +311,7 @@ public:
   using partial_term_1d = partial_term<precision>;
   using term_1d         = term<precision>;
 
-  testic(asgard::parser const &cli_input)
+  testic(prog_opts const &options)
   {
     int constexpr num_dimensions = 2;
     int constexpr num_sources    = 0;
@@ -315,7 +384,7 @@ public:
       };
 
     this->initialize(
-        cli_input, num_dimensions, num_sources, num_terms,
+        options, num_dimensions, num_sources, num_terms,
         domain, terms, sources, {exact_solution},
         get_dt, do_poisson_solve, has_analytic_solution);
   }
@@ -397,7 +466,7 @@ private:
 // simulates the pde and returns the list of rmse at each time step
 template<typename P>
 std::vector<P>
-time_advance_errors(std::unique_ptr<PDE<P>> &pde, parser const &parse)
+time_advance_errors(std::unique_ptr<PDE<P>> &pde)
 {
   expect(pde->has_analytic_soln() or pde->interp_exact());
 
@@ -407,17 +476,16 @@ time_advance_errors(std::unique_ptr<PDE<P>> &pde, parser const &parse)
 
   int const degree = pde->get_dimensions()[0].get_degree();
 
-  options const opts(parse);
-  elements::table const check(opts, *pde);
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
+  elements::table const check(*pde);
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<P, resource::host> const transformer(*pde);
 
   // -- compute dimension mass matrices
   generate_dimension_mass_mat(*pde, transformer);
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   // TODO: look into issue requiring mass mats to be regenerated after init
   // cond. see problem in main.cpp
@@ -430,7 +498,7 @@ time_advance_errors(std::unique_ptr<PDE<P>> &pde, parser const &parse)
   fk::vector<P> f_val = [&]() -> fk::vector<P> {
     if (pde->interp_initial())
     {
-      kops.make(imex_flag::unspecified, *pde, adaptive_grid, opts);
+      kops.make(imex_flag::unspecified, *pde, adaptive_grid);
       vector2d<P> const &nodes = kops.get_inodes();
       std::vector<P> icn(initial_condition.size());
       pde->interp_initial()(nodes, icn);
@@ -447,7 +515,7 @@ time_advance_errors(std::unique_ptr<PDE<P>> &pde, parser const &parse)
   std::vector<P> errors;
 
   // -- time loop
-  for (auto i = 0; i < opts.num_time_steps; ++i)
+  for (auto i = 0; i < pde->options().num_time_steps.value(); ++i)
   {
     std::cout.setstate(std::ios_base::failbit);
     auto const time          = i * pde->get_dt();
@@ -455,7 +523,7 @@ time_advance_errors(std::unique_ptr<PDE<P>> &pde, parser const &parse)
 
     f_val = time_advance::adaptive_advance(
         time_advance::method::exp, *pde, kops, adaptive_grid,
-        transformer, opts, f_val, time, update_system);
+        transformer, f_val, time, update_system);
 
     if (pde->has_analytic_soln())
     {

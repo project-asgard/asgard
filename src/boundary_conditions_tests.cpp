@@ -16,16 +16,9 @@ void test_boundary_condition_vector(PDE<P> &pde,
                                     std::filesystem::path const &gold_filename,
                                     P const tol_factor)
 {
-  /* setup stuff */
-  dimension<P> const &d = pde.get_dimensions()[0];
-  int const level       = d.get_level();
-  int const degree      = d.get_degree();
+  elements::table const table(pde);
 
-  auto const opts =
-      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
-  elements::table const table(opts, pde);
-
-  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
+  basis::wavelet_transform<P, resource::host> const transformer(pde);
   generate_dimension_mass_mat<P>(pde, transformer);
   generate_all_coefficients<P>(pde, transformer);
 
@@ -56,20 +49,14 @@ void test_compute_boundary_condition(PDE<P> &pde,
                                      std::string gold_filename_prefix,
                                      P const tol_factor)
 {
-  // FIXME assume uniform degree
-  int const level  = pde.get_dimensions()[0].get_level();
-  int const degree = pde.get_dimensions()[0].get_degree();
-
-  auto const opts =
-      make_options({"-l", std::to_string(level), "-d", std::to_string(degree)});
-  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
+  basis::wavelet_transform<P, resource::host> const transformer(pde);
   generate_all_coefficients<P>(pde, transformer);
 
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
   std::vector<dimension<P>> const &dimensions = pde.get_dimensions();
 
-  elements::table const table(opts, pde);
+  elements::table const table(pde);
 
   /* this timestep value must be consistent with the value used in the gold data
      generation scripts in matlab */
@@ -144,18 +131,11 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
      first and scale by multiplicative factors to at time + t */
   SECTION("time separability")
   {
-    /* setup stuff */
-    int const level  = 5;
-    int const degree = 4;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const pde = make_PDE<TestType>("-p diffusion_1 -l 5 -d 4");
 
-    auto const opts = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    elements::table const table(*pde);
 
-    elements::table const table(opts, *pde);
-
-    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                         *pde);
+    basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
     generate_dimension_mass_mat<TestType>(*pde, transformer);
     generate_all_coefficients<TestType>(*pde, transformer);
 
@@ -191,16 +171,11 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
   SECTION("element table split")
   {
     /* setup stuff */
-    int const level  = 5;
-    int const degree = 5;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
-    auto const opts  = make_options(
-        {"-l", std::to_string(level), "-d", std::to_string(degree)});
+    auto const pde = make_PDE<TestType>("-p diffusion_1 -l 5 -d 5");
 
-    elements::table const table(opts, *pde);
+    elements::table const table(*pde);
 
-    basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                         *pde);
+    basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
     generate_dimension_mass_mat<TestType>(*pde, transformer);
     generate_all_coefficients<TestType>(*pde, transformer);
 
@@ -255,36 +230,28 @@ TEMPLATE_TEST_CASE("compute_boundary_conditions", "[boundary_condition]",
 
   SECTION("diffusion_1 level 2 degree 1")
   {
-    int const level  = 2;
-    int const degree = 1;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const pde = make_PDE<TestType>("-p diffusion_1 -l 2 -d 1");
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
 
   SECTION("diffusion_1 level 4 degree 3")
   {
-    int const level  = 4;
-    int const degree = 3;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const pde = make_PDE<TestType>("-p diffusion_1 -l 4 -d 3");
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
 
   SECTION("diffusion_1 level 5 degree 4")
   {
-    int const level  = 5;
-    int const degree = 4;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const pde = make_PDE<TestType>("-p diffusion_1 -l 5 -d 4");
 
     test_compute_boundary_condition(*pde, gold_filename_prefix, tol_factor);
   }
 
   SECTION("diffusion_2 level 3 degree 2")
   {
-    int const level  = 3;
-    int const degree = 2;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto const pde = make_PDE<TestType>("-p diffusion_2 -l 3 -d 2");
 
     auto const gold_prefix =
         boundary_conditions_base_dir / "compute_diffusion2";
@@ -302,7 +269,7 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]",
   {
     int const level  = 2;
     int const degree = 1;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const pde   = make_PDE<TestType>("-p diffusion_1 -l 2 -d 1");
 
     auto const gold_filename = boundary_conditions_base_dir /
                                ("vector_diffusion1_l" + std::to_string(level) +
@@ -315,7 +282,7 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]",
   {
     int const level  = 4;
     int const degree = 3;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const pde   = make_PDE<TestType>("-p diffusion_1 -l 4 -d 3");
 
     auto const gold_filename = boundary_conditions_base_dir /
                                ("vector_diffusion1_l" + std::to_string(level) +
@@ -327,7 +294,7 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]",
   {
     int const level  = 5;
     int const degree = 4;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_1, level, degree);
+    auto const pde   = make_PDE<TestType>("-p diffusion_1 -l 5 -d 4");
 
     auto const gold_filename = boundary_conditions_base_dir /
                                ("vector_diffusion1_l" + std::to_string(level) +
@@ -340,7 +307,7 @@ TEMPLATE_TEST_CASE("boundary_conditions_vector", "[boundary_condition]",
   {
     int const level  = 3;
     int const degree = 2;
-    auto const pde   = make_PDE<TestType>(PDE_opts::diffusion_2, level, degree);
+    auto const pde   = make_PDE<TestType>("-p diffusion_2 -l 3 -d 2");
 
     auto const gold_filename = boundary_conditions_base_dir /
                                ("vector_diffusion2_l" + std::to_string(level) +

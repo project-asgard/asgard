@@ -30,7 +30,7 @@ public:
   using source_md  = asgard::source<precision>;
   using source_set = std::vector<source_md>;
 
-  example_continuity2d(asgard::parser const &cli_input)
+  example_continuity2d(asgard::prog_opts const &cli_input)
   {
     // these fields check correctness of the specification
     int constexpr num_dimensions = 2;
@@ -233,21 +233,14 @@ int main(int argc, char **argv)
   }
 
   // parse the command line inputs
-  asgard::parser const cli_input(argc, argv);
-
-  // if custom command line inputs are used, this check can be skipped
-  if (!cli_input.is_valid())
-  {
-    asgard::node_out() << "invalid cli string; exiting\n";
-    exit(-1);
-  }
+  asgard::prog_opts const options(argc, argv);
 
   // create an instance of the PDE that we want to solve
   // pde has type std::unique_ptr<asgard::PDE<precision>>
-  auto pde = asgard::make_custom_pde<example_continuity2d>(cli_input);
+  auto pde = asgard::make_custom_pde<example_continuity2d>(options);
 
   // main call to asgard, does all the work
-  asgard::simulate(cli_input, pde);
+  asgard::simulate(pde);
 
   // call MPI_Finalize() and/or cleanup after the simulation
   asgard::finalize_distribution();

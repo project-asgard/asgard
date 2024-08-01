@@ -185,25 +185,18 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
              preconditioner_abstraction precondition, int restart,
              int max_outer_iterations, P tolerance)
 {
-  if (tolerance == parser::NO_USER_VALUE_FP)
+  if (tolerance <= notolerance + std::numeric_limits<P>::epsilon())
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
   expect(tolerance >= std::numeric_limits<P>::epsilon());
 
   int const n = b.size();
   expect(n == x.size());
 
-  if (restart == parser::NO_USER_VALUE)
+  if (restart == novalue)
     restart = default_gmres_restarts<P>(n);
   expect(restart > 0); // checked in program_options
-  if (restart > n)
-  {
-    std::ostringstream err_msg;
-    err_msg << "Number of inner iterations " << restart << " must be less than "
-            << n << "!";
-    throw std::invalid_argument(err_msg.str());
-  }
 
-  if (max_outer_iterations == parser::NO_USER_VALUE)
+  if (max_outer_iterations == novalue)
     max_outer_iterations = n;
   expect(max_outer_iterations > 0); // checked in program_options
 
@@ -348,14 +341,14 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
          preconditioner_abstraction precondition,
          int max_iter, P tol)
 {
-  if (tol == parser::NO_USER_VALUE_FP)
+  if (tol <= notolerance + std::numeric_limits<P>::epsilon())
     tol = std::is_same_v<float, P> ? 1e-6 : 1e-12;
   expect(tol >= std::numeric_limits<P>::epsilon());
 
   int const n = b.size();
   expect(n == x.size());
 
-  if (max_iter == parser::NO_USER_VALUE)
+  if (max_iter == novalue)
     max_iter = n;
   expect(max_iter > 0); // checked in program_options
 

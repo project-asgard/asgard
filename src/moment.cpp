@@ -14,7 +14,7 @@ moment<P>::moment(std::vector<md_func_type<P>> md_funcs_)
 // Creates the coefficients of the moment vector on each domain.
 // No mass matrix inversion is done.
 template<typename P>
-void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
+void moment<P>::createFlist(PDE<P> const &pde)
 {
   std::size_t num_md_funcs = this->md_funcs.size();
 
@@ -24,7 +24,7 @@ void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
   this->fList.clear();
   this->fList.resize(num_md_funcs);
 
-  basis::wavelet_transform<P, resource::host> const transformer(opts, pde);
+  basis::wavelet_transform<P, resource::host> const transformer(pde);
 
   for (std::size_t s = 0; s < num_md_funcs; ++s)
   {
@@ -40,13 +40,13 @@ void moment<P>::createFlist(PDE<P> const &pde, options const &opts)
 // Actually contstructs the moment vector using fList.
 // Calculate only if adapt is true or the vector field is empty
 template<typename P>
-void moment<P>::createMomentVector(PDE<P> const &pde, options const &opts,
+void moment<P>::createMomentVector(PDE<P> const &pde,
                                    elements::table const &hash_table)
 {
   // check that fList has been constructed
   expect(this->fList.size() > 0);
 
-  if (this->vector.empty() || opts.do_adapt_levels)
+  if (this->vector.empty() or pde.options().adapt_threshold)
   {
     distribution_plan const plan = get_plan(get_num_ranks(), hash_table);
     auto rank                    = get_rank();

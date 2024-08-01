@@ -12,7 +12,7 @@ template<typename P>
 class PDE_diffusion_2d : public PDE<P>
 {
 public:
-  PDE_diffusion_2d(parser const &cli_input)
+  PDE_diffusion_2d(prog_opts const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_,
                get_dt_, do_poisson_solve_, has_analytic_soln_)

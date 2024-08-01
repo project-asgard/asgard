@@ -20,8 +20,7 @@ namespace asgard
  * \brief Returns a list of terms matching the imex index.
  */
 template<typename precision>
-std::vector<int> get_used_terms(PDE<precision> const &pde, options const &opts,
-                                imex_flag const imex);
+std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex);
 
 /*!
  * \brief Converts the cells into a vector2d structure
@@ -743,7 +742,7 @@ private:
 template<typename P>
 local_kronmult_matrix<P>
 make_local_kronmult_matrix(
-    PDE<P> const &pde, adapt::distributed_grid<P> const &grid, options const &program_options,
+    PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
     memory_usage const &mem_stats, imex_flag const imex, kron_sparse_cache &spcache,
     bool force_sparse = false);
 
@@ -758,9 +757,7 @@ make_local_kronmult_matrix(
  * Best use the matrix_list as a helper class.
  */
 template<typename P>
-void update_kronmult_coefficients(PDE<P> const &pde,
-                                  options const &program_options,
-                                  imex_flag const imex,
+void update_kronmult_coefficients(PDE<P> const &pde, imex_flag const imex,
                                   kron_sparse_cache &spcache,
                                   local_kronmult_matrix<P> &mat);
 
@@ -787,9 +784,9 @@ void update_kronmult_coefficients(PDE<P> const &pde,
 template<typename P>
 memory_usage
 compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-                  options const &program_options, imex_flag const imex,
-                  kron_sparse_cache &spcache, int memory_limit_MB = 0,
-                  int64_t index_limit = 2147483646, bool force_sparse = false);
+                  imex_flag const imex, kron_sparse_cache &spcache,
+                  int memory_limit_MB = 0, int64_t index_limit = 2147483646,
+                  bool force_sparse = false);
 
 #endif // end the ifndef KRON_MODE_GLOBAL
 
@@ -814,7 +811,7 @@ class global_kron_matrix;
 template<typename precision>
 void set_specific_mode(PDE<precision> const &pde,
                        adapt::distributed_grid<precision> const &dis_grid,
-                       options const &program_options, imex_flag const imex,
+                       imex_flag const imex,
                        global_kron_matrix<precision> &mat);
 
 /*!
@@ -827,7 +824,7 @@ void set_specific_mode(PDE<precision> const &pde,
 template<typename precision>
 void update_matrix_coefficients(PDE<precision> const &pde,
                                 adapt::distributed_grid<precision> const &dis_grid,
-                                options const &program_options, imex_flag const imex,
+                                imex_flag const imex,
                                 global_kron_matrix<precision> &mat);
 
 /*!
@@ -971,13 +968,13 @@ public:
   friend void set_specific_mode<precision>(
       PDE<precision> const &pde,
       adapt::distributed_grid<precision> const &dis_grid,
-      options const &program_options, imex_flag const imex,
+      imex_flag const imex,
       global_kron_matrix<precision> &mat);
 
   friend void update_matrix_coefficients<precision>(
       PDE<precision> const &pde,
       adapt::distributed_grid<precision> const &dis_grid,
-      options const &program_options, imex_flag const imex,
+      imex_flag const imex,
       global_kron_matrix<precision> &mat);
 
 protected:
@@ -1039,8 +1036,7 @@ private:
 template<typename precision>
 global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
-                        adapt::distributed_grid<precision> const &dis_grid,
-                        options const &program_options);
+                        adapt::distributed_grid<precision> const &dis_grid);
 
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -1071,18 +1067,18 @@ struct kron_operators
 
   //! \brief Make the matrix for the given entry
   void make(imex_flag entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid, options const &opts)
+            adapt::distributed_grid<precision> const &grid)
   {
     if (not kglobal)
     {
-      kglobal = make_global_kron_matrix(pde, grid, opts);
+      kglobal = make_global_kron_matrix(pde, grid);
       // the buffers must be set before preset_gpu_gkron()
       kglobal.set_workspace_buffers(&workspaces);
     }
 
     if (kglobal.local_unset(entry))
     {
-      set_specific_mode(pde, grid, opts, entry, kglobal);
+      set_specific_mode(pde, grid, entry, kglobal);
 #ifdef ASGARD_USE_CUDA
       kglobal.preset_gpu_gkron(sp_handle, entry);
 #endif
@@ -1093,22 +1089,21 @@ struct kron_operators
    *        coefficients
    */
   void reset_coefficients(imex_flag entry, PDE<precision> const &pde,
-                          adapt::distributed_grid<precision> const &grid,
-                          options const &opts)
+                          adapt::distributed_grid<precision> const &grid)
   {
     if (not kglobal)
-      make(entry, pde, grid, opts);
+      make(entry, pde, grid);
     else
     {
       if (kglobal.local_unset(entry))
       {
-        set_specific_mode(pde, grid, opts, entry, kglobal);
+        set_specific_mode(pde, grid, entry, kglobal);
 #ifdef ASGARD_USE_CUDA
         kglobal.preset_gpu_gkron(sp_handle, entry);
 #endif
       }
       else
-        update_matrix_coefficients(pde, grid, opts, entry, kglobal);
+        update_matrix_coefficients(pde, grid, entry, kglobal);
     }
   }
 
@@ -1149,7 +1144,7 @@ template<typename precision>
 void set_specific_mode(
     PDE<precision> const &pde,
     adapt::distributed_grid<precision> const &dis_grid,
-    options const &program_options, imex_flag const imex,
+    imex_flag const imex,
     block_global_kron_matrix<precision> &mat);
 
 template<typename precision>
@@ -1257,7 +1252,7 @@ public:
   friend void set_specific_mode<precision>(
       PDE<precision> const &pde,
       adapt::distributed_grid<precision> const &dis_grid,
-      options const &program_options, imex_flag const imex,
+      imex_flag const imex,
       block_global_kron_matrix<precision> &mat);
 
 private:

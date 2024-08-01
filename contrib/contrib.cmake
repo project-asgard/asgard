@@ -43,14 +43,3 @@ execute_process(
   OUTPUT_VARIABLE BUILD_TIME
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-
-###############################################################################
-## Clara
-###############################################################################
-set (Clara_PATH ${CMAKE_SOURCE_DIR}/contrib/clara)
-if (NOT EXISTS ${Clara_PATH}/clara.hpp)
-  message (FATAL_ERROR "clara.hpp not found. Please add at ${Clara_PATH}")
-endif ()
-
-add_library (clara INTERFACE)
-target_include_directories (clara INTERFACE $<BUILD_INTERFACE:${Clara_PATH}>)

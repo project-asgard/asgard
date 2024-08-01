@@ -543,8 +543,8 @@ public:
   // used for sanity/error checking
   using precision_mode = P;
 
-  PDE() : num_dims_(0), num_sources_(0), num_terms_(0), max_level_(0) {}
-  PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+  PDE() {}
+  PDE(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<vector_func<P>> const exact_vector_funcs_in,
@@ -559,7 +559,7 @@ public:
             get_dt, do_poisson_solve_in, has_analytic_soln_in,
             moments_in, do_collision_operator_in)
   {}
-  PDE(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+  PDE(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> dimensions,
       term_set<P> terms, std::vector<source<P>> sources_in,
       std::vector<md_func_type<P>> exact_vector_funcs_in,
@@ -579,7 +579,7 @@ public:
       do_collision_operator_in);
   }
 
-  void initialize(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+  void initialize(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> const &dimensions,
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<vector_func<P>> const &exact_vector_funcs_in,
@@ -594,7 +594,7 @@ public:
                      get_dt, do_poisson_solve_in, has_analytic_soln_in, moments_in,
                      do_collision_operator_in);
   }
-  void initialize(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+  void initialize(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> const &dimensions,
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<md_func_type<P>> const &exact_vector_funcs_in,
@@ -613,7 +613,7 @@ public:
                      do_collision_operator_in);
   }
 
-  void initialize(parser const &cli_input, int const num_dims_in, int const num_sources_in,
+  void initialize(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
       int const max_num_terms, std::vector<dimension<P>> &&dimensions,
       term_set<P> &&terms, std::vector<source<P>> &&sources_in,
       std::vector<md_func_type<P>> &&exact_vector_funcs_in,
@@ -634,10 +634,11 @@ public:
                   "single precision is not available, recompile with -DASGARD_PRECISIONS=\"float;double\"");
 #endif
 
+    options_ = cli_input; // save a copy of the options
+
     num_dims_    = num_dims_in;
     num_sources_ = num_sources_in;
-    num_terms_   = get_num_terms(cli_input, max_num_terms);
-    max_level_   = get_max_level(cli_input, dimensions);
+    num_terms_   = max_num_terms;
 
     sources_            = std::move(sources_in);
     exact_vector_funcs_ = std::move(exact_vector_funcs_in);
@@ -649,6 +650,7 @@ public:
     dimensions_            = std::move(dimensions);
     terms_                 = std::move(terms);
 
+    // sanity check and load sane defaults when appropriate
     expect(num_dims_ > 0 and num_dims_ <= max_num_dimensions);
     expect(num_sources_ >= 0);
     expect(num_terms_ > 0 or (num_terms_ == 0 and has_interp()));
@@ -667,57 +669,67 @@ public:
       }
     }
 
+    // secondary sanity checking and setting up the defaults
+    if (not options_.grid)
+      options_.grid = grid_type::sparse;
+
     // modify for appropriate level/degree
     // if default lev/degree not used
-    auto const user_levels = cli_input.get_starting_levels().size();
-    if (user_levels >= 2 && user_levels != num_dims_)
+    if (not options_.start_levels.empty())
     {
-      std::cerr << "failed to parse dimension-many starting levels - parsed "
-                << user_levels << " levels\n";
-      exit(1);
-    }
-    if (user_levels == num_dims_)
-    {
-      auto counter = 0;
-      for (dimension<P> &d : dimensions_)
+      size_t num_provided = options_.start_levels.size();
+      rassert(not (num_provided >= 2 and num_provided != static_cast<size_t>(num_dims_)),
+              "wrong number of starting levels provided, --start_levels, -l, must container either one int or an int per dimension");
+      if (num_provided < static_cast<size_t>(num_dims_))
       {
-        auto const num_levels = cli_input.get_starting_levels()(counter++);
-        expect(num_levels >= 0);
-        d.set_level(num_levels);
+        options_.start_levels.resize(num_dims_, options_.start_levels.front());
+      }
+      for (auto d : indexof<int>(num_dims_))
+      {
+        dimensions_[d].set_level(options_.start_levels[d]);
       }
     }
-    else if (user_levels == 1)
+    else
     {
-      auto const num_levels = cli_input.get_starting_levels()[0];
-      for (dimension<P> &d : dimensions_)
-        d.set_level(num_levels);
+      options_.start_levels.reserve(num_dims_);
+      for (auto const &dim : dimensions_)
+        options_.start_levels.push_back(dim.get_level());
     }
 
-    auto const num_active_terms = cli_input.get_active_terms().size();
-    if (num_active_terms != 0)
+    if (not options_.max_levels.empty()) // user provided max-level
     {
-      auto const active_terms = cli_input.get_active_terms();
-      for (auto i = max_num_terms - 1; i >= 0; --i)
-      {
-        if (active_terms(i) == 0)
-        {
-          terms_.erase(terms_.begin() + i);
-        }
+      size_t num_provided = options_.max_levels.size();
+      rassert(not (num_provided >= 2 and num_provided != static_cast<size_t>(num_dims_)),
+              "wrong number of max levels provided, must container either one int or an int per dimension");
+      if (num_provided < static_cast<size_t>(num_dims_))
+      { // resize the vector and fill it up with the first value
+        options_.max_levels.resize(num_dims_, options_.max_levels.front());
       }
-      expect(terms_.size() == static_cast<unsigned>(num_terms_));
+      for (auto d : indexof<int>(num_dims_))
+      {
+        rassert(options_.max_levels[d] >= dimensions_[d].get_level(),
+                "the max-level cannot be less than the stating level (lower the starting level or increase the max)");
+      }
+    }
+    else
+    {
+      options_.max_levels = options_.start_levels;
     }
 
-    auto const cli_degree = cli_input.get_degree();
-    if (cli_degree != parser::NO_USER_VALUE)
+    max_level_ = *std::max_element(options_.max_levels.begin(), options_.max_levels.end());
+
+    if (options_.degree) // user provided degree
     {
-      expect(cli_degree >= 0);
-      for (dimension<P> &d : dimensions_)
-      {
-        d.set_degree(cli_degree);
-      }
+      int const degree = options_.degree.value();
+      rassert(degree >= 0, "the degree must be non-negative number");
+      for (auto &dim : dimensions_)
+        dim.set_degree(degree);
     }
-    // assume uniform degree
-    auto const degree = dimensions_[0].get_degree();
+    else
+      options_.degree = dimensions_.front().get_degree();
+
+    // polynomial degree of freedom in a cell
+    int const pdof = dimensions_[0].get_degree() + 1;
 
     // check all terms
     for (auto &term_list : terms_)
@@ -728,7 +740,7 @@ public:
         expect(term_1D.get_partial_terms().size() > 0);
 
         auto const max_dof =
-            fm::two_raised_to(static_cast<int64_t>(max_level_)) * (degree + 1);
+            fm::two_raised_to(static_cast<int64_t>(max_level_)) * pdof;
         expect(max_dof < INT_MAX);
 
         term_1D.set_coefficients(eye<P>(max_dof));
@@ -761,7 +773,7 @@ public:
     {
       for (int level = 0; level <= max_level_; ++level)
       {
-        auto const dof = fm::two_raised_to(level) * (degree + 1);
+        auto const dof = fm::two_raised_to(level) * pdof;
         expect(dof < INT_MAX);
         update_dimension_mass_mat(i, std::move(eye<P>(dof)), level);
       }
@@ -773,14 +785,21 @@ public:
       expect(s.source_funcs().size() == static_cast<unsigned>(num_dims_));
     }
 
-    // set the dt
-    if (cli_input.get_dt() == parser::NO_USER_VALUE_FP)
+    dt_ = (options_.dt) ? options_.dt.value() : get_dt(dimensions_[0]) * 0.01;
+
+    if (not options_.num_time_steps)
+      options_.num_time_steps = 10;
+
+    if (options_.step_method)
     {
-      dt_ = get_dt(dimensions_[0]) * cli_input.get_cfl();
+      use_imex_     = options_.step_method.value() == time_advance::method::imex;
+      use_implicit_ = options_.step_method.value() == time_advance::method::imp;
     }
     else
     {
-      dt_ = cli_input.get_dt();
+      use_imex_     = false;
+      use_implicit_ = false;
+      options_.step_method = time_advance::method::exp;
     }
 
     // check the moments
@@ -794,14 +813,10 @@ public:
       }
     }
 
-    if (cli_input.using_imex() && moments.empty())
-    {
-      throw std::runtime_error(
-          "Invalid PDE choice for IMEX time advance. PDE must have "
-          "moments defined to use -x\n");
-    }
+    rassert(not (use_imex_ and moments.empty()),
+            "incorrect pde/time-step pair, the imex method requires momemnts");
 
-    gmres_outputs.resize(cli_input.using_imex() ? 2 : 1);
+    gmres_outputs.resize(use_imex_ ? 2 : 1);
 
     // hack to preallocate empty matrix for pterm coefficients for adapt
     for (auto i = 0; i < num_dims_; ++i)
@@ -826,6 +841,26 @@ public:
     }
 
     expect(not (!!interp_nox_ and !!interp_x_));
+
+    if (options_.adapt_threshold)
+    {
+      rassert(options_.adapt_threshold.value() > 0,
+              "the adapt-threshold should be a positive value");
+      if (not options_.anorm)
+        options_.anorm = adapt_norm::linf;
+    }
+
+    if (use_imex_ or use_implicit_)
+      if (not options_.solver)
+        options_.solver = solve_opts::bicgstab;
+
+    // missing tolerance will be set within the solver module
+    if (not options_.isolver_tolerance)
+      options_.isolver_tolerance = solver::notolerance;
+    if (not options_.isolver_iterations)
+      options_.isolver_iterations = solver::novalue;
+    if (not options_.isolver_outer_iterations)
+      options_.isolver_outer_iterations = solver::novalue;
   }
 
   constexpr static int extract_dim0 = 1;
@@ -835,20 +870,45 @@ public:
   // TODO: there is likely a better way to do this. Another option is to flatten
   // element table to 1D (see hash_table_2D_to_1D.m)
   PDE(const PDE &pde, int)
-      : moments(pde.moments), num_dims_(1), num_sources_(pde.sources_.size()),
+      : moments(pde.moments), options_(pde.options_),
+        num_dims_(1), num_sources_(pde.sources_.size()),
         num_terms_(pde.get_terms().size()), max_level_(pde.max_level_),
         sources_(pde.sources_), exact_vector_funcs_(pde.exact_vector_funcs_),
         do_poisson_solve_(pde.do_poisson_solve()),
         do_collision_operator_(pde.do_collision_operator()),
         has_analytic_soln_(pde.has_analytic_soln()),
         dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
-  {}
+  {
+    options_.grid          = grid_type::dense;
+    options_.start_levels  = {pde.options_.start_levels[0], };
+    options_.max_levels    = {pde.options_.max_levels[0], };
+  }
+
+  const prog_opts &options() const { return options_; }
 
   // public but const data.
   int num_dims() const { return num_dims_; }
   int num_sources() const { return num_sources_; }
   int num_terms() const { return num_terms_; }
   int max_level() const { return max_level_; }
+
+  bool use_implicit() const { return use_implicit_; }
+  bool use_imex() const { return use_imex_; }
+  kronmult_mode kron_mod() const { return kmod_; }
+  int memory_limit() const { return memory_limit_; }
+
+  bool is_output_step(int i) const
+  {
+    if (not options_.wavelet_output_freq)
+      return false;
+    return ((i + 1) % options_.wavelet_output_freq.value() == 0);
+  }
+  bool is_routput_step(int i) const
+  {
+    if (not options_.realspace_output_freq)
+      return false;
+    return ((i + 1) % options_.realspace_output_freq.value() == 0);
+  }
 
   std::vector<source<P>> const &sources() const { return sources_; };
   std::vector<md_func_type<P>> const &exact_vector_funcs() const
@@ -984,7 +1044,7 @@ public:
     dimensions_[dim_index].set_mass_matrix(std::move(mass), level);
   }
 
-  P get_dt() const { return dt_; };
+  P get_dt() const { return dt_; }; //  using default cfl
 
   void set_dt(P const dt)
   {
@@ -1097,76 +1157,29 @@ protected:
   std::function<void(P t, vector2d<P> const &, std::vector<P> &)> interp_exact_;
 
 private:
-  int get_num_terms(parser const &cli_input, int const max_num_terms) const
-  {
-    // returns either the number of terms set in the PDE specification, or the
-    // number of terms toggled on by the user
-    auto const num_active_terms = cli_input.get_active_terms().size();
+  prog_opts options_;
 
-    // verify that the CLI input matches the spec before altering the num_terms
-    // we have
-    if (num_active_terms != 0 && num_active_terms != max_num_terms)
-    {
-      throw std::runtime_error(
-          std::string("failed to parse dimension-many active terms - parsed ") +
-          std::to_string(num_active_terms) + " terms, expected " +
-          std::to_string(max_num_terms));
-    }
-    // if nothing specified in the cli, use the default max_num_terms
-    if (num_active_terms == 0)
-      return max_num_terms;
-    // terms specified in the cli, parse the new number of terms
-    auto const active_terms = cli_input.get_active_terms();
-    int new_num_terms =
-        std::accumulate(active_terms.begin(), active_terms.end(), 0);
-    if (new_num_terms == 0)
-    {
-      throw std::runtime_error("must have at least one term enabled");
-    }
-    return new_num_terms;
-  }
-
-  int get_max_level(parser const &cli_input,
-                    std::vector<dimension<P>> const &dims) const
-  {
-    // set maximum level to generate term coefficients
-    if (cli_input.do_adapt_levels())
-    {
-      if (auto const &levels = cli_input.get_max_adapt_levels();
-          !levels.empty())
-        return *std::max_element(levels.begin(), levels.end());
-      else
-        return cli_input.get_max_level();
-    }
-    else
-    {
-      // if adaptivity is not used, only generate to the highest dim level
-      auto const levels = cli_input.get_starting_levels();
-      return levels.empty()
-                 ? std::max_element(
-                       dims.begin(), dims.end(),
-                       [](dimension<P> const &a, dimension<P> const &b) {
-                         return a.get_level() < b.get_level();
-                       })
-                       ->get_level()
-                 : *std::max_element(levels.begin(), levels.end());
-    }
-  }
-
-  int num_dims_;
-  int num_sources_;
-  int num_terms_;
-  int max_level_;
+  int num_dims_    = 0;
+  int num_sources_ = 0;
+  int num_terms_   = 0;
+  int max_level_   = 0;
 
   std::vector<source<P>> sources_;
   std::vector<md_func_type<P>> exact_vector_funcs_;
 
-  bool do_poisson_solve_;
-  bool do_collision_operator_;
-  bool has_analytic_soln_;
+  bool do_poisson_solve_      = false;
+  bool do_collision_operator_ = false;
+  bool has_analytic_soln_     = false;
 
   std::vector<dimension<P>> dimensions_;
   term_set<P> terms_;
-  P dt_;
+  P dt_{0};
+
+  // time stepping options
+  bool use_implicit_  = false;
+  bool use_imex_      = false;
+  // those will be removed in near future
+  kronmult_mode kmod_ = kronmult_mode::dense;
+  int memory_limit_   = 0;
 };
 } // namespace asgard

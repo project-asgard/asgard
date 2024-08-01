@@ -4,77 +4,28 @@ namespace asgard
 {
 
 template<typename precision>
-void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
+void simulate(std::unique_ptr<PDE<precision>> &pde)
 {
-  options const opts(cli_input);
-
-  if (cli_input.show_libinfo())
-  {
-    print_info();
-    return;
-  }
+  rassert(!!pde, "invalid pde object");
+  auto const &options = pde->options();
 
   node_out() << "Branch: " << GIT_BRANCH << '\n';
   node_out() << "Commit Summary: " << GIT_COMMIT_HASH
-                     << GIT_COMMIT_SUMMARY << '\n';
+                 << GIT_COMMIT_SUMMARY << '\n';
   node_out() << "This executable was built on " << BUILD_TIME << '\n';
 
-  // -- generate pde
-  node_out() << "generating: pde..." << '\n';
-  if (not pde)
+#ifdef ASGARD_IO_HIGHFIVE
+  if (not options.restart_file.empty())
   {
-    if (cli_input.get_pde_string() == "custom")
-    {
-      node_out() << "when using a 'custom' pde the user must provide the object\n";
-      throw std::runtime_error("requested to work with a custom pde"
-                               " but no pde is provided");
-    }
-    pde = make_PDE<precision>(cli_input);
+    node_out() << "--- restarting from a file ---\n";
+    node_out() << "  filename: " << options.restart_file << '\n';
   }
-
-  // do this only once to avoid confusion
-  // if we ever do go to p-adaptivity (variable degree) we can change it then
-  auto const degree = pde->get_dimensions()[0].get_degree();
-
-  node_out() << "ASGarD problem configuration:" << '\n';
-  node_out() << "  selected PDE: " << cli_input.get_pde_string()
-             << '\n';
-  switch (degree)
-  {
-  case 0:
-    node_out() << "  degree: constant (0) \n";
-    break;
-  case 1:
-    node_out() << "  degree: linear (1) \n";
-    break;
-  case 2:
-    node_out() << "  degree: quadratic (2) \n";
-    break;
-  case 3:
-    node_out() << "  degree: cubic (3) \n";
-    break;
-  default:
-    node_out() << "  degree: " << degree << '\n';
-  };
-  node_out() << "  N steps: " << opts.num_time_steps << '\n';
-  node_out() << "  write freq: " << opts.wavelet_output_freq << '\n';
-  node_out() << "  realspace freq: " << opts.realspace_output_freq
-             << '\n';
-  node_out() << "  implicit: " << opts.use_implicit_stepping << '\n';
-  node_out() << "  full grid: " << opts.use_full_grid << '\n';
-  node_out() << "  CFL number: " << cli_input.get_cfl() << '\n';
-  node_out() << "  Poisson solve: " << opts.do_poisson_solve << '\n';
-  node_out() << "  starting levels: ";
-  node_out() << std::accumulate(
-                    pde->get_dimensions().begin(),
-                    pde->get_dimensions().end(), std::string(),
-                    [](std::string const &accum,
-                       dimension<precision> const &dim) {
-                      return accum + std::to_string(dim.get_level()) +
-                             " ";
-                    })
-             << '\n';
-  node_out() << "  max adaptivity levels: " << opts.max_level << '\n';
+  else if (get_local_rank() == 0)
+      options.print();
+#else
+  if (get_local_rank() == 0)
+    options.print();
+#endif
 
   node_out() << "--- begin setup ---" << '\n';
 
@@ -82,7 +33,9 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   // -- along with a distribution plan. this is the adaptive grid.
   node_out() << "  generating: adaptive grid..." << '\n';
 
-  adapt::distributed_grid adaptive_grid(*pde, opts);
+  int const degree = options.degree.value();
+
+  adapt::distributed_grid adaptive_grid(*pde);
   node_out() << "  degrees of freedom: "
              << adaptive_grid.size() * fm::ipow(degree + 1, pde->num_dims())
              << '\n';
@@ -90,7 +43,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   node_out() << "  generating: basis operator..." << '\n';
   auto const quiet = false;
   basis::wavelet_transform<precision, resource::host> const
-      transformer(opts, *pde, quiet);
+      transformer(*pde, quiet);
 
   // -- generate and store the mass matrices for each dimension
   node_out() << "  generating: dimension mass matrices..." << '\n';
@@ -99,7 +52,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   // -- generate initial condition vector
   node_out() << "  generating: initial conditions..." << '\n';
   auto initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
   node_out() << "  degrees of freedom (post initial adapt): "
                      << adaptive_grid.size() * fm::ipow(degree + 1, pde->num_dims())
                      << '\n';
@@ -115,15 +68,15 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   node_out() << "  generating: moment vectors..." << '\n';
   for (auto &m : pde->moments)
   {
-    m.createFlist(*pde, opts);
+    m.createFlist(*pde);
     expect(m.get_fList().size() > 0);
 
-    m.createMomentVector(*pde, opts, adaptive_grid.get_table());
+    m.createMomentVector(*pde, adaptive_grid.get_table());
     expect(m.get_vector().size() > 0);
   }
 
   // this is to bail out for further profiling/development on the setup routines
-  if (opts.num_time_steps < 1)
+  if (options.num_time_steps < 1)
     return;
 
   node_out() << "--- begin time loop staging ---" << '\n';
@@ -134,7 +87,7 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   // realspace solution vector - WARNING this is
   // currently infeasible to form for large problems
   int dense_size = 0;
-  if (cli_input.get_realspace_output_freq() > 0 or cli_input.get_plot_freq() > 0)
+  if (options.realspace_output_freq and options.realspace_output_freq.value() > 0)
   {
     dense_size = dense_space_size(*pde);
     expect(dense_size > 0);
@@ -153,8 +106,9 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
                        fk::vector<precision, mem_type::view,
                                           resource::host>(
                            workspace, dense_size, dense_size * 2 - 1)};
+
   // transform initial condition to realspace
-  if (cli_input.get_realspace_output_freq() > 0)
+  if (options.realspace_output_freq and options.realspace_output_freq.value() > 0)
   {
     wavelet_to_realspace<precision>(*pde, initial_condition,
                                     adaptive_grid.get_table(), transformer,
@@ -199,14 +153,14 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   // -- setup output file and write initial condition
   int start_step = 0;
 #ifdef ASGARD_IO_HIGHFIVE
-  if (cli_input.do_restart())
+  if (not options.restart_file.empty())
   {
     restart_data<precision> data = read_output(
-        *pde, adaptive_grid.get_table(), cli_input.get_restart_file());
+        *pde, adaptive_grid.get_table(), options.restart_file);
     initial_condition = std::move(data.solution);
     start_step        = data.step_index;
 
-    adaptive_grid.recreate_table(data.active_table, data.max_level);
+    adaptive_grid.recreate_table(data.active_table);
 
     generate_dimension_mass_mat<precision>(*pde, transformer);
     generate_all_coefficients<precision>(*pde, transformer);
@@ -214,18 +168,18 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
   else
   {
     // compute the realspace moments for the initial file write
-    generate_initial_moments(*pde, opts, adaptive_grid, transformer,
+    generate_initial_moments(*pde, adaptive_grid, transformer,
                              initial_condition);
   }
-  if (cli_input.get_wavelet_output_freq() > 0)
+  if (options.wavelet_output_freq and options.wavelet_output_freq.value() > 0)
   {
-    write_output(*pde, cli_input, initial_condition,
+    write_output(*pde, initial_condition,
                  precision{0.0}, 0, initial_condition.size(),
                  adaptive_grid.get_table(), "asgard_wavelet");
   }
-  if (cli_input.get_realspace_output_freq() > 0)
+  if (options.realspace_output_freq and options.realspace_output_freq.value() > 0)
   {
-    write_output(*pde, cli_input, real_space, precision{0.0}, 0,
+    write_output(*pde, real_space, precision{0.0}, 0,
                  initial_condition.size(), adaptive_grid.get_table(),
                  "asgard_real");
   }
@@ -239,24 +193,17 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
 
   kron_operators<precision> operator_matrices;
 
-  for (auto i = start_step; i < opts.num_time_steps; ++i)
+  for (auto i = start_step; i < options.num_time_steps; ++i)
   {
     // take a time advance step
     auto const time          = i * pde->get_dt();
     auto const update_system = i == 0;
-    auto const method =
-        opts.use_implicit_stepping
-            ? time_advance::method::imp
-            : (opts.use_imex_stepping ? time_advance::method::imex
-                                      : time_advance::method::exp);
-    const char *time_str =
-        opts.use_implicit_stepping
-            ? "implicit_time_advance"
-            : (opts.use_imex_stepping ? "imex_time_advance"
-                                      : "explicit_time_advance");
+    auto const method        = options.step_method.value();
+
+    const char *time_str      = "time_advance";
     const std::string time_id = tools::timer.start(time_str);
     f_val                     = time_advance::adaptive_advance(
-        method, *pde, operator_matrices, adaptive_grid, transformer, opts,
+        method, *pde, operator_matrices, adaptive_grid, transformer,
         f_val, time, update_system);
 
     tools::timer.stop(time_id);
@@ -306,13 +253,12 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
     }
 #if defined(ASGARD_IO_HIGHFIVE) || defined(ASGARD_USE_MATLAB)
     /* transform from wavelet space to real space */
-    if (opts.should_output_realspace(i) || opts.should_plot(i))
+    if (pde->is_routput_step(i))
     {
       // resize transform workspaces if grid size changed due to adaptivity
       dense_size          = dense_space_size(*pde);
       auto transform_wksp = update_transform_workspace<precision>(
           dense_size, workspace, tmp_workspace);
-      // real_space.resize(dense_size);
       real_space = fk::vector<precision>(dense_size);
 
       wavelet_to_realspace<precision>(*pde, f_val, adaptive_grid.get_table(),
@@ -321,17 +267,11 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
     }
 #endif
 
-    // write output to file
 #ifdef ASGARD_IO_HIGHFIVE
-    if (opts.should_output_wavelet(i))
+    if (pde->is_output_step(i))
     {
-      write_output(*pde, cli_input, f_val, time + pde->get_dt(), i + 1,
+      write_output(*pde, f_val, time + pde->get_dt(), i + 1,
                    f_val.size(), adaptive_grid.get_table(), "asgard_wavelet");
-    }
-    if (opts.should_output_realspace(i))
-    {
-      write_output(*pde, cli_input, real_space, time + pde->get_dt(), i + 1,
-                   f_val.size(), adaptive_grid.get_table(), "asgard_real");
     }
 #endif
 
@@ -408,56 +348,11 @@ void simulate(parser const &cli_input, std::unique_ptr<PDE<precision>> &pde)
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template void simulate(parser const &cli_input, std::unique_ptr<PDE<double>> &pde);
+template void simulate(std::unique_ptr<PDE<double>> &);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template void simulate(parser const &cli_input, std::unique_ptr<PDE<float>> &pde);
+template void simulate(std::unique_ptr<PDE<float>> &);
 #endif
-
-void print_info(std::ostream &os)
-{
-  os << "\nASGarD v" << ASGARD_VERSION << "  git-hash: " << GIT_COMMIT_HASH << "\n";
-  os << "git-branch (" << GIT_BRANCH << ")\n";
-#ifdef KRON_MODE_GLOBAL
-#ifdef KRON_MODE_GLOBAL_BLOCK
-  os << "Kronmult method          Block-Global\n";
-#else
-  os << "Kronmult method          Global\n";
-#endif
-#else
-  os << "Kronmult method          Local\n";
-#endif
-#ifdef ASGARD_USE_CUDA
-  os << "GPU Acceleration         CUDA\n";
-#else
-  os << "GPU Acceleration         Disabled\n";
-#endif
-#ifdef ASGARD_USE_OPENMP
-  os << "OpenMP multithreading    Enablded\n";
-#else
-  os << "OpenMP multithreading    Disabled\n";
-#endif
-#ifdef ASGARD_USE_MPI
-  os << "MPI distributed grid     Enabled\n";
-#else
-  os << "MPI distributed grid     Disabled\n";
-#endif
-#ifdef ASGARD_IO_HIGHFIVE
-  os << "HDF5 - HighFive I/O      Enabled\n";
-#else
-  os << "HDF5 - HighFive I/O      Disabled\n";
-#endif
-#ifdef ASGARD_ENABLE_DOUBLE
-#ifdef ASGARD_ENABLE_FLOAT
-  os << "Available precisions     double/float\n";
-#else
-  os << "Available precision      double\n";
-#endif
-#else
-  os << "Available precision      float\n";
-#endif
-  os << '\n';
-}
 
 } // namespace asgard

@@ -16,26 +16,17 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-parser get_parser(PDE_opts const pde_choice,
-                  fk::vector<int> const &starting_levels, int const degree,
-                  int const memory_limit)
-{
-  parser parse(pde_choice, starting_levels, degree);
-  parser_mod::set(parse, parser_mod::memory_limit, memory_limit);
-  return parse;
-}
 template<typename P>
-void test_kronmult(parser const &parse, P const tol_factor)
+void test_kronmult(prog_opts const &opts, P const tol_factor)
 {
-  auto pde = make_PDE<P>(parse);
-  options const opts(parse);
-  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
+  auto pde = make_PDE<P>(opts);
+  basis::wavelet_transform<P, resource::host> const transformer(*pde);
   generate_all_coefficients(*pde, transformer);
 
   // assume uniform degree across dimensions
   int const degree = pde->get_dimensions()[0].get_degree();
 
-  elements::table const table(opts, *pde);
+  elements::table const table(*pde);
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
 
   // setup x vector
@@ -74,9 +65,9 @@ void test_kronmult(parser const &parse, P const tol_factor)
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(b);
-    int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
-    int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
-    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+    int const restart  = solver::novalue;
+    int const max_iter = solver::novalue;
+    P const tolerance  = solver::notolerance;
     build_system_matrix(*pde, table, A, my_subgrid);
     // AA = I - dt*A;
     fm::scal(P{-1.} * pde->get_dt(), A);
@@ -97,8 +88,8 @@ void test_kronmult(parser const &parse, P const tol_factor)
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(b);
-    int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
-    P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
+    int const max_iter = solver::novalue;
+    P const tolerance  = solver::notolerance;
     build_system_matrix(*pde, table, A, my_subgrid);
     // AA = I - dt*A;
     fm::scal(P{-1.} * pde->get_dt(), A);
@@ -114,16 +105,16 @@ void test_kronmult(parser const &parse, P const tol_factor)
   rmse_comparison(gold, bicgstab, tol_factor);
 
   asgard::kron_operators<P> operator_matrices;
-  asgard::adapt::distributed_grid adaptive_grid(*pde, opts);
-  operator_matrices.make(imex_flag::unspecified, *pde, adaptive_grid, opts);
+  asgard::adapt::distributed_grid adaptive_grid(*pde);
+  operator_matrices.make(imex_flag::unspecified, *pde, adaptive_grid);
   P const dt = pde->get_dt();
 
   // perform matrix-free gmres
   fk::vector<P> const matrix_free_gmres = [&operator_matrices, &b,
                                            dt]() {
     fk::vector<P> x(b);
-    int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
-    int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
+    int const restart  = solver::novalue;
+    int const max_iter = solver::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices, x,
                                b, restart, max_iter, tolerance);
@@ -136,7 +127,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
   fk::vector<P> const matrix_free_bicgstab = [&operator_matrices, &b,
                                               dt]() {
     fk::vector<P> x(b);
-    int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
+    int const max_iter = solver::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
                            b, max_iter, tolerance);
@@ -152,8 +143,8 @@ void test_kronmult(parser const &parse, P const tol_factor)
         b.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
         b.clone_onto_device();
-    int const restart  = parser::DEFAULT_GMRES_INNER_ITERATIONS;
-    int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
+    int const restart  = solver::novalue;
+    int const max_iter = solver::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices,
                                x_d, b_d, restart, max_iter, tolerance);
@@ -168,7 +159,7 @@ void test_kronmult(parser const &parse, P const tol_factor)
         b.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
         b.clone_onto_device();
-    int const max_iter = parser::DEFAULT_GMRES_OUTER_ITERATIONS;
+    int const max_iter = solver::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
     solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices,
                            x_d, b_d, max_iter, tolerance);
@@ -259,56 +250,35 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 
   SECTION("1d")
   {
-    auto const pde_choice        = PDE_opts::continuity_1;
-    auto const degree            = 1;
-    auto const levels            = fk::vector<int>{3};
-    auto const workspace_size_MB = 1000;
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_1 -d 1 -l 3");
+    test_kronmult(opts, tol_factor);
   }
 
   SECTION("2d - uniform level")
   {
-    auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 2;
-    auto const levels            = fk::vector<int>{2, 2};
-    auto const workspace_size_MB = 1000;
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_2 -d 2 -l 2");
+    test_kronmult(opts, tol_factor);
   }
   SECTION("2d - non-uniform level")
   {
-    auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 2;
-    auto const levels            = fk::vector<int>{3, 2};
-    auto const workspace_size_MB = 1000;
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_2 -d 2 -l 2");
+
+    opts.start_levels = {3, 2};
+    test_kronmult(opts, tol_factor);
   }
 
   SECTION("6d - uniform level")
   {
-    auto const pde_choice        = PDE_opts::continuity_6;
-    auto const degree            = 1;
-    auto const levels            = fk::vector<int>{2, 2, 2, 2, 2, 2};
-    auto const workspace_size_MB = 1000;
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_6 -d 1 -l 2");
+    test_kronmult(opts, tol_factor);
   }
 
   SECTION("6d - non-uniform level")
   {
-    auto const pde_choice        = PDE_opts::continuity_6;
-    auto const degree            = 0;
-    auto const levels            = fk::vector<int>{2, 2, 2, 3, 2, 2};
-    auto const workspace_size_MB = 1000;
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_6 -d 0");
+
+    opts.start_levels = {2, 2, 2, 3, 2, 2};
+    test_kronmult(opts, tol_factor);
   }
 }
 
@@ -318,35 +288,22 @@ TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
 
   SECTION("2d - uniform level")
   {
-    auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 1;
-    auto const levels            = fk::vector<int>{6, 6};
-    auto const workspace_size_MB = 80; // small enough to decompose the problem
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_2 -d 1 -l 6");
+    test_kronmult(opts, tol_factor);
   }
 
   SECTION("2d - non-uniform level")
   {
-    auto const pde_choice        = PDE_opts::continuity_2;
-    auto const degree            = 1;
-    auto const levels            = fk::vector<int>{6, 5};
-    auto const workspace_size_MB = 80; // small enough to decompose the problem
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_2 -d 1");
+
+    opts.start_levels = {6, 5};
+    test_kronmult(opts, tol_factor);
   }
 
   SECTION("6d - uniform level")
   {
-    auto const pde_choice        = PDE_opts::continuity_6;
-    auto const degree            = 1;
-    auto const levels            = fk::vector<int>{2, 2, 2, 2, 2, 2};
-    auto const workspace_size_MB = 80; // small enough to decompose the problem
-    parser const test_parse =
-        get_parser(pde_choice, levels, degree, workspace_size_MB);
-    test_kronmult(test_parse, tol_factor);
+    auto opts = make_opts("-p continuity_6 -d 1 -l 2");
+    test_kronmult(opts, tol_factor);
   }
 }
 

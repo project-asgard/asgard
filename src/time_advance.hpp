@@ -7,13 +7,6 @@
 
 namespace asgard::time_advance
 {
-enum class method
-{
-  imp,
-  exp, // explicit is reserved keyword
-  imex
-};
-
 #ifdef ASGARD_USE_CUDA
 static constexpr resource imex_resrc = resource::device;
 #else
@@ -28,7 +21,7 @@ adaptive_advance(method const step_method, PDE<P> &pde,
                  kron_operators<P> &operator_matrices,
                  adapt::distributed_grid<P> &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
-                 options const &program_opts, fk::vector<P> const &x,
+                 fk::vector<P> const &x,
                  P const time, bool const update_system = false);
 
 // this function executes a time step using the current solution
@@ -39,7 +32,6 @@ fk::vector<P>
 explicit_advance(PDE<P> const &pde, kron_operators<P> &operator_matrices,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
-                 options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                      &unscaled_parts,
                  fk::vector<P> const &x, P const time);
@@ -49,7 +41,6 @@ fk::vector<P>
 implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
-                 options const &program_opts,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                      &unscaled_parts,
                  fk::vector<P> const &x, P const time,
@@ -60,11 +51,7 @@ fk::vector<P>
 imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
              adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
-             options const &program_opts,
-             std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
-                 &unscaled_parts,
              fk::vector<P> const &f_0, fk::vector<P> const &x_prev,
-             P const time, solve_opts const solver,
-             bool const update_system = true);
+             P const time, bool const update_system = true);
 
 } // namespace asgard::time_advance

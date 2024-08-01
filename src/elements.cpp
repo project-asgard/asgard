@@ -162,9 +162,8 @@ void table::remove_elements(std::vector<int64_t> const &indices)
 }
 
 int64_t
-table::add_elements(std::vector<int64_t> const &ids, int const max_level)
+table::add_elements(std::vector<int64_t> const &ids)
 {
-  expect(max_level > 0);
   std::unordered_set<int64_t> const child_ids(ids.begin(), ids.end());
 
   auto active_table_update = active_table_;
@@ -186,7 +185,7 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
     }
 
     // not present, insert
-    auto coords = map_to_coords(id, max_level, num_dims);
+    auto coords = map_to_coords(id, max_level_, num_dims);
     active_element_ids_.push_back(id);
     // TODO we know a priori how many coords we are adding
     // so this could be optimized away if it's slow
@@ -200,7 +199,8 @@ table::add_elements(std::vector<int64_t> const &ids, int const max_level)
 }
 
 std::list<int64_t>
-table::get_child_elements(int64_t const index, options const &opts) const
+table::get_child_elements(int64_t const index,
+                          std::vector<int> const &max_adapt_level) const
 {
   // make sure we're dealing with an active element
   expect(index >= 0);
@@ -210,26 +210,25 @@ table::get_child_elements(int64_t const index, options const &opts) const
   // all coordinates have 2 entries (lev, cell) per dimension
   auto const num_dims = coords.size() / 2;
 
-  auto const max_adapt_levels = opts.max_adapt_levels;
   std::list<int64_t> daughter_ids;
   for (auto i = 0; i < num_dims; ++i)
   {
     // first daughter in this dimension
-    int level = max_adapt_levels.empty() ? opts.max_level : max_adapt_levels[i];
-    if (coords(i) + 1 <= level)
+    int const mlevel = max_adapt_level[i];
+    if (coords(i) + 1 <= mlevel)
     {
       auto daughter_coords          = coords;
       daughter_coords(i)            = coords(i) + 1;
       daughter_coords(i + num_dims) = coords(i + num_dims) * 2;
       daughter_ids.push_back(
-          map_to_id(daughter_coords, opts.max_level, num_dims));
+          map_to_id(daughter_coords, max_level_, num_dims));
 
       // second daughter
       if (coords(i) >= 1)
       {
         daughter_coords(i + num_dims) = coords(i + num_dims) * 2 + 1;
         daughter_ids.push_back(
-            map_to_id(daughter_coords, opts.max_level, num_dims));
+            map_to_id(daughter_coords, max_level_, num_dims));
       }
     }
   }
@@ -237,58 +236,61 @@ table::get_child_elements(int64_t const index, options const &opts) const
 }
 
 // construct element table
-template<typename P>
-table::table(options const &opts, std::vector<dimension<P>> const &dims)
+table::table(int const max_level, prog_opts const &options)
+    : max_level_(max_level)
 {
-  // key type is 64 bits; this limits number of unique element ids
-  expect(opts.max_level <= dim_to_max_level.at(dims.size()));
+  expect(max_level_ > 0);
+  bool full_grid = (options.grid.value() == grid_type::dense);
 
-  auto const perm_table = [&dims, &opts]() {
-    fk::vector<int> levels(dims.size());
-    std::transform(dims.begin(), dims.end(), levels.begin(),
-                   [](auto const &dim) { return dim.get_level(); });
+  auto const &levels = options.start_levels;
+  int const degree   = options.degree.value();
+  int const num_dims = static_cast<int>(levels.size());
 
+  auto const perm_table = [&]()
+  {
     auto const sort = false;
-    if (opts.use_full_grid) // using full grid
-      return permutations::get_max_multi(levels, dims.size(), sort);
+    if (full_grid)
+      return permutations::get_max_multi(levels, num_dims, sort);
 
-    if (opts.mixed_grid_group > 0)
+    if (options.grid.value() == grid_type::mixed)
     {
       // get maximum level of each group
       fk::vector<int> mixed_max(2);
       mixed_max[0] = *std::max_element(
           std::begin(levels),
-          std::next(std::begin(levels), opts.mixed_grid_group));
+          std::next(std::begin(levels), options.mgrid_group.value()));
       mixed_max[1] = *std::max_element(
-          std::next(std::begin(levels), opts.mixed_grid_group),
+          std::next(std::begin(levels), options.mgrid_group.value()),
           std::end(levels));
 
-      return permutations::get_mix_leqmax_multi(levels, dims.size(), mixed_max,
-                                                opts.mixed_grid_group, sort);
+      return permutations::get_mix_leqmax_multi(levels, num_dims, mixed_max,
+                                                options.mgrid_group.value(),
+                                                sort);
     }
 
     // default is a simple sparse grid
     return permutations::get_lequal_multi(
-        levels, dims.size(), *std::max_element(levels.begin(), levels.end()),
+        levels, num_dims, *std::max_element(levels.begin(), levels.end()),
         sort);
   }();
 
   fk::vector<int> dev_table_builder;
-  int64_t dof = fm::ipow(dims[0].get_degree() + 1, dims.size());
+  int64_t dof = fm::ipow(degree + 1, num_dims);
 
   // get a rough DOF estimate used to pre-allocate the element table
-  if (opts.use_full_grid)
+  if (full_grid)
   {
-    for (size_t lev = 0; lev < dims.size(); lev++)
-    {
-      dof *= fm::two_raised_to(dims[lev].get_level());
-    }
+    for (auto l : levels)
+      dof *= fm::two_raised_to(l);
   }
   else
   {
     // estimate for sparse grids: deg^ndims * 2^max_lev * max_lev ^ (ndims - 1)
-    dof *= fm::two_raised_to(opts.max_level) *
-           std::pow(opts.max_level, dims.size() - 1);
+    if (num_dims > 1)
+      dof *= fm::two_raised_to(max_level_) *
+             fm::ipow(max_level_, num_dims - 1);
+    else
+      dof *= fm::two_raised_to(max_level_);
   }
 
   // reserve element table data up front
@@ -299,19 +301,19 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   {
     // get the level tuple to work on
     fk::vector<int> const level_tuple =
-        perm_table.extract_submatrix(row, 0, 1, dims.size());
+        perm_table.extract_submatrix(row, 0, 1, num_dims);
     // calculate all possible cell indices allowed by this level tuple
     fk::matrix<int> const index_set = get_cell_index_set(level_tuple);
 
     for (int cell_set = 0; cell_set < index_set.nrows(); ++cell_set)
     {
       auto const cell_indices = fk::vector<int>(
-          index_set.extract_submatrix(cell_set, 0, 1, dims.size()));
+          index_set.extract_submatrix(cell_set, 0, 1, num_dims));
 
       // the element table key is the full element coordinate - (levels,cells)
       // (level-1, ..., level-d, cell-1, ... cell-d)
       auto coords    = fk::vector<int>(level_tuple).concat(cell_indices);
-      auto const key = map_to_id(coords, opts.max_level, dims.size());
+      auto const key = map_to_id(coords, max_level_, num_dims);
 
       active_element_ids_.push_back(key);
 
@@ -340,8 +342,7 @@ table::table(options const &opts, std::vector<dimension<P>> const &dims)
   active_table_ = std::move(dev_table_builder);
 }
 
-void table::recreate_from_elements(std::vector<int64_t> const &element_ids,
-                                   int const max_level)
+void table::recreate_from_elements(std::vector<int64_t> const &element_ids)
 {
   // For restarting, we want the element table to contain only the active ids
   // from the restart file. The active ids saved in the restart file is the
@@ -375,7 +376,7 @@ void table::recreate_from_elements(std::vector<int64_t> const &element_ids,
     }
 
     // get full linear id as key to active element id
-    int64_t id = map_to_id(coords, max_level, num_dims);
+    int64_t id = map_to_id(coords, max_level_, num_dims);
 
     // add the element coords to the flattened device table
     dev_table_builder.concat(coords);
@@ -454,15 +455,5 @@ fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
 
   return cell_index_set;
 }
-
-#ifdef ASGARD_ENABLE_DOUBLE
-template table::table(options const &opts,
-                      std::vector<dimension<double>> const &dims);
-#endif
-
-#ifdef ASGARD_ENABLE_FLOAT
-template table::table(options const &opts,
-                      std::vector<dimension<float>> const &dims);
-#endif
 
 } // namespace asgard::elements

@@ -1,14 +1,4 @@
-#include "asgard_vector.hpp"
-#include "build_info.hpp"
-#include "coefficients.hpp"
-#include "pde.hpp"
 #include "tests_general.hpp"
-#include "time_advance.hpp"
-#include "transformations.hpp"
-#include <numeric>
-#include <random>
-#include <sstream>
-#include <string>
 
 using namespace asgard;
 
@@ -31,12 +21,12 @@ static auto const time_advance_base_dir = gold_base_dir / "time_advance";
 // NOTE: when using this template the precision is inferred from the type
 //       of the tolerance factor, make sure the type of the factor is correct
 template<typename P>
-void time_advance_test(parser const &parse,
+void time_advance_test(prog_opts const &opts,
                        std::filesystem::path const &filepath,
                        P const tolerance_factor)
 {
   auto const num_ranks = get_num_ranks();
-  if (num_ranks > 1 && parse.using_implicit()
+  if (num_ranks > 1 and opts.step_method and opts.step_method.value() == time_advance::method::imp
       /* && parse.get_selected_solver() != solve_opts::scalapack*/)
   {
     // distributed implicit stepping not implemented
@@ -44,28 +34,29 @@ void time_advance_test(parser const &parse,
     return;
   }
 
-  if (num_ranks == 1 && parse.get_selected_solver() == solve_opts::scalapack)
+  if (num_ranks == 1 and opts.solver and opts.solver.value() == solve_opts::scalapack)
   {
     // don't bother using scalapack with 1 rank
     return;
   }
 
-  auto pde = make_PDE<P>(parse);
-  options const opts(parse);
-  elements::table const check(opts, *pde);
+  auto pde = make_PDE<P>(opts);
+
+  auto const &options = pde->options();
+  elements::table const check(*pde);
   if (check.size() <= num_ranks)
   {
     // don't run tiny problems when MPI testing
     return;
   }
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<P, resource::host> const transformer(opts, *pde);
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<P, resource::host> const transformer(*pde);
 
   // -- compute dimension mass matrices
   generate_dimension_mass_mat(*pde, transformer);
 
   // -- set coeffs
-  if (parse.do_adapt_levels())
+  if (*options.adapt_threshold)
   {
     generate_all_coefficients_max_level(*pde, transformer);
   }
@@ -76,7 +67,7 @@ void time_advance_test(parser const &parse,
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   // TODO: look into issue requiring mass mats to be regenerated after init
   // cond. see problem in main.cpp
@@ -87,17 +78,16 @@ void time_advance_test(parser const &parse,
   asgard::kron_operators<P> operator_matrices;
 
   // -- time loop
-  for (auto i = 0; i < opts.num_time_steps; ++i)
+  for (auto i = 0; i < options.num_time_steps.value(); ++i)
   {
     std::cout.setstate(std::ios_base::failbit);
     auto const time          = i * pde->get_dt();
     auto const update_system = i == 0;
 
-    auto const method = opts.use_implicit_stepping ? time_advance::method::imp
-                                                   : time_advance::method::exp;
+    auto const method = options.step_method.value();
 
     f_val = time_advance::adaptive_advance(method, *pde, operator_matrices,
-                                           adaptive_grid, transformer, opts,
+                                           adaptive_grid, transformer,
                                            f_val, time, update_system);
 
     std::cout.clear();
@@ -108,7 +98,7 @@ void time_advance_test(parser const &parse,
     auto const gold = read_vector_from_txt_file<P>(file_path);
 
     // each rank generates partial answer
-    int64_t const dof  = fm::ipow(parse.get_degree() + 1, pde->num_dims());
+    int64_t const dof  = fm::ipow(*options.degree + 1, pde->num_dims());
     auto const subgrid = adaptive_grid.get_subgrid(get_rank());
     REQUIRE((subgrid.col_stop + 1) * dof - 1 <= gold.size());
     auto const my_gold = fk::vector<P, mem_type::const_view>(
@@ -117,80 +107,12 @@ void time_advance_test(parser const &parse,
   }
 }
 
-static std::string get_level_string(fk::vector<int> const &levels)
+std::string get_level_string(std::vector<int> const &levels)
 {
-  return std::accumulate(levels.begin(), levels.end(), std::string(),
-                         [](std::string const &accum, int const lev) {
-                           return accum + std::to_string(lev) + "_";
-                         });
-}
-
-// The parser is constructed in one of 5 patterns,
-// each is covered by a make method.
-// All defaults are assumed automatically, only the adjusted variables are
-// modified.
-parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels, int const degree,
-                         double const cfl, bool full_grid,
-                         int const num_time_steps)
-{
-  parser parse(pde_choice, starting_levels);
-  parser_mod::set(parse, parser_mod::degree, degree);
-  parser_mod::set(parse, parser_mod::use_full_grid, full_grid);
-  parser_mod::set(parse, parser_mod::num_time_steps, num_time_steps);
-  parser_mod::set(parse, parser_mod::cfl, cfl);
-  // lots of tests assume max-level 8, which is an old behavior
-  parser_mod::set(parse, parser_mod::max_level, 8);
-  return parse;
-}
-parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels, int const degree,
-                         double const cfl, bool full_grid,
-                         int const num_time_steps, bool use_implicit)
-{
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
-                                   full_grid, num_time_steps);
-  parser_mod::set(parse, parser_mod::use_implicit_stepping, use_implicit);
-  return parse;
-}
-parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels, int const degree,
-                         double const cfl, bool full_grid,
-                         int const num_time_steps, bool use_implicit,
-                         std::string const &solver_str)
-{
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
-                                   full_grid, num_time_steps, use_implicit);
-  parser_mod::set(parse, parser_mod::solver_str, solver_str);
-  return parse;
-}
-parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels, int const degree,
-                         double const cfl, bool full_grid,
-                         int const num_time_steps, bool use_implicit,
-                         bool do_adapt_levels, double adapt_threshold,
-                         bool use_linf_nrm)
-{
-  parser parse = make_basic_parser(pde_choice, starting_levels, degree, cfl,
-                                   full_grid, num_time_steps, use_implicit);
-  parser_mod::set(parse, parser_mod::do_adapt, do_adapt_levels);
-  parser_mod::set(parse, parser_mod::adapt_threshold, adapt_threshold);
-  parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
-
-  return parse;
-}
-parser make_basic_parser(std::string const &pde_choice,
-                         fk::vector<int> starting_levels, int const degree,
-                         double const cfl, bool full_grid,
-                         int const num_time_steps, bool use_implicit,
-                         bool do_adapt_levels, double adapt_threshold,
-                         bool use_linf_nrm, std::string const &solver_str)
-{
-  parser parse = make_basic_parser(
-      pde_choice, starting_levels, degree, cfl, full_grid, num_time_steps,
-      use_implicit, do_adapt_levels, adapt_threshold, use_linf_nrm);
-  parser_mod::set(parse, parser_mod::solver_str, solver_str);
-  return parse;
+  std::string s = "";
+  for (auto l : levels)
+    s += std::to_string(l) + "_";
+  return s;
 }
 
 TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", test_precs)
@@ -200,73 +122,52 @@ TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", test_precs)
     return;
   }
 
-  TestType const cfl           = 0.01;
-  std::string const pde_choice = "diffusion_2";
-  int const num_dims           = 2;
-
   SECTION("diffusion2, explicit, sparse grid, level 2, degree 1")
   {
-    int const degree = 1;
-    int const level  = 2;
-
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
     auto const gold_base = time_advance_base_dir / "diffusion2_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p diffusion_2 -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("diffusion2, explicit, sparse grid, level 3, degree 2")
   {
-    int const degree          = 2;
-    int const level           = 3;
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
     auto const gold_base = time_advance_base_dir / "diffusion2_sg_l3_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p diffusion_2 -d 2 -l 3 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("diffusion2, explicit, sparse grid, level 4, degree 3")
   {
-    int const degree          = 3;
-    int const level           = 4;
     auto constexpr tol_factor = get_tolerance<TestType>(1000000);
-    auto const gold_base      = time_advance_base_dir / "diffusion2_sg_l4_d4_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto const gold_base = time_advance_base_dir / "diffusion2_sg_l4_d4_t";
 
-    time_advance_test(parse, gold_base, tol_factor);
+    auto opts = make_opts("-p diffusion_2 -d 3 -l 4 -n 5");
+
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("diffusion2, explicit/non-uniform level, sparse grid, degree 1")
   {
-    int const degree          = 1;
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-    fk::vector<int> const levels{4, 5};
+    std::vector<int> const levels{4, 5};
     auto const gold_base =
         time_advance_base_dir /
         ("diffusion2_sg_l" + get_level_string(levels) + "d2_t");
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
-                                           full_grid, num_steps);
+    auto opts = make_opts("-p diffusion_2 -d 1 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    opts.start_levels = levels;
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -277,190 +178,118 @@ TEST_CASE("adaptive time advance")
     return;
   }
 
-  auto const cfl = 0.01;
-
   SECTION("diffusion 2 implicit")
   {
-    auto const tol_factor        = get_tolerance<default_precision>(1000);
-    std::string const pde_choice = "diffusion_2";
-    int const degree             = 3;
-    fk::vector<int> const levels{3, 3};
+    auto const tol_factor = get_tolerance<default_precision>(1000);
+
     auto const gold_base =
         time_advance_base_dir / "diffusion2_ad_implicit_sg_l3_d4_t";
 
-    auto const full_grid       = false;
-    auto const use_implicit    = true;
-    auto const do_adapt_levels = true;
-    auto const adapt_threshold = 0.5e-1;
-    auto const use_linf_nrm    = true;
-
-    parser const parse = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-        do_adapt_levels, adapt_threshold, use_linf_nrm);
+    auto opts = make_opts("-p diffusion_2 -d 3 -l 3 -n 5 -s impl -a 0.05");
 
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
     {
-      time_advance_test(parse, gold_base, tol_factor);
+      time_advance_test(opts, gold_base, tol_factor);
     }
 #ifdef ASGARD_USE_SCALAPACK
-    auto const solver_str = std::string("scalapack");
-
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-        do_adapt_levels, adapt_threshold, use_linf_nrm, solver_str);
-
-    // temporarily disable test for MPI due to table elements < num ranks
-    if (get_num_ranks() == 1)
-    {
-      time_advance_test(parse_scalapack, gold_base, tol_factor);
-    }
+    // auto const solver_str = std::string("scalapack");
+    //
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
+    //     do_adapt_levels, adapt_threshold, use_linf_nrm, solver_str);
+    //
+    // // temporarily disable test for MPI due to table elements < num ranks
+    // if (get_num_ranks() == 1)
+    // {
+    //   time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // }
 #endif
   }
   SECTION("diffusion 2 explicit")
   {
-    auto const tol_factor        = get_tolerance<default_precision>(1000);
-    std::string const pde_choice = "diffusion_2";
-    auto const degree            = 3;
-    fk::vector<int> const levels{3, 3};
+    auto const tol_factor = get_tolerance<default_precision>(1000);
+
     auto const gold_base = time_advance_base_dir / "diffusion2_ad_sg_l3_d4_t";
 
-    auto const full_grid       = false;
-    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-    auto const do_adapt_levels = true;
-    auto const adapt_threshold = 0.5e-1;
-    auto const use_linf_nrm    = true;
+    auto opts = make_opts("-p diffusion_2 -d 3 -l 3 -n 5 -s expl -a 0.05");
 
-    parser const parse = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-        do_adapt_levels, adapt_threshold, use_linf_nrm);
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
     {
-      time_advance_test(parse, gold_base, tol_factor);
+      time_advance_test(opts, gold_base, tol_factor);
     }
   }
 
   SECTION("fokkerplanck1_pitch_E case1 explicit")
   {
-    auto constexpr tol_factor    = get_tolerance<default_precision>(100);
-    std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
-    auto const degree            = 3;
-    fk::vector<int> const levels{4};
+    auto constexpr tol_factor = get_tolerance<default_precision>(100);
+
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck1_4p1a_ad_sg_l4_d4_t";
 
-    auto const full_grid       = false;
-    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-    auto const do_adapt_levels = true;
-    auto const adapt_threshold = 1e-4;
-    auto const use_linf_nrm    = true;
-
-    parser const parse = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-        do_adapt_levels, adapt_threshold, use_linf_nrm);
+    auto opts = make_opts("-p fokkerplanck_1d_pitch_E_case1 -d 3 -l 4 -n 5 -s expl -a 1.E-4");
 
     // we do not gracefully handle coarsening below number of active ranks yet
     if (get_num_ranks() == 1)
     {
-      time_advance_test(parse, gold_base, tol_factor);
+      time_advance_test(opts, gold_base, tol_factor);
     }
   }
 
   SECTION("fokkerplanck1_pitch_E case2 explicit")
   {
-    auto const tol_factor        = get_tolerance<default_precision>(10);
-    std::string const pde_choice = "fokkerplanck_1d_pitch_E_case2";
-    auto const degree            = 3;
-    fk::vector<int> const levels{4};
+    auto const tol_factor = get_tolerance<default_precision>(10);
+
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck1_pitch_E_case2_ad_sg_l4_d4_t";
 
-    auto const full_grid       = false;
-    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-    auto const do_adapt_levels = true;
-    auto const adapt_threshold = 1e-4;
-    auto const use_linf_nrm    = true;
-
-    parser const parse = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-        do_adapt_levels, adapt_threshold, use_linf_nrm);
+    auto opts = make_opts("-p fokkerplanck_1d_pitch_E_case2 -d 3 -l 4 -n 5 -m 8 -a 1.E-4");
 
     // we do not gracefully handle coarsening below number of active ranks yet
     if (get_num_ranks() == 1)
     {
-      time_advance_test(parse, gold_base, tol_factor);
+      time_advance_test(opts, gold_base, tol_factor);
     }
   }
 
   SECTION("continuity 2 explicit")
   {
-    auto const tol_factor        = get_tolerance<default_precision>(100);
-    std::string const pde_choice = "continuity_2";
-    auto const degree            = 3;
-    fk::vector<int> const levels{3, 3};
+    auto const tol_factor = get_tolerance<default_precision>(100);
+
     auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
 
-    auto const full_grid       = false;
-    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-    auto const do_adapt_levels = true;
-    auto const adapt_threshold = 1e-3;
-    auto const use_linf_nrm    = true;
+    auto opts = make_opts("-p continuity_2 -d 3 -l 3 -n 5 -m 8 -s expl -a 1.E-3");
 
-    parser const parse = make_basic_parser(
-        pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-        do_adapt_levels, adapt_threshold, use_linf_nrm);
-
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity 2 explicit, l2 norm")
   {
     // Gold data was calculated with L^{\infty} norm
-    auto const tol_factor        = static_cast<default_precision>(0.00001);
-    std::string const pde_choice = "continuity_2";
-    auto const degree            = 3;
-    fk::vector<int> const levels{3, 3};
+    auto const tol_factor = static_cast<default_precision>(0.00001);
+
     auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
 
-    auto const full_grid       = false;
-    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-    auto const do_adapt_levels = true;
-    auto const use_linf_nrm    = false;
-    auto const adapt_threshold = 1e-3;
+    auto opts = make_opts("-p continuity_2 -d 3 -l 3 -n 5 -m 8 -s expl -a 1.E-3");
 
-    parser parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                                     num_steps, use_implicit, do_adapt_levels,
-                                     adapt_threshold, use_linf_nrm);
-
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity 2 explicit")
   {
-    auto const tol_factor        = get_tolerance<default_precision>(100);
-    std::string const pde_choice = "continuity_2";
-    auto const degree            = 3;
-    fk::vector<int> const levels{3, 3};
+    auto const tol_factor = get_tolerance<default_precision>(100);
+
     auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
 
-    auto const full_grid       = false;
-    auto const use_implicit    = parser::DEFAULT_USE_IMPLICIT;
-    auto const do_adapt_levels = true;
-    auto const adapt_threshold = 1e-3;
-    auto const use_linf_nrm    = true;
+    auto opts = make_opts("-p continuity_2 -d 3 -l 3 -n 5 -a 1.E-3");
 
-    fk::vector<int> max_adapt_level{6, 8};
+    opts.max_levels = {6, 8};
 
-    parser parse = make_basic_parser(pde_choice, levels, degree, cfl, full_grid,
-                                     num_steps, use_implicit, do_adapt_levels,
-                                     adapt_threshold, use_linf_nrm);
-    parser_mod::set(parse, parser_mod::max_adapt_level, max_adapt_level);
-    parser_mod::set(parse, parser_mod::use_linf_nrm, use_linf_nrm);
-
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
+
 TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
 {
   if (!is_active())
@@ -468,38 +297,24 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
     return;
   }
 
-  TestType const cfl     = 0.01;
-  std::string pde_choice = "diffusion_1";
-  int const num_dims     = 1;
-
   SECTION("diffusion1, explicit, sparse grid, level 3, degree 2")
   {
-    int const degree          = 2;
-    int const level           = 3;
     auto const gold_base      = time_advance_base_dir / "diffusion1_sg_l3_d3_t";
     auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p diffusion_1 -d 2 -l 3 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("diffusion1, explicit, sparse grid, level 4, degree 3")
   {
-    int const degree      = 3;
-    int const level       = 4;
     auto const gold_base  = time_advance_base_dir / "diffusion1_sg_l4_d4_t";
     auto const tol_factor = get_tolerance<TestType>(100000);
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p diffusion_1 -d 3 -l 4 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -510,54 +325,33 @@ TEMPLATE_TEST_CASE("time advance - continuity 1", "[time_advance]", test_precs)
     return;
   }
 
-  std::string const pde_choice = "continuity_1";
-
-  TestType const cfl = 0.01;
-
   auto constexpr tol_factor = get_tolerance<TestType>(10);
-
-  auto const num_dims = 1;
 
   SECTION("continuity1, explicit, level 2, degree 1, sparse grid")
   {
-    int const degree     = 1;
-    int const level      = 2;
     auto const gold_base = time_advance_base_dir / "continuity1_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_1 -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity1, explicit, level 2, degree 1, full grid")
   {
-    int const degree     = 1;
-    int const level      = 2;
     auto const gold_base = time_advance_base_dir / "continuity1_fg_l2_d2_t";
 
-    auto const full_grid = true;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_1 -d 1 -l 2 -n 5 -g dense");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity1, explicit, level 4, degree 2, sparse grid")
   {
-    int const degree     = 2;
-    int const level      = 4;
     auto const gold_base = time_advance_base_dir / "continuity1_sg_l4_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_1 -d 2 -l 4 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -568,66 +362,48 @@ TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", test_precs)
     return;
   }
 
-  std::string const pde_choice = "continuity_2";
-  TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(10);
-  auto const num_dims          = 2;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("continuity2, explicit, level 2, degree 1, sparse grid")
   {
-    int const degree     = 1;
-    int const level      = 2;
     auto const gold_base = time_advance_base_dir / "continuity2_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_2 -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity2, explicit, level 2, degree 1, full grid")
   {
-    int const degree     = 1;
-    int const level      = 2;
     auto const gold_base = time_advance_base_dir / "continuity2_fg_l2_d2_t";
 
-    auto const full_grid = true;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_2 -d 1 -l 2 -n 5 -g dense");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity2, explicit, level 4, degree 2, sparse grid")
   {
-    int const degree     = 2;
-    int const level      = 4;
     auto const gold_base = time_advance_base_dir / "continuity2_sg_l4_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity2, explicit/non-uniform level, full grid, degree 2")
   {
-    int const degree = 2;
+    std::vector<int> const levels{3, 4};
 
-    fk::vector<int> const levels{3, 4};
     auto const gold_base =
         time_advance_base_dir /
         ("continuity2_fg_l" + get_level_string(levels) + "d3_t");
-    auto const full_grid = true;
-    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
-                                           full_grid, num_steps);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    auto opts = make_opts("-p continuity_2 -d 2 -n 5 -g dense");
+
+    opts.start_levels = levels;
+
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -638,53 +414,39 @@ TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", test_precs)
     return;
   }
 
-  std::string const pde_choice = "continuity_3";
-  TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(10);
-  auto const num_dims          = 3;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("continuity3, explicit, level 2, degree 1, sparse grid")
   {
-    int const degree     = 1;
-    int const level      = 2;
     auto const gold_base = time_advance_base_dir / "continuity3_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_3 -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity3, explicit, level 4, degree 2, sparse grid")
   {
-    int const degree     = 2;
-    int const level      = 4;
     auto const gold_base = time_advance_base_dir / "continuity3_sg_l4_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_3 -d 2 -l 4 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity3, explicit/non-uniform level, degree 3, sparse grid")
   {
-    int const degree = 3;
+    std::vector<int> const levels{3, 4, 2};
 
-    fk::vector<int> const levels{3, 4, 2};
     auto const gold_base =
         time_advance_base_dir /
         ("continuity3_sg_l" + get_level_string(levels) + "d4_t");
-    auto const full_grid = false;
 
-    parser const parse = make_basic_parser(pde_choice, levels, degree, cfl,
-                                           full_grid, num_steps);
+    auto opts = make_opts("-p continuity_3 -d 3 -n 5");
 
-    time_advance_test(parse, gold_base, get_tolerance<TestType>(10));
+    opts.start_levels = levels;
+
+    time_advance_test(opts, gold_base, get_tolerance<TestType>(10));
   }
 }
 
@@ -695,38 +457,29 @@ TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", test_precs)
     return;
   }
 
-  std::string const pde_choice = "continuity_6";
-  TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(10);
-  auto const num_dims          = 6;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("continuity6, level 2, degree 2, sparse grid")
   {
-    int const degree     = 2;
-    int const level      = 2;
     auto const gold_base = time_advance_base_dir / "continuity6_sg_l2_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p continuity_6 -d 2 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 
   SECTION("continuity6, explicit/non-uniform level, degree 3, sparse grid")
   {
-    int const degree = 1;
-
-    fk::vector<int> const levels{2, 3, 2, 3, 3, 2};
+    std::vector<int> const levels{2, 3, 2, 3, 3, 2};
     auto const gold_base =
         time_advance_base_dir /
         ("continuity6_sg_l" + get_level_string(levels) + "d2_t");
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
-                                           full_grid, num_steps);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    auto opts = make_opts("-p continuity_6 -d 1 -n 5");
+
+    opts.start_levels = levels;
+
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -738,24 +491,16 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
     return;
   }
 
-  std::string const pde_choice = "fokkerplanck_1d_pitch_C";
-  TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(200);
-  auto const num_dims          = 1;
+  auto constexpr tol_factor = get_tolerance<TestType>(200);
 
   SECTION("fokkerplanck_1d_pitch_C, level 2, degree 1, sparse grid")
   {
-    int const degree = 1;
-    int const level  = 2;
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck1_4p2_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p fokkerplanck_1d_pitch_C -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -767,25 +512,16 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_4p3", "[time_advance]",
     return;
   }
 
-  std::string const pde_choice = "fokkerplanck_1d_4p3";
-  TestType const cfl           = 0.01;
-  auto const num_dims          = 1;
-
   SECTION("fokkerplanck_1d_4p3, level 2, degree 1, sparse grid")
   {
-    int const degree          = 1;
-    int const level           = 2;
     auto constexpr tol_factor = get_tolerance<TestType>(10);
 
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck1_4p3_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p fokkerplanck_1d_4p3 -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -797,24 +533,16 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case1",
     return;
   }
 
-  std::string const pde_choice = "fokkerplanck_1d_pitch_E_case1";
-  TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(100);
-  auto const num_dims          = 1;
+  auto constexpr tol_factor = get_tolerance<TestType>(100);
 
   SECTION("fokkerplanck_1d_pitch_E_case1, level 2, degree 1, sparse grid")
   {
-    int const degree = 1;
-    int const level  = 2;
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck1_4p1a_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p fokkerplanck_1d_pitch_E_case1 -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -826,24 +554,16 @@ TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_E_case2",
     return;
   }
 
-  std::string const pde_choice = "fokkerplanck_1d_pitch_E_case2";
-  TestType const cfl           = 0.01;
-  auto constexpr tol_factor    = get_tolerance<TestType>(10);
-  auto const num_dims          = 1;
+  auto constexpr tol_factor = get_tolerance<TestType>(10);
 
   SECTION("fokkerplanck_1d_pitch_E_case2, level 2, degree 1, sparse grid")
   {
-    int const degree = 1;
-    int const level  = 2;
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck1_pitch_E_case2_sg_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps);
+    auto opts = make_opts("-p fokkerplanck_1d_pitch_E_case2 -d 1 -l 2 -n 5");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -856,82 +576,63 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     return;
   }
 
-  TestType const cfl     = 0.01;
   std::string pde_choice = "fokkerplanck_2d_complete_case4";
-  auto const num_dims    = 2;
-  auto const implicit    = true;
-  auto const solver_str  = std::string("scalapack");
 
   SECTION("fokkerplanck_2d_complete_case4, level 3, degree 2, sparse grid")
   {
-    int const level           = 3;
-    int const degree          = 2;
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l3_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p fokkerplanck_2d_complete_case4 -d 2 -l 3 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, std::string("scalapack"));
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, std::string("scalapack"));
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("fokkerplanck_2d_complete_case4, level 4, degree 2, sparse grid")
   {
-    int const level           = 4;
-    int const degree          = 2;
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l4_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p fokkerplanck_2d_complete_case4 -d 2 -l 4 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("fokkerplanck_2d_complete_case4, level 5, degree 2, sparse grid")
   {
-    int const level           = 5;
-    int const degree          = 2;
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     auto const gold_base =
         time_advance_base_dir / "fokkerplanck2_complete_implicit_sg_l5_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p fokkerplanck_2d_complete_case4 -d 2 -l 5 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
@@ -939,25 +640,24 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
       "fokkerplanck_2d_complete_case4, implicit/non-uniform level, degree 2, "
       "sparse grid")
   {
-    int const degree = 2;
-    fk::vector<int> const levels{2, 3};
+    std::vector<int> const levels{2, 3};
     auto constexpr tol_factor = get_tolerance<TestType>(1e5);
 
     auto const gold_base =
         time_advance_base_dir / ("fokkerplanck2_complete_implicit_sg_l" +
                                  get_level_string(levels) + "d3_t");
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
-                                           full_grid, num_steps, implicit);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    auto opts = make_opts("-p fokkerplanck_2d_complete_case4 -d 2 -n 5 -s impl -sv direct");
+
+    opts.start_levels = levels;
+
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
-
+    // parser const parse_scalapack =
+    //     make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+    //                       implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 }
@@ -970,32 +670,22 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     return;
   }
 
-  TestType const cfl        = 0.01;
-  std::string pde_choice    = "diffusion_1";
   auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-  auto const num_dims = 1;
-  auto const implicit = true;
 
   SECTION("diffusion1, implicit, sparse grid, level 4, degree 3")
   {
-    int const degree = 3;
-    int const level  = 4;
     auto const gold_base =
         time_advance_base_dir / "diffusion1_implicit_sg_l4_d4_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p diffusion_1 -d 3 -l 4 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, std::string("scalapack"));
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, std::string("scalapack"));
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 
 #endif
   }
@@ -1009,101 +699,81 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     return;
   }
 
-  std::string pde_choice    = "diffusion_2";
-  TestType const cfl        = 0.01;
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-  auto const num_dims = 2;
-  auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const solver_str = std::string("scalapack");
+  // auto const solver_str = std::string("scalapack");
 #endif
 
   SECTION("diffusion2, implicit, sparse grid, level 3, degree 2")
   {
-    int const degree = 2;
-    int const level  = 3;
     auto const gold_base =
         time_advance_base_dir / "diffusion2_implicit_sg_l3_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p diffusion_2 -d 2 -l 3 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("diffusion2, implicit, sparse grid, level 4, degree 2")
   {
-    int const degree = 2;
-    int const level  = 4;
     auto const gold_base =
         time_advance_base_dir / "diffusion2_implicit_sg_l4_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p diffusion_2 -d 2 -l 4 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("diffusion2, implicit, sparse grid, level 5, degree 2")
   {
-    int const degree = 2;
-    int const level  = 5;
     auto const gold_base =
         time_advance_base_dir / "diffusion2_implicit_sg_l5_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p diffusion_2 -d 2 -l 5 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("diffusion2, implicit/non-uniform level, degree 1, sparse grid")
   {
-    int const degree = 1;
-
-    fk::vector<int> const levels{4, 5};
+    std::vector<int> const levels = {4, 5};
     auto const gold_base =
         time_advance_base_dir /
         ("diffusion2_implicit_sg_l" + get_level_string(levels) + "d2_t");
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(pde_choice, levels, degree, cfl,
-                                           full_grid, num_steps, implicit);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    auto opts = make_opts("-p diffusion_2 -d 1 -n 5 -s impl -sv direct");
+
+    opts.start_levels = levels;
+
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack =
+    //     make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+    //                       implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 }
@@ -1116,79 +786,59 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     return;
   }
 
-  std::string pde_choice    = "continuity_1";
-  TestType const cfl        = 0.01;
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-  auto const num_dims = 1;
-  auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const solver_str = std::string("scalapack");
+  // auto const solver_str = std::string("scalapack");
 #endif
   SECTION("continuity1, level 2, degree 1, sparse grid")
   {
-    int const degree = 1;
-    int const level  = 2;
     auto const gold_base =
         time_advance_base_dir / "continuity1_implicit_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p continuity_1 -d 1 -l 2 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("continuity1, level 4, degree 2, sparse grid")
   {
-    int const degree = 2;
-    int const level  = 4;
-
     auto const gold_base =
         time_advance_base_dir / "continuity1_implicit_l4_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p continuity_1 -d 2 -l 4 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("continuity1, level 4, degree 2, sparse grid, iterative")
   {
-    int const degree = 2;
-    int const level  = 4;
     auto const gold_base =
         time_advance_base_dir / "continuity1_implicit_l4_d3_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p continuity_1 -d 2 -l 4 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 }
@@ -1201,102 +851,80 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     return;
   }
 
-  std::string pde_choice    = "continuity_2";
-  TestType const cfl        = 0.01;
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-  auto const num_dims = 2;
-  auto const implicit = true;
 #ifdef ASGARD_USE_SCALAPACK
-  auto const solver_str = std::string("scalapack");
+  // auto const solver_str = std::string("scalapack");
 #endif
   SECTION("continuity2, level 2, degree 1, sparse grid")
   {
-    int const degree = 1;
-    int const level  = 2;
-
     auto const gold_base =
         time_advance_base_dir / "continuity2_implicit_l2_d2_t";
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
+    auto opts = make_opts("-p continuity_2 -d 1 -l 2 -n 5 -s impl -sv direct");
 
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("continuity2, level 4, degree 2, sparse grid")
   {
-    int const degree = 2;
-    int const level  = 4;
-
     auto const gold_base =
         time_advance_base_dir / "continuity2_implicit_l4_d3_t";
+    auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5 -s impl -sv direct");
 
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
-
-    time_advance_test(parse, gold_base, tol_factor);
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 
   SECTION("continuity2, level 4, degree 2, sparse grid, iterative")
   {
-    int const degree               = 2;
-    int const level                = 4;
     auto constexpr temp_tol_factor = get_tolerance<TestType>(10);
 
     auto const continuity2_base_dir =
         time_advance_base_dir / "continuity2_implicit_l4_d3_t";
-    auto const full_grid = false;
-    parser const parse   = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit);
 
-    time_advance_test(parse, continuity2_base_dir, temp_tol_factor);
+    auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5 -s impl -sv direct");
+
+    time_advance_test(opts, continuity2_base_dir, temp_tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack = make_basic_parser(
-        pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-        cfl, full_grid, num_steps, implicit, solver_str);
-
-    time_advance_test(parse_scalapack, continuity2_base_dir, temp_tol_factor);
+    // parser const parse_scalapack = make_basic_parser(
+    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
+    //     cfl, full_grid, num_steps, implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, continuity2_base_dir, temp_tol_factor);
 #endif
   }
   SECTION("continuity2, implicit/non-uniform level, degree 2, full grid")
   {
-    int const degree = 2;
-
-    fk::vector<int> const levels{3, 4};
+    std::vector<int> const levels = {3, 4};
     auto const gold_base =
         time_advance_base_dir /
         ("continuity2_implicit_fg_l" + get_level_string(levels) + "d3_t");
-    auto const full_grid = true;
-    parser const parse(pde_choice, levels, degree, cfl, full_grid,
-                       parser::DEFAULT_MAX_LEVEL, -1, num_steps, implicit);
 
-    time_advance_test(parse, gold_base, tol_factor);
+    auto opts = make_opts("-p continuity_2 -d 2 -n 5 -s impl -sv direct -g dense");
+
+    opts.start_levels = levels;
+
+    time_advance_test(opts, gold_base, tol_factor);
 #ifdef ASGARD_USE_SCALAPACK
-    parser const parse_scalapack =
-        make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-                          implicit, solver_str);
-
-    time_advance_test(parse_scalapack, gold_base, tol_factor);
+    // parser const parse_scalapack =
+    //     make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
+    //                       implicit, solver_str);
+    //
+    // time_advance_test(parse_scalapack, gold_base, tol_factor);
 #endif
   }
 }
@@ -1309,34 +937,22 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
     return;
   }
 
-  std::string const pde_choice = "landau";
-  fk::vector<int> const levels{4, 4};
-  int const degree            = 2;
-  static int constexpr nsteps = 100;
-
   TestType constexpr gmres_tol =
       std::is_same_v<TestType, double> ? 1.0e-8 : 1.0e-6;
-  TestType constexpr tolerance =
+  TestType constexpr tolerance = // error tolerance
       std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-3;
-  // Note: not sure if the single precision test makes sense here
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, degree);
-  parser_mod::set(parse, parser_mod::dt, 0.019634954084936);
-  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres");
-  parser_mod::set(parse, parser_mod::use_full_grid, true);
-  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
-  parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
+  auto opts = make_opts("-p landau -d 2 -l 4 -n 100 -s imex -sv gmres -g dense -dt 0.019634954084936");
 
-  auto const pde = make_PDE<TestType>(parse);
+  opts.isolver_tolerance = gmres_tol;
 
-  options const opts(parse);
-  elements::table const check(opts, *pde);
+  auto const pde = make_PDE<TestType>(opts);
 
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                       *pde);
+  // options const opts(parse);
+  elements::table const check(*pde);
+
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
 
   // -- compute dimension mass matrices
   generate_dimension_mass_mat(*pde, transformer);
@@ -1347,16 +963,16 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   // -- generate moments
   for (auto &m : pde->moments)
   {
-    m.createFlist(*pde, opts);
+    m.createFlist(*pde);
     expect(m.get_fList().size() > 0);
 
-    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    m.createMomentVector(*pde, adaptive_grid.get_table());
     expect(m.get_vector().size() > 0);
   }
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   generate_dimension_mass_mat(*pde, transformer);
 
@@ -1374,7 +990,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
     bool const update_system = i == 0;
     f_val                    = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, opts, f_val, time, update_system);
+        adaptive_grid, transformer, f_val, time, update_system);
 
     std::cout.clear();
 
@@ -1413,29 +1029,18 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   }
 
   std::string const pde_choice = "two_stream";
-  fk::vector<int> const levels{5, 5};
-  int const degree            = 2;
-  static int constexpr nsteps = 20;
 
   TestType constexpr tolerance =
       std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, degree);
-  parser_mod::set(parse, parser_mod::dt, 6.25e-3);
-  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres");
-  parser_mod::set(parse, parser_mod::use_full_grid, true);
-  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  auto opts = make_opts("-p two_stream -d 2 -l 5 -n 20 -s imex -sv gmres -g dense -dt 6.25e-3");
 
-  auto const pde = make_PDE<TestType>(parse);
+  auto const pde = make_PDE<TestType>(opts);
 
-  options const opts(parse);
-  elements::table const check(opts, *pde);
+  elements::table const check(*pde);
 
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                       *pde);
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
 
   // -- compute dimension mass matrices
   generate_dimension_mass_mat(*pde, transformer);
@@ -1446,16 +1051,16 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   // -- generate moments
   for (auto &m : pde->moments)
   {
-    m.createFlist(*pde, opts);
+    m.createFlist(*pde);
     expect(m.get_fList().size() > 0);
 
-    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    m.createMomentVector(*pde, adaptive_grid.get_table());
     expect(m.get_vector().size() > 0);
   }
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   generate_dimension_mass_mat(*pde, transformer);
 
@@ -1473,7 +1078,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     bool const update_system = i == 0;
     f_val                    = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, opts, f_val, time, update_system);
+        adaptive_grid, transformer, f_val, time, update_system);
 
     std::cout.clear();
 
@@ -1533,6 +1138,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   parameter_manager<TestType>::get_instance().reset();
 }
 
+// MIRO ERROR: This causes a problem!!!!
 TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
                    double)
 {
@@ -1542,33 +1148,20 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     return;
   }
 
-  std::string const pde_choice = "two_stream";
-  fk::vector<int> const levels{5, 5};
-  int const degree            = 2;
-  static int constexpr nsteps = 10;
+  int const degree = 2;
+  int const levels = 5;
 
   TestType constexpr tolerance =
       std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-5;
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, degree);
-  parser_mod::set(parse, parser_mod::dt, 6.25e-3);
-  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres");
-  parser_mod::set(parse, parser_mod::use_full_grid, false);
-  parser_mod::set(parse, parser_mod::do_adapt, true);
-  parser_mod::set(parse, parser_mod::max_level, 5);
-  parser_mod::set(parse, parser_mod::adapt_threshold, 1.0e-6);
-  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  auto opts = make_opts("-p two_stream -d 2 -l 5 -m 5 -n 10 -s imex -dt 6.25e-3 -a 1.0e-6 -an linf");
 
-  auto const pde = make_PDE<TestType>(parse);
+  auto const pde = make_PDE<TestType>(opts);
 
-  options const opts(parse);
-  elements::table const check(opts, *pde);
+  elements::table const check(*pde);
 
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                       *pde);
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
 
   // -- compute dimension mass matrices
   generate_dimension_mass_mat(*pde, transformer);
@@ -1579,16 +1172,16 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   // -- generate moments
   for (auto &m : pde->moments)
   {
-    m.createFlist(*pde, opts);
+    m.createFlist(*pde);
     expect(m.get_fList().size() > 0);
 
-    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    m.createMomentVector(*pde, adaptive_grid.get_table());
     expect(m.get_vector().size() > 0);
   }
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   generate_dimension_mass_mat(*pde, transformer);
 
@@ -1599,7 +1192,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   TestType E_kin_initial = 0.0;
 
   // number of DOF for the FG case: ((degree + 1) * 2^level)^2 = 9.216e3
-  int const fg_dof = fm::ipow((degree + 1) * fm::two_raised_to(levels[0]), 2);
+  int const fg_dof = fm::ipow((degree + 1) * fm::two_raised_to(levels), 2);
 
   // -- time loop
   for (int i = 0; i < opts.num_time_steps; ++i)
@@ -1609,7 +1202,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     bool const update_system = i == 0;
     f_val                    = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, opts, f_val, time, update_system);
+        adaptive_grid, transformer, f_val, time, update_system);
 
     std::cout.clear();
 
@@ -1683,10 +1276,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
     return;
   }
 
-  std::string const pde_choice = "relaxation_1x1v";
-  fk::vector<int> const levels{0, 4};
-  int const degree            = 2;
-  static int constexpr nsteps = 10;
+  std::vector<int> const levels{0, 4};
+
+  int const degree = 2;
 
   TestType constexpr gmres_tol =
       std::is_same_v<TestType, double> ? 1.0e-10 : 1.0e-6;
@@ -1696,23 +1288,17 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   // rel tolerance for comparing l2
   TestType constexpr tolerance = std::is_same_v<TestType, double> ? 1.0e-3 : 5.0e-3;
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, degree);
-  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
-  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres");
-  parser_mod::set(parse, parser_mod::use_full_grid, true);
-  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
-  parser_mod::set(parse, parser_mod::gmres_tolerance, gmres_tol);
+  auto opts = make_opts("-p relaxation_1x1v -d 2 -n 10 -s imex -sv gmres -dt 5.0e-4 -g dense");
 
-  auto const pde = make_PDE<TestType>(parse);
+  opts.start_levels      = levels;
+  opts.isolver_tolerance = gmres_tol;
 
-  options const opts(parse);
-  elements::table const check(opts, *pde);
+  auto const pde = make_PDE<TestType>(opts);
 
-  adapt::distributed_grid adaptive_grid(*pde, opts);
-  basis::wavelet_transform<TestType, resource::host> const transformer(opts,
-                                                                       *pde);
+  elements::table const check(*pde);
+
+  adapt::distributed_grid adaptive_grid(*pde);
+  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
 
   // -- compute dimension mass matrices
   generate_dimension_mass_mat(*pde, transformer);
@@ -1723,16 +1309,16 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   // -- generate moments
   for (auto &m : pde->moments)
   {
-    m.createFlist(*pde, opts);
+    m.createFlist(*pde);
     expect(m.get_fList().size() > 0);
 
-    m.createMomentVector(*pde, parse, adaptive_grid.get_table());
+    m.createMomentVector(*pde, adaptive_grid.get_table());
     expect(m.get_vector().size() > 0);
   }
 
   // -- generate initial condition vector.
   auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer, opts);
+      adaptive_grid.get_initial_condition(*pde, transformer);
 
   generate_dimension_mass_mat(*pde, transformer);
 
@@ -1747,13 +1333,13 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
     bool const update_system = i == 0;
     fk::vector<TestType> sol = time_advance::adaptive_advance(
         asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, opts, f_val, time, update_system);
+        adaptive_grid, transformer, f_val, time, update_system);
 
     f_val = std::move(sol);
     std::cout.clear();
 
     // get analytic solution at final time step to compare
-    if (i == opts.num_time_steps - 1)
+    if (i == opts.num_time_steps.value() - 1)
     {
       fk::vector<TestType> const analytic_solution = sum_separable_funcs(
           pde->exact_vector_funcs(), pde->get_dimensions(), adaptive_grid,
@@ -1790,20 +1376,11 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
     return;
   }
 
-  std::string const pde_choice = "relaxation_1x2v";
-  fk::vector<int> const levels{0, 4, 4};
-  int const degree            = 2;
-  static int constexpr nsteps = 10;
+  auto opts = make_opts("-p relaxation_1x2v -d 2 -n 10 -s imex -sv gmres -dt 5.0e-4 -g dense");
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, degree);
-  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
-  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres");
-  parser_mod::set(parse, parser_mod::use_full_grid, true);
-  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  opts.start_levels = {0, 4, 4};
 
-  auto const pde = make_PDE<TestType>(parse);
+  auto const pde = make_PDE<TestType>(opts);
 
   parameter_manager<TestType>::get_instance().reset();
 
@@ -1820,20 +1397,11 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
     return;
   }
 
-  std::string const pde_choice = "relaxation_1x3v";
-  fk::vector<int> const levels{0, 4, 4, 4};
-  int const degree            = 2;
-  static int constexpr nsteps = 10;
+  auto opts = make_opts("-p relaxation_1x3v -d 2 -n 10 -s imex -sv gmres -dt 5.0e-4 -g dense");
 
-  parser parse(pde_choice, levels);
-  parser_mod::set(parse, parser_mod::degree, degree);
-  parser_mod::set(parse, parser_mod::dt, 5.0e-4);
-  parser_mod::set(parse, parser_mod::use_imex_stepping, true);
-  parser_mod::set(parse, parser_mod::solver_str, "gmres");
-  parser_mod::set(parse, parser_mod::use_full_grid, true);
-  parser_mod::set(parse, parser_mod::num_time_steps, nsteps);
+  opts.start_levels = {0, 4, 4, 4};
 
-  auto const pde = make_PDE<TestType>(parse);
+  auto const pde = make_PDE<TestType>(opts);
 
   parameter_manager<TestType>::get_instance().reset();
 
@@ -1851,19 +1419,16 @@ void test_memory_mode(imex_flag imex)
   if (get_num_ranks() > 1) // this is a one-rank test
     return;
   // make some PDE, no need to be too specific
-  fk::vector<int> levels = {5, 5};
-  parser parse("two_stream", levels);
-  parser_mod::set(parse, parser_mod::degree, 2);
 
-  auto pde = make_PDE<prec>(parse);
+  auto opts = make_opts("-p two_stream -d 2 -l 5");
 
-  options const opts(parse);
+  auto pde = make_PDE<prec>(opts);
 
-  adapt::distributed_grid grid(*pde, opts);
-  basis::wavelet_transform<prec, resource::host> const transformer(opts, *pde);
+  adapt::distributed_grid grid(*pde);
+  basis::wavelet_transform<prec, resource::host> const transformer(*pde);
   generate_dimension_mass_mat(*pde, transformer);
   generate_all_coefficients(*pde, transformer);
-  auto const x = grid.get_initial_condition(*pde, transformer, opts);
+  auto const x = grid.get_initial_condition(*pde, transformer);
   generate_dimension_mass_mat(*pde, transformer);
 
   // one means that all data fits in memory and only one call will be made
@@ -1871,25 +1436,25 @@ void test_memory_mode(imex_flag imex)
 
   kron_sparse_cache spcache_null1, spcache_one;
   memory_usage memory_one =
-      compute_mem_usage(*pde, grid, opts, imex, spcache_null1);
+      compute_mem_usage(*pde, grid, imex, spcache_null1);
 
   auto mat_one = make_local_kronmult_matrix(
-      *pde, grid, opts, memory_one, imex_flag::unspecified, spcache_null1);
+      *pde, grid, memory_one, imex_flag::unspecified, spcache_null1);
   memory_usage spmemory_one = compute_mem_usage(
-      *pde, grid, opts, imex, spcache_one, 6, 2147483646, force_sparse);
+      *pde, grid, imex, spcache_one, 6, 2147483646, force_sparse);
   auto spmat_one = make_local_kronmult_matrix(
-      *pde, grid, opts, spmemory_one, imex, spcache_one, force_sparse);
+      *pde, grid, spmemory_one, imex, spcache_one, force_sparse);
 
   kron_sparse_cache spcache_null2, spcache_multi;
   memory_usage memory_multi =
-      compute_mem_usage(*pde, grid, opts, imex, spcache_null2, 0, 8000);
+      compute_mem_usage(*pde, grid, imex, spcache_null2, 0, 8000);
 
   auto mat_multi = make_local_kronmult_matrix(
-      *pde, grid, opts, memory_multi, imex, spcache_null2);
+      *pde, grid, memory_multi, imex, spcache_null2);
   memory_usage spmemory_multi = compute_mem_usage(
-      *pde, grid, opts, imex, spcache_multi, 6, 8000, force_sparse);
+      *pde, grid, imex, spcache_multi, 6, 8000, force_sparse);
   auto spmat_multi = make_local_kronmult_matrix(
-      *pde, grid, opts, spmemory_multi, imex, spcache_multi, force_sparse);
+      *pde, grid, spmemory_multi, imex, spcache_multi, force_sparse);
 
   REQUIRE(mat_one.is_onecall());
   REQUIRE(spmat_one.is_onecall());
