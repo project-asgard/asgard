@@ -7,8 +7,6 @@
 
 static auto constexpr adapt_threshold = 1e-4;
 
-static auto const use_linf_nrm = true;
-
 static auto const adapt_base_dir = gold_base_dir / "adapt";
 
 using namespace asgard;

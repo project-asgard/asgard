@@ -13,9 +13,6 @@ int main(int argc, char *argv[])
   return result;
 }
 
-// settings for time advance testing
-static auto constexpr num_steps = 5;
-
 static auto const time_advance_base_dir = gold_base_dir / "time_advance";
 
 // NOTE: when using this template the precision is inferred from the type
