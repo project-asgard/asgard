@@ -139,15 +139,33 @@ void generate_initial_moments(
   }
 }
 
+// the method expects either root or fixed name, one must be empty and one not
+// the root is appended with step-number and .h5 extension
+// the fixed filename is used "as-is" without any changes
 template<typename P>
 void write_output(PDE<P> const &pde,
                   fk::vector<P> const &vec, P const time, int const file_index,
                   int const dof, elements::table const &hash_table,
-                  std::string const output_dataset_name = "asgard")
+                  std::string const output_dataset_root  = "asgard",
+                  std::string const output_dataset_fixed = "")
 {
   tools::timer.start("write_output");
-  std::string const output_file_name =
-      output_dataset_name + "_" + std::to_string(file_index) + ".h5";
+
+  expect(not output_dataset_root.empty() or not output_dataset_fixed.empty());
+
+  std::string const output_file_name = [&]()
+      -> std::string {
+    if (output_dataset_root.empty())
+    {
+      expect(not output_dataset_fixed.empty());
+      return output_dataset_fixed;
+    }
+    else
+    {
+      expect(output_dataset_fixed.empty());
+      return output_dataset_root + "_" + std::to_string(file_index) + ".h5";
+    }
+  }();
 
   // TODO: Rewrite this entirely!
   HighFive::File file(output_file_name, HighFive::File::ReadWrite |
@@ -159,7 +177,13 @@ void write_output(PDE<P> const &pde,
 
   // TODO: needs to be checked further based on problem sizes
   HighFive::DataSetCreateProps plist;
-  plist.add(HighFive::Chunking(hsize_t{64}));
+  // just a temporary hack
+  if (hash_table.get_active_table().size() < 32)
+    plist.add(HighFive::Chunking(hsize_t{4}));
+  else if (hash_table.get_active_table().size() < 64)
+    plist.add(HighFive::Chunking(hsize_t{32}));
+  else
+    plist.add(HighFive::Chunking(hsize_t{64}));
   plist.add(HighFive::Deflate(9));
 
   auto const &options = pde.options();
@@ -383,7 +407,7 @@ void read_restart_metadata(prog_opts &options, std::string const &restart_file)
   }
 
   if (get_local_rank() == 0)
-    options.print();
+    options.print_options();
 }
 
 template<typename P>

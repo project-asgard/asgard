@@ -21,7 +21,8 @@ void simulate(std::unique_ptr<PDE<precision>> &pde)
     node_out() << "  filename: " << options.restart_file << '\n';
   }
   else if (get_local_rank() == 0)
-      options.print();
+    std::cout << options;
+    //options.print_options();
 #else
   if (get_local_rank() == 0)
     options.print();
@@ -193,7 +194,7 @@ void simulate(std::unique_ptr<PDE<precision>> &pde)
 
   kron_operators<precision> operator_matrices;
 
-  for (auto i = start_step; i < options.num_time_steps; ++i)
+  for (auto i = start_step; i < options.num_time_steps.value(); ++i)
   {
     // take a time advance step
     auto const time          = i * pde->get_dt();
@@ -272,6 +273,11 @@ void simulate(std::unique_ptr<PDE<precision>> &pde)
     {
       write_output(*pde, f_val, time + pde->get_dt(), i + 1,
                    f_val.size(), adaptive_grid.get_table(), "asgard_wavelet");
+    }
+    if (i == options.num_time_steps.value() - 1 and not options.outfile.empty())
+    {
+      write_output(*pde, f_val, time + pde->get_dt(), i + 1,
+                   f_val.size(), adaptive_grid.get_table(), "", options.outfile);
     }
 #endif
 

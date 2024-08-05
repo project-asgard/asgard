@@ -229,7 +229,7 @@ if (ASGARD_USE_PYTHON)
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}")
         list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
     endforeach()
-    foreach(_asg_pybuildfile continuity_2d.py)
+    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}"
                            COMMAND "${CMAKE_COMMAND}"
                            ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}
@@ -246,7 +246,7 @@ if (ASGARD_USE_PYTHON)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py" DESTINATION "${_asgard_python_path}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard.py" DESTINATION "${_asgard_python_path}")
-    foreach(_asg_pybuildfile example_continuity_2d.py)
+    foreach(_asg_pybuildfile example_continuity_2d.py example_inputs_1d.py)
         install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" DESTINATION share/asgard/examples/)
     endforeach()
 
@@ -276,6 +276,26 @@ if (ASGARD_USE_PYTHON)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_matlab.py" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_matlab.py" @ONLY)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_matlab.py" DESTINATION share/asgard/matlab)
 endif()
+
+foreach(_asg_testinput test_input1.txt test_input2.txt)
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
+                       COMMAND "${CMAKE_COMMAND}"
+                       ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
+                       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}"
+                       COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}")
+    list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
+endforeach()
+foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
+                       COMMAND "${CMAKE_COMMAND}"
+                       ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
+                       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
+                       COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
+    list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
+
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput} DESTINATION share/asgard/examples)
+endforeach()
+add_custom_target(asgard_test_inputs ALL DEPENDS "${_asg_testinputfiles}")
 
 if (ASGARD_USE_MPI)
     find_package(MPI REQUIRED)
@@ -649,8 +669,10 @@ endif ()
 #-------------------------------------------------------------------------------
 # Building the examples to make sure they build but will not run here
 #-------------------------------------------------------------------------------
-add_executable(example_continuity_2d "${CMAKE_CURRENT_SOURCE_DIR}/examples/continuity_2d.cpp")
-target_link_libraries(example_continuity_2d libasgard)
+foreach(_exfile continuity_2d inputs_1d)
+  add_executable(example_${_exfile} "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_exfile}.cpp")
+  target_link_libraries(example_${_exfile} libasgard)
+endforeach()
 
 #-------------------------------------------------------------------------------
 # Installing the library as stand-alone

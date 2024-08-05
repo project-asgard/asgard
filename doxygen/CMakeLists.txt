@@ -29,7 +29,7 @@ doxygen_add_docs(asgard_doxygen
                  README.md
                  #doxygen/installation.md
                  #doxygen/basic_usage.md
-                 src/
+                 src/program_options.hpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")
 

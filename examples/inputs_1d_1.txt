@@ -1,0 +1,10 @@
+# number of waves
+# this number will be used to set the rest
+# of the discretization parameters
+
+# ASGarD specific inputs, such as "-title"
+# must include the command line "-"
+-title     : Wave inputs test
+-subtitle  : using a single wave
+
+number of waves : 1

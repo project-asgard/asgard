@@ -1,0 +1,11 @@
+# this is deliberately misalined
+# tests for robustness of the parser
+-l  : 5
+ -a: 0.125 
+# nothing of interest here
+  -g:   dense   
+-s : expl  
+  # more comments
+
+ bb1 :   yes 
+some_int : 8

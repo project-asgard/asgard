@@ -22,7 +22,8 @@ prog_opts::prog_opts(int const argc, char const *const *argv,
   for (auto i : indexof(argc))
     view_argv.emplace_back(argv[i]);
 
-  process_inputs(view_argv, ignore_unknown);
+  process_inputs(
+      view_argv, (ignore_unknown) ? handle_mode::ignore_unknown : handle_mode::warn_on_unknown);
 }
 
 void prog_opts::print_help(std::ostream &os)
@@ -43,6 +44,7 @@ Options          Short   Value      Description
                                     will be saved, reloaded and printed to the screen.
                                     If omitted, the string will assume the name of the PDE.
 -subtitle          -     string     An addition to the title, optional use.
+-infile          -if     filename   Read options and values from a provided file.
 
 <<< discretization of the domain options >>>
 -grid            -g      string     accepts: sparse/dense/full/mixed/mix
@@ -80,6 +82,7 @@ Options          Short   Value      Description
 -wave-freq       -w      int        Interval (in time steps) for outputting the hierarchical
                                     wavelet data, compatible with Python plotting.
 -restart                 filename   Wavelet output file to restart the simulation.
+-outfile         -of     filename   File to write the last step of the simulation.
 
 <<< solvers and linear algebra options >>>
 -kron-mode       -       string     accepts: dense/sparse
@@ -179,7 +182,7 @@ landau_1x3v    Collisional Landau 1x3v.
 }
 
 void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
-                               bool ignore_unknown)
+                               handle_mode mode)
 {
   std::map<std::string_view, optentry> commands = {
       {"help", optentry::show_help}, {"-help", optentry::show_help}, {"--help", optentry::show_help},
@@ -188,6 +191,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"version", optentry::version_help}, {"-v", optentry::version_help},
       {"-pde?", optentry::pde_help}, {"-p?", optentry::pde_help},
       {"-pde", optentry::pde_choice}, {"-p", optentry::pde_choice},
+      {"-infile", optentry::input_file}, {"-if", optentry::input_file},
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
@@ -201,6 +205,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-num-steps", optentry::num_time_steps}, {"-n", optentry::num_time_steps},
       {"-wave-freq", optentry::wavelet_output_freq}, {"-w", optentry::wavelet_output_freq},
       {"-real-freq", optentry::realspace_output_freq}, {"-r", optentry::realspace_output_freq},
+      {"-outfile", optentry::output_file}, {"-of", optentry::output_file},
       {"-dt", optentry::dt},
       {"-available-pdes", optentry::pde_help},
       {"-solver", optentry::solver}, {"-sv", optentry::solver},
@@ -246,9 +251,12 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
     auto imap = commands.find(*iarg);
     if (imap == commands.end())
     { // entry not found
-      if (not ignore_unknown)
+      if (mode == handle_mode::warn_on_unknown)
         std::cerr << "  unrecognized option: " << *iarg << "\n";
-      externals.emplace_back(*iarg);
+      if (mode == handle_mode::save_unknown)
+        filedata.emplace_back(*iarg);
+      else
+        externals.emplace_back(*iarg);
       continue;
     }
 
@@ -263,6 +271,16 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
     case optentry::pde_help:
       show_pde_help = true;
       break;
+    case optentry::input_file: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (not infile.empty())
+        throw std::runtime_error("cannot read from two input files");
+      infile = *selected;
+      process_file(argv.front());
+    }
+    break;
     case optentry::grid_mode: {
       auto selected = move_process_next();
       if (not selected)
@@ -375,6 +393,13 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       } catch(std::out_of_range &) {
         throw std::runtime_error(report_wrong_value());
       }
+    }
+    break;
+    case optentry::output_file: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      outfile = *selected;
     }
     break;
     case optentry::realspace_output_freq: {
@@ -576,7 +601,69 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
   return (imap != pdes.end()) ? imap->second : std::optional<PDE_opts>();
 }
 
-void prog_opts::print(std::ostream &os) const
+void prog_opts::process_file(std::string_view const &exec_name)
+{
+  // 1. read the lines from the file
+  // 2. split each line into 2 strings
+  // 3. feed the result into process_inputs()
+  //    (this will extract all standard known inputs)
+  // 4. the remaining inputs will be stored in filedata
+  rassert(std::filesystem::exists(infile),
+          "cannot find the input file " + std::string(infile));
+
+  std::ifstream ifs(infile, std::ifstream::in);
+  rassert(ifs, "cannot open the input file " + std::string(infile));
+
+  auto strip_line = [](std::string const &s)
+      -> std::string
+  {
+    if (s.empty())
+      return s;
+    std::string::size_type be = 0;
+    while (std::isspace(static_cast<unsigned char>(s[be])))
+      be++;
+    std::string::size_type en = s.size() - 1;
+    while (en > be and std::isspace(static_cast<unsigned char>(s[en])))
+      en--;
+    return s.substr(be, en - be + 1);
+  };
+
+  std::vector<std::string> line_pairs;
+  std::string line;
+  int line_num = 0;
+  while (getline(ifs, line))
+  {
+    line_num++;
+    //std::cout << "reading line: " << line_num << " as: " << line << '\n';
+    line = strip_line(line);
+    if (line[0] == '#') // ignore lines starting with '#' (comments)
+      continue;
+    //std::cout << "stripped to: " << line << '\n';
+    if (line.empty())
+      continue;
+    auto pos = line.find(':');
+    //std::cout << "found : at position " << pos << '\n';
+    rassert(pos < line.size(),
+            "invalid file format, lines must be '<option> : <value>\nline: "
+              + std::to_string(line_num) + " is missing ':'");
+
+    std::string op = strip_line(line.substr(0, pos));
+    std::string va = strip_line(line.substr(pos + 1, line.size() - pos));
+
+    line_pairs.emplace_back(op);
+    line_pairs.emplace_back(va);
+  }
+
+  std::vector<std::string_view> views;
+  views.reserve(line_pairs.size() + 1);
+  views.emplace_back(exec_name);
+  for (auto &s : line_pairs)
+    views.emplace_back(s);
+
+  process_inputs(views, handle_mode::save_unknown);
+}
+
+void prog_opts::print_options(std::ostream &os) const
 {
   os << "ASGarD problem configuration:\n";
   os << "  title: " << title << '\n';

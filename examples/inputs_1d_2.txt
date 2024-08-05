@@ -1,0 +1,13 @@
+# number of waves
+# this number will be used to set the rest        
+# of the discretization parameters
+
+# ASGarD specific inputs, such as "-title"
+# must include the command line "-"
+-title     : Wave inputs test
+-subtitle  : using 3 waves
+
+number of waves : 3
+cells per wave  : 8
+# this will require 3 * 8 = 24 cell minimum
+# will round up to the next power of 2, i.e., 32 cells
