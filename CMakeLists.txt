@@ -715,7 +715,7 @@ endif()
 
 configure_file(asgard-env.sh ${CMAKE_CURRENT_BINARY_DIR}/asgard-env.sh @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-env.sh"
-        DESTINATION bin)
+        DESTINATION share/asgard/)
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/examples/"
         DESTINATION share/asgard/examples
