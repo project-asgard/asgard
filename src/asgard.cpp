@@ -24,7 +24,7 @@ void simulate(std::unique_ptr<PDE<precision>> &pde)
     std::cout << options;
 #else
   if (get_local_rank() == 0)
-    options.print();
+    std::cout << options;
 #endif
 
   node_out() << "--- begin setup ---" << '\n';
