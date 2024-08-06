@@ -13,7 +13,6 @@ class PDE;
 #include "pde/pde_base.hpp"
 #include "program_options.hpp"
 #include "sparse.hpp"
-#include <vector>
 
 namespace asgard
 {

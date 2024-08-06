@@ -1,7 +1,5 @@
-#include "matlab_utilities.hpp"
-#include "permutations.hpp"
+
 #include "tests_general.hpp"
-#include <vector>
 
 static auto const permutations_base_dir = gold_base_dir / "permutations";
 

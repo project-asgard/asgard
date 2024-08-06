@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../quadrature.hpp"
 #include "pde_base.hpp"
 
 namespace asgard

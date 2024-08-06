@@ -17,7 +17,6 @@
 #include <limits>
 #include <list>
 #include <map>
-#include <math.h>
 #include <memory>
 #include <mutex>
 #include <new>

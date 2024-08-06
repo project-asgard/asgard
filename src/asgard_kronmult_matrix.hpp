@@ -3,8 +3,6 @@
 
 #include "adapt.hpp"
 #include "asgard_grid_1d.hpp"
-#include "asgard_resources.hpp"
-#include "asgard_vector.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "pde.hpp"

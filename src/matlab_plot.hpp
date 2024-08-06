@@ -8,8 +8,6 @@
 #include "pde.hpp"
 #include <MatlabDataArray.hpp>
 #include <MatlabEngine.hpp>
-#include <type_traits>
-#include <vector>
 
 namespace asgard::ml
 {

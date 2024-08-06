@@ -1,14 +1,4 @@
 #pragma once
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <string>
-#include <typeinfo>
-#include <vector>
-
 #include "pde_base.hpp"
 
 namespace asgard

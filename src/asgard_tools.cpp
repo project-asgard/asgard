@@ -30,7 +30,7 @@ std::string simple_timer::report()
         auto const flops = id_to_flops_[id];
         auto const sum   = std::accumulate(flops.begin(), flops.end(), 0.0);
 
-        if (isinf(sum))
+        if (std::isinf(sum))
         {
           return std::string(" avg gflops: inf");
         }
@@ -74,7 +74,7 @@ timing_stats simple_timer::calculate_timing_stats(std::string const &&id,
       auto const flops = id_to_flops_[id];
       auto const sum   = std::accumulate(flops.begin(), flops.end(), 0.0);
 
-      if (isinf(sum))
+      if (std::isinf(sum))
       {
         return -1.0;
       }

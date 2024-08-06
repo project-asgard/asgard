@@ -1,9 +1,5 @@
-#include "adapt.hpp"
-#include "coefficients.hpp"
-#include "program_options.hpp"
-#include "tests_general.hpp"
 
-#include <catch2/catch_session.hpp>
+#include "tests_general.hpp"
 
 static auto constexpr adapt_threshold = 1e-4;
 

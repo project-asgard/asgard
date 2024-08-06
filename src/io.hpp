@@ -12,8 +12,6 @@
 
 // workaround for missing include issue with highfive
 // clang-format off
-#include <numeric>
-#include <filesystem>
 #include <highfive/H5Easy.hpp>
 #include <highfive/H5DataType.hpp>
 #include <highfive/H5DataSpace.hpp>

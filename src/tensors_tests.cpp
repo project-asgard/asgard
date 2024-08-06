@@ -1,13 +1,4 @@
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
 #include "tests_general.hpp"
-#include <fstream>
-#include <functional>
-#include <iostream>
-#include <numeric>
-#include <sstream>
-
-#include "matlab_utilities.hpp"
 
 using namespace asgard;
 
