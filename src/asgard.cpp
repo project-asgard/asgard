@@ -22,7 +22,6 @@ void simulate(std::unique_ptr<PDE<precision>> &pde)
   }
   else if (get_local_rank() == 0)
     std::cout << options;
-    //options.print_options();
 #else
   if (get_local_rank() == 0)
     options.print();

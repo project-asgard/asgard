@@ -407,7 +407,7 @@ void read_restart_metadata(prog_opts &options, std::string const &restart_file)
   }
 
   if (get_local_rank() == 0)
-    options.print_options();
+    std::cout << options;
 }
 
 template<typename P>

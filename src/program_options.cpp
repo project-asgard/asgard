@@ -634,15 +634,12 @@ void prog_opts::process_file(std::string_view const &exec_name)
   while (getline(ifs, line))
   {
     line_num++;
-    //std::cout << "reading line: " << line_num << " as: " << line << '\n';
     line = strip_line(line);
     if (line[0] == '#') // ignore lines starting with '#' (comments)
       continue;
-    //std::cout << "stripped to: " << line << '\n';
     if (line.empty())
       continue;
     auto pos = line.find(':');
-    //std::cout << "found : at position " << pos << '\n';
     rassert(pos < line.size(),
             "invalid file format, lines must be '<option> : <value>\nline: "
               + std::to_string(line_num) + " is missing ':'");
