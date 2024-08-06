@@ -56,6 +56,10 @@ public:
   void reconstruct(double const x[], int num_x, double y[]) const;
 
 protected:
+  //! template dispatch based on the degree
+  template<int degree>
+  void reconstruct(double const x[], int num_x, double y[]) const;
+
   /*!
    * \brief Prepare the inernal data-structures for fast reconstruction
    *
@@ -99,8 +103,12 @@ protected:
    * the optional is empty if the basis is not supported.
    */
   std::optional<double>
-  basis_value(int const p[], double const x[], double const c[]) const;
+  basis_value1(int const p[], double const x[], double const c[]) const;
+  //! \brief Simplest case, using constant basis
+  std::optional<double>
+  basis_value0(int const p[], double const x[], double const c[]) const;
   //! Evaluate the loaded approximation at point x
+  template<int degree>
   double walk_tree(const double x[]) const;
 
 private:

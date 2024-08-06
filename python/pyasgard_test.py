@@ -151,30 +151,32 @@ class asgard_reconstruction_tests(unittest.TestCase):
     # simple IO test
     def test_simple1d(self):
         print("\ntesting 1d plot")
-        os.system("./asgard -p continuity_1 -d 1 -l 6 -w 10 -dt 0.01 1>/dev/null")
+        tols = (1.E-3, 1.E-5)
+        for degree in range(2):
+            os.system("./asgard -p continuity_1 -d %d -l 6 -w 10 -dt 0.01 1>/dev/null" % degree)
 
-        self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_1")
+            self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_1")
 
-        snapshot = asgard.pde_snapshot("asgard_wavelet_10.h5")
+            snapshot = asgard.pde_snapshot("asgard_wavelet_10.h5")
 
-        gold_dimension_min = np.array([-1.0, ])
-        gold_dimension_max = np.array([1.0, ])
-        self.almost_equal(snapshot.dimension_min, gold_dimension_min,
-                          "mismatch in dimension_min")
-        self.almost_equal(snapshot.dimension_max, gold_dimension_max,
-                          "mismatch in dimension_max")
+            gold_dimension_min = np.array([-1.0, ])
+            gold_dimension_max = np.array([1.0, ])
+            self.almost_equal(snapshot.dimension_min, gold_dimension_min,
+                            "mismatch in dimension_min")
+            self.almost_equal(snapshot.dimension_max, gold_dimension_max,
+                            "mismatch in dimension_max")
 
-        self.assertEqual(snapshot.num_dimensions, 1, "mismatch in the number of dimensions")
-        self.assertEqual(snapshot.num_cells, 64, "mismatch in the number of cells")
+            self.assertEqual(snapshot.num_dimensions, 1, "mismatch in the number of dimensions")
+            self.assertEqual(snapshot.num_cells, 64, "mismatch in the number of cells")
 
-        z, x = snapshot.plot_data1d([[-1.0, 1.0],], num_points = 128)
+            z, x = snapshot.plot_data1d([[-1.0, 1.0],], num_points = 128)
 
-        # exact solution for the continuity_2 example
-        h = continuity_1_exact(x, snapshot.time)
+            # exact solution for the continuity_1 example
+            h = continuity_1_exact(x, snapshot.time)
 
-        err = np.sum(np.abs(h - z) ** 2) / x.size
+            err = np.sum(np.abs(h - z) ** 2) / x.size
 
-        self.assertLessEqual(err, 1.E-4, "mismatchin continuity_1")
+            self.assertLessEqual(err, tols[degree], "mismatchin continuity_1")
 
     def test_simple2d(self):
         print("\ntesting 2d plot")

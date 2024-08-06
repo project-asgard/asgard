@@ -7,22 +7,6 @@
 
 namespace asgard
 {
-//
-// set the range specified by first and last,
-// starting with the supplied value and incrementing
-// that value by stride for each position in the range.
-//
-template<typename ForwardIterator, typename P>
-static void strided_iota(ForwardIterator first, ForwardIterator last, P value,
-                         P const stride)
-{
-  while (first != last)
-  {
-    *first++ = value;
-    value += stride;
-  }
-}
-
 // perform recursive kronecker product
 template<typename P>
 fk::vector<P>
@@ -39,28 +23,6 @@ kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
   }
   return kron_d(operands, num_prods - 1)
       .single_column_kron(operands[num_prods - 1]);
-}
-
-/* given a vector of matrices, return the Kronecker product of all of them in
- * order */
-template<typename P>
-fk::matrix<P>
-recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
-               int const index)
-{
-  expect(index >= 0);
-  expect(index < static_cast<int>(kron_matrices.size()));
-
-  if (index == (static_cast<int>(kron_matrices.size()) - 1))
-  {
-    return fk::matrix<P>(kron_matrices.back());
-  }
-
-  else
-  {
-    return fk::matrix<P>(
-        kron_matrices[index].kron(recursive_kron(kron_matrices, index + 1)));
-  }
 }
 
 template<typename P>
@@ -330,9 +292,6 @@ fk::vector<P> sum_separable_funcs(
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template fk::matrix<double>
-recursive_kron(std::vector<fk::matrix<double, mem_type::view>> &kron_matrices,
-               int const index);
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
@@ -374,9 +333,6 @@ template fk::vector<double> sum_separable_funcs(
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template fk::matrix<float>
-recursive_kron(std::vector<fk::matrix<float, mem_type::view>> &kron_matrices,
-               int const index);
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
     basis::wavelet_transform<float, resource::host> const &transformer,

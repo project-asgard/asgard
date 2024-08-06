@@ -14,11 +14,6 @@
 namespace asgard
 {
 template<typename P>
-fk::matrix<P>
-recursive_kron(std::vector<fk::matrix<P, mem_type::view>> &kron_matrices,
-               int const index = 0);
-
-template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
     basis::wavelet_transform<P, resource::host> const &transformer,

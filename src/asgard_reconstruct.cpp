@@ -66,6 +66,7 @@ void reconstruct_solution::set_domain_bounds(double const amin[], double const a
   domain_scale = 1.0 / std::sqrt(domain_scale);
 }
 
+template<int degree>
 void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) const
 {
   int const num_dimensions = cells_.num_dimensions();
@@ -78,9 +79,24 @@ void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) 
   {
     for (int d = 0; d < num_dimensions; d++)
       xn[d] = inv_slope[d] * (x2d[i][d] - shift[d]);
-    y[i] = domain_scale * walk_tree(xn.data());
+    y[i] = domain_scale * walk_tree<degree>(xn.data());
   }
 }
+}
+
+void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) const
+{
+  switch (pterms_ - 1)
+  {
+  case 0:
+    reconstruct<0>(x, num_x, y);
+    break;
+  case 1:
+    reconstruct<1>(x, num_x, y);
+    break;
+  default:
+    throw std::runtime_error("incorrect degree");
+  }
 }
 
 vector2d<int> reconstruct_solution::compute_dag_down() const
@@ -215,8 +231,34 @@ void reconstruct_solution::build_tree()
 }
 
 std::optional<double>
-reconstruct_solution::basis_value(int const p[], double const x[],
-                                  double const c[]) const
+reconstruct_solution::basis_value0(int const p[], double const x[], double const c[]) const
+{
+  // first translat the x values to normalized values for the given cell
+  std::array<double, max_num_dimensions> xn;
+  std::array<double, max_num_dimensions> w;
+  int const &num_dimensions = cells_.num_dimensions();
+  for (int d = 0; d < num_dimensions; d++)
+  {
+    int p2l2;
+    fm::intlog2_pow2pows2(p[d], p2l2, w[d]);
+    xn[d] = (p[d] > 1) ? (p2l2 * (x[d] + 1.0) - p[d]) : x[d];
+
+    // if the normalized point is out of bounds, return no-value
+    if (xn[d] < 0.0 or xn[d] > 1.0)
+      return std::optional<double>();
+  }
+
+  // loop over all the basis inside the cell
+  double val = 1.0;
+  for (auto d : indexof(num_dimensions))
+    val *= (p[d] == 0 or xn[d] > 0.5) ? w[d] : -w[d];
+
+  return c[0] * val;
+}
+
+std::optional<double>
+reconstruct_solution::basis_value1(int const p[], double const x[],
+                                   double const c[]) const
 {
   // first translat the x values to normalized values for the given cell
   std::array<double, max_num_dimensions> xn;
@@ -251,6 +293,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
   return std::optional<double>(sum);
 }
 
+template<int degree>
 double reconstruct_solution::walk_tree(double const x[]) const
 {
   std::array<int, 31> monkey_count;
@@ -260,7 +303,10 @@ double reconstruct_solution::walk_tree(double const x[]) const
   double result = 0;
 
   for(const auto &r : roots){
-    basis = basis_value(cells_[r], x, coeff_.data() + r * block_size_);
+    if constexpr (degree == 0)
+      basis = basis_value0(cells_[r], x, coeff_.data() + r);
+    else if constexpr (degree == 1)
+      basis = basis_value1(cells_[r], x, coeff_.data() + r * block_size_);
 
     if (basis)
     {
@@ -274,7 +320,10 @@ double reconstruct_solution::walk_tree(double const x[]) const
       {
         if (monkey_count[current] < pntr[monkey_tail[current]+1]){
           int const p = indx[monkey_count[current]];
-          basis = basis_value(cells_[p], x, coeff_.data() + p * block_size_);
+          if constexpr (degree == 0)
+            basis = basis_value0(cells_[p], x, coeff_.data() + p);
+          else if constexpr (degree == 1)
+            basis = basis_value1(cells_[p], x, coeff_.data() + p * block_size_);
 
           if (basis)
           {

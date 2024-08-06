@@ -176,9 +176,9 @@ void write_output(PDE<P> const &pde,
   // TODO: needs to be checked further based on problem sizes
   HighFive::DataSetCreateProps plist;
   // just a temporary hack
-  if (hash_table.get_active_table().size() < 32)
+  if (hash_table.get_active_table().size() <= 32)
     plist.add(HighFive::Chunking(hsize_t{4}));
-  else if (hash_table.get_active_table().size() < 64)
+  else if (hash_table.get_active_table().size() <= 64)
     plist.add(HighFive::Chunking(hsize_t{32}));
   else
     plist.add(HighFive::Chunking(hsize_t{64}));
