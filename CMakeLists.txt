@@ -709,7 +709,9 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp"
 configure_file(examples/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt @ONLY)
 configure_file(testing/TestingCMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt @ONLY)
 configure_file(testing/test_post_install.sh ${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh @ONLY)
-add_custom_target(test_install COMMAND "${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh")
+if (ASGARD_BUILD_TESTS)
+    add_custom_target(test_install COMMAND "${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh")
+endif()
 
 configure_file(asgard-env.sh ${CMAKE_CURRENT_BINARY_DIR}/asgard-env.sh @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-env.sh"
