@@ -29,8 +29,8 @@ if __name__ == '__main__':
     outfile2 = 'waves2.h5'
 
     # providing the input file and also forcing the degree to 1
-    os.system("./example_inputs_1d -if inputs_1d_1.txt -d 1 -of %s" % outfile1)
-    os.system("./example_inputs_1d -if inputs_1d_2.txt -d 1 -of %s" % outfile2)
+    os.system("./example_inputs_1d -if inputs_1d_1.txt -d 2 -of %s" % outfile1)
+    os.system("./example_inputs_1d -if inputs_1d_2.txt -d 2 -of %s" % outfile2)
 
     if not os.path.isfile(outfile1) or not os.path.isfile(outfile2):
         print("ERROR: example_inputs_1d did not generate an output file")

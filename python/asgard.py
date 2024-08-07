@@ -49,7 +49,6 @@ class pde_snapshot:
 
             self.num_dimensions = fdata['ndims'][()]
             self.degree         = fdata['degree'][()]
-            assert self.degree <= 1, "only works with constant and linear basis, others will be coming soon"
 
             self.state = fdata['soln'][()]
             self.cells = fdata['elements'][()]

@@ -102,11 +102,11 @@ protected:
    * returns the value of the sum of basis times coefficients,
    * the optional is empty if the basis is not supported.
    */
+  template<int degree>
   std::optional<double>
-  basis_value1(int const p[], double const x[], double const c[]) const;
+  basis_value(int const p[], double const x[], double const c[],
+              vector2d<double> &scratch) const;
   //! \brief Simplest case, using constant basis
-  std::optional<double>
-  basis_value0(int const p[], double const x[], double const c[]) const;
   //! Evaluate the loaded approximation at point x
   template<int degree>
   double walk_tree(const double x[]) const;
@@ -125,6 +125,13 @@ private:
   std::vector<int> roots;
   std::vector<int> pntr;
   std::vector<int> indx;
+
+  // using singe vector so data is compact and cached more easily
+  // alias the location of the left-right basis
+  std::vector<double> wavelets;
+  // aliases to the structure above
+  double *wleft  = nullptr;
+  double *wright = nullptr;
 };
 
 } // namespace asgard

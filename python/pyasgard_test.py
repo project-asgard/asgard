@@ -151,20 +151,21 @@ class asgard_reconstruction_tests(unittest.TestCase):
     # simple IO test
     def test_simple1d(self):
         print("\ntesting 1d plot")
-        tols = (1.E-3, 1.E-5)
-        for degree in range(2):
-            os.system("./asgard -p continuity_1 -d %d -l 6 -w 10 -dt 0.01 1>/dev/null" % degree)
+        tols = (1.E-4, 1.E-6, 1.E-8, 1.E-9)
+        levs = (6, 6, 4, 4)
+        for degree in range(4):
+            os.system("./asgard -p continuity_1 -d %d -l 6 -dt 0.005 -of _test_plot.h5 1>/dev/null" % degree)
 
-            self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_1")
+            self.assertTrue(os.path.isfile("_test_plot.h5"), "failed to run continuity_1")
 
-            snapshot = asgard.pde_snapshot("asgard_wavelet_10.h5")
+            snapshot = asgard.pde_snapshot("_test_plot.h5")
 
             gold_dimension_min = np.array([-1.0, ])
             gold_dimension_max = np.array([1.0, ])
             self.almost_equal(snapshot.dimension_min, gold_dimension_min,
-                            "mismatch in dimension_min")
+                              "mismatch in dimension_min")
             self.almost_equal(snapshot.dimension_max, gold_dimension_max,
-                            "mismatch in dimension_max")
+                              "mismatch in dimension_max")
 
             self.assertEqual(snapshot.num_dimensions, 1, "mismatch in the number of dimensions")
             self.assertEqual(snapshot.num_cells, 64, "mismatch in the number of cells")

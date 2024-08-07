@@ -123,10 +123,10 @@ private:
   // function definitions needed to build up the dimension, terms and sources
   //
 
-  // for all funtions, the "vector x" indicates a batch of quadrature points
+  // for all functions, the "vector x" indicates a batch of quadrature points
   // in the corresponding dimension (e.g., dim0 or dim1)
   // the output should be a vector with the same size holding f(x)
-  // funcitons also accept a "time" scalar but it is often ignored
+  // functions also accept a "time" scalar but it is often ignored
 
   // specify initial condition vector functions...
   static vector initial_condition_x(vector const &x, precision const = 0)
@@ -143,7 +143,7 @@ private:
     // ignored parameter corresponds to time
     vector fx(x.size());
     for (int i = 0; i < x.size(); i++)
-      fx[i] =  std::sin(precision{2.0} * M_PI * x[i]);
+      fx[i] = std::sin(precision{2.0} * M_PI * x[i]);
     return fx;
   }
 
@@ -198,7 +198,7 @@ private:
   }
 
   // a bit of a misnomer, this is a scaling factor applied to dt
-  // in conjuction with the CFL conidition provided from the command line
+  // in conjunction with the CFL condition provided from the command line
   // (note: this is probably not fully supported at the moment)
   static precision get_dt(asgard::dimension<precision> const &dim)
   {

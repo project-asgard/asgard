@@ -24,14 +24,13 @@ if __name__ == '__main__':
         exit(1)
 
     print("asgard: running the continuity example")
-    os.system("./example_continuity_2d -p continuity_2 -d 1 -l 6 -w 10 -n 10 -t 0.0001")
+    os.system("./example_continuity_2d -p continuity_2 -d 2 -l 5 -n 10 -t 0.0001 -of cont1_final.h5")
 
     # the example above will run for 10 time steps and the -w 10 options
     # will tell the code to output on the final 10-th step
-    output_filename = 'asgard_wavelet_10.h5'
+    output_filename = 'cont1_final.h5'
     if not os.path.isfile(output_filename):
         print("ERROR: example_continuity_2d did not generate an output file")
-        exit(1)
 
     # using the ASGarD python module to read from the file
     snapshot = asgard.pde_snapshot(output_filename)

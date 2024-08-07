@@ -2,6 +2,8 @@
 
 #include "asgard_wavelet_basis.hpp"
 
+#include "basis.hpp"
+
 namespace asgard
 {
 
@@ -50,6 +52,35 @@ reconstruct_solution::reconstruct_solution(
 
   // analyze the graph and prepare cache data
   build_tree();
+
+  // prepare the wavelet basis, if using general degree
+  if (degree >= 3)
+  {
+    // using coefficient matrices for the left/right wavelets
+    // and scale factors for the legendre basis
+    wavelets.resize(2 * pterms_ * pterms_ + pterms_);
+    wleft  = wavelets.data() + pterms_;
+    wright = wleft + pterms_ * pterms_;
+
+    // first pterms_ entries are the scale factors of the
+    // orthogonal Legendre polynomials on the interval (0, 1)
+    wavelets[0] = 1.0;
+    for (int i = 1; i < pterms_; i++)
+      wavelets[i] = std::sqrt(2.0 * i + 1.0);
+
+    // using ASGarD to build the matrices, but may be differen precision
+    using prec = default_precision;
+    std::array<fk::matrix<prec>, 6> matx = generate_multi_wavelets<prec>(degree);
+    fk::matrix<prec> const &c = matx[4]; // only need one matrix
+
+    // reversing the order, since we will be running from degree 0 to pterms_-1
+    auto w = wleft;
+    for (auto i : indexof<int>(pterms_))
+      w = std::copy_n(c.data(0, pterms_ - i - 1), pterms_, w);
+
+    for (auto i : indexof<int>(pterms_))
+      w = std::copy_n(c.data(pterms_, pterms_ - i - 1), pterms_, w);
+  }
 }
 
 void reconstruct_solution::set_domain_bounds(double const amin[], double const amax[])
@@ -94,8 +125,11 @@ void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) 
   case 1:
     reconstruct<1>(x, num_x, y);
     break;
+  case 2:
+    reconstruct<2>(x, num_x, y);
+    break;
   default:
-    throw std::runtime_error("incorrect degree");
+    reconstruct<-1>(x, num_x, y);
   }
 }
 
@@ -230,72 +264,214 @@ void reconstruct_solution::build_tree()
   std::copy_if(tree[0], tree[0] + tree.total_size(), indx.begin(), [](int t)->bool{ return (t > -1); });
 }
 
+template<int degree>
 std::optional<double>
-reconstruct_solution::basis_value0(int const p[], double const x[], double const c[]) const
+reconstruct_solution::basis_value(int const p[], double const x[],
+                                   double const c[], vector2d<double> &scratch) const
 {
+  // degree 0, 1, and 2 are hard-coded as analytic formulat
+  // degree -1 means that we are using general degree and should use pterms_
+  static_assert(degree >= -1 and degree <= 2,
+                "unsupported degree, use 0, 1, 2 for analytic expressions, "
+                "and degree -1 for the general case");
+
   // first translat the x values to normalized values for the given cell
   std::array<double, max_num_dimensions> xn;
-  std::array<double, max_num_dimensions> w;
+  double w = 1.0;
   int const &num_dimensions = cells_.num_dimensions();
-  for (int d = 0; d < num_dimensions; d++)
+  for (auto d : indexof<int>(num_dimensions))
   {
     int p2l2;
-    fm::intlog2_pow2pows2(p[d], p2l2, w[d]);
+    double wd;
+    fm::intlog2_pow2pows2(p[d], p2l2, wd);
+    w *= wd;
     xn[d] = (p[d] > 1) ? (p2l2 * (x[d] + 1.0) - p[d]) : x[d];
 
-    // if the normalized point is out of bounds, return no-value
-    if (xn[d] < 0.0 or xn[d] > 1.0)
-      return std::optional<double>();
-  }
-
-  // loop over all the basis inside the cell
-  double val = 1.0;
-  for (auto d : indexof(num_dimensions))
-    val *= (p[d] == 0 or xn[d] > 0.5) ? w[d] : -w[d];
-
-  return c[0] * val;
-}
-
-std::optional<double>
-reconstruct_solution::basis_value1(int const p[], double const x[],
-                                   double const c[]) const
-{
-  // first translat the x values to normalized values for the given cell
-  std::array<double, max_num_dimensions> xn;
-  std::array<double, max_num_dimensions> w;
-  int const &num_dimensions = cells_.num_dimensions();
-  for (int d = 0; d < num_dimensions; d++)
-  {
-    int p2l2;
-    fm::intlog2_pow2pows2(p[d], p2l2, w[d]);
-    xn[d] = (p[d] > 1) ? (p2l2 * (x[d] + 1.0) - p[d]) : x[d];
-
-    // if the normalized point is out of bounds, return no-value
-    if (xn[d] < 0.0 or xn[d] > 1.0)
-      return std::optional<double>();
-  }
-
-  // loop over all the basis inside the cell
-  double sum = 0.0;
-  for (int i = 0; i < block_size_; i++)
-  {
-    int t = i;
-    double val = 1.0;
-    for (int d = num_dimensions - 1; d >= 0; d--)
+    // analytic formular work on (0, 1), general degree uses a shift to (-1, 1)
+    if constexpr (degree == -1)
     {
-      val *= w[d] * linear_basis<double>::pbasis(p[d], t % pterms_, xn[d]);
-      t /= pterms_;
+      xn[d] = 2.0 * xn[d] - 1.0;
+      if (xn[d] < -1.0 or xn[d] > 1.0)
+        return std::optional<double>();
+    }
+    else
+    {
+      // if the normalized point is out of bounds, return no-value
+      if (xn[d] < 0.0 or xn[d] > 1.0)
+        return std::optional<double>();
+    }
+  }
+
+  // loop over all the basis inside the cell
+  if constexpr (degree == -1) // general case
+  {
+    // find the values of all basis functions at different x[d]
+    for (auto d : indexof<int>(num_dimensions))
+    {
+      double *vals = scratch[d];
+      if (p[d] == 0)
+      { // Legendre basis, using recurence relationship
+        double lmm = 1.0, lm = xn[d];
+        vals[0] = 1.0;
+        vals[1] = lm * wavelets[1];
+        for (int p = 2; p < pterms_; p++)
+        {
+          double l = ((2 * p - 1) * xn[d] * lm - (p - 1) * lmm) / static_cast<double>(p);
+          vals[p] = l * wavelets[p];
+          lmm = lm;
+          lm = l;
+        }
+      }
+      else
+      {
+        if (xn[d] < 0.0)
+        {
+          std::copy_n(wleft, pterms_, vals);
+          double mono = xn[d];
+          for (int i = 1; i < pterms_; i++)
+          {
+#pragma omp simd
+            for (int j = 0; j < pterms_; j++)
+              vals[j] += mono * wleft[i * pterms_ + j];
+            mono *= xn[d];
+          }
+        }
+        else
+        {
+          std::copy_n(wright, pterms_, vals);
+          double mono = xn[d];
+          for (int i = 1; i < pterms_; i++)
+          {
+#pragma omp simd
+            for (int j = 0; j < pterms_; j++)
+              vals[j] += mono * wright[i * pterms_ + j];
+            mono *= xn[d];
+          }
+        }
+      }
     }
 
-    sum += val * c[i];
-  }
+    double sum = 0.0;
+    for (auto i : indexof<int>(block_size_))
+    {
+      int t = i;
+      double v = w;
+      for (int d = num_dimensions - 1; d >= 0; d--)
+      {
+        v *= scratch[d][t % pterms_];
+        t /= pterms_;
+      }
 
-  return std::optional<double>(sum);
+      sum += v * c[i];
+    }
+
+    return std::optional<double>(sum);
+  }
+  else if constexpr (degree == 2)
+  {
+    // this is an alternative to scratch, sits on the stack
+    std::array<std::array<double, 3>, max_num_dimensions> vals;
+    for (auto d : indexof<int>(num_dimensions))
+    {
+      if (p[d] == 0)
+      {
+        vals[d][0] = quadratic_basis<double>::pleg0(xn[d]);
+        vals[d][1] = quadratic_basis<double>::pleg1(xn[d]);
+        vals[d][2] = quadratic_basis<double>::pleg2(xn[d]);
+      }
+      else
+      {
+        if (xn[d] < 0.5)
+        {
+          vals[d][0] = quadratic_basis<double>::pwav0L(xn[d]);
+          vals[d][1] = quadratic_basis<double>::pwav1L(xn[d]);
+          vals[d][2] = quadratic_basis<double>::pwav2L(xn[d]);
+        }
+        else
+        {
+          vals[d][0] = quadratic_basis<double>::pwav0R(xn[d]);
+          vals[d][1] = quadratic_basis<double>::pwav1R(xn[d]);
+          vals[d][2] = quadratic_basis<double>::pwav2R(xn[d]);
+        }
+      }
+    }
+
+    double sum = 0.0;
+    for (auto i : indexof<int>(block_size_))
+    {
+      int t = i;
+      double v = w;
+      for (int d = num_dimensions - 1; d >= 0; d--)
+      {
+        v *= vals[d][t % 3];
+        t /= 3;
+      }
+
+      sum += v * c[i];
+    }
+
+    return std::optional<double>(sum);
+  }
+  else if constexpr (degree == 1)
+  {
+    // this is an alternative to scratch, sits on the stack
+    std::array<std::array<double, 2>, max_num_dimensions> vals;
+    for (auto d : indexof<int>(num_dimensions))
+    {
+      if (p[d] == 0)
+      {
+        vals[d][0] = 1.0;
+        vals[d][1] = linear_basis<double>::pleg1(xn[d]);
+      }
+      else
+      {
+        if (xn[d] < 0.5)
+        {
+          vals[d][0] = linear_basis<double>::pwav0L(xn[d]);
+          vals[d][1] = linear_basis<double>::pwav1L(xn[d]);
+        }
+        else
+        {
+          vals[d][0] = linear_basis<double>::pwav0R(xn[d]);
+          vals[d][1] = linear_basis<double>::pwav1R(xn[d]);
+        }
+      }
+    }
+
+    double sum = 0.0;
+    for (int i = 0; i < block_size_; i++)
+    {
+      int t = i;
+      double v = w;
+      for (int d = num_dimensions - 1; d >= 0; d--)
+      {
+        v *= vals[d][t % 2];
+        t /= 2;
+      }
+
+      sum += v * c[i];
+    }
+
+    return std::optional<double>(sum);
+  }
+  else // degree == 0
+  {
+    int v = 1;
+    for (auto d : indexof<int>(num_dimensions))
+      if (p[d] > 0 and xn[d] < 0.5)
+        v = -v;
+
+    return c[0] * w * v;
+  }
 }
 
 template<int degree>
 double reconstruct_solution::walk_tree(double const x[]) const
 {
+  vector2d<double> workspace;
+  if constexpr (degree == -1)
+    workspace = vector2d<double>(pterms_, cells_.num_dimensions());
+
   std::array<int, 31> monkey_count;
   std::array<int, 31> monkey_tail;
 
@@ -303,10 +479,8 @@ double reconstruct_solution::walk_tree(double const x[]) const
   double result = 0;
 
   for(const auto &r : roots){
-    if constexpr (degree == 0)
-      basis = basis_value0(cells_[r], x, coeff_.data() + r);
-    else if constexpr (degree == 1)
-      basis = basis_value1(cells_[r], x, coeff_.data() + r * block_size_);
+    basis = basis_value<degree>(cells_[r], x, coeff_.data() + r * block_size_,
+                                workspace);
 
     if (basis)
     {
@@ -320,10 +494,8 @@ double reconstruct_solution::walk_tree(double const x[]) const
       {
         if (monkey_count[current] < pntr[monkey_tail[current]+1]){
           int const p = indx[monkey_count[current]];
-          if constexpr (degree == 0)
-            basis = basis_value0(cells_[p], x, coeff_.data() + p);
-          else if constexpr (degree == 1)
-            basis = basis_value1(cells_[p], x, coeff_.data() + p * block_size_);
+          basis = basis_value<degree>(cells_[p], x, coeff_.data() + p * block_size_,
+                                      workspace);
 
           if (basis)
           {
