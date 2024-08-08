@@ -314,10 +314,10 @@ reconstruct_solution::basis_value(int const p[], double const x[],
         double lmm = 1.0, lm = xn[d];
         vals[0] = 1.0;
         vals[1] = lm * wavelets[1];
-        for (int p = 2; p < pterms_; p++)
+        for (int n = 2; n < pterms_; n++)
         {
-          double l = ((2 * p - 1) * xn[d] * lm - (p - 1) * lmm) / static_cast<double>(p);
-          vals[p] = l * wavelets[p];
+          double l = ((2 * n - 1) * xn[d] * lm - (n - 1) * lmm) / static_cast<double>(n);
+          vals[n] = l * wavelets[n];
           lmm = lm;
           lm = l;
         }
