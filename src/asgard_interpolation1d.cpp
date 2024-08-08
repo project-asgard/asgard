@@ -64,16 +64,16 @@ namespace asgard
 template<typename P>
 struct linear_integrator
 {
-  static constexpr auto pleg0  = linear_basis<P>::pleg0;
-  static constexpr auto pleg1  = linear_basis<P>::pleg1;
-  static constexpr auto pwav0L = linear_basis<P>::pwav0L;
-  static constexpr auto pwav0R = linear_basis<P>::pwav0R;
-  static constexpr auto pwav1L = linear_basis<P>::pwav1L;
-  static constexpr auto pwav1R = linear_basis<P>::pwav1R;
-  static constexpr auto ibas0  = linear_basis<P>::ibas0;
-  static constexpr auto ibas1  = linear_basis<P>::ibas1;
-  static constexpr auto iwav0L = linear_basis<P>::iwav0L;
-  static constexpr auto iwav1R = linear_basis<P>::iwav1R;
+  static constexpr auto pleg0  = basis::linear<P>::pleg0;
+  static constexpr auto pleg1  = basis::linear<P>::pleg1;
+  static constexpr auto pwav0L = basis::linear<P>::pwav0L;
+  static constexpr auto pwav0R = basis::linear<P>::pwav0R;
+  static constexpr auto pwav1L = basis::linear<P>::pwav1L;
+  static constexpr auto pwav1R = basis::linear<P>::pwav1R;
+  static constexpr auto ibas0  = basis::linear<P>::ibas0;
+  static constexpr auto ibas1  = basis::linear<P>::ibas1;
+  static constexpr auto iwav0L = basis::linear<P>::iwav0L;
+  static constexpr auto iwav1R = basis::linear<P>::iwav1R;
 
   // Gauss-Legendre quadrature on (0, 1), 2 points
   static P constexpr x0 = 0.21132486540518712;
@@ -186,10 +186,10 @@ void wavelet_interp1d<order, precision>::make_wavelet_wmat0(
 {
   if constexpr (order == 1)
   {
-    mat[0] = linear_basis<precision>::pleg0(x[0]);
-    mat[1] = linear_basis<precision>::pleg0(x[1]);
-    mat[2] = linear_basis<precision>::pleg1(x[0]);
-    mat[3] = linear_basis<precision>::pleg1(x[1]);
+    mat[0] = basis::linear<precision>::pleg0(x[0]);
+    mat[1] = basis::linear<precision>::pleg0(x[1]);
+    mat[2] = basis::linear<precision>::pleg1(x[0]);
+    mat[3] = basis::linear<precision>::pleg1(x[1]);
   }
 }
 
@@ -199,10 +199,10 @@ void wavelet_interp1d<order, precision>::make_wavelet_imat0(
 {
   if constexpr (order == 1)
   {
-    mat[0] = -linear_basis<precision>::ibas0(x[0]);
-    mat[1] = -linear_basis<precision>::ibas0(x[1]);
-    mat[2] = -linear_basis<precision>::ibas1(x[0]);
-    mat[3] = -linear_basis<precision>::ibas1(x[1]);
+    mat[0] = -basis::linear<precision>::ibas0(x[0]);
+    mat[1] = -basis::linear<precision>::ibas0(x[1]);
+    mat[2] = -basis::linear<precision>::ibas1(x[0]);
+    mat[3] = -basis::linear<precision>::ibas1(x[1]);
   }
 }
 
@@ -215,13 +215,13 @@ void wavelet_interp1d<order, precision>::make_wavelet_wmat(
     for (int i = 0; i < 2; i++)
       if (x[i] < 0.5) // using the left sections of the wavelets
       {
-        mat[i]     = linear_basis<precision>::pwav0L(x[i]);
-        mat[i + 2] = linear_basis<precision>::pwav1L(x[i]);
+        mat[i]     = basis::linear<precision>::pwav0L(x[i]);
+        mat[i + 2] = basis::linear<precision>::pwav1L(x[i]);
       }
       else // using the right section
       {
-        mat[i]     = linear_basis<precision>::pwav0R(x[i]);
-        mat[i + 2] = linear_basis<precision>::pwav1R(x[i]);
+        mat[i]     = basis::linear<precision>::pwav0R(x[i]);
+        mat[i + 2] = basis::linear<precision>::pwav1R(x[i]);
       }
   }
 }
@@ -235,13 +235,13 @@ void wavelet_interp1d<order, precision>::make_wavelet_imat(
     for (int i = 0; i < 2; i++)
       if (x[i] < 0.5) // using the left sections of the wavelets
       {
-        mat[i]     = -linear_basis<precision>::iwav0L(x[i]);
-        mat[i + 2] = -linear_basis<precision>::iwav1L(x[i]);
+        mat[i]     = -basis::linear<precision>::iwav0L(x[i]);
+        mat[i + 2] = -basis::linear<precision>::iwav1L(x[i]);
       }
       else // using the right section
       {
-        mat[i]     = -linear_basis<precision>::iwav0R(x[i]);
-        mat[i + 2] = -linear_basis<precision>::iwav1R(x[i]);
+        mat[i]     = -basis::linear<precision>::iwav0R(x[i]);
+        mat[i + 2] = -basis::linear<precision>::iwav1R(x[i]);
       }
   }
 }

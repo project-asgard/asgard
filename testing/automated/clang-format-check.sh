@@ -78,7 +78,7 @@ asgard_tools.hpp
 asgard_tools_tests.cpp
 asgard_vector.hpp
 #basis.cpp
-basis.hpp
+asgard_basis.hpp
 #basis_tests.cpp
 batch.cpp
 #batch.hpp

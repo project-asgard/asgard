@@ -2,8 +2,6 @@
 
 #include "asgard_wavelet_basis.hpp"
 
-#include "basis.hpp"
-
 namespace asgard
 {
 
@@ -58,6 +56,7 @@ reconstruct_solution::reconstruct_solution(
   {
     // using coefficient matrices for the left/right wavelets
     // and scale factors for the legendre basis
+    // legendre calculation uses recurence relation, so we only need the scale
     wavelets.resize(2 * pterms_ * pterms_ + pterms_);
     wleft  = wavelets.data() + pterms_;
     wright = wleft + pterms_ * pterms_;
@@ -68,18 +67,21 @@ reconstruct_solution::reconstruct_solution(
     for (int i = 1; i < pterms_; i++)
       wavelets[i] = std::sqrt(2.0 * i + 1.0);
 
-    // using ASGarD to build the matrices, but may be differen precision
-    using prec = default_precision;
-    std::array<fk::matrix<prec>, 6> matx = generate_multi_wavelets<prec>(degree);
-    fk::matrix<prec> const &c = matx[4]; // only need one matrix
+    auto legendre = basis::legendre_poly<double>(degree);
 
-    // reversing the order, since we will be running from degree 0 to pterms_-1
+    auto wavs = basis::wavelet_poly(legendre, degree);
+
+    // the wavs coefficients are contiguous for a given wavelet
+    // but the basis_value() will access in a different pattern
+    // hence we transpose the data for faster simd use later on
     auto w = wleft;
     for (auto i : indexof<int>(pterms_))
-      w = std::copy_n(c.data(0, pterms_ - i - 1), pterms_, w);
-
+      for (auto j : indexof<int>(pterms_))
+        *w++ = wavs[j][i];
+    // copy the right coefficients
     for (auto i : indexof<int>(pterms_))
-      w = std::copy_n(c.data(pterms_, pterms_ - i - 1), pterms_, w);
+      for (auto j : indexof<int>(pterms_))
+        *w++ = wavs[j][i + pterms_];
   }
 }
 
@@ -375,23 +377,23 @@ reconstruct_solution::basis_value(int const p[], double const x[],
     {
       if (p[d] == 0)
       {
-        vals[d][0] = quadratic_basis<double>::pleg0(xn[d]);
-        vals[d][1] = quadratic_basis<double>::pleg1(xn[d]);
-        vals[d][2] = quadratic_basis<double>::pleg2(xn[d]);
+        vals[d][0] = basis::quadratic<double>::pleg0(xn[d]);
+        vals[d][1] = basis::quadratic<double>::pleg1(xn[d]);
+        vals[d][2] = basis::quadratic<double>::pleg2(xn[d]);
       }
       else
       {
         if (xn[d] < 0.5)
         {
-          vals[d][0] = quadratic_basis<double>::pwav0L(xn[d]);
-          vals[d][1] = quadratic_basis<double>::pwav1L(xn[d]);
-          vals[d][2] = quadratic_basis<double>::pwav2L(xn[d]);
+          vals[d][0] = basis::quadratic<double>::pwav0L(xn[d]);
+          vals[d][1] = basis::quadratic<double>::pwav1L(xn[d]);
+          vals[d][2] = basis::quadratic<double>::pwav2L(xn[d]);
         }
         else
         {
-          vals[d][0] = quadratic_basis<double>::pwav0R(xn[d]);
-          vals[d][1] = quadratic_basis<double>::pwav1R(xn[d]);
-          vals[d][2] = quadratic_basis<double>::pwav2R(xn[d]);
+          vals[d][0] = basis::quadratic<double>::pwav0R(xn[d]);
+          vals[d][1] = basis::quadratic<double>::pwav1R(xn[d]);
+          vals[d][2] = basis::quadratic<double>::pwav2R(xn[d]);
         }
       }
     }
@@ -421,19 +423,19 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       if (p[d] == 0)
       {
         vals[d][0] = 1.0;
-        vals[d][1] = linear_basis<double>::pleg1(xn[d]);
+        vals[d][1] = basis::linear<double>::pleg1(xn[d]);
       }
       else
       {
         if (xn[d] < 0.5)
         {
-          vals[d][0] = linear_basis<double>::pwav0L(xn[d]);
-          vals[d][1] = linear_basis<double>::pwav1L(xn[d]);
+          vals[d][0] = basis::linear<double>::pwav0L(xn[d]);
+          vals[d][1] = basis::linear<double>::pwav1L(xn[d]);
         }
         else
         {
-          vals[d][0] = linear_basis<double>::pwav0R(xn[d]);
-          vals[d][1] = linear_basis<double>::pwav1R(xn[d]);
+          vals[d][0] = basis::linear<double>::pwav0R(xn[d]);
+          vals[d][1] = basis::linear<double>::pwav1R(xn[d]);
         }
       }
     }

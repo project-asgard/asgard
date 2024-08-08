@@ -501,6 +501,9 @@ fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
   return interpolated;
 }
 
+template fk::vector<double> linspace(double const start, double const end,
+                                     unsigned int const num_elems = 100);
+
 // explicit instantiations
 #ifdef ASGARD_ENABLE_DOUBLE
 template fk::vector<double>
@@ -509,9 +512,6 @@ template fk::vector<double>
 read_vector_from_txt_file(std::filesystem::path const &path);
 template fk::matrix<double>
 read_matrix_from_txt_file(std::filesystem::path const &path);
-
-template fk::vector<double> linspace(double const start, double const end,
-                                     unsigned int const num_elems = 100);
 
 template fk::matrix<double> eye(int const M = 1);
 template fk::matrix<double> eye(int const M, int const N);

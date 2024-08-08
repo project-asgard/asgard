@@ -1,10 +1,3 @@
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
-#include "basis.hpp"
-#include "coefficients.hpp"
-#include "matlab_utilities.hpp"
-#include "pde.hpp"
-#include "pde/pde_base.hpp"
 #include "tests_general.hpp"
 
 static auto const coefficients_base_dir = gold_base_dir / "coefficients";
@@ -255,7 +248,7 @@ TEMPLATE_TEST_CASE("fokkerplanck1_4p5 terms", "[coefficients]", test_precs)
 {
   auto const gold_path =
       coefficients_base_dir / "fokkerplanck1_4p5_coefficients";
-  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-14 : 1e-4;
+  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-13 : 1e-4;
 
   SECTION("level 3, degree 4")
   {

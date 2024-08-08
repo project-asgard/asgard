@@ -4,7 +4,7 @@
 #include "asgard_dimension.hpp"
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
-#include "basis.hpp"
+#include "asgard_basis.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
 #include "fast_math.hpp"

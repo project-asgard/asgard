@@ -1367,6 +1367,14 @@ sparse_gemv<resource::host, float>(char const trans, int rows, int cols,
 
 #endif
 
+// always enable for quadrature calculations
+template void copy<resource::host, double>(int n, double const *x, int incx,
+                                           double *y, int incy);
+template void
+copy<resource::host, double>(int64_t n, double const *x, double *y);
+template void
+scal<resource::host, double>(int n, double alpha, double *x, int incx);
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template void
 rot<resource::host, double>(const int n, double *x, const int incx, double *y,
@@ -1374,16 +1382,10 @@ rot<resource::host, double>(const int n, double *x, const int incx, double *y,
 template void
 rotg<resource::host, double>(double *, double *, double *, double *);
 template double nrm2<resource::host, double>(int, double const[], int);
-template void copy<resource::host, double>(int n, double const *x, int incx,
-                                           double *y, int incy);
-template void
-copy<resource::host, double>(int64_t n, double const *x, double *y);
 template double dot<resource::host, double>(int n, double const *x, int incx,
                                             double const *y, int incy);
 template void axpy<resource::host, double>(int n, double alpha, double const *x,
                                            int incx, double *y, int incy);
-template void
-scal<resource::host, double>(int n, double alpha, double *x, int incx);
 template void gemv<resource::host, double>(char trans, int m, int n,
                                            double alpha, double const *A,
                                            int lda, double const *x, int incx,

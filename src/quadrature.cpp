@@ -357,7 +357,7 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
   return std::array<fk::vector<P>, 2>{x_roots, weights};
 }
 
-#ifdef ASGARD_ENABLE_DOUBLE
+// always enable double for plotting
 template std::array<fk::matrix<double>, 2>
 legendre(fk::vector<double> const &domain, int const degree,
          legendre_normalization const norm);
@@ -365,7 +365,6 @@ legendre(fk::vector<double> const &domain, int const degree,
 template std::array<fk::vector<double>, 2>
 legendre_weights(int const degree, double const lower_bound,
                  double const upper_bound, quadrature_mode const quad_mode);
-#endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template std::array<fk::matrix<float>, 2>

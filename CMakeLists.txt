@@ -375,7 +375,6 @@ endif()
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
      adapt
-     basis
      batch
      boundary_conditions
      coefficients
@@ -394,6 +393,7 @@ set (components
      sparse
      time_advance
      transformations
+     asgard_basis
      asgard_resources
      asgard_kronmult_matrix
      asgard_indexset

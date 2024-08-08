@@ -293,7 +293,7 @@ TEMPLATE_TEST_CASE("gen_realspace_transform", "[transformations]", test_precs)
 
     auto const pde = make_PDE<TestType>("-p continuity_6 -l 2 -d 2");
 
-    auto constexpr tol_factor = get_tolerance<TestType>(10);
+    auto constexpr tol_factor = get_tolerance<TestType>(20);
     test_gen_realspace_transform(*pde, gold_directory, gold_filename,
                                  tol_factor);
   }

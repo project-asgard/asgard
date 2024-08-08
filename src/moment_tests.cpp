@@ -1,7 +1,3 @@
-#include "adapt.hpp"
-#include "basis.hpp"
-#include "coefficients.hpp"
-#include "moment.hpp"
 #include "tests_general.hpp"
 
 static auto const moment_base_dir = gold_base_dir / "moment";

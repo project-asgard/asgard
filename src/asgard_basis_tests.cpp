@@ -1,10 +1,4 @@
-#include "distribution.hpp"
-#include "matlab_utilities.hpp"
-#include "pde.hpp"
 #include "tests_general.hpp"
-#include "transformations.hpp"
-#include <numeric>
-#include <random>
 
 #ifdef ASGARD_ENABLE_DOUBLE
 #ifdef ASGARD_ENABLE_FLOAT
@@ -55,16 +49,14 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
 {
   std::string const out_base = "multiwavelet_" + std::to_string(degree + 1) + "_";
 
-  auto const [m_h0, m_h1, m_g0, m_g1, m_phi_co, m_scale_co] =
-      generate_multi_wavelets<P>(degree);
+  auto const [m_h0, m_h1, m_g0, m_g1] = generate_multi_wavelets<P>(degree);
 
   auto const [h0, h1, g0, g1, scale_co] = [&out_base, degree]() {
     auto const h0_string = transformations_base_dir / (out_base + "h0.dat");
     auto const h1_string = transformations_base_dir / (out_base + "h1.dat");
     auto const g0_string = transformations_base_dir / (out_base + "g0.dat");
     auto const g1_string = transformations_base_dir / (out_base + "g1.dat");
-    auto const scale_string =
-        transformations_base_dir / (out_base + "scale_co.dat");
+
     if (degree < 1)
     {
       auto const h0_out =
@@ -75,10 +67,7 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
           fk::matrix<P>{{static_cast<P>(read_scalar_from_txt_file(g0_string))}};
       auto const g1_out =
           fk::matrix<P>{{static_cast<P>(read_scalar_from_txt_file(g1_string))}};
-      auto const scale_co_out = fk::matrix<P>{
-          {static_cast<P>(read_scalar_from_txt_file(scale_string))}};
-      return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out,
-                                          scale_co_out};
+      return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out};
     }
     else
     {
@@ -86,23 +75,14 @@ void test_multiwavelet_gen(int const degree, P const tol_factor)
       fk::matrix<P> const h1_out = read_matrix_from_txt_file<P>(h1_string);
       fk::matrix<P> const g0_out = read_matrix_from_txt_file<P>(g0_string);
       fk::matrix<P> const g1_out = read_matrix_from_txt_file<P>(g1_string);
-      fk::matrix<P> const scale_co_out =
-          read_matrix_from_txt_file<P>(scale_string);
-      return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out,
-                                          scale_co_out};
+      return std::array<fk::matrix<P>, 5>{h0_out, h1_out, g0_out, g1_out};
     }
   }();
-
-  std::string const phi_string = out_base + "phi_co.dat";
-  fk::matrix<P> const phi_co =
-      read_matrix_from_txt_file<P>(transformations_base_dir / phi_string);
 
   rmse_comparison(h0, m_h0, tol_factor);
   rmse_comparison(h1, m_h1, tol_factor);
   rmse_comparison(g0, m_g0, tol_factor);
   rmse_comparison(g1, m_g1, tol_factor);
-  rmse_comparison(phi_co, m_phi_co, tol_factor);
-  rmse_comparison(scale_co, m_scale_co, tol_factor);
 }
 
 TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
