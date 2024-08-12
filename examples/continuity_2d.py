@@ -13,7 +13,12 @@ import asgard
 # 3. The solution and the exact solution are plotted together
 
 if __name__ == '__main__':
-    if not os.path.isfile('example_continuity_2d'):
+    # build folder and install folder names can be different
+    if os.path.isfile('continuity_2d'):
+        exefilename = 'continuity_2d'
+    elif os.path.isfile('example_continuity_2d'):
+        exefilename = 'example_continuity_2d'
+    else:
         print("You must first build this project using CMake, e.g.,")
         print("  mkdir build")
         print("  cd build")
@@ -24,13 +29,13 @@ if __name__ == '__main__':
         exit(1)
 
     print("asgard: running the continuity example")
-    os.system("./example_continuity_2d -p continuity_2 -d 2 -l 5 -n 10 -t 0.0001 -of cont1_final.h5")
+    os.system("./%s -d 2 -l 5 -n 10 -t 0.0001 -of cont1_final.h5" % exefilename)
 
     # the example above will run for 10 time steps and the -w 10 options
     # will tell the code to output on the final 10-th step
     output_filename = 'cont1_final.h5'
     if not os.path.isfile(output_filename):
-        print("ERROR: example_continuity_2d did not generate an output file")
+        print("ERROR: %s did not generate an output file" % exefilename)
 
     # using the ASGarD python module to read from the file
     snapshot = asgard.pde_snapshot(output_filename)

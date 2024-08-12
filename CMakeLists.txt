@@ -233,6 +233,7 @@ if (ASGARD_USE_PYTHON)
                            DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}"
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}")
         list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}")
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}" DESTINATION share/asgard/examples)
     endforeach()
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
 
@@ -243,9 +244,6 @@ if (ASGARD_USE_PYTHON)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py" DESTINATION "${_asgard_python_path}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard.py" DESTINATION "${_asgard_python_path}")
-    foreach(_asg_pybuildfile example_continuity_2d.py example_inputs_1d.py)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" DESTINATION share/asgard/examples/)
-    endforeach()
 
     # MATLAB section, always installed with python but it doesn't have to run
     set(_asgardpy_exe_ "PYTHONPATH=\\\"\$PYTHONPATH:${CMAKE_CURRENT_BINARY_DIR}\\\" ${Python_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/asgard_matlab.py")
@@ -263,8 +261,9 @@ if (ASGARD_USE_PYTHON)
             FILES_MATCHING PATTERN "*.m")
 
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/examples/continuity_2d.m" "${CMAKE_CURRENT_BINARY_DIR}/example_continuity_2d.m" @ONLY)
-    foreach(_asg_pybuildfile example_continuity_2d.m)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" DESTINATION share/asgard/examples)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/examples/continuity_2d.m" "${CMAKE_CURRENT_BINARY_DIR}/examples/continuity_2d.m" @ONLY)
+    foreach(_asg_pybuildfile continuity_2d.m)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/examples/${_asg_pybuildfile}" DESTINATION share/asgard/examples)
     endforeach()
 
     set(_asgard_matlab_pypath_ "${CMAKE_CURRENT_BINARY_DIR}")
