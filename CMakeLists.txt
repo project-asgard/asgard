@@ -404,7 +404,7 @@ set (components
 )
 
 if (ASGARD_IO_HIGHFIVE)
-    list (APPEND components io)
+    list (APPEND components asgard_io)
 endif ()
 
 if (ASGARD_USE_SCALAPACK)

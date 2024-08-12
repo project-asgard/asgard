@@ -9,5 +9,5 @@ find_package(asgard @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSIO
 
 add_subdirectory("@CMAKE_INSTALL_PREFIX@/share/asgard/examples" examples_cxx)
 
-add_test(continuity_2d  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/example_continuity_2d")
-add_test(input_1d       "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/example_inputs_1d" "-if" "examples_cxx/inputs_1d_1.txt")
+add_test(continuity_2d  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/continuity_2d")
+add_test(input_1d       "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/inputs_1d" "-if" "examples_cxx/inputs_1d_1.txt")

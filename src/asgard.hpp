@@ -3,7 +3,7 @@
 #include "coefficients.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
-#include "io.hpp"
+#include "asgard_io.hpp"
 #endif
 
 #ifdef ASGARD_USE_MPI
