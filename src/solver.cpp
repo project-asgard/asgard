@@ -132,7 +132,7 @@ simple_gmres_euler(const P dt, imex_flag imex,
         tools::time_event performance("kronmult - preconditioner", pc.size());
         apply_diagonal_precond(pc, dt, x_in);
       },
-      restart, max_iter, tolerance);
+      restart, max_iter, tolerance, ops.verbosity);
 }
 template<typename P, resource resrc>
 gmres_info<P>
@@ -183,7 +183,8 @@ gmres_info<P>
 simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
              fk::vector<P, mem_type::owner, resrc> const &b,
              preconditioner_abstraction precondition, int restart,
-             int max_outer_iterations, P tolerance)
+             int max_outer_iterations, P tolerance,
+             verbosity_level verbosity = verbosity_level::high)
 {
   if (tolerance <= notolerance + std::numeric_limits<P>::epsilon())
     tolerance = std::is_same_v<float, P> ? 1e-6 : 1e-12;
@@ -282,7 +283,7 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
                           cosines[inner_iterations], sines[inner_iterations]);
       }
 
-      if (inner_iterations % print_freq == 0)
+      if (inner_iterations % print_freq == 0 and verbosity == verbosity_level::high)
       {
         std::cout << "   -- GMRES inner iteration " << inner_iterations << " / "
                   << restart << " w/ residual " << inner_res << std::endl;
@@ -308,8 +309,11 @@ simple_gmres(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
     ++outer_iterations;
     outer_res = inner_res;
   } // end outer iteration
-  std::cout << "GMRES complete with error: " << outer_res << '\n';
-  std::cout << total_iterations << " iterations\n";
+  if (verbosity == verbosity_level::high)
+  {
+    std::cout << "GMRES complete with error: " << outer_res << '\n';
+    std::cout << total_iterations << " iterations\n";
+  }
   return gmres_info<P>{outer_res, total_iterations};
 }
 
@@ -425,7 +429,7 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
       throw std::runtime_error("BiCGSTAB method failed. omega == 0");
     }
   }
-  std::cout << "Warning: No convergence within max_iter = " << max_iter << " iterations\n";
+  std::cerr << "Warning: No convergence within max_iter = " << max_iter << " iterations\n";
   return gmres_info<P>{resid, max_iter};
 }
 

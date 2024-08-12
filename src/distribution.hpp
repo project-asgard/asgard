@@ -249,7 +249,7 @@ void exchange_results(fk::vector<P, src_mem, resrc> const &source,
 
 // gather errors from all local ranks for printing
 template<typename P>
-std::array<fk::vector<P>, 2>
+std::array<std::vector<P>, 2>
 gather_errors(P const root_mean_squared, P const relative);
 
 // gather final answer at end of run from all ranks

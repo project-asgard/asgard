@@ -1,13 +1,7 @@
 #include "coefficients.hpp"
 
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
-
-#include "asgard_basis.hpp"
 #include "fast_math.hpp"
 #include "matlab_utilities.hpp"
-#include "pde.hpp"
-#include "quadrature.hpp"
 #include "transformations.hpp"
 
 namespace asgard

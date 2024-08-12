@@ -322,6 +322,8 @@ struct prog_opts
   bool show_version = false;
   //! indicates if the -pde? options was selected
   bool show_pde_help = false;
+  //! indicates if the exact solution should be ignored
+  bool ignore_exact = false;
 
   //! print list of ASGarD specific options
   static void print_help(std::ostream &os = std::cout);
@@ -381,6 +383,7 @@ private:
     version_help,
     pde_help,
     input_file,
+    ignore_exact,
     title,
     subtitle,
     grid_mode,

@@ -1,9 +1,5 @@
 
-#include "distribution.hpp"
-#include "matlab_utilities.hpp"
-#include "pde.hpp"
 #include "tests_general.hpp"
-#include "transformations.hpp"
 
 static auto const transformations_base_dir = gold_base_dir / "transformations";
 

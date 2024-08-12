@@ -1,10 +1,7 @@
 #pragma once
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
 #include "asgard_wavelet_basis.hpp"
-#include "pde.hpp"
-#include "program_options.hpp"
-#include "quadrature.hpp"
+
+#include "asgard_pde.hpp"
 
 namespace asgard
 {

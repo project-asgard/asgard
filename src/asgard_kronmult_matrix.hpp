@@ -3,9 +3,9 @@
 
 #include "adapt.hpp"
 #include "asgard_grid_1d.hpp"
+#include "asgard_pde.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
-#include "pde.hpp"
 
 #include "./device/asgard_kronmult.hpp"
 
@@ -736,13 +736,14 @@ private:
  * \param imex indicates whether this is part of an imex time stepping scheme
  * \param spcache cache holding sparse analysis meta-data
  * \param force_sparse (testing purposes only) forces a sparse matrix
+ * \param verbosity_level indicates the level of output (noise)
  */
 template<typename P>
 local_kronmult_matrix<P>
 make_local_kronmult_matrix(
     PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
     memory_usage const &mem_stats, imex_flag const imex, kron_sparse_cache &spcache,
-    bool force_sparse = false);
+    verbosity_level verb, bool force_sparse = false);
 
 /*!
  * \brief Update the coefficients stored in the matrix without changing the rest
@@ -867,19 +868,21 @@ public:
 
   //! \brief Creates an empty matrix.
   global_kron_matrix() : num_dimensions_(0), num_active_(0), num_padded_(0),
-                         flops_({0, 0, 0}) {}
+                         flops_({0, 0, 0}), verbosity(verbosity_level::quiet) {}
   //! \brief Creates an empty matrix.
   global_kron_matrix(int num_dimensions, int64_t num_active, int64_t num_padded,
                      std::vector<kronmult::permutes> perms,
                      std::vector<std::vector<int>> gpntr,
                      std::vector<std::vector<int>> gindx,
                      std::vector<std::vector<int>> gdiag,
-                     std::vector<std::vector<int>> givals)
+                     std::vector<std::vector<int>> givals,
+                     verbosity_level verb_in)
       : num_dimensions_(num_dimensions), num_active_(num_active),
         num_padded_(num_padded), perms_(std::move(perms)), flops_({0, 0, 0}),
         gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
         gdiag_(std::move(gdiag)), givals_(std::move(givals)),
-        gvals_(patterns_per_dim * perms_.size() * num_dimensions_)
+        gvals_(patterns_per_dim * perms_.size() * num_dimensions_),
+        verbosity(verb_in)
   {
     expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
     if (num_dimensions_ > 1)
@@ -977,7 +980,7 @@ public:
 
 protected:
   // the workspace is kept externally to minimize allocations
-  mutable workspace_type *work_;
+  mutable workspace_type *work_ = nullptr;
 
   //! \brief Compile-time method to get a specific workspace
   template<workspace wid>
@@ -1024,6 +1027,7 @@ private:
   std::array<kronmult::global_gpu_operations<precision>, num_imex_variants> gpu_global;
   mutable gpu::vector<precision> gpu_pre_con_; // gpu copy
 #endif
+  verbosity_level verbosity = verbosity_level::high;
 };
 
 /*!
@@ -1034,7 +1038,8 @@ private:
 template<typename precision>
 global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
-                        adapt::distributed_grid<precision> const &dis_grid);
+                        adapt::distributed_grid<precision> const &dis_grid,
+                        verbosity_level verb);
 
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -1046,6 +1051,10 @@ make_global_kron_matrix(PDE<precision> const &pde,
 template<typename precision>
 struct kron_operators
 {
+  kron_operators(verbosity_level verb_in = verbosity_level::high)
+      : verbosity(verb_in)
+  {}
+
   template<resource rec = resource::host>
   void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
   {
@@ -1069,7 +1078,7 @@ struct kron_operators
   {
     if (not kglobal)
     {
-      kglobal = make_global_kron_matrix(pde, grid);
+      kglobal = make_global_kron_matrix(pde, grid, verbosity);
       // the buffers must be set before preset_gpu_gkron()
       kglobal.set_workspace_buffers(&workspaces);
     }
@@ -1119,6 +1128,9 @@ struct kron_operators
     return kglobal.template get_diagonal_preconditioner<rec>();
   }
 
+  //! controls the verbosity level
+  verbosity_level verbosity = verbosity_level::high;
+
 private:
   //! \brief Holds the global part of the kron product
   global_kron_matrix<precision> kglobal;
@@ -1156,13 +1168,14 @@ public:
                            vector2d<int> &&ilist, dimension_sort &&dsort,
                            std::vector<kronmult::permutes> &&perms, std::vector<int> &&flux_dir,
                            connect_1d const *conn_volumes, connect_1d const *conn_full,
-                           kronmult::block_global_workspace<precision> *workspace)
+                           kronmult::block_global_workspace<precision> *workspace,
+                           verbosity_level verb_in)
       : num_active_(num_active), num_padded_(num_padded),
         num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
         ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
         flux_dir_(std::move(flux_dir)), conn_volumes_(conn_volumes),
         conn_full_(conn_full), gvals_(flux_dir_.size() * num_dimensions_),
-        workspace_(workspace)
+        workspace_(workspace), verb(verb_in)
   {
     for (auto &f : flops_)
       f = -1;
@@ -1217,19 +1230,22 @@ public:
       flops_[i] = kronmult::block_global_count_flops(
           num_dimensions_, block_size_, ilist_, dsort_, perms_,
           flux_dir_, *conn_volumes_, *conn_full_, term_groups_[i], *workspace_);
-      switch (etype)
+      if (verb == verbosity_level::high)
       {
-      case imex_flag::unspecified:
-        std::cout << "regular block-global kronmult matrix\n";
-        break;
-      case imex_flag::imex_explicit:
-        std::cout << "imex-explicit block-global kronmult matrix\n";
-        break;
-      case imex_flag::imex_implicit:
-        std::cout << "imex-implicit block-global kronmult matrix\n";
-        break;
-      };
-      std::cout << "   -- number of flops: " << flops_[i] * 1.E-9 << "Gflops\n";
+        switch (etype)
+        {
+        case imex_flag::unspecified:
+          std::cout << "regular block-global kronmult matrix\n";
+          break;
+        case imex_flag::imex_explicit:
+          std::cout << "imex-explicit block-global kronmult matrix\n";
+          break;
+        case imex_flag::imex_implicit:
+          std::cout << "imex-implicit block-global kronmult matrix\n";
+          break;
+        };
+        std::cout << "   -- number of flops: " << flops_[i] * 1.E-9 << "Gflops\n";
+      }
     }
     return flops_[i];
   }
@@ -1275,6 +1291,8 @@ private:
 
   // preconditioner
   std::vector<precision> pre_con_;
+
+  verbosity_level verb = verbosity_level::quiet;
 };
 
 template<typename precision>
@@ -1282,7 +1300,8 @@ block_global_kron_matrix<precision>
 make_block_global_kron_matrix(PDE<precision> const &pde,
                               adapt::distributed_grid<precision> const &dis_grid,
                               connect_1d const *volumes, connect_1d const *fluxes,
-                              kronmult::block_global_workspace<precision> *workspace);
+                              kronmult::block_global_workspace<precision> *workspace,
+                              verbosity_level verb);
 
 #endif
 

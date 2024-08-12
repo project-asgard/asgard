@@ -1,10 +1,7 @@
 #pragma once
 
 #include "asgard_kron_operators.hpp"
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
 #include "batch.hpp"
-#include "pde.hpp"
 
 namespace asgard::solver
 {
@@ -13,6 +10,11 @@ enum class poisson_bc
   dirichlet,
   periodic
 };
+
+inline bool is_direct(solve_opts s)
+{
+  return (s == solve_opts::direct or s == solve_opts::scalapack);
+}
 
 // simple, node-local test version of gmres
 template<typename P>

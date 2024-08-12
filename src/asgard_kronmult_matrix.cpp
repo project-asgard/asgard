@@ -123,7 +123,7 @@ template<typename precision>
 local_kronmult_matrix<precision>
 make_kronmult_dense(PDE<precision> const &pde,
                     adapt::distributed_grid<precision> const &discretization,
-                    imex_flag const imex)
+                    imex_flag const imex, verbosity_level verb)
 {
   // convert pde to kronmult dense matrix
   auto const &grid         = discretization.get_subgrid(get_rank());
@@ -195,12 +195,15 @@ make_kronmult_dense(PDE<precision> const &pde,
   int64_t flps = local_kronmult_matrix<precision>::compute_flops(
       num_dimensions, kron_size, num_terms, int64_t{num_rows} * num_cols);
 
-  std::cout << "  kronmult dense matrix size: " << num_rows << " rows/cols\n";
-  std::cout << "  -- work: " << flps * 1.E-9 << " Gflops\n";
+  if (verb == verbosity_level::high)
+  {
+    std::cout << "  kronmult dense matrix size: " << num_rows << " rows/cols\n";
+    std::cout << "  -- work: " << flps * 1.E-9 << " Gflops\n";
 
-  std::cout << "  -- memory usage: "
-            << get_MB<precision>(terms.size()) + get_MB<int>(elem.size())
-            << "MB\n";
+    std::cout << "  -- memory usage: "
+              << get_MB<precision>(terms.size()) + get_MB<int>(elem.size())
+              << "MB\n";
+  }
 
 #ifdef ASGARD_USE_CUDA
   std::vector<fk::vector<precision, mem_type::owner, resource::device>>
@@ -392,7 +395,7 @@ local_kronmult_matrix<precision>
 make_kronmult_sparse(PDE<precision> const &pde,
                      adapt::distributed_grid<precision> const &discretization,
                      memory_usage const &mem_stats, imex_flag const imex,
-                     kron_sparse_cache &spcache)
+                     kron_sparse_cache &spcache, verbosity_level verb)
 {
   tools::time_event performance_("make-kronmult-sparse");
   // convert pde to kronmult dense matrix
@@ -676,24 +679,28 @@ make_kronmult_sparse(PDE<precision> const &pde,
     // prepare a preconditioner
     build_preconditioner(pde, discretization, used_terms, prec);
 
-  std::cout << "  kronmult local, sparse matrix fill: "
-            << 100.0 * double(spcache.num_nonz) /
-                   (double(num_rows) * double(num_cols))
-            << "%\n";
+  if (verb == verbosity_level::high)
+  {
+    std::cout << "  kronmult local, sparse matrix fill: "
+              << 100.0 * double(spcache.num_nonz) /
+                    (double(num_rows) * double(num_cols))
+              << "%\n";
 
-  int64_t flops = local_kronmult_matrix<precision>::compute_flops(
-      num_dimensions, kron_size, num_terms, spcache.num_nonz);
-  std::cout << "  -- work: " << flops * 1.E-9 << " Gflops\n";
+    int64_t flops = local_kronmult_matrix<precision>::compute_flops(
+        num_dimensions, kron_size, num_terms, spcache.num_nonz);
+    std::cout << "  -- work: " << flops * 1.E-9 << " Gflops\n";
+  }
 
 #ifdef ASGARD_USE_CUDA
   if (mem_stats.kron_call == memory_usage::one_call)
   {
-    std::cout << "  -- memory usage (unique): "
-              << get_MB<int>(list_row_indx[0].size()) +
-                     get_MB<int>(list_col_indx[0].size()) +
-                     get_MB<int>(list_iA[0].size()) +
-                     get_MB<precision>(vA.size())
-              << "\n";
+    if (verb == verbosity_level::high)
+      std::cout << "  -- memory usage (unique): "
+                << get_MB<int>(list_row_indx[0].size()) +
+                      get_MB<int>(list_col_indx[0].size()) +
+                      get_MB<int>(list_iA[0].size()) +
+                      get_MB<precision>(vA.size())
+                << "\n";
     return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         list_row_indx[0].clone_onto_device(),
@@ -703,12 +710,15 @@ make_kronmult_sparse(PDE<precision> const &pde,
   else
   {
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
-    std::cout << "        memory usage (unique): "
-              << get_MB<precision>(vA.size()) << "\n";
-    std::cout << "        memory usage (shared): "
-              << 2 * get_MB<int>(mem_stats.work_size) +
-                     4 * get_MB<int>(mem_stats.row_work_size)
-              << "\n";
+    if (verb == verbosity_level::high)
+    {
+      std::cout << "        memory usage (unique): "
+                << get_MB<precision>(vA.size()) << "\n";
+      std::cout << "        memory usage (shared): "
+                << 2 * get_MB<int>(mem_stats.work_size) +
+                      4 * get_MB<int>(mem_stats.row_work_size)
+                << "\n";
+    }
     return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         std::move(list_row_indx), std::move(list_col_indx), std::move(list_iA),
@@ -729,8 +739,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
       num_ints += int64_t{gpu_iA[i].size()} + int64_t{gpu_col[i].size()} +
                   int64_t{gpu_row[i].size()};
     }
-    std::cout << "        memory usage (MB): "
-              << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
+    if (verb == verbosity_level::high)
+      std::cout << "        memory usage (MB): "
+                << get_MB<precision>(vA.size()) + get_MB<int>(num_ints) << "\n";
     return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
         std::move(gpu_row), std::move(gpu_col), std::move(gpu_iA),
@@ -752,15 +763,15 @@ local_kronmult_matrix<P>
 make_local_kronmult_matrix(
     PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
     memory_usage const &mem_stats, imex_flag const imex, kron_sparse_cache &spcache,
-    bool force_sparse)
+    verbosity_level verb, bool force_sparse)
 {
   if (pde.kron_mod() == kronmult_mode::dense and not force_sparse)
   {
-    return make_kronmult_dense<P>(pde, grid, imex);
+    return make_kronmult_dense<P>(pde, grid, imex, verb);
   }
   else
   {
-    return make_kronmult_sparse<P>(pde, grid, mem_stats, imex, spcache);
+    return make_kronmult_sparse<P>(pde, grid, mem_stats, imex, spcache, verb);
   }
 }
 
@@ -1202,7 +1213,8 @@ void split_pattern(std::vector<int> const &pntr, std::vector<int> const &indx,
 template<typename precision>
 global_kron_matrix<precision>
 make_global_kron_matrix(PDE<precision> const &pde,
-                        adapt::distributed_grid<precision> const &dis_grid)
+                        adapt::distributed_grid<precision> const &dis_grid,
+                        verbosity_level verb)
 {
   int const degree    = pde.get_dimensions()[0].get_degree();
   int const max_level = pde.max_level();
@@ -1217,7 +1229,8 @@ make_global_kron_matrix(PDE<precision> const &pde,
   int const num_cells = cells.num_strips();
 
   indexset padded = compute_ancestry_completion(make_index_set(cells), volumes);
-  std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
+  if (verb == verbosity_level::high)
+    std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
 
   vector2d<int> ilist = complete_poly_order(cells, padded, degree);
 
@@ -1326,7 +1339,7 @@ make_global_kron_matrix(PDE<precision> const &pde,
   return global_kron_matrix<precision>(
       num_dimensions, num_active_dof, ilist.num_strips(), std::move(permutations),
       std::move(global_pntr), std::move(global_indx), std::move(global_diag),
-      std::move(global_ivals));
+      std::move(global_ivals), verb);
 }
 
 template<typename precision>
@@ -1390,35 +1403,41 @@ void set_specific_mode(PDE<precision> const &pde,
       gflops += mat.gvals_[mat.patterns_per_dim * (t * num_dimensions + d)].size();
   gflops *= 2; // matrix vector product uses multiply-add 2 flops per entry
 
-  std::cout << "  kronmult using global algorithm\n";
-  std::cout << "  -- work: " << static_cast<double>(gflops) * 1.E-9 << " Gflops\n";
+  if (mat.verbosity == verbosity_level::high)
+  {
+    std::cout << "  kronmult using global algorithm\n";
+    std::cout << "  -- work: " << static_cast<double>(gflops) * 1.E-9 << " Gflops\n";
+  }
   mat.flops_[imex_indx] = std::max(gflops, int64_t{1}); // cannot be zero
 
-  int64_t num_ints = 0;
-  int64_t num_fps  = 0;
-  for (size_t d = 0; d < mat.gpntr_.size(); d++)
+  if (mat.verbosity == verbosity_level::high)
   {
-    num_ints += mat.gpntr_[d].size();
-    num_ints += mat.gindx_[d].size();
-    num_ints += mat.givals_[d].size();
-  }
-  for (auto const &ddiag : mat.gdiag_)
-    num_ints += ddiag.size();
+    int64_t num_ints = 0;
+    int64_t num_fps  = 0;
+    for (size_t d = 0; d < mat.gpntr_.size(); d++)
+    {
+      num_ints += mat.gpntr_[d].size();
+      num_ints += mat.gindx_[d].size();
+      num_ints += mat.givals_[d].size();
+    }
+    for (auto const &ddiag : mat.gdiag_)
+      num_ints += ddiag.size();
 
-  for (auto t : used_terms)
-    for (int d = 0; d < num_dimensions * mat.patterns_per_dim; d++)
-      num_fps += mat.gvals_[mat.patterns_per_dim * t * num_dimensions + d].size();
+    for (auto t : used_terms)
+      for (int d = 0; d < num_dimensions * mat.patterns_per_dim; d++)
+        num_fps += mat.gvals_[mat.patterns_per_dim * t * num_dimensions + d].size();
 
-  num_fps += 2 * mat.num_active_;
-  std::cout << "  -- memory usage:";
-  int64_t total = get_MB<precision>(num_fps) + get_MB<int>(num_ints);
-  if (total > 1024)
-    std::cout << "  CPU: " << (1 + total / 1024) << "GB";
-  else
-    std::cout << "  CPU: " << total << "MB";
+    num_fps += 2 * mat.num_active_;
+    std::cout << "  -- memory usage:";
+    int64_t total = get_MB<precision>(num_fps) + get_MB<int>(num_ints);
+    if (total > 1024)
+      std::cout << "  CPU: " << (1 + total / 1024) << "GB";
+    else
+      std::cout << "  CPU: " << total << "MB";
 #ifndef ASGARD_USE_CUDA
-  std::cout << '\n';
+    std::cout << '\n';
 #endif
+  }
 }
 
 #ifdef ASGARD_USE_CUDA
@@ -1442,10 +1461,13 @@ void global_kron_matrix<precision>::
       glb.set_buffer(get_buffer<workspace::gsparse>());
 
   int64_t total = gpu_global[imex_indx].memory() / (1024 * 1024);
-  if (total > 1024)
-    std::cout << "  GPU: " << (1 + total / 1024) << "GB\n";
-  else
-    std::cout << "  GPU: " << total << "MB\n";
+  if (verb == verbosity_level::high)
+  {
+    if (total > 1024)
+      std::cout << "  GPU: " << (1 + total / 1024) << "GB\n";
+    else
+      std::cout << "  GPU: " << total << "MB\n";
+  }
 }
 #endif
 
@@ -1614,7 +1636,8 @@ block_global_kron_matrix<precision>
 make_block_global_kron_matrix(PDE<precision> const &pde,
                               adapt::distributed_grid<precision> const &dis_grid,
                               connect_1d const *volumes, connect_1d const *fluxes,
-                              kronmult::block_global_workspace<precision> *workspace)
+                              kronmult::block_global_workspace<precision> *workspace,
+                              verbosity_level verb)
 {
   int const degree = pde.get_dimensions()[0].get_degree();
 
@@ -1627,7 +1650,8 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
   int const num_cells = cells.num_strips();
 
   indexset padded = compute_ancestry_completion(make_index_set(cells), *volumes);
-  std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
+  if (verb == verbosity_level::high)
+    std::cout << " number of padding cells = " << padded.num_indexes() << '\n';
 
   if (padded.num_indexes() > 0)
     cells.append(padded[0], padded.num_indexes());
@@ -1669,7 +1693,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
       num_dimensions, degree + 1, block_size,
       std::move(cells), std::move(dsort), std::move(permutations),
       std::move(flux_dir), volumes, fluxes,
-      workspace);
+      workspace, verb);
 }
 
 template<typename precision>
@@ -1732,7 +1756,8 @@ template block_global_kron_matrix<double>
 make_block_global_kron_matrix<double>(PDE<double> const &,
                                       adapt::distributed_grid<double> const &,
                                       connect_1d const *, connect_1d const *,
-                                      kronmult::block_global_workspace<double> *workspace);
+                                      kronmult::block_global_workspace<double> *,
+                                      verbosity_level);
 template void set_specific_mode<double>(PDE<double> const &,
                                         adapt::distributed_grid<double> const &,
                                         imex_flag const,
@@ -1740,7 +1765,7 @@ template void set_specific_mode<double>(PDE<double> const &,
 #else
 template global_kron_matrix<double>
 make_global_kron_matrix(PDE<double> const &,
-                        adapt::distributed_grid<double> const &);
+                        adapt::distributed_grid<double> const &, verbosity_level);
 template void update_matrix_coefficients(PDE<double> const &,
                                          adapt::distributed_grid<double> const &,
                                          imex_flag const,
@@ -1762,7 +1787,8 @@ template void global_kron_matrix<double>::apply<resource::device>(
 template local_kronmult_matrix<double>
 make_local_kronmult_matrix<double>(
     PDE<double> const &, adapt::distributed_grid<double> const &,
-    memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
+    memory_usage const &, imex_flag const, kron_sparse_cache &, verbosity_level,
+    bool);
 template void
 update_kronmult_coefficients<double>(PDE<double> const &, imex_flag const,
                                      kron_sparse_cache &,
@@ -1792,7 +1818,8 @@ template block_global_kron_matrix<float>
 make_block_global_kron_matrix<float>(PDE<float> const &,
                                      adapt::distributed_grid<float> const &,
                                      connect_1d const *, connect_1d const *,
-                                     kronmult::block_global_workspace<float> *workspace);
+                                     kronmult::block_global_workspace<float> *,
+                                     verbosity_level);
 template void set_specific_mode<float>(PDE<float> const &,
                                        adapt::distributed_grid<float> const &,
                                        imex_flag const,
@@ -1800,7 +1827,7 @@ template void set_specific_mode<float>(PDE<float> const &,
 #else
 template global_kron_matrix<float>
 make_global_kron_matrix(PDE<float> const &,
-                        adapt::distributed_grid<float> const &);
+                        adapt::distributed_grid<float> const &, verbosity_level);
 template void update_matrix_coefficients(PDE<float> const &,
                                          adapt::distributed_grid<float> const &,
                                          imex_flag const,
@@ -1822,7 +1849,8 @@ template void global_kron_matrix<float>::apply<resource::device>(
 template local_kronmult_matrix<float>
 make_local_kronmult_matrix<float>(
     PDE<float> const &, adapt::distributed_grid<float> const &,
-    memory_usage const &, imex_flag const, kron_sparse_cache &, bool);
+    memory_usage const &, imex_flag const, kron_sparse_cache &, bool,
+    verbosity_level);
 template void update_kronmult_coefficients<float>(PDE<float> const &,
                                                   imex_flag const, kron_sparse_cache &,
                                                   local_kronmult_matrix<float> &);

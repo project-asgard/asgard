@@ -1,18 +1,8 @@
-#include "time_advance.hpp"
-#include "adapt.hpp"
-#include "batch.hpp"
-#include "boundary_conditions.hpp"
-#include "coefficients.hpp"
-#include "distribution.hpp"
-#include "elements.hpp"
-#include "fast_math.hpp"
-#include "solver.hpp"
+#include "asgard_time_advance.hpp"
+
 #ifdef ASGARD_USE_SCALAPACK
 #include "cblacs_grid.hpp"
 #include "scalapack_vector_info.hpp"
-#endif
-#ifdef ASGARD_USE_MATLAB
-#include "matlab_plot.hpp"
 #endif
 
 namespace asgard::time_advance
@@ -37,126 +27,6 @@ get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
     fm::axpy(source_vect, sources);
   }
   return sources;
-}
-
-// FIXME want to change how sources/bcs are handled
-template<typename P>
-fk::vector<P>
-adaptive_advance(method const step_method, PDE<P> &pde,
-                 kron_operators<P> &operator_matrices,
-                 adapt::distributed_grid<P> &adaptive_grid,
-                 basis::wavelet_transform<P, resource::host> const &transformer,
-                 fk::vector<P> const &x_orig,
-                 P const time, bool const update_system)
-{
-  if (not pde.options().adapt_threshold)
-  {
-    auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
-    auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
-        pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
-        my_subgrid.row_stop);
-    switch (step_method)
-    {
-    case (method::exp):
-      return explicit_advance(pde, operator_matrices, adaptive_grid,
-                              transformer, unscaled_parts, x_orig,
-                              time);
-    case (method::imp):
-      return implicit_advance(pde, operator_matrices, adaptive_grid,
-                              transformer, unscaled_parts, x_orig,
-                              time, update_system);
-    case (method::imex):
-      return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
-                          x_orig, fk::vector<P>(), time, update_system);
-    };
-  }
-
-  // coarsen
-  auto old_size = adaptive_grid.size();
-  auto y        = adaptive_grid.coarsen_solution(pde, x_orig);
-  node_out() << " adapt -- coarsened grid from " << old_size << " -> "
-             << adaptive_grid.size() << " elems\n";
-
-  // clear the matrices if the coarsening removed indexes
-  if (old_size != adaptive_grid.size())
-    operator_matrices.clear();
-
-  // save coarsen stats
-  pde.adapt_info.initial_dof = old_size;
-  pde.adapt_info.coarsen_dof = adaptive_grid.size();
-  pde.adapt_info.refine_dofs = std::vector<int>();
-  // save GMRES stats starting with the coarsen stats
-  pde.adapt_info.gmres_stats =
-      std::vector<std::vector<gmres_info<P>>>({pde.gmres_outputs});
-
-  // refine
-  bool refining = true;
-  fk::vector<P> y_first_refine;
-  while (refining)
-  {
-    // update boundary conditions
-    auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
-    auto const unscaled_parts = boundary_conditions::make_unscaled_bc_parts(
-        pde, adaptive_grid.get_table(), transformer, my_subgrid.row_start,
-        my_subgrid.row_stop);
-
-    // take a probing refinement step
-    fk::vector<P> y_stepped = [&]() {
-      switch (step_method)
-      {
-      case (method::exp):
-        return explicit_advance(pde, operator_matrices, adaptive_grid,
-                                transformer, unscaled_parts, y, time);
-      case (method::imp):
-        return implicit_advance(pde, operator_matrices, adaptive_grid,
-                                transformer, unscaled_parts, y, time, refining);
-      case (method::imex):
-        return imex_advance(pde, operator_matrices, adaptive_grid, transformer,
-                            y, y_first_refine, time, refining);
-      default:
-        return fk::vector<P>();
-      };
-    }();
-
-    auto const old_plan = adaptive_grid.get_distrib_plan();
-    old_size            = adaptive_grid.size();
-    fk::vector<P> y_refined =
-        adaptive_grid.refine_solution(pde, y_stepped);
-    // if either one of the ranks reports 1, i.e., y_stepped.size() changed
-    refining = get_global_max<bool>(y_stepped.size() != y_refined.size(),
-                                    adaptive_grid.get_distrib_plan());
-
-    node_out() << " adapt -- refined grid from " << old_size << " -> "
-               << adaptive_grid.size() << " elems\n";
-    // save refined DOF stats
-    pde.adapt_info.refine_dofs.push_back(adaptive_grid.size());
-    // append GMRES stats for refinement
-    pde.adapt_info.gmres_stats.push_back({pde.gmres_outputs});
-
-    if (!refining)
-    {
-      y = std::move(y_stepped);
-    }
-    else
-    {
-      // added more indexes, matrices will have to be remade
-      operator_matrices.clear();
-
-      y = adaptive_grid.redistribute_solution(y, old_plan, old_size);
-
-      // after first refinement, save the refined vector to use as initial
-      // "guess" to GMRES
-      if (y_first_refine.empty())
-      {
-        y_first_refine = std::move(y_refined);
-      }
-
-      // pad with zeros if more elements were added
-      y_first_refine.resize(y.size());
-    }
-  }
-
-  return y;
 }
 
 // this function executes an explicit time step using the current solution
@@ -303,10 +173,10 @@ fk::vector<P>
 implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
                  adapt::distributed_grid<P> const &adaptive_grid,
                  basis::wavelet_transform<P, resource::host> const &transformer,
+                 std::optional<matrix_factor<P>> &euler_mat,
                  std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
                      &unscaled_parts,
-                 fk::vector<P> const &x_orig, P const time,
-                 bool const update_system)
+                 fk::vector<P> const &x_orig, P const time)
 {
   expect(time >= 0);
 #ifdef ASGARD_USE_SCALAPACK
@@ -317,7 +187,6 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   solve_opts const solver = options.solver.value();
   static fk::matrix<P, mem_type::owner, resource::host> A;
   static std::vector<int> ipiv;
-  static bool first_time = true;
 
   auto const &table   = adaptive_grid.get_table();
   auto const dt       = pde.get_dt();
@@ -355,58 +224,54 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
       time + dt);
   fm::axpy(bc, x, dt);
 
-  if ((solver != solve_opts::gmres && solver != solve_opts::bicgstab) && (first_time || update_system))
+  if (solver::is_direct(solver) and not euler_mat)
   {
-    first_time = false;
+    // must form the matrix
+    matrix_factor<P> euler;
 
-    A.clear_and_resize(A_local_rows, A_local_cols);
-    build_system_matrix(pde, table, A, grid);
+    euler.A.clear_and_resize(A_local_rows, A_local_cols);
+    build_system_matrix(pde, table, euler.A, grid);
 
     // AA = I - dt*A;
-    fm::scal(-dt, A);
+    fm::scal(-dt, euler.A);
     if (grid.row_start == grid.col_start)
     {
-      for (int i = 0; i < A.nrows(); ++i)
+      for (int i = 0; i < euler.A.nrows(); ++i)
       {
-        A(i, i) += 1.0;
+        euler.A(i, i) += 1.0;
       }
     }
-    int ipiv_size{0};
+
     if (solver == solve_opts::direct)
     {
-      ipiv_size = A.nrows();
-      if (ipiv.size() != static_cast<unsigned long>(ipiv_size))
-      {
-        ipiv.resize(ipiv_size);
-      }
-      fm::gesv(A, x, ipiv);
+      euler.ipiv.resize(euler.A.nrows());
+
+      fm::gesv(euler.A, x, euler.ipiv);
+      euler_mat = std::move(euler);
       return x;
     }
     else if (solver == solve_opts::scalapack)
     {
 #ifdef ASGARD_USE_SCALAPACK
-      ipiv_size = minfo.local_rows() + minfo.mb();
-      if (ipiv.size() != static_cast<unsigned long>(ipiv_size))
-      {
-        ipiv.resize(ipiv_size);
-      }
-      fm::gesv(A, minfo, x, vinfo, ipiv);
+      euler.ipiv.resize(minfo.local_rows() + minfo.mb());
+      fm::gesv(euler.A, minfo, x, vinfo, euler.ipiv);
+
       auto const size_r =
           elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
       fk::vector<P> tmp(size_r);
       exchange_results(x, tmp, size_r, adaptive_grid.get_distrib_plan(), get_rank());
+
+      euler_mat = std::move(euler);
       return tmp;
 #else
-      printf("Invalid gesv solver library specified\n");
-      exit(1);
-      return x;
+      throw std::runtime_error("Invalid solver option, must recompile with SCALAPACK support.");
 #endif
     }
   } // end first time/update system
 
   if (solver == solve_opts::direct)
   {
-    fm::getrs(A, x, ipiv);
+    fm::getrs(euler_mat->A, x, euler_mat->ipiv);
     return x;
   }
   else if (solver == solve_opts::scalapack)
@@ -419,8 +284,7 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
     exchange_results(x, tmp, size_r, adaptive_grid.get_distrib_plan(), get_rank());
     return tmp;
 #else
-    printf("Invalid getrs solver library specified\n");
-    exit(1);
+    throw std::runtime_error("Invalid solver option, must recompile with SCALAPACK support.");
 #endif
   }
   else if (solver == solve_opts::gmres)
@@ -455,17 +319,16 @@ implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
+imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
+             kron_operators<P> &operator_matrices,
              adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
              fk::vector<P> const &f_0, fk::vector<P> const &x_prev,
-             P const time, bool const update_system)
+             P const time)
 {
   // BEFE = 0 case
   expect(time >= 0);
-  expect(pde.moments.size() > 0);
-
-  static bool first_time = true;
+  expect(moments.size() > 0);
 
   auto const &options = pde.options();
 
@@ -510,37 +373,6 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   fk::vector<P, mem_type::owner, imex_resrc> reduced_fx(A_local_rows);
 #endif
 
-  // Create moment matrices that take DG function in (x,v) and transfer to DG
-  // function in x
-  if (first_time || update_system)
-  {
-    tools::time_event performance("update_system");
-    for (auto &m : pde.moments)
-    {
-      m.createFlist(pde);
-      expect(m.get_fList().size() > 0);
-
-      m.createMomentVector(pde, adaptive_grid.get_table());
-      expect(m.get_vector().size() > 0);
-
-      m.createMomentReducedMatrix(pde, adaptive_grid.get_table());
-      // expect(m.get_moment_matrix().nrows() > 0);
-    }
-
-    if (pde.do_poisson_solve())
-    {
-      // Setup poisson matrix initially
-      solver::setup_poisson(N_elements, min, max, pde.poisson_diag,
-                            pde.poisson_off_diag);
-    }
-
-    pde.E_field.resize(quad_dense_size);
-    pde.phi.resize(quad_dense_size);
-    pde.E_source.resize(quad_dense_size);
-
-    first_time = false;
-  }
-
   auto do_poisson_update = [&](fk::vector<P, mem_type::owner, imex_resrc> const
                                    &f_in) {
     fk::vector<P> poisson_source(quad_dense_size);
@@ -550,8 +382,8 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
       tools::time_event pupdate_("poisson_update");
       // Get 0th moment
       fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
-      fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), f_in, mom0);
-      fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
+      fm::sparse_gemv(moments[0].get_moment_matrix_dev(), f_in, mom0);
+      fk::vector<P> &mom0_real = moments[0].create_realspace_moment(
           pde_1d, mom0, adaptive_grid_1d.get_table(), transformer,
           tmp_workspace);
       param_manager.get_parameter("n")->value = [&](P const x_v,
@@ -615,8 +447,8 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
       [&](fk::vector<P, mem_type::owner, imex_resrc> const &f_in) {
         // \int f dv
         fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
-        fm::sparse_gemv(pde.moments[0].get_moment_matrix_dev(), f_in, mom0);
-        fk::vector<P> &mom0_real = pde.moments[0].create_realspace_moment(
+        fm::sparse_gemv(moments[0].get_moment_matrix_dev(), f_in, mom0);
+        fk::vector<P> &mom0_real = moments[0].create_realspace_moment(
             pde_1d, mom0, adaptive_grid_1d.get_table(), transformer,
             tmp_workspace);
         // n = \int f dv
@@ -628,8 +460,8 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
 
         // \int f v_x dv
         fk::vector<P, mem_type::owner, imex_resrc> mom1(dense_size);
-        fm::sparse_gemv(pde.moments[1].get_moment_matrix_dev(), f_in, mom1);
-        fk::vector<P> &mom1_real = pde.moments[1].create_realspace_moment(
+        fm::sparse_gemv(moments[1].get_moment_matrix_dev(), f_in, mom1);
+        fk::vector<P> &mom1_real = moments[1].create_realspace_moment(
             pde_1d, mom1, adaptive_grid_1d.get_table(), transformer,
             tmp_workspace);
 
@@ -639,15 +471,15 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
           return interp1(nodes, mom1_real, {x_v})[0] /
                  param_manager.get_parameter("n")->value(x_v, t);
         };
-        if (pde.num_dims() == 3 && pde.moments.size() > 3)
+        if (pde.num_dims() == 3 && moments.size() > 3)
         {
           // Calculate additional moments for PDEs with more than one velocity
           // dimension
 
           // \int f v_{y} dv
           fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
-          fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), f_in, mom2);
-          fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
+          fm::sparse_gemv(moments[2].get_moment_matrix_dev(), f_in, mom2);
+          fk::vector<P> &mom2_real = moments[2].create_realspace_moment(
               pde_1d, mom2, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
 
@@ -660,15 +492,15 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
 
           // \int f v_x^2 dv
           fk::vector<P, mem_type::owner, imex_resrc> mom3(dense_size);
-          fm::sparse_gemv(pde.moments[3].get_moment_matrix_dev(), f_in, mom3);
-          fk::vector<P> &mom3_real = pde.moments[3].create_realspace_moment(
+          fm::sparse_gemv(moments[3].get_moment_matrix_dev(), f_in, mom3);
+          fk::vector<P> &mom3_real = moments[3].create_realspace_moment(
               pde_1d, mom3, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
 
           // \int f v_y^2 dv
           fk::vector<P, mem_type::owner, imex_resrc> mom4(dense_size);
-          fm::sparse_gemv(pde.moments[4].get_moment_matrix_dev(), f_in, mom4);
-          fk::vector<P> &mom4_real = pde.moments[4].create_realspace_moment(
+          fm::sparse_gemv(moments[4].get_moment_matrix_dev(), f_in, mom4);
+          fk::vector<P> &mom4_real = moments[4].create_realspace_moment(
               pde_1d, mom4, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
 
@@ -688,23 +520,23 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
                    0.5 * (std::pow(u1, 2) + std::pow(u2, 2));
           };
         }
-        else if (pde.num_dims() == 4 && pde.moments.size() > 6)
+        else if (pde.num_dims() == 4 && moments.size() > 6)
         {
           // Moments for 1X3V case
           // TODO: this will be refactored to replace dimension cases in the
           // future
-          std::vector<fk::vector<P, mem_type::owner, imex_resrc>> moments;
+          std::vector<fk::vector<P, mem_type::owner, imex_resrc>> vec_moments;
           std::vector<fk::vector<P> *> moments_real;
           // Create moment matrices and realspace moments for all moments in PDE
-          for (size_t mom = 2; mom < pde.moments.size(); mom++)
+          for (size_t mom = 2; mom < moments.size(); mom++)
           {
             // \int f v_x dv
-            moments.push_back(
+            vec_moments.push_back(
                 fk::vector<P, mem_type::owner, imex_resrc>(dense_size));
-            fm::sparse_gemv(pde.moments[mom].get_moment_matrix_dev(), f_in,
-                            moments.back());
-            moments_real.push_back(&pde.moments[mom].create_realspace_moment(
-                pde_1d, moments.back(), adaptive_grid_1d.get_table(),
+            fm::sparse_gemv(moments[mom].get_moment_matrix_dev(), f_in,
+                            vec_moments.back());
+            moments_real.push_back(&moments[mom].create_realspace_moment(
+                pde_1d, vec_moments.back(), adaptive_grid_1d.get_table(),
                 transformer, tmp_workspace));
           }
 
@@ -744,8 +576,8 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
         {
           // theta moment for 1x1v case
           fk::vector<P, mem_type::owner, imex_resrc> mom2(dense_size);
-          fm::sparse_gemv(pde.moments[2].get_moment_matrix_dev(), f_in, mom2);
-          fk::vector<P> &mom2_real = pde.moments[2].create_realspace_moment(
+          fm::sparse_gemv(moments[2].get_moment_matrix_dev(), f_in, mom2);
+          fk::vector<P> &mom2_real = moments[2].create_realspace_moment(
               pde_1d, mom2, adaptive_grid_1d.get_table(), transformer,
               tmp_workspace);
           // \theta = \int f v_x^2 dv / n - u_x^2
@@ -964,73 +796,181 @@ imex_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
   }
 }
 
+} // namespace asgard::time_advance
+
+namespace asgard
+{
+template<typename P> // implemented in time-advance
+void advance_time(discretization_manager<P> &manager, int64_t num_steps)
+{
+  if (num_steps == 0)
+    return;
+  num_steps = std::max(int64_t{-1}, num_steps);
+
+  auto &pde  = *manager.pde;
+  auto &grid = manager.grid;
+
+  auto &transformer = manager.transformer;
+  auto &kronops     = manager.kronops;
+  auto &moments     = manager.moments;
+
+  auto const method = pde.options().step_method.value();
+
+  if (manager.high_verbosity())
+    node_out() << "--- begin time loop w/ dt " << pde.get_dt() << " ---\n";
+
+  while (manager.time_step_ < manager.final_time_step_)
+  {
+    // take a time advance step
+    auto const time           = manager.time();
+    const char *time_str      = "time_advance";
+    const std::string time_id = tools::timer.start(time_str);
+
+    fk::vector<P> f_val = [&]()
+        -> fk::vector<P>
+    {
+      if (not pde.options().adapt_threshold)
+      {
+        auto const &bc = manager.get_fixed_bc();
+        switch (method)
+        {
+        case time_advance::method::exp:
+          return time_advance::explicit_advance<P>(pde, kronops, grid, transformer,
+                                                   bc, manager.current_state(), time);
+        case time_advance::method::imp:
+          return time_advance::implicit_advance<P>(pde, kronops, grid, transformer,
+                                                   manager.get_op_matrix(), bc,
+                                                   manager.current_state(), time);
+        case time_advance::method::imex:
+          return time_advance::imex_advance<P>(pde, moments, kronops, grid, transformer,
+                                               manager.current_state(), fk::vector<P>(),
+                                               time);
+        };
+      }
+
+      // coarsen
+      auto old_size = grid.size();
+      auto y        = grid.coarsen_solution(pde, manager.current_state());
+      if (manager.high_verbosity())
+        node_out() << " adapt -- coarsened grid from " << old_size << " -> "
+                   << grid.size() << " elems\n";
+
+      // clear the pre-computed components if the coarsening removed indexes
+      if (old_size != grid.size())
+        manager.update_grid_components();
+
+      // save coarsen stats
+      pde.adapt_info.initial_dof = old_size;
+      pde.adapt_info.coarsen_dof = grid.size();
+      pde.adapt_info.refine_dofs = std::vector<int>();
+      // save GMRES stats starting with the coarsen stats
+      pde.adapt_info.gmres_stats =
+          std::vector<std::vector<gmres_info<P>>>({pde.gmres_outputs});
+
+      // refine
+      bool refining = true;
+      fk::vector<P> y_first_refine;
+      while (refining)
+      {
+        // update boundary conditions
+        auto const &bc = manager.get_fixed_bc();
+
+        // take a probing refinement step
+        fk::vector<P> y_stepped = [&]() {
+          switch (method)
+          {
+          case time_advance::method::exp:
+            return time_advance::explicit_advance<P>(pde, kronops, grid, transformer,
+                                                     bc, y, time);
+          case time_advance::method::imp:
+            return time_advance::implicit_advance<P>(pde, kronops, grid, transformer,
+                                                     manager.get_op_matrix(), bc,
+                                                     y, time);
+          case time_advance::method::imex:
+            return time_advance::imex_advance<P>(pde, moments, kronops, grid, transformer,
+                                                 y, y_first_refine, time);
+          default:
+            return fk::vector<P>();
+          };
+        }();
+
+        auto const old_plan = grid.get_distrib_plan();
+        old_size            = grid.size();
+        fk::vector<P> y_refined = grid.refine_solution(pde, y_stepped);
+        // if either one of the ranks reports 1, i.e., y_stepped.size() changed
+        refining = get_global_max<bool>(y_stepped.size() != y_refined.size(),
+                                        grid.get_distrib_plan());
+
+        if (manager.high_verbosity())
+          node_out() << " adapt -- refined grid from " << old_size << " -> "
+                     << grid.size() << " elems\n";
+        // save refined DOF stats
+        pde.adapt_info.refine_dofs.push_back(grid.size());
+        // append GMRES stats for refinement
+        pde.adapt_info.gmres_stats.push_back({pde.gmres_outputs});
+
+        if (!refining)
+        {
+          y = std::move(y_stepped);
+        }
+        else
+        {
+          // added more indexes, matrices will have to be remade
+          manager.update_grid_components();
+
+          y = grid.redistribute_solution(y, old_plan, old_size);
+
+          // after first refinement, save the refined vector to use as initial
+          // "guess" to GMRES
+          if (y_first_refine.empty())
+          {
+            y_first_refine = std::move(y_refined);
+          }
+
+          // pad with zeros if more elements were added
+          y_first_refine.resize(y.size());
+        }
+      }
+
+      return y;
+    }();
+
+    tools::timer.stop(time_id);
+
+    // advances time and the time-step
+    manager.set_next_step(f_val);
+
+    if (manager.high_verbosity() and not pde.options().ignore_exact)
+    {
+      auto rmse = manager.rmse_exact_sol();
+      if (rmse)
+      {
+        auto const &rmse_errors = rmse.value()[0];
+        auto const &relative_errors = rmse.value()[1];
+        expect(rmse_errors.size() == relative_errors.size());
+        for (auto j : indexof(rmse_errors))
+        {
+          node_out() << "Errors for local rank: " << j << '\n';
+          node_out() << "RMSE (numeric-analytic) [wavelet]: "
+                     << rmse_errors[j] << '\n';
+          node_out() << "Relative difference (numeric-analytic) [wavelet]: "
+                     << relative_errors[j] << " %" << '\n';
+        }
+      }
+
+      node_out() << "complete timestep: " << manager.time_step_ << '\n';
+    }
+
+    if (--num_steps == 0)
+      break;
+  }
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
-template fk::vector<double> adaptive_advance(
-    method const step_method, PDE<double> &pde,
-    kron_operators<double> &operator_matrix,
-    adapt::distributed_grid<double> &adaptive_grid,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    fk::vector<double> const &x, double const time,
-    bool const update_system);
-
-template fk::vector<double> explicit_advance(
-    PDE<double> const &pde, kron_operators<double> &operator_matrix,
-    adapt::distributed_grid<double> const &adaptive_grid,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
-        &unscaled_parts,
-    fk::vector<double> const &x, double const time);
-
-template fk::vector<double> implicit_advance(
-    PDE<double> &pde, kron_operators<double> &operator_matrix,
-    adapt::distributed_grid<double> const &adaptive_grid,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    std::array<boundary_conditions::unscaled_bc_parts<double>, 2> const
-        &unscaled_parts,
-    fk::vector<double> const &host_space, double const time,
-    bool const update_system);
-
-template fk::vector<double> imex_advance(
-    PDE<double> &pde, kron_operators<double> &operator_matrix,
-    adapt::distributed_grid<double> const &adaptive_grid,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    fk::vector<double> const &f_0, fk::vector<double> const &x_prev,
-    double const time, bool const update_system);
-
+template void advance_time(discretization_manager<double> &, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-
-template fk::vector<float> adaptive_advance(
-    method const step_method, PDE<float> &pde,
-    kron_operators<float> &operator_matrix,
-    adapt::distributed_grid<float> &adaptive_grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    fk::vector<float> const &x, float const time,
-    bool const update_system);
-
-template fk::vector<float> explicit_advance(
-    PDE<float> const &pde, kron_operators<float> &operator_matrix,
-    adapt::distributed_grid<float> const &adaptive_grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
-        &unscaled_parts,
-    fk::vector<float> const &x, float const time);
-
-template fk::vector<float> implicit_advance(
-    PDE<float> &pde, kron_operators<float> &operator_matrix,
-    adapt::distributed_grid<float> const &adaptive_grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    std::array<boundary_conditions::unscaled_bc_parts<float>, 2> const
-        &unscaled_parts,
-    fk::vector<float> const &x, float const time, bool const update_system);
-
-template fk::vector<float>
-imex_advance(PDE<float> &pde, kron_operators<float> &operator_matrix,
-             adapt::distributed_grid<float> const &adaptive_grid,
-             basis::wavelet_transform<float, resource::host> const &transformer,
-             fk::vector<float> const &f_0, fk::vector<float> const &x_prev,
-             float const time, bool const update_system);
+template void advance_time(discretization_manager<float> &, int64_t);
 #endif
-
-} // namespace asgard::time_advance
+}

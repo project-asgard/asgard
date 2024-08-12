@@ -73,11 +73,11 @@ inline double half_raided_to_intlog2(int x)
   return result;
 }
 
-template<typename P, mem_type mem>
-P nrminf(fk::vector<P, mem> const &x)
+template<typename vec_type>
+auto nrminf(vec_type const &x)
 {
   return std::abs(
-      *std::max_element(x.begin(), x.end(), [](P const a, P const b) {
+      *std::max_element(x.begin(), x.end(), [](auto a, auto b) {
         return (std::abs(a) < std::abs(b));
       }));
 }

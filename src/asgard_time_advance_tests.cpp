@@ -37,57 +37,18 @@ void time_advance_test(prog_opts const &opts,
     return;
   }
 
-  auto pde = make_PDE<P>(opts);
+  prog_opts silent_opts = opts;
 
-  auto const &options = pde->options();
-  elements::table const check(*pde);
-  if (check.size() <= num_ranks)
-  {
-    // don't run tiny problems when MPI testing
-    return;
-  }
-  adapt::distributed_grid adaptive_grid(*pde);
-  basis::wavelet_transform<P, resource::host> const transformer(*pde);
+  silent_opts.ignore_exact = true;
 
-  // -- compute dimension mass matrices
-  generate_dimension_mass_mat(*pde, transformer);
-
-  // -- set coeffs
-  if (*options.adapt_threshold)
-  {
-    generate_all_coefficients_max_level(*pde, transformer);
-  }
-  else
-  {
-    generate_all_coefficients(*pde, transformer);
-  }
-
-  // -- generate initial condition vector.
-  auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer);
-
-  // TODO: look into issue requiring mass mats to be regenerated after init
-  // cond. see problem in main.cpp
-  generate_dimension_mass_mat(*pde, transformer);
-
-  fk::vector<P> f_val(initial_condition);
-
-  asgard::kron_operators<P> operator_matrices;
+  discretization_manager disc(make_PDE<P>(silent_opts));
 
   // -- time loop
-  for (auto i = 0; i < options.num_time_steps.value(); ++i)
+  for (auto i : indexof(disc.final_time_step()))
   {
-    std::cout.setstate(std::ios_base::failbit);
-    auto const time          = i * pde->get_dt();
-    auto const update_system = i == 0;
+    advance_time(disc, 1);
 
-    auto const method = options.step_method.value();
-
-    f_val = time_advance::adaptive_advance(method, *pde, operator_matrices,
-                                           adaptive_grid, transformer,
-                                           f_val, time, update_system);
-
-    std::cout.clear();
+    fk::vector<P> f = disc.current_state();
 
     auto const file_path =
         filepath.parent_path() /
@@ -95,12 +56,12 @@ void time_advance_test(prog_opts const &opts,
     auto const gold = read_vector_from_txt_file<P>(file_path);
 
     // each rank generates partial answer
-    int64_t const dof  = fm::ipow(*options.degree + 1, pde->num_dims());
-    auto const subgrid = adaptive_grid.get_subgrid(get_rank());
+    int64_t const dof  = fm::ipow(disc.degree() + 1, disc.get_pde().num_dims());
+    auto const subgrid = disc.get_grid().get_subgrid(get_rank());
     REQUIRE((subgrid.col_stop + 1) * dof - 1 <= gold.size());
     auto const my_gold = fk::vector<P, mem_type::const_view>(
         gold, subgrid.col_start * dof, (subgrid.col_stop + 1) * dof - 1);
-    rmse_comparison(my_gold, f_val, tolerance_factor);
+    rmse_comparison(my_gold, f, tolerance_factor);
   }
 }
 
@@ -943,64 +904,29 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
 
   opts.isolver_tolerance = gmres_tol;
 
-  auto const pde = make_PDE<TestType>(opts);
+  discretization_manager disc(make_PDE<TestType>(opts));
 
-  // options const opts(parse);
-  elements::table const check(*pde);
-
-  adapt::distributed_grid adaptive_grid(*pde);
-  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
-
-  // -- compute dimension mass matrices
-  generate_dimension_mass_mat(*pde, transformer);
-
-  // -- set coeffs
-  generate_all_coefficients(*pde, transformer);
-
-  // -- generate moments
-  for (auto &m : pde->moments)
-  {
-    m.createFlist(*pde);
-    expect(m.get_fList().size() > 0);
-
-    m.createMomentVector(*pde, adaptive_grid.get_table());
-    expect(m.get_vector().size() > 0);
-  }
-
-  // -- generate initial condition vector.
-  auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer);
-
-  generate_dimension_mass_mat(*pde, transformer);
-
-  fk::vector<TestType> f_val(initial_condition);
-  asgard::kron_operators<TestType> operator_matrices;
+  auto const &pde = disc.get_pde();
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
 
   // -- time loop
-  for (int i = 0; i < opts.num_time_steps; ++i)
+  for (auto i : indexof(disc.final_time_step()))
   {
-    std::cout.setstate(std::ios_base::failbit);
-    TestType const time      = i * pde->get_dt();
-    bool const update_system = i == 0;
-    f_val                    = time_advance::adaptive_advance(
-        asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, f_val, time, update_system);
-
-    std::cout.clear();
+    advance_time(disc, 1);
 
     // compute the E potential and kinetic energy
-    fk::vector<TestType> E_field_sq(pde->E_field);
+    fk::vector<TestType> E_field_sq(pde.E_field);
     for (auto &e : E_field_sq)
     {
       e = e * e;
     }
-    dimension<TestType> &dim = pde->get_dimensions()[0];
-    TestType E_pot           = calculate_integral(E_field_sq, dim);
-    TestType E_kin =
-        calculate_integral(pde->moments[2].get_realspace_moment(), dim);
+    dimension<TestType> const &dim = pde.get_dimensions()[0];
+
+    TestType E_pot = calculate_integral(E_field_sq, dim);
+    TestType E_kin = calculate_integral(disc.get_moments()[2].get_realspace_moment(),
+                                        dim);
     if (i == 0)
     {
       E_pot_initial = E_pot;
@@ -1032,63 +958,30 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
 
   auto opts = make_opts("-p two_stream -d 2 -l 5 -n 20 -s imex -sv gmres -g dense -dt 6.25e-3");
 
-  auto const pde = make_PDE<TestType>(opts);
+  discretization_manager disc(make_PDE<TestType>(opts));
 
-  elements::table const check(*pde);
-
-  adapt::distributed_grid adaptive_grid(*pde);
-  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
-
-  // -- compute dimension mass matrices
-  generate_dimension_mass_mat(*pde, transformer);
-
-  // -- set coeffs
-  generate_all_coefficients(*pde, transformer);
-
-  // -- generate moments
-  for (auto &m : pde->moments)
-  {
-    m.createFlist(*pde);
-    expect(m.get_fList().size() > 0);
-
-    m.createMomentVector(*pde, adaptive_grid.get_table());
-    expect(m.get_vector().size() > 0);
-  }
-
-  // -- generate initial condition vector.
-  auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer);
-
-  generate_dimension_mass_mat(*pde, transformer);
-
-  fk::vector<TestType> f_val(initial_condition);
-  asgard::kron_operators<TestType> operator_matrices;
+  auto const &pde = disc.get_pde();
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
 
   // -- time loop
-  for (int i = 0; i < opts.num_time_steps; ++i)
+  for (auto i : indexof(disc.final_time_step()))
   {
-    std::cout.setstate(std::ios_base::failbit);
-    TestType const time      = i * pde->get_dt();
-    bool const update_system = i == 0;
-    f_val                    = time_advance::adaptive_advance(
-        asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, f_val, time, update_system);
-
-    std::cout.clear();
+    advance_time(disc, 1);
 
     // compute the E potential and kinetic energy
-    fk::vector<TestType> E_field_sq(pde->E_field);
+    fk::vector<TestType> E_field_sq(pde.E_field);
     for (auto &e : E_field_sq)
     {
       e = e * e;
     }
-    dimension<TestType> &dim = pde->get_dimensions()[0];
-    TestType E_pot           = calculate_integral(E_field_sq, dim);
-    TestType E_kin =
-        calculate_integral(pde->moments[2].get_realspace_moment(), dim);
+    dimension<TestType> const &dim = pde.get_dimensions()[0];
+
+    auto &moments = disc.get_moments();
+
+    TestType E_pot = calculate_integral(E_field_sq, dim);
+    TestType E_kin = calculate_integral(moments[2].get_realspace_moment(), dim);
     if (i == 0)
     {
       E_pot_initial = E_pot;
@@ -1101,16 +994,14 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     // REQUIRE(E_relative <= tolerance);
 
     // calculate integral of moments
-    fk::vector<TestType> mom0 = pde->moments[0].get_realspace_moment();
-    fk::vector<TestType> mom1 = pde->moments[1].get_realspace_moment();
+    fk::vector<TestType> mom0 = moments[0].get_realspace_moment();
+    fk::vector<TestType> mom1 = moments[1].get_realspace_moment();
 
     TestType n_total = calculate_integral(fm::scal(TestType{2.0}, mom0), dim);
 
     fk::vector<TestType> n_times_u(mom0.size());
-    for (int j = 0; j < n_times_u.size(); j++)
-    {
+    for (auto j : indexof(n_times_u))
       n_times_u[j] = mom0[j] * mom1[j];
-    }
 
     TestType nu_total = calculate_integral(n_times_u, dim);
 
@@ -1153,37 +1044,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
 
   auto opts = make_opts("-p two_stream -d 2 -l 5 -m 5 -n 10 -s imex -dt 6.25e-3 -a 1.0e-6 -an linf");
 
-  auto const pde = make_PDE<TestType>(opts);
+  discretization_manager disc(make_PDE<TestType>(opts));
 
-  elements::table const check(*pde);
-
-  adapt::distributed_grid adaptive_grid(*pde);
-  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
-
-  // -- compute dimension mass matrices
-  generate_dimension_mass_mat(*pde, transformer);
-
-  // -- set coeffs
-  generate_all_coefficients(*pde, transformer);
-
-  // -- generate moments
-  for (auto &m : pde->moments)
-  {
-    m.createFlist(*pde);
-    expect(m.get_fList().size() > 0);
-
-    m.createMomentVector(*pde, adaptive_grid.get_table());
-    expect(m.get_vector().size() > 0);
-  }
-
-  // -- generate initial condition vector.
-  auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer);
-
-  generate_dimension_mass_mat(*pde, transformer);
-
-  fk::vector<TestType> f_val(initial_condition);
-  asgard::kron_operators<TestType> operator_matrices;
+  auto const &pde = disc.get_pde();
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
@@ -1192,27 +1055,22 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   int const fg_dof = fm::ipow((degree + 1) * fm::two_raised_to(levels), 2);
 
   // -- time loop
-  for (int i = 0; i < opts.num_time_steps; ++i)
+  for (auto i : indexof(disc.final_time_step()))
   {
-    std::cout.setstate(std::ios_base::failbit);
-    TestType const time      = i * pde->get_dt();
-    bool const update_system = i == 0;
-    f_val                    = time_advance::adaptive_advance(
-        asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, f_val, time, update_system);
+    advance_time(disc, 1);
 
-    std::cout.clear();
+    auto &moments = disc.get_moments();
 
     // compute the E potential and kinetic energy
-    fk::vector<TestType> E_field_sq(pde->E_field);
+    fk::vector<TestType> E_field_sq(pde.E_field);
     for (auto &e : E_field_sq)
     {
       e = e * e;
     }
-    dimension<TestType> &dim = pde->get_dimensions()[0];
-    TestType E_pot           = calculate_integral(E_field_sq, dim);
-    TestType E_kin =
-        calculate_integral(pde->moments[2].get_realspace_moment(), dim);
+    dimension<TestType> const &dim = pde.get_dimensions()[0];
+
+    TestType E_pot = calculate_integral(E_field_sq, dim);
+    TestType E_kin = calculate_integral(moments[2].get_realspace_moment(), dim);
     if (i == 0)
     {
       E_pot_initial = E_pot;
@@ -1225,8 +1083,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     // REQUIRE(E_relative <= tolerance);
 
     // calculate integral of moments
-    fk::vector<TestType> mom0 = pde->moments[0].get_realspace_moment();
-    fk::vector<TestType> mom1 = pde->moments[1].get_realspace_moment();
+    fk::vector<TestType> mom0 = moments[0].get_realspace_moment();
+    fk::vector<TestType> mom1 = moments[1].get_realspace_moment();
 
     TestType n_total = calculate_integral(fm::scal(TestType{2.0}, mom0), dim);
 
@@ -1258,7 +1116,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     // for this configuration, the DOF of ASG / DOF of FG should be between
     // 60-65%. Testing against 70% is conservative but will capture issues with
     // adaptivity
-    REQUIRE(static_cast<TestType>(f_val.size()) / fg_dof <= 0.70);
+    REQUIRE(static_cast<TestType>(disc.current_state().size()) / fg_dof <= 0.70);
   }
 
   parameter_manager<TestType>::get_instance().reset();
@@ -1290,57 +1148,30 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   opts.start_levels      = levels;
   opts.isolver_tolerance = gmres_tol;
 
-  auto const pde = make_PDE<TestType>(opts);
+  discretization_manager disc(make_PDE<TestType>(opts));
 
-  elements::table const check(*pde);
-
-  adapt::distributed_grid adaptive_grid(*pde);
-  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
-
-  // -- compute dimension mass matrices
-  generate_dimension_mass_mat(*pde, transformer);
-
-  // -- set coeffs
-  generate_all_coefficients(*pde, transformer);
-
-  // -- generate moments
-  for (auto &m : pde->moments)
-  {
-    m.createFlist(*pde);
-    expect(m.get_fList().size() > 0);
-
-    m.createMomentVector(*pde, adaptive_grid.get_table());
-    expect(m.get_vector().size() > 0);
-  }
-
-  // -- generate initial condition vector.
-  auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer);
-
-  generate_dimension_mass_mat(*pde, transformer);
-
-  fk::vector<TestType> f_val(initial_condition);
-  asgard::kron_operators<TestType> operator_matrices;
+  auto const &pde = disc.get_pde();
 
   // -- time loop
-  for (int i = 0; i < opts.num_time_steps; ++i)
-  {
-    std::cout.setstate(std::ios_base::failbit);
-    TestType const time      = i * pde->get_dt();
-    bool const update_system = i == 0;
-    fk::vector<TestType> sol = time_advance::adaptive_advance(
-        asgard::time_advance::method::imex, *pde, operator_matrices,
-        adaptive_grid, transformer, f_val, time, update_system);
+  int64_t const num_final = disc.final_time_step();
 
-    f_val = std::move(sol);
-    std::cout.clear();
+  disc.set_final_time_step(0);
+
+  // -- time loop
+  for (auto i : indexof(num_final))
+  {
+    disc.add_time_steps(1);
+
+    advance_time(disc);
+
+    fk::vector<TestType> f_val = disc.current_state();
 
     // get analytic solution at final time step to compare
     if (i == opts.num_time_steps.value() - 1)
     {
       fk::vector<TestType> const analytic_solution = sum_separable_funcs(
-          pde->exact_vector_funcs(), pde->get_dimensions(), adaptive_grid,
-          transformer, degree, time + pde->get_dt());
+          pde.exact_vector_funcs(), pde.get_dimensions(), disc.get_grid(),
+          disc.get_transformer(), degree, disc.time());
 
       // calculate L2 error between simulation and analytical solution
       TestType const L2 = nrm2_dist(f_val, analytic_solution);
@@ -1349,13 +1180,13 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
       auto const [l2_errors, relative_errors] =
           asgard::gather_errors<TestType>(L2, relative_error);
       expect(l2_errors.size() == relative_errors.size());
-      for (int j = 0; j < l2_errors.size(); ++j)
+      for (auto const &l2 : l2_errors)
       {
         // verify the l2 is close to the expected l2 from the analytical
         // solution
-        TestType const abs_diff = std::abs(l2_errors[j] - expected_l2);
+        TestType const abs_diff = std::abs(l2 - expected_l2);
         TestType const expected =
-            tolerance * std::max(std::abs(l2_errors[j]), std::abs(expected_l2));
+            tolerance * std::max(std::abs(l2), std::abs(expected_l2));
         REQUIRE(abs_diff <= expected);
       }
     }
@@ -1417,6 +1248,8 @@ void test_memory_mode(imex_flag imex)
     return;
   // make some PDE, no need to be too specific
 
+  verbosity_level verb = verbosity_level::quiet;
+
   auto opts = make_opts("-p two_stream -d 2 -l 5");
 
   auto pde = make_PDE<prec>(opts);
@@ -1436,22 +1269,22 @@ void test_memory_mode(imex_flag imex)
       compute_mem_usage(*pde, grid, imex, spcache_null1);
 
   auto mat_one = make_local_kronmult_matrix(
-      *pde, grid, memory_one, imex_flag::unspecified, spcache_null1);
+      *pde, grid, memory_one, imex_flag::unspecified, spcache_null1, verb);
   memory_usage spmemory_one = compute_mem_usage(
       *pde, grid, imex, spcache_one, 6, 2147483646, force_sparse);
   auto spmat_one = make_local_kronmult_matrix(
-      *pde, grid, spmemory_one, imex, spcache_one, force_sparse);
+      *pde, grid, spmemory_one, imex, spcache_one, verb, force_sparse);
 
   kron_sparse_cache spcache_null2, spcache_multi;
   memory_usage memory_multi =
       compute_mem_usage(*pde, grid, imex, spcache_null2, 0, 8000);
 
   auto mat_multi = make_local_kronmult_matrix(
-      *pde, grid, memory_multi, imex, spcache_null2);
+      *pde, grid, memory_multi, imex, spcache_null2, verb);
   memory_usage spmemory_multi = compute_mem_usage(
       *pde, grid, imex, spcache_multi, 6, 8000, force_sparse);
   auto spmat_multi = make_local_kronmult_matrix(
-      *pde, grid, spmemory_multi, imex, spcache_multi, force_sparse);
+      *pde, grid, spmemory_multi, imex, spcache_multi, verb, force_sparse);
 
   REQUIRE(mat_one.is_onecall());
   REQUIRE(spmat_one.is_onecall());

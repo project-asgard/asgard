@@ -16,7 +16,8 @@ template<typename precision>
 struct kron_operators
 {
   //! \brief Makes a list of uninitialized matrices
-  kron_operators()
+  kron_operators(verbosity_level verb_in = verbosity_level::high)
+      : verbosity(verb_in)
   {
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     load_stream = nullptr;
@@ -61,7 +62,7 @@ struct kron_operators
     int const ientry = static_cast<int>(entry);
     if (not matrices[ientry])
       matrices[ientry] = make_local_kronmult_matrix(
-          pde, grid, mem_stats, entry, spcache);
+          pde, grid, mem_stats, entry, spcache, verbosity);
 
 #ifdef ASGARD_USE_CUDA
     if (matrices[ientry].input_size() != xdev.size())
@@ -147,6 +148,9 @@ struct kron_operators
       return matrices[static_cast<int>(imex_flag::unspecified)].template get_diagonal_preconditioner<rec>();
   }
 
+  //! adjusts the verbosity level
+  verbosity_level verbosity = verbosity_level::high;
+
 private:
   //! \brief Holds the matrices
   std::array<local_kronmult_matrix<precision>, num_imex_variants> matrices;
@@ -178,7 +182,9 @@ private:
 template<typename precision>
 struct kron_operators
 {
-  kron_operators() : pde_(nullptr), conn_volumes_(1), conn_full_(1) {}
+  kron_operators(verbosity_level verb_in = verbosity_level::high)
+      : verbosity(verb_in), pde_(nullptr), conn_volumes_(1), conn_full_(1)
+  {}
 
   template<resource rec = resource::host>
   void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
@@ -258,7 +264,8 @@ struct kron_operators
     }
     if (not kglobal)
     {
-      kglobal = make_block_global_kron_matrix(pde, grid, &conn_volumes_, &conn_full_, &workspace);
+      kglobal = make_block_global_kron_matrix(pde, grid, &conn_volumes_,
+                                              &conn_full_, &workspace, verbosity);
       set_specific_mode(pde, grid, entry, kglobal);
       if (interp)
       {
@@ -304,8 +311,7 @@ struct kron_operators
    */
   vector2d<precision> const &get_inodes() const
   {
-    if (not interp)
-      throw std::runtime_error("get_inodes() requires enabled interpolation and made operators");
+    rassert(!!interp, "get_inodes() requires enabled interpolation and made operators");
     check_make_inodes();
     return inodes;
   }
@@ -343,6 +349,9 @@ struct kron_operators
                                  workspace.x.data(), proj.data());
   }
 
+  //! adjusts the verbosity level
+  verbosity_level verbosity = verbosity_level::high;
+
 private:
   void check_make_inodes() const
   {
@@ -357,7 +366,7 @@ private:
     }
   }
 
-  PDE<precision> const *pde_;
+  PDE<precision> const *pde_ = nullptr;
   precision domain_scale;
   std::array<precision, max_num_dimensions> dmin, dslope;
   connect_1d conn_volumes_, conn_full_;

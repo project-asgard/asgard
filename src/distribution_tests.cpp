@@ -719,8 +719,8 @@ TEMPLATE_TEST_CASE("gather errors tests", "[distribution]", test_precs)
     {
       for (int i = 0; i < num_ranks; ++i)
       {
-        REQUIRE(rmse_vect(i) == i);
-        REQUIRE(relative_error_vect(i) == i + num_ranks);
+        REQUIRE(rmse_vect[i] == i);
+        REQUIRE(relative_error_vect[i] == i + num_ranks);
       }
     }
   }

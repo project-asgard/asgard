@@ -3,7 +3,6 @@
 #include "../asgard_dimension.hpp"
 #include "../fast_math.hpp"
 #include "../matlab_utilities.hpp"
-#include "../moment.hpp"
 #include "../program_options.hpp"
 #include "../asgard_indexset.hpp"
 
@@ -51,9 +50,6 @@ auto const element_segment_size = [](auto const &pde) {
 // forward dec
 template<typename P>
 class PDE;
-
-template<typename P>
-class moment;
 
 enum class coefficient_type
 {
@@ -537,6 +533,9 @@ template<typename P>
 using dt_func = std::function<P(dimension<P> const &dim)>;
 
 template<typename P>
+using moment_funcs = std::vector<std::vector<md_func_type<P>>>;
+
+template<typename P>
 class PDE
 {
 public:
@@ -549,10 +548,10 @@ public:
       term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<vector_func<P>> const exact_vector_funcs_in,
       dt_func<P> const get_dt,
-      bool const do_poisson_solve_in          = false,
-      bool const has_analytic_soln_in         = false,
-      std::vector<moment<P>> const moments_in = {},
-      bool const do_collision_operator_in     = true)
+      bool const do_poisson_solve_in      = false,
+      bool const has_analytic_soln_in     = false,
+      moment_funcs<P> const moments_in    = {},
+      bool const do_collision_operator_in = true)
       : PDE(cli_input, num_dims_in, num_sources_in, max_num_terms, dimensions,
             terms, sources_in,
             std::vector<md_func_type<P>>({exact_vector_funcs_in}),
@@ -566,7 +565,7 @@ public:
       dt_func<P> get_dt,
       bool const do_poisson_solve_in      = false,
       bool const has_analytic_soln_in     = false,
-      std::vector<moment<P>> moments_in   = {},
+      moment_funcs<P> moments_in          = {},
       bool const do_collision_operator_in = true)
   {
     initialize(cli_input, num_dims_in, num_sources_in,
@@ -584,10 +583,10 @@ public:
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<vector_func<P>> const &exact_vector_funcs_in,
       dt_func<P> const &get_dt,
-      bool const do_poisson_solve_in           = false,
-      bool const has_analytic_soln_in          = false,
-      std::vector<moment<P>> const &moments_in = {},
-      bool const do_collision_operator_in      = true)
+      bool const do_poisson_solve_in      = false,
+      bool const has_analytic_soln_in     = false,
+      moment_funcs<P> const &moments_in   = {},
+      bool const do_collision_operator_in = true)
   {
     this->initialize(cli_input, num_dims_in, num_sources_in, max_num_terms, dimensions,
                      terms, sources_in, std::vector<md_func_type<P>>({exact_vector_funcs_in}),
@@ -599,17 +598,17 @@ public:
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<md_func_type<P>> const &exact_vector_funcs_in,
       dt_func<P> const &get_dt,
-      bool const do_poisson_solve_in           = false,
-      bool const has_analytic_soln_in          = false,
-      std::vector<moment<P>> const &moments_in = {},
-      bool const do_collision_operator_in      = true)
+      bool const do_poisson_solve_in      = false,
+      bool const has_analytic_soln_in     = false,
+      moment_funcs<P> const &moments_in   = {},
+      bool const do_collision_operator_in = true)
   {
     this->initialize(cli_input, num_dims_in, num_sources_in, max_num_terms,
                      std::vector<dimension<P>>(dimensions), term_set<P>(terms),
                      std::vector<source<P>>(sources_in),
                      std::vector<md_func_type<P>>(exact_vector_funcs_in),
                      dt_func<P>(get_dt), do_poisson_solve_in,
-                     has_analytic_soln_in, std::vector<moment<P>>(moments_in),
+                     has_analytic_soln_in, moment_funcs<P>(moments_in),
                      do_collision_operator_in);
   }
 
@@ -620,7 +619,7 @@ public:
       dt_func<P> &&get_dt,
       bool const do_poisson_solve_in      = false,
       bool const has_analytic_soln_in     = false,
-      std::vector<moment<P>> &&moments_in = {},
+      moment_funcs<P> &&moments_in        = {},
       bool const do_collision_operator_in = true)
   {
     static_assert(std::is_same_v<P, float> or std::is_same_v<P, double>,
@@ -642,7 +641,7 @@ public:
 
     sources_            = std::move(sources_in);
     exact_vector_funcs_ = std::move(exact_vector_funcs_in);
-    moments             = std::move(moments_in);
+    initial_moments     = std::move(moments_in);
 
     do_poisson_solve_      = do_poisson_solve_in;
     do_collision_operator_ = do_collision_operator_in;
@@ -803,18 +802,15 @@ public:
     }
 
     // check the moments
-    for (auto const &m : moments)
+    for (auto const &m : initial_moments)
     {
       // each moment should have ndim + 1 functions
-      auto md_funcs = m.get_md_funcs();
-      for (auto md_func : md_funcs)
-      {
+      for (auto md_func : m)
         expect(md_func.size() == static_cast<unsigned>(num_dims_) + 1);
-      }
     }
 
-    rassert(not (use_imex_ and moments.empty()),
-            "incorrect pde/time-step pair, the imex method requires momemnts");
+    rassert(not (use_imex_ and initial_moments.empty()),
+            "incorrect pde/time-step pair, the imex method requires moments");
 
     gmres_outputs.resize(use_imex_ ? 2 : 1);
 
@@ -870,7 +866,7 @@ public:
   // TODO: there is likely a better way to do this. Another option is to flatten
   // element table to 1D (see hash_table_2D_to_1D.m)
   PDE(const PDE &pde, int)
-      : moments(pde.moments), options_(pde.options_),
+      : initial_moments(pde.initial_moments), options_(pde.options_),
         num_dims_(1), num_sources_(pde.sources_.size()),
         num_terms_(pde.get_terms().size()), max_level_(pde.max_level_),
         sources_(pde.sources_), exact_vector_funcs_(pde.exact_vector_funcs_),
@@ -901,7 +897,7 @@ public:
   {
     if (not options_.wavelet_output_freq)
       return false;
-    return ((i + 1) % options_.wavelet_output_freq.value() == 0);
+    return (i == 0 or i % options_.wavelet_output_freq.value() == 0);
   }
   bool is_routput_step(int i) const
   {
@@ -926,7 +922,7 @@ public:
     return exact_vector_funcs_.back().back()(dummy, time)[0];
   }
 
-  std::vector<moment<P>> moments;
+  moment_funcs<P> initial_moments;
   bool do_poisson_solve() const { return do_poisson_solve_; }
   bool do_collision_operator() const { return do_collision_operator_; }
   bool has_analytic_soln() const { return has_analytic_soln_; }

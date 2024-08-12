@@ -400,21 +400,15 @@ TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
 
   std::vector<TestType> err_interp, err_regular;
 
-  std::unique_ptr<PDE<TestType>> pde_int = std::make_unique<testode<TestType, interp_mode, testode_modes::expdecay>>(opts);
-  std::unique_ptr<PDE<TestType>> pde_reg = std::make_unique<testode<TestType, regular_mode, testode_modes::expdecay>>(opts);
-
-  err_interp = time_advance_errors(pde_int);
-  err_regular = time_advance_errors(pde_reg);
+  err_interp  = time_advance_errors<testode<TestType, interp_mode, testode_modes::expdecay>>(opts);
+  err_regular = time_advance_errors<testode<TestType, regular_mode, testode_modes::expdecay>>(opts);
 
   REQUIRE(err_interp.size() == err_regular.size());
   TestType err = fm::diff_inf(err_interp, err_regular);
   REQUIRE(err < tol);
 
-  pde_int = std::make_unique<testode<TestType, interp_mode, testode_modes::expexp>>(opts);
-  pde_reg = std::make_unique<testode<TestType, regular_mode, testode_modes::expexp>>(opts);
-
-  err_interp = time_advance_errors(pde_int);
-  err_regular = time_advance_errors(pde_reg);
+  err_interp = time_advance_errors<testode<TestType, interp_mode, testode_modes::expexp>>(opts);
+  err_regular = time_advance_errors<testode<TestType, regular_mode, testode_modes::expexp>>(opts);
 
   REQUIRE(err_interp.size() == err_regular.size());
   err = fm::diff_inf(err_interp, err_regular);
@@ -430,29 +424,13 @@ TEMPLATE_TEST_CASE("2d continuity_2 with interp", "[linear]", test_precs)
 
   std::vector<TestType> errs;
 
-  std::unique_ptr<PDE<TestType>> pde_int =
-      std::make_unique<testforcing<TestType, testforcing_modes::interp_exact>>(opts);
+  errs = time_advance_errors<testforcing<TestType, testforcing_modes::interp_exact>>(opts);
 
-  errs = time_advance_errors(pde_int);
+  REQUIRE(fm::nrminf(errs) < 5.E-6);
 
-  TestType max_err = 0;
+  errs = time_advance_errors<testforcing<TestType, testforcing_modes::separable_exact>>(opts);
 
-  for (auto e : errs)
-    max_err = std::max(max_err, e);
-
-  REQUIRE(max_err < 5.E-6);
-
-  std::unique_ptr<PDE<TestType>> pde_sep =
-      std::make_unique<testforcing<TestType, testforcing_modes::separable_exact>>(opts);
-
-  errs = time_advance_errors(pde_sep);
-
-  max_err = 0;
-
-  for (auto e : errs)
-    max_err = std::max(max_err, e);
-
-  REQUIRE(max_err < 5.E-6);
+  REQUIRE(fm::nrminf(errs) < 5.E-6);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -469,11 +447,11 @@ TEMPLATE_TEST_CASE("2d interp initial conditions", "[linear]", test_precs)
   bool constexpr interp_ic = true;  // interpolate initial-cond
   bool constexpr proj_ic   = false; // project intiial-cond
 
-  std::unique_ptr<PDE<TestType>> ipde = std::make_unique<testic<TestType, interp_ic>>(opts);
-  std::unique_ptr<PDE<TestType>> ppde = std::make_unique<testic<TestType, proj_ic>>(opts);
-
-  ierrs = time_advance_errors(ipde);
-  perrs = time_advance_errors(ppde);
+  // std::unique_ptr<PDE<TestType>> ipde = std::make_unique<testic<TestType, interp_ic>>(opts);
+  // std::unique_ptr<PDE<TestType>> ppde = std::make_unique<testic<TestType, proj_ic>>(opts);
+  //
+  ierrs = time_advance_errors<testic<TestType, interp_ic>>(opts);
+  perrs = time_advance_errors<testic<TestType, proj_ic>>(opts);
 
   REQUIRE(ierrs.size() == perrs.size());
   TestType err = fm::diff_inf(ierrs, perrs);

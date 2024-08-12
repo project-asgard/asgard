@@ -235,12 +235,12 @@ int main(int argc, char **argv)
   // parse the command line inputs
   asgard::prog_opts const options(argc, argv);
 
-  // create an instance of the PDE that we want to solve
-  // pde has type std::unique_ptr<asgard::PDE<precision>>
-  auto pde = asgard::make_custom_pde<example_continuity2d>(options);
-
   // main call to asgard, does all the work
-  asgard::simulate(pde);
+  // i.e., create an instance of the PDE that we want to solve, discretizes it
+  // and advances the time according to the options and the example_continuity2d
+  // specification
+  // also, outputs snapshots of the solution
+  asgard::simulate<example_continuity2d>(options, asgard::verbosity_level::high);
 
   // call MPI_Finalize() and/or cleanup after the simulation
   asgard::finalize_distribution();

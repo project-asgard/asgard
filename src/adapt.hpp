@@ -2,8 +2,8 @@
 #include "asgard_basis.hpp"
 #include "distribution.hpp"
 #include "elements.hpp"
-#include "pde.hpp"
-#include "program_options.hpp"
+
+#include "asgard_pde.hpp"
 
 namespace asgard::adapt
 {

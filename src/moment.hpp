@@ -1,18 +1,8 @@
 #pragma once
 
-namespace asgard
-{
-template<typename P>
-class PDE;
-}
-
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
-
 #include "asgard_basis.hpp"
+#include "asgard_pde.hpp"
 #include "elements.hpp"
-#include "pde/pde_base.hpp"
-#include "program_options.hpp"
 #include "sparse.hpp"
 
 namespace asgard
@@ -87,8 +77,6 @@ private:
   fk::matrix<P> moment_matrix;
   fk::vector<P> realspace;
   fk::sparse<P, sparse_resrc> sparse_mat;
-  // moment_fval_integral;
-  // moment_analytic_integral;
 };
 
 } // namespace asgard

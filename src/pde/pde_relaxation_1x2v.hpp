@@ -178,24 +178,12 @@ private:
     return f;
   }
 
-  inline static moment<P> const moment0 =
-      moment<P>(std::vector<md_func_type<P>>(
-          {{moment0_f1, moment0_f1, moment0_f1, moment0_f1}}));
-  inline static moment<P> const moment1v1 =
-      moment<P>(std::vector<md_func_type<P>>(
-          {{moment0_f1, moment1_f1, moment0_f1, moment0_f1}}));
-  inline static moment<P> const moment1v2 =
-      moment<P>(std::vector<md_func_type<P>>(
-          {{moment0_f1, moment0_f1, moment1_f1, moment0_f1}}));
-  inline static moment<P> const moment2v1 =
-      moment<P>(std::vector<md_func_type<P>>(
-          {{moment0_f1, moment2_f1, moment0_f1, moment0_f1}}));
-  inline static moment<P> const moment2v2 =
-      moment<P>(std::vector<md_func_type<P>>(
-          {{moment0_f1, moment0_f1, moment2_f1, moment0_f1}}));
-
-  inline static std::vector<moment<P>> const moments_ = {
-      moment0, moment1v1, moment1v2, moment2v1, moment2v2};
+  inline static moment_funcs<P> const moments_ = {
+      {{moment0_f1, moment0_f1, moment0_f1, moment0_f1}},
+      {{moment0_f1, moment1_f1, moment0_f1, moment0_f1}},
+      {{moment0_f1, moment0_f1, moment1_f1, moment0_f1}},
+      {{moment0_f1, moment2_f1, moment0_f1, moment0_f1}},
+      {{moment0_f1, moment0_f1, moment2_f1, moment0_f1}}};
 
   /* Construct (n, u, theta) */
   static P n(P const &x, P const t = 0)

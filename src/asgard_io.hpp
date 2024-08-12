@@ -1,14 +1,8 @@
 #pragma once
 
-#include "build_info.hpp"
-
-#include "asgard_matrix.hpp"
-#include "asgard_tools.hpp"
-#include "asgard_vector.hpp"
-#include "pde.hpp"
-#include "program_options.hpp"
+#include "asgard_pde.hpp"
+#include "moment.hpp"
 #include "solver.hpp"
-#include "transformations.hpp"
 
 // workaround for missing include issue with highfive
 // clang-format off
@@ -84,7 +78,7 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
 
 template<typename P>
 void generate_initial_moments(
-    PDE<P> &pde,
+    PDE<P> &pde, std::vector<moment<P>> &moments,
     adapt::distributed_grid<P> const &adaptive_grid,
     asgard::basis::wavelet_transform<P, resource::host> const &transformer,
     fk::vector<P> const &initial_condition)
@@ -104,7 +98,6 @@ void generate_initial_moments(
         asgard::dense_dim_size(ASGARD_NUM_QUADRATURE, dims[i].get_level());
   }
 
-  std::cout << " gen 3\n";
   fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
   std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
       fk::vector<P, mem_type::view, resource::host>(workspace, 0,
@@ -116,24 +109,23 @@ void generate_initial_moments(
   fk::vector<P, mem_type::owner, resource::device> initial_condition_d =
       initial_condition.clone_onto_device();
 #endif
-  for (size_t i = 0; i < pde.moments.size(); ++i)
+  for (auto i : indexof(moments))
   {
-    std::cout << " gen 4\n";
-    pde.moments[i].createMomentReducedMatrix(pde, adaptive_grid.get_table());
+    moments[i].createMomentReducedMatrix(pde, adaptive_grid.get_table());
 #ifdef ASGARD_USE_CUDA
     fk::vector<P, mem_type::owner, resource::device> moment_vec(dense_size);
 
-    fm::sparse_gemv(pde.moments[i].get_moment_matrix_dev(), initial_condition_d,
+    fm::sparse_gemv(moments[i].get_moment_matrix_dev(), initial_condition_d,
                     moment_vec);
 #else
     fk::vector<P, mem_type::owner, resource::host> moment_vec(dense_size);
 
-    fm::sparse_gemv(pde.moments[i].get_moment_matrix_dev(), initial_condition,
+    fm::sparse_gemv(moments[i].get_moment_matrix_dev(), initial_condition,
                     moment_vec);
 #endif
-    pde.moments[i].create_realspace_moment(pde_1d, moment_vec,
-                                           adaptive_grid_1d.get_table(),
-                                           transformer, tmp_workspace);
+    moments[i].create_realspace_moment(pde_1d, moment_vec,
+                                       adaptive_grid_1d.get_table(),
+                                       transformer, tmp_workspace);
   }
 }
 
@@ -141,7 +133,7 @@ void generate_initial_moments(
 // the root is appended with step-number and .h5 extension
 // the fixed filename is used "as-is" without any changes
 template<typename P>
-void write_output(PDE<P> const &pde,
+void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
                   fk::vector<P> const &vec, P const time, int const file_index,
                   int const dof, elements::table const &hash_table,
                   std::string const output_dataset_root  = "asgard",
@@ -230,16 +222,16 @@ void write_output(PDE<P> const &pde,
   H5Easy::dump(file, "Esource", pde.E_source.to_std(), opts);
   H5Easy::dump(file, "phi", pde.phi.to_std(), opts);
 
-  if (pde.moments.size() > 0)
+  if (moments.size() > 0)
   {
     // save realspace moments
-    H5Easy::dump(file, "nmoments", pde.moments.size());
-    for (size_t i = 0; i < pde.moments.size(); ++i)
+    H5Easy::dump(file, "nmoments", moments.size());
+    for (auto i : indexof(moments))
     {
       file.createDataSet<P>("moment" + std::to_string(i),
                             HighFive::DataSpace({static_cast<size_t>(
-                                pde.moments[i].get_realspace_moment().size())}))
-          .write_raw(pde.moments[i].get_realspace_moment().data());
+                                moments[i].get_realspace_moment().size())}))
+          .write_raw(moments[i].get_realspace_moment().data());
     }
   }
 
@@ -418,6 +410,7 @@ struct restart_data
 
 template<typename P>
 restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
+                            std::vector<moment<P>> &moments,
                             std::string const &restart_file)
 {
   tools::timer.start("read_output");
@@ -456,11 +449,11 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
 
   // load realspace moments
   int const num_moments = H5Easy::load<int>(file, std::string("nmoments"));
-  expect(static_cast<int>(pde.moments.size()) == num_moments);
-  for (int i = 0; i < num_moments; ++i)
+  expect(static_cast<int>(moments.size()) == num_moments);
+  for (auto i : indexof(num_moments))
   {
-    pde.moments[i].createMomentReducedMatrix(pde, hash_table);
-    pde.moments[i].set_realspace_moment(
+    moments[i].createMomentReducedMatrix(pde, hash_table);
+    moments[i].set_realspace_moment(
         fk::vector<P>(H5Easy::load<std::vector<P>>(
             file, std::string("moment" + std::to_string(i)))));
   }

@@ -260,12 +260,21 @@ int main(int argc, char **argv)
   // we want to generate a single output file at the end
   options.wavelet_output_freq = options.num_time_steps;
 
-  // create an instance of the PDE that we want to solve
-  // pde has type std::unique_ptr<asgard::PDE<precision>>
-  auto pde = asgard::make_custom_pde<example_sinwaves>(options);
+  // create an instance of the PDE that we want to solve and discretize it
+  auto disc = asgard::discretize<example_sinwaves>(options,
+                                                   asgard::verbosity_level::high);
 
-  // main call to asgard, does all the work
-  asgard::simulate(pde);
+  // perform the time stepping
+  asgard::advance_time(disc);
+
+  // finalize the solution, also outputs the files
+  disc.save_final_snapshot();
+
+  // the continuity_2d example uses a "one-shot" method for simulating a pde
+  // here, we create an asgard::discretization_manager (disc) which allows for
+  // more fine grained control of the time-advance approach
+  // e.g., we could break up the time-advance method and save intermediate
+  // snapshot of the solution
 
   if (asgard::get_local_rank() == 0)
     std::cout << " -- done simulating " << example_sinwaves::num_waves << '\n';

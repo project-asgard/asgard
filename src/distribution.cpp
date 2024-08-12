@@ -614,7 +614,7 @@ void exchange_results(fk::vector<P, src_mem, resrc> const &source,
 // gather errors from other local ranks
 // returns {rmse errors, relative errors}
 template<typename P>
-std::array<fk::vector<P>, 2>
+std::array<std::vector<P>, 2>
 gather_errors(P const root_mean_squared, P const relative)
 {
 #ifdef ASGARD_USE_MPI
@@ -636,7 +636,7 @@ gather_errors(P const root_mean_squared, P const relative)
   success = MPI_Comm_size(local_comm, &local_size);
   expect(success == 0);
 
-  fk::vector<P> error_vect(local_size * 2);
+  std::vector<P> error_vect(local_size * 2);
 
   MPI_Gather((void *)&error[0], 2, mpi_type, (void *)error_vect.data(), 2,
              mpi_type, 0, local_comm);
@@ -653,12 +653,12 @@ gather_errors(P const root_mean_squared, P const relative)
     std::partition_copy(
         error_vect.begin(), error_vect.end(), std::back_inserter(rmse_vect),
         std::back_inserter(relative_vect), [&odd](P) { return odd = !odd; });
-    return {fk::vector<P>(rmse_vect), fk::vector<P>(relative_vect)};
+    return {rmse_vect, relative_vect};
   }
 
-  return {fk::vector<P>{root_mean_squared}, fk::vector<P>{relative}};
+  return {std::vector<P>{root_mean_squared}, std::vector<P>{relative}};
 #else
-  return {fk::vector<P>{root_mean_squared}, fk::vector<P>{relative}};
+  return {std::vector<P>{root_mean_squared}, std::vector<P>{relative}};
 #endif
 }
 
@@ -1191,7 +1191,7 @@ template void exchange_results(
     int const segment_size, distribution_plan const &plan, int const my_rank);
 #endif
 
-template std::array<fk::vector<double>, 2>
+template std::array<std::vector<double>, 2>
 gather_errors(double const root_mean_squared, double const relative);
 
 template std::vector<double>
@@ -1241,7 +1241,7 @@ template void exchange_results(
     int const segment_size, distribution_plan const &plan, int const my_rank);
 #endif
 
-template std::array<fk::vector<float>, 2>
+template std::array<std::vector<float>, 2>
 gather_errors(float const root_mean_squared, float const relative);
 
 template std::vector<float> gather_results(fk::vector<float> const &my_results,

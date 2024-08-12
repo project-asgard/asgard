@@ -78,6 +78,11 @@ Options          Short   Value      Description
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
 -dt                      double     Fixed time step to use (must be positive).
 
+-noexact         -ne     -          If a pde has known exact solution, it must be for testing
+                                    of the code, therefore for each time step the computed solution
+                                    will be compared to the exact one. This option will disable
+                                    the comparison and speed the simulations of the test.
+
 <<< i/o options >>>
 -wave-freq       -w      int        Interval (in time steps) for outputting the hierarchical
                                     wavelet data, compatible with Python plotting.
@@ -192,6 +197,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-pde?", optentry::pde_help}, {"-p?", optentry::pde_help},
       {"-pde", optentry::pde_choice}, {"-p", optentry::pde_choice},
       {"-infile", optentry::input_file}, {"-if", optentry::input_file},
+      {"-noexact", optentry::ignore_exact}, {"-ne", optentry::ignore_exact},
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
@@ -270,6 +276,9 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       break;
     case optentry::pde_help:
       show_pde_help = true;
+      break;
+    case optentry::ignore_exact:
+      ignore_exact = true;
       break;
     case optentry::input_file: {
       auto selected = move_process_next();

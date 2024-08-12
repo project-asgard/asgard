@@ -383,24 +383,24 @@ set (components
      lib_dispatch
      matlab_utilities
      moment
-     pde
      permutations
      program_options
      quadrature
      solver
      tensors
      sparse
-     time_advance
      transformations
      asgard_basis
-     asgard_resources
-     asgard_kronmult_matrix
+     asgard_discretization
      asgard_indexset
      asgard_interpolation1d
      asgard_interpolation
+     asgard_kronmult_matrix
+     asgard_pde
      asgard_reconstruct
+     asgard_resources
+     asgard_time_advance
      asgard_tools
-     asgard
 )
 
 if (ASGARD_IO_HIGHFIVE)

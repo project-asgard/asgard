@@ -52,27 +52,19 @@ TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
   opts.grid           = grid_type::dense;
   opts.num_time_steps = 1;
 
-  auto pde = make_PDE<TestType>(opts);
-  elements::table const check(*pde);
+  discretization_manager<TestType> disc(make_PDE<TestType>(opts),
+                                        verbosity_level::quiet);
 
-  adapt::distributed_grid adaptive_grid(*pde);
-  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
+  auto &pde = disc.get_pde();
 
-  // -- set coeffs
-  generate_all_coefficients(*pde, transformer);
-
-  // -- generate initial condition vector.
-  auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer);
-
-  auto moments = pde->moments;
+  auto &moments = disc.get_moments();
   REQUIRE(moments.size() > 0);
 
   for (size_t i = 0; i < moments.size(); ++i)
   {
-    moments[i].createFlist(*pde);
-    moments[i].createMomentVector(*pde, check);
-    moments[i].createMomentReducedMatrix(*pde, check);
+    moments[i].createFlist(pde);
+    moments[i].createMomentVector(pde, disc.get_grid().get_table());
+    moments[i].createMomentReducedMatrix(pde, disc.get_grid().get_table());
 
     auto const gold_filename =
         moment_base_dir /

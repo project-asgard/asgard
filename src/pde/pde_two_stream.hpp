@@ -41,8 +41,7 @@ public:
                      std::vector<source<P>>{},       // no sources
                      std::vector<md_func_type<P>>{}, // no exact solution
                      get_dt_, do_poisson_solve, has_analytic_soln,
-                     std::vector<moment<P>>{moment0, moment1, moment2}, // moments
-                     do_collision_operator);
+                     init_moments, do_collision_operator);
 
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
@@ -105,12 +104,10 @@ private:
     return f;
   }
 
-  inline static moment<P> const moment0 = moment<P>(
-      std::vector<md_func_type<P>>({{moment0_f1, moment0_f1, moment0_f1}}));
-  inline static moment<P> const moment1 = moment<P>(
-      std::vector<md_func_type<P>>({{moment0_f1, moment1_f1, moment0_f1}}));
-  inline static moment<P> const moment2 = moment<P>(
-      std::vector<md_func_type<P>>({{moment0_f1, moment2_f1, moment0_f1}}));
+  inline static moment_funcs<P> init_moments = {
+      {{moment0_f1, moment0_f1, moment0_f1}},
+      {{moment0_f1, moment1_f1, moment0_f1}},
+      {{moment0_f1, moment2_f1, moment0_f1}}};
 
   /* Construct (n, u, theta) */
   static P n(P const &x, P const t = 0)
