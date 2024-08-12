@@ -215,8 +215,6 @@ void write_output(PDE<P> const &pde,
                  dims[dim].domain_max);
   }
 
-  std::cout << " elements.size() = " << hash_table.get_active_table().size() << '\n';
-
   auto &elements = hash_table.get_active_table();
   file.createDataSet<int>(
           "elements",
