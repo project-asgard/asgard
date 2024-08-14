@@ -1,7 +1,7 @@
 #pragma once
 #include "asgard_reconstruct.hpp"
-#include "boundary_conditions.hpp"
-#include "coefficients.hpp"
+#include "asgard_boundary_conditions.hpp"
+#include "asgard_coefficients.hpp"
 #include "moment.hpp"
 #include "solver.hpp"
 

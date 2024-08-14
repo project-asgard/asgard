@@ -373,8 +373,6 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
-     boundary_conditions
-     coefficients
      distribution
      elements
      fast_math
@@ -391,6 +389,8 @@ set (components
      asgard_adapt
      asgard_basis
      asgard_batch
+     asgard_boundary_conditions
+     asgard_coefficients
      asgard_discretization
      asgard_indexset
      asgard_interpolation1d
