@@ -295,8 +295,8 @@ struct indexof
  */
 enum class verbosity_level
 {
-    quiet,
-    high
+  quiet,
+  high
 };
 
 } // namespace asgard

@@ -827,8 +827,7 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
     const std::string time_id = tools::timer.start(time_str);
 
     fk::vector<P> f_val = [&]()
-        -> fk::vector<P>
-    {
+        -> fk::vector<P> {
       if (not pde.options().adapt_threshold)
       {
         auto const &bc = manager.get_fixed_bc();
@@ -896,6 +895,7 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
 
         auto const old_plan = grid.get_distrib_plan();
         old_size            = grid.size();
+
         fk::vector<P> y_refined = grid.refine_solution(pde, y_stepped);
         // if either one of the ranks reports 1, i.e., y_stepped.size() changed
         refining = get_global_max<bool>(y_stepped.size() != y_refined.size(),
@@ -945,7 +945,7 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
       auto rmse = manager.rmse_exact_sol();
       if (rmse)
       {
-        auto const &rmse_errors = rmse.value()[0];
+        auto const &rmse_errors     = rmse.value()[0];
         auto const &relative_errors = rmse.value()[1];
         expect(rmse_errors.size() == relative_errors.size());
         for (auto j : indexof(rmse_errors))
@@ -973,4 +973,4 @@ template void advance_time(discretization_manager<double> &, int64_t);
 #ifdef ASGARD_ENABLE_FLOAT
 template void advance_time(discretization_manager<float> &, int64_t);
 #endif
-}
+} // namespace asgard

@@ -129,7 +129,6 @@ private:
       {{moment0_f1, moment1_f1, moment0_f1}},
       {{moment0_f1, moment2_f1, moment0_f1}}};
 
-
   /* Construct (n, u, theta) */
   static P n(P const &x, P const t = 0)
   {

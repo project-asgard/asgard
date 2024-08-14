@@ -68,11 +68,15 @@ asgard_kronmult_matrix_tests.cpp
 asgard_kronmult_tests.hpp
 asgard_matrix.hpp
 asgard_mpi.hpp
+asgard_pde.hpp
 asgard_resources_cuda.tpp
 asgard_resources_host.tpp
 asgard_resources.hpp
 asgard_resources_tests.cpp
 #asgard_testpdes_interpolation.hpp
+asgard_time_advance.cpp
+asgard_time_advance.hpp
+asgard_time_advance_tests.cpp
 asgard_tools.cpp
 asgard_tools.hpp
 asgard_tools_tests.cpp
@@ -115,7 +119,6 @@ matlab_utilities_tests.cpp
 #moment.cpp
 moment.hpp
 moment_tests.cpp
-pde.hpp
 #pde_tests.cpp
 permutations.cpp
 permutations.hpp
@@ -138,9 +141,6 @@ sparse.hpp
 sparse_tests.cpp
 tensors.hpp
 #tensors_tests.cpp
-time_advance.cpp
-time_advance.hpp
-time_advance_tests.cpp
 #transformations.cpp
 #transformations.hpp
 #transformations_tests.cpp

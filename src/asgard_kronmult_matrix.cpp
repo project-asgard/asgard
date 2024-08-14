@@ -683,7 +683,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   {
     std::cout << "  kronmult local, sparse matrix fill: "
               << 100.0 * double(spcache.num_nonz) /
-                    (double(num_rows) * double(num_cols))
+                     (double(num_rows) * double(num_cols))
               << "%\n";
 
     int64_t flops = local_kronmult_matrix<precision>::compute_flops(
@@ -697,9 +697,9 @@ make_kronmult_sparse(PDE<precision> const &pde,
     if (verb == verbosity_level::high)
       std::cout << "  -- memory usage (unique): "
                 << get_MB<int>(list_row_indx[0].size()) +
-                      get_MB<int>(list_col_indx[0].size()) +
-                      get_MB<int>(list_iA[0].size()) +
-                      get_MB<precision>(vA.size())
+                       get_MB<int>(list_col_indx[0].size()) +
+                       get_MB<int>(list_iA[0].size()) +
+                       get_MB<precision>(vA.size())
                 << "\n";
     return local_kronmult_matrix<precision>(
         num_dimensions, kron_size, num_rows, num_cols, num_terms,
@@ -716,7 +716,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
                 << get_MB<precision>(vA.size()) << "\n";
       std::cout << "        memory usage (shared): "
                 << 2 * get_MB<int>(mem_stats.work_size) +
-                      4 * get_MB<int>(mem_stats.row_work_size)
+                       4 * get_MB<int>(mem_stats.row_work_size)
                 << "\n";
     }
     return local_kronmult_matrix<precision>(
