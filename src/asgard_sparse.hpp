@@ -7,7 +7,6 @@
 
 #include "asgard_matrix.hpp"
 #include "asgard_vector.hpp"
-#include "asgard_lib_dispatch.hpp"
 
 namespace asgard
 {

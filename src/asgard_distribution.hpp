@@ -1,6 +1,6 @@
 #pragma once
-#include "asgard_mpi.hpp"
 #include "asgard_elements.hpp"
+#include "asgard_mpi.hpp"
 
 #ifdef ASGARD_USE_SCALAPACK
 #include "asgard_cblacs_grid.hpp"
