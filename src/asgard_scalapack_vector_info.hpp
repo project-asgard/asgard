@@ -1,5 +1,5 @@
 #pragma once
-#include "scalapack_matrix_info.hpp"
+#include "asgard_scalapack_matrix_info.hpp"
 
 namespace asgard::fk
 {

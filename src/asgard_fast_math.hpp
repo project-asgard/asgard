@@ -3,7 +3,7 @@
 #include "asgard_sparse.hpp"
 
 #ifdef ASGARD_USE_SCALAPACK
-#include "scalapack_vector_info.hpp"
+#include "asgard_scalapack_vector_info.hpp"
 #endif
 
 namespace asgard::fm

@@ -1,5 +1,5 @@
 #ifdef ASGARD_USE_SCALAPACK
-#include "cblacs_grid.hpp"
+#include "asgard_cblacs_grid.hpp"
 #endif
 
 #include "tests_general.hpp"

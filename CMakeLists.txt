@@ -408,7 +408,7 @@ if (ASGARD_IO_HIGHFIVE)
 endif ()
 
 if (ASGARD_USE_SCALAPACK)
-    list (APPEND components scalapack_matrix_info scalapack_vector_info cblacs_grid)
+    list (APPEND components asgard_scalapack_matrix_info asgard_scalapack_vector_info asgard_cblacs_grid)
 endif ()
 
 if (ASGARD_USE_MATLAB)

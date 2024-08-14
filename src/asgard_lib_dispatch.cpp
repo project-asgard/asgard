@@ -81,8 +81,8 @@ extern "C"
 #endif
 
 #ifdef ASGARD_USE_SCALAPACK
-#include "cblacs_grid.hpp"
-#include "scalapack_matrix_info.hpp"
+#include "asgard_cblacs_grid.hpp"
+#include "asgard_scalapack_matrix_info.hpp"
 extern "C"
 {
   void psgesv_(int *n, int *nrhs, float const *a, int *ia, int *ja, int *desca,
@@ -569,6 +569,7 @@ basic_gemm(P const *A, bool const trans_A, int const lda, P const *B,
            int const k, int const n, P const alpha, P const beta)
 {
   expect(m > 0);
+  expect(k > 0);
   expect(k > 0);
   expect(n > 0);
   expect(lda > 0); // FIXME Tyler says these could be more thorough

@@ -3,7 +3,7 @@
 #include "asgard_elements.hpp"
 
 #ifdef ASGARD_USE_SCALAPACK
-#include "cblacs_grid.hpp"
+#include "asgard_cblacs_grid.hpp"
 #endif
 
 namespace asgard

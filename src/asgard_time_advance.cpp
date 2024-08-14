@@ -1,8 +1,8 @@
 #include "asgard_time_advance.hpp"
 
 #ifdef ASGARD_USE_SCALAPACK
-#include "cblacs_grid.hpp"
-#include "scalapack_vector_info.hpp"
+#include "asgard_cblacs_grid.hpp"
+#include "asgard_scalapack_vector_info.hpp"
 #endif
 
 namespace asgard::time_advance

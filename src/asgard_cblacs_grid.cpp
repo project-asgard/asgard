@@ -1,9 +1,7 @@
 #include "asgard_tools.hpp"
 
-#include "cblacs_grid.hpp"
-#include "distribution.hpp"
-
-#include <cmath>
+#include "asgard_cblacs_grid.hpp"
+#include "asgard_distribution.hpp"
 
 extern "C"
 {

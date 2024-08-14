@@ -1,5 +1,4 @@
-#include "cblacs_grid.hpp"
-#include "distribution.hpp"
+#include "asgard_cblacs_grid.hpp"
 #include "tests_general.hpp"
 
 using namespace asgard;
