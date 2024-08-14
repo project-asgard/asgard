@@ -1,5 +1,3 @@
-#include "fast_math.hpp"
-#include "sparse.hpp"
 #include "tests_general.hpp"
 
 using namespace asgard;

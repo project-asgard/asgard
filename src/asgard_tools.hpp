@@ -34,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-#include "build_info.hpp"
+#include "asgard_build_info.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cuda.h>

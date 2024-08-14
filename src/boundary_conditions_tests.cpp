@@ -1,9 +1,4 @@
-#include "boundary_conditions.hpp"
-#include "coefficients.hpp"
-#include "elements.hpp"
 #include "tests_general.hpp"
-
-#include <regex>
 
 static auto const boundary_conditions_base_dir =
     gold_base_dir / "boundary_conditions";
@@ -77,14 +72,21 @@ void test_compute_boundary_condition(PDE<P> &pde,
 
       std::vector<partial_term<P>> const &partial_terms = t.get_partial_terms();
 
+      int const pdof = d.get_degree() + 1;
+
+      auto gen_filename = [&](std::string const &bc, int p_num)
+          -> std::string {
+        return gold_filename_prefix + '_' + bc + '_' + std::to_string(pdof) +
+               "d_" + std::to_string(d.get_level()) + "l_" +
+               std::to_string(term_num) + "t_" + std::to_string(dim_num) + "dim_" +
+               std::to_string(p_num) + "p.dat";
+      };
+
       for (int p_num = 0; p_num < static_cast<int>(partial_terms.size());
            ++p_num)
       {
-        std::string const gold_filename =
-            gold_filename_prefix + "_bcL_" + std::to_string(d.get_degree() + 1) +
-            "d_" + std::to_string(d.get_level()) + "l_" +
-            std::to_string(term_num) + "t_" + std::to_string(dim_num) + "dim_" +
-            std::to_string(p_num) + "p.dat";
+        std::string const gold_filename = gen_filename("bcL", p_num);
+
         partial_term<P> const &p_term = partial_terms[p_num];
         if (p_term.left_homo() == homogeneity::inhomogeneous)
         {
@@ -111,8 +113,8 @@ void test_compute_boundary_condition(PDE<P> &pde,
                   p_term.right_bc_funcs()[dim_num]);
           /* compare to gold right bc */
 
-          std::string const gold_right_filename =
-              std::regex_replace(gold_filename, std::regex("bcL"), "bcR");
+          std::string const gold_right_filename = gen_filename("bcR", p_num);
+
           fk::vector<P> const gold_right_bc_vector =
               read_vector_from_txt_file<P>(gold_right_filename);
           rmse_comparison(gold_right_bc_vector, right_bc, tol_factor);

@@ -1,7 +1,4 @@
 #pragma once
-
-#include "tests_general.hpp"
-
 #include "asgard_interptest_common.hpp"
 
 #ifdef KRON_MODE_GLOBAL_BLOCK
@@ -480,90 +477,21 @@ auto time_advance_errors(prog_opts const &opts)
   if (num_ranks > 1) // not interpolation for MPI yet
     return std::vector<P>{};
 
-  //int const degree = pde.get_dimensions()[0].get_degree();
-
-  // elements::table const check(*pde);
-  // adapt::distributed_grid adaptive_grid(*pde);
-  // basis::wavelet_transform<P, resource::host> const transformer(*pde);
-  //
-  // // -- compute dimension mass matrices
-  // generate_dimension_mass_mat(*pde, transformer);
-  //
-  // // -- generate initial condition vector.
-  // auto const initial_condition =
-  //     adaptive_grid.get_initial_condition(*pde, transformer);
-  //
-  // // TODO: look into issue requiring mass mats to be regenerated after init
-  // // cond. see problem in main.cpp
-  // generate_dimension_mass_mat(*pde, transformer);
-  //
-  // generate_all_coefficients_max_level(*pde, transformer);
-  //
-  // kron_operators<P> kops;
-
-  // fk::vector<P> f_val = [&]() -> fk::vector<P> {
-  //   if (pde->interp_initial())
-  //   {
-  //     kops.make(imex_flag::unspecified, *pde, adaptive_grid);
-  //     vector2d<P> const &nodes = kops.get_inodes();
-  //     std::vector<P> icn(initial_condition.size());
-  //     pde->interp_initial()(nodes, icn);
-  //     fk::vector<P> ic;
-  //     kops.get_project(icn.data(), ic);
-  //     return ic;
-  //   }
-  //   else
-  //   {
-  //     return initial_condition;
-  //   }
-  // }();
-
   int64_t const num_final = disc.final_time_step();
-
-  disc.set_final_time_step(0);
 
   std::vector<P> errors;
   errors.reserve(num_final);
 
   // -- time loop
-  //for (auto i = 0; i < pde->options().num_time_steps.value(); ++i)
-  for (auto i : indexof(num_final))
+  for (auto i : indexof(disc.final_time_step()))
   {
     ignore(i);
-    disc.add_time_steps(1);
 
-    advance_time(disc);
-
-    // std::cout.setstate(std::ios_base::failbit);
-    // auto const time          = i * pde->get_dt();
-    // auto const update_system = i == 0;
-    //
-    // f_val = time_advance::adaptive_advance(
-    //     time_advance::method::exp, *pde, kops, adaptive_grid,
-    //     transformer, f_val, time, update_system);
+    advance_time(disc, 1);
 
     auto rmse = disc.rmse_exact_sol();
     rassert(rmse, "could not compute exact solution");
     errors.push_back((*rmse)[0][0]);
-
-    // if (pde->has_analytic_soln())
-    // {
-    //   auto const analytic_solution = sum_separable_funcs(
-    //       pde->exact_vector_funcs(), pde->get_dimensions(), adaptive_grid,
-    //       transformer, degree, time + pde->get_dt());
-    //
-    //   errors.push_back(fm::rmserr(analytic_solution, f_val));
-    // }
-    // else // if (pde->interp_exact())
-    // {
-    //   vector2d<P> const &inodes = kops.get_inodes();
-    //   std::vector<P> u_exact(inodes.num_strips());
-    //   pde->interp_exact()(time + pde->get_dt(), inodes, u_exact);
-    //
-    //   std::vector<P> u_comp = kops.get_nodals(f_val.data());
-    //
-    //   errors.push_back(fm::rmserr(u_comp, u_exact));
-    // }
   }
 
   return errors;

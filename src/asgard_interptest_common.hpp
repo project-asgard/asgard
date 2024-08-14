@@ -1,7 +1,5 @@
 #pragma once
-
-#include "asgard_interpolation1d.hpp"
-#include "asgard_kronmult_matrix.hpp"
+#include "tests_general.hpp"
 
 namespace asgard
 {

@@ -1,8 +1,3 @@
-#include <iostream>
-#include <set>
-
-#include "build_info.hpp"
-
 #include "asgard_kronmult.hpp"
 
 #ifdef ASGARD_USE_CUDA

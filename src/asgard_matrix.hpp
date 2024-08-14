@@ -1,8 +1,5 @@
 #pragma once
-#include "build_info.hpp"
-
 #include "asgard_resources.hpp"
-#include "asgard_tools.hpp"
 #include "lib_dispatch.hpp"
 
 namespace asgard

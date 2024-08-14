@@ -1,7 +1,5 @@
 #include "permutations.hpp"
 
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
 #include "matlab_utilities.hpp"
 
 namespace asgard::permutations

@@ -1,9 +1,6 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
-
-#include "build_info.hpp"
+#include "asgard_tools.hpp"
 
 #ifdef ASGARD_USE_CUDA
 

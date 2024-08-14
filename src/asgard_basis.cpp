@@ -1,10 +1,5 @@
 #include "asgard_basis.hpp"
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
-#include "distribution.hpp"
-#include "fast_math.hpp"
-#include "matlab_utilities.hpp"
-#include "quadrature.hpp"
+#include "distribution.hpp" // for node_out
 
 namespace asgard
 {
@@ -252,7 +247,7 @@ namespace basis
 template<typename P, resource resrc>
 wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
                                                int const max_degree,
-                                               bool const quiet)
+                                               verbosity_level verb)
     : max_level(max_level_in), degree(max_degree), dense_blocks_(max_level * 2)
 {
   // this is to get around unused warnings
@@ -310,7 +305,7 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
                         return sum + static_cast<int64_t>(matrix.size());
                       });
 
-  if (!quiet)
+  if (verb == verbosity_level::high)
     node_out() << "  basis operator allocation (MB): " << get_MB<P>(num_elems)
                << '\n';
 

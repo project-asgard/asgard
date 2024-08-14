@@ -1,5 +1,4 @@
-#include <algorithm>
-#include <stdexcept>
+#include "asgard_tools.hpp"
 
 namespace asgard::fk
 {

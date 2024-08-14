@@ -1,6 +1,4 @@
 #include "asgard_kronmult_matrix.hpp"
-#include "batch.hpp"
-#include "lib_dispatch.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cuda_runtime.h>

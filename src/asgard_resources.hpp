@@ -4,9 +4,7 @@
 //
 //-----------------------------------------------------------------------------
 #pragma once
-
 #include "asgard_tools.hpp"
-#include "lib_dispatch.hpp"
 
 namespace asgard
 {
@@ -21,6 +19,12 @@ using default_precision = double;
 #else
 using default_precision = float;
 #endif
+
+enum class resource
+{
+  host,
+  device
+};
 
 /*!
  * \brief This it the type_identity template from C++-20.

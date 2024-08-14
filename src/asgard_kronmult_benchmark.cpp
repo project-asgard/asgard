@@ -1,7 +1,3 @@
-
-#include <chrono>
-#include <string>
-
 #include "asgard_kronmult_tests.hpp"
 
 using precision = asgard::default_precision;

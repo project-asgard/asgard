@@ -172,9 +172,8 @@ void test_initial(prog_opts const &opts, std::string const &gold_filepath)
   }();
   auto const pde = make_PDE<P>(opts);
 
-  auto const quiet = true;
-  basis::wavelet_transform<P, resource::host> const transformer(*pde,
-                                                                quiet);
+  basis::wavelet_transform<P, resource::host> const transformer(
+      *pde, verbosity_level::quiet);
   adapt::distributed_grid<P> adaptive_grid(*pde);
   generate_dimension_mass_mat<P>(*pde, transformer);
 

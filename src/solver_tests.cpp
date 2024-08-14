@@ -1,7 +1,3 @@
-#include "batch.hpp"
-#include "coefficients.cpp"
-#include "quadrature.hpp"
-#include "solver.hpp"
 #include "tests_general.hpp"
 
 using namespace asgard;

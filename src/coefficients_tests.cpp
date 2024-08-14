@@ -370,8 +370,8 @@ TEMPLATE_TEST_CASE("penalty check", "[coefficients]", test_precs)
   {
     int const level  = 4;
     int const degree = 2;
-    basis::wavelet_transform<TestType, resource::host> waves(level, degree,
-                                                             true);
+    basis::wavelet_transform<TestType, resource::host> waves(
+        level, degree, verbosity_level::quiet);
 
     dimension<TestType> dim(0.0, 1.0, level, degree, ic, gfunc, "x");
     partial_term<TestType> central(

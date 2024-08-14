@@ -1,12 +1,5 @@
-
 #pragma once
-
-#include "./asgard_kronmult_matrix.hpp"
-#include "./device/asgard_kronmult.hpp"
-#include "lib_dispatch.hpp"
-
-#include <iostream>
-#include <random>
+#include "tests_general.hpp"
 
 using namespace asgard::kronmult;
 

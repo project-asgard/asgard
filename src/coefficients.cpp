@@ -1,9 +1,5 @@
 #include "coefficients.hpp"
 
-#include "fast_math.hpp"
-#include "matlab_utilities.hpp"
-#include "transformations.hpp"
-
 namespace asgard
 {
 // generate coefficient matrices for each 1D term in each dimension and

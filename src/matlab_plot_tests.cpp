@@ -1,7 +1,4 @@
-#include "matlab_plot.hpp"
-
 #include "tests_general.hpp"
-#include <string_view>
 
 static auto const matlab_plot_base_dir = gold_base_dir / "matlab_plot";
 

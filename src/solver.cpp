@@ -1,7 +1,4 @@
 #include "solver.hpp"
-#include "distribution.hpp"
-#include "fast_math.hpp"
-#include "quadrature.hpp"
 
 namespace asgard::solver
 {

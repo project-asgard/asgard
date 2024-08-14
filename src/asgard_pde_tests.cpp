@@ -1,4 +1,3 @@
-
 #include "tests_general.hpp"
 
 static auto const pde_eps_multiplier = 1e2;

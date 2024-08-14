@@ -1,8 +1,6 @@
 #pragma once
-#include "asgard_dimension.hpp"
 #include "asgard_pde.hpp"
 #include "permutations.hpp"
-#include "program_options.hpp"
 
 namespace asgard::elements
 {

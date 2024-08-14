@@ -87,9 +87,8 @@ void project_inver_md(int num_dimensions, int num_levels,
   kronmult::block_global_workspace<precision> workspace;
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
-  bool constexpr quiet = true;
   asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(pde, quiet);
+      transformer(pde, verbosity_level::quiet);
 
   adapt::distributed_grid<precision> grid(pde);
 
@@ -255,9 +254,9 @@ void proj_interp_md(int num_dimensions, int num_levels,
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
   nullpde<precision> pde(num_dimensions, prog_opts(), num_levels, degree);
-  bool constexpr quiet = true;
+
   asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(pde, quiet);
+      transformer(pde, verbosity_level::quiet);
 
   adapt::distributed_grid<precision> grid(pde);
 

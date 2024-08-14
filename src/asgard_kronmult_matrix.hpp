@@ -1,13 +1,6 @@
-
 #pragma once
-
-#include "adapt.hpp"
-#include "asgard_grid_1d.hpp"
-#include "asgard_pde.hpp"
-#include "distribution.hpp"
-#include "elements.hpp"
-
 #include "./device/asgard_kronmult.hpp"
+#include "adapt.hpp"
 
 // this interface between the low level kernels in src/device
 // and the higher level data-structures

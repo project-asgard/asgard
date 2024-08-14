@@ -1,5 +1,5 @@
 #pragma once
-#include "build_info.hpp"
+#include "asgard_build_info.hpp"
 
 #ifdef ASGARD_USE_MPI
 #if defined(__GNUC__) && !defined(__clang__)

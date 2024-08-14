@@ -1,8 +1,5 @@
 #pragma once
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
-#include "elements.hpp"
-#include "pde/pde_base.hpp"
+#include "adapt.hpp"
 
 namespace asgard
 {

@@ -55,9 +55,8 @@ void project_inver(int num_levels, fcall_type fcall)
   std::vector<dimension<precision>> dims = {dim, };
 
   //parser const cli_input = make_empty_parser();
-  bool constexpr quiet = true;
   basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(num_levels, degree, quiet);
+      transformer(num_levels, degree, verbosity_level::quiet);
 
   adapt::distributed_grid<precision> grid(pde);
 

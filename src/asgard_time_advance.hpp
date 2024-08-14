@@ -1,5 +1,4 @@
 #pragma once
-
 #include "asgard_discretization.hpp"
 
 namespace asgard::time_advance

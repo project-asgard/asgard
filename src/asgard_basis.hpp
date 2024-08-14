@@ -1,7 +1,6 @@
 #pragma once
-#include "asgard_wavelet_basis.hpp"
-
 #include "asgard_pde.hpp"
+#include "asgard_wavelet_basis.hpp"
 
 namespace asgard
 {
@@ -31,16 +30,16 @@ class wavelet_transform
 {
 public:
   wavelet_transform(int const max_level_in, int const max_degree,
-                    bool const quiet = true);
+                    verbosity_level verb = verbosity_level::quiet);
 
-  wavelet_transform(PDE<P> const &pde, bool const quiet = true)
+  wavelet_transform(PDE<P> const &pde, verbosity_level verb = verbosity_level::quiet)
       : // Choose which max level to use depending on whether adaptivity is
         // enabled.
         // If adaptivity is enabled, use the program_opts.max_level
         // Otherwise, use the max_level defined in the PDE (max level of all
         // dims)
         wavelet_transform(pde.max_level(),
-                          pde.get_dimensions()[0].get_degree(), quiet)
+                          pde.get_dimensions()[0].get_degree(), verb)
   {}
 
   // apply the fmwt matrix to coefficients

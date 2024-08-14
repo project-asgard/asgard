@@ -1,15 +1,8 @@
 #pragma once
-
-#include <cstdint>
+#include "asgard_resources.hpp"
 
 namespace asgard
 {
-enum class resource
-{
-  host,
-  device
-};
-
 // -- precision/execution resource wrapper for blas --
 namespace lib_dispatch
 {

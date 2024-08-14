@@ -1,7 +1,3 @@
-#include "matlab_utilities.hpp"
-#include "quadrature.hpp"
-
-#include "matlab_utilities.hpp"
 #include "tests_general.hpp"
 
 static auto const quadrature_base_dir = gold_base_dir / "quadrature";

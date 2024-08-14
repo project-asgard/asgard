@@ -1,9 +1,6 @@
 #pragma once
 #include "asgard_basis.hpp"
 #include "distribution.hpp"
-#include "elements.hpp"
-
-#include "asgard_pde.hpp"
 
 namespace asgard::adapt
 {

@@ -1,6 +1,5 @@
 #include "lib_dispatch.hpp"
-#include "build_info.hpp"
-#include "distribution.hpp"
+#include "distribution.hpp" // seems needed for MPI
 #include "sparse.hpp"
 
 // ==========================================================================

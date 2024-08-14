@@ -1,7 +1,4 @@
-#include "matlab_utilities.hpp"
-
 #include "tests_general.hpp"
-#include <vector>
 
 static auto const matlab_utilities_base_dir =
     gold_base_dir / "matlab_utilities";

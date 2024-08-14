@@ -332,7 +332,7 @@ but then the appropriate CMAKE_CUDA_FLAGS must be set manually.")
     enable_language (CUDA)
     find_package (CUDAToolkit REQUIRED)
 
-    # number of blocks must be set before "build_info.hpp" is configured
+    # number of blocks must be set before "asgard_build_info.hpp" is configured
     set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
     set (ASGARD_NUM_GPU_BLOCKS "300" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
@@ -358,8 +358,8 @@ set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Number of quadrature points to be 
 set(ASGARD_GOLD_BASE_DIR "${PROJECT_SOURCE_DIR}/testing/generated-inputs")
 
 configure_file(
-  src/build_info.hpp.in
-  ${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp
+  src/asgard_build_info.hpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp
 )
 
 add_library (libasgard)
@@ -442,7 +442,7 @@ target_sources (libasgard
 )
 target_precompile_headers (libasgard
                            PUBLIC
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp>>
+                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_base.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_advection1.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/pde_continuity1.hpp>>
@@ -699,7 +699,7 @@ endforeach()
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
         DESTINATION include
         FILES_MATCHING PATTERN "*.hpp" PATTERN "*.tpp")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/build_info.hpp"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)
 
 configure_file(examples/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt @ONLY)

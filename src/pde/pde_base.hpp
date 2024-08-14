@@ -1,10 +1,10 @@
 #pragma once
 
 #include "../asgard_dimension.hpp"
-#include "../fast_math.hpp"
-#include "../matlab_utilities.hpp"
-#include "../program_options.hpp"
 #include "../asgard_indexset.hpp"
+#include "../quadrature.hpp"
+
+// the quadrature is needed by some of the pdes to perform internal operations
 
 namespace asgard
 {

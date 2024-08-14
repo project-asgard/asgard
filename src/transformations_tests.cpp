@@ -1,4 +1,3 @@
-
 #include "tests_general.hpp"
 
 static auto const transformations_base_dir = gold_base_dir / "transformations";

@@ -1,9 +1,4 @@
-#include "cblacs_grid.hpp"
-#include "distribution.hpp"
-#include "scalapack_matrix_info.hpp"
 #include "tests_general.hpp"
-
-#include <array>
 
 using namespace asgard;
 

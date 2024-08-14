@@ -1,14 +1,5 @@
 #pragma once
-
-#include "adapt.hpp"
-#include "asgard_dimension.hpp"
-#include "asgard_basis.hpp"
-#include "distribution.hpp"
-#include "elements.hpp"
-#include "fast_math.hpp"
-
-#include "asgard_pde.hpp"
-#include "quadrature.hpp"
+#include "batch.hpp"
 
 namespace asgard
 {

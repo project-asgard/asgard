@@ -1,11 +1,5 @@
 #pragma once
-
-#include "asgard_dimension.hpp"
-#include "asgard_matrix.hpp"
-#include "asgard_tools.hpp"
-#include "asgard_vector.hpp"
 #include "elements.hpp"
-#include "pde.hpp"
 #include <MatlabDataArray.hpp>
 #include <MatlabEngine.hpp>
 

@@ -6,8 +6,7 @@ namespace asgard
 template<typename precision>
 discretization_manager<precision>::discretization_manager(
     std::unique_ptr<PDE<precision>> &&pde_in, verbosity_level verbosity)
-    : verb(verbosity), pde(std::move(pde_in)), grid(*pde),
-      transformer(*pde, verb == verbosity_level::quiet),
+    : verb(verbosity), pde(std::move(pde_in)), grid(*pde), transformer(*pde, verb),
       degree_(0), dt_(0), time_(0), time_step_(0), final_time_step_(0),
       kronops(verbosity)
 {

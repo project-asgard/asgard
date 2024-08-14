@@ -1,6 +1,4 @@
 #pragma once
-
-#include "asgard_pde.hpp"
 #include "moment.hpp"
 #include "solver.hpp"
 

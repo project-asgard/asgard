@@ -1,6 +1,3 @@
-
-#include "asgard_resources.hpp"
-#include "asgard_vector.hpp"
 #include "tests_general.hpp"
 
 using namespace asgard;

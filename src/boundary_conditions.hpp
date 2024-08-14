@@ -1,8 +1,4 @@
 #pragma once
-#include "elements.hpp"
-#include "fast_math.hpp"
-#include "matlab_utilities.hpp"
-#include "pde/pde_base.hpp"
 #include "transformations.hpp"
 
 // FIXME refactor this component

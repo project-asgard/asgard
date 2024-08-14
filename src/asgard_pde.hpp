@@ -1,20 +1,4 @@
 #pragma once
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <string>
-#include <typeinfo>
-#include <vector>
-
-#include "program_options.hpp"
-#include "quadrature.hpp"
-
-#include "pde/pde_base.hpp"
-
-#include "asgard_vector.hpp"
 #include "pde/pde_advection1.hpp"
 #include "pde/pde_collisional_landau.hpp"
 #include "pde/pde_collisional_landau_1x2v.hpp"

@@ -1,23 +1,10 @@
 #pragma once
-
 #include "asgard_basis.hpp"
-#include "asgard_pde.hpp"
 #include "elements.hpp"
-#include "sparse.hpp"
+#include "transformations.hpp"
 
 namespace asgard
 {
-namespace elements
-{
-class table;
-}
-
-namespace basis
-{
-template<typename P, resource resrc>
-class wavelet_transform;
-}
-
 #ifdef ASGARD_USE_CUDA
 static constexpr resource sparse_resrc = resource::device;
 #else

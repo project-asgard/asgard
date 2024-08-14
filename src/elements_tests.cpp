@@ -1,10 +1,4 @@
-#include "elements.hpp"
-
-#include "matlab_utilities.hpp"
 #include "tests_general.hpp"
-#include <regex>
-#include <string>
-#include <unordered_set>
 
 static auto const elements_base_dir = gold_base_dir / "element_table";
 
@@ -27,6 +21,7 @@ prog_opts elopts(PDE_opts const pde_choice,
 void test_element_table(PDE_opts const pde_choice,
                         std::vector<int> const &levels,
                         std::string const &gold_filename,
+                        std::string const &gold_id_filename,
                         int const max_level, bool const full_grid = false)
 {
   auto opts = elopts(pde_choice, levels, max_level, full_grid);
@@ -36,8 +31,9 @@ void test_element_table(PDE_opts const pde_choice,
 
   fk::matrix<int> const gold_table =
       read_matrix_from_txt_file<int>(gold_filename);
-  fk::vector<int> const gold_ids = read_vector_from_txt_file<int>(
-      std::regex_replace(gold_filename, std::regex("table_"), "ids_"));
+  fk::vector<int> const gold_ids =
+      read_vector_from_txt_file<int>(gold_id_filename);
+      // std::regex_replace(gold_filename, std::regex("table_"), "ids_"));
 
   // test size
   REQUIRE(elem_table.size() == gold_table.nrows());
@@ -256,6 +252,7 @@ TEST_CASE("element table object", "[element_table]")
       PDE_opts::continuity_1, PDE_opts::continuity_2, PDE_opts::continuity_3};
 
   std::string const gold_base       = "table_";
+  std::string const gold_base_id    = "ids_";
   std::string const child_gold_base = "child_ids_";
 
   SECTION("test table construction/mapping")
@@ -270,14 +267,20 @@ TEST_CASE("element table object", "[element_table]")
       auto const full_gold_str =
           elements_base_dir /
           (gold_base + std::to_string(test_levels[i].size()) + "d_FG.dat");
+      auto const fids_gold_str =
+          elements_base_dir /
+          (gold_base_id + std::to_string(test_levels[i].size()) + "d_FG.dat");
       auto const use_full_grid = true;
-      test_element_table(choice, levels, full_gold_str, max_level,
+      test_element_table(choice, levels, full_gold_str, fids_gold_str, max_level,
                          use_full_grid);
 
       auto const sparse_gold_str =
           elements_base_dir /
           (gold_base + std::to_string(test_levels[i].size()) + "d_SG.dat");
-      test_element_table(choice, levels, sparse_gold_str, max_level);
+      auto const sids_gold_str =
+          elements_base_dir /
+          (gold_base_id + std::to_string(test_levels[i].size()) + "d_SG.dat");
+      test_element_table(choice, levels, sparse_gold_str, sids_gold_str, max_level);
     }
   }
   SECTION("adaptivity: child id discovery, element addition, "

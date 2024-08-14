@@ -2,11 +2,6 @@
 
 #ifdef ASGARD_USE_CUDA
 
-#include <iostream>
-#include <vector>
-
-#include "build_info.hpp"
-
 #include "asgard_vector.hpp"
 
 #include <cuda.h>

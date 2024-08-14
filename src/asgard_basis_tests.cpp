@@ -175,8 +175,7 @@ void test_fmwt_block_generation(int const level, int const degree)
   opts.degree = degree;
   auto const pde = make_PDE<P>(opts);
 
-  auto const quiet = true;
-  basis::wavelet_transform<P, resrc> const forward_transform(*pde, quiet);
+  basis::wavelet_transform<P, resrc> const forward_transform(*pde, verbosity_level::quiet);
   auto const &blocks = forward_transform.get_blocks();
 
   auto ctr = 0;
@@ -244,8 +243,7 @@ void test_fmwt_application(int const level, int const degree)
 
   auto const pde = make_PDE<P>(opts);
 
-  auto const quiet = true;
-  basis::wavelet_transform<P, resrc> const forward_transform(*pde, quiet);
+  basis::wavelet_transform<P, resrc> const forward_transform(*pde, verbosity_level::quiet);
 
   std::random_device rd;
   std::mt19937 mersenne_engine(rd());
