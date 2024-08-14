@@ -373,11 +373,8 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
-     permutations
-     program_options
      quadrature
      tensors
-     sparse
      transformations
      asgard_adapt
      asgard_basis
@@ -396,8 +393,11 @@ set (components
      asgard_matlab_utilities
      asgard_moment
      asgard_pde
+     asgard_permutations
+     asgard_program_options
      asgard_reconstruct
      asgard_resources
+     asgard_sparse
      asgard_solver
      asgard_time_advance
      asgard_tools

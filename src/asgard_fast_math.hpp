@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sparse.hpp"
+#include "asgard_sparse.hpp"
 
 #ifdef ASGARD_USE_SCALAPACK
 #include "scalapack_vector_info.hpp"
