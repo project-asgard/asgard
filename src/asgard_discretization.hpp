@@ -4,6 +4,7 @@
 #include "asgard_kron_operators.hpp"
 #include "coefficients.hpp"
 #include "boundary_conditions.hpp"
+#include "moment.hpp"
 #include "program_options.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE

@@ -1461,7 +1461,7 @@ void global_kron_matrix<precision>::
       glb.set_buffer(get_buffer<workspace::gsparse>());
 
   int64_t total = gpu_global[imex_indx].memory() / (1024 * 1024);
-  if (verb == verbosity_level::high)
+  if (verbosity == verbosity_level::high)
   {
     if (total > 1024)
       std::cout << "  GPU: " << (1 + total / 1024) << "GB\n";
@@ -1849,8 +1849,8 @@ template void global_kron_matrix<float>::apply<resource::device>(
 template local_kronmult_matrix<float>
 make_local_kronmult_matrix<float>(
     PDE<float> const &, adapt::distributed_grid<float> const &,
-    memory_usage const &, imex_flag const, kron_sparse_cache &, bool,
-    verbosity_level);
+    memory_usage const &, imex_flag const, kron_sparse_cache &, verbosity_level,
+    bool);
 template void update_kronmult_coefficients<float>(PDE<float> const &,
                                                   imex_flag const, kron_sparse_cache &,
                                                   local_kronmult_matrix<float> &);
