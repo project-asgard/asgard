@@ -1,4 +1,4 @@
-#include "matlab_plot.hpp"
+#include "asgard_matlab_plot.hpp"
 
 #include "asgard_dimension.hpp"
 #include "quadrature.hpp"

@@ -10,7 +10,7 @@
 #endif
 
 #ifdef ASGARD_USE_MATLAB
-#include "matlab_plot.hpp"
+#include "asgard_matlab_plot.hpp"
 #endif
 
 namespace asgard

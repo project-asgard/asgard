@@ -373,9 +373,6 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
-     fast_math
-     lib_dispatch
-     matlab_utilities
      permutations
      program_options
      quadrature
@@ -390,10 +387,13 @@ set (components
      asgard_distribution
      asgard_discretization
      asgard_elements
+     asgard_fast_math
      asgard_indexset
      asgard_interpolation1d
      asgard_interpolation
      asgard_kronmult_matrix
+     asgard_lib_dispatch
+     asgard_matlab_utilities
      asgard_moment
      asgard_pde
      asgard_reconstruct
@@ -412,7 +412,7 @@ if (ASGARD_USE_SCALAPACK)
 endif ()
 
 if (ASGARD_USE_MATLAB)
-    list(APPEND components matlab_plot)
+    list(APPEND components asgard_matlab_plot)
 endif ()
 
 foreach (component IN LISTS components)

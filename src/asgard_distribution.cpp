@@ -1,5 +1,5 @@
 #include "asgard_distribution.hpp"
-#include "lib_dispatch.hpp"
+#include "asgard_lib_dispatch.hpp"
 
 #include <cmath>
 #include <csignal>

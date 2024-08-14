@@ -1,6 +1,6 @@
 #pragma once
 
-#include "fast_math.hpp"
+#include "asgard_fast_math.hpp"
 
 namespace asgard
 {

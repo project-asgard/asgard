@@ -1,6 +1,6 @@
 #pragma once
 #include "asgard_resources.hpp"
-#include "lib_dispatch.hpp"
+#include "asgard_lib_dispatch.hpp"
 
 namespace asgard
 {
