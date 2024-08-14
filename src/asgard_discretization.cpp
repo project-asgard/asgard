@@ -220,9 +220,14 @@ discretization_manager<precision>::discretization_manager(
 template<typename precision>
 void discretization_manager<precision>::save_snapshot(std::filesystem::path const &filename) const
 {
+#ifdef ASGARD_IO_HIGHFIVE
   fk::vector<precision> fstate(state);
   write_output(*pde, moments, fstate, time_, time_step_, fstate.size(),
                grid.get_table(), "", filename);
+#else
+  ignore(filename);
+  throw std::runtime_error("save_snapshot() requires CMake option -DASGARD_IO_HIGHFIVE=ON");
+#endif
 }
 
 template<typename precision>

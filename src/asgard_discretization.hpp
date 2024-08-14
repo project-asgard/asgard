@@ -6,6 +6,7 @@
 #include "boundary_conditions.hpp"
 #include "moment.hpp"
 #include "program_options.hpp"
+#include "solver.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
 #include "asgard_io.hpp"
