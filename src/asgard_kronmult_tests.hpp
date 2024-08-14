@@ -1,5 +1,5 @@
 #pragma once
-#include "tests_general.hpp"
+#include "asgard.hpp"
 
 using namespace asgard::kronmult;
 

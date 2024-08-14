@@ -2,6 +2,7 @@
 #include "asgard_reconstruct.hpp"
 #include "boundary_conditions.hpp"
 #include "coefficients.hpp"
+#include "moment.hpp"
 #include "solver.hpp"
 
 #ifdef ASGARD_IO_HIGHFIVE
