@@ -1,4 +1,4 @@
-#include "distribution.hpp"
+#include "asgard_distribution.hpp"
 #include "lib_dispatch.hpp"
 
 #include <cmath>

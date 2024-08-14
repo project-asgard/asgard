@@ -1,5 +1,5 @@
 #include "asgard_adapt.hpp"
-#include "distribution.hpp"
+#include "asgard_distribution.hpp"
 #include "transformations.hpp"
 
 #include <unordered_set>

@@ -1,4 +1,4 @@
-#include "solver.hpp"
+#include "asgard_solver.hpp"
 
 namespace asgard::solver
 {

@@ -1,6 +1,6 @@
 #pragma once
 #include "asgard_basis.hpp"
-#include "distribution.hpp"
+#include "asgard_distribution.hpp"
 
 namespace asgard::adapt
 {

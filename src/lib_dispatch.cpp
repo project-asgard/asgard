@@ -1,5 +1,5 @@
 #include "lib_dispatch.hpp"
-#include "distribution.hpp" // seems needed for MPI
+#include "asgard_distribution.hpp" // seems needed for MPI
 #include "sparse.hpp"
 
 // ==========================================================================

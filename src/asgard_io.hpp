@@ -1,6 +1,6 @@
 #pragma once
-#include "moment.hpp"
-#include "solver.hpp"
+#include "asgard_moment.hpp"
+#include "asgard_solver.hpp"
 
 // workaround for missing include issue with highfive
 // clang-format off

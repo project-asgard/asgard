@@ -1,5 +1,5 @@
 #include "asgard_basis.hpp"
-#include "distribution.hpp" // for node_out
+#include "asgard_distribution.hpp" // for node_out
 
 namespace asgard
 {
