@@ -373,8 +373,6 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
-     adapt
-     batch
      boundary_conditions
      coefficients
      distribution
@@ -390,7 +388,9 @@ set (components
      tensors
      sparse
      transformations
+     asgard_adapt
      asgard_basis
+     asgard_batch
      asgard_discretization
      asgard_indexset
      asgard_interpolation1d

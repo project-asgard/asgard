@@ -1,4 +1,4 @@
-#include "batch.hpp"
+#include "asgard_batch.hpp"
 
 #ifdef ASGARD_USE_OPENMP
 #include <omp.h>

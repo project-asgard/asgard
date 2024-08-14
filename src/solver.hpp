@@ -1,7 +1,7 @@
 #pragma once
 
 #include "asgard_kron_operators.hpp"
-#include "batch.hpp"
+#include "asgard_batch.hpp"
 
 namespace asgard::solver
 {

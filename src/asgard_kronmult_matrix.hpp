@@ -1,6 +1,6 @@
 #pragma once
 #include "./device/asgard_kronmult.hpp"
-#include "adapt.hpp"
+#include "asgard_adapt.hpp"
 
 // this interface between the low level kernels in src/device
 // and the higher level data-structures
