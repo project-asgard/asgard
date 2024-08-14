@@ -2,7 +2,7 @@
 
 #include "../asgard_dimension.hpp"
 #include "../asgard_indexset.hpp"
-#include "../quadrature.hpp"
+#include "../asgard_quadrature.hpp"
 
 // the quadrature is needed by some of the pdes to perform internal operations
 

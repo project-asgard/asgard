@@ -2,7 +2,7 @@
 
 #include "asgard_indexset.hpp"
 
-#include "quadrature.hpp"
+#include "asgard_quadrature.hpp"
 
 namespace asgard::basis
 {

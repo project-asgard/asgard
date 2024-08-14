@@ -373,9 +373,6 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
-     quadrature
-     tensors
-     transformations
      asgard_adapt
      asgard_basis
      asgard_batch
@@ -395,12 +392,15 @@ set (components
      asgard_pde
      asgard_permutations
      asgard_program_options
+     asgard_quadrature
      asgard_reconstruct
      asgard_resources
      asgard_sparse
      asgard_solver
+     asgard_tensors
      asgard_time_advance
      asgard_tools
+     asgard_transformations
 )
 
 if (ASGARD_IO_HIGHFIVE)

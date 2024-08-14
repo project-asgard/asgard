@@ -1,4 +1,4 @@
-#include "quadrature.hpp"
+#include "asgard_quadrature.hpp"
 #include "asgard_matlab_utilities.hpp"
 
 namespace asgard
