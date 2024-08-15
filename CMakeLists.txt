@@ -251,11 +251,13 @@ if (ASGARD_USE_PYTHON)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot1d.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_plot1d.m" @ONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot2d.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_plot2d.m" @ONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_evaluate.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_evaluate.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_cell_centers.m" "${CMAKE_CURRENT_BINARY_DIR}/asgard_cell_centers.m" @ONLY)
     set(_asgardpy_exe_ "PYTHONPATH=\\\"\$PYTHONPATH:${_asgard_python_path}\\\" ${Python_EXECUTABLE} ${CMAKE_INSTALL_PREFIX}/share/asgard/matlab/asgard_matlab.py")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_file_stats.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_file_stats.m" @ONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot1d.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_plot1d.m" @ONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_plot2d.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_plot2d.m" @ONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_evaluate.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_evaluate.m" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_cell_centers.m" "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_cell_centers.m" @ONLY)
     install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/"
             DESTINATION share/asgard/matlab
             FILES_MATCHING PATTERN "*.m")

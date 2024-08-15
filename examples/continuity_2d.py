@@ -106,6 +106,14 @@ if __name__ == '__main__':
     ax.set_title("exact", fontsize = 18)
     comp = ax.plot(y, h)
 
+    # plot the cell centers for the sparse grid nodes
+    x = snapshot.cell_centers()
+    fig = plt.figure(3, figsize=(7, 7))
+    ax = plt.subplot2grid((1, 1), (0, 0))
+    ax.set_title("sparse grid", fontsize = 18)
+    ax.scatter(x[:,0], x[:,1])
+    ax.axis((xmin, xmax, ymin, ymax))
+
     print("")  # prettier output
 
     plt.show()

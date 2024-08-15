@@ -99,6 +99,33 @@ void reconstruct_solution::set_domain_bounds(double const amin[], double const a
   domain_scale = 1.0 / std::sqrt(domain_scale);
 }
 
+void reconstruct_solution::cell_centers(double x[]) const
+{
+  span2d<double> xn(num_dimensions(), num_cells(), x);
+
+  int const &num_dimensions = cells_.num_dimensions();
+  std::array<double, max_num_dimensions> slope;
+
+  for (int d : indexof<int>(num_dimensions))
+    slope[d] = 1.0 / inv_slope[d];
+
+  for (auto i : indexof(num_cells()))
+  {
+    for (auto d : indexof<int>(num_dimensions))
+    {
+      int p    = cells_[i][d];
+
+      if (p == 0)
+        xn[i][d] = shift[d] + 0.5 * slope[d];
+      else
+      {
+        double p2l2 = static_cast<double>(fm::int2_raised_to_log2(p));
+        xn[i][d]    = slope[d] * ((0.5 + p) / double(p2l2) - 1.0) + shift[d];
+      }
+    }
+  }
+}
+
 template<int degree>
 void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) const
 {
@@ -110,9 +137,9 @@ void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) 
 #pragma omp for
   for (int i = 0; i < num_x; i++)
   {
-    for (int d = 0; d < num_dimensions; d++)
+    for (int d : indexof<int>(num_dimensions))
       xn[d] = inv_slope[d] * (x2d[i][d] - shift[d]);
-    y[i] = domain_scale * walk_tree<degree>(xn.data());
+    y[i] = domain_scale * walk_trees<degree>(xn.data());
   }
 }
 }
@@ -468,7 +495,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
 }
 
 template<int degree>
-double reconstruct_solution::walk_tree(double const x[]) const
+double reconstruct_solution::walk_trees(double const x[]) const
 {
   vector2d<double> workspace;
   if constexpr (degree == -1)
@@ -554,10 +581,16 @@ void asgard_reconstruct_solution_setbounds(void *pntr, double const amin[],
   reinterpret_cast<asgard::reconstruct_solution *>(pntr)->set_domain_bounds(amin, amax);
 }
 
-void asgard_reconstruct_solution(void *pntr, double const x[], int num_x, double y[])
+void asgard_reconstruct_solution(void const *pntr, double const x[], int num_x, double y[])
 {
-  reinterpret_cast<asgard::reconstruct_solution *>(pntr)
+  reinterpret_cast<asgard::reconstruct_solution const *>(pntr)
       ->reconstruct(x, num_x, y);
+}
+
+void asgard_reconstruct_cell_centers(void const *pntr, double x[])
+{
+  reinterpret_cast<asgard::reconstruct_solution const *>(pntr)
+      ->cell_centers(x);
 }
 
 } // extern "C"

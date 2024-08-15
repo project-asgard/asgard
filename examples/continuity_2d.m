@@ -13,7 +13,7 @@ if (~isfile('example_continuity_2d'))
 end
 
 % command to run the executable and generate the output file
-command = ['./example_continuity_2d -p continuity_2 -d 1 -l 6 -w 10 -n 10 -t 0.0001'];
+command = ['./example_continuity_2d -p continuity_2 -d 2 -l 5 -w 10 -n 10 -t 0.0001'];
 
 [status, cmdout] = system(command, '-echo');
 
@@ -38,6 +38,7 @@ disp(['ranges:']);
 % creating a 1d plot at x0 = 0.01 and x1 ranging from min to max
 [z, x] = asgard_plot1d(filename, {0.01, []}, 128);
 
+figure(1)
 plot(x, z);
 
 % other useful commands:
@@ -48,5 +49,10 @@ plot(x, z);
 % find values at arbitrary points in the domain
 % p = rand(10, 2)
 % [z] = asgard_evaluate(filename, p);
+
+[z] = asgard_cell_centers(filename);
+
+figure(2)
+plot(z(:,1), z(:,2), '*')
 
 end

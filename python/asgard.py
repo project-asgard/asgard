@@ -13,10 +13,12 @@ libasgard.asgard_make_freconstruct_solution.restype = c_void_p
 
 libasgard.asgard_make_dreconstruct_solution.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_double)]
 libasgard.asgard_make_freconstruct_solution.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_float)]
+
 libasgard.asgard_pydelete_reconstruct_solution.argtypes = [c_void_p, ]
 
 libasgard.asgard_reconstruct_solution_setbounds.argtypes = [c_void_p, POINTER(c_double), POINTER(c_double)]
 libasgard.asgard_reconstruct_solution.argtypes = [c_void_p, POINTER(c_double), c_int, POINTER(c_double)]
+libasgard.asgard_reconstruct_cell_centers.argtypes = [c_void_p, POINTER(c_double)]
 
 class pde_snapshot:
     '''
@@ -209,6 +211,15 @@ class pde_snapshot:
                                               points.shape[0],
                                               np.ctypeslib.as_ctypes(presult.reshape(-1,)))
         return presult
+
+    def cell_centers(self):
+        presult = np.empty((self.num_cells, self.num_dimensions), np.float64)
+
+        libasgard.asgard_reconstruct_cell_centers(self.recsol,
+                                                  np.ctypeslib.as_ctypes(presult.reshape(-1,)))
+
+        return presult
+
 
     def __str__(self):
         s = "title: %s\n" % self.title

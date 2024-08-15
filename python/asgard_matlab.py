@@ -83,6 +83,16 @@ def evaluate():
 
     sio.savemat('__asgard_pymatlab.mat', {'z' : z})
 
+def cell_centers():
+    filename = sys.argv[2]
+    print('sparse grid from: ', sys.argv[2])
+
+    snapshot = asgard.pde_snapshot(filename)
+
+    z = snapshot.cell_centers()
+
+    sio.savemat('__asgard_pymatlab.mat', {'z' : z})
+
 if __name__ == '__main__':
     if sys.argv[1] == '-stat':
         stat_file()
@@ -92,5 +102,7 @@ if __name__ == '__main__':
         plot2d()
     elif sys.argv[1] == '-eval':
         evaluate()
+    elif sys.argv[1] == '-getcells':
+        cell_centers()
     else:
         raise Exception("unknown switch (-stat, -plot1d, -plot2d, -eval)")

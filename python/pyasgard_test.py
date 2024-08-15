@@ -238,5 +238,20 @@ class asgard_reconstruction_tests(unittest.TestCase):
         err = np.sum(np.abs(h - z) ** 2) / x.size
         self.assertLessEqual(err, 1.E-8, "mismatchin continuity_3")
 
+    def test_cellcenters(self):
+        print("\ntesting cell centers")
+        os.system("./asgard -p continuity_2 -d 1 -l 2 -n 0 -of cells.h5 -dt 0.01 1>/dev/null")
+
+        self.assertTrue(os.path.isfile("cells.h5"), "failed to generate output for cell centers")
+
+        snapshot = asgard.pde_snapshot("cells.h5")
+
+        cells = snapshot.cell_centers()
+
+        # wavelet basis level 0 and 1 have the same centers at 0
+        # cells indexes are (0, 0), (0, 1), (0, 2), (0, 3), (1, 0), (1, 1), (2, 0), (3, 0)
+        ref_cells = np.array(((0, 0), (0, 0), (0, -1), (0, 1), (0, 0), (0, 0), (-0.5, 0.0), (0.5, 0.0)))
+        self.almost_equal(cells, ref_cells, "mismatch in the reported grid")
+
 if __name__ == '__main__':
     unittest.main()

@@ -3,7 +3,7 @@ find_package(Doxygen REQUIRED OPTIONAL_COMPONENTS dot)
 set(DOXYGEN_GENERATE_HTML      "YES")
 set(DOXYGEN_DISABLE_INDEX       "NO")
 set(DOXYGEN_GENERATE_TREEVIEW  "YES") # left-hand index
-set(DOXYGEN_SORT_GROUP_NAMES   "YES")
+set(DOXYGEN_SORT_GROUP_NAMES    "NO")
 set(DOXYGEN_SORT_BRIEF_DOCS     "NO")
 set(DOXYGEN_SORT_MEMBER_DOCS    "NO")
 set(DOXYGEN_COLLABORATION_GRAPH "NO")
@@ -42,6 +42,7 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard.hpp
                  src/asgard_discretization.hpp
                  src/asgard_program_options.hpp
+                 src/asgard_reconstruct.hpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")
 
