@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.19)
 
 project (asgard
-  VERSION 0.5.0
+  VERSION 0.7.0
   LANGUAGES CXX
 )
 
