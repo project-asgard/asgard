@@ -107,11 +107,6 @@ Coming soon:
 -time            -t      double     Final time for integration.
 
 Leaving soon:
--real-freq       -r      int        Interval for reconstructing the solution onto
-                                    a dense grid and output the result.
-                                    This is wasteful and deprecated in favor of the wavelet
-                                    output combined with the snapshot reconstruction in Python.
-
 -memory                  int        Memory limit for the GPU, applied to the earlier versions
                                     of Kronmult, where data was kept in CPU RAM and moved
                                     on-the-fly in an out-of-core algorithm. The data-transfer
@@ -210,7 +205,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-degree", optentry::degree}, {"-d", optentry::degree},
       {"-num-steps", optentry::num_time_steps}, {"-n", optentry::num_time_steps},
       {"-wave-freq", optentry::wavelet_output_freq}, {"-w", optentry::wavelet_output_freq},
-      {"-real-freq", optentry::realspace_output_freq}, {"-r", optentry::realspace_output_freq},
       {"-outfile", optentry::output_file}, {"-of", optentry::output_file},
       {"-dt", optentry::dt},
       {"-available-pdes", optentry::pde_help},
@@ -409,19 +403,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       if (not selected)
         throw std::runtime_error(report_no_value());
       outfile = *selected;
-    }
-    break;
-    case optentry::realspace_output_freq: {
-      auto selected = move_process_next();
-      if (not selected)
-        throw std::runtime_error(report_no_value());
-      try {
-        realspace_output_freq = std::stoi(selected->data());
-      } catch(std::invalid_argument &) {
-        throw std::runtime_error(report_wrong_value());
-      } catch(std::out_of_range &) {
-        throw std::runtime_error(report_wrong_value());
-      }
     }
     break;
     case optentry::dt: {
@@ -754,7 +735,7 @@ void prog_opts::print_options(std::ostream &os) const
   else
     os << "  -- warning: missing number of time steps\n";
 
-  if (restart_file.empty() and not wavelet_output_freq and not realspace_output_freq)
+  if (restart_file.empty() and not wavelet_output_freq)
     os << "input-output (i/o): none\n";
   else
     os << "input-output (i/o):\n";
@@ -762,8 +743,6 @@ void prog_opts::print_options(std::ostream &os) const
     os << "  restarting from: " << restart_file << '\n';
   if (wavelet_output_freq)
     os << "  write freq: " << wavelet_output_freq.value() << '\n';
-  if (realspace_output_freq)
-    os << "  realspace freq: " << realspace_output_freq.value() << '\n';
 }
 
 void prog_opts::print_version_help(std::ostream &os)

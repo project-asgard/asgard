@@ -429,18 +429,6 @@ imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
 
     // Update coeffs
     generate_all_coefficients<P>(pde, transformer);
-
-#ifdef ASGARD_USE_MATLAB
-    auto &ml_plot = ml::matlab_plot::get_instance();
-    // TODO: add plot_freq check if keeping this much longer
-    ml_plot.reset_params();
-    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
-    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, poisson_E);
-    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, poisson_source);
-    ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, phi);
-    ml_plot.add_param(time);
-    ml_plot.call("electric");
-#endif
   };
 
   auto calculate_moments =

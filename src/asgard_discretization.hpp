@@ -9,10 +9,6 @@
 #include "asgard_io.hpp"
 #endif
 
-#ifdef ASGARD_USE_MATLAB
-#include "asgard_matlab_plot.hpp"
-#endif
-
 /*!
  * \file asgard_discretization.hpp
  * \brief Defines the container class discretization_manager

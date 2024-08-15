@@ -273,27 +273,4 @@ inline int dense_space_size(std::vector<dimension<precision>> const &dims)
   expect(dense_size <= std::numeric_limits<int>::max());
   return static_cast<int>(dense_size);
 }
-
-template<typename P>
-static std::array<fk::vector<P, mem_type::view, resource::host>, 2>
-update_transform_workspace(
-    int const sol_size,
-    fk::vector<P, mem_type::owner, resource::host> &workspace,
-    std::array<fk::vector<P, mem_type::view, resource::host>, 2> const
-        &transform_wksp)
-{
-  if (transform_wksp[0].size() < sol_size)
-  {
-    workspace.resize(sol_size * 2);
-    return std::array<fk::vector<P, mem_type::view, resource::host>, 2>{
-        fk::vector<P, mem_type::view, resource::host>(workspace, 0,
-                                                      sol_size - 1),
-        fk::vector<P, mem_type::view, resource::host>(workspace, sol_size,
-                                                      sol_size * 2 - 1)};
-  }
-  expect(workspace.size() >= sol_size * 2);
-  expect(transform_wksp[0].size() >= sol_size);
-  expect(transform_wksp[1].size() >= sol_size);
-  return transform_wksp;
-}
 } // namespace asgard

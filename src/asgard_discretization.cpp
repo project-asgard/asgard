@@ -111,76 +111,6 @@ discretization_manager<precision>::discretization_manager(
   if (options.step_method.value() == time_advance::method::imex)
     reset_moments();
 
-  // -- setup realspace transform for file io or for plotting
-  // this seems superfluous, refactor when we remove "real-space"
-#if defined(ASGARD_IO_HIGHFIVE) || defined(ASGARD_USE_MATLAB)
-
-  // realspace solution vector - WARNING this is
-  // currently infeasible to form for large problems
-  int dense_size = 0;
-  if (options.realspace_output_freq and options.realspace_output_freq.value() > 0)
-  {
-    dense_size = dense_space_size(*pde);
-    expect(dense_size > 0);
-  }
-  fk::vector<precision> real_space(dense_size);
-
-  // temporary workspaces for the transform
-  fk::vector<precision, mem_type::owner, resource::host>
-      workspace(dense_size * 2);
-  std::array<
-      fk::vector<precision, mem_type::view, resource::host>,
-      2>
-      tmp_workspace = {fk::vector<precision, mem_type::view,
-                                          resource::host>(
-                           workspace, 0, dense_size - 1),
-                       fk::vector<precision, mem_type::view,
-                                          resource::host>(
-                           workspace, dense_size, dense_size * 2 - 1)};
-
-  // transform initial condition to realspace
-  if (options.realspace_output_freq and options.realspace_output_freq.value() > 0)
-  {
-    wavelet_to_realspace<precision>(*pde, initial_condition,
-                                    grid.get_table(), transformer,
-                                    tmp_workspace, real_space);
-  }
-#endif
-
-#ifdef ASGARD_USE_MATLAB
-  using namespace asgard::ml;
-  auto &ml_plot = matlab_plot::get_instance();
-  ml_plot.connect(cli_input.get_ml_session_string());
-  node_out() << "  connected to MATLAB" << '\n';
-
-  fk::vector<precision> analytic_solution_realspace(dense_size);
-  if (pde->has_analytic_soln)
-  {
-    // generate the analytic solution at t=0
-    auto const analytic_solution_init = sum_separable_funcs(
-        pde->exact_vector_funcs, pde->get_dimensions(), adaptive_grid,
-        transformer, degree, precision{0.0});
-    // transform analytic solution to realspace
-    wavelet_to_realspace<precision>(
-        *pde, analytic_solution_init, adaptive_grid.get_table(), transformer,
-        tmp_workspace, analytic_solution_realspace);
-  }
-
-  ml_plot.init_plotting(*pde, adaptive_grid.get_table());
-
-  // send initial condition to matlab
-  std::vector<size_t> sizes(pde->num_dims);
-  for (int i = 0; i < pde->num_dims; i++)
-  {
-    sizes[i] = (pde->get_dimensions()[i].get_degree() + 1) *
-               fm::two_raised_to(pde->get_dimensions()[i].get_level());
-  }
-  ml_plot.set_var("initial_condition",
-                  ml_plot.create_array(sizes, initial_condition));
-
-  ml_plot.copy_pde(*pde);
-#endif
-
   // -- setup output file and write initial condition
 #ifdef ASGARD_IO_HIGHFIVE
   if (not options.restart_file.empty())
@@ -207,12 +137,6 @@ discretization_manager<precision>::discretization_manager(
                  precision{0.0}, 0, initial_condition.size(),
                  grid.get_table(), "asgard_wavelet");
   }
-  if (options.realspace_output_freq and options.realspace_output_freq.value() > 0)
-  {
-    write_output(*pde, moments, real_space, precision{0.0}, 0,
-                 initial_condition.size(), grid.get_table(),
-                 "asgard_real");
-  }
 #endif
 }
 
@@ -232,37 +156,6 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
 template<typename precision>
 void discretization_manager<precision>::checkpoint() const
 {
-#if defined(ASGARD_IO_HIGHFIVE) || defined(ASGARD_USE_MATLAB)
-  fk::vector<precision> fstate(state);
-
-  /* transform from wavelet space to real space */
-  if (pde->is_routput_step(time_step_))
-  {
-    // resize transform workspaces if grid size changed due to adaptivity
-    auto dense_size     = dense_space_size(*pde);
-    fk::vector<precision, mem_type::owner, resource::host>
-        workspace(dense_size * 2);
-
-    std::array<
-        fk::vector<precision, mem_type::view, resource::host>,
-        2>
-        tmp_workspace = {fk::vector<precision, mem_type::view,
-                                            resource::host>(
-                            workspace, 0, dense_size - 1),
-                        fk::vector<precision, mem_type::view,
-                                            resource::host>(
-                            workspace, dense_size, dense_size * 2 - 1)};
-
-    auto transform_wksp = update_transform_workspace<precision>(
-        dense_size, workspace, tmp_workspace);
-
-    auto real_space = fk::vector<precision>(dense_size);
-
-    wavelet_to_realspace<precision>(*pde, fstate, grid.get_table(), transformer,
-                                    transform_wksp, real_space);
-  }
-#endif
-
 #ifdef ASGARD_IO_HIGHFIVE
   if (pde->is_output_step(time_step_))
   {
@@ -270,54 +163,8 @@ void discretization_manager<precision>::checkpoint() const
       node_out() << "  checkpointing at step = " << time_step_
                   << " (time = " << time_ << ")\n";
 
-    write_output(*pde, moments, fstate, time_, time_step_,
-                  fstate.size(), grid.get_table(), "asgard_wavelet");
-  }
-#endif
-
-#ifdef ASGARD_USE_MATLAB
-  if (opts.should_plot(i))
-  {
-    ml_plot.push(std::string("rSpace_" + std::to_string(i)), real_space);
-
-    ml_plot.plot_fval(*pde, adaptive_grid.get_table(), real_space,
-                      analytic_solution_realspace);
-
-    // only plot pde params if the pde has them
-    if (parameter_manager<precision>::get_instance().get_num_parameters() > 0)
-    {
-      // vlasov pde params plot
-      auto dim   = pde->get_dimensions()[0];
-      auto nodes = ml_plot.generate_nodes(degree, dim.get_level(),
-                                          dim.domain_min, dim.domain_max);
-
-      // evaluates the given PDE parameter at each node
-      auto eval_over_nodes = [](std::string const name,
-                                fk::vector<precision> const &nodes_in)
-          -> fk::vector<precision> {
-        fk::vector<precision> result(nodes_in.size());
-        auto param = param_manager.get_parameter(name);
-        std::transform(
-            nodes_in.begin(), nodes_in.end(), result.begin(),
-            [param](precision const &x) { return param->value(x, 0.0); });
-        return result;
-      };
-
-      fk::vector<precision> n_nodes  = eval_over_nodes("n", nodes);
-      fk::vector<precision> u_nodes  = eval_over_nodes("u", nodes);
-      fk::vector<precision> th_nodes = eval_over_nodes("theta", nodes);
-
-      // call the matlab script to plot n, u, theta
-      ml_plot.reset_params();
-      std::vector<size_t> const dim_sizes{1,
-                                          static_cast<size_t>(nodes.size())};
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, nodes);
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, n_nodes);
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, u_nodes);
-      ml_plot.add_param({1, static_cast<size_t>(nodes.size())}, th_nodes);
-      ml_plot.add_param(time + pde->get_dt());
-      ml_plot.call("vlasov_params");
-    }
+    write_output<precision>(*pde, moments, state, time_, time_step_,
+                            state.size(), grid.get_table(), "asgard_wavelet");
   }
 #endif
 }

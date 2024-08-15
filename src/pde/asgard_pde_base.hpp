@@ -899,12 +899,6 @@ public:
       return false;
     return (i == 0 or i % options_.wavelet_output_freq.value() == 0);
   }
-  bool is_routput_step(int i) const
-  {
-    if (not options_.realspace_output_freq)
-      return false;
-    return ((i + 1) % options_.realspace_output_freq.value() == 0);
-  }
 
   std::vector<source<P>> const &sources() const { return sources_; };
   std::vector<md_func_type<P>> const &exact_vector_funcs() const

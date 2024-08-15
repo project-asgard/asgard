@@ -105,7 +105,6 @@ option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
 option (ASGARD_HIGHFIVE_PATH "Optional location of existing HighFive library" "")
 option (ASGARD_HDF5_PATH "Optional location of lib/ containing HDF5" "")
 
-option (ASGARD_USE_MATLAB "(deprecated) Optional MATLAB plotting support for asgard" OFF)
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
@@ -197,10 +196,6 @@ if(ASGARD_USE_OPENMP OR ASGARD_RECOMMENDED_DEFAULTS)
   endif()
 
 endif()
-
-if (ASGARD_USE_MATLAB)
-    find_package(Matlab REQUIRED) # Should there be a minimum MATLAB version needed?
-endif ()
 
 if (ASGARD_USE_PYTHON)
     if (NOT BUILD_SHARED_LIBS)
@@ -413,10 +408,6 @@ if (ASGARD_USE_SCALAPACK)
     list (APPEND components asgard_scalapack_matrix_info asgard_scalapack_vector_info asgard_cblacs_grid)
 endif ()
 
-if (ASGARD_USE_MATLAB)
-    list(APPEND components asgard_matlab_plot)
-endif ()
-
 foreach (component IN LISTS components)
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp)
         # some components don't have .cpp files
@@ -469,8 +460,6 @@ target_link_libraries (libasgard
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_highfive>
                        $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_hdf5>
-                       $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_ENGINE_LIBRARY}>
-                       $<$<BOOL:${ASGARD_USE_MATLAB}>:${Matlab_DATAARRAY_LIBRARY}>
 )
 target_include_directories (libasgard
                             PUBLIC
@@ -501,13 +490,6 @@ if (ASGARD_USE_CUDA)
                            CUDA::cusparse
     )
 endif ()
-
-if (ASGARD_USE_MATLAB)
-    target_include_directories (libasgard
-                                SYSTEM PUBLIC
-                                $<BUILD_INTERFACE:${Matlab_INCLUDE_DIRS}>
-    )
-endif()
 
 #-------------------------------------------------------------------------------
 #  Define a asgard executable target.
@@ -650,7 +632,7 @@ if (ASGARD_BUILD_TESTS)
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
   message(STATUS "ASGarD build options (summary):")
-  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_CUDA ASGARD_USE_MATLAB ASGARD_USE_PYTHON ASGARD_IO_HIGHFIVE KRON_MODE_GLOBAL KRON_MODE_GLOBAL_BLOCK)
+  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_CUDA ASGARD_USE_PYTHON ASGARD_IO_HIGHFIVE KRON_MODE_GLOBAL KRON_MODE_GLOBAL_BLOCK)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_CUDA)

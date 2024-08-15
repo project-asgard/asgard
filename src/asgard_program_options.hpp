@@ -389,8 +389,6 @@ struct prog_opts
 
   //! output frequency of wavelet data used for restarts or python plotting
   std::optional<int> wavelet_output_freq;
-  //! older method for plotting using MATLAB integration
-  std::optional<int> realspace_output_freq;
 
   //! solver for implicit or imex methods: direct, gmres, bicgstab
   std::optional<solve_opts> solver;
@@ -491,7 +489,6 @@ private:
     degree,
     num_time_steps,
     wavelet_output_freq,
-    realspace_output_freq,
     output_file,
     dt,
     pde_choice,

@@ -153,17 +153,6 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-wave-freq", "dummy"})),
                         "invalid value for -wave-freq, see exe -help");
   }
-  SECTION("-real_freq")
-  {
-    prog_opts prog(vecstrview({"", "-real-freq", "12"}));
-    REQUIRE(prog.realspace_output_freq);
-    REQUIRE(prog.realspace_output_freq.value() == 12);
-    REQUIRE(prog_opts(vecstrview({"exe", "-r", "9"})).realspace_output_freq);
-    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-r"})),
-                        "-r must be followed by a value, see exe -help");
-    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-real-freq", "dummy"})),
-                        "invalid value for -real-freq, see exe -help");
-  }
   SECTION("-dt")
   {
     prog_opts prog(vecstrview({"", "-dt", "0.5"}));
