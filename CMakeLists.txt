@@ -554,13 +554,13 @@ if (ASGARD_BUILD_TESTS)
 
   # components with MPI-enabled testing
   set (mpi_test_components
-    adapt
-    distribution
-    time_advance
+    asgard_adapt
+    asgard_distribution
+    asgard_time_advance
   )
 
   if (ASGARD_USE_SCALAPACK)
-    list(APPEND mpi_test_components cblacs_grid fast_math scalapack_matrix_info scalapack_vector_info)
+    list(APPEND mpi_test_components asgard_cblacs_grid asgard_fast_math asgard_scalapack_matrix_info asgard_scalapack_vector_info)
   endif()
 
   foreach (component IN LISTS components)

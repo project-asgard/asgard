@@ -433,7 +433,7 @@ TEMPLATE_TEST_CASE("2d continuity_2 with interp", "[linear]", test_precs)
 }
 
 /////////////////////////////////////////////////////////////////////
-//  Testing setting initial conditions with interpolaiton
+//  Testing setting initial conditions with interpolation
 /////////////////////////////////////////////////////////////////////
 TEMPLATE_TEST_CASE("2d interp initial conditions", "[linear]", test_precs)
 {
@@ -446,9 +446,6 @@ TEMPLATE_TEST_CASE("2d interp initial conditions", "[linear]", test_precs)
   bool constexpr interp_ic = true;  // interpolate initial-cond
   bool constexpr proj_ic   = false; // project intiial-cond
 
-  // std::unique_ptr<PDE<TestType>> ipde = std::make_unique<testic<TestType, interp_ic>>(opts);
-  // std::unique_ptr<PDE<TestType>> ppde = std::make_unique<testic<TestType, proj_ic>>(opts);
-  //
   ierrs = time_advance_errors<testic<TestType, interp_ic>>(opts);
   perrs = time_advance_errors<testic<TestType, proj_ic>>(opts);
 

@@ -124,6 +124,23 @@ enum class kronmult_mode
 };
 
 /*!
+ * \internal
+ * \ingroup asgard_common_options
+ * \brief Used for some methods, increment or replace the data in the call
+ *
+ * Allows to switch between incrementing the existing data or replacing it
+ * right out.
+ *
+ * \endinternal
+ *
+ */
+enum class data_mode
+{
+  replace,
+  increment
+};
+
+/*!
  * \ingroup asgard_common_options
  * \brief Type of discretization grid
  */

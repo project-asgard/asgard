@@ -568,6 +568,8 @@ fk::matrix<P> generate_coefficients(
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template class coefficient_matrix_manager<double>;
+
 template fk::matrix<double> generate_coefficients<double>(
     dimension<double> const &dim, partial_term<double> const &pterm,
     basis::wavelet_transform<double, resource::host> const &transformer,
@@ -589,6 +591,8 @@ template void generate_dimension_mass_mat<double>(
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class coefficient_matrix_manager<float>;
+
 template fk::matrix<float> generate_coefficients<float>(
     dimension<float> const &dim, partial_term<float> const &pterm,
     basis::wavelet_transform<float, resource::host> const &transformer,

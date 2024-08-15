@@ -67,26 +67,6 @@ remap_for_delete(std::vector<int64_t> const &deleted_indices,
   return new_to_old;
 }
 
-// helper to find new levels for each dimension after adapting table
-static std::vector<int>
-get_levels(elements::table const &adapted_table, int const num_dims)
-{
-  assert(num_dims > 0);
-  auto const flat_table = adapted_table.get_active_table();
-  auto const coord_size = num_dims * 2;
-  std::vector<int> max_levels(num_dims, 0);
-  for (int64_t element = 0; element < adapted_table.size(); ++element)
-  {
-    fk::vector<int, mem_type::const_view> coords(
-        flat_table, element * coord_size, (element + 1) * coord_size - 1);
-    for (auto i = 0; i < num_dims; ++i)
-    {
-      max_levels[i] = std::max(coords(i), max_levels[i]);
-    }
-  }
-  return max_levels;
-}
-
 template<typename P>
 static void update_levels(elements::table const &adapted_table, PDE<P> &pde,
                           bool const rechain = false)

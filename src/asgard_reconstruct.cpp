@@ -304,7 +304,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
                 "unsupported degree, use 0, 1, 2 for analytic expressions, "
                 "and degree -1 for the general case");
 
-  // first translat the x values to normalized values for the given cell
+  // first translate the x values to normalized values for the given cell
   std::array<double, max_num_dimensions> xn;
   double w = 1.0;
   int const &num_dimensions = cells_.num_dimensions();
@@ -316,7 +316,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
     w *= wd;
     xn[d] = (p[d] > 1) ? (p2l2 * (x[d] + 1.0) - p[d]) : x[d];
 
-    // analytic formular work on (0, 1), general degree uses a shift to (-1, 1)
+    // analytic formula work on (0, 1), general degree uses a shift to (-1, 1)
     if constexpr (degree == -1)
     {
       xn[d] = 2.0 * xn[d] - 1.0;

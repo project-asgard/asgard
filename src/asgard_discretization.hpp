@@ -117,6 +117,22 @@ public:
   //! return the current state, in wavelet format, local to this mpi rank
   std::vector<precision> const &current_state() const { return state; }
 
+  //! return a snapshot of the current solution
+  reconstruct_solution get_snapshot() const
+  {
+    return {pde->num_dims(), grid.size(), grid.get_table().get_active_table().data(),
+            degree_, state.data()};
+  }
+
+  //! computes the right-hand-side of the ode
+  void ode_rhs(imex_flag imflag, precision time, std::vector<precision> const &state,
+               std::vector<precision> &R) const;
+  //! computes the right-hand-side of the backward Euler method
+  void ode_irhs(precision time, std::vector<precision> const &state,
+                std::vector<precision> &R) const;
+  //! solves x = A^{-1} x where A is the kron_operators with given flag, uses method from options
+  void ode_sv(imex_flag imflag, std::vector<precision> &x) const;
+
   //! register the next time step and checkpoint
   void set_next_step(fk::vector<precision> const &next,
                      std::optional<precision> new_dt = {})
@@ -169,6 +185,8 @@ public:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! return the transformer
   auto const &get_transformer() const { return transformer; }
+  //! return the hierarchy_manipulator
+  auto const &get_hiermanip() const { return hier; }
   //! return the fixed boundary conditions
   auto const &get_fixed_bc() const { return fixed_bc; }
 
@@ -193,6 +211,8 @@ protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! convenient check if we are using high verbosity level
   bool high_verbosity() const { return (verb == verbosity_level::high); }
+  //! sets the initial conditions, performs adaptivity in the process
+  void set_initial_condition();
   //! update components on grid reset
   void update_grid_components()
   {
@@ -248,7 +268,10 @@ private:
 
   adapt::distributed_grid<precision> grid;
 
+  coefficient_matrix_manager<precision> matrices; // matrix coeffs
+
   basis::wavelet_transform<precision, resource::host> transformer;
+  hierarchy_manipulator<precision> hier; // new transformer
 
   // easy access variables, avoids jumping into pde->options()
   int degree_;
@@ -264,7 +287,7 @@ private:
   // left-right boundary conditions, time-independent components
   std::array<boundary_conditions::unscaled_bc_parts<precision>, 2> fixed_bc;
 
-  // used for iterative solvers
+  // used for all separable operations and iterative solvers
   mutable kron_operators<precision> kronops;
   // used for direct solvers
   mutable std::optional<matrix_factor<precision>> op_matrix;

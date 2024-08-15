@@ -330,7 +330,7 @@ struct kron_operators
     return finterp;
   }
   /*!
-   * \brief Convert to projection from noal values, uses the padded grid.
+   * \brief Convert to projection from nodal values, uses the padded grid.
    *
    * Puts the output inside the container_type
    * (works with std::vector and fk::vector),
@@ -347,6 +347,7 @@ struct kron_operators
     interp.get_projection_coeffs(kglobal.get_cells(), kglobal.get_dsort(),
                                  precision{1} / domain_scale,
                                  workspace.x.data(), proj.data());
+    proj.resize(kglobal.num_active());
   }
 
   //! adjusts the verbosity level

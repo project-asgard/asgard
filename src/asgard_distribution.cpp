@@ -329,6 +329,49 @@ void reduce_results(fk::vector<P, src_mem, resrc> const &source,
 #endif
 }
 
+template<typename P>
+void reduce_results(std::vector<P> const &source, std::vector<P> &dest,
+                    distribution_plan const &plan, int const my_rank)
+{
+  expect(source.size() == dest.size());
+  expect(my_rank >= 0);
+  expect(my_rank < static_cast<int>(plan.size()));
+
+#ifdef ASGARD_USE_MPI
+  if (plan.size() == 1)
+  {
+    std::copy(source.begin(), source.end(), dest.begin());
+    return;
+  }
+
+  std::fill(dest.begin(), dest.end(), P{0});
+  int const num_cols = get_num_subgrid_cols(plan.size());
+
+  int const my_row = my_rank / num_cols;
+  int const my_col = my_rank % num_cols;
+
+  MPI_Comm row_communicator;
+  MPI_Comm const global_communicator = distro_handle.get_global_comm();
+
+  auto success =
+      MPI_Comm_split(global_communicator, my_row, my_col, &row_communicator);
+  expect(success == 0);
+
+  MPI_Datatype const mpi_type =
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
+  success = MPI_Allreduce((void *)source.data(), (void *)dest.data(),
+                          source.size(), mpi_type, MPI_SUM, row_communicator);
+  expect(success == 0);
+
+  success = MPI_Comm_free(&row_communicator);
+  expect(success == 0);
+
+#else
+  dest = source;
+  return;
+#endif
+}
+
 //
 // -- below functionality for exchanging solution vector data across subgrid
 // rows via point-to-point messages.
@@ -505,6 +548,28 @@ copy_to_input(fk::vector<P, src_mem, resrc> const &source,
   // else ignore the matching receive; I am copying locally
 }
 
+template<typename P>
+static void
+copy_to_input(std::vector<P> const &source, std::vector<P> &dest,
+              index_mapper const &source_map, index_mapper const &dest_map,
+              message const &message, int const segment_size)
+{
+  expect(segment_size > 0);
+  if (message.message_dir == message_direction::send)
+  {
+    auto const source_start =
+        static_cast<int64_t>(source_map(message.source_range.start)) * segment_size;
+    auto const source_end =
+        static_cast<int64_t>(source_map(message.source_range.stop) + 1) * segment_size;
+    auto const dest_start =
+        static_cast<int64_t>(dest_map(message.dest_range.start)) * segment_size;
+
+    std::copy(source.begin() + source_start, source.begin() + source_end,
+              dest.begin() + dest_start);
+  }
+  // else ignore the matching receive; I am copying locally
+}
+
 // static helper for sending/receiving output/input data using mpi
 // message ranges are in terms of global element indices
 // index map gets us back to local element indices
@@ -566,6 +631,63 @@ dispatch_message(fk::vector<P, src_mem, resrc> const &source,
 #endif
 }
 
+template<typename P> static void
+dispatch_message(std::vector<P> const &source, std::vector<P> &dest,
+                 index_mapper const &map, message const &message,
+                 int const segment_size)
+{
+#ifdef ASGARD_USE_MPI
+  expect(segment_size > 0);
+
+  MPI_Datatype const mpi_type =
+      std::is_same_v<P, double> ? MPI_DOUBLE : MPI_FLOAT;
+  MPI_Comm const communicator = distro_handle.get_global_comm();
+
+  auto const mpi_tag = 0;
+  if (message.message_dir == message_direction::send)
+  {
+    auto const source_start =
+        static_cast<int64_t>(map(message.source_range.start)) * segment_size;
+    auto const source_end =
+        static_cast<int64_t>(map(message.source_range.stop) + 1) *
+            segment_size -
+        1;
+
+    // fk::vector<P, mem_type::const_view, resrc> const window(
+    //     source, source_start, source_end);
+
+    auto const success =
+        MPI_Send((void *)(source.data() + source_start), source_end - source_start + 1, mpi_type, message.target,
+                 mpi_tag, communicator);
+    expect(success == 0);
+  }
+  else
+  {
+    auto const dest_start =
+        static_cast<int64_t>(map(message.dest_range.start)) * segment_size;
+    auto const dest_end =
+        static_cast<int64_t>(map(message.dest_range.stop) + 1) * segment_size -
+        1;
+
+    //fk::vector<P, mem_type::view, resrc> window(dest, dest_start, dest_end);
+
+    auto const success =
+        MPI_Recv((void *)(dest.data() + dest_start), dest_end - dest_start + 1, mpi_type, message.target,
+                 MPI_ANY_TAG, communicator, MPI_STATUS_IGNORE);
+    expect(success == 0);
+  }
+#else
+
+  ignore(source);
+  ignore(dest);
+  ignore(map);
+  ignore(message);
+  ignore(segment_size);
+  expect(false);
+
+#endif
+}
+
 template<typename P, mem_type src_mem, mem_type dst_mem, resource resrc>
 void exchange_results(fk::vector<P, src_mem, resrc> const &source,
                       fk::vector<P, dst_mem, resrc> &dest,
@@ -608,6 +730,49 @@ void exchange_results(fk::vector<P, src_mem, resrc> const &source,
   ignore(segment_size);
   fm::copy(source, dest);
   return;
+#endif
+}
+
+template<typename P>
+void exchange_results(std::vector<P> const &source, std::vector<P> &dest,
+                      int const segment_size, distribution_plan const &plan,
+                      int const my_rank)
+{
+  expect(my_rank >= 0);
+  expect(my_rank < static_cast<int>(plan.size()));
+#ifdef ASGARD_USE_MPI
+
+  if (plan.size() == 1)
+  {
+    std::copy(source.begin(), source.end(), dest.begin());
+    return;
+  }
+
+  // build communication plan
+  auto const message_lists = generate_messages(plan);
+
+  // call send/recv
+  auto const &my_subgrid = plan.at(my_rank);
+  auto const messages    = message_lists[my_rank];
+
+  for (auto const &message : messages)
+  {
+    if (message.target == my_rank)
+    {
+      copy_to_input(source, dest, my_subgrid.get_local_row_map(),
+                    my_subgrid.get_local_col_map(), message, segment_size);
+      continue;
+    }
+
+    auto const local_map = (message.message_dir == message_direction::send)
+                               ? my_subgrid.get_local_row_map()
+                               : my_subgrid.get_local_col_map();
+    dispatch_message(source, dest, local_map, message, segment_size);
+  }
+
+#else
+  ignore(segment_size);
+  dest = source;
 #endif
 }
 
@@ -1174,9 +1339,17 @@ template void reduce_results(
     fk::vector<double, mem_type::owner, resource::host> &dest,
     distribution_plan const &plan, int const my_rank);
 
+template void reduce_results(
+    std::vector<double> const &source, std::vector<double> &dest,
+    distribution_plan const &plan, int const my_rank);
+
 template void exchange_results(
     fk::vector<double, mem_type::owner, resource::host> const &source,
     fk::vector<double, mem_type::owner, resource::host> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    std::vector<double> const &source, std::vector<double> &dest,
     int const segment_size, distribution_plan const &plan, int const my_rank);
 
 #ifdef ASGARD_USE_CUDA
@@ -1224,9 +1397,17 @@ reduce_results(fk::vector<float, mem_type::owner, resource::host> const &source,
                fk::vector<float, mem_type::owner, resource::host> &dest,
                distribution_plan const &plan, int const my_rank);
 
+template void reduce_results(
+    std::vector<float> const &source, std::vector<float> &dest,
+    distribution_plan const &plan, int const my_rank);
+
 template void exchange_results(
     fk::vector<float, mem_type::owner, resource::host> const &source,
     fk::vector<float, mem_type::owner, resource::host> &dest,
+    int const segment_size, distribution_plan const &plan, int const my_rank);
+
+template void exchange_results(
+    std::vector<float> const &source, std::vector<float> &dest,
     int const segment_size, distribution_plan const &plan, int const my_rank);
 
 #ifdef ASGARD_USE_CUDA

@@ -1,5 +1,7 @@
 #include "asgard_transformations.hpp"
 
+#include "asgard_small_mats.hpp"
+
 namespace asgard
 {
 // perform recursive kronecker product
@@ -286,7 +288,305 @@ fk::vector<P> sum_separable_funcs(
   return combined;
 }
 
+template<typename P>
+void hierarchy_manipulator<P>::make_mass(int dim, int level, mass_list &mass) const
+{
+  int const num_cells = fm::ipow2(level);
+  int const num_quad  = leg_unscal.stride();
+  int const pdof      = degree_ + 1;
+  int const bsize     = pdof * pdof;
+
+  std::vector<P> mat(int64_t(pdof) * pdof * num_cells);
+
+#pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+  {
+    // void gemm3(int const &n, int const &m, P const A[], P const d[], P const B[], P C[])
+    smmat::gemm3(pdof, num_quad, leg_vals[0], quad_dv[dim].data() + i * num_quad,
+                 leg_unscal[0], mat.data() + i * bsize);
+  }
+
+  switch (degree_)
+  {
+  case 0:
+#pragma omp parallel for
+    for (int i = 0; i < num_cells; i++)
+      mat[i] = P{1} / mat[i];
+    break;
+  case 1:
+#pragma omp parallel for
+    for (int i = 0; i < num_cells; i++)
+      smmat::inv2by2(mat.data() + i * bsize);
+    break;
+  default:
+#pragma omp parallel for
+    for (int i = 0; i < num_cells; i++)
+      smmat::potrf(pdof, mat.data() + i * bsize);
+    break;
+  }
+
+  mass[dim]->set(level, std::move(mat));
+}
+
+template<typename P>
+void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, P const *mass) const
+{
+  int const num_cells = fm::ipow2(level);
+
+  int const num_quad = quad.stride();
+  int const pdof     = degree_ + 1;
+
+  expect(fvals.size() == static_cast<size_t>(num_cells * num_quad));
+
+  stage0.resize(pdof * num_cells);
+
+  P const scale = 0.5 * std::pow(is2, level - 1) * std::sqrt(dsize);
+
+#pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+  {
+    smmat::gemv(pdof, num_quad, leg_vals[0], &fvals[i * num_quad],
+                &stage0[i * pdof]);
+    smmat::scal(pdof, scale, &stage0[i * pdof]);
+  }
+
+  if (mass != nullptr)
+  {
+    switch (degree_)
+    {
+    case 0:
+#pragma omp parallel for
+      for (int i = 0; i < num_cells; i++)
+        stage0[i] *= mass[i];
+      break;
+    case 1:
+#pragma omp parallel for
+      for (int i = 0; i < num_cells; i++)
+        smmat::gemv2by2(mass + 4 * i, stage0.data() + 2 * i);
+      break;
+    default:
+#pragma omp parallel for
+      for (int i = 0; i < num_cells; i++)
+        smmat::posv(pdof, mass + i * pdof * pdof, stage0.data() + i * pdof);
+      break;
+    };
+  }
+
+  pf[d].resize(pdof * num_cells);
+
+  // stage0 contains the projection data per-cell
+  // pf has the correct size to take the data, so project all levels up
+  switch (degree_)
+  { // hardcoded degrees first, the default uses the projection matrices
+  case 0:
+    projectlevels<0>(d, level);
+    break;
+  case 1:
+    projectlevels<1>(d, level);
+    break;
+  default:
+    projectlevels<-1>(d, level);
+  };
+}
+
+template<typename P>
+template<int degree>
+void hierarchy_manipulator<P>::projectup2(P const *raw, P *fin) const
+{
+  if constexpr (degree == 0)
+  {
+    P constexpr s22 = 0.5 * s2;
+    fin[0] = s22 * raw[0] + s22 * raw[1];
+    fin[1] = -s22 * raw[0] + s22 * raw[1];
+  }
+  else if constexpr (degree == 1)
+  {
+    P constexpr is2h = 0.5 * is2;
+    P constexpr is64  = s6 / 4.0;
+
+    fin[0] = is2 * raw[0]                   + is2 * raw[2];
+    fin[1] = -is64 * raw[0] + is2h * raw[1] + is64 * raw[2] + is2h * raw[3];
+    fin[2] = -is2 * raw[1] + is2 * raw[3];
+    fin[3] = is2h * raw[0] + is64 * raw[1] - is2h * raw[2] + is64 * raw[3];
+  }
+  else
+  {
+    int const n = 2 * (degree_ + 1);
+    smmat::gemv(n, n, pmats.data(), raw, fin);
+  }
+}
+
+template<typename P>
+template<int degree>
+void hierarchy_manipulator<P>::projectup(int num_final, P const *raw, P *upper, P *fin) const
+{
+  if constexpr (degree == 0)
+  {
+#pragma omp parallel for
+    for (int i = 0; i < num_final; i++)
+    {
+      P constexpr s22 = 0.5 * s2;
+      P const r0 = raw[2 * i];
+      P const r1 = raw[2 * i + 1];
+      upper[i] = s22 * r0 + s22 * r1;
+      fin[i]   = -s22 * r0 + s22 * r1;
+    }
+  }
+  else if constexpr (degree == 1)
+  {
+#pragma omp parallel for
+    for (int i = 0; i < num_final; i++)
+    {
+      P constexpr is2h = 0.5 * is2;
+      P constexpr is64  = s6 / 4.0;
+      P const r0 = raw[4 * i];
+      P const r1 = raw[4 * i + 1];
+      P const r2 = raw[4 * i + 2];
+      P const r3 = raw[4 * i + 3];
+      upper[2 * i]     = is2 * r0                   + is2 * r2;
+      upper[2 * i + 1] = -is64 * r0 + is2h * r1 + is64 * r2 + is2h * r3;
+      fin[2 * i]       = -is2 * r1 + is2 * r3;
+      fin[2 * i + 1]   = is2h * r0 + is64 * r1 - is2h * r2 + is64 * r3;
+    }
+  }
+  else
+  {
+    int const pdof = degree_ + 1;
+#pragma omp parallel for
+    for (int i = 0; i < num_final; i++)
+    {
+      smmat::gemv(pdof, 2 * pdof, pmatup, &raw[2 * pdof * i], &upper[i * pdof]);
+      smmat::gemv(pdof, 2 * pdof, pmatlev, &raw[2 * pdof * i], &fin[i * pdof]);
+    }
+  }
+}
+
+template<typename P>
+template<int degree>
+void hierarchy_manipulator<P>::projectlevels(int d, int level) const
+{
+  switch (level)
+  {
+  case 0:
+    std::copy(stage0.begin(), stage0.end(), pf[d].begin()); // nothing to project upwards
+    break;
+  case 1:
+    projectup2<degree>(stage0.data(), pf[d].data()); // level 0 and 1
+    break;
+  default: {
+      stage1.resize(stage0.size() / 2);
+      int const pdof = degree_ + 1;
+
+      P *w0  = stage0.data();
+      P *w1  = stage1.data();
+      int num = static_cast<int>(pf[d].size() / (2 * pdof));
+      P *fin = pf[d].data() + num * pdof;
+      for (int l = level; l > 1; l--)
+      {
+        projectup<degree>(num, w0, w1, fin);
+        std::swap(w0, w1);
+        num /= 2;
+        fin -= num * pdof;
+      }
+      projectup2<degree>(w0, pf[d].data());
+    }
+  }
+}
+
+template<typename P>
+void hierarchy_manipulator<P>::prepare_quadrature(int d, int num_cells) const
+{
+  int const num_quad = quad.stride();
+
+  // if quadrature is already set for the correct level, no need to do anything
+  // this assumes that the min/max of the domain does not change
+  if (quad_points[d].size() == static_cast<size_t>(num_quad * num_cells))
+    return;
+
+  quad_points[d].resize(num_quad * num_cells);
+
+  P const cell_size = (dmax[d] - dmin[d]) / P(num_cells);
+
+  P mid       = dmin[d] + 0.5 * cell_size;
+  P const slp = 0.5 * cell_size;
+
+  P *iq = quad_points[d].data();
+  for (int i : indexof<int>(num_cells))
+  {
+    ignore(i);
+    for (int j : indexof<int>(num_quad))
+      iq[j] = slp * quad[points][j] + mid;
+    mid += cell_size;
+    iq  += num_quad;
+  }
+}
+
+template<typename P>
+void hierarchy_manipulator<P>::setup_projection_matrices()
+{
+    int const num_quad = quad.stride();
+
+  // leg_vals is a small matrix with the values of Legendre polynomials
+  // scaled by the quadrature weights
+  // the final structure is such that small matrix leg_vals times the
+  // vector of f(x_i) at quadrature points x_i will give us the projection
+  // of f onto the Legendre polynomial basis
+  // scaled by the l-2 volume of the cell, this is the local projection of f(x)
+  // leg_unscal is the transpose of leg_vals and unscaled by the quadrature w.
+  // if rho(x_i) are local values of the mass weight, the local mass matrix is
+  // leg_vals * diag(rho(x_i)) * leg_unscal
+  leg_vals   = vector2d<P>(degree_ + 1, num_quad);
+  leg_unscal = vector2d<P>(num_quad, degree_ + 1);
+
+  P const *qpoints = quad[points];
+  // using the recurrence: L_n = ((2n - 1) L_{n-1} - (n - 1) L_{n-2}) / n
+  for (int i : indexof<int>(num_quad))
+  {
+    P *l = leg_vals[i];
+    l[0] = 1.0;
+    if (degree_ > 0)
+      l[1] = qpoints[i];
+    for (int j = 2; j <= degree_; j++)
+      l[j] = ((2 * j - 1) * qpoints[i] * l[j-1] - (j - 1) * l[j-2]) / P(j);
+  }
+
+  for (int j = 0; j <= degree_; j++)
+  {
+    P const scale = std::sqrt( (2 * j + 1) / P(2) );
+    for (int i : indexof<int>(num_quad))
+      leg_unscal[j][i] = scale * leg_vals[i][j];
+    for (int i : indexof<int>(num_quad))
+      leg_vals[i][j] *= scale * quad[weights][i];
+  }
+
+  if (degree_ >= 2) // need projection matrices, degree_ <= 1 are hard-coded
+  {
+    auto rawmats = generate_multi_wavelets<P>(degree_);
+    int const pdof = degree_ + 1;
+    // copy the matrices twice, once for level 1->0 and once for generic levels
+    pmats.resize(8 * pdof * pdof);
+    auto ip = pmats.data();
+    for (int i : indexof<int>(pdof)) {
+      ip = std::copy_n(rawmats[0].data(0, i), pdof, ip);
+      ip = std::copy_n(rawmats[2].data(0, i), pdof, ip);
+    }
+    for (int i : indexof<int>(pdof)) {
+      ip = std::copy_n(rawmats[1].data(0, i), pdof, ip);
+      ip = std::copy_n(rawmats[3].data(0, i), pdof, ip);
+    }
+
+    pmatup = ip;
+    pmatlev = pmatup + 2 * pdof * pdof;
+
+    for (int j = 0; j < 4; j++)
+      for (int i : indexof<int>(pdof))
+        ip = std::copy_n(rawmats[j].data(0, i), pdof, ip);
+  }
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
+template class hierarchy_manipulator<double>;
+
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
@@ -328,6 +628,8 @@ template fk::vector<double> sum_separable_funcs(
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class hierarchy_manipulator<float>;
+
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
     basis::wavelet_transform<float, resource::host> const &transformer,

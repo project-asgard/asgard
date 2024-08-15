@@ -18,8 +18,10 @@
 // pessimization
 #if defined(__clang__)
 #define ASGARD_PRAGMA_OMP_SIMD(x)
+#define ASGARD_OMP_SIMD
 #else
 #define ASGARD_PRAGMA(x) _Pragma(#x)
+#define ASGARD_OMP_SIMD ASGARD_PRAGMA(omp simd)
 #define ASGARD_PRAGMA_OMP_SIMD(clause) ASGARD_PRAGMA(omp simd clause)
 #endif
 

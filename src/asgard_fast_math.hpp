@@ -21,6 +21,12 @@ inline constexpr T two_raised_to(T const exponent)
   return T{1} << exponent;
 }
 
+template<typename T>
+inline constexpr T ipow2(T const exponent)
+{
+  return two_raised_to(exponent);
+}
+
 template<typename T = int64_t>
 inline constexpr T ipow(T base, int exponent)
 {
@@ -89,6 +95,14 @@ P nrm2(fk::vector<P, mem, resrc> const &x)
   if (x.empty())
     return 0.0;
   return lib_dispatch::nrm2<resrc>(x.size(), x.data(), 1);
+}
+
+template<typename P>
+P nrm2(std::vector<P> const &x)
+{
+  if (x.empty())
+    return 0.0;
+  return lib_dispatch::nrm2<resource::host>(x.size(), x.data(), 1);
 }
 
 /*!
@@ -307,18 +321,23 @@ gemm(P const alpha, fk::matrix<P, amem, resrc> const &A, fk::matrix<P, bmem, res
  * \param A  n-by-n coefficient matrix
  * \param B  n-by-1 right hand side matrix
  * \param ipiv pivot indices, size >= max(1, n)
+ *
+ * (modified to allow for the use of std::vector in place of B)
  */
-template<typename P, mem_type amem, mem_type bmem>
-void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
+template<typename P, mem_type amem, typename vec_type>
+void gesv(fk::matrix<P, amem> &A, vec_type &B,
           std::vector<int> &ipiv)
 {
   static_assert(amem != mem_type::const_view,
                 "cannot factorize a const-view of a matrix");
 
+  static_assert(std::is_same_v<typename vec_type::value_type, P>,
+                "precision mismatch between the vectors");
+
   int rows_A = A.nrows();
   int cols_A = A.ncols();
 
-  int rows_B = B.size();
+  int rows_B = static_cast<int>(B.size());
   int cols_B = 1;
 
   int rows_ipiv = ipiv.size();
@@ -326,7 +345,7 @@ void gesv(fk::matrix<P, amem> &A, fk::vector<P, bmem> &B,
   expect(rows_ipiv >= rows_A);
 
   int lda = A.stride();
-  int ldb = B.size();
+  int ldb = static_cast<int>(B.size());
 
   int info = lib_dispatch::gesv(rows_A, cols_B, A.data(), lda, ipiv.data(),
                                 B.data(), ldb);
@@ -471,14 +490,14 @@ void getrf(fk::matrix<P, amem> &A, std::vector<int> &ipiv)
 //            int *lda, int *ipiv, double *b, int *ldb,
 //            int *info);
 //
-template<typename P, mem_type amem, mem_type bmem>
-void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
+template<typename P, mem_type amem, typename vec_type>
+void getrs(fk::matrix<P, amem> const &A, vec_type &B,
            std::vector<int> const &ipiv)
 {
   int rows_A = A.nrows();
   int cols_A = A.ncols();
 
-  int rows_B = B.size();
+  int rows_B = static_cast<int>(B.size());
   int cols_B = 1;
 
   int rows_ipiv = ipiv.size();
@@ -487,7 +506,7 @@ void getrs(fk::matrix<P, amem> const &A, fk::vector<P, bmem> &B,
 
   char trans = 'N';
   int lda    = A.stride();
-  int ldb    = B.size();
+  int ldb    = static_cast<int>(B.size());
 
   int info = lib_dispatch::getrs(trans, rows_A, cols_B, A.data(), lda,
                                  ipiv.data(), B.data(), ldb);
