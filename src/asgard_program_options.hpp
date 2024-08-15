@@ -1,18 +1,64 @@
 #pragma once
 #include "asgard_tools.hpp"
 
+/*!
+ * \file asgard_program_options.hpp
+ * \brief Defines common enums and the options manager class prog_opts
+ * \author The ASGarD Team
+ * \ingroup asgard_common_options
+ */
+
 namespace asgard
 {
-// implemented solvers for implicit stepping
+/*!
+ * \defgroup asgard_common_options ASGarD Common Options
+ *
+ * Common options shared by most or even all PDEs and discretization methods.
+ * The tools provided here allow for reading the options from either the
+ * command line or an input file and also specify PDE specific options.
+ */
+
+/*!
+ * \ingroup asgard_common_options
+ * \brief Allows reducing the amount of cout-noise
+ *
+ * The high noise is usually desired for large simulations as the cout stream
+ * will become a log for the various aspects of the problem.
+ * This is very useful for debugging, catching early problems and keeping
+ * an eye on a long simulation.
+ *
+ * However, high noise is bad for testing and potentially some large
+ * applications, e.g., high verbosity may drown important messages from other
+ * sub-systems.
+ */
+enum class verbosity_level
+{
+  //! do not generate cout output, except on errors and important warnings
+  quiet,
+  //! provide a detailed log of the various aspects of the simulation
+  high
+};
+
+/*!
+ * \ingroup asgard_common_options
+ * \brief the available solvers for implicit time stepping
+ */
 enum class solve_opts
 {
+  //! direct solve using LAPACK, slow but stable
   direct,
+  //! popular iterative solver, can be sensitive to the tolerance and restart frequency
   gmres,
+  //! alternative to gmres, cheaper when taking many steps between restarts
   bicgstab,
+  //! distributed direct solver, MPI-powered alternative to LAPACK
   scalapack
 };
 
-// the choices for supported PDE types
+/*!
+ * \ingroup asgard_common_options
+ * \brief list of builtin PDE specifications, refer to the specs in the src/pde folder
+ */
 enum class PDE_opts
 {
   custom = 0, // user provided pde
@@ -45,7 +91,13 @@ enum class PDE_opts
   collisional_landau_1x3v
 };
 
-// Not very informative, maybe rename these of handle in a different wat
+/*!
+ * \internal
+ * \ingroup asgard_common_options
+ * \brief some PDE options allow for variants
+ *
+ * \endinternal
+ */
 enum class PDE_case_opts
 {
   case0,
@@ -54,10 +106,10 @@ enum class PDE_case_opts
   case3,
   case4,
   case_count
-  // FIXME will need to add the user supplied PDE cases choice
 };
 
 /*!
+ * \ingroup asgard_common_options
  * \brief Indicates whether we should be using sparse or dense kronmult.
  *
  * Used by the local kronmult, global kronmult (block or non-block case)
@@ -72,6 +124,7 @@ enum class kronmult_mode
 };
 
 /*!
+ * \ingroup asgard_common_options
  * \brief Type of discretization grid
  */
 enum class grid_type
@@ -86,26 +139,44 @@ enum class grid_type
 
 namespace time_advance
 {
-//! types of time time advance methods, declared here to be used in the program options
+/*!
+ * \ingroup asgard_common_options
+ * types of time time advance methods, declared here to be used in the program options
+ */
 enum class method
 {
+  //! implicit solve, backward Euler
   imp,
+  //! (default) explicit Runge–Kutta
   exp, // explicit is reserved keyword
+  //! implicit-explicit scheme for nonlinear Vlasov-Poisson problems
   imex
 };
 } // namespace time_advance
 
+/*!
+ * \ingroup asgard_common_options
+ * norm to use for adaptivity, experiments show little difference
+ */
 enum adapt_norm
 {
+  //! L-2 norm
   l2,
+  //! L-inf norm, a.k.a., max or sup norm
   linf
 };
 
 namespace solver
 {
-//! indicates the values is unspecified
+/*!
+ * \internal
+ * indicates the values is unspecified
+ */
 int constexpr novalue = -1;
-//! indicates the value is unspecified
+/*!
+ * \internal
+ * indicates the values is unspecified
+ */
 double constexpr notolerance = -1.0;
 } // namespace solver
 
@@ -178,13 +249,21 @@ struct split_views
 split_views split_argv(std::string_view const &opts);
 
 /*!
+ * \ingroup asgard_common_options
  * \brief Reads options from the command line and input files
+ *
+ * Processes all the options listed with
+ * \code
+ *   ./asgard --help
+ * \endcode
  *
  * The file and command line capabilities are provided for
  * convenience and are entirely optional.
  * The asgsrd::prog_opts objects can be default-constructed as empty,
  * i.e., no options provided, then each of the values can be set manually
  * before passing into other ASGarD objects.
+ * In most cases, if an option is not set, a default values will be used
+ * based on the hardcoded PDE specification.
  *
  * Reading from the command line example:
  * \code
@@ -192,10 +271,10 @@ split_views split_argv(std::string_view const &opts);
  *
  *     prog_opts options(argc, argv);
  *
- *     // for the use of imex, all options can be adjusted
+ *     // force the use of imex irrespective of the cli options
  *     options.step_method = time_advance::method::imex;
  *
- *     // make new PDE with these options
+ *     // make a new PDE with these options
  *     auto pde = asgard::make_custom_pde<mypde>(options);
  *
  * \endcode
@@ -211,25 +290,16 @@ split_views split_argv(std::string_view const &opts);
  *   asgard::prog_opts::print_help(); // from C++
  * \endcode
  *
- * Reading extra options from the file:
- * \code
- *   std::optional<int> foo = options.file_value<int>("foo");
+ * If the input file options (-infile or -if) is encountered when processing
+ * the command line argv, then the corresponding file will be processed as well.
+ * The common options provided in the file (e.g., time-stepping method or
+ * starting levels) will override any command line options before the -infile/if
+ * option and will be overridden by any following command line options.
  *
- *   std::optional<double> bar = options.file_value<double>("bar");
- *
- *   std::optional<std::string> myname = options.file_value<std::string>("myname");
- * \endcode
- * Supported types are bool, int, float, double, and std::string.
- *
- * Reading from a hard-coded filename reduces flexibility but can improve
- * reproducibility:
- * \code
- *   prog_opts options("intput_filename.txt")
- * \endcode
- *
- * The file format consists of simple pairs of keys-values separated by colon ":"
+ * The input file format consists of simple pairs of keys-values separated by colon ":"
  * Keys that match command line input options will be used as if provided by
- * the command line, other values can be read and retrieved
+ * the command line, other values can be specified in the file and retrieved
+ * in the C++ code, e.g.,
  * \code
  *  # ASGarD standard options
  *  -tile         : read from test file
@@ -240,10 +310,34 @@ split_views split_argv(std::string_view const &opts);
  *  my keyname 1  : 1.E-4
  *  my keyname 2  : 5
  *  my keyname 3  : enable
+ *  my keyname 4  : my favorite pde
  * \endcode
- * The 3 keys can be retrieved as double, int and bool respectively, or they can
- * all be read as strings. A good practice is to provide meaningful names for
- * the keys, e.g., "temperature".
+ * The three keys can be retrieved as double, int and bool respectively, or they can
+ * all be read as strings.
+ *
+ * Reading extra options, e.g., if using the file above
+ * \code
+ *   // bar.value() will be set to 1.E-4
+ *   std::optional<double> bar = options.file_value<double>("my keyname 1");
+ *
+ *   // foo.value() will be set to 5
+ *   std::optional<int> foo = options.file_value<int>("my keyname 2");
+ *
+ *   // extra_name will be set to "my favorite pde"
+ *   std::optional<std::string> extra_name = options.file_value<std::string>("my keyname 4");
+ *
+ *   // key3 will be empty, the keyname is missing/misspelled
+ *   std::optional<bool> key3 = options.file_value<bool>("keyname 3");
+ * \endcode
+ * Supported types are bool, int, float, double, and std::string.
+ * A good practice is to provide meaningful names for the keys, e.g.,
+ * "temperature" or "Young's modulus".
+ *
+ * Reading from a hard-coded filename reduces flexibility but can improve
+ * reproducibility:
+ * \code
+ *   prog_opts options("intput_filename.txt")
+ * \endcode
  *
  * Notes about the API:
  * - If the keyword is missing or it is missing a value, the optional will be empty.
@@ -251,8 +345,10 @@ split_views split_argv(std::string_view const &opts);
  *   an int from a sting describing a double.
  * - Boolean values interpreted as true are "true", "on", "enable", "1", "yes"
  * - Boolean values interpreted as false are "false", "off", "disable", "0", "no"
- * - ASGarD will not access or use any of the extra options provided in the file
- *   or the command line, those are responsibility of the user code.
+ * - Other boolean values are not accepted, will return empty optional.
+ * - ASGarD will not automatically interpret or access or use any of the extra
+ *   options provided in the file or the command line, those are a responsibility
+ *   of the user code.
  */
 struct prog_opts
 {
@@ -321,7 +417,7 @@ struct prog_opts
   bool show_version = false;
   //! indicates if the -pde? options was selected
   bool show_pde_help = false;
-  //! indicates if the exact solution should be ignored
+  //! indicates if the exact solution should be ignored or the error computed and shown every time-step
   bool ignore_exact = false;
 
   //! print list of ASGarD specific options
@@ -344,7 +440,7 @@ struct prog_opts
   //! create empty options, allows to manually fill the options later
   prog_opts() = default;
 
-  //! process the command line arguments
+  //! process the command line arguments, may yield warning if encountering unknown options
   prog_opts(int const argc, char const *const *argv,
             bool ignore_unknown = true);
 
@@ -355,7 +451,7 @@ struct prog_opts
     process_file("<executable>");
   }
 
-  //! mostly for testing
+  //! for testing purposes, can read from manually specified argc/argv
   explicit prog_opts(vecstrview const &argv)
   {
     process_inputs(argv, handle_mode::ignore_unknown);

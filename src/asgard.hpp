@@ -2,9 +2,25 @@
 
 #include "asgard_time_advance.hpp"
 
+/*!
+ * \file asgard.hpp
+ * \brief Main include file for all ASGarD methods and classes
+ * \author The ASGarD Team
+ * \ingroup asgard_discretization
+ */
+
 namespace asgard
 {
 /*!
+ * \defgroup asgard_discretization ASGarD Discretization Tools
+ *
+ * Given a PDE specification, these tools create a sparse grid discretization
+ * of the state, source and operator terms, and performs time-stepping
+ * integration in time.
+ */
+
+/*!
+ * \ingroup asgard_discretization
  * \brief Simulates one of the builtin PDEs
  *
  * The options.pde_choice must contain a valid PDE_opts that is not
@@ -50,11 +66,12 @@ void simulate_builtin(prog_opts const &options)
 }
 
 /*!
+ * \ingroup asgard_discretization
  * \brief Creates a discretization for the given pde and options
  *
- * Creates a new PDE discretization, unlike the one-shot method asgard::simulate(),
- * the discretization allows for finer control of the time steeping and
- * output frequency.
+ * Creates a new asgard::discretization_manager, unlike the one-shot
+ * method asgard::simulate(), the discretization allows for finer control of
+ * the time steeping and output frequency.
  *
  * \tparam pde_class is a user provided PDE specification that is derived from
  *                   the base asgard::PDE class
@@ -67,6 +84,9 @@ void simulate_builtin(prog_opts const &options)
  *                  while quiet is suitable for long simulations
  *
  * \returns an instance of asgard::discretization_manager
+ *
+ * Note: options.pde_choice must be either empty (does not contain a value)
+ *       or set to PDE_opts::custom
  */
 template<typename pde_class>
 auto discretize(prog_opts const &options, verbosity_level verbosity = verbosity_level::quiet)
@@ -78,6 +98,7 @@ auto discretize(prog_opts const &options, verbosity_level verbosity = verbosity_
 }
 
 /*!
+ * \ingroup asgard_discretization
  * \brief One shot method, simulate the pde with the given options
  *
  * Creates a new PDE, discretizes it and advances in time according to the

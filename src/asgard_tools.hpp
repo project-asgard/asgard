@@ -282,21 +282,4 @@ struct indexof
   idx_type end_;
 };
 
-/*!
- * \brief Allows reducing the amount of cout-noise
- *
- * The high noise is usually desired for large simulations as the cout stream
- * will become a log for the various aspects of the problem.
- * This is very useful for debugging, catching early problems and keeping
- * an eye on a log simulation.
- *
- * However, high noise is bad for testing and potentialy some apprlications,
- * e.g., the high noise may drown messages form other systems.
- */
-enum class verbosity_level
-{
-  quiet,
-  high
-};
-
 } // namespace asgard

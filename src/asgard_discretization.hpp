@@ -13,6 +13,13 @@
 #include "asgard_matlab_plot.hpp"
 #endif
 
+/*!
+ * \file asgard_discretization.hpp
+ * \brief Defines the container class discretization_manager
+ * \author The ASGarD Team
+ * \ingroup asgard_discretization
+ */
+
 namespace asgard
 {
 
@@ -21,6 +28,7 @@ template<typename precision>
 class discretization_manager;
 
 /*!
+ * \ingroup asgard_discretization
  * \brief Integrates in time until the final time or number of steps
  *
  * This method manipulates the problems internal state, applying adaptivity,
@@ -36,7 +44,14 @@ class discretization_manager;
 template<typename P> // implemented in time-advance
 void advance_time(discretization_manager<P> &manager, int64_t num_steps = -1);
 
-//! holds matrix and pivot factors
+/*!
+ * \internal
+ * \brief holds matrix and pivot factors
+ *
+ * used to hold the matrix/factor combo for the direct implicit solvers that
+ * explicitly form the large Kronecker matrix
+ * \endinternal
+ */
 template<typename P>
 struct matrix_factor
 {
@@ -47,6 +62,7 @@ struct matrix_factor
 };
 
 /*!
+ * \ingroup asgard_discretization
  * \brief Wrapper around several aspects of the pde discretization
  *
  * Assumes ownership of the loaded PDE and builds the sparse grid and operators.
@@ -59,6 +75,7 @@ template<typename precision>
 class discretization_manager
 {
 public:
+  //! take ownership of the pde object and discretize the pde
   discretization_manager(std::unique_ptr<PDE<precision>> &&pde_in,
                          verbosity_level vebosity = verbosity_level::quiet);
 
@@ -74,7 +91,7 @@ public:
   //! get the current time-step number
   int64_t time_step() const { return time_step_; }
 
-  //! get the current time step
+  //! get the current time-step size
   precision dt() const { return dt_; }
   //! get the current integration time
   precision time() const { return time_; }
@@ -132,7 +149,17 @@ public:
       save_snapshot(pde->options().outfile);
   }
 
-  //! if analytic solution exists, return the rmse error
+  /*!
+   * \brief if analytic solution exists, return the rmse error
+   *
+   * If no analytic solution has been specified, the optional will be empty.
+   * If an analytic solution exists, this will return both the absolute and
+   * relative rmse (normalized by the max entry of the exact solution).
+   * The vector contains an entry for each mpi rank.
+   *
+   * (note: we are working on computing the rmse for all mpi ranks instead
+   * of per rank)
+   */
   std::optional<std::array<std::vector<precision>, 2>> rmse_exact_sol() const;
 
   //! collect the current state from across all mpi ranks
@@ -142,6 +169,8 @@ public:
   PDE<precision> const &get_pde() const { return *pde; }
   //! returns a ref to the sparse grid
   adapt::distributed_grid<precision> const &get_grid() const { return grid; }
+
+#ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! return the transformer
   auto const &get_transformer() const { return transformer; }
   //! return the fixed boundary conditions
@@ -153,10 +182,19 @@ public:
   std::optional<matrix_factor<precision>> &get_op_matrix() const { return op_matrix; }
   //! returns the moments
   std::vector<moment<precision>> &get_moments() const { return moments; }
+#endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
-  friend void advance_time<precision>(discretization_manager<precision> &, int64_t);
+#ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
+  /*!
+   * \ingroup asgard_discretization
+   * \brief Performs integration in time for a given number of steps
+   */
+  friend void advance_time<precision>(discretization_manager<precision> &disc,
+                                      int64_t num_steps);
+#endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 protected:
+#ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! convenient check if we are using high verbosity level
   bool high_verbosity() const { return (verb == verbosity_level::high); }
   //! update components on grid reset
@@ -206,6 +244,7 @@ protected:
     pde->phi.resize(quad_dense_size);
     pde->E_source.resize(quad_dense_size);
   }
+#endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 private:
   verbosity_level verb;

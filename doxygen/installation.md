@@ -92,27 +92,22 @@ For specific platform build instructions, [see this wiki page.](https://github.c
 
 ### Basic usage
 
-Check out the installed examples in
-```
-  <CMAKE_INSTALL_PREFIX>\share\asgard\examples
-```
-
-Setting up the path to the executable and the Python module can be done
-automatically by sourcing the provided environment file
-```
-  source <CMAKE_INSTALL_PREFIX>\bin\asgard-env.sh
-```
-The `-env` file is very simple and just sets the correct locations for
-the executable path `PATH`, Python `PYTHONPATH` and CMake `asgard_ROOT`.
-
-Examples demonstrating ASGarD's capabilities are available
-[in the wiki](https://github.com/project-asgard/asgard/wiki/Example-Execution)
-
 List of all ASGarD flags is given by the executable
 ```
   asgard --help
 ```
 
+Check out the installed examples in
+```
+  <CMAKE_INSTALL_PREFIX>/share/asgard/examples
+```
+
+Setting up the enronment paths can be done with
+```
+  source <CMAKE_INSTALL_PREFIX>/share/asgard/asgard-env.sh
+```
+
+For more details, see the [Basic Usage Section.](basic_usage.md)
 
 ### (deprecated) MATLAB Interface
 

@@ -16,9 +16,6 @@ to sparse-grids).
 The [developer documentation](https://github.com/project-asgard/ASGarD/wiki/developing)
 contains information about how to contribute to the ASGarD project.
 
-- (TODO) user docs about building/using the code
-- (TODO) docs about the method
-
 ## Contact Us
 
 Issues are a great way to discuss all aspects of the ASGarD project, whether it
@@ -49,4 +46,4 @@ Oak Ridge National Laboratory.
 *  cmake 3.19
 *  BLAS/LAPACK
 
-See the detailed [installation](doxygen/installation.md) instructions.
+See the detailed [Installation](doxygen/installation.md) instructions.
