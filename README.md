@@ -10,8 +10,10 @@ high-dimensional PDEs where the "curse-of-dimensionality" has previously
 precluded useful continuum / Eularian (grid or mesh based as opposed to
 Monte-Carlo sampling) simulation. Our approach is based on a
 Discontinuous-Galerkin finite-element solver build atop an adaptive hierarchical
-sparse-grid (note this is different from the "combination tecnique" when applied
+sparse-grid (note this is different from the "combination technique" when applied
 to sparse-grids).
+
+[Documentation of usage: https://project-asgard.github.io/asgard/](https://project-asgard.github.io/asgard/)
 
 The [developer documentation](https://github.com/project-asgard/ASGarD/wiki/developing)
 contains information about how to contribute to the ASGarD project.

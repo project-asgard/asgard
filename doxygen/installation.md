@@ -109,26 +109,6 @@ Setting up the enronment paths can be done with
 
 For more details, see the [Basic Usage Section.](basic_usage.md)
 
-### (deprecated) MATLAB Interface
-
-Asgard can interface with MATLAB to plot, share data, and run scripts. To enable this, compile with `-DASGARD_USE_MATLAB=ON`.
-
-If using only for plotting purposes, then Asgard can be run without any additional arguments. However, for
-sharing data with MATLAB, Asgard will need to connect to a shared session. This can be done in MATLAB by
-running
- ```
- matlab.engine.shareEngine
- ```
-
-Asgard should automatically connect with this shared session, but the engine name can also be specified
-directly by giving the result of
-```
-matlab.engine.engineName
-```
-to Asgard with the `--matlab_name` option.
-
-Note: do not start MATLAB in the DG-SparseGrid repo when trying to use this for plotting.
-
 ### (deprecated) ScaLAPACK Integration
 
 The ASGARD\_USE\_SCALAPACK build option adds the "scalapack" solver option to ASGarD. In the implicit timestep method, this option
