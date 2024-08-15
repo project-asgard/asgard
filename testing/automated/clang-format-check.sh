@@ -110,9 +110,6 @@ asgard_io_tests.cpp
 asgard_lib_dispatch.hpp
 #asgard_lib_dispatch_tests.cpp
 main.cpp
-#asgard_matlab_plot.cpp
-asgard_matlab_plot.hpp
-asgard_matlab_plot_tests.cpp
 asgard_matlab_utilities.cpp
 asgard_matlab_utilities.hpp
 asgard_matlab_utilities_tests.cpp
