@@ -593,4 +593,9 @@ void asgard_reconstruct_cell_centers(void const *pntr, double x[])
       ->cell_centers(x);
 }
 
+void asgard_print_version_help()
+{
+  asgard::prog_opts::print_version_help();
+}
+
 } // extern "C"

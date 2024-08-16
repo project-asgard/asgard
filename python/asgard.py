@@ -1,8 +1,15 @@
+import sys
 
 from ctypes import c_char_p, c_int, c_int64, c_double, c_float, c_void_p, POINTER, CDLL, create_string_buffer, RTLD_GLOBAL
 import numpy as np
 
 import h5py # required for now, maybe add lighter module later
+
+_matplotlib_found_ = True
+try:
+    import matplotlib.pyplot as asgplot
+except:
+    _matplotlib_found_ = False
 
 from asgard_config import __version__, __author__, __pyasgard_libasgard_path__
 
@@ -15,6 +22,8 @@ libasgard.asgard_make_dreconstruct_solution.argtypes = [c_int, c_int64, POINTER(
 libasgard.asgard_make_freconstruct_solution.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_float)]
 
 libasgard.asgard_pydelete_reconstruct_solution.argtypes = [c_void_p, ]
+
+libasgard.asgard_print_version_help.argtypes = []
 
 libasgard.asgard_reconstruct_solution_setbounds.argtypes = [c_void_p, POINTER(c_double), POINTER(c_double)]
 libasgard.asgard_reconstruct_solution.argtypes = [c_void_p, POINTER(c_double), c_int, POINTER(c_double)]
@@ -229,3 +238,33 @@ class pde_snapshot:
         s += "  degree:         %d\n" % self.degree
         s += "  time:           %f" % self.time
         return s
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        libasgard.asgard_print_version_help()
+    elif not _matplotlib_found_:
+        print("could not 'import matplotlib'")
+        libasgard.asgard_print_version_help()
+    else:
+        shot = pde_snapshot(sys.argv[1])
+        print(shot)
+
+        if shot.num_dimensions == 1:
+            z, x = shot.plot_data1d((()), num_points = 256)
+            asgplot.plot(x, z)
+        else:
+            plist = [(), ()]
+            for i in range(2, shot.num_dimensions):
+                plit.append(0.49 * (shot.dimension_max[i] + shot.dimension_min[i]))
+
+            z, x, y = shot.plot_data2d(plist, num_points = 256)
+
+            xmin = shot.dimension_min[0]
+            ymin = shot.dimension_min[1]
+            xmax = shot.dimension_max[0]
+            ymax = shot.dimension_max[1]
+
+            asgplot.imshow(z, cmap='jet', extent=[xmin, xmax, ymin, ymax])
+
+        asgplot.show()
+

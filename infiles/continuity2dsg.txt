@@ -1,0 +1,24 @@
+# this is just a simple input example
+-title    : Continuity 2D
+-subtitle : sparse grid level 8, quadratic basis
+
+# df / dt + \div_x f = S
+# source chosen to manufacture an exact solution
+-pde : continuity_2
+
+# disctretization in space
+# level 8 sparse grid and quadratic basis
+# the grid has 11520 degrees-of-freedom
+-grid         : sparse
+-start-levels : 8
+-degree       : 2
+
+# explicit time-step, 100 steps
+-step-method : expl
+-dt          : 1.E-4
+-num-steps   : 100
+
+# final RMSE error
+# absolute: 4.55829e-09
+# relative: 3.51175e-05
+# (tested on a random laptop)

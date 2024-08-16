@@ -233,6 +233,10 @@ void asgard_reconstruct_solution(void const*, double const[], int, double[]);
  * \brief C binding for reconstruct_solution::cell_centers()
  */
 void asgard_reconstruct_cell_centers(void const *pntr, double x[]);
-
+/*!
+ * \ingroup asgard_postprocess
+ * \brief C binding to print the library stats
+ */
+void asgard_print_version_help();
 } // extern "C"
 #endif
