@@ -88,5 +88,6 @@ in several ways:
   ...
   cmake -DCMAKE_INSTALL_PREFIX=<path-to-venv> ....
 ```
+See the [Quick Plotting Documentation.](plotting.md)
 
-The installed examples contain Python and MATLAB demonstration scripts.
+The installed examples contain detailed Python and MATLAB demonstration scripts.

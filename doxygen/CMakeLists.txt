@@ -39,6 +39,7 @@ doxygen_add_docs(asgard_doxygen
                  README.md
                  doxygen/installation.md
                  doxygen/basic_usage.md
+                 doxygen/plotting.md
                  src/asgard.hpp
                  src/asgard_discretization.hpp
                  src/asgard_program_options.hpp

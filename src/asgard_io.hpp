@@ -203,6 +203,8 @@ void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
                  dims[dim].domain_min);
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_max",
                  dims[dim].domain_max);
+    H5Easy::dump(file, "dim" + std::to_string(dim) + "_name",
+                 dims[dim].name);
   }
 
   auto &elements = hash_table.get_active_table();
@@ -212,7 +214,7 @@ void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
       .write_raw(elements.data());
 
   file.createDataSet<P>(
-          "soln", HighFive::DataSpace({static_cast<size_t>(vec.size())}), plist)
+          "state", HighFive::DataSpace({static_cast<size_t>(vec.size())}), plist)
       .write_raw(vec.data());
 
   // save E field
@@ -430,7 +432,7 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
       H5Easy::load<std::vector<int64_t>>(file, std::string("elements"));
 
   fk::vector<P> solution =
-      fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("soln")));
+      fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("state")));
 
   // load E field
   pde.E_field = std::move(
