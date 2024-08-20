@@ -1246,45 +1246,43 @@ void test_memory_mode(imex_flag imex)
 {
   if (get_num_ranks() > 1) // this is a one-rank test
     return;
-  // make some PDE, no need to be too specific
 
+  // make some PDE, no need to be too specific
   verbosity_level verb = verbosity_level::quiet;
 
   auto opts = make_opts("-p two_stream -d 2 -l 5");
 
-  auto pde = make_PDE<prec>(opts);
+  discretization_manager<prec> disc(make_PDE<prec>(opts));
 
-  adapt::distributed_grid grid(*pde);
-  basis::wavelet_transform<prec, resource::host> const transformer(*pde);
-  generate_dimension_mass_mat(*pde, transformer);
-  generate_all_coefficients(*pde, transformer);
-  auto const x = grid.get_initial_condition(*pde, transformer);
-  generate_dimension_mass_mat(*pde, transformer);
+  auto const &pde  = disc.get_pde();
+  auto const &grid = disc.get_grid();
+
+  fk::vector<prec> x = disc.current_state();
 
   // one means that all data fits in memory and only one call will be made
   constexpr bool force_sparse = true;
 
   kron_sparse_cache spcache_null1, spcache_one;
   memory_usage memory_one =
-      compute_mem_usage(*pde, grid, imex, spcache_null1);
+      compute_mem_usage(pde, grid, imex, spcache_null1);
 
   auto mat_one = make_local_kronmult_matrix(
-      *pde, grid, memory_one, imex_flag::unspecified, spcache_null1, verb);
+      pde, grid, memory_one, imex_flag::unspecified, spcache_null1, verb);
   memory_usage spmemory_one = compute_mem_usage(
-      *pde, grid, imex, spcache_one, 6, 2147483646, force_sparse);
+      pde, grid, imex, spcache_one, 6, 2147483646, force_sparse);
   auto spmat_one = make_local_kronmult_matrix(
-      *pde, grid, spmemory_one, imex, spcache_one, verb, force_sparse);
+      pde, grid, spmemory_one, imex, spcache_one, verb, force_sparse);
 
   kron_sparse_cache spcache_null2, spcache_multi;
   memory_usage memory_multi =
-      compute_mem_usage(*pde, grid, imex, spcache_null2, 0, 8000);
+      compute_mem_usage(pde, grid, imex, spcache_null2, 0, 8000);
 
   auto mat_multi = make_local_kronmult_matrix(
-      *pde, grid, memory_multi, imex, spcache_null2, verb);
+      pde, grid, memory_multi, imex, spcache_null2, verb);
   memory_usage spmemory_multi = compute_mem_usage(
-      *pde, grid, imex, spcache_multi, 6, 8000, force_sparse);
+      pde, grid, imex, spcache_multi, 6, 8000, force_sparse);
   auto spmat_multi = make_local_kronmult_matrix(
-      *pde, grid, spmemory_multi, imex, spcache_multi, verb, force_sparse);
+      pde, grid, spmemory_multi, imex, spcache_multi, verb, force_sparse);
 
   REQUIRE(mat_one.is_onecall());
   REQUIRE(spmat_one.is_onecall());

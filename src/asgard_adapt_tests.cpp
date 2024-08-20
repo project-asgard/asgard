@@ -170,21 +170,16 @@ void test_initial(prog_opts const &opts, std::string const &gold_filepath)
         [](P old_value) { return std::abs(old_value) < 1.e-14; }, 0.0);
     return raw;
   }();
-  auto const pde = make_PDE<P>(opts);
 
-  basis::wavelet_transform<P, resource::host> const transformer(
-      *pde, verbosity_level::quiet);
-  adapt::distributed_grid<P> adaptive_grid(*pde);
-  generate_dimension_mass_mat<P>(*pde, transformer);
+  discretization_manager<P> disc(make_PDE<P>(opts));
 
-  auto const test =
-      adaptive_grid.get_initial_condition(*pde, transformer);
+  fk::vector<P> const test = disc.current_state();
 
   REQUIRE(gold.size() >= test.size());
 
   auto constexpr tol_factor = get_tolerance<P>(100);
-  auto const my_subgrid     = adaptive_grid.get_subgrid(get_rank());
-  auto const segment_size   = element_segment_size(*pde);
+  auto const my_subgrid     = disc.get_grid().get_subgrid(get_rank());
+  auto const segment_size   = disc.get_hiermanip().block_size();
   fk::vector<P, mem_type::const_view> const my_gold(
       gold, my_subgrid.col_start * segment_size,
       (my_subgrid.col_stop + 1) * segment_size - 1);

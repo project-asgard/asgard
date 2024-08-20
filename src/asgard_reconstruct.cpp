@@ -545,6 +545,16 @@ double reconstruct_solution::walk_trees(double const x[]) const
   return result;
 }
 
+#ifdef ASGARD_ENABLE_DOUBLE
+template reconstruct_solution::reconstruct_solution<double>(
+    int, int64_t, int const[], int, double const[]);
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+template reconstruct_solution::reconstruct_solution<float>(
+    int, int64_t, int const[], int, float const[]);
+#endif
+
 } // namespace asgard
 
 extern "C"

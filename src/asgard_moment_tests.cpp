@@ -14,31 +14,6 @@ struct distribution_test_init
 static distribution_test_init const distrib_test_info;
 #endif
 
-TEMPLATE_TEST_CASE("Multiwavelet", "[transformations]", test_precs)
-{
-  std::string const pde_choice = "diffusion_2";
-  fk::vector<int> const levels{5, 5};
-
-  auto pde = make_PDE<TestType>("-p diffusion_2 -l 5 -d 3 -n 5 -sm impl -a 0.5e-1");
-  //options const opts(parse);
-  elements::table const check(*pde);
-
-  adapt::distributed_grid adaptive_grid(*pde);
-  basis::wavelet_transform<TestType, resource::host> const transformer(*pde);
-
-  // -- set coeffs
-  generate_all_coefficients(*pde, transformer);
-
-  // -- generate initial condition vector.
-  auto const initial_condition =
-      adaptive_grid.get_initial_condition(*pde, transformer);
-
-  std::vector<vector_func<TestType>> md_func;
-  SECTION("Constructor") { moment<TestType> mymoment({md_func}); }
-  // this is compile/crash test, if we got this fast we're good
-  REQUIRE(true);
-}
-
 TEMPLATE_TEST_CASE("CreateMomentReducedMatrix", "[moments]", test_precs)
 {
   std::string const pde_choice = "vlasov";

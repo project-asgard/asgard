@@ -60,29 +60,6 @@ public:
       : distributed_grid(pde.max_level(), pde.options())
   {}
 
-  // driver routines
-  fk::vector<P> get_initial_condition(
-      PDE<P> &pde,
-      basis::wavelet_transform<P, resource::host> const &transformer)
-  {
-    return this->get_initial_condition(
-        pde.get_dimensions(),
-        pde.has_exact_time() ? pde.exact_time(0.0) : static_cast<P>(1.0),
-        pde.num_terms(), pde.get_terms(), transformer, pde.options());
-  }
-
-  fk::vector<P> get_initial_condition(
-      std::vector<dimension<P>> &dims, P const mult, int const num_terms,
-      std::vector<std::vector<term<P>>> &terms,
-      basis::wavelet_transform<P, resource::host> const &transformer,
-      prog_opts const &cli_opts);
-
-  void get_initial_condition(
-      std::vector<dimension<P>> const &dims,
-      std::vector<vector_func<P>> const &v_functions, P const mult,
-      basis::wavelet_transform<P, resource::host> const &transformer,
-      fk::vector<P, mem_type::view> result);
-
   fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x);
   fk::vector<P>
   refine_solution(PDE<P> &pde, fk::vector<P> const &x);

@@ -13,7 +13,7 @@ rungekutta3(discretization_manager<P> const &dist, std::vector<P> const &current
 {
   P const dt = dist.dt();
 
-  // 3 fight-hand-sides and the intermediate step
+  // 3 right-hand-sides and the intermediate step
   // the assumption is that the time-stepping scheme does not change much
   // thus it makes sense to make these static and avoid repeated allocation
   static std::vector<P> k1, k2, k3, s1;
