@@ -64,8 +64,6 @@ void project_inver_md(int num_dimensions, int num_levels,
 
   constexpr int degree = 1;
 
-  nullpde<precision> pde(num_dimensions, prog_opts(), num_levels, degree);
-
   std::vector<vector_func<precision>> funcs;
   for (int d = 0; d < num_dimensions; d++)
     funcs.push_back([&, d](fk::vector<precision> const &x, precision const)
@@ -77,29 +75,18 @@ void project_inver_md(int num_dimensions, int num_levels,
                       return fx;
                     });
 
-  std::vector<dimension<precision>> dims;
-  dims.reserve(num_dimensions);
-  for (int d = 0; d < num_dimensions; d++)
-    dims.emplace_back(0, 1, num_levels, degree, funcs[d],
-                      nullptr, std::string("dim") + std::to_string(d));
+  auto disc = make_discretize<precision>(num_dimensions, num_levels, degree, {funcs, });
+
+  // the initial condition is the projection of the function defined above
+  auto const &proj = disc.current_state();
 
   connect_1d conn(num_levels, connect_1d::hierarchy::volume);
   kronmult::block_global_workspace<precision> workspace;
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
-  asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(pde, verbosity_level::quiet);
-
-  adapt::distributed_grid<precision> grid(pde);
-
-  vector2d<int> cells = get_cells<precision>(num_dimensions, grid);
+  vector2d<int> cells = get_cells<precision>(num_dimensions, disc.get_grid());
   dimension_sort dsort(cells);
   vector2d<precision> nodes = interp.get_nodes(cells);
-
-  // project the function onto the wavelet basis
-  fk::vector<precision> proj(cells.num_strips() * fm::ipow(2, num_dimensions));
-  grid.get_initial_condition(pde.get_dimensions(), funcs,
-      1.0, transformer, fk::vector<precision, mem_type::view>(proj));
 
   std::vector<precision> nodal(proj.size());
   interp.get_nodal_values(cells, dsort, 1, proj.data(), nodal.data());
@@ -243,32 +230,17 @@ void proj_interp_md(int num_dimensions, int num_levels,
                       return fx;
                     });
 
-  std::vector<dimension<precision>> dims;
-  dims.reserve(num_dimensions);
-  for (int d = 0; d < num_dimensions; d++)
-    dims.emplace_back(0, 1, num_levels, degree, funcs[d],
-                      nullptr, std::string("dim") + std::to_string(d));
+  auto disc = make_discretize<precision>(num_dimensions, num_levels, degree, {funcs, });
 
   connect_1d conn(num_levels, connect_1d::hierarchy::volume);
   kronmult::block_global_workspace<precision> workspace;
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
-  nullpde<precision> pde(num_dimensions, prog_opts(), num_levels, degree);
-
-  asgard::basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(pde, verbosity_level::quiet);
-
-  adapt::distributed_grid<precision> grid(pde);
-
-  vector2d<int> cells = get_cells<precision>(num_dimensions, grid);
+  vector2d<int> cells = get_cells<precision>(num_dimensions, disc.get_grid());
   dimension_sort dsort(cells);
   vector2d<precision> nodes = interp.get_nodes(cells);
 
-  // project the function onto the wavelet basis
-  fk::vector<precision> proj(cells.num_strips() * fm::ipow(2, num_dimensions));
-  grid.get_initial_condition(
-      pde.get_dimensions(), funcs, 1.0, transformer,
-      fk::vector<precision, mem_type::view>(proj));
+  auto const &proj = disc.current_state(); // initial conditions
 
   std::vector<precision> nodal(proj.size());
   interp.get_nodal_values(cells, dsort, 1, proj.data(), nodal.data());

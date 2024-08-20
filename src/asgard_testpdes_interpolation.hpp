@@ -10,7 +10,7 @@ class nullpde final : public PDE<P>
 {
 public:
   nullpde(int num_dims, prog_opts const &options,
-          int levels = -1, int degree = -1)
+          int levels = -1, int degree = -1, std::vector<dimension<P>> dims = {})
   {
     int constexpr num_sources       = 0;
     int constexpr num_terms         = 1;
@@ -41,9 +41,8 @@ public:
         degree = options.degree.value();
     }
 
-    std::vector<dimension<P>> dims(
-        num_dims, dimension<P>(0.0, 1.0, levels, degree,
-                               one, nullptr, "x"));
+    if (dims.empty())
+      dims.resize(num_dims, dimension<P>(0.0, 1.0, levels, degree, one, nullptr, "x"));
 
     partial_term<P> pterm = partial_term<P>(
         coefficient_type::mass, negid, nullptr, flux_type::central,
@@ -73,6 +72,27 @@ private:
   static P negid(P const, P const = 0) { return -1.0; }
   static P get_dt_(dimension<P> const &) { return 1.0; }
 };
+
+// creates a projection of series of separable functions
+// by setting them as the initial conditions of a nullpde
+template<typename P>
+discretization_manager<P> make_discretize(
+    int num_dims, int levels, int degree, std::vector<std::vector<vector_func<P>>> const &funcs)
+{
+  std::vector<dimension<P>> dims;
+  dims.reserve(num_dims);
+  for (int d : indexof<int>(num_dims))
+  {
+    std::vector<vector_func<P>> f1d;
+    for (auto const &f : funcs)
+      f1d.push_back(f[d]);
+    dims.emplace_back(0, 1, levels, degree, f1d, nullptr, std::to_string(d));
+  }
+
+  return discretization_manager<P>(
+      std::make_unique<nullpde<P>>(num_dims, prog_opts(), levels, degree, std::move(dims)));
+}
+
 
 // this is part of testing, rename it in case of a conflict
 enum class testode_modes

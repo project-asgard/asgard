@@ -37,36 +37,22 @@ TEMPLATE_TEST_CASE("1d interpolation nodes", "[linear]", test_precs)
 template<int degree, typename precision, typename fcall_type>
 void project_inver(int num_levels, fcall_type fcall)
 {
-  nullpde<precision> pde(1, prog_opts(), num_levels);
-
   constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
   constexpr int pdof = degree + 1; // polynomial terms are one more than the degree
 
-  auto ffunc = [&](fk::vector<precision> const &x, precision const)
+  auto ffunc = [&](fk::vector<precision> const &x, precision = 0)
       -> fk::vector<precision> {
     fk::vector<precision> fx(x.size());
-    for (int i = 0; i < fx.size(); i++)
+    for (auto i : indexof(x))
       fx[i] = fcall(x[i]);
     return fx;
   };
 
-  dimension<precision> dim(0, 1, num_levels, degree, ffunc, nullptr, "testdim");
+  auto disc = make_discretize<precision>(1, num_levels, degree, {{ffunc, }, });
 
-  std::vector<dimension<precision>> dims = {dim, };
+  auto const &proj = disc.current_state();
 
-  //parser const cli_input = make_empty_parser();
-  basis::wavelet_transform<precision, asgard::resource::host>
-      transformer(num_levels, degree, verbosity_level::quiet);
-
-  adapt::distributed_grid<precision> grid(pde);
-
-  // project the function onto the wavelet basis
-  fk::vector<precision> proj(fm::ipow(2, num_levels) * pdof);
-  grid.get_initial_condition(
-      pde.get_dimensions(), std::vector<vector_func<precision>>{ffunc, },
-      1.0, transformer, fk::vector<precision, mem_type::view>(proj));
-
-  vector2d<int> cells = get_cells<precision>(1, grid);
+  vector2d<int> cells = get_cells<precision>(1, disc.get_grid());
   dimension_sort dsort(cells);
   kronmult::permutes perms(1);
 
