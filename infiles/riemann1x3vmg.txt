@@ -9,10 +9,8 @@
 # mixed grid with level 7 full grid in x 
 # and level 6 sparse grid in v.
 # quadratic basis
--grid         : mixed
--split        : 1
+-grid         : mixed 1
 -start-levels : 6 6 6 6
--max_level    : 6
 -degree       : 2
 
 # imex timestep
@@ -27,5 +25,5 @@
 
 # solver
 -solver      : gmres
--inner_it    : 50
--tol         : 1e-8
+-isolve-iter : 50
+-isolve-tol  : 1e-8

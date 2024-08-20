@@ -296,10 +296,22 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {
         auto s2 = move_process_next();
         if (not s2)
-          throw std::runtime_error(report_no_value());
+          throw std::runtime_error("missing mixed grid number");
         try {
           grid        = grid_type::mixed;
           mgrid_group = std::stoi(s2->data());
+        } catch(std::invalid_argument &) {
+          throw std::runtime_error(report_wrong_value());
+        } catch(std::out_of_range &) {
+          throw std::runtime_error(report_wrong_value());
+        }
+      }
+      else if ((*selected).find("mixed") != std::string::npos)
+      {
+        auto pos = (*selected).rfind("mixed") + 5; // 5 == length of "mixed"
+        try {
+          grid        = grid_type::mixed;
+          mgrid_group = std::stoi(std::string((*selected).substr(pos)));
         } catch(std::invalid_argument &) {
           throw std::runtime_error(report_wrong_value());
         } catch(std::out_of_range &) {

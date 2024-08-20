@@ -7,11 +7,11 @@
 
 # disctretization in space
 # level 7 adaptive sparse grid and quadratic basis
--grid         : adapt
+-grid         : mixed 1
 -start-levels : 7
--max_level    : 7
+-max-levels   : 7
 -degree       : 2
--thresh       : 1.E-6
+-adapt        : 1.E-6
 
 # imex timestep
 # CFL = dx*(1/(2k+1))*(1/|v_max|)

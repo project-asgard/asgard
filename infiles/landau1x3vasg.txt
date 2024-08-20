@@ -1,5 +1,6 @@
 -title    : Landau 1x3v
 -subtitle : adaptive sparse grid, quadratic basis
+# note: not ready yet
 
 # d_t f + v d_x f + E(f) d_v f= \nu C(f)
 # C(f) := d_v( (v-u)f + th d_v f )\
@@ -10,11 +11,10 @@
 # mixed grid with level 7 full grid in x 
 # and level 6 sparse grid in v.
 # quadratic basis
--grid         : adapt
+-grid         : sparse
 -start-levels : 5 4 4 4
--max_level    : 5
--max_adapt_levels : 5 4 4 4
--thresh       : 1e-8
+-max-levels   : 5 4 4 4
+#-adapt        : 1e-8
 -degree       : 2
 
 # imex timestep
@@ -24,10 +24,10 @@
 # dt  = 0.75*CFL
 # T   = dt*250 = 0.05
 -step-method : imex
--dt          : 1.308997e-2
--num-steps   : 3820
+-dt          : 1.308997e-3
+-num-steps   : 38200
 
 # solver
 -solver      : gmres
--inner_it    : 25
--tol         : 1e-10
+-isolve-iter : 200
+-isolve-tol  : 1e-10

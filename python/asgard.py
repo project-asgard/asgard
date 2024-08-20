@@ -285,7 +285,7 @@ if __name__ == "__main__":
         else:
             plist = [(), ()]
             for i in range(2, shot.num_dimensions):
-                plit.append(0.49 * (shot.dimension_max[i] + shot.dimension_min[i]))
+                plist.append(0.49 * (shot.dimension_max[i] + shot.dimension_min[i]))
 
             z, x, y = shot.plot_data2d(plist, num_points = 256)
 
