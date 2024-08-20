@@ -546,12 +546,12 @@ double reconstruct_solution::walk_trees(double const x[]) const
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template reconstruct_solution::reconstruct_solution<double>(
+template reconstruct_solution::reconstruct_solution(
     int, int64_t, int const[], int, double const[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template reconstruct_solution::reconstruct_solution<float>(
+template reconstruct_solution::reconstruct_solution(
     int, int64_t, int const[], int, float const[]);
 #endif
 
