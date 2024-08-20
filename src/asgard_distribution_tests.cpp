@@ -1,10 +1,5 @@
 #include "tests_general.hpp"
 
-#ifdef ASGARD_USE_SCALAPACK
-#include "asgard_cblacs_grid.hpp"
-#include "asgard_scalapack_vector_info.hpp"
-#endif
-
 struct distribution_test_init
 {
   void set_my_rank(const int rank) { my_rank = rank; }

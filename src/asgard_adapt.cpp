@@ -68,18 +68,13 @@ remap_for_delete(std::vector<int64_t> const &deleted_indices,
 }
 
 template<typename P>
-static void update_levels(elements::table const &adapted_table, PDE<P> &pde,
-                          bool const rechain = false)
+static void update_levels(elements::table const &adapted_table, PDE<P> &pde)
 {
   auto const new_levels =
       get_levels(adapted_table, pde.get_dimensions().size());
   for (auto i = 0; i < static_cast<int>(new_levels.size()); ++i)
   {
     pde.update_dimension(i, new_levels[i]);
-    if (rechain)
-    {
-      pde.rechain_dimension(i);
-    }
   }
 }
 template<typename P>
@@ -114,8 +109,7 @@ fk::vector<P>
 distributed_grid<P>::coarsen_solution(PDE<P> &pde, fk::vector<P> const &x)
 {
   auto const coarse_y = this->coarsen(x, pde.options());
-  auto const rechain  = true;
-  update_levels(this->get_table(), pde, rechain);
+  update_levels(this->get_table(), pde);
   return coarse_y;
 }
 
@@ -124,8 +118,7 @@ fk::vector<P>
 distributed_grid<P>::refine_solution(PDE<P> &pde, fk::vector<P> const &x)
 {
   auto const refine_y = this->refine(x, pde.options());
-  auto const rechain  = true;
-  update_levels(this->get_table(), pde, rechain);
+  update_levels(this->get_table(), pde);
   return refine_y;
 }
 

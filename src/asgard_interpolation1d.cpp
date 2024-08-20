@@ -4,7 +4,7 @@
 
 namespace asgard
 {
-#ifdef KRON_MODE_GLOBAL_BLOCK
+#ifdef KRON_MODE_GLOBAL
 
 /*
  * The 0 level basis (Legendre polynomials or simple Lagrane ones)
@@ -576,5 +576,5 @@ template class wavelet_interp1d<1, double>;
 template class wavelet_interp1d<1, float>;
 #endif
 
-#endif // KRON_MODE_GLOBAL_BLOCK
+#endif // KRON_MODE_GLOBAL
 } // namespace asgard

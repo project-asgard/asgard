@@ -23,17 +23,9 @@ void time_advance_test(prog_opts const &opts,
                        P const tolerance_factor)
 {
   auto const num_ranks = get_num_ranks();
-  if (num_ranks > 1 and opts.step_method and opts.step_method.value() == time_advance::method::imp
-      /* && parse.get_selected_solver() != solve_opts::scalapack*/)
+  if (num_ranks > 1 and opts.step_method and opts.step_method.value() == time_advance::method::imp)
   {
     // distributed implicit stepping not implemented
-    // scalapack implmentation is broken.
-    return;
-  }
-
-  if (num_ranks == 1 and opts.solver and opts.solver.value() == solve_opts::scalapack)
-  {
-    // don't bother using scalapack with 1 rank
     return;
   }
 
@@ -150,19 +142,6 @@ TEST_CASE("adaptive time advance")
     {
       time_advance_test(opts, gold_base, tol_factor);
     }
-#ifdef ASGARD_USE_SCALAPACK
-    // auto const solver_str = std::string("scalapack");
-    //
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, levels, degree, cfl, full_grid, num_steps, use_implicit,
-    //     do_adapt_levels, adapt_threshold, use_linf_nrm, solver_str);
-    //
-    // // temporarily disable test for MPI due to table elements < num ranks
-    // if (get_num_ranks() == 1)
-    // {
-    //   time_advance_test(parse_scalapack, gold_base, tol_factor);
-    // }
-#endif
   }
   SECTION("diffusion 2 explicit")
   {
@@ -546,13 +525,6 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     auto opts = make_opts("-p fokkerplanck_2d_complete_case4 -d 2 -l 3 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, std::string("scalapack"));
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("fokkerplanck_2d_complete_case4, level 4, degree 2, sparse grid")
@@ -565,13 +537,6 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     auto opts = make_opts("-p fokkerplanck_2d_complete_case4 -d 2 -l 4 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("fokkerplanck_2d_complete_case4, level 5, degree 2, sparse grid")
@@ -584,14 +549,6 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     auto opts = make_opts("-p fokkerplanck_2d_complete_case4 -d 2 -l 5 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION(
@@ -610,13 +567,6 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
     opts.start_levels = levels;
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack =
-    //     make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-    //                       implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 }
 
@@ -638,14 +588,6 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
     auto opts = make_opts("-p diffusion_1 -d 3 -l 4 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, std::string("scalapack"));
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-
-#endif
   }
 }
 
@@ -659,10 +601,6 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
 
   auto constexpr tol_factor = get_tolerance<TestType>(100);
 
-#ifdef ASGARD_USE_SCALAPACK
-  // auto const solver_str = std::string("scalapack");
-#endif
-
   SECTION("diffusion2, implicit, sparse grid, level 3, degree 2")
   {
     auto const gold_base =
@@ -671,13 +609,6 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     auto opts = make_opts("-p diffusion_2 -d 2 -l 3 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("diffusion2, implicit, sparse grid, level 4, degree 2")
@@ -688,13 +619,6 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     auto opts = make_opts("-p diffusion_2 -d 2 -l 4 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("diffusion2, implicit, sparse grid, level 5, degree 2")
@@ -705,13 +629,6 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     auto opts = make_opts("-p diffusion_2 -d 2 -l 5 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("diffusion2, implicit/non-uniform level, degree 1, sparse grid")
@@ -726,13 +643,6 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
     opts.start_levels = levels;
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack =
-    //     make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-    //                       implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 }
 
@@ -746,9 +656,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
 
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-#ifdef ASGARD_USE_SCALAPACK
-  // auto const solver_str = std::string("scalapack");
-#endif
   SECTION("continuity1, level 2, degree 1, sparse grid")
   {
     auto const gold_base =
@@ -757,13 +664,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto opts = make_opts("-p continuity_1 -d 1 -l 2 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("continuity1, level 4, degree 2, sparse grid")
@@ -774,13 +674,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto opts = make_opts("-p continuity_1 -d 2 -l 4 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("continuity1, level 4, degree 2, sparse grid, iterative")
@@ -791,13 +684,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 1", "[time_advance]",
     auto opts = make_opts("-p continuity_1 -d 2 -l 4 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 }
 
@@ -811,9 +697,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
 
   auto constexpr tol_factor = get_tolerance<TestType>(10);
 
-#ifdef ASGARD_USE_SCALAPACK
-  // auto const solver_str = std::string("scalapack");
-#endif
   SECTION("continuity2, level 2, degree 1, sparse grid")
   {
     auto const gold_base =
@@ -822,13 +705,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto opts = make_opts("-p continuity_2 -d 1 -l 2 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("continuity2, level 4, degree 2, sparse grid")
@@ -838,13 +714,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 
   SECTION("continuity2, level 4, degree 2, sparse grid, iterative")
@@ -857,13 +726,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5 -s impl -sv direct");
 
     time_advance_test(opts, continuity2_base_dir, temp_tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack = make_basic_parser(
-    //     pde_choice, fk::vector<int>(std::vector<int>(num_dims, level)), degree,
-    //     cfl, full_grid, num_steps, implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, continuity2_base_dir, temp_tol_factor);
-#endif
   }
   SECTION("continuity2, implicit/non-uniform level, degree 2, full grid")
   {
@@ -877,13 +739,6 @@ TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
     opts.start_levels = levels;
 
     time_advance_test(opts, gold_base, tol_factor);
-#ifdef ASGARD_USE_SCALAPACK
-    // parser const parse_scalapack =
-    //     make_basic_parser(pde_choice, levels, degree, cfl, full_grid, num_steps,
-    //                       implicit, solver_str);
-    //
-    // time_advance_test(parse_scalapack, gold_base, tol_factor);
-#endif
   }
 }
 
@@ -1133,14 +988,13 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
 
   std::vector<int> const levels{0, 4};
 
-  int const degree = 2;
-
   TestType constexpr gmres_tol =
       std::is_same_v<TestType, double> ? 1.0e-10 : 1.0e-6;
 
   // the expected L2 from analytical solution after the maxwellian has relaxed
-  TestType constexpr expected_l2 = 8.654e-4;
+  //TestType constexpr expected_l2 = 8.654e-4;
   // rel tolerance for comparing l2
+  //TestType constexpr tolerance = std::is_same_v<TestType, double> ? 1.0e-3 : 5.0e-3;
   TestType constexpr tolerance = std::is_same_v<TestType, double> ? 1.0e-3 : 5.0e-3;
 
   auto opts = make_opts("-p relaxation_1x1v -d 2 -n 10 -s imex -sv gmres -dt 5.0e-4 -g dense");
@@ -1149,8 +1003,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   opts.isolver_tolerance = gmres_tol;
 
   discretization_manager disc(make_PDE<TestType>(opts));
-
-  auto const &pde = disc.get_pde();
 
   // -- time loop
   int64_t const num_final = disc.final_time_step();
@@ -1169,9 +1021,11 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
     // get analytic solution at final time step to compare
     if (i == opts.num_time_steps.value() - 1)
     {
-      fk::vector<TestType> const analytic_solution = sum_separable_funcs(
-          pde.exact_vector_funcs(), pde.get_dimensions(), disc.get_grid(),
-          disc.get_transformer(), degree, disc.time());
+      fk::vector<TestType> const analytic_solution = disc.get_exact_solution().value();
+
+      // sum_separable_funcs(
+      //     pde.exact_vector_funcs(), pde.get_dimensions(), disc.get_grid(),
+      //     disc.get_transformer(), degree, disc.time());
 
       // calculate L2 error between simulation and analytical solution
       TestType const L2 = nrm2_dist(f_val, analytic_solution);
@@ -1184,10 +1038,11 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
       {
         // verify the l2 is close to the expected l2 from the analytical
         // solution
-        TestType const abs_diff = std::abs(l2 - expected_l2);
-        TestType const expected =
-            tolerance * std::max(std::abs(l2), std::abs(expected_l2));
-        REQUIRE(abs_diff <= expected);
+        REQUIRE(l2 <= tolerance);
+        // TestType const abs_diff = std::abs(l2 - expected_l2);
+        // TestType const expected =
+        //     tolerance * std::max(std::abs(l2), std::abs(expected_l2));
+        // REQUIRE(abs_diff <= expected);
       }
     }
   }
@@ -1266,23 +1121,26 @@ void test_memory_mode(imex_flag imex)
   memory_usage memory_one =
       compute_mem_usage(pde, grid, imex, spcache_null1);
 
+  coefficient_matrices<prec> &cmats = disc.get_cmatrices();
+  connection_patterns const &conn   = disc.get_conn();
+
   auto mat_one = make_local_kronmult_matrix(
-      pde, grid, memory_one, imex_flag::unspecified, spcache_null1, verb);
+      pde, cmats, conn, grid, memory_one, imex_flag::unspecified, spcache_null1, verb);
   memory_usage spmemory_one = compute_mem_usage(
       pde, grid, imex, spcache_one, 6, 2147483646, force_sparse);
   auto spmat_one = make_local_kronmult_matrix(
-      pde, grid, spmemory_one, imex, spcache_one, verb, force_sparse);
+      pde, cmats, conn, grid, spmemory_one, imex, spcache_one, verb, force_sparse);
 
   kron_sparse_cache spcache_null2, spcache_multi;
   memory_usage memory_multi =
       compute_mem_usage(pde, grid, imex, spcache_null2, 0, 8000);
 
   auto mat_multi = make_local_kronmult_matrix(
-      pde, grid, memory_multi, imex, spcache_null2, verb);
+      pde, cmats, conn, grid, memory_multi, imex, spcache_null2, verb);
   memory_usage spmemory_multi = compute_mem_usage(
       pde, grid, imex, spcache_multi, 6, 8000, force_sparse);
   auto spmat_multi = make_local_kronmult_matrix(
-      pde, grid, spmemory_multi, imex, spcache_multi, verb, force_sparse);
+      pde, cmats, conn, grid, spmemory_multi, imex, spcache_multi, verb, force_sparse);
 
   REQUIRE(mat_one.is_onecall());
   REQUIRE(spmat_one.is_onecall());

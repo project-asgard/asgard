@@ -61,17 +61,6 @@ void moment<P>::createMomentVector(PDE<P> const &pde,
   }
 }
 
-// helpers for converting linear coordinates into operator matrix indices
-inline fk::vector<int> linearize(fk::vector<int> const &coords)
-{
-  fk::vector<int> linear(coords.size() / 2);
-  for (int i = 0; i < linear.size(); ++i)
-  {
-    linear(i) = elements::get_1d_index(coords(i), coords(i + linear.size()));
-  }
-  return linear;
-}
-
 template<typename P>
 inline fk::vector<int>
 linear_coords_to_indices(PDE<P> const &pde, int const degree,

@@ -2,26 +2,12 @@
 
 #include "asgard_small_mats.hpp"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 namespace asgard
 {
-// perform recursive kronecker product
-template<typename P>
-fk::vector<P>
-kron_d(std::vector<fk::vector<P>> const &operands, int const num_prods)
-{
-  expect(num_prods > 0);
-  if (num_prods == 1)
-  {
-    return operands[0];
-  }
-  if (num_prods == 2)
-  {
-    return operands[0].single_column_kron(operands[1]);
-  }
-  return kron_d(operands, num_prods - 1)
-      .single_column_kron(operands[num_prods - 1]);
-}
-
 template<typename P>
 std::vector<fk::matrix<P>> gen_realspace_transform(
     PDE<P> const &pde,
@@ -193,44 +179,44 @@ void combine_dimensions(int const degree, elements::table const &table,
                         P const time_scale,
                         fk::vector<P, mem_type::view> result)
 {
-  int const num_dims = vectors.size();
+  int const num_dims = static_cast<int>(vectors.size());
   expect(num_dims > 0);
   expect(start_element >= 0);
   expect(stop_element >= start_element);
   expect(stop_element < table.size());
 
-  int const pblock = degree + 1;
+  int const pdof        = degree + 1;
+  int64_t const mdblock = fm::ipow(pdof, num_dims);
 
-  int64_t const vector_size =
-      (stop_element - start_element + 1) * fm::ipow(pblock, num_dims);
+  int64_t const vector_size = (stop_element - start_element + 1) * mdblock;
 
   // FIXME here we want to catch the 64-bit solution vector problem
   // and halt execution if we spill over. there is an open issue for this
   expect(vector_size < INT_MAX);
   expect(result.size() == vector_size);
 
-  for (int i = start_element; i <= stop_element; ++i)
+  P *r = result.data();
+  for (int cell = start_element; cell <= stop_element; cell++)
   {
-    std::vector<fk::vector<P>> kron_list;
-    fk::vector<int> const coords = table.get_coords(i);
-    for (int j = 0; j < num_dims; ++j)
-    {
-      // iterating over cell coords;
-      // first num_dims entries in coords are level coords
-      int const id = elements::get_1d_index(coords(j), coords(j + num_dims));
-      int const index_start = id * pblock;
-      // index_start and index_end describe a subvector of length degree + 1;
-      // for deg = 1, this is a vector of one element
-      int const index_end =
-          degree > 0 ? (((id + 1) * pblock) - 1) : index_start;
-      kron_list.push_back(vectors[j].extract(index_start, index_end));
-    }
-    int const start_index = (i - start_element) * fm::ipow(pblock, num_dims);
-    int const stop_index  = start_index + fm::ipow(pblock, num_dims) - 1;
+    fk::vector<int> const coords = table.get_coords(cell);
 
-    // call kron_d and put the output in the right place of the result
-    fk::vector<P, mem_type::view>(result, start_index, stop_index) =
-        kron_d(kron_list, kron_list.size()) * time_scale;
+    std::array<int64_t, max_num_dimensions> offset1d;
+    for (int d : indexof<int>(num_dims))
+      offset1d[d] = pdof * elements::get_1d_index(coords(d), coords(d + num_dims));
+
+    for (int64_t i : indexof(mdblock))
+    {
+      int64_t t = i;
+      r[i] = time_scale * vectors.back()[offset1d[num_dims - 1] + t % pdof];
+      t /= pdof;
+      for (int j = num_dims - 2; j >= 0; j--)
+      {
+        r[i] *= vectors[j][offset1d[j] + t % pdof];
+        t /= pdof;
+      }
+    }
+
+    r += mdblock;
   }
 }
 
@@ -258,52 +244,19 @@ combine_dimensions(int const degree, elements::table const &table,
 }
 
 template<typename P>
-fk::vector<P> sum_separable_funcs(
-    std::vector<md_func_type<P>> const &funcs,
-    std::vector<dimension<P>> const &dims,
-    adapt::distributed_grid<P> const &grid,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    int const degree, P const time)
-{
-  auto const my_subgrid = grid.get_subgrid(get_rank());
-  // FIXME assume uniform degree
-  int64_t const dof = fm::ipow(degree + 1, dims.size()) * my_subgrid.nrows();
-  fk::vector<P> combined(dof);
-  for (auto const &md_func : funcs)
-  {
-    expect(md_func.size() >= dims.size());
-
-    // calculate the time multiplier if there is an extra function for time
-    // TODO: this is a hack to append a time function.. md_func_type should be a
-    // struct since this last function is technically a scalar_func
-    bool has_time_func      = md_func.size() == dims.size() + 1 ? true : false;
-    P const time_multiplier = has_time_func
-                                  ? md_func.back()(fk::vector<P>(), time)[0]
-                                  : static_cast<P>(1.0);
-    auto const func_vect    = transform_and_combine_dimensions(
-        dims, md_func, grid.get_table(), transformer, my_subgrid.row_start,
-        my_subgrid.row_stop, degree, time, time_multiplier);
-    fm::axpy(func_vect, combined);
-  }
-  return combined;
-}
-
-template<typename P>
-void hierarchy_manipulator<P>::make_mass(int dim, int level, mass_list &mass) const
+mass_matrix<P> hierarchy_manipulator<P>::make_mass(int dim, int level) const
 {
   int const num_cells = fm::ipow2(level);
   int const num_quad  = leg_unscal.stride();
   int const pdof      = degree_ + 1;
-  int const bsize     = pdof * pdof;
 
-  std::vector<P> mat(int64_t(pdof) * pdof * num_cells);
+  mass_matrix<P> mat(pdof * pdof, num_cells);
 
 #pragma omp parallel for
   for (int i = 0; i < num_cells; i++)
   {
-    // void gemm3(int const &n, int const &m, P const A[], P const d[], P const B[], P C[])
     smmat::gemm3(pdof, num_quad, leg_vals[0], quad_dv[dim].data() + i * num_quad,
-                 leg_unscal[0], mat.data() + i * bsize);
+                 leg_unscal[0], mat[i]);
   }
 
   switch (degree_)
@@ -311,25 +264,25 @@ void hierarchy_manipulator<P>::make_mass(int dim, int level, mass_list &mass) co
   case 0:
 #pragma omp parallel for
     for (int i = 0; i < num_cells; i++)
-      mat[i] = P{1} / mat[i];
+      mat[i][0] = P{1} / mat[i][0];
     break;
   case 1:
 #pragma omp parallel for
     for (int i = 0; i < num_cells; i++)
-      smmat::inv2by2(mat.data() + i * bsize);
+      smmat::inv2by2(mat[i]);
     break;
   default:
 #pragma omp parallel for
     for (int i = 0; i < num_cells; i++)
-      smmat::potrf(pdof, mat.data() + i * bsize);
+      smmat::potrf(pdof, mat[i]);
     break;
   }
 
-  mass[dim]->set(level, std::move(mat));
+  return mat;
 }
 
 template<typename P>
-void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, P const *mass) const
+void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, level_mass_matrces<P> const &mass) const
 {
   int const num_cells = fm::ipow2(level);
 
@@ -350,27 +303,8 @@ void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, P cons
     smmat::scal(pdof, scale, &stage0[i * pdof]);
   }
 
-  if (mass != nullptr)
-  {
-    switch (degree_)
-    {
-    case 0:
-#pragma omp parallel for
-      for (int i = 0; i < num_cells; i++)
-        stage0[i] *= mass[i];
-      break;
-    case 1:
-#pragma omp parallel for
-      for (int i = 0; i < num_cells; i++)
-        smmat::gemv2by2(mass + 4 * i, stage0.data() + 2 * i);
-      break;
-    default:
-#pragma omp parallel for
-      for (int i = 0; i < num_cells; i++)
-        smmat::posv(pdof, mass + i * pdof * pdof, stage0.data() + i * pdof);
-      break;
-    };
-  }
+  if (mass.has_level(level))
+    invert_mass(pdof, mass[level], stage0.data());
 
   pf[d].resize(pdof * num_cells);
 
@@ -402,7 +336,7 @@ void hierarchy_manipulator<P>::projectup2(P const *raw, P *fin) const
   else if constexpr (degree == 1)
   {
     P constexpr is2h = 0.5 * is2;
-    P constexpr is64  = s6 / 4.0;
+    P constexpr is64 = s6 / 4.0;
 
     fin[0] = is2 * raw[0]                   + is2 * raw[2];
     fin[1] = -is64 * raw[0] + is2h * raw[1] + is64 * raw[2] + is2h * raw[3];
@@ -494,6 +428,546 @@ void hierarchy_manipulator<P>::projectlevels(int d, int level) const
 }
 
 template<typename P>
+block_sparse_matrix<P>
+hierarchy_manipulator<P>::diag2hierarchical(block_diag_matrix<P> const &diag,
+                                            int const level,
+                                            connection_patterns const &conns) const
+{
+  block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
+  block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
+
+  switch (degree_)
+  {
+  case 0:
+    col_project_full<0>(diag, level, conns, col);
+    row_project_full<0>(col, level, conns, res);
+    break;
+  case 1:
+    col_project_full<1>(diag, level, conns, col);
+    row_project_full<1>(col, level, conns, res);
+    break;
+  default:
+    col_project_full<-1>(diag, level, conns, col);
+    row_project_full<-1>(col, level, conns, res);
+    break;
+  };
+
+  return res;
+}
+
+template<typename P>
+block_sparse_matrix<P>
+hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
+                                           int const level,
+                                           connection_patterns const &conns) const
+{
+  block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_full);
+  block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::full);
+
+  switch (degree_)
+  {
+  case 0:
+    col_project_full<0>(tri, level, conns, col);
+    row_project_full<0>(col, level, conns, res);
+    break;
+  case 1:
+    col_project_full<1>(tri, level, conns, col);
+    row_project_full<1>(col, level, conns, res);
+    break;
+  default:
+    col_project_full<-1>(tri, level, conns, col);
+    row_project_full<-1>(col, level, conns, res);
+    break;
+  };
+
+  return res;
+}
+
+template<typename P>
+template<int degree>
+void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
+                                                int const level,
+                                                connection_patterns const &conns,
+                                                block_sparse_matrix<P> &sp) const
+{
+  expect(connect_1d::hierarchy::col_full == sp);
+#ifdef _OPENMP
+  int const max_threads = omp_get_max_threads();
+#else
+  int const max_threads = 1;
+#endif
+  if (static_cast<int>(colblocks.size()) < max_threads)
+    colblocks.resize(max_threads);
+
+  P constexpr s22 = 0.5 * s2;
+  P constexpr is2h = 0.5 * is2;
+  P constexpr is64  = s6 / 4.0;
+  P const h0[4] = {is2, -is64, 0, is2h};
+  P const h1[4] = {is2, is64, 0, is2h};
+  P const w0[4] = {0, is2h, -is2, is64};
+  P const w1[4] = {0, -is2h, is2, is64};
+
+  int const pdof  = degree_ + 1;
+  int const pdof2 = pdof * pdof;
+
+  // project cells left/right with index 2n and 2n+1 at level L
+  // to cells n at the hierarchical level L-1, stored in out
+  // upper cells at level L-1, stored in upper
+  // see the block-diagonal overload too
+  auto apply = [&](P const *left, P const *right, P *out, P *upper)
+  {
+    if constexpr (degree == 0)
+      *out = -s22 * (*left) + s22 * (*right);
+    else if constexpr (degree == 1)
+      smmat::gemm_pairt(2, left, w0, right, w1, out);
+    else
+      smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
+
+    if constexpr (degree == 0)
+      *upper = s22 * (*left) + s22 * (*right);
+    else if constexpr (degree == 1)
+      smmat::gemm_pairt(2, left, h0, right, h1, upper);
+    else
+      smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
+  };
+
+  connect_1d const &conn = conns(sp);
+
+  int const nrows = fm::ipow2(level);
+
+  if (nrows == 1) // special case, single cell
+  {
+    std::copy_n(tri.diag(0), pdof2, sp[0]);
+    return;
+  }
+
+  // using 5 scratch small matrices, left/right wleft/wright that get swapped
+  // also one zero matrix
+  colblocks[0].resize(5 * pdof2);
+  P *left   = colblocks[0].data();
+  P *wleft  = left + pdof2;
+  P *right  = wleft + pdof2;
+  P *wright = right + pdof2;
+
+  if (nrows == 2) // special case, two cells
+  {
+    // tri.lower(0) is actually the same as tri.upper(0) (must add them)
+    std::copy_n(tri.lower(0), pdof2, right);
+    for (int i : indexof<int>(pdof2))
+      right[i] += tri.upper(0)[i];
+    apply(tri.diag(0), right, sp[1], sp[0]);
+    std::copy_n(tri.lower(1), pdof2, left);
+    for (int i : indexof<int>(pdof2))
+      left[i] += tri.upper(1)[i];
+    apply(left, tri.diag(1), sp[conn.row_begin(1) + 1], sp[conn.row_begin(1)]);
+    return;
+  }
+
+  // number of rows in the extened scatch space pattern
+  int const lrows = fm::ipow2(level + 1) - 2; // using power series law
+
+  // the 3 diagonals yield 2 entries per-column
+  // the periodic boundary gives special cases for the first and last rows
+  P *zero = wright + pdof2; // TODO: get rid of zero
+  std::fill_n(zero, pdof2, P{0});
+  {
+    // working on row 0
+    // then we carry the right-most entry and the left-most entry per level
+    int orow = lrows - nrows; // out-row
+    int num  = nrows; // num/nrows number of rows at this level
+    int j    = conn.row_end(orow); // right-most entry, keep cycling on j
+    while (conn[--j] != num - 1);
+    apply(zero, tri.lower(0), sp[j], right);
+    num /= 2; // move up one level
+    while (conn[--j] != num); // find mid-point
+    apply(tri.diag(0), tri.upper(0), sp[j], left);
+    while (num > 2)
+    {
+      while (conn[--j] != num - 1);
+      apply(zero, right, sp[j], wright);
+      num /= 2;
+      while (conn[--j] != num);
+      apply(left, zero, sp[j], wleft);
+      std::swap(left, wleft);
+      std::swap(right, wright);
+    }
+    // last column, num == 2
+    int spr = conn.row_begin(orow); // out-row-sparse-offset
+    apply(left, right, sp[spr + 1], sp[spr]);
+  }{
+    // working on row nrow - 1
+    // must work with the sparsity pattern
+    int orow = lrows - 1; // out-row
+    int num  = nrows; // number of rows at this level
+    int j    = conn.row_end(orow); // index of entry of interest
+    while (conn[--j] != num - 1);
+    apply(tri.lower(nrows - 1), tri.diag(nrows - 1), sp[j], right);
+    num /= 2;
+    while (conn[--j] != num);
+    apply(tri.upper(nrows - 1), zero, sp[j], left);
+    while (num > 2)
+    {
+      apply(zero, right, sp[j - 1], wright);
+      num /= 2;
+      while (conn[--j] != num);
+      apply(left, zero, sp[j], wleft);
+      std::swap(left, wleft);
+      std::swap(right, wright);
+    }
+    // last column, num == 2
+    int spr = conn.row_begin(orow); // out-row-sparse-offset
+    apply(left, right, sp[spr + 1], sp[spr]);
+  }
+
+  // handle the middle rows of the matrix, no need to worry about the boundary
+
+  // the column patters is actually denser ... need to pad
+  // or use a completely different algorithm ....
+
+  int threadid = 0;
+#pragma omp parallel
+  {
+    int tid;
+#pragma omp critical
+    tid = threadid++;
+
+    // scratch space per thread-id
+    colblocks[tid].resize(5 * pdof * pdof);
+    P *L  = colblocks[tid].data();
+    P *R  = L + pdof2;
+    P *wL = R + pdof2;
+    P *wR = wL + pdof2;
+    P *Z  = wR + pdof2;
+    std::fill_n(Z, pdof2, P{0});
+
+#pragma omp for
+    for (int r = 1; r < nrows - 1; r++)
+    { // initiate new transform for this row, reduce 3 columns to 2
+      // if the diagonal entry is even, i.e., 2k for some k, we need to group
+      //    (0, lower) (diag, upper) -> entries at num + (k-1, k) and upper level (k-1, k)
+      // if the diagonal entry is odd, i.e., 2k-1 for some k, we group
+      //    (lower, diag) (upper, 0) -> entries at num + (k-1, k) and upper level (k-1, k)
+      int cs  = r % 2; // cases, cs indicates if r is even or odd
+      int orow = lrows - nrows + r; // out-row
+      int num = nrows; // number of entries for this row
+      int k   = num / 2 + ((cs == 0) ? (r / 2) : ((r + 1) / 2)); // from above (k-1, k)
+      int j   = conn.row_end(orow);
+      while (conn[--j] != k); // move to where j == k
+      if (cs == 0) {
+        apply(Z, tri.lower(r), sp[j - 1], L);
+        apply(tri.diag(r), tri.upper(r), sp[j], R);
+      } else {
+        apply(tri.lower(r), tri.diag(r), sp[j - 1], L);
+        apply(tri.upper(r), Z, sp[j], R);
+      }
+      num /= 2;
+      // here cs becomes "column-count"
+      // we have two columns next to each other and we must process
+      //  (0, L), (R, 0) -> (L, R), which yields two columns again
+      //  (L, R) -> L, which merges the two into one column
+      // we loop until we either reach top level or the 2 columns merge into 1
+      cs = 2; // column count 2
+      while (num > 2)
+      {
+        int c = conn[j - 1]; // column for left
+        // if c is even, then left/right merge into one
+        // if c is odd, left/right remain split
+        if (c % 2 == 0) {
+          k = c / 2;
+          while (conn[--j] != k); // move to where j == k
+          apply(L, R, sp[j], wL);
+          std::swap(L, wL);
+          num /= 2;
+          cs = 1;
+          break;
+        }
+        else
+        {
+          k = 1 + c / 2;
+          while (conn[--j] != k); // move to where j == k
+          apply(Z, L, sp[j - 1], wL);
+          apply(R, Z, sp[j], wR);
+          std::swap(L, wL);
+          std::swap(R, wR);
+          num /= 2;
+        }
+      }
+      // working with a single column located in L pointer but could be left or right cell
+      // i.e., we can have (L, 0) or (0, L)
+      while (num > 2)
+      {
+        int c = conn[j];
+        k = c / 2;
+        if (c % 2 == 0) { // (L, 0), L is the left entry
+          while (conn[--j] != k); // move to where j == k
+          apply(L, Z, sp[j], wL);
+        } else { // (0, L), L is the right entry
+          while (conn[--j] != k); // move to where j == k
+          apply(Z, L, sp[j], wL);
+        }
+        std::swap(L, wL);
+        num /= 2;
+      }
+      // working on the last two columns
+      if (cs == 1) { // one column case
+        if (conn[j] == 2) { // last written to column either 2 or 3
+          apply(L, Z, sp[j - 1], sp[j - 2]);
+        } else { // column 3
+          while (conn[--j] != 1);
+          apply(Z, L, sp[j], sp[j - 1]);
+        }
+      } else {
+        while (conn[--j] != 1);
+        apply(L, R, sp[j], sp[j - 1]);
+      }
+    } // #pragma omp for
+  } // #pragma omp parallel
+}
+
+template<typename P>
+template<int degree>
+void hierarchy_manipulator<P>::col_project_full(block_diag_matrix<P> const &diag,
+                                                int const level,
+                                                connection_patterns const &conns,
+                                                block_sparse_matrix<P> &sp) const
+{
+  expect(connect_1d::hierarchy::col_volume == sp);
+#ifdef _OPENMP
+  int const max_threads = omp_get_max_threads();
+#else
+  int const max_threads = 1;
+#endif
+  if (static_cast<int>(colblocks.size()) < max_threads)
+    colblocks.resize(max_threads);
+
+  P constexpr s22 = 0.5 * s2;
+  P constexpr is2h = 0.5 * is2;
+  P constexpr is64 = s6 / 4.0;
+  P const h0[4] = {is2, -is64, 0, is2h};
+  P const h1[4] = {is2, is64, 0, is2h};
+  P const w0[4] = {0, is2h, -is2, is64};
+  P const w1[4] = {0, -is2h, is2, is64};
+
+  int const pdof  = degree_ + 1;
+  int const pdof2 = pdof * pdof;
+
+  // given a left/right cells at some level L, this computes out as the corresponding entry
+  // at level L-1 and the upper which is the non-hierarchical cell at level L-1
+  // the cell index of left/right should be 2n and 2n+1, while out and upper have index n
+  auto apply = [&](P const *left, P const *right, P *out, P *upper)
+  {
+    if constexpr (degree == 0)
+      *out = -s22 * (*left) + s22 * (*right);
+    else if constexpr (degree == 1)
+      smmat::gemm_pairt(2, left, w0, right, w1, out);
+    else
+      smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
+
+    if constexpr (degree == 0)
+      *upper = s22 * (*left) + s22 * (*right);
+    else if constexpr (degree == 1)
+      smmat::gemm_pairt(2, left, h0, right, h1, upper);
+    else
+      smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
+  };
+
+  connect_1d const &conn = conns(sp);
+
+  int const nrows = diag.nrows();
+
+  if (nrows == 1) // special case, single cell
+  {
+    std::copy_n(diag[0], pdof2, sp[0]);
+    return;
+  }
+
+  if (nrows == 2) // special case, two cells
+  {
+    // using 5 scratch small matrices
+    // the block algorithm uses only 1 but keep it consistent with the tri-diagonal
+    colblocks[0].resize(5 * pdof2);
+    P *zero = colblocks[0].data(); // TODO: get rid of zero
+    std::fill_n(zero, pdof2, P{0});
+
+    apply(diag[0], zero, sp[1], sp[0]);
+    apply(zero, diag[1], sp[conn.row_begin(1) + 1], sp[conn.row_begin(1)]);
+    return;
+  }
+
+  // number of rows in the extended pattern used for scratch space
+  int const lrows = fm::ipow2(level + 1) - 2; // using power series law
+
+  int threadid = 0;
+#pragma omp parallel
+  {
+    int tid;
+#pragma omp critical
+    tid = threadid++;
+
+    // setup scratch space, 5 matrices are needed for tri-diagonal alg.
+    // the diag algorithm uses fewer entries, but we resize to the large one
+    colblocks[tid].resize(5 * pdof * pdof);
+    P *D  = colblocks[tid].data();
+    P *wD = D + pdof2;
+    P *Z  = wD + pdof2;
+    std::fill_n(Z, pdof2, P{0});
+
+#pragma omp for
+    for (int r = 0; r < nrows; r++)
+    { // initiate new transform for this row, work with one entry per level
+      // if the diagonal entry is even, i.e., 2k for some k, we have
+      //    (diag, 0) and new entry at k
+      // if the diagonal entry is odd, i.e., 2k + 1 for some k, we have
+      //    (0, diag) and new entry at k
+
+      int cs = r % 2; // indicates even of odd
+      int num = nrows; // counts the levels
+      int k = num / 2 + r / 2; // next entry
+      int orow = lrows - nrows + r; // out-row
+      int j    = conn.row_end(orow);
+      while (conn[--j] != k); // move to where j == k
+
+      if (cs == 0)
+        apply(diag[r], Z, sp[j], D);
+      else
+        apply(Z, diag[r], sp[j], D);
+      num /= 2;
+
+      while (num > 2)
+      {
+        cs = k % 2;
+        k = k / 2;
+        while (conn[--j] != k); // move to where j == k
+
+        if (cs == 0)
+          apply(D, Z, sp[j], wD);
+        else
+          apply(Z, D, sp[j], wD);
+
+        std::swap(D, wD);
+        num /= 2;
+      }
+
+      // do the last two columns
+      while (conn[--j] != 1);
+      if (k == 2)
+        apply(D, Z, sp[j], sp[j - 1]);
+      else
+        apply(Z, D, sp[j], sp[j - 1]);
+
+    } // #pragma omp for
+  } // #pragma omp parallel
+}
+
+template<typename P>
+template<int degree>
+void hierarchy_manipulator<P>::row_project_full(
+    block_sparse_matrix<P> &col,
+    int const level,
+    connection_patterns const &conn,
+    block_sparse_matrix<P> &sp) const
+{
+  expect(connect_1d::hierarchy::col_full == col or
+         connect_1d::hierarchy::col_volume == col);
+  expect(connect_1d::hierarchy::full == sp or
+         connect_1d::hierarchy::volume == sp);
+
+  P constexpr s22 = 0.5 * s2;
+  P constexpr is2h = 0.5 * is2;
+  P constexpr is64  = s6 / 4.0;
+  P const h0[4] = {is2, -is64, 0, is2h};
+  P const h1[4] = {is2, is64, 0, is2h};
+  P const w0[4] = {0, is2h, -is2, is64};
+  P const w1[4] = {0, -is2h, is2, is64};
+
+  int const pdof  = degree_ + 1;
+  int const pdof2 = pdof * pdof;
+
+  // given a left/right cells at some level L, this computes out as the corresponding entry
+  // at level L-1 and the upper which is the non-hierarchical cell at level L-1
+  // the cell index of left/right should be 2n and 2n+1, while out and upper have index n
+  auto apply = [&](P const *left, P const *right, P *out, P *upper)
+  {
+    if constexpr (degree == 0)
+      *out = -s22 * (*left) + s22 * (*right);
+    else if constexpr (degree == 1)
+      smmat::gemm_pair(2, w0, left, w1, right, out);
+    else
+      smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
+
+    if constexpr (degree == 0)
+      *upper = s22 * (*left) + s22 * (*right);
+    else if constexpr (degree == 1)
+      smmat::gemm_pair(2, h0, left, h1, right, upper);
+    else
+      smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);
+  };
+
+  connect_1d const &fconn = conn(sp);
+  connect_1d const &tconn = conn(col);
+
+  int nrows = fm::ipow2(level);
+  if (nrows == 1) // one cell/one row
+  {
+    std::copy_n(col[0], pdof2, sp[0]);
+    return;
+  }
+  if (nrows == 2) // two cells, very simple
+  {
+    // work on 4 entries as the matrix is 2 by 2
+    apply(col[0], col[tconn.row_begin(1)], sp[fconn.row_begin(1)], sp[0]);
+    apply(col[1], col[tconn.row_begin(1) + 1], sp[fconn.row_begin(1) + 1], sp[1]);
+    return;
+  }
+
+  // effective number of rows in the extended pattern
+  int const lrows = fm::ipow2(level + 1) - 2;
+
+  int trows = lrows - nrows; // row-offset, current level
+
+  while (nrows > 2)
+  {
+    nrows /= 2; // handling bottom nrows/2 rows
+    trows -= nrows;
+
+#pragma omp parallel for
+    for (int r = 0; r < nrows; r++)
+    {
+      int const fout = nrows + r; // final row in sp
+      int const tout = trows + r; // scratch row in col
+      int const cl   = 2 * nrows - 2 + 2 * r; // first input row
+      int const cr   = 2 * nrows - 2 + 2 * r + 1; // second input row
+
+      int jt = tconn.row_begin(tout) - 1;
+      int jl = tconn.row_begin(cl) - 1;
+      int jr = tconn.row_begin(cr) - 1;
+      for (int j = fconn.row_begin(fout); j < fconn.row_end(fout); j++)
+      {
+        // process a full row, go over the columns and match the pattern
+        int c = fconn[j];
+        while (tconn[++jt] != c);
+        while (++jr, tconn[++jl] != c); // the two rows must have identical pattern
+        expect(tconn[jr] == c); // TODO: shold not be needed
+        expect(jt < tconn.row_end(tout));
+        expect(jl < tconn.row_end(cl));
+        expect(jr < tconn.row_end(cr));
+        apply(col[jl], col[jr], sp[j], col[jt]);
+      }
+    }
+  }
+
+  if (nrows == 2) // last two cells, all rows are dense
+  {
+    int r1 = tconn.row_begin(1);
+    expect(r1 == fconn.row_begin(1));
+    for (int j = 0; j < tconn.row_end(0); j++)
+      apply(col[j], col[r1 + j], sp[r1 + j], sp[j]);
+
+    return;
+  }
+}
+
+template<typename P>
 void hierarchy_manipulator<P>::prepare_quadrature(int d, int num_cells) const
 {
   int const num_quad = quad.stride();
@@ -524,7 +998,7 @@ void hierarchy_manipulator<P>::prepare_quadrature(int d, int num_cells) const
 template<typename P>
 void hierarchy_manipulator<P>::setup_projection_matrices()
 {
-    int const num_quad = quad.stride();
+  int const num_quad = quad.stride();
 
   // leg_vals is a small matrix with the values of Legendre polynomials
   // scaled by the quadrature weights
@@ -578,7 +1052,7 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
     pmatup = ip;
     pmatlev = pmatup + 2 * pdof * pdof;
 
-    for (int j = 0; j < 4; j++)
+    for (int j : indexof<int>(4))
       for (int i : indexof<int>(pdof))
         ip = std::copy_n(rawmats[j].data(0, i), pdof, ip);
   }
@@ -619,12 +1093,6 @@ template void
 combine_dimensions<double>(int const, elements::table const &, int const,
                            int const, std::vector<fk::vector<double>> const &,
                            double const, fk::vector<double, mem_type::view>);
-template fk::vector<double> sum_separable_funcs(
-    std::vector<md_func_type<double>> const &funcs,
-    std::vector<dimension<double>> const &dims,
-    adapt::distributed_grid<double> const &grid,
-    basis::wavelet_transform<double, resource::host> const &transformer,
-    int const degree, double const time);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -660,12 +1128,6 @@ template void
 combine_dimensions<float>(int const, elements::table const &, int const,
                           int const, std::vector<fk::vector<float>> const &,
                           float const, fk::vector<float, mem_type::view>);
-template fk::vector<float> sum_separable_funcs(
-    std::vector<md_func_type<float>> const &funcs,
-    std::vector<dimension<float>> const &dims,
-    adapt::distributed_grid<float> const &grid,
-    basis::wavelet_transform<float, resource::host> const &transformer,
-    int const degree, float const time);
 #endif
 
 } // namespace asgard

@@ -4,7 +4,7 @@
 
 using namespace asgard;
 
-#ifdef KRON_MODE_GLOBAL_BLOCK
+#ifdef KRON_MODE_GLOBAL
 
 /////////////////////////////////////////////////////////////////////
 //  Testing the loaded interpolation nodes
@@ -194,4 +194,4 @@ TEST_CASE("interpolation disabled", "[disabled]")
 {
   REQUIRE(true);
 }
-#endif // KRON_MODE_GLOBAL_BLOCK
+#endif // KRON_MODE_GLOBAL

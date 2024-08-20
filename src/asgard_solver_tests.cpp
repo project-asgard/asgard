@@ -15,14 +15,15 @@ static distribution_test_init const distrib_test_info;
 template<typename P>
 void test_kronmult(prog_opts const &opts, P const tol_factor)
 {
-  auto pde = make_PDE<P>(opts);
-  basis::wavelet_transform<P, resource::host> const transformer(*pde);
-  generate_all_coefficients(*pde, transformer);
+  discretization_manager disc(make_PDE<P>(opts));
+
+  auto &pde = disc.get_pde();
 
   // assume uniform degree across dimensions
-  int const degree = pde->get_dimensions()[0].get_degree();
+  int const degree = disc.degree();
 
-  elements::table const table(*pde);
+  adapt::distributed_grid<P> const &grid = disc.get_grid();
+  elements::table const &table = grid.get_table();
   element_subgrid const my_subgrid(0, table.size() - 1, 0, table.size() - 1);
 
   // setup x vector
@@ -32,20 +33,22 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
   auto const gen = [&dist, &mersenne_engine]() {
     return dist(mersenne_engine);
   };
-  auto const elem_size  = fm::ipow(degree + 1, pde->num_dims());
-  fk::vector<P> const b = [&table, gen, elem_size]() {
-    fk::vector<P> output(elem_size * table.size());
+  auto const elem_size  = fm::ipow(degree + 1, pde.num_dims());
+  fk::vector<P> const b = [&, gen]() {
+    fk::vector<P> output(disc.state_size());
     std::generate(output.begin(), output.end(), gen);
     return output;
   }();
 
-  fk::vector<P> const gold = [&pde, &table, &my_subgrid, &b, elem_size]() {
-    auto const system_size = elem_size * table.size();
+  fk::vector<P> const gold = [&]() {
+    int64_t const system_size = disc.state_size();
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(b);
-    build_system_matrix(*pde, table, A, my_subgrid);
+    build_system_matrix<P>(
+        pde, [&](int t, int d)->fk::matrix<P>{ return disc.get_coeff_matrix(t, d); },
+        table, A, my_subgrid);
     // AA = I - dt*A;
-    fm::scal(P{-1.} * pde->get_dt(), A);
+    fm::scal(P{-1.} * pde.get_dt(), A);
     for (int i = 0; i < A.nrows(); ++i)
     {
       A(i, i) += 1.0;
@@ -56,7 +59,7 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
   }();
 
   // perform gmres with system matrix A
-  fk::vector<P> const gmres = [&pde, &table, &my_subgrid, &b,
+  fk::vector<P> const gmres = [&pde, &table, &my_subgrid, &b, &disc,
                                elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
@@ -64,9 +67,11 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
     int const restart  = solver::novalue;
     int const max_iter = solver::novalue;
     P const tolerance  = solver::notolerance;
-    build_system_matrix(*pde, table, A, my_subgrid);
+    build_system_matrix<P>(
+        pde, [&](int t, int d)->fk::matrix<P>{ return disc.get_coeff_matrix(t, d); },
+        table, A, my_subgrid);
     // AA = I - dt*A;
-    fm::scal(P{-1.} * pde->get_dt(), A);
+    fm::scal(P{-1.} * pde.get_dt(), A);
     for (int i = 0; i < A.nrows(); ++i)
     {
       A(i, i) += 1.0;
@@ -79,16 +84,18 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
   rmse_comparison(gold, gmres, tol_factor);
 
   // perform bicgstab with system matrix A
-  fk::vector<P> const bicgstab = [&pde, &table, &my_subgrid, &b,
+  fk::vector<P> const bicgstab = [&pde, &table, &my_subgrid, &b, &disc,
                                   elem_size]() {
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(b);
     int const max_iter = solver::novalue;
     P const tolerance  = solver::notolerance;
-    build_system_matrix(*pde, table, A, my_subgrid);
+    build_system_matrix<P>(
+        pde, [&](int t, int d)->fk::matrix<P>{ return disc.get_coeff_matrix(t, d); },
+        table, A, my_subgrid);
     // AA = I - dt*A;
-    fm::scal(P{-1.} * pde->get_dt(), A);
+    fm::scal(P{-1.} * pde.get_dt(), A);
     for (int i = 0; i < A.nrows(); ++i)
     {
       A(i, i) += 1.0;
@@ -100,10 +107,10 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
 
   rmse_comparison(gold, bicgstab, tol_factor);
 
-  asgard::kron_operators<P> operator_matrices;
-  asgard::adapt::distributed_grid adaptive_grid(*pde);
-  operator_matrices.make(imex_flag::unspecified, *pde, adaptive_grid);
-  P const dt = pde->get_dt();
+  asgard::kron_operators<P> &operator_matrices = disc.get_kronops();
+  operator_matrices.make(imex_flag::unspecified, pde, disc.get_cmatrices(), grid);
+  
+  P const dt = pde.get_dt();
 
   // perform matrix-free gmres
   fk::vector<P> const matrix_free_gmres = [&operator_matrices, &b,

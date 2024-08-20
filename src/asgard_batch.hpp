@@ -130,14 +130,15 @@ private:
   std::vector<batch<P, resrc>> product_;
 };
 
-// FIXME when this component is deleted, move this to time advance
-// FIXME this will eventually be replaced when we move to matrix-free implicit
-// stepping
-// FIXME issue # 340
-// function to build system matrix for implicit stepping
-// doesn't use batches, but does use many of the same helpers/structure
-template<typename P>
-void build_system_matrix(PDE<P> const &pde, elements::table const &elem_table,
-                         fk::matrix<P> &A, element_subgrid const &grid,
-                         imex_flag const imex = imex_flag::unspecified);
+// helpers for converting linear coordinates into operator matrix indices
+inline fk::vector<int> linearize(fk::vector<int> const &coords)
+{
+  fk::vector<int> linear(coords.size() / 2);
+  for (int i = 0; i < linear.size(); ++i)
+  {
+    linear(i) = elements::get_1d_index(coords(i), coords(i + linear.size()));
+  }
+  return linear;
+}
+
 } // namespace asgard

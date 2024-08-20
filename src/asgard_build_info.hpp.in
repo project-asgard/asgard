@@ -26,8 +26,9 @@
 
 #define ASGARD_NUM_QUADRATURE @ASGARD_NUM_QUADRATURE@
 
-#cmakedefine KRON_MODE_GLOBAL
-#cmakedefine KRON_MODE_GLOBAL_BLOCK
+#ifndef ASGARD_USE_MPI
+#define KRON_MODE_GLOBAL
+#endif
 
 // fixed variables, maybe adjust later using CMake
 // for now, we can keep project-wide constants here
@@ -35,8 +36,8 @@ namespace asgard
 {
 /*!
  * Small scratch-space arrays are needed in many places in the code,
- * it is better to allocate those as std::array and void runtime
- * alloation and the heap altogether.
+ * it is better to allocate those as std::array, thus avoid runtime
+ * allocation and the heap altogether.
  * However, we need to know the size which is unknown until runtime.
  * This is a workaround that lets us have a max size.
  */

@@ -444,7 +444,6 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
         file, std::string("dim" + std::to_string(dim) + "_level"));
     pde.get_dimensions()[dim].set_level(level);
     pde.update_dimension(dim, level);
-    pde.rechain_dimension(dim);
   }
 
   // load realspace moments

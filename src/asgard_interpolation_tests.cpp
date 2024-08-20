@@ -1,6 +1,6 @@
 #include "asgard_testpdes_interpolation.hpp"
 
-#ifdef KRON_MODE_GLOBAL_BLOCK
+#ifdef KRON_MODE_GLOBAL
 void make_cellsd2p5(int *c)
 {
   std::array<int, 10> i = {0, 0, 0, 1, 0, 2, 0, 3, 1, 0};

@@ -182,7 +182,6 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE(prog.solver.value() == solve_opts::direct);
     REQUIRE(prog_opts(vecstrview({"exe", "-sv", "gmres"})).solver.value() == solve_opts::gmres);
     REQUIRE(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solve_opts::bicgstab);
-    REQUIRE(prog_opts(vecstrview({"exe", "-sv", "scalapack"})).solver.value() == solve_opts::scalapack);
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-solver", "dummy"})),
                         "invalid value for -solver, see exe -help");
   }

@@ -6,19 +6,6 @@
 #include <list>
 #include <numeric>
 
-#ifdef ASGARD_USE_SCALAPACK
-extern "C"
-{
-  void pdgeadd_(char const *, int const *, int const *, double const *,
-                double const *, int const *, int const *, int const *,
-                double const *, double *, int const *, int const *,
-                int const *);
-  void psgeadd_(char const *, int const *, int const *, float const *,
-                float const *, int const *, int const *, int const *,
-                float const *, float *, int const *, int const *, int const *);
-}
-#endif
-
 namespace asgard
 {
 #ifdef ASGARD_USE_MPI
@@ -1261,77 +1248,6 @@ void bcast(int *value, int size, int rank)
 #endif
 }
 
-#ifdef ASGARD_USE_SCALAPACK
-std::shared_ptr<cblacs_grid> get_grid()
-{
-  auto grid = std::make_shared<cblacs_grid>(distro_handle.get_global_comm());
-  return grid;
-}
-
-template<typename P>
-void gather_matrix(P *A, int const *descA, P const *A_distr,
-                   int const *descA_distr)
-{
-  // Useful constants
-  P zero{0.0}, one{1.0};
-  int i_one{1};
-  char N{'N'};
-  int n = descA[fk::N_];
-  int m = descA[fk::M_];
-  // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
-  if constexpr (std::is_same_v<P, double>)
-  {
-    pdgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
-             &i_one, &i_one, descA);
-  }
-  else if constexpr (std::is_same_v<P, float>)
-  {
-    psgeadd_(&N, &m, &n, &one, A_distr, &i_one, &i_one, descA_distr, &zero, A,
-             &i_one, &i_one, descA);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "geadd not implemented for non-floating types" << '\n';
-    expect(false);
-  }
-}
-
-template<typename P>
-void scatter_matrix(P const *A, int const *descA, P *A_distr,
-                    int const *descA_distr)
-{
-  // Useful constants
-  P zero{0.0}, one{1.0};
-  int i_one{1};
-  char N{'N'};
-  // Call pdgeadd_ to distribute matrix (i.e. copy A into A_distr)
-  int n = descA[fk::N_];
-  int m = descA[fk::M_];
-
-  int desc[9];
-  if (get_rank() == 0)
-  {
-    std::copy_n(descA, 9, desc);
-  }
-  bcast(desc, 9, 0);
-  if constexpr (std::is_same_v<P, double>)
-  {
-    pdgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
-             &i_one, descA_distr);
-  }
-  else if constexpr (std::is_same_v<P, float>)
-  {
-    psgeadd_(&N, &m, &n, &one, A, &i_one, &i_one, desc, &zero, A_distr, &i_one,
-             &i_one, descA_distr);
-  }
-  else
-  { // not instantiated; should never be reached
-    std::cerr << "geadd not implemented for non-floating types" << '\n';
-    expect(false);
-  }
-}
-#endif
-
 #ifdef ASGARD_ENABLE_DOUBLE
 
 template void reduce_results(
@@ -1380,14 +1296,6 @@ redistribute_vector(fk::vector<double> const &old_x,
                     distribution_plan const &old_plan,
                     distribution_plan const &new_plan,
                     std::map<int64_t, grid_limits> const &elem_remap);
-
-#ifdef ASGARD_USE_SCALAPACK
-template void gather_matrix<double>(double *A, int const *descA,
-                                    double const *A_distr,
-                                    int const *descA_distr);
-template void scatter_matrix<double>(double const *A, int const *descA,
-                                     double *A_distr, int const *descA_distr);
-#endif
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1438,14 +1346,6 @@ redistribute_vector(fk::vector<float> const &old_x,
                     distribution_plan const &old_plan,
                     distribution_plan const &new_plan,
                     std::map<int64_t, grid_limits> const &elem_remap);
-
-#ifdef ASGARD_USE_SCALAPACK
-template void gather_matrix<float>(float *A, int const *descA,
-                                   float const *A_distr,
-                                   int const *descA_distr);
-template void scatter_matrix<float>(float const *A, int const *descA,
-                                    float *A_distr, int const *descA_distr);
-#endif
 #endif
 
 template bool get_global_max(bool const my_max, distribution_plan const &plan);

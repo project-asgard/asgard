@@ -333,11 +333,11 @@ private:
               {i3_pterm_x1, i3_pterm_x2}, imex_flag::imex_implicit);
 
   inline static const partial_term<P> i3_pterm_v1 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::central,
+      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static const partial_term<P> i3_pterm_v2 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr, flux_type::central,
+      coefficient_type::grad, nullptr, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i3v =

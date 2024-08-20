@@ -1,5 +1,6 @@
 #pragma once
 #include "asgard_batch.hpp"
+#include "asgard_kron_operators.hpp"
 
 namespace asgard
 {
@@ -153,104 +154,6 @@ fk::vector<P> forward_transform(
 }
 
 template<typename P>
-fk::vector<P> sum_separable_funcs(
-    std::vector<md_func_type<P>> const &funcs,
-    std::vector<dimension<P>> const &dims,
-    adapt::distributed_grid<P> const &grid,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    int const degree, P const time);
-
-template<typename P>
-inline fk::vector<P> transform_and_combine_dimensions(
-    PDE<P> const &pde, std::vector<vector_func<P>> const &v_functions,
-    elements::table const &table,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    int const start, int const stop, int const degree, P const time = 0.0,
-    P const time_multiplier = 1.0)
-{
-  expect(static_cast<int>(v_functions.size()) == pde.num_dims());
-  expect(start <= stop);
-  expect(stop < table.size());
-  expect(degree >= 0);
-
-  std::vector<fk::vector<P>> dimension_components;
-  dimension_components.reserve(pde.num_dims());
-
-  auto const &dimensions = pde.get_dimensions();
-
-  for (int i = 0; i < pde.num_dims(); ++i)
-  {
-    auto const &dim = dimensions[i];
-    dimension_components.push_back(forward_transform<P>(
-        dim, v_functions[i], dim.volume_jacobian_dV, transformer, time));
-    int const n = dimension_components.back().size();
-    std::vector<int> ipiv(n);
-    expect(dim.get_mass_matrix().nrows() >= n);
-    expect(dim.get_mass_matrix().ncols() >= n);
-    fk::matrix<P> lhs_mass =
-        dim.get_mass_matrix().extract_submatrix(0, 0, n, n);
-    fm::gesv(lhs_mass, dimension_components.back(), ipiv);
-  }
-
-  return combine_dimensions(degree, table, start, stop, dimension_components,
-                            time_multiplier);
-}
-
-template<typename P>
-inline void transform_and_combine_dimensions(
-    std::vector<dimension<P>> const &dims,
-    std::vector<vector_func<P>> const &v_functions,
-    elements::table const &table,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    int const start, int const stop, int const degree, P const time,
-    P const time_multiplier, fk::vector<P, mem_type::view> result)
-
-{
-  expect(v_functions.size() == static_cast<size_t>(dims.size()) or v_functions.size() == static_cast<size_t>(dims.size() + 1));
-  expect(start <= stop);
-  expect(stop < table.size());
-  expect(degree >= 0);
-
-  std::vector<fk::vector<P>> dimension_components;
-  dimension_components.reserve(dims.size());
-
-  for (size_t i = 0; i < dims.size(); ++i)
-  {
-    auto const &dim = dims[i];
-    dimension_components.push_back(forward_transform<P>(
-        dim, v_functions[i], dim.volume_jacobian_dV, transformer, time));
-    int const n = dimension_components.back().size();
-    std::vector<int> ipiv(n);
-    fk::matrix<P> lhs_mass = dim.get_mass_matrix();
-    expect(lhs_mass.nrows() == n);
-    expect(lhs_mass.ncols() == n);
-    fm::gesv(lhs_mass, dimension_components.back(), ipiv);
-  }
-
-  combine_dimensions(degree, table, start, stop, dimension_components,
-                     time_multiplier, result);
-}
-
-template<typename P>
-inline fk::vector<P> transform_and_combine_dimensions(
-    std::vector<dimension<P>> const &dims,
-    std::vector<vector_func<P>> const &v_functions,
-    elements::table const &table,
-    basis::wavelet_transform<P, resource::host> const &transformer,
-    int const start, int const stop, int const degree, P const time = 0.0,
-    P const time_multiplier = 1.0)
-{
-  int64_t const vector_size =
-      (stop - start + 1) * fm::ipow(degree + 1, dims.size());
-  expect(vector_size < INT_MAX);
-  fk::vector<P> result(vector_size);
-  transform_and_combine_dimensions(dims, v_functions, table, transformer, start,
-                                   stop, degree, time, time_multiplier,
-                                   fk::vector<P, mem_type::view>(result));
-  return result;
-}
-
-template<typename P>
 inline int dense_space_size(PDE<P> const &pde)
 {
   return dense_space_size(pde.get_dimensions());
@@ -274,39 +177,6 @@ inline int dense_space_size(std::vector<dimension<precision>> const &dims)
   return static_cast<int>(dense_size);
 }
 
-template<typename P>
-using function_1d = std::function<void(std::vector<P> const &, std::vector<P> &)>;
-
-/*!
- * \internal
- * \brief Stores mass-matrices per level
- *
- * A mass matrix has a block diagonal form where each block has size
- * (degree + 1) by (degree + 1).
- * At leach level, we have 2^l such blocks stored in a simple std::vector
- * so that we can handle the matrix operations using small-matrix algorithms.
- * The matrices are stored permanently so they can be reused.
- * \endinternal
- */
-template<typename P>
-struct mass_matrix
-{
-  //! returns the matrix entries at given level
-  P *level(int l) { return mat[l].data(); }
-  //! returns the matrix entries at given level (const)
-  P const *level(int l) const { return mat[l].data(); }
-  //! returns const matrix entries
-  P const *clevel(int l) const { return mat[l].data(); }
-  //! returns the matrix entries for given level
-  void set(int l, std::vector<P> &&m) { mat[l] = std::move(m); }
-  //! return true if the matrix has been set for this level
-  bool has_level(int l) const { return (not mat[l].empty()); }
-  //! matrices
-  std::array<std::vector<P>, 31> mat;
-  //! using list of mass matrices
-  using list = std::array<std::unique_ptr<mass_matrix<P>>, max_num_dimensions>;
-};
-
 /*!
  * \internal
  * \brief Projects point-wise defined functions to the hierarchical basis
@@ -318,8 +188,11 @@ struct mass_matrix
  * The methods use some side-effects to communicate, i.e., each method sets the
  * stage for the next method and the setup has to agree with assumptions.
  *
- * This class uses OpenMP and internal cache, so calls to any methods are not
- * thread-safe, except where OpenMP is already used internally.
+ * This class uses OpenMP and internal cache, so calls to all methods are not
+ * thread-safe.
+ *
+ * (eventually, this will need cleanup of the api calls but right now the focus
+ *  is on performance and capability)
  *
  * \endinternal
  */
@@ -328,13 +201,13 @@ class hierarchy_manipulator
 {
 public:
   //! list of mass matrices, array with one unique_ptr per dimension
-  using mass_list = typename mass_matrix<P>::list;
+  using mass_list = std::array<level_mass_matrces<P>, max_num_dimensions>;
 
   //! empty hierarchy manipulator
   hierarchy_manipulator()
       : degree_(0), block_size_(0), dmin({{0}}), dmax({{0}})
   {}
-
+  //! set the degree and number of dimensions
   hierarchy_manipulator(int degree, int num_dimensions)
       : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
         dmin({{0}}), dmax({{1}}),
@@ -342,6 +215,7 @@ public:
   {
     setup_projection_matrices();
   }
+  //! initialize with the given domain
   hierarchy_manipulator(int degree, int num_dimensions,
                         std::initializer_list<P> rmin,
                         std::initializer_list<P> rmax)
@@ -353,6 +227,7 @@ public:
     std::copy_n(rmax.begin(), num_dimensions, dmax.begin());
     setup_projection_matrices();
   }
+  //! flexibile initialize, randes are defined in array-like objects
   template<typename rangemin, typename rangemax>
   hierarchy_manipulator(int degree, int num_dimensions,
                         rangemin const &rmin, rangemax const &rmax)
@@ -364,6 +239,7 @@ public:
     std::copy_n(rmax.begin(), num_dimensions, dmax.begin());
     setup_projection_matrices();
   }
+  //! initialize form the given set of dimensions
   hierarchy_manipulator(int degree, std::vector<dimension<P>> const &dims)
       : degree_(degree), block_size_(fm::ipow(degree + 1, dims.size())),
         quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
@@ -381,7 +257,8 @@ public:
   void project_separable(P proj[],
                          std::vector<dimension<P>> const &dims,
                          std::vector<vector_func<P>> const &funcs,
-                         std::vector<function_1d<P>> const &dv, mass_list &mass,
+                         std::array<function_1d<P>, max_num_dimensions> const &dv,
+                         mass_list &mass,
                          adapt::distributed_grid<P> const &grid,
                          P const time = 0.0, P const time_multiplier = 1.0,
                          int sstart = -1, int sstop = -1) const
@@ -394,7 +271,7 @@ public:
           -> void {
         auto fkvec = funcs[d](x, time);
         std::copy(fkvec.begin(), fkvec.end(), fx.data());
-      }, (dv.empty()) ? nullptr : dv[d], mass, d, dims[d].get_level());
+      }, (dv.empty()) ? nullptr : dv[d], mass[d], d, dims[d].get_level());
     }
 
     // looking at row start and stop
@@ -439,29 +316,75 @@ public:
 
   //! computes the 1d projection of f onto the given level
   void project1d(function_1d<P> const &f, function_1d<P> const &dv,
-                 mass_list &mass, int dim, int level) const
+                 level_mass_matrces<P> &mass, int dim, int level) const
   {
     int const num_cells = fm::ipow2(level);
     prepare_quadrature(dim, num_cells);
     fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
     f(quad_points[dim], fvals);
 
-    P const *m = nullptr;
     if (dv) // if using non-Cartesian coordinates
     {
       apply_dv_dvals(dim, dv);
-      if (not mass[dim]->has_level(level))
-        make_mass(dim, level, mass); // uses quad_dv computed above
-      m = mass[dim]->clevel(level);
+      mass.set_non_identity();
+      if (not mass.has_level(level))
+        mass[level] = make_mass(dim, level); // uses quad_dv computed above
     }
 
     // project onto the basis
-    project1d(dim, level, dmax[dim] - dmin[dim], m);
+    project1d(dim, level, dmax[dim] - dmin[dim], mass);
   }
 
+  //! create the mass matrix for the given dim and level
+  void make_mass(int dim, int level, function_1d<P> const &dv,
+                 level_mass_matrces<P> &mass) const
+  {
+    if (not dv or mass.has_level(level))
+      return;
+    mass.set_non_identity();
+    int const num_cells = fm::ipow2(level);
+    prepare_quadrature(dim, num_cells);
+    quad_dv[dim].resize(quad_points[dim].size());
+    dv(quad_points[dim], quad_dv[dim]);
+    mass[level] = make_mass(dim, level); // uses quad_dv computed above
+  }
+
+  //! return the 1d projection in the given direction
   std::vector<P> const &get_projected1d(int dim) const { return pf[dim]; }
 
+  //! transforms the vectors to hierarchical representation
+  void project1d(int const level, fk::vector<P> &x) const
+  {
+    int64_t const size = fm::ipow2(level) * (degree_ + 1);
+    expect(size == x.size());
+    stage0.resize(size);
+    pf[0].resize(size);
+    std::copy_n(x.begin(), size, stage0.begin());
+    switch (degree_)
+    { // hardcoded degrees first, the default uses the projection matrices
+    case 0:
+      projectlevels<0>(0, level);
+      break;
+    case 1:
+      projectlevels<1>(0, level);
+      break;
+    default:
+      projectlevels<-1>(0, level);
+    };
+    std::copy_n(pf[0].begin(), size, x.begin());
+  }
+
+  //! size of a multi-dimensional block, i.e., (degree + 1)^d
   int64_t block_size() const { return block_size_; }
+  //! returns the degree
+  int degree() const { return degree_; }
+
+  //! converts matrix from tri-diagonal to hierarchical sparse format
+  block_sparse_matrix<P> tri2hierarchical(
+      block_tri_matrix<P> const &tri, int const level, connection_patterns const &conns) const;
+  //! converts matrix from diagonal to hierarchical sparse format
+  block_sparse_matrix<P> diag2hierarchical(
+      block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
 
 protected:
   /*!
@@ -471,7 +394,7 @@ protected:
    * points. The method will convert to local basis coefficients and then convert
    * to hierarchical representation stored in pf.
    */
-  void project1d(int dim, int level, P const dsize, P const *mass) const;
+  void project1d(int dim, int level, P const dsize, level_mass_matrces<P> const &mass) const;
 
   static constexpr P s2 = 1.41421356237309505; // std::sqrt(2.0)
   static constexpr P is2 = P{1} / s2;          // 1.0 / std::sqrt(2.0)
@@ -489,7 +412,7 @@ protected:
     }
   }
   //! \brief Constructs the mass matrix, if not set for the given level/dim (uses already set quad_dv)
-  void make_mass(int dim, int level, mass_list &mass) const;
+  mass_matrix<P> make_mass(int dim, int level) const;
 
   /*!
    * \brief prepares the quad_points vector with the appropriate shifted quadrature points
@@ -513,6 +436,34 @@ protected:
    */
   template<int degree>
   void projectlevels(int dim, int levels) const;
+
+  //! creates a new sparse matrix with the given format
+  block_sparse_matrix<P> make_block_sparse_matrix(connection_patterns const &conns,
+                                                  connect_1d::hierarchy const h) const
+  {
+    return block_sparse_matrix<P>((degree_ + 1) * (degree_ + 1), conns(h).num_connections(), h);
+  }
+
+  //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
+  template<int degree>
+  void col_project_full(block_tri_matrix<P> const &tri,
+                        int const level,
+                        connection_patterns const &conn,
+                        block_sparse_matrix<P> &sp) const;
+
+  //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
+  template<int degree>
+  void col_project_full(block_diag_matrix<P> const &diag,
+                        int const level,
+                        connection_patterns const &conn,
+                        block_sparse_matrix<P> &sp) const;
+
+  //! apply row transform on sparse col-full pattern
+  template<int degree>
+  void row_project_full(block_sparse_matrix<P> &col,
+                        int const level,
+                        connection_patterns const &conn,
+                        block_sparse_matrix<P> &sp) const;
 
   //! call from the constructor, makes it easy to have variety of constructor options
   void setup_projection_matrices();
@@ -542,7 +493,11 @@ private:
   mutable std::array<std::vector<P>, max_num_dimensions> quad_dv;
   mutable std::vector<P> fvals;
   mutable std::vector<P> stage0, stage1;
-};
 
+  mutable std::array<block_matrix<P>, 2> matstage;
+
+  mutable std::vector<std::vector<P>> colblocks;
+  mutable std::array<block_sparse_matrix<P>, 4> rowstage;
+};
 
 } // namespace asgard

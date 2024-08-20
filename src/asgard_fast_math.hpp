@@ -2,10 +2,6 @@
 
 #include "asgard_sparse.hpp"
 
-#ifdef ASGARD_USE_SCALAPACK
-#include "asgard_scalapack_vector_info.hpp"
-#endif
-
 namespace asgard::fm
 {
 // a non-matlab one-liner that had no better home - compute 2^arg
@@ -424,38 +420,6 @@ void tpsv(fk::vector<P, amem, resrc> const &A, fk::vector<P, bmem, resrc> &B,
   lib_dispatch::tpsv<resrc>(uplo, trans, diag, rows_B, A.data(), B.data(), 1);
 }
 
-#ifdef ASGARD_USE_SCALAPACK
-// gesv - Solve Ax=B using LU decomposition
-// template void gesv( int* n, int* nrhs, float* A, int* lda, int* ipiv,
-//                    float* b, int* ldb, int* info );
-template<typename P, mem_type amem, mem_type bmem>
-void gesv(fk::matrix<P, amem> &A, fk::scalapack_matrix_info &ainfo,
-          fk::vector<P, bmem> &B, fk::scalapack_vector_info &binfo,
-          std::vector<int> &ipiv)
-{
-  expect(ainfo.local_rows() == A.nrows());
-  expect(ainfo.local_cols() == A.ncols());
-  expect(binfo.local_size() == B.size());
-
-  int rows_ipiv = ipiv.size();
-  expect(rows_ipiv == ainfo.local_rows() + ainfo.mb());
-
-  int rows_A = ainfo.nrows();
-  int cols_B = 1;
-  int info;
-  lib_dispatch::scalapack_gesv(&rows_A, &cols_B, A.data(), ainfo.get_desc(),
-                               ipiv.data(), B.data(), binfo.get_desc(), &info);
-  if (info > 0)
-  {
-    std::cout << "The diagonal element of the triangular factor of A,\n";
-    std::cout << "U(" << info << "," << info
-              << ") is zero, so that A is singular;\n";
-    std::cout << "the solution could not be computed.\n";
-    exit(1);
-  }
-}
-#endif
-
 // getrf - Computes the LU factorization of a general m-by-n matrix.
 template<typename P, mem_type amem>
 void getrf(fk::matrix<P, amem> &A, std::vector<int> &ipiv)
@@ -594,41 +558,6 @@ void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
                     " in call to pttrs() has an illegal value\n"));
   }
 }
-
-#ifdef ASGARD_USE_SCALAPACK
-// getrs - Solve Ax=B using LU factorization
-// A is assumed to have already beem factored using a
-// previous call to gesv() or getrf() where ipiv is
-// computed.
-// void getrs(char *trans, int *n, int *nrhs, double *A,
-//            int *lda, int *ipiv, double *b, int *ldb,
-//            int *info);
-//
-template<typename P, mem_type amem, mem_type bmem>
-void getrs(fk::matrix<P, amem> const &A, fk::scalapack_matrix_info &ainfo,
-           fk::vector<P, bmem> &B, fk::scalapack_vector_info &binfo,
-           std::vector<int> &ipiv)
-{
-  expect(ainfo.local_rows() == A.nrows());
-  expect(ainfo.local_cols() == A.ncols());
-  expect(binfo.local_size() == B.size());
-
-  int rows_ipiv = ipiv.size();
-  expect(rows_ipiv == ainfo.local_rows() + ainfo.mb());
-  int rows_A = ainfo.nrows();
-  int cols_B = 1;
-  char trans = 'N';
-  int info;
-  lib_dispatch::scalapack_getrs(&trans, &rows_A, &cols_B, A.data(),
-                                ainfo.get_desc(), ipiv.data(), B.data(),
-                                binfo.get_desc(), &info);
-  if (info < 0)
-  {
-    printf("Argument %d in call to getrs() has an illegal value\n", -info);
-    exit(1);
-  }
-}
-#endif
 
 // sparse gemv - sparse matrix dense vector multiplication
 template<typename P, mem_type xmem, mem_type ymem, resource resrc>

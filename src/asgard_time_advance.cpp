@@ -1,10 +1,5 @@
 #include "asgard_time_advance.hpp"
 
-#ifdef ASGARD_USE_SCALAPACK
-#include "asgard_cblacs_grid.hpp"
-#include "asgard_scalapack_vector_info.hpp"
-#endif
-
 namespace asgard::time_advance
 {
 template<typename P>
@@ -42,179 +37,7 @@ rungekutta3(discretization_manager<P> const &dist, std::vector<P> const &current
   return r;
 }
 
-#ifdef ASGARD_USE_SCALAPACK
-template<typename P>
-static fk::vector<P>
-get_sources(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
-            basis::wavelet_transform<P, resource::host> const &transformer,
-            P const time)
-{
-  auto const my_subgrid = grid.get_subgrid(get_rank());
-
-  auto const degree = pde.get_dimensions()[0].get_degree();
-  auto const dof    = fm::ipow(degree + 1, pde.num_dims()) * my_subgrid.nrows();
-  fk::vector<P> sources(dof);
-  for (auto const &source : pde.sources())
-  {
-    auto const source_vect = transform_and_combine_dimensions(
-        pde, source.source_funcs(), grid.get_table(), transformer,
-        my_subgrid.row_start, my_subgrid.row_stop, degree, time,
-        source.time_func()(time));
-    fm::axpy(source_vect, sources);
-  }
-  return sources;
-}
-// this function executes an implicit time step using the current solution
-// vector x. on exit, the next solution vector is stored in fx.
-template<typename P>
-fk::vector<P>
-implicit_advance(PDE<P> &pde, kron_operators<P> &operator_matrices,
-                 adapt::distributed_grid<P> const &adaptive_grid,
-                 basis::wavelet_transform<P, resource::host> const &transformer,
-                 std::optional<matrix_factor<P>> &euler_mat,
-                 std::array<boundary_conditions::unscaled_bc_parts<P>, 2> const
-                     &unscaled_parts,
-                 fk::vector<P> const &x_orig, P const time)
-{
-  expect(time >= 0);
-#ifdef ASGARD_USE_SCALAPACK
-  auto sgrid = get_grid();
-
-  static fk::matrix<P, mem_type::owner, resource::host> A;
-  static std::vector<int> ipiv;
-#endif
-  auto const &options = pde.options();
-
-  solve_opts const solver = options.solver.value();
-
-  auto const &table   = adaptive_grid.get_table();
-  auto const dt       = pde.get_dt();
-  int const degree    = pde.get_dimensions()[0].get_degree();
-  int const elem_size = fm::ipow(degree + 1, pde.num_dims());
-
-#ifdef ASGARD_USE_SCALAPACK
-  auto const size = elem_size * adaptive_grid.get_subgrid(get_rank()).nrows();
-  fk::vector<P> x(size);
-  exchange_results(x_orig, x, size, adaptive_grid.get_distrib_plan(), get_rank());
-#else
-  fk::vector<P> x(x_orig);
-#endif
-  if (pde.num_sources() > 0)
-  {
-    auto const sources =
-        get_sources(pde, adaptive_grid, transformer, time + dt);
-    fm::axpy(sources, x, dt);
-  }
-
-  auto const &grid       = adaptive_grid.get_subgrid(get_rank());
-  int const A_local_rows = elem_size * grid.nrows();
-  int const A_local_cols = elem_size * grid.ncols();
-#ifdef ASGARD_USE_SCALAPACK
-  int nm = A_local_rows;
-  bcast(&nm, 1, 0);
-  int const A_global_size = elem_size * table.size();
-  assert(x.size() <= nm);
-
-  fk::scalapack_vector_info vinfo(A_global_size, nm, sgrid);
-  fk::scalapack_matrix_info minfo(A_global_size, A_global_size, nm, nm, sgrid);
-#endif
-  auto const bc = boundary_conditions::generate_scaled_bc(
-      unscaled_parts[0], unscaled_parts[1], pde, grid.row_start, grid.row_stop,
-      time + dt);
-  fm::axpy(bc, x, dt);
-
-  if (solver::is_direct(solver) and not euler_mat)
-  {
-    // must form the matrix
-    matrix_factor<P> euler;
-
-    euler.A.clear_and_resize(A_local_rows, A_local_cols);
-    build_system_matrix(pde, table, euler.A, grid);
-
-    // AA = I - dt*A;
-    fm::scal(-dt, euler.A);
-    if (grid.row_start == grid.col_start)
-    {
-      for (int i = 0; i < euler.A.nrows(); ++i)
-      {
-        euler.A(i, i) += 1.0;
-      }
-    }
-
-    if (solver == solve_opts::direct)
-    {
-      euler.ipiv.resize(euler.A.nrows());
-
-      fm::gesv(euler.A, x, euler.ipiv);
-      euler_mat = std::move(euler);
-      return x;
-    }
-    else if (solver == solve_opts::scalapack)
-    {
-#ifdef ASGARD_USE_SCALAPACK
-      euler.ipiv.resize(minfo.local_rows() + minfo.mb());
-      fm::gesv(euler.A, minfo, x, vinfo, euler.ipiv);
-
-      auto const size_r =
-          elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
-      fk::vector<P> tmp(size_r);
-      exchange_results(x, tmp, size_r, adaptive_grid.get_distrib_plan(), get_rank());
-
-      euler_mat = std::move(euler);
-      return tmp;
-#else
-      throw std::runtime_error("Invalid solver option, must recompile with SCALAPACK support.");
-#endif
-    }
-  } // end first time/update system
-
-  if (solver == solve_opts::direct)
-  {
-    fm::getrs(euler_mat->A, x, euler_mat->ipiv);
-    return x;
-  }
-  else if (solver == solve_opts::scalapack)
-  {
-#ifdef ASGARD_USE_SCALAPACK
-    fm::getrs(A, minfo, x, vinfo, ipiv);
-    auto const size_r =
-        elem_size * adaptive_grid.get_subgrid(get_rank()).ncols();
-    fk::vector<P> tmp(size_r);
-    exchange_results(x, tmp, size_r, adaptive_grid.get_distrib_plan(), get_rank());
-    return tmp;
-#else
-    throw std::runtime_error("Invalid solver option, must recompile with SCALAPACK support.");
-#endif
-  }
-  else if (solver == solve_opts::gmres)
-  {
-    operator_matrices.make(imex_flag::unspecified, pde, adaptive_grid);
-    P const tolerance  = *options.isolver_tolerance;
-    int const restart  = *options.isolver_iterations;
-    int const max_iter = *options.isolver_outer_iterations;
-    fk::vector<P> fx(x);
-    // TODO: do something better to save gmres output to pde
-    pde.gmres_outputs[0] = solver::simple_gmres_euler<P, resource::host>(
-        pde.get_dt(), imex_flag::unspecified, operator_matrices,
-        fx, x, restart, max_iter, tolerance);
-    return fx;
-  }
-  else if (solver == solve_opts::bicgstab)
-  {
-    operator_matrices.make(imex_flag::unspecified, pde, adaptive_grid);
-    P const tolerance  = *options.isolver_tolerance;
-    int const max_iter = *options.isolver_iterations;
-    fk::vector<P> fx(x);
-    // TODO: do something better to save gmres output to pde
-    pde.gmres_outputs[0] = solver::bicgstab_euler<P, resource::host>(
-        pde.get_dt(), imex_flag::unspecified, operator_matrices,
-        fx, x, max_iter, tolerance);
-    return fx;
-  }
-  return x;
-}
-#else
-// No SCALAPACK and no-MPI solver yet
+// no-MPI solver yet
 template<typename P>
 fk::vector<P>
 implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &current)
@@ -243,7 +66,9 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
     matrix_factor<P> euler;
 
     euler.A.clear_and_resize(rows, cols);
-    build_system_matrix(disc.get_pde(), table, euler.A, subgrid);
+    build_system_matrix<P>(
+        disc.get_pde(), [&](int t, int d)->fk::matrix<P>{ return disc.get_coeff_matrix(t, d); },
+        table, euler.A, subgrid);
 
     // AA = I - dt*A;
     fm::scal(-dt, euler.A);
@@ -267,23 +92,19 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
     fm::getrs(euler_mat->A, rhs, euler_mat->ipiv);
     return rhs;
   }
-  else if (solver == solve_opts::scalapack)
-  {
-    throw std::runtime_error("Invalid solver option, must recompile with SCALAPACK support.");
-  }
   else
   {
     disc.ode_sv(imex_flag::unspecified, rhs);
     return rhs;
   }
 }
-#endif
 
 // this function executes an implicit-explicit (imex) time step using the
 // current solution vector x. on exit, the next solution vector is stored in fx.
 template<typename P>
 fk::vector<P>
-imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
+imex_advance(discretization_manager<P> &disc,
+             PDE<P> &pde, std::vector<moment<P>> &moments,
              kron_operators<P> &operator_matrices,
              adapt::distributed_grid<P> const &adaptive_grid,
              basis::wavelet_transform<P, resource::host> const &transformer,
@@ -391,8 +212,7 @@ imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
       };
     }
 
-    // Update coeffs
-    generate_all_coefficients<P>(pde, transformer);
+    disc.compute_coefficients();
   };
 
   auto calculate_moments =
@@ -549,7 +369,7 @@ imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
   }
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
-                                       adaptive_grid);
+                                       disc.get_cmatrices(), adaptive_grid);
 
   // Explicit step f_1s = f_0 + dt A f_0
   tools::timer.start("explicit_1");
@@ -585,12 +405,11 @@ imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
   fk::vector<P, mem_type::owner, imex_resrc> f_1_output(f.size());
   if (pde.do_collision_operator())
   {
-    // Update coeffs
-    generate_all_coefficients<P>(pde, transformer);
+    disc.compute_coefficients();
 
     // f2 now
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
-                                         adaptive_grid);
+                                         disc.get_cmatrices(), adaptive_grid);
 
     // use previous refined solution as initial guess to GMRES if it exists
     if (x_prev.empty())
@@ -647,7 +466,7 @@ imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
   }
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
-                                       adaptive_grid);
+                                       disc.get_cmatrices(), adaptive_grid);
 
   // Explicit step f_2s = 0.5*f_0 + 0.5*(f_1 + dt A f_1)
   {
@@ -682,9 +501,7 @@ imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
   if (pde.do_collision_operator())
   {
     // Update coeffs
-    tools::timer.start("implicit_2_coeff");
-    generate_all_coefficients<P>(pde, transformer);
-    tools::timer.stop("implicit_2_coeff");
+    disc.compute_coefficients();
 
     tools::timer.start("implicit_2_solve");
     fk::vector<P, mem_type::owner, imex_resrc> f_2(f.size());
@@ -705,7 +522,7 @@ imex_advance(PDE<P> &pde, std::vector<moment<P>> &moments,
     }
 
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
-                                         adaptive_grid);
+                                         disc.get_cmatrices(), adaptive_grid);
 
     if (solver == solve_opts::gmres)
     {
@@ -782,24 +599,14 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
         -> fk::vector<P> {
       if (not pde.options().adapt_threshold)
       {
-#ifdef ASGARD_USE_SCALAPACK
-        auto const &bc = manager.get_fixed_bc();
-#endif
-
         switch (method)
         {
         case time_advance::method::exp:
           return time_advance::rungekutta3(manager, manager.current_state());
         case time_advance::method::imp:
-#ifdef ASGARD_USE_SCALAPACK
-          return time_advance::implicit_advance<P>(pde, kronops, grid, transformer,
-                                                   manager.get_op_matrix(), bc,
-                                                   manager.current_state(), time);
-#else
           return time_advance::implicit_advance<P>(manager, manager.current_state());
-#endif
         case time_advance::method::imex:
-          return time_advance::imex_advance<P>(pde, moments, kronops, grid, transformer,
+          return time_advance::imex_advance<P>(manager, pde, moments, kronops, grid, transformer,
                                                manager.current_state(), fk::vector<P>(),
                                                time);
         };
@@ -829,11 +636,6 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
       fk::vector<P> y_first_refine;
       while (refining)
       {
-        // update boundary conditions
-#ifdef ASGARD_USE_SCALAPACK
-        auto const &bc = manager.get_fixed_bc();
-#endif
-
         // take a probing refinement step
         fk::vector<P> y_stepped = [&]() {
           switch (method)
@@ -841,15 +643,9 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
           case time_advance::method::exp:
             return time_advance::rungekutta3(manager, y.to_std());
           case time_advance::method::imp:
-#ifdef ASGARD_USE_SCALAPACK
-            return time_advance::implicit_advance<P>(pde, kronops, grid, transformer,
-                                                     manager.get_op_matrix(), bc,
-                                                     y, time);
-#else
             return time_advance::implicit_advance<P>(manager, y.to_std());
-#endif
           case time_advance::method::imex:
-            return time_advance::imex_advance<P>(pde, moments, kronops, grid, transformer,
+            return time_advance::imex_advance<P>(manager, pde, moments, kronops, grid, transformer,
                                                  y, y_first_refine, time);
           default:
             return fk::vector<P>();

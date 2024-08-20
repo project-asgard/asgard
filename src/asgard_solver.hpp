@@ -12,7 +12,7 @@ enum class poisson_bc
 
 inline bool is_direct(solve_opts s)
 {
-  return (s == solve_opts::direct or s == solve_opts::scalapack);
+  return (s == solve_opts::direct);
 }
 
 // simple, node-local test version of gmres

@@ -95,7 +95,6 @@ option (ASGARD_USE_OPENMP "Optional OpenMP support for asgard" OFF)
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 cmake_dependent_option (ASGARD_USE_GPU_MEM_LIMIT "Allow the ability to limit the GPU memory used by kronmult (can hurt performance)" OFF "ASGARD_USE_CUDA" OFF)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
-cmake_dependent_option (ASGARD_USE_SCALAPACK "(deprecated) Use optional scalapack linear algebra library" OFF "ASGARD_USE_MPI" OFF)
 
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
 option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
@@ -114,25 +113,9 @@ set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "(incomplete) Build the documentation." OFF)
 
-if (ASGARD_USE_MPI)
-  option (KRON_MODE_GLOBAL "Global or local Kronecker products" OFF)
-  option (KRON_MODE_GLOBAL_BLOCK "Use block variant for global kron" OFF)
-else()
-  if (ASGARD_USE_CUDA)
-    option (KRON_MODE_GLOBAL "Global or local Kronecker products" ON)
-    option (KRON_MODE_GLOBAL_BLOCK "Use block variant for global kron" OFF)
-  else()
-    option (KRON_MODE_GLOBAL "Global or local Kronecker products" ON)
-    option (KRON_MODE_GLOBAL_BLOCK "Use block variant for global kron" ON)
-  endif()
+if (NOT ASGARD_USE_MPI AND ASGARD_USE_CUDA)
+  message(FATAL_ERROR "CUDA has been temporarily disabled for the non-mpi mode")
 endif()
-if (KRON_MODE_GLOBAL_BLOCK AND NOT KRON_MODE_GLOBAL)
-  message (FATAL_ERROR "KRON_MODE_GLOBAL_BLOCK=ON kronmult requires global KRON_MODE_GLOBAL=ON")
-endif()
-if (ASGARD_USE_MPI AND KRON_MODE_GLOBAL)
-  message (FATAL_ERROR "Global Kronecker is not yet implemented for MPI")
-endif()
-
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
@@ -294,16 +277,6 @@ if (ASGARD_USE_MPI)
     find_package(MPI REQUIRED)
 endif ()
 
-if (ASGARD_USE_SCALAPACK)
-#  Work around for issues that can arise when scalapack was compiler with a
-#  different vendor compiler than asgard. Specifically if scalapack was compiled
-#  with gfortran but asgard is being linked with clang, clang will fail to
-#  include GNU runtime libraries. Enabling the Fortran language allows the run
-#  time libraries to be included at link time.
-    enable_language (Fortran)
-    find_package (scalapack REQUIRED)
-endif ()
-
 if (ASGARD_USE_CUDA)
     # CUDA has to be enabled before libasgard is created
     cmake_policy(SET CMP0104 NEW)
@@ -373,6 +346,7 @@ set (components
      asgard_adapt
      asgard_basis
      asgard_batch
+     asgard_block_matrix
      asgard_boundary_conditions
      asgard_coefficients
      asgard_distribution
@@ -392,6 +366,7 @@ set (components
      asgard_quadrature
      asgard_reconstruct
      asgard_resources
+     asgard_small_mats
      asgard_sparse
      asgard_solver
      asgard_tensors
@@ -402,10 +377,6 @@ set (components
 
 if (ASGARD_IO_HIGHFIVE)
     list (APPEND components asgard_io)
-endif ()
-
-if (ASGARD_USE_SCALAPACK)
-    list (APPEND components asgard_scalapack_matrix_info asgard_scalapack_vector_info asgard_cblacs_grid)
 endif ()
 
 foreach (component IN LISTS components)
@@ -428,9 +399,7 @@ target_sources (libasgard
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_bcpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_gpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp>
 )
 target_precompile_headers (libasgard
@@ -465,10 +434,6 @@ target_include_directories (libasgard
                             PUBLIC
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
-)
-target_compile_definitions (libasgard
-                            PUBLIC
-                            $<BUILD_INTERFACE:$<$<BOOL:${ASGARD_USE_SCALAPACK}>:ASGARD_USE_SCALAPACK>>
 )
 
 if (ASGARD_USE_CUDA)
@@ -544,7 +509,7 @@ if (ASGARD_BUILD_TESTS)
     target_precompile_headers (tests_general_main REUSE_FROM libasgard)
   endif ()
 
-  if (NOT KRON_MODE_GLOBAL)
+  if (ASGARD_USE_MPI)
     # new kronmult benchmarking
     add_executable(asgard_kronmult_benchmark ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_benchmark.cpp)
     target_link_libraries (asgard_kronmult_benchmark PUBLIC libasgard)
@@ -553,15 +518,19 @@ if (ASGARD_BUILD_TESTS)
   endif()
 
   # components with MPI-enabled testing
+  # needed for multiple ranks and mpi-init
   set (mpi_test_components
     asgard_adapt
+    asgard_boundary_conditions
     asgard_distribution
+    asgard_coefficients
     asgard_time_advance
   )
-
-  if (ASGARD_USE_SCALAPACK)
-    list(APPEND mpi_test_components asgard_cblacs_grid asgard_fast_math asgard_scalapack_matrix_info asgard_scalapack_vector_info)
-  endif()
+  # still need mpi-init but not the extra ranks
+  set (mpi_single_rank_tests
+    asgard_boundary_conditions
+    asgard_coefficients
+  )
 
   foreach (component IN LISTS components)
     add_executable (${component}-tests)
@@ -581,7 +550,7 @@ if (ASGARD_BUILD_TESTS)
         endif ()
 
         set(test_ranks "4")
-      	if (ASGARD_USE_CUDA)
+        if (ASGARD_USE_CUDA OR ${component} IN_LIST mpi_single_rank_tests)
           set(test_ranks "1")
         endif ()
         if (${ASGARD_TESTING_RANKS})
@@ -632,7 +601,7 @@ if (ASGARD_BUILD_TESTS)
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
   message(STATUS "ASGarD build options (summary):")
-  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_CUDA ASGARD_USE_PYTHON ASGARD_IO_HIGHFIVE KRON_MODE_GLOBAL KRON_MODE_GLOBAL_BLOCK)
+  foreach(_opt CMAKE_CXX_FLAGS ASGARD_PRECISIONS ASGARD_USE_OPENMP ASGARD_USE_MPI ASGARD_USE_CUDA ASGARD_USE_PYTHON ASGARD_IO_HIGHFIVE)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_CUDA)

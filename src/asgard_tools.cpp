@@ -44,7 +44,10 @@ std::string simple_timer::report()
     std::string out(size + 1, ' ');
     snprintf(out.data(), size + 1, fmt, id.c_str(), avg, min, max, med,
              avg_flops.c_str(), times.size());
-    report << out;
+    // the last char in snprintf is null-terminator, if written to the sstream
+    // and redirected into a file, the encoding is misinterpreted
+    if (out.size() > 0)
+      report << out.substr(0, out.size() - 1);
   }
   return report.str();
 }

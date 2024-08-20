@@ -20,13 +20,23 @@ class connect_1d
 {
 public:
   //! \brief Indicates whether to include same level edge neighbours
-  enum class hierarchy
+  enum class hierarchy : int
   {
     //! \brief Uses the volume connectivity
-    volume,
+    volume = 0,
     //! \brief Uses the full volume and edge connectivity
     full,
+    //! \brief Column transfomed volumes from diagonal (but not row transformed)
+    col_volume,
+    //! \brief Column transfomed full from triangular (but not row transformed)
+    col_full,
   };
+  //! Type tag for column transformations
+  struct column_extended_hierarchy{};
+  //! Type tag for column transformations
+  static column_extended_hierarchy col_extend_hierarchy;
+  //! Placeholder, empty connection
+  connect_1d() : levels(0), rows(0) {}
   /*!
    *  \brief Constructor, makes the connectivity up to and including the given
    *         max-level.
@@ -34,6 +44,7 @@ public:
   connect_1d(int const max_level, hierarchy mode = hierarchy::full)
       : levels(max_level)
   {
+    expect(mode == hierarchy::full or mode == hierarchy::volume);
     switch (mode)
     {
     case hierarchy::full:
@@ -42,6 +53,63 @@ public:
     case hierarchy::volume:
       build_connections<hierarchy::volume>();
       break;
+    default:
+      // maybe redundant with the excpect above
+      throw std::runtime_error("constructor for full or volume only");
+      break;
+    }
+  }
+  /*!
+   * \brief Creates a new connectivity by setting up workspace for the
+   *        hierarchical column transformation
+   */
+  connect_1d(connect_1d const &conn, column_extended_hierarchy)
+    : levels(conn.levels), rows(std::max(1, 2 * conn.rows - 2))
+  {
+    if (rows == 1)
+    {
+      pntr = {0, 1};
+      indx = {0, };
+      return;
+    }
+    if (rows == 2)
+    {
+      pntr = {0, 2, 4};
+      indx = {0, 1, 0, 1};
+      return;
+    }
+    // trivial cases are done, working on extending the pattern
+    pntr.reserve(rows + 1);
+    for (int i = 0; i < 3; i++)
+      pntr.push_back(conn.pntr[i]);
+    int num = 1; // number of rows per level
+    for (int l = 2; l <= levels; l++)
+    {
+      num *= 2;
+      for (int r = num; r < 2 * num; r++)
+      {
+        int const row_length = conn.row_end(r) - conn.row_begin(r);
+        pntr.push_back(pntr.back() + row_length); // 2 identical rows
+        pntr.push_back(pntr.back() + row_length);
+      }
+    }
+    // setting up the indexes, first two rows are dense
+    indx.reserve(pntr.back());
+    for (int r = 0; r < conn.rows; r++)
+      indx.push_back(r);
+    for (int r = 0; r < conn.rows; r++)
+      indx.push_back(r);
+    num = 1; // number of rows per level
+    for (int l = 2; l <= levels; l++)
+    {
+      num *= 2;
+      for (int r = num; r < 2 * num; r++)
+      {
+        for (int j = conn.row_begin(r); j < conn.row_end(r); j++)
+          indx.push_back(conn[j]);
+        for (int j = conn.row_begin(r); j < conn.row_end(r); j++)
+          indx.push_back(conn[j]);
+      }
     }
   }
   /*!
@@ -331,6 +399,38 @@ private:
   std::vector<int> pntr;
   std::vector<int> indx;
   std::vector<int> diag;
+};
+
+/*!
+ * \brief Combines together a volume and an edge flux pattern
+ */
+struct connection_patterns
+{
+  //! construct patterns up to the given level
+  explicit connection_patterns(int max_level)
+  {
+    // make the volume and edge connection patterns
+    for (int i = 0; i < 2; i++)
+      conns[i] = connect_1d(max_level, static_cast<connect_1d::hierarchy>(i));
+    // make the column transform patterns
+    for (int i = 2; i < 4; i++)
+      conns[i] = connect_1d(conns[i - 2], connect_1d::col_extend_hierarchy);
+  }
+  //! return the corresponding connectivity pattern
+  connect_1d const &operator() (connect_1d::hierarchy h) const
+  {
+    return conns[static_cast<int>(h)];
+  }
+  //! return the corresponding connectivity pattern
+  connect_1d const &operator[] (connect_1d::hierarchy h) const
+  {
+    return conns[static_cast<int>(h)];
+  }
+  connect_1d const *get(connect_1d::hierarchy h) const
+  {
+      return &conns[static_cast<int>(h)];
+  }
+  std::array<connect_1d, 4> conns;
 };
 
 } // namespace asgard

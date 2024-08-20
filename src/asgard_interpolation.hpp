@@ -5,7 +5,7 @@
 
 namespace asgard
 {
-#ifdef KRON_MODE_GLOBAL_BLOCK
+#ifdef KRON_MODE_GLOBAL
 
 /*!
  * \brief Handles the interpolation operations in multidimensional context

@@ -59,6 +59,56 @@ private:
 
 int main(int argc, char **argv)
 {
+  int level = 2;
+  int degree = 0;
+
+  basis::wavelet_transform<double, resource::host> wav(level, degree);
+
+  std::array<fk::matrix<double>, 4> mats = generate_multi_wavelets<double>(degree);
+
+  std::cout << std::scientific;
+  std::cout.precision(16);
+
+  for (auto const &m : mats)
+  {
+    std::cout << " ------------------------------------- \n";
+    for (int r = 0; r < m.nrows(); r++)
+    {
+      for (int c = 0; c < m.ncols(); c++)
+        std::cout << std::setw(25) << m(r, c);
+      std::cout << "\n";
+    }
+  }
+
+  std::cout << " ------------------------------------- \n";
+  std::cout << " ------------------------------------- \n";
+  //auto const &T = wav.get_blocks().back();
+
+  for (auto const &T : wav.get_blocks())
+  {
+    std::cout << " ------------------------------------- \n";
+    for (int r = 0; r < T.nrows(); r++)
+    {
+      for (int c = 0; c < T.ncols(); c++)
+        std::cout << std::setw(25) << T(r, c);
+      std::cout << "\n";
+    }
+  }
+
+  fk::matrix<double> I(4, 4);
+  for (int i = 0; i < I.ncols(); i++) I(i, i) = 1.0;
+
+  auto P = wav.apply(I, level, basis::side::right, basis::transpose::trans);
+
+  std::cout << " ------------------------------------- \n";
+  std::cout << " ------------------------------------- \n";
+  for (int r = 0; r < P.nrows(); r++)
+  {
+    for (int c = 0; c < P.ncols(); c++)
+      std::cout << std::setw(25) << P(r, c);
+    std::cout << "\n";
+  }
+
   ignore(argc);
   ignore(argv);
   // keep this file clean for each PR

@@ -4,6 +4,7 @@
 
 namespace asgard
 {
+
 #ifndef KRON_MODE_GLOBAL
 /*!
  * \brief Holds a list of matrices used for time-stepping.
@@ -16,8 +17,9 @@ template<typename precision>
 struct kron_operators
 {
   //! \brief Makes a list of uninitialized matrices
-  kron_operators(verbosity_level verb_in = verbosity_level::high)
-      : verbosity(verb_in)
+  kron_operators(connection_patterns const *conn = nullptr,
+                 verbosity_level verb_in = verbosity_level::high)
+      : verbosity(verb_in), conn_(conn)
   {
 #ifdef ASGARD_USE_GPU_MEM_LIMIT
     load_stream = nullptr;
@@ -54,6 +56,7 @@ struct kron_operators
 
   //! \brief Make the matrix for the given entry
   void make(imex_flag entry, PDE<precision> const &pde,
+            coefficient_matrices<precision> &cmats,
             adapt::distributed_grid<precision> const &grid)
   {
     if (not mem_stats)
@@ -62,7 +65,7 @@ struct kron_operators
     int const ientry = static_cast<int>(entry);
     if (not matrices[ientry])
       matrices[ientry] = make_local_kronmult_matrix(
-          pde, grid, mem_stats, entry, spcache, verbosity);
+          pde, cmats, *conn_, grid, mem_stats, entry, spcache, verbosity);
 
 #ifdef ASGARD_USE_CUDA
     if (matrices[ientry].input_size() != xdev.size())
@@ -119,13 +122,14 @@ struct kron_operators
    *        coefficients
    */
   void reset_coefficients(imex_flag entry, PDE<precision> const &pde,
+                          coefficient_matrices<precision> &cmats,
                           adapt::distributed_grid<precision> const &grid)
   {
     int const ientry = static_cast<int>(entry);
     if (not matrices[ientry])
-      make(entry, pde, grid);
+      make(entry, pde, cmats, grid);
     else
-      update_kronmult_coefficients(pde, entry, spcache,
+      update_kronmult_coefficients(pde, cmats, *conn_, entry, spcache,
                                    matrices[ientry]);
   }
 
@@ -148,12 +152,21 @@ struct kron_operators
       return matrices[static_cast<int>(imex_flag::unspecified)].template get_diagonal_preconditioner<rec>();
   }
 
+  vector2d<precision> const &get_inodes() const
+  {
+    throw std::runtime_error("interpolation/inodes cannot be used with local kronmult");
+    static vector2d<precision> inodes;
+    return inodes;
+  }
+
   //! adjusts the verbosity level
   verbosity_level verbosity = verbosity_level::high;
 
 private:
   //! \brief Holds the matrices
   std::array<local_kronmult_matrix<precision>, num_imex_variants> matrices;
+  //! \brief Holds the 1d connection patterns
+  connection_patterns const *conn_ = nullptr;
 
   //! \brief Cache holding the memory stats, limits bounds etc.
   memory_usage mem_stats;
@@ -177,13 +190,16 @@ private:
 };
 #endif
 
-#ifdef KRON_MODE_GLOBAL_BLOCK
+#ifdef KRON_MODE_GLOBAL
 
 template<typename precision>
 struct kron_operators
 {
-  kron_operators(verbosity_level verb_in = verbosity_level::high)
-      : verbosity(verb_in), pde_(nullptr), conn_volumes_(1), conn_full_(1)
+  kron_operators() {}
+
+  kron_operators(connection_patterns const *conn,
+                 verbosity_level verb_in = verbosity_level::high)
+      : verbosity(verb_in), pde_(nullptr), conn_(conn)
   {}
 
   template<resource rec = resource::host>
@@ -238,6 +254,7 @@ struct kron_operators
 
   //! \brief Make the matrix for the given entry
   void make(imex_flag entry, PDE<precision> const &pde,
+            coefficient_matrices<precision> &cmats,
             adapt::distributed_grid<precision> const &grid)
   {
     if (pde_ == nullptr and pde.has_interp())
@@ -250,23 +267,16 @@ struct kron_operators
         domain_scale *= dslope[d];
       }
       domain_scale = precision{1} / std::sqrt(domain_scale);
-    }
-    int const max_level = pde.max_level();
-    if (conn_volumes_.max_loaded_level() != max_level)
-    { // TODO do we need to do this when level decreases and how do we recycle data
-      conn_volumes_ = connect_1d(max_level, connect_1d::hierarchy::volume);
-      conn_full_    = connect_1d(max_level, connect_1d::hierarchy::full);
-      if (pde.has_interp())
-      {
-        pde_   = &pde;
-        interp = interpolation(pde_->num_dims(), &conn_volumes_, &workspace);
-      }
+
+      pde_   = &pde;
+      interp = interpolation(pde_->num_dims(), conn_->get(connect_1d::hierarchy::volume), &workspace);
     }
     if (not kglobal)
     {
-      kglobal = make_block_global_kron_matrix(pde, grid, &conn_volumes_,
-                                              &conn_full_, &workspace, verbosity);
-      set_specific_mode(pde, grid, entry, kglobal);
+      kglobal = make_block_global_kron_matrix(
+          pde, grid, conn_->get(connect_1d::hierarchy::volume),
+          conn_->get(connect_1d::hierarchy::full), &workspace, verbosity);
+      set_specific_mode(pde, cmats, *conn_, grid, entry, kglobal);
       if (interp)
       {
         finterp.resize(workspace.x.size());
@@ -274,7 +284,7 @@ struct kron_operators
       }
     }
     else if (not kglobal.specific_is_set(entry))
-      set_specific_mode(pde, grid, entry, kglobal);
+      set_specific_mode(pde, cmats, *conn_, grid, entry, kglobal);
   }
 
   /*!
@@ -282,12 +292,13 @@ struct kron_operators
    *        coefficients
    */
   void reset_coefficients(imex_flag entry, PDE<precision> const &pde,
+                          coefficient_matrices<precision> &cmats,
                           adapt::distributed_grid<precision> const &grid)
   {
     if (not kglobal)
-      make(entry, pde, grid);
+      make(entry, pde, cmats, grid);
     else
-      set_specific_mode(pde, grid, entry, kglobal);
+      set_specific_mode(pde, cmats, *conn_, grid, entry, kglobal);
   }
 
   //! \brief Clear all matrices
@@ -370,7 +381,7 @@ private:
   PDE<precision> const *pde_ = nullptr;
   precision domain_scale;
   std::array<precision, max_num_dimensions> dmin, dslope;
-  connect_1d conn_volumes_, conn_full_;
+  connection_patterns const *conn_ = nullptr;
 
   block_global_kron_matrix<precision> kglobal;
 

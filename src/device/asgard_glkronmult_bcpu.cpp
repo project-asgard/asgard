@@ -7,7 +7,7 @@
 
 namespace asgard::kronmult
 {
-#ifdef KRON_MODE_GLOBAL_BLOCK
+#ifdef KRON_MODE_GLOBAL
 
 template<typename precision, int num_dimensions, int dim, int n>
 void gbkron_mult_add(precision const A[], precision const x[], precision y[])
@@ -1033,5 +1033,5 @@ template void globalsv_cpu(
     block_global_workspace<float> &workspace);
 #endif
 
-#endif // KRON_MODE_GLOBAL_BLOCK
+#endif // KRON_MODE_GLOBAL
 } // namespace asgard::kronmult

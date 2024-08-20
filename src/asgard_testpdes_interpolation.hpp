@@ -1,7 +1,7 @@
 #pragma once
 #include "asgard_interptest_common.hpp"
 
-#ifdef KRON_MODE_GLOBAL_BLOCK
+#ifdef KRON_MODE_GLOBAL
 
 using namespace asgard;
 

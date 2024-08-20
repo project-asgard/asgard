@@ -457,8 +457,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
         solver = solve_opts::gmres;
       else if (*selected == "bicgstab")
         solver = solve_opts::bicgstab;
-      else if (*selected == "scalapack")
-        solver = solve_opts::scalapack;
       else
         throw std::runtime_error(report_wrong_value());
     }
@@ -763,14 +761,10 @@ void prog_opts::print_version_help(std::ostream &os)
 {
   os << "\nASGarD v" << ASGARD_VERSION << "  git-hash: " << GIT_COMMIT_HASH << "\n";
   os << "git-branch (" << GIT_BRANCH << ")\n";
-#ifdef KRON_MODE_GLOBAL
-#ifdef KRON_MODE_GLOBAL_BLOCK
-  os << "Kronmult method          Block-Global\n";
-#else
-  os << "Kronmult method          Global\n";
-#endif
-#else
+#ifdef ASGARD_USE_MPI
   os << "Kronmult method          Local\n";
+#else
+  os << "Kronmult method          Block-Global\n";
 #endif
 #ifdef ASGARD_USE_CUDA
   os << "GPU Acceleration         CUDA\n";

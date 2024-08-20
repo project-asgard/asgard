@@ -180,3 +180,40 @@ TEST_CASE("testing volume connections", "[connectivity]")
   for (int j = cells.row_begin(13); j < cells.row_end(13); j++)
     REQUIRE(cells[j] == gold_connect[j - cells.row_begin(13)]);
 }
+
+TEST_CASE("testing column transform connections", "[transformation]")
+{
+  SECTION("level 1, edge connect")
+  {
+    connect_1d cells(1, connect_1d::hierarchy::full);
+    connect_1d col_cells(cells, connect_1d::col_extend_hierarchy);
+    // cells on level 0 and 1 only connect the themselves
+    REQUIRE(col_cells.num_rows() == 2);
+    REQUIRE(col_cells.num_connections() == 4);
+    REQUIRE((col_cells[0] == 0 and col_cells[3] == 1));
+    REQUIRE((col_cells[1] == 1 and col_cells[2] == 0));
+  }
+  SECTION("level 3, edge connect")
+  {
+    connect_1d cells(3, connect_1d::hierarchy::full);
+    connect_1d col_cells(cells, connect_1d::col_extend_hierarchy);
+    // cells on level 0 and 1 only connect the themselves
+    REQUIRE(col_cells.num_rows() == 14);
+    for (int r = 4; r < 8; r++)
+    {
+      int r1 = col_cells.num_rows() - (8 - r) * 2;
+      int r2 = r1 + 1;
+      REQUIRE(cells.row_end(r) - cells.row_begin(r) == col_cells.row_end(r1) - col_cells.row_begin(r1));
+      REQUIRE(cells.row_end(r) - cells.row_begin(r) == col_cells.row_end(r2) - col_cells.row_begin(r2));
+      int j1 = col_cells.row_begin(r1);
+      int j2 = col_cells.row_begin(r2);
+      for (int j = cells.row_begin(r); j < cells.row_end(r); j++)
+      {
+        REQUIRE(cells[j] == col_cells[j1]);
+        REQUIRE(cells[j] == col_cells[j2]);
+        ++j1;
+        ++j2;
+      }
+    }
+  }
+}

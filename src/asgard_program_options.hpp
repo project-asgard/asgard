@@ -50,9 +50,7 @@ enum class solve_opts
   //! popular iterative solver, can be sensitive to the tolerance and restart frequency
   gmres,
   //! alternative to gmres, cheaper when taking many steps between restarts
-  bicgstab,
-  //! distributed direct solver, MPI-powered alternative to LAPACK
-  scalapack
+  bicgstab
 };
 
 /*!

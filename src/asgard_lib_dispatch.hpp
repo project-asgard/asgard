@@ -69,16 +69,6 @@ int pttrf(int n, P *D, P *E);
 template<typename P>
 int pttrs(int n, int nrhs, P const *D, P const *E, P *B, int ldb);
 
-#ifdef ASGARD_USE_SCALAPACK
-template<typename P>
-void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
-                    int *descB, int *info);
-
-template<typename P>
-void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
-                     int const *ipiv, P *b, int *descB, int *info);
-#endif
-
 template<resource resrc = resource::host, typename P>
 void sparse_gemv(char const trans, int rows, int cols, int nnz,
                  const int *row_offsets, const int *col_indices, const P *vals,

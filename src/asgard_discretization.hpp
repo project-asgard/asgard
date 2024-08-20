@@ -116,6 +116,8 @@ public:
 
   //! return the current state, in wavelet format, local to this mpi rank
   std::vector<precision> const &current_state() const { return state; }
+  //! returns the size of the current state
+  int64_t state_size() const { return static_cast<int64_t>(state.size()); }
 
   //! return a snapshot of the current solution
   reconstruct_solution get_snapshot() const
@@ -173,6 +175,14 @@ public:
    * of per rank)
    */
   std::optional<std::array<std::vector<precision>, 2>> rmse_exact_sol() const;
+  /*!
+   * \brief returns the vector of the exact solution at the current time step
+   *
+   * If no analytic solution has been specified, the optional will be empty.
+   * If the solution has been specified, this will return the exact solution
+   * at the current time and projected on the current grid.
+   */
+  std::optional<std::vector<precision>> get_exact_solution() const;
 
   //! collect the current state from across all mpi ranks
   fk::vector<precision> current_mpistate() const;
@@ -189,6 +199,8 @@ public:
   auto const &get_hiermanip() const { return hier; }
   //! return the fixed boundary conditions
   auto const &get_fixed_bc() const { return fixed_bc; }
+  //! return the connection patterns
+  auto const &get_conn() const { return conn; }
 
   //! get kronopts, return the kronmult operators for iterative solvers
   kron_operators<precision> &get_kronops() const { return kronops; }
@@ -196,9 +208,21 @@ public:
   std::optional<matrix_factor<precision>> &get_op_matrix() const { return op_matrix; }
   //! returns the moments
   std::vector<moment<precision>> &get_moments() const { return moments; }
-#endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
-
-#ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
+  //! returns the coefficient matrices
+  coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
+  //! recomputes the coefficients using the new algorithm
+  void compute_coefficients() {
+    generate_all_coefficients(*pde, matrices, conn, hier, time_);
+#ifndef KRON_MODE_GLOBAL
+    pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
+    for (int64_t t : indexof(pde->coeffs_.size()))
+      pde->coeffs_[t] = matrices.term_coeffs[t].to_fk_matrix(degree_ + 1, conn);
+#endif
+  }
+  fk::matrix<precision> get_coeff_matrix(int t, int d) const
+  {
+    return matrices.term_coeffs[t * pde->num_dims() + d].to_fk_matrix(hier.degree() + 1, conn);
+  }
   /*!
    * \ingroup asgard_discretization
    * \brief Performs integration in time for a given number of steps
@@ -217,16 +241,18 @@ protected:
   void update_grid_components()
   {
     kronops.clear();
+    compute_coefficients();
     auto const my_subgrid = grid.get_subgrid(get_rank());
     fixed_bc = boundary_conditions::make_unscaled_bc_parts(
-        *pde, grid.get_table(), transformer, my_subgrid.row_start,
-        my_subgrid.row_stop);
+        *pde, grid.get_table(), transformer, hier, matrices,
+        conn, my_subgrid.row_start, my_subgrid.row_stop);
     if (op_matrix)
       op_matrix.reset();
     if (not moments.empty()
         and pde->options().step_method.value() == time_advance::method::imex)
       reset_moments();
   }
+  //! rebuild the moments
   void reset_moments()
   {
     tools::time_event performance("update_system");
@@ -268,7 +294,7 @@ private:
 
   adapt::distributed_grid<precision> grid;
 
-  coefficient_matrix_manager<precision> matrices; // matrix coeffs
+  connection_patterns conn;
 
   basis::wavelet_transform<precision, resource::host> transformer;
   hierarchy_manipulator<precision> hier; // new transformer
@@ -287,6 +313,8 @@ private:
   // left-right boundary conditions, time-independent components
   std::array<boundary_conditions::unscaled_bc_parts<precision>, 2> fixed_bc;
 
+  // stores the coefficient matrices
+  mutable coefficient_matrices<precision> matrices;
   // used for all separable operations and iterative solvers
   mutable kron_operators<precision> kronops;
   // used for direct solvers

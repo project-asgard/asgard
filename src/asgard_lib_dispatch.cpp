@@ -7,8 +7,7 @@
 // ==========================================================================
 //  NOTE: The openblas cblas interfers with the OpenMPI library put these in the
 //        implimentation instead of the header to avoid this conflict.
-#if defined(ASGARD_ACCELERATE) || \
-    defined(__APPLE__) && defined(ASGARD_USE_SCALAPACK)
+#if defined(ASGARD_ACCELERATE)
 #include <Accelerate/Accelerate.h>
 #else
 #ifdef ASGARD_MKL
@@ -78,28 +77,6 @@ extern "C"
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cusparse.h>
-#endif
-
-#ifdef ASGARD_USE_SCALAPACK
-#include "asgard_cblacs_grid.hpp"
-#include "asgard_scalapack_matrix_info.hpp"
-extern "C"
-{
-  void psgesv_(int *n, int *nrhs, float const *a, int *ia, int *ja, int *desca,
-               int const *ipiv, float *b, int *ib, int *jb, int *descb,
-               int *info);
-  void pdgesv_(int *n, int *nrhs, double const *a, int *ia, int *ja, int *desca,
-               int const *ipiv, double *b, int *ib, int *jb, int *descb,
-               int *info);
-
-  void psgetrs_(const char *trans, int *n, int *nrhs, float const *a, int *ia,
-                int *ja, int *desca, int const *ipiv, float *b, int *ib,
-                int *jb, int *descb, int *info);
-  void pdgetrs_(const char *trans, int *n, int *nrhs, double const *a, int *ia,
-                int *ja, int *desca, int const *ipiv, double *b, int *ib,
-                int *jb, int *descb, int *info);
-}
-
 #endif
 
 namespace asgard::lib_dispatch
@@ -1170,55 +1147,6 @@ int pttrs(int n, int nrhs, P const *D, P const *E, P *B, int ldb)
   return info;
 }
 
-#ifdef ASGARD_USE_SCALAPACK
-
-template<typename P>
-void scalapack_gesv(int *n, int *nrhs, P *A, int *descA, int *ipiv, P *b,
-                    int *descB, int *info)
-{
-  expect(n);
-  expect(nrhs);
-  expect(ipiv);
-  expect(info);
-  expect(descB);
-  expect(*n >= 0);
-
-  int mp{1}, nq{1}, i_one{1};
-  if constexpr (std::is_same_v<P, double>)
-  {
-    pdgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
-  }
-  else if constexpr (std::is_same_v<P, float>)
-  {
-    psgesv_(n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB, info);
-  }
-}
-
-template<typename P>
-void scalapack_getrs(char *trans, int *n, int *nrhs, P const *A, int *descA,
-                     int const *ipiv, P *b, int *descB, int *info)
-{
-  expect(trans);
-  expect(n);
-  expect(nrhs);
-  expect(ipiv);
-  expect(info);
-  expect(*n >= 0);
-
-  int mp{1}, nq{1}, i_one{1};
-  if constexpr (std::is_same_v<P, double>)
-  {
-    pdgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
-             info);
-  }
-  else if constexpr (std::is_same_v<P, float>)
-  {
-    psgetrs_(trans, n, nrhs, A, &mp, &nq, descA, ipiv, b, &i_one, &nq, descB,
-             info);
-  }
-}
-#endif
-
 template<resource resrc, typename P>
 void sparse_gemv(char const trans, int rows, int cols, int nnz,
                  const int *row_offsets, const int *col_indices, const P *vals,
@@ -1538,24 +1466,6 @@ sparse_gemv<resource::device, double>(char const trans, int rows, int cols,
                                       const double *vals, double alpha,
                                       const double *x, double beta, double *y);
 
-#endif
-#endif
-
-#ifdef ASGARD_USE_SCALAPACK
-#ifdef ASGARD_ENABLE_FLOAT
-template void scalapack_gesv(int *n, int *nrhs, float *A, int *descA, int *ipiv,
-                             float *b, int *descB, int *info);
-template void scalapack_getrs(char *trans, int *n, int *nrhs, float const *A,
-                              int *descA, int const *ipiv, float *b, int *descB,
-                              int *info);
-#endif
-
-#ifdef ASGARD_ENABLE_DOUBLE
-template void scalapack_gesv(int *n, int *nrhs, double *A, int *descA,
-                             int *ipiv, double *b, int *descB, int *info);
-template void scalapack_getrs(char *trans, int *n, int *nrhs, double const *A,
-                              int *descA, int const *ipiv, double *b,
-                              int *descB, int *info);
 #endif
 #endif
 

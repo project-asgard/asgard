@@ -1,12 +1,77 @@
 #pragma once
 #include "./device/asgard_kronmult.hpp"
 #include "asgard_adapt.hpp"
+#include "asgard_block_matrix.hpp"
 
 // this interface between the low level kernels in src/device
 // and the higher level data-structures
 
 namespace asgard
 {
+
+/*!
+ * \internal
+ * \brief Stores the matrices for the pde operators
+ *
+ * This is a container class for the different types of mass and coefficient
+ * matrices associated with a PDE.
+ *
+ * \endinternal
+ */
+template<typename P>
+struct coefficient_matrices
+{
+  //! initializes the storage space and the non-Cartesian volumes
+  coefficient_matrices(PDE<P> &pde)
+      : num_dimensions_(pde.num_dims()), num_terms_(pde.num_terms())
+  {
+    for (int d : indexof<int>(num_dimensions_))
+      if (pde.get_dimensions()[d].volume_jacobian_dV)
+      {
+        dim_mass[d].set_non_identity();
+
+        dim_dv[d] = [dv_=pde.get_dimensions()[d].volume_jacobian_dV](std::vector<P> const &x, std::vector<P> &dvx)
+            -> void {
+          for (int64_t i : indexof(x))
+            dvx[i] = dv_(x[i], 0);
+        };
+      }
+    // prepare storage, no need to initialize yet
+    pterm_mass.resize(num_dimensions_ * num_terms_);
+    term_coeffs.resize(num_dimensions_ * num_terms_);
+    pterm_coeffs.resize(num_dimensions_ * num_terms_);
+    // check the number of pterms and initialize the mass (if needed)
+    for (int d : indexof<int>(num_dimensions_))
+      for (int t : indexof<int>(num_terms_))
+      {
+        size_t const size = pde.get_terms()[t][d].get_partial_terms().size();
+        pterm_mass[t * num_dimensions_ + d].resize(size);
+        pterm_coeffs[t * num_dimensions_ + d].resize(size);
+      }
+  }
+
+  //! dimension mass matrices, e.g., associated with the coordinates (Cartesian or non-Cartesian)
+  std::array<level_mass_matrces<P>, max_num_dimensions> dim_mass;
+  //! volume functions for the 1d intergrals for non-Cartesian coordinates
+  std::array<function_1d<P>, max_num_dimensions> dim_dv;
+
+  //! additional mass matrices, if terms have multiple partial terms
+  std::vector<std::vector<level_mass_matrces<P>>> pterm_mass;
+  //! final 1d term coefficient matrices
+  std::vector<block_sparse_matrix<P>> term_coeffs;
+
+  //! TODO (remove this) all pterm coefficients, used for boundary conds.
+  std::vector<std::vector<block_sparse_matrix<P>>> pterm_coeffs;
+
+  //! number of initialized dimensions
+  int num_dimensions() const { return num_dimensions_; }
+  //! number of initialized terms
+  int num_terms() const { return num_terms_; }
+
+private:
+  int num_dimensions_, num_terms_;
+};
+
 /*!
  * \brief Returns a list of terms matching the imex index.
  */
@@ -723,6 +788,7 @@ private:
  * \tparam P is either float or double
  *
  * \param pde is the instance of the PDE being simulated
+ * \param cmats holds the coefficient matrices from the current pde
  * \param grid is the current sparse grid for the discretization
  * \param program_options are the input options passed in by the user
  * \param mem_stats is the cached information about memory usage
@@ -734,7 +800,9 @@ private:
 template<typename P>
 local_kronmult_matrix<P>
 make_local_kronmult_matrix(
-    PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
+    PDE<P> const &pde, coefficient_matrices<P> &cmats,
+    connection_patterns const &conn,
+    adapt::distributed_grid<P> const &grid,
     memory_usage const &mem_stats, imex_flag const imex, kron_sparse_cache &spcache,
     verbosity_level verb, bool force_sparse = false);
 
@@ -749,9 +817,10 @@ make_local_kronmult_matrix(
  * Best use the matrix_list as a helper class.
  */
 template<typename P>
-void update_kronmult_coefficients(PDE<P> const &pde, imex_flag const imex,
-                                  kron_sparse_cache &spcache,
-                                  local_kronmult_matrix<P> &mat);
+void update_kronmult_coefficients(
+    PDE<P> const &pde, coefficient_matrices<P> &cmats,
+    connection_patterns const &conn, imex_flag const imex,
+    kron_sparse_cache &spcache, local_kronmult_matrix<P> &mat);
 
 /*!
  * \brief Compute the stats for the memory usage
@@ -783,361 +852,6 @@ compute_mem_usage(PDE<P> const &pde, adapt::distributed_grid<P> const &grid,
 #endif // end the ifndef KRON_MODE_GLOBAL
 
 #ifdef KRON_MODE_GLOBAL
-#ifndef KRON_MODE_GLOBAL_BLOCK
-// using GLOBAL kronmult where the explicitly form the sparse matrices
-// can be used with the cuSparse library (in CUDA mode)
-// will be replaced by the block global mode
-
-// forward declaration that allows set/update methods to be friends
-template<typename precision>
-class global_kron_matrix;
-
-/*!
- * \brief Sets the values and coefficients for a specific imex flag
- *
- * After the common part of the matrix patterns has been identified,
- * this sets the specific indexes and values for the given imex flag.
- * This MUST be called before an evaluate with the corresponding imex flag
- * can be issued.
- */
-template<typename precision>
-void set_specific_mode(PDE<precision> const &pde,
-                       adapt::distributed_grid<precision> const &dis_grid,
-                       imex_flag const imex,
-                       global_kron_matrix<precision> &mat);
-
-/*!
- * \brief Update the coefficients for the specific imex flag
- *
- * Once the coefficient data has changed, this will update the corresponding
- * coefficients in the matrix without recomputing the fixed indexing component
- * and while minimizing the number of allocations.
- */
-template<typename precision>
-void update_matrix_coefficients(PDE<precision> const &pde,
-                                adapt::distributed_grid<precision> const &dis_grid,
-                                imex_flag const imex,
-                                global_kron_matrix<precision> &mat);
-
-/*!
- * \brief Holds the data for a global Kronecker matrix
- */
-template<typename precision>
-class global_kron_matrix
-{
-public:
-  //! \brief Several workspaces are needed
-  enum class workspace
-  {
-    pad_x = 0, // padded entries for x/y
-    pad_y,
-    stage1, // global kron workspace (stages)
-    stage2,
-#ifdef ASGARD_USE_CUDA
-    dev_x, // move CPU data to the GPU
-    dev_y,
-    gsparse, // cusparse workspace
-#endif
-    num_spaces
-  };
-
-#ifdef ASGARD_USE_CUDA
-  //! \brief The default vector to use for data, gpu::vector for gpu
-  template<typename T>
-  using default_vector = gpu::vector<T>;
-  //! \brief On the GPU, we split the patterns into triples
-  static constexpr int patterns_per_dim = 3;
-#else
-  //! \brief The default vector to use for data, std::vector for the cpu
-  template<typename T>
-  using default_vector = std::vector<T>;
-  //! \brief On the CPU, use a single pattern per dimension
-  static constexpr int patterns_per_dim = 1;
-#endif
-
-  //! \brief Workspace buffers held externally to minimize allocations
-  using workspace_type = std::array<default_vector<precision>,
-                                    static_cast<int>(workspace::num_spaces)>;
-
-  //! \brief Creates an empty matrix.
-  global_kron_matrix() : num_dimensions_(0), num_active_(0), num_padded_(0),
-                         flops_({0, 0, 0}), verbosity(verbosity_level::quiet) {}
-  //! \brief Creates an empty matrix.
-  global_kron_matrix(int num_dimensions, int64_t num_active, int64_t num_padded,
-                     std::vector<kronmult::permutes> perms,
-                     std::vector<std::vector<int>> gpntr,
-                     std::vector<std::vector<int>> gindx,
-                     std::vector<std::vector<int>> gdiag,
-                     std::vector<std::vector<int>> givals,
-                     verbosity_level verb_in)
-      : num_dimensions_(num_dimensions), num_active_(num_active),
-        num_padded_(num_padded), perms_(std::move(perms)), flops_({0, 0, 0}),
-        gpntr_(std::move(gpntr)), gindx_(std::move(gindx)),
-        gdiag_(std::move(gdiag)), givals_(std::move(givals)),
-        gvals_(patterns_per_dim * perms_.size() * num_dimensions_),
-        verbosity(verb_in)
-  {
-    expect(gdiag_.size() == static_cast<size_t>(num_dimensions_));
-    if (num_dimensions_ > 1)
-    {
-      expect(gpntr_.size() == static_cast<size_t>(patterns_per_dim * num_dimensions_));
-      expect(gindx_.size() == static_cast<size_t>(patterns_per_dim * num_dimensions_));
-      expect(givals_.size() == static_cast<size_t>(patterns_per_dim * num_dimensions_));
-    }
-    else
-    { // there is no split in a 1d context
-      expect(gpntr_.size() == 1);
-      expect(gindx_.size() == 1);
-      expect(givals_.size() == 1);
-    }
-
-    expect(gpntr_.front().size() == static_cast<size_t>(num_padded + 1));
-  }
-
-#ifdef ASGARD_USE_CUDA
-  //! \brief Set the GPU side of the global kron, needed for the handle
-  void preset_gpu_gkron(gpu::sparse_handle const &hndl, imex_flag const imex);
-#endif
-
-  //! \brief Returns \b true if the matrix is empty, \b false otherwise.
-  bool empty() const { return gvals_.empty(); }
-
-  //! \brief Apply the operator, including expanding and remapping.
-  template<resource rec = resource::host>
-  void apply(imex_flag etype, precision alpha, precision const *x,
-             precision beta, precision *y) const;
-
-  //! \brief The matrix evaluates to true if it has been initialized and false otherwise.
-  operator bool() const { return (not gvals_.empty()); }
-
-  //! \brief Returns the preconditioner.
-  template<resource rec>
-  auto const &get_diagonal_preconditioner() const
-  {
-#ifdef ASGARD_USE_CUDA
-    if constexpr (rec == resource::device)
-    {
-      if (gpu_pre_con_.empty())
-        gpu_pre_con_ = pre_con_;
-      return gpu_pre_con_;
-    }
-    else
-      return pre_con_;
-#else
-    static_assert(rec == resource::host, "GPU not enabled");
-    return pre_con_;
-#endif
-  }
-
-  //! \brief Return the number of flops for the current matrix type
-  int64_t flops(imex_flag etype) const
-  {
-    return flops_[static_cast<int>(etype)];
-  }
-  //! \brief Check if the corresponding lock pattern is set.
-  bool local_unset(imex_flag etype) const
-  {
-    return (flops(etype) == 0);
-  }
-  //! \brief Set the four buffers
-  void set_workspace_buffers(workspace_type *work)
-  {
-    work_ = work; // save a link to the pointers
-
-    resize_buffer<workspace::pad_x>(num_padded_);
-    resize_buffer<workspace::pad_y>(num_padded_);
-    resize_buffer<workspace::stage1>(num_padded_);
-    resize_buffer<workspace::stage2>(num_padded_);
-
-#ifdef ASGARD_USE_CUDA
-    resize_buffer<workspace::dev_x>(num_active_);
-    resize_buffer<workspace::dev_y>(num_active_);
-#endif
-  }
-
-  // made friends for two reasons
-  // 1. Keeps the matrix API free from references to pde, which will allow an easier
-  //    transition to a new API that does not require the PDE class
-  // 2. Give the ability to modify the internal without encumbering the matrix API
-  friend void set_specific_mode<precision>(
-      PDE<precision> const &pde,
-      adapt::distributed_grid<precision> const &dis_grid,
-      imex_flag const imex,
-      global_kron_matrix<precision> &mat);
-
-  friend void update_matrix_coefficients<precision>(
-      PDE<precision> const &pde,
-      adapt::distributed_grid<precision> const &dis_grid,
-      imex_flag const imex,
-      global_kron_matrix<precision> &mat);
-
-protected:
-  // the workspace is kept externally to minimize allocations
-  mutable workspace_type *work_ = nullptr;
-
-  //! \brief Compile-time method to get a specific workspace
-  template<workspace wid>
-  precision *get_buffer() const
-  {
-    static_assert(wid != workspace::num_spaces,
-                  "no buffer associated with the last entry (num_spaces)");
-    return (*work_)[static_cast<int>(wid)].data();
-  }
-  //! \brief Method to resize the buffer, if the size is insufficient
-  template<workspace wid>
-  void resize_buffer(int64_t min_size)
-  {
-    static_assert(wid != workspace::num_spaces,
-                  "no buffer associated with the last entry (num_spaces)");
-    default_vector<precision> &w = (*work_)[static_cast<int>(wid)];
-    if (static_cast<int64_t>(w.size()) < min_size)
-      w.resize(min_size);
-    // x must always be padded by zeros
-    if constexpr (wid == workspace::pad_x)
-      kronmult::set_buffer_to_zero(w);
-  }
-
-private:
-  // description of the multi-indexes and the sparsity pattern
-  // global case data
-  int num_dimensions_ = 0;
-  int64_t num_active_ = 0;
-  int64_t num_padded_ = 0;
-  std::vector<kronmult::permutes> perms_;
-  std::array<int64_t, num_imex_variants> flops_;
-  // data for the 1D tensors
-  std::vector<std::vector<int>> gpntr_;
-  std::vector<std::vector<int>> gindx_;
-  std::vector<std::vector<int>> gdiag_;
-  std::vector<std::vector<int>> givals_;
-  std::vector<std::vector<precision>> gvals_;
-  // collections of terms
-  std::array<std::vector<int>, 3> term_groups;
-  int degree_ = 0;
-  // preconditioner
-  std::vector<precision> pre_con_;
-#ifdef ASGARD_USE_CUDA
-  std::array<kronmult::global_gpu_operations<precision>, num_imex_variants> gpu_global;
-  mutable gpu::vector<precision> gpu_pre_con_; // gpu copy
-#endif
-  verbosity_level verbosity = verbosity_level::high;
-};
-
-/*!
- * \brief Factory method for making a global kron matrix
- *
- * This sets up the common components of the matrix,
- */
-template<typename precision>
-global_kron_matrix<precision>
-make_global_kron_matrix(PDE<precision> const &pde,
-                        adapt::distributed_grid<precision> const &dis_grid,
-                        verbosity_level verb);
-
-/*!
- * \brief Holds a list of matrices used for time-stepping.
- *
- * There are multiple types of matrices based on the time-stepping and the
- * different terms being used. Matrices are grouped in one object so they can go
- * as a set and reduce the number of matrix making.
- */
-template<typename precision>
-struct kron_operators
-{
-  kron_operators(verbosity_level verb_in = verbosity_level::high)
-      : verbosity(verb_in)
-  {}
-
-  template<resource rec = resource::host>
-  void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
-  {
-    apply<rec>(entry, 0, alpha, x, beta, y);
-  }
-
-  //! \brief Apply the given matrix entry
-  template<resource rec = resource::host>
-  void apply(imex_flag entry, precision, precision alpha, precision const x[], precision beta, precision y[]) const
-  {
-    kglobal.template apply<rec>(entry, alpha, x, beta, y);
-  }
-  int64_t flops(imex_flag entry) const
-  {
-    return kglobal.flops(entry);
-  }
-
-  //! \brief Make the matrix for the given entry
-  void make(imex_flag entry, PDE<precision> const &pde,
-            adapt::distributed_grid<precision> const &grid)
-  {
-    if (not kglobal)
-    {
-      kglobal = make_global_kron_matrix(pde, grid, verbosity);
-      // the buffers must be set before preset_gpu_gkron()
-      kglobal.set_workspace_buffers(&workspaces);
-    }
-
-    if (kglobal.local_unset(entry))
-    {
-      set_specific_mode(pde, grid, entry, kglobal);
-#ifdef ASGARD_USE_CUDA
-      kglobal.preset_gpu_gkron(sp_handle, entry);
-#endif
-    }
-  }
-  /*!
-   * \brief Either makes the matrix or if it exists, just updates only the
-   *        coefficients
-   */
-  void reset_coefficients(imex_flag entry, PDE<precision> const &pde,
-                          adapt::distributed_grid<precision> const &grid)
-  {
-    if (not kglobal)
-      make(entry, pde, grid);
-    else
-    {
-      if (kglobal.local_unset(entry))
-      {
-        set_specific_mode(pde, grid, entry, kglobal);
-#ifdef ASGARD_USE_CUDA
-        kglobal.preset_gpu_gkron(sp_handle, entry);
-#endif
-      }
-      else
-        update_matrix_coefficients(pde, grid, entry, kglobal);
-    }
-  }
-
-  //! \brief Clear all matrices
-  void clear()
-  {
-    if (kglobal)
-      kglobal = global_kron_matrix<precision>();
-  }
-
-  //! \brief Returns the preconditioner.
-  template<resource rec>
-  auto const &get_diagonal_preconditioner() const
-  {
-    return kglobal.template get_diagonal_preconditioner<rec>();
-  }
-
-  //! controls the verbosity level
-  verbosity_level verbosity = verbosity_level::high;
-
-private:
-  //! \brief Holds the global part of the kron product
-  global_kron_matrix<precision> kglobal;
-
-  typename global_kron_matrix<precision>::workspace_type workspaces;
-#ifdef ASGARD_USE_CUDA
-  gpu::sparse_handle sp_handle;
-  gpu::vector<std::byte> gpu_sparse_buffer;
-#endif
-};
-#endif // end ifndef KRON_MODE_GLOBAL_BLOCK
-#endif // end ifdef KRON_MODE_GLOBAL
-
-#ifdef KRON_MODE_GLOBAL_BLOCK
 // using BLOCK-GLOBAL kronmult, the fastest method on the cpu and very memory conservative
 
 template<typename precision>
@@ -1146,6 +860,8 @@ class block_global_kron_matrix;
 template<typename precision>
 void set_specific_mode(
     PDE<precision> const &pde,
+    coefficient_matrices<precision> const &cmats,
+    connection_patterns const &conns,
     adapt::distributed_grid<precision> const &dis_grid,
     imex_flag const imex,
     block_global_kron_matrix<precision> &mat);
@@ -1258,6 +974,8 @@ public:
   // 2. Give the ability to modify the internal without encumbering the matrix API
   friend void set_specific_mode<precision>(
       PDE<precision> const &pde,
+      coefficient_matrices<precision> const &cmats,
+      connection_patterns const &conns,
       adapt::distributed_grid<precision> const &dis_grid,
       imex_flag const imex,
       block_global_kron_matrix<precision> &mat);
