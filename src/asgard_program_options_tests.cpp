@@ -74,7 +74,7 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-g", "dummy"})),
                         "invalid value for -g, see exe -help");
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-g", "mix"})),
-                        "mix must be followed by a value, see exe -help");
+                        "missing mixed grid number, see exe -help");
     prog_opts opts3(vecstrview({"exe", "-g", "sparse"}));
     REQUIRE_FALSE(opts3.mgrid_group);
   }
