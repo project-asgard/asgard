@@ -7,9 +7,7 @@ jobs:
     ci_test:
         strategy:
             matrix:
-                os: [macos-latest]
-                node: [Release]
-                features: [Default]
+                os: [macos-13, macos-14]
         runs-on: ${{matrix.os}}
         steps:
             - name: CPU Info
@@ -18,14 +16,13 @@ jobs:
                 sysctl -n machdep.cpu.features
                 (echo "Number of Cores:"; sysctl -n machdep.cpu.core_count) |tr '\n' '\t' && echo ''
             - name: Git checkout
-              uses: actions/checkout@v1
+              uses: actions/checkout@v4
             - name: Makedir
               working-directory: ${{runner.workspace}}/asgard
               run: cmake -E make_directory build
             - name: Configure Default
-              if: ${{matrix.features  == 'Default'}}
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_PCH=ON -DASGARD_PRECISIONS=double ../
+              run: cmake -DCMAKE_BUILD_TYPE=Release -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_PCH=ON -DASGARD_PRECISIONS=double ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
               run: make -j VERBOSE=1
