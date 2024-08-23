@@ -1,10 +1,10 @@
-name: Continuous Integration Test
+name: build-ubuntu
 on:
   pull_request:
   push:
   workflow_dispatch:
 jobs:
-  ci-test:
+  build:
     strategy:
       matrix:
         os: [ubuntu-22.04]

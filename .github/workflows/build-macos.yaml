@@ -1,10 +1,10 @@
-name: Continuous Integration Test
+name: build-macos
 on:
     workflow_dispatch:
     push:
     pull_request:
 jobs:
-    ci_test:
+    build:
         strategy:
             matrix:
                 os: [macos-13, macos-14]
