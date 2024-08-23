@@ -13,7 +13,7 @@ jobs:
         runs-on: ${{matrix.os}}
         steps:
           - name: Git checkout
-            uses: actions/checkout@v4
+            uses: actions/checkout@v1
           - name: Makedir
             working-directory: ${{runner.workspace}}/asgard
             run: cmake -E make_directory build
