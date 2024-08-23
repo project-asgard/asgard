@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  ubuntu-test:
+  ci-test:
     strategy:
       matrix:
         os: [ubuntu-22.04]
