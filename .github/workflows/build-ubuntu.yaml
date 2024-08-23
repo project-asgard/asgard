@@ -1,4 +1,4 @@
-name: build-ubuntu
+name: Continuous Integration Test
 
 on:
   pull_request:
