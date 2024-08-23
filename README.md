@@ -1,6 +1,8 @@
 # ASGarD - Adaptive Sparse Grid Discretization
 
-To cite the ASGarD code in your work, please use: [doi:10.11578/dc.20201125.5](https://www.osti.gov/doecode/biblio/48752)
+To cite the ASGarD code in your work, please use: 
+* [![DOI](https://joss.theoj.org/papers/10.21105/joss.06766/status.svg)](https://doi.org/10.21105/joss.06766)
+* [doi:10.11578/dc.20201125.5](https://www.osti.gov/doecode/biblio/48752)
 
 Papers using ASGarD:
 * [Sparse-grid Discontinuous Galerkin Methods for the Vlasov-Poisson-Lenard-Bernstein Model](https://arxiv.org/abs/2402.06493)
