@@ -28,6 +28,5 @@ jobs:
             run: make test
           - name: Show Log
             if: failure()
-              working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
-              run: cat LastTest.log
-
+            working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
+            run: cat LastTest.log
