@@ -5,22 +5,13 @@ on:
   push:
   workflow_dispatch:
 
-env:
-  DEBIAN_FRONTEND:noninteractive
-  TZ:"America/New_York"
-
 jobs:
-  ci_test:
+  ubuntu-test:
     strategy:
       matrix:
         os: [ubuntu-22.04]
         runs-on: ${{matrix.os}}
         steps:
-          - name: CPU Info
-            run: |
-              sysctl -n machdep.cpu.brand_string
-              sysctl -n machdep.cpu.features
-              (echo "Number of Cores:"; sysctl -n machdep.cpu.core_count) |tr '\n' '\t' && echo ''
           - name: Git checkout
             uses: actions/checkout@v4
           - name: Makedir
