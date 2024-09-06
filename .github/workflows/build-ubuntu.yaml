@@ -32,7 +32,7 @@ jobs:
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
-        run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}}
+        run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DCMAKE_CXX_COMPILER=${{matrix.compiler}}
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
                    ../
@@ -62,7 +62,7 @@ jobs:
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
-        run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}}
+        run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DASGARD_USE_MPI=ON
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
                    ../
