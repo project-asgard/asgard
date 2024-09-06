@@ -21,7 +21,7 @@ jobs:
   build:
     strategy:
       matrix:
-        compiler: [clang++, g++]
+        compiler: [clang++-14, g++-11]
         os: [ubuntu-22.04]
     runs-on: ${{matrix.os}}
     steps:
