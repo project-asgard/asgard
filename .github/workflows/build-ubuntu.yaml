@@ -4,6 +4,17 @@ on:
   push:
   workflow_dispatch:
 jobs:
+  clang-format:
+  strategy:
+    matrix:
+      os: [ubuntu-22.04]
+  runs-on: ${{matrix.os}}
+  steps:
+    - name: Git checkout
+      uses: actions/checkout@v4
+    - name: Makedir
+      working-directory: ${{runner.workspace}}/asgard
+      run: ./testing/automated/clang-format-check.sh
   build:
     strategy:
       matrix:
