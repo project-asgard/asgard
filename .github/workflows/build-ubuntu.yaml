@@ -11,13 +11,13 @@ jobs:
     runs-on: ${{matrix.os}}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
       - name: Makedir
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
-        run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_PRECISIONS=double ../
+        run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_PRECISIONS=float,double ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
         run: make -j VERBOSE=1
