@@ -46,3 +46,35 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
+  build-mpi:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+    runs-on: ${{matrix.os}}
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+      - name: install
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt install -y libopenmpi-dev
+      - name: Makedir
+        working-directory: ${{runner.workspace}}/asgard
+        run: cmake -E make_directory build
+      - name: Configure
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}}
+                   -DASGARD_USE_MPI=ON
+                   -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   ../
+      - name: Build
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make -j VERBOSE=1
+      - name: Test
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make test
+      - name: Show Log
+        if: failure()
+        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
+        run: cat LastTest.log
+
+
