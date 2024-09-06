@@ -17,7 +17,7 @@ jobs:
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
-        run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_PRECISIONS=float,double ../
+        run: cmake -DCMAKE_BUILD_TYPE=${{matrix.node}} -DASGARD_RECOMMENDED_DEFAULTS=ON ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
         run: make -j VERBOSE=1
