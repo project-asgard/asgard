@@ -34,6 +34,7 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DCMAKE_CXX_COMPILER=${{matrix.compiler}}
+                   -DCMAKE_CXX_FLAGS="-Werror"
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
                    ../
       - name: Build
@@ -76,5 +77,4 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-
 
