@@ -110,4 +110,55 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
+  build-io:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+    runs-on: ${{matrix.os}}
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+      - name: Makedir
+        working-directory: ${{runner.workspace}}/asgard
+        run: cmake -E make_directory build
+      - name: Configure
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_BUILD_HDF5=ON
+                   -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   ../
+      - name: Build
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make -j VERBOSE=1
+      - name: Test
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make test
+      - name: Show Log
+        if: failure()
+        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
+        run: cat LastTest.log
+  build-doxygen:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+    runs-on: ${{matrix.os}}
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+      - name: Makedir
+        working-directory: ${{runner.workspace}}/asgard
+        run: cmake -E make_directory build
+      - name: Configure
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_BUILD_DOCS=ON
+                   -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   ../
+      - name: Build
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make -j VERBOSE=1
+      - name: Show Log
+        if: failure()
+        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
+        run: cat LastTest.log
 
