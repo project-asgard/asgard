@@ -145,6 +145,9 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+      - name: install
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt install -y doxygen
       - name: Makedir
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build
