@@ -4,13 +4,13 @@ using namespace asgard;
 
 using prec = asgard::default_precision;
 
-class tpde final : public PDE<double>
+class tpde final : public PDE<prec>
 {
 public:
-  using P = double;
+  using P = prec;
 
   tpde(int num_dims, int levels, int degree,
-       std::function<fk::vector<double>(fk::vector<double> const &, double)> f,
+       std::function<fk::vector<prec>(fk::vector<prec> const &, prec)> f,
        prog_opts const &options = prog_opts())
   {
     int constexpr num_sources       = 0;
