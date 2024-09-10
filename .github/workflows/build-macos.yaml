@@ -7,7 +7,7 @@ jobs:
     build:
         strategy:
             matrix:
-                prec: [float, double, "float;double"]
+                prec: [float, double, float\;double]
                 os: [macos-13, macos-14]
         runs-on: ${{matrix.os}}
         steps:
