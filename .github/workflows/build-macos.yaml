@@ -7,6 +7,7 @@ jobs:
     build:
         strategy:
             matrix:
+                prec: [float, double, float;double]
                 os: [macos-13, macos-14]
         runs-on: ${{matrix.os}}
         steps:
@@ -22,7 +23,7 @@ jobs:
               run: cmake -E make_directory build
             - name: Configure Default
               working-directory: ${{runner.workspace}}/asgard/build
-              run: cmake -DCMAKE_BUILD_TYPE=Release -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_PCH=ON -DASGARD_PRECISIONS=double ../
+              run: cmake -DCMAKE_BUILD_TYPE=Release -DASGARD_RECOMMENDED_DEFAULTS=ON -DASGARD_USE_PCH=ON -DASGARD_PRECISIONS=${{matrix.prec}} ../
             - name: Build
               working-directory: ${{runner.workspace}}/asgard/build
               run: make -j VERBOSE=1
