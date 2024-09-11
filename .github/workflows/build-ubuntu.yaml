@@ -7,7 +7,6 @@ jobs:
   clang-format:
     strategy:
       matrix:
-        prec: [float, double, float\;double]
         os: [ubuntu-22.04]
     runs-on: ${{matrix.os}}
     steps:
@@ -22,6 +21,7 @@ jobs:
   build:
     strategy:
       matrix:
+        prec: [float, double, float\;double]
         compiler: [clang++-14, g++-11]
         os: [ubuntu-22.04]
     runs-on: ${{matrix.os}}
