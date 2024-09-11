@@ -7,6 +7,7 @@ jobs:
   clang-format:
     strategy:
       matrix:
+        prec: [float, double, float\;double]
         os: [ubuntu-22.04]
     runs-on: ${{matrix.os}}
     steps:
@@ -35,6 +36,7 @@ jobs:
         run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DCMAKE_CXX_COMPILER=${{matrix.compiler}}
                    -DCMAKE_CXX_FLAGS="-Werror"
+                   -DASGARD_PRECISIONS=${{matrix.prec}}
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
                    ../
       - name: Build
@@ -42,7 +44,7 @@ jobs:
         run: make -j VERBOSE=1
       - name: Test
         working-directory: ${{runner.workspace}}/asgard/build
-        run: make test
+        run: ctest --output-on-failure
       - name: Show Log
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
