@@ -141,6 +141,10 @@ if (ASGARD_RECOMMENDED_DEFAULTS)
   if (NOT ASGARD_USE_CUDA)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
   endif ()
+
+  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    add_compile_definitions(ACCELERATE_NEW_LAPACK)
+  endif ()
 endif ()
 
 if (ASGARD_USE_GPU_MEM_LIMIT AND NOT ASGARD_USE_CUDA)
