@@ -318,9 +318,11 @@ fk::vector<P> read_vector_from_txt_file(std::filesystem::path const &path)
   // create output vector
   fk::vector<P> values(num_elems);
 
+  double x = 0;
   for (auto i = 0; i < num_elems; ++i)
   {
-    infile >> values(i);
+    infile >> x;
+    values(i) = static_cast<P>(x);
   }
 
   return values;
