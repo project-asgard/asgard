@@ -279,7 +279,7 @@ if __name__ == "__main__":
         asgplot.title(shot.title, fontsize = 'large')
 
         if shot.num_dimensions == 1:
-            z, x = shot.plot_data1d((()), num_points = 256)
+            z, x = shot.plot_data1d(((),), num_points = 256)
             asgplot.plot(x, z)
             asgplot.xlabel(shot.dimension_names[0], fontsize = 'large')
         else:
