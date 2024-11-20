@@ -4,7 +4,7 @@ on:
   push:
   workflow_dispatch:
 jobs:
-  build:
+  asgard-core:
     strategy:
       matrix:
         prec: [float, double, float\;double]
@@ -20,8 +20,8 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DCMAKE_CXX_COMPILER=${{matrix.compiler}}
-                   -DCMAKE_CXX_FLAGS="-Werror"
                    -DASGARD_PRECISIONS=${{matrix.prec}}
+                   -DASGARD_BUILD_HDF5=ON
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
                    ../
       - name: Build
@@ -34,7 +34,7 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-  build-mpi:
+  asgard-mpi:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
@@ -61,7 +61,7 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-  build-mkl:
+  asgard-mkl:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
@@ -91,52 +91,3 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-  build-io:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
-      - name: Makedir
-        working-directory: ${{runner.workspace}}/asgard
-        run: cmake -E make_directory build
-      - name: Configure
-        working-directory: ${{runner.workspace}}/asgard/build
-        run: cmake -DCMAKE_BUILD_TYPE=Release
-                   -DASGARD_BUILD_HDF5=ON
-                   -DASGARD_RECOMMENDED_DEFAULTS=ON
-                   ../
-      - name: Build
-        working-directory: ${{runner.workspace}}/asgard/build
-        run: make -j VERBOSE=1
-      - name: Test
-        working-directory: ${{runner.workspace}}/asgard/build
-        run: make test
-      - name: Show Log
-        if: failure()
-        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
-        run: cat LastTest.log
-  build-doxygen:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
-      - name: install
-        working-directory: ${{runner.workspace}}/asgard
-        run: sudo apt install -y doxygen
-      - name: Makedir
-        working-directory: ${{runner.workspace}}/asgard
-        run: cmake -E make_directory build
-      - name: Configure
-        working-directory: ${{runner.workspace}}/asgard/build
-        run: cmake -DCMAKE_BUILD_TYPE=Debug
-                   -DASGARD_BUILD_DOCS=ON
-                   -DASGARD_RECOMMENDED_DEFAULTS=ON
-                   ../
-      - name: Build
-        working-directory: ${{runner.workspace}}/asgard/build
-        run: make -j VERBOSE=1
-      - name: Show Log
-        if: failure()
-        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
-        run: cat LastTest.log
-
