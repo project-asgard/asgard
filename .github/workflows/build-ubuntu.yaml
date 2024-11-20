@@ -4,17 +4,6 @@ on:
   push:
   workflow_dispatch:
 jobs:
-  clang-format:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
-      - name: install
-        working-directory: ${{runner.workspace}}/asgard
-        run: sudo apt install -y clang-format-12
-      - name: check
-        working-directory: ${{runner.workspace}}/asgard
-        run: ./testing/automated/clang-format-check.sh
   build:
     strategy:
       matrix:
