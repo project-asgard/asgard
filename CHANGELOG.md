@@ -1,6 +1,13 @@
 
 ## unscheduled features
 
+## v0.5.0 (9 Aug 2024)
+- Rewriting local kronmult library and adding an optional global kronmult library
+- Matrix-free implicit timestepping using GMRES or BICGStab solver
+- IMEX time advance
+- File checkpoint restart
+- New PDEs
+
 ## v0.3.0 (26 Feb 2020)
 
 - [x] multi-node capability (merged 24 Oct 2019)
