@@ -2,8 +2,9 @@
 
 echo "running clang format. pwd: $(pwd)"
 
-# way too counter productive, disable most checks for now
-# will update the file list over time
+# way too counter productive
+# clang-format is not consistent across versions, even with .clang-format
+# not going to do massive refactors just because
 
 file_list=(
 device/asgard_glkronmult_cpu.cpp
@@ -146,8 +147,8 @@ asgard_tensors.hpp
 # clang-format should not be applied to non-C++ files
 # build_info.hpp.in is configured by CMake and has non C++ syntax
 # for file in $(find src -type f ! -iname "build_info.hpp.in")
-for file in ${file_list[@]}
-do
-  echo ./src/${file}
-  diff ./src/${file} <(clang-format-12 ./src/${file}) || exit 1;
-done
+#for file in ${file_list[@]}
+#do
+#  echo ./src/${file}
+#  diff ./src/${file} <(clang-format-12 ./src/${file}) || exit 1;
+#done
