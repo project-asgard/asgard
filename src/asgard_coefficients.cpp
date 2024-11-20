@@ -147,8 +147,6 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
       // the penalty term does not include a volume integral
       if constexpr (coeff_type != coefficient_type::penalty)
       {
-        //int const current = (dim.get_degree() + 1) * i;
-
         for (int k = 0; k < tmp.nrows(); k++)
         {
           P c = g_dv_func(
@@ -314,7 +312,6 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
           // boundary conditions.
           if constexpr (coeff_type == coefficient_type::penalty)
             coeff_axpy(fluxL2abs, matrix_LtL, coefficients.diag(0));
-            //coeff_axpy(0, 0, fluxL2abs, matrix_LtL);
           break;
 
         case boundary_condition::neumann:
@@ -323,7 +320,6 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
           // <gf,v> = <g{f}/2,v>
           if constexpr (coeff_type != coefficient_type::penalty)
             coeff_axpy(-2.0 * fluxL2, matrix_LtL, coefficients.diag(0));
-            //coeff_axpy(0, 0, -2.0 * fluxL2, matrix_LtL);
           break;
 
         default: // case boundary_condition::periodic

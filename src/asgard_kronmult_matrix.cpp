@@ -1230,8 +1230,6 @@ void set_specific_mode(PDE<precision> const &pde,
 
   std::vector<int> const &used_terms = mat.term_groups_[imex_indx];
 
-  // int const n = mat.blockn_;
-
   int const num_dimensions = pde.num_dims();
 
   for (int const t : used_terms)

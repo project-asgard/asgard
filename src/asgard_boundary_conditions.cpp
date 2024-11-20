@@ -146,7 +146,6 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
       std::vector<partial_term<P>> const &pterms = term.get_partial_terms();
       for (int pt : indexof<int>(pterms.size()))
       {
-        // std::cout << " pt = " << pt << "\n";
         partial_term<P> const &pterm = pterms[pt];
 
         if (pterm.left_homo() == homogeneity::inhomogeneous)

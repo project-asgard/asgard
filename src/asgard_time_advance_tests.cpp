@@ -992,9 +992,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
       std::is_same_v<TestType, double> ? 1.0e-10 : 1.0e-6;
 
   // the expected L2 from analytical solution after the maxwellian has relaxed
-  //TestType constexpr expected_l2 = 8.654e-4;
   // rel tolerance for comparing l2
-  //TestType constexpr tolerance = std::is_same_v<TestType, double> ? 1.0e-3 : 5.0e-3;
   TestType constexpr tolerance = std::is_same_v<TestType, double> ? 1.0e-3 : 5.0e-3;
 
   auto opts = make_opts("-p relaxation_1x1v -d 2 -n 10 -s imex -sv gmres -dt 5.0e-4 -g dense");
@@ -1023,10 +1021,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
     {
       fk::vector<TestType> const analytic_solution = disc.get_exact_solution().value();
 
-      // sum_separable_funcs(
-      //     pde.exact_vector_funcs(), pde.get_dimensions(), disc.get_grid(),
-      //     disc.get_transformer(), degree, disc.time());
-
       // calculate L2 error between simulation and analytical solution
       TestType const L2 = nrm2_dist(f_val, analytic_solution);
       TestType const relative_error =
@@ -1035,15 +1029,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
           asgard::gather_errors<TestType>(L2, relative_error);
       expect(l2_errors.size() == relative_errors.size());
       for (auto const &l2 : l2_errors)
-      {
-        // verify the l2 is close to the expected l2 from the analytical
-        // solution
         REQUIRE(l2 <= tolerance);
-        // TestType const abs_diff = std::abs(l2 - expected_l2);
-        // TestType const expected =
-        //     tolerance * std::max(std::abs(l2), std::abs(expected_l2));
-        // REQUIRE(abs_diff <= expected);
-      }
     }
   }
 

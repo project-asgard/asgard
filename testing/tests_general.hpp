@@ -95,25 +95,6 @@ void rmse_comparison(asgard::fk::matrix<P, mem> const &m0,
   REQUIRE((diff_norm / max) < (tolerance * std::sqrt(m0.size())));
 }
 
-// TODO - rmeove
-template<typename P, asgard::mem_type mem, asgard::mem_type omem>
-P rmse_comparison2(asgard::fk::matrix<P, mem> const &m0,
-                     asgard::fk::matrix<P, omem> const &m1, P const tolerance)
-{
-  auto const diff_norm = asgard::fm::frobenius(m0 - m1);
-
-  auto const abs_compare = [](auto const a, auto const b) {
-    return (std::abs(a) < std::abs(b));
-  };
-  auto const max = std::max(
-      static_cast<P>(1.0),
-      std::max(std::abs(*std::max_element(m0.begin(), m0.end(), abs_compare)),
-               std::abs(*std::max_element(m1.begin(), m1.end(), abs_compare))));
-
-  return (diff_norm / max);
-  // REQUIRE((diff_norm / max) < (tolerance * std::sqrt(m0.size())));
-}
-
 // Someday I should come up with a more elegant solution here
 // https://github.com/catchorg/Catch2/blob/master/docs/assertions.md
 // https://github.com/catchorg/Catch2/blob/master/docs/matchers.md
