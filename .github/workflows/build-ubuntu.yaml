@@ -5,6 +5,8 @@ on:
   workflow_dispatch:
 jobs:
   asgard-core:
+# no MPI/CUDA but on CPU with OpenBlas and HDF5
+# some BALS is required, makes little sense to skip HDF5 (can't output anything)
     strategy:
       matrix:
         prec: [float, double, float\;double]
@@ -35,6 +37,7 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
   asgard-mpi:
+# basic MPI build using default settings
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
@@ -62,6 +65,7 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
   asgard-mkl:
+# maybe an overkill but there are some differences between MKL and OpenBlas
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
