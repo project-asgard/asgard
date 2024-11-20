@@ -625,6 +625,9 @@ void prog_opts::process_file(std::string_view const &exec_name)
     while (std::isspace(static_cast<unsigned char>(s[be])))
       be++;
     std::string::size_type en = s.size() - 1;
+    std::string::size_type sharp = s.find('#');
+    if (sharp < s.size())
+      en = sharp - 1;
     while (en > be and std::isspace(static_cast<unsigned char>(s[en])))
       en--;
     return s.substr(be, en - be + 1);

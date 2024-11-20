@@ -338,6 +338,11 @@ TEST_CASE("input file processing", "[file i/o]")
     static_assert(std::is_same_v<decltype(name), std::optional<std::string>>);
     REQUIRE(!!name);
     REQUIRE(name.value() == "some-name test");
+
+    auto nu = prog.file_value<int>("var nu");
+    static_assert(std::is_same_v<decltype(nu), std::optional<int>>);
+    REQUIRE(!!nu);
+    REQUIRE(nu.value() == 314);
   }
 
   SECTION("test_input1.txt -- direct ")
