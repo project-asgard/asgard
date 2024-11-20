@@ -149,10 +149,8 @@ find_package (LINALG REQUIRED)
 
 # sets OpenBLAS_PATH and LINALG_LIBS
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
-# sets PROFILE_DEPS and PROFILE_LIBS
-include (${CMAKE_SOURCE_DIR}/profiling/profiling.cmake)
 # sets HighFive_FOUND
-include (${CMAKE_SOURCE_DIR}/contrib/io.cmake)
+include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
 
 string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
 set(ASGARD_USE_MKL FALSE)
