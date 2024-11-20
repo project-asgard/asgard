@@ -1,9 +1,6 @@
 cmake_minimum_required (VERSION 3.19)
 
-project (asgard
-  VERSION 0.7.0
-  LANGUAGES CXX
-)
+project (asgard VERSION 0.7.0 LANGUAGES CXX)
 
 #-------------------------------------------------------------------------------
 #  Setup the kromult external project.
