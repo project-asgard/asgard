@@ -7,3 +7,5 @@ v_thermal : 0.5
     half percent : 5.E-3 
  extra name  :  some-name test
     
+  # line above has white spaces # #
+ var nu  :  314 # inlined comment
