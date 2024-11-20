@@ -324,16 +324,16 @@ void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, level_
 }
 
 template<typename P>
-template<int degree>
+template<int tdegree>
 void hierarchy_manipulator<P>::projectup2(P const *raw, P *fin) const
 {
-  if constexpr (degree == 0)
+  if constexpr (tdegree == 0)
   {
     P constexpr s22 = 0.5 * s2;
     fin[0] = s22 * raw[0] + s22 * raw[1];
     fin[1] = -s22 * raw[0] + s22 * raw[1];
   }
-  else if constexpr (degree == 1)
+  else if constexpr (tdegree == 1)
   {
     P constexpr is2h = 0.5 * is2;
     P constexpr is64 = s6 / 4.0;
@@ -351,10 +351,10 @@ void hierarchy_manipulator<P>::projectup2(P const *raw, P *fin) const
 }
 
 template<typename P>
-template<int degree>
+template<int tdegree>
 void hierarchy_manipulator<P>::projectup(int num_final, P const *raw, P *upper, P *fin) const
 {
-  if constexpr (degree == 0)
+  if constexpr (tdegree == 0)
   {
 #pragma omp parallel for
     for (int i = 0; i < num_final; i++)
@@ -366,7 +366,7 @@ void hierarchy_manipulator<P>::projectup(int num_final, P const *raw, P *upper, 
       fin[i]   = -s22 * r0 + s22 * r1;
     }
   }
-  else if constexpr (degree == 1)
+  else if constexpr (tdegree == 1)
   {
 #pragma omp parallel for
     for (int i = 0; i < num_final; i++)
@@ -396,7 +396,7 @@ void hierarchy_manipulator<P>::projectup(int num_final, P const *raw, P *upper, 
 }
 
 template<typename P>
-template<int degree>
+template<int tdegree>
 void hierarchy_manipulator<P>::projectlevels(int d, int level) const
 {
   switch (level)
@@ -405,7 +405,7 @@ void hierarchy_manipulator<P>::projectlevels(int d, int level) const
     std::copy(stage0.begin(), stage0.end(), pf[d].begin()); // nothing to project upwards
     break;
   case 1:
-    projectup2<degree>(stage0.data(), pf[d].data()); // level 0 and 1
+    projectup2<tdegree>(stage0.data(), pf[d].data()); // level 0 and 1
     break;
   default: {
       stage1.resize(stage0.size() / 2);
@@ -417,12 +417,12 @@ void hierarchy_manipulator<P>::projectlevels(int d, int level) const
       P *fin = pf[d].data() + num * pdof;
       for (int l = level; l > 1; l--)
       {
-        projectup<degree>(num, w0, w1, fin);
+        projectup<tdegree>(num, w0, w1, fin);
         std::swap(w0, w1);
         num /= 2;
         fin -= num * pdof;
       }
-      projectup2<degree>(w0, pf[d].data());
+      projectup2<tdegree>(w0, pf[d].data());
     }
   }
 }
@@ -484,7 +484,7 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
 }
 
 template<typename P>
-template<int degree>
+template<int tdegree>
 void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
                                                 int const level,
                                                 connection_patterns const &conns,
@@ -516,16 +516,16 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
   // see the block-diagonal overload too
   auto apply = [&](P const *left, P const *right, P *out, P *upper)
   {
-    if constexpr (degree == 0)
+    if constexpr (tdegree == 0)
       *out = -s22 * (*left) + s22 * (*right);
-    else if constexpr (degree == 1)
+    else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, w0, right, w1, out);
     else
       smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
 
-    if constexpr (degree == 0)
+    if constexpr (tdegree == 0)
       *upper = s22 * (*left) + s22 * (*right);
-    else if constexpr (degree == 1)
+    else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, h0, right, h1, upper);
     else
       smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
@@ -725,7 +725,7 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
 }
 
 template<typename P>
-template<int degree>
+template<int tdegree>
 void hierarchy_manipulator<P>::col_project_full(block_diag_matrix<P> const &diag,
                                                 int const level,
                                                 connection_patterns const &conns,
@@ -756,16 +756,16 @@ void hierarchy_manipulator<P>::col_project_full(block_diag_matrix<P> const &diag
   // the cell index of left/right should be 2n and 2n+1, while out and upper have index n
   auto apply = [&](P const *left, P const *right, P *out, P *upper)
   {
-    if constexpr (degree == 0)
+    if constexpr (tdegree == 0)
       *out = -s22 * (*left) + s22 * (*right);
-    else if constexpr (degree == 1)
+    else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, w0, right, w1, out);
     else
       smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
 
-    if constexpr (degree == 0)
+    if constexpr (tdegree == 0)
       *upper = s22 * (*left) + s22 * (*right);
-    else if constexpr (degree == 1)
+    else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, h0, right, h1, upper);
     else
       smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
@@ -860,7 +860,7 @@ void hierarchy_manipulator<P>::col_project_full(block_diag_matrix<P> const &diag
 }
 
 template<typename P>
-template<int degree>
+template<int tdegree>
 void hierarchy_manipulator<P>::row_project_full(
     block_sparse_matrix<P> &col,
     int const level,
@@ -888,16 +888,16 @@ void hierarchy_manipulator<P>::row_project_full(
   // the cell index of left/right should be 2n and 2n+1, while out and upper have index n
   auto apply = [&](P const *left, P const *right, P *out, P *upper)
   {
-    if constexpr (degree == 0)
+    if constexpr (tdegree == 0)
       *out = -s22 * (*left) + s22 * (*right);
-    else if constexpr (degree == 1)
+    else if constexpr (tdegree == 1)
       smmat::gemm_pair(2, w0, left, w1, right, out);
     else
       smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
 
-    if constexpr (degree == 0)
+    if constexpr (tdegree == 0)
       *upper = s22 * (*left) + s22 * (*right);
-    else if constexpr (degree == 1)
+    else if constexpr (tdegree == 1)
       smmat::gemm_pair(2, h0, left, h1, right, upper);
     else
       smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);

@@ -423,10 +423,10 @@ protected:
   void prepare_quadrature(int dim, int num_cells) const;
 
   //! project 2 * num_final raw cells up the hierarchy into upper raw and final cells
-  template<int degree>
+  template<int tdegree>
   void projectup(int num_final, P const *raw, P *upper, P *fin) const;
   //! project the last two cells for level 0 and level 1
-  template<int degree>
+  template<int tdegree>
   void projectup2(P const *raw, P *fin) const;
   /*!
    * \brief Computes the local-coefficients to hierarchical representation
@@ -434,7 +434,7 @@ protected:
    * The local coefficients must be already stored in stage0.
    * Both stage0 and stage1 will be used as scratch space here.
    */
-  template<int degree>
+  template<int tdegree>
   void projectlevels(int dim, int levels) const;
 
   //! creates a new sparse matrix with the given format
@@ -445,21 +445,21 @@ protected:
   }
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
-  template<int degree>
+  template<int tdegree>
   void col_project_full(block_tri_matrix<P> const &tri,
                         int const level,
                         connection_patterns const &conn,
                         block_sparse_matrix<P> &sp) const;
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
-  template<int degree>
+  template<int tdegree>
   void col_project_full(block_diag_matrix<P> const &diag,
                         int const level,
                         connection_patterns const &conn,
                         block_sparse_matrix<P> &sp) const;
 
   //! apply row transform on sparse col-full pattern
-  template<int degree>
+  template<int tdegree>
   void row_project_full(block_sparse_matrix<P> &col,
                         int const level,
                         connection_patterns const &conn,
