@@ -108,7 +108,7 @@ set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to 
 set (ASGARD_PRECISIONS "float;double" CACHE STRING "Select floating point precision, supported values are 'float', 'double' or 'float;double'")
 set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;double")
 
-option (ASGARD_ENABLE_TIMER "Enable the builtin profiling tool" ON)
+option (ASGARD_USE_TIMER "Enable the builtin profiling tool" ON)
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "(incomplete) Build the documentation." OFF)
 
@@ -605,7 +605,7 @@ if (ASGARD_BUILD_TESTS)
                   ASGARD_USE_CUDA
                   ASGARD_USE_PYTHON
                   ASGARD_IO_HIGHFIVE
-                  ASGARD_ENABLE_TIMER)
+                  ASGARD_USE_TIMER)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_CUDA)

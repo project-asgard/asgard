@@ -180,7 +180,7 @@ public:
   }
 };
 
-#ifdef ASGARD_ENABLE_TIMER
+#ifdef ASGARD_USE_TIMER
 inline simple_timer timer;
 #else
 inline null_timer timer;
@@ -215,7 +215,7 @@ struct null_time_event {
   null_time_event() = default;
   ~null_time_event() = default;
 };
-#ifdef ASGARD_ENABLE_TIMER
+#ifdef ASGARD_USE_TIMER
 //! initialize a timing session
 inline time_event time_session(std::string const &name) {
   return time_event(name);

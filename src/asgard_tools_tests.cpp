@@ -30,7 +30,7 @@ TEST_CASE("test timer", "[timing test]")
 
   auto const ttime = tools::timer.stop("testing");
   ignore(ttime);
-#ifdef ASGARD_ENABLE_TIMER
+#ifdef ASGARD_USE_TIMER
   REQUIRE(ttime >= 7.0); // must have waited above, keep this loose
 
   auto report = tools::timer.report();
