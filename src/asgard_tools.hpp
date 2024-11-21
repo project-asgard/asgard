@@ -53,93 +53,87 @@ namespace asgard::tools
 // simple layer over assert to prevent unused variable warnings when
 // expects disabled
 
-struct timing_stats
-{
-  double avg;
-  double min;
-  double max;
-  double med;
-  double gflops;
-  size_t ncalls;
-};
+// struct timing_stats
+// {
+//   double avg;
+//   double min;
+//   double max;
+//   double med;
+//   double gflops;
+//   size_t ncalls;
+// };
 
 class simple_timer
 {
 public:
-  std::string const start(std::string const &identifier)
+  using time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
+
+  struct events_list {
+    //! if set, the event is currently running and srated at started.value()
+    std::optional<time_point> started;
+    //! each duration for this event
+    std::vector<double> intervals;
+    //! if doing a kronmult event, report the Gflops/s
+    std::vector<double> gflops;
+    //! indicates whether to include in % of total time
+    bool is_nested = false;
+  };
+
+  std::string const start(std::string const &id)
   {
-    expect(!identifier.empty());
-    id_to_start_[identifier] = std::chrono::high_resolution_clock::now();
-    return identifier;
+    expect(!id.empty());
+
+    events_.try_emplace(id, events_list());
+    expect(not events_[id].started);
+
+    events_[id].started = current_time();
+
+    return id;
   }
 
-  void stop(std::string const &identifier, double const flops = -1)
+  void stop(std::string const &id, double const flops = -1)
   {
 #ifdef ASGARD_USE_CUDA
 #ifndef NDEBUG
     cudaDeviceSynchronize(); // needed for accurate kronmult timing
 #endif
 #endif
-    expect(!identifier.empty());
-    expect(id_to_start_.count(identifier) == 1);
-    auto const beg = id_to_start_[identifier];
-    auto const end = std::chrono::high_resolution_clock::now();
-    double const dur =
-        std::chrono::duration<double, std::milli>(end - beg).count();
 
-    id_to_start_.erase(identifier);
-    insert(id_to_times_, identifier, dur);
+    events_list &event = events_[id];
+    expect(event.started.has_value());
 
-    if (flops != -1)
-    {
+    event.intervals.push_back(duration_since(event.started));
+
+    event.started.reset();
+
+    if (flops != -1) {
       expect(flops >= 0);
-      auto const gflops = flops / 1e9;
-      expect(dur >= 0.0);
-
-      auto const gflops_per_sec = gflops / (dur * 1e-3); // to seconds
-
-      insert(id_to_flops_, identifier, gflops_per_sec);
-      expect(id_to_times_.count(identifier) == id_to_flops_.count(identifier));
+      // flops -> Gflops has factor 1.E-9, ms -> seconds has factor 1.E-3
+      // flops / ms -> Gflops / second has factor 1.E-9 / 1.E-3 = 1.E-6
+      event.gflops.push_back(1.E-6 * flops / event.intervals.back());
     }
   }
 
   // get performance report for recorded functions
   std::string report();
 
-  // get times for some key, mostly for testing for now
-  std::vector<double> const &get_times(std::string const &id)
-  {
-    expect(id_to_times_.count(id) == 1);
-    return id_to_times_[id];
+  //! returns the current time
+  static time_point current_time() {
+    return std::chrono::high_resolution_clock::now();
   }
 
-  // uses the map of timings to calculate avg, min, max, med, calls, for each
-  // key similar to what is displayed in the report() function, but returns a
-  // vector for use elsewhere
-  void get_timing_stats(std::map<std::string, timing_stats> &stat_map);
-  void get_timing_stats(std::map<std::string, std::vector<double>> &stat_map);
+  //! compute the time elapsed from start to the current_time()
+  static double duration_since(time_point const &start) {
+    return std::chrono::duration<double, std::milli>(current_time() - start).count();
+  }
+  //! compute the time elapsed from start to the current_time(), overload
+  static double duration_since(std::optional<time_point> const &start) {
+    return duration_since(start.value());
+  }
 
 private:
-  // little helper for creating a new list if no values exist for key
-  void insert(std::map<std::string, std::vector<double>> &mapping,
-              std::string const &key, double const time)
-  {
-    mapping.try_emplace(key, std::vector<double>());
-    mapping[key].push_back(time);
-  }
-
-  timing_stats
-  calculate_timing_stats(std::string const &&id, std::vector<double> &&times);
-
-  // stores function identifier -> list of times recorded
-  std::map<std::string, std::vector<double>> id_to_times_;
-
-  // stores function identifier -> list of flops recorded
-  std::map<std::string, std::vector<double>> id_to_flops_;
-
-  std::map<std::string,
-           std::chrono::time_point<std::chrono::high_resolution_clock>>
-      id_to_start_;
+  //! for each event key, stores a list of durations
+  std::map<std::string, events_list> events_;
 };
 
 inline simple_timer timer;
@@ -167,6 +161,15 @@ struct time_event
   //! \brief FLOPs, for the case when we are timing linear algebra.
   double flops;
 };
+
+//! initialize a timing session
+inline time_event time_session(std::string const &name) {
+  return time_event(name);
+}
+//! initialize a nested timing session
+inline time_event time_nested_session(std::string const &name) {
+  return time_event(name);
+}
 
 } // namespace asgard::tools
 
