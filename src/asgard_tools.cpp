@@ -2,9 +2,120 @@
 
 namespace asgard::tools
 {
+
+// formats the string, e.g., 3.00  3.10  3.00
+std::string pad_string(double x)
+{
+  std::ostringstream os;
+  os.precision(3);
+  os << x;
+
+  std::string res = os.str();
+  
+  std::string::size_type dot = res.find(".");
+  if (dot < res.size()) {
+    if (res.size() - dot < 4) {
+      std::string::size_type rem = 4 + dot - res.size();
+
+      if (rem > 0) 
+        while(--rem) res += '0';
+    } else {
+      res = res.substr(0, dot + 2);
+      while (res.size() < 4)
+        res += '0';
+    }
+  } else {
+    res += ".00";
+  }
+
+  std::string pre = "";
+  std::string::size_type rem = 15 - res.size();
+  
+  if (rem > 0)
+    while (--rem) pre += ' ';
+
+  return pre + res;
+}
+
+std::string pad_string(size_t x)
+{
+  std::string res = std::to_string(x);
+
+  if (res.size() < 12) {
+    std::string::size_type rem = 12 - res.size();
+    std::string pad = "";
+    while (--rem)
+      pad += ' ';
+    return pad + res;
+  }
+  return res;
+}
+
 std::string simple_timer::report()
 {
   std::ostringstream report;
+
+  report << "\nperformance report\n";
+  report << "  - all times in ms\n\n";
+
+  std::string::size_type max_key = 0;
+  double total = 0.0;
+  for (auto [id, times] : id_to_times_) {
+    max_key = std::max(id.size(), max_key);
+    total   = std::accumulate(times.begin(), times.end(), total);
+  }
+
+  std::string::size_type rem = max_key + 1;
+  while (--rem) report << ' ';
+
+  report << "         total";
+  report << "     % of total";
+  report << "      count";
+  report << "       average";
+  report << "           min";
+  report << "           max\n";
+
+  for (auto [id, times] : id_to_times_) {
+    double const sum = std::accumulate(times.begin(), times.end(), 0.0);
+    double const avg = sum / static_cast<double>(times.size());
+    double const min = *std::min_element(times.begin(), times.end());
+    double const max = *std::max_element(times.begin(), times.end());
+
+    rem = max_key - id.size() + 1;
+    report << id;
+    while (--rem) report << ' ';
+
+    report << pad_string(sum);
+    report << pad_string(100.0 * sum / total) << "%";
+    report << pad_string(times.size());
+    report << pad_string(avg);
+    report << pad_string(min);
+    report << pad_string(max) << '\n';
+  }
+
+  report << "\n";
+
+  rem = max_key + 1;
+  while (--rem) report << ' ';
+  report << "      Gflops/s\n";
+
+  for (auto [id, times] : id_to_times_) {
+    if (id_to_flops_.count(id) > 0) {
+      auto const &flops = id_to_flops_[id];
+      double const fsum = std::accumulate(flops.begin(), flops.end(), 0.0);
+
+      rem = max_key - id.size() + 1;
+      report << id;
+      while (--rem) report << ' ';
+
+      report << pad_string(fsum / flops.size());
+    }
+  }
+
+  return report.str();
+
+  report << "\n\n";
+
   report << "\nperformance report, all times in ms...\n\n";
   char const *fmt =
       "%s - avg: %.7f min: %.7f max: %.7f med: %.7f %s calls: %d \n";
