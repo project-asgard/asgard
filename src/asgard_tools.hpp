@@ -41,8 +41,6 @@
 #include <cuda_runtime.h>
 #endif
 
-// simple profiling object
-// this is NOT thread safe
 namespace asgard::tools
 {
 #ifndef NDEBUG
@@ -53,21 +51,28 @@ namespace asgard::tools
 // simple layer over assert to prevent unused variable warnings when
 // expects disabled
 
-// struct timing_stats
-// {
-//   double avg;
-//   double min;
-//   double max;
-//   double med;
-//   double gflops;
-//   size_t ncalls;
-// };
-
+/*!
+ * \brief Simple profiling tool, allows us to time different sections of code
+ *
+ * The timer is not thread safe and should be used at a coarse level,
+ * e.g., time formation of coefficients and kronmult as opposed to individual
+ * small linear algebra operations.
+ *
+ * The timer can start and stop events using human readable strings as keys
+ * and prints human readable report in the end.
+ *
+ * - only one event with a given key can be running at a time
+ *   but different events can be nested
+ * - nested events should labeled as such, otherwise the percentages in
+ *   the report will be skewed
+ */
 class simple_timer
 {
 public:
+  //! single instance of time
   using time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
 
+  //! internal use, stores data for a given event-key
   struct events_list {
     //! if set, the event is currently running and srated at started.value()
     std::optional<time_point> started;
@@ -79,7 +84,12 @@ public:
     bool is_nested = false;
   };
 
-  std::string const start(std::string const &id)
+  //! called at the start of the program
+  simple_timer() : start_(current_time())
+  {}
+
+  //! start an event for the given id
+  std::string const &start(std::string const &id)
   {
     expect(!id.empty());
 
@@ -91,7 +101,8 @@ public:
     return id;
   }
 
-  void stop(std::string const &id, double const flops = -1)
+  //! stop the event and record the duration and flops (if present)
+  double stop(std::string const &id, double const flops = -1)
   {
 #ifdef ASGARD_USE_CUDA
 #ifndef NDEBUG
@@ -112,9 +123,11 @@ public:
       // flops / ms -> Gflops / second has factor 1.E-9 / 1.E-3 = 1.E-6
       event.gflops.push_back(1.E-6 * flops / event.intervals.back());
     }
+
+    return event.intervals.back();
   }
 
-  // get performance report for recorded functions
+  //! get the performance report for recorded events
   std::string report();
 
   //! returns the current time
@@ -132,6 +145,8 @@ public:
   }
 
 private:
+  //! kepps track of the start of the simulation
+  time_point start_;
   //! for each event key, stores a list of durations
   std::map<std::string, events_list> events_;
 };
@@ -164,10 +179,6 @@ struct time_event
 
 //! initialize a timing session
 inline time_event time_session(std::string const &name) {
-  return time_event(name);
-}
-//! initialize a nested timing session
-inline time_event time_nested_session(std::string const &name) {
   return time_event(name);
 }
 

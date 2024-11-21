@@ -63,7 +63,9 @@ class pde_snapshot:
 
             self.state = fdata['state'][()]
             self.cells = fdata['elements'][()]
-            self.time  = fdata['time'][()]
+            self.time  = fdata['time'][()] # numeric time
+
+            self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
             self.num_cells = int(len(self.cells) / (2 * self.num_dimensions))
 
@@ -252,10 +254,10 @@ class pde_snapshot:
     def __str__(self):
         s = "title: %s\n" % self.title
         if self.subtitle != "":
-            s += "  sub: %s\n" % self.subtitle
+            s += "   sub: %s\n" % self.subtitle
         s += "  num-dimensions: %d\n" % self.num_dimensions
         s += "  degree:         %d\n" % self.degree
-        s += "  time:           %f" % self.time
+        s += "  time:           %f\n" % self.time
         return s
 
 if __name__ == "__main__":
@@ -266,15 +268,15 @@ if __name__ == "__main__":
             print("stats summary option requires a filename")
         else:
             shot = pde_snapshot(sys.argv[2])
-            print("\n", shot, "\n")
+            print("\n", shot, shot.timer_report)
     elif not _matplotlib_found_:
         print("could not 'import matplotlib'")
-        print("to print only stats summary use")
+        print("can only print stats-summary, use")
         print("  python3 -m asgard -s %s" % sys.argv[2])
         libasgard.asgard_print_version_help()
     else:
         shot = pde_snapshot(sys.argv[1])
-        print("\n", shot, "\n")
+        print("\n", shot)
 
         asgplot.title(shot.title, fontsize = 'large')
 

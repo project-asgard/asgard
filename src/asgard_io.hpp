@@ -23,9 +23,6 @@ HighFive::CompoundType create_timing_stats()
 }
 } // namespace asgard
 
-HIGHFIVE_REGISTER_TYPE(asgard::tools::timing_stats,
-                       asgard::create_timing_stats<double>)
-
 namespace asgard
 {
 template<typename P>
@@ -304,23 +301,7 @@ void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
 #endif
   H5Easy::dump(file, "USING_GPU", using_gpu);
 
-  // save performance timers to the /timings/ group
-  auto timing_stat_type = create_timing_stats<double>();
-  timing_stat_type.commit(file, "timing_stats");
-
-  std::map<std::string, tools::timing_stats> timings;
-  tools::timer.get_timing_stats(timings);
-  auto timing_group = file.createGroup("timings");
-  for (auto [id, times] : timings)
-  {
-    timing_group
-        .createDataSet(
-            id,
-            HighFive::DataSpace(
-                HighFive::DataSpace::DataspaceType::dataspace_scalar),
-            timing_stat_type)
-        .write(times);
-  }
+  H5Easy::dump(file, "timer_report", tools::timer.report());
 
   file.flush();
   tools::timer.stop("write_output");

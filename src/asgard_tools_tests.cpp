@@ -19,20 +19,23 @@ TEST_CASE("test timer", "[timing test]")
   {
     auto session = tools::time_session("regulat session");
     std::this_thread::sleep_for(std::chrono::milliseconds(4));
-  }{
-    auto session = tools::time_nested_session("nested session");
-    std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    {
+      auto session = tools::time_session("nested session");
+      std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
   }
 
   double dur = tools::timer.duration_since(start);
-  REQUIRE(dur >= 7.0); // must have waited 4ms above, keep the test loose
+  REQUIRE(dur >= 7.0); // must have waited above, keep this loose
 
-  tools::timer.stop("testing");
+  auto const ttime = tools::timer.stop("testing");
+  REQUIRE(ttime >= 7.0); // must have waited above, keep this loose
 
   auto report = tools::timer.report();
   REQUIRE(report.find("testing") < report.size());
   REQUIRE(report.find("regulat session") < report.size());
   REQUIRE(report.find("nested session") < report.size());
+  REQUIRE(report.find("100%") >= report.size());
 }
 
 TEST_CASE("for-indexof testing", "[indexing testing]")

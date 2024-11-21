@@ -24,8 +24,8 @@ std::string pad_left(std::string::size_type size, std::string const &s) {
 std::string pad_string(double x)
 {
   std::ostringstream os;
-  os.precision(3);
-  os << x;
+  os.precision(2);
+  os << std::fixed << x;
 
   std::string res = os.str();
 
@@ -56,22 +56,22 @@ std::string pad_string(size_t x)
 
 std::string simple_timer::report()
 {
+  // time since the timer was initialized (program started)
+  double const total_time = duration_since(start_);
+
   std::ostringstream report;
 
-  report << "\nperformance report\n";
+  report << "\nperformance report, total time: " << pad_string(total_time) << "ms\n";
   report << "  - all times in ms, 1000ms = 1 second\n\n";
 
   std::string const ev =  "-- events --  ";
   std::string::size_type max_key = ev.size();
-  double total = 0.0;
-  for (auto [id, event] : events_) {
+  for (auto [id, event] : events_)
     max_key = std::max(id.size(), max_key);
-    total   = std::accumulate(event.intervals.begin(), event.intervals.end(), total);
-  }
 
   report << pad_left(max_key, ev);
 
-  report << pad_left<double_block>("-- total");
+  report << pad_left<double_block>("-- time");
   report << pad_left<double_block + 1>("-- % of total");
   report << pad_left<int_block>("-- count");
   report << pad_left<double_block>("-- average");
@@ -79,7 +79,11 @@ std::string simple_timer::report()
   report << pad_left<double_block>("-- max") << '\n';
 
   for (auto [id, event] : events_) {
-    auto const &times = event.intervals;
+    auto &times = event.intervals;
+
+    if (event.started) // currently running timer
+      times.push_back(duration_since(event.started));
+
     double const sum = std::accumulate(times.begin(), times.end(), 0.0);
     double const avg = sum / static_cast<double>(times.size());
     double const min = *std::min_element(times.begin(), times.end());
@@ -88,17 +92,23 @@ std::string simple_timer::report()
     report << pad_left(max_key, id);
 
     report << pad_string(sum);
-    report << pad_string(100.0 * sum / total) << "%";
+    report << pad_string(100.0 * sum / total_time) << "%";
     report << pad_string(times.size());
     report << pad_string(avg);
     report << pad_string(min);
     report << pad_string(max) << '\n';
+
+    if (event.started)
+      times.pop_back();
   }
 
   report << "\n";
 
-  report << pad_left(max_key, ev) << pad_left<double_block>("Gflops/s")
-         << pad_left<double_block>("min") << pad_left<double_block>("max") << "\n";
+  std::string const gf =  "-- Gflops/s --  ";
+  max_key = std::max(max_key, gf.size());
+
+  report << pad_left(max_key, gf) << pad_left<double_block>("-- average")
+         << pad_left<double_block>("-- min") << pad_left<double_block>("-- max") << "\n";
 
   for (auto [id, event] : events_) {
     if (not event.gflops.empty()) {
@@ -113,7 +123,6 @@ std::string simple_timer::report()
     }
   }
 
-  report << '\n';
   return report.str();
 }
 
