@@ -43,7 +43,7 @@ else()
   register_project (Catch2
                     CATCH2
                     https://github.com/catchorg/Catch2.git
-                    v3.1.0
+                    v3.3.0
   )
 endif()
 
