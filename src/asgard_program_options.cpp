@@ -784,7 +784,7 @@ void prog_opts::print_version_help(std::ostream &os)
 #else
   os << "MPI distributed grid     Disabled\n";
 #endif
-#ifdef ASGARD_IO_HIGHFIVE
+#ifdef ASGARD_USE_HIGHFIVE
   os << "HDF5 - HighFive I/O      Enabled\n";
 #else
   os << "HDF5 - HighFive I/O      Disabled\n";

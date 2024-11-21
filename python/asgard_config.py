@@ -7,4 +7,5 @@ __pyasgard_libasgard_path__ = "@__pyasgard_libasgard_path__@"
 
 __enable_float__ = ("@ASGARD_ENABLE_FLOAT@" == "ON")
 __enable_double__ = ("@ASGARD_ENABLE_DOUBLE@" == "ON")
-__enable_highfive__ = ("@ASGARD_IO_HIGHFIVE@" == "ON")
+
+__enable_highfive__ = ("@ASGARD_USE_HIGHFIVE@" == "ON")

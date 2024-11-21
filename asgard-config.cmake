@@ -39,7 +39,7 @@ target_link_libraries (asgard::LINALG
                        $<$<BOOL:${LAPACK_FOUND}>:LAPACK::LAPACK>
 )
 
-if (@ASGARD_IO_HIGHFIVE@)
+if (@ASGARD_USE_HIGHFIVE@)
   enable_language (C)
 endif()
 
@@ -53,7 +53,7 @@ set(asgard_OPENMP_FOUND "@ASGARD_USE_OPENMP@")
 set(asgard_MPI_FOUND    "@ASGARD_USE_MPI@")
 set(asgard_CUDA_FOUND   "@ASGARD_USE_CUDA@")
 set(asgard_PYTHON_FOUND "@ASGARD_USE_PYTHON@")
-set(asgard_HDF5_FOUND   "@ASGARD_IO_HIGHFIVE@")
+set(asgard_HDF5_FOUND   "@ASGARD_USE_HIGHFIVE@")
 
 set(_asgard_modules "")
 foreach(_asgard_module OPENMP MPI CUDA)

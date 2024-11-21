@@ -94,7 +94,7 @@ cmake_dependent_option (ASGARD_USE_GPU_MEM_LIMIT "Allow the ability to limit the
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
-option (ASGARD_IO_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
+option (ASGARD_USE_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 
 option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
 option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
@@ -133,9 +133,9 @@ endif()
 set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")
 
 #Enable HighFive IO if any of the following variables are defined
-if(NOT ASGARD_IO_HIGHFIVE)
-  if(ASGARD_HDF5_PATH OR ASGARD_BUILD_HDF5 OR ASGARD_HIGHFIVE_PATH OR ASGARD_USE_PYTHON)
-    set(ASGARD_IO_HIGHFIVE ON CACHE BOOL "" FORCE)
+if(NOT ASGARD_USE_HIGHFIVE)
+  if(ASGARD_BUILD_HDF5 OR ASGARD_USE_PYTHON)
+    set(ASGARD_USE_HIGHFIVE ON CACHE BOOL "" FORCE)
   endif()
 endif()
 
@@ -372,7 +372,7 @@ set (components
      asgard_transformations
 )
 
-if (ASGARD_IO_HIGHFIVE)
+if (ASGARD_USE_HIGHFIVE)
     list (APPEND components asgard_io)
 endif ()
 
@@ -424,8 +424,8 @@ target_link_libraries (libasgard
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
                        $<$<BOOL:${LINALG_FOUND}>:asgard::LINALG>
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
-                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_highfive>
-                       $<$<BOOL:${ASGARD_IO_HIGHFIVE}>:asgard_hdf5>
+                       $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_highfive>
+                       $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_hdf5>
 )
 target_include_directories (libasgard
                             PUBLIC
@@ -604,7 +604,7 @@ if (ASGARD_BUILD_TESTS)
                   ASGARD_USE_MPI
                   ASGARD_USE_CUDA
                   ASGARD_USE_PYTHON
-                  ASGARD_IO_HIGHFIVE
+                  ASGARD_USE_HIGHFIVE
                   ASGARD_USE_TIMER)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()

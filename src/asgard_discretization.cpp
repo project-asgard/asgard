@@ -21,7 +21,7 @@ discretization_manager<precision>::discretization_manager(
                     << GIT_COMMIT_SUMMARY << '\n';
     node_out() << "This executable was built on " << BUILD_TIME << '\n';
 
-#ifdef ASGARD_IO_HIGHFIVE
+#ifdef ASGARD_USE_HIGHFIVE
     if (not options.restart_file.empty())
     {
         node_out() << "--- restarting from a file ---\n";
@@ -93,7 +93,7 @@ discretization_manager<precision>::discretization_manager(
     reset_moments();
 
   // -- setup output file and write initial condition
-#ifdef ASGARD_IO_HIGHFIVE
+#ifdef ASGARD_USE_HIGHFIVE
   if (not options.restart_file.empty())
   {
     restart_data<precision> data = read_output(
@@ -338,20 +338,20 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
 template<typename precision>
 void discretization_manager<precision>::save_snapshot(std::filesystem::path const &filename) const
 {
-#ifdef ASGARD_IO_HIGHFIVE
+#ifdef ASGARD_USE_HIGHFIVE
   fk::vector<precision> fstate(state);
   write_output(*pde, moments, fstate, time_, time_step_, fstate.size(),
                grid.get_table(), "", filename);
 #else
   ignore(filename);
-  throw std::runtime_error("save_snapshot() requires CMake option -DASGARD_IO_HIGHFIVE=ON");
+  throw std::runtime_error("save_snapshot() requires CMake option -DASGARD_USE_HIGHFIVE=ON");
 #endif
 }
 
 template<typename precision>
 void discretization_manager<precision>::checkpoint() const
 {
-#ifdef ASGARD_IO_HIGHFIVE
+#ifdef ASGARD_USE_HIGHFIVE
   if (pde->is_output_step(time_step_))
   {
     if (high_verbosity())

@@ -5,7 +5,7 @@
 #include "asgard_moment.hpp"
 #include "asgard_solver.hpp"
 
-#ifdef ASGARD_IO_HIGHFIVE
+#ifdef ASGARD_USE_HIGHFIVE
 #include "asgard_io.hpp"
 #endif
 

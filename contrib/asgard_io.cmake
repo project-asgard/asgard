@@ -85,7 +85,7 @@ endfunction()
 # header-only library for a c++ interface into libhdf5
 # included in the asgard repo at contrib/HighFive
 ###############################################################################
-if (ASGARD_IO_HIGHFIVE)
+if (ASGARD_USE_HIGHFIVE)
 
   # first we need HDF5
   enable_language (C)

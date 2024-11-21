@@ -55,7 +55,7 @@ CMake uses out-of-source build, clone the repo and build in a subfolder
     -D CMAKE_CXX_FLAGS="-march=native -mtune=native" \
     -D ASGARD_USE_OPENMP=ON \
     -D ASGARD_USE_PYTHON=ON \
-    -D ASGARD_IO_HIGHFIVE=ON \
+    -D ASGARD_USE_HIGHFIVE=ON \
     -D ASGARD_PRECISIONS=double \
     ..
   cmake --build . -j
@@ -74,7 +74,7 @@ The BLAS/LAPACK acceleration needs a flag to enable the most recent mode.
     -D CMAKE_CXX_FLAGS="-march=native -mtune=native -DACCELERATE_NEW_LAPACK" \
     -D ASGARD_USE_OPENMP=OFF \
     -D ASGARD_USE_PYTHON=ON \
-    -D ASGARD_IO_HIGHFIVE=ON \
+    -D ASGARD_USE_HIGHFIVE=ON \
     -D ASGARD_BUILD_HDF5=ON \
     -D ASGARD_PRECISIONS=double \
     ..

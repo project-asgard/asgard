@@ -61,7 +61,7 @@ provided asgard module or use the Python-MATLAB integration. This requires CMake
 options
 ```
   -D ASGARD_USE_PYTHON=ON
-  -D ASGARD_IO_HIGHFIVE=ON
+  -D ASGARD_USE_HIGHFIVE=ON
 ```
 
 The data stored in the HDF5 file is in sparse grid hierarchical format, full
