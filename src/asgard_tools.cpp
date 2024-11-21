@@ -5,6 +5,7 @@ namespace asgard::tools
 
 std::string::size_type constexpr double_block = 14;
 std::string::size_type constexpr int_block = 11;
+std::string::size_type constexpr percent_reduce = 4;
 
 // formats the string, e.g., 3.00  3.10  3.00
 template<std::string::size_type size>
@@ -54,6 +55,12 @@ std::string pad_string(size_t x)
   return pad_left<int_block>(res);
 }
 
+std::string pad_string_percent(double x, double total) {
+  std::string res = pad_string(100.0 * x / total);
+  res = res.substr(percent_reduce, res.size() - percent_reduce - 1);
+  return res + '%';
+}
+
 std::string simple_timer::report()
 {
   // time since the timer was initialized (program started)
@@ -72,7 +79,7 @@ std::string simple_timer::report()
   report << pad_left(max_key, ev);
 
   report << pad_left<double_block>("-- time");
-  report << pad_left<double_block + 1>("-- % of total");
+  report << pad_left<double_block - percent_reduce>("-- % time");
   report << pad_left<int_block>("-- count");
   report << pad_left<double_block>("-- average");
   report << pad_left<double_block>("-- min");
@@ -92,7 +99,7 @@ std::string simple_timer::report()
     report << pad_left(max_key, id);
 
     report << pad_string(sum);
-    report << pad_string(100.0 * sum / total_time) << "%";
+    report << pad_string_percent(sum, total_time);
     report << pad_string(times.size());
     report << pad_string(avg);
     report << pad_string(min);
