@@ -62,7 +62,8 @@ void simulate_builtin(prog_opts const &options)
   // collects the state across MPI ranks but ignores the result
   discretization.current_mpistate();
 
-  node_out() << tools::timer.report() << '\n';
+  if (tools::timer.enabled())
+    node_out() << tools::timer.report() << '\n';
 }
 
 /*!

@@ -127,6 +127,11 @@ public:
     return event.intervals.back();
   }
 
+  //! indicates the times is active
+  static bool enabled() {
+    return true;
+  }
+
   //! get the performance report for recorded events
   std::string report();
 
@@ -151,7 +156,35 @@ private:
   std::map<std::string, events_list> events_;
 };
 
+/*!
+ * \brief Used in place of simple_timer to disable timing events
+ */
+class null_timer
+{
+public:
+  //! no-op start null-timer
+  std::string const &start(std::string const &id) {
+    return id;
+  }
+  //! no-op stop null-timer
+  double stop(std::string const &, double const = -1) {
+    return 0;
+  }
+  //! indicates the times is not active
+  static bool enabled() {
+    return false;
+  }
+  //! reports that the times is disabled
+  std::string report() {
+    return "<builtin timer disabled>\n";
+  }
+};
+
+#ifdef ASGARD_ENABLE_TIMER
 inline simple_timer timer;
+#else
+inline null_timer timer;
+#endif
 
 /*!
  * Allows for RAII style of timing for blocks of code.
@@ -177,10 +210,22 @@ struct time_event
   double flops;
 };
 
+//! null time event
+struct null_time_event {
+  null_time_event() = default;
+  ~null_time_event() = default;
+};
+#ifdef ASGARD_ENABLE_TIMER
 //! initialize a timing session
 inline time_event time_session(std::string const &name) {
   return time_event(name);
 }
+#else
+//! skip timing when the timer has been disabled
+inline null_time_event time_session(std::string const &) {
+  return null_time_event();
+}
+#endif
 
 } // namespace asgard::tools
 

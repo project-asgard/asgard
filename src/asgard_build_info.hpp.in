@@ -11,6 +11,7 @@
 #define BUILD_TIME "@BUILD_TIME@"
 
 #cmakedefine ASGARD_IO_HIGHFIVE
+#cmakedefine ASGARD_ENABLE_TIMER
 #cmakedefine ASGARD_USE_CUDA
 #cmakedefine ASGARD_USE_GPU_MEM_LIMIT
 #cmakedefine ASGARD_USE_OPENMP

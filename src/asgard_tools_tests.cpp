@@ -14,7 +14,7 @@ TEST_CASE("test timer", "[timing test]")
 
   tools::timer.start("testing");
 
-  auto start = tools::timer.current_time();
+  auto start = tools::simple_timer::current_time();
 
   {
     auto session = tools::time_session("regulat session");
@@ -25,10 +25,12 @@ TEST_CASE("test timer", "[timing test]")
     }
   }
 
-  double dur = tools::timer.duration_since(start);
+  double dur = tools::simple_timer::duration_since(start);
   REQUIRE(dur >= 7.0); // must have waited above, keep this loose
 
   auto const ttime = tools::timer.stop("testing");
+  ignore(ttime);
+#ifdef ASGARD_ENABLE_TIMER
   REQUIRE(ttime >= 7.0); // must have waited above, keep this loose
 
   auto report = tools::timer.report();
@@ -36,6 +38,7 @@ TEST_CASE("test timer", "[timing test]")
   REQUIRE(report.find("regulat session") < report.size());
   REQUIRE(report.find("nested session") < report.size());
   REQUIRE(report.find("100%") >= report.size());
+#endif
 }
 
 TEST_CASE("for-indexof testing", "[indexing testing]")
