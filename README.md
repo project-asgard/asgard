@@ -1,12 +1,5 @@
 # ASGarD - Adaptive Sparse Grid Discretization
 
-To cite the ASGarD code in your work, please use: 
-* [![DOI](https://joss.theoj.org/papers/10.21105/joss.06766/status.svg)](https://doi.org/10.21105/joss.06766)
-* [doi:10.11578/dc.20201125.5](https://www.osti.gov/doecode/biblio/48752)
-
-Papers using ASGarD:
-* [Sparse-grid Discontinuous Galerkin Methods for the Vlasov-Poisson-Lenard-Bernstein Model](https://arxiv.org/abs/2402.06493)
-
 The ASGarD project has the goal of building a solver specifically targeting
 high-dimensional PDEs where the "curse-of-dimensionality" has previously
 precluded useful continuum / Eularian (grid or mesh based as opposed to
@@ -14,6 +7,13 @@ Monte-Carlo sampling) simulation. Our approach is based on a
 Discontinuous-Galerkin finite-element solver build atop an adaptive hierarchical
 sparse-grid (note this is different from the "combination technique" when applied
 to sparse-grids).
+
+To cite the ASGarD code in your work, please use:
+* [![DOI](https://joss.theoj.org/papers/10.21105/joss.06766/status.svg)](https://doi.org/10.21105/joss.06766)
+* [doi:10.11578/dc.20201125.5](https://www.osti.gov/doecode/biblio/48752)
+
+Papers using ASGarD:
+* [Sparse-grid Discontinuous Galerkin Methods for the Vlasov-Poisson-Lenard-Bernstein Model](https://arxiv.org/abs/2402.06493)
 
 [Documentation of usage: https://project-asgard.github.io/asgard/](https://project-asgard.github.io/asgard/)
 

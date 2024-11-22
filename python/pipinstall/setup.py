@@ -88,7 +88,13 @@ setup(
     classifiers=[
         'Programming Language :: Python :: 3',
         'Programming Language :: C++',
+        'Development Status :: 3 - Alpha',
+        'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
+        'Operating System :: MacOS',
+        'Operating System :: POSIX :: Linux',
+        'Topic :: Scientific/Engineering :: Mathematics'
+
     ],
     install_requires=['numpy>=1.10', 'h5py>=3.6', 'scipy>=1.8', 'matplotlib>=3.5'],
     ### cmake portion of the setup, specific to skbuild ###

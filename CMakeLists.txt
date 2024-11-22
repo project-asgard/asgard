@@ -82,6 +82,14 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set_property(CACHE CMAKE_INSTALL_PREFIX PROPERTY VALUE "${CMAKE_CURRENT_BINARY_DIR}/asgard_install")
 endif()
 
+# set the rpath to the final path with the installation
+set(__asgard_install_prefix ${CMAKE_INSTALL_PREFIX})
+if (SKBUILD)
+    set(__asgard_install_prefix ${ASGARD_python_pip_path})
+endif()
+
+list(APPEND CMAKE_INSTALL_RPATH "${__asgard_install_prefix}/lib")
+list(APPEND CMAKE_BUILD_RPATH "${__asgard_install_prefix}/lib")
 
 # set up possible commandline input variable defaults (override with -D)
 include(CMakeDependentOption)
@@ -475,14 +483,6 @@ endif ()
 #-------------------------------------------------------------------------------
 #  Define a asgard executable target.
 #-------------------------------------------------------------------------------
-set(__asgard_install_prefix ${CMAKE_INSTALL_PREFIX})
-if (SKBUILD)
-    set(__asgard_install_prefix ${ASGARD_python_pip_path})
-endif()
-
-list(APPEND CMAKE_INSTALL_RPATH ${__asgard_install_prefix}/lib)
-list(APPEND CMAKE_BUILD_RPATH ${__asgard_install_prefix}/lib)
-
 add_executable (asgard_exe)
 set_target_properties(asgard_exe PROPERTIES OUTPUT_NAME "asgard")
 target_sources (asgard_exe
@@ -700,9 +700,16 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt"
 install(EXPORT "asgard-export" DESTINATION "lib/${CMAKE_PROJECT_NAME}" FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
 
 if (TARGET asgard_highfive)
-  # must install the highfive dependency
-  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/contrib/highfive/include/"
-          DESTINATION include)
+    # must install the highfive dependency
+    if (ASGARD_BUILD_HDF5)
+        install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/hdf5/lib/"
+                DESTINATION lib)
+        install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/hdf5/include/"
+                DESTINATION include)
+    endif()
+
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/contrib/highfive/include/"
+            DESTINATION include)
 endif()
 
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/asgard-config.cmake"

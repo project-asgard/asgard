@@ -46,6 +46,7 @@ function (get_hdf5)
   if (ASGARD_BUILD_HDF5)
     message (STATUS "building hdf5 from source")
 
+    set(__asgard_h5_install_prefix "${CMAKE_CURRENT_BINARY_DIR}/hdf5/")
     include (ExternalProject)
     if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR AND CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
       # Get HDF5 to build on Apple silicon
@@ -55,7 +56,7 @@ function (get_hdf5)
         URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
         DOWNLOAD_NO_PROGRESS 1
         CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/autogen.sh
-        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${CMAKE_INSTALL_PREFIX}
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
         BUILD_COMMAND make
         BUILD_IN_SOURCE 1
         INSTALL_COMMAND make install
@@ -66,7 +67,7 @@ function (get_hdf5)
         PREFIX "contrib/hdf5"
         URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
         DOWNLOAD_NO_PROGRESS 1
-        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${CMAKE_INSTALL_PREFIX}
+        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
         BUILD_COMMAND make
         BUILD_IN_SOURCE 1
         INSTALL_COMMAND make install
@@ -74,8 +75,8 @@ function (get_hdf5)
     endif()
 
     # either it was already here, or we just built it here
-    set (hdf5_include ${CMAKE_INSTALL_PREFIX}/include)
-    set (hdf5_lib "-L${CMAKE_INSTALL_PREFIX}/lib -Wl,-rpath,${hdf5_contrib_path}/lib/ -lhdf5")
+    set (hdf5_include ${__asgard_h5_install_prefix}/include)
+    set (hdf5_lib "-L${__asgard_h5_install_prefix}/lib -Wl,-rpath,${hdf5_contrib_path}/lib/ -lhdf5")
 
     target_include_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_include}>)
     target_link_libraries (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_lib}>)
