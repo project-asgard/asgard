@@ -17,38 +17,15 @@ namespace asgard
 //
 //-----------------------------------------------------------------------------
 
-// matlab's "linspace(start, end, N)" function
-//-----------------------------------------------------------------------------
-//
-// c++ implementation of matlab (a subset of) linspace() function
-// initial c++ implementation by Tyler McDaniel
-//
-// -- linspace (START, END)
-// -- linspace (START, END, N)
-//     Return a row vector with N linearly spaced elements between START
-//     and END.
-//
-//     If the number of elements is greater than one, then the endpoints
-//     START and END are always included in the range.  If START is
-//     greater than END, the elements are stored in decreasing order.  If
-//     the number of points is not specified, a value of 100 is used.
-//
-//     The 'linspace' function returns a row vector when both START and
-//     END are scalars.
-//
-//  (unsupported)
-//     If one, or both, inputs are vectors, then
-//     'linspace' transforms them to column vectors and returns a matrix
-//     where each row is an independent sequence between
-//     'START(ROW_N), END(ROW_N)'.
-//
-//     For compatibility with MATLAB, return the second argument (END)
-//     when only a single value (N = 1) is requested.
-//
-//-----------------------------------------------------------------------------
-
+//! returns a dense identity matrix
 template<typename P>
-fk::matrix<P> eye(int const M);
+fk::matrix<P> eye(int const M)
+{
+  fk::matrix<P> id(M, M);
+  for (int i = 0; i < M; ++i)
+    id(i, i) = 1.0;
+  return id;
+}
 
 // find the indices in an fk::vector for which the predicate is true
 template<typename P, typename Func>

@@ -4,53 +4,6 @@ namespace asgard
 {
 //-----------------------------------------------------------------------------
 //
-// c++ implementation of (a subset of) eye() function
-// The following are not supported here:
-// - providing a third "CLASS" argument
-// - providing a vector argument for the dimensions
-//
-// -- eye (N)
-// -- eye (M, N)
-// -- eye ([M N])
-//     Return an identity matrix.
-//
-//     If invoked with a single scalar argument N, return a square NxN
-//     identity matrix.
-//
-//     If supplied two scalar arguments (M, N), 'eye' takes them to be the
-//     number of rows and columns.  If given a vector with two elements,
-//     'eye' uses the values of the elements as the number of rows and
-//     columns, respectively.  For example:
-//
-//          eye (3)
-//           =>  1  0  0
-//               0  1  0
-//               0  0  1
-//
-//     The following expressions all produce the same result:
-//
-//          eye (2)
-//          ==
-//          eye (2, 2)
-//          ==
-//          eye (size ([1, 2; 3, 4]))
-//
-//     Calling 'eye' with no arguments is equivalent to calling it with an
-//     argument of 1.  Any negative dimensions are treated as zero.  These
-//     odd definitions are for compatibility with MATLAB.
-//
-//-----------------------------------------------------------------------------
-template<typename P>
-fk::matrix<P> eye(int const M)
-{
-  fk::matrix<P> id(M, M);
-  for (auto i = 0; i < M; ++i)
-    id(i, i) = 1.0;
-  return id;
-}
-
-//-----------------------------------------------------------------------------
-//
 // these binary files can be generated from matlab or octave with
 //
 // function writeToFile(path, toWrite)
@@ -348,8 +301,6 @@ read_vector_from_txt_file(std::filesystem::path const &path);
 template fk::matrix<double>
 read_matrix_from_txt_file(std::filesystem::path const &path);
 
-template fk::matrix<double> eye(int const M);
-
 template fk::matrix<double>
 horz_matrix_concat(std::vector<fk::matrix<double>> const &matrices);
 
@@ -365,8 +316,6 @@ template fk::vector<float>
 read_vector_from_txt_file(std::filesystem::path const &);
 template fk::matrix<float>
 read_matrix_from_txt_file(std::filesystem::path const &);
-
-template fk::matrix<float> eye(int const M);
 
 template fk::vector<float> interp1(fk::vector<float> const &sample,
                                    fk::vector<float> const &values,
