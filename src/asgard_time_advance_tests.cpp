@@ -33,7 +33,7 @@ void time_advance_test(prog_opts const &opts,
 
   silent_opts.ignore_exact = true;
 
-  discretization_manager disc(make_PDE<P>(silent_opts));
+  discretization_manager<P> disc(make_PDE<P>(silent_opts));
 
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
