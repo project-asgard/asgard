@@ -29,7 +29,7 @@ int64_t get_1d_index(int const level, int const cell)
   {
     return 0;
   }
-  return fm::two_raised_to(level - 1) + cell;
+  return fm::ipow2(level - 1) + cell;
 }
 
 std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
@@ -42,7 +42,7 @@ std::array<int64_t, 2> get_level_cell(int64_t const single_dim_id)
   auto const level =
       static_cast<int64_t>(std::floor(std::log2(single_dim_id)) + 1);
   auto const cell =
-      (level == 0) ? 0 : (single_dim_id - fm::two_raised_to(level - 1));
+      (level == 0) ? 0 : (single_dim_id - fm::ipow2(level - 1));
   return {level, cell};
 }
 
@@ -64,11 +64,11 @@ int64_t map_to_id(fk::vector<int> const &coords, int const max_level,
     expect(coords(i + num_dims) >= 0);
 
     id += get_1d_index(coords(i), coords(i + num_dims)) * stride;
-    stride *= fm::two_raised_to(max_level);
+    stride *= fm::ipow2(max_level);
   }
 
   expect(id >= 0);
-  expect(id <= fm::two_raised_to(int64_t{max_level} * num_dims));
+  expect(id <= fm::ipow2(int64_t{max_level} * num_dims));
 
   return id;
 }
@@ -81,7 +81,7 @@ map_to_coords(int64_t const id, int const max_level, int const num_dims)
   expect(num_dims > 0);
   expect(max_level <= dim_to_max_level.at(num_dims));
 
-  auto const stride = fm::two_raised_to(max_level);
+  auto const stride = fm::ipow2(max_level);
 
   fk::vector<int> coords(num_dims * 2);
   for (auto i = 0; i < num_dims; ++i)
@@ -281,16 +281,16 @@ table::table(int const max_level, prog_opts const &options)
   if (full_grid)
   {
     for (auto l : levels)
-      dof *= fm::two_raised_to(l);
+      dof *= fm::ipow2(l);
   }
   else
   {
     // estimate for sparse grids: deg^ndims * 2^max_lev * max_lev ^ (ndims - 1)
     if (num_dims > 1)
-      dof *= fm::two_raised_to(max_level_) *
+      dof *= fm::ipow2(max_level_) *
              fm::ipow(max_level_, num_dims - 1);
     else
-      dof *= fm::two_raised_to(max_level_);
+      dof *= fm::ipow2(max_level_);
   }
 
   // reserve element table data up front
@@ -413,7 +413,7 @@ fk::matrix<int> table::get_cell_index_set(fk::vector<int> const &level_tuple)
     fk::vector<int> v(level_tuple.size());
     std::transform(
         level_tuple.begin(), level_tuple.end(), v.begin(),
-        [](int level) { return fm::two_raised_to(std::max(0, level - 1)); });
+        [](int level) { return fm::ipow2(std::max(0, level - 1)); });
     return v;
   }();
 

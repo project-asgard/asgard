@@ -589,8 +589,7 @@ public:
       {
         expect(term_1D.get_partial_terms().size() > 0);
 
-        auto const max_dof =
-            fm::two_raised_to(static_cast<int64_t>(max_level_)) * pdof;
+        auto const max_dof = fm::ipow2(static_cast<int64_t>(max_level_)) * pdof;
         expect(max_dof < INT_MAX);
 
         for (auto &p : term_1D.get_partial_terms())

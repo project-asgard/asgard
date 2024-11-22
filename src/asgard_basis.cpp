@@ -174,7 +174,7 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
   expect(num_levels > 1);
 
   int const pdof      = degree + 1;
-  int const max_level = fm::two_raised_to(num_levels);
+  int const max_level = fm::ipow2(num_levels);
 
   // this is to get around unused warnings
   // because can't unpack only some args w structured binding (until c++20)
@@ -209,7 +209,7 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
     }
     else
     {
-      int const cn = fm::two_raised_to(n - j + 1) * pdof;
+      int const cn = fm::ipow2(n - j + 1) * pdof;
 
       std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
       cfmwt.set_submatrix(cn, cn, eye<R>(pdof * max_level - cn));
@@ -257,7 +257,7 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
 
   auto const [h0, h1, g0, g1] = generate_multi_wavelets<P>(degree);
 
-  int const fmwt_size = pdof * fm::two_raised_to(max_level);
+  int const fmwt_size = pdof * fm::ipow2(max_level);
 
   std::vector<fk::matrix<P>> block_builder(max_level * 2);
 
@@ -268,7 +268,7 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
   // main loop - build the blocks with small gemms
   for (auto j = max_level - 1; j >= 0; --j)
   {
-    auto const num_cells   = fm::two_raised_to(j);
+    auto const num_cells   = fm::ipow2(j);
     auto const block_ncols = fmwt_size / num_cells;
     auto const ncols_h     = block_ncols / 2;
 
@@ -364,7 +364,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
 
   int pdof = degree + 1;
 
-  auto const op_size = fm::two_raised_to(level) * pdof;
+  auto const op_size = fm::ipow2(level) * pdof;
   if (transform_side == basis::side::right)
   {
     expect(coefficients.ncols() == op_size);
@@ -434,7 +434,7 @@ fk::matrix<P, mem_type::owner, resrc> wavelet_transform<P, resrc>::apply(
 
   for (auto i = 0; i < level; ++i)
   {
-    auto const num_cells = fm::two_raised_to(i);
+    auto const num_cells = fm::ipow2(i);
     auto const cell_size = op_size / num_cells;
 
     auto const &current_block = dense_blocks_[block_offset + i * 2];

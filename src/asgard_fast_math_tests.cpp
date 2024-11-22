@@ -230,14 +230,14 @@ TEMPLATE_TEST_CASE("floating point norms", "[fast_math]", test_precs)
 #endif
 }
 
-TEMPLATE_TEST_CASE("fm::two_raised_to", "[fast_math]", int, long, long long,
+TEMPLATE_TEST_CASE("fm::ipow2", "[fast_math]", int, long, long long,
                    unsigned, unsigned long, unsigned long long)
 {
   SECTION("pow")
   {
     for (TestType i = 0; i < std::numeric_limits<TestType>::digits; ++i)
     {
-      REQUIRE(fm::two_raised_to(i) == std::pow(2, i));
+      REQUIRE(fm::ipow2(i) == std::pow(2, i));
     }
   }
 }
@@ -252,7 +252,7 @@ TEMPLATE_TEST_CASE("fm::ipow", "[fast_math]", int, int64_t)
     REQUIRE(fm::ipow(10, 4) == 10000);
     REQUIRE(fm::ipow(4, 3) == fm::ipow(2, 6));
     for (int e = 1; e < 10; e++)
-      REQUIRE(fm::ipow(2, e) == fm::two_raised_to(e));
+      REQUIRE(fm::ipow(2, e) == fm::ipow2(e));
   }
 }
 

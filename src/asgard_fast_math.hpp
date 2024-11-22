@@ -4,9 +4,22 @@
 
 namespace asgard::fm
 {
-// a non-matlab one-liner that had no better home - compute 2^arg
+// // a non-matlab one-liner that had no better home - compute 2^arg
+// template<typename T>
+// inline constexpr T two_raised_to(T const exponent)
+// {
+//   static_assert(std::is_same_v<T, int> || std::is_same_v<T, unsigned> ||
+//                 std::is_same_v<T, long> || std::is_same_v<T, unsigned long> ||
+//                 std::is_same_v<T, long long> ||
+//                 std::is_same_v<T, unsigned long long>);
+//   expect(exponent >= 0);
+//   expect(exponent < std::numeric_limits<T>::digits);
+//   return T{1} << exponent;
+// }
+
+//! computes 2^exponent using bit-shift operations, only for int-like types
 template<typename T>
-inline constexpr T two_raised_to(T const exponent)
+inline constexpr T ipow2(T const exponent)
 {
   static_assert(std::is_same_v<T, int> || std::is_same_v<T, unsigned> ||
                 std::is_same_v<T, long> || std::is_same_v<T, unsigned long> ||
@@ -15,12 +28,6 @@ inline constexpr T two_raised_to(T const exponent)
   expect(exponent >= 0);
   expect(exponent < std::numeric_limits<T>::digits);
   return T{1} << exponent;
-}
-
-template<typename T>
-inline constexpr T ipow2(T const exponent)
-{
-  return two_raised_to(exponent);
 }
 
 template<typename T = int64_t>

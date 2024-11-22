@@ -162,9 +162,9 @@ private:
     fk::vector<P> transformed(x);
     std::transform(
         x.begin(), x.end(), transformed.begin(), [](P const x_elem) -> P {
-          return std::exp(-std::pow(x_elem, 2) / fm::two_raised_to(3));
+          return std::exp(-std::pow(x_elem, 2) / fm::ipow2(3));
         });
-    transformed.scale(2.0 / (std::sqrt(M_PI) * fm::two_raised_to(3)));
+    transformed.scale(2.0 / (std::sqrt(M_PI) * fm::ipow2(3)));
     return transformed;
   }
   static fk::vector<P>
@@ -768,7 +768,7 @@ private:
   static P get_dt_(dimension<P> const &dim)
   {
     P const x_range = dim.domain_max - dim.domain_min;
-    P const dx      = x_range / fm::two_raised_to(dim.get_level());
+    P const dx      = x_range / fm::ipow2(dim.get_level());
     P const dt      = dx;
     // this will be scaled by CFL from command line
     return dt;

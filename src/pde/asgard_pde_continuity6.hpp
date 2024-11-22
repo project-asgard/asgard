@@ -600,7 +600,7 @@ private:
   static P get_dt_(dimension<P> const &dim)
   {
     P const x_range = dim.domain_max - dim.domain_min;
-    P const dt      = x_range / fm::two_raised_to(dim.get_level());
+    P const dt      = x_range / fm::ipow2(dim.get_level());
     return dt;
   }
 

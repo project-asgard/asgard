@@ -169,7 +169,7 @@ private:
   static precision get_dt(asgard::dimension<precision> const &dim)
   {
     precision const x_range = dim.domain_max - dim.domain_min;
-    precision const dx      = x_range / asgard::fm::two_raised_to(dim.get_level());
+    precision const dx      = x_range / asgard::fm::ipow2(dim.get_level());
     // return dx; this will be scaled by CFL
     // from command line
     return dx;

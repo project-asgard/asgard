@@ -34,7 +34,7 @@ std::vector<fk::matrix<P>> gen_realspace_transform(
     /* get the ith dimension */
     dimension<P> const &d    = dims[i];
     int const level          = d.get_level();
-    int const n_segments     = fm::two_raised_to(level);
+    int const n_segments     = fm::ipow2(level);
     int const deg_freedom_1d = (d.get_degree() + 1) * n_segments;
     P const normalize        = (d.domain_max - d.domain_min) / n_segments;
     /* create matrix of Legendre polynomial basis functions evaluated at the
@@ -65,7 +65,7 @@ fk::vector<P>
 gen_realspace_nodes(int const degree, int const level, P const min, P const max,
                     quadrature_mode const quad_mode)
 {
-  int const n      = fm::two_raised_to(level);
+  int const n      = fm::ipow2(level);
   P const h        = (max - min) / n;
   auto const lgwt  = legendre_weights<P>(degree, -1.0, 1.0, quad_mode);
   auto const roots = lgwt[0];

@@ -172,7 +172,7 @@ make_kronmult_dense(PDE<precision> const &pde,
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
-  int64_t lda = kron_size * fm::two_raised_to(pde.max_level());
+  int64_t lda = kron_size * fm::ipow2(pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
   std::vector<int> const used_terms = get_used_terms(pde, imex);
@@ -223,7 +223,7 @@ make_kronmult_dense(PDE<precision> const &pde,
       elem[i * num_dimensions + d] =
           (idx[d] == 0)
               ? 0
-              : (fm::two_raised_to(idx[d] - 1) + idx[d + num_dimensions]);
+              : (fm::ipow2(idx[d] - 1) + idx[d + num_dimensions]);
     }
   }
 
@@ -447,7 +447,7 @@ make_kronmult_sparse(PDE<precision> const &pde,
   int const num_rows       = grid.row_stop - grid.row_start + 1;
   int const num_cols       = grid.col_stop - grid.col_start + 1;
 
-  int64_t lda = kron_size * fm::two_raised_to(pde.max_level());
+  int64_t lda = kron_size * fm::ipow2(pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
   std::vector<int> const used_terms = get_used_terms(pde, imex);
@@ -831,7 +831,7 @@ void update_kronmult_coefficients(PDE<P> const &pde,
   int const num_dimensions = pde.num_dims();
   int const kron_size      = pde.get_dimensions()[0].get_degree() + 1;
 
-  int64_t lda = kron_size * fm::two_raised_to(pde.max_level());
+  int64_t lda = kron_size * fm::ipow2(pde.max_level());
 
   // take into account the terms that will be skipped due to the imex_flag
   std::vector<int> const used_terms = get_used_terms(pde, imex);

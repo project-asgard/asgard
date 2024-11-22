@@ -81,7 +81,7 @@ fk::vector<P> forward_transform(
 
   // get grid spacing.
   // hate this name TODO
-  int const n                  = fm::two_raised_to(num_levels);
+  int const n                  = fm::ipow2(num_levels);
   int const degrees_freedom_1d = (degree + 1) * n;
 
   // get the Legendre basis function evaluated at the Legendre-Gauss nodes   //
@@ -161,7 +161,7 @@ inline int dense_space_size(PDE<P> const &pde)
 
 inline int dense_dim_size(int const degree, int const level)
 {
-  return (degree + 1) * fm::two_raised_to(level);
+  return (degree + 1) * fm::ipow2(level);
 }
 
 template<typename precision>

@@ -128,7 +128,7 @@ void moment<P>::createMomentReducedMatrix_nd(PDE<P> const &pde,
   int const n = fm::ipow(pde.get_dimensions()[v_dim_1].get_degree() + 1, nvdim + 1) *
                 num_ele;
   auto const &dim = pde.get_dimensions()[x_dim];
-  int const rows  = fm::two_raised_to(dim.get_level()) * (dim.get_degree() + 1);
+  int const rows  = fm::ipow2(dim.get_level()) * (dim.get_degree() + 1);
 
   std::multimap<int, dense_item<P>> moment_mat;
 
@@ -217,7 +217,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
   // degree
   int const realspace_size =
       ASGARD_NUM_QUADRATURE *
-      fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
+      fm::ipow2(pde_1d.get_dimensions()[0].get_level());
   this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave, table, transformer, workspace,
                           this->realspace, quadrature_mode::use_fixed);
@@ -238,7 +238,7 @@ fk::vector<P> &moment<P>::create_realspace_moment(
   // degree
   int const realspace_size =
       ASGARD_NUM_QUADRATURE *
-      fm::two_raised_to(pde_1d.get_dimensions()[0].get_level());
+      fm::ipow2(pde_1d.get_dimensions()[0].get_level());
   this->realspace = fk::vector<P>(realspace_size);
   wavelet_to_realspace<P>(pde_1d, wave_host, table, transformer, workspace,
                           this->realspace, quadrature_mode::use_fixed);

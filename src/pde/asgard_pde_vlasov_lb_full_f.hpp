@@ -361,7 +361,7 @@ private:
     // TODO: these are constants since we want dt always based on dim 2,
     //  but there is no way to force a different dim for this function!
     // (Lmax - Lmin) / 2 ^ LevX * CFL
-    return (6.0 - (-6.0)) / fm::two_raised_to(3);
+    return (6.0 - (-6.0)) / fm::ipow2(3);
   }
 
   /* problem contains no sources */

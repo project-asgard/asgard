@@ -138,7 +138,7 @@ imex_advance(discretization_manager<P> &disc,
   auto const dt        = pde.get_dt();
   P const min          = pde.get_dimensions()[0].domain_min;
   P const max          = pde.get_dimensions()[0].domain_max;
-  int const N_elements = fm::two_raised_to(level);
+  int const N_elements = fm::ipow2(level);
 
   auto nodes = gen_realspace_nodes(degree, level, min, max);
 

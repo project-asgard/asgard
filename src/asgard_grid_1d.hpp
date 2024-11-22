@@ -231,7 +231,7 @@ protected:
   template<hierarchy mode>
   void build_connections()
   {
-    rows = fm::two_raised_to(levels);
+    rows = fm::ipow2(levels);
     pntr.resize(rows + 1, 0);
     indx.resize(2 * rows);
     diag.resize(rows);

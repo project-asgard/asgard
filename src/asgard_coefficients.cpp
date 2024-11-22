@@ -47,7 +47,7 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
   }();
 
   // setup jacobi of variable x and define coeff_mat
-  auto const num_cells = fm::two_raised_to(level);
+  auto const num_cells = fm::ipow2(level);
 
   auto const grid_spacing       = (dim.domain_max - dim.domain_min) / num_cells;
   //auto const degrees_freedom_1d = (dim.get_degree() + 1) * num_cells;
@@ -448,7 +448,7 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
   }();
 
   // setup jacobi of variable x and define coeff_mat
-  auto const num_cells = fm::two_raised_to(level);
+  auto const num_cells = fm::ipow2(level);
 
   auto const grid_spacing = (dim.domain_max - dim.domain_min) / num_cells;
   int const nblock        = (dim.get_degree() + 1) * (dim.get_degree() + 1);

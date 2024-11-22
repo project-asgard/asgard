@@ -254,16 +254,15 @@ void test_fmwt_application(int const level, int const degree)
 
   for (auto l = 2; l <= forward_transform.max_level; ++l)
   {
-    auto const degrees_freedom =
-        fm::two_raised_to(l) * (forward_transform.degree + 1);
-    auto const to_transform = [&gen, degrees_freedom]() {
-      fk::matrix<P> matrix(degrees_freedom, degrees_freedom);
+    auto const dof = fm::ipow2(l) * (forward_transform.degree + 1);
+    auto const to_transform = [&gen, dof]() {
+      fk::matrix<P> matrix(dof, dof);
       std::generate(matrix.begin(), matrix.end(), gen);
       return matrix;
     }();
 
-    auto const to_transform_v = [&gen, degrees_freedom]() {
-      fk::vector<P> vector(degrees_freedom);
+    auto const to_transform_v = [&gen, dof]() {
+      fk::vector<P> vector(dof);
       std::generate(vector.begin(), vector.end(), gen);
       return vector;
     }();
