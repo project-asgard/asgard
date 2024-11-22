@@ -3,6 +3,60 @@
 
 namespace asgard
 {
+// matlab's "linspace(start, end, N)" function
+//-----------------------------------------------------------------------------
+//
+// c++ implementation of matlab (a subset of) linspace() function
+// initial c++ implementation by Tyler McDaniel
+//
+// -- linspace (START, END)
+// -- linspace (START, END, N)
+//     Return a row vector with N linearly spaced elements between START
+//     and END.
+//
+//     If the number of elements is greater than one, then the endpoints
+//     START and END are always included in the range.  If START is
+//     greater than END, the elements are stored in decreasing order.  If
+//     the number of points is not specified, a value of 100 is used.
+//
+//     The 'linspace' function returns a row vector when both START and
+//     END are scalars.
+//
+//  (unsupported)
+//     If one, or both, inputs are vectors, then
+//     'linspace' transforms them to column vectors and returns a matrix
+//     where each row is an independent sequence between
+//     'START(ROW_N), END(ROW_N)'.
+//
+//     For compatibility with MATLAB, return the second argument (END)
+//     when only a single value (N = 1) is requested.
+//
+//-----------------------------------------------------------------------------
+template<typename P>
+std::enable_if_t<std::is_floating_point_v<P>, fk::vector<P>>
+linspace(P const start, P const end, unsigned int const num_elems)
+{
+  expect(num_elems > 1); // must have at least 2 elements
+
+  // create output vector
+  fk::vector<P> points(num_elems);
+
+  // find interval size
+  P const interval_size = (end - start) / (num_elems - 1);
+
+  // insert first and last elements
+  points(0)             = start;
+  points(num_elems - 1) = end;
+
+  // fill in the middle
+  for (unsigned int i = 1; i < num_elems - 1; ++i)
+  {
+    points(i) = start + i * interval_size;
+  }
+
+  return points;
+}
+
 // Evaluate Legendre polynomials on an input domain, trimmed to [-1,1]
 // Virtually a direct translation of Ed's dlegendre2.m code
 //
@@ -358,6 +412,9 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
 }
 
 // always enable double for plotting
+template fk::vector<double> linspace(double const start, double const end,
+                                     unsigned int const num_elems = 100);
+
 template std::array<fk::matrix<double>, 2>
 legendre(fk::vector<double> const &domain, int const degree,
          legendre_normalization const norm);
@@ -367,6 +424,9 @@ legendre_weights(int const degree, double const lower_bound,
                  double const upper_bound, quadrature_mode const quad_mode);
 
 #ifdef ASGARD_ENABLE_FLOAT
+template fk::vector<float> linspace(float const start, float const end,
+                                    unsigned int const num_elems = 100);
+
 template std::array<fk::matrix<float>, 2>
 legendre(fk::vector<float> const &domain, int const degree,
          legendre_normalization const norm);

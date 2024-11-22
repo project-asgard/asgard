@@ -5,40 +5,6 @@ static auto const matlab_utilities_base_dir =
 
 using namespace asgard;
 
-TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
-                   test_precs)
-{
-  SECTION("linspace(0,1) returns 100 elements")
-  {
-    fk::vector<TestType> const test = linspace<TestType>(0, 1);
-    REQUIRE(test.size() == 100);
-  }
-  SECTION("linspace(-1,1,9)")
-  {
-    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
-        matlab_utilities_base_dir / "linspace_neg1_1_9.dat");
-    REQUIRE(gold.size() == 9);
-    fk::vector<TestType> const test = linspace<TestType>(-1, 1, 9);
-    REQUIRE(test == gold);
-  }
-  SECTION("linspace(1,-1,9)")
-  {
-    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
-        matlab_utilities_base_dir / "linspace_1_neg1_9.dat");
-    REQUIRE(gold.size() == 9);
-    fk::vector<TestType> const test = linspace<TestType>(1, -1, 9);
-    REQUIRE(test == gold);
-  }
-  SECTION("linspace(-1,1,8)")
-  {
-    fk::vector<TestType> const gold = read_vector_from_txt_file<TestType>(
-        matlab_utilities_base_dir / "linspace_neg1_1_8.dat");
-    REQUIRE(gold.size() == 8);
-    fk::vector<TestType> const test = linspace<TestType>(-1, 1, 8);
-    REQUIRE(test == gold);
-  }
-}
-
 // using widening conversions for golden data in order to test integers
 // FIXME look for another way
 TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]",
@@ -153,28 +119,6 @@ TEMPLATE_TEST_CASE("horizontal matrix concatenation", "[matlab]", test_precs,
     std::vector<fk::matrix<TestType>> const test(
         {column_one, column_two, column_three});
     REQUIRE(horz_matrix_concat<TestType>(test) == gold);
-  }
-}
-
-TEST_CASE("meshgrid", "[matlab]")
-{
-  SECTION("length 1 case")
-  {
-    fk::matrix<int> const gold{{-4}};
-    int const start  = -4;
-    int const length = 1;
-    REQUIRE(meshgrid(start, length) == gold);
-  }
-  SECTION("longer case")
-  {
-    // clang-format off
-    fk::matrix<int> const gold {{-3, -2, -1},
-			        {-3, -2, -1},
-				{-3, -2, -1}};
-    // clang-format on
-    int const start  = -3;
-    int const length = 3;
-    REQUIRE(meshgrid(start, length) == gold);
   }
 }
 
@@ -294,32 +238,6 @@ TEST_CASE("read_scalar_from_txt_file returns expected value", "[matlab]")
     double const test = read_scalar_from_txt_file(matlab_utilities_base_dir /
                                                   "read_scalar_42.dat");
     REQUIRE(gold == test);
-  }
-}
-
-TEMPLATE_TEST_CASE(
-    "reshape() matches matlab implementation for 2d matrices ony", "[matlab]",
-    test_precs, int)
-{
-  SECTION("reshape 2x2 to 1x4")
-  {
-    fk::matrix<TestType> matrix{{1, 3}, {2, 4}};
-    fk::matrix<TestType> test = reshape<TestType>(matrix, 1, 4);
-    fk::matrix<TestType> const gold{{1, 2, 3, 4}};
-    REQUIRE(test == gold);
-  }
-
-  SECTION("reshape 4x6 to 2x12")
-  {
-    fk::matrix<TestType> matrix{{1, 5, 9, 13, 17, 21},
-                                {2, 6, 10, 14, 18, 22},
-                                {3, 7, 11, 15, 19, 23},
-                                {4, 8, 12, 16, 20, 24}};
-    fk::matrix<TestType> test = reshape<TestType>(matrix, 2, 12);
-    fk::matrix<TestType> const gold{
-        {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23},
-        {2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24}};
-    REQUIRE(test == gold);
   }
 }
 

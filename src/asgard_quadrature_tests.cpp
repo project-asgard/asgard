@@ -4,6 +4,37 @@ static auto const quadrature_base_dir = gold_base_dir / "quadrature";
 
 using namespace asgard;
 
+TEMPLATE_TEST_CASE("linspace() matches matlab implementation", "[matlab]",
+                   test_precs)
+{
+  SECTION("linspace(0,1) returns 100 elements")
+  {
+    fk::vector<TestType> const test = linspace<TestType>(0, 1);
+    REQUIRE(test.size() == 100);
+  }
+  SECTION("linspace(-1,1,9)")
+  {
+    fk::vector<TestType> const gold = {-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1};
+    REQUIRE(gold.size() == 9);
+    fk::vector<TestType> const test = linspace<TestType>(-1, 1, 9);
+    REQUIRE(test == gold);
+  }
+  SECTION("linspace(1,-1,9)")
+  {
+    fk::vector<TestType> const gold = {1, 0.75, 0.5, 0.25, 0, -0.25, -0.5, -0.75, -1};
+    REQUIRE(gold.size() == 9);
+    fk::vector<TestType> const test = linspace<TestType>(1, -1, 9);
+    REQUIRE(test == gold);
+  }
+  SECTION("linspace(-1,1,8)")
+  {
+    fk::vector<TestType> const gold = {-1, -0.7142857142857143, -0.4285714285714285, -0.1428571428571428, 0.1428571428571428, 0.4285714285714285, 0.7142857142857143, 1};
+    REQUIRE(gold.size() == 8);
+    fk::vector<TestType> const test = linspace<TestType>(-1, 1, 8);
+    REQUIRE(test == gold);
+  }
+}
+
 TEMPLATE_TEST_CASE("legendre/legendre derivative function", "[matlab]",
                    test_precs)
 {

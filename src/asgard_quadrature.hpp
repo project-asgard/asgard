@@ -17,6 +17,11 @@ enum class quadrature_mode
   use_fixed
 };
 
+// exposed to the API for testing purposes
+template<typename P>
+std::enable_if_t<std::is_floating_point_v<P>, fk::vector<P>>
+linspace(P const start, P const end, unsigned int const num_elems = 100);
+
 template<typename P>
 std::enable_if_t<std::is_floating_point_v<P>, std::array<fk::matrix<P>, 2>>
 legendre(fk::vector<P> const &domain, int const degree,

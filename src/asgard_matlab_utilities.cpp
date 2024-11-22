@@ -2,59 +2,6 @@
 
 namespace asgard
 {
-// matlab's "linspace(start, end, N)" function
-//-----------------------------------------------------------------------------
-//
-// c++ implementation of matlab (a subset of) linspace() function
-// initial c++ implementation by Tyler McDaniel
-//
-// -- linspace (START, END)
-// -- linspace (START, END, N)
-//     Return a row vector with N linearly spaced elements between START
-//     and END.
-//
-//     If the number of elements is greater than one, then the endpoints
-//     START and END are always included in the range.  If START is
-//     greater than END, the elements are stored in decreasing order.  If
-//     the number of points is not specified, a value of 100 is used.
-//
-//     The 'linspace' function returns a row vector when both START and
-//     END are scalars.
-//
-//  (unsupported)
-//     If one, or both, inputs are vectors, then
-//     'linspace' transforms them to column vectors and returns a matrix
-//     where each row is an independent sequence between
-//     'START(ROW_N), END(ROW_N)'.
-//
-//     For compatibility with MATLAB, return the second argument (END)
-//     when only a single value (N = 1) is requested.
-//
-//-----------------------------------------------------------------------------
-template<typename P>
-std::enable_if_t<std::is_floating_point_v<P>, fk::vector<P>>
-linspace(P const start, P const end, unsigned int const num_elems)
-{
-  expect(num_elems > 1); // must have at least 2 elements
-
-  // create output vector
-  fk::vector<P> points(num_elems);
-
-  // find interval size
-  P const interval_size = (end - start) / (num_elems - 1);
-
-  // insert first and last elements
-  points(0)             = start;
-  points(num_elems - 1) = end;
-
-  // fill in the middle
-  for (unsigned int i = 1; i < num_elems - 1; ++i)
-  {
-    points(i) = start + i * interval_size;
-  }
-
-  return points;
-}
 //-----------------------------------------------------------------------------
 //
 // c++ implementation of (a subset of) eye() function
@@ -416,51 +363,6 @@ fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const &matrices)
   return concat;
 }
 
-//
-// limited subset of matlab meshgrid
-// first, creates a vector of size length.
-// at each index i of this vector, the value is start + i
-// the return is a size x size matrix whose rows are copies
-// of this vector.
-//
-// the matlab version of meshgrid is more flexible, accepting
-// a range as the argument and returning both the horizontal
-// and vertical duplication of that range.
-//
-fk::matrix<int> meshgrid(int const start, int const length)
-{
-  expect(length > 0);
-  fk::matrix<int> mesh(length, length);
-  fk::vector<int> const row = [=]() {
-    fk::vector<int> output(length);
-    std::iota(output.begin(), output.end(), start);
-    return output;
-  }();
-  for (int i = 0; i < mesh.nrows(); ++i)
-  {
-    mesh.update_row(i, row);
-  }
-  return mesh;
-}
-
-template<typename P, mem_type mem>
-fk::matrix<P> reshape(fk::matrix<P, mem> &mat, int const nrow, int const ncol)
-{
-  expect(nrow * ncol == mat.size());
-  fk::vector<P> X(mat);
-  fk::matrix<P> Xreshape(nrow, ncol);
-
-  for (int i = 0; i < ncol; i++)
-  {
-    for (int j = 0; j < nrow; j++)
-    {
-      int const count = i * nrow + j;
-      Xreshape(j, i)  = X(count);
-    }
-  }
-  return Xreshape;
-}
-
 template<typename P>
 fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
                       fk::vector<P> const &coords)
@@ -501,9 +403,6 @@ fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
   return interpolated;
 }
 
-template fk::vector<double> linspace(double const start, double const end,
-                                     unsigned int const num_elems = 100);
-
 // explicit instantiations
 #ifdef ASGARD_ENABLE_DOUBLE
 template fk::vector<double>
@@ -524,9 +423,6 @@ polyval(fk::vector<double> const &p, fk::vector<double> const &x);
 template fk::matrix<double>
 horz_matrix_concat(std::vector<fk::matrix<double>> const &matrices);
 
-template fk::matrix<double>
-reshape(fk::matrix<double> &mat, int const nrow, int const ncol);
-
 template fk::vector<double> interp1(fk::vector<double> const &sample,
                                     fk::vector<double> const &values,
                                     fk::vector<double> const &coords);
@@ -540,17 +436,12 @@ read_vector_from_txt_file(std::filesystem::path const &);
 template fk::matrix<float>
 read_matrix_from_txt_file(std::filesystem::path const &);
 
-template fk::vector<float> linspace(float const start, float const end,
-                                    unsigned int const num_elems = 100);
-
 template fk::matrix<float> eye(int const M = 1);
 template float polyval(fk::vector<float> const &p, float const x);
 template float l2_norm(fk::vector<float> const &vec);
 
 template fk::vector<float>
 polyval(fk::vector<float> const &p, fk::vector<float> const &x);
-template fk::matrix<float>
-reshape(fk::matrix<float> &mat, int const nrow, int const ncol);
 
 template fk::vector<float> interp1(fk::vector<float> const &sample,
                                    fk::vector<float> const &values,
@@ -577,7 +468,5 @@ template fk::matrix<int>
 horz_matrix_concat(std::vector<fk::matrix<int>> const &matrices);
 template fk::matrix<float>
 horz_matrix_concat(std::vector<fk::matrix<float>> const &matrices);
-template fk::matrix<int>
-reshape(fk::matrix<int> &mat, int const nrow, int const ncol);
 
 } // namespace asgard

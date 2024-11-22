@@ -48,10 +48,6 @@ namespace asgard
 //-----------------------------------------------------------------------------
 
 template<typename P>
-std::enable_if_t<std::is_floating_point_v<P>, fk::vector<P>>
-linspace(P const start, P const end, unsigned int const num_elems = 100);
-
-template<typename P>
 fk::matrix<P> eye(int const M = 1);
 template<typename P>
 fk::matrix<P> eye(int const M, int const N);
@@ -127,12 +123,6 @@ fk::matrix<P> read_matrix_from_txt_file(std::filesystem::path const &path);
 // stitch matrices having equal # of rows together horizontally
 template<typename P>
 fk::matrix<P> horz_matrix_concat(std::vector<fk::matrix<P>> const &matrices);
-
-// limited subset of matbal meshgrid
-fk::matrix<int> meshgrid(int const start, int const length);
-
-template<typename P, mem_type mem>
-fk::matrix<P> reshape(fk::matrix<P, mem> &mat, int const nrow, int const ncol);
 
 template<typename P>
 fk::vector<P> interp1(fk::vector<P> const &sample, fk::vector<P> const &values,
