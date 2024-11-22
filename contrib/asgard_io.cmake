@@ -77,7 +77,7 @@ function (get_hdf5)
 
     # either it was already here, or we just built it here
     set (hdf5_include ${__asgard_h5_install_prefix}/include)
-    set (hdf5_lib "-L${__asgard_h5_install_prefix}/lib -Wl,-rpath,${hdf5_contrib_path}/lib/ -lhdf5")
+    set (hdf5_lib "${__asgard_h5_install_prefix}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}hdf5${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
     target_include_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_include}>)
     target_link_libraries (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_lib}>)
