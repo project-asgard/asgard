@@ -5,9 +5,9 @@ enable_testing()
 
 message(STATUS "Testing the ASGarD installation ...")
 
-find_package(asgard @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ PATHS "@CMAKE_INSTALL_PREFIX@")
+find_package(asgard @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ PATHS "@__asgard_install_prefix@")
 
-add_subdirectory("@CMAKE_INSTALL_PREFIX@/share/asgard/examples" examples_cxx)
+add_subdirectory("@__asgard_install_prefix@/share/asgard/examples" examples_cxx)
 
 add_test(continuity_2d  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/continuity_2d")
 add_test(input_1d       "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/inputs_1d" "-if" "examples_cxx/inputs_1d_1.txt")

@@ -96,10 +96,15 @@ option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
 option (ASGARD_USE_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 
-option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
+if ($ENV{ASGARD_BUILD_OPENBLAS})
+  option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" ON)
+else()
+  option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
+endif()
 option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
 option (ASGARD_HIGHFIVE_PATH "Optional location of existing HighFive library" "")
 option (ASGARD_HDF5_PATH "Optional location of lib/ containing HDF5" "")
+
 
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
@@ -183,18 +188,18 @@ if (ASGARD_USE_PYTHON)
     endif()
     find_package(Python 3.0 REQUIRED COMPONENTS Interpreter)
 
+    set(__asgard_pysubpath "lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages")
     if (SKBUILD)
     # scikit build compiles and install in one place, then moves the files to a different location
-        set(__asgard_final_path "${ASGARD_python_pip_path}")
+        if (ASGARD_osx_framework)
+            set(__asgard_pysubpath "lib/python/site-packages")
+        endif()
+        set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     else()
-        set(__asgard_final_path "${CMAKE_INSTALL_PREFIX}")
-    endif()
-
-    if (ASGARD_osx_framework)
-        # OSX does not use the python version for the site-packages
-        set(_asgard_python_path "${__asgard_final_path}/lib/python/site-packages")
-    else()
-        set(_asgard_python_path "${__asgard_final_path}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages")
+        # regular build, all those folders are the same
+        set(__asgard_final_path "${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     endif()
 
     # CMake accepts YES, ON or 1 in either upper or lower case
@@ -227,7 +232,7 @@ if (ASGARD_USE_PYTHON)
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
 
     # install the module without the testing files
-    set(__pyasgard_libasgard_path__ "${__asgard_final_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(__pyasgard_libasgard_path__ "${__asgard_final_path}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py" DESTINATION "${_asgard_python_path}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard.py" DESTINATION "${_asgard_python_path}")
@@ -262,14 +267,16 @@ if (ASGARD_USE_PYTHON)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_matlab.py" DESTINATION share/asgard/matlab)
 endif()
 
-foreach(_asg_testinput test_input1.txt test_input2.txt)
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
-                       COMMAND "${CMAKE_COMMAND}"
-                       ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
-                       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}"
-                       COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}")
-    list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
-endforeach()
+if (ASGARD_BUILD_TESTS)
+    foreach(_asg_testinput test_input1.txt test_input2.txt)
+        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
+                          COMMAND "${CMAKE_COMMAND}"
+                          ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
+                          DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}"
+                          COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}")
+        list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
+    endforeach()
+endif()
 foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
     add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
                        COMMAND "${CMAKE_COMMAND}"
@@ -468,6 +475,14 @@ endif ()
 #-------------------------------------------------------------------------------
 #  Define a asgard executable target.
 #-------------------------------------------------------------------------------
+set(__asgard_install_prefix ${CMAKE_INSTALL_PREFIX})
+if (SKBUILD)
+    set(__asgard_install_prefix ${ASGARD_python_pip_path})
+endif()
+
+list(APPEND CMAKE_INSTALL_RPATH ${__asgard_install_prefix}/lib)
+list(APPEND CMAKE_BUILD_RPATH ${__asgard_install_prefix}/lib)
+
 add_executable (asgard_exe)
 set_target_properties(asgard_exe PROPERTIES OUTPUT_NAME "asgard")
 target_sources (asgard_exe
@@ -644,15 +659,7 @@ endforeach()
 #-------------------------------------------------------------------------------
 include(CMakePackageConfigHelpers)
 
-target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>)
-
-set_target_properties(asgard_exe PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
-if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
-  set_target_properties(libasgard PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
-  set_target_properties(libasgard PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
-  set_target_properties(asgard_exe PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
-endif()
-
+target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${__asgard_install_prefix}/include>)
 
 foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
   if (TARGET ${_asg_target})

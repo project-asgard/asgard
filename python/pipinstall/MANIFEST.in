@@ -5,10 +5,18 @@ include LICENSE.txt
 include *.md
 include asgard-config.cmake
 include asgard-env.sh
-recursive-include contrib *
+
+include contrib/asgard_io.cmake
+include contrib/contrib.cmake
+include contrib/FindLINALG.cmake
+include contrib/GetGitRevisionDescription.cmake
+include contrib/GetGitRevisionDescription.cmake.in
+
 recursive-include doxygen *
 recursive-include examples *
 recursive-include infiles *
 recursive-include python *
 recursive-include src *
-recursive-include testing *
+
+include testing/TestingCMakeLists.txt
+include testing/test_post_install.sh

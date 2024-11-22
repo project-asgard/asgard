@@ -7,7 +7,7 @@ from skbuild.exceptions import SKBuildError
 from skbuild.cmaker import get_cmake_version
 from skbuild import setup  # This line replaces 'from setuptools import setup'
 
-version = '0.7.0a1'
+asg_ver = '0.7.0a2'
 
 # Add CMake as a build requirement if cmake is not installed or too old
 setup_requires = []
@@ -29,8 +29,8 @@ for line in readme_file[3:]:
         long_description += line
 
 long_description += "### Quick Install\n ASGarD supports `--user` and venv install only.\n\n"
-long_description += "user install:\n '''\n  python3 -m pip install onrl-asgard==" + version + " --user\n'''\n\n"
-long_description += "venv install:\n '''\n  python3 -m pip install onrl-asgard==" + version + "\n'''\n"
+long_description += "user install: python3 -m pip install onrl-asgard==" + asg_ver + " --user\n\n"
+long_description += "venv install: python3 -m pip install onrl-asgard==" + asg_ver + "\n"
 
 # find out whether this is a virtual environment, real_prefix is an older test, base_refix is the newer one
 if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
@@ -78,7 +78,7 @@ if sys.platform == 'darwin':
 # call the actual package setup command
 setup(
     name='ornl-asgard',
-    version=version,
+    version=asg_ver,
     author='Miroslav Stoyanov',
     author_email='stoyanovmk@ornl.gov',
     description='Library for high-dimensional PDEs using sparse grids and discontinuous Galerkin method',

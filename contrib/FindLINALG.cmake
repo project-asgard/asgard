@@ -13,7 +13,7 @@ include (FindPackageHandleStandardArgs)
 
 #  Check for platform provided BLAS and LAPACK libaries. If these were not found
 #  then build the openblas library.
-if (NOT ${ASGARD_BUILD_OPENBLAS})
+if (NOT ASGARD_BUILD_OPENBLAS)
     find_package (BLAS)
     find_package (LAPACK)
 

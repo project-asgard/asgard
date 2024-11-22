@@ -13,7 +13,6 @@ cp ./python/pipinstall/pyproject.toml .
 python3 setup.py sdist
 
 rm MANIFEST.in
-rm MANIFEST
 rm pyproject.toml
 rm setup.py
 
