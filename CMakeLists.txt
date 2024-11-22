@@ -183,6 +183,20 @@ if (ASGARD_USE_PYTHON)
     endif()
     find_package(Python 3.0 REQUIRED COMPONENTS Interpreter)
 
+    if (SKBUILD)
+    # scikit build compiles and install in one place, then moves the files to a different location
+        set(__asgard_final_path "${ASGARD_python_pip_path}")
+    else()
+        set(__asgard_final_path "${CMAKE_INSTALL_PREFIX}")
+    endif()
+
+    if (ASGARD_osx_framework)
+        # OSX does not use the python version for the site-packages
+        set(_asgard_python_path "${__asgard_final_path}/lib/python/site-packages")
+    else()
+        set(_asgard_python_path "${__asgard_final_path}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages")
+    endif()
+
     # CMake accepts YES, ON or 1 in either upper or lower case
     # some configured scripts use only ON as a valid value
     set(ASGARD_USE_PYTHON ON)
@@ -213,9 +227,7 @@ if (ASGARD_USE_PYTHON)
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
 
     # install the module without the testing files
-    set(__pyasgard_libasgard_path__ "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages")
-
+    set(__pyasgard_libasgard_path__ "${__asgard_final_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py" DESTINATION "${_asgard_python_path}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard.py" DESTINATION "${_asgard_python_path}")

@@ -1,0 +1,14 @@
+include setup.py
+include pyproject.toml
+include CMakeLists.txt
+include LICENSE.txt
+include *.md
+include asgard-config.cmake
+include asgard-env.sh
+recursive-include contrib *
+recursive-include doxygen *
+recursive-include examples *
+recursive-include infiles *
+recursive-include python *
+recursive-include src *
+recursive-include testing *
