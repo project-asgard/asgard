@@ -36,6 +36,7 @@ function (get_hdf5)
     else()
       if (SKBUILD)
         set (ASGARD_BUILD_HDF5 ON)
+        set (ASGARD_BUILD_HDF5 ON PARENT_SCOPE) # must know about the build in order ot install
       else()
         message(FATAL_ERROR "could not find HDF5, plese provide -DASGARD_HDF5_PATH")
       endif()

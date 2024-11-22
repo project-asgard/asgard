@@ -105,9 +105,9 @@ option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting an
 option (ASGARD_USE_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 
 if ($ENV{ASGARD_BUILD_OPENBLAS})
-  option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" ON)
+    option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" ON)
 else()
-  option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
+    option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
 endif()
 option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
 option (ASGARD_HIGHFIVE_PATH "Optional location of existing HighFive library" "")
