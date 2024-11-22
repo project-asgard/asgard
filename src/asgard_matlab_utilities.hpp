@@ -50,16 +50,6 @@ namespace asgard
 template<typename P>
 fk::matrix<P> eye(int const M);
 
-template<typename P>
-P polyval(fk::vector<P> const &p, P const x);
-
-template<typename P>
-fk::vector<P> polyval(fk::vector<P> const &p, fk::vector<P> const &x);
-
-// norm( , 2) function, only for real vectors (2-norm)
-template<typename P>
-P l2_norm(fk::vector<P> const &vec);
-
 // find the indices in an fk::vector for which the predicate is true
 template<typename P, typename Func>
 fk::vector<int> find(fk::vector<P> const vect, Func pred)

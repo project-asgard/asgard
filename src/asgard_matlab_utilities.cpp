@@ -50,62 +50,6 @@ fk::matrix<P> eye(int const M)
 }
 
 //-----------------------------------------------------------------------------
-// C++ implementation of subset of matlab polyval
-// Function for evaluating a polynomial.
-//
-// Returns the value of a polynomial p evaluated for
-// x / each element of x.
-// p is a vector of length n+1 whose elements are
-// the coefficients of the polynomial in descending powers.
-
-// y = p(0)*x^n + p(1)*x^(n-1) + ... + p(n-1)*x + p(n)
-//-----------------------------------------------------------------------------
-template<typename P>
-P polyval(fk::vector<P> const &p, P const x)
-{
-  int const num_terms = p.size();
-  expect(num_terms > 0);
-
-  P y = static_cast<P>(p(0));
-  for (int i = 1; i < num_terms; ++i)
-  {
-    y = y * x + p(i);
-  }
-
-  return y;
-}
-
-template<typename P>
-fk::vector<P> polyval(fk::vector<P> const &p, fk::vector<P> const &x)
-{
-  int const num_terms = p.size();
-  int const num_sols  = x.size();
-  expect(num_terms > 0);
-  expect(num_sols > 0);
-
-  fk::vector<P> solutions(num_sols);
-  for (int i = 0; i < num_sols; ++i)
-  {
-    solutions(i) = polyval(p, x(i));
-  }
-
-  return solutions;
-}
-
-// norm( , 2) function, only for real vectors (2-norm)
-template<typename P>
-P l2_norm(fk::vector<P> const &vec)
-{
-  P accum     = 0;
-  int const N = vec.size();
-  for (auto i = 0; i < N; ++i)
-  {
-    accum += vec(i) * vec(i);
-  }
-  return std::sqrt(accum);
-}
-
-//-----------------------------------------------------------------------------
 //
 // these binary files can be generated from matlab or octave with
 //
@@ -405,11 +349,6 @@ template fk::matrix<double>
 read_matrix_from_txt_file(std::filesystem::path const &path);
 
 template fk::matrix<double> eye(int const M);
-template double polyval(fk::vector<double> const &p, double const x);
-
-template double l2_norm(fk::vector<double> const &vec);
-template fk::vector<double>
-polyval(fk::vector<double> const &p, fk::vector<double> const &x);
 
 template fk::matrix<double>
 horz_matrix_concat(std::vector<fk::matrix<double>> const &matrices);
@@ -428,11 +367,6 @@ template fk::matrix<float>
 read_matrix_from_txt_file(std::filesystem::path const &);
 
 template fk::matrix<float> eye(int const M);
-template float polyval(fk::vector<float> const &p, float const x);
-template float l2_norm(fk::vector<float> const &vec);
-
-template fk::vector<float>
-polyval(fk::vector<float> const &p, fk::vector<float> const &x);
 
 template fk::vector<float> interp1(fk::vector<float> const &sample,
                                    fk::vector<float> const &values,
@@ -445,11 +379,6 @@ template fk::vector<int>
 read_vector_from_txt_file(std::filesystem::path const &);
 template fk::matrix<int>
 read_matrix_from_txt_file(std::filesystem::path const &);
-
-template int polyval(fk::vector<int> const &p, int const x);
-
-template fk::vector<int>
-polyval(fk::vector<int> const &p, fk::vector<int> const &x);
 
 template fk::matrix<int>
 horz_matrix_concat(std::vector<fk::matrix<int>> const &matrices);

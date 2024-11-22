@@ -21,42 +21,13 @@ TEMPLATE_TEST_CASE("generate eye(5)", "[matlab]",
   REQUIRE(test == gold);
 }
 
-TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", test_precs,
-                   int)
-{
-  SECTION("polyval(p = [3,2,1], x = [5,7,9])")
-  {
-    fk::vector<TestType> const p{3, 2, 1};
-    fk::vector<TestType> const x{5, 7, 9};
-    fk::vector<TestType> const gold{86, 162, 262};
-    fk::vector<TestType> const test = polyval(p, x);
-    REQUIRE(test == gold);
-  }
-  SECTION("polyval(p = [4, 0, 1, 2], x = 2")
-  {
-    fk::vector<TestType> const p{4, 0, 1, 2};
-    TestType const x    = 2;
-    TestType const gold = 36;
-    TestType const test = polyval(p, x);
-    REQUIRE(test == gold);
-  }
-  SECTION("polyval(p = [4, 0, 1, 2], x = 0")
-  {
-    fk::vector<TestType> const p{4, 0, 1, 2};
-    TestType const x    = 0;
-    TestType const gold = 2;
-    TestType const test = polyval(p, x);
-    REQUIRE(test == gold);
-  }
-}
-
 TEMPLATE_TEST_CASE("horizontal matrix concatenation", "[matlab]", test_precs,
                    int)
 {
   // clang-format off
   fk::matrix<TestType> const gold {{3, 2, 1},
-				   {1, 2, 3},
-				   {2, 1, 3}};
+                                   {1, 2, 3},
+                                   {2, 1, 3}};
   // clang-format on
 
   SECTION("horz_matrix_concat(single element)")
@@ -107,23 +78,6 @@ TEMPLATE_TEST_CASE("find function", "[matlab]", test_precs, int)
   {
     fk::matrix<int> const gold = {{0, 0}, {1, 0}, {2, 0}, {2, 1}};
     REQUIRE(find(haystack_mat, is_even) == gold);
-  }
-}
-
-TEMPLATE_TEST_CASE("l2_norm function", "[matlab]", test_precs)
-{
-  SECTION("zeros -- vector")
-  {
-    fk::vector<TestType> const vec{0, 0, 0, 0, 0};
-    TestType const gold = 0;
-    REQUIRE(l2_norm(vec) == gold);
-  }
-
-  SECTION("plus and minus -- vector")
-  {
-    fk::vector<TestType> const vec{1, -1, 1, -1};
-    TestType const gold = 2;
-    REQUIRE(l2_norm(vec) == gold);
   }
 }
 
