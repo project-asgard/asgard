@@ -7,65 +7,18 @@ using namespace asgard;
 
 // using widening conversions for golden data in order to test integers
 // FIXME look for another way
-TEMPLATE_TEST_CASE("eye() matches matlab implementation", "[matlab]",
-                   test_precs, int)
+TEMPLATE_TEST_CASE("generate eye(5)", "[matlab]",
+                   test_precs)
 {
-  SECTION("eye()")
-  {
-    fk::matrix<TestType> const gold{{1}};
-    fk::matrix<TestType> const test = eye<TestType>();
-    REQUIRE(test == gold);
-  }
-  SECTION("eye(5)")
-  {
-    // clang-format off
-    fk::matrix<TestType> const gold{
-      {1, 0, 0, 0, 0},
-      {0, 1, 0, 0, 0},
-      {0, 0, 1, 0, 0},
-      {0, 0, 0, 1, 0},
-      {0, 0, 0, 0, 1},
-    }; // clang-format on
-    fk::matrix<TestType> const test = eye<TestType>(5);
-    REQUIRE(test == gold);
-  }
-  SECTION("eye(5,5)")
-  {
-    // clang-format off
-    fk::matrix<TestType> const gold{
-      {1, 0, 0, 0, 0},
-      {0, 1, 0, 0, 0},
-      {0, 0, 1, 0, 0},
-      {0, 0, 0, 1, 0},
-      {0, 0, 0, 0, 1},
-    }; // clang-format on
-    fk::matrix<TestType> const test = eye<TestType>(5, 5);
-    REQUIRE(test == gold);
-  }
-  SECTION("eye(5,3)")
-  {
-    // clang-format off
-    fk::matrix<TestType> const gold{
-      {1, 0, 0},
-      {0, 1, 0},
-      {0, 0, 1},
-      {0, 0, 0},
-      {0, 0, 0},
-    }; // clang-format on
-    fk::matrix<TestType> const test = eye<TestType>(5, 3);
-    REQUIRE(test == gold);
-  }
-  SECTION("eye(3,5)")
-  {
-    // clang-format off
-    fk::matrix<TestType> const gold{
-      {1, 0, 0, 0, 0},
-      {0, 1, 0, 0, 0},
-      {0, 0, 1, 0, 0},
-    }; // clang-format on
-    fk::matrix<TestType> const test = eye<TestType>(3, 5);
-    REQUIRE(test == gold);
-  }
+  fk::matrix<TestType> const gold{
+    {1, 0, 0, 0, 0},
+    {0, 1, 0, 0, 0},
+    {0, 0, 1, 0, 0},
+    {0, 0, 0, 1, 0},
+    {0, 0, 0, 0, 1},
+  };
+  fk::matrix<TestType> const test = eye<TestType>(5);
+  REQUIRE(test == gold);
 }
 
 TEMPLATE_TEST_CASE("polynomial evaluation functions", "[matlab]", test_precs,

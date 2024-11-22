@@ -48,9 +48,7 @@ namespace asgard
 //-----------------------------------------------------------------------------
 
 template<typename P>
-fk::matrix<P> eye(int const M = 1);
-template<typename P>
-fk::matrix<P> eye(int const M, int const N);
+fk::matrix<P> eye(int const M);
 
 template<typename P>
 P polyval(fk::vector<P> const &p, P const x);

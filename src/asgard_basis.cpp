@@ -197,7 +197,7 @@ fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
     fmwt.set_submatrix(pdof * (i + max_level / 2), 2 * pdof * i, g_block);
   }
 
-  fk::matrix<R> fmwt_comp = eye<R>(pdof * max_level, pdof * max_level);
+  fk::matrix<R> fmwt_comp = eye<R>(pdof * max_level);
 
   int const n = std::floor(std::log2(max_level));
   for (int j = 1; j <= n; j++)
@@ -263,7 +263,7 @@ wavelet_transform<P, resrc>::wavelet_transform(int const max_level_in,
 
   fk::matrix<P> g_mat(pdof, fmwt_size);
   fk::matrix<P> h_mat = fk::matrix<P>(pdof, fmwt_size)
-                            .set_submatrix(0, 0, eye<P>(pdof, pdof));
+                            .set_submatrix(0, 0, eye<P>(pdof));
 
   // main loop - build the blocks with small gemms
   for (auto j = max_level - 1; j >= 0; --j)

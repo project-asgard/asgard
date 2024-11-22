@@ -48,14 +48,6 @@ fk::matrix<P> eye(int const M)
     id(i, i) = 1.0;
   return id;
 }
-template<typename P>
-fk::matrix<P> eye(int const M, int const N)
-{
-  fk::matrix<P> id(M, N);
-  for (auto i = 0; i < (M < N ? M : N); ++i)
-    id(i, i) = 1.0;
-  return id;
-}
 
 //-----------------------------------------------------------------------------
 // C++ implementation of subset of matlab polyval
@@ -412,8 +404,7 @@ read_vector_from_txt_file(std::filesystem::path const &path);
 template fk::matrix<double>
 read_matrix_from_txt_file(std::filesystem::path const &path);
 
-template fk::matrix<double> eye(int const M = 1);
-template fk::matrix<double> eye(int const M, int const N);
+template fk::matrix<double> eye(int const M);
 template double polyval(fk::vector<double> const &p, double const x);
 
 template double l2_norm(fk::vector<double> const &vec);
@@ -436,7 +427,7 @@ read_vector_from_txt_file(std::filesystem::path const &);
 template fk::matrix<float>
 read_matrix_from_txt_file(std::filesystem::path const &);
 
-template fk::matrix<float> eye(int const M = 1);
+template fk::matrix<float> eye(int const M);
 template float polyval(fk::vector<float> const &p, float const x);
 template float l2_norm(fk::vector<float> const &vec);
 
@@ -454,10 +445,6 @@ template fk::vector<int>
 read_vector_from_txt_file(std::filesystem::path const &);
 template fk::matrix<int>
 read_matrix_from_txt_file(std::filesystem::path const &);
-
-template fk::matrix<int> eye(int const M = 1);
-template fk::matrix<int> eye(int const M, int const N);
-template fk::matrix<float> eye(int const M, int const N);
 
 template int polyval(fk::vector<int> const &p, int const x);
 
