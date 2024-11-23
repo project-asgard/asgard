@@ -701,13 +701,6 @@ install(EXPORT "asgard-export" DESTINATION "lib/${CMAKE_PROJECT_NAME}" FILE "${C
 
 if (TARGET asgard_highfive)
     # must install the highfive dependency
-    if (ASGARD_BUILD_HDF5)
-        install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/hdf5/lib/"
-                DESTINATION lib)
-        install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/hdf5/include/"
-                DESTINATION include)
-    endif()
-
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/contrib/highfive/include/"
             DESTINATION include)
 endif()

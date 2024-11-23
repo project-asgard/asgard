@@ -29,17 +29,12 @@ function (get_hdf5)
       message (STATUS "using external hdf5 found at ${HDF5_LIBRARIES}")
     endif ()
 
-    # never build HDF5 unless ASGARD_BUILD_HDF5 is explicitly ON or using python-pip
+    # never build HDF5 unless ASGARD_BUILD_HDF5 is explicitly ON
     if (HDF5_FOUND)
       target_include_directories (asgard_hdf5 INTERFACE ${hdf5_include})
       target_link_libraries (asgard_hdf5 INTERFACE ${hdf5_lib})
     else()
-      if (SKBUILD)
-        set (ASGARD_BUILD_HDF5 ON)
-        set (ASGARD_BUILD_HDF5 ON PARENT_SCOPE) # must know about the build in order ot install
-      else()
-        message(FATAL_ERROR "could not find HDF5, plese provide -DASGARD_HDF5_PATH")
-      endif()
+      message(FATAL_ERROR "could not find HDF5, plese provide -DASGARD_HDF5_PATH")
     endif()
   endif ()
 
@@ -82,7 +77,7 @@ function (get_hdf5)
     set_target_properties(asgard_hdf5 PROPERTIES IMPORTED_NO_SONAME ON)
 
     target_include_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_include}>)
-    target_link_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_lib}>)
+    target_link_libraries (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_lib}>)
   endif ()
 
 endfunction()
