@@ -29,6 +29,8 @@ function (get_hdf5)
       message (STATUS "using external hdf5 found at ${HDF5_LIBRARIES}")
     endif ()
 
+    #set(HDF5_FOUND OFF)
+
     # never build HDF5 unless ASGARD_BUILD_HDF5 is explicitly ON or using python-pip
     if (HDF5_FOUND)
       target_include_directories (asgard_hdf5 INTERFACE ${hdf5_include})
