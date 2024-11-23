@@ -65,6 +65,8 @@ CMake uses out-of-source build, clone the repo and build in a subfolder
 
 On a OSX system, users have reported instabilities with the homebrew provided HDF5,
 especially on Apple M chips.
+ASGarD provides an option to download and install HDF5 automatically
+that can work around potential problems.
 Also, OpenMP has limited benefits, due to what appears to be kernel scheduling overhead.
 The BLAS/LAPACK acceleration needs a flag to enable the most recent mode.
 ```
@@ -86,9 +88,25 @@ However, the currently available equations and all tools can be used directly fr
 build folder.
 
 It is recommended to use a dedicated `CMAKE_INSTALL_PREFIX` as opposed to common
-locations such as `~/.local` or `/opt/`, which will make it easier to uninstall.
+locations such as `~/.local/` or `/opt/`, which will make it easier to uninstall.
 
 For specific platform build instructions, [see this wiki page.](https://github.com/project-asgard/asgard/wiki/platforms)
+
+### Python pip install
+
+ASGarD has a pip installer called [ornl-asgard](https://pypi.org/project/ornl-asgard/) to avoid conflicts with existing project name.
+
+Both venv and user-space installs are supported, e.g.,
+```
+python3 -m pip install onrl-asgard==0.7.0a2 --user
+```
+The `--user` tag is not needed for a venv install
+```
+python3 -m pip install onrl-asgard==0.7.0a2
+```
+
+The installer is still experimental and the version will be changing often,
+check the PyPIP project page and please report potential issues.
 
 ### Basic usage
 
@@ -106,13 +124,7 @@ Setting up the enronment paths can be done with
 ```
   source <CMAKE_INSTALL_PREFIX>/share/asgard/asgard-env.sh
 ```
+The prefix used by the pip-installer is either the root of the venv envitonment
+or `.local` subfolder for the user home folder.
 
 For more details, see the [Basic Usage Section.](basic_usage.md)
-
-### (deprecated) ScaLAPACK Integration
-
-The ASGARD\_USE\_SCALAPACK build option adds the "scalapack" solver option to ASGarD. In the implicit timestep method, this option
-distributes the matrix solve across multiple processes and nodes and enables larger problems that are too large for a single computer.
-
-This build option is only available when ASGARD\_USE\_MPI=ON. Unfortunately, setting ASGARD\_USE\_SCALAPACK alone is not sufficient
-and doesn't change the ASGARD\_USE\_MPI setting.

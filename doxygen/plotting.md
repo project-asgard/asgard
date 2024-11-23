@@ -33,7 +33,3 @@ file high-level meta data to the console:
   python3 -m asgard -s outfile.h5
 ```
 The `-s` switch can be replaced with either `-stats` or `-summary`.
-
-
-
-

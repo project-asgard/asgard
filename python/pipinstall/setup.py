@@ -7,7 +7,7 @@ from skbuild.exceptions import SKBuildError
 from skbuild.cmaker import get_cmake_version
 from skbuild import setup  # This line replaces 'from setuptools import setup'
 
-asg_ver = '0.7.0a2'
+asg_ver = '0.7.0a3'
 
 # Add CMake as a build requirement if cmake is not installed or too old
 setup_requires = []
@@ -22,7 +22,7 @@ with open('README.md', 'r') as fh:
      readme_file = fh.readlines()
 
 long_description = ""
-for line in readme_file[3:]:
+for line in readme_file[1:]:
     if line.rstrip() == "## Contact Us":
         break
     else:
