@@ -8,7 +8,7 @@
 # right now, we only access this through the HighFive wrapper lib
 ###############################################################################
 function (get_hdf5)
-  add_library (asgard_hdf5 INTERFACE IMPORTED)
+  add_library (asgard_hdf5 INTERFACE)
 
   if (NOT ASGARD_BUILD_HDF5)
     # search for hdf5 under user-supplied path(s)
@@ -29,8 +29,6 @@ function (get_hdf5)
       message (STATUS "using external hdf5 found at ${HDF5_LIBRARIES}")
     endif ()
 
-    #set(HDF5_FOUND OFF)
-
     # never build HDF5 unless ASGARD_BUILD_HDF5 is explicitly ON or using python-pip
     if (HDF5_FOUND)
       target_include_directories (asgard_hdf5 INTERFACE ${hdf5_include})
@@ -49,7 +47,7 @@ function (get_hdf5)
   if (ASGARD_BUILD_HDF5)
     message (STATUS "building hdf5 from source")
 
-    set(__asgard_h5_install_prefix "${CMAKE_CURRENT_BINARY_DIR}/hdf5/")
+    set(__asgard_h5_install_prefix "${CMAKE_INSTALL_PREFIX}")
     include (ExternalProject)
     if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR AND CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
       # Get HDF5 to build on Apple silicon
@@ -79,14 +77,12 @@ function (get_hdf5)
 
     # either it was already here, or we just built it here
     set (hdf5_include ${__asgard_h5_install_prefix}/include)
-    #set (hdf5_lib "${__asgard_h5_install_prefix}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}hdf5${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    #set (hdf5_lib "-lhdf5")
+    set (hdf5_lib "${__asgard_h5_install_prefix}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}hdf5${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
     set_target_properties(asgard_hdf5 PROPERTIES IMPORTED_NO_SONAME ON)
 
     target_include_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_include}>)
-    target_link_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${__asgard_h5_install_prefix}/lib/>)
-    target_link_libraries (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:-lhdf5>)
+    target_link_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_lib}>)
   endif ()
 
 endfunction()

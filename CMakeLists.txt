@@ -661,9 +661,8 @@ include(CMakePackageConfigHelpers)
 
 target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${__asgard_install_prefix}/include>)
 
-#foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
-foreach (_asg_target asgard_highfive libasgard asgard_exe)
-if (TARGET ${_asg_target})
+foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
+  if (TARGET ${_asg_target})
     install(TARGETS ${_asg_target}
             EXPORT  "asgard-export"
             RUNTIME DESTINATION "bin"
