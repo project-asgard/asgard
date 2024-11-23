@@ -41,6 +41,9 @@ target_link_libraries (asgard::LINALG
 
 if (@ASGARD_USE_HIGHFIVE@)
   enable_language (C)
+  if (@__asgard_find_hdf5@)
+    find_package (HDF5 REQUIRED)
+  endif()
 endif()
 
 add_executable(asgard::exe IMPORTED)

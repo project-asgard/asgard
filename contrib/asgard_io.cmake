@@ -3,40 +3,17 @@
 ###############################################################################
 
 ###############################################################################
-## HDF5 (libhdf5) (https://portal.hdfgroup.org/display/support)
+## BlueBrain/HighFive (https://github.com/BlueBrain/HighFive)
 #
-# right now, we only access this through the HighFive wrapper lib
+# header-only library for a c++ interface into libhdf5
+# included in the asgard repo at contrib/HighFive
 ###############################################################################
-function (get_hdf5)
+if (ASGARD_USE_HIGHFIVE)
+
+  # -- first we need HDF5
+  enable_language (C)
+
   add_library (asgard_hdf5 INTERFACE)
-
-  if (NOT ASGARD_BUILD_HDF5)
-    # search for hdf5 under user-supplied path(s)
-    if (ASGARD_HDF5_PATH)
-      find_library (hdf5_search hdf5
-        PATHS ${ASGARD_HDF5_PATH} PATH_SUFFIXES lib lib64 NO_DEFAULT_PATH)
-      set (hdf5_include ${ASGARD_HDF5_PATH}/include)
-      set (hdf5_lib "-L${ASGARD_HDF5_PATH}/lib -Wl,-rpath,${ASGARD_HDF5_PATH}/lib/ -lhdf5")
-      message (STATUS "using external hdf5 found at ${ASGARD_HDF5_PATH}")
-      set (HDF5_FOUND TRUE)
-    endif ()
-
-    # search for hdf5 in some typical locations
-    if (NOT HDF5_FOUND)
-      find_package (HDF5 QUIET)
-      set (hdf5_include ${HDF5_INCLUDE_DIRS})
-      set (hdf5_lib ${HDF5_LIBRARIES})
-      message (STATUS "using external hdf5 found at ${HDF5_LIBRARIES}")
-    endif ()
-
-    # never build HDF5 unless ASGARD_BUILD_HDF5 is explicitly ON
-    if (HDF5_FOUND)
-      target_include_directories (asgard_hdf5 INTERFACE ${hdf5_include})
-      target_link_libraries (asgard_hdf5 INTERFACE ${hdf5_lib})
-    else()
-      message(FATAL_ERROR "could not find HDF5, plese provide -DASGARD_HDF5_PATH")
-    endif()
-  endif ()
 
   # if used asked us to build HDF5
   if (ASGARD_BUILD_HDF5)
@@ -74,28 +51,17 @@ function (get_hdf5)
     set (hdf5_include ${__asgard_h5_install_prefix}/include)
     set (hdf5_lib "${__asgard_h5_install_prefix}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}hdf5${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
-    set_target_properties(asgard_hdf5 PROPERTIES IMPORTED_NO_SONAME ON)
-
     target_include_directories (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_include}>)
     target_link_libraries (asgard_hdf5 INTERFACE $<BUILD_INTERFACE:${hdf5_lib}>)
+
+  else() # not building HDF5, using the find-package
+
+    find_package (HDF5 REQUIRED)
+    target_link_libraries (asgard_hdf5 INTERFACE hdf5::hdf5)
+
   endif ()
 
-endfunction()
-
-###############################################################################
-## BlueBrain/HighFive (https://github.com/BlueBrain/HighFive)
-#
-# header-only library for a c++ interface into libhdf5
-# included in the asgard repo at contrib/HighFive
-###############################################################################
-if (ASGARD_USE_HIGHFIVE)
-
-  # first we need HDF5
-  enable_language (C)
-  get_hdf5()
-
-  # now HighFive itself
-
+  # -- second, we get HighFive itself
   set (highfive_PATH ${CMAKE_SOURCE_DIR}/contrib/highfive)
   if (NOT EXISTS ${highfive_PATH}/include/highfive/H5Easy.hpp)
     execute_process (COMMAND rm -rf ${highfive_PATH})

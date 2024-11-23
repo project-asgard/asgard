@@ -33,28 +33,6 @@ function (register_project name dir url default_tag)
     FetchContent_MakeAvailable(${name})
 endfunction ()
 
-#  Catch two testing framework.
-#  The default behavior is to build catch together with ASGarD,
-#  but if Catch2_ROOT is explicitly provided then search
-#  for an existing installation.
-if (Catch2_ROOT)
-  find_package(Catch2 REQUIRED)
-else()
-  register_project (Catch2
-                    CATCH2
-                    https://github.com/catchorg/Catch2.git
-                    v3.3.0
-  )
-endif()
-
-#Mark CATCH variables as advanced.
-get_cmake_property(_variableNames VARIABLES)
-foreach (_variableName ${_variableNames})
-    string(FIND "${_variableName}" "CATCH_" out)
-    if("${out}" EQUAL 0)
-        mark_as_advanced(${_variableName})
-    endif()
-endforeach()
 
 ###############################################################################
 ## Set up the compiler and general global build options
@@ -113,7 +91,6 @@ option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
 option (ASGARD_HIGHFIVE_PATH "Optional location of existing HighFive library" "")
 option (ASGARD_HDF5_PATH "Optional location of lib/ containing HDF5" "")
 
-
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
@@ -155,6 +132,30 @@ endif()
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
+
+if (ASGARD_BUILD_TESTS)
+    # Catch2 for testing, if Catch2_ROOT is provided then look for the existing installation,
+    # if Catch2_ROOT is not given, download and build together with ASGarD
+    if (Catch2_ROOT OR DEFINED ENV{Catch2_ROOT})
+      find_package(Catch2 REQUIRED)
+    else()
+      register_project (Catch2
+                        CATCH2
+                        https://github.com/catchorg/Catch2.git
+                        v3.3.0
+      )
+    endif()
+endif()
+
+#Mark CATCH variables as advanced.
+get_cmake_property(_variableNames VARIABLES)
+foreach (_variableName ${_variableNames})
+    string(FIND "${_variableName}" "CATCH_" out)
+    if("${out}" EQUAL 0)
+        mark_as_advanced(${_variableName})
+    endif()
+endforeach()
+
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 find_package (LINALG REQUIRED)
@@ -703,6 +704,12 @@ if (TARGET asgard_highfive)
     # must install the highfive dependency
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/contrib/highfive/include/"
             DESTINATION include)
+    set(__asgard_custom_hdf5 ON)
+    if (TARGET hdf5::hdf5)
+        set(__asgard_find_hdf5 ON)
+    else()
+        set(__asgard_find_hdf5 OFF)
+    endif()
 endif()
 
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/asgard-config.cmake"
