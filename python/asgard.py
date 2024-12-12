@@ -285,9 +285,9 @@ if __name__ == "__main__":
 
             cells = shot.cell_centers()
             if shot.num_dimensions == 1:
-                asgplot.plot(cells[:,0], np.zeros(cells[:,0].shape), 'r*')
+                asgplot.plot(cells[:,0], np.zeros(cells[:,0].shape), 'ro')
             else:
-                asgplot.scatter(cells[:,0], cells[:,1], 'r*')
+                asgplot.scatter(cells[:,0], cells[:,1], 5 * np.ones(cells[:,0].shape), color='red')
 
         if len(sys.argv) > 3:
             asgplot.savefig(sys.argv[3])
