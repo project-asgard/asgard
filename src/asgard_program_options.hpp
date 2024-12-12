@@ -483,6 +483,36 @@ struct prog_opts
     return get_val<out_type>(externals, s);
   }
 
+  //! reads and returns a file_value, skips the optional but throws if the value is missing
+  template<typename out_type>
+  out_type file_required(std::string_view const &s) const 
+  {
+    std::optional<out_type> x = file_value<out_type>(s);
+    if (infile.empty())
+      throw std::runtime_error(std::string("missing an input file with required entry '") 
+                               + std::string(s) + std::string("'"));
+    if (not x)
+      throw std::runtime_error(std::string("file '") + std::string(infile) 
+                               + std::string("' is missing required entry '") 
+                               + std::string(s) + std::string("'"));
+    return x.value();
+  }
+
+  //! sets the step-method but issues a warning if a method is already provided
+  void force_step_method(time_advance::method method)
+  {
+    if (step_method)
+      std::cerr << "warning: overriding the user-requested -step-method" << std::endl;
+    step_method = method;
+  }
+  //! sets the step-method but issues a warning if a method is already provided
+  void force_solver(solve_opts method)
+  {
+    if (solver)
+      std::cerr << "warning: overriding the user-requested -solver" << std::endl;
+    solver = method;
+  }
+
 private:
   //! mapping from cli options to variables and actions
   enum class optentry

@@ -45,6 +45,12 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE(*prog.step_method == time_advance::method::imp);
     REQUIRE(prog_opts(vecstrview({"", "-s", "imex"})).step_method.value()
             == time_advance::method::imex);
+
+    prog = prog_opts(vecstrview({"", "-s", "impl"}));
+    std::cerr << "generating a warning about -step-method, ignore it since it is part of the test\n";
+    prog.force_step_method(time_advance::method::imex);
+    REQUIRE(prog.step_method);
+    REQUIRE(*prog.step_method == time_advance::method::imex);
   }
   SECTION("-adapt-norm")
   {
@@ -184,6 +190,12 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solve_opts::bicgstab);
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-solver", "dummy"})),
                         "invalid value for -solver, see exe -help");
+
+    prog = prog_opts(vecstrview({"", "-dt", "0.1"}));
+    REQUIRE_FALSE(prog.solver);
+    prog.force_solver(solve_opts::gmres);
+    REQUIRE(prog.solver);
+    REQUIRE(*prog.solver == solve_opts::gmres);
   }
   SECTION("-memory")
   {
@@ -280,6 +292,11 @@ TEST_CASE("new program options", "[single options]")
                         "-of must be followed by a value, see exe -help");
     REQUIRE(prog_opts(vecstrview({"exe", "-outfile", "dummy", "-of", ""})).subtitle.empty());
   }
+  SECTION("file_required")
+  {
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-ist", "0.1"})).file_required<int>("none"),
+                        "missing an input file with required entry 'none'");
+  }
 }
 
 TEST_CASE("input file processing", "[file i/o]")
@@ -305,6 +322,12 @@ TEST_CASE("input file processing", "[file i/o]")
     static_assert(std::is_same_v<decltype(iint), std::optional<int>>);
     REQUIRE(iint);
     REQUIRE(iint.value() == 8);
+
+    REQUIRE(prog.file_required<bool>("bb1"));
+    REQUIRE(prog.file_required<int>("some_int") == 8);
+
+    REQUIRE_THROWS_WITH(prog.file_required<std::string>("none"),
+                        "file 'test_input1.txt' is missing required entry 'none'");
 
     prog_opts prog2(vecstrview({"", "-infile", "test_input1.txt", "-l", "3"}));
     REQUIRE_FALSE(prog2.start_levels.empty());
