@@ -274,6 +274,26 @@ if __name__ == "__main__":
         print("can only print stats-summary, use")
         print("  python3 -m asgard -s %s" % sys.argv[2])
         libasgard.asgard_print_version_help()
+    elif sys.argv[1] in ("-grid", "-g"):
+        if len(sys.argv) < 3:
+            print("-grid option requires a filename")
+        else:
+            shot = pde_snapshot(sys.argv[2])
+            print("\n", shot)
+
+            asgplot.title(shot.title, fontsize = 'large')
+
+            cells = shot.cell_centers()
+            if shot.num_dimensions == 1:
+                asgplot.plot(cells[:,0], np.zeros(cells[:,0].shape), 'r*')
+            else:
+                asgplot.scatter(cells[:,0], cells[:,1], 'r*')
+
+        if len(sys.argv) > 3:
+            asgplot.savefig(sys.argv[3])
+        else:
+            asgplot.show()
+
     else:
         shot = pde_snapshot(sys.argv[1])
         print("\n", shot)

@@ -47,7 +47,7 @@ TEST_CASE("new program options", "[single options]")
             == time_advance::method::imex);
 
     prog = prog_opts(vecstrview({"", "-s", "impl"}));
-    std::cerr << "generating a warning about -step-method, ignore it since it is part of the test\n";
+    std::cerr << "generating a warning about -step-method, ignore since it is part of the test\n";
     prog.force_step_method(time_advance::method::imex);
     REQUIRE(prog.step_method);
     REQUIRE(*prog.step_method == time_advance::method::imex);
