@@ -135,7 +135,7 @@ TEST_CASE("adaptive time advance")
     auto const gold_base =
         time_advance_base_dir / "diffusion2_ad_implicit_sg_l3_d4_t";
 
-    auto opts = make_opts("-p diffusion_2 -d 3 -l 3 -n 5 -s impl -a 0.05");
+    auto opts = make_opts("-p diffusion_2 -d 3 -l 3 -n 5 -s impl -a 0.05 -sv direct");
 
     // temporarily disable test for MPI due to table elements < num ranks
     if (get_num_ranks() == 1)
