@@ -341,4 +341,7 @@ struct indexof
   idx_type end_;
 };
 
+//! Alias for the regular int-case, saves on typing when using smaller ranges
+using iindexof = indexof<int>;
+
 } // namespace asgard

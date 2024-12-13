@@ -352,7 +352,7 @@ public:
   //! return the 1d projection in the given direction
   std::vector<P> const &get_projected1d(int dim) const { return pf[dim]; }
 
-  //! transforms the vectors to hierarchical representation
+  //! transforms the vector to a hierarchical representation
   void project1d(int const level, fk::vector<P> &x) const
   {
     int64_t const size = fm::ipow2(level) * (degree_ + 1);
@@ -373,6 +373,31 @@ public:
     };
     std::copy_n(pf[0].begin(), size, x.begin());
   }
+  //! transforms the vector to a hierarchical representation
+  void project1d(int const level, std::vector<P> &x) const
+  {
+    if (level == 0) // nothing to project at level 0
+      return;
+    int64_t const size = fm::ipow2(level) * (degree_ + 1);
+    expect(size == static_cast<int64_t>(x.size()));
+    stage0.resize(size);
+    pf[0].resize(size);
+    std::copy_n(x.begin(), size, stage0.begin());
+    switch (degree_)
+    { // hardcoded degrees first, the default uses the projection matrices
+    case 0:
+      projectlevels<0>(0, level);
+      break;
+    case 1:
+      projectlevels<1>(0, level);
+      break;
+    default:
+      projectlevels<-1>(0, level);
+    };
+    std::copy_n(pf[0].begin(), size, x.begin());
+  }
+  //! transform the batch of vectors to nodal representation
+  void reconstruct1d(int const nbatch, int const level, span2d<P> hdata) const;
 
   //! size of a multi-dimensional block, i.e., (degree + 1)^d
   int64_t block_size() const { return block_size_; }
@@ -436,6 +461,10 @@ protected:
    */
   template<int tdegree>
   void projectlevels(int dim, int levels) const;
+
+  //! tempalted version for reduction of runtime if-statements
+  template<int tdegree>
+  void reconstruct1d(int const nbatch, int level, span2d<P> data) const;
 
   //! creates a new sparse matrix with the given format
   block_sparse_matrix<P> make_block_sparse_matrix(connection_patterns const &conns,

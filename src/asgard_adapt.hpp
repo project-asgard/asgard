@@ -60,6 +60,8 @@ public:
       : distributed_grid(pde.max_level(), pde.options())
   {}
 
+  distributed_grid(distributed_grid &&) = default;
+
   fk::vector<P> coarsen_solution(PDE<P> &pde, fk::vector<P> const &x);
   fk::vector<P>
   refine_solution(PDE<P> &pde, fk::vector<P> const &x);

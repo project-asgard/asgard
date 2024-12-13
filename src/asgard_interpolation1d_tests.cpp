@@ -52,7 +52,7 @@ void project_inver(int num_levels, fcall_type fcall)
 
   auto const &proj = disc.current_state();
 
-  vector2d<int> cells = get_cells<precision>(1, disc.get_grid());
+  vector2d<int> cells = disc.get_grid().get_table().get_cells();
   dimension_sort dsort(cells);
   kronmult::permutes perms(1);
 

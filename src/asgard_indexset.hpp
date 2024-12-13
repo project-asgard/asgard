@@ -110,6 +110,15 @@ public:
     out.resize(this->data_.size());
     std::copy(this->data_.begin(), this->data_.end(), out.begin());
   }
+  //! \brief Debugging purposes, write to std::cout
+  void print() const
+  {
+    for (auto i : indexof(this->num_strips_)) {
+      for (auto j : indexof(this->stride_))
+        std::cout << this->data_[i * this->stride_ + j] << "  ";
+      std::cout << '\n';
+    }
+  }
 };
 //! \brief Non-owning version of vector2d.
 template<typename T>

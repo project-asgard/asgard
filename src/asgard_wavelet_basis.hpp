@@ -198,6 +198,20 @@ public:
     work1.resize(xl.size());
     work2.resize(xl.size());
   }
+  //! Create and store the quadratures for (-1, 0) and (0, 1), uses moments
+  canonical_integrator(int const num_mom, int const degree_in) : degree_(degree_in)
+  {
+    auto [fkxl, fkwl] = legendre_weights<double>(num_mom + degree_ + 1, -1, 0);
+    auto [fkxr, fkwr] = legendre_weights<double>(num_mom + degree_ + 1,  0, 1);
+
+    wl = fkwl.to_std();
+    xl = fkxl.to_std();
+    wr = fkwr.to_std();
+    xr = fkxr.to_std();
+
+    work1.resize(xl.size());
+    work2.resize(xl.size());
+  }
   //! compute inner product of f and g over (-1, 0)
   template<typename P>
   double integrate_left(P const f[], P const g[]) const
@@ -210,6 +224,26 @@ public:
   {
     return poly_inner_product<integ_range::right>(f, g);
   }
+  //! compute inner product of moments values at left/right-nodes (ml, mr) and Legendre basis
+  template<typename P>
+  double integrate_lmom(P const ml[], P const mr[], P const basis[]) const
+  {
+    return poly_mom_product<integ_range::left>(ml, basis)
+           + poly_mom_product<integ_range::right>(mr, basis);
+  }
+  //! compute inner product of moments values at left/right-nodes (ml, mr) and wavelet basis
+  template<typename P>
+  double integrate_wmom(P const ml[], P const mr[], P const basis[]) const
+  {
+    return poly_mom_product<integ_range::left>(ml, basis)
+           + poly_mom_product<integ_range::right>(mr, basis + degree_ + 1);
+  }
+  //! returns the integration nodes on the left subdomain
+  std::vector<double> const &left_nodes() const { return xl; }
+  //! returns the integration nodes on the right subdomain
+  std::vector<double> const &right_nodes() const { return xr; }
+  //! returns the workspace, can use safely with integrate_mom()
+  std::vector<double> &work() const { return work2; }
   //! returns the degree used to create the quadrature
   int degree() const { return degree_; }
 
@@ -235,8 +269,30 @@ private:
     }
 
     double sum = 0;
-    for (auto i : indexof(work1))
+    for (auto i : iindexof(work1))
       sum += w[i] * work1[i] * work2[i];
+    return sum;
+  }
+  //! common implementation for the moment inner product logic
+  template<integ_range range, typename P>
+  double poly_mom_product(P const m[], P const basis[]) const
+  {
+    static_assert(range == integ_range::left or range == integ_range::right);
+
+    auto const &w = (range == integ_range::left) ? wl : wr;
+    auto const &x = (range == integ_range::left) ? xl : xr;
+
+    std::fill(work1.begin(), work1.end(), basis[degree_]);
+
+    for (int i = degree_ - 1; i >= 0; --i)
+    {
+      for (auto j : iindexof(work1))
+        work1[j] = work1[j] * x[j] + basis[i];
+    }
+
+    double sum = 0;
+    for (int i : iindexof(work1))
+      sum += w[i] * m[i] * work1[i];
     return sum;
   }
 

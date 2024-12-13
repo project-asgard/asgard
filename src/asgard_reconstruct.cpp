@@ -119,7 +119,7 @@ void reconstruct_solution::cell_centers(double x[]) const
         xn[i][d] = shift[d] + 0.5 * slope[d];
       else
       {
-        double p2l2 = static_cast<double>(fm::int2_raised_to_log2(p));
+        double p2l2 = static_cast<double>(fm::ipow2_log2(p));
         xn[i][d]    = slope[d] * ((0.5 + p) / double(p2l2) - 1.0) + shift[d];
       }
     }

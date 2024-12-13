@@ -84,7 +84,7 @@ void project_inver_md(int num_dimensions, int num_levels,
   kronmult::block_global_workspace<precision> workspace;
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
-  vector2d<int> cells = get_cells<precision>(num_dimensions, disc.get_grid());
+  vector2d<int> cells = disc.get_grid().get_table().get_cells();
   dimension_sort dsort(cells);
   vector2d<precision> nodes = interp.get_nodes(cells);
 
@@ -236,7 +236,7 @@ void proj_interp_md(int num_dimensions, int num_levels,
   kronmult::block_global_workspace<precision> workspace;
   interpolation<precision> interp(num_dimensions, &conn, &workspace);
 
-  vector2d<int> cells = get_cells<precision>(num_dimensions, disc.get_grid());
+  vector2d<int> cells = disc.get_grid().get_table().get_cells();
   dimension_sort dsort(cells);
   vector2d<precision> nodes = interp.get_nodes(cells);
 

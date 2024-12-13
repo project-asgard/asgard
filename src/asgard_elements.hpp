@@ -97,6 +97,15 @@ public:
 
   void recreate_from_elements(std::vector<int64_t> const &element_ids);
 
+  vector2d<int> get_cells() const
+  {
+    int const *const asg_idx = active_table_.data();
+    int64_t const num_cells  = active_element_ids_.size();
+    if (num_cells == 0)
+      return vector2d<int>{};
+    return asg2tsg_convert(id_to_coords_.begin()->second.size() / 2, num_cells, asg_idx);
+  }
+
   // static construction helper
   // conceptually private, exposed for testing
   // return the cell indices given a level tuple

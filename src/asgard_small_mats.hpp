@@ -106,6 +106,27 @@ void gemv(int const &nr, int const &nc, P const A[], P const x[], P y[])
     for (int j = 0; j < nr; j++)
       y[j] += A[i * nr + j] * x[i];
 }
+//! matrix-vector multiplication y = A^T * x, A has size n X n
+template<typename P>
+void gemtv(int const &n, P const A[], P const x[], P y[])
+{
+  for (int i = 0; i < n; i++)
+  {
+    y[i] = A[i * n] * x[0];
+    ASGARD_OMP_SIMD
+    for (int j = 1; j < n; j++)
+      y[i] += A[i * n + j] * x[j];
+  }
+}
+//! matrix-vector multiplication y = A^T * x, A has size n X n
+template<typename P>
+void gemtv1(int const &n, P const A[], P const x[], P y[])
+{
+  ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+      y[i] += A[i * n + j] * x[j];
+}
 //! triple-matrix-matrix product, C = A * diag(d) * B, A is n by m, C is n by n
 template<typename P>
 void gemm3(int const &n, int const &m, P const A[], P const d[], P const B[], P C[])

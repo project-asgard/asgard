@@ -49,6 +49,7 @@ struct dimension
         initial_condition(std::move(initial_condition_in)),
         volume_jacobian_dV(volume_jacobian_dV_in), name(name_in)
   {
+    expect(domain_min < domain_max);
     set_level(level);
     set_degree(degree);
 

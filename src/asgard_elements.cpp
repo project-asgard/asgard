@@ -293,6 +293,10 @@ table::table(int const max_level, prog_opts const &options)
       dof *= fm::ipow2(max_level_);
   }
 
+  // the estimate uses the number of indexes
+  // but each index takes 2 * ndims entries
+  dof *= 2 * num_dims;
+
   // reserve element table data up front
   dev_table_builder.resize(dof);
 

@@ -38,7 +38,7 @@ inline int intlog2(int x)
 }
 // computes std::pow( 2, std::floor( std::log2(x) ) )
 // using only integer bit-shifts
-inline int int2_raised_to_log2(int x)
+inline int ipow2_log2(int x)
 {
   int result = 1;
   while (x >>= 1)
@@ -46,7 +46,7 @@ inline int int2_raised_to_log2(int x)
   return result;
 }
 // two outputs in one operation
-// computes int2_raised_to_log2(i) and std::pow(std::sqrt(2.0), intlog2(i))
+// computes ipow2_log2(i) and std::pow(std::sqrt(2.0), intlog2(i))
 inline void intlog2_pow2pows2(int x, int &i2l2, double &is2l2)
 {
   i2l2  = 1;
@@ -65,6 +65,14 @@ inline double half_raided_to_intlog2(int x)
   while (x >>= 1)
     result *= 0.5;
   return result;
+}
+//! computes base^p where p is in integer
+template<typename P>
+P powi(P base, int p) {
+  P res = 1;
+  while (--p > -1)
+    res *= base;
+  return res;
 }
 
 template<typename vec_type>

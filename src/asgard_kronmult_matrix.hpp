@@ -78,13 +78,6 @@ private:
 template<typename precision>
 std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex);
 
-/*!
- * \brief Converts the cells into a vector2d structure
- */
-template<typename precision>
-vector2d<int> get_cells(int num_dimensions,
-                        adapt::distributed_grid<precision> const &dis_grid);
-
 #ifndef KRON_MODE_GLOBAL
 // using LOCAL kronmult, can be parallelised using MPI but much more expensive
 // then the global modes below

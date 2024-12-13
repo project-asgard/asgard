@@ -75,6 +75,8 @@ public:
   discretization_manager(std::unique_ptr<PDE<precision>> &&pde_in,
                          verbosity_level vebosity = verbosity_level::quiet);
 
+  discretization_manager(discretization_manager &&) = default;
+
   //! total degrees of freedom for the problem
   int64_t degrees_of_freedom() const
   {

@@ -28,15 +28,6 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex)
   }
 }
 
-template<typename precision>
-vector2d<int> get_cells(int num_dimensions, adapt::distributed_grid<precision> const &dis_grid)
-{
-  auto const &grid         = dis_grid.get_subgrid(get_rank());
-  int const *const asg_idx = dis_grid.get_table().get_active_table().data();
-  int const num_cells      = grid.col_stop - grid.col_start + 1;
-  return asg2tsg_convert(num_dimensions, num_cells, asg_idx);
-}
-
 //! Returns true if the current term is identity and can be omitted
 template<typename precision>
 bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
@@ -1166,7 +1157,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
 
   int64_t block_size = fm::ipow(degree + 1, num_dimensions);
 
-  vector2d<int> cells = get_cells(num_dimensions, dis_grid);
+  vector2d<int> cells = dis_grid.get_table().get_cells();
   int const num_cells = cells.num_strips();
 
   indexset padded = compute_ancestry_completion(make_index_set(cells), *volumes);
@@ -1255,8 +1246,6 @@ void set_specific_mode(PDE<precision> const &pde,
 template std::vector<int> get_used_terms(PDE<double> const &pde,
                                          imex_flag const imex);
 
-template vector2d<int> get_cells(int, adapt::distributed_grid<double> const &);
-
 #ifdef KRON_MODE_GLOBAL
 template class block_global_kron_matrix<double>;
 template void block_global_kron_matrix<double>::apply<resource::host>(
@@ -1300,8 +1289,6 @@ compute_mem_usage<double>(PDE<double> const &,
 #ifdef ASGARD_ENABLE_FLOAT
 template std::vector<int> get_used_terms(PDE<float> const &pde,
                                          imex_flag const imex);
-
-template vector2d<int> get_cells(int, adapt::distributed_grid<float> const &);
 
 #ifdef KRON_MODE_GLOBAL
 template class block_global_kron_matrix<float>;

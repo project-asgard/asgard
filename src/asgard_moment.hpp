@@ -11,6 +11,68 @@ static constexpr resource sparse_resrc = resource::device;
 static constexpr resource sparse_resrc = resource::host;
 #endif
 
+/*!
+ * \brief Holds information about the moments
+ *
+ * Initializes with a given number of moments over a specified domain,
+ * this class can compute the moments and represent them via the non-hierachical
+ * Legendre basis functions.
+ * The moments can then be used to construct operators.
+ *
+ * The assumption here is that the first dimension corresponds to "position"
+ * while the remaining dimensions holds the "velocity".
+ */
+template<typename P>
+class moments1d {
+public:
+  //! constructor, prepares the given number of momemnts, for dgree and up to the max_level
+  moments1d(int num_mom, int degree, int max_level, std::vector<dimension<P>> const &dims);
+
+  /*!
+   * \brief Given the solution state and table, compute the moments
+   *
+   * The dim0_level is the current level of dimenison zero and will determine
+   * the size of moments, but if any indexes are not present in the etable,
+   * those will be filled with zeros.
+   */
+  void project_moments(int const dim0_level, std::vector<P> const &state,
+                       elements::table const &etable, std::vector<P> &moments) const;
+
+
+protected:
+  /*!
+   * \brief Computes the moment integrals over a sub-range of the domain
+   *
+   * The canonical interval (-1, 1) corresponds to the physical interval (a, b).
+   * The outpout is the integral of the basis functions (b0 ... b_degree)
+   * in blocks for each moment.
+   *
+   * No side-effects here, only reading from num_mom_ and degree_, thread-safe.
+   *
+   * The input work vector should be equal to 4 * quad.left_nodes().size()
+   */
+  void integrate(basis::canonical_integrator const &quad, P a, P b, g_func_type<P> const &dv,
+                 vector2d<P> const &basis, std::vector<P> &work, span2d<P> integ) const;
+
+  //! compute the projection of a 1d cell
+  template<int ndims>
+  void project_cell(P const x[], int const idx[], span2d<P> moments, std::vector<P> &work) const;
+
+  //! construct global indexe list from the etable
+  static vector2d<int> get_cells(int num_dimensions, elements::table const &etable);
+
+private:
+  //! number of momemnts
+  int num_mom_;
+  //! number of dimensions
+  int num_dims_;
+  //! the degree of the basis
+  int degree_;
+  //! ingeral of the canonical basis, each index holds num_mom_ * (degree_ + 1) entries
+  std::array<vector2d<P>, max_num_dimensions> integ;
+};
+
+
 template<typename P>
 class moment
 {
@@ -26,7 +88,6 @@ public:
   {
     return fList;
   }
-  fk::matrix<P> const &get_moment_matrix() const { return moment_matrix; }
   fk::sparse<P, sparse_resrc> const &get_moment_matrix_dev() const
   {
     return sparse_mat;
@@ -61,7 +122,6 @@ private:
   std::vector<md_func_type<P>> md_funcs;
   std::vector<std::vector<fk::vector<P>>> fList;
   fk::vector<P> vector;
-  fk::matrix<P> moment_matrix;
   fk::vector<P> realspace;
   fk::sparse<P, sparse_resrc> sparse_mat;
 };
