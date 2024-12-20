@@ -283,6 +283,8 @@ protected:
       solver::setup_poisson(N_elements, min, max, pde->poisson_diag,
                             pde->poisson_off_diag);
     }
+    if (poisson_solver)
+      poisson_solver->update_level(pde->get_dimensions()[0].get_level());
 
     pde->E_field.resize(quad_dense_size);
     pde->phi.resize(quad_dense_size);
@@ -323,6 +325,8 @@ private:
   mutable std::optional<matrix_factor<precision>> op_matrix;
   // moments of the field
   mutable std::vector<moment<precision>> moments;
+  // poisson solver data
+  mutable std::optional<solver::poisson_data<precision>> poisson_solver;
 
   // constantly changing
   std::vector<precision> state;

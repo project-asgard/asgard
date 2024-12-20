@@ -70,6 +70,12 @@ discretization_manager<precision>::discretization_manager(
   fixed_bc = boundary_conditions::make_unscaled_bc_parts(
         *pde, grid.get_table(), transformer, hier, matrices, conn, msg.row_start, msg.row_stop);
 
+  if (pde->do_poisson_solve())
+  {
+    auto const &dim = pde->get_dimensions()[0];
+    poisson_solver.emplace(dim.domain_min, dim.domain_max, dim.get_level());
+  }
+
   if (high_verbosity())
     node_out() << "  generating: moment vectors..." << '\n';
 

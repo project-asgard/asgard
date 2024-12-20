@@ -19,8 +19,14 @@ static constexpr double const PI = 3.141592653589793;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
 
+// signature g_func(x, t), may ignore time
 template<typename P>
 using g_func_type = std::function<P(P const, P const)>;
+
+// uses field-feedback, e.g., g_func_f(x, t, E_field_at_x_t)
+template<typename P>
+using g_func_f_type = std::function<P(P const, P const, P const)>;
+
 
 template<typename P>
 struct dimension

@@ -236,7 +236,7 @@ private:
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
   inline static term<P> const term_i2x =
-      term<P>(false,  // time-dependent
+      term<P>(true,   // time-dependent
               "I2_x", // name
               {i2_pterm_x}, imex_flag::imex_implicit);
 
@@ -267,7 +267,7 @@ private:
       boundary_condition::periodic, boundary_condition::periodic);
 
   inline static term<P> const term_i5x =
-      term<P>(false,  // time-dependent
+      term<P>(true,   // time-dependent
               "I3_x", // name
               {i5_pterm_x1, i5_pterm_x2}, imex_flag::imex_implicit);
 

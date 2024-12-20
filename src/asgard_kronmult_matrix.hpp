@@ -23,7 +23,8 @@ struct coefficient_matrices
 {
   //! initializes the storage space and the non-Cartesian volumes
   coefficient_matrices(PDE<P> &pde)
-      : num_dimensions_(pde.num_dims()), num_terms_(pde.num_terms())
+      : num_dimensions_(pde.num_dims()), num_terms_(pde.num_terms()),
+        current_levels(num_terms_, num_dimensions_)
   {
     for (int d : indexof<int>(num_dimensions_))
       if (pde.get_dimensions()[d].volume_jacobian_dV)
@@ -48,6 +49,8 @@ struct coefficient_matrices
         pterm_mass[t * num_dimensions_ + d].resize(size);
         pterm_coeffs[t * num_dimensions_ + d].resize(size);
       }
+
+    std::fill_n(current_levels[0], num_dimensions_ * num_terms_, -1);
   }
 
   //! dimension mass matrices, e.g., associated with the coordinates (Cartesian or non-Cartesian)
@@ -70,6 +73,10 @@ struct coefficient_matrices
 
 private:
   int num_dimensions_, num_terms_;
+
+public:
+  //! allows selective recompute of only terms with time-dependence
+  vector2d<int> current_levels;
 };
 
 /*!

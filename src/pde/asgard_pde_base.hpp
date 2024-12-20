@@ -57,6 +57,12 @@ enum class coefficient_type
   penalty
 };
 
+enum class pterm_dependence
+{
+  none, // nothing special, uses generic g-func
+  electric_field, // depends on the electric field
+};
+
 template<coefficient_type>
 struct has_flux_t : public std::true_type{};
 
@@ -71,7 +77,6 @@ constexpr bool has_flux(coefficient_type t) {
 
 enum class flux_type
 {
-
   upwind        = -1,
   central       = 0,
   downwind      = 1,
@@ -148,6 +153,34 @@ public:
         right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
   {}
 
+  partial_term(coefficient_type const coeff_type_in,
+               pterm_dependence const depends_in,
+               g_func_f_type<P> const g_func_f_in    = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               flux_type const flux_in               = flux_type::central,
+               boundary_condition const left_in  = boundary_condition::neumann,
+               boundary_condition const right_in = boundary_condition::neumann,
+               homogeneity const left_homo_in    = homogeneity::homogeneous,
+               homogeneity const right_homo_in   = homogeneity::homogeneous,
+               std::vector<vector_func<P>> const left_bc_funcs_in  = {},
+               scalar_func<P> const left_bc_time_func_in           = nullptr,
+               std::vector<vector_func<P>> const right_bc_funcs_in = {},
+               scalar_func<P> const right_bc_time_func_in          = nullptr,
+               g_func_type<P> const dv_func_in                     = nullptr)
+
+      : coeff_type_(coeff_type_in), depends_(depends_in), g_func_f_(g_func_f_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(set_flux(flux_in)), left_(left_in),
+        right_(right_in), ileft_(set_bilinear_boundary(left_in)),
+        iright_(set_bilinear_boundary(right_in)), left_homo_(left_homo_in),
+        right_homo_(right_homo_in), left_bc_funcs_(left_bc_funcs_in),
+        right_bc_funcs_(right_bc_funcs_in),
+        left_bc_time_func_(left_bc_time_func_in),
+        right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
+  {
+    expect(depends_ != pterm_dependence::none);
+    expect(coeff_type_ == coefficient_type::mass); // have not done the others yet
+  }
+
   P get_flux_scale() const { return static_cast<P>(flux_); };
 
   boundary_condition set_bilinear_boundary(boundary_condition const bc)
@@ -183,8 +216,10 @@ public:
   }
 
   coefficient_type coeff_type() const { return coeff_type_; }
+  pterm_dependence depends() const { return depends_; }
 
   g_func_type<P> const &g_func() const { return g_func_; }
+  g_func_f_type<P> const &g_func_f() const { return g_func_f_; }
   g_func_type<P> const &lhs_mass_func() const { return lhs_mass_func_; }
 
   flux_type flux() const { return flux_; }
@@ -226,7 +261,10 @@ public:
 private:
   coefficient_type coeff_type_;
 
+  pterm_dependence depends_ = pterm_dependence::none;
+
   g_func_type<P> g_func_;
+  g_func_f_type<P> g_func_f_;
   g_func_type<P> lhs_mass_func_;
 
   flux_type flux_;
@@ -736,7 +774,9 @@ public:
   bool do_collision_operator() const { return do_collision_operator_; }
   bool has_analytic_soln() const { return has_analytic_soln_; }
 
-  // data for poisson solver
+  // data for the Poisson-electric field
+  std::vector<P> electric_field;
+
   fk::vector<P> poisson_diag;
   fk::vector<P> poisson_off_diag;
 

@@ -412,40 +412,16 @@ void generate_coefficients(
   };
 }
 
-template<typename P, coefficient_type coeff_type>
+// using extended definition of g-function, now accepting a cell-index (i)
+// which allows us to read from a vector, e.g., with pre-computed values of the e-filed
+template<typename P, coefficient_type coeff_type, typename gfunctor_type>
 void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm,
-                           int const level, P const time,
+                           int const level, P const time, gfunctor_type gfunc,
                            block_diag_matrix<P> &coefficients)
 {
   expect(time >= 0.0);
   expect(coeff_type == pterm.coeff_type());
   static_assert(not has_flux_v<coeff_type>, "building block-diag-diagonal matrix for flux pterm");
-
-  auto g_dv_func = [g_func  = pterm.g_func(),
-                    dv_func = pterm.dv_func()]() -> g_func_type<P> {
-    if (g_func && dv_func)
-    {
-      return [g_func, dv_func](P const x, P const t) {
-        return g_func(x, t) * dv_func(x, t);
-      };
-    }
-    else if (g_func)
-    {
-      return [=](P const x, P const t) { return g_func(x, t); };
-    }
-    else if (dv_func)
-    {
-      return [dv_func](P const x, P const t) { return dv_func(x, t); };
-    }
-    else
-    {
-      return [](P const x, P const t) {
-        ignore(x);
-        ignore(t);
-        return P{1.0};
-      };
-    }
-  }();
 
   // setup jacobi of variable x and define coeff_mat
   auto const num_cells = fm::ipow2(level);
@@ -461,47 +437,18 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
   auto const &quadrature_points  = legendre_values[0];
   auto const &quadrature_weights = legendre_values[1];
 
-  auto const legendre_poly_LR = [&]() {
-    auto [lP_L, lPP_L] = legendre(fk::vector<P>{-1}, dim.get_degree());
-    lP_L               = lP_L * (1 / std::sqrt(grid_spacing));
-    auto [lP_R, lPP_R] = legendre(fk::vector<P>{+1}, dim.get_degree());
-    lP_R               = lP_R * (1 / std::sqrt(grid_spacing));
-    // this is to get around unused warnings (until c++20)
-    ignore(lPP_L);
-    ignore(lPP_R);
-    return std::array<fk::matrix<P>, 2>{lP_L, lP_R};
-  }();
-  auto const &legendre_poly_L = legendre_poly_LR[0];
-  auto const &legendre_poly_R = legendre_poly_LR[1];
-
   // get the basis functions and derivatives for all k
   // this auto is std::array<fk::matrix<P>, 2>
-  auto const legendre_poly_prime = [&]() {
+  fk::matrix<P> const legendre_poly = [&]() {
     auto [lP, lPP] = legendre(quadrature_points, dim.get_degree());
 
     lP  = lP * (1.0 / std::sqrt(grid_spacing));
-    lPP = lPP * (1.0 / std::sqrt(grid_spacing) * 2.0 / grid_spacing);
 
-    return std::array<fk::matrix<P>, 2>{lP, lPP};
+    return lP;
   }();
-
-  auto const &legendre_poly  = legendre_poly_prime[0];
-  auto const &legendre_prime = legendre_poly_prime[1];
 
   // get jacobian
   auto const jacobi = grid_spacing / 2;
-
-  fk::matrix<P> matrix_LtR(legendre_poly_L.ncols(), legendre_poly_R.ncols());
-  fm::gemm(legendre_poly_L, legendre_poly_R, matrix_LtR, true, false, P{1}, P{0});
-
-  fk::matrix<P> matrix_LtL(legendre_poly_L.ncols(), legendre_poly_L.ncols());
-  fm::gemm(legendre_poly_L, legendre_poly_L, matrix_LtL, true, false, P{1}, P{0});
-
-  fk::matrix<P> matrix_RtR(legendre_poly_R.ncols(), legendre_poly_R.ncols());
-  fm::gemm(legendre_poly_R, legendre_poly_R, matrix_RtR, true, false, P{1}, P{0});
-
-  fk::matrix<P> matrix_RtL(legendre_poly_R.ncols(), legendre_poly_L.ncols());
-  fm::gemm(legendre_poly_R, legendre_poly_L, matrix_RtL, true, false, P{1}, P{0});
 
 #pragma omp parallel
   {
@@ -511,46 +458,81 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
     // tmp will be captured inside the lambda closure
     // no allocations will occur per call
     auto apply_volume = [&](int i) -> void {
-      // the penalty term does not include a volume integral
-      if constexpr (coeff_type != coefficient_type::penalty)
+      for (int k = 0; k < tmp.nrows(); k++)
       {
-        for (int k = 0; k < tmp.nrows(); k++)
-        {
-          P c = g_dv_func(
-              (0.5 * quadrature_points[k] + 0.5 + i) * grid_spacing + dim.domain_min, time);
-          c *= quadrature_weights(k) * jacobi;
+        // P c = g_dv_func(
+        //    (0.5 * quadrature_points[k] + 0.5 + i) * grid_spacing + dim.domain_min, time);
+        P c = gfunc(i, (0.5 * quadrature_points[k] + 0.5 + i) * grid_spacing + dim.domain_min, time);
+        c *= quadrature_weights(k) * jacobi;
 
-          for (int j = 0; j < tmp.ncols(); j++)
-            tmp(k, j) = c * legendre_poly(k, j);
-        }
-
-        if constexpr (coeff_type == coefficient_type::mass)
-          smmat::gemm_tn<1>(legendre_poly.ncols(), legendre_poly.nrows(),
-                            legendre_poly.data(), tmp.data(), coefficients[i]);
-        else // div or grad falls here
-          smmat::gemm_tn<-1>(legendre_prime.ncols(), legendre_prime.nrows(),
-                             legendre_prime.data(), tmp.data(), coefficients[i]);
-
+        for (int j = 0; j < tmp.ncols(); j++)
+          tmp(k, j) = c * legendre_poly(k, j);
       }
+
+      smmat::gemm_tn<1>(legendre_poly.ncols(), legendre_poly.nrows(),
+                        legendre_poly.data(), tmp.data(), coefficients[i]);
     };
 
 #pragma omp for
     for (int i = 0; i < num_cells; ++i)
-    {
-      // looping over the interior cells
       apply_volume(i);
-    }
   } // #pragma omp parallel
 }
 
 template<typename P>
 void generate_coefficients(
-    dimension<P> const &dim, partial_term<P> const &pterm,
+    PDE<P> const &pde, dimension<P> const &dim, partial_term<P> const &pterm,
     int const level, P const time, block_diag_matrix<P> &coefficients)
 {
   expect(not has_flux(pterm.coeff_type()));
   // add a case statement if there are other coefficient_type instances with no flux
-  generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time, coefficients);
+  // checking the functor type
+  // the regular case is to use pterm.gfunc * pterm.dv, if either is missing, assume it's 1
+  // we can also handle cases of dependence on external data
+  switch(pterm.depends())
+  {
+    case pterm_dependence::electric_field:
+      expect(pde.electric_field.size() == static_cast<size_t>(fm::ipow2(level)));
+      if (pterm.g_func_f() and pterm.dv_func()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int i, P const x, P const t)->P{
+                return pterm.g_func_f()(x, t, pde.electric_field[i]) * pterm.dv_func()(x, t);
+            }, coefficients);
+      } else if (pterm.g_func_f()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int i, P const x, P const t)->P{
+                return pterm.g_func_f()(x, t, pde.electric_field[i]);
+            }, coefficients);
+      } else if (pterm.dv_func()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int, P const x, P const t)->P{ return pterm.dv_func()(x, t); },
+            coefficients);
+      } else {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int, P const, P const)-> P{ return 1.0; }, coefficients);
+      }
+      break;
+    default: // case pterm_dependence::none:
+      if (pterm.g_func() and pterm.dv_func()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int, P const x, P const t)->P{ return pterm.g_func()(x, t) * pterm.dv_func()(x, t); },
+            coefficients);
+      } else if (pterm.g_func()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int, P const x, P const t)->P{ return pterm.g_func()(x, t); },
+            coefficients);
+      } else if (pterm.dv_func()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int, P const x, P const t)->P{ return pterm.dv_func()(x, t); },
+            coefficients);
+      } else {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&](int, P const, P const)-> P{ return 1.0; }, coefficients);
+      }
+      break;
+  }
+
+  // generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time, coefficients);
 }
 
 template<typename P>
@@ -608,10 +590,13 @@ void generate_all_coefficients(
       auto const &term1d = pde.get_terms()[t][d];
       auto const &pterms = term1d.get_partial_terms();
 
-      // TODO: skip regenerating coefficients that are constant in time
-      // "maybe" what about change in the level? Must apply that too
-      //if (not term1d.time_dependent() and time > 0.0)
-      //  continue;
+      // do not recompute coefficients that are constant in time
+      // and have already been computed for the given level (or above)
+      if (not term1d.time_dependent() and mats.current_levels[d][t] == level) {
+        continue; // we have what we need
+      }
+
+      mats.current_levels[d][t] = level; // computing for this level
 
       expect(pterms.size() >= 1);
       if (pterms.size() == 1)
@@ -631,7 +616,7 @@ void generate_all_coefficients(
         }
         else // no-flux, e.g., mass matrix
         {
-          generate_coefficients<P>(dim, pterms[0], level, time, raw_diag);
+          generate_coefficients<P>(pde, dim, pterms[0], level, time, raw_diag);
 
           if (mats.pterm_mass[t * num_dims + d][0].has_level(level))
             invert_mass(pdof, mats.pterm_mass[t * num_dims + d][0][level], raw_diag);
@@ -690,7 +675,7 @@ void generate_all_coefficients(
               }
               else
               {
-                generate_coefficients<P>(dim, pterm, level, time, *rdiag);
+                generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag);
@@ -721,7 +706,7 @@ void generate_all_coefficients(
               }
               else
               {
-                generate_coefficients<P>(dim, pterm, level, time, *rdiag0);
+                generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag0);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag0);
@@ -752,7 +737,7 @@ void generate_all_coefficients(
 
             if (fi == 0)
             {
-              generate_coefficients<P>(dim, pterm, level, time, *rdiag);
+              generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag);
 
               if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag);
@@ -761,7 +746,7 @@ void generate_all_coefficients(
             }
             else
             {
-              generate_coefficients<P>(dim, pterm, level, time, *rdiag0);
+              generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag0);
 
               if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag0);

@@ -505,6 +505,20 @@ void pttrf(fk::vector<P, dmem> &D, fk::vector<P, emem> &E)
                     " in call to pttrf() has an illegal value\n"));
   }
 }
+template<typename P>
+void pttrf(std::vector<P> &diag, std::vector<P> &subdiag)
+{
+  int size = static_cast<int>(diag.size());
+
+  expect(not diag.empty());
+  expect(subdiag.size() + 1 == diag.size());
+
+  int info = lib_dispatch::pttrf(size, diag.data(), subdiag.data());
+  if (info < 0)
+    throw std::runtime_error(
+        std::string("Argument " + std::to_string(info) +
+                    " in call to pttrf() has an illegal value\n"));
+}
 
 /** pttrs - solves a tridiagonal system of the form A * X = B using the L*D*L**T
  * factoration of A computed by pttrf.
