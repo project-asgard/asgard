@@ -73,7 +73,7 @@ discretization_manager<precision>::discretization_manager(
   if (pde->do_poisson_solve())
   {
     auto const &dim = pde->get_dimensions()[0];
-    poisson_solver.emplace(dim.domain_min, dim.domain_max, dim.get_level());
+    poisson_solver.emplace(degree_, dim.domain_min, dim.domain_max, dim.get_level());
   }
 
   if (high_verbosity())

@@ -546,6 +546,25 @@ void pttrs(fk::vector<P, dmem> const &D, fk::vector<P, emem> const &E,
                     " in call to pttrs() has an illegal value\n"));
   }
 }
+template<typename P>
+void pttrs(std::vector<P> const &D, std::vector<P> const &E, std::vector<P> &B)
+{
+  int constexpr nrhs = 1;
+
+  int const N = static_cast<int>(D.size());
+
+  expect(N >= 0);
+  expect(nrhs >= 0);
+  expect(E.size() + 1 == static_cast<size_t>(N));
+
+  int info = lib_dispatch::pttrs(N, nrhs, D.data(), E.data(), B.data(), N);
+  if (info < 0)
+  {
+    throw std::runtime_error(
+        std::string("Argument " + std::to_string(info) +
+                    " in call to pttrs() has an illegal value\n"));
+  }
+}
 
 /** pttrs - solves a tridiagonal system of the form A * X = B using the L*D*L**T
  * factoration of A computed by pttrf. Overload with B as a vector and NRHS = 1.

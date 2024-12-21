@@ -431,6 +431,81 @@ bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 }
 
 template<typename P>
+void poisson_data<P>::solve(std::vector<P> const &density, P dleft, P dright,
+                            poisson_bc const bc, std::vector<P> &efield)
+{
+  tools::time_event psolve_("poisson_solver");
+
+  if (current_level == 0)
+  {
+    efield.resize(1);
+    efield[0] = -(dright - dleft) / (xmax - xmin);
+    return;
+  }
+
+  int const nelem = fm::ipow2(current_level);
+
+  P const dx = (xmax - xmin) / static_cast<P>(nelem);
+
+  int const pdof = degree + 1;
+
+  int const nnodes = nelem - 1;
+
+  // integrals of hat-basis functions x, 1-x vs legenre basis 1, 2x-1
+  // over canonical element (0, 1)
+  // P const domain_scale = std::sqrt( (xmin - x) )
+  P const c0 = std::sqrt(dx) * 0.5;
+  P const c1 = std::sqrt(dx) * P{5} / P{6}; // the integral with the left basis is negative
+
+  span2d<P const> rho(pdof, nelem, density.data());
+
+  // building the right-hand-side vector
+  if (bc == poisson_bc::periodic)
+  {
+    dleft = dright = P{0};
+
+    P average = 0;
+    for (int i : iindexof(nelem))
+      average += rho[i][0]; // reading the constant
+    // the extra 2 below is because the correction is applied to 2 elements
+    average *= P{2} * dx / (xmax - xmin);
+
+    if (pdof == 1) { // consider only constant functions
+      for (int i : iindexof(nnodes))
+        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0] - average);
+    } else {
+      for (int i : iindexof(nnodes))
+        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0] - average)
+                + c1 * rho[i][1] - c1 * rho[i + 1][1];
+    }
+  }
+  else
+  {
+    if (pdof == 1) { // consider only constant functions
+      for (int i : iindexof(nnodes))
+        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0]);
+    } else {
+      for (int i : iindexof(nnodes))
+        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0])
+                + c1 * rho[i][1] - c1 * rho[i + 1][1];
+    }
+    rhs.front() += dleft / dx;
+    rhs.back()  += dright / dx;
+  }
+
+  // // Linear Solve //
+  fm::pttrs(diag, subdiag, rhs);
+
+  // Set Potential and Electric Field in DG Nodes //
+  efield.resize(nelem);
+
+  efield[0] = - (rhs[0] - dleft) / dx;
+  for (int i = 1; i < nelem - 1; i++)
+    efield[i] = - (rhs[i] - rhs[i - 1]) / dx;
+  efield.back() = - (dright - rhs.back()) / dx;
+}
+
+template<typename P>
 void setup_poisson(const int N_elements, P const x_min, P const x_max,
                    fk::vector<P> &diag, fk::vector<P> &off_diag)
 {
@@ -621,6 +696,10 @@ poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
                fk::vector<double> &E, int const degree, int const N_elements,
                double const x_min, double const x_max, double const phi_min,
                double const phi_max, poisson_bc const bc);
+
+template void poisson_data<double>::solve(
+    std::vector<double> const &, double, double, poisson_bc const, std::vector<double> &);
+
 #endif // ASGARD_ENABLE_DOUBLE
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -676,6 +755,10 @@ poisson_solver(fk::vector<float> const &source, fk::vector<float> const &A_D,
                fk::vector<float> &E, int const degree, int const N_elements,
                float const x_min, float const x_max, float const phi_min,
                float const phi_max, poisson_bc const bc);
+
+template void poisson_data<float>::solve(
+    std::vector<float> const &, float, float, poisson_bc const, std::vector<float> &);
+
 #endif // ASGARD_ENABLE_FLOAT
 
 } // namespace asgard::solver

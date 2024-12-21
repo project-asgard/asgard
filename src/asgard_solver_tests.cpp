@@ -109,7 +109,7 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
 
   asgard::kron_operators<P> &operator_matrices = disc.get_kronops();
   operator_matrices.make(imex_flag::unspecified, pde, disc.get_cmatrices(), grid);
-  
+
   P const dt = pde.get_dt();
 
   // perform matrix-free gmres
@@ -376,5 +376,110 @@ TEMPLATE_TEST_CASE("poisson setup and solve", "[solver]", test_precs)
 
     error = std::sqrt(error) / ((pdof + 1) * N_elements);
     REQUIRE(error < 5.0e-5);
+  }
+}
+
+// solves u_xx = rhs over (xleft, xright), if bc is Dirichlet, dleft/dright are the boundary cond
+// returns the result from comparison against the du_ref, which should be u_x
+template<typename P>
+P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P xright,
+               P dleft, P dright, solver::poisson_bc const bc, int degree, int level)
+{
+  solver::poisson_data<P> solver(degree, xleft, xright, level);
+
+  // construct the cell-by-cell Legenre expansion of the rhs
+  // we must switch to std::vector functions
+  auto lrhs = [&](std::vector<P> const &x, std::vector<P> &fx)
+      -> void {
+          for (auto i : indexof(x))
+            fx[i] = rhs(x[i]);
+      };
+  auto rref = [&](std::vector<P> const &x, std::vector<P> &fx)
+      -> void {
+          // the solver computes the gevative-gradient
+          for (auto i : indexof(x))
+            fx[i] = - du_ref(x[i]);
+      };
+
+  // the hierarchy manipulatro can do the projection
+  hierarchy_manipulator<P> hier(degree, 1, {xleft, }, {xright, });
+
+  std::vector<P> vrhs = hier.cell_project(lrhs, nullptr, level);
+  std::vector<P> sv; // will hold the output
+
+  solver.solve(vrhs, dleft, dright, bc, sv);
+
+  // the output sv holds the cell-by-cell constant values of the gradient
+  // comput reference expansion of the provided reference gradient
+  hierarchy_manipulator<P> hier0(0, 1, {xleft, }, {xright, });
+
+  std::vector<P> vref = hier0.cell_project(rref, nullptr, level);
+
+  // vref is the pw-constant expansion of rref over the non-hierarchical cells
+  // the Legenre polynomials are scaled to unit norm, to get the point-wise values
+  // we must rescale back
+  P const scale = std::sqrt(fm::ipow2(level) / (xright - xleft));
+  for (auto &v : vref)
+    v *= scale;
+
+  return fm::diff_inf(sv, vref);
+}
+
+TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
+{
+  TestType tol = (std::is_same_v<TestType, double>) ? 1.E-14 : 1.E-6;
+
+  SECTION("constant gradient, low degree")
+  {
+    int const degree = 0;
+    int const level  = 3;
+
+    // example 1, u = x over (-2, 3), du = 1, ddu = 0
+    auto rhs = [](TestType)->TestType { return TestType{0}; };
+    auto du  = [](TestType)->TestType { return TestType{1}; };
+
+    TestType err = test_poisson<TestType>(
+        du, rhs, -2, 3, -2, 3, solver::poisson_bc::dirichlet, degree, level);
+
+    REQUIRE(err < tol);
+  }
+
+  SECTION("constant gradient, high degree")
+  {
+    int const degree = 2;
+    int const level  = 5;
+
+    // example 1, using higher degree and level
+    auto rhs = [](TestType)->TestType { return TestType{0}; };
+    auto du  = [](TestType)->TestType { return TestType{1}; };
+
+    TestType err = test_poisson<TestType>(
+        du, rhs, -2, 3, -2, 3, solver::poisson_bc::dirichlet, degree, level);
+
+    REQUIRE(err < tol);
+  }
+
+  SECTION("messy gradient, high degree")
+  {
+    // do not attempt this in single precision
+    if (std::is_same_v<TestType, float>)
+      return;
+
+    TestType constexpr pi = 3.141592653589793;
+
+    int const degree = 2;
+    int const level  = 9;
+
+    // example 2, u = sin(pi * x) over (-1, 1), du = pi * cos(pi * x),
+    //            ddu = -pi^2 * sin(pi * x), ddu = 0
+    auto rhs = [](TestType x)->TestType { return -pi * pi * std::sin(pi * x) - 1; };
+    auto du  = [](TestType x)->TestType { return -pi * std::cos(pi * x); };
+
+    TestType err = test_poisson<TestType>(
+        du, rhs, -1, 1, 5, 11, solver::poisson_bc::periodic, degree, level);
+
+    // std::cout << " error = " << err << "\n";
+
+    REQUIRE(err < 1.E-4);
   }
 }

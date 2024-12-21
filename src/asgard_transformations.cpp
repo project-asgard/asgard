@@ -345,6 +345,7 @@ void hierarchy_manipulator<P>::reconstruct1d(int const nbatch, int level, span2d
 }
 
 template<typename P>
+template<bool skip_hierarchy>
 void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, level_mass_matrces<P> const &mass) const
 {
   int const num_cells = fm::ipow2(level);
@@ -368,6 +369,9 @@ void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, level_
 
   if (mass.has_level(level))
     invert_mass(pdof, mass[level], stage0.data());
+
+  if constexpr (skip_hierarchy)
+    return;
 
   pf[d].resize(pdof * num_cells);
 
@@ -1124,6 +1128,11 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 #ifdef ASGARD_ENABLE_DOUBLE
 template class hierarchy_manipulator<double>;
 
+template void hierarchy_manipulator<double>::project1d<true>(
+    int, int, double, level_mass_matrces<double> const &) const;
+template void hierarchy_manipulator<double>::project1d<false>(
+    int, int, double, level_mass_matrces<double> const &) const;
+
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
@@ -1160,6 +1169,11 @@ combine_dimensions<double>(int const, elements::table const &, int const,
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class hierarchy_manipulator<float>;
+
+template void hierarchy_manipulator<float>::project1d<true>(
+    int, int, float, level_mass_matrces<float> const &) const;
+template void hierarchy_manipulator<float>::project1d<false>(
+    int, int, float, level_mass_matrces<float> const &) const;
 
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
