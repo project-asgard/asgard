@@ -74,6 +74,8 @@ discretization_manager<precision>::discretization_manager(
   {
     auto const &dim = pde->get_dimensions()[0];
     poisson_solver.emplace(degree_, dim.domain_min, dim.domain_max, dim.get_level());
+
+    moms1d = moments1d<precision>(1, degree_, pde->max_level(), pde->get_dimensions());
   }
 
   if (high_verbosity())
@@ -340,6 +342,25 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
     break;
   };
 }
+
+template<typename precision> void
+discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
+  if (not poisson_solver)
+    return; // nothing to update, no term has poisson dependence
+
+  auto const &table = grid.get_table();
+  expect(field.size() == static_cast<size_t>(table.size() * fm::ipow(degree_ + 1, pde->num_dims())));
+
+  int const level = pde->get_dimensions()[0].get_level();
+  std::vector<precision> moment0;
+  moms1d->project_moment(0, level, field, table, moment0);
+
+  hier.reconstruct1d(1, level, span2d<precision>(degree_ + 1, fm::ipow2(level), moment0.data()));
+
+  poisson_solver->solve_periodic(moment0, matrices.edata.electric_field);
+
+  generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::poisson);
+};
 
 template<typename precision>
 void discretization_manager<precision>::save_snapshot(std::filesystem::path const &filename) const

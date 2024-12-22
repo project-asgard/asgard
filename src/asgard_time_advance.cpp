@@ -367,6 +367,7 @@ imex_advance(discretization_manager<P> &disc,
   {
     do_poisson_update(f);
   }
+  disc.do_poisson_update(f.to_std());
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
@@ -464,6 +465,7 @@ imex_advance(discretization_manager<P> &disc,
   {
     do_poisson_update(f_1);
   }
+  disc.do_poisson_update(f_1.to_std());
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);

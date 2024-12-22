@@ -105,6 +105,11 @@ void remake_factors()
 void solve(std::vector<P> const &density, P dleft, P dright, poisson_bc const bc,
            std::vector<P> &efield);
 
+//! poisson solve using periodic boundary conditions
+void solve_periodic(std::vector<P> const &density, std::vector<P> &efield) {
+  solve(density, 0, 0, poisson_bc::periodic, efield);
+}
+
 int degree;
 P xmin, xmax;
 int current_level;

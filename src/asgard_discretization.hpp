@@ -137,6 +137,9 @@ public:
   //! solves x = A^{-1} x where A is the kron_operators with given flag, uses method from options
   void ode_sv(imex_flag imflag, std::vector<precision> &x) const;
 
+  //! compute the electric field for the given state and update the coefficient matrices
+  void do_poisson_update(std::vector<precision> const &field) const;
+
   //! register the next time step and checkpoint
   void set_next_step(fk::vector<precision> const &next,
                      std::optional<precision> new_dt = {})
@@ -325,6 +328,8 @@ private:
   mutable std::optional<matrix_factor<precision>> op_matrix;
   // moments of the field
   mutable std::vector<moment<precision>> moments;
+  // moments, new implementation
+  mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
   mutable std::optional<solver::poisson_data<precision>> poisson_solver;
 
