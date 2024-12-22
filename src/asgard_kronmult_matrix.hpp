@@ -11,6 +11,26 @@ namespace asgard
 
 /*!
  * \internal
+ * \brief Additional data for term coupling, e.g., Poisson electric field
+ *
+ * This just holds a bunch of vectors with data needed for the term coefficients,
+ * the data depends on coupling, e.g., moments or Poisson solver, and thus
+ * cannot be hard-coded in the PDE spec.
+ *
+ * Note to devs: this will replace the parameter_manager singleton
+ * and will allow for tighter integration with the coefficient construciton.
+ *
+ * \endinternal
+ */
+template<typename P>
+struct coupled_term_data
+{
+  //! electic field from the Poisson solver
+  std::vector<P> electric_field;
+};
+
+/*!
+ * \internal
  * \brief Stores the matrices for the pde operators
  *
  * This is a container class for the different types of mass and coefficient
@@ -65,6 +85,9 @@ struct coefficient_matrices
 
   //! TODO (remove this) all pterm coefficients, used for boundary conds.
   std::vector<std::vector<block_sparse_matrix<P>>> pterm_coeffs;
+
+  //! additional (extra) data for the moment coupling
+  coupled_term_data<P> edata;
 
   //! number of initialized dimensions
   int num_dimensions() const { return num_dimensions_; }

@@ -38,6 +38,13 @@ public:
   void project_moments(int const dim0_level, std::vector<P> const &state,
                        elements::table const &etable, std::vector<P> &moments) const;
 
+  /*!
+   * \brief Given the solution state and table, compute only one moment
+   *
+   * Simpler version of project_moments() that avoids recomputing everything.
+   */
+  void project_moment(int const mom, int const dim0_level, std::vector<P> const &state,
+                      elements::table const &etable, std::vector<P> &moment) const;
 
 protected:
   /*!
@@ -57,6 +64,11 @@ protected:
   //! compute the projection of a 1d cell
   template<int ndims>
   void project_cell(P const x[], int const idx[], span2d<P> moments, std::vector<P> &work) const;
+
+  //! compute the projection of a 1d cell
+  template<int ndims>
+  void project_cell(int const mom, P const x[], int const idx[], P moment[],
+                    std::vector<P> &work) const;
 
   //! construct global indexe list from the etable
   static vector2d<int> get_cells(int num_dimensions, elements::table const &etable);

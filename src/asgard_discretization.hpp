@@ -214,7 +214,7 @@ public:
   coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
   //! recomputes the coefficients using the new algorithm
   void compute_coefficients() {
-    generate_all_coefficients(*pde, matrices, conn, hier, time_);
+    generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::all);
 #ifndef KRON_MODE_GLOBAL
     pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
     for (int64_t t : indexof(pde->coeffs_.size()))

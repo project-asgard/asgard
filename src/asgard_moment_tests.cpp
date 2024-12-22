@@ -120,6 +120,11 @@ double test_moments(std::vector<P> const &drange, int level, int degree,
 
     // std::cout << " moment = " << m << "  err = " << fm::diff_inf(vmoms[m], ref) << '\n';
     err = std::max(err, fm::diff_inf(vmoms[m], ref));
+
+    // also include comparison with the solution of a single moment
+    std::vector<P> single_mom;
+    moms.project_moment(m, level0, disc.current_state(), table, single_mom);
+    err = std::max(err, fm::diff_inf(single_mom, ref));
   }
 
   return err;

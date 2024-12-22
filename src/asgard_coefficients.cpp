@@ -481,7 +481,7 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
 
 template<typename P>
 void generate_coefficients(
-    PDE<P> const &pde, dimension<P> const &dim, partial_term<P> const &pterm,
+    coupled_term_data<P> const &edata, dimension<P> const &dim, partial_term<P> const &pterm,
     int const level, P const time, block_diag_matrix<P> &coefficients)
 {
   expect(not has_flux(pterm.coeff_type()));
@@ -492,24 +492,24 @@ void generate_coefficients(
   switch(pterm.depends())
   {
     case pterm_dependence::electric_field:
-      expect(pde.electric_field.size() == static_cast<size_t>(fm::ipow2(level)));
+      expect(edata.electric_field.size() == static_cast<size_t>(fm::ipow2(level)));
       if (pterm.g_func_f() and pterm.dv_func()) {
         generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
             [&](int i, P const x, P const t)->P{
-                return pterm.g_func_f()(x, t, pde.electric_field[i]) * pterm.dv_func()(x, t);
+                return pterm.g_func_f()(x, t, edata.electric_field[i]) * pterm.dv_func()(x, t);
             }, coefficients);
       } else if (pterm.g_func_f()) {
         generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
             [&](int i, P const x, P const t)->P{
-                return pterm.g_func_f()(x, t, pde.electric_field[i]);
+                return pterm.g_func_f()(x, t, edata.electric_field[i]);
             }, coefficients);
       } else if (pterm.dv_func()) {
         generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
-            [&](int, P const x, P const t)->P{ return pterm.dv_func()(x, t); },
+            [&](int i, P const x, P const t)->P{ return edata.electric_field[i] * pterm.dv_func()(x, t); },
             coefficients);
       } else {
         generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
-            [&](int, P const, P const)-> P{ return 1.0; }, coefficients);
+            [&](int i, P const, P const)-> P{ return edata.electric_field[i]; }, coefficients);
       }
       break;
     default: // case pterm_dependence::none:
@@ -566,9 +566,9 @@ void generate_partial_mass(int const idim, dimension<P> const &dim,
 };
 
 template<typename P>
-void generate_all_coefficients(
+void generate_coefficients(
     PDE<P> &pde, coefficient_matrices<P> &mats, connection_patterns const &conn,
-    hierarchy_manipulator<P> const &hier, P const time)
+    hierarchy_manipulator<P> const &hier, P const time, coeff_update_mode mode)
 {
   tools::time_event time_generating_("gen_coefficients");
   expect(time >= 0.0);
@@ -589,6 +589,15 @@ void generate_all_coefficients(
     {
       auto const &term1d = pde.get_terms()[t][d];
       auto const &pterms = term1d.get_partial_terms();
+
+      switch (mode) {
+        case coeff_update_mode::poisson:
+          // update only the poisson terms
+          if (not term1d.has_dependence(pterm_dependence::electric_field))
+            continue;
+        default: // case coeff_update_mode::all, do not skip anything
+          break;
+      };
 
       // do not recompute coefficients that are constant in time
       // and have already been computed for the given level (or above)
@@ -616,7 +625,7 @@ void generate_all_coefficients(
         }
         else // no-flux, e.g., mass matrix
         {
-          generate_coefficients<P>(pde, dim, pterms[0], level, time, raw_diag);
+          generate_coefficients<P>(mats.edata, dim, pterms[0], level, time, raw_diag);
 
           if (mats.pterm_mass[t * num_dims + d][0].has_level(level))
             invert_mass(pdof, mats.pterm_mass[t * num_dims + d][0][level], raw_diag);
@@ -675,7 +684,7 @@ void generate_all_coefficients(
               }
               else
               {
-                generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag);
+                generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag);
@@ -706,7 +715,7 @@ void generate_all_coefficients(
               }
               else
               {
-                generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag0);
+                generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag0);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag0);
@@ -737,7 +746,7 @@ void generate_all_coefficients(
 
             if (fi == 0)
             {
-              generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag);
+              generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag);
 
               if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag);
@@ -746,7 +755,7 @@ void generate_all_coefficients(
             }
             else
             {
-              generate_coefficients<P>(pde, dim, pterm, level, time, *rdiag0);
+              generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag0);
 
               if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag0);
@@ -883,9 +892,9 @@ void build_system_matrix(
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template void generate_all_coefficients<double>(
+template void generate_coefficients<double>(
     PDE<double> &, coefficient_matrices<double> &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double);
+    hierarchy_manipulator<double> const &, double, coeff_update_mode);
 
 template void build_system_matrix<double>(
     PDE<double> const &, std::function<fk::matrix<double>(int, int)>,
@@ -894,9 +903,9 @@ template void build_system_matrix<double>(
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template void generate_all_coefficients<float>(
+template void generate_coefficients<float>(
     PDE<float> &, coefficient_matrices<float> &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float);
+    hierarchy_manipulator<float> const &, float, coeff_update_mode);
 
 template void build_system_matrix<float>(
     PDE<float> const &, std::function<fk::matrix<float>(int, int)>,

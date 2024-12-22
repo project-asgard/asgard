@@ -308,6 +308,13 @@ public:
 
   imex_flag flag() const { return flag_; }
 
+  bool has_dependence(pterm_dependence dep) const {
+    for (auto const &pt : partial_terms_)
+      if (pt.depends() == dep)
+        return true;
+    return false;
+  }
+
 private:
   bool time_dependent_;
   std::string name_;
@@ -770,13 +777,23 @@ public:
   }
 
   moment_funcs<P> initial_moments;
-  bool do_poisson_solve() const { return do_poisson_solve_; }
+
+  bool do_poisson_solve() const { // TODO: rename to poisson dependence
+    if (do_poisson_solve_) // TODO: remove the variable
+      return true;
+
+    for (auto const &terms_md : terms_)
+      for (auto const &term1d : terms_md)
+        if (term1d.has_dependence(pterm_dependence::electric_field))
+          return true;
+
+    // do_poisson_solve_ is false and no terms have the poisson dependence
+    return false;
+  }
   bool do_collision_operator() const { return do_collision_operator_; }
   bool has_analytic_soln() const { return has_analytic_soln_; }
 
   // data for the Poisson-electric field
-  std::vector<P> electric_field;
-
   fk::vector<P> poisson_diag;
   fk::vector<P> poisson_off_diag;
 

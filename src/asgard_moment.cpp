@@ -127,7 +127,7 @@ void moments1d<P>::project_moments(
     int const dim0_level, std::vector<P> const &state,
     elements::table const &etable, std::vector<P> &moments) const
 {
-  tools::time_event performance("moment project");
+  tools::time_event performance("moments project");
 
   int const pdof = degree_ + 1;
   int const nout = fm::ipow2(dim0_level);
@@ -254,6 +254,125 @@ void moments1d<P>::project_cell(P const x[], int const idx[], span2d<P> moments,
   }
 }
 
+template<typename P>
+void moments1d<P>::project_moment(
+    int const mom, int const dim0_level, std::vector<P> const &state,
+    elements::table const &etable, std::vector<P> &moment) const
+{
+  tools::time_event performance("moment project");
+
+  int const pdof = degree_ + 1;
+  int const nout = fm::ipow2(dim0_level);
+  if (moment.empty())
+    moment.resize(nout * pdof);
+  else {
+    moment.resize(nout * pdof);
+    std::fill(moment.begin(), moment.end(), P{0});
+  }
+
+  vector2d<int> cells = etable.get_cells();
+
+  auto const ncells = cells.num_strips();
+
+  int64_t const tsize = fm::ipow(pdof, num_dims_);
+
+  span2d<P const> x(tsize, ncells, state.data());
+
+  span2d<P> smom(pdof, nout, moment.data());
+
+  std::vector<P> work; // persistant workspace
+
+  switch (num_dims_) {
+    case 2:
+      for (int64_t i = 0; i < ncells; i++)
+      {
+        int const *idx = cells[i];
+        project_cell<2>(mom, x[i], idx, smom[idx[0]], work);
+      }
+      break;
+    case 3:
+      work.resize(pdof * pdof);
+      for (int64_t i = 0; i < ncells; i++)
+      {
+        int const *idx = cells[i];
+        project_cell<3>(mom, x[i], idx, smom[idx[0]], work);
+      }
+      break;
+    case 4:
+      work.resize(pdof * pdof * pdof + pdof * pdof);
+      for (int64_t i = 0; i < ncells; i++)
+      {
+        int const *idx = cells[i];
+        project_cell<4>(mom, x[i], idx, smom[idx[0]], work);
+      }
+      break;
+  }
+}
+
+template<typename P>
+template<int ndims>
+void moments1d<P>::project_cell(
+    int const mom, P const x[], int const idx[], P moment[], std::vector<P> &work) const
+{
+  int const pdof = degree_ + 1;
+  if constexpr (ndims == 2) // reducing only one dimension
+  {
+    P const *wm = integ[1][idx[1]] + mom * pdof; // moment weights
+    for (int i = 0; i < pdof; i++)
+    {
+      for (int j = 0; j < pdof; j++)
+        moment[i] += wm[j] * x[i * pdof + j];
+    }
+  }
+  else if constexpr (ndims == 3) // reducing 2 dimensions, using work as temp storage
+  {
+    expect(work.size() == static_cast<size_t>(pdof * pdof));
+    P const *wm = integ[2][idx[2]] + mom * pdof; // moment weights
+
+    for (int i = 0; i < pdof * pdof; i++)
+    {
+      work[i] = 0;
+      for (int j = 0; j < pdof; j++)
+        work[i] += wm[j] * x[i * pdof + j];
+    }
+
+    wm = integ[1][idx[1]] + mom * pdof;
+    for (int i = 0; i < pdof; i++)
+    {
+      for (int j = 0; j < pdof; j++)
+        moment[i] += wm[j] * work[i * pdof + j];
+    }
+  }
+  else if constexpr (ndims == 4) // reducing 3 dims, using work in 2 stages
+  {
+    expect(work.size() == static_cast<size_t>(pdof * pdof * pdof + pdof * pdof));
+    P const *wm = integ[3][idx[3]] + mom * pdof; // moment weights
+
+    for (int i = 0; i < pdof * pdof * pdof; i++)
+    {
+      work[i] = 0;
+      for (int j = 0; j < pdof; j++)
+        work[i] += wm[j] * x[i * pdof + j];
+    }
+
+    wm = integ[2][idx[2]] + mom * pdof;
+    P *t = work.data() + pdof * pdof * pdof;
+
+    for (int i = 0; i < pdof * pdof; i++)
+    {
+      t[i] = 0;
+      for (int j = 0; j < pdof; j++)
+        t[i] += wm[j] * work[i * pdof + j];
+    }
+
+    wm = integ[1][idx[1]] + mom * pdof;
+    for (int i = 0; i < pdof; i++)
+    {
+      for (int j = 0; j < pdof; j++)
+        moment[i] += wm[j] * t[i * pdof + j];
+    }
+  }
+}
 
 template<typename P>
 moment<P>::moment(std::vector<md_func_type<P>> md_funcs_)

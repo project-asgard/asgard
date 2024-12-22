@@ -3,10 +3,25 @@
 
 namespace asgard
 {
+
+/*
+ * \internal
+ * \brief Allows to selectively update coefficients and avoid repeated work
+ *
+ * \endinternal
+ */
+enum class coeff_update_mode {
+    //! update all coefficients
+    all,
+    //! update only the coefficients that depends on the poisson data
+    poisson
+};
+
 template<typename P>
-void generate_all_coefficients(
+void generate_coefficients(
     PDE<P> &pde, coefficient_matrices<P> &mats, connection_patterns const &conn,
-    hierarchy_manipulator<P> const &hier, P const time);
+    hierarchy_manipulator<P> const &hier, P const time,
+    coeff_update_mode mode = coeff_update_mode::all);
 
 // explicit construction of the Kronecker matrix, expensive and used
 // only for the implicit time-stepping
