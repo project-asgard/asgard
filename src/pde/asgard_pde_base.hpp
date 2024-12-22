@@ -742,8 +742,8 @@ public:
         dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
   {
     options_.grid          = grid_type::dense;
-    options_.start_levels  = {pde.options_.start_levels[0], };
-    options_.max_levels    = {pde.options_.max_levels[0], };
+    options_.start_levels  = {pde.get_dimensions().front().get_level(), };
+    options_.max_levels    = {pde.max_level(), };
   }
 
   const prog_opts &options() const { return options_; }

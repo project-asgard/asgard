@@ -19,7 +19,7 @@ public:
     int constexpr num_dims          = 2;
     int constexpr num_sources       = 0;
     int constexpr num_terms         = 4; // should be 4
-    bool constexpr do_poisson_solve = false;
+    bool constexpr do_poisson_solve = true;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = false;
