@@ -363,11 +363,13 @@ imex_advance(discretization_manager<P> &disc,
         }
       };
 
+  disc.do_poisson_update(f.to_std());
   if (pde.do_poisson_solve())
   {
     do_poisson_update(f);
   }
-  disc.do_poisson_update(f.to_std());
+
+  //disc.comp_mats();
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
@@ -461,11 +463,13 @@ imex_advance(discretization_manager<P> &disc,
   tools::timer.start("explicit_2");
   fm::copy(f_orig_dev, f); // f here is now f_0
 
+  disc.do_poisson_update(f_1.to_std());
   if (pde.do_poisson_solve())
   {
     do_poisson_update(f_1);
   }
-  disc.do_poisson_update(f_1.to_std());
+
+  //disc.comp_mats();
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);

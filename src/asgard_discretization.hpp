@@ -236,6 +236,19 @@ public:
                                       int64_t num_steps);
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
+void comp_mats() const { // two stream, compare matrices
+  auto ref = matrices.term_coeffs[6].to_full(conn);
+  auto com = matrices.term_coeffs[10].to_full(conn);
+
+  //std::cout << " -- ref -- \n";
+  //ref.printr(std::cout, 0);
+  //std::cout << " -- com -- \n";
+  //com.printr(std::cout, 0);
+  //std::cout << " -- --- -- \n";
+
+  std::cout << " err = " << ref.max_diff(com) << "\n";
+}
+
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! convenient check if we are using high verbosity level
@@ -246,7 +259,12 @@ protected:
   void update_grid_components()
   {
     kronops.clear();
-    compute_coefficients();
+    generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::independent);
+#ifndef KRON_MODE_GLOBAL
+    pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
+    for (int64_t t : indexof(pde->coeffs_.size()))
+      pde->coeffs_[t] = matrices.term_coeffs[t].to_fk_matrix(degree_ + 1, conn);
+#endif
     auto const my_subgrid = grid.get_subgrid(get_rank());
     fixed_bc = boundary_conditions::make_unscaled_bc_parts(
         *pde, grid.get_table(), transformer, hier, matrices,

@@ -14,7 +14,9 @@ enum class coeff_update_mode {
     //! update all coefficients
     all,
     //! update only the coefficients that depends on the poisson data
-    poisson
+    poisson,
+    //! update only the independent coefficients, i.e., do not depend on moments
+    independent
 };
 
 template<typename P>

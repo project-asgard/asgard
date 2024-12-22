@@ -126,6 +126,19 @@ public:
     os << '\n';
   }
 
+  P max_diff(block_matrix<P> const &other) {
+    expect(nrows_ == other.nrows_);
+    expect(ncols_ == other.ncols_);
+    expect(nblock() == other.nblock());
+    int64_t size = nrows_ * ncols_ * nblock();
+    P const *v1 = data_[0];
+    P const *v2 = other.data_[0];
+    P err = 0;
+    for (auto i : indexof(size))
+      err = std::max(err, std::abs(v1[i] - v2[i]));
+    return err;
+  }
+
 private:
   int64_t nrows_, ncols_;
   vector2d<P> data_;

@@ -314,6 +314,12 @@ public:
         return true;
     return false;
   }
+  bool is_moment_independant() const {
+    for (auto const &pt : partial_terms_)
+      if (pt.depends() != pterm_dependence::none)
+        return false;
+    return true;
+  }
 
 private:
   bool time_dependent_;

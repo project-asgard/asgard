@@ -595,6 +595,12 @@ void generate_coefficients(
           // update only the poisson terms
           if (not term1d.has_dependence(pterm_dependence::electric_field))
             continue;
+          break;
+        case coeff_update_mode::independent:
+          // update only the terms that don't have moment dependence
+          if (not term1d.is_moment_independant())
+            continue;
+          break;
         default: // case coeff_update_mode::all, do not skip anything
           break;
       };

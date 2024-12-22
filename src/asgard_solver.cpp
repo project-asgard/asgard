@@ -455,7 +455,7 @@ void poisson_data<P>::solve(std::vector<P> const &density, P dleft, P dright,
   // over canonical element (0, 1)
   // P const domain_scale = std::sqrt( (xmin - x) )
   P const c0 = std::sqrt(dx) * 0.5;
-  P const c1 = std::sqrt(dx) * P{5} / P{6}; // the integral with the left basis is negative
+  P const c1 = std::sqrt(dx * 3.0) * P{1} / P{6}; // the integral with the left basis is negative
 
   span2d<P const> rho(pdof, nelem, density.data());
 

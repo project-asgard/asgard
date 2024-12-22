@@ -18,8 +18,8 @@ public:
   {
     int constexpr num_dims          = 2;
     int constexpr num_sources       = 0;
-    int constexpr num_terms         = 4;
-    bool constexpr do_poisson_solve = true;
+    int constexpr num_terms         = 4; // should be 4
+    bool constexpr do_poisson_solve = false;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = false;
@@ -36,8 +36,11 @@ public:
                      // defining the set of terms
                      term_set<P>{std::vector<term<P>>{term_e1x, term_e1v},
                                  std::vector<term<P>>{term_e2x, term_e2v},
-                                 std::vector<term<P>>{E_mass_x_pos, div_v_dn},
-                                 std::vector<term<P>>{E_mass_x_neg, div_v_up}},
+                                 //std::vector<term<P>>{E_mass_x_pos, div_v_dn},
+                                 //std::vector<term<P>>{E_mass_x_neg, div_v_up},
+                                 std::vector<term<P>>{Emass_pos, div_v_dn},
+                                 std::vector<term<P>>{Emass_neg, div_v_up},
+                                 },
                      std::vector<source<P>>{},       // no sources
                      std::vector<md_func_type<P>>{}, // no exact solution
                      get_dt_, do_poisson_solve, has_analytic_soln,
@@ -288,6 +291,27 @@ private:
       term<P>(false, // time-dependent
               "",    // name
               {pterm_div_v_up}, imex_flag::imex_explicit);
+
+  static P electric_positive(P const, P const, P const E) {
+    return std::max(P{0}, E);
+  }
+  static P electric_negative(P const, P const, P const E) {
+    return std::min(P{0}, E);
+  }
+
+  inline static const partial_term<P> ptEmass_pos = partial_term<P>(
+      coefficient_type::mass, pterm_dependence::electric_field, electric_positive);
+  inline static const partial_term<P> ptEmass_neg = partial_term<P>(
+      coefficient_type::mass, pterm_dependence::electric_field, electric_negative);
+
+  inline static term<P> const Emass_pos =
+      term<P>(true, // time-dependent
+              "",   // name
+              {ptEmass_pos, }, imex_flag::imex_explicit);
+  inline static term<P> const Emass_neg =
+      term<P>(true, // time-dependent
+              "",   // name
+              {ptEmass_neg, }, imex_flag::imex_explicit);
 
   static P get_dt_(dimension<P> const &dim)
   {
