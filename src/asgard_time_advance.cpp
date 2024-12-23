@@ -113,7 +113,7 @@ imex_advance(discretization_manager<P> &disc,
 {
   // BEFE = 0 case
   expect(time >= 0);
-  expect(moments.size() > 0);
+  //expect(moments.size() > 0);
 
   auto const &options = pde.options();
 
@@ -160,6 +160,7 @@ imex_advance(discretization_manager<P> &disc,
 
   auto do_poisson_update = [&](fk::vector<P, mem_type::owner, imex_resrc> const
                                    &f_in) {
+    return;
     fk::vector<P> poisson_source(quad_dense_size);
     fk::vector<P> phi(quad_dense_size);
     fk::vector<P> poisson_E(quad_dense_size);

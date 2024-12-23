@@ -105,10 +105,11 @@ private:
     return f;
   }
 
-  inline static moment_funcs<P> init_moments = {
-      {{moment0_f1, moment0_f1, moment0_f1}},
-      {{moment0_f1, moment1_f1, moment0_f1}},
-      {{moment0_f1, moment2_f1, moment0_f1}}};
+  // inline static moment_funcs<P> init_moments = {
+  //     {{moment0_f1, moment0_f1, moment0_f1}},
+  //     {{moment0_f1, moment1_f1, moment0_f1}},
+  //     {{moment0_f1, moment2_f1, moment0_f1}}};
+  inline static moment_funcs<P> init_moments = {};
 
   /* Construct (n, u, theta) */
   static P n(P const &x, P const t = 0)

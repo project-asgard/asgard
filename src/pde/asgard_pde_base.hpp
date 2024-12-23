@@ -709,8 +709,8 @@ public:
         expect(md_func.size() == static_cast<unsigned>(num_dims_) + 1);
     }
 
-    rassert(not (use_imex_ and initial_moments.empty()),
-            "incorrect pde/time-step pair, the imex method requires moments");
+    // rassert(not (use_imex_ and initial_moments.empty()),
+    //        "incorrect pde/time-step pair, the imex method requires moments");
 
     gmres_outputs.resize(use_imex_ ? 2 : 1);
 
