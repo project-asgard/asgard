@@ -591,8 +591,15 @@ void generate_coefficients(
       auto const &pterms = term1d.get_partial_terms();
 
       switch (mode) {
+        case coeff_update_mode::imex_explicit:
+          if (term1d.flag() != imex_flag::imex_explicit)
+            continue;
+          break;
+        case coeff_update_mode::imex_implicit:
+          if (term1d.flag() != imex_flag::imex_implicit)
+            continue;
+          break;
         case coeff_update_mode::poisson:
-          // update only the poisson terms
           if (not term1d.has_dependence(pterm_dependence::electric_field))
             continue;
           break;

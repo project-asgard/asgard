@@ -119,6 +119,8 @@ public:
       std::cout << '\n';
     }
   }
+  //! \brief (testing) fill the vector with a value
+  void fill(T v) { std::fill(this->data_.begin(), this->data_.end(), v); }
 };
 //! \brief Non-owning version of vector2d.
 template<typename T>

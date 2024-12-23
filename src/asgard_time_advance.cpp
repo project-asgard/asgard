@@ -368,8 +368,9 @@ imex_advance(discretization_manager<P> &disc,
   {
     do_poisson_update(f);
   }
+  disc.compute_coefficients(coeff_update_mode::imex_explicit);
 
-  //disc.comp_mats();
+  disc.comp_mats();
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
@@ -394,10 +395,6 @@ imex_advance(discretization_manager<P> &disc,
 #endif
 
   tools::timer.stop("explicit_1");
-  tools::timer.start("implicit_1");
-
-  // Create rho_1s
-  calculate_moments(f);
 
   // Implicit step f_1: f_1 - dt B f_1 = f_1s
   solve_opts solver  = options.solver.value();
@@ -408,6 +405,8 @@ imex_advance(discretization_manager<P> &disc,
   fk::vector<P, mem_type::owner, imex_resrc> f_1_output(f.size());
   if (pde.do_collision_operator())
   {
+    tools::timer.start("implicit_1");
+    calculate_moments(f);
     disc.compute_coefficients();
 
     // f2 now
@@ -448,14 +447,14 @@ imex_advance(discretization_manager<P> &disc,
     }
     // save output of GMRES call to use in the second one
     f_1_output = f_1;
+
+    tools::timer.stop("implicit_1");
   }
   else
   {
     // for non-collision: f_1 = f_1s
     fm::copy(f, f_1);
   }
-
-  tools::timer.stop("implicit_1");
 
   // --------------------------------
   // Second Stage
@@ -468,8 +467,9 @@ imex_advance(discretization_manager<P> &disc,
   {
     do_poisson_update(f_1);
   }
+  disc.compute_coefficients(coeff_update_mode::imex_explicit);
 
-  //disc.comp_mats();
+  disc.comp_mats();
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
@@ -494,18 +494,15 @@ imex_advance(discretization_manager<P> &disc,
   fm::axpy(f_1, f);    // f is now f_0 + f_2
   fm::scal(P{0.5}, f); // f = 0.5 * (f_0 + f_2) = f_2s
   tools::timer.stop("explicit_2");
-  if (pde.do_collision_operator())
-  {
-    tools::timer.start("implicit_2");
-  }
-  tools::timer.start("implicit_2_mom");
-  // Create rho_2s
-  calculate_moments(f);
-  tools::timer.stop("implicit_2_mom");
 
   // Implicit step f_2: f_2 - dt B f_2 = f_2s
   if (pde.do_collision_operator())
   {
+    tools::timer.start("implicit_2");
+    tools::timer.start("implicit_2_mom");
+    calculate_moments(f);
+    tools::timer.stop("implicit_2_mom");
+
     // Update coeffs
     disc.compute_coefficients();
 

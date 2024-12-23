@@ -99,7 +99,8 @@ void build_preconditioner(PDE<precision> const &pde,
         {
           for (int d : indexof<int>(num_dimensions))
           {
-            if (check_identity_term(pde, t, d))
+            // if (check_identity_term(pde, t, d))
+            if (pde.get_terms()[t][d].is_identity())
               amats[d] = nullptr;
             else
             {
@@ -1182,7 +1183,8 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
     // add only the dimensions that are not identity
     // make sure that the flux direction comes first
     for (int d = 0; d < num_dimensions; d++)
-      if (not check_identity_term(pde, t, d))
+      //if (not check_identity_term(pde, t, d))
+      if (not pde.get_terms()[t][d].is_identity())
       {
         active_dirs.push_back(d);
         if (d == flux_dir[t] and active_dirs.size() > 1)
@@ -1227,7 +1229,8 @@ void set_specific_mode(PDE<precision> const &pde,
   {
     for (int d : indexof<int>(num_dimensions))
     {
-      if (not check_identity_term(pde, t, d))
+      //if (not check_identity_term(pde, t, d))
+      if (not pde.get_terms()[t][d].is_identity())
       {
         // This should be an alias and not a copy
         cmats.term_coeffs[t * num_dimensions + d].copy_out(mat.gvals_[t * num_dimensions + d]);

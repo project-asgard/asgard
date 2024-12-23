@@ -13,10 +13,14 @@ namespace asgard
 enum class coeff_update_mode {
     //! update all coefficients
     all,
+    //! update the imex explicit term-coefficients
+    imex_explicit,
+    //! update the imex implicit term-coefficients
+    imex_implicit,
     //! update only the coefficients that depends on the poisson data
     poisson,
     //! update only the independent coefficients, i.e., do not depend on moments
-    independent
+    independent,
 };
 
 template<typename P>

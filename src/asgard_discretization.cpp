@@ -361,7 +361,7 @@ discretization_manager<precision>::do_poisson_update(std::vector<precision> cons
 
   poisson_solver->solve_periodic(moment0, matrices.edata.electric_field);
 
-  generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::poisson);
+  // generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::poisson);
 };
 
 template<typename precision>

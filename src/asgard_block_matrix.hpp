@@ -497,6 +497,8 @@ public:
           std::copy_n(data_[j] + n * k , n, &mat(n * r, n * conn[j] + k));
     return mat;
   }
+  //! (testing) fill the matrix with a value
+  void fill(P v) { data_.fill(v); }
 private:
   connect_1d::hierarchy htype_;
   vector2d<P> data_;

@@ -218,6 +218,12 @@ public:
   coefficient_type coeff_type() const { return coeff_type_; }
   pterm_dependence depends() const { return depends_; }
 
+  bool is_identity() const
+  {
+    return (coeff_type_ == coefficient_type::mass and not g_func_ and not g_func_f_
+            and not lhs_mass_func_ and not dv_func_);
+  }
+
   g_func_type<P> const &g_func() const { return g_func_; }
   g_func_f_type<P> const &g_func_f() const { return g_func_f_; }
   g_func_type<P> const &lhs_mass_func() const { return lhs_mass_func_; }
@@ -317,6 +323,12 @@ public:
   bool is_moment_independant() const {
     for (auto const &pt : partial_terms_)
       if (pt.depends() != pterm_dependence::none)
+        return false;
+    return true;
+  }
+  bool is_identity() const {
+    for (auto const &pt : partial_terms_)
+      if (not pt.is_identity())
         return false;
     return true;
   }

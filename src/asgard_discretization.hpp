@@ -215,9 +215,9 @@ public:
   std::vector<moment<precision>> &get_moments() const { return moments; }
   //! returns the coefficient matrices
   coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
-  //! recomputes the coefficients using the new algorithm
-  void compute_coefficients() {
-    generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::all);
+  //! recomputes the coefficients, can select sub
+  void compute_coefficients(coeff_update_mode mode = coeff_update_mode::all) {
+    generate_coefficients(*pde, matrices, conn, hier, time_, mode);
 #ifndef KRON_MODE_GLOBAL
     pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
     for (int64_t t : indexof(pde->coeffs_.size()))
@@ -236,18 +236,30 @@ public:
                                       int64_t num_steps);
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
-void comp_mats() const { // two stream, compare matrices
-  auto ref = matrices.term_coeffs[6].to_full(conn);
-  auto com = matrices.term_coeffs[10].to_full(conn);
+  void comp_mats() const { // two stream, compare matrices
+    return;
+    precision err = 0;
+    for (int i = 0; i < 4; i++) {
+      auto ref = matrices.term_coeffs[4 + i].to_full(conn);
+      auto com = matrices.term_coeffs[8 + i].to_full(conn);
 
-  //std::cout << " -- ref -- \n";
-  //ref.printr(std::cout, 0);
-  //std::cout << " -- com -- \n";
-  //com.printr(std::cout, 0);
-  //std::cout << " -- --- -- \n";
+      err = std::max(err, ref.max_diff(com));
 
-  std::cout << " err = " << ref.max_diff(com) << "\n";
-}
+      std::cout << " -- " << i << " err = " << ref.max_diff(com) << "\n";
+    }
+
+    //std::cout << " -- ref -- \n";
+    //ref.printr(std::cout, 0);
+    //std::cout << " -- com -- \n";
+    //com.printr(std::cout, 0);
+    //std::cout << " -- --- -- \n";
+
+    //std::cout << " err = " << ref.max_diff(com) << "\n";
+    std::cout << " err = " << err << "\n";
+
+    for (int i = 0; i < 4; i++)
+      matrices.term_coeffs[8 + i].fill(0);
+  }
 
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL

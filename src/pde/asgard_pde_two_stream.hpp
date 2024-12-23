@@ -19,7 +19,7 @@ public:
     int constexpr num_dims          = 2;
     int constexpr num_sources       = 0;
     int constexpr num_terms         = 4; // should be 4
-    bool constexpr do_poisson_solve = true;
+    bool constexpr do_poisson_solve = false;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = false;
@@ -36,8 +36,6 @@ public:
                      // defining the set of terms
                      term_set<P>{std::vector<term<P>>{term_e1x, term_e1v},
                                  std::vector<term<P>>{term_e2x, term_e2v},
-                                 //std::vector<term<P>>{E_mass_x_pos, div_v_dn},
-                                 //std::vector<term<P>>{E_mass_x_neg, div_v_up},
                                  std::vector<term<P>>{Emass_pos, div_v_dn},
                                  std::vector<term<P>>{Emass_neg, div_v_up},
                                  },
