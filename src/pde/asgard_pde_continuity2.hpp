@@ -17,8 +17,7 @@ class PDE_continuity_2d : public PDE<P>
 public:
   PDE_continuity_2d(prog_opts const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_,
-               get_dt_, do_poisson_solve_, has_analytic_soln_)
+               terms_, sources_, exact_vector_funcs_, get_dt_, has_analytic_soln_)
   {}
 
 private:
@@ -26,7 +25,6 @@ private:
   static int constexpr num_dims_           = 2;
   static int constexpr num_sources_        = 3;
   static int constexpr num_terms_          = 2;
-  static bool constexpr do_poisson_solve_  = false;
   static bool constexpr has_analytic_soln_ = true;
 
   //

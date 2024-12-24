@@ -86,16 +86,6 @@ TEST_CASE("new program options", "[single options]")
     prog_opts opts3(vecstrview({"exe", "-g", "sparse"}));
     REQUIRE_FALSE(opts3.mgrid_group);
   }
-  SECTION("-electric-solve")
-  {
-    REQUIRE_FALSE(!!prog_opts(vecstrview({""})).set_electric);
-    prog_opts prog(vecstrview({"", "-electric-solve"}));
-    REQUIRE(prog.set_electric);
-    REQUIRE(prog.set_electric.value());
-    prog_opts prog2(vecstrview({"", "-es"}));
-    REQUIRE(prog2.set_electric);
-    REQUIRE(prog2.set_electric.value());
-  }
   SECTION("-start-levels")
   {
     prog_opts prog(vecstrview({"", "-start-levels", "3 4"}));

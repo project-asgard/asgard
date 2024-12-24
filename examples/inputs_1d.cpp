@@ -39,9 +39,6 @@ public:
     int constexpr num_sources    = 2;
     int constexpr num_terms      = 1;
 
-    // the Poisson solver is not used here
-    bool constexpr do_poisson_solve  = false;
-
     // flagging terms as time_independent (using the false value)
     // improves speed by keeping some constant matrices across time-steps
     bool constexpr time_independent = false;
@@ -94,8 +91,7 @@ public:
         cli_input, // allows modifications, e.g., override mesh level
         num_dimensions, num_sources, num_terms,  // for sanity-check purposes
         std::vector<dimension>{dim0, }, // domain
-        terms, sources, exact_solution,
-        get_dt, do_poisson_solve, has_analytic_solution);
+        terms, sources, exact_solution, get_dt, has_analytic_solution);
   }
 
   // using a static variable allows us to include the variable into function

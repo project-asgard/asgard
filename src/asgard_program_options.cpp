@@ -199,7 +199,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
       {"-adapt-norm", optentry::adapt_norm}, {"-an", optentry::adapt_norm},
-      {"-electric-solve", optentry::set_electric}, {"-es", optentry::set_electric},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
       {"-noadapt", optentry::no_adapt},  {"-noa", optentry::no_adapt},
       {"-start-levels", optentry::start_levels}, {"-l", optentry::start_levels},
@@ -353,9 +352,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
         throw std::runtime_error(report_wrong_value());
       }
     }
-    break;
-    case optentry::set_electric:
-    set_electric = true;
     break;
     case optentry::start_levels: {
       auto selected = move_process_next();

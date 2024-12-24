@@ -17,8 +17,7 @@ public:
   PDE_collisional_landau(prog_opts const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
                terms_, sources_, exact_vector_funcs_,
-               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
-               do_collision_operator_)
+               get_dt_, has_analytic_soln_, moments_, do_collision_operator_)
   {
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
@@ -32,7 +31,6 @@ private:
   static int constexpr num_dims_               = 2;
   static int constexpr num_sources_            = 0;
   static int constexpr num_terms_              = 7;
-  static bool constexpr do_poisson_solve_      = false;
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = false;
   static int constexpr default_degree          = 3;

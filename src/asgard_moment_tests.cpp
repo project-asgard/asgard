@@ -42,7 +42,7 @@ public:
     this->initialize(opts, ndims, 0, 0, dims,
                      term_set<P>{}, std::vector<source<P>>{},
                      std::vector<md_func_type<P>>{},
-                     get_dt_, false, false, moment_funcs<P>{}, false);
+                     get_dt_, false, moment_funcs<P>{}, false);
   }
 
   std::vector<std::function<P(P)>> funcs_;

@@ -399,9 +399,6 @@ struct prog_opts
   //! number of fixed time steps to take
   std::optional<int> num_time_steps;
 
-  //! enable/disable the Poisson solver
-  std::optional<bool> set_electric;
-
   //! output frequency of wavelet data used for restarts or python plotting
   std::optional<int> wavelet_output_freq;
 
@@ -527,7 +524,6 @@ private:
     grid_mode,
     step_method,
     adapt_norm,
-    set_electric,
     adapt_threshold,
     no_adapt,
     start_levels,

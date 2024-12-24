@@ -463,14 +463,13 @@ public:
       term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<vector_func<P>> const exact_vector_funcs_in,
       dt_func<P> const get_dt,
-      bool const do_poisson_solve_in      = false,
       bool const has_analytic_soln_in     = false,
       moment_funcs<P> const moments_in    = {},
       bool const do_collision_operator_in = true)
       : PDE(cli_input, num_dims_in, num_sources_in, max_num_terms, dimensions,
             terms, sources_in,
             std::vector<md_func_type<P>>({exact_vector_funcs_in}),
-            get_dt, do_poisson_solve_in, has_analytic_soln_in,
+            get_dt, has_analytic_soln_in,
             moments_in, do_collision_operator_in)
   {}
   PDE(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
@@ -478,7 +477,6 @@ public:
       term_set<P> terms, std::vector<source<P>> sources_in,
       std::vector<md_func_type<P>> exact_vector_funcs_in,
       dt_func<P> get_dt,
-      bool const do_poisson_solve_in      = false,
       bool const has_analytic_soln_in     = false,
       moment_funcs<P> moments_in          = {},
       bool const do_collision_operator_in = true)
@@ -487,7 +485,6 @@ public:
       max_num_terms, std::move(dimensions), std::move(terms), std::move(sources_in),
       std::move(exact_vector_funcs_in),
       std::move(get_dt),
-      do_poisson_solve_in,
       has_analytic_soln_in,
       std::move(moments_in),
       do_collision_operator_in);
@@ -498,14 +495,13 @@ public:
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<vector_func<P>> const &exact_vector_funcs_in,
       dt_func<P> const &get_dt,
-      bool const do_poisson_solve_in      = false,
       bool const has_analytic_soln_in     = false,
       moment_funcs<P> const &moments_in   = {},
       bool const do_collision_operator_in = true)
   {
     this->initialize(cli_input, num_dims_in, num_sources_in, max_num_terms, dimensions,
                      terms, sources_in, std::vector<md_func_type<P>>({exact_vector_funcs_in}),
-                     get_dt, do_poisson_solve_in, has_analytic_soln_in, moments_in,
+                     get_dt, has_analytic_soln_in, moments_in,
                      do_collision_operator_in);
   }
   void initialize(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
@@ -513,7 +509,6 @@ public:
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<md_func_type<P>> const &exact_vector_funcs_in,
       dt_func<P> const &get_dt,
-      bool const do_poisson_solve_in      = false,
       bool const has_analytic_soln_in     = false,
       moment_funcs<P> const &moments_in   = {},
       bool const do_collision_operator_in = true)
@@ -522,8 +517,7 @@ public:
                      std::vector<dimension<P>>(dimensions), term_set<P>(terms),
                      std::vector<source<P>>(sources_in),
                      std::vector<md_func_type<P>>(exact_vector_funcs_in),
-                     dt_func<P>(get_dt), do_poisson_solve_in,
-                     has_analytic_soln_in, moment_funcs<P>(moments_in),
+                     dt_func<P>(get_dt), has_analytic_soln_in, moment_funcs<P>(moments_in),
                      do_collision_operator_in);
   }
 
@@ -532,7 +526,6 @@ public:
       term_set<P> &&terms, std::vector<source<P>> &&sources_in,
       std::vector<md_func_type<P>> &&exact_vector_funcs_in,
       dt_func<P> &&get_dt,
-      bool const do_poisson_solve_in      = false,
       bool const has_analytic_soln_in     = false,
       moment_funcs<P> &&moments_in        = {},
       bool const do_collision_operator_in = true)
@@ -558,7 +551,6 @@ public:
     exact_vector_funcs_ = std::move(exact_vector_funcs_in);
     initial_moments     = std::move(moments_in);
 
-    do_poisson_solve_      = do_poisson_solve_in;
     do_collision_operator_ = do_collision_operator_in;
     has_analytic_soln_     = has_analytic_soln_in;
     dimensions_            = std::move(dimensions);
@@ -749,7 +741,6 @@ public:
         num_dims_(1), num_sources_(pde.sources_.size()),
         num_terms_(pde.get_terms().size()), max_level_(pde.max_level_),
         sources_(pde.sources_), exact_vector_funcs_(pde.exact_vector_funcs_),
-        do_poisson_solve_(pde.do_poisson_solve()),
         do_collision_operator_(pde.do_collision_operator()),
         has_analytic_soln_(pde.has_analytic_soln()),
         dimensions_({pde.get_dimensions()[0]}), terms_(pde.get_terms())
@@ -798,15 +789,12 @@ public:
   moment_funcs<P> initial_moments;
 
   bool do_poisson_solve() const { // TODO: rename to poisson dependence
-    if (do_poisson_solve_) // TODO: remove the variable
-      return true;
-
     for (auto const &terms_md : terms_)
       for (auto const &term1d : terms_md)
         if (term1d.has_dependence(pterm_dependence::electric_field))
           return true;
 
-    // do_poisson_solve_ is false and no terms have the poisson dependence
+    // no terms have the poisson dependence
     return false;
   }
   bool do_collision_operator() const { return do_collision_operator_; }
@@ -1010,7 +998,6 @@ private:
   std::vector<source<P>> sources_;
   std::vector<md_func_type<P>> exact_vector_funcs_;
 
-  bool do_poisson_solve_      = false;
   bool do_collision_operator_ = false;
   bool has_analytic_soln_     = false;
 

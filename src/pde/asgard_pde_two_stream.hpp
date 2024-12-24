@@ -19,7 +19,6 @@ public:
     int constexpr num_dims          = 2;
     int constexpr num_sources       = 0;
     int constexpr num_terms         = 4; // should be 4
-    bool constexpr do_poisson_solve = false;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = false;
@@ -41,8 +40,8 @@ public:
                                  },
                      std::vector<source<P>>{},       // no sources
                      std::vector<md_func_type<P>>{}, // no exact solution
-                     get_dt_, do_poisson_solve, has_analytic_soln,
-                     moment_funcs<P>{}, do_collision_operator);
+                     get_dt_, has_analytic_soln, moment_funcs<P>{},
+                     do_collision_operator);
 
     // TODO: probably don't need those
     param_manager.add_parameter(parameter<P>{"n", n});

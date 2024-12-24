@@ -14,7 +14,6 @@ public:
   {
     int constexpr num_sources       = 0;
     int constexpr num_terms         = 1;
-    bool constexpr do_poisson_solve = false;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = false;
@@ -56,8 +55,8 @@ public:
     this->initialize(options, num_dims, num_sources, num_terms,
                      dims, terms, std::vector<source<P>>{},
                      std::vector<md_func_type<P>>{{}},
-                     get_dt_, do_poisson_solve, has_analytic_soln,
-                     moment_funcs<P>{}, do_collision_operator);
+                     get_dt_, has_analytic_soln, moment_funcs<P>{},
+                     do_collision_operator);
   }
 
 private:
@@ -114,10 +113,9 @@ class testode final : public PDE<P>
 public:
   testode(prog_opts const &options)
   {
-    int constexpr num_dims          = 1;
-    int constexpr num_sources       = 0;
-    int constexpr num_terms         = (interp_mode) ? 0 : 1;
-    bool constexpr do_poisson_solve = false;
+    int constexpr num_dims    = 1;
+    int constexpr num_sources = 0;
+    int constexpr num_terms   = (interp_mode) ? 0 : 1;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = true;
@@ -147,8 +145,8 @@ public:
                                       component_x, nullptr, "x")},
                      terms, std::vector<source<P>>{},
                      std::vector<md_func_type<P>>{{component_x, component_t}},
-                     get_dt_, do_poisson_solve, has_analytic_soln,
-                     moment_funcs<P>{}, do_collision_operator);
+                     get_dt_, has_analytic_soln, moment_funcs<P>{},
+                     do_collision_operator);
   }
 
 private:
@@ -203,8 +201,6 @@ public:
     int constexpr num_dimensions = 2;
     int constexpr num_sources    = 0;
     int constexpr num_terms      = 2;
-
-    bool constexpr do_poisson_solve = false;
 
     bool constexpr time_independent = false;
 
@@ -263,8 +259,7 @@ public:
 
     this->initialize(
         options, num_dimensions, num_sources, num_terms,
-        domain, terms, sources, {exact_solution},
-        get_dt, do_poisson_solve, has_analytic_solution);
+        domain, terms, sources, {exact_solution}, get_dt, has_analytic_solution);
   }
 
 private:
@@ -331,7 +326,6 @@ public:
     int constexpr num_sources    = 0;
     int constexpr num_terms      = 1;
 
-    bool constexpr do_poisson_solve = false;
     bool constexpr time_independent = false;
 
     std::vector<dimen> domain = {};
@@ -399,8 +393,7 @@ public:
 
     this->initialize(
         options, num_dimensions, num_sources, num_terms,
-        domain, terms, sources, {exact_solution},
-        get_dt, do_poisson_solve, has_analytic_solution);
+        domain, terms, sources, {exact_solution}, get_dt, has_analytic_solution);
   }
 
 private:

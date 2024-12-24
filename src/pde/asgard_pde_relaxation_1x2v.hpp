@@ -18,9 +18,8 @@ class PDE_relaxation_1x2v : public PDE<P>
 public:
   PDE_relaxation_1x2v(prog_opts const &cli_input)
       : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_,
-               get_dt_, do_poisson_solve_, has_analytic_soln_, moments_,
-               do_collision_operator_)
+               terms_, sources_, exact_vector_funcs_, get_dt_,
+               has_analytic_soln_, moments_, do_collision_operator_)
   {
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
@@ -32,10 +31,9 @@ public:
   }
 
 private:
-  static int constexpr num_dims_          = 3;
-  static int constexpr num_sources_       = 0;
-  static int constexpr num_terms_         = 6;
-  static bool constexpr do_poisson_solve_ = false;
+  static int constexpr num_dims_    = 3;
+  static int constexpr num_sources_ = 0;
+  static int constexpr num_terms_   = 6;
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = true;
