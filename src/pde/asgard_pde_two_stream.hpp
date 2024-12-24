@@ -42,17 +42,10 @@ public:
                      std::vector<md_func_type<P>>{}, // no exact solution
                      get_dt_, has_analytic_soln, moment_funcs<P>{},
                      do_collision_operator);
-
-    // TODO: probably don't need those
-    param_manager.add_parameter(parameter<P>{"n", n});
-    param_manager.add_parameter(parameter<P>{"u", u});
-    param_manager.add_parameter(parameter<P>{"theta", theta});
-    param_manager.add_parameter(parameter<P>{"E", E});
-    param_manager.add_parameter(parameter<P>{"S", S});
-    param_manager.add_parameter(parameter<P>{"MaxAbsE", MaxAbsE});
   }
 
 private:
+
   static fk::vector<P>
   initial_condition_dim_x_0(fk::vector<P> const &x, P const t = 0)
   {
@@ -77,49 +70,6 @@ private:
           return coefficient * std::pow(x_v, 2) * std::exp(-std::pow(x_v, 2));
         });
     return fx;
-  }
-
-  /* Construct (n, u, theta) */
-  static P n(P const &x, P const t = 0)
-  {
-    ignore(t);
-
-    return (1.0 - 0.5 * std::cos(0.5 * x)) * 0.5;
-  }
-
-  static P u(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
-  }
-
-  static P theta(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 1.5;
-  }
-
-  static P E(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
-  }
-
-  static P S(P const &y, P const t = 0)
-  {
-    ignore(t);
-    // subtracts quadrature values by one
-    return y - 1.0;
-  }
-
-  static P MaxAbsE(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
   }
 
   /* build the terms */

@@ -305,10 +305,11 @@ TEMPLATE_TEST_CASE("fast-transform", "[transformations]", test_precs)
     for (int level = 0; level < 5; level++) {
       for (int degree = 0; degree < 4; degree++)
       {
-        hierarchy_manipulator<TestType> hier(degree, 1); // dims 1
+        hierarchy_manipulator<TestType> hier(degree, 1, {-2,}, {1,}); // dims 1
 
-        int const pdof      = (degree + 1);
+        int const pdof    = (degree + 1);
         int64_t const num = fm::ipow2(level);
+
         std::vector<TestType> ref(nbatch * num * pdof);
         std::vector<TestType> hp(nbatch * num * pdof);
 

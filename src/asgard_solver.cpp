@@ -451,11 +451,11 @@ void poisson_data<P>::solve(std::vector<P> const &density, P dleft, P dright,
 
   int const nnodes = nelem - 1;
 
-  // integrals of hat-basis functions x, 1-x vs legenre basis 1, 2x-1
+  // integrals of hat-basis functions x, 1-x vs Legendre basis 1, sqrt(3) * 2x-1
   // over canonical element (0, 1)
-  // P const domain_scale = std::sqrt( (xmin - x) )
+  // the input coefficients are l-2 normalized over sub-cells, hence the sqrt-scaling
   P const c0 = std::sqrt(dx) * 0.5;
-  P const c1 = std::sqrt(dx * 3.0) * P{1} / P{6}; // the integral with the left basis is negative
+  P const c1 = std::sqrt(dx) * std::sqrt(3.0) * P{1} / P{6}; // the integral with the left basis is negative
 
   span2d<P const> rho(pdof, nelem, density.data());
 

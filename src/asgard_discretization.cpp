@@ -356,7 +356,7 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
 template<typename precision> void
 discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
   if (not poisson_solver)
-    return; // nothing to update, no term has poisson dependence
+    return; // nothing to update, no term has Poisson dependence
 
   auto const &table = grid.get_table();
   expect(field.size() == static_cast<size_t>(table.size() * fm::ipow(degree_ + 1, pde->num_dims())));
@@ -375,7 +375,6 @@ discretization_manager<precision>::do_poisson_update(std::vector<precision> cons
     for (auto e : matrices.edata.electric_field)
       emax = std::max(emax, std::abs(e));
     matrices.edata.electric_field_infnrm = emax;
-    std::cout << " setting emax = " << emax << "\n";
   }
 };
 

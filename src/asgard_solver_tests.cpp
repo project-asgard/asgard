@@ -392,7 +392,7 @@ P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P x
   auto lrhs = [&](std::vector<P> const &x, std::vector<P> &fx)
       -> void {
           for (auto i : indexof(x))
-            fx[i] = rhs(x[i]);
+            fx[i] = - rhs(x[i]);
       };
   auto rref = [&](std::vector<P> const &x, std::vector<P> &fx)
       -> void {
@@ -459,6 +459,21 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     REQUIRE(err < tol);
   }
 
+  SECTION("variable gradient")
+  {
+    int const degree = 1;
+    int const level  = 4;
+
+    // example 1, u = x over (-2, 3), du = 1, ddu = 0
+    auto rhs = [](TestType)->TestType { return TestType{2}; };
+    auto du  = [](TestType x)->TestType { return TestType{2} * x; };
+
+    TestType err = test_poisson<TestType>(
+        du, rhs, -2, 3, 4, 9, solver::poisson_bc::dirichlet, degree, level);
+
+    REQUIRE(err < tol);
+  }
+
   SECTION("messy gradient, high degree")
   {
     // do not attempt this in single precision
@@ -473,13 +488,13 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     // example 2, u = sin(pi * x) over (-1, 1), du = pi * cos(pi * x),
     //            ddu = -pi^2 * sin(pi * x), ddu = 0
     auto rhs = [](TestType x)->TestType { return -pi * pi * std::sin(pi * x) - 1; };
-    auto du  = [](TestType x)->TestType { return -pi * std::cos(pi * x); };
+    auto du  = [](TestType x)->TestType { return pi * std::cos(pi * x); };
 
     TestType err = test_poisson<TestType>(
         du, rhs, -1, 1, 5, 11, solver::poisson_bc::periodic, degree, level);
 
     // std::cout << " error = " << err << "\n";
 
-    REQUIRE(err < 1.E-4);
+    REQUIRE(err < 1.E-8);
   }
 }

@@ -261,13 +261,14 @@ mass_matrix<P> hierarchy_manipulator<P>::make_mass(int dim, int level) const
 }
 
 template<typename P>
-void hierarchy_manipulator<P>::reconstruct1d(int const nbatch, int const level, span2d<P> data) const
+void hierarchy_manipulator<P>::reconstruct1d(
+    int const nbatch, int const level, span2d<P> data) const
 {
   expect(data.num_strips() == nbatch * fm::ipow2(level));
   expect(data.stride() == (degree_ + 1));
 
   if (level == 0)
-    return; // nothign to do, hierarchical and nodal forms are identical
+    return; // the hierarchical form is just scaled/normalized
 
   stage0.resize(data.stride() * data.num_strips());
   stage1.resize(stage0.size());
@@ -288,7 +289,8 @@ void hierarchy_manipulator<P>::reconstruct1d(int const nbatch, int const level, 
 
 template<typename P>
 template<int tdegree>
-void hierarchy_manipulator<P>::reconstruct1d(int const nbatch, int level, span2d<P> data) const
+void hierarchy_manipulator<P>::reconstruct1d(
+    int const nbatch, int level, span2d<P> data) const
 {
   int const ssize = (degree_ + 1); // strip size
   P constexpr s22 = 0.5 * s2;
@@ -357,7 +359,8 @@ void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, level_
 
   stage0.resize(pdof * num_cells);
 
-  P const scale = 0.5 * std::pow(is2, level - 1) * std::sqrt(dsize);
+  // doing the hierarchical projection, we must normalize the Legendre polynomial to unit l-2 norm
+  P const scale = std::pow(is2, level + 1) * std::sqrt(dsize);
 
 #pragma omp parallel for
   for (int i = 0; i < num_cells; i++)

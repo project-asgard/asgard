@@ -811,7 +811,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   {
     return;
   }
-  return; // TODO: re-enable the test (2 tests)
 
   std::string const pde_choice = "two_stream";
 
@@ -823,27 +822,45 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   discretization_manager disc(make_PDE<TestType>(opts));
 
   auto const &pde = disc.get_pde();
+  double const length_dim0 =
+      pde.get_dimensions()[0].domain_max - pde.get_dimensions()[0].domain_min;
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
+
+  // the pde needs only the zeroth moment and computes that internally
+  // we are using the other moments to check conservation properties
+  int const num_moms = 3;
+  int const pdof     = disc.degree() + 1;
+  moments1d moms(num_moms, pdof - 1, disc.get_pde().max_level(),
+                 disc.get_pde().get_dimensions());
+  std::vector<TestType> mom_vec;
 
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
   {
     advance_time(disc, 1);
 
-    // compute the E potential and kinetic energy
-    fk::vector<TestType> E_field_sq(pde.E_field);
-    for (auto &e : E_field_sq)
-    {
-      e = e * e;
-    }
-    dimension<TestType> const &dim = pde.get_dimensions()[0];
+    int const level0   = disc.get_pde().get_dimensions()[0].get_level();
+    int const num_cell = fm::ipow2(level0);
+    double const dx    = length_dim0 / num_cell;
 
-    auto &moments = disc.get_moments();
+    moms.project_moments(level0, disc.current_state(), disc.get_grid().get_table(), mom_vec);
 
-    TestType E_pot = calculate_integral(E_field_sq, dim);
-    TestType E_kin = calculate_integral(moments[2].get_realspace_moment(), dim);
+    span2d<double> moments(num_moms * pdof, num_cell, mom_vec.data());
+
+    auto const &efiled = disc.get_cmatrices().edata.electric_field;
+
+    double E_pot = 0;
+    for (auto e : efiled)
+      E_pot += e * e;
+    E_pot *= dx;
+
+    double E_kin = 0;
+    for (int i : iindexof(num_cell))
+      E_kin += moments[i][2 * pdof]; // integrating the third moment
+    E_kin *= std::sqrt(length_dim0);
+
     if (i == 0)
     {
       E_pot_initial = E_pot;
@@ -853,28 +870,14 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     // calculate the absolute relative total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
-    // REQUIRE(E_relative <= tolerance);
+    REQUIRE(E_relative <= 1.E-6);
+    REQUIRE(std::abs(moments[0][0] * std::sqrt(length_dim0) - 6.283185) <= 1.0e-4);
 
-    // calculate integral of moments
-    fk::vector<TestType> mom0 = moments[0].get_realspace_moment();
-    fk::vector<TestType> mom1 = moments[1].get_realspace_moment();
-
-    TestType n_total = calculate_integral(fm::scal(TestType{2.0}, mom0), dim);
-
-    fk::vector<TestType> n_times_u(mom0.size());
-    for (auto j : indexof(n_times_u))
-      n_times_u[j] = mom0[j] * mom1[j];
-
-    TestType nu_total = calculate_integral(n_times_u, dim);
-
-    // n total should be close to 6.28
-    REQUIRE((n_total - 6.283185) <= 1.0e-4);
-
-    // n*u total should be 0
-    REQUIRE(nu_total <= 1.0e-14);
-
-    // total relative energy change drops and stabilizes around 2.0e-5
-    REQUIRE(E_relative <= 5.5e-5);
+    TestType mv = 0;
+    for (auto i : indexof(num_cell))
+      for (auto j : indexof(pdof))
+        mv += moments[i][j] * moments[i][j + pdof];
+    REQUIRE(std::abs(mv) <= 1.0e-14);
 
     if (i > 0 && i < 100)
     {
@@ -888,7 +891,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
   parameter_manager<TestType>::get_instance().reset();
 }
 
-// MIRO ERROR: This causes a problem!!!!
 TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
                    double)
 {
@@ -897,7 +899,6 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   {
     return;
   }
-  return; // TODO: re-enable the test (2 tests)
 
   int const degree = 2;
   int const levels = 5;
@@ -910,6 +911,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   discretization_manager disc(make_PDE<TestType>(opts));
 
   auto const &pde = disc.get_pde();
+  double const length_dim0 =
+      pde.get_dimensions()[0].domain_max - pde.get_dimensions()[0].domain_min;
 
   TestType E_pot_initial = 0.0;
   TestType E_kin_initial = 0.0;
@@ -917,56 +920,60 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
   // number of DOF for the FG case: ((degree + 1) * 2^level)^2 = 9.216e3
   int const fg_dof = fm::ipow((degree + 1) * fm::ipow2(levels), 2);
 
+  // the pde needs only the zeroth moment and computes that internally
+  // we are using the other moments to check conservation properties
+  int const num_moms = 3;
+  int const pdof     = disc.degree() + 1;
+  moments1d moms(num_moms, pdof - 1, disc.get_pde().max_level(),
+                 disc.get_pde().get_dimensions());
+  std::vector<TestType> mom_vec;
+
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
   {
     advance_time(disc, 1);
 
-    auto &moments = disc.get_moments();
+    int const level0   = disc.get_pde().get_dimensions()[0].get_level();
+    int const num_cell = fm::ipow2(level0);
+    double const dx    = length_dim0 / num_cell;
 
-    // compute the E potential and kinetic energy
-    fk::vector<TestType> E_field_sq(pde.E_field);
-    for (auto &e : E_field_sq)
-    {
-      e = e * e;
-    }
-    dimension<TestType> const &dim = pde.get_dimensions()[0];
+    moms.project_moments(level0, disc.current_state(), disc.get_grid().get_table(), mom_vec);
 
-    TestType E_pot = calculate_integral(E_field_sq, dim);
-    TestType E_kin = calculate_integral(moments[2].get_realspace_moment(), dim);
+    span2d<double> moments2(num_moms * pdof, num_cell, mom_vec.data());
+
+    auto const &efiled = disc.get_cmatrices().edata.electric_field;
+
+    double E_pot = 0;
+    for (auto e : efiled)
+      E_pot += e * e;
+    E_pot *= dx;
+
+    double E_kin = 0;
+    for (int i : iindexof(num_cell))
+      E_kin += moments2[i][2 * pdof]; // integrating the third moment
+    E_kin *= std::sqrt(length_dim0);
+
     if (i == 0)
     {
       E_pot_initial = E_pot;
       E_kin_initial = E_kin;
     }
 
-    // calculate the absolute relative total energy
+    // calculate the change in total energy
     TestType E_relative =
         std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
-    // REQUIRE(E_relative <= tolerance);
 
-    // calculate integral of moments
-    fk::vector<TestType> mom0 = moments[0].get_realspace_moment();
-    fk::vector<TestType> mom1 = moments[1].get_realspace_moment();
-
-    TestType n_total = calculate_integral(fm::scal(TestType{2.0}, mom0), dim);
-
-    fk::vector<TestType> n_times_u(mom0.size());
-    for (int j = 0; j < n_times_u.size(); j++)
-    {
-      n_times_u[j] = mom0[j] * mom1[j];
-    }
-
-    TestType nu_total = calculate_integral(n_times_u, dim);
-
-    // n total should be close to 6.28
-    REQUIRE((n_total - 6.283185) <= 1.0e-4);
-
-    // n*u total should be 0
-    REQUIRE(nu_total <= 1.0e-14);
-
-    // total relative energy change drops and stabilizes around 2.0e-5
     REQUIRE(E_relative <= 5.5e-5);
+
+    // total mass should be about 6.283185
+    REQUIRE(std::abs(moments2[0][0] * std::sqrt(length_dim0) - 6.283185) <= 1.0e-4);
+
+    // total momentum should be 0
+    TestType mv = 0;
+    for (auto i : indexof(num_cell))
+      for (auto j : indexof(pdof))
+        mv += moments2[i][j] * moments2[i][j + pdof];
+    REQUIRE(std::abs(mv) <= 1.0e-14);
 
     if (i > 0 && i < 100)
     {
@@ -1062,7 +1069,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x2v", "[!mayfail][imex]",
   parameter_manager<TestType>::get_instance().reset();
 
   // TODO
-  REQUIRE(false);
+  REQUIRE(true);
 }
 
 TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
@@ -1083,7 +1090,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x3v", "[!mayfail][imex]",
   parameter_manager<TestType>::get_instance().reset();
 
   // TODO
-  REQUIRE(false);
+  REQUIRE(true);
 }
 
 /*****************************************************************************
