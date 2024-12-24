@@ -27,6 +27,8 @@ struct coupled_term_data
 {
   //! electic field from the Poisson solver
   std::vector<P> electric_field;
+  //! max-absolute value of the electric field
+  std::optional<P> electric_field_infnrm;
 };
 
 /*!

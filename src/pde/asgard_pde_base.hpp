@@ -61,6 +61,7 @@ enum class pterm_dependence
 {
   none, // nothing special, uses generic g-func
   electric_field, // depends on the electric field
+  electric_field_infnrm, // depends on the max abs( electric_field )
 };
 
 template<coefficient_type>
@@ -980,6 +981,23 @@ protected:
   std::function<void(vector2d<P> const &, std::vector<P> &)> interp_initial_;
 
   std::function<void(P t, vector2d<P> const &, std::vector<P> &)> interp_exact_;
+
+  // commonly used building blocks of g_funcs
+  static P gfunc_pos1(P const, P const) {
+    return P{1};
+  }
+  static P gfunc_neg1(P const, P const) {
+    return P{-1};
+  }
+  static P gfunc_f_field(P const, P const, P const f) {
+    return f;
+  }
+  static P gfunc_f_positive(P const, P const, P const f) {
+    return std::max(P{0}, f);
+  }
+  static P gfunc_f_negative(P const, P const, P const f) {
+    return std::min(P{0}, f);
+  }
 
 private:
   prog_opts options_;

@@ -72,6 +72,19 @@ discretization_manager<precision>::discretization_manager(
     matrices.edata.electric_field.resize(fm::ipow2(dim.get_level()));
 
     moms1d = moments1d<precision>(1, degree_, pde->max_level(), pde->get_dimensions());
+
+    // if the inf-nrm is needed, initialize with a dummy value
+    for (int d : indexof<int>(pde->num_dims()))
+      for (int t : indexof<int>(pde->num_terms()))
+        if (pde->get_terms()[t][d].has_dependence(pterm_dependence::electric_field_infnrm)) {
+          matrices.edata.electric_field_infnrm = precision{0};
+          break;
+        }
+
+    if (matrices.edata.electric_field_infnrm) {
+      std::cout << " NEED INF_NRM\n";
+    }
+
   }
 
   this->compute_coefficients();
@@ -361,7 +374,14 @@ discretization_manager<precision>::do_poisson_update(std::vector<precision> cons
 
   poisson_solver->solve_periodic(moment0, matrices.edata.electric_field);
 
-  // generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::poisson);
+  if (matrices.edata.electric_field_infnrm)
+  {
+    precision emax = 0;
+    for (auto e : matrices.edata.electric_field)
+      emax = std::max(emax, std::abs(e));
+    matrices.edata.electric_field_infnrm = emax;
+    std::cout << " setting emax = " << emax << "\n";
+  }
 };
 
 template<typename precision>

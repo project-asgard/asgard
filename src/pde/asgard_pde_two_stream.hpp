@@ -42,8 +42,9 @@ public:
                      std::vector<source<P>>{},       // no sources
                      std::vector<md_func_type<P>>{}, // no exact solution
                      get_dt_, do_poisson_solve, has_analytic_soln,
-                     init_moments, do_collision_operator);
+                     moment_funcs<P>{}, do_collision_operator);
 
+    // TODO: probably don't need those
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
     param_manager.add_parameter(parameter<P>{"theta", theta});
@@ -78,38 +79,6 @@ private:
         });
     return fx;
   }
-
-  /* Define the moments */
-  static fk::vector<P> moment0_f1(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-
-    fk::vector<P> f(x.size());
-    std::fill(f.begin(), f.end(), 1.0);
-    return f;
-  }
-
-  static fk::vector<P> moment1_f1(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-    return fk::vector<P>(x);
-  }
-
-  static fk::vector<P> moment2_f1(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-
-    fk::vector<P> f(x.size());
-    std::transform(x.begin(), x.end(), f.begin(),
-                   [](P const &x_v) -> P { return std::pow(x_v, 2); });
-    return f;
-  }
-
-  // inline static moment_funcs<P> init_moments = {
-  //     {{moment0_f1, moment0_f1, moment0_f1}},
-  //     {{moment0_f1, moment1_f1, moment0_f1}},
-  //     {{moment0_f1, moment2_f1, moment0_f1}}};
-  inline static moment_funcs<P> init_moments = {};
 
   /* Construct (n, u, theta) */
   static P n(P const &x, P const t = 0)
@@ -228,31 +197,8 @@ private:
   // -E\cdot\grad_v f for E > 0
   //
 
-  static P E_func_pos(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("E");
-    expect(param != nullptr);
-    return std::max(P{0.0}, param->value(x, time));
-  }
-
-  static P negOne(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
-
-  inline static const partial_term<P> pterm_E_mass_x_pos = partial_term<P>(
-      coefficient_type::mass, E_func_pos, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static term<P> const E_mass_x_pos =
-      term<P>(true, // time-dependent
-              "",   // name
-              {pterm_E_mass_x_pos}, imex_flag::imex_explicit);
-
   inline static const partial_term<P> pterm_div_v_dn = partial_term<P>(
-      coefficient_type::div, negOne, nullptr, flux_type::upwind,
+      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
@@ -265,24 +211,8 @@ private:
   // E\cdot\grad_v f for E < 0
   //
 
-  static P E_func_neg(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("E");
-    expect(param != nullptr);
-    return std::min(P{0.0}, param->value(x, time));
-  }
-
-  inline static const partial_term<P> pterm_E_mass_x_neg = partial_term<P>(
-      coefficient_type::mass, E_func_neg, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static term<P> const E_mass_x_neg =
-      term<P>(true, // time-dependent
-              "",   // name
-              {pterm_E_mass_x_neg}, imex_flag::imex_explicit);
-
   inline static const partial_term<P> pterm_div_v_up = partial_term<P>(
-      coefficient_type::div, negOne, nullptr, flux_type::downwind,
+      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
@@ -291,17 +221,10 @@ private:
               "",    // name
               {pterm_div_v_up}, imex_flag::imex_explicit);
 
-  static P electric_positive(P const, P const, P const E) {
-    return std::max(P{0}, E);
-  }
-  static P electric_negative(P const, P const, P const E) {
-    return std::min(P{0}, E);
-  }
-
   inline static const partial_term<P> ptEmass_pos = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::electric_field, electric_positive);
+      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_positive);
   inline static const partial_term<P> ptEmass_neg = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::electric_field, electric_negative);
+      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_negative);
 
   inline static term<P> const Emass_pos =
       term<P>(true, // time-dependent

@@ -33,7 +33,7 @@ private:
   static int constexpr num_dims_          = 3;
   static int constexpr num_sources_       = 0;
   static int constexpr num_terms_         = 10;
-  static bool constexpr do_poisson_solve_ = true;
+  static bool constexpr do_poisson_solve_ = false;
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = false;
@@ -275,15 +275,29 @@ private:
     return -1.0;
   }
 
-  inline static const partial_term<P> pterm_E_mass_x_pos = partial_term<P>(
-      coefficient_type::mass, E_func_pos, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static const partial_term<P> ptEmass_pos = partial_term<P>(
+      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_positive);
+  inline static const partial_term<P> ptEmass_neg = partial_term<P>(
+      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_negative);
 
-  inline static term<P> const E_mass_x_pos =
+  inline static term<P> const Emass_pos =
       term<P>(true, // time-dependent
               "",   // name
-              {pterm_E_mass_x_pos}, imex_flag::imex_explicit);
+              {ptEmass_pos, }, imex_flag::imex_explicit);
+  inline static term<P> const Emass_neg =
+      term<P>(true, // time-dependent
+              "",   // name
+              {ptEmass_neg, }, imex_flag::imex_explicit);
 
+  // inline static const partial_term<P> pterm_E_mass_x_pos = partial_term<P>(
+  //     coefficient_type::mass, E_func_pos, nullptr, flux_type::central,
+  //     boundary_condition::periodic, boundary_condition::periodic);
+
+  // inline static term<P> const E_mass_x_pos =
+  //     term<P>(true, // time-dependent
+  //             "",   // name
+  //             {pterm_E_mass_x_pos}, imex_flag::imex_explicit);
+  //
   inline static const partial_term<P> pterm_div_v_dn = partial_term<P>(
       coefficient_type::div, negOne, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
@@ -294,28 +308,28 @@ private:
               "",    // name
               {pterm_div_v_dn}, imex_flag::imex_explicit);
 
-  inline static std::vector<term<P>> const terms_ex_3 = {E_mass_x_pos, div_v_dn,
+  inline static std::vector<term<P>> const terms_ex_3 = {Emass_pos, div_v_dn,
                                                          I_ex};
 
   // Explicit Term 4
   // -E\cdot\grad_{v_x} f for E < 0
   //
 
-  static P E_func_neg(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("E");
-    expect(param != nullptr);
-    return std::min(P{0.0}, param->value(x, time));
-  }
-
-  inline static const partial_term<P> pterm_E_mass_x_neg = partial_term<P>(
-      coefficient_type::mass, E_func_neg, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static term<P> const E_mass_x_neg =
-      term<P>(true, // time-dependent
-              "",   // name
-              {pterm_E_mass_x_neg}, imex_flag::imex_explicit);
+  // static P E_func_neg(P const x, P const time = 0)
+  // {
+  //   auto param = param_manager.get_parameter("E");
+  //   expect(param != nullptr);
+  //   return std::min(P{0.0}, param->value(x, time));
+  // }
+  //
+  // inline static const partial_term<P> pterm_E_mass_x_neg = partial_term<P>(
+  //     coefficient_type::mass, E_func_neg, nullptr, flux_type::central,
+  //     boundary_condition::periodic, boundary_condition::periodic);
+  //
+  // inline static term<P> const E_mass_x_neg =
+  //     term<P>(true, // time-dependent
+  //             "",   // name
+  //             {pterm_E_mass_x_neg}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_up = partial_term<P>(
       coefficient_type::div, negOne, nullptr, flux_type::downwind,
@@ -327,7 +341,7 @@ private:
               "",    // name
               {pterm_div_v_up}, imex_flag::imex_explicit);
 
-  inline static std::vector<term<P>> const terms_ex_4 = {E_mass_x_neg, div_v_up,
+  inline static std::vector<term<P>> const terms_ex_4 = {Emass_neg, div_v_up,
                                                          I_ex};
 
   // ###############################

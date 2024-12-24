@@ -32,7 +32,7 @@ private:
   static int constexpr num_dims_               = 2;
   static int constexpr num_sources_            = 0;
   static int constexpr num_terms_              = 7;
-  static bool constexpr do_poisson_solve_      = true;
+  static bool constexpr do_poisson_solve_      = false;
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = false;
   static int constexpr default_degree          = 3;
@@ -243,31 +243,38 @@ private:
   // Central Part of E\cdot\grad_v f
   //
 
-  static P E_func(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("E");
-    expect(param != nullptr);
-    return param->value(x, time);
-  }
+  // static P E_func(P const x, P const time = 0)
+  // {
+  //   auto param = param_manager.get_parameter("E");
+  //   expect(param != nullptr);
+  //   return param->value(x, time);
+  // }
 
-  static P negOne(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
+  // static P negOne(P const x, P const time = 0)
+  // {
+  //   ignore(x);
+  //   ignore(time);
+  //   return -1.0;
+  // }
 
-  inline static const partial_term<P> pterm_E_mass_x = partial_term<P>(
-      coefficient_type::mass, E_func, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
+  // inline static const partial_term<P> pterm_E_mass_x = partial_term<P>(
+  //     coefficient_type::mass, E_func, nullptr, flux_type::central,
+  //     boundary_condition::periodic, boundary_condition::periodic);
+  //
+  // inline static term<P> const E_mass_x =
+  //     term<P>(true, // time-dependent
+  //             "",   // name
+  //             {pterm_E_mass_x}, imex_flag::imex_explicit);
 
-  inline static term<P> const E_mass_x =
+  inline static const partial_term<P> ptEmass = partial_term<P>(
+      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_field);
+  inline static term<P> const Emass =
       term<P>(true, // time-dependent
               "",   // name
-              {pterm_E_mass_x}, imex_flag::imex_explicit);
+              {ptEmass, }, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v = partial_term<P>(
-      coefficient_type::div, negOne, nullptr, flux_type::central,
+      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::central,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
       homogeneity::homogeneous, homogeneity::homogeneous);
 
@@ -276,32 +283,41 @@ private:
               "",    // name
               {pterm_div_v}, imex_flag::imex_explicit);
 
-  inline static std::vector<term<P>> const terms_3 = {E_mass_x, div_v};
+  inline static std::vector<term<P>> const terms_3 = {Emass, div_v};
 
   // Term 4 + 5
   // Penalty Part of E\cdot\grad_v f
   //
 
-  static P MaxAbsE_func(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("MaxAbsE");
-    expect(param != nullptr);
-    return param->value(x, time);
-  }
+  // static P MaxAbsE_func(P const x, P const time = 0)
+  // {
+  //   auto param = param_manager.get_parameter("MaxAbsE");
+  //   expect(param != nullptr);
+  //   return param->value(x, time);
+  // }
+  //
+  // inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
+  //     coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
+  //     boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static const partial_term<P> pterm_MaxAbsE_mass_x = partial_term<P>(
-      coefficient_type::mass, MaxAbsE_func, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static const partial_term<P> ptEmassMaxAbsE = partial_term<P>(
+      coefficient_type::mass, pterm_dependence::electric_field_infnrm,
+      PDE<P>::gfunc_f_field);
 
-  inline static term<P> const MaxAbsE_mass_x_1 =
+  inline static term<P> const EmassMaxAbsE =
       term<P>(true, // time-dependent
               "",   // name
-              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
+              {ptEmassMaxAbsE}, imex_flag::imex_explicit);
 
-  inline static term<P> const MaxAbsE_mass_x_2 =
-      term<P>(true, // time-dependent
-              "",   // name
-              {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
+  // inline static term<P> const MaxAbsE_mass_x_1 =
+  //     term<P>(true, // time-dependent
+  //             "",   // name
+  //             {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
+  //
+  // inline static term<P> const MaxAbsE_mass_x_2 =
+  //     term<P>(true, // time-dependent
+  //             "",   // name
+  //             {pterm_MaxAbsE_mass_x}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_downwind = partial_term<P>(
       coefficient_type::div, nullptr, nullptr, flux_type::upwind,
@@ -315,10 +331,10 @@ private:
 
   // Central Part Defined Above (div_v; can do this due to time independence)
 
-  inline static std::vector<term<P>> const terms_4 = {MaxAbsE_mass_x_1,
+  inline static std::vector<term<P>> const terms_4 = {EmassMaxAbsE,
                                                       div_v_downwind};
 
-  inline static std::vector<term<P>> const terms_5 = {MaxAbsE_mass_x_2, div_v};
+  inline static std::vector<term<P>> const terms_5 = {EmassMaxAbsE, div_v};
 
   // Terms 3 - 5 from vlasov_lb_full_f PDE:
 

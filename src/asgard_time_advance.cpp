@@ -160,60 +160,66 @@ imex_advance(discretization_manager<P> &disc,
 
   auto do_poisson_update = [&](fk::vector<P, mem_type::owner, imex_resrc> const
                                    &f_in) {
-    return;
-    fk::vector<P> poisson_source(quad_dense_size);
-    fk::vector<P> phi(quad_dense_size);
-    fk::vector<P> poisson_E(quad_dense_size);
-    {
-      tools::time_event pupdate_("poisson_update");
-      // Get 0th moment
+    // Get 0th moment
+    if (pde.do_collision_operator()) {
+      // left-over code, still used for error checking in testing
+      // TODO: must update to the new moments
+      tools::time_event pupdate_("get 0-th moment");
+
+      fk::vector<P> poisson_source(quad_dense_size);
+      fk::vector<P> phi(quad_dense_size);
+      fk::vector<P> poisson_E(quad_dense_size);
+
       fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
       fm::sparse_gemv(moments[0].get_moment_matrix_dev(), f_in, mom0);
       fk::vector<P> &mom0_real = moments[0].create_realspace_moment(
           pde_1d, mom0, adaptive_grid_1d.get_table(), transformer,
           tmp_workspace);
-      param_manager.get_parameter("n")->value = [&](P const x_v,
-                                                    P const t = 0) -> P {
-        ignore(t);
-        return interp1(nodes, mom0_real, {x_v})[0];
-      };
+      // param_manager.get_parameter("n")->value = [&](P const x_v,
+      //                                               P const t = 0) -> P {
+      //   ignore(t);
+      //   return interp1(nodes, mom0_real, {x_v})[0];
+      // };
 
-      // Compute source for poisson
+
+      // // Compute source for poisson
       std::transform(mom0_real.begin(), mom0_real.end(), poisson_source.begin(),
-                     [](P const &x_v) {
-                       return param_manager.get_parameter("S")->value(x_v, 0.0);
-                     });
+                    [](P const &x_v) {
+                      return param_manager.get_parameter("S")->value(x_v, 0.0);
+                    });
 
       solver::poisson_solver(poisson_source, pde.poisson_diag,
-                             pde.poisson_off_diag, phi, poisson_E,
-                             ASGARD_NUM_QUADRATURE - 2, N_elements, min, max,
-                             static_cast<P>(0.0), static_cast<P>(0.0),
-                             solver::poisson_bc::periodic);
+                            pde.poisson_off_diag, phi, poisson_E,
+                            ASGARD_NUM_QUADRATURE - 2, N_elements, min, max,
+                            static_cast<P>(0.0), static_cast<P>(0.0),
+                            solver::poisson_bc::periodic);
 
-      param_manager.get_parameter("E")->value =
-          [poisson_E, nodes](P const x_v, P const t = 0) -> P {
-        ignore(t);
-        return interp1(nodes, poisson_E, {x_v})[0];
-      };
+      // param_manager.get_parameter("E")->value =
+      //     [poisson_E, nodes](P const x_v, P const t = 0) -> P {
+      //   ignore(t);
+      //   return interp1(nodes, poisson_E, {x_v})[0];
+      // };
 
       pde.E_field  = poisson_E;
-      pde.E_source = poisson_source;
-      pde.phi      = phi;
-
-      P const max_E = std::abs(*std::max_element(
-          poisson_E.begin(), poisson_E.end(), [](const P &x_v, const P &y_v) {
-            return std::abs(x_v) < std::abs(y_v);
-          }));
-
-      param_manager.get_parameter("MaxAbsE")->value =
-          [max_E](P const x_v, P const t = 0) -> P {
-        ignore(t);
-        ignore(x_v);
-        return max_E;
-      };
+      //pde.E_source = poisson_source;
+      //pde.phi      = phi;
     }
 
-    disc.compute_coefficients();
+    // P const max_E = std::abs(*std::max_element(
+    //     poisson_E.begin(), poisson_E.end(), [](const P &x_v, const P &y_v) {
+    //       return std::abs(x_v) < std::abs(y_v);
+    //     }));
+
+    //std::cout << "max_E = " << max_E << "\n";
+
+    // param_manager.get_parameter("MaxAbsE")->value =
+    //     [max_E](P const x_v, P const t = 0) -> P {
+    //   ignore(t);
+    //   ignore(x_v);
+    //   return max_E;
+    // };
+
+    //disc.compute_coefficients();
   };
 
   auto calculate_moments =
@@ -408,7 +414,7 @@ imex_advance(discretization_manager<P> &disc,
   {
     tools::timer.start("implicit_1");
     calculate_moments(f);
-    disc.compute_coefficients();
+    disc.compute_coefficients(coeff_update_mode::imex_implicit);
 
     // f2 now
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
@@ -505,7 +511,7 @@ imex_advance(discretization_manager<P> &disc,
     tools::timer.stop("implicit_2_mom");
 
     // Update coeffs
-    disc.compute_coefficients();
+    disc.compute_coefficients(coeff_update_mode::imex_implicit);
 
     tools::timer.start("implicit_2_solve");
     fk::vector<P, mem_type::owner, imex_resrc> f_2(f.size());

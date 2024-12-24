@@ -512,6 +512,30 @@ void generate_coefficients(
             [&](int i, P const, P const)-> P{ return edata.electric_field[i]; }, coefficients);
       }
       break;
+    case pterm_dependence::electric_field_infnrm:
+      expect(edata.electric_field.size() == static_cast<size_t>(fm::ipow2(level)));
+      if (pterm.g_func_f() and pterm.dv_func()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&, mE = edata.electric_field_infnrm.value()](int, P const x, P const t)->P{
+                return pterm.g_func_f()(x, t, mE) * pterm.dv_func()(x, t);
+            }, coefficients);
+      } else if (pterm.g_func_f()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&, mE = edata.electric_field_infnrm.value()](int, P const x, P const t)->P{
+                return pterm.g_func_f()(x, t, mE);
+            }, coefficients);
+      } else if (pterm.dv_func()) {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [&, mE = edata.electric_field_infnrm.value()](int, P const x, P const t)->P{
+                return mE * pterm.dv_func()(x, t);
+            },
+            coefficients);
+      } else {
+        generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
+            [mE = edata.electric_field_infnrm.value()](int, P const, P const)-> P{
+                return mE; }, coefficients);
+      }
+      break;
     default: // case pterm_dependence::none:
       if (pterm.g_func() and pterm.dv_func()) {
         generate_coefficients<P, coefficient_type::mass>(dim, pterm, level, time,
