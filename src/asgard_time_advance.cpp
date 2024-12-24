@@ -113,7 +113,6 @@ imex_advance(discretization_manager<P> &disc,
 {
   // BEFE = 0 case
   expect(time >= 0);
-  //expect(moments.size() > 0);
 
   auto const &options = pde.options();
 
@@ -175,12 +174,6 @@ imex_advance(discretization_manager<P> &disc,
       fk::vector<P> &mom0_real = moments[0].create_realspace_moment(
           pde_1d, mom0, adaptive_grid_1d.get_table(), transformer,
           tmp_workspace);
-      // param_manager.get_parameter("n")->value = [&](P const x_v,
-      //                                               P const t = 0) -> P {
-      //   ignore(t);
-      //   return interp1(nodes, mom0_real, {x_v})[0];
-      // };
-
 
       // // Compute source for poisson
       std::transform(mom0_real.begin(), mom0_real.end(), poisson_source.begin(),
@@ -194,32 +187,8 @@ imex_advance(discretization_manager<P> &disc,
                             static_cast<P>(0.0), static_cast<P>(0.0),
                             solver::poisson_bc::periodic);
 
-      // param_manager.get_parameter("E")->value =
-      //     [poisson_E, nodes](P const x_v, P const t = 0) -> P {
-      //   ignore(t);
-      //   return interp1(nodes, poisson_E, {x_v})[0];
-      // };
-
       pde.E_field  = poisson_E;
-      //pde.E_source = poisson_source;
-      //pde.phi      = phi;
     }
-
-    // P const max_E = std::abs(*std::max_element(
-    //     poisson_E.begin(), poisson_E.end(), [](const P &x_v, const P &y_v) {
-    //       return std::abs(x_v) < std::abs(y_v);
-    //     }));
-
-    //std::cout << "max_E = " << max_E << "\n";
-
-    // param_manager.get_parameter("MaxAbsE")->value =
-    //     [max_E](P const x_v, P const t = 0) -> P {
-    //   ignore(t);
-    //   ignore(x_v);
-    //   return max_E;
-    // };
-
-    //disc.compute_coefficients();
   };
 
   auto calculate_moments =
