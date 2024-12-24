@@ -28,28 +28,6 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex)
   }
 }
 
-//! Returns true if the current term is identity and can be omitted
-template<typename precision>
-bool check_identity_term(PDE<precision> const &pde, int term_id, int dim)
-{
-  // Check that the volumne jacobian in this dimension is not identity,
-  if (pde.get_dimensions()[dim].volume_jacobian_dV != nullptr)
-    return false;
-  // Now check g_func, the lhs_func, and local surface jacobian are identity.
-  // TODO: There is an edge case where the mass matrices with the same volume
-  // jacobians can cancel out, but this requires us to know that both the
-  // dimensions' and the local terms' volume jacobian are equal.
-  // In the edge case, identity will be multiplied instead of ignored
-  // resulting in extra work but correct output.
-  for (auto const &pt : pde.get_terms()[term_id][dim].get_partial_terms())
-    if (pt.coeff_type() != coefficient_type::mass or
-        pt.g_func() != nullptr or
-        pt.lhs_mass_func() != nullptr or
-        pt.dv_func() != nullptr)
-      return false;
-  return true;
-}
-
 /*!
  * \brief Constructs a preconditioner
  *
@@ -99,7 +77,6 @@ void build_preconditioner(PDE<precision> const &pde,
         {
           for (int d : indexof<int>(num_dimensions))
           {
-            // if (check_identity_term(pde, t, d))
             if (pde.get_terms()[t][d].is_identity())
               amats[d] = nullptr;
             else
@@ -1183,7 +1160,6 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
     // add only the dimensions that are not identity
     // make sure that the flux direction comes first
     for (int d = 0; d < num_dimensions; d++)
-      //if (not check_identity_term(pde, t, d))
       if (not pde.get_terms()[t][d].is_identity())
       {
         active_dirs.push_back(d);
@@ -1229,7 +1205,6 @@ void set_specific_mode(PDE<precision> const &pde,
   {
     for (int d : indexof<int>(num_dimensions))
     {
-      //if (not check_identity_term(pde, t, d))
       if (not pde.get_terms()[t][d].is_identity())
       {
         // This should be an alias and not a copy

@@ -55,65 +55,63 @@ int default_gmres_restarts(int num_cols);
  * Holds the domain size, the factor of the operator matrices, etc.
  */
 template<typename P>
-struct poisson_data
+class poisson_data
 {
-// Updating the Poisson logic
-// 1. Have a new type of term, mass that depends on E-field
-// 2. Split the term construction, update that term later (chains?)
-//    - construct from operators that assume constant over domain
-//    - relate the cell number to the index of the value
-// 3. Do poisson solve using Fi, update only the poisson terms
+public:
+  //! initialize Poisson solver over the domain with given min/max, level and degree of input basis
+  poisson_data(int pdegree, P domain_min, P domain_max, int level)
+    : degree(pdegree), xmin(domain_min), xmax(domain_max), current_level(level)
+  {
+    if (current_level == 0) return; // nothing to solve
 
-poisson_data(int pdegree, P domain_min, P domain_max, int level)
-  : degree(pdegree), xmin(domain_min), xmax(domain_max), current_level(level)
-{
-  if (current_level == 0) return; // nothing to solve
+    remake_factors();
+  }
+  //! change the level, called on refinement
+  void update_level(int new_level) {
+    if (current_level == new_level)
+      return;
+    current_level = new_level;
+    remake_factors();
+  }
+  /*!
+  * \brief Given the Legendre expansion of the density, find the electric field
+  *
+  * The density is given as a cell-by-cell Legendre expansion with the given degree.
+  * The result is a piece-wise constant approximation to the electric field
+  * over each cell.
+  *
+  * dleft/dright are the values for the Dirichlet boundary conditions,
+  * if using periodic boundary, dleft/dright are not used (assumed zero).
+  */
+  void solve(std::vector<P> const &density, P dleft, P dright, poisson_bc const bc,
+            std::vector<P> &efield);
 
-  remake_factors();
-}
-void update_level(int new_level) {
-  if (current_level == new_level)
-    return;
-  current_level = new_level;
-  remake_factors();
-}
-void remake_factors()
-{
-  if (current_level == 0)
-    return; // nothing to do
-  int const nnodes = fm::ipow2(current_level) - 1;
-  P const dx = (xmax - xmin) / (nnodes + 1);
+  //! poisson solve using periodic boundary conditions
+  void solve_periodic(std::vector<P> const &density, std::vector<P> &efield) {
+    solve(density, 0, 0, poisson_bc::periodic, efield);
+  }
 
-  diag = std::vector<P>(nnodes, P{2} / dx);
-  subdiag = std::vector<P>(nnodes - 1, -P{1} / dx);
+private:
+  //! set the solver for the current level
+  void remake_factors()
+  {
+    if (current_level == 0)
+      return; // nothing to do
+    int const nnodes = fm::ipow2(current_level) - 1;
+    P const dx = (xmax - xmin) / (nnodes + 1);
 
-  rhs.resize(nnodes);
+    diag = std::vector<P>(nnodes, P{2} / dx);
+    subdiag = std::vector<P>(nnodes - 1, -P{1} / dx);
 
-  fm::pttrf(diag, subdiag);
-}
+    rhs.resize(nnodes);
 
-/*!
- * \brief Given the Legendre expansion of the density, find the electric field
- *
- * The density is given as a cell-by-cell Legendre expansion with the given degree.
- * The result is a piece-wise constant approximation to the electric field
- * over each cell.
- *
- * dleft/dright are the values for the Dirichlet boundary conditions,
- * if using periodic bounday, dleft/dright are not used (assumed zero).
- */
-void solve(std::vector<P> const &density, P dleft, P dright, poisson_bc const bc,
-           std::vector<P> &efield);
+    fm::pttrf(diag, subdiag);
+  }
 
-//! poisson solve using periodic boundary conditions
-void solve_periodic(std::vector<P> const &density, std::vector<P> &efield) {
-  solve(density, 0, 0, poisson_bc::periodic, efield);
-}
-
-int degree;
-P xmin, xmax;
-int current_level;
-std::vector<P> diag, subdiag, rhs;
+  int degree;
+  P xmin, xmax;
+  int current_level;
+  std::vector<P> diag, subdiag, rhs;
 };
 
 template<typename P>

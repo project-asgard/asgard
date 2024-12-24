@@ -80,11 +80,6 @@ discretization_manager<precision>::discretization_manager(
           matrices.edata.electric_field_infnrm = precision{0};
           break;
         }
-
-    if (matrices.edata.electric_field_infnrm) {
-      std::cout << " NEED INF_NRM\n";
-    }
-
   }
 
   this->compute_coefficients();
