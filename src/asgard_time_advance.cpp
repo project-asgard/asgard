@@ -443,7 +443,7 @@ imex_advance(discretization_manager<P> &disc,
   fm::copy(f_orig_dev, f); // f here is now f_0
 
 #ifdef ASGARD_USE_CUDA
-  disc.do_poisson_update(f_1.clone_to_host().to_std());
+  disc.do_poisson_update(f_1.clone_onto_host().to_std());
 #else
   disc.do_poisson_update(f_1.to_std());
 #endif
