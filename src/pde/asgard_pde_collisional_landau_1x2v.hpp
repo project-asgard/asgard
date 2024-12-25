@@ -287,15 +287,6 @@ private:
               "",   // name
               {ptEmass_neg, }, imex_flag::imex_explicit);
 
-  // inline static const partial_term<P> pterm_E_mass_x_pos = partial_term<P>(
-  //     coefficient_type::mass, E_func_pos, nullptr, flux_type::central,
-  //     boundary_condition::periodic, boundary_condition::periodic);
-
-  // inline static term<P> const E_mass_x_pos =
-  //     term<P>(true, // time-dependent
-  //             "",   // name
-  //             {pterm_E_mass_x_pos}, imex_flag::imex_explicit);
-  //
   inline static const partial_term<P> pterm_div_v_dn = partial_term<P>(
       coefficient_type::div, negOne, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
@@ -312,22 +303,6 @@ private:
   // Explicit Term 4
   // -E\cdot\grad_{v_x} f for E < 0
   //
-
-  // static P E_func_neg(P const x, P const time = 0)
-  // {
-  //   auto param = param_manager.get_parameter("E");
-  //   expect(param != nullptr);
-  //   return std::min(P{0.0}, param->value(x, time));
-  // }
-  //
-  // inline static const partial_term<P> pterm_E_mass_x_neg = partial_term<P>(
-  //     coefficient_type::mass, E_func_neg, nullptr, flux_type::central,
-  //     boundary_condition::periodic, boundary_condition::periodic);
-  //
-  // inline static term<P> const E_mass_x_neg =
-  //     term<P>(true, // time-dependent
-  //             "",   // name
-  //             {pterm_E_mass_x_neg}, imex_flag::imex_explicit);
 
   inline static const partial_term<P> pterm_div_v_up = partial_term<P>(
       coefficient_type::div, negOne, nullptr, flux_type::downwind,

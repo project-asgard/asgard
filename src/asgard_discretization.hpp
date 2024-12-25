@@ -238,27 +238,10 @@ public:
 
   void comp_mats() const { // two stream, compare matrices
     return;
-    precision err = 0;
-    for (int i = 0; i < 4; i++) {
-      auto ref = matrices.term_coeffs[4 + i].to_full(conn);
-      auto com = matrices.term_coeffs[8 + i].to_full(conn);
-
-      err = std::max(err, ref.max_diff(com));
-
-      std::cout << " -- " << i << " err = " << ref.max_diff(com) << "\n";
-    }
-
-    //std::cout << " -- ref -- \n";
-    //ref.printr(std::cout, 0);
-    //std::cout << " -- com -- \n";
-    //com.printr(std::cout, 0);
-    //std::cout << " -- --- -- \n";
-
-    //std::cout << " err = " << ref.max_diff(com) << "\n";
-    std::cout << " err = " << err << "\n";
-
-    for (int i = 0; i < 4; i++)
-      matrices.term_coeffs[8 + i].fill(0);
+    // reference check for operator construction, helps find problems
+    // auto ref = matrices.term_coeffs[4 + i].to_full(conn);
+    // auto com = matrices.term_coeffs[8 + i].to_full(conn);
+    // precision err = std::max(err, ref.max_diff(com));
   }
 
 protected:

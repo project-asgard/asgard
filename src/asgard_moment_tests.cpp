@@ -118,7 +118,6 @@ double test_moments(std::vector<P> const &drange, int level, int degree,
         std::copy_n(sstate[dsort.map(dim, i)], degree + 1, sref[i]);
     }
 
-    // std::cout << " moment = " << m << "  err = " << fm::diff_inf(vmoms[m], ref) << '\n';
     err = std::max(err, fm::diff_inf(vmoms[m], ref));
 
     // also include comparison with the solution of a single moment
@@ -149,7 +148,6 @@ TEST_CASE("compute moments", "[moments]")
     for (int d = 0; d < 4; d++) {
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1}, l, d, base, moms);
-        // std::cout << " err1 = " << err << "\n";
         REQUIRE(err < tol);
       }
     }
@@ -167,7 +165,6 @@ TEST_CASE("compute moments", "[moments]")
         rmoms.push_back(moms[m]);
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1}, l, d, base, rmoms);
-        // std::cout << " err2 = " << err << "\n";
         REQUIRE(err < 5 * tol);
       }
     }
@@ -191,7 +188,6 @@ TEST_CASE("compute moments", "[moments]")
         rmoms.push_back(moms[m]);
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1, -1, 2}, l, d, base, rmoms);
-        //std::cout << " d = " << d << " l = " << l << " err2 = " << err << "\n";
         REQUIRE(err < 10 * tol);
       }
     }
@@ -222,7 +218,6 @@ TEST_CASE("compute moments", "[moments]")
         rmoms.push_back(moms[m]);
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1, -1, 2, -0.5, 0.4}, l, d, base, rmoms);
-         // std::cout << " d = " << d << " l = " << l << " err2 = " << err << "\n";
         REQUIRE(err < tol);
       }
     }
