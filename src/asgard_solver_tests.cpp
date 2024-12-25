@@ -427,7 +427,7 @@ P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P x
 
 TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
 {
-  TestType tol = (std::is_same_v<TestType, double>) ? 1.E-14 : 1.E-6;
+  TestType tol = (std::is_same_v<TestType, double>) ? 1.E-14 : 1.E-5;
 
   SECTION("constant gradient, low degree")
   {

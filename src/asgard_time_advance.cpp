@@ -339,7 +339,11 @@ imex_advance(discretization_manager<P> &disc,
         }
       };
 
+#ifdef ASGARD_USE_CUDA
+  disc.do_poisson_update(f.clone_onto_host().to_std());
+#else
   disc.do_poisson_update(f.to_std());
+#endif
   if (pde.do_poisson_solve())
   {
     do_poisson_update(f);
@@ -438,7 +442,11 @@ imex_advance(discretization_manager<P> &disc,
   tools::timer.start("explicit_2");
   fm::copy(f_orig_dev, f); // f here is now f_0
 
+#ifdef ASGARD_USE_CUDA
+  disc.do_poisson_update(f_1.clone_to_host().to_std());
+#else
   disc.do_poisson_update(f_1.to_std());
+#endif
   if (pde.do_poisson_solve())
   {
     do_poisson_update(f_1);
