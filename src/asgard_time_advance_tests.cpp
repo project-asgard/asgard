@@ -857,8 +857,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     E_pot *= dx;
 
     double E_kin = 0;
-    for (int i : iindexof(num_cell))
-      E_kin += moments[i][2 * pdof]; // integrating the third moment
+    for (int j : iindexof(num_cell))
+      E_kin += moments[j][2 * pdof]; // integrating the third moment
     E_kin *= std::sqrt(length_dim0);
 
     if (i == 0)
@@ -874,9 +874,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream", "[imex]", double)
     REQUIRE(std::abs(moments[0][0] * std::sqrt(length_dim0) - 6.283185) <= 1.0e-4);
 
     TestType mv = 0;
-    for (auto i : indexof(num_cell))
-      for (auto j : indexof(pdof))
-        mv += moments[i][j] * moments[i][j + pdof];
+    for (auto j : indexof(num_cell))
+      for (auto k : indexof(pdof))
+        mv += moments[j][k] * moments[j][k + pdof];
     REQUIRE(std::abs(mv) <= 1.0e-14);
 
     if (i > 0 && i < 100)
@@ -949,8 +949,8 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
     E_pot *= dx;
 
     double E_kin = 0;
-    for (int i : iindexof(num_cell))
-      E_kin += moments2[i][2 * pdof]; // integrating the third moment
+    for (int j : iindexof(num_cell))
+      E_kin += moments2[j][2 * pdof]; // integrating the third moment
     E_kin *= std::sqrt(length_dim0);
 
     if (i == 0)
@@ -970,9 +970,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - twostream - ASG", "[imex][adapt]",
 
     // total momentum should be 0
     TestType mv = 0;
-    for (auto i : indexof(num_cell))
-      for (auto j : indexof(pdof))
-        mv += moments2[i][j] * moments2[i][j + pdof];
+    for (auto j : indexof(num_cell))
+      for (auto k : indexof(pdof))
+        mv += moments2[j][k] * moments2[j][k + pdof];
     REQUIRE(std::abs(mv) <= 1.0e-14);
 
     if (i > 0 && i < 100)

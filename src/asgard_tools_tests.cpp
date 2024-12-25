@@ -17,10 +17,10 @@ TEST_CASE("test timer", "[timing test]")
   auto start = tools::simple_timer::current_time();
 
   {
-    auto session = tools::time_session("regulat session");
+    auto session1 = tools::time_session("regulat session");
     std::this_thread::sleep_for(std::chrono::milliseconds(4));
     {
-      auto session = tools::time_session("nested session");
+      auto session2 = tools::time_session("nested session");
       std::this_thread::sleep_for(std::chrono::milliseconds(4));
     }
   }

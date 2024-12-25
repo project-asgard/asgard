@@ -1138,7 +1138,7 @@ template void hierarchy_manipulator<double>::project1d<false>(
 
 template void hierarchy_manipulator<double>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<1>(int, int) const;
-template void hierarchy_manipulator<double>::projectlevels<2>(int, int) const;
+template void hierarchy_manipulator<double>::projectlevels<-1>(int, int) const;
 
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
@@ -1184,7 +1184,7 @@ template void hierarchy_manipulator<float>::project1d<false>(
 
 template void hierarchy_manipulator<float>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<float>::projectlevels<1>(int, int) const;
-template void hierarchy_manipulator<float>::projectlevels<2>(int, int) const;
+template void hierarchy_manipulator<float>::projectlevels<-1>(int, int) const;
 
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
