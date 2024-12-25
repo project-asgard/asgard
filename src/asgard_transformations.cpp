@@ -1136,6 +1136,10 @@ template void hierarchy_manipulator<double>::project1d<true>(
 template void hierarchy_manipulator<double>::project1d<false>(
     int, int, double, level_mass_matrces<double> const &) const;
 
+template void hierarchy_manipulator<double>::projectlevels<0>(int, int) const;
+template void hierarchy_manipulator<double>::projectlevels<1>(int, int) const;
+template void hierarchy_manipulator<double>::projectlevels<2>(int, int) const;
+
 template std::vector<fk::matrix<double>> gen_realspace_transform(
     PDE<double> const &pde,
     basis::wavelet_transform<double, resource::host> const &transformer,
@@ -1177,6 +1181,10 @@ template void hierarchy_manipulator<float>::project1d<true>(
     int, int, float, level_mass_matrces<float> const &) const;
 template void hierarchy_manipulator<float>::project1d<false>(
     int, int, float, level_mass_matrces<float> const &) const;
+
+template void hierarchy_manipulator<float>::projectlevels<0>(int, int) const;
+template void hierarchy_manipulator<float>::projectlevels<1>(int, int) const;
+template void hierarchy_manipulator<float>::projectlevels<2>(int, int) const;
 
 template std::vector<fk::matrix<float>> gen_realspace_transform(
     PDE<float> const &pde,
