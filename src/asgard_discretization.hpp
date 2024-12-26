@@ -253,6 +253,7 @@ protected:
   //! update components on grid reset
   void update_grid_components()
   {
+    tools::time_event performance("update grid components");
     kronops.clear();
     generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::independent);
 
@@ -278,7 +279,7 @@ protected:
   //! rebuild the moments
   void reset_moments()
   {
-    tools::time_event performance("update_system");
+    tools::time_event performance("reset moments");
 
     int const level      = pde->get_dimensions()[0].get_level();
     precision const min  = pde->get_dimensions()[0].domain_min;

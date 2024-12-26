@@ -108,6 +108,7 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::coarsen_solution(PDE<P> &pde, fk::vector<P> const &x)
 {
+  auto session = tools::time_session("coarsen solution");
   auto const coarse_y = this->coarsen(x, pde.options());
   update_levels(this->get_table(), pde);
   return coarse_y;
@@ -117,6 +118,7 @@ template<typename P>
 fk::vector<P>
 distributed_grid<P>::refine_solution(PDE<P> &pde, fk::vector<P> const &x)
 {
+  auto session = tools::time_session("refine solution");
   auto const refine_y = this->refine(x, pde.options());
   update_levels(this->get_table(), pde);
   return refine_y;

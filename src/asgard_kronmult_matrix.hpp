@@ -956,8 +956,19 @@ public:
     return pre_con_;
   }
 
-  //! \brief Return the number of flops for the current matrix type
+  //! \brief Return the number of flops for the current matrix type, if enabled for timing
   int64_t flops(imex_flag etype, std::array<std::vector<int>, 3> term_groups) const
+  {
+#ifdef ASGARD_USE_FLOPCOUNTER
+    return count_flops(etype, term_groups);
+#else
+    ignore(etype);
+    ignore(term_groups);
+    return 0;
+#endif
+  }
+  //! \brief Counts the number of floating point operations
+  int64_t count_flops(imex_flag etype, std::array<std::vector<int>, 3> term_groups) const
   {
     int i = static_cast<int>(etype);
     if (flops_[i] == -1)

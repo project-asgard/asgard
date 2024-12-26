@@ -109,6 +109,7 @@ std::string simple_timer::report()
       times.pop_back();
   }
 
+#ifdef ASGARD_USE_FLOPCOUNTER
   report << "\n";
 
   std::string const gf =  "-- Gflops/s --  ";
@@ -129,6 +130,7 @@ std::string simple_timer::report()
       report << pad_string(fsum / gflops.size()) << pad_string(min) << pad_string(max) << '\n';
     }
   }
+#endif
 
   return report.str();
 }

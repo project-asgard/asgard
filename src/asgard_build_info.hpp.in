@@ -12,6 +12,7 @@
 
 #cmakedefine ASGARD_USE_HIGHFIVE
 #cmakedefine ASGARD_USE_TIMER
+#cmakedefine ASGARD_USE_FLOPCOUNTER
 #cmakedefine ASGARD_USE_CUDA
 #cmakedefine ASGARD_USE_GPU_MEM_LIMIT
 #cmakedefine ASGARD_USE_OPENMP
