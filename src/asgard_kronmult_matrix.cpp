@@ -1101,6 +1101,7 @@ int get_flux_direction(PDE<precision> const &pde, int term_id)
 template<typename precision>
 template<resource rec>
 void block_global_kron_matrix<precision>::apply(
+    std::vector<block_sparse_matrix<precision>> const &tcoeffs,
     imex_flag etype, precision alpha, precision *y) const
 {
   int const imex = static_cast<int>(etype);
@@ -1111,7 +1112,7 @@ void block_global_kron_matrix<precision>::apply(
 
   kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
                        perms_, flux_dir_, *conn_volumes_, *conn_full_,
-                       gvals_, used_terms, workspace_->x.data(),
+                       tcoeffs, used_terms, workspace_->x.data(),
                        workspace_->y.data(), *workspace_);
 
   precision const *py = workspace_->y.data();
@@ -1227,7 +1228,7 @@ template std::vector<int> get_used_terms(PDE<double> const &pde,
 #ifdef KRON_MODE_GLOBAL
 template class block_global_kron_matrix<double>;
 template void block_global_kron_matrix<double>::apply<resource::host>(
-    imex_flag, double, double *) const;
+    std::vector<block_sparse_matrix<double>> const &, imex_flag, double, double *) const;
 
 template block_global_kron_matrix<double>
 make_block_global_kron_matrix<double>(PDE<double> const &,
@@ -1272,7 +1273,7 @@ template std::vector<int> get_used_terms(PDE<float> const &pde,
 template class block_global_kron_matrix<float>;
 
 template void block_global_kron_matrix<float>::apply<resource::host>(
-    imex_flag, float, float *) const;
+    std::vector<block_sparse_matrix<float>> const &, imex_flag, float, float *) const;
 
 template block_global_kron_matrix<float>
 make_block_global_kron_matrix<float>(PDE<float> const &,

@@ -760,7 +760,7 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
                 std::vector<permutes> const &perms,
                 std::vector<int> const &flux_dir,
                 connect_1d const &conn_volumes, connect_1d const &conn_full,
-                std::vector<std::vector<precision>> const &gvals,
+                std::vector<block_sparse_matrix<precision>> const &cmats,
                 std::vector<int> const &terms,
                 precision const x[], precision y[],
                 block_global_workspace<precision> &workspace)
@@ -800,14 +800,14 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
 
       global_cpu(num_dimensions, n, ilist, dsort, dir, perm.fill[i][0],
                  get_connect_1d(flux_dir[t], perm.fill[i][0]),
-                 gvals[t * num_dimensions + dir].data(), x, w1, workspace.row_map);
+                 cmats[t * num_dimensions + dir].data(), x, w1, workspace.row_map);
 
       for (int d = 1; d < active_dims; d++)
       {
         dir = perm.direction[i][d];
         global_cpu(num_dimensions, n, ilist, dsort, dir, perm.fill[i][d],
                    get_connect_1d(flux_dir[t], perm.fill[i][d]),
-                   gvals[t * num_dimensions + dir].data(), w1, w2, workspace.row_map);
+                   cmats[t * num_dimensions + dir].data(), w1, w2, workspace.row_map);
         std::swap(w1, w2);
       }
 
@@ -965,13 +965,12 @@ void globalsv_cpu(int num_dimensions, int n, vector2d<int> const &ilist,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-template void global_cpu<double>(int, int, int64_t,
-                                 vector2d<int> const &, dimension_sort const &,
-                                 std::vector<permutes> const &,
-                                 std::vector<int> const &, connect_1d const &,
-                                 connect_1d const &, std::vector<std::vector<double>> const &,
-                                 std::vector<int> const &, double const[], double[],
-                                 block_global_workspace<double> &);
+template void global_cpu<double>(
+    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+    std::vector<permutes> const &, std::vector<int> const &, connect_1d const &,
+    connect_1d const &, std::vector<block_sparse_matrix<double>> const &,
+    std::vector<int> const &, double const[], double[],
+    block_global_workspace<double> &);
 
 template int64_t block_global_count_flops<double>(
     int num_dimensions, int64_t block_size,
@@ -1000,13 +999,12 @@ template void globalsv_cpu(
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-template void global_cpu<float>(int, int, int64_t,
-                                vector2d<int> const &, dimension_sort const &,
-                                std::vector<permutes> const &,
-                                std::vector<int> const &, connect_1d const &,
-                                connect_1d const &, std::vector<std::vector<float>> const &,
-                                std::vector<int> const &, float const[], float[],
-                                block_global_workspace<float> &);
+template void global_cpu<float>(
+    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+    std::vector<permutes> const &, std::vector<int> const &, connect_1d const &,
+    connect_1d const &, std::vector<block_sparse_matrix<float>> const &,
+    std::vector<int> const &, float const[], float[],
+    block_global_workspace<float> &);
 
 template int64_t block_global_count_flops<float>(
     int num_dimensions, int64_t block_size,

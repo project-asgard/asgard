@@ -38,7 +38,8 @@ struct kron_operators
   }
 
   template<resource rec = resource::host>
-  void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
+  void apply(imex_flag entry, precision alpha, precision const x[],
+             precision beta, precision y[]) const
   {
     apply<rec>(entry, 0, alpha, x, beta, y);
   }
@@ -203,14 +204,16 @@ struct kron_operators
   {}
 
   template<resource rec = resource::host>
-  void apply(imex_flag entry, precision alpha, precision const x[], precision beta, precision y[]) const
+  void apply(imex_flag entry, precision alpha, precision const x[],
+             precision beta, precision y[]) const
   {
     apply<rec>(entry, precision{0}, alpha, x, beta, y);
   }
 
   //! \brief Apply the given matrix entry
   template<resource rec = resource::host>
-  void apply(imex_flag entry, precision time, precision alpha, precision const x[], precision beta, precision y[]) const
+  void apply(imex_flag entry, precision time, precision alpha, precision const x[],
+             precision beta, precision y[]) const
   {
     // prep stage for the operator application
     // apply the beta parameter, all operations are incremental
@@ -223,7 +226,7 @@ struct kron_operators
     if (kglobal.is_active(entry) or interp)
       std::copy_n(x, kglobal.num_active(), workspace.x.begin());
 
-    kglobal.template apply<rec>(entry, alpha, y);
+    kglobal.template apply<rec>(*tcoeffs, entry, alpha, y);
 
     if (interp)
     {
@@ -257,6 +260,7 @@ struct kron_operators
             coefficient_matrices<precision> &cmats,
             adapt::distributed_grid<precision> const &grid)
   {
+    tcoeffs = &cmats.term_coeffs;
     if (pde_ == nullptr and pde.has_interp())
     {
       pde.get_domain_bounds(dmin, dslope);
@@ -382,6 +386,8 @@ private:
   precision domain_scale;
   std::array<precision, max_num_dimensions> dmin, dslope;
   connection_patterns const *conn_ = nullptr;
+
+  std::vector<block_sparse_matrix<precision>> const *tcoeffs = nullptr;
 
   block_global_kron_matrix<precision> kglobal;
 

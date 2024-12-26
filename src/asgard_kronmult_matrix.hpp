@@ -930,7 +930,8 @@ public:
    * where A corresponds to the imex etype flag.
    */
   template<resource rec>
-  void apply(imex_flag etype, precision alpha, precision *y) const;
+  void apply(std::vector<block_sparse_matrix<precision>> const &tcoeffs,
+             imex_flag etype, precision alpha, precision *y) const;
 
   operator bool() const { return (num_dimensions_ > 0); }
 

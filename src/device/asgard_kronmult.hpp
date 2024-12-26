@@ -4,7 +4,7 @@
 #include <iostream>
 #include <set>
 
-#include "asgard_indexset.hpp"
+#include "asgard_block_matrix.hpp"
 #include "asgard_interpolation1d.hpp"
 #include "asgard_kronmult_common.hpp"
 
@@ -300,7 +300,7 @@ void global_cpu(int num_dimensions, int n, int64_t block_size,
                 std::vector<permutes> const &perms,
                 std::vector<int> const &flux_dir,
                 connect_1d const &conn_volumes, connect_1d const &conn_full,
-                std::vector<std::vector<precision>> const &gvals,
+                std::vector<block_sparse_matrix<precision>> const &cmats,
                 std::vector<int> const &terms,
                 precision const x[], precision y[],
                 block_global_workspace<precision> &workspace);

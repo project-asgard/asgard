@@ -460,6 +460,10 @@ public:
   P *operator[] (int64_t i) { return data_[i]; }
   //! returns the block at the given index
   P const *operator[] (int64_t i) const { return data_[i]; }
+  //! returns the internal data
+  P *data() { return data_[0]; }
+  //! returns the internal data (const overload)
+  P const *data() const { return data_[0]; }
 
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full(connection_patterns const &conns) const
