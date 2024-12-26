@@ -17,9 +17,9 @@ namespace asgard
 // the coeff_type must match pterm.coeff_type, it is a template parameter
 // so that we can simplify the code and avoid runtime cost with if-constexpr
 template<typename P, coefficient_type coeff_type>
-void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm,
-                           int const level, P const time,
-                           block_tri_matrix<P> &coefficients)
+void gen_tri_cmat(dimension<P> const &dim, partial_term<P> const &pterm,
+                  int const level, P const time,
+                  block_tri_matrix<P> &coefficients)
 {
   expect(time >= 0.0);
   expect(coeff_type == pterm.coeff_type());
@@ -398,8 +398,8 @@ void generate_coefficients(dimension<P> const &dim, partial_term<P> const &pterm
 // using extended definition of g-function, now accepting a cell-index (i)
 // which allows us to read from a vector, e.g., with pre-computed values of the e-filed
 template<typename P, coefficient_type coeff_type, typename gfunctor_type>
-void generate_coefficients(dimension<P> const &dim, int const level, P const time,
-                           gfunctor_type gfunc, block_diag_matrix<P> &coefficients)
+void gen_diag_cmat(dimension<P> const &dim, int const level, P const time,
+                   gfunctor_type gfunc, block_diag_matrix<P> &coefficients)
 {
   expect(time >= 0.0);
   static_assert(not has_flux_v<coeff_type>, "building block-diag-diagonal matrix for flux pterm");
@@ -464,9 +464,9 @@ void generate_coefficients(dimension<P> const &dim, int const level, P const tim
 // \int lhs \phi_i \phi_j dx = \int rhs f \phi_j dx
 // lhs and rhs (left/right hand sides) are given as cell-by-cell Legenre expansions
 template<typename P, coefficient_type coeff_type>
-void generate_coefficients(dimension<P> const &dim, int const level, P const time,
-                           std::vector<P> const &lhs, std::vector<P> const &rhs,
-                           block_diag_matrix<P> &coefficients)
+void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
+                       std::vector<P> const &lhs, std::vector<P> const &rhs,
+                       block_diag_matrix<P> &coefficients)
 {
   expect(time >= 0.0);
   static_assert(not has_flux_v<coeff_type>, "building block-diag-diagonal matrix for flux pterm");

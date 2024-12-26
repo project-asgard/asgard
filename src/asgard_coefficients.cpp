@@ -6,7 +6,7 @@ namespace asgard
 {
 
 template<typename P>
-void generate_coefficients(
+void gen_flux_matrix(
     dimension<P> const &dim, partial_term<P> const &pterm,
     int const level, P const time, block_tri_matrix<P> &coefficients)
 {
@@ -16,19 +16,19 @@ void generate_coefficients(
     throw std::runtime_error("trying to generate block_tri_matrix from pterm with no flux in the coefficient");
     break;
   case coefficient_type::grad:
-    generate_coefficients<P, coefficient_type::grad>(dim, pterm, level, time, coefficients);
+    gen_tri_cmat<P, coefficient_type::grad>(dim, pterm, level, time, coefficients);
     break;
   case coefficient_type::div:
-    generate_coefficients<P, coefficient_type::div>(dim, pterm, level, time, coefficients);
+    gen_tri_cmat<P, coefficient_type::div>(dim, pterm, level, time, coefficients);
     break;
   default: // case coefficient_type::penalty:
-    generate_coefficients<P, coefficient_type::penalty>(dim, pterm, level, time, coefficients);
+    gen_tri_cmat<P, coefficient_type::penalty>(dim, pterm, level, time, coefficients);
     break;
   };
 }
 
 template<typename P>
-void generate_coefficients(
+void gen_mass_matrix(
     coupled_term_data<P> const &edata, dimension<P> const &dim, partial_term<P> const &pterm,
     int const level, P const time, block_diag_matrix<P> &coefficients)
 {
@@ -43,63 +43,63 @@ void generate_coefficients(
     case pterm_dependence::electric_field:
       expect(edata.electric_field.size() == static_cast<size_t>(fm::ipow2(level)));
       if (pterm.g_func_f() and pterm.dv_func()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int i, P const x, P const t)->P{
                 return pterm.g_func_f()(x, t, edata.electric_field[i]) * pterm.dv_func()(x, t);
             }, coefficients);
       } else if (pterm.g_func_f()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int i, P const x, P const t)->P{
                 return pterm.g_func_f()(x, t, edata.electric_field[i]);
             }, coefficients);
       } else if (pterm.dv_func()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int i, P const x, P const t)->P{ return edata.electric_field[i] * pterm.dv_func()(x, t); },
             coefficients);
       } else {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int i, P const, P const)-> P{ return edata.electric_field[i]; }, coefficients);
       }
       break;
     case pterm_dependence::electric_field_infnrm:
       expect(edata.electric_field.size() == static_cast<size_t>(fm::ipow2(level)));
       if (pterm.g_func_f() and pterm.dv_func()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&, mE = edata.electric_field_infnrm.value()](int, P const x, P const t)->P{
                 return pterm.g_func_f()(x, t, mE) * pterm.dv_func()(x, t);
             }, coefficients);
       } else if (pterm.g_func_f()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&, mE = edata.electric_field_infnrm.value()](int, P const x, P const t)->P{
                 return pterm.g_func_f()(x, t, mE);
             }, coefficients);
       } else if (pterm.dv_func()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&, mE = edata.electric_field_infnrm.value()](int, P const x, P const t)->P{
                 return mE * pterm.dv_func()(x, t);
             },
             coefficients);
       } else {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [mE = edata.electric_field_infnrm.value()](int, P const, P const)-> P{
                 return mE; }, coefficients);
       }
       break;
     default: // case pterm_dependence::none:
       if (pterm.g_func() and pterm.dv_func()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int, P const x, P const t)->P{ return pterm.g_func()(x, t) * pterm.dv_func()(x, t); },
             coefficients);
       } else if (pterm.g_func()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int, P const x, P const t)->P{ return pterm.g_func()(x, t); },
             coefficients);
       } else if (pterm.dv_func()) {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int, P const x, P const t)->P{ return pterm.dv_func()(x, t); },
             coefficients);
       } else {
-        generate_coefficients<P, coefficient_type::mass>(dim, level, time,
+        gen_diag_cmat<P, coefficient_type::mass>(dim, level, time,
             [&](int, P const, P const)-> P{ return 1.0; }, coefficients);
       }
       break;
@@ -200,7 +200,7 @@ void generate_coefficients(
 
         if (has_flux(pterms[0].coeff_type()))
         {
-          generate_coefficients<P>(dim, pterms[0], level, time, raw_tri);
+          gen_flux_matrix<P>(dim, pterms[0], level, time, raw_tri);
 
           if (mats.pterm_mass[t * num_dims + d][0].has_level(level))
             invert_mass(pdof, mats.pterm_mass[t * num_dims + d][0][level], raw_tri);
@@ -209,7 +209,7 @@ void generate_coefficients(
         }
         else // no-flux, e.g., mass matrix
         {
-          generate_coefficients<P>(mats.edata, dim, pterms[0], level, time, raw_diag);
+          gen_mass_matrix<P>(mats.edata, dim, pterms[0], level, time, raw_diag);
 
           if (mats.pterm_mass[t * num_dims + d][0].has_level(level))
             invert_mass(pdof, mats.pterm_mass[t * num_dims + d][0][level], raw_diag);
@@ -259,7 +259,7 @@ void generate_coefficients(
             {
               if (has_flux(pterm.coeff_type()))
               {
-                generate_coefficients<P>(dim, pterm, level, time, *rtri);
+                gen_flux_matrix<P>(dim, pterm, level, time, *rtri);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rtri);
@@ -268,7 +268,7 @@ void generate_coefficients(
               }
               else
               {
-                generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag);
+                gen_mass_matrix<P>(mats.edata, dim, pterm, level, time, *rdiag);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag);
@@ -281,7 +281,7 @@ void generate_coefficients(
             {
               if (has_flux(pterm.coeff_type()))
               {
-                generate_coefficients<P>(dim, pterm, level, time, *rtri0);
+                gen_flux_matrix<P>(dim, pterm, level, time, *rtri0);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rtri0);
@@ -299,7 +299,7 @@ void generate_coefficients(
               }
               else
               {
-                generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag0);
+                gen_mass_matrix<P>(mats.edata, dim, pterm, level, time, *rdiag0);
 
                 if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag0);
@@ -330,7 +330,7 @@ void generate_coefficients(
 
             if (fi == 0)
             {
-              generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag);
+              gen_mass_matrix<P>(mats.edata, dim, pterm, level, time, *rdiag);
 
               if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag);
@@ -339,7 +339,7 @@ void generate_coefficients(
             }
             else
             {
-              generate_coefficients<P>(mats.edata, dim, pterm, level, time, *rdiag0);
+              gen_mass_matrix<P>(mats.edata, dim, pterm, level, time, *rdiag0);
 
               if (mats.pterm_mass[t * num_dims + d][fi].has_level(level))
                   invert_mass(pdof, mats.pterm_mass[t * num_dims + d][fi][level], *rdiag0);
