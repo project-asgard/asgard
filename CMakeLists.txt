@@ -382,6 +382,7 @@ set (components
      asgard_block_matrix
      asgard_boundary_conditions
      asgard_coefficients
+     asgard_coefficients_mats
      asgard_distribution
      asgard_discretization
      asgard_elements

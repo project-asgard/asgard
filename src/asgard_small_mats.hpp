@@ -84,6 +84,32 @@ void scal(int const &n, P alpha, P x[])
   for (int i = 0; i < n; i++)
     x[i] *= alpha;
 }
+//! scale x by alpha, n is the size of x, write the result in y
+template<typename P>
+void scal(int const &n, P alpha, P const x[], P y[])
+{
+  ASGARD_OMP_SIMD
+  for (int i = 0; i < n; i++)
+    y[i] = alpha * x[i];
+}
+//! entry-wise mulitplication of each columns of A (nr x nc) by vector x
+template<typename P>
+void col_scal(int const &nr, int const &nc, P const x[], P A[])
+{
+  ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+  for (int c = 0; c < nc; c++)
+    for (int r = 0; r < nr; r++)
+      A[c * nr + r] *= x[r];
+}
+//! entry-wise mulitplication of each columns of A (nr x nc) by vector alpha * x
+template<typename P>
+void col_scal(int const &nr, int const &nc, P alpha, P const x[], P A[])
+{
+  ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+  for (int c = 0; c < nc; c++)
+    for (int r = 0; r < nr; r++)
+      A[c * nr + r] *= alpha * x[r];
+}
 //! matrix-vector multiplication y += A * x, A has size nr X nc
 template<typename P>
 void gemv1(int const &nr, int const &nc, P const A[], P const x[], P y[])
