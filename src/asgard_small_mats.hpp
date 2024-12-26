@@ -92,14 +92,14 @@ void scal(int const &n, P alpha, P const x[], P y[])
   for (int i = 0; i < n; i++)
     y[i] = alpha * x[i];
 }
-//! entry-wise mulitplication of each columns of A (nr x nc) by vector x
+//! B will be replaced by entry-wise mulitplication of each columns of A (nr x nc) by vector x
 template<typename P>
-void col_scal(int const &nr, int const &nc, P const x[], P A[])
+void col_scal(int const &nr, int const &nc, P const x[], P const A[], P B[])
 {
   ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int c = 0; c < nc; c++)
     for (int r = 0; r < nr; r++)
-      A[c * nr + r] *= x[r];
+      B[c * nr + r] = A[c * nr + r] * x[r];
 }
 //! entry-wise mulitplication of each columns of A (nr x nc) by vector alpha * x
 template<typename P>

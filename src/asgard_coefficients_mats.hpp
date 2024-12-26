@@ -465,7 +465,7 @@ void gen_diag_cmat(dimension<P> const &dim, int const level, P const time,
 // lhs and rhs (left/right hand sides) are given as cell-by-cell Legenre expansions
 template<typename P, coefficient_type coeff_type>
 void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
-                       std::vector<P> const &lhs, std::vector<P> const &rhs,
+                       std::vector<P> const &vlhs, std::vector<P> const &vrhs,
                        block_diag_matrix<P> &coefficients)
 {
   expect(time >= 0.0);
@@ -502,24 +502,45 @@ void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
     return R;
   }();
 
+  expect(vlhs.size() == static_cast<size_t>(pdof * num_cells));
+  expect(vlhs.size() == vrhs.size());
+  span2d<P> lhs(pdof, num_cells, vlhs.data());
+  span2d<P> rhs(pdof, num_cells, vrhs.data());
+
 #pragma omp parallel
   {
     // each thread will allocate it's own tmp matrix
     fk::matrix<P> tmp(num_quad, pdof);
+    fk::matrix<P> lmass(pdof, pdof);
+    std::vector<P> gv(num_quad); // values of the gv funcion
 
     // tmp will be captured inside the lambda closure
     // no allocations will occur per call
     auto apply_volume = [&](int i) -> void {
-      for (int k = 0; k < tmp.nrows(); k++)
-      {
-        // P c = gfunc(i, (0.5 * quad_p[k] + 0.5 + i) * dx + dim.domain_min, time);
-        P c = 0;
+      // make gv to be the values of rhs at the quad-nodes
+      smmat::gemv(num_quad, pdof, Lv.data(), rhs[i], gv.data());
 
-        for (int j = 0; j < tmp.ncols(); j++)
-          tmp(k, j) = c * Lv(k, j);
-      }
+      // multiply the values of rhs by the values of the Leg. polynomials
+      smmat::col_scal(num_quad, pdof, gv.data(), Lv.data(), tmp.data());
 
+      // multiply results in integration
       smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp.data(), coefficients[i]);
+
+      // make gv to be the values of lhs at the quad nodes
+      smmat::gemv(num_quad, pdof, Lv.data(), lhs[i], gv.data());
+
+      // multiply the values of lhs by the values of the Leg. polynomials
+      smmat::col_scal(num_quad, pdof, gv.data(), Lv.data(), tmp.data());
+
+      // multiply results in integration
+      std::fill_n(lmass.data(), pdof * pdof, P{0});
+      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp.data(), lmass.data());
+
+      // factorize the lmass block
+      smmat::potrf(pdof, lmass.data());
+
+      // invert the coefficient block
+      smmat::posvm(pdof, lmass.data(), coefficients[i]);
     };
 
 #pragma omp for
