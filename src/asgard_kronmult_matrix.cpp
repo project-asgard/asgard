@@ -1119,6 +1119,7 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
                               kronmult::block_global_workspace<precision> *workspace,
                               verbosity_level verb)
 {
+  tools::time_event timing("make block-global matrix");
   int const degree = pde.get_dimensions()[0].get_degree();
 
   int const num_dimensions = pde.num_dims();

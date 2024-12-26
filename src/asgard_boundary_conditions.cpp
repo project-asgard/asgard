@@ -111,6 +111,7 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
     connection_patterns const &conn,
     int const start_element, int const stop_element, P const t_init)
 {
+  tools::time_event timing("make unscaled bc");
   expect(start_element >= 0);
   expect(stop_element < table.size());
   expect(stop_element >= start_element);

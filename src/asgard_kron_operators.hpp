@@ -261,6 +261,7 @@ struct kron_operators
             coefficient_matrices<precision> &cmats,
             adapt::distributed_grid<precision> const &grid)
   {
+    tools::time_event timing("make kron-operators");
     tcoeffs = &cmats.term_coeffs;
     if (pde_ == nullptr)
     {
