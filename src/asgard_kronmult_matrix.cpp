@@ -28,12 +28,6 @@ std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex)
   }
 }
 
-/*!
- * \brief Constructs a preconditioner
- *
- * The preconditioner should go into another file, but that will come with a
- * big cleanup of the kronmult logic (and the removal of the old code).
- */
 template<typename precision>
 void build_preconditioner(PDE<precision> const &pde,
                           coefficient_matrices<precision> const &cmats,
@@ -1102,12 +1096,8 @@ template<typename precision>
 template<resource rec>
 void block_global_kron_matrix<precision>::apply(
     std::vector<block_sparse_matrix<precision>> const &tcoeffs,
-    imex_flag etype, precision alpha, precision *y) const
+    std::vector<int> const &used_terms, precision alpha, precision *y) const
 {
-  int const imex = static_cast<int>(etype);
-
-  std::vector<int> const &used_terms = term_groups_[imex];
-
   std::fill_n(workspace_->y.begin(), num_padded_, precision{0});
 
   kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
@@ -1186,49 +1176,22 @@ make_block_global_kron_matrix(PDE<precision> const &pde,
       workspace, verb);
 }
 
-template<typename precision>
-void set_specific_mode(PDE<precision> const &pde,
-                       coefficient_matrices<precision> const &cmats,
-                       connection_patterns const &conns,
-                       adapt::distributed_grid<precision> const &dis_grid,
-                       imex_flag const imex,
-                       block_global_kron_matrix<precision> &mat)
-{
-  int const imex_indx = static_cast<int>(imex);
-
-  mat.term_groups_[imex_indx] = get_used_terms(pde, imex);
-
-  std::vector<int> const &used_terms = mat.term_groups_[imex_indx];
-
-  int const num_dimensions = pde.num_dims();
-
-  for (int const t : used_terms)
-  {
-    for (int d : indexof<int>(num_dimensions))
-    {
-      if (not pde.get_terms()[t][d].is_identity())
-      {
-        // This should be an alias and not a copy
-        cmats.term_coeffs[t * num_dimensions + d].copy_out(mat.gvals_[t * num_dimensions + d]);
-      }
-    }
-  }
-
-  if (imex == imex_flag::imex_implicit or pde.use_implicit())
-    // prepare a preconditioner
-    build_preconditioner(pde, cmats, conns, dis_grid, used_terms, mat.pre_con_);
-}
-
 #endif // KRON_MODE_GLOBAL
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template void build_preconditioner(
+    PDE<double> const &, coefficient_matrices<double> const &,
+    connection_patterns const &, adapt::distributed_grid<double> const &,
+    std::vector<int> const &, std::vector<double> &);
+
 template std::vector<int> get_used_terms(PDE<double> const &pde,
                                          imex_flag const imex);
 
 #ifdef KRON_MODE_GLOBAL
 template class block_global_kron_matrix<double>;
 template void block_global_kron_matrix<double>::apply<resource::host>(
-    std::vector<block_sparse_matrix<double>> const &, imex_flag, double, double *) const;
+    std::vector<block_sparse_matrix<double>> const &, std::vector<int> const &,
+    double, double *) const;
 
 template block_global_kron_matrix<double>
 make_block_global_kron_matrix<double>(PDE<double> const &,
@@ -1236,12 +1199,6 @@ make_block_global_kron_matrix<double>(PDE<double> const &,
                                       connect_1d const *, connect_1d const *,
                                       kronmult::block_global_workspace<double> *,
                                       verbosity_level);
-template void set_specific_mode<double>(PDE<double> const &,
-                                        coefficient_matrices<double> const &,
-                                        connection_patterns const &conns,
-                                        adapt::distributed_grid<double> const &,
-                                        imex_flag const,
-                                        block_global_kron_matrix<double> &);
 
 #else // KRON_MODE_GLOBAL
 
@@ -1269,11 +1226,17 @@ compute_mem_usage<double>(PDE<double> const &,
 template std::vector<int> get_used_terms(PDE<float> const &pde,
                                          imex_flag const imex);
 
+template void build_preconditioner(
+    PDE<float> const &, coefficient_matrices<float> const &,
+    connection_patterns const &, adapt::distributed_grid<float> const &,
+    std::vector<int> const &, std::vector<float> &);
+
 #ifdef KRON_MODE_GLOBAL
 template class block_global_kron_matrix<float>;
 
 template void block_global_kron_matrix<float>::apply<resource::host>(
-    std::vector<block_sparse_matrix<float>> const &, imex_flag, float, float *) const;
+    std::vector<block_sparse_matrix<float>> const &, std::vector<int> const &,
+    float, float *) const;
 
 template block_global_kron_matrix<float>
 make_block_global_kron_matrix<float>(PDE<float> const &,
@@ -1281,12 +1244,6 @@ make_block_global_kron_matrix<float>(PDE<float> const &,
                                      connect_1d const *, connect_1d const *,
                                      kronmult::block_global_workspace<float> *,
                                      verbosity_level);
-template void set_specific_mode<float>(PDE<float> const &,
-                                       coefficient_matrices<float> const &,
-                                       connection_patterns const &,
-                                       adapt::distributed_grid<float> const &,
-                                       imex_flag const,
-                                       block_global_kron_matrix<float> &);
 
 #else // KRON_MODE_GLOBAL
 

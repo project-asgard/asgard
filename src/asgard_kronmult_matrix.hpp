@@ -110,6 +110,20 @@ public:
 template<typename precision>
 std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex);
 
+/*!
+ * \brief Constructs a preconditioner
+ *
+ * The preconditioner should go into another file, but that will come with a
+ * big cleanup of the kronmult logic (and the removal of the old code).
+ */
+template<typename precision>
+void build_preconditioner(PDE<precision> const &pde,
+                          coefficient_matrices<precision> const &cmats,
+                          connection_patterns const &conns,
+                          adapt::distributed_grid<precision> const &dis_grid,
+                          std::vector<int> const &used_terms,
+                          std::vector<precision> &pc);
+
 #ifndef KRON_MODE_GLOBAL
 // using LOCAL kronmult, can be parallelised using MPI but much more expensive
 // then the global modes below
@@ -908,8 +922,7 @@ public:
         num_dimensions_(num_dimensions), blockn_(blockn), block_size_(block_size),
         ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
         flux_dir_(std::move(flux_dir)), conn_volumes_(conn_volumes),
-        conn_full_(conn_full), gvals_(flux_dir_.size() * num_dimensions_),
-        workspace_(workspace), verb(verb_in)
+        conn_full_(conn_full), workspace_(workspace), verb(verb_in)
   {
     for (auto &f : flops_)
       f = -1;
@@ -931,22 +944,9 @@ public:
    */
   template<resource rec>
   void apply(std::vector<block_sparse_matrix<precision>> const &tcoeffs,
-             imex_flag etype, precision alpha, precision *y) const;
+             std::vector<int> const &terms, precision alpha, precision y[]) const;
 
   operator bool() const { return (num_dimensions_ > 0); }
-
-  bool specific_is_set(imex_flag etype)
-  {
-    std::vector<int> const &terms = term_groups_[static_cast<int>(etype)];
-    if (terms.empty())
-      return true; // nothing to set, so we're OK
-
-    for (int d = 0; d < num_dimensions_; d++)
-      if (not gvals_[terms.front() * num_dimensions_ + d].empty())
-        return true;
-
-    return false;
-  }
 
   //! \brief Allows overwriting of the loaded coefficients.
   template<resource rec>
@@ -957,14 +957,14 @@ public:
   }
 
   //! \brief Return the number of flops for the current matrix type
-  int64_t flops(imex_flag etype) const
+  int64_t flops(imex_flag etype, std::array<std::vector<int>, 3> term_groups) const
   {
     int i = static_cast<int>(etype);
     if (flops_[i] == -1)
     {
       flops_[i] = kronmult::block_global_count_flops(
           num_dimensions_, block_size_, ilist_, dsort_, perms_,
-          flux_dir_, *conn_volumes_, *conn_full_, term_groups_[i], *workspace_);
+          flux_dir_, *conn_volumes_, *conn_full_, term_groups[i], *workspace_);
       if (verb == verbosity_level::high)
       {
         switch (etype)
@@ -989,22 +989,8 @@ public:
   dimension_sort const &get_dsort() const { return dsort_; };
   int64_t num_active() const { return num_active_; }
 
-  bool is_active(imex_flag etype) const
-  {
-    return not term_groups_[static_cast<int>(etype)].empty();
-  }
-
-  // made friends for two reasons
-  // 1. Keeps the matrix API free from references to pde, which will allow an easier
-  //    transition to a new API that does not require the PDE class
-  // 2. Give the ability to modify the internal without encumbering the matrix API
-  friend void set_specific_mode<precision>(
-      PDE<precision> const &pde,
-      coefficient_matrices<precision> const &cmats,
-      connection_patterns const &conns,
-      adapt::distributed_grid<precision> const &dis_grid,
-      imex_flag const imex,
-      block_global_kron_matrix<precision> &mat);
+  // preconditioner
+  std::vector<precision> pre_con_;
 
 private:
   int64_t num_active_ = 0;
@@ -1019,15 +1005,9 @@ private:
   connect_1d const *conn_volumes_ = nullptr;
   connect_1d const *conn_full_    = nullptr;
 
-  std::vector<std::vector<precision>> gvals_;
-  std::array<std::vector<int>, 3> term_groups_;
-
   mutable kronmult::block_global_workspace<precision> *workspace_ = nullptr;
 
   mutable std::array<int64_t, num_imex_variants> flops_;
-
-  // preconditioner
-  std::vector<precision> pre_con_;
 
   verbosity_level verb = verbosity_level::quiet;
 };

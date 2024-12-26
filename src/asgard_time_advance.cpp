@@ -579,8 +579,7 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
   {
     // take a time advance step
     auto const time           = manager.time();
-    const char *time_str      = "time_advance";
-    const std::string time_id = tools::timer.start(time_str);
+    const std::string time_id = tools::timer.start("time_advance");
 
     fk::vector<P> f_val = [&]()
         -> fk::vector<P> {
@@ -688,6 +687,7 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
 
     if (manager.high_verbosity() and not pde.options().ignore_exact)
     {
+      auto session = tools::time_session("compute exact solution");
       auto rmse = manager.rmse_exact_sol();
       if (rmse)
       {

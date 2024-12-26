@@ -255,11 +255,16 @@ protected:
   {
     kronops.clear();
     generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::independent);
-#ifndef KRON_MODE_GLOBAL
+
+#ifdef KRON_MODE_GLOBAL
+    // the imex-flag is not used internally
+    kronops.make(imex_flag::unspecified, *pde, matrices, grid);
+#else
     pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
     for (int64_t t : indexof(pde->coeffs_.size()))
       pde->coeffs_[t] = matrices.term_coeffs[t].to_fk_matrix(degree_ + 1, conn);
 #endif
+
     auto const my_subgrid = grid.get_subgrid(get_rank());
     fixed_bc = boundary_conditions::make_unscaled_bc_parts(
         *pde, grid.get_table(), transformer, hier, matrices,

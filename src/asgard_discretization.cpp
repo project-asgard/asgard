@@ -88,6 +88,11 @@ discretization_manager<precision>::discretization_manager(
   fixed_bc = boundary_conditions::make_unscaled_bc_parts(
         *pde, grid.get_table(), transformer, hier, matrices, conn, msg.row_start, msg.row_stop);
 
+#ifdef KRON_MODE_GLOBAL
+  // the imex-flag is not used internally
+  kronops.make(imex_flag::unspecified, *pde, matrices, grid);
+#endif
+
   if (high_verbosity())
     node_out() << "  generating: moment vectors..." << '\n';
 
