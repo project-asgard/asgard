@@ -107,36 +107,6 @@ void gen_mass_matrix(
 }
 
 template<typename P>
-void generate_partial_mass(int const idim, dimension<P> const &dim,
-                           partial_term<P> const &pterm,
-                           hierarchy_manipulator<P> const &hier, P const time,
-                           level_mass_matrces<P> &mass)
-{
-  if (not dim.volume_jacobian_dV and not pterm.lhs_mass_func())
-    return;
-
-  function_1d<P> dv = [&](std::vector<P> const &x, std::vector<P> &dvx) -> void
-  {
-    if (dim.volume_jacobian_dV) {
-      if (pterm.lhs_mass_func()) {
-        for (auto i : indexof(x))
-          dvx[i] = pterm.lhs_mass_func()(x[i], time) * dim.volume_jacobian_dV(x[i], time);
-      } else {
-        for (auto i : indexof(x))
-          dvx[i] = dim.volume_jacobian_dV(x[i], time);
-      }
-    } else {
-      for (auto i : indexof(x))
-        dvx[i] = pterm.lhs_mass_func()(x[i], time);
-    }
-  };
-
-  int const level  = dim.get_level();
-
-  hier.make_mass(idim, level, dv, mass);
-};
-
-template<typename P>
 void generate_coefficients(
     PDE<P> &pde, coefficient_matrices<P> &mats, connection_patterns const &conn,
     hierarchy_manipulator<P> const &hier, P const time, coeff_update_mode mode)
