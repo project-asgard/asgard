@@ -62,6 +62,10 @@ enum class pterm_dependence
   none, // nothing special, uses generic g-func
   electric_field, // depends on the electric field
   electric_field_infnrm, // depends on the max abs( electric_field )
+  moments_1by0, // mom1 / mom0
+  moments_1by0_neg, // - mom1 / mom0
+  moments_2by0, // mom2 / mom0
+  moments_2by0_neg, // - mom2 / mom0
 };
 
 template<coefficient_type>
@@ -180,6 +184,14 @@ public:
   {
     expect(depends_ != pterm_dependence::none);
     expect(coeff_type_ == coefficient_type::mass); // have not done the others yet
+    // if this depends on the electric-filed, there should be a g_func_f
+    expect(not (depends_ == pterm_dependence::electric_field and not g_func_f_));
+    expect(not (depends_ == pterm_dependence::electric_field_infnrm and not g_func_f_));
+    // gfuncs are not used for the moments_1by0 and moments_2by0
+    expect(not (depends_ == pterm_dependence::moments_1by0 and (g_func_f_ or lhs_mass_func_)));
+    expect(not (depends_ == pterm_dependence::moments_2by0 and (g_func_f_ or lhs_mass_func_)));
+    expect(not (depends_ == pterm_dependence::moments_1by0_neg and (g_func_f_ or lhs_mass_func_)));
+    expect(not (depends_ == pterm_dependence::moments_2by0_neg and (g_func_f_ or lhs_mass_func_)));
   }
 
   P get_flux_scale() const { return static_cast<P>(flux_); };
@@ -221,8 +233,16 @@ public:
 
   bool is_identity() const
   {
-    return (coeff_type_ == coefficient_type::mass and not g_func_ and not g_func_f_
-            and not lhs_mass_func_ and not dv_func_);
+    switch (depends_) {
+      case pterm_dependence::moments_1by0:
+      case pterm_dependence::moments_1by0_neg:
+      case pterm_dependence::moments_2by0:
+      case pterm_dependence::moments_2by0_neg:
+        return false;
+      default:
+        return (coeff_type_ == coefficient_type::mass and not g_func_ and not g_func_f_
+                and not lhs_mass_func_ and not dv_func_);
+    }
   }
 
   g_func_type<P> const &g_func() const { return g_func_; }
@@ -799,6 +819,22 @@ public:
   }
   bool do_collision_operator() const { return do_collision_operator_; }
   bool has_analytic_soln() const { return has_analytic_soln_; }
+
+  int required_moments() const
+  {
+    int num_moments = (this->do_poisson_solve()) ? 1 : 0;
+    for (auto const &terms_md : terms_) {
+      for (auto const &term1d : terms_md) {
+        if (term1d.has_dependence(pterm_dependence::moments_1by0)
+            or term1d.has_dependence(pterm_dependence::moments_1by0_neg))
+          num_moments = std::max(2, num_moments);
+        if (term1d.has_dependence(pterm_dependence::moments_2by0)
+            or term1d.has_dependence(pterm_dependence::moments_2by0_neg))
+          num_moments = std::max(3, num_moments);
+      }
+    }
+    return num_moments;
+  }
 
   // data for the Poisson-electric field
   fk::vector<P> poisson_diag;

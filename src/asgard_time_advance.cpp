@@ -350,7 +350,7 @@ imex_advance(discretization_manager<P> &disc,
   }
   disc.compute_coefficients(coeff_update_mode::imex_explicit);
 
-  disc.comp_mats();
+  //disc.comp_mats();
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
@@ -387,7 +387,15 @@ imex_advance(discretization_manager<P> &disc,
   {
     tools::timer.start("implicit_1");
     calculate_moments(f);
+
+#ifdef ASGARD_USE_CUDA
+    disc.compute_moments(f.clone_onto_host().to_std());
+#else
+    disc.compute_moments(f.to_std());
+#endif
     disc.compute_coefficients(coeff_update_mode::imex_implicit);
+
+    disc.comp_mats();
 
     // f2 now
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
@@ -452,7 +460,7 @@ imex_advance(discretization_manager<P> &disc,
   }
   disc.compute_coefficients(coeff_update_mode::imex_explicit);
 
-  disc.comp_mats();
+  //disc.comp_mats();
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
@@ -488,7 +496,14 @@ imex_advance(discretization_manager<P> &disc,
     tools::timer.stop("implicit_2_mom");
 
     // Update coeffs
+#ifdef ASGARD_USE_CUDA
+    disc.compute_moments(f.clone_onto_host().to_std());
+#else
+    disc.compute_moments(f.to_std());
+#endif
     disc.compute_coefficients(coeff_update_mode::imex_implicit);
+
+    disc.comp_mats();
 
     tools::timer.start("implicit_2_solve");
     fk::vector<P, mem_type::owner, imex_resrc> f_2(f.size());

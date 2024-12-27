@@ -40,6 +40,22 @@ void gen_mass_matrix(
   // we can also handle cases of dependence on external data
   switch(pterm.depends())
   {
+    case pterm_dependence::moments_1by0:
+      gen_diag_mom_cmat_div<P, coefficient_type::mass, 1, +1>(
+          dim, level, time, edata.num_moments, edata.moments, coefficients);
+      break;
+    case pterm_dependence::moments_1by0_neg:
+      gen_diag_mom_cmat_div<P, coefficient_type::mass, 1, -1>(
+          dim, level, time, edata.num_moments, edata.moments, coefficients);
+      break;
+    case pterm_dependence::moments_2by0:
+      gen_diag_mom_cmat_div<P, coefficient_type::mass, 2, +1>(
+          dim, level, time, edata.num_moments, edata.moments, coefficients);
+      break;
+    case pterm_dependence::moments_2by0_neg:
+      gen_diag_mom_cmat_div<P, coefficient_type::mass, 2, -1>(
+          dim, level, time, edata.num_moments, edata.moments, coefficients);
+      break;
     case pterm_dependence::electric_field:
       expect(edata.electric_field.size() == static_cast<size_t>(fm::ipow2(level)));
       if (pterm.g_func_f() and pterm.dv_func()) {

@@ -492,7 +492,7 @@ void gen_diag_cmat(dimension<P> const &dim, int const level, P const time,
 // special case, term that corresponds to the mass operator
 // \int lhs \phi_i \phi_j dx = \int rhs f \phi_j dx
 // lhs and rhs (left/right hand sides) are given as cell-by-cell Legenre expansions
-template<typename P, coefficient_type coeff_type, int irhs>
+template<typename P, coefficient_type coeff_type, int irhs, int multsign = 1>
 void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
                        int const num_moments, std::vector<P> const &moms,
                        block_diag_matrix<P> &coefficients)
@@ -553,7 +553,7 @@ void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
       smmat::col_scal(num_quad, pdof, gv, Lv.data(), tmp);
 
       // multiply results in integration
-      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp, coefficients[i]);
+      smmat::gemm_tn<multsign>(pdof, num_quad, Lw.data(), tmp, coefficients[i]);
 
       // make gv to be the values of lhs at the quad nodes
       smmat::gemv(num_quad, pdof, Lv.data(), moment[i], gv);
@@ -563,7 +563,7 @@ void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
 
       // multiply results in integration
       std::fill_n(lmass, pdof * pdof, P{0});
-      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp, lmass);
+      smmat::gemm_tn<multsign>(pdof, num_quad, Lw.data(), tmp, lmass);
 
       switch (pdof)
       {
@@ -589,7 +589,7 @@ void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
 }
 
 // same as gen_diag_mom_cmat but uses division as opposed to inversion of a mass matrix
-template<typename P, coefficient_type coeff_type, int irhs>
+template<typename P, coefficient_type coeff_type, int irhs, int multsign = 1>
 void gen_diag_mom_cmat_div(dimension<P> const &dim, int const level, P const time,
                            int const num_moments, std::vector<P> const &moms,
                            block_diag_matrix<P> &coefficients)
@@ -654,7 +654,7 @@ void gen_diag_mom_cmat_div(dimension<P> const &dim, int const level, P const tim
       smmat::col_scal(num_quad, pdof, gv, Lv.data(), tmp);
 
       // multiply results in integration
-      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp, coefficients[i]);
+      smmat::gemm_tn<multsign>(pdof, num_quad, Lw.data(), tmp, coefficients[i]);
     };
 
 #pragma omp for
@@ -662,6 +662,5 @@ void gen_diag_mom_cmat_div(dimension<P> const &dim, int const level, P const tim
       apply_volume(i);
   } // #pragma omp parallel
 }
-
 
 } // namespace asgard

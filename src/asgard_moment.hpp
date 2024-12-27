@@ -25,6 +25,8 @@ static constexpr resource sparse_resrc = resource::host;
 template<typename P>
 class moments1d {
 public:
+  //! empty constructor, no moments
+  moments1d() {}
   //! constructor, prepares the given number of momemnts, for dgree and up to the max_level
   moments1d(int num_mom, int degree, int max_level, std::vector<dimension<P>> const &dims);
 
@@ -45,6 +47,9 @@ public:
    */
   void project_moment(int const mom, int const dim0_level, std::vector<P> const &state,
                       elements::table const &etable, std::vector<P> &moment) const;
+
+  //! \brief Returns the number of loaded moments
+  int num_mom() const { return num_mom_; }
 
 protected:
   /*!
@@ -75,11 +80,11 @@ protected:
 
 private:
   //! number of momemnts
-  int num_mom_;
+  int num_mom_ = 0;
   //! number of dimensions
-  int num_dims_;
+  int num_dims_ = 0;
   //! the degree of the basis
-  int degree_;
+  int degree_ = 0;
   //! ingeral of the canonical basis, each index holds num_mom_ * (degree_ + 1) entries
   std::array<vector2d<P>, max_num_dimensions> integ;
 };

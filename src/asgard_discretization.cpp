@@ -71,8 +71,6 @@ discretization_manager<precision>::discretization_manager(
 
     matrices.edata.electric_field.resize(fm::ipow2(dim.get_level()));
 
-    moms1d = moments1d<precision>(1, degree_, pde->max_level(), pde->get_dimensions());
-
     // if the inf-nrm is needed, initialize with a dummy value
     for (int d : indexof<int>(pde->num_dims()))
       for (int t : indexof<int>(pde->num_terms()))
@@ -82,7 +80,22 @@ discretization_manager<precision>::discretization_manager(
         }
   }
 
+  matrices.edata.num_moments = pde->required_moments();
+  if (matrices.edata.num_moments > 0) {
+    moms1d = moments1d<precision>(matrices.edata.num_moments, degree_,
+                                  pde->max_level(), pde->get_dimensions());
+    int const level = pde->get_dimensions().front().get_level();
+    moms1d->project_moments(level, state, grid.get_table(), matrices.edata.moments);
+    int const num_cells = fm::ipow2(level);
+    int const num_moms  = matrices.edata.num_moments;
+    hier.reconstruct1d(
+        num_moms, level, span2d<precision>((degree_ + 1), num_moms * num_cells,
+                                            matrices.edata.moments.data()));
+  }
+
   this->compute_coefficients();
+
+  comp_mats();
 
   auto const msg = grid.get_subgrid(get_rank());
   fixed_bc = boundary_conditions::make_unscaled_bc_parts(

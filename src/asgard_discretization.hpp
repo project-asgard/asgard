@@ -215,6 +215,18 @@ public:
   std::vector<moment<precision>> &get_moments() const { return moments; }
   //! returns the coefficient matrices
   coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
+  //! recomputes the moments given the state of interest
+  void compute_moments(std::vector<precision> const &f) {
+    if (moms1d) {
+      int const level = pde->get_dimensions().front().get_level();
+      moms1d->project_moments(level, f, grid.get_table(), matrices.edata.moments);
+      int const num_cells = fm::ipow2(level);
+      int const num_moms  = moms1d->num_mom();
+      hier.reconstruct1d(
+          num_moms, level, span2d<precision>((degree_ + 1), num_moms * num_cells,
+                                             matrices.edata.moments.data()));
+    }
+  }
   //! recomputes the coefficients, can select sub
   void compute_coefficients(coeff_update_mode mode = coeff_update_mode::all) {
     generate_coefficients(*pde, matrices, conn, hier, time_, mode);
@@ -239,9 +251,15 @@ public:
   void comp_mats() const { // two stream, compare matrices
     return;
     // reference check for operator construction, helps find problems
-    // auto ref = matrices.term_coeffs[4 + i].to_full(conn);
-    // auto com = matrices.term_coeffs[8 + i].to_full(conn);
+    auto ref = matrices.term_coeffs[8].to_full(conn);
+    auto com = matrices.term_coeffs[10].to_full(conn);
     // precision err = std::max(err, ref.max_diff(com));
+
+    std::cout << "  -- ref -- \n";
+    ref.print(std::cout);
+    std::cout << "  -- comp -- \n";
+    com.print(std::cout);
+    std::cout << "  -- ---- -- \n";
   }
 
 protected:

@@ -15,10 +15,16 @@ class PDE_collisional_landau : public PDE<P>
 {
 public:
   PDE_collisional_landau(prog_opts const &cli_input)
-      : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_,
-               get_dt_, has_analytic_soln_, moments_, do_collision_operator_)
+      // : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
+      //          terms_, sources_, exact_vector_funcs_,
+      //          get_dt_, has_analytic_soln_, moments_, do_collision_operator_)
   {
+    int const nterms = static_cast<int>(terms_.size());
+
+    this->initialize(cli_input, num_dims_, num_sources_, nterms, dimensions_,
+                     terms_, sources_, exact_vector_funcs_,
+                     get_dt_, has_analytic_soln_, moments_, do_collision_operator_);
+
     param_manager.add_parameter(parameter<P>{"n", n});
     param_manager.add_parameter(parameter<P>{"u", u});
     param_manager.add_parameter(parameter<P>{"theta", theta});
@@ -439,9 +445,37 @@ private:
   inline static std::vector<term<P>> const terms_9 = {penalty_mass_x,
                                                       e_penalty};
 
+  // new collision operators
+  static P const_nu(P const, P const = 0) { return nu; }
+
+  inline static const partial_term<P> pt_mass_uf = partial_term<P>(
+      coefficient_type::mass, pterm_dependence::moments_1by0_neg);
+
+  inline static const partial_term<P> pt_vdivf = partial_term<P>(
+      coefficient_type::div, const_nu, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  inline static term<P> const mass_uf =
+      term<P>(true,   // time-dependent
+              "I2_x", // name
+              {pt_mass_uf}, imex_flag::imex_implicit);
+
+  inline static term<P> const vdivf =
+      term<P>(false,  // time-dependent
+              "I2_v", // name
+              {pt_vdivf,}, imex_flag::imex_implicit);
+
+  inline static std::vector<term<P>> const terms_7v2 = {mass_uf, vdivf};
+
+
+
   // terms 6, 7, 8 are terms 3,4,5 from vlasov_lb_full_f
   inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3, terms_6,
-                                            terms_7, terms_8, terms_9};
+                                            //terms_7, terms_8, terms_9};
+                                            //terms_7, terms_7v2, terms_8, terms_9};
+                                            terms_7v2, terms_8, terms_9};
+
+
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
 
