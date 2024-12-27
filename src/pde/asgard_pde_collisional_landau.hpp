@@ -215,10 +215,8 @@ private:
   // new collision operators
   static P const_nu(P const, P const = 0) { return nu; }
 
-  static P get_v(P const v, P const = 0)
-  {
-    return v;
-  }
+  static P get_v(P const v, P const = 0) { return v; }
+
   inline static const partial_term<P> i1_pterm_x = partial_term<P>(
       coefficient_type::mass, const_nu, nullptr, flux_type::central,
       boundary_condition::periodic, boundary_condition::periodic);
