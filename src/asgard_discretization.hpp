@@ -227,6 +227,12 @@ public:
                                              matrices.edata.moments.data()));
     }
   }
+  //! (testing) recomputes the moments given the state of interest, keeps in hierarchical form
+  void compute_hmoments(std::vector<precision> const &f, std::vector<precision> &rmom) {
+    if (moms1d)
+      moms1d->project_moments(pde->get_dimensions().front().get_level(),
+                              f, grid.get_table(), rmom);
+  }
   //! recomputes the coefficients, can select sub
   void compute_coefficients(coeff_update_mode mode = coeff_update_mode::all) {
     generate_coefficients(*pde, matrices, conn, hier, time_, mode);

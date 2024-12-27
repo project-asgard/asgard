@@ -759,9 +759,9 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   TestType constexpr gmres_tol =
       std::is_same_v<TestType, double> ? 1.0e-8 : 1.0e-6;
   TestType constexpr tolerance = // error tolerance
-      std::is_same_v<TestType, double> ? 1.0e-9 : 1.0e-3;
+      std::is_same_v<TestType, double> ? 1.0e-7 : 1.0e-3;
 
-  auto opts = make_opts("-p landau -d 2 -l 4 -n 100 -s imex -sv gmres -g dense -dt 0.019634954084936");
+  auto opts = make_opts("-p landau -d 2 -l 4 -n 100 -s imex -g dense -dt 0.019634954084936");
 
   opts.isolver_tolerance = gmres_tol;
 
@@ -769,34 +769,47 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
 
   auto const &pde = disc.get_pde();
 
-  TestType E_pot_initial = 0.0;
-  TestType E_kin_initial = 0.0;
+  double const length_dim0 =
+      pde.get_dimensions()[0].domain_max - pde.get_dimensions()[0].domain_min;
+
+  int const pdof = disc.degree() + 1;
+
+  TestType E_total = 0.0;
 
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
   {
     advance_time(disc, 1);
 
-    // compute the E potential and kinetic energy
-    fk::vector<TestType> E_field_sq(pde.E_field);
-    for (auto &e : E_field_sq)
-    {
-      e = e * e;
-    }
-    dimension<TestType> const &dim = pde.get_dimensions()[0];
+    int const level0   = disc.get_pde().get_dimensions()[0].get_level();
+    int const num_cell = fm::ipow2(level0);
+    TestType const dx  = length_dim0 / num_cell;
 
-    TestType E_pot = calculate_integral(E_field_sq, dim);
-    TestType E_kin = calculate_integral(disc.get_moments()[2].get_realspace_moment(),
-                                        dim);
+    auto const &efiled = disc.get_cmatrices().edata.electric_field;
+
+    TestType E_pot = 0;
+    for (auto e : efiled)
+      E_pot += e * e;
+    E_pot *= dx;
+
+    std::vector<TestType> raw_moms;
+    disc.compute_hmoments(disc.current_state(), raw_moms);
+
+    int const num_moms = disc.get_cmatrices().edata.num_moments;
+    REQUIRE(num_moms == 3);
+
+    span2d<TestType const> moments2(num_moms * pdof, num_cell, raw_moms.data());
+
+    TestType E_kin = 0;
+    for (int j : iindexof(num_cell))
+      E_kin += moments2[j][2 * pdof]; // integrating the third moment
+    E_kin *= std::sqrt(length_dim0);
+
     if (i == 0)
-    {
-      E_pot_initial = E_pot;
-      E_kin_initial = E_kin;
-    }
+      E_total = E_pot + E_kin;
 
     // calculate the absolute relative total energy
-    TestType E_relative =
-        std::fabs((E_pot + E_kin) - (E_pot_initial + E_kin_initial));
+    TestType E_relative = std::fabs((E_pot + E_kin) - E_total);
     REQUIRE(E_relative <= tolerance);
   }
 

@@ -806,6 +806,7 @@ public:
     return exact_vector_funcs_.back().back()(dummy, time)[0];
   }
 
+  bool skip_old_moments = false; // TODO: remove this once all PDEs have transitioned
   moment_funcs<P> initial_moments;
 
   bool do_poisson_solve() const { // TODO: rename to poisson dependence

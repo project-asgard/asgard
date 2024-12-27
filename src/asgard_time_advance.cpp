@@ -160,7 +160,7 @@ imex_advance(discretization_manager<P> &disc,
   auto do_poisson_update = [&](fk::vector<P, mem_type::owner, imex_resrc> const
                                    &f_in) {
     // Get 0th moment
-    if (pde.do_collision_operator()) {
+    if (pde.do_collision_operator() and not pde.skip_old_moments) {
       // left-over code, still used for error checking in testing
       // TODO: must update to the new moments
       tools::time_event pupdate_("get 0-th moment");
@@ -193,6 +193,8 @@ imex_advance(discretization_manager<P> &disc,
 
   auto calculate_moments =
       [&](fk::vector<P, mem_type::owner, imex_resrc> const &f_in) {
+        if (pde.skip_old_moments)
+          return;
         // \int f dv
         fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
         fm::sparse_gemv(moments[0].get_moment_matrix_dev(), f_in, mom0);

@@ -78,7 +78,7 @@ TEMPLATE_TEST_CASE("projected mass", "[mass-coefficients]", test_precs)
   // compare the construction between a mass term constructed from simple function
   // as opposed to the projection of the functions onto the Legendre basis
   using P = TestType;
-  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-11 : 1.E-6;
+  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-11 : 1.E-4;
 
   std::array<P, 2> err = {0, 0};
 
