@@ -96,7 +96,6 @@ private:
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
-
   /* build the terms */
 
   // Term 1
@@ -196,8 +195,6 @@ private:
               "I1_v", // name
               {i1_pterm_v}, imex_flag::imex_implicit);
 
-  inline static std::vector<term<P>> const terms_3 = {term_i1x, term_i1v};
-
   // moment components of the collision operator, split into 3 parts
   // see landau 1x-1v example
 
@@ -247,6 +244,7 @@ private:
               "nu_div_grad", // name
               {pt_div_up, pt_nu_grad_down}, imex_flag::imex_implicit);
 
+  inline static std::vector<term<P>> const term_dv = {term_i1x, term_i1v};
   inline static std::vector<term<P>> const term_uf = {mass_uf_neg, vdivf};
   inline static std::vector<term<P>> const term_t1 = {mass_ef, nu_div_grad};
   inline static std::vector<term<P>> const term_t2 = {mass_u2_neg, nu_div_grad};
@@ -283,7 +281,7 @@ private:
                                                        e_penalty};
 
 
-  inline static term_set<P> const terms_ = {terms_1, terms_2, terms_3,
+  inline static term_set<P> const terms_ = {terms_1, terms_2, term_dv,
                                             term_uf, term_t1, term_t2, term_pen};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
