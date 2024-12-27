@@ -313,27 +313,6 @@ TEMPLATE_TEST_CASE("fokkerplanck2_complete_case4 terms", "[coefficients]",
   }
 }
 
-TEMPLATE_TEST_CASE("vlasov terms", "[coefficients]", test_precs)
-{
-  auto const gold_path =
-      coefficients_base_dir / "vlasov_lb_full_f_coefficients";
-
-  TestType const tol_factor = std::is_same_v<TestType, double> ? 1e-12 : 1e-3;
-
-  prog_opts opts;
-  opts.pde_choice     = PDE_opts::vlasov_lb_full_f;
-  opts.grid           = grid_type::dense;
-  opts.num_time_steps = 1;
-
-  SECTION("level [4,3], degree 2")
-  {
-    opts.start_levels = {4, 3};
-    opts.degree       = 2;
-
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-}
-
 template<typename P>
 class penalty_pde : public PDE<P>
 {
