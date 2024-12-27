@@ -1049,4 +1049,67 @@ private:
   kronmult_mode kmod_ = kronmult_mode::dense;
   int memory_limit_   = 0;
 };
+
+template<typename P>
+inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms) {
+  std::function<P(P const, P const)> const_nu = [nnu = nu](P const, P const = 0)->P{ return nnu; };
+  std::function<P(P const, P const)> get_v = [](P const v, P const = 0)->P{ return v; };
+
+  bool constexpr time_depend = true;
+  bool constexpr time_static = false;
+
+  imex_flag constexpr imex = imex_flag::imex_implicit;
+
+  // moment components of the collision operator, split into 4 parts
+  // (nu, div_v v) -> (mass_nu, divv)
+  // (-u_f, nu * div_v) -> (pt_mass_uf_neg, nu_divv)
+  // (-mom2/mom0, nu * div * grad) -> (pt_mass_ef, {pt_div_up, pt_nu_grad_down})
+  // (-u_f^2, nu * div * grad) -> ({pt_mass_uf, pt_mass_uf_neg}, {pt_div_up, pt_nu_grad_down})
+
+  partial_term<P> pt_mass_nu = partial_term<P>(coefficient_type::mass, const_nu);
+
+  partial_term<P> pt_divv = partial_term<P>(
+      coefficient_type::div, get_v, nullptr, flux_type::upwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  partial_term<P> pt_mass_uf(coefficient_type::mass, pterm_dependence::moments_1by0);
+
+  partial_term<P> pt_mass_uf_neg(coefficient_type::mass, pterm_dependence::moments_1by0_neg);
+
+  partial_term<P> pt_mass_ef(coefficient_type::mass, pterm_dependence::moments_2by0);
+
+  partial_term<P> pt_nu_divv(
+      coefficient_type::div, const_nu, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  partial_term<P> pt_div_up(
+      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  partial_term<P> pt_nu_grad_down(
+      coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  term<P> mass_nu(time_static, "LB_mass_nu", {pt_mass_nu}, imex);
+
+  term<P> divv(time_static, "LB_divv", {pt_divv}, imex);
+
+  term<P> mass_uf_neg = term<P>(time_depend, "LB_uf_neg", {pt_mass_uf_neg, }, imex);
+
+  term<P> mass_u2_neg(time_depend, "LB_u2_neg", {pt_mass_uf, pt_mass_uf_neg}, imex);
+
+  term<P> mass_ef(time_depend, "LB_mass_ef", {/* identity, */ pt_mass_ef, }, imex);
+
+  term<P> nu_divv(time_static, "LB_vdiv", {pt_nu_divv,}, imex);
+
+  term<P> const nu_div_grad(time_static, "LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
+
+  terms.reserve(terms.size() + 4);
+  terms.push_back({mass_nu, divv});
+  terms.push_back({mass_uf_neg, nu_divv});
+  terms.push_back({mass_ef, nu_div_grad});
+  terms.push_back({mass_u2_neg, nu_div_grad});
+}
+
+
 } // namespace asgard
