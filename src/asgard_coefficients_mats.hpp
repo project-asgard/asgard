@@ -55,7 +55,6 @@ void gen_tri_cmat(dimension<P> const &dim, partial_term<P> const &pterm,
   auto const num_cells = fm::ipow2(level);
 
   auto const grid_spacing       = (dim.domain_max - dim.domain_min) / num_cells;
-  //auto const degrees_freedom_1d = (dim.get_degree() + 1) * num_cells;
   int const nblock = (dim.get_degree() + 1) * (dim.get_degree() + 1);
   coefficients.resize_and_zero(nblock, num_cells);
 
@@ -463,12 +462,13 @@ void gen_diag_cmat(dimension<P> const &dim, int const level, P const time,
 // special case, term that corresponds to the mass operator
 // \int lhs \phi_i \phi_j dx = \int rhs f \phi_j dx
 // lhs and rhs (left/right hand sides) are given as cell-by-cell Legenre expansions
-template<typename P, coefficient_type coeff_type>
+template<typename P, coefficient_type coeff_type, int irhs>
 void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
-                       std::vector<P> const &vlhs, std::vector<P> const &vrhs,
+                       int const num_moments, std::vector<P> const &moms,
                        block_diag_matrix<P> &coefficients)
 {
   expect(time >= 0.0);
+  expect(0 < irhs and irhs < num_moments);
   static_assert(not has_flux_v<coeff_type>, "building block-diag-diagonal matrix for flux pterm");
 
   // setup jacobi of variable x and define coeff_mat
@@ -502,45 +502,44 @@ void gen_diag_mom_cmat(dimension<P> const &dim, int const level, P const time,
     return R;
   }();
 
-  expect(vlhs.size() == static_cast<size_t>(pdof * num_cells));
-  expect(vlhs.size() == vrhs.size());
-  span2d<P> lhs(pdof, num_cells, vlhs.data());
-  span2d<P> rhs(pdof, num_cells, vrhs.data());
+  expect(moms.size() == static_cast<size_t>(num_moments * pdof * num_cells));
+  span2d<P> moment(num_moments * pdof, num_cells, moms.data());
 
 #pragma omp parallel
   {
     // each thread will allocate it's own tmp matrix
-    fk::matrix<P> tmp(num_quad, pdof);
-    fk::matrix<P> lmass(pdof, pdof);
-    std::vector<P> gv(num_quad); // values of the gv funcion
+    std::vector<P> workspace(num_quad * pdof + pdof * pdof + num_quad);
+    P *tmp   = workspace.data();
+    P *lmass = tmp + num_quad * pdof;
+    P *gv    = lmass + pdof * pdof;
 
     // tmp will be captured inside the lambda closure
     // no allocations will occur per call
     auto apply_volume = [&](int i) -> void {
       // make gv to be the values of rhs at the quad-nodes
-      smmat::gemv(num_quad, pdof, Lv.data(), rhs[i], gv.data());
+      smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + irhs * pdof, gv);
 
       // multiply the values of rhs by the values of the Leg. polynomials
-      smmat::col_scal(num_quad, pdof, gv.data(), Lv.data(), tmp.data());
+      smmat::col_scal(num_quad, pdof, gv, Lv.data(), tmp);
 
       // multiply results in integration
-      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp.data(), coefficients[i]);
+      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp, coefficients[i]);
 
       // make gv to be the values of lhs at the quad nodes
-      smmat::gemv(num_quad, pdof, Lv.data(), lhs[i], gv.data());
+      smmat::gemv(num_quad, pdof, Lv.data(), moment[i], gv);
 
       // multiply the values of lhs by the values of the Leg. polynomials
-      smmat::col_scal(num_quad, pdof, gv.data(), Lv.data(), tmp.data());
+      smmat::col_scal(num_quad, pdof, gv, Lv.data(), tmp);
 
       // multiply results in integration
-      std::fill_n(lmass.data(), pdof * pdof, P{0});
-      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp.data(), lmass.data());
+      std::fill_n(lmass, pdof * pdof, P{0});
+      smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp, lmass);
 
       // factorize the lmass block
-      smmat::potrf(pdof, lmass.data());
+      smmat::potrf(pdof, lmass);
 
       // invert the coefficient block
-      smmat::posvm(pdof, lmass.data(), coefficients[i]);
+      smmat::posvm(pdof, lmass, coefficients[i]);
     };
 
 #pragma omp for
