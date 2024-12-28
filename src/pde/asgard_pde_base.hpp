@@ -324,6 +324,23 @@ public:
       : time_dependent_(time_dependent_in), name_(name_in), flag_(flag_in),
         partial_terms_(partial_terms)
   {}
+  term(bool const time_dependent_in, std::string const name_in,
+       partial_term<P> const &partial_terms,
+       imex_flag const flag_in = imex_flag::unspecified)
+      : time_dependent_(time_dependent_in), name_(name_in), flag_(flag_in),
+        partial_terms_({partial_terms, })
+  {}
+  term(std::string const name_in,
+       std::initializer_list<partial_term<P>> const partial_terms,
+       imex_flag const flag_in = imex_flag::unspecified)
+      : time_dependent_(false), name_(name_in), flag_(flag_in),
+        partial_terms_(partial_terms)
+  {}
+  term(std::string const name_in, partial_term<P> const &partial_terms,
+       imex_flag const flag_in = imex_flag::unspecified)
+      : time_dependent_(false), name_(name_in), flag_(flag_in),
+        partial_terms_({partial_terms, })
+  {}
 
   std::vector<partial_term<P>> const &get_partial_terms() const
   {
@@ -998,21 +1015,18 @@ public:
   }
 #endif
 
-protected:
-  std::function<void(P t, std::vector<P> const &, std::vector<P> &)> interp_nox_;
-
-  std::function<void(P t, vector2d<P> const &, std::vector<P> const &, std::vector<P> &)> interp_x_;
-
-  std::function<void(vector2d<P> const &, std::vector<P> &)> interp_initial_;
-
-  std::function<void(P t, vector2d<P> const &, std::vector<P> &)> interp_exact_;
-
   // commonly used building blocks of g_funcs
   static P gfunc_pos1(P const, P const) {
     return P{1};
   }
   static P gfunc_neg1(P const, P const) {
     return P{-1};
+  }
+  static P gfunc_positive(P const v, P const) {
+    return std::max(P{0}, v);
+  }
+  static P gfunc_negative(P const v, P const) {
+    return std::min(P{0}, v);
   }
   static P gfunc_f_field(P const, P const, P const f) {
     return f;
@@ -1023,6 +1037,15 @@ protected:
   static P gfunc_f_negative(P const, P const, P const f) {
     return std::min(P{0}, f);
   }
+
+protected:
+  std::function<void(P t, std::vector<P> const &, std::vector<P> &)> interp_nox_;
+
+  std::function<void(P t, vector2d<P> const &, std::vector<P> const &, std::vector<P> &)> interp_x_;
+
+  std::function<void(vector2d<P> const &, std::vector<P> &)> interp_initial_;
+
+  std::function<void(P t, vector2d<P> const &, std::vector<P> &)> interp_exact_;
 
 private:
   prog_opts options_;
@@ -1050,13 +1073,44 @@ private:
   int memory_limit_   = 0;
 };
 
+//! add the two-part Vlasov operator, periodic boundary
 template<typename P>
-inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms) {
+inline void add_vlassov_1x1v(term_set<P> &terms)
+{
+  imex_flag constexpr imex = imex_flag::imex_explicit;
+
+  partial_term<P> ptDivU(
+      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::upwind,
+      boundary_condition::periodic, boundary_condition::periodic);
+
+  partial_term<P> ptMassP(coefficient_type::mass, PDE<P>::gfunc_positive);
+
+  term<P> div_x_up("div_x_up", ptDivU, imex);
+
+  term<P> massP("mass_positive", ptMassP, imex);
+
+  partial_term<P> ptDivD(
+      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::downwind,
+      boundary_condition::periodic, boundary_condition::periodic);
+
+  partial_term<P> ptMassN(coefficient_type::mass, PDE<P>::gfunc_negative);
+
+  term<P> div_x_down("div_x_down", ptDivD, imex);
+
+  term<P> massN("mass_negative", ptMassN, imex);
+
+  terms.push_back({div_x_up, massP});
+  terms.push_back({div_x_down, massN});
+}
+
+//! adds the LB collision operator to the term set
+template<typename P>
+inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
+{
   std::function<P(P const, P const)> const_nu = [nnu = nu](P const, P const = 0)->P{ return nnu; };
   std::function<P(P const, P const)> get_v = [](P const v, P const = 0)->P{ return v; };
 
   bool constexpr time_depend = true;
-  bool constexpr time_static = false;
 
   imex_flag constexpr imex = imex_flag::imex_implicit;
 
@@ -1090,9 +1144,9 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
       coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
-  term<P> mass_nu(time_static, "LB_mass_nu", {pt_mass_nu}, imex);
+  term<P> mass_nu("LB_mass_nu", {pt_mass_nu}, imex);
 
-  term<P> divv(time_static, "LB_divv", {pt_divv}, imex);
+  term<P> divv("LB_divv", {pt_divv}, imex);
 
   term<P> mass_uf_neg = term<P>(time_depend, "LB_uf_neg", {pt_mass_uf_neg, }, imex);
 
@@ -1100,11 +1154,10 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
 
   term<P> mass_ef(time_depend, "LB_mass_ef", {/* identity, */ pt_mass_ef, }, imex);
 
-  term<P> nu_divv(time_static, "LB_vdiv", {pt_nu_divv,}, imex);
+  term<P> nu_divv("LB_vdiv", {pt_nu_divv,}, imex);
 
-  term<P> const nu_div_grad(time_static, "LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
+  term<P> const nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
-  terms.reserve(terms.size() + 4);
   terms.push_back({mass_nu, divv});
   terms.push_back({mass_uf_neg, nu_divv});
   terms.push_back({mass_ef, nu_div_grad});

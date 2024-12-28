@@ -20,15 +20,17 @@ public:
   {
     this->skip_old_moments = true; // temp-hack
 
-    this->initialize(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-                     terms_, sources_, exact_vector_funcs_, get_dt_,
+    term_set<P> terms;
+    add_lenard_bernstein_collisions_1x1v(nu, terms);
+
+    this->initialize(cli_input, num_dims_, num_sources_, terms.size(), dimensions_,
+                     terms, sources_, exact_vector_funcs_, get_dt_,
                      has_analytic_soln_, moment_funcs<P>{}, do_collision_operator_);
   }
 
 private:
   static int constexpr num_dims_    = 2;
   static int constexpr num_sources_ = 0;
-  static int constexpr num_terms_   = 4;
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = true;
@@ -99,87 +101,6 @@ private:
                    nullptr, "v1");
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
-
-  // Term 3
-  // v\cdot\grad_v f
-  //
-  static P const_nu(P const, P const = 0) { return nu; }
-
-  static P get_v(P const v, P const = 0) { return v; }
-
-  inline static const partial_term<P> pt_mass_nu = partial_term<P>(
-      coefficient_type::mass, const_nu, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static const partial_term<P> pt_divv = partial_term<P>(
-      coefficient_type::div, get_v, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static term<P> const mass_nu =
-      term<P>(false,  // time-dependent
-              "I1_x", // name
-              {pt_mass_nu}, imex_flag::imex_implicit);
-
-  inline static term<P> const divv =
-      term<P>(false,  // time-dependent
-              "I1_v", // name
-              {pt_divv}, imex_flag::imex_implicit);
-
-  // moment components of the collision operator, split into 3 parts
-  // see landau 1x-1v example
-
-  inline static const partial_term<P> pt_mass_uf = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::moments_1by0);
-
-  inline static const partial_term<P> pt_mass_uf_neg = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::moments_1by0_neg);
-
-  inline static const partial_term<P> pt_mass_ef = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::moments_2by0);
-
-  inline static const partial_term<P> pt_vdivf = partial_term<P>(
-      coefficient_type::div, const_nu, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static const partial_term<P> pt_div_up = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static const partial_term<P> pt_nu_grad_down = partial_term<P>(
-      coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static term<P> const mass_uf_neg =
-      term<P>(true,   // time-dependent
-              "I",    // name
-              {pt_mass_uf_neg, }, imex_flag::imex_implicit);
-
-  inline static term<P> const mass_u2_neg =
-      term<P>(true,  // time-dependent
-              "I",   // name
-              {pt_mass_uf, pt_mass_uf_neg}, imex_flag::imex_implicit);
-
-  inline static term<P> const mass_ef =
-      term<P>(true,   // time-dependent
-              "I2_x", // name
-              {/* identity, */ pt_mass_ef, }, imex_flag::imex_implicit);
-
-  inline static term<P> const vdivf =
-      term<P>(false,  // time-dependent
-              "I2_v", // name
-              {pt_vdivf,}, imex_flag::imex_implicit);
-
-  inline static term<P> const nu_div_grad =
-      term<P>(false,  // time-dependent
-              "nu_div_grad", // name
-              {pt_div_up, pt_nu_grad_down}, imex_flag::imex_implicit);
-
-  inline static std::vector<term<P>> const term_dv = {mass_nu, divv};
-  inline static std::vector<term<P>> const term_uf = {mass_uf_neg, vdivf};
-  inline static std::vector<term<P>> const term_t1 = {mass_ef, nu_div_grad};
-  inline static std::vector<term<P>> const term_t2 = {mass_u2_neg, nu_div_grad};
-
-  inline static term_set<P> const terms_ = {term_dv, term_uf, term_t1, term_t2};
 
   static fk::vector<P> exact_dim_x_0(fk::vector<P> const &x, P const t = 0)
   {
