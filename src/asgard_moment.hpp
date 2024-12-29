@@ -15,7 +15,7 @@ static constexpr resource sparse_resrc = resource::host;
  * \brief Holds information about the moments
  *
  * Initializes with a given number of moments over a specified domain,
- * this class can compute the moments and represent them via the non-hierachical
+ * this class can compute the moments and represent them via the non-hierarchical
  * Legendre basis functions.
  * The moments can then be used to construct operators.
  *
@@ -27,13 +27,13 @@ class moments1d {
 public:
   //! empty constructor, no moments
   moments1d() {}
-  //! constructor, prepares the given number of momemnts, for dgree and up to the max_level
+  //! constructor, prepares the given number of moments, for dgree and up to the max_level
   moments1d(int num_mom, int degree, int max_level, std::vector<dimension<P>> const &dims);
 
   /*!
    * \brief Given the solution state and table, compute the moments
    *
-   * The dim0_level is the current level of dimenison zero and will determine
+   * The dim0_level is the current level of dimension zero and will determine
    * the size of moments, but if any indexes are not present in the etable,
    * those will be filled with zeros.
    */
@@ -44,6 +44,7 @@ public:
    * \brief Given the solution state and table, compute only one moment
    *
    * Simpler version of project_moments() that avoids recomputing everything.
+   * Works up to moments with second power.
    */
   void project_moment(int const mom, int const dim0_level, std::vector<P> const &state,
                       elements::table const &etable, std::vector<P> &moment) const;
@@ -79,13 +80,13 @@ protected:
   static vector2d<int> get_cells(int num_dimensions, elements::table const &etable);
 
 private:
-  //! number of momemnts
+  //! number of moments
   int num_mom_ = 0;
   //! number of dimensions
   int num_dims_ = 0;
   //! the degree of the basis
   int degree_ = 0;
-  //! ingeral of the canonical basis, each index holds num_mom_ * (degree_ + 1) entries
+  //! integral of the canonical basis, each index holds num_mom_ * (degree_ + 1) entries
   std::array<vector2d<P>, max_num_dimensions> integ;
 };
 
