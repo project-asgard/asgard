@@ -48,27 +48,15 @@ std::array<P, 2> test_mass_coeff_moments(func_lhs flhs, func_rhs frhs,
     std::copy_n(vrhs.data() + i * pdof, pdof, mom3.data() + 3 * i * pdof + 2 * pdof);
   }
 
+  partial_term<P> const ptermc2(mass_moment_over_density{1});
+  partial_term<P> const ptermc3(mass_moment_over_density{2});
+
   block_diag_matrix<P> comp2, comp3;
-  gen_diag_mom_cmat<P, coefficient_type::mass, 1>(dim, level, 0, 2, mom2, comp2);
-  gen_diag_mom_cmat<P, coefficient_type::mass, 2>(dim, level, 0, 3, mom3, comp3);
+  gen_diag_mom_by_mom0<P, 1>(dim, ptermc2, level, 0, mom2, comp2);
+  gen_diag_mom_by_mom0<P, 1>(dim, ptermc3, level, 0, mom3, comp3);
 
-  block_diag_matrix<P> comp2_div, comp3_div;
-  gen_diag_mom_cmat_div<P, coefficient_type::mass, 1>(dim, level, 0, 2, mom2, comp2_div);
-  gen_diag_mom_cmat_div<P, coefficient_type::mass, 2>(dim, level, 0, 3, mom3, comp3_div);
-
-  // std::cout << " ref \n";
-  // ref.to_full().print(std::cout);
-  // std::cout << " comp2 \n";
-  // comp2.to_full().print(std::cout);
-  // std::cout << " comp3 \n";
-  // comp2_div.to_full().print(std::cout);
-
-  P const err2 = std::max(ref.to_full().max_diff(comp2.to_full()),
-                          ref.to_full().max_diff(comp2_div.to_full()));
-  P const err3 = std::max(ref.to_full().max_diff(comp3.to_full()),
-                          ref.to_full().max_diff(comp3_div.to_full()));
-
-  // std::cout << " err = " << err2 << "  " << err3 << "\n";
+  P const err2 = ref.to_full().max_diff(comp2.to_full());
+  P const err3 = ref.to_full().max_diff(comp3.to_full());
 
   return {err2, err3};
 }

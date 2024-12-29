@@ -62,10 +62,7 @@ enum class pterm_dependence
   none, // nothing special, uses generic g-func
   electric_field, // depends on the electric field
   electric_field_infnrm, // depends on the max abs( electric_field )
-  moments_1by0, // mom1 / mom0
-  moments_1by0_neg, // - mom1 / mom0
-  moments_2by0, // mom2 / mom0
-  moments_2by0_neg, // - mom2 / mom0
+  moment_divided_by_density,
 };
 
 template<coefficient_type>
@@ -121,6 +118,23 @@ struct adaptive_info
 // construction
 //
 // ---------------------------------------------------------------------------
+
+//! indicates mass partial term of moment divided by density (moment 0)
+struct mass_moment_over_density {
+  explicit mass_moment_over_density(int moment_in) : moment(moment_in)
+  {
+    expect(moment > 0);
+  }
+  int moment;
+};
+//! indicates mass partial term of negative moment divided by density (moment 0)
+struct mass_moment_over_density_neg {
+  explicit mass_moment_over_density_neg(int moment_in) : moment(moment_in)
+  {
+    expect(moment > 0);
+  }
+  int moment;
+};
 
 template<typename P>
 class partial_term
@@ -183,16 +197,23 @@ public:
         right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
   {
     expect(depends_ != pterm_dependence::none);
+    expect(depends_ != pterm_dependence::moment_divided_by_density);
     expect(coeff_type_ == coefficient_type::mass); // have not done the others yet
     // if this depends on the electric-filed, there should be a g_func_f
     expect(not (depends_ == pterm_dependence::electric_field and not g_func_f_));
     expect(not (depends_ == pterm_dependence::electric_field_infnrm and not g_func_f_));
-    // gfuncs are not used for the moments_1by0 and moments_2by0
-    expect(not (depends_ == pterm_dependence::moments_1by0 and (g_func_f_ or lhs_mass_func_)));
-    expect(not (depends_ == pterm_dependence::moments_2by0 and (g_func_f_ or lhs_mass_func_)));
-    expect(not (depends_ == pterm_dependence::moments_1by0_neg and (g_func_f_ or lhs_mass_func_)));
-    expect(not (depends_ == pterm_dependence::moments_2by0_neg and (g_func_f_ or lhs_mass_func_)));
   }
+
+  //! indicates mass term with coefficient mom_in.moment / moment0
+  partial_term(mass_moment_over_density mom_in, g_func_type<P> const dv_func_in = nullptr)
+      : depends_(pterm_dependence::moment_divided_by_density), mom(mom_in.moment),
+        dv_func_(dv_func_in)
+  {}
+  //! indicates mass term with coefficient - mom_in.moment / moment0
+  partial_term(mass_moment_over_density_neg mom_in, g_func_type<P> const dv_func_in = nullptr)
+      : depends_(pterm_dependence::moment_divided_by_density), mom(-mom_in.moment),
+        dv_func_(dv_func_in)
+  {}
 
   P get_flux_scale() const { return static_cast<P>(flux_); };
 
@@ -234,10 +255,9 @@ public:
   bool is_identity() const
   {
     switch (depends_) {
-      case pterm_dependence::moments_1by0:
-      case pterm_dependence::moments_1by0_neg:
-      case pterm_dependence::moments_2by0:
-      case pterm_dependence::moments_2by0_neg:
+      case pterm_dependence::electric_field:
+      case pterm_dependence::electric_field_infnrm:
+      case pterm_dependence::moment_divided_by_density:
         return false;
       default:
         return (coeff_type_ == coefficient_type::mass and not g_func_ and not g_func_f_
@@ -260,6 +280,8 @@ public:
 
   homogeneity left_homo() const { return left_homo_; };
   homogeneity right_homo() const { return right_homo_; };
+
+  int mom_index() const { return mom; }
 
   std::vector<vector_func<P>> const &left_bc_funcs() const
   {
@@ -286,7 +308,7 @@ public:
   }
 
 private:
-  coefficient_type coeff_type_;
+  coefficient_type coeff_type_ = coefficient_type::mass;
 
   pterm_dependence depends_ = pterm_dependence::none;
 
@@ -294,17 +316,18 @@ private:
   g_func_f_type<P> g_func_f_;
   g_func_type<P> lhs_mass_func_;
 
+  int mom = 0; // paired with mom-by-density, cannot be zero, sign used too
+
   flux_type flux_;
 
-  boundary_condition left_;
+  boundary_condition left_  = boundary_condition::neumann;
+  boundary_condition right_ = boundary_condition::neumann;
 
-  boundary_condition right_;
+  boundary_condition ileft_  = boundary_condition::neumann;
+  boundary_condition iright_ = boundary_condition::neumann;
 
-  boundary_condition ileft_;
-  boundary_condition iright_;
-
-  homogeneity left_homo_;
-  homogeneity right_homo_;
+  homogeneity left_homo_  = homogeneity::homogeneous;
+  homogeneity right_homo_ = homogeneity::homogeneous;
 
   std::vector<vector_func<P>> left_bc_funcs_;
   std::vector<vector_func<P>> right_bc_funcs_;
@@ -369,6 +392,13 @@ public:
       if (not pt.is_identity())
         return false;
     return true;
+  }
+
+  int max_moment_index() const {
+    int mmax = 0;
+    for (auto const &pt : partial_terms_)
+      mmax = std::max(mmax, std::abs(pt.mom_index()));
+    return mmax;
   }
 
 private:
@@ -843,12 +873,11 @@ public:
     int num_moments = (this->do_poisson_solve()) ? 1 : 0;
     for (auto const &terms_md : terms_) {
       for (auto const &term1d : terms_md) {
-        if (term1d.has_dependence(pterm_dependence::moments_1by0)
-            or term1d.has_dependence(pterm_dependence::moments_1by0_neg))
-          num_moments = std::max(2, num_moments);
-        if (term1d.has_dependence(pterm_dependence::moments_2by0)
-            or term1d.has_dependence(pterm_dependence::moments_2by0_neg))
-          num_moments = std::max(3, num_moments);
+        if (term1d.has_dependence(pterm_dependence::moment_divided_by_density))
+        {
+          int const mom = term1d.max_moment_index();
+          num_moments = std::max(1 + mom / (num_dims_ - 1), num_moments);
+        }
       }
     }
     return num_moments;
@@ -1126,11 +1155,11 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
       coefficient_type::div, get_v, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
-  partial_term<P> pt_mass_uf(coefficient_type::mass, pterm_dependence::moments_1by0);
+  partial_term<P> pt_mass_uf(mass_moment_over_density{1});
 
-  partial_term<P> pt_mass_uf_neg(coefficient_type::mass, pterm_dependence::moments_1by0_neg);
+  partial_term<P> pt_mass_uf_neg(mass_moment_over_density_neg{1});
 
-  partial_term<P> pt_mass_ef(coefficient_type::mass, pterm_dependence::moments_2by0);
+  partial_term<P> pt_mass_ef(mass_moment_over_density{2});
 
   partial_term<P> pt_nu_divv(
       coefficient_type::div, const_nu, nullptr, flux_type::central,
@@ -1154,7 +1183,7 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
 
   term<P> mass_ef(time_depend, "LB_mass_ef", {/* identity, */ pt_mass_ef, }, imex);
 
-  term<P> nu_divv("LB_vdiv", {pt_nu_divv,}, imex);
+  term<P> nu_divv("LB_vdiv", {pt_nu_divv, }, imex);
 
   term<P> const nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
