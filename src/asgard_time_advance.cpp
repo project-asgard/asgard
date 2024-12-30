@@ -106,7 +106,6 @@ fk::vector<P>
 imex_advance(discretization_manager<P> &disc,
              PDE<P> &pde, kron_operators<P> &operator_matrices,
              adapt::distributed_grid<P> const &adaptive_grid,
-             basis::wavelet_transform<P, resource::host> const &transformer,
              fk::vector<P> const &f_0, fk::vector<P> const &x_prev,
              P const time)
 {
@@ -115,29 +114,7 @@ imex_advance(discretization_manager<P> &disc,
 
   auto const &options = pde.options();
 
-  // create 1D version of PDE and element table for wavelet->realspace mappings
-  PDE pde_1d       = PDE(pde, PDE<P>::extract_dim0);
-  int const degree = pde.get_dimensions()[0].get_degree();
-  int const level  = pde.get_dimensions()[0].get_level();
-
-  adapt::distributed_grid adaptive_grid_1d(pde_1d);
-
-  // Create workspace for wavelet transform
-  int const dense_size      = dense_space_size(pde_1d);
-  int const quad_dense_size = dense_dim_size(
-      ASGARD_NUM_QUADRATURE - 1, pde_1d.get_dimensions()[0].get_level());
-  fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
-  std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
-      fk::vector<P, mem_type::view, resource::host>(workspace, 0,
-                                                    quad_dense_size - 1),
-      fk::vector<P, mem_type::view, resource::host>(workspace, quad_dense_size,
-                                                    quad_dense_size * 2 - 1)};
-
-  auto const dt = pde.get_dt();
-  P const min   = pde.get_dimensions()[0].domain_min;
-  P const max   = pde.get_dimensions()[0].domain_max;
-
-  auto nodes = gen_realspace_nodes(degree, level, min, max);
+  P const dt       = pde.get_dt();
 
 #ifdef ASGARD_USE_CUDA
   fk::vector<P, mem_type::owner, imex_resrc> f = f_0.clone_onto_device();
@@ -146,6 +123,8 @@ imex_advance(discretization_manager<P> &disc,
 #else
   fk::vector<P, mem_type::owner, imex_resrc> f          = f_0;
   fk::vector<P, mem_type::owner, imex_resrc> f_orig_dev = f_0;
+
+  int const degree = pde.get_dimensions()[0].get_degree();
 
   auto const &plan       = adaptive_grid.get_distrib_plan();
   auto const &grid       = adaptive_grid.get_subgrid(get_rank());
@@ -197,7 +176,6 @@ imex_advance(discretization_manager<P> &disc,
   if (pde.do_collision_operator())
   {
     tools::timer.start("implicit_1");
-    // calculate_moments(f);
 
 #ifdef ASGARD_USE_CUDA
     disc.compute_moments(f.clone_onto_host().to_std());
@@ -205,8 +183,6 @@ imex_advance(discretization_manager<P> &disc,
     disc.compute_moments(f.to_std());
 #endif
     disc.compute_coefficients(coeff_update_mode::imex_implicit);
-
-    disc.comp_mats();
 
     // f2 now
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
@@ -265,13 +241,8 @@ imex_advance(discretization_manager<P> &disc,
 #else
   disc.do_poisson_update(f_1.to_std());
 #endif
-  // if (pde.do_poisson_solve())
-  // {
-  //   do_poisson_update(f_1);
-  // }
-  disc.compute_coefficients(coeff_update_mode::imex_explicit);
 
-  //disc.comp_mats();
+  disc.compute_coefficients(coeff_update_mode::imex_explicit);
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
@@ -302,9 +273,6 @@ imex_advance(discretization_manager<P> &disc,
   if (pde.do_collision_operator())
   {
     tools::timer.start("implicit_2");
-    // tools::timer.start("implicit_2_mom");
-    // calculate_moments(f);
-    // tools::timer.stop("implicit_2_mom");
 
     // Update coeffs
 #ifdef ASGARD_USE_CUDA
@@ -313,8 +281,6 @@ imex_advance(discretization_manager<P> &disc,
     disc.compute_moments(f.to_std());
 #endif
     disc.compute_coefficients(coeff_update_mode::imex_implicit);
-
-    disc.comp_mats();
 
     tools::timer.start("implicit_2_solve");
     fk::vector<P, mem_type::owner, imex_resrc> f_2(f.size());
@@ -392,7 +358,6 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
   auto &pde  = *manager.pde;
   auto &grid = manager.grid;
 
-  auto &transformer = manager.transformer;
   auto &kronops     = manager.kronops;
 
   auto const method = pde.options().step_method.value();
@@ -417,7 +382,7 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
         case time_advance::method::imp:
           return time_advance::implicit_advance<P>(manager, manager.current_state());
         case time_advance::method::imex:
-          return time_advance::imex_advance<P>(manager, pde, kronops, grid, transformer,
+          return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                manager.current_state(), fk::vector<P>(),
                                                time);
         };
@@ -456,7 +421,7 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
           case time_advance::method::imp:
             return time_advance::implicit_advance<P>(manager, y.to_std());
           case time_advance::method::imex:
-            return time_advance::imex_advance<P>(manager, pde, kronops, grid, transformer,
+            return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                  y, y_first_refine, time);
           default:
             return fk::vector<P>();
