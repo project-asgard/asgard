@@ -505,145 +505,6 @@ void poisson_data<P>::solve(std::vector<P> const &density, P dleft, P dright,
   efield.back() = - (dright - rhs.back()) / dx;
 }
 
-template<typename P>
-void setup_poisson(const int N_elements, P const x_min, P const x_max,
-                   fk::vector<P> &diag, fk::vector<P> &off_diag)
-{
-  // no need to solve on one element
-  if (N_elements == 1)
-  {
-    return;
-  }
-  // sets up and factorizes the matrix to use in the poisson solver
-  const P dx = (x_max - x_min) / static_cast<P>(N_elements);
-
-  const int N_nodes = N_elements - 1;
-
-  diag.resize(N_nodes);
-  off_diag.resize(N_nodes - 1);
-
-  for (int i = 0; i < N_nodes; ++i)
-  {
-    diag[i] = 2.0 / dx;
-  }
-
-  for (int i = 0; i < N_nodes - 1; ++i)
-  {
-    off_diag[i] = -1.0 / dx;
-  }
-
-  fm::pttrf(diag, off_diag);
-}
-
-template<typename P>
-void poisson_solver(fk::vector<P> const &source, fk::vector<P> const &A_D,
-                    fk::vector<P> const &A_E, fk::vector<P> &phi,
-                    fk::vector<P> &E, int const degree, int const N_elements,
-                    P const x_min, P const x_max, P const phi_min,
-                    P const phi_max, poisson_bc const bc)
-{
-  tools::time_event psolve_("poisson_solver");
-  // Solving: - phi_xx = source Using Linear Finite Elements
-  // Boundary Conditions: phi(x_min)=phi_min and phi(x_max)=phi_max
-  // Returns phi and E = - Phi_x in Gauss-Legendre Nodes
-
-  P const dx = (x_max - x_min) / static_cast<P>(N_elements);
-
-  int const pdof = degree + 1;
-
-  auto const lgwt =
-      legendre_weights<P>(pdof, -1.0, 1.0, quadrature_mode::use_degree);
-
-  // If only one element, skip poisson solve and solve via BCs
-  if (N_elements == 1)
-  {
-    for (int k = 0; k < pdof + 1; k++)
-    {
-      P const x_k = x_min + 0.5 * dx * (1.0 + lgwt[0][k]);
-      phi[k]      = ((phi_max - phi_min) / (x_max - x_min)) * (x_k - x_min) + x_min;
-      E[k]        = -(phi_max - phi_min) / (x_max - x_min);
-    }
-    return;
-  }
-
-  int N_nodes = N_elements - 1;
-
-  // Average the Source Vector (if Periodic) //
-  double ave_source = 0.0;
-  if (bc == poisson_bc::periodic)
-  {
-    for (int i = 0; i < N_elements; i++)
-    {
-      for (int q = 0; q < pdof + 1; q++)
-      {
-        ave_source += 0.5 * dx * lgwt[1][q] * source[i * (pdof + 1) + q];
-      }
-    }
-    ave_source /= (x_max - x_min);
-  }
-
-  // Set the Source Vector //
-  fk::vector<P> b(N_nodes);
-  for (int i = 0; i < N_nodes; i++)
-  {
-    b[i] = 0.0;
-    for (int q = 0; q < pdof + 1; q++)
-    {
-      b[i] += 0.25 * dx * lgwt[1][q] *
-              (source[(i) * (pdof + 1) + q] * (1.0 + lgwt[0][q]) +
-               source[(i + 1) * (pdof + 1) + q] * (1.0 - lgwt[0][q]) -
-               2.0 * ave_source);
-    }
-  }
-
-  // Linear Solve //
-  fm::pttrs(A_D, A_E, b);
-
-  // Set Potential and Electric Field in DG Nodes //
-  P const dg = (phi_max - phi_min) / (x_max - x_min);
-
-  // First Element //
-  for (int k = 0; k < pdof + 1; k++)
-  {
-    P const x_k = x_min + 0.5 * dx * (1.0 + lgwt[0][k]);
-    P const g_k = phi_min + dg * (x_k - x_min);
-
-    phi[k] = 0.5 * b[0] * (1.0 + lgwt[0][k]) + g_k;
-
-    E[k] = -b[0] / dx - dg;
-  }
-
-  // Interior Elements //
-  for (int i = 1; i < N_elements - 1; i++)
-  {
-    for (int q = 0; q < pdof + 1; q++)
-    {
-      int const k = i * (pdof + 1) + q;
-      P const x_k = (x_min + i * dx) + 0.5 * dx * (1.0 + lgwt[0][q]);
-      P const g_k = phi_min + dg * (x_k - x_min);
-
-      phi[k] =
-          0.5 * (b[i - 1] * (1.0 - lgwt[0][q]) + b[i] * (1.0 + lgwt[0][q])) +
-          g_k;
-
-      E[k] = -(b[i] - b[i - 1]) / dx - dg;
-    }
-  }
-
-  // Last Element //
-  int const i = N_elements - 1;
-  for (int q = 0; q < pdof + 1; q++)
-  {
-    int const k = i * (pdof + 1) + q;
-    P const x_k = (x_min + i * dx) + 0.5 * dx * (1.0 + lgwt[0][q]);
-    P const g_k = phi_min + dg * (x_k - x_min);
-
-    phi[k] = 0.5 * b[i - 1] * (1.0 - lgwt[0][q]) + g_k;
-
-    E[k] = b[i - 1] / dx - dg;
-  }
-}
-
 #ifdef ASGARD_ENABLE_DOUBLE
 
 template gmres_info<double>
@@ -685,17 +546,6 @@ bicgstab_euler(const double dt, imex_flag imex,
 #endif
 
 template int default_gmres_restarts<double>(int num_cols);
-
-template void setup_poisson(const int N_elements, double const x_min,
-                            double const x_max, fk::vector<double> &diag,
-                            fk::vector<double> &off_diag);
-
-template void
-poisson_solver(fk::vector<double> const &source, fk::vector<double> const &A_D,
-               fk::vector<double> const &A_E, fk::vector<double> &phi,
-               fk::vector<double> &E, int const degree, int const N_elements,
-               double const x_min, double const x_max, double const phi_min,
-               double const phi_max, poisson_bc const bc);
 
 template void poisson_data<double>::solve(
     std::vector<double> const &, double, double, poisson_bc const, std::vector<double> &);
@@ -744,17 +594,6 @@ bicgstab_euler(const float dt, imex_flag imex,
 #endif
 
 template int default_gmres_restarts<float>(int num_cols);
-
-template void setup_poisson(const int N_elements, float const x_min,
-                            float const x_max, fk::vector<float> &diag,
-                            fk::vector<float> &off_diag);
-
-template void
-poisson_solver(fk::vector<float> const &source, fk::vector<float> const &A_D,
-               fk::vector<float> const &A_E, fk::vector<float> &phi,
-               fk::vector<float> &E, int const degree, int const N_elements,
-               float const x_min, float const x_max, float const phi_min,
-               float const phi_max, poisson_bc const bc);
 
 template void poisson_data<float>::solve(
     std::vector<float> const &, float, float, poisson_bc const, std::vector<float> &);

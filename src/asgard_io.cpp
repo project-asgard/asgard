@@ -86,11 +86,6 @@ void write_output(PDE<P> const &pde, // std::vector<moment<P>> const &moments,
           "state", HighFive::DataSpace({static_cast<size_t>(vec.size())}), plist)
       .write_raw(vec.data());
 
-  // save E field
-  H5Easy::dump(file, "Efield", pde.E_field.to_std(), opts);
-  H5Easy::dump(file, "Esource", pde.E_source.to_std(), opts);
-  H5Easy::dump(file, "phi", pde.phi.to_std(), opts);
-
   // save gmres error and iteration counts
   for (size_t i = 0; i < pde.gmres_outputs.size(); ++i)
   {
@@ -189,10 +184,6 @@ restart_data<P> read_output(PDE<P> &pde, std::string const &restart_file)
 
   fk::vector<P> solution =
       fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("state")));
-
-  // load E field
-  pde.E_field = std::move(
-      fk::vector<P>(H5Easy::load<std::vector<P>>(file, std::string("Efield"))));
 
   for (int dim = 0; dim < pde.num_dims(); ++dim)
   {

@@ -927,10 +927,7 @@ public:
         ilist_(std::move(ilist)), dsort_(std::move(dsort)), perms_(std::move(perms)),
         flux_dir_(std::move(flux_dir)), conn_volumes_(conn_volumes),
         conn_full_(conn_full), workspace_(workspace), verb(verb_in)
-  {
-    for (auto &f : flops_)
-      f = -1;
-  }
+  {}
 
   /*!
    * \brief Does the matrix vector product and appends into y
@@ -1022,7 +1019,7 @@ private:
 
   mutable kronmult::block_global_workspace<precision> *workspace_ = nullptr;
 
-  mutable std::array<int64_t, num_imex_variants> flops_;
+  mutable std::array<int64_t, num_imex_variants> flops_ = {{-1}};
 
   verbosity_level verb = verbosity_level::quiet;
 };
