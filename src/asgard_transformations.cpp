@@ -8,12 +8,14 @@
 
 namespace asgard
 {
+// combine components and create the portion of the multi-d vector associated
+// with the provided start and stop element bounds (inclusive)
 template<typename P>
-void combine_dimensions(int const degree, elements::table const &table,
-                        int const start_element, int const stop_element,
-                        std::vector<fk::vector<P>> const &vectors,
-                        P const time_scale,
-                        fk::vector<P, mem_type::view> result)
+std::vector<P>
+combine_dimensions(int const degree, elements::table const &table,
+                   int const start_element, int const stop_element,
+                   std::vector<std::vector<P>> const &vectors,
+                   P const time_scale)
 {
   int const num_dims = static_cast<int>(vectors.size());
   expect(num_dims > 0);
@@ -21,17 +23,15 @@ void combine_dimensions(int const degree, elements::table const &table,
   expect(stop_element >= start_element);
   expect(stop_element < table.size());
 
+  int64_t const vector_size =
+      (stop_element - start_element + 1) * fm::ipow(degree + 1, vectors.size());
+
+  std::vector<P> combined(vector_size);
+
   int const pdof        = degree + 1;
   int64_t const mdblock = fm::ipow(pdof, num_dims);
 
-  int64_t const vector_size = (stop_element - start_element + 1) * mdblock;
-
-  // FIXME here we want to catch the 64-bit solution vector problem
-  // and halt execution if we spill over. there is an open issue for this
-  expect(vector_size < INT_MAX);
-  expect(result.size() == vector_size);
-
-  P *r = result.data();
+  P *r = combined.data();
   for (int cell = start_element; cell <= stop_element; cell++)
   {
     fk::vector<int> const coords = table.get_coords(cell);
@@ -54,24 +54,6 @@ void combine_dimensions(int const degree, elements::table const &table,
 
     r += mdblock;
   }
-}
-
-// combine components and create the portion of the multi-d vector associated
-// with the provided start and stop element bounds (inclusive)
-template<typename P>
-fk::vector<P>
-combine_dimensions(int const degree, elements::table const &table,
-                   int const start_element, int const stop_element,
-                   std::vector<fk::vector<P>> const &vectors,
-                   P const time_scale)
-{
-  int64_t const vector_size =
-      (stop_element - start_element + 1) * fm::ipow(degree + 1, vectors.size());
-
-  fk::vector<P> combined(vector_size);
-
-  combine_dimensions(degree, table, start_element, stop_element, vectors,
-                     time_scale, fk::vector<P, mem_type::view>(combined));
 
   return combined;
 }
@@ -994,13 +976,9 @@ template void hierarchy_manipulator<double>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<1>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<-1>(int, int) const;
 
-template fk::vector<double>
+template std::vector<double>
 combine_dimensions(int const, elements::table const &, int const, int const,
-                   std::vector<fk::vector<double>> const &, double const = 1.0);
-template void
-combine_dimensions<double>(int const, elements::table const &, int const,
-                           int const, std::vector<fk::vector<double>> const &,
-                           double const, fk::vector<double, mem_type::view>);
+                   std::vector<std::vector<double>> const &, double const = 1.0);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1015,13 +993,9 @@ template void hierarchy_manipulator<float>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<float>::projectlevels<1>(int, int) const;
 template void hierarchy_manipulator<float>::projectlevels<-1>(int, int) const;
 
-template fk::vector<float>
+template std::vector<float>
 combine_dimensions(int const, elements::table const &, int const, int const,
-                   std::vector<fk::vector<float>> const &, float const = 1.0);
-template void
-combine_dimensions<float>(int const, elements::table const &, int const,
-                          int const, std::vector<fk::vector<float>> const &,
-                          float const, fk::vector<float, mem_type::view>);
+                   std::vector<std::vector<float>> const &, float const = 1.0);
 #endif
 
 } // namespace asgard

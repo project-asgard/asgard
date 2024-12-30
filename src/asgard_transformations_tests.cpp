@@ -23,13 +23,13 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
 
   elements::table const t(pde);
 
-  std::vector<fk::vector<P>> vectors;
+  std::vector<std::vector<P>> vectors;
   P counter = 1.0;
   for (int i = 0; i < pde.num_dims(); ++i)
   {
     int const vect_size         = dims * fm::ipow2(lev);
-    fk::vector<P> const vect_1d = [&counter, vect_size] {
-      fk::vector<P> vect(vect_size);
+    std::vector<P> const vect_1d = [&counter, vect_size] {
+      std::vector<P> vect(vect_size);
       std::iota(vect.begin(), vect.end(), static_cast<P>(counter));
       counter += vect.size();
       return vect;
@@ -49,10 +49,11 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
         (grid.row_stop + 1) * fm::ipow(degree + 1, dims) - 1;
     fk::vector<P, mem_type::const_view> const gold_partial(gold, rank_start,
                                                            rank_stop);
-    fk::vector<P> const test_partial = combine_dimensions(
+    std::vector<P> const test_partial = combine_dimensions(
         degree, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, time);
-    REQUIRE(test_partial == gold_partial);
-    test.set_subvector(rank_start, test_partial);
+    fk::vector<P> fk_test_partial(test_partial);
+    REQUIRE(fk_test_partial == gold_partial);
+    test.set_subvector(rank_start, fk_test_partial);
   }
   REQUIRE(test == gold);
 }

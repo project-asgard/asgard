@@ -7,9 +7,9 @@ namespace asgard
 // overload - get only the elements of the combined vector that fall within a
 // specified range
 template<typename P>
-fk::vector<P>
+std::vector<P>
 combine_dimensions(int const, elements::table const &, int const, int const,
-                   std::vector<fk::vector<P>> const &, P const = 1.0);
+                   std::vector<std::vector<P>> const &, P const = 1.0);
 
 /*!
  * \internal

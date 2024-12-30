@@ -412,3 +412,32 @@ void gemm_pairt(P const a0[], P const t0[], P const a1[], P const t1[], P R[])
 }
 
 } // namespace asgard::smmat
+
+// put some fast-math overloads here that work with std::vector
+// this allows for larger vectors as to avoid issues with 32-bit BLAS
+// but this uses only OpenMP vectorization
+// thus implement only for BLAS level 1 (and only what we need and use)
+namespace asgard::fm
+{
+// y += x
+template<typename P>
+void axpy(std::vector<P> const &x, std::vector<P> &y)
+{
+  expect(x.size() == y.size());
+  int64_t n = static_cast<int64_t>(x.size());
+  ASGARD_OMP_SIMD
+  for (int64_t i = 0; i < n; i++)
+    y[i] += x[i];
+}
+// y += alpha * x
+template<typename P>
+void axpy(P const alpha, std::vector<P> const &x, std::vector<P> &y)
+{
+  expect(x.size() == y.size());
+  int64_t n = static_cast<int64_t>(x.size());
+  ASGARD_OMP_SIMD
+  for (int64_t i = 0; i < n; i++)
+    y[i] += alpha * x[i];
+}
+
+}

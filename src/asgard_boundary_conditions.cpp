@@ -1,5 +1,7 @@
 #include "asgard_boundary_conditions.hpp"
 
+#include "asgard_small_mats.hpp"
+
 /*
 
 outputs: left_bc_parts and right_bc_parts
@@ -15,21 +17,21 @@ namespace asgard::boundary_conditions
 {
 
 template<typename P>
-std::vector<fk::vector<P>> generate_partial_bcs(
+std::vector<std::vector<P>> generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs,
     hierarchy_manipulator<P> const &hier, coefficient_matrices<P> &cmats,
     connection_patterns const &conn,
     P const time, std::vector<term<P>> const &term_md,
     std::vector<partial_term<P>> const &,
-    int const t_index, int const p_index, fk::vector<P> &&trace_bc)
+    int const t_index, int const p_index, std::vector<P> &&trace_bc)
 {
   expect(d_index < static_cast<int>(dimensions.size()));
 
   int const num_dims = static_cast<int>(dimensions.size());
   int const degree   = dimensions.front().get_degree();
 
-  std::vector<fk::vector<P>> partial_bc_vecs;
+  std::vector<std::vector<P>> partial_bc_vecs;
 
   for (int d : indexof<int>(num_dims))
   {
@@ -130,8 +132,8 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
   {
     std::vector<term<P>> const &term_md = terms_vec_vec[t];
 
-    std::vector<std::vector<fk::vector<P>>> left_dim_pvecs;
-    std::vector<std::vector<fk::vector<P>>> right_dim_pvecs;
+    std::vector<std::vector<std::vector<P>>> left_dim_pvecs;
+    std::vector<std::vector<std::vector<P>>> right_dim_pvecs;
 
     for (int d : indexof<int>(num_dims))
     {
@@ -139,8 +141,8 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
 
       term<P> const &term = term_md[d];
 
-      std::vector<fk::vector<P>> left_pvecs;
-      std::vector<fk::vector<P>> right_pvecs;
+      std::vector<std::vector<P>> left_pvecs;
+      std::vector<std::vector<P>> right_pvecs;
 
       std::vector<partial_term<P>> const &pterms = term.get_partial_terms();
       for (int pt : indexof<int>(pterms.size()))
@@ -149,15 +151,15 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
 
         if (pterm.left_homo() == homogeneity::inhomogeneous)
         {
-          fk::vector<P> trace_bc = compute_left_boundary_condition(
+          std::vector<P> trace_bc = compute_left_boundary_condition(
               pterm.g_func(), pterm.dv_func(), t_init, dim,
               pterm.left_bc_funcs()[d]);
 
-          std::vector<fk::vector<P>> p_term_left_bcs = generate_partial_bcs(
+          std::vector<std::vector<P>> p_term_left_bcs = generate_partial_bcs(
               dimensions, d, pterm.left_bc_funcs(), hier, cmats,
               conn, t_init, term_md, pterms, t, pt, std::move(trace_bc));
 
-          fk::vector<P> combined =
+          std::vector<P> combined =
               combine_dimensions(degree, table, start_element,
                                  stop_element, p_term_left_bcs);
 
@@ -166,15 +168,15 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
 
         if (pterm.right_homo() == homogeneity::inhomogeneous)
         {
-          fk::vector<P> trace_bc = compute_right_boundary_condition(
+          std::vector<P> trace_bc = compute_right_boundary_condition(
               pterm.g_func(), pterm.dv_func(), t_init, dim,
               pterm.right_bc_funcs()[d]);
 
-          std::vector<fk::vector<P>> p_term_right_bcs = generate_partial_bcs(
+          std::vector<std::vector<P>> p_term_right_bcs = generate_partial_bcs(
               dimensions, d, pterm.right_bc_funcs(), hier, cmats,
               conn, t_init, term_md, pterms, t, pt, std::move(trace_bc));
 
-          fk::vector<P> combined =
+          std::vector<P> combined =
               combine_dimensions(degree, table, start_element,
                                  stop_element, p_term_right_bcs);
 
@@ -194,12 +196,12 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
 }
 
 template<typename P>
-fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
-                                 unscaled_bc_parts<P> const &right_bc_parts,
-                                 PDE<P> const &pde, int const start_element,
-                                 int const stop_element, P const time)
+std::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
+                                  unscaled_bc_parts<P> const &right_bc_parts,
+                                  PDE<P> const &pde, int const start_element,
+                                  int const stop_element, P const time)
 {
-  fk::vector<P> bc(
+  std::vector<P> bc(
       (stop_element - start_element + 1) *
       fm::ipow(pde.get_dimensions()[0].get_degree() + 1, pde.num_dims()));
 
@@ -226,15 +228,13 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
 
         if (p_term.left_homo() == homogeneity::inhomogeneous)
         {
-          fm::axpy(left_bc_parts[term_num][dim_num][left_index++], bc,
-                   p_term.left_bc_time_func() ? p_term.left_bc_time_func()(time)
-                                              : time);
+          fm::axpy(p_term.left_bc_time_func() ? p_term.left_bc_time_func()(time) : time,
+                   left_bc_parts[term_num][dim_num][left_index++], bc);
         }
         if (p_term.right_homo() == homogeneity::inhomogeneous)
         {
-          fm::axpy(right_bc_parts[term_num][dim_num][right_index++], bc,
-                   p_term.right_bc_time_func() ? p_term.right_bc_time_func()(time)
-                                               : time);
+          fm::axpy(p_term.right_bc_time_func() ? p_term.right_bc_time_func()(time) : time,
+                   right_bc_parts[term_num][dim_num][right_index++], bc);
         }
       }
     }
@@ -244,7 +244,7 @@ fk::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
 }
 
 template<typename P>
-fk::vector<P>
+std::vector<P>
 compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
                                 P const time, dimension<P> const &dim,
                                 vector_func<P> const bc_func)
@@ -295,11 +295,11 @@ compute_left_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   destination_slice = fk::vector<P>(legendre_polys_at_value);
 
-  return bc;
+  return bc.to_std();
 }
 
 template<typename P>
-fk::vector<P>
+std::vector<P>
 compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
                                  P const time, dimension<P> const &dim,
                                  vector_func<P> const bc_func)
@@ -349,7 +349,7 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
   destination_slice = fk::vector<P>(legendre_polys_at_value);
 
-  return bc;
+  return bc.to_std();
 }
 
 /* explicit instantiations */
@@ -359,15 +359,15 @@ template std::array<unscaled_bc_parts<double>, 2> make_unscaled_bc_parts(
     hierarchy_manipulator<double> const &hier, coefficient_matrices<double> &cmats,
     connection_patterns const &,
     int const start_element, int const stop_element, double const t_init = 0);
-template fk::vector<double> boundary_conditions::generate_scaled_bc(
+template std::vector<double> boundary_conditions::generate_scaled_bc(
     unscaled_bc_parts<double> const &left_bc_parts,
     unscaled_bc_parts<double> const &right_bc_parts, PDE<double> const &pde,
     int const start_element, int const stop_element, double const time);
-template fk::vector<double>
+template std::vector<double>
 boundary_conditions::compute_left_boundary_condition(
     g_func_type<double> g_func, g_func_type<double> dv_func, double const time,
     dimension<double> const &dim, vector_func<double> const bc_func);
-template fk::vector<double>
+template std::vector<double>
 boundary_conditions::compute_right_boundary_condition(
     g_func_type<double> g_func, g_func_type<double> dv_func, double const time,
     dimension<double> const &dim, vector_func<double> const bc_func);
@@ -380,14 +380,14 @@ boundary_conditions::make_unscaled_bc_parts(
     hierarchy_manipulator<float> const &hier, coefficient_matrices<float> &cmats,
     connection_patterns const &,
     int const start_element, int const stop_element, float const t_init = 0);
-template fk::vector<float> boundary_conditions::generate_scaled_bc(
+template std::vector<float> boundary_conditions::generate_scaled_bc(
     unscaled_bc_parts<float> const &left_bc_parts,
     unscaled_bc_parts<float> const &right_bc_parts, PDE<float> const &pde,
     int const start_element, int const stop_element, float const time);
-template fk::vector<float> boundary_conditions::compute_left_boundary_condition(
+template std::vector<float> boundary_conditions::compute_left_boundary_condition(
     g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
     dimension<float> const &dim, vector_func<float> const bc_func);
-template fk::vector<float>
+template std::vector<float>
 boundary_conditions::compute_right_boundary_condition(
     g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
     dimension<float> const &dim, vector_func<float> const bc_func);
