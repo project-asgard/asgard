@@ -27,7 +27,7 @@ class PDE_continuity_1d : public PDE<P>
 {
 public:
   PDE_continuity_1d(prog_opts const &cli_input)
-      : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
+      : PDE<P>(cli_input, num_dims_, num_sources_, dimensions_,
                terms_, sources_, exact_vector_funcs_, get_dt_, has_analytic_soln_)
   {}
 
@@ -37,7 +37,6 @@ private:
 
   static int constexpr num_dims_           = 1;
   static int constexpr num_sources_        = 2;
-  static int constexpr num_terms_          = 1;
   static bool constexpr has_analytic_soln_ = true;
 
   //

@@ -343,10 +343,9 @@ public:
     term_set<P> terms = std::vector<std::vector<term<P>>>{
       std::vector<term<P>>{tc, }, std::vector<term<P>>{tp, }, std::vector<term<P>>{td, }};
 
-    this->initialize(prog_opts(), 1, 0, 3,
+    this->initialize(prog_opts(), 1, 0,
                      {dim, }, terms, std::vector<source<P>>{},
-                     std::vector<md_func_type<P>>{{}}, get_dt_, false,
-                     moment_funcs<P>{}, false);
+                     std::vector<md_func_type<P>>{{}}, get_dt_, false, false);
   }
   static P get_dt_(dimension<P> const &) { return 1.0; }
 };

@@ -47,9 +47,9 @@ public:
 
     terms.push_back({termI, term_pen});
 
-    this->initialize(cli_input, num_dims_, num_sources_, terms.size(), dimensions_,
+    this->initialize(cli_input, num_dims_, num_sources_, dimensions_,
                      terms, sources_, exact_vector_funcs_,
-                     get_dt_, has_analytic_soln_, moment_funcs<P>{}, do_collision_operator_);
+                     get_dt_, has_analytic_soln_, do_collision_operator_);
   }
 
 private:

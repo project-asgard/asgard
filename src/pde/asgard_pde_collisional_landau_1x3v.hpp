@@ -21,9 +21,9 @@ public:
     term_set<P> terms = {terms_ex_1, terms_ex_2, terms_ex_3, terms_ex_4};
     add_lenard_bernstein_collisions_1x3v(nu, terms);
 
-    this->initialize(cli_input, num_dims_, num_sources_, terms.size(), dimensions_,
+    this->initialize(cli_input, num_dims_, num_sources_, dimensions_,
                      terms, sources_, exact_vector_funcs_,
-                     get_dt_, has_analytic_soln_, moment_funcs<P>{}, do_collision_operator_);
+                     get_dt_, has_analytic_soln_, do_collision_operator_);
   }
 
 private:

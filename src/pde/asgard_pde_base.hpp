@@ -530,8 +530,8 @@ using term_set = std::vector<std::vector<term<P>>>;
 template<typename P>
 using dt_func = std::function<P(dimension<P> const &dim)>;
 
-template<typename P>
-using moment_funcs = std::vector<std::vector<md_func_type<P>>>;
+// template<typename P>
+// using moment_funcs = std::vector<std::vector<md_func_type<P>>>;
 
 template<typename P>
 class PDE
@@ -542,75 +542,67 @@ public:
 
   PDE() {}
   PDE(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
-      int const max_num_terms, std::vector<dimension<P>> const dimensions,
+      std::vector<dimension<P>> const dimensions,
       term_set<P> const terms, std::vector<source<P>> const sources_in,
       std::vector<vector_func<P>> const exact_vector_funcs_in,
       dt_func<P> const get_dt,
       bool const has_analytic_soln_in     = false,
-      moment_funcs<P> const moments_in    = {},
       bool const do_collision_operator_in = true)
-      : PDE(cli_input, num_dims_in, num_sources_in, max_num_terms, dimensions,
-            terms, sources_in,
+      : PDE(cli_input, num_dims_in, num_sources_in, dimensions, terms, sources_in,
             std::vector<md_func_type<P>>({exact_vector_funcs_in}),
-            get_dt, has_analytic_soln_in,
-            moments_in, do_collision_operator_in)
+            get_dt, has_analytic_soln_in, do_collision_operator_in)
   {}
   PDE(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
-      int const max_num_terms, std::vector<dimension<P>> dimensions,
+      std::vector<dimension<P>> dimensions,
       term_set<P> terms, std::vector<source<P>> sources_in,
       std::vector<md_func_type<P>> exact_vector_funcs_in,
       dt_func<P> get_dt,
       bool const has_analytic_soln_in     = false,
-      moment_funcs<P> moments_in          = {},
       bool const do_collision_operator_in = true)
   {
     initialize(cli_input, num_dims_in, num_sources_in,
-      max_num_terms, std::move(dimensions), std::move(terms), std::move(sources_in),
+      std::move(dimensions), std::move(terms), std::move(sources_in),
       std::move(exact_vector_funcs_in),
       std::move(get_dt),
       has_analytic_soln_in,
-      std::move(moments_in),
       do_collision_operator_in);
   }
 
   void initialize(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
-      int const max_num_terms, std::vector<dimension<P>> const &dimensions,
+      std::vector<dimension<P>> const &dimensions,
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<vector_func<P>> const &exact_vector_funcs_in,
       dt_func<P> const &get_dt,
       bool const has_analytic_soln_in     = false,
-      moment_funcs<P> const &moments_in   = {},
       bool const do_collision_operator_in = true)
   {
-    this->initialize(cli_input, num_dims_in, num_sources_in, max_num_terms, dimensions,
+    this->initialize(cli_input, num_dims_in, num_sources_in, dimensions,
                      terms, sources_in, std::vector<md_func_type<P>>({exact_vector_funcs_in}),
-                     get_dt, has_analytic_soln_in, moments_in,
+                     get_dt, has_analytic_soln_in,
                      do_collision_operator_in);
   }
   void initialize(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
-      int const max_num_terms, std::vector<dimension<P>> const &dimensions,
+      std::vector<dimension<P>> const &dimensions,
       term_set<P> const &terms, std::vector<source<P>> const &sources_in,
       std::vector<md_func_type<P>> const &exact_vector_funcs_in,
       dt_func<P> const &get_dt,
       bool const has_analytic_soln_in     = false,
-      moment_funcs<P> const &moments_in   = {},
       bool const do_collision_operator_in = true)
   {
-    this->initialize(cli_input, num_dims_in, num_sources_in, max_num_terms,
+    this->initialize(cli_input, num_dims_in, num_sources_in,
                      std::vector<dimension<P>>(dimensions), term_set<P>(terms),
                      std::vector<source<P>>(sources_in),
                      std::vector<md_func_type<P>>(exact_vector_funcs_in),
-                     dt_func<P>(get_dt), has_analytic_soln_in, moment_funcs<P>(moments_in),
+                     dt_func<P>(get_dt), has_analytic_soln_in,
                      do_collision_operator_in);
   }
 
   void initialize(prog_opts const &cli_input, int const num_dims_in, int const num_sources_in,
-      int const max_num_terms, std::vector<dimension<P>> &&dimensions,
+      std::vector<dimension<P>> &&dimensions,
       term_set<P> &&terms, std::vector<source<P>> &&sources_in,
       std::vector<md_func_type<P>> &&exact_vector_funcs_in,
       dt_func<P> &&get_dt,
       bool const has_analytic_soln_in     = false,
-      moment_funcs<P> &&moments_in        = {},
       bool const do_collision_operator_in = true)
   {
     static_assert(std::is_same_v<P, float> or std::is_same_v<P, double>,
@@ -628,16 +620,16 @@ public:
 
     num_dims_    = num_dims_in;
     num_sources_ = num_sources_in;
-    num_terms_   = max_num_terms;
 
     sources_            = std::move(sources_in);
     exact_vector_funcs_ = std::move(exact_vector_funcs_in);
-    initial_moments     = std::move(moments_in);
 
     do_collision_operator_ = do_collision_operator_in;
     has_analytic_soln_     = has_analytic_soln_in;
     dimensions_            = std::move(dimensions);
     terms_                 = std::move(terms);
+
+    num_terms_ = static_cast<int>(terms_.size());
 
     // sanity check and load sane defaults when appropriate
     expect(num_dims_ > 0 and num_dims_ <= max_num_dimensions);
@@ -645,7 +637,6 @@ public:
     expect(num_terms_ > 0 or (num_terms_ == 0 and has_interp()));
 
     expect(dimensions_.size() == static_cast<unsigned>(num_dims_));
-    expect(terms_.size() == static_cast<unsigned>(max_num_terms));
     expect(sources_.size() == static_cast<unsigned>(num_sources_));
 
     // ensure analytic solution functions were provided if this flag is set
@@ -777,17 +768,6 @@ public:
       options_.step_method = time_advance::method::exp;
     }
 
-    // check the moments
-    for (auto const &m : initial_moments)
-    {
-      // each moment should have ndim + 1 functions
-      for (auto md_func : m)
-        expect(md_func.size() == static_cast<unsigned>(num_dims_) + 1);
-    }
-
-    // rassert(not (use_imex_ and initial_moments.empty()),
-    //        "incorrect pde/time-step pair, the imex method requires moments");
-
     gmres_outputs.resize(use_imex_ ? 2 : 1);
 
     expect(not (!!interp_nox_ and !!interp_x_));
@@ -820,9 +800,8 @@ public:
   // TODO: there is likely a better way to do this. Another option is to flatten
   // element table to 1D (see hash_table_2D_to_1D.m)
   PDE(const PDE &pde, int)
-      : initial_moments(pde.initial_moments), options_(pde.options_),
-        num_dims_(1), num_sources_(pde.sources_.size()),
-        num_terms_(pde.get_terms().size()), max_level_(pde.max_level_),
+      : options_(pde.options_), num_dims_(1), num_sources_(pde.sources_.size()),
+        max_level_(pde.max_level_),
         sources_(pde.sources_), exact_vector_funcs_(pde.exact_vector_funcs_),
         do_collision_operator_(pde.do_collision_operator()),
         has_analytic_soln_(pde.has_analytic_soln()),
@@ -870,7 +849,6 @@ public:
   }
 
   bool skip_old_moments = false; // TODO: remove this once all PDEs have transitioned
-  moment_funcs<P> initial_moments;
 
   bool do_poisson_solve() const { // TODO: rename to poisson dependence
     for (auto const &terms_md : terms_)

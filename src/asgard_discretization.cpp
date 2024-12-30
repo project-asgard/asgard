@@ -110,21 +110,21 @@ discretization_manager<precision>::discretization_manager(
   if (high_verbosity())
     node_out() << "  generating: moment vectors..." << '\n';
 
-  if (not pde->initial_moments.empty())
-  {
-    moments.reserve(pde->initial_moments.size());
-    for (auto &minit : pde->initial_moments)
-      moments.emplace_back(minit);
-
-    for (auto &m : moments)
-    {
-      m.createFlist(*pde);
-      expect(m.get_fList().size() > 0);
-
-      m.createMomentVector(*pde, grid.get_table());
-      expect(m.get_vector().size() > 0);
-    }
-  }
+  // if (not pde->initial_moments.empty())
+  // {
+  //   moments.reserve(pde->initial_moments.size());
+  //   for (auto &minit : pde->initial_moments)
+  //     moments.emplace_back(minit);
+  //
+  //   for (auto &m : moments)
+  //   {
+  //     m.createFlist(*pde);
+  //     expect(m.get_fList().size() > 0);
+  //
+  //     m.createMomentVector(*pde, grid.get_table());
+  //     expect(m.get_vector().size() > 0);
+  //   }
+  // }
 
   if (options.step_method.value() == time_advance::method::imex)
     reset_moments();

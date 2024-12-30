@@ -109,7 +109,7 @@ public:
     // this is done at the end of the constructor
     this->initialize(
         cli_input, // allows modifications, e.g., override mesh level
-        num_dimensions, num_sources, num_terms,  // for sanity-check purposes
+        num_dimensions, num_sources,  // for sanity-check purposes
         std::vector<dimension>{dim0, dim1}, // domain
         terms, sources, exact_solution, get_dt, has_analytic_solution);
   }

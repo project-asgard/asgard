@@ -22,9 +22,9 @@ public:
 
     add_lenard_bernstein_collisions_1x1v(nu, terms);
 
-    this->initialize(cli_input, num_dims_, num_sources_, terms.size(), dimensions_,
+    this->initialize(cli_input, num_dims_, num_sources_, dimensions_,
                      terms, sources_, exact_vector_funcs_,
-                     get_dt_, has_analytic_soln_, moment_funcs<P>{}, true);
+                     get_dt_, has_analytic_soln_, do_collision_operator_);
   }
 
 private:
@@ -32,6 +32,8 @@ private:
   static int constexpr num_sources_        = 0;
   static bool constexpr has_analytic_soln_ = false;
   static int constexpr default_degree      = 3;
+
+  static bool constexpr do_collision_operator_ = true;
 
   static P constexpr nu = 1e3;
 

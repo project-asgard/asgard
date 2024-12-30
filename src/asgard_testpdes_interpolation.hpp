@@ -13,7 +13,6 @@ public:
           int levels = -1, int degree = -1, std::vector<dimension<P>> dims = {})
   {
     int constexpr num_sources       = 0;
-    int constexpr num_terms         = 1;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = false;
@@ -52,10 +51,10 @@ public:
     term_set<P> terms
         = std::vector<std::vector<term<P>>>{std::vector<term<P>>(num_dims, fterm)};
 
-    this->initialize(options, num_dims, num_sources, num_terms,
+    this->initialize(options, num_dims, num_sources,
                      dims, terms, std::vector<source<P>>{},
                      std::vector<md_func_type<P>>{{}},
-                     get_dt_, has_analytic_soln, moment_funcs<P>{},
+                     get_dt_, has_analytic_soln,
                      do_collision_operator);
   }
 
@@ -115,7 +114,6 @@ public:
   {
     int constexpr num_dims    = 1;
     int constexpr num_sources = 0;
-    int constexpr num_terms   = (interp_mode) ? 0 : 1;
     // disable implicit steps in IMEX
     bool constexpr do_collision_operator = false;
     bool constexpr has_analytic_soln     = true;
@@ -139,14 +137,13 @@ public:
     else
       terms = std::vector<std::vector<term<P>>>{std::vector<term<P>>{fterm,}};
 
-    this->initialize(options, num_dims, num_sources, num_terms,
+    this->initialize(options, num_dims, num_sources,
                      std::vector<dimension<P>>{
                          dimension<P>(0.0, 1.0, 4, default_degree,
                                       component_x, nullptr, "x")},
                      terms, std::vector<source<P>>{},
                      std::vector<md_func_type<P>>{{component_x, component_t}},
-                     get_dt_, has_analytic_soln, moment_funcs<P>{},
-                     do_collision_operator);
+                     get_dt_, has_analytic_soln, do_collision_operator);
   }
 
 private:
@@ -200,7 +197,6 @@ public:
   {
     int constexpr num_dimensions = 2;
     int constexpr num_sources    = 0;
-    int constexpr num_terms      = 2;
 
     bool constexpr time_independent = false;
 
@@ -258,7 +254,7 @@ public:
       };
 
     this->initialize(
-        options, num_dimensions, num_sources, num_terms,
+        options, num_dimensions, num_sources,
         domain, terms, sources, {exact_solution}, get_dt, has_analytic_solution);
   }
 
@@ -324,7 +320,6 @@ public:
   {
     int constexpr num_dimensions = 2;
     int constexpr num_sources    = 0;
-    int constexpr num_terms      = 1;
 
     bool constexpr time_independent = false;
 
@@ -392,7 +387,7 @@ public:
       };
 
     this->initialize(
-        options, num_dimensions, num_sources, num_terms,
+        options, num_dimensions, num_sources,
         domain, terms, sources, {exact_solution}, get_dt, has_analytic_solution);
   }
 

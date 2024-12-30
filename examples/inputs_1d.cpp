@@ -37,7 +37,6 @@ public:
     // these fields check correctness of the specification
     int constexpr num_dimensions = 1;
     int constexpr num_sources    = 2;
-    int constexpr num_terms      = 1;
 
     // flagging terms as time_independent (using the false value)
     // improves speed by keeping some constant matrices across time-steps
@@ -89,7 +88,7 @@ public:
     // this is done at the end of the constructor
     this->initialize(
         cli_input, // allows modifications, e.g., override mesh level
-        num_dimensions, num_sources, num_terms,  // for sanity-check purposes
+        num_dimensions, num_sources,  // for sanity-check purposes
         std::vector<dimension>{dim0, }, // domain
         terms, sources, exact_solution, get_dt, has_analytic_solution);
   }
