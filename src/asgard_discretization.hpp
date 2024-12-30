@@ -221,9 +221,10 @@ public:
       int const level = pde->get_dimensions().front().get_level();
       moms1d->project_moments(level, f, grid.get_table(), matrices.edata.moments);
       int const num_cells = fm::ipow2(level);
-      int const num_moms  = moms1d->num_mom();
+      int const num_outs  = moms1d->num_comp_mom();
+      std::cout << " recomputing moments " << moms1d->num_mom() << "\n";
       hier.reconstruct1d(
-          num_moms, level, span2d<precision>((degree_ + 1), num_moms * num_cells,
+          num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
                                              matrices.edata.moments.data()));
     }
   }
@@ -255,6 +256,18 @@ public:
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
   void comp_mats() const { // two stream, compare matrices
+    // int it = 0;
+    // for (auto const &m : matrices.term_coeffs)
+    //   if (m.nnz() > 0) {
+    //     std::cout << "  ------------  " << ++it << "\n";
+    //     m.to_full(conn).print(std::cout);
+    //   }
+    return;
+
+    for (int i = 0; i < 18; i++)
+      std::cout << " i = " << i << "   err = " <<
+      matrices.term_coeffs[i].to_full(conn).max_diff(matrices.term_coeffs[i + 18].to_full(conn)) << "\n";
+
     return;
     // reference check for operator construction, helps find problems
     auto ref = matrices.term_coeffs[8].to_full(conn);

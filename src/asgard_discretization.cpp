@@ -82,14 +82,15 @@ discretization_manager<precision>::discretization_manager(
 
   matrices.edata.num_moments = pde->required_moments();
   if (matrices.edata.num_moments > 0) {
+    node_out() << "  setting up for " << matrices.edata.num_moments << " moments ..." << '\n';
     moms1d = moments1d<precision>(matrices.edata.num_moments, degree_,
                                   pde->max_level(), pde->get_dimensions());
     int const level = pde->get_dimensions().front().get_level();
     moms1d->project_moments(level, state, grid.get_table(), matrices.edata.moments);
     int const num_cells = fm::ipow2(level);
-    int const num_moms  = matrices.edata.num_moments;
+    int const num_outs  = moms1d->num_comp_mom();
     hier.reconstruct1d(
-        num_moms, level, span2d<precision>((degree_ + 1), num_moms * num_cells,
+        num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
                                             matrices.edata.moments.data()));
   }
 

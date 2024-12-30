@@ -195,6 +195,8 @@ imex_advance(discretization_manager<P> &disc,
       [&](fk::vector<P, mem_type::owner, imex_resrc> const &f_in) {
         if (pde.skip_old_moments)
           return;
+
+        std::cout << " SETTING MOMENTS\n";
         // \int f dv
         fk::vector<P, mem_type::owner, imex_resrc> mom0(dense_size);
         fm::sparse_gemv(moments[0].get_moment_matrix_dev(), f_in, mom0);
@@ -236,6 +238,10 @@ imex_advance(discretization_manager<P> &disc,
           // u_y = \int_v f v_y dv / n
           param_manager.get_parameter("u2")->value = [&](P const x_v,
                                                          P const t = 0) -> P {
+
+            // std::cout << " old u2 = " << interp1(nodes, mom2_real, {x_v})[0] / param_manager.get_parameter("n")->value(x_v, t)
+            //           << "   "  << interp1(nodes, mom2_real, {x_v})[0] << "  " << param_manager.get_parameter("n")->value(x_v, t) << "\n";
+
             return interp1(nodes, mom2_real, {x_v})[0] /
                    param_manager.get_parameter("n")->value(x_v, t);
           };
@@ -352,7 +358,7 @@ imex_advance(discretization_manager<P> &disc,
   }
   disc.compute_coefficients(coeff_update_mode::imex_explicit);
 
-  //disc.comp_mats();
+  disc.comp_mats();
 
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);

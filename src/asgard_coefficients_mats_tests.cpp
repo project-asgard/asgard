@@ -51,9 +51,11 @@ std::array<P, 2> test_mass_coeff_moments(func_lhs flhs, func_rhs frhs,
   partial_term<P> const ptermc2(mass_moment_over_density{1});
   partial_term<P> const ptermc3(mass_moment_over_density{2});
 
+  constexpr pterm_dependence dep = pterm_dependence::moment_divided_by_density;
+
   block_diag_matrix<P> comp2, comp3;
-  gen_diag_mom_by_mom0<P, 1>(dim, ptermc2, level, 0, mom2, comp2);
-  gen_diag_mom_by_mom0<P, 1>(dim, ptermc3, level, 0, mom3, comp3);
+  gen_diag_mom_by_mom0<P, 1, dep>(dim, ptermc2, level, 0, mom2, comp2);
+  gen_diag_mom_by_mom0<P, 1, dep>(dim, ptermc3, level, 0, mom3, comp3);
 
   P const err2 = ref.to_full().max_diff(comp2.to_full());
   P const err3 = ref.to_full().max_diff(comp3.to_full());

@@ -49,8 +49,11 @@ public:
   void project_moment(int const mom, int const dim0_level, std::vector<P> const &state,
                       elements::table const &etable, std::vector<P> &moment) const;
 
-  //! \brief Returns the number of loaded moments
+  //! \brief Returns the number of loaded moments, based on the power of v
   int num_mom() const { return num_mom_; }
+
+  //! \brief Returns the number of loaded moments, based on the dimension and power
+  int num_comp_mom() const { return 1 + (num_mom_ - 1) * (num_dims_ - 1); }
 
 protected:
   /*!

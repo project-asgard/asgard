@@ -62,7 +62,10 @@ enum class pterm_dependence
   none, // nothing special, uses generic g-func
   electric_field, // depends on the electric field
   electric_field_infnrm, // depends on the max abs( electric_field )
-  moment_divided_by_density,
+  moment_divided_by_density, // moment divided by moment 0
+  lenard_bernstein_diff_theta_1x1v,
+  lenard_bernstein_diff_theta_1x2v,
+  lenard_bernstein_diff_theta_1x3v,
 };
 
 template<coefficient_type>
@@ -200,9 +203,21 @@ public:
     expect(depends_ != pterm_dependence::moment_divided_by_density);
     expect(coeff_type_ == coefficient_type::mass); // have not done the others yet
     // if this depends on the electric-filed, there should be a g_func_f
-    expect(not (depends_ == pterm_dependence::electric_field and not g_func_f_));
-    expect(not (depends_ == pterm_dependence::electric_field_infnrm and not g_func_f_));
+    expect(not (depends_ == pterm_dependence::electric_field and !g_func_f_));
+    expect(not (depends_ == pterm_dependence::electric_field_infnrm and !g_func_f_));
+    // if this depends on Lenard Bernstein collision, cannot have g funcs
+    if (depends_ == pterm_dependence::lenard_bernstein_diff_theta_1x1v
+        or depends_ == pterm_dependence::lenard_bernstein_diff_theta_1x2v
+        or depends_ == pterm_dependence::lenard_bernstein_diff_theta_1x3v) {
+      expect(!g_func_ and !g_func_f_);
+    }
   }
+
+  //! pterm_dependence that assumes a mass coefficient type
+  partial_term(pterm_dependence const depends_in,
+               g_func_f_type<P> const g_func_f_in = nullptr)
+    : partial_term(coefficient_type::mass, depends_in, g_func_f_in)
+  {}
 
   //! indicates mass term with coefficient mom_in.moment / moment0
   partial_term(mass_moment_over_density mom_in, g_func_type<P> const dv_func_in = nullptr)
@@ -254,15 +269,11 @@ public:
 
   bool is_identity() const
   {
-    switch (depends_) {
-      case pterm_dependence::electric_field:
-      case pterm_dependence::electric_field_infnrm:
-      case pterm_dependence::moment_divided_by_density:
-        return false;
-      default:
-        return (coeff_type_ == coefficient_type::mass and not g_func_ and not g_func_f_
-                and not lhs_mass_func_ and not dv_func_);
-    }
+    if (depends_ != pterm_dependence::none)
+      return false;
+
+    return (coeff_type_ == coefficient_type::mass and not g_func_ and not g_func_f_
+            and not lhs_mass_func_ and not dv_func_);
   }
 
   g_func_type<P> const &g_func() const { return g_func_; }
@@ -303,6 +314,11 @@ public:
   }
 
   g_func_type<P> const &dv_func() const
+  {
+    return dv_func_;
+  }
+  //! can be used to set the dv_func() without a messy constructor
+  g_func_type<P> &dv_func()
   {
     return dv_func_;
   }
@@ -878,6 +894,12 @@ public:
           int const mom = term1d.max_moment_index();
           num_moments = std::max(1 + mom / (num_dims_ - 1), num_moments);
         }
+        else if (term1d.has_dependence(pterm_dependence::lenard_bernstein_diff_theta_1x1v)
+                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_diff_theta_1x2v)
+                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_diff_theta_1x3v))
+        {
+          num_moments = std::max(3, num_moments);
+        }
       }
     }
     return num_moments;
@@ -1143,23 +1165,14 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
 
   imex_flag constexpr imex = imex_flag::imex_implicit;
 
-  // moment components of the collision operator, split into 4 parts
+  // moment components of the collision operator, split into 3 parts
   // (nu, div_v v) -> (mass_nu, divv)
   // (-u_f, nu * div_v) -> (pt_mass_uf_neg, nu_divv)
-  // (-mom2/mom0, nu * div * grad) -> (pt_mass_ef, {pt_div_up, pt_nu_grad_down})
-  // (-u_f^2, nu * div * grad) -> ({pt_mass_uf, pt_mass_uf_neg}, {pt_div_up, pt_nu_grad_down})
+  // (mom2/mom0 - u_f^2, nu * div * grad) -> (pt_mass_ef, {pt_div_up, pt_nu_grad_down})
 
-  partial_term<P> pt_mass_nu = partial_term<P>(coefficient_type::mass, const_nu);
-
-  partial_term<P> pt_divv = partial_term<P>(
+  partial_term<P> pt_divv(
       coefficient_type::div, get_v, nullptr, flux_type::upwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  partial_term<P> pt_mass_uf(mass_moment_over_density{1});
-
-  partial_term<P> pt_mass_uf_neg(mass_moment_over_density_neg{1});
-
-  partial_term<P> pt_mass_ef(mass_moment_over_density{2});
 
   partial_term<P> pt_nu_divv(
       coefficient_type::div, const_nu, nullptr, flux_type::central,
@@ -1173,25 +1186,77 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
       coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
-  term<P> mass_nu("LB_mass_nu", {pt_mass_nu}, imex);
+  term<P> mass_nu("LB_mass_nu", partial_term<P>(coefficient_type::mass, const_nu), imex);
 
   term<P> divv("LB_divv", {pt_divv}, imex);
 
-  term<P> mass_uf_neg = term<P>(time_depend, "LB_uf_neg", {pt_mass_uf_neg, }, imex);
-
-  term<P> mass_u2_neg(time_depend, "LB_u2_neg", {pt_mass_uf, pt_mass_uf_neg}, imex);
-
-  term<P> mass_ef(time_depend, "LB_mass_ef", {/* identity, */ pt_mass_ef, }, imex);
+  term<P> mass_uf_neg(time_depend, "LB_uf_neg",
+                      partial_term<P>(mass_moment_over_density_neg{1}), imex);
 
   term<P> nu_divv("LB_vdiv", {pt_nu_divv, }, imex);
 
-  term<P> const nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
+  term<P> mass_theta(time_depend, "LB_mass_theta",
+                     partial_term<P>(pterm_dependence::lenard_bernstein_diff_theta_1x1v), imex);
+
+  term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
   terms.push_back({mass_nu, divv});
   terms.push_back({mass_uf_neg, nu_divv});
-  terms.push_back({mass_ef, nu_div_grad});
-  terms.push_back({mass_u2_neg, nu_div_grad});
+  terms.push_back({mass_theta, nu_div_grad});
 }
 
+//! adds the LB collision operator to the term set
+template<typename P>
+inline void add_lenard_bernstein_collisions_1x2v(P const nu, term_set<P> &terms)
+{
+  std::function<P(P const, P const)> const_nu = [nnu = nu](P const, P const = 0)->P{ return nnu; };
+  std::function<P(P const, P const)> get_v = [](P const v, P const = 0)->P{ return v; };
+  std::function<P(P const, P const)> get_nuv = [nnu = nu](P const v, P const = 0)->P{ return nnu * v; };
+
+  bool constexpr time_depend = true;
+
+  imex_flag constexpr imex = imex_flag::imex_implicit;
+
+  term<P> I("I", partial_term<P>(coefficient_type::mass), imex);
+
+  partial_term<P> pt_nu_div_vv(
+      coefficient_type::div, get_nuv, nullptr, flux_type::upwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  term<P> nu_div_vv("LB_nu_div_vv", pt_nu_div_vv, imex);
+
+
+  partial_term<P> pt_nu_div_v(
+      coefficient_type::div, const_nu, nullptr, flux_type::central,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  term<P> mass_u1(time_depend, "LB_u1", partial_term<P>(mass_moment_over_density_neg{1}), imex);
+  term<P> mass_u2(time_depend, "LB_u2", partial_term<P>(mass_moment_over_density_neg{2}), imex);
+
+  term<P> nu_div_v("LB_nu_div_v", pt_nu_div_v, imex);
+
+
+  partial_term<P> pt_div_up(
+      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  partial_term<P> pt_nu_grad_down(
+      coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
+      boundary_condition::dirichlet, boundary_condition::dirichlet);
+
+  term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
+
+  term<P> mass_theta(time_depend, "LB_mass_theta",
+                     partial_term<P>(pterm_dependence::lenard_bernstein_diff_theta_1x2v), imex);
+
+  terms.push_back({I, nu_div_vv, I});
+  terms.push_back({I, I, nu_div_vv});
+
+  terms.push_back({mass_u1, nu_div_v, I});
+  terms.push_back({mass_u2, I, nu_div_v});
+
+  terms.push_back({mass_theta, nu_div_grad, I});
+  terms.push_back({mass_theta, I, nu_div_grad});
+}
 
 } // namespace asgard

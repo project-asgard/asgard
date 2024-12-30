@@ -114,8 +114,8 @@ void col_scal(int const &nr, int const &nc, P alpha, P const x[], P A[])
 template<typename P>
 void gemv1(int const &nr, int const &nc, P const A[], P const x[], P y[])
 {
+  ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int i = 0; i < nc; i++)
-    ASGARD_OMP_SIMD
     for (int j = 0; j < nr; j++)
       y[j] += A[i * nr + j] * x[i];
 }

@@ -40,11 +40,25 @@ void gen_mass_matrix(
   // we can also handle cases of dependence on external data
   switch(pterm.depends())
   {
+    case pterm_dependence::lenard_bernstein_diff_theta_1x1v:
+      gen_diag_mom_by_mom0<P, 1, pterm_dependence::lenard_bernstein_diff_theta_1x1v>(
+          dim, pterm, level, time, edata.moments, coefficients);
+      break;
+    case pterm_dependence::lenard_bernstein_diff_theta_1x2v:
+      gen_diag_mom_by_mom0<P, 1, pterm_dependence::lenard_bernstein_diff_theta_1x2v>(
+          dim, pterm, level, time, edata.moments, coefficients);
+      break;
+    case pterm_dependence::lenard_bernstein_diff_theta_1x3v:
+      gen_diag_mom_by_mom0<P, 1, pterm_dependence::lenard_bernstein_diff_theta_1x3v>(
+          dim, pterm, level, time, edata.moments, coefficients);
+      break;
     case pterm_dependence::moment_divided_by_density:
       if (pterm.mom_index() > 0) {
-        gen_diag_mom_by_mom0<P, 1>(dim, pterm, level, time, edata.moments, coefficients);
+        gen_diag_mom_by_mom0<P, 1, pterm_dependence::moment_divided_by_density>(
+            dim, pterm, level, time, edata.moments, coefficients);
       } else {
-        gen_diag_mom_by_mom0<P, -1>(dim, pterm, level, time, edata.moments, coefficients);
+        gen_diag_mom_by_mom0<P, -1, pterm_dependence::moment_divided_by_density>(
+            dim, pterm, level, time, edata.moments, coefficients);
       }
       break;
     case pterm_dependence::electric_field:

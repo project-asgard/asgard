@@ -161,6 +161,7 @@ void moments1d<P>::project_moments(
       }
       break;
     case 3:
+      std::cout << " generating = " << mom_outs << "  mom = " << num_mom_ << "\n";
       work.resize(pdof * pdof);
       for (int64_t i = 0; i < ncells; i++)
       {
