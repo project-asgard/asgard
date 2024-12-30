@@ -26,8 +26,6 @@ void test_boundary_condition_vector(std::string const &opts_str,
   auto const &pde = disc.get_pde();
   elements::table const table(pde);
 
-  basis::wavelet_transform<P, resource::host> const &transformer = disc.get_transformer();
-
   /* initialize bc vector at test_time */
   P const test_time = 0;
 
@@ -36,7 +34,7 @@ void test_boundary_condition_vector(std::string const &opts_str,
 
   std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
       boundary_conditions::make_unscaled_bc_parts(
-          pde, table, transformer, disc.get_hiermanip(), disc.get_cmatrices(),
+          pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
           disc.get_conn(), start_element, stop_element);
 
   fk::vector<P> bc_advanced = boundary_conditions::generate_scaled_bc(
@@ -142,8 +140,6 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
 
     elements::table const table(pde);
 
-    basis::wavelet_transform<TestType, resource::host> const &transformer = disc.get_transformer();
-
     // initialize bc vector at test_time
     TestType const test_time = 5;
     int const start_element  = 0;
@@ -151,7 +147,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
 
     std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_1 =
         boundary_conditions::make_unscaled_bc_parts(
-            pde, table, transformer, disc.get_hiermanip(), disc.get_cmatrices(),
+            pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
             disc.get_conn(), start_element, stop_element, test_time);
 
     fk::vector<TestType> const bc_advanced_1 =
@@ -161,7 +157,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
 
     std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_0 =
         boundary_conditions::make_unscaled_bc_parts(
-            pde, table, transformer, disc.get_hiermanip(), disc.get_cmatrices(),
+            pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
             disc.get_conn(), start_element, stop_element);
 
     fk::vector<TestType> const bc_advanced_0 =
@@ -183,8 +179,6 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
 
     elements::table const table(pde);
 
-    basis::wavelet_transform<TestType, resource::host> const &transformer = disc.get_transformer();
-
     /* initialize bc vector at test_time */
     TestType const test_time = 0;
 
@@ -193,7 +187,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
 
     std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_0 =
         boundary_conditions::make_unscaled_bc_parts(
-            pde, table, transformer, disc.get_hiermanip(), disc.get_cmatrices(),
+            pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
             disc.get_conn(), start_element_0, stop_element_0, test_time);
 
     fk::vector<TestType> const bc_init =
@@ -207,7 +201,7 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
     {
       std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts =
           boundary_conditions::make_unscaled_bc_parts(
-              pde, table, transformer, disc.get_hiermanip(), disc.get_cmatrices(),
+              pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
               disc.get_conn(), table_element, table_element);
 
       fk::vector<TestType> const bc_advanced =

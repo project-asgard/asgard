@@ -198,8 +198,6 @@ public:
   adapt::distributed_grid<precision> const &get_grid() const { return grid; }
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
-  //! return the transformer
-  auto const &get_transformer() const { return transformer; }
   //! return the hierarchy_manipulator
   auto const &get_hiermanip() const { return hier; }
   //! return the fixed boundary conditions
@@ -254,35 +252,6 @@ public:
                                       int64_t num_steps);
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
-  void comp_mats() const { // two stream, compare matrices
-    // int it = 0;
-    // for (auto const &m : matrices.term_coeffs)
-    //   if (m.nnz() > 0) {
-    //     std::cout << "  ------------  " << ++it << "\n";
-    //     m.to_full(conn).print(std::cout);
-    //   }
-    return;
-
-    std::cout << " all terms = " << matrices.term_coeffs.size() << "\n";
-    if (matrices.term_coeffs.size() != 42)
-      return;
-    for (int i = 0; i < 18; i++)
-      std::cout << " i = " << i << "   err = " <<
-      matrices.term_coeffs[6 + i].to_full(conn).max_diff(matrices.term_coeffs[6 + i + 18].to_full(conn)) << "\n";
-
-    return;
-    // reference check for operator construction, helps find problems
-    auto ref = matrices.term_coeffs[8].to_full(conn);
-    auto com = matrices.term_coeffs[10].to_full(conn);
-    // precision err = std::max(err, ref.max_diff(com));
-
-    std::cout << "  -- ref -- \n";
-    ref.print(std::cout);
-    std::cout << "  -- comp -- \n";
-    com.print(std::cout);
-    std::cout << "  -- ---- -- \n";
-  }
-
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! convenient check if we are using high verbosity level
@@ -307,7 +276,7 @@ protected:
 
     auto const my_subgrid = grid.get_subgrid(get_rank());
     fixed_bc = boundary_conditions::make_unscaled_bc_parts(
-        *pde, grid.get_table(), transformer, hier, matrices,
+        *pde, grid.get_table(), hier, matrices,
         conn, my_subgrid.row_start, my_subgrid.row_stop);
     if (op_matrix)
       op_matrix.reset();
@@ -322,7 +291,6 @@ private:
 
   connection_patterns conn;
 
-  basis::wavelet_transform<precision, resource::host> transformer;
   hierarchy_manipulator<precision> hier; // new transformer
 
   // easy access variables, avoids jumping into pde->options()

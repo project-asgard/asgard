@@ -18,7 +18,6 @@ template<typename P>
 std::vector<fk::vector<P>> generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
     std::vector<vector_func<P>> const &bc_funcs,
-    basis::wavelet_transform<P, resource::host> const &,
     hierarchy_manipulator<P> const &hier, coefficient_matrices<P> &cmats,
     connection_patterns const &conn,
     P const time, std::vector<term<P>> const &term_md,
@@ -106,7 +105,6 @@ std::vector<fk::vector<P>> generate_partial_bcs(
 template<typename P>
 std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
     PDE<P> const &pde, elements::table const &table,
-    basis::wavelet_transform<P, resource::host> const &transformer,
     hierarchy_manipulator<P> const &hier, coefficient_matrices<P> &cmats,
     connection_patterns const &conn,
     int const start_element, int const stop_element, P const t_init)
@@ -156,7 +154,7 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
               pterm.left_bc_funcs()[d]);
 
           std::vector<fk::vector<P>> p_term_left_bcs = generate_partial_bcs(
-              dimensions, d, pterm.left_bc_funcs(), transformer, hier, cmats,
+              dimensions, d, pterm.left_bc_funcs(), hier, cmats,
               conn, t_init, term_md, pterms, t, pt, std::move(trace_bc));
 
           fk::vector<P> combined =
@@ -173,7 +171,7 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
               pterm.right_bc_funcs()[d]);
 
           std::vector<fk::vector<P>> p_term_right_bcs = generate_partial_bcs(
-              dimensions, d, pterm.right_bc_funcs(), transformer, hier, cmats,
+              dimensions, d, pterm.right_bc_funcs(), hier, cmats,
               conn, t_init, term_md, pterms, t, pt, std::move(trace_bc));
 
           fk::vector<P> combined =
@@ -358,7 +356,6 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 #ifdef ASGARD_ENABLE_DOUBLE
 template std::array<unscaled_bc_parts<double>, 2> make_unscaled_bc_parts(
     PDE<double> const &pde, elements::table const &table,
-    basis::wavelet_transform<double, resource::host> const &transformer,
     hierarchy_manipulator<double> const &hier, coefficient_matrices<double> &cmats,
     connection_patterns const &,
     int const start_element, int const stop_element, double const t_init = 0);
@@ -380,7 +377,6 @@ boundary_conditions::compute_right_boundary_condition(
 template std::array<unscaled_bc_parts<float>, 2>
 boundary_conditions::make_unscaled_bc_parts(
     PDE<float> const &pde, elements::table const &table,
-    basis::wavelet_transform<float, resource::host> const &transformer,
     hierarchy_manipulator<float> const &hier, coefficient_matrices<float> &cmats,
     connection_patterns const &,
     int const start_element, int const stop_element, float const t_init = 0);

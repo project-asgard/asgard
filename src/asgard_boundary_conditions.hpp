@@ -13,7 +13,6 @@ using unscaled_bc_parts =
 template<typename P>
 std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
     PDE<P> const &pde, elements::table const &table,
-    basis::wavelet_transform<P, resource::host> const &transformer,
     hierarchy_manipulator<P> const &hier, coefficient_matrices<P> &cmats,
     connection_patterns const &conns,
     int const start_element, int const stop_element, P const t_init = 0);

@@ -7,7 +7,7 @@ template<typename precision>
 discretization_manager<precision>::discretization_manager(
     std::unique_ptr<PDE<precision>> &&pde_in, verbosity_level verbosity)
     : verb(verbosity), pde(std::move(pde_in)), grid(*pde), conn(pde->max_level()),
-      transformer(*pde, verb), degree_(0), dt_(0), time_(0), time_step_(0),
+      degree_(0), dt_(0), time_(0), time_step_(0),
       final_time_step_(0), matrices(*pde), kronops(&conn, verbosity)
 {
   rassert(!!pde, "invalid pde object");
@@ -99,11 +99,9 @@ discretization_manager<precision>::discretization_manager(
 
   this->compute_coefficients();
 
-  comp_mats();
-
   auto const msg = grid.get_subgrid(get_rank());
   fixed_bc = boundary_conditions::make_unscaled_bc_parts(
-        *pde, grid.get_table(), transformer, hier, matrices, conn, msg.row_start, msg.row_stop);
+        *pde, grid.get_table(), hier, matrices, conn, msg.row_start, msg.row_stop);
 
 #ifdef KRON_MODE_GLOBAL
   // the imex-flag is not used internally
