@@ -75,7 +75,17 @@ public:
   discretization_manager(std::unique_ptr<PDE<precision>> &&pde_in,
                          verbosity_level vebosity = verbosity_level::quiet);
 
-  discretization_manager(discretization_manager &&) = default;
+  /*!
+   * \brief Preventing relocation
+   *
+   * Different components of the manager can hold aliases (pointer and refs)
+   * to other components, e.g., components shared between multiple other components
+   * such as scratch workspaces or common pde options.
+   * Relocating the manager can break all of those references, thus we explicitly
+   * forbid such operations.
+   * If "move" operations are needed, wrap the manger in a unique_ptr.
+   */
+  discretization_manager(discretization_manager &&) = delete;
 
   //! total degrees of freedom for the problem
   int64_t degrees_of_freedom() const
