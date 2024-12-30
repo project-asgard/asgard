@@ -15,17 +15,15 @@ class PDE_collisional_landau_1x2v : public PDE<P>
 {
 public:
   PDE_collisional_landau_1x2v(prog_opts const &cli_input)
-      : PDE<P>(cli_input, num_dims_, num_sources_, num_terms_, dimensions_,
-               terms_, sources_, exact_vector_funcs_,
-               get_dt_, has_analytic_soln_, moments_, do_collision_operator_)
   {
-    param_manager.add_parameter(parameter<P>{"n", n});
-    param_manager.add_parameter(parameter<P>{"u", u});
-    param_manager.add_parameter(parameter<P>{"u2", u2});
-    param_manager.add_parameter(parameter<P>{"theta", theta});
-    param_manager.add_parameter(parameter<P>{"E", E});
-    param_manager.add_parameter(parameter<P>{"S", S});
-    param_manager.add_parameter(parameter<P>{"MaxAbsE", MaxAbsE});
+    this->skip_old_moments = true; // temp-hack
+
+    term_set<P> terms = {terms_ex_1, terms_ex_2, terms_ex_3, terms_ex_4};
+    add_lenard_bernstein_collisions_1x2v(nu, terms);
+
+    this->initialize(cli_input, num_dims_, num_sources_, terms.size(), dimensions_,
+                     terms, sources_, exact_vector_funcs_,
+                     get_dt_, has_analytic_soln_, moment_funcs<P>{}, do_collision_operator_);
   }
 
 private:
@@ -80,91 +78,6 @@ private:
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1,
                                                                dim_2};
-
-  /* Define the moments */
-  static fk::vector<P> moment0_f1(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-
-    fk::vector<P> f(x.size());
-    std::fill(f.begin(), f.end(), 1.0);
-    return f;
-  }
-
-  static fk::vector<P> moment1_f1(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-    return fk::vector<P>(x);
-  }
-
-  static fk::vector<P> moment2_f1(fk::vector<P> const &x, P const t = 0)
-  {
-    ignore(t);
-
-    fk::vector<P> f(x.size());
-    std::transform(x.begin(), x.end(), f.begin(),
-                   [](P const &x_v) -> P { return std::pow(x_v, 2); });
-    return f;
-  }
-
-  inline static moment_funcs<P> const moments_ = {
-      {{moment0_f1, moment0_f1, moment0_f1, moment0_f1}},
-      {{moment0_f1, moment1_f1, moment0_f1, moment0_f1}},
-      {{moment0_f1, moment0_f1, moment1_f1, moment0_f1}},
-      {{moment0_f1, moment2_f1, moment0_f1, moment0_f1}},
-      {{moment0_f1, moment0_f1, moment2_f1, moment0_f1}}};
-
-  /* Construct (n, u, theta) */
-  static P n(P const &x, P const t = 0)
-  {
-    ignore(t);
-    return (1.0 + A * std::cos(0.5 * x));
-  }
-
-  static P u(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
-  }
-
-  static P u2(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
-  }
-
-  static P theta(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 1.0;
-  }
-
-  // E = -d_x phi
-  static P E(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
-  }
-
-  static P S(P const &y, P const t = 0)
-  {
-    ignore(t);
-    // subtracts quadrature values by one
-    return y - 1.0;
-  }
-
-  static P MaxAbsE(P const &x, P const t = 0)
-  {
-    ignore(t);
-    ignore(x);
-    return 0.0;
-  }
-
-  /* build the terms */
 
   // ###############################
   // #### Explicit Terms ###########
@@ -316,165 +229,6 @@ private:
 
   inline static std::vector<term<P>> const terms_ex_4 = {Emass_neg, div_v_up,
                                                          I_ex};
-
-  // ###############################
-  // #### Implicit Terms ###########
-  // ###############################
-
-  // Constant Implicit Identity term
-
-  inline static const partial_term<P> I_pterm = partial_term<P>(
-      coefficient_type::mass, nullptr, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static term<P> const I_im =
-      term<P>(false, // time-dependent
-              "I",   // name
-              {I_pterm}, imex_flag::imex_implicit);
-
-  // Implcit Term 1
-  // div_{v_x} v_x f
-  //
-
-  static P nu_v_func(P const x, P const time = 0)
-  {
-    ignore(time);
-    return nu * x;
-  }
-
-  inline static const partial_term<P> nu_v_pterm = partial_term<P>(
-      coefficient_type::div, nu_v_func, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static term<P> const nu_v_term =
-      term<P>(false,  // time-dependent
-              "I1_v", // name
-              {nu_v_pterm}, imex_flag::imex_implicit);
-
-  inline static std::vector<term<P>> const terms_im_1 = {
-      I_im,
-      nu_v_term,
-      I_im,
-  };
-
-  // Implicit Term 2
-  // d_{v_x} -u_x f
-  //
-
-  static P nu_ux_func(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("u");
-    expect(param != nullptr);
-    return -nu * param->value(x, time);
-  }
-
-  inline static const partial_term<P> nu_ux_pterm = partial_term<P>(
-      coefficient_type::mass, nu_ux_func, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static const partial_term<P> dv_pterm = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static term<P> const nu_ux_term =
-      term<P>(false,  // time-dependent
-              "I2_x", // name
-              {nu_ux_pterm}, imex_flag::imex_implicit);
-
-  inline static term<P> const dv_term =
-      term<P>(false,  // time-dependent
-              "I2_v", // name
-              {dv_pterm}, imex_flag::imex_implicit);
-
-  inline static std::vector<term<P>> const terms_im_2 = {nu_ux_term, dv_term,
-                                                         I_im};
-
-  // Implcit Term 3
-  // div_{v_y} v_y f
-  //
-
-  // single dimension terms were already created in Implicit Term 1
-
-  inline static std::vector<term<P>> const terms_im_3 = {
-      I_im,
-      I_im,
-      nu_v_term,
-  };
-
-  // Implicit Term 4
-  // d_{v_y} -u_y f
-  //
-
-  static P nu_uy_func(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("u2");
-    expect(param != nullptr);
-    return -nu * param->value(x, time);
-  }
-
-  inline static const partial_term<P> nu_uy_pterm = partial_term<P>(
-      coefficient_type::mass, nu_uy_func, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static term<P> const nu_uy_term =
-      term<P>(false,  // time-dependent
-              "I4_x", // name
-              {nu_uy_pterm}, imex_flag::imex_implicit);
-
-  inline static std::vector<term<P>> const terms_im_4 = {nu_uy_term, I_im,
-                                                         dv_term};
-
-  // Term 5
-  // d_{v_x}(th q), q = d_{v_x} f
-
-  // Used in all diffusion terms
-  static P nu_theta(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("theta");
-    expect(param != nullptr);
-    return param->value(x, time) * nu;
-  }
-
-  inline static const partial_term<P> nu_theta_pterm = partial_term<P>(
-      coefficient_type::mass, nu_theta, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
-  inline static term<P> const nu_theta_term =
-      term<P>(false,  // time-dependent
-              "I5_x", // name
-              {I_pterm, nu_theta_pterm}, imex_flag::imex_implicit);
-
-  inline static const partial_term<P> i5_pterm_v1 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static const partial_term<P> i5_pterm_v2 = partial_term<P>(
-      coefficient_type::grad, nullptr, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  inline static term<P> const diff_v_term =
-      term<P>(false,  // time-dependent
-              "I5_v", // name
-              {i5_pterm_v1, i5_pterm_v2}, imex_flag::imex_implicit);
-
-  inline static term<P> const I_diff_im =
-      term<P>(false,  // time-dependent
-              "I5_v", // name
-              {I_pterm, I_pterm}, imex_flag::imex_implicit);
-
-  inline static std::vector<term<P>> const terms_im_5 = {
-      nu_theta_term, diff_v_term, I_diff_im};
-
-  // Term 6
-  // d_{v_y}(th q), q = d_{v_y} f
-  // Same as term 5 but order if changed
-
-  inline static std::vector<term<P>> const terms_im_6 = {
-      nu_theta_term, I_diff_im, diff_v_term};
-
-  inline static term_set<P> const terms_ = {
-      terms_ex_1, terms_ex_2, terms_ex_3, terms_ex_4, terms_im_1,
-      terms_im_2, terms_im_3, terms_im_4, terms_im_5, terms_im_6};
 
   inline static std::vector<vector_func<P>> const exact_vector_funcs_ = {};
 

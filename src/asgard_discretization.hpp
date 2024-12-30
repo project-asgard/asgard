@@ -222,7 +222,8 @@ public:
       moms1d->project_moments(level, f, grid.get_table(), matrices.edata.moments);
       int const num_cells = fm::ipow2(level);
       int const num_outs  = moms1d->num_comp_mom();
-      std::cout << " recomputing moments " << moms1d->num_mom() << "\n";
+      // std::cout << " recomputing moments w. powers " << moms1d->num_mom()
+      //           << ", total moment vectors " << num_outs << "\n";
       hier.reconstruct1d(
           num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
                                              matrices.edata.moments.data()));
@@ -264,9 +265,12 @@ public:
     //   }
     return;
 
+    std::cout << " all terms = " << matrices.term_coeffs.size() << "\n";
+    if (matrices.term_coeffs.size() != 42)
+      return;
     for (int i = 0; i < 18; i++)
       std::cout << " i = " << i << "   err = " <<
-      matrices.term_coeffs[i].to_full(conn).max_diff(matrices.term_coeffs[i + 18].to_full(conn)) << "\n";
+      matrices.term_coeffs[6 + i].to_full(conn).max_diff(matrices.term_coeffs[6 + i + 18].to_full(conn)) << "\n";
 
     return;
     // reference check for operator construction, helps find problems

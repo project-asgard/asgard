@@ -31,7 +31,6 @@ public:
 private:
   static int constexpr num_dims_    = 3;
   static int constexpr num_sources_ = 0;
-  static int constexpr num_terms_   = 6;
   // disable implicit steps in IMEX
   static bool constexpr do_collision_operator_ = true;
   static bool constexpr has_analytic_soln_     = true;

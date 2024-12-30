@@ -557,15 +557,11 @@ void gen_diag_mom_by_mom0(
     // workspace will be captured inside the lambda closure
     // no allocations will occur per call
     auto apply_volume = [&](int i) -> void {
-      if constexpr (dep == pterm_dependence::moment_divided_by_density) {
+      if constexpr (dep == pterm_dependence::moment_divided_by_density)
+      {
         // make gv to be the values of rhs at the quad-nodes
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + numerator_moment * pdof, gv);
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i], gdiv);
-
-        // if (numerator_moment == 2) {
-        //   for (int k : iindexof(num_quad))
-        //     std::cout << "new mom-ratio = "<< gv[k] / gdiv[k] << "   " << gv[k] << "  " << gdiv[k] << "\n";
-        // }
 
         if (pterm.dv_func()) {
           for (int k : iindexof(num_quad))
@@ -575,8 +571,9 @@ void gen_diag_mom_by_mom0(
           for (int k : iindexof(num_quad))
             gv[k] /= gdiv[k];
         }
-
-      } else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x1v) {
+      }
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x1v)
+      {
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + pdof, gv);
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + 2 * pdof, gv2);
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i], gdiv);
@@ -589,7 +586,9 @@ void gen_diag_mom_by_mom0(
           for (int k : iindexof(num_quad))
             gv[k] = (gv2[k] / gdiv[k]) - gv[k] * gv[k] / (gdiv[k] * gdiv[k]);
         }
-      } else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x2v) {
+      }
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x2v)
+      {
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + pdof, gv2);
         for (int k : iindexof(num_quad))
           gv[k] = gv2[k] * gv2[k];
@@ -610,8 +609,10 @@ void gen_diag_mom_by_mom0(
           for (int k : iindexof(num_quad))
             gv[k] = 0.5 * ((gv2[k] / gdiv[k]) - gv[k] / (gdiv[k] * gdiv[k]));
         }
-      } else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x3v) {
-        smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + pdof, gv2);
+      }
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x3v)
+      {
+        smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + 1 * pdof, gv2);
         for (int k : iindexof(num_quad))
           gv[k] = gv2[k] * gv2[k];
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + 2 * pdof, gv2);
