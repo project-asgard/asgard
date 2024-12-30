@@ -35,7 +35,6 @@ public:
     // these fields check correctness of the specification
     int constexpr num_dimensions = 2;
     int constexpr num_sources    = 3;
-    int constexpr num_terms      = 2;
 
     // flagging terms as time_independent (using the false value)
     // improves speed by keeping some constant matrices across time-steps

@@ -6,61 +6,9 @@
 
 namespace asgard
 {
-template<typename P>
-void generate_initial_moments(
-    PDE<P> &pde, std::vector<moment<P>> &moments,
-    adapt::distributed_grid<P> const &adaptive_grid,
-    asgard::basis::wavelet_transform<P, resource::host> const &transformer,
-    fk::vector<P> const &initial_condition)
-{
-  // create 1D version of PDE and element table for wavelet->realspace
-  // mappings
-  PDE<P> pde_1d = PDE<P>(pde, PDE<P>::extract_dim0);
-  adapt::distributed_grid<P> adaptive_grid_1d(pde_1d);
-
-  // Create workspace for wavelet transform
-  int const dense_size = dense_space_size(pde_1d);
-  int quad_dense_size  = 1;
-  auto const &dims     = pde_1d.get_dimensions();
-  for (size_t i = 0; i < dims.size(); i++)
-  {
-    quad_dense_size *=
-        asgard::dense_dim_size(ASGARD_NUM_QUADRATURE, dims[i].get_level());
-  }
-
-  fk::vector<P, mem_type::owner, resource::host> workspace(quad_dense_size * 2);
-  std::array<fk::vector<P, mem_type::view, resource::host>, 2> tmp_workspace = {
-      fk::vector<P, mem_type::view, resource::host>(workspace, 0,
-                                                    quad_dense_size - 1),
-      fk::vector<P, mem_type::view, resource::host>(workspace, quad_dense_size,
-                                                    quad_dense_size * 2 - 1)};
-
-#ifdef ASGARD_USE_CUDA
-  fk::vector<P, mem_type::owner, resource::device> initial_condition_d =
-      initial_condition.clone_onto_device();
-#endif
-  for (auto i : indexof(moments))
-  {
-    moments[i].createMomentReducedMatrix(pde, adaptive_grid.get_table());
-#ifdef ASGARD_USE_CUDA
-    fk::vector<P, mem_type::owner, resource::device> moment_vec(dense_size);
-
-    fm::sparse_gemv(moments[i].get_moment_matrix_dev(), initial_condition_d,
-                    moment_vec);
-#else
-    fk::vector<P, mem_type::owner, resource::host> moment_vec(dense_size);
-
-    fm::sparse_gemv(moments[i].get_moment_matrix_dev(), initial_condition,
-                    moment_vec);
-#endif
-    moments[i].create_realspace_moment(pde_1d, moment_vec,
-                                       adaptive_grid_1d.get_table(),
-                                       transformer, tmp_workspace);
-  }
-}
 
 template<typename P>
-void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
+void write_output(PDE<P> const &pde, // std::vector<moment<P>> const &moments,
                   fk::vector<P> const &vec, P const time, int const file_index,
                   int const dof, elements::table const &hash_table,
                   std::string const &output_dataset_root,
@@ -116,7 +64,6 @@ void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
   H5Easy::dump(file, "ndims", pde.num_dims());
   H5Easy::dump(file, "max_levels", options.max_levels);
   H5Easy::dump(file, "dof", dof);
-  // H5Easy::dump(file, "cli", cli_input.cli_opts); // seems too much
   for (size_t dim = 0; dim < dims.size(); ++dim)
   {
     auto const nodes =
@@ -150,19 +97,6 @@ void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
   H5Easy::dump(file, "Efield", pde.E_field.to_std(), opts);
   H5Easy::dump(file, "Esource", pde.E_source.to_std(), opts);
   H5Easy::dump(file, "phi", pde.phi.to_std(), opts);
-
-  if (moments.size() > 0)
-  {
-    // save realspace moments
-    H5Easy::dump(file, "nmoments", moments.size());
-    for (auto i : indexof(moments))
-    {
-      file.createDataSet<P>("moment" + std::to_string(i),
-                            HighFive::DataSpace({static_cast<size_t>(
-                                moments[i].get_realspace_moment().size())}))
-          .write_raw(moments[i].get_realspace_moment().data());
-    }
-  }
 
   // save gmres error and iteration counts
   for (size_t i = 0; i < pde.gmres_outputs.size(); ++i)
@@ -240,9 +174,7 @@ void write_output(PDE<P> const &pde, std::vector<moment<P>> const &moments,
 }
 
 template<typename P>
-restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
-                            std::vector<moment<P>> &moments,
-                            std::string const &restart_file)
+restart_data<P> read_output(PDE<P> &pde, std::string const &restart_file)
 {
   tools::timer.start("read_output");
 
@@ -277,20 +209,7 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
     pde.update_dimension(dim, level);
   }
 
-  // load realspace moments
-  int const num_moments = H5Easy::load<int>(file, std::string("nmoments"));
-  expect(static_cast<int>(moments.size()) == num_moments);
-  for (auto i : indexof(num_moments))
-  {
-    moments[i].createMomentReducedMatrix(pde, hash_table);
-    moments[i].set_realspace_moment(
-        fk::vector<P>(H5Easy::load<std::vector<P>>(
-            file, std::string("moment" + std::to_string(i)))));
-  }
-
   int step_index = static_cast<int>(time / dt);
-
-  std::cout << " Setting time step index as = " << step_index << "\n";
 
   tools::timer.stop("read_output");
 
@@ -298,33 +217,21 @@ restart_data<P> read_output(PDE<P> &pde, elements::table const &hash_table,
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template void generate_initial_moments<double>(
-    PDE<double> &, std::vector<moment<double>> &,
-    adapt::distributed_grid<double> const &,
-    asgard::basis::wavelet_transform<double, resource::host> const &,
-    fk::vector<double> const &);
 template void write_output<double>(
-    PDE<double> const &, std::vector<moment<double>> const &,
+    PDE<double> const &, // std::vector<moment<double>> const &,
     fk::vector<double> const &, double const, int const,
     int const, elements::table const &, std::string const &, std::string const &);
 template restart_data<double> read_output<double>(
-    PDE<double> &, elements::table const &, std::vector<moment<double>> &,
-    std::string const &);
+    PDE<double> &, std::string const &);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template void generate_initial_moments(
-    PDE<float> &, std::vector<moment<float>> &,
-    adapt::distributed_grid<float> const &,
-    asgard::basis::wavelet_transform<float, resource::host> const &,
-    fk::vector<float> const &);
 template void write_output<float>(
-    PDE<float> const &, std::vector<moment<float>> const &,
+    PDE<float> const &, // std::vector<moment<float>> const &,
     fk::vector<float> const &, float const, int const,
     int const, elements::table const &, std::string const &, std::string const &);
 template restart_data<float> read_output<float>(
-    PDE<float> &, elements::table const &, std::vector<moment<float>> &,
-    std::string const &);
+    PDE<float> &, std::string const &);
 #endif
 
 } // namespace asgard

@@ -211,8 +211,6 @@ public:
   kron_operators<precision> &get_kronops() const { return kronops; }
   //! return operator matrix for direct solves
   std::optional<matrix_factor<precision>> &get_op_matrix() const { return op_matrix; }
-  //! returns the moments
-  std::vector<moment<precision>> &get_moments() const { return moments; }
   //! returns the coefficient matrices
   coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
   //! recomputes the moments given the state of interest
@@ -313,45 +311,6 @@ protected:
         conn, my_subgrid.row_start, my_subgrid.row_stop);
     if (op_matrix)
       op_matrix.reset();
-    if (not moments.empty()
-        and pde->options().step_method.value() == time_advance::method::imex)
-      reset_moments();
-  }
-  //! rebuild the moments
-  void reset_moments()
-  {
-    tools::time_event performance("reset moments");
-
-    int const level      = pde->get_dimensions()[0].get_level();
-    precision const min  = pde->get_dimensions()[0].domain_min;
-    precision const max  = pde->get_dimensions()[0].domain_max;
-    int const N_elements = fm::ipow2(level);
-
-    int const quad_dense_size = dense_dim_size(ASGARD_NUM_QUADRATURE - 1, level);
-
-    for (auto &m : moments)
-    {
-      m.createFlist(*pde);
-      expect(m.get_fList().size() > 0);
-
-      m.createMomentVector(*pde, grid.get_table());
-      expect(m.get_vector().size() > 0);
-
-      m.createMomentReducedMatrix(*pde, grid.get_table());
-    }
-
-    if (pde->do_poisson_solve())
-    {
-      // Setup poisson matrix initially
-      solver::setup_poisson(N_elements, min, max, pde->poisson_diag,
-                            pde->poisson_off_diag);
-    }
-    if (poisson_solver)
-      poisson_solver->update_level(pde->get_dimensions()[0].get_level());
-
-    pde->E_field.resize(quad_dense_size);
-    pde->phi.resize(quad_dense_size);
-    pde->E_source.resize(quad_dense_size);
   }
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
@@ -386,8 +345,6 @@ private:
   mutable kron_operators<precision> kronops;
   // used for direct solvers
   mutable std::optional<matrix_factor<precision>> op_matrix;
-  // moments of the field
-  mutable std::vector<moment<precision>> moments;
   // moments, new implementation
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data

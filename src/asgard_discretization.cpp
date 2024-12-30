@@ -81,8 +81,11 @@ discretization_manager<precision>::discretization_manager(
   }
 
   matrices.edata.num_moments = pde->required_moments();
-  if (matrices.edata.num_moments > 0) {
-    node_out() << "  setting up for " << matrices.edata.num_moments << " moments ..." << '\n';
+  if (matrices.edata.num_moments > 0)
+  {
+    if (high_verbosity())
+      node_out() << "  setting up for " << matrices.edata.num_moments << " moments ..." << '\n';
+
     moms1d = moments1d<precision>(matrices.edata.num_moments, degree_,
                                   pde->max_level(), pde->get_dimensions());
     int const level = pde->get_dimensions().front().get_level();
@@ -110,44 +113,21 @@ discretization_manager<precision>::discretization_manager(
   if (high_verbosity())
     node_out() << "  generating: moment vectors..." << '\n';
 
-  // if (not pde->initial_moments.empty())
-  // {
-  //   moments.reserve(pde->initial_moments.size());
-  //   for (auto &minit : pde->initial_moments)
-  //     moments.emplace_back(minit);
-  //
-  //   for (auto &m : moments)
-  //   {
-  //     m.createFlist(*pde);
-  //     expect(m.get_fList().size() > 0);
-  //
-  //     m.createMomentVector(*pde, grid.get_table());
-  //     expect(m.get_vector().size() > 0);
-  //   }
-  // }
-
-  if (options.step_method.value() == time_advance::method::imex)
-    reset_moments();
-
   // -- setup output file and write initial condition
 #ifdef ASGARD_USE_HIGHFIVE
   if (not options.restart_file.empty())
   {
     restart_data<precision> data = read_output(
-        *pde, grid.get_table(), moments, options.restart_file);
+        *pde, options.restart_file);
     state      = data.solution.to_std();
     time_step_ = data.step_index;
 
     grid.recreate_table(data.active_table);
   }
-  else
-  {
-    // compute the realspace moments for the initial file write
-    generate_initial_moments<precision>(*pde, moments, grid, transformer, state);
-  }
+
   if (options.wavelet_output_freq and options.wavelet_output_freq.value() > 0)
   {
-    write_output<precision>(*pde, moments, state, precision{0.0}, 0, state.size(),
+    write_output<precision>(*pde, state, precision{0.0}, 0, state.size(),
                             grid.get_table(), "asgard_wavelet");
   }
 #endif
@@ -402,7 +382,7 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
 {
 #ifdef ASGARD_USE_HIGHFIVE
   fk::vector<precision> fstate(state);
-  write_output(*pde, moments, fstate, time_, time_step_, fstate.size(),
+  write_output(*pde, fstate, time_, time_step_, fstate.size(),
                grid.get_table(), "", filename);
 #else
   ignore(filename);
@@ -420,7 +400,7 @@ void discretization_manager<precision>::checkpoint() const
       node_out() << "  checkpointing at step = " << time_step_
                   << " (time = " << time_ << ")\n";
 
-    write_output<precision>(*pde, moments, state, time_, time_step_,
+    write_output<precision>(*pde, state, time_, time_step_,
                             state.size(), grid.get_table(), "asgard_wavelet");
   }
 #endif
