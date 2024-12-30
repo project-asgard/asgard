@@ -66,13 +66,6 @@ void write_output(PDE<P> const &pde, // std::vector<moment<P>> const &moments,
   H5Easy::dump(file, "dof", dof);
   for (size_t dim = 0; dim < dims.size(); ++dim)
   {
-    auto const nodes =
-        gen_realspace_nodes(dims[dim].get_degree(), dims[dim].get_level(),
-                            dims[dim].domain_min, dims[dim].domain_max);
-    file.createDataSet<P>(
-            "nodes" + std::to_string(dim),
-            HighFive::DataSpace({static_cast<size_t>(nodes.size())}))
-        .write_raw(nodes.data());
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_level",
                  dims[dim].get_level());
     H5Easy::dump(file, "dim" + std::to_string(dim) + "_min",
