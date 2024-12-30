@@ -1,5 +1,6 @@
 #pragma once
 #include "asgard_transformations.hpp"
+#include "asgard_coefficients.hpp"
 
 #include "asgard_small_mats.hpp"
 
@@ -471,7 +472,9 @@ void gen_diag_cmat(dimension<P> const &dim, int const level, P const time,
 
     // tmp will be captured inside the lambda closure
     // no allocations will occur per call
-    auto apply_volume = [&](int i) -> void {
+#pragma omp for
+    for (int i = 0; i < num_cells; ++i)
+    {
       for (int k = 0; k < tmp.nrows(); k++)
       {
         P c = gfunc(i, (0.5 * quad_p[k] + 0.5 + i) * dx + dim.domain_min, time);
@@ -482,10 +485,6 @@ void gen_diag_cmat(dimension<P> const &dim, int const level, P const time,
 
       smmat::gemm_tn<1>(pdof, num_quad, Lw.data(), tmp.data(), coefficients[i]);
     };
-
-#pragma omp for
-    for (int i = 0; i < num_cells; ++i)
-      apply_volume(i);
   } // #pragma omp parallel
 }
 
@@ -556,7 +555,9 @@ void gen_diag_mom_by_mom0(
 
     // workspace will be captured inside the lambda closure
     // no allocations will occur per call
-    auto apply_volume = [&](int i) -> void {
+#pragma omp for
+    for (int i = 0; i < num_cells; ++i)
+    {
       if constexpr (dep == pterm_dependence::moment_divided_by_density)
       {
         // make gv to be the values of rhs at the quad-nodes
@@ -643,17 +644,8 @@ void gen_diag_mom_by_mom0(
 
       // multiply results in integration
       smmat::gemm_tn<multsign>(pdof, num_quad, Lw.data(), tmp, coefficients[i]);
-    };
-
-#pragma omp for
-    for (int i = 0; i < num_cells; ++i)
-      apply_volume(i);
+    }
   } // #pragma omp parallel
-
-  //std::cout << " numerator_moment = " << numerator_moment << "\n";
-  //coefficients.to_full().print(std::cout);
-  // if constexpr (dep == pterm_dependence::moment_divided_by_density)
-  //   coefficients.to_full().print(std::cout);
 }
 
 } // namespace asgard
