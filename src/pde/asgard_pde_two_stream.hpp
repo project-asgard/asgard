@@ -114,19 +114,19 @@ private:
 
   inline static term<P> const div_v_up{"div_v_up", pt_div_v_up, imex_flag::imex_explicit};
 
-  inline static const partial_term<P> ptEmass_pos = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_positive);
-  inline static const partial_term<P> ptEmass_neg = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_negative);
+  inline static const partial_term<P> ptEmass_pos{
+      pterm_dependence::electric_field, PDE<P>::gfunc_f_positive};
+  inline static const partial_term<P> ptEmass_neg{
+      pterm_dependence::electric_field, PDE<P>::gfunc_f_negative};
 
   inline static term<P> const Emass_pos =
       term<P>(true,          // time-dependent
               "Emass_pos",   // name
-              {ptEmass_pos, }, imex_flag::imex_explicit);
+              ptEmass_pos, imex_flag::imex_explicit);
   inline static term<P> const Emass_neg =
       term<P>(true,          // time-dependent
               "Emass_neg",   // name
-              {ptEmass_neg, }, imex_flag::imex_explicit);
+              ptEmass_neg, imex_flag::imex_explicit);
 
   static P get_dt_(dimension<P> const &dim)
   {

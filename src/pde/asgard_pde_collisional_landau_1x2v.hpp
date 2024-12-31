@@ -137,10 +137,10 @@ private:
     return -1.0;
   }
 
-  inline static const partial_term<P> ptEmass_pos = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_positive);
-  inline static const partial_term<P> ptEmass_neg = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_negative);
+  inline static const partial_term<P> ptEmass_pos{
+      pterm_dependence::electric_field, PDE<P>::gfunc_f_positive};
+  inline static const partial_term<P> ptEmass_neg{
+      pterm_dependence::electric_field, PDE<P>::gfunc_f_negative};
 
   inline static term<P> const Emass_pos =
       term<P>(true,          // time-dependent

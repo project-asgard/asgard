@@ -281,29 +281,16 @@ public:
         right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
   {}
 
-  partial_term(coefficient_type const coeff_type_in,
-               pterm_dependence const depends_in,
+  partial_term(pterm_dependence const depends_in,
                g_func_f_type<P> const g_func_f_in    = nullptr,
                g_func_type<P> const lhs_mass_func_in = nullptr,
-               flux_type const flux_in               = flux_type::central,
-               boundary_condition const left_in  = boundary_condition::neumann,
-               boundary_condition const right_in = boundary_condition::neumann,
-               std::vector<vector_func<P>> const left_bc_funcs_in  = {},
-               scalar_func<P> const left_bc_time_func_in           = nullptr,
-               std::vector<vector_func<P>> const right_bc_funcs_in = {},
-               scalar_func<P> const right_bc_time_func_in          = nullptr,
-               g_func_type<P> const dv_func_in                     = nullptr)
+               g_func_type<P> const dv_func_in       = nullptr)
 
-      : coeff_type_(coeff_type_in), depends_(depends_in), g_func_f_(g_func_f_in),
-        lhs_mass_func_(lhs_mass_func_in), flux_(set_flux(flux_in)), left_(left_in),
-        right_(right_in), ileft_(set_bilinear_boundary(left_in)),
-        iright_(set_bilinear_boundary(right_in)), left_bc_funcs_(left_bc_funcs_in),
-        right_bc_funcs_(right_bc_funcs_in), left_bc_time_func_(left_bc_time_func_in),
-        right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
+      : coeff_type_(coefficient_type::mass), depends_(depends_in), g_func_f_(g_func_f_in),
+        lhs_mass_func_(lhs_mass_func_in), dv_func_(dv_func_in)
   {
     expect(depends_ != pterm_dependence::none);
     expect(depends_ != pterm_dependence::moment_divided_by_density);
-    expect(coeff_type_ == coefficient_type::mass); // have not done the others yet
     // if this depends on the electric-filed, there should be a g_func_f
     expect(not (depends_ == pterm_dependence::electric_field and !g_func_f_));
     expect(not (depends_ == pterm_dependence::electric_field_infnrm and !g_func_f_));
@@ -314,12 +301,6 @@ public:
       expect(!g_func_ and !g_func_f_);
     }
   }
-
-  //! pterm_dependence that assumes a mass coefficient type
-  partial_term(pterm_dependence const depends_in,
-               g_func_f_type<P> const g_func_f_in = nullptr)
-    : partial_term(coefficient_type::mass, depends_in, g_func_f_in)
-  {}
 
   //! indicates mass term with coefficient mom_in.moment / moment0
   partial_term(mass_moment_over_density mom_in, g_func_type<P> const dv_func_in = nullptr)
@@ -1225,13 +1206,9 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
   // (-u_f, nu * div_v) -> (pt_mass_uf_neg, nu_divv)
   // (mom2/mom0 - u_f^2, nu * div * grad) -> (pt_mass_ef, {pt_div_up, pt_nu_grad_down})
 
-  partial_term<P> pt_divv(
-      coefficient_type::div, get_nuv, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_divv{pt_div_dirichlet_zero, flux_type::upwind, get_nuv};
 
-  partial_term<P> pt_nu_divv(
-      coefficient_type::div, const_nu, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_nu_divv{pt_div_dirichlet_zero, flux_type::central, const_nu};
 
   partial_term<P> pt_div_up(
       coefficient_type::div, nullptr, nullptr, flux_type::upwind,

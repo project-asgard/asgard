@@ -176,16 +176,15 @@ private:
   // Central Part of E\cdot\grad_v f
   //
 
-  inline static const partial_term<P> ptEmass = partial_term<P>(
-      coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_field);
+  inline static const partial_term<P> ptEmass{
+      pterm_dependence::electric_field, PDE<P>::gfunc_f_field};
   inline static term<P> const Emass =
-      term<P>(true, // time-dependent
-              "",   // name
-              {ptEmass, }, imex_flag::imex_explicit);
+      term<P>(true,    // time-dependent
+              "Emass", // name
+              ptEmass, imex_flag::imex_explicit);
 
   inline static term<P> const div_v =
-      term<P>(false, // time-dependent
-              "",    // name
+      term<P>("div_v",    // name
               {pt_div_dirichlet_zero, flux_type::central, PDE<P>::gfunc_neg1},
               imex_flag::imex_explicit);
 
