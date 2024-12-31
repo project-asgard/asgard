@@ -42,9 +42,7 @@ public:
     if (dims.empty())
       dims.resize(num_dims, dimension<P>(0.0, 1.0, levels, degree, one, nullptr, "x"));
 
-    partial_term<P> pterm = partial_term<P>(
-        coefficient_type::mass, negid, nullptr, flux_type::central,
-        boundary_condition::periodic, boundary_condition::periodic);
+    partial_term<P> pterm{pt_mass, negid};
 
     term<P> fterm(false, "-u", {pterm, }, imex_flag::unspecified);
 
@@ -119,9 +117,7 @@ public:
     bool constexpr has_analytic_soln     = true;
     int constexpr default_degree         = 1;
 
-    partial_term<P> pterm = partial_term<P>(
-        coefficient_type::mass, negid, nullptr, flux_type::central,
-        boundary_condition::periodic, boundary_condition::periodic);
+    partial_term<P> pterm{pt_mass, negid};
 
     term<P> fterm = term<P>(false, "-u", {pterm,}, imex_flag::unspecified);
 
@@ -208,14 +204,10 @@ public:
         coefficient_type::div, op_coeff, nullptr, flux_type::upwind,
         boundary_condition::periodic, boundary_condition::periodic);
 
-    partial_term_1d par_mass(
-        coefficient_type::mass, nullptr, nullptr, flux_type::central,
-        boundary_condition::periodic, boundary_condition::periodic);
-
     term_1d d_x(time_independent, "d_x", {par_der});
-    term_1d mass_y(time_independent, "mass_y", {par_mass});
+    term_1d mass_y(time_independent, "mass_y", pt_identity);
 
-    term_1d mass_x(time_independent, "mass_x", {par_mass});
+    term_1d mass_x(time_independent, "mass_x", pt_identity);
     term_1d d_y(time_independent, "d_y", {par_der});
 
     term_set<precision> terms = {
@@ -346,10 +338,8 @@ public:
         boundary_condition::dirichlet, boundary_condition::dirichlet,
         homogeneity::homogeneous, homogeneity::homogeneous);
 
-    partial_term_1d par_mass(coefficient_type::mass);
-
-    term_1d d_x(time_independent, "d_x", {par_der});
-    term_1d mass_y(time_independent, "mass_y", {par_mass});
+    term_1d d_x(time_independent, "d_x", par_der);
+    term_1d mass_y(time_independent, "mass_y", pt_identity);
 
     term_set<precision> terms = {
         std::vector<term<precision>>{d_x, mass_y},

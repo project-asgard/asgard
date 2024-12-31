@@ -1126,7 +1126,7 @@ inline void add_vlassov_1x1v(term_set<P> &terms)
       coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  partial_term<P> ptMassP(coefficient_type::mass, PDE<P>::gfunc_positive);
+  partial_term<P> ptMassP{pt_mass, PDE<P>::gfunc_positive};
 
   term<P> div_x_up("div_x_up", ptDivU, imex);
 
@@ -1136,7 +1136,7 @@ inline void add_vlassov_1x1v(term_set<P> &terms)
       coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  partial_term<P> ptMassN(coefficient_type::mass, PDE<P>::gfunc_negative);
+  partial_term<P> ptMassN{pt_mass, PDE<P>::gfunc_negative};
 
   term<P> div_x_down("div_x_down", ptDivD, imex);
 
@@ -1178,7 +1178,7 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
       coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet);
 
-  term<P> I("I", partial_term<P>(coefficient_type::mass), imex);
+  term<P> I("LB_I", pt_identity, imex);
 
   term<P> divv("LB_divv", {pt_divv}, imex);
 
@@ -1208,7 +1208,7 @@ inline void add_lenard_bernstein_collisions_1x2v(P const nu, term_set<P> &terms)
 
   imex_flag constexpr imex = imex_flag::imex_implicit;
 
-  term<P> I("I", partial_term<P>(coefficient_type::mass), imex);
+  term<P> I("LB_I", pt_identity, imex);
 
   partial_term<P> pt_nu_div_vv(
       coefficient_type::div, get_nuv, nullptr, flux_type::upwind,
@@ -1261,7 +1261,7 @@ inline void add_lenard_bernstein_collisions_1x3v(P const nu, term_set<P> &terms)
 
   imex_flag constexpr imex = imex_flag::imex_implicit;
 
-  term<P> I("I", partial_term<P>(coefficient_type::mass), imex);
+  term<P> I("LB_I", pt_identity, imex);
 
   partial_term<P> pt_nu_div_vv(
       coefficient_type::div, get_nuv, nullptr, flux_type::upwind,

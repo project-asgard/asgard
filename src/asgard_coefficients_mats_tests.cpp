@@ -15,8 +15,8 @@ std::array<P, 2> test_mass_coeff_moments(func_lhs flhs, func_rhs frhs,
   block_diag_matrix<P> ref; // reference matrix
   gen_diag_cmat<P, coefficient_type::mass>(dim, level, 0, [&](int, P x, P)->P{ return frhs(x); }, ref);
 
-  partial_term<P> const pterm(coefficient_type::mass, nullptr,
-                              [&](P x, P)->P{ return flhs(x); });
+  partial_term<P> const pterm{pt_mass, nullptr,
+                              [&](P x, P)->P{ return flhs(x); }};
   level_mass_matrces<P> mass;
   generate_partial_mass<P>(0, dim, pterm, hier, 0, mass);
 
