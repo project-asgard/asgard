@@ -53,9 +53,7 @@ private:
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0, dim_1};
 
   /* build the terms */
-  inline static partial_term<P> const partial_term_I_ = partial_term<P>(
-      coefficient_type::mass, nullptr, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static partial_term<P> const partial_term_I_{pt_identity};
 
   inline static const partial_term<P> partial_term_0 = partial_term<P>(
       coefficient_type::div, nullptr, nullptr, flux_type::downwind,

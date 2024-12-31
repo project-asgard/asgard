@@ -279,13 +279,9 @@ private:
   // define terms
 
   // default mass matrix (only for lev_x=lev_y=etc)
-  inline static partial_term<P> const partial_term_I_ = partial_term<P>(
-      coefficient_type::mass, nullptr, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
-
   inline static term<P> const I_ = term<P>(false,  // time-dependent
                                            "mass", // name
-                                           {partial_term_I_});
+                                           pt_identity);
 
   // term 0
   inline static partial_term<P> const partial_term_t0_d0 = partial_term<P>(

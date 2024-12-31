@@ -26,7 +26,7 @@ public:
 
     add_lenard_bernstein_collisions_1x1v(nu, terms);
 
-    partial_term<P> ptI(coefficient_type::mass);
+    partial_term<P> ptI{pt_identity};
 
     term<P> termI("identity", ptI, imex_flag::imex_implicit);
 
@@ -130,9 +130,7 @@ private:
       coefficient_type::div, e1_g1, nullptr, flux_type::upwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static const partial_term<P> e1_pterm_v = partial_term<P>(
-      coefficient_type::mass, e1_g2, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static const partial_term<P> e1_pterm_v{pt_mass, e1_g2};
 
   inline static term<P> const term_e1x =
       term<P>(false,  // time-dependent
@@ -166,9 +164,7 @@ private:
       coefficient_type::div, e2_g1, nullptr, flux_type::downwind,
       boundary_condition::periodic, boundary_condition::periodic);
 
-  inline static const partial_term<P> e2_pterm_v = partial_term<P>(
-      coefficient_type::mass, e2_g2, nullptr, flux_type::central,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static const partial_term<P> e2_pterm_v{pt_mass, e2_g2};
 
   inline static term<P> const term_e2x =
       term<P>(false,  // time-dependent

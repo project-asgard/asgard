@@ -139,6 +139,16 @@ struct mass_moment_over_density_neg {
   int moment;
 };
 
+//! type-tag indicating a mass partial term
+struct type_tag_mass_term {};
+constexpr type_tag_mass_term pt_mass{};
+
+struct type_tag_identity_term {};
+constexpr type_tag_identity_term pt_identity{};
+
+struct type_tag_bc_periodic {};
+constexpr type_tag_bc_periodic pt_bc_periodic{};
+
 template<typename P>
 class partial_term
 {
@@ -150,6 +160,17 @@ public:
     std::fill(fx.begin(), fx.end(), 1.0);
     return fx;
   }
+
+  partial_term(type_tag_identity_term const &) : coeff_type_(coefficient_type::mass) {}
+
+  partial_term(type_tag_mass_term const &,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               g_func_type<P> const dv_func_in       = nullptr)
+
+      : coeff_type_(coefficient_type::mass), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), dv_func_(dv_func_in)
+  {}
 
   partial_term(coefficient_type const coeff_type_in,
                g_func_type<P> const g_func_in        = nullptr,
@@ -334,7 +355,7 @@ private:
 
   int mom = 0; // paired with mom-by-density, cannot be zero, sign used too
 
-  flux_type flux_;
+  flux_type flux_ = flux_type::central;
 
   boundary_condition left_  = boundary_condition::neumann;
   boundary_condition right_ = boundary_condition::neumann;
