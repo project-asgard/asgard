@@ -18,8 +18,6 @@ class PDE_relaxation_1x1v : public PDE<P>
 public:
   PDE_relaxation_1x1v(prog_opts const &cli_input)
   {
-    this->skip_old_moments = true; // temp-hack
-
     term_set<P> terms;
     add_lenard_bernstein_collisions_1x1v(nu, terms);
 

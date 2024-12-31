@@ -499,6 +499,36 @@ public:
     return mmax;
   }
 
+  int required_moment_indexes() const
+  {
+    int mom_idx = 0;
+    for (auto const &pt : partial_terms_)
+    {
+      switch (pt.depends())
+      {
+        case pterm_dependence::electric_field:
+        case pterm_dependence::electric_field_infnrm:
+          mom_idx = std::max(mom_idx, 1);
+          break;
+        case pterm_dependence::moment_divided_by_density:
+          mom_idx = std::max(mom_idx, std::abs(pt.mom_index()));
+          break;
+        case pterm_dependence::lenard_bernstein_coll_theta_1x1v:
+          mom_idx = std::max(mom_idx, 3);
+          break;
+        case pterm_dependence::lenard_bernstein_coll_theta_1x2v:
+          mom_idx = std::max(mom_idx, 5);
+          break;
+        case pterm_dependence::lenard_bernstein_coll_theta_1x3v:
+          mom_idx = std::max(mom_idx, 7);
+          break;
+        default: // does not require any moments
+          break;
+      };
+    }
+    return mom_idx;
+  }
+
 private:
   bool time_dependent_;
   std::string name_;
@@ -531,13 +561,6 @@ public:
 private:
   std::vector<vector_func<P>> source_funcs_;
   scalar_func<P> time_func_;
-};
-
-template<typename P>
-struct parameter
-{
-  std::string const name;
-  g_func_type<P> value;
 };
 
 // ---------------------------------------------------------------------------
@@ -732,6 +755,7 @@ public:
     int const pdof = dimensions_[0].get_degree() + 1;
 
     // check all terms
+    int mom_indexes = 0;
     for (auto &term_list : terms_)
     {
       expect(term_list.size() == static_cast<unsigned>(num_dims_));
@@ -741,7 +765,14 @@ public:
 
         auto const max_dof = fm::ipow2(static_cast<int64_t>(max_level_)) * pdof;
         expect(max_dof < INT_MAX);
+
+        mom_indexes = std::max(mom_indexes, term_1D.required_moment_indexes());
       }
+    }
+
+    if (mom_indexes > 0) {
+      num_required_moments_ = 1 + (mom_indexes - 1) / (num_dims_ - 1);
+      expect(mom_indexes == 1 + (num_dims_ - 1) * (num_required_moments_ - 1));
     }
 
     // check all dimensions
@@ -763,17 +794,20 @@ public:
     if (not options_.num_time_steps)
       options_.num_time_steps = 10;
 
-    if (options_.step_method)
+    if (not options_.step_method)
     {
-      use_imex_     = options_.step_method.value() == time_advance::method::imex;
-      use_implicit_ = options_.step_method.value() == time_advance::method::imp;
+      // no step method requested, select a default method
+      if (num_required_moments_ > 0) {
+        // messing with moments, collision and/or poisson solver, default to imex
+        options_.step_method = time_advance::method::imex;
+      } else {
+        // no moments needed for this PDE, use explicit integration
+        options_.step_method = time_advance::method::exp;
+      }
     }
-    else
-    {
-      use_imex_     = false;
-      use_implicit_ = false;
-      options_.step_method = time_advance::method::exp;
-    }
+
+    use_imex_     = options_.step_method.value() == time_advance::method::imex;
+    use_implicit_ = options_.step_method.value() == time_advance::method::imp;
 
     gmres_outputs.resize(use_imex_ ? 2 : 1);
 
@@ -855,12 +889,11 @@ public:
     return exact_vector_funcs_.back().back()(dummy, time)[0];
   }
 
-  bool skip_old_moments = false; // TODO: remove this once all PDEs have transitioned
-
   bool do_poisson_solve() const { // TODO: rename to poisson dependence
     for (auto const &terms_md : terms_)
       for (auto const &term1d : terms_md)
-        if (term1d.has_dependence(pterm_dependence::electric_field))
+        if (term1d.has_dependence(pterm_dependence::electric_field)
+            or term1d.has_dependence(pterm_dependence::electric_field_infnrm))
           return true;
 
     // no terms have the poisson dependence
@@ -869,26 +902,7 @@ public:
   bool do_collision_operator() const { return do_collision_operator_; }
   bool has_analytic_soln() const { return has_analytic_soln_; }
 
-  int required_moments() const
-  {
-    int num_moments = (this->do_poisson_solve()) ? 1 : 0;
-    for (auto const &terms_md : terms_) {
-      for (auto const &term1d : terms_md) {
-        if (term1d.has_dependence(pterm_dependence::moment_divided_by_density))
-        {
-          int const mom = term1d.max_moment_index();
-          num_moments = std::max(1 + mom / (num_dims_ - 1), num_moments);
-        }
-        else if (term1d.has_dependence(pterm_dependence::lenard_bernstein_coll_theta_1x1v)
-                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_coll_theta_1x2v)
-                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_coll_theta_1x3v))
-        {
-          num_moments = std::max(3, num_moments);
-        }
-      }
-    }
-    return num_moments;
-  }
+  int required_moments() const { return num_required_moments_; }
 
   // holds gmres error and iteration counts for writing to output file
   std::vector<gmres_info<P>> gmres_outputs;
@@ -1083,6 +1097,8 @@ private:
   int num_sources_ = 0;
   int num_terms_   = 0;
   int max_level_   = 0;
+
+  int num_required_moments_ = 0;
 
   std::vector<source<P>> sources_;
   std::vector<md_func_type<P>> exact_vector_funcs_;

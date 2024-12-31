@@ -18,8 +18,6 @@ class PDE_riemann_1x3v : public PDE<P>
 public:
   PDE_riemann_1x3v(prog_opts const &cli_input)
   {
-    this->skip_old_moments = true; // temp-hack
-
     term_set<P> terms = {terms_ex_1, terms_ex_2};
     add_lenard_bernstein_collisions_1x3v(nu, terms);
 

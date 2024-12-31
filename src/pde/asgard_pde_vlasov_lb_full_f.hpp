@@ -16,8 +16,6 @@ class PDE_vlasov_lb : public PDE<P>
 public:
   PDE_vlasov_lb(prog_opts const &cli_input)
   {
-    this->skip_old_moments = true; // temp-hack
-
     term_set<P> terms = {terms_1, terms_2};
 
     add_lenard_bernstein_collisions_1x1v(nu, terms);
