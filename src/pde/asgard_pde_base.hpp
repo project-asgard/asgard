@@ -140,14 +140,30 @@ struct mass_moment_over_density_neg {
 };
 
 //! type-tag indicating a mass partial term
-struct type_tag_mass_term {};
-constexpr type_tag_mass_term pt_mass{};
-
 struct type_tag_identity_term {};
 constexpr type_tag_identity_term pt_identity{};
 
-struct type_tag_bc_periodic {};
-constexpr type_tag_bc_periodic pt_bc_periodic{};
+struct type_tag_mass_term {};
+constexpr type_tag_mass_term pt_mass{};
+
+struct type_tag_div_periodic {};
+constexpr type_tag_div_periodic pt_div_periodic{};
+
+struct type_tag_div_free {};
+constexpr type_tag_div_free pt_div_free{};
+
+struct type_tag_div_dirichlet_zero {};
+constexpr type_tag_div_dirichlet_zero pt_div_dirichlet_zero{};
+
+struct type_tag_grad_periodic {};
+constexpr type_tag_grad_periodic pt_grad_periodic{};
+
+struct type_tag_grad_free {};
+constexpr type_tag_grad_free pt_grad_free{};
+
+struct type_tag_grad_dirichlet_zero {};
+constexpr type_tag_grad_dirichlet_zero pt_grad_dirichlet_zero{};
+
 
 template<typename P>
 class partial_term
@@ -170,6 +186,85 @@ public:
 
       : coeff_type_(coefficient_type::mass), g_func_(g_func_in),
         lhs_mass_func_(lhs_mass_func_in), dv_func_(dv_func_in)
+  {}
+
+  partial_term(type_tag_div_periodic const &,
+               flux_type const flux_in,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               g_func_type<P> const dv_func_in       = nullptr)
+
+      : coeff_type_(coefficient_type::div), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(flux_in),
+        left_(boundary_condition::periodic), right_(boundary_condition::periodic),
+        ileft_(boundary_condition::periodic), iright_(boundary_condition::periodic),
+        dv_func_(dv_func_in)
+  {}
+
+  partial_term(type_tag_div_free const &,
+               flux_type const flux_in,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               g_func_type<P> const dv_func_in       = nullptr)
+
+      : coeff_type_(coefficient_type::div), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(flux_in),
+        left_(boundary_condition::neumann), right_(boundary_condition::neumann),
+        ileft_(boundary_condition::neumann), iright_(boundary_condition::neumann),
+        dv_func_(dv_func_in)
+  {}
+
+  partial_term(type_tag_div_dirichlet_zero const &,
+               flux_type const flux_in,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               g_func_type<P> const dv_func_in       = nullptr)
+
+      : coeff_type_(coefficient_type::div), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(flux_in),
+        left_(boundary_condition::dirichlet), right_(boundary_condition::dirichlet),
+        ileft_(boundary_condition::dirichlet), iright_(boundary_condition::dirichlet),
+        dv_func_(dv_func_in)
+  {}
+
+  partial_term(type_tag_grad_periodic const &,
+               flux_type const flux_in,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               g_func_type<P> const dv_func_in       = nullptr)
+
+      : coeff_type_(coefficient_type::grad), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(grad_flux(flux_in)),
+        left_(boundary_condition::periodic), right_(boundary_condition::periodic),
+        ileft_(boundary_condition::periodic), iright_(boundary_condition::periodic),
+        dv_func_(dv_func_in)
+  {}
+
+  partial_term(type_tag_grad_free const &,
+               flux_type const flux_in,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               g_func_type<P> const dv_func_in       = nullptr)
+
+      : coeff_type_(coefficient_type::grad), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(grad_flux(flux_in)),
+        left_(boundary_condition::neumann), right_(boundary_condition::neumann),
+        ileft_(set_bilinear_boundary(boundary_condition::neumann)),
+        iright_(set_bilinear_boundary(boundary_condition::neumann)),
+        dv_func_(dv_func_in)
+  {}
+
+  partial_term(type_tag_grad_dirichlet_zero const &,
+               flux_type const flux_in,
+               g_func_type<P> const g_func_in        = nullptr,
+               g_func_type<P> const lhs_mass_func_in = nullptr,
+               g_func_type<P> const dv_func_in       = nullptr)
+
+      : coeff_type_(coefficient_type::grad), g_func_(g_func_in),
+        lhs_mass_func_(lhs_mass_func_in), flux_(grad_flux(flux_in)),
+        left_(boundary_condition::dirichlet), right_(boundary_condition::dirichlet),
+        ileft_(boundary_condition::neumann), iright_(boundary_condition::neumann),
+        dv_func_(dv_func_in)
   {}
 
   partial_term(coefficient_type const coeff_type_in,
@@ -253,28 +348,6 @@ public:
 
   P get_flux_scale() const { return static_cast<P>(flux_); };
 
-  boundary_condition set_bilinear_boundary(boundary_condition const bc)
-  {
-    // Since we want the grad matrix to be a negative transpose of a
-    // DIV matrix, we need to swap the wind direction as well as swap
-    // the BCs N<=>D.  However, this swap will affect the BC call.
-    // Instead we have another BC flag IBCL/IBCR which will build the
-    // bilinear form with respect to Dirichlet/Free boundary
-    // conditions while leaving the BC routine unaffected.
-    if (coeff_type_ == coefficient_type::grad)
-    {
-      if (bc == boundary_condition::dirichlet)
-      {
-        return boundary_condition::neumann;
-      }
-      else if (bc == boundary_condition::neumann)
-      {
-        return boundary_condition::dirichlet;
-      }
-    }
-    return bc;
-  }
-
   flux_type set_flux(flux_type const flux_in)
   {
     if (coeff_type_ == coefficient_type::grad)
@@ -345,6 +418,30 @@ public:
   }
 
 private:
+  boundary_condition set_bilinear_boundary(boundary_condition const bc)
+  {
+    // Since we want the grad matrix to be a negative transpose of a
+    // DIV matrix, we need to swap the wind direction as well as swap
+    // the BCs N<=>D.  However, this swap will affect the BC call.
+    // Instead we have another BC flag IBCL/IBCR which will build the
+    // bilinear form with respect to Dirichlet/Free boundary
+    // conditions while leaving the BC routine unaffected.
+    if (coeff_type_ == coefficient_type::grad)
+    {
+      return (bc == boundary_condition::dirichlet) ? boundary_condition::neumann
+                                                   : boundary_condition::dirichlet;
+    }
+    return bc;
+  }
+  flux_type grad_flux(flux_type f) {
+    switch(f) {
+      case flux_type::upwind: return flux_type::downwind;
+      case flux_type::downwind: return flux_type::upwind;
+      default:
+        return flux_type::central;
+    }
+  }
+
   coefficient_type coeff_type_ = coefficient_type::mass;
 
   pterm_dependence depends_ = pterm_dependence::none;
@@ -1122,9 +1219,7 @@ inline void add_vlassov_1x1v(term_set<P> &terms)
 {
   imex_flag constexpr imex = imex_flag::imex_explicit;
 
-  partial_term<P> ptDivU(
-      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::upwind,
-      boundary_condition::periodic, boundary_condition::periodic);
+  partial_term<P> ptDivU{pt_div_periodic, flux_type::upwind, PDE<P>::gfunc_neg1};
 
   partial_term<P> ptMassP{pt_mass, PDE<P>::gfunc_positive};
 
@@ -1132,9 +1227,7 @@ inline void add_vlassov_1x1v(term_set<P> &terms)
 
   term<P> massP("mass_positive", ptMassP, imex);
 
-  partial_term<P> ptDivD(
-      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::downwind,
-      boundary_condition::periodic, boundary_condition::periodic);
+  partial_term<P> ptDivD{pt_div_periodic, flux_type::downwind, PDE<P>::gfunc_neg1};
 
   partial_term<P> ptMassN{pt_mass, PDE<P>::gfunc_negative};
 
@@ -1210,9 +1303,7 @@ inline void add_lenard_bernstein_collisions_1x2v(P const nu, term_set<P> &terms)
 
   term<P> I("LB_I", pt_identity, imex);
 
-  partial_term<P> pt_nu_div_vv(
-      coefficient_type::div, get_nuv, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_nu_div_vv{pt_div_dirichlet_zero, flux_type::upwind, get_nuv};
 
   term<P> nu_div_vv("LB_nu_div_vv", pt_nu_div_vv, imex);
 

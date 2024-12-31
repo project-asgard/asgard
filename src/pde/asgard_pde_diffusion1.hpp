@@ -44,9 +44,7 @@ private:
   inline static std::vector<dimension<P>> const dimensions_ = {dim_0};
 
   /* Define terms */
-  inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
-      boundary_condition::neumann, boundary_condition::neumann);
+  inline static const partial_term<P> partial_term_0{pt_div_free, flux_type::upwind};
 
   static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
   {
@@ -95,25 +93,10 @@ private:
     ignore(time);
     return penalty;
   }
-  inline static const partial_term<P> partial_term_2 = partial_term<P>(
-      coefficient_type::div, g3, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
-      nullptr, nullptr);
 
-  inline static term<P> const term_1 = term<P>(false, // time-dependent
-                                               "",    // name
-                                               {partial_term_2});
+  inline static term<P> const term_1{"", {pt_div_dirichlet_zero, flux_type::upwind, g3}};
 
-  inline static const partial_term<P> partial_term_3 = partial_term<P>(
-      coefficient_type::div, g4, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
-      nullptr, nullptr);
-
-  inline static term<P> const term_2 = term<P>(false, // time-dependent
-                                               "",    // name
-                                               {partial_term_3});
+  inline static term<P> const term_2{"", {pt_div_dirichlet_zero, flux_type::central, g4}};
 
   inline static std::vector<term<P>> const terms_0 = {term_0};
   inline static std::vector<term<P>> const terms_1 = {term_1};

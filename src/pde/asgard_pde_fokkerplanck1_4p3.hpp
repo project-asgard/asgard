@@ -116,15 +116,9 @@ private:
     return sqrt(1.0 - std::pow(x, 2));
   }
 
-  inline static partial_term<P> const partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_1, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous, {}, nullptr, {},
-      nullptr, dV_func);
-
-  inline static term<P> const term0_dim0_ = term<P>(false,  // time-dependent
-                                                    "d_dx", // name
-                                                    {partial_term_0});
+  inline static term<P> const term0_dim0_
+      = term<P>("d_dx", {pt_div_dirichlet_zero, flux_type::upwind,
+                         g_func_1, nullptr, dV_func});
 
   inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 

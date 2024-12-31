@@ -127,14 +127,9 @@ private:
 
   inline static std::vector<dimension<P>> const dimensions_ = {dim0_};
 
-  inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::div, g_func_0, nullptr, flux_type::upwind,
-      boundary_condition::periodic, boundary_condition::periodic);
-
   // define terms (1 in this case)
-  inline static term<P> term0_dim0_ = term<P>(false,  // time-dependent
-                                              "d_dx", // name
-                                              {partial_term_0});
+  inline static term<P> term0_dim0_ = term<P>(
+      "d_dx", {pt_div_periodic, flux_type::upwind, g_func_0});
 
   inline static std::vector<term<P>> const terms0_ = {term0_dim0_};
 

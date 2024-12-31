@@ -75,94 +75,44 @@ private:
   // Term 1
   // -v\cdot\grad_x f for v > 0
   //
-  static P e1_g1(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
 
-  static P e1_g2(P const x, P const time = 0)
-  {
-    ignore(time);
-    return std::max(P{0.0}, x);
-  }
+  inline static const
+  partial_term<P> e1_pterm_x{pt_div_periodic, flux_type::upwind, PDE<P>::gfunc_neg1};
 
-  inline static const partial_term<P> e1_pterm_x = partial_term<P>(
-      coefficient_type::div, e1_g1, nullptr, flux_type::upwind,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static const partial_term<P> e1_pterm_v{pt_mass, PDE<P>::gfunc_positive};
 
-  inline static const partial_term<P> e1_pterm_v{pt_mass, e1_g2};
-
-  inline static term<P> const term_e1x =
-      term<P>(false,  // time-dependent
-              "E1_x", // name
-              {e1_pterm_x}, imex_flag::imex_explicit);
-
-  inline static term<P> const term_e1v =
-      term<P>(false,  // time-dependent
-              "E1_v", // name
-              {e1_pterm_v}, imex_flag::imex_explicit);
+  inline static term<P> const term_e1x{"E1_x", e1_pterm_x, imex_flag::imex_explicit};
+  inline static term<P> const term_e1v{"E1_v", e1_pterm_v, imex_flag::imex_explicit};
 
   // Term 2
   // -v\cdot\grad_x f for v < 0
   //
-  static P e2_g1(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
 
-  static P e2_g2(P const x, P const time = 0)
-  {
-    ignore(time);
-    return std::min(P{0.0}, x);
-  }
+  inline static const
+  partial_term<P> e2_pterm_x{pt_div_periodic, flux_type::downwind, PDE<P>::gfunc_neg1};
 
-  inline static const partial_term<P> e2_pterm_x = partial_term<P>(
-      coefficient_type::div, e2_g1, nullptr, flux_type::downwind,
-      boundary_condition::periodic, boundary_condition::periodic);
+  inline static const partial_term<P> e2_pterm_v{pt_mass, PDE<P>::gfunc_negative};
 
-  inline static const partial_term<P> e2_pterm_v{pt_mass, e2_g2};
-
-  inline static term<P> const term_e2x =
-      term<P>(false,  // time-dependent
-              "E2_x", // name
-              {e2_pterm_x}, imex_flag::imex_explicit);
-
-  inline static term<P> const term_e2v =
-      term<P>(false,  // time-dependent
-              "E2_v", // name
-              {e2_pterm_v}, imex_flag::imex_explicit);
+  inline static term<P> const term_e2x{"E2_x", e2_pterm_x, imex_flag::imex_explicit};
+  inline static term<P> const term_e2v{"E2_v", e2_pterm_v, imex_flag::imex_explicit};
 
   // Term 3
   // -E\cdot\grad_v f for E > 0
   //
 
-  inline static const partial_term<P> pterm_div_v_dn = partial_term<P>(
-      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous);
+  inline static const
+  partial_term<P> pt_div_v_dn{pt_div_dirichlet_zero, flux_type::upwind, PDE<P>::gfunc_neg1};
 
-  inline static term<P> const div_v_dn =
-      term<P>(false, // time-dependent
-              "",    // name
-              {pterm_div_v_dn}, imex_flag::imex_explicit);
+  inline static term<P> const div_v_dn{"div_v_dn", pt_div_v_dn, imex_flag::imex_explicit};
 
   // Term 4
   // E\cdot\grad_v f for E < 0
   //
 
-  inline static const partial_term<P> pterm_div_v_up = partial_term<P>(
-      coefficient_type::div, PDE<P>::gfunc_neg1, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::homogeneous, homogeneity::homogeneous);
+  inline static const
+  partial_term<P> pt_div_v_up{pt_div_dirichlet_zero, flux_type::downwind, PDE<P>::gfunc_neg1};
 
-  inline static term<P> const div_v_up =
-      term<P>(false, // time-dependent
-              "",    // name
-              {pterm_div_v_up}, imex_flag::imex_explicit);
+  inline static term<P> const div_v_up{"div_v_up", pt_div_v_up, imex_flag::imex_explicit};
 
   inline static const partial_term<P> ptEmass_pos = partial_term<P>(
       coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_positive);
@@ -170,12 +120,12 @@ private:
       coefficient_type::mass, pterm_dependence::electric_field, PDE<P>::gfunc_f_negative);
 
   inline static term<P> const Emass_pos =
-      term<P>(true, // time-dependent
-              "",   // name
+      term<P>(true,          // time-dependent
+              "Emass_pos",   // name
               {ptEmass_pos, }, imex_flag::imex_explicit);
   inline static term<P> const Emass_neg =
-      term<P>(true, // time-dependent
-              "",   // name
+      term<P>(true,          // time-dependent
+              "Emass_neg",   // name
               {ptEmass_neg, }, imex_flag::imex_explicit);
 
   static P get_dt_(dimension<P> const &dim)

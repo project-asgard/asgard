@@ -55,9 +55,7 @@ private:
   /* build the terms */
   inline static partial_term<P> const partial_term_I_{pt_identity};
 
-  inline static const partial_term<P> partial_term_0 = partial_term<P>(
-      coefficient_type::div, nullptr, nullptr, flux_type::downwind,
-      boundary_condition::neumann, boundary_condition::neumann);
+  inline static const partial_term<P> partial_term_0{pt_div_free, flux_type::downwind};
 
   static fk::vector<P> bc_func(fk::vector<P> const x, P const t)
   {
