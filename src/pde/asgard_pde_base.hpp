@@ -1210,25 +1210,20 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
 
   partial_term<P> pt_nu_divv{pt_div_dirichlet_zero, flux_type::central, const_nu};
 
-  partial_term<P> pt_div_up(
-      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_div_up{pt_div_dirichlet_zero, flux_type::upwind};
 
-  partial_term<P> pt_nu_grad_down(
-      coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_nu_grad_down{pt_grad_dirichlet_zero, flux_type::downwind, const_nu};
 
   term<P> I("LB_I", pt_identity, imex);
 
-  term<P> divv("LB_divv", {pt_divv}, imex);
+  term<P> divv("LB_divv", pt_divv, imex);
 
-  term<P> mass_uf_neg(time_depend, "LB_uf_neg",
-                      partial_term<P>(mass_moment_over_density_neg{1}), imex);
+  term<P> mass_uf_neg(time_depend, "LB_uf_neg", {mass_moment_over_density_neg{1}}, imex);
 
-  term<P> nu_divv("LB_vdiv", {pt_nu_divv, }, imex);
+  term<P> nu_divv("LB_vdiv", pt_nu_divv, imex);
 
   term<P> mass_theta(time_depend, "LB_mass_theta",
-                     partial_term<P>(pterm_dependence::lenard_bernstein_diff_theta_1x1v), imex);
+                     {pterm_dependence::lenard_bernstein_diff_theta_1x1v}, imex);
 
   term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
@@ -1254,29 +1249,21 @@ inline void add_lenard_bernstein_collisions_1x2v(P const nu, term_set<P> &terms)
 
   term<P> nu_div_vv("LB_nu_div_vv", pt_nu_div_vv, imex);
 
+  partial_term<P> pt_nu_div_v{pt_div_dirichlet_zero, flux_type::central, const_nu};
 
-  partial_term<P> pt_nu_div_v(
-      coefficient_type::div, const_nu, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  term<P> mass_u1(time_depend, "LB_u1", partial_term<P>(mass_moment_over_density_neg{1}), imex);
-  term<P> mass_u2(time_depend, "LB_u2", partial_term<P>(mass_moment_over_density_neg{2}), imex);
+  term<P> mass_u1(time_depend, "LB_u1", {mass_moment_over_density_neg{1}}, imex);
+  term<P> mass_u2(time_depend, "LB_u2", {mass_moment_over_density_neg{2}}, imex);
 
   term<P> nu_div_v("LB_nu_div_v", pt_nu_div_v, imex);
 
+  partial_term<P> pt_div_up{pt_div_dirichlet_zero, flux_type::upwind};
 
-  partial_term<P> pt_div_up(
-      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  partial_term<P> pt_nu_grad_down(
-      coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_nu_grad_down{pt_grad_dirichlet_zero, flux_type::downwind, const_nu};
 
   term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
   term<P> mass_theta(time_depend, "LB_mass_theta",
-                     partial_term<P>(pterm_dependence::lenard_bernstein_diff_theta_1x2v), imex);
+                     {pterm_dependence::lenard_bernstein_diff_theta_1x2v}, imex);
 
   terms.push_back({I, nu_div_vv, I});
   terms.push_back({I, I, nu_div_vv});
@@ -1301,36 +1288,26 @@ inline void add_lenard_bernstein_collisions_1x3v(P const nu, term_set<P> &terms)
 
   term<P> I("LB_I", pt_identity, imex);
 
-  partial_term<P> pt_nu_div_vv(
-      coefficient_type::div, get_nuv, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_nu_div_vv{pt_div_dirichlet_zero, flux_type::upwind, get_nuv};
 
   term<P> nu_div_vv("LB_nu_div_vv", pt_nu_div_vv, imex);
 
+  partial_term<P> pt_nu_div_v{pt_div_dirichlet_zero, flux_type::central, const_nu};
 
-  partial_term<P> pt_nu_div_v(
-      coefficient_type::div, const_nu, nullptr, flux_type::central,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  term<P> mass_u1(time_depend, "LB_u1", partial_term<P>(mass_moment_over_density_neg{1}), imex);
-  term<P> mass_u2(time_depend, "LB_u2", partial_term<P>(mass_moment_over_density_neg{2}), imex);
-  term<P> mass_u3(time_depend, "LB_u3", partial_term<P>(mass_moment_over_density_neg{3}), imex);
+  term<P> mass_u1(time_depend, "LB_u1", {mass_moment_over_density_neg{1}}, imex);
+  term<P> mass_u2(time_depend, "LB_u2", {mass_moment_over_density_neg{2}}, imex);
+  term<P> mass_u3(time_depend, "LB_u3", {mass_moment_over_density_neg{3}}, imex);
 
   term<P> nu_div_v("LB_nu_div_v", pt_nu_div_v, imex);
 
+  partial_term<P> pt_div_up{pt_div_dirichlet_zero, flux_type::upwind};
 
-  partial_term<P> pt_div_up(
-      coefficient_type::div, nullptr, nullptr, flux_type::upwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
-
-  partial_term<P> pt_nu_grad_down(
-      coefficient_type::grad, const_nu, nullptr, flux_type::downwind,
-      boundary_condition::dirichlet, boundary_condition::dirichlet);
+  partial_term<P> pt_nu_grad_down{pt_grad_dirichlet_zero, flux_type::downwind, const_nu};
 
   term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
   term<P> mass_theta(time_depend, "LB_mass_theta",
-                     partial_term<P>(pterm_dependence::lenard_bernstein_diff_theta_1x3v), imex);
+                     {pterm_dependence::lenard_bernstein_diff_theta_1x3v}, imex);
 
   terms.push_back({I, nu_div_vv, I, I});
   terms.push_back({I, I, nu_div_vv, I});
