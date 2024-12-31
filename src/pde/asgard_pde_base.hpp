@@ -28,12 +28,6 @@ enum class boundary_condition
   neumann
 };
 
-enum class homogeneity
-{
-  homogeneous,
-  inhomogeneous
-};
-
 // helper - single element size
 auto const element_segment_size = [](auto const &pde) {
   int const degree = pde.get_dimensions()[0].get_degree();
@@ -273,8 +267,6 @@ public:
                flux_type const flux_in               = flux_type::central,
                boundary_condition const left_in  = boundary_condition::neumann,
                boundary_condition const right_in = boundary_condition::neumann,
-               homogeneity const left_homo_in    = homogeneity::homogeneous,
-               homogeneity const right_homo_in   = homogeneity::homogeneous,
                std::vector<vector_func<P>> const left_bc_funcs_in  = {},
                scalar_func<P> const left_bc_time_func_in           = nullptr,
                std::vector<vector_func<P>> const right_bc_funcs_in = {},
@@ -284,10 +276,8 @@ public:
       : coeff_type_(coeff_type_in), g_func_(g_func_in),
         lhs_mass_func_(lhs_mass_func_in), flux_(set_flux(flux_in)), left_(left_in),
         right_(right_in), ileft_(set_bilinear_boundary(left_in)),
-        iright_(set_bilinear_boundary(right_in)), left_homo_(left_homo_in),
-        right_homo_(right_homo_in), left_bc_funcs_(left_bc_funcs_in),
-        right_bc_funcs_(right_bc_funcs_in),
-        left_bc_time_func_(left_bc_time_func_in),
+        iright_(set_bilinear_boundary(right_in)), left_bc_funcs_(left_bc_funcs_in),
+        right_bc_funcs_(right_bc_funcs_in), left_bc_time_func_(left_bc_time_func_in),
         right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
   {}
 
@@ -298,8 +288,6 @@ public:
                flux_type const flux_in               = flux_type::central,
                boundary_condition const left_in  = boundary_condition::neumann,
                boundary_condition const right_in = boundary_condition::neumann,
-               homogeneity const left_homo_in    = homogeneity::homogeneous,
-               homogeneity const right_homo_in   = homogeneity::homogeneous,
                std::vector<vector_func<P>> const left_bc_funcs_in  = {},
                scalar_func<P> const left_bc_time_func_in           = nullptr,
                std::vector<vector_func<P>> const right_bc_funcs_in = {},
@@ -309,10 +297,8 @@ public:
       : coeff_type_(coeff_type_in), depends_(depends_in), g_func_f_(g_func_f_in),
         lhs_mass_func_(lhs_mass_func_in), flux_(set_flux(flux_in)), left_(left_in),
         right_(right_in), ileft_(set_bilinear_boundary(left_in)),
-        iright_(set_bilinear_boundary(right_in)), left_homo_(left_homo_in),
-        right_homo_(right_homo_in), left_bc_funcs_(left_bc_funcs_in),
-        right_bc_funcs_(right_bc_funcs_in),
-        left_bc_time_func_(left_bc_time_func_in),
+        iright_(set_bilinear_boundary(right_in)), left_bc_funcs_(left_bc_funcs_in),
+        right_bc_funcs_(right_bc_funcs_in), left_bc_time_func_(left_bc_time_func_in),
         right_bc_time_func_(right_bc_time_func_in), dv_func_(dv_func_in)
   {
     expect(depends_ != pterm_dependence::none);
@@ -383,8 +369,8 @@ public:
   boundary_condition ileft() const { return ileft_; }
   boundary_condition iright() const { return iright_; }
 
-  homogeneity left_homo() const { return left_homo_; };
-  homogeneity right_homo() const { return right_homo_; };
+  bool left_bc_zero() const { return left_bc_funcs_.empty(); }
+  bool right_bc_zero() const { return right_bc_funcs_.empty(); };
 
   int mom_index() const { return mom; }
 
@@ -459,9 +445,6 @@ private:
 
   boundary_condition ileft_  = boundary_condition::neumann;
   boundary_condition iright_ = boundary_condition::neumann;
-
-  homogeneity left_homo_  = homogeneity::homogeneous;
-  homogeneity right_homo_ = homogeneity::homogeneous;
 
   std::vector<vector_func<P>> left_bc_funcs_;
   std::vector<vector_func<P>> right_bc_funcs_;
@@ -839,19 +822,6 @@ public:
 
         auto const max_dof = fm::ipow2(static_cast<int64_t>(max_level_)) * pdof;
         expect(max_dof < INT_MAX);
-
-        for (auto &p : term_1D.get_partial_terms())
-        {
-          if (p.left_homo() == homogeneity::homogeneous)
-            expect(static_cast<int>(p.left_bc_funcs().size()) == 0);
-          else if (p.left_homo() == homogeneity::inhomogeneous)
-            expect(static_cast<int>(p.left_bc_funcs().size()) == num_dims_);
-
-          if (p.right_homo() == homogeneity::homogeneous)
-            expect(static_cast<int>(p.right_bc_funcs().size()) == 0);
-          else if (p.right_homo() == homogeneity::inhomogeneous)
-            expect(static_cast<int>(p.right_bc_funcs().size()) == num_dims_);
-        }
       }
     }
 

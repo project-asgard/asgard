@@ -69,8 +69,7 @@ private:
   inline static const partial_term<P> partial_term_1 = partial_term<P>(
       coefficient_type::grad, nullptr, nullptr, flux_type::downwind,
       boundary_condition::dirichlet, boundary_condition::dirichlet,
-      homogeneity::inhomogeneous, homogeneity::inhomogeneous, {bc_func},
-      bc_time_func, {bc_func}, bc_time_func);
+      {bc_func}, bc_time_func, {bc_func}, bc_time_func);
 
   inline static term<P> const term_0 =
       term<P>(true, // time-dependent

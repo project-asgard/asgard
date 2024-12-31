@@ -92,7 +92,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
         std::string const gold_filename = gen_filename("bcL", pt);
 
         partial_term<P> const &p_term = partial_terms[pt];
-        if (p_term.left_homo() == homogeneity::inhomogeneous)
+        if (not p_term.left_bc_zero())
         {
           REQUIRE(static_cast<int>(p_term.left_bc_funcs().size()) > d);
 
@@ -107,7 +107,7 @@ void test_compute_boundary_condition(PDE<P> &pde,
           rmse_comparison(gold_left_bc_vector, left_bc, tol_factor);
         }
 
-        if (p_term.right_homo() == homogeneity::inhomogeneous)
+        if (not p_term.right_bc_zero())
         {
           REQUIRE(static_cast<int>(p_term.right_bc_funcs().size()) > d);
 

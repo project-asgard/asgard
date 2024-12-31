@@ -39,8 +39,7 @@ public:
 
     partial_term<P> pt_pen(
         coefficient_type::penalty, pen_func, nullptr, flux_type::upwind,
-        boundary_condition::neumann, boundary_condition::neumann,
-        homogeneity::homogeneous, homogeneity::homogeneous);
+        boundary_condition::neumann, boundary_condition::neumann);
 
     bool constexpr time_depend = true;
     term<P> term_pen(time_depend, "penalty", pt_pen, imex_flag::imex_implicit);

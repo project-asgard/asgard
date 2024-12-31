@@ -333,10 +333,8 @@ public:
       domain = {dim0, dim1};
     }
 
-    partial_term_1d par_der(
-        coefficient_type::div, neg_one, nullptr, flux_type::upwind,
-        boundary_condition::dirichlet, boundary_condition::dirichlet,
-        homogeneity::homogeneous, homogeneity::homogeneous);
+    partial_term_1d par_der{pt_div_dirichlet_zero, flux_type::upwind,
+                            PDE<precision>::gfunc_neg1};
 
     term_1d d_x(time_independent, "d_x", par_der);
     term_1d mass_y(time_independent, "mass_y", pt_identity);

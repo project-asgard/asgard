@@ -154,11 +154,8 @@ private:
   inline static partial_term<P> const partial_term_1
       {pt_div_dirichlet_zero, flux_type::upwind, nullptr, nullptr, dV_z};
 
-  inline static partial_term<P> const partial_term_2 =
-      partial_term<P>(coefficient_type::grad, nullptr, nullptr,
-                      flux_type::downwind, boundary_condition::neumann,
-                      boundary_condition::neumann, homogeneity::homogeneous,
-                      homogeneity::homogeneous, {}, nullptr, {}, nullptr, dV_z);
+  inline static const
+  partial_term<P> partial_term_2{pt_grad_free, flux_type::downwind, nullptr, nullptr, dV_z};
 
   inline static term<P> const termC_z =
       term<P>("d_dx", {partial_term_1, partial_term_2});

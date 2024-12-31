@@ -149,7 +149,7 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
       {
         partial_term<P> const &pterm = pterms[pt];
 
-        if (pterm.left_homo() == homogeneity::inhomogeneous)
+        if (not pterm.left_bc_zero())
         {
           std::vector<P> trace_bc = compute_left_boundary_condition(
               pterm.g_func(), pterm.dv_func(), t_init, dim,
@@ -166,7 +166,7 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
           left_pvecs.emplace_back(std::move(combined));
         }
 
-        if (pterm.right_homo() == homogeneity::inhomogeneous)
+        if (not pterm.right_bc_zero())
         {
           std::vector<P> trace_bc = compute_right_boundary_condition(
               pterm.g_func(), pterm.dv_func(), t_init, dim,
@@ -226,12 +226,12 @@ std::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
       {
         partial_term<P> const &p_term = partial_terms[p_num];
 
-        if (p_term.left_homo() == homogeneity::inhomogeneous)
+        if (not p_term.left_bc_zero())
         {
           fm::axpy(p_term.left_bc_time_func() ? p_term.left_bc_time_func()(time) : time,
                    left_bc_parts[term_num][dim_num][left_index++], bc);
         }
-        if (p_term.right_homo() == homogeneity::inhomogeneous)
+        if (not p_term.right_bc_zero())
         {
           fm::axpy(p_term.right_bc_time_func() ? p_term.right_bc_time_func()(time) : time,
                    right_bc_parts[term_num][dim_num][right_index++], bc);
