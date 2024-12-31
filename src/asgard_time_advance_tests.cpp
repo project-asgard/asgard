@@ -1107,7 +1107,7 @@ void test_memory_mode(imex_flag imex)
   // make some PDE, no need to be too specific
   verbosity_level verb = verbosity_level::quiet;
 
-  auto opts = make_opts("-p two_stream -d 2 -l 5");
+  auto opts = make_opts("-p two_stream -d 2 -l 5 -s expl");
 
   discretization_manager<prec> disc(make_PDE<prec>(opts));
 
