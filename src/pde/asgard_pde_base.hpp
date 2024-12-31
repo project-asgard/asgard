@@ -25,7 +25,7 @@ enum class boundary_condition
 {
   periodic,
   dirichlet,
-  neumann
+  free
 };
 
 // helper - single element size
@@ -57,9 +57,9 @@ enum class pterm_dependence
   electric_field, // depends on the electric field
   electric_field_infnrm, // depends on the max abs( electric_field )
   moment_divided_by_density, // moment divided by moment 0
-  lenard_bernstein_diff_theta_1x1v,
-  lenard_bernstein_diff_theta_1x2v,
-  lenard_bernstein_diff_theta_1x3v,
+  lenard_bernstein_coll_theta_1x1v,
+  lenard_bernstein_coll_theta_1x2v,
+  lenard_bernstein_coll_theta_1x3v,
 };
 
 template<coefficient_type>
@@ -203,8 +203,8 @@ public:
 
       : coeff_type_(coefficient_type::div), g_func_(g_func_in),
         lhs_mass_func_(lhs_mass_func_in), flux_(flux_in),
-        left_(boundary_condition::neumann), right_(boundary_condition::neumann),
-        ileft_(boundary_condition::neumann), iright_(boundary_condition::neumann),
+        left_(boundary_condition::free), right_(boundary_condition::free),
+        ileft_(boundary_condition::free), iright_(boundary_condition::free),
         dv_func_(dv_func_in)
   {}
 
@@ -242,9 +242,9 @@ public:
 
       : coeff_type_(coefficient_type::grad), g_func_(g_func_in),
         lhs_mass_func_(lhs_mass_func_in), flux_(grad_flux(flux_in)),
-        left_(boundary_condition::neumann), right_(boundary_condition::neumann),
-        ileft_(set_bilinear_boundary(boundary_condition::neumann)),
-        iright_(set_bilinear_boundary(boundary_condition::neumann)),
+        left_(boundary_condition::free), right_(boundary_condition::free),
+        ileft_(set_bilinear_boundary(boundary_condition::free)),
+        iright_(set_bilinear_boundary(boundary_condition::free)),
         dv_func_(dv_func_in)
   {}
 
@@ -257,7 +257,7 @@ public:
       : coeff_type_(coefficient_type::grad), g_func_(g_func_in),
         lhs_mass_func_(lhs_mass_func_in), flux_(grad_flux(flux_in)),
         left_(boundary_condition::dirichlet), right_(boundary_condition::dirichlet),
-        ileft_(boundary_condition::neumann), iright_(boundary_condition::neumann),
+        ileft_(boundary_condition::free), iright_(boundary_condition::free),
         dv_func_(dv_func_in)
   {}
 
@@ -265,8 +265,8 @@ public:
                g_func_type<P> const g_func_in        = nullptr,
                g_func_type<P> const lhs_mass_func_in = nullptr,
                flux_type const flux_in               = flux_type::central,
-               boundary_condition const left_in  = boundary_condition::neumann,
-               boundary_condition const right_in = boundary_condition::neumann,
+               boundary_condition const left_in  = boundary_condition::free,
+               boundary_condition const right_in = boundary_condition::free,
                std::vector<vector_func<P>> const left_bc_funcs_in  = {},
                scalar_func<P> const left_bc_time_func_in           = nullptr,
                std::vector<vector_func<P>> const right_bc_funcs_in = {},
@@ -295,9 +295,9 @@ public:
     expect(not (depends_ == pterm_dependence::electric_field and !g_func_f_));
     expect(not (depends_ == pterm_dependence::electric_field_infnrm and !g_func_f_));
     // if this depends on Lenard Bernstein collision, cannot have g funcs
-    if (depends_ == pterm_dependence::lenard_bernstein_diff_theta_1x1v
-        or depends_ == pterm_dependence::lenard_bernstein_diff_theta_1x2v
-        or depends_ == pterm_dependence::lenard_bernstein_diff_theta_1x3v) {
+    if (depends_ == pterm_dependence::lenard_bernstein_coll_theta_1x1v
+        or depends_ == pterm_dependence::lenard_bernstein_coll_theta_1x2v
+        or depends_ == pterm_dependence::lenard_bernstein_coll_theta_1x3v) {
       expect(!g_func_ and !g_func_f_);
     }
   }
@@ -395,7 +395,7 @@ private:
     // conditions while leaving the BC routine unaffected.
     if (coeff_type_ == coefficient_type::grad)
     {
-      return (bc == boundary_condition::dirichlet) ? boundary_condition::neumann
+      return (bc == boundary_condition::dirichlet) ? boundary_condition::free
                                                    : boundary_condition::dirichlet;
     }
     return bc;
@@ -421,11 +421,11 @@ private:
 
   flux_type flux_ = flux_type::central;
 
-  boundary_condition left_  = boundary_condition::neumann;
-  boundary_condition right_ = boundary_condition::neumann;
+  boundary_condition left_  = boundary_condition::free;
+  boundary_condition right_ = boundary_condition::free;
 
-  boundary_condition ileft_  = boundary_condition::neumann;
-  boundary_condition iright_ = boundary_condition::neumann;
+  boundary_condition ileft_  = boundary_condition::free;
+  boundary_condition iright_ = boundary_condition::free;
 
   std::vector<vector_func<P>> left_bc_funcs_;
   std::vector<vector_func<P>> right_bc_funcs_;
@@ -538,68 +538,6 @@ struct parameter
 {
   std::string const name;
   g_func_type<P> value;
-};
-
-// Singleton class for storing and receiving PDE parameters
-template<typename P>
-#define param_manager parameter_manager<P>::get_instance()
-class parameter_manager
-{
-public:
-  static parameter_manager<P> &get_instance()
-  {
-    static parameter_manager<P> instance;
-    return instance;
-  }
-
-  // prevent potential copies from being created
-  parameter_manager(parameter_manager<P> const &) = delete;
-  void operator=(parameter_manager<P> const &) = delete;
-
-  std::shared_ptr<parameter<P>> get_parameter(std::string const name)
-  {
-    auto p = check_param(name);
-    if (p == nullptr)
-    {
-      throw std::runtime_error(
-          std::string(" could not find parameter with name '" + name + "'\n"));
-    }
-    return p;
-  }
-
-  void add_parameter(parameter<P> const &param)
-  {
-    if (check_param(param.name) == nullptr)
-    {
-      parameters.push_back(std::make_shared<parameter<P>>(param));
-    }
-    else
-    {
-      throw std::runtime_error(std::string(
-          "already have a parameter with name '" + param.name + "'\n"));
-    }
-  }
-
-  size_t get_num_parameters() { return parameters.size(); }
-
-  void reset() { parameters = std::vector<std::shared_ptr<parameter<P>>>(); }
-
-private:
-  parameter_manager() {}
-
-  std::shared_ptr<parameter<P>> check_param(std::string const name)
-  {
-    for (auto p : parameters)
-    {
-      if (p->name == name)
-      {
-        return p;
-      }
-    }
-    return nullptr;
-  }
-
-  std::vector<std::shared_ptr<parameter<P>>> parameters;
 };
 
 // ---------------------------------------------------------------------------
@@ -941,9 +879,9 @@ public:
           int const mom = term1d.max_moment_index();
           num_moments = std::max(1 + mom / (num_dims_ - 1), num_moments);
         }
-        else if (term1d.has_dependence(pterm_dependence::lenard_bernstein_diff_theta_1x1v)
-                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_diff_theta_1x2v)
-                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_diff_theta_1x3v))
+        else if (term1d.has_dependence(pterm_dependence::lenard_bernstein_coll_theta_1x1v)
+                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_coll_theta_1x2v)
+                 or term1d.has_dependence(pterm_dependence::lenard_bernstein_coll_theta_1x3v))
         {
           num_moments = std::max(3, num_moments);
         }
@@ -1223,7 +1161,7 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
   term<P> nu_divv("LB_vdiv", pt_nu_divv, imex);
 
   term<P> mass_theta(time_depend, "LB_mass_theta",
-                     {pterm_dependence::lenard_bernstein_diff_theta_1x1v}, imex);
+                     {pterm_dependence::lenard_bernstein_coll_theta_1x1v}, imex);
 
   term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
@@ -1263,7 +1201,7 @@ inline void add_lenard_bernstein_collisions_1x2v(P const nu, term_set<P> &terms)
   term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
   term<P> mass_theta(time_depend, "LB_mass_theta",
-                     {pterm_dependence::lenard_bernstein_diff_theta_1x2v}, imex);
+                     {pterm_dependence::lenard_bernstein_coll_theta_1x2v}, imex);
 
   terms.push_back({I, nu_div_vv, I});
   terms.push_back({I, I, nu_div_vv});
@@ -1307,7 +1245,7 @@ inline void add_lenard_bernstein_collisions_1x3v(P const nu, term_set<P> &terms)
   term<P> nu_div_grad("LB_nu_div_grad", {pt_div_up, pt_nu_grad_down}, imex);
 
   term<P> mass_theta(time_depend, "LB_mass_theta",
-                     {pterm_dependence::lenard_bernstein_diff_theta_1x3v}, imex);
+                     {pterm_dependence::lenard_bernstein_coll_theta_1x3v}, imex);
 
   terms.push_back({I, nu_div_vv, I, I});
   terms.push_back({I, I, nu_div_vv, I});

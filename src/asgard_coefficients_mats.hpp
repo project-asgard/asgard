@@ -349,7 +349,7 @@ void gen_tri_cmat(dimension<P> const &dim, partial_term<P> const &pterm,
             coeff_axpy(fluxL2abs, matrix_LtL, coefficients.diag(0));
           break;
 
-        case boundary_condition::neumann:
+        case boundary_condition::free:
           // If penalty then we add nothing
           // Else we want to standard (outflow) flux
           // <gf,v> = <g{f}/2,v>
@@ -396,7 +396,7 @@ void gen_tri_cmat(dimension<P> const &dim, partial_term<P> const &pterm,
             coeff_axpy(fluxR2abs, matrix_RtR, coefficients.diag(num_cells - 1));
           break;
 
-        case boundary_condition::neumann:
+        case boundary_condition::free:
           if constexpr (coeff_type != coefficient_type::penalty)
             coeff_axpy(2.0 * fluxR2, matrix_RtR, coefficients.diag(num_cells - 1));
           break;
@@ -495,9 +495,9 @@ void gen_diag_mom_by_mom0(
     P const time, std::vector<P> const &moms, block_diag_matrix<P> &coefficients)
 {
   static_assert(multsign == 1 or multsign == -1);
-  static_assert(not (dep == pterm_dependence::lenard_bernstein_diff_theta_1x1v and multsign == -1));
-  static_assert(not (dep == pterm_dependence::lenard_bernstein_diff_theta_1x2v and multsign == -1));
-  static_assert(not (dep == pterm_dependence::lenard_bernstein_diff_theta_1x3v and multsign == -1));
+  static_assert(not (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v and multsign == -1));
+  static_assert(not (dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v and multsign == -1));
+  static_assert(not (dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v and multsign == -1));
   expect(time >= 0.0);
 
   // setup jacobi of variable x and define coeff_mat
@@ -536,9 +536,9 @@ void gen_diag_mom_by_mom0(
   size_t const wsize = [&]() -> size_t {
     if constexpr (dep == pterm_dependence::moment_divided_by_density)
       return num_quad * pdof + 2 * num_quad;
-    else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x1v
-                       or dep == pterm_dependence::lenard_bernstein_diff_theta_1x2v
-                       or dep == pterm_dependence::lenard_bernstein_diff_theta_1x3v)
+    else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v
+                       or dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v
+                       or dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v)
       return num_quad * pdof + 3 * num_quad;
   }();
 
@@ -573,7 +573,7 @@ void gen_diag_mom_by_mom0(
             gv[k] /= gdiv[k];
         }
       }
-      else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x1v)
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v)
       {
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + pdof, gv);
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + 2 * pdof, gv2);
@@ -588,7 +588,7 @@ void gen_diag_mom_by_mom0(
             gv[k] = (gv2[k] / gdiv[k]) - gv[k] * gv[k] / (gdiv[k] * gdiv[k]);
         }
       }
-      else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x2v)
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v)
       {
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + pdof, gv2);
         for (int k : iindexof(num_quad))
@@ -611,7 +611,7 @@ void gen_diag_mom_by_mom0(
             gv[k] = 0.5 * ((gv2[k] / gdiv[k]) - gv[k] / (gdiv[k] * gdiv[k]));
         }
       }
-      else if constexpr (dep == pterm_dependence::lenard_bernstein_diff_theta_1x3v)
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v)
       {
         smmat::gemv(num_quad, pdof, Lv.data(), moment[i] + 1 * pdof, gv2);
         for (int k : iindexof(num_quad))

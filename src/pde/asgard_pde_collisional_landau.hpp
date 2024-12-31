@@ -39,7 +39,7 @@ public:
 
     partial_term<P> pt_pen(
         coefficient_type::penalty, pen_func, nullptr, flux_type::upwind,
-        boundary_condition::neumann, boundary_condition::neumann);
+        boundary_condition::free, boundary_condition::free);
 
     bool constexpr time_depend = true;
     term<P> term_pen(time_depend, "penalty", pt_pen, imex_flag::imex_implicit);
@@ -184,7 +184,7 @@ private:
               ptEmass, imex_flag::imex_explicit);
 
   inline static term<P> const div_v =
-      term<P>("div_v",    // name
+      term<P>("div_v",
               {pt_div_dirichlet_zero, flux_type::central, PDE<P>::gfunc_neg1},
               imex_flag::imex_explicit);
 

@@ -123,20 +123,6 @@ private:
   // -E\cdot\grad_{v_x} f for E > 0
   //
 
-  static P E_func_pos(P const x, P const time = 0)
-  {
-    auto param = param_manager.get_parameter("E");
-    expect(param != nullptr);
-    return std::max(P{0.0}, param->value(x, time));
-  }
-
-  static P negOne(P const x, P const time = 0)
-  {
-    ignore(x);
-    ignore(time);
-    return -1.0;
-  }
-
   inline static const partial_term<P> ptEmass_pos{
       pterm_dependence::electric_field, PDE<P>::gfunc_f_positive};
   inline static const partial_term<P> ptEmass_neg{
