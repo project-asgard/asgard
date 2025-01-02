@@ -48,6 +48,8 @@ map_to_coords(int64_t const id, int const max_level, int const num_dims);
 class table
 {
 public:
+  table() = default;
+
   table(int const max_level, prog_opts const &options);
 
   template<typename P>
@@ -121,7 +123,7 @@ private:
   // table of active elements staged for on-device kron list building
   fk::vector<int> active_table_;
 
-  int max_level_; // needed for coord translation
+  int max_level_ = 1; // needed for coord translation
 };
 
 } // end namespace asgard::elements

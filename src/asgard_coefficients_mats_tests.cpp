@@ -91,3 +91,87 @@ TEMPLATE_TEST_CASE("projected mass", "[mass-coefficients]", test_precs)
                                    -3.14, 3.14, 7, 1);
   REQUIRE(std::max(err[0], err[1]) < 5.E-5);
 }
+
+TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
+{
+  using P = TestType;
+
+  int const level = 3;
+
+  legendre_basis<P> const basis(0); // zero order
+
+  block_tri_matrix<P> mat;
+
+  gen_tri_cmat<P, operation_type::div, rhs_type::is_const>(
+      basis, 0, 1, level, nullptr, 1, flux_type::upwind, boundary_type::periodic, mat);
+
+  for (int i = 0; i < 8; i++) {
+    REQUIRE(mat.lower(i)[0] == -8);
+    REQUIRE(mat.diag(i)[0] == 8);
+    REQUIRE(mat.upper(i)[0] == 0);
+  }
+
+  auto cc = [](std::vector<P> const &x, std::vector<P> &fx)
+    -> void {
+      for (auto i : indexof(x))
+        fx[i] = 1;
+    };
+
+  gen_tri_cmat<P, operation_type::div, rhs_type::is_func>(
+      basis, 0, 1, level + 1, cc, 0, flux_type::upwind, boundary_type::periodic, mat);
+
+  for (int i = 0; i < 16; i++) {
+    REQUIRE(mat.lower(i)[0] == -16);
+    REQUIRE(mat.diag(i)[0] == 16);
+    REQUIRE(mat.upper(i)[0] == 0);
+  }
+
+  gen_tri_cmat<P, operation_type::div, rhs_type::is_const>(
+      basis, 0, 1, level, nullptr, 1, flux_type::central, boundary_type::free, mat);
+
+  std::vector<P> const ref = {0, -4, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4,
+                              -4, 0, 4, -4, 0, 4, -4, 4, 0};
+  for (int i = 0; i < 8; i++) {
+    REQUIRE(mat.lower(i)[0] == ref[3 * i]);
+    REQUIRE(mat.diag(i)[0] == ref[3 * i + 1]);
+    REQUIRE(mat.upper(i)[0] == ref[3 * i + 2]);
+  }
+}
+
+TEMPLATE_TEST_CASE("simple mass", "[mass]", test_precs)
+{
+  using P = TestType;
+
+  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-13 : 1.E-4;
+
+  int const level = 3;
+
+  int const pdof = 3;
+  legendre_basis<P> const basis(pdof - 1); // zero order
+
+  block_diag_matrix<P> mat;
+
+  gen_diag_cmat<P, operation_type::mass, rhs_type::is_const>(
+      basis, 0, 1, level, nullptr, 1, mat);
+
+  for (int i = 0; i < 8; i++) {
+    std::vector<P> ref = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+    for (int k = 0; k < pdof * pdof; k++)
+     REQUIRE(std::abs(ref[k] - mat[i][k]) < tol);
+  }
+
+  auto cc = [](std::vector<P> const &x, std::vector<P> &fx)
+    -> void {
+      for (auto i : indexof(x))
+        fx[i] = -3.5;
+    };
+
+  gen_diag_cmat<P, operation_type::mass, rhs_type::is_func>(
+      basis, 0, 1, level, cc, 0, mat);
+
+  for (int i = 0; i < 8; i++) {
+    std::vector<P> ref = {-3.5, 0, 0, 0, -3.5, 0, 0, 0, -3.5};
+    for (int k = 0; k < pdof * pdof; k++)
+     REQUIRE(std::abs(ref[k] - mat[i][k]) < tol);
+  }
+}

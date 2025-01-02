@@ -8,45 +8,57 @@ namespace asgard
 template<typename precision>
 reconstruct_solution::reconstruct_solution(
     int dims, int64_t num_cells, int const asg_cells[],
-    int degree, precision const solution[])
+    int degree, precision const solution[], bool use_v2)
     : pterms_(degree + 1), block_size_(fm::ipow(pterms_, dims)), domain_scale(1.0)
 {
-  vector2d<int> raw_cells(dims, num_cells);
-  for (int64_t i = 0; i < num_cells; i++)
-    asg2tsg_convert(dims, asg_cells + 2 * dims * i, raw_cells[i]);
+  if (use_v2) {
+    // cells are already in the new format and sorted, copy over
+    std::vector<int> sorted_cells(asg_cells, asg_cells + dims * num_cells);
 
-  std::fill(inv_slope.begin(), inv_slope.end(), 1.0);
-  std::fill(shift.begin(), shift.end(), 0.0);
+    cells_ = indexset(dims, std::move(sorted_cells));
 
-  // compute a map that gives the sorted order of the indexes
-  std::vector<int64_t> imap(num_cells);
-  std::iota(imap.begin(), imap.end(), 0);
+    if constexpr (std::is_same_v<precision, double>) {
+      coeff_ = std::vector<double>(solution, solution + num_cells * block_size_);
+    } else {
+      coeff_.resize(num_cells * block_size_);
+      std::copy_n(solution, coeff_.size(), coeff_.data());
+    }
 
-  std::sort(imap.begin(), imap.end(),
-            [&](int64_t a, int64_t b) -> bool {
-              for (int d = 0; d < dims; d++)
-              {
-                if (raw_cells[a][d] < raw_cells[b][d])
-                  return true;
-                if (raw_cells[a][d] > raw_cells[b][d])
-                  return false;
-              }
-              return false; // equal should be false, as in < operator
-            });
+  } else {
+    vector2d<int> raw_cells(dims, num_cells);
+    for (int64_t i = 0; i < num_cells; i++)
+      asg2tsg_convert(dims, asg_cells + 2 * dims * i, raw_cells[i]);
 
-  // copy the solution and indexes in the correct order
-  coeff_.resize(num_cells * block_size_);
-  std::vector<int> sorted_cells(dims * num_cells);
+    // compute a map that gives the sorted order of the indexes
+    std::vector<int64_t> imap(num_cells);
+    std::iota(imap.begin(), imap.end(), 0);
 
-  auto is = sorted_cells.begin();
-  auto ic = coeff_.begin();
-  for (int64_t i = 0; i < num_cells; i++)
-  {
-    is = std::copy_n(raw_cells[imap[i]], dims, is);
-    ic = std::copy_n(solution + block_size_ * imap[i], block_size_, ic);
+    std::sort(imap.begin(), imap.end(),
+              [&](int64_t a, int64_t b) -> bool {
+                for (int d = 0; d < dims; d++)
+                {
+                  if (raw_cells[a][d] < raw_cells[b][d])
+                    return true;
+                  if (raw_cells[a][d] > raw_cells[b][d])
+                    return false;
+                }
+                return false; // equal should be false, as in < operator
+              });
+
+    // copy the solution and indexes in the correct order
+    coeff_.resize(num_cells * block_size_);
+    std::vector<int> sorted_cells(dims * num_cells);
+
+    auto is = sorted_cells.begin();
+    auto ic = coeff_.begin();
+    for (int64_t i = 0; i < num_cells; i++)
+    {
+      is = std::copy_n(raw_cells[imap[i]], dims, is);
+      ic = std::copy_n(solution + block_size_ * imap[i], block_size_, ic);
+    }
+
+    cells_ = indexset(dims, std::move(sorted_cells));
   }
-
-  cells_ = indexset(dims, std::move(sorted_cells));
 
   // analyze the graph and prepare cache data
   build_tree();
@@ -547,12 +559,12 @@ double reconstruct_solution::walk_trees(double const x[]) const
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template reconstruct_solution::reconstruct_solution(
-    int, int64_t, int const[], int, double const[]);
+    int, int64_t, int const[], int, double const[], bool);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template reconstruct_solution::reconstruct_solution(
-    int, int64_t, int const[], int, float const[]);
+    int, int64_t, int const[], int, float const[], bool);
 #endif
 
 } // namespace asgard
@@ -573,6 +585,20 @@ void *asgard_make_freconstruct_solution(
 {
   return reinterpret_cast<void *>(new asgard::reconstruct_solution(
       dims, num_cells, asg_cells, degree, solution));
+}
+void *asgard_make_dreconstruct_solution_v2(
+    int dims, int64_t num_cells, int const asg_cells[],
+    int degree, double const solution[])
+{
+  return reinterpret_cast<void *>(new asgard::reconstruct_solution(
+      dims, num_cells, asg_cells, degree, solution, true));
+}
+void *asgard_make_freconstruct_solution_v2(
+    int dims, int64_t num_cells, int const asg_cells[],
+    int degree, float const solution[])
+{
+  return reinterpret_cast<void *>(new asgard::reconstruct_solution(
+      dims, num_cells, asg_cells, degree, solution, true));
 }
 
 void asgard_pydelete_reconstruct_solution(void *pntr)

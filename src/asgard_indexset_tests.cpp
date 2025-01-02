@@ -217,3 +217,55 @@ TEST_CASE("testing column transform connections", "[transformation]")
     }
   }
 }
+
+TEST_CASE("sparse grid manipulation", "[sparse grid]")
+{
+  SECTION("construction - sparse") {
+    prog_opts opts;
+    opts.start_levels = {1, 1};
+    sparse_grid grid(opts);
+    REQUIRE(grid.num_dims() == 2);
+    REQUIRE(fm::diff_inf(grid.indexes(),
+            std::vector<int>{0, 0, 0, 1,  1, 0}) == 0);
+
+    opts.start_levels = {2, 1};
+    grid = sparse_grid(opts);
+    REQUIRE(fm::diff_inf(grid.indexes(),
+            std::vector<int>{0, 0, 0, 1,  1, 0, 2, 0, 3, 0}) == 0);
+
+    opts.start_levels = {1, 3};
+    grid = sparse_grid(opts);
+    REQUIRE(fm::diff_inf(grid.indexes(),
+            std::vector<int>{0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 1, 0}) == 0);
+
+    opts.start_levels = {1, 2, 3};
+    grid = sparse_grid(opts);
+    REQUIRE(grid.num_dims() == 3);
+    REQUIRE(fm::diff_inf(grid.indexes(),
+            std::vector<int>{0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5,
+                             0, 0, 6, 0, 0, 7, 0, 1, 0, 0, 1, 1, 0, 2, 0, 0, 3, 0,
+                             1, 0, 0}) == 0);
+  }
+  SECTION("construction - dense") {
+    prog_opts opts;
+    opts.grid = grid_type::dense;
+    opts.start_levels = {2, 1};
+    sparse_grid grid(opts);
+    REQUIRE(grid.num_dims() == 2);
+    REQUIRE(fm::diff_inf(grid.indexes(),
+            std::vector<int>{0, 0, 0, 1, 1, 0, 1, 1, 2, 0, 2, 1, 3, 0, 3, 1}) == 0);
+  }
+  SECTION("construction - mixed") {
+    prog_opts opts;
+    opts.grid = grid_type::mixed;
+    opts.mgrid_group = 2;
+    opts.start_levels = {1, 1, 1, 1};
+    sparse_grid grid(opts);
+    REQUIRE(grid.num_dims() == 4);
+    REQUIRE(grid.num_indexes() == 9);
+    REQUIRE(fm::diff_inf(grid.indexes(),
+            std::vector<int>{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+                             0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+                             1, 0, 1, 0}) == 0);
+  }
+}

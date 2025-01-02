@@ -5,6 +5,76 @@ namespace asgard
 {
 
 template<typename P>
+void block_diag_matrix<P>::apply_inverse(int const n, block_diag_matrix<P> &rhs)
+{
+  switch (n)
+  {
+  case 1:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+    {
+      data_[r][0] = P{1} / data_[r][0];
+      rhs[r][0] *= data_[r][0];
+    }
+    break;
+  case 2:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+    {
+      smmat::inv2by2(data_[r]);
+      smmat::gemm2by2(data_[r], rhs[r]);
+    }
+    break;
+  default:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+    {
+      smmat::potrf(n, data_[r]);
+      smmat::posvm(n, data_[r], rhs[r]);
+    }
+    break;
+  }
+}
+
+template<typename P>
+void block_diag_matrix<P>::apply_inverse(int const n, block_tri_matrix<P> &rhs)
+{
+  switch (n)
+  {
+  case 1:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+    {
+      data_[r][0] = P{1} / data_[r][0];
+      *rhs.lower(r) *= data_[r][0];
+      *rhs.diag(r) *= data_[r][0];
+      *rhs.upper(r) *= data_[r][0];
+    }
+    break;
+  case 2:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+    {
+      smmat::inv2by2(data_[r]);
+      smmat::gemm2by2(data_[r], rhs.lower(r));
+      smmat::gemm2by2(data_[r], rhs.diag(r));
+      smmat::gemm2by2(data_[r], rhs.upper(r));
+    }
+    break;
+  default:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+    {
+      smmat::potrf(n, data_[r]);
+      smmat::posvm(n, data_[r], rhs.lower(r));
+      smmat::posvm(n, data_[r], rhs.diag(r));
+      smmat::posvm(n, data_[r], rhs.upper(r));
+    }
+    break;
+  }
+}
+
+template<typename P>
 void gemm_block_tri_ul(
     int const n, block_tri_matrix<P> const &A, block_tri_matrix<P> const &B,
     block_tri_matrix<P> &C)
@@ -264,6 +334,8 @@ void invert_mass(int const n, mass_matrix<P> const &mass, P x[])
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template class block_diag_matrix<double>;
+
 template void gemm_block_tri_ul<double>(
     int const n, block_tri_matrix<double> const &A, block_tri_matrix<double> const &B,
     block_tri_matrix<double> &C);
@@ -289,6 +361,8 @@ template void block_sparse_matrix<double>::gemv(
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class block_diag_matrix<float>;
+
 template void gemm_block_tri_ul<float>(
     int const n, block_tri_matrix<float> const &A, block_tri_matrix<float> const &B,
     block_tri_matrix<float> &C);

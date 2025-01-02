@@ -1,11 +1,10 @@
 #pragma once
 
 #include "asgard_indexset.hpp"
+// #include "asgard_kronmult_matrix.hpp"
 
 namespace asgard
 {
-#ifdef KRON_MODE_GLOBAL
-
 /*!
  * \brief Describes the 1D operations associated with wavelet interpolation
  *
@@ -101,5 +100,4 @@ private:
   std::vector<precision> hier2proj_;
 };
 
-#endif // KRON_MODE_GLOBAL
 } // namespace asgard

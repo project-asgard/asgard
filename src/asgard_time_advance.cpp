@@ -37,6 +37,46 @@ rungekutta3(discretization_manager<P> const &dist, std::vector<P> const &current
   return r;
 }
 
+template<typename P> void
+rungekutta3(discretization_manager<P> const &dist, std::vector<P> const &current,
+            std::vector<P> &next)
+{
+  tools::time_event performance_("runge kutta 3");
+
+  P const time = dist.time_params().time();
+  P const dt   = dist.time_params().dt();
+
+  // 3 right-hand-sides and the intermediate step
+  // the assumption is that the time-stepping scheme does not change much
+  // thus it makes sense to make these static and avoid repeated allocation
+  static std::vector<P> k1, k2, k3, s1;
+
+  k1.resize(current.size());
+  k2.resize(current.size());
+  k3.resize(current.size());
+  s1.resize(current.size());
+
+  dist.ode_rhs_v2(time, current, k1);
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    s1[i] = current[i] + 0.5 * dt * k1[i];
+
+  dist.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
+
+  dist.ode_rhs_v2(time + dt, s1, k3);
+
+  next.resize(current.size());
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
+}
+
 // no-MPI solver yet
 template<typename P>
 fk::vector<P>
@@ -351,6 +391,11 @@ namespace asgard
 template<typename P> // implemented in time-advance
 void advance_time(discretization_manager<P> &manager, int64_t num_steps)
 {
+  if (manager.version2()) {
+    advance_time_v2(manager, num_steps);
+    return;
+  }
+
   if (num_steps == 0)
     return;
   num_steps = std::max(int64_t{-1}, num_steps);
@@ -502,11 +547,72 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
   }
 }
 
+template<typename P> // implemented in time-advance
+void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
+{
+  // periodically reports time
+  static tools::simple_timer::time_point wctime = tools::simple_timer::current_time();
+
+  // is num_steps is negative, run to the end of num_remain()
+  // otherwise, run num_steps but no more than num_remain()
+  time_data<P> &params = manager.dtime;
+
+  if (num_steps > 0)
+    num_steps = std::min(params.num_remain(), num_steps);
+  else
+    num_steps = std::max(params.num_remain(), num_steps);
+  if (num_steps < 1)
+    return;
+
+  P const tol = manager.get_pde2().options().adapt_threshold.value_or(-1);
+
+  sparse_grid &grid = manager.sgrid;
+
+  std::vector<P> next;
+  while (--num_steps >= 0)
+  {
+    switch (params.method())
+    {
+      case time_advance::method::exp:
+        time_advance::rungekutta3(manager, manager.state, next);
+        break;
+      default:
+        throw std::runtime_error("not implemented for pde-v2 (coming soon)");
+        break;
+    }
+
+    if (tol > 0) {
+      int const gen = grid.generation();
+      grid.refine(tol, manager.hier.block_size(), manager.conn[connect_1d::hierarchy::volume],
+                  sparse_grid::strategy::adapt, next);
+      if (grid.generation() != gen) {
+        grid.remap(manager.hier.block_size(), next);
+        manager.terms.prapare_workspace(grid);
+      }
+    }
+
+    std::swap(manager.state, next);
+
+    params.take_step();
+
+    if (not manager.stop_verbosity()) {
+      // if verbosity is not turned off, report every 2 or 10 seconds
+      double duration = tools::simple_timer::duration_since(wctime);
+      if ((manager.high_verbosity() and duration > 2000) or (duration > 10000)) {
+        manager.progress_report();
+        wctime = tools::simple_timer::current_time();
+      }
+    }
+  }
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template void advance_time(discretization_manager<double> &, int64_t);
+template void advance_time_v2(discretization_manager<double> &, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template void advance_time(discretization_manager<float> &, int64_t);
+template void advance_time_v2(discretization_manager<float> &, int64_t);
 #endif
 } // namespace asgard

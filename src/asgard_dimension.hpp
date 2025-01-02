@@ -9,6 +9,19 @@ namespace asgard
 template<typename P>
 using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 
+//! vector function using std::vector signature, computes fx(x, t) in 1d
+template<typename P>
+using svector_func1d = std::function<void(std::vector<P> const &x, P t, std::vector<P> &fx)>;
+
+//! vector function using std::vector signature, computes fx(x) in 1d
+template<typename P>
+using sfixed_func1d = std::function<void(std::vector<P> const &x, std::vector<P> &fx)>;
+
+//! vector function using std::vector signature and a field, computes fx(x) in 1d
+template<typename P>
+using sfixed_func1d_f = std::function<void(std::vector<P> const &x, std::vector<P> const &f,
+                                           std::vector<P> &fx)>;
+
 template<typename P>
 using md_func_type = std::vector<vector_func<P>>;
 
@@ -58,28 +71,10 @@ struct dimension
     expect(domain_min < domain_max);
     set_level(level);
     set_degree(degree);
-
-    for (int i = 0; i <= level_; ++i)
-    {
-      auto const max_dof = fm::ipow2(i) * (degree + 1);
-      expect(max_dof < INT_MAX);
-      this->mass_.push_back(eye<P>(max_dof));
-    }
   }
 
   int get_level() const { return level_; }
   int get_degree() const { return degree_; }
-  fk::matrix<P> const &get_mass_matrix() const
-  {
-    // default behavior is to get the mass matrix for the current level
-    expect(level_ < static_cast<int>(this->mass_.size()));
-    return mass_[level_];
-  }
-  fk::matrix<P> const &get_mass_matrix(int level) const
-  {
-    expect(level < static_cast<int>(this->mass_.size()));
-    return mass_[level];
-  }
 
   void set_level(int const level)
   {
@@ -93,25 +88,295 @@ struct dimension
     degree_ = degree;
   }
 
-  void set_mass_matrix(fk::matrix<P> &&new_mass, int level)
-  {
-    expect(level >= 0);
-
-    if (level >= static_cast<int>(this->mass_.size()))
-    {
-      this->mass_.resize(level + 1);
-    }
-    this->mass_[level] = std::move(new_mass);
-  }
-
-  void set_mass_matrix(std::vector<fk::matrix<P>> const &new_mass)
-  {
-    this->mass_ = std::move(new_mass);
-  }
-
   int level_;
   int degree_;
-  std::vector<fk::matrix<P>> mass_;
 };
+
+//! usage, pde_domain<double> domain(position_dims{3}, velocity_dims{3});
+struct position_dims {
+  position_dims() = delete;
+  explicit position_dims(int n) : num(n) {}
+  int const num;
+};
+//! usage, pde_domain<double> domain(position_dims{3}, velocity_dims{3});
+struct velocity_dims {
+  velocity_dims() = delete;
+  explicit velocity_dims(int n) : num(n) {}
+  int const num;
+};
+
+/*!
+ * \brief Indicates the left/right end-points of a dimension
+ */
+template<typename P>
+struct domain_range {
+  P left;
+  P right;
+};
+
+/*!
+ * \brief Defines a domain for the PDE
+ *
+ * First we specify the number of dimensions, could be a single number
+ * or split between position and velocity.
+ * The split allows for better management of kinetic problems,
+ * such as computing moments and using builtin operators that depend
+ * on the moments.
+ * If such operators are not used, then the split is meaningless.
+ */
+template<typename P>
+class pde_domain
+{
+public:
+  //! create an empty domain
+  pde_domain() {}
+  //! create a canonical domain for the given number of dimensions
+  pde_domain(int num_dimensions)
+    : num_dims_(num_dimensions)
+  {
+    check_init();
+  }
+  //! create a domain with given range in each dimension
+  pde_domain(std::initializer_list<domain_range<P>> list)
+    : num_dims_(static_cast<int>(list.size()))
+  {
+    check_init();
+    this->set(list);
+  }
+  //! create a domain with given range in each dimension
+  pde_domain(std::vector<domain_range<P>> list)
+    : num_dims_(static_cast<int>(list.size()))
+  {
+    check_init();
+    this->set(list);
+  }
+  //! create a canonical domain for the given number of dimensions
+  pde_domain(position_dims pos, velocity_dims vel,
+             std::initializer_list<domain_range<P>> list = {})
+    : num_dims_(pos.num + vel.num), num_pos_(pos.num), num_vel_(vel.num)
+  {
+    check_init();
+
+    if (list.size() > 0)
+      this->set(list);
+  }
+
+  //! defaults is (0, 1) in each direction, should probably be overwritten here
+  void set(std::initializer_list<domain_range<P>> list)
+  {
+    if (static_cast<int>(list.size()) != num_dims_)
+      throw std::runtime_error("provided number of domain_range entries does not match the "
+                               "number of dimensions");
+
+    for (int d : iindexof(num_dims_))
+    {
+      xleft_[d] = (list.begin() + d)->left;
+      xright_[d] = (list.begin() + d)->right;
+      length_[d] = xright_[d] - xleft_[d];
+      if (length_[d] < P{0})
+        throw std::runtime_error("domain_range specified with negative length");
+    }
+  }
+  //! defaults is (0, 1) in each direction, should probably be overwritten here
+  void set(std::vector<domain_range<P>> list)
+  {
+    if (static_cast<int>(list.size()) != num_dims_)
+      throw std::runtime_error("provided number of domain_range entries does not match the "
+                               "number of dimensions");
+
+    for (int d : iindexof(num_dims_))
+    {
+      xleft_[d] = (list.begin() + d)->left;
+      xright_[d] = (list.begin() + d)->right;
+      length_[d] = xright_[d] - xleft_[d];
+      if (length_[d] < P{0})
+        throw std::runtime_error("domain_range specified with negative length");
+    }
+  }
+  //! (for plotting) default names are x1, x2, x3, v1, v2, v3, can be overwritten
+  void set_names(std::initializer_list<std::string> list)
+  {
+    if (static_cast<int>(list.size()) != num_dims_)
+      throw std::runtime_error("provided number of names does not match the "
+                               "number of dimensions");
+
+    for (int d : iindexof(num_dims_))
+      dnames_[d] = *(list.begin() + d);
+  }
+
+  //! returns the number of dimension
+  int num_dims() const { return num_dims_; }
+  //! returns the number of position dimensions (if set)
+  int num_pos() const { return num_pos_; }
+  //! returns the number of velocity dimensions (if set)
+  int num_vel() const { return num_vel_; }
+
+  //! returns the length in dimension d
+  P length(int d) const { return length_[d]; }
+  //! returns the left point of dimension d
+  P xleft(int d) const { return xleft_[d]; }
+  //! returns the right point of dimension d
+  P xright(int d) const { return xright_[d]; }
+
+  //! returns the name of dimension d
+  std::string const &name(int i) { return dnames_[i]; }
+
+  //! (related to cfl) given the provided maximum level, find the smallest cell size
+  P min_cell_size(int max_level) const {
+    int num_cells = fm::ipow2(max_level);
+    P msize = length_[0] / num_cells;
+    for (int d = 1; d < num_dims_; d++)
+      msize = std::min(msize, length_[d] / num_cells);
+    return msize;
+  }
+
+  // used for i/o purposes
+  friend class h5writer<P>;
+
+private:
+  void check_init() {
+    if (num_dims_ < 1)
+      throw std::runtime_error("pde_domain created with zero or negative dimensions");
+    if (num_dims_ > max_num_dimensions)
+      throw std::runtime_error("pde_domain created with too many dimensions, max is 6D");
+    if (num_pos_ < 0)
+      throw std::runtime_error("pde_domain created with negative position dimensions");
+    if (num_vel_ < 0)
+      throw std::runtime_error("pde_domain created with negative velocity dimensions");
+
+    if (num_pos_ == 0 and num_vel_ == 0) {
+      for (int d : iindexof(num_dims_))
+        dnames_[d] = "x" + std::to_string(d + 1);
+    } else {
+      for (int d : iindexof(num_pos_))
+        dnames_[d] = "x" + std::to_string(d + 1);
+      for (int d : iindexof(num_vel_))
+        dnames_[d + num_pos_] = "v" + std::to_string(d + 1);
+    }
+  }
+
+  int num_dims_ = 0;
+  int num_pos_ = 0;
+  int num_vel_ = 0;
+  std::array<P, max_num_dimensions> length_ = {{P{1}}};
+  std::array<P, max_num_dimensions> xleft_ = {{P{0}}};
+  std::array<P, max_num_dimensions> xright_ = {{P{1}}};
+
+  std::array<std::string, max_num_dimensions> dnames_;
+};
+
+/*!
+ * \brief A function that is the product of 1d functions
+ *
+ * There are 3 modes of this function, depending on the way that the time
+ * component operates.
+ *
+ * If the function is non-separable in time:
+ * \code
+ *   separable_func<P> f({f1, f2, f3, ...});
+ *   // f1 has signature svector_func1d<P>
+ * \endcode
+ *
+ * If the function is separable in time:
+ * \code
+ *   separable_func<P> f({f1, f2, f3, ...}, t);
+ *   // t has signature scalar_func<P>
+ * \endcode
+ *
+ * If the function does not depend on time:
+ * \code
+ *   separable_func<P> f({f1, f2, f3, ...}, separable_func<P>::set_ignore_time);
+ * \endcode
+ *
+ * If a time-independent function is not marked with "set_ignore_time" or if
+ * a separable time-component is built into the spacial components, the projection
+ * of the function will be recomputed several times per-time step.
+ * The result will be the same but there will be some performance penalty.
+ */
+template<typename P>
+class separable_func
+{
+public:
+  struct type_tag_ignore_time{};
+  static constexpr type_tag_ignore_time set_ignore_time = type_tag_ignore_time{};
+
+  //! set a function non-separable in time or not depending on time
+  separable_func(std::list<svector_func1d<P>> fdomain)
+  {
+    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
+    int dims = 0;
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+      source_func_[dims++] = std::move(*ip);
+  }
+  //! set a function non-separable in time or not depending on time
+  separable_func(std::list<svector_func1d<P>> fdomain, type_tag_ignore_time)
+    : ignores_time_(true)
+  {
+    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
+    int dims = 0;
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+      source_func_[dims++] = std::move(*ip);
+  }
+  //! set a function non-separable in time or not depending on time
+  separable_func(std::vector<svector_func1d<P>> fdomain)
+  {
+    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
+    int dims = 0;
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+      source_func_[dims++] = std::move(*ip);
+  }
+  //! set a function non-separable in time or not depending on time
+  separable_func(std::vector<svector_func1d<P>> fdomain, type_tag_ignore_time)
+    : ignores_time_(true)
+  {
+    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
+    int dims = 0;
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+      source_func_[dims++] = std::move(*ip);
+  }
+  //! set a function that is separable in both space and time
+  separable_func(std::vector<svector_func1d<P>> fdomain, scalar_func<P> f_time)
+    : time_func_(std::move(f_time))
+  {
+    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
+
+    int dims = 0;
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+      source_func_[dims++] = std::move(*ip);
+  }
+
+  //! check the number of dimensions, does not cache use primarily for verification
+  int num_dims() const {
+    int dims = 0;
+    for (auto const &s : source_func_) if (s) dims++;
+    return dims;
+  }
+
+  svector_func1d<P> const &fdomain(int i) const { return source_func_[i]; }
+  scalar_func<P> const &ftime() const { return time_func_; }
+
+  bool ignores_time() const { return ignores_time_; }
+
+  P eval(P const x[], P t) {
+    std::vector<P> xx(1), fx(1);
+    P v = P{1};
+    for (int d : iindexof(max_num_dimensions)) {
+      if (source_func_[d]) {
+        xx.front() = x[d];
+        source_func_[d](xx, t, fx);
+        v *= fx[0];
+      }
+    }
+    if (time_func_)
+      v *= time_func_(t);
+    return v;
+  }
+
+private:
+  bool ignores_time_ = false;
+  std::array<svector_func1d<P>, max_num_dimensions> source_func_;
+  scalar_func<P> time_func_;
+};
+
 
 } // namespace asgard

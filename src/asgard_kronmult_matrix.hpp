@@ -48,11 +48,13 @@ template<typename P>
 struct coefficient_matrices
 {
   //! initializes the storage space and the non-Cartesian volumes
-  coefficient_matrices(PDE<P> &pde)
-      : num_dimensions_(pde.num_dims()), num_terms_(pde.num_terms()),
-        current_levels(num_terms_, num_dimensions_)
+  coefficient_matrices(PDE<P> const &pde)
+      : current_levels(pde.num_terms(), pde.num_dims())
   {
-    for (int d : indexof<int>(num_dimensions_))
+    int const num_dimensions = pde.num_dims();
+    int const num_terms      = pde.num_terms();
+
+    for (int d : iindexof(num_dimensions))
       if (pde.get_dimensions()[d].volume_jacobian_dV)
       {
         dim_mass[d].set_non_identity();
@@ -64,24 +66,45 @@ struct coefficient_matrices
         };
       }
     // prepare storage, no need to initialize yet
-    pterm_mass.resize(num_dimensions_ * num_terms_);
-    term_coeffs.resize(num_dimensions_ * num_terms_);
-    pterm_coeffs.resize(num_dimensions_ * num_terms_);
+    pterm_mass.resize(num_dimensions * num_terms);
+    term_coeffs.resize(num_dimensions * num_terms);
+    pterm_coeffs.resize(num_dimensions * num_terms);
     // check the number of pterms and initialize the mass (if needed)
-    for (int d : indexof<int>(num_dimensions_))
-      for (int t : indexof<int>(num_terms_))
+    for (int d : indexof<int>(num_dimensions))
+      for (int t : indexof<int>(num_terms))
       {
         size_t const size = pde.get_terms()[t][d].get_partial_terms().size();
-        pterm_mass[t * num_dimensions_ + d].resize(size);
-        pterm_coeffs[t * num_dimensions_ + d].resize(size);
+        pterm_mass[t * num_dimensions + d].resize(size);
+        pterm_coeffs[t * num_dimensions + d].resize(size);
       }
 
-    std::fill_n(current_levels[0], num_dimensions_ * num_terms_, -1);
+    std::fill_n(current_levels[0], num_dimensions * num_terms, -1);
+  }
+
+  coefficient_matrices(PDEv2<P> const &pde)
+  {
+    int const num_dimensions = pde.num_dims();
+    if (num_dimensions == 0)
+      return; // building on top of an empty pde, will have to reinit anyway
+
+    std::vector<term_md<P>> const &terms = pde.terms();
+
+    term_pntr = std::vector<int>(terms.size() + 1);
+    for (int t : iindexof(terms)) {
+      if (terms[t].term_mode() == term_md<P>::mode::chain)
+        term_pntr[t + 1] = term_pntr[t] + terms[t].num_chain();
+      else
+        term_pntr[t + 1] = term_pntr[t] + 1;
+    }
+
+    term_mats = vector2d<block_sparse_matrix<P>>(num_dimensions, term_pntr.back());
+
+    current_levels = vector2d<int>(num_dimensions, term_pntr.back());
   }
 
   //! dimension mass matrices, e.g., associated with the coordinates (Cartesian or non-Cartesian)
   std::array<level_mass_matrces<P>, max_num_dimensions> dim_mass;
-  //! volume functions for the 1d intergrals for non-Cartesian coordinates
+  //! volume functions for the 1d integrals for non-Cartesian coordinates
   std::array<function_1d<P>, max_num_dimensions> dim_dv;
 
   //! additional mass matrices, if terms have multiple partial terms
@@ -92,18 +115,14 @@ struct coefficient_matrices
   //! TODO (remove this) all pterm coefficients, used for boundary conds.
   std::vector<std::vector<block_sparse_matrix<P>>> pterm_coeffs;
 
+  //! matrices in blocks of num-dims
+  vector2d<block_sparse_matrix<P>> term_mats;
+  //! sparse-matrix like map to terms
+  std::vector<int> term_pntr;
+
   //! additional (extra) data for the moment coupling
   coupled_term_data<P> edata;
 
-  //! number of initialized dimensions
-  int num_dimensions() const { return num_dimensions_; }
-  //! number of initialized terms
-  int num_terms() const { return num_terms_; }
-
-private:
-  int num_dimensions_, num_terms_;
-
-public:
   //! allows selective recompute of only terms with time-dependence
   vector2d<int> current_levels;
 };

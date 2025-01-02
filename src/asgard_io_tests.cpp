@@ -9,11 +9,12 @@ using namespace asgard;
 
 template<typename P>
 HighFive::DataSet
-initialize_output_file(fk::vector<P> const &vec,
+initialize_output_file(std::vector<P> const &vec,
                        std::string const output_dataset_name = "asgard")
 {
   std::string const output_file_name = output_dataset_name + ".h5";
-  unsigned int vec_size              = (unsigned int)vec.size();
+
+  size_t vec_size = vec.size();
 
   // Open file object
   HighFive::File file(output_file_name, HighFive::File::ReadWrite |
@@ -33,13 +34,13 @@ initialize_output_file(fk::vector<P> const &vec,
       output_dataset_name, dataspace, HighFive::AtomicType<P>(), props);
 
   // Write initial contion to t=0 slice of output file
-  dataset.select({0, 0}, {1, vec_size}).write(vec.to_std());
+  dataset.select({0, 0}, {1, vec_size}).write(vec);
 
   return dataset;
 }
 
 template<typename P>
-void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
+void update_output_file(HighFive::DataSet &dataset, std::vector<P> const &vec,
                         std::string const output_dataset_name = "asgard")
 {
   std::string const output_file_name = output_dataset_name + ".h5";
@@ -50,7 +51,7 @@ void update_output_file(HighFive::DataSet &dataset, fk::vector<P> const &vec,
   // Resize in the time dimension by 1
   dataset.resize({dataset_size[0] + 1, dataset_size[1]});
   // Write the latest vec into the new row
-  dataset.select({dataset_size[0], 0}, {1, vec_size}).write(vec.to_std());
+  dataset.select({dataset_size[0], 0}, {1, vec_size}).write(vec);
 }
 
 TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", test_precs, int)
@@ -61,8 +62,8 @@ TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", test_precs, int)
     std::string const output_dataset_name("asgard_test");
 
     // the golden values
-    fk::vector<TestType> const gold_vec1{1, 2, 3, 4, 5};
-    fk::vector<TestType> const gold_vec2{5, 6, 7, 8, 9};
+    std::vector<TestType> const gold_vec1{1, 2, 3, 4, 5};
+    std::vector<TestType> const gold_vec2{5, 6, 7, 8, 9};
 
     // setup output file and write initial condition
     auto output_dataset = initialize_output_file(gold_vec1);
@@ -77,13 +78,154 @@ TEMPLATE_TEST_CASE("highfive interface to HDF5", "[io]", test_precs, int)
     auto const dataset_size = output_dataset.getDimensions();
     auto const vec1         = read_data[0];
     auto const vec2         = read_data[1];
-    REQUIRE(static_cast<int>(vec1.size()) == gold_vec1.size());
-    REQUIRE(static_cast<int>(vec2.size()) == gold_vec2.size());
+    REQUIRE(vec1.size() == gold_vec1.size());
+    REQUIRE(vec2.size() == gold_vec2.size());
 
     for (int i = 0; i < static_cast<int>(vec1.size()); i++)
     {
-      REQUIRE(vec1[i] == gold_vec1(i));
-      REQUIRE(vec2[i] == gold_vec2(i));
+      REQUIRE(vec1[i] == gold_vec1[i]);
+      REQUIRE(vec2[i] == gold_vec2[i]);
     }
   }
+}
+
+TEMPLATE_TEST_CASE("save/restart logic", "[io]", test_precs)
+{
+  TestType constexpr tol = (std::is_same_v<TestType, double>) ? 1.E-14 : 1.E-5;
+
+  std::string const filename = (std::is_same_v<TestType, double>)
+      ? "_asgard_dsave_test1.h5" : "_asgard_fsave_test1.h5";
+
+  SECTION("simple resrat")
+  {
+    int const num_dims = 4;
+    std::string const title    = "basic io test";
+    std::string const subtitle = "test 1";
+
+    prog_opts options = make_opts("-d 3 -l 3 -m 4 -dt 0.5 -time 1.0");
+    options.title    = title;
+    options.subtitle = subtitle;
+    pde_domain<TestType> domain(num_dims);
+    discretization_manager<TestType> ref(PDEv2<TestType>(options, domain));
+
+    ref.save_snapshot2(filename);
+
+    prog_opts opts2 = make_opts("-restart " + filename);
+    discretization_manager<TestType> disc(PDEv2<TestType>(opts2, domain));
+
+    REQUIRE(ref.get_pde2().num_dims() == num_dims);
+    REQUIRE(disc.get_pde2().num_dims() == num_dims);
+
+    REQUIRE(disc.get_pde2().num_dims() == num_dims);
+    REQUIRE(disc.get_pde2().num_dims() == num_dims);
+
+    REQUIRE(disc.get_pde2().options().title == title);
+    REQUIRE(disc.get_pde2().options().subtitle == subtitle);
+
+    REQUIRE(disc.degree() == 3);
+
+    REQUIRE(std::abs(ref.time_props().dt() - disc.time_props().dt()) < tol);
+    REQUIRE(std::abs(ref.time_props().time() - disc.time_props().time()) < tol);
+    REQUIRE(std::abs(ref.time_props().stop_time() - disc.time_props().stop_time()) < tol);
+    REQUIRE(std::abs(ref.time_props().num_remain() - disc.time_props().num_remain()) < tol);
+
+    REQUIRE(ref.get_sgrid().num_indexes() == disc.get_sgrid().num_indexes());
+    REQUIRE(ref.get_sgrid().num_dims() == disc.get_sgrid().num_dims());
+    REQUIRE(ref.get_sgrid().generation() == disc.get_sgrid().generation());
+    {
+      int const *g1 = ref.get_sgrid()[0];
+      int const *g2 = disc.get_sgrid()[0];
+      int64_t const num = ref.get_sgrid().num_indexes() * ref.get_sgrid().num_dims();
+      int max_index_error = 0;
+      for (int64_t i = 0; i < num; i++)
+        max_index_error = std::max(max_index_error, std::abs(g1[i] - g2[i]));
+      REQUIRE(max_index_error == 0);
+
+      auto const &grid = disc.get_sgrid();
+      for (int d : iindexof(num_dims)) {
+        REQUIRE(grid.current_level(d) == 3);
+        REQUIRE(grid.max_index(d) == 16);
+      }
+    }
+  }
+
+  SECTION("reset time parameters")
+  {
+    int const num_dims = 1;
+    std::string const title    = "restart changes the time parameters";
+    std::string const subtitle = "test 2";
+
+    prog_opts options = make_opts("-d 3 -l 3 -m 4 -dt 0.5 -time 3.0 -a 0.0625");
+    options.title    = title;
+    options.subtitle = subtitle;
+    pde_domain<TestType> domain(num_dims);
+    discretization_manager<TestType> ref(PDEv2<TestType>(options, domain));
+    ref.set_time(TestType{2});
+    REQUIRE(ref.time_props().time() == 2);
+    REQUIRE(ref.time_props().stop_time() == 3);
+    REQUIRE(ref.time_props().num_remain() == 6);
+
+    ref.save_snapshot2(filename);
+
+    prog_opts opts2 = make_opts("-restart " + filename + " -time 4");
+    discretization_manager<TestType> d1(PDEv2<TestType>(opts2, domain));
+    REQUIRE(d1.time_params().time() == 2);
+    REQUIRE(d1.time_params().stop_time() == 4);
+    REQUIRE(d1.get_pde2().options().adapt_threshold);
+    REQUIRE(d1.get_pde2().options().adapt_threshold.value() == 0.0625);
+
+    opts2 = make_opts("-restart " + filename + " -dt 0.25 -a 0.125");
+    discretization_manager<TestType> d2(PDEv2<TestType>(opts2, domain));
+    REQUIRE(d2.time_params().dt() == TestType{0.25});
+    // stop time minus current time is 1, with dt = 0.25 we have 4 steps
+    REQUIRE(d2.time_params().num_remain() == 4);
+    REQUIRE(d2.get_pde2().options().adapt_threshold.value() == 0.125);
+
+    opts2 = make_opts("-restart " + filename + " -n 8 -noa");
+    discretization_manager<TestType> d3(PDEv2<TestType>(opts2, domain));
+    REQUIRE(d3.time_params().num_remain() == 8);
+    // stop time minus current time is 1, with 8 streps, we have dt = 0.25
+    REQUIRE(d3.time_params().dt() == TestType{0.125});
+    REQUIRE_FALSE(d3.get_pde2().options().adapt_threshold);
+  }
+
+  SECTION("error handling during resrat")
+  {
+    int const num_dims = 2;
+    std::string const title    = "restart errors";
+    std::string const subtitle = "test 3";
+
+    prog_opts options = make_opts("-d 3 -l 3 -m 4 -dt 0.5 -time 3.0");
+    options.title    = title;
+    options.subtitle = subtitle;
+    pde_domain<TestType> domain(num_dims);
+    discretization_manager<TestType> ref(PDEv2<TestType>(options, domain));
+    ref.set_time(TestType{2});
+
+    ref.save_snapshot2(filename);
+
+    // try to restart from a missing file
+    prog_opts opts2 = make_opts("-restart wrong_file");
+    REQUIRE_THROWS_WITH(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
+                        "Cannot find file: 'wrong_file'");
+
+    // the file is correct, but the dimensions are wrong
+    opts2 = make_opts("-restart " + filename);
+    REQUIRE_THROWS_WITH(discretization_manager<TestType>(
+                           PDEv2<TestType>(opts2, pde_domain<TestType>(num_dims + 1))),
+                        "Mismatch in the number of dimensions, pde is set for '3' "
+                        "but the file contains data for '2'. "
+                        "The restart file must match the dimensions.");
+
+    // dimension is correct but there are too many time parameters
+    opts2 = make_opts("-restart " + filename + " -dt 0.5 -time 1.0 -n 20");
+    REQUIRE_THROWS_WITH(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
+                        "cannot simultaneously specify -dt, -num-steps, and -time");
+
+    // setting end time before the current time
+    opts2 = make_opts("-restart " + filename + " -dt 0.5 -time 1.0");
+    REQUIRE_THROWS_WITH(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
+                        "cannot reset the final time to an instance before the current time");
+  }
+
 }

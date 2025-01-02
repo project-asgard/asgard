@@ -6,6 +6,7 @@
 
 namespace asgard
 {
+
 //! \brief Extract the actual set of terms based on the pde
 template<typename precision>
 std::vector<int> get_used_terms(PDE<precision> const &pde, imex_flag const imex)

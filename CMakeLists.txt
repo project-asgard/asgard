@@ -75,6 +75,7 @@ option (BUILD_SHARED_LIBS "Build the ASGarD library with dynamic or static linki
 
 option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
 option (ASGARD_USE_OPENMP "Optional OpenMP support for asgard" OFF)
+set (ASGARD_TEST_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in testing (only in testing)")
 option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
 cmake_dependent_option (ASGARD_USE_GPU_MEM_LIMIT "Allow the ability to limit the GPU memory used by kronmult (can hurt performance)" OFF "ASGARD_USE_CUDA" OFF)
 option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
@@ -404,6 +405,7 @@ set (components
      asgard_sparse
      asgard_solver
      asgard_tensors
+     asgard_term_manager
      asgard_time_advance
      asgard_tools
      asgard_transformations
@@ -491,7 +493,7 @@ if (ASGARD_USE_CUDA)
 endif ()
 
 #-------------------------------------------------------------------------------
-#  Define a asgard executable target.
+#  Define a asgard executables targets.
 #-------------------------------------------------------------------------------
 add_executable (asgard_exe)
 set_target_properties(asgard_exe PROPERTIES OUTPUT_NAME "asgard")
@@ -503,6 +505,12 @@ target_link_libraries (asgard_exe PRIVATE libasgard)
 if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
+
+foreach (_asgexe continuity)
+    add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/${_asgexe}.cpp")
+    target_link_libraries (${_asgexe} PUBLIC libasgard)
+    install(TARGETS ${_asgexe} EXPORT  "asgard-export" RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/share/asgard/pde")
+endforeach()
 
 #-------------------------------------------------------------------------------
 # Builds the documentation, must come after asgard target is defined
@@ -566,6 +574,19 @@ if (ASGARD_BUILD_TESTS)
     asgard_coefficients
   )
 
+  foreach( _asg_pde continuity )
+      add_test (NAME asgard-pde-${_asg_pde}-test
+                COMMAND ${_asg_pde} -test
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+      if (ASGARD_TEST_OMP_NUM_THREADS)
+          set_tests_properties (asgard-pde-${_asg_pde}-test PROPERTIES
+                                PROCESSORS ${ASGARD_TEST_OMP_NUM_THREADS}
+                                ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_OMP_NUM_THREADS})
+      endif()
+  endforeach()
+
+
   foreach (component IN LISTS components)
     add_executable (${component}-tests)
     target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
@@ -623,7 +644,12 @@ if (ASGARD_BUILD_TESTS)
     add_test (NAME ${component}-test
               COMMAND ${component}-tests
               WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-    set_tests_properties (${component}-test PROPERTIES PROCESSORS 2 ENVIRONMENT OMP_NUM_THREADS=2)
+
+    if (ASGARD_TEST_OMP_NUM_THREADS)
+      set_tests_properties (${component}-test PROPERTIES
+          PROCESSORS ${ASGARD_TEST_OMP_NUM_THREADS}
+          ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_OMP_NUM_THREADS})
+    endif()
 
   endforeach()
 

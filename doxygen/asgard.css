@@ -277,6 +277,11 @@ div.summary a {
         top: -16px;
 }
 
+.formulaInl {
+    -ms-transform: scale(.5, .5); /* IE 9 */
+    -webkit-transform: scale(.5, .5); /* Chrome, Safari, Opera */
+    transform: scale(.5, .5);
+}
 
 /******************************************************************************
 4.1 - GROUP HEADER

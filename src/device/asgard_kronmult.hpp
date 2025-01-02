@@ -141,7 +141,6 @@ void gpu_sparse(int const dimensions, int const n, int const output_size,
 #endif
 #endif
 
-#ifdef KRON_MODE_GLOBAL
 /*!
   * \brief Compute the permutations (upper/lower) for global kronecker operations
   *
@@ -169,6 +168,8 @@ struct permutes
   std::vector<std::vector<matrix_fill>> fill;
   //! \brief Direction for each matrix operation.
   std::vector<std::vector<int>> direction;
+  //! \brief Direction of the flux, if any
+  int flux_dir = -1;
   //! \brief Empty permutation list.
   permutes() = default;
   //! \brief Initialize the permutations.
@@ -204,10 +205,11 @@ struct permutes
       }
     }
   }
-  permutes(std::vector<int> const &active_dirs)
+  permutes(std::vector<int> const &active_dirs, int fdir = -1)
       : permutes(static_cast<int>(active_dirs.size()))
   {
     remap_directions(active_dirs);
+    flux_dir = fdir;
   }
   //! \brief Convert the fill to a string (for debugging).
   std::string_view fill_name(int perm, int stage) const
@@ -234,6 +236,8 @@ struct permutes
       for (auto &d : dirs)       // for all directions
         d = active_dirs[d];
   }
+  //! \brief Indicates if the permutation has been set
+  operator bool () const { return not direction.empty(); }
 };
 
 /*!
@@ -288,7 +292,7 @@ void global_cpu(int num_dimensions,
 template<typename precision>
 struct block_global_workspace
 {
-  std::vector<precision> x, y;
+  std::vector<precision> x, y; // TODO: rename for the v2
   std::vector<precision> w1, w2;
   std::vector<std::vector<int64_t>> row_map;
 };
@@ -335,6 +339,16 @@ void globalsv_cpu(int num_dimensions, int n, vector2d<int> const &ilist,
                   precision const gvals[], precision y[],
                   block_global_workspace<precision> &workspace);
 
-#endif
+/*!
+ * \brief Driver for the cpu version of the block-global kronmult
+ *
+ * Works on one term with given coefficient matrices and permutations.
+ */
+template<typename precision>
+void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
+               permutes const &perm,
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats,
+               precision alpha, precision const x[], precision beta, precision y[],
+               block_global_workspace<precision> &workspace);
 
 } // namespace asgard::kronmult

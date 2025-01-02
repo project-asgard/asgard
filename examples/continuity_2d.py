@@ -1,3 +1,5 @@
+# this is a Doxygen directive used for documentation
+## [continuity_2d python]
 
 import numpy as np
 import os
@@ -6,7 +8,7 @@ import matplotlib.pyplot as plt
 
 import asgard
 
-# This exmaple is related to continuity_2d.cpp
+# This example is related to continuity_2d.cpp
 # 1. This will run the C++ executable and generate an hdf5 file
 #    - The file contains a snapshot of the PDE solution
 # 2. The snapshot is loaded using the asgard python bindings
@@ -29,7 +31,7 @@ if __name__ == '__main__':
         exit(1)
 
     print("asgard: running the continuity example")
-    os.system("./%s -d 2 -l 5 -n 10 -t 0.0001 -of cont1_final.h5" % exefilename)
+    os.system("./%s -d 2 -l 5 -of cont1_final.h5" % exefilename)
 
     # the example above will run for 10 time steps and the -w 10 options
     # will tell the code to output on the final 10-th step
@@ -44,7 +46,7 @@ if __name__ == '__main__':
     print("creating 2d plot")
 
     # the plot_data2d() method will generate inputs/outputs for 2d plotting
-    # the outputed variables are:
+    # the outputted variables are:
     #  z is the value of the pde solution, it is a 2d array
     #  x is the first coordinate of the z points
     #  y is the second coordinate of the z points
@@ -59,7 +61,7 @@ if __name__ == '__main__':
     #  see also the 1d example below
     z, x, y = snapshot.plot_data2d(((), ()), num_points = 128)
 
-    # the points are always taken stricktly in the interior of the domain
+    # the points are always taken strictly in the interior of the domain
     # putting points right on the boundary may lead to instability due
     # to the discontinuous nature of the DG basis
     # we need to manually set the correct bounds on the plots
@@ -117,3 +119,5 @@ if __name__ == '__main__':
     print("")  # prettier output
 
     plt.show()
+
+## [continuity_2d python]

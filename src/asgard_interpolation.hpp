@@ -1,11 +1,13 @@
 #pragma once
 
+#include "./device/asgard_kronmult.hpp"
 #include "asgard_interpolation1d.hpp"
-#include "asgard_kronmult_matrix.hpp"
 
 namespace asgard
 {
-#ifdef KRON_MODE_GLOBAL
+
+template<typename P>
+class block_global_kron_matrix;
 
 /*!
  * \brief Handles the interpolation operations in multidimensional context
@@ -167,7 +169,5 @@ private:
 
   mutable kronmult::block_global_workspace<precision> *workspace_ = nullptr;
 };
-
-#endif
 
 } // namespace asgard

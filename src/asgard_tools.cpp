@@ -3,7 +3,7 @@
 namespace asgard::tools
 {
 
-std::string::size_type constexpr double_block = 14;
+std::string::size_type constexpr double_block = 15;
 std::string::size_type constexpr int_block = 11;
 std::string::size_type constexpr percent_reduce = 4;
 
@@ -68,13 +68,22 @@ std::string simple_timer::report()
 
   std::ostringstream report;
 
-  report << "\nperformance report, total time: " << pad_string(total_time) << "ms\n";
-  report << "  - all times in ms, 1000ms = 1 second\n\n";
+  report << "\nperformance report, total time: ";
+  if (total_time > 1000)
+    report << pad_left<double_block>(split_style(static_cast<int64_t>(total_time + 0.5))) << "ms\n";
+  else
+    report << pad_string( total_time) << "ms\n";
+  report << "  - all times are in ms, 1000ms = 1 second\n\n";
 
   std::string const ev =  "-- events --  ";
   std::string::size_type max_key = ev.size();
-  for (auto [id, event] : events_)
+  double max_event = 0;
+  for (auto &[id, event] : events_)
+  {
     max_key = std::max(id.size(), max_key);
+    event.sum = std::accumulate(event.intervals.begin(), event.intervals.end(), 0.0);
+    max_event = std::max(event.sum, max_event);
+  }
 
   report << pad_left(max_key, ev);
 
@@ -85,21 +94,26 @@ std::string simple_timer::report()
   report << pad_left<double_block>("-- min");
   report << pad_left<double_block>("-- max") << '\n';
 
-  for (auto [id, event] : events_) {
+  for (auto &[id, event] : events_) {
     auto &times = event.intervals;
 
-    if (event.started) // currently running timer
+    if (event.started) { // currently running timer
       times.push_back(duration_since(event.started));
+      event.sum += times.back();
+    }
 
-    double const sum = std::accumulate(times.begin(), times.end(), 0.0);
-    double const avg = sum / static_cast<double>(times.size());
+    //double const sum = std::accumulate(times.begin(), times.end(), 0.0);
+    double const avg = event.sum / static_cast<double>(times.size());
     double const min = *std::min_element(times.begin(), times.end());
     double const max = *std::max_element(times.begin(), times.end());
 
     report << pad_left(max_key, id);
 
-    report << pad_string(sum);
-    report << pad_string_percent(sum, total_time);
+    if (max_event > 1000)
+      report << pad_left<double_block>(split_style(static_cast<int64_t>(event.sum + 0.5)));
+    else
+      report << pad_string(event.sum);
+    report << pad_string_percent(event.sum, total_time);
     report << pad_string(times.size());
     report << pad_string(avg);
     report << pad_string(min);

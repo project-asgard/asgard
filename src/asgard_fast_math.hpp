@@ -104,7 +104,7 @@ P nrm2(std::vector<P> const &x)
 }
 
 /*!
- * \brief Comptues the l-inf norm of the difference between x and y
+ * \brief Computes the l-inf norm of the difference between x and y
  *
  * This works with all std::vector, std::array and fk::vector.
  * Does not work with GPU vectors and does not check if the data is on the device.
@@ -123,7 +123,7 @@ auto diff_inf(vecx const &x, vecy const &y)
 }
 
 /*!
- * \brief Comptues the root-mean-square-error between two vectors
+ * \brief Computes the root-mean-square-error between two vectors
  *
  * This works with all std::vector, std::array and fk::vector.
  * Does not work with GPU vectors and does not check if the data is on the device.

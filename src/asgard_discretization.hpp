@@ -4,6 +4,7 @@
 #include "asgard_coefficients.hpp"
 #include "asgard_moment.hpp"
 #include "asgard_solver.hpp"
+#include "asgard_term_manager.hpp"
 
 #ifdef ASGARD_USE_HIGHFIVE
 #include "asgard_io.hpp"
@@ -40,6 +41,12 @@ class discretization_manager;
 template<typename P> // implemented in time-advance
 void advance_time(discretization_manager<P> &manager, int64_t num_steps = -1);
 
+#ifndef __ASGARD_DOXYGEN_SKIP
+// placeholder for the new api
+template<typename P> // implemented in time-advance
+void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps = -1);
+#endif
+
 /*!
  * \internal
  * \brief holds matrix and pivot factors
@@ -73,7 +80,11 @@ class discretization_manager
 public:
   //! take ownership of the pde object and discretize the pde
   discretization_manager(std::unique_ptr<PDE<precision>> &&pde_in,
-                         verbosity_level vebosity = verbosity_level::quiet);
+                         verbosity_level verbosity = verbosity_level::quiet);
+
+  //! take ownership of the pde object and discretize the pde
+  discretization_manager(PDEv2<precision> pde_in,
+                         verbosity_level verbosity = verbosity_level::quiet);
 
   /*!
    * \brief Preventing relocation
@@ -96,6 +107,12 @@ public:
   //! returns the degree of the discretization
   int degree() const { return degree_; }
 
+  //! returns the number of dimensions
+  int num_dims() const { return pde2.num_dims(); }
+
+  //! returns the time discretization parameters
+  time_data<precision> const &time_params() const { return dtime; }
+
   //! get the current time-step number
   int64_t time_step() const { return time_step_; }
 
@@ -103,6 +120,12 @@ public:
   precision dt() const { return dt_; }
   //! get the current integration time
   precision time() const { return time_; }
+  //! set the time in the befinning of the simulation, time() must be zero to call this
+  void set_time(precision t) {
+    if (dtime.step() != 0)
+      throw std::runtime_error("cannot reset the current time after the simulation start");
+    dtime.time() = t;
+  }
   //! get the currently set final time step
   int64_t final_time_step() const { return final_time_step_; }
 
@@ -134,8 +157,34 @@ public:
   //! return a snapshot of the current solution
   reconstruct_solution get_snapshot() const
   {
-    return {pde->num_dims(), grid.size(), grid.get_table().get_active_table().data(),
-            degree_, state.data()};
+    if (pde) { // version 1
+      reconstruct_solution shot(
+          pde->num_dims(), grid.size(), grid.get_table().get_active_table().data(),
+          degree_, state.data());
+
+      std::array<double, max_num_dimensions> xmin, xmax;
+      for (int d : iindexof(pde->num_dims())) {
+        xmin[d] = pde->get_dimensions()[d].domain_min;
+        xmax[d] = pde->get_dimensions()[d].domain_max;
+      }
+
+      shot.set_domain_bounds(xmin.data(), xmax.data());
+
+      return shot;
+    } else {
+      reconstruct_solution shot(
+          pde2.num_dims(), sgrid.num_indexes(), sgrid[0], degree_, state.data(), true);
+
+      std::array<double, max_num_dimensions> xmin, xmax;
+      for (int d : iindexof(pde2.num_dims())) {
+        xmin[d] = pde2.domain().xleft(d);
+        xmax[d] = pde2.domain().xright(d);
+      }
+
+      shot.set_domain_bounds(xmin.data(), xmax.data());
+
+      return shot;
+    }
   }
 
   //! computes the right-hand-side of the ode
@@ -146,6 +195,10 @@ public:
                 std::vector<precision> &R) const;
   //! solves x = A^{-1} x where A is the kron_operators with given flag, uses method from options
   void ode_sv(imex_flag imflag, std::vector<precision> &x) const;
+
+  //! computes the right-hand-side of the ode
+  void ode_rhs_v2(precision time, std::vector<precision> const &current,
+                  std::vector<precision> &R) const;
 
   //! compute the electric field for the given state and update the coefficient matrices
   void do_poisson_update(std::vector<precision> const &field) const;
@@ -174,8 +227,13 @@ public:
   //! calls save-snapshot for the final step, if requested with -outfile
   void save_final_snapshot() const
   {
-    if (not pde->options().outfile.empty())
-      save_snapshot(pde->options().outfile);
+    if (pde) {
+      if (not pde->options().outfile.empty())
+        save_snapshot(pde->options().outfile);
+    } else {
+      if (not pde2.options().outfile.empty())
+        save_snapshot(pde2.options().outfile);
+    }
   }
 
   /*!
@@ -207,7 +265,49 @@ public:
   //! returns a ref to the sparse grid
   adapt::distributed_grid<precision> const &get_grid() const { return grid; }
 
+  //! convenient check if we are using high verbosity level
+  bool high_verbosity() const { return (verb == verbosity_level::high); }
+  //! convenient check if we are using low verbosity level
+  bool low_verbosity() const { return (verb == verbosity_level::low); }
+  //! convenient check if we are using quiet verbosity level
+  bool stop_verbosity() const { return (verb == verbosity_level::quiet); }
+  //! resets the verbosity level
+  void set_verbosity(verbosity_level v) const { verb = v; }
+
+  //! report time progress
+  void progress_report(std::ostream &os = std::cout) {
+    os << "time-step: " << std::setw(10) << tools::split_style(dtime.step()) << "  time: ";
+    std::string s = std::to_string(dtime.time());
+
+    os << std::setw(10) << s << std::string(11 - s.size(), ' ')
+       << "  grid size: " << std::setw(12) << tools::split_style(sgrid.num_indexes())
+       << "  dof: " << std::setw(14) << tools::split_style(state.size()) << "\n";
+  }
+  //! projects and sum-of-separable functions and md_func onto the current basis
+  void project_function(std::vector<separable_func<precision>> const &sep,
+                        md_func<precision> const &fmd, std::vector<precision> &out) const;
+
+  //! projects and sum-of-separable functions and md_func onto the current basis
+  std::vector<precision> project_function(
+      std::vector<separable_func<precision>> const &sep = {},
+      md_func<precision> const &fmd = nullptr) const
+  {
+    if (sep.empty() and not fmd)
+      return std::vector<precision>(state.size());
+
+    std::vector<precision> result;
+    project_function(sep, fmd, result);
+    return result;
+  }
+
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
+
+  PDEv2<precision> const &get_pde2() const { return pde2; }
+  time_data<precision> const &time_props() const { return dtime; }
+  bool version2() const { return not pde; }
+  void save_snapshot2(std::filesystem::path const &filename) const;
+  sparse_grid const &get_sgrid() const { return sgrid; }
+
   //! return the hierarchy_manipulator
   auto const &get_hiermanip() const { return hier; }
   //! return the fixed boundary conditions
@@ -228,8 +328,6 @@ public:
       moms1d->project_moments(level, f, grid.get_table(), matrices.edata.moments);
       int const num_cells = fm::ipow2(level);
       int const num_outs  = moms1d->num_comp_mom();
-      // std::cout << " recomputing moments w. powers " << moms1d->num_mom()
-      //           << ", total moment vectors " << num_outs << "\n";
       hier.reconstruct1d(
           num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
                                              matrices.edata.moments.data()));
@@ -260,12 +358,17 @@ public:
    */
   friend void advance_time<precision>(discretization_manager<precision> &disc,
                                       int64_t num_steps);
+
+  friend void advance_time_v2<precision>(discretization_manager<precision> &disc,
+                                         int64_t num_steps);
+
+  friend class h5writer<precision>;
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
-  //! convenient check if we are using high verbosity level
-  bool high_verbosity() const { return (verb == verbosity_level::high); }
+  //! sets the initial conditions, performs adaptivity in the process
+  void set_initial_condition_v1();
   //! sets the initial conditions, performs adaptivity in the process
   void set_initial_condition();
   //! update components on grid reset
@@ -291,13 +394,22 @@ protected:
     if (op_matrix)
       op_matrix.reset();
   }
+
+  //! start from time 0 and nothing has been set
+  void start_cold();
+  //! restart from a file
+  void restart_from_file();
+
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 private:
-  verbosity_level verb;
+  mutable verbosity_level verb;
   std::unique_ptr<PDE<precision>> pde;
+  PDEv2<precision> pde2;
 
   adapt::distributed_grid<precision> grid;
+
+  sparse_grid sgrid;
 
   connection_patterns conn;
 
@@ -310,8 +422,10 @@ private:
   precision dt_;
   precision time_;
   int64_t time_step_;
-
   int64_t final_time_step_;
+
+  // time discretization (for version 2)
+  time_data<precision> dtime;
 
   // recompute only when the grid changes
   // left-right boundary conditions, time-independent components
@@ -327,6 +441,9 @@ private:
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
   mutable std::optional<solver::poisson_data<precision>> poisson_solver;
+
+  //! term manager holding coefficient matrices and kronmult meta-data
+  mutable term_manager<precision> terms;
 
   // constantly changing
   std::vector<precision> state;

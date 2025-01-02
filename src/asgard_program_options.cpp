@@ -45,6 +45,8 @@ Options          Short   Value      Description
                                     If omitted, the string will assume the name of the PDE.
 -subtitle          -     string     An addition to the title, optional use.
 -infile          -if     filename   Read options and values from a provided file.
+-verbosity       -vv     int/string accepts: 0/1/2 or quiet/low/high
+                                    Asjusts the amount and frequency of cout logging.
 
 <<< discretization of the domain options >>>
 -grid            -g      string     accepts: sparse/dense/full/mixed/mix
@@ -70,12 +72,15 @@ Options          Short   Value      Description
 -adapt           -a      double     Enable grid adaptivity and set the tolerance threshold.
 -adapt-norm      -an     string     accepts: linf/l2
                                     The norm to use for the refinement criteria.
--noadapt         -noa    -          Ignore any previously set adapt options
+-noadapt         -noa    -          Ignore any previously set adapt options, can be used
+                                    to override adaptivity set in an input file or restart file.
 
 <<< time stepping options >>>
 -step-method     -s      string     accepts: expl/impl/imex
                                     indicates explicit (rk3), explicit (backward-Euler) or
                                     imex (implicit-explicit) time-stepping scheme.
+-time            -t      double     accepts: positive number (zero for no stepping)
+                                    Final time for integration (v2 pdes only)
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
 -dt                      double     Fixed time step to use (must be positive).
 
@@ -103,9 +108,6 @@ Options          Short   Value      Description
 -isolve-iter     -isi    double     Iterative solver maximum number of iterations,
                                     for GMRES this is the number of inner iterations.
 -isolve-outer    -iso    double     (GMRES only) The maximum number of outer GMRES iterations.
-
-Coming soon:
--time            -t      double     Final time for integration.
 
 Leaving soon:
 -memory                  int        Memory limit for the GPU, applied to the earlier versions
@@ -196,6 +198,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-noexact", optentry::ignore_exact}, {"-ne", optentry::ignore_exact},
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
+      {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
       {"-adapt-norm", optentry::adapt_norm}, {"-an", optentry::adapt_norm},
@@ -208,6 +211,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-wave-freq", optentry::wavelet_output_freq}, {"-w", optentry::wavelet_output_freq},
       {"-outfile", optentry::output_file}, {"-of", optentry::output_file},
       {"-dt", optentry::dt},
+      {"-time", optentry::stop_time}, {"-t", optentry::stop_time},
       {"-available-pdes", optentry::pde_help},
       {"-solver", optentry::solver}, {"-sv", optentry::solver},
       {"-memory", optentry::memory_limit},
@@ -417,6 +421,19 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       outfile = *selected;
     }
     break;
+    case optentry::stop_time: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        stop_time = std::stod(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
     case optentry::dt: {
       auto selected = move_process_next();
       if (not selected)
@@ -444,8 +461,11 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
     }
     break;
     case optentry::no_adapt:
+      // sufficient to override a deck file adapt options
       adapt_threshold.reset();
       anorm.reset();
+      // needed to cancel adaptivity from a restart file
+      set_no_adapt = true;
     break;
     case optentry::solver: {
       // with only a handful of solvers we don't need to use a map here
@@ -561,6 +581,20 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       if (not selected)
         throw std::runtime_error(report_no_value());
       subtitle = *selected;
+    }
+    break;
+    case optentry::set_verbosity: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "0" or *selected == "quiet")
+        verbosity = verbosity_level::quiet;
+      else if (*selected == "1" or *selected == "low")
+        verbosity = verbosity_level::low;
+      else if (*selected == "2" or *selected == "high")
+        verbosity = verbosity_level::high;
+      else
+        throw std::runtime_error(report_wrong_value());
     }
     break;
     };
@@ -746,13 +780,18 @@ void prog_opts::print_options(std::ostream &os) const
       break;
     };
 
+  if (stop_time)
+    os << "  stop-time: " << stop_time.value() << '\n';
+  else if (default_stop_time)
+    os << "  stop-time (default): " << default_stop_time.value() << '\n';
+
   if (dt)
     os << "  time-step (dt): " << dt.value() << '\n';
+  else if (default_dt)
+    os << "  time-step (default dt): " << default_dt.value() << '\n';
 
   if (num_time_steps)
     os << "  number of time-steps: " << num_time_steps.value() << '\n';
-  else
-    os << "  -- warning: missing number of time steps\n";
 
   if (restart_file.empty() and not wavelet_output_freq)
     os << "input-output (i/o): none\n";

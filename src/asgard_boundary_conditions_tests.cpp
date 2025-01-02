@@ -32,14 +32,17 @@ void test_boundary_condition_vector(std::string const &opts_str,
   int const start_element = 0;
   int const stop_element  = table.size() - 1;
 
+  std::vector<P> bc(disc.current_state().size());
+
   std::array<unscaled_bc_parts<P>, 2> unscaled_parts =
       boundary_conditions::make_unscaled_bc_parts(
           pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
           disc.get_conn(), start_element, stop_element);
 
-  fk::vector<P> bc_advanced = boundary_conditions::generate_scaled_bc(
-      unscaled_parts[0], unscaled_parts[1], pde, start_element, stop_element,
-      test_time);
+   boundary_conditions::generate_scaled_bc(
+      unscaled_parts[0], unscaled_parts[1], pde, test_time, bc);
+
+   fk::vector<P> bc_advanced(bc);
 
   fk::vector<P> const gold_bc_vector =
       read_vector_from_txt_file<P>(gold_filename);
@@ -150,20 +153,21 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
             pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
             disc.get_conn(), start_element, stop_element, test_time);
 
-    fk::vector<TestType> const bc_advanced_1 =
-        boundary_conditions::generate_scaled_bc(
-            unscaled_parts_1[0], unscaled_parts_1[1], pde, start_element,
-            stop_element, test_time);
+    std::vector<TestType> stdb(5 * table.size());
+    boundary_conditions::generate_scaled_bc(
+            unscaled_parts_1[0], unscaled_parts_1[1], pde, test_time, stdb);
+    fk::vector<TestType> const bc_advanced_1(stdb);
 
     std::array<unscaled_bc_parts<TestType>, 2> const unscaled_parts_0 =
         boundary_conditions::make_unscaled_bc_parts(
             pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
             disc.get_conn(), start_element, stop_element);
 
-    fk::vector<TestType> const bc_advanced_0 =
-        boundary_conditions::generate_scaled_bc(
-            unscaled_parts_0[0], unscaled_parts_0[1], pde, start_element,
-            stop_element, test_time);
+    std::fill(stdb.begin(), stdb.end(), 0);
+    boundary_conditions::generate_scaled_bc(
+            unscaled_parts_0[0], unscaled_parts_0[1], pde, test_time, stdb);
+    fk::vector<TestType> const bc_advanced_0(stdb);
+
 
     auto constexpr tol_factor = get_tolerance<TestType>(10);
     rmse_comparison(bc_advanced_0, bc_advanced_1, tol_factor);
@@ -190,10 +194,10 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
             pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
             disc.get_conn(), start_element_0, stop_element_0, test_time);
 
-    fk::vector<TestType> const bc_init =
-        boundary_conditions::generate_scaled_bc(
-            unscaled_parts_0[0], unscaled_parts_0[1], pde, start_element_0,
-            stop_element_0, test_time);
+    std::vector<TestType> ibc(6 * table.size());
+    boundary_conditions::generate_scaled_bc(
+        unscaled_parts_0[0], unscaled_parts_0[1], pde, test_time, ibc);
+    fk::vector<TestType> const bc_init(ibc);
 
     /* create a vector for the first half of that vector */
     int index = 0;
@@ -204,10 +208,10 @@ TEMPLATE_TEST_CASE("problem separability", "[boundary_condition]", test_precs)
               pde, table, disc.get_hiermanip(), disc.get_cmatrices(),
               disc.get_conn(), table_element, table_element);
 
-      fk::vector<TestType> const bc_advanced =
-          boundary_conditions::generate_scaled_bc(
-              unscaled_parts[0], unscaled_parts[1], pde, table_element,
-              table_element, test_time);
+      std::vector<TestType> ebc(6);
+      boundary_conditions::generate_scaled_bc(
+        unscaled_parts[0], unscaled_parts[1], pde, test_time, ebc);
+      fk::vector<TestType> const bc_advanced(ebc);
 
       fk::vector<TestType, mem_type::const_view> const bc_section(
           bc_init, index, index + bc_advanced.size() - 1);

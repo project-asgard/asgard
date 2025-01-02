@@ -128,6 +128,31 @@ void simulate(prog_opts const &options, verbosity_level verbosity = verbosity_le
   discretization.save_final_snapshot();
 }
 
+/*!
+ * \ingroup asgard_discretization
+ * \brief One shot method, simulate the pde with the given options
+ *
+ * Performs time integration until the provided stop-time or number of steps.
+ * - if output name is provided, saves a final snapshot
+ * - if verbosity is not set to silent, prints a timing report
+ *
+ * \tparam precision is double or float
+ *
+ * \param disc is an existing discretization manager
+ */
+template<typename precision>
+void simulate(discretization_manager<precision> &disc) {
+  asgard::advance_time(disc); // integrate until num-steps or stop-time
+
+  if (not disc.stop_verbosity())
+    disc.progress_report();
+
+  disc.save_final_snapshot(); // only if output filename is provided
+
+  if (asgard::tools::timer.enabled() and not disc.stop_verbosity())
+    std::cout << asgard::tools::timer.report() << '\n';
+}
+
 //! \brief Print core library information, e.g., build options and such
 void print_info(std::ostream &os = std::cout);
 

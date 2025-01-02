@@ -11,11 +11,10 @@ namespace asgard
 // combine components and create the portion of the multi-d vector associated
 // with the provided start and stop element bounds (inclusive)
 template<typename P>
-std::vector<P>
-combine_dimensions(int const degree, elements::table const &table,
-                   int const start_element, int const stop_element,
-                   std::vector<std::vector<P>> const &vectors,
-                   P const time_scale)
+void combine_dimensions(int const degree, elements::table const &table,
+                        int const start_element, int const stop_element,
+                        std::vector<std::vector<P>> const &vectors,
+                        P combined[])
 {
   int const num_dims = static_cast<int>(vectors.size());
   expect(num_dims > 0);
@@ -23,15 +22,9 @@ combine_dimensions(int const degree, elements::table const &table,
   expect(stop_element >= start_element);
   expect(stop_element < table.size());
 
-  int64_t const vector_size =
-      (stop_element - start_element + 1) * fm::ipow(degree + 1, vectors.size());
-
-  std::vector<P> combined(vector_size);
-
   int const pdof        = degree + 1;
   int64_t const mdblock = fm::ipow(pdof, num_dims);
 
-  P *r = combined.data();
   for (int cell = start_element; cell <= stop_element; cell++)
   {
     fk::vector<int> const coords = table.get_coords(cell);
@@ -43,19 +36,66 @@ combine_dimensions(int const degree, elements::table const &table,
     for (int64_t i : indexof(mdblock))
     {
       int64_t t = i;
-      r[i] = time_scale * vectors.back()[offset1d[num_dims - 1] + t % pdof];
+      combined[i] = vectors.back()[offset1d[num_dims - 1] + t % pdof];
       t /= pdof;
       for (int j = num_dims - 2; j >= 0; j--)
       {
-        r[i] *= vectors[j][offset1d[j] + t % pdof];
+        combined[i] *= vectors[j][offset1d[j] + t % pdof];
         t /= pdof;
       }
     }
 
-    r += mdblock;
+    combined += mdblock;
+  }
+}
+
+template<typename P>
+legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
+
+  static auto const legendre_values =
+      legendre_weights<P>(degree, -1.0, 1.0);
+  auto const &points  = legendre_values[0];
+  auto const &weights = legendre_values[1];
+
+  num_quad = weights.size();
+
+  auto [lP_L, lPP_L] = legendre(fk::vector<P>{-1}, degree);
+  auto [lP_R, lPP_R] = legendre(fk::vector<P>{+1}, degree);
+
+  auto [lP, lPP] = legendre(points, degree);
+
+  // we need to keep, the quadrature points and weights, 4 matrices corresponding
+  // to the edge fluxes on the left and right, 2 matrices corresponding to
+  // the values of the legendre polynomials and derivatives at the quadrature points
+  data_.resize(2 * num_quad + 4 * pdof * pdof + 3 * pdof * num_quad);
+
+  { // create a scope, so that d is not visible outside of this scope, it is a temp variable
+    P *d = data_.data();
+    qp = std::exchange(d, d + num_quad); // dedicate num_quad entries to qp
+    qw = std::exchange(d, d + num_quad);
+
+    to_left    = std::exchange(d, d + pdof * pdof);
+    from_left  = std::exchange(d, d + pdof * pdof);
+    from_right = std::exchange(d, d + pdof * pdof);
+    to_right   = std::exchange(d, d + pdof * pdof);
+
+    leg  = std::exchange(d, d + pdof * num_quad);
+    legw = std::exchange(d, d + pdof * num_quad);
+    der  = std::exchange(d, d + pdof * num_quad);
   }
 
-  return combined;
+  // copy the values returned by legendre into the locals
+  std::copy_n(points.data(), num_quad, qp);
+  std::copy_n(weights.data(), num_quad, qw);
+
+  smmat::gemm_outer_inc(pdof, lP_L.data(), lP_L.data(), to_left);
+  smmat::gemm_outer_inc(pdof, lP_L.data(), lP_R.data(), from_left);
+  smmat::gemm_outer_inc(pdof, lP_R.data(), lP_L.data(), from_right);
+  smmat::gemm_outer_inc(pdof, lP_R.data(), lP_R.data(), to_right);
+
+  std::copy_n(lP.data(), num_quad * pdof, leg);
+  smmat::col_scal(num_quad, pdof, P{0.5}, qw, leg, legw);
+  std::copy_n(lPP.data(), num_quad * pdof, der);
 }
 
 template<typename P>
@@ -885,7 +925,7 @@ void hierarchy_manipulator<P>::prepare_quadrature(int d, int num_cells) const
 
   quad_points[d].resize(num_quad * num_cells);
 
-  P const cell_size = (dmax[d] - dmin[d]) / P(num_cells);
+  P const cell_size = (dmax[d] - dmin[d]) / num_cells;
 
   P mid       = dmin[d] + 0.5 * cell_size;
   P const slp = 0.5 * cell_size;
@@ -965,6 +1005,7 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template struct legendre_basis<double>;
 template class hierarchy_manipulator<double>;
 
 template void hierarchy_manipulator<double>::project1d<true>(
@@ -976,12 +1017,13 @@ template void hierarchy_manipulator<double>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<1>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<-1>(int, int) const;
 
-template std::vector<double>
-combine_dimensions(int const, elements::table const &, int const, int const,
-                   std::vector<std::vector<double>> const &, double const = 1.0);
+template void combine_dimensions(
+  int const, elements::table const &, int const, int const,
+  std::vector<std::vector<double>> const &, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template struct legendre_basis<float>;
 template class hierarchy_manipulator<float>;
 
 template void hierarchy_manipulator<float>::project1d<true>(
@@ -993,9 +1035,9 @@ template void hierarchy_manipulator<float>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<float>::projectlevels<1>(int, int) const;
 template void hierarchy_manipulator<float>::projectlevels<-1>(int, int) const;
 
-template std::vector<float>
-combine_dimensions(int const, elements::table const &, int const, int const,
-                   std::vector<std::vector<float>> const &, float const = 1.0);
+template void combine_dimensions(
+  int const, elements::table const &, int const, int const,
+  std::vector<std::vector<float>> const &, float[]);
 #endif
 
 } // namespace asgard

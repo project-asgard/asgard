@@ -50,7 +50,7 @@ public:
   void fill(P v) { std::fill_n(data_[0], data_.total_size(), v); }
 
   //! prints the block-matrix with given block row/cols, or assume block is square
-  void print(std::ostream &os, int br = -1, int bc = -1, int oswidth = 12)
+  void print(std::ostream &os = std::cout, int br = -1, int bc = -1, int oswidth = 16)
   {
     if (br == -1)
     {
@@ -262,6 +262,10 @@ struct level_mass_matrces
   std::vector<mass_matrix<P>> mats_;
 };
 
+// forward declaration so we can do the inverse in the diag-matrix
+template<typename P>
+class block_tri_matrix;
+
 /*!
  * \internal
  * \brief Stores a square block diagonal matrix
@@ -295,9 +299,9 @@ public:
   P const *operator[] (int64_t r) const { return data_[r]; }
 
   //! returns the raw internal data
-  P *data() { return data_.data(); }
+  P *data() { return data_[0]; }
   //! returns the raw internal data, const-overload
-  P const *data() const { return data_.data(); }
+  P const *data() const { return data_[0]; }
 
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full() const
@@ -320,6 +324,16 @@ public:
   {
     resize_and_zero(other.nblock(), other.nrows());
   }
+  //! check size, resizes only if the size is different
+  void check_resize(block_diag_matrix<P> const &other) {
+    if (nblock() != other.nblock() or nrows_ != other.nrows())
+      resize_and_zero(other);
+  }
+
+  //! assuming the blocks are s.p.d., factorize and apply the inverse
+  void apply_inverse(int const n, block_diag_matrix<P> &rhs);
+  //! assuming the blocks are s.p.d., factorize and apply the inverse
+  void apply_inverse(int const n, block_tri_matrix<P> &rhs);
 
 private:
   int64_t nrows_;
@@ -399,6 +413,16 @@ public:
   {
     resize_and_zero(other.nblock(), other.nrows());
   }
+  //! check size, resizes only if the size is different
+  void check_resize(block_tri_matrix<P> const &other) {
+    if (nblock() != other.nblock() or nrows_ != other.nrows())
+      resize_and_zero(other);
+  }
+  //! check size, resizes only if the size is different
+  void check_resize(block_diag_matrix<P> const &other) {
+    if (nblock() != other.nblock() or nrows_ != other.nrows())
+      resize_and_zero(other.nblock(), other.nrows());
+  }
 
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full() const
@@ -464,6 +488,8 @@ public:
   P *data() { return data_[0]; }
   //! returns the internal data (const overload)
   P const *data() const { return data_[0]; }
+  //! returns true if the matrix is empty, i.e., uninitialized
+  bool empty() const { return (data_.stride() == 0); }
 
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full(connection_patterns const &conns) const
@@ -504,7 +530,7 @@ public:
   //! (testing) fill the matrix with a value
   void fill(P v) { data_.fill(v); }
 private:
-  connect_1d::hierarchy htype_;
+  connect_1d::hierarchy htype_ = connect_1d::hierarchy::volume;
   vector2d<P> data_;
 };
 

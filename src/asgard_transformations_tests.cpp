@@ -49,8 +49,12 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
         (grid.row_stop + 1) * fm::ipow(degree + 1, dims) - 1;
     fk::vector<P, mem_type::const_view> const gold_partial(gold, rank_start,
                                                            rank_stop);
-    std::vector<P> const test_partial = combine_dimensions(
-        degree, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, time);
+    std::vector<P> test_partial(gold_partial.size());
+
+    combine_dimensions(
+        degree, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, test_partial.data());
+    for (auto &t : test_partial)
+      t *= time;
     fk::vector<P> fk_test_partial(test_partial);
     REQUIRE(fk_test_partial == gold_partial);
     test.set_subvector(rank_start, fk_test_partial);

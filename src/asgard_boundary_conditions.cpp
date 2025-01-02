@@ -15,7 +15,6 @@ value "t" to generate the complete boundary condition vector at time "t".
 */
 namespace asgard::boundary_conditions
 {
-
 template<typename P>
 std::vector<std::vector<P>> generate_partial_bcs(
     std::vector<dimension<P>> const &dimensions, int const d_index,
@@ -65,7 +64,7 @@ std::vector<std::vector<P>> generate_partial_bcs(
             };
 
     // this applies the mass matrix too
-    hier.project1d(
+    hier.project1d_f(
       [&](std::vector<P> const &x, std::vector<P> &fx)
           -> void {
         auto fkvec = bc_func(x, time);
@@ -128,6 +127,8 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
 
   int const degree = dimensions.front().get_degree();
 
+  int const vec_size = (stop_element - start_element + 1) * fm::ipow(degree + 1, num_dims);
+
   for (int t : indexof<int>(num_terms))
   {
     std::vector<term<P>> const &term_md = terms_vec_vec[t];
@@ -159,9 +160,10 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
               dimensions, d, pterm.left_bc_funcs(), hier, cmats,
               conn, t_init, term_md, pterms, t, pt, std::move(trace_bc));
 
-          std::vector<P> combined =
-              combine_dimensions(degree, table, start_element,
-                                 stop_element, p_term_left_bcs);
+          std::vector<P> combined(vec_size);
+
+          combine_dimensions(degree, table, start_element,
+                             stop_element, p_term_left_bcs, combined.data());
 
           left_pvecs.emplace_back(std::move(combined));
         }
@@ -176,9 +178,10 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
               dimensions, d, pterm.right_bc_funcs(), hier, cmats,
               conn, t_init, term_md, pterms, t, pt, std::move(trace_bc));
 
-          std::vector<P> combined =
-              combine_dimensions(degree, table, start_element,
-                                 stop_element, p_term_right_bcs);
+          std::vector<P> combined(vec_size);
+
+          combine_dimensions(degree, table, start_element,
+                             stop_element, p_term_right_bcs, combined.data());
 
           right_pvecs.emplace_back(std::move(combined));
         }
@@ -195,16 +198,187 @@ std::array<unscaled_bc_parts<P>, 2> make_unscaled_bc_parts(
   return {left_bc_parts, right_bc_parts};
 }
 
+// template<typename P>
+// bc_manager<P>::bc_manager(PDE<P> const &pde, elements::table const &table,
+//     hierarchy_manipulator<P> const &hier, coefficient_matrices<P> &cmats,
+//     connection_patterns const &conns,
+//     int const start_element, int const stop_element, P const t_init)
+//   : num_dims(pde.num_dims()), degree(hier.degree())
+// {
+//   tools::time_event timing("make unscaled bc");
+//   expect(start_element >= 0);
+//   expect(stop_element < table.size());
+//   expect(stop_element >= start_element);
+//
+//   // count the number of boundary condition vectors that we will need
+//   // the first vector (if present) is left unscaled, i.e., assumed 1
+//   // the others will use corresponding functions from the p-terms
+//   // so, we first count the number of basis that we will need
+//   int num_pt    = 0;
+//
+//   for (auto const &term : pde.get_terms()) {
+//     for (int d : indexof<int>(pde.num_dims())) {
+//       for (auto const &pt : term[d].get_partial_terms()) {
+//         if (not pt.left_bc_zero())
+//         {
+//           if (pt.left_bc_time_func())
+//             num_pt++;
+//           else
+//             num_const = 1;
+//         }
+//         if (not pt.right_bc_zero())
+//         {
+//           if (pt.right_bc_time_func())
+//             num_pt++;
+//           else
+//             num_const = 1;
+//         }
+//       }
+//     }
+//   }
+//
+//   std::vector<dimension<P>> const &dimensions = pde.get_dimensions();
+//   int const degree = hier.degree();
+//
+//   time_funcs.reserve(num_pt);
+//
+//   int64_t const vec_size = (stop_element - start_element + 1) * hier.block_size();
+//   unscaled_bc.resize(vec_size * (num_pt + num_const));
+//
+//   std::vector<P> temp;
+//
+//   P *unc = unscaled_bc.data();
+//   if (num_const > 0) {
+//     unc += vec_size;
+//     temp.resize(vec_size);
+//   }
+//
+//   for (int t : indexof<int>(pde.num_terms()))
+//   {
+//     std::vector<term<P>> const &term_md = pde.get_terms()[t];
+//
+//     for (int d : indexof<int>(pde.num_dims()))
+//     {
+//       dimension<P> const &dim = dimensions[d];
+//       term<P> const &term     = term_md[d];
+//
+//       std::vector<partial_term<P>> const &pterms = term.get_partial_terms();
+//       for (int pt : indexof<int>(pterms.size()))
+//       {
+//         auto const &ptt = pterms[pt];
+//
+//         if (not ptt.left_bc_zero())
+//         {
+//           std::vector<P> trace_bc = compute_left_boundary_condition(
+//               ptt.g_func(), ptt.dv_func(), t_init, dim,
+//               ptt.left_bc_funcs()[d]);
+//
+//           std::vector<std::vector<P>> p_term_left_bcs = generate_partial_bcs(
+//               dimensions, d, ptt.left_bc_funcs(), hier, cmats,
+//               conns, t_init, term_md, term.get_partial_terms(), t, pt, std::move(trace_bc));
+//
+//           if (ptt.left_bc_time_func())
+//             num_pt++;
+//           else
+//             num_const = 1;
+//         }
+//         if (not ptt.right_bc_zero())
+//         {
+//           if (ptt.right_bc_time_func())
+//             num_pt++;
+//           else
+//             num_const = 1;
+//         }
+//       }
+//     }
+//   }
+//
+//
+//
+//   unscaled_bc_parts<P> left_bc_parts;
+//   unscaled_bc_parts<P> right_bc_parts;
+//
+//   term_set<P> const &terms_vec_vec = pde.get_terms();
+//
+//   int const num_terms = static_cast<int>(terms_vec_vec.size());
+//   int const num_dims  = pde.num_dims();
+//
+//
+//   //int const degree = dimensions.front().get_degree();
+//
+//   for (int t : indexof<int>(num_terms))
+//   {
+//     std::vector<term<P>> const &term_md = terms_vec_vec[t];
+//
+//     std::vector<std::vector<std::vector<P>>> left_dim_pvecs;
+//     std::vector<std::vector<std::vector<P>>> right_dim_pvecs;
+//
+//     for (int d : indexof<int>(num_dims))
+//     {
+//       dimension<P> const &dim = dimensions[d];
+//
+//       term<P> const &term = term_md[d];
+//
+//       std::vector<std::vector<P>> left_pvecs;
+//       std::vector<std::vector<P>> right_pvecs;
+//
+//       std::vector<partial_term<P>> const &pterms = term.get_partial_terms();
+//       for (int pt : indexof<int>(pterms.size()))
+//       {
+//         partial_term<P> const &pterm = pterms[pt];
+//
+//         if (not pterm.left_bc_zero())
+//         {
+//           std::vector<P> trace_bc = compute_left_boundary_condition(
+//               pterm.g_func(), pterm.dv_func(), t_init, dim,
+//               pterm.left_bc_funcs()[d]);
+//
+//           std::vector<std::vector<P>> p_term_left_bcs = generate_partial_bcs(
+//               dimensions, d, pterm.left_bc_funcs(), hier, cmats,
+//               conns, t_init, term_md, pterms, t, pt, std::move(trace_bc));
+//
+//           // std::vector<P> combined =
+//           //     combine_dimensions(degree, table, start_element,
+//           //                        stop_element, p_term_left_bcs);
+//           //
+//           // left_pvecs.emplace_back(std::move(combined));
+//         }
+//
+//         if (not pterm.right_bc_zero())
+//         {
+//           std::vector<P> trace_bc = compute_right_boundary_condition(
+//               pterm.g_func(), pterm.dv_func(), t_init, dim,
+//               pterm.right_bc_funcs()[d]);
+//
+//           std::vector<std::vector<P>> p_term_right_bcs = generate_partial_bcs(
+//               dimensions, d, pterm.right_bc_funcs(), hier, cmats,
+//               conns, t_init, term_md, pterms, t, pt, std::move(trace_bc));
+//
+//           // std::vector<P> combined =
+//           //     combine_dimensions(degree, table, start_element,
+//           //                        stop_element, p_term_right_bcs);
+//           //
+//           // right_pvecs.emplace_back(std::move(combined));
+//         }
+//       }
+//
+//       left_dim_pvecs.emplace_back(std::move(left_pvecs));
+//       right_dim_pvecs.emplace_back(std::move(right_pvecs));
+//     }
+//
+//     left_bc_parts.emplace_back(std::move(left_dim_pvecs));
+//     right_bc_parts.emplace_back(std::move(right_dim_pvecs));
+//   }
+//
+//   //return {left_bc_parts, right_bc_parts};
+// }
+
 template<typename P>
 std::vector<P> generate_scaled_bc(unscaled_bc_parts<P> const &left_bc_parts,
                                   unscaled_bc_parts<P> const &right_bc_parts,
-                                  PDE<P> const &pde, int const start_element,
-                                  int const stop_element, P const time)
+                                  PDE<P> const &pde,P const time,
+                                  std::vector<P> &bc)
 {
-  std::vector<P> bc(
-      (stop_element - start_element + 1) *
-      fm::ipow(pde.get_dimensions()[0].get_degree() + 1, pde.num_dims()));
-
   term_set<P> const &terms_vec_vec = pde.get_terms();
 
   std::vector<dimension<P>> const &dimensions = pde.get_dimensions();
@@ -354,6 +528,8 @@ compute_right_boundary_condition(g_func_type<P> g_func, g_func_type<P> dv_func,
 
 /* explicit instantiations */
 #ifdef ASGARD_ENABLE_DOUBLE
+template class bc_manager<double>;
+
 template std::array<unscaled_bc_parts<double>, 2> make_unscaled_bc_parts(
     PDE<double> const &pde, elements::table const &table,
     hierarchy_manipulator<double> const &hier, coefficient_matrices<double> &cmats,
@@ -362,7 +538,7 @@ template std::array<unscaled_bc_parts<double>, 2> make_unscaled_bc_parts(
 template std::vector<double> boundary_conditions::generate_scaled_bc(
     unscaled_bc_parts<double> const &left_bc_parts,
     unscaled_bc_parts<double> const &right_bc_parts, PDE<double> const &pde,
-    int const start_element, int const stop_element, double const time);
+    double const time, std::vector<double> &);
 template std::vector<double>
 boundary_conditions::compute_left_boundary_condition(
     g_func_type<double> g_func, g_func_type<double> dv_func, double const time,
@@ -374,6 +550,8 @@ boundary_conditions::compute_right_boundary_condition(
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class bc_manager<float>;
+
 template std::array<unscaled_bc_parts<float>, 2>
 boundary_conditions::make_unscaled_bc_parts(
     PDE<float> const &pde, elements::table const &table,
@@ -383,7 +561,7 @@ boundary_conditions::make_unscaled_bc_parts(
 template std::vector<float> boundary_conditions::generate_scaled_bc(
     unscaled_bc_parts<float> const &left_bc_parts,
     unscaled_bc_parts<float> const &right_bc_parts, PDE<float> const &pde,
-    int const start_element, int const stop_element, float const time);
+    float const time, std::vector<float> &);
 template std::vector<float> boundary_conditions::compute_left_boundary_condition(
     g_func_type<float> g_func, g_func_type<float> dv_func, float const time,
     dimension<float> const &dim, vector_func<float> const bc_func);

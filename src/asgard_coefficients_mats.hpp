@@ -2,6 +2,8 @@
 #include "asgard_transformations.hpp"
 #include "asgard_coefficients.hpp"
 
+#include "asgard_kronmult_matrix.hpp"
+
 #include "asgard_small_mats.hpp"
 
 // private header, exposes some of the coefficient methods for easier testing
@@ -9,6 +11,343 @@
 
 namespace asgard
 {
+
+enum class rhs_type {
+  is_func, is_const
+};
+
+template<typename P, operation_type optype, rhs_type rtype>
+void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
+                  sfixed_func1d<P> const &rhs, P const rhs_const, flux_type flux,
+                  boundary_type boundary, block_tri_matrix<P> &coeff)
+{
+  static_assert(optype != operation_type::mass
+                and optype != operation_type::identity
+                and optype != operation_type::chain,
+                "identity, mass and chain operations yield diagonal matrices, "
+                "should not be used in the tri-diagonal case");
+
+  if constexpr (optype == operation_type::grad) {
+    // the grad operation flips the dirichlet and free boundayr conditions
+    switch (boundary) {
+      case boundary_type::dirichlet:
+        boundary = boundary_type::free;
+        break;
+      case boundary_type::free:
+        boundary = boundary_type::dirichlet;
+        break;
+      case boundary_type::left_free:
+        boundary = boundary_type::right_free;
+        break;
+      case boundary_type::right_free:
+        boundary = boundary_type::left_free;
+        break;
+      default: // periodic, do nothing since it is symmetric anyway
+        break;
+    }
+  }
+
+  int const num_cells = fm::ipow2(level);
+  P const dx = (xright - xleft) / num_cells;
+
+  int const nblock = basis.pdof * basis.pdof;
+  coeff.resize_and_zero(nblock, num_cells);
+
+  // if not using a constant rhs, get the values from the function
+  static std::vector<P> rhs_pnts;
+  static std::vector<P> rhs_raw;
+
+  span2d<P> rhs_vals;
+  if constexpr (rtype == rhs_type::is_func) {
+    // left point, interior pnts, right-point, left/right in adjacent cells will match
+    int const stride = (basis.num_quad + 1);
+    rhs_pnts.resize(stride * num_cells + 1);
+    rhs_raw.resize(rhs_pnts.size());
+#pragma omp parallel for
+    for (int i = 0; i < num_cells; i++) {
+      P const l = xleft + i * dx;
+      rhs_pnts[i * stride] = l;
+      for (int k = 0; k < basis.num_quad; k++)
+        rhs_pnts[i * stride + k + 1] = (0.5 * basis.qp[k] + 0.5) * dx + l;
+    }
+    // right most cell
+    rhs_pnts.back() = xright;
+    rhs(rhs_pnts, rhs_raw);
+
+    // for the i-th cell rhs_vals[i][0] is the left-most point
+    // rhs_vals[i][1] ... rhs_vals[i][num_quad] are the interior quadrature points
+    // right-most point of the i-th cell is at rhs_vals[i+1][0]
+
+    rhs_vals = span2d<P>(stride, num_cells, rhs_raw.data());
+  }
+
+  P const fscale = -static_cast<int>(flux); // scale +/- 1
+
+  P const escale = P{1} / dx; // edge scale
+  P const vscale = P{2} / dx; // volume scale
+
+  std::vector<P> const_mat;
+  if constexpr (rtype == rhs_type::is_const and optype != operation_type::penalty) {
+    // if the coefficient is constant, we have identical copies of the same matrix
+    // compute once and reuse as needed,
+    // also note that the penalty operation skips the volume component
+    const_mat.resize(nblock);
+    smmat::gemm_tn<-1>(basis.pdof, basis.num_quad,
+                       basis.der, basis.legw, const_mat.data());
+    smmat::scal(nblock, vscale * rhs_const, const_mat.data());
+  }
+
+#pragma omp parallel
+  {
+    // each thread will allocate it's own tmp matrix
+    std::vector<P> tmp;
+    if constexpr (rtype == rhs_type::is_func and optype != operation_type::penalty)
+      tmp.resize(basis.num_quad * basis.pdof); // if not using const coefficient
+
+    // tmp will be captured inside the lambda closure
+    // no allocations will occur per call to the lambda
+    auto apply_volume = [&](int i) -> void {
+      // the penalty term does not include a volume integral
+      if constexpr (optype != operation_type::penalty)
+      {
+        if constexpr (rtype == rhs_type::is_const) {
+          std::copy_n(const_mat.data(), nblock, coeff.diag(i));
+        } else {
+          smmat::col_scal(basis.num_quad, basis.pdof,
+                          vscale, rhs_vals[i] + 1, basis.legw, tmp.data());
+          smmat::gemm_tn<-1>(basis.pdof, basis.num_quad, basis.der, tmp.data(), coeff.diag(i));
+        }
+      }
+    };
+
+#pragma omp for
+    for (int i = 1; i < num_cells - 1; i++)
+    {
+      apply_volume(i);
+
+      if constexpr (optype == operation_type::penalty)
+      {
+        P const left_abs  = 0.5 * fscale * ((rtype == rhs_type::is_const) ? rhs_const : std::abs(rhs_vals[i][0]));
+        P const right_abs = 0.5 * fscale * ((rtype == rhs_type::is_const) ? rhs_const : std::abs(rhs_vals[i + 1][0]));
+
+        smmat::axpy(nblock, -escale * left_abs, basis.from_left, coeff.lower(i));
+        smmat::axpy(nblock,  escale * left_abs, basis.to_left, coeff.diag(i));
+
+        smmat::axpy(nblock,  escale * right_abs, basis.to_right, coeff.diag(i));
+        smmat::axpy(nblock, -escale * right_abs, basis.from_right, coeff.upper(i));
+      }
+      else
+      {
+        P const left  = 0.5 * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[i][0]);
+        P const right = 0.5 * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[i + 1][0]);
+
+        P const left_abs  = fscale * std::abs(left);
+        P const right_abs = fscale * std::abs(right);
+
+        smmat::axpy(nblock, escale * (-left - left_abs), basis.from_left, coeff.lower(i));
+        smmat::axpy(nblock, escale * (-left + left_abs), basis.to_left, coeff.diag(i));
+
+        smmat::axpy(nblock, escale * (right + right_abs), basis.to_right, coeff.diag(i));
+        smmat::axpy(nblock, escale * (right - right_abs), basis.from_right, coeff.upper(i));
+      }
+    }
+
+    // interior cells are done in parallel, the boundary conditions are done once
+    // the first thread that exits the for-loop above will do this work
+#pragma omp single
+    {
+      // need to consider various types of boundary conditions on left/right
+      // but we have a possible case of 1 cell, so left-most is also right-most
+
+      int const rmost = num_cells - 1; // right-most cell
+
+      apply_volume(0);   // left-most cell
+      if (num_cells > 1) // if the right-most cell is not the left-most cell
+        apply_volume(rmost);
+
+      if constexpr (optype == operation_type::penalty)
+      {
+        P const left_abs = 0.5 * fscale * ((rtype == rhs_type::is_const) ? rhs_const : std::abs(rhs_vals[0][0]));
+
+        switch (boundary) {
+          case boundary_type::dirichlet:
+          case boundary_type::right_free: // dirichelt on the left
+            smmat::axpy(nblock, escale * left_abs, basis.to_left, coeff.diag(0));
+            break;
+          case boundary_type::periodic:
+            smmat::axpy(nblock, -escale * left_abs, basis.from_left, coeff.lower(0));
+            smmat::axpy(nblock,  escale * left_abs, basis.to_left, coeff.diag(0));
+            break;
+          default: // free flux, no penalty applied
+            break;
+        };
+
+        if (num_cells > 1) { // left-right most cells are different, build mid-conditions
+          P cabs = 0.5 * fscale * ((rtype == rhs_type::is_const) ? rhs_const : std::abs(rhs_vals[1][0]));
+
+          smmat::axpy(nblock,  escale * cabs, basis.to_right, coeff.diag(0));
+          smmat::axpy(nblock, -escale * cabs, basis.from_right, coeff.upper(0));
+
+          cabs  = 0.5 * fscale * ((rtype == rhs_type::is_const) ? rhs_const : std::abs(rhs_vals[rmost][0]));
+
+          smmat::axpy(nblock, -escale * left_abs, basis.from_left, coeff.lower(rmost));
+          smmat::axpy(nblock,  escale * left_abs, basis.to_left, coeff.diag(rmost));
+        }
+
+        P const right_abs = 0.5 * fscale * ((rtype == rhs_type::is_const) ? rhs_const : std::abs(rhs_raw.back()));
+
+        switch (boundary) {
+          case boundary_type::dirichlet:
+          case boundary_type::left_free: // dirichelt on the right
+            smmat::axpy(nblock, escale * right_abs, basis.to_right, coeff.diag(rmost));
+            break;
+          case boundary_type::periodic:
+            smmat::axpy(nblock,  escale * right_abs, basis.to_right, coeff.diag(rmost));
+            smmat::axpy(nblock, -escale * right_abs, basis.from_right, coeff.upper(rmost));
+            break;
+          default: // free flux, no penalty applied
+            break;
+        };
+      }
+      else // div or grad operation
+      {
+        // look at the left-boundary
+        switch (boundary) {
+          case boundary_type::free:
+          case boundary_type::left_free: // free on the left
+            smmat::axpy(nblock, -escale * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[0][0]), basis.to_left, coeff.diag(0));
+            break;
+          case boundary_type::periodic: {
+            P const left     = 0.5 * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[0][0]);
+            P const left_abs = fscale * std::abs(left);
+            smmat::axpy(nblock, escale * (-left - left_abs), basis.from_left, coeff.lower(0));
+            smmat::axpy(nblock, escale * (-left + left_abs), basis.to_left, coeff.diag(0));
+            }
+            break;
+          default: // dirichlet flux, nothing to set
+            break;
+        };
+
+        if (num_cells > 1) {
+          P c    = 0.5 * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[1][0]);
+          P cabs = fscale * std::abs(c);
+
+          smmat::axpy(nblock, escale * (c + cabs), basis.to_right, coeff.diag(0));
+          smmat::axpy(nblock, escale * (c - cabs), basis.from_right, coeff.upper(0));
+
+          c    = 0.5 * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[rmost][0]);
+          cabs = fscale * std::abs(c);
+
+          smmat::axpy(nblock, escale * (-c - cabs), basis.from_left, coeff.lower(rmost));
+          smmat::axpy(nblock, escale * (-c + cabs), basis.to_left, coeff.diag(rmost));
+        }
+
+        // look at the right-boundary
+        switch (boundary) {
+          case boundary_type::free:
+          case boundary_type::right_free: // free on the right
+            smmat::axpy(nblock, escale * ((rtype == rhs_type::is_const) ? rhs_const : rhs_raw.back()), basis.to_right, coeff.diag(rmost));
+            break;
+          case boundary_type::periodic: {
+            P const right     = 0.5 * ((rtype == rhs_type::is_const) ? rhs_const : rhs_raw.back());
+            P const right_abs = fscale * std::abs(right);
+            smmat::axpy(nblock, escale * (right + right_abs), basis.to_right, coeff.diag(rmost));
+            smmat::axpy(nblock, escale * (right - right_abs), basis.from_right, coeff.upper(rmost));
+            }
+            break;
+          default: // dirichlet flux, nothing to set
+            break;
+        };
+      }
+    } // #pragma omp single
+  }
+
+  if constexpr (optype == operation_type::grad)
+  {
+    // take the negative transpose of div
+#pragma omp parallel for
+    for (int64_t r = 0; r < coeff.nrows() - 1; r++)
+    {
+      smmat::neg_transp_swap(basis.pdof, coeff.lower(r + 1), coeff.upper(r));
+      smmat::neg_transp(basis.pdof, coeff.diag(r));
+    }
+    smmat::neg_transp(basis.pdof, coeff.diag(coeff.nrows() - 1));
+    smmat::neg_transp_swap(basis.pdof, coeff.lower(0), coeff.upper(coeff.nrows() - 1));
+  }
+}
+
+template<typename P, operation_type optype, rhs_type rtype>
+void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
+                   sfixed_func1d<P> const &rhs, P const rhs_const,
+                   block_diag_matrix<P> &coeff)
+{
+  static_assert(optype == operation_type::mass,
+                "only mass matrices should be used to create mass terms");
+
+  int const num_cells = fm::ipow2(level);
+  P const dx = (xright - xleft) / num_cells;
+
+  int const nblock = basis.pdof * basis.pdof;
+  coeff.resize_and_zero(nblock, num_cells);
+
+  // if not using a constant rhs, get the values from the function
+  static std::vector<P> rhs_pnts;
+  static std::vector<P> rhs_raw;
+
+  span2d<P> rhs_vals;
+  if constexpr (rtype == rhs_type::is_func) {
+    rhs_pnts.resize(basis.num_quad * num_cells);
+    rhs_raw.resize(rhs_pnts.size());
+#pragma omp parallel for
+    for (int i = 0; i < num_cells; i++) {
+      P const l = xleft + i * dx; // left edge of cell i
+      rhs_pnts[i * basis.num_quad] = l;
+      for (int k = 0; k < basis.num_quad; k++)
+        rhs_pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
+    }
+    // right most cell
+    rhs(rhs_pnts, rhs_raw);
+
+    rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.data());
+  }
+
+  std::vector<P> const_mat;
+  if constexpr (rtype == rhs_type::is_const) {
+    // if the coefficient is constant, we have identical copies of the same matrix
+    // compute once and reuse as needed,
+    // also note that the penalty operation skips the volume component
+    const_mat.resize(nblock);
+
+    for (int i = 0; i < basis.pdof; i++)
+    {
+      for (int j = 0; j < i; j++)
+        const_mat[i * basis.pdof + j] = 0;
+      const_mat[i * basis.pdof + i] = rhs_const;
+      for (int j = i + 1; j < basis.pdof; j++)
+        const_mat[i * basis.pdof + j] = 0;
+    }
+  }
+
+#pragma omp parallel
+  {
+    // each thread will allocate it's own tmp matrix
+    std::vector<P> tmp;
+    if constexpr (rtype == rhs_type::is_func)
+      tmp.resize(basis.num_quad * basis.pdof); // if not using const coefficient
+
+#pragma omp for
+    for (int i = 0; i < num_cells; i++)
+    {
+      if constexpr (rtype == rhs_type::is_const) {
+        std::copy_n(const_mat.data(), nblock, coeff[i]);
+      } else {
+        smmat::col_scal(basis.num_quad, basis.pdof,
+                        rhs_vals[i], basis.legw, tmp.data());
+        smmat::gemm_tn<1>(basis.pdof, basis.num_quad, basis.leg, tmp.data(), coeff[i]);
+      }
+    }
+  }
+}
 
 template<typename P>
 void generate_partial_mass(int const idim, dimension<P> const &dim,

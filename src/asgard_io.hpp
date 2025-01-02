@@ -27,4 +27,17 @@ struct restart_data
 template<typename P>
 restart_data<P> read_output(PDE<P> &pde, std::string const &restart_file);
 
+template<typename P>
+class h5writer {
+public:
+  static void write(PDEv2<P> const &pde, int degree, sparse_grid const &grid,
+                    time_data<P> const &tdata, std::vector<P> const &state,
+                    std::string const &filename);
+
+  static void read(std::string const &filename, bool silent, PDEv2<P> &pde,
+                   sparse_grid &grid, time_data<P> &tdata, std::vector<P> &state);
+
+  static int constexpr asgard_file_version = 1;
+};
+
 } // namespace asgard

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -82,6 +83,8 @@ public:
     std::vector<double> gflops;
     //! indicates whether to include in % of total time
     bool is_nested = false;
+    //! during reporting, will be set to he sum of the intervals
+    double sum = 0;
   };
 
   //! called at the start of the program
@@ -226,6 +229,36 @@ inline null_time_event time_session(std::string const &) {
   return null_time_event();
 }
 #endif
+
+//! converts a number to a string with format 1,234,567
+inline std::string split_style(int64_t num) {
+  if (num == 0)
+    return "0";
+  int64_t bound = 1000000000; // one billion
+  std::string s = "";
+  for (int i = 0; i < 4; i++) {
+    if (s != "")
+      s += ',';
+    int64_t x = (bound > 0) ? num / bound : num;
+    if (x >= 100) {
+      s += std::to_string(x);
+    } else if (x >= 10) {
+      if (s != "")
+        s += '0';
+      s += std::to_string(x);
+    } else if (x > 0) {
+      if (s != "")
+        s += "00";
+      s += std::to_string(x);
+    } else {
+      if (s != "")
+        s += "000";
+    }
+    num %= bound;
+    bound /= 1000;
+  }
+  return s;
+};
 
 } // namespace asgard::tools
 

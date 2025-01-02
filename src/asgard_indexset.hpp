@@ -127,17 +127,24 @@ template<typename T>
 class span2d : public organize2d<T, T *>
 {
 public:
-  //! \brief Make an empty vector
+  //! \brief Make an empty data set
   span2d()
       : organize2d<T, T *>::organize2d(0, 0)
   {
     this->data_ = nullptr;
   }
-  //! \brief Make a vector with the given dimensions, initialize to 0.
+  //! \brief Organize data with the given size
   span2d(int64_t stride, int64_t num_strips, T *data)
       : organize2d<T, T *>::organize2d(stride, num_strips)
   {
     this->data_ = data;
+  }
+  //! \brief Organize the data from a vector
+  span2d(int64_t stride, std::vector<T> &vec)
+      : organize2d<T, T *>::organize2d(stride, static_cast<int64_t>(vec.size() / stride))
+  {
+    expect(vec.size() == static_cast<size_t>(this->num_strips_ * this->stride_));
+    this->data_ = vec.data();
   }
 };
 
@@ -286,7 +293,7 @@ public:
                        iset[ib] + (iset.num_indexes_ - ib) * num_dimensions_);
 
     indexes_     = std::move(union_set);
-    num_indexes_ = static_cast<int>(indexes_.size() / num_dimensions_);
+    num_indexes_ = static_cast<int64_t>(indexes_.size() / num_dimensions_);
     return *this;
   }
 
@@ -307,6 +314,12 @@ public:
       os << '\n';
     }
   }
+  //! \brief Returns the vector of indexes
+  std::vector<int> const &indexes() const { return indexes_; }
+
+  // writer utilities
+  template<typename P>
+  friend class h5writer;
 
 protected:
   //! \brief Result of a comparison
@@ -441,5 +454,91 @@ vector2d<int> complete_poly_order(vector2d<int> const &cells, int degree);
  */
 vector2d<int> complete_poly_order(vector2d<int> const &cells,
                                   indexset const &padded, int degree);
+
+/*!
+ * \brief Manger for a sparse grid multi-index set
+ */
+class sparse_grid
+{
+public:
+  //! indicates whether to refine, coarsen (compress) or do both
+  enum class strategy { refine, coarsen, adapt };
+  //! makes and empty grid, reinit before use
+  sparse_grid() = default;
+  //! number of dimensions and levels
+  sparse_grid(prog_opts const &options);
+  //! Returns the number of dimensions for the multi-index set
+  int num_dims() const { return iset_.num_dimensions(); }
+  //! Returns the number of indexes
+  int64_t num_indexes() const { return iset_.num_indexes(); }
+
+  int const * operator[] (int i) const { return iset_[i]; }
+
+  indexset const &iset() const { return iset_; }
+  dimension_sort const &dsort() const { return dsort_; }
+
+  int dsorted(int d, int j) const { return dsort_(iset_, d, j); }
+
+  //! Testing purposes, returns the raw vector of indexes
+  std::vector<int> const &indexes() const { return iset_.indexes(); }
+
+  //! Returns the current level
+  int current_level(int d) const { return level_[d]; }
+  //! Returns the first index disallowed due to the max level
+  int max_index(int d) const { return max_index_[d]; }
+  //! check generation, i.e., if the grid changed
+  int generation() const { return generation_; }
+  /*!
+   * \brief Update the grid based on the strategy and current state
+   *
+   * \tparam P is float or double
+   *
+   * \param tolerance indicates the absolute tolerance for the refinement
+   * \param block_size is the number of degrees of freedom in a cell
+   * \param hierarchy is the volume hierarchy build up to the max level
+   * \param mode indicates whether we are coarsening, refining or both (adapt)
+   * \param state the magnitude of the indexes in the cell will guide the refinement,
+   *              the size of \b state should be block_size * num_indexes()
+   */
+  template<typename P>
+  void refine(P tolerance, int block_size, connect_1d const &hierarchy,
+              strategy mode, std::vector<P> const &state);
+
+  //! remaps the vector entries from an old grid to the new one, pads with zero
+  template<typename P>
+  void remap(int block_size, std::vector<P> &state) const;
+
+  //! print summary of the grid
+  void print_stats(std::ostream &os) const;
+
+  //! allows writer to save/load the grid
+  template<typename P>
+  friend class h5writer;
+
+protected:
+  enum class istatus { keep, refine, clear };
+
+  template<grid_type gtype>
+  indexset make_level_set(std::vector<int> const &levels);
+
+private:
+  int generation_ = 0;
+
+  int mgroup = -1;
+  indexset iset_;
+  dimension_sort dsort_;
+
+  std::array<int, max_num_dimensions> level_ = {{0}};
+  std::array<int, max_num_dimensions> max_index_ = {{0}};
+
+  std::vector<int64_t> map_;
+};
+
+//! overload for writing grid stats
+inline std::ostream &operator<<(std::ostream &os, sparse_grid const &grid)
+{
+  grid.print_stats(os);
+  return os;
+}
 
 } // namespace asgard

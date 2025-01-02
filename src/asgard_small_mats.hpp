@@ -55,7 +55,7 @@ namespace asgard::smmat
 {
 //! debug purposes, print a small vector of size n
 template<typename P>
-void print(int const &n, P const x[])
+void print(int const n, P const x[])
 {
   std::cout.precision(8);
   std::cout << std::scientific;
@@ -65,7 +65,7 @@ void print(int const &n, P const x[])
 }
 //! debug purposes, print a small matrix of size nr by nc
 template<typename P>
-void print(int const &nr, int const &nc, P const A[])
+void print(int const nr, int const nc, P const A[])
 {
   std::cout.precision(8);
   std::cout << std::scientific;
@@ -78,7 +78,7 @@ void print(int const &nr, int const &nc, P const A[])
 }
 //! scale x by alpha, n is the size of x
 template<typename P>
-void scal(int const &n, P alpha, P x[])
+void scal(int const n, P alpha, P x[])
 {
   ASGARD_OMP_SIMD
   for (int i = 0; i < n; i++)
@@ -86,7 +86,7 @@ void scal(int const &n, P alpha, P x[])
 }
 //! scale x by alpha, n is the size of x, write the result in y
 template<typename P>
-void scal(int const &n, P alpha, P const x[], P y[])
+void scal(int const n, P alpha, P const x[], P y[])
 {
   ASGARD_OMP_SIMD
   for (int i = 0; i < n; i++)
@@ -94,22 +94,39 @@ void scal(int const &n, P alpha, P const x[], P y[])
 }
 //! B will be replaced by entry-wise mulitplication of each columns of A (nr x nc) by vector x
 template<typename P>
-void col_scal(int const &nr, int const &nc, P const x[], P const A[], P B[])
+void col_scal(int const nr, int const nc, P const x[], P const A[], P B[])
 {
   ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int c = 0; c < nc; c++)
     for (int r = 0; r < nr; r++)
       B[c * nr + r] = A[c * nr + r] * x[r];
 }
+//! B will be replaced by entry-wise mulitplication of each columns of A (nr x nc) by vector alpha * x
+template<typename P>
+void col_scal(int const nr, int const nc, P const alpha, P const x[], P const A[], P B[])
+{
+  ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+  for (int c = 0; c < nc; c++)
+    for (int r = 0; r < nr; r++)
+      B[c * nr + r] = alpha * A[c * nr + r] * x[r];
+}
 //! entry-wise mulitplication of each columns of A (nr x nc) by vector alpha * x
 template<typename P>
-void col_scal(int const &nr, int const &nc, P alpha, P const x[], P A[])
+void col_scal(int const nr, int const nc, P alpha, P const x[], P A[])
 {
   ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int c = 0; c < nc; c++)
     for (int r = 0; r < nr; r++)
       A[c * nr + r] *= alpha * x[r];
 }
+//! y += alpha * x
+template<typename P>
+void axpy(int const n, P const alpha, P const x[], P y[]) {
+  ASGARD_OMP_SIMD
+  for (int i = 0; i < n; i++)
+    y[i] += alpha * x[i];
+}
+
 //! matrix-vector multiplication y += A * x, A has size nr X nc
 template<typename P>
 void gemv1(int const &nr, int const &nc, P const A[], P const x[], P y[])
@@ -201,7 +218,7 @@ void gemm2by2(P const A[], P B[])
 }
 //! cholesky factorize
 template<typename P>
-void potrf(int const &n, P A[])
+void potrf(int const n, P A[])
 {
   for (int i = 0; i < n; i++)
   {
@@ -222,7 +239,7 @@ void potrf(int const &n, P A[])
 }
 //! cholesky solve
 template<typename P>
-void posv(int const &n, P const A[], P x[])
+void posv(int const n, P const A[], P x[])
 {
   for(int i = 0; i < n; i++)
   {
@@ -240,13 +257,13 @@ void posv(int const &n, P const A[], P x[])
 }
 //! cholesky solve
 template<typename P>
-void posvm(int const &n, P const A[], P B[])
+void posvm(int const n, P const A[], P B[])
 {
   for (int i = 0; i < n; i++)
     posv(n, A, B + i * n);
 }
 
-//! C += (dir) A^T B, dir must be +/-1
+//! C += (dir) A^T B, dir must be +/-1, C is nrc by nrc
 template<int dir = +1, typename P>
 void gemm_tn(int const &nrc, int const &nk, P const A[], P const B[], P C[])
 {
@@ -409,6 +426,17 @@ void gemm_pairt(P const a0[], P const t0[], P const a1[], P const t1[], P R[])
     for (int c = 0; c < n; c++)
       for (int r = 0; r < n; r++)
         R[c * n + r] += a1[i * n + r] * t1[i * n + c];
+}
+
+//! A += x * y^T where x and y are column vectors of length n
+template<typename P>
+void gemm_outer_inc(int n, P const x[], P const y[], P A[]) {
+  ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+  for (int c = 0; c < n; c++) {
+    for (int r = 0; r < n; r++) {
+      A[c * n + r] += x[r] * y[c];
+    }
+  }
 }
 
 } // namespace asgard::smmat

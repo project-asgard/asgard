@@ -1,4 +1,5 @@
 #include "asgard_indexset.hpp"
+#include "asgard_permutations.hpp"
 
 namespace asgard
 {
@@ -401,5 +402,361 @@ vector2d<int> complete_poly_order(vector2d<int> const &cells,
 
   return indexes;
 }
+
+sparse_grid::sparse_grid(prog_opts const &options)
+  : mgroup(options.mgrid_group.value_or(-1))
+{
+  expect(not options.start_levels.empty());
+  expect(mgroup < static_cast<int>(options.start_levels.size()));
+
+  grid_type gtype = options.grid.value_or(grid_type::sparse); // defaults to sparse
+  std::vector<int> const &levels = options.start_levels;
+
+  indexset iset = [&]() -> indexset {
+    switch (gtype)
+    {
+      case grid_type::dense:
+        return make_level_set<grid_type::dense>(levels);
+      case grid_type::sparse:
+        return make_level_set<grid_type::sparse>(levels);
+      default: // grid_type::mixed
+        return make_level_set<grid_type::mixed>(levels);
+    };
+  }();
+
+  int const numd = iset.num_dimensions();
+
+  if (options.max_levels.empty()) { // testing or not using adaptivity
+    for (int d : iindexof(numd)) {
+      level_[d]     = levels[d];
+      max_index_[d] = (levels[d] == 0) ? 1 : fm::ipow2(levels[d]);
+    }
+  } else {
+    for (int d : iindexof(numd)) {
+      level_[d]     = levels[d];
+      max_index_[d] = (options.max_levels[d] == 0) ? 1 : fm::ipow2(options.max_levels[d]);
+    }
+  }
+
+  int64_t const num_iset = iset.num_indexes();
+  int64_t num_indexes    = 0;
+  for (int64_t i = 0; i < num_iset; i++)
+  {
+    int const *p = iset[i];
+    int64_t n = 1;
+    for (int d = 0; d < numd; d++)
+      n *= (p[d] < 2) ? 1 : fm::ipow2(p[d] - 1);
+    num_indexes += n;
+  }
+
+  std::vector<int> idx_raw(num_indexes * numd);
+  span2d<int> idx(numd, num_indexes, idx_raw.data());
+  int64_t ii = 0;
+  for (int64_t i = 0; i < num_iset; i++)
+  {
+    std::array<int, max_num_dimensions> offsets;
+    int const *p = iset[i];
+    int64_t n = 1;
+    for (int d = 0; d < numd; d++) {
+      offsets[d] = (p[d] < 2) ? 1 : fm::ipow2(p[d] - 1);
+      n *= offsets[d];
+    }
+    for (auto j : indexof(n))
+    {
+      int t = j;
+      int *v = idx[ii++];
+      for (int d = numd - 1; d >= 0; d--) {
+        v[d] = (p[d] == 0) ? 0 : (offsets[d] + t % offsets[d]);
+        t /= offsets[d];
+      }
+    }
+  }
+
+  iset_  = make_index_set(idx);
+  dsort_ = dimension_sort(iset_);
+}
+
+template<grid_type gtype>
+indexset sparse_grid::make_level_set(std::vector<int> const &levels)
+{
+  int numd = static_cast<int>(levels.size());
+
+  if constexpr (gtype == grid_type::dense)
+  {
+    std::vector<int> idx = asgard::permutations::generate_lower_index_set_v2(
+      numd, [&](std::array<int, max_num_dimensions> const &index)
+        -> bool {
+          for (int d = 0; d < numd; d++)
+            if (index[d] > levels[d])
+              return false;
+          return true;
+        });
+    return indexset(numd, std::move(idx));
+  }
+  else if constexpr (gtype == grid_type::sparse)
+  {
+    int64_t m = 1;
+    for (auto const &l : levels)
+      m *= l;
+    std::array<int, max_num_dimensions> lidx;
+    for (int i = 0; i < numd; i++)
+      lidx[i] = m / levels[i];
+    std::vector<int> idx = asgard::permutations::generate_lower_index_set_v2(
+      numd, [&](std::array<int, max_num_dimensions> const &index)
+        -> bool {
+          int l = 0;
+          for (int d = 0; d < numd; d++)
+            l += lidx[d] * index[d];
+          return (l <= m);
+        });
+    return indexset(numd, std::move(idx));
+  }
+  else // if constexpr (gtype == grid_type::mixed)
+  {
+    int64_t m = 1;
+    for (auto const &l : levels)
+      m *= l;
+    std::array<int, max_num_dimensions> lidx;
+    for (int i = 0; i < numd; i++)
+      lidx[i] = m / levels[i];
+    std::vector<int> idx = asgard::permutations::generate_lower_index_set_v2(
+      numd, [&](std::array<int, max_num_dimensions> const &index)
+        -> bool {
+          int l1 = 0, l2 = 0;
+          for (int d = 0; d < mgroup; d++)
+            l1 += lidx[d] * index[d];
+          for (int d = mgroup; d < numd; d++)
+            l2 += lidx[d] * index[d];
+          return (std::max(l1, l2) <= m);
+        });
+    return indexset(numd, std::move(idx));
+  }
+}
+
+template<typename P>
+void sparse_grid::refine(P tol, int block_size, connect_1d const &hierarchy,
+                         strategy mode, std::vector<P> const &state)
+{
+  tools::time_event refining("grid refining");
+  int const num_dims = iset_.num_dimensions();
+
+  int64_t const num = iset_.num_indexes();
+  std::vector<P> weights(num);
+
+  // compute the L^2 weight of each multi-index
+#pragma omp parallel for
+  for (int64_t i = 0; i < num; i++)
+  {
+    P w{0};
+    for (int j : iindexof(block_size)) {
+      P s = state[i * block_size + j];
+      w += s * s;
+    }
+    weights[i] = std::sqrt(w);
+  }
+
+  // decide which index to keep and which to clear
+  std::vector<istatus> stat(num, istatus::keep);
+#pragma omp parallel for
+  for (int64_t i = 0; i < num; i++)
+  {
+    std::array<int, max_num_dimensions> idx;
+    std::copy_n(iset_[i], num_dims, idx.data());
+
+    if (weights[i] >= tol and mode != strategy::coarsen) {
+      // large weight, must refine but only if kids are missing
+      for (int d : iindexof(num_dims)) {
+        idx[d] *= 2;
+        if (iset_.find(idx.data()) == -1)
+          stat[i] = istatus::refine;
+
+        idx[d] += 1;
+        // dont' search for the second kid if the first is missing
+        if (stat[i] != istatus::refine and iset_.find(idx.data()) == -1)
+          stat[i] = istatus::refine;
+
+        idx[d] = iset_[i][d];
+      }
+    } else {
+      // maybe remove, but only if the parents are small
+      if (mode != strategy::refine) { // if we are allowed to remove nodes
+        bool keep = false;
+        for (int d : iindexof(num_dims)) {
+          if (idx[d] == 0)
+            continue;
+
+          idx[d] /= 2;
+          if (weights[ iset_.find(idx.data()) ] >= tol)
+            keep = true;
+
+          idx[d] = iset_[i][d];
+        }
+        if (not keep)
+          stat[i] = istatus::clear;
+      }
+    }
+  }
+
+  // never remove index 0, must have at least one cell in the grid
+  if (stat.front() == istatus::clear)
+    stat.front() = istatus::keep;
+
+  // count an upper bound for the new nodes
+  int const num_family = 1 + 2 * num_dims; // self + kids
+  int64_t reserve = 0;
+  for (int64_t i = 0; i < num; i++)
+  {
+    switch (stat[i]) {
+      case istatus::keep:
+        reserve += 1;
+        break;
+      case istatus::refine:
+        {
+          bool valid_kid = false;
+          for (int d : iindexof(num_dims)) {
+            int const kid = 2 * iset_[i][d];
+            if (kid < max_index_[d]) { // enforce the max-level
+              valid_kid = true;
+              break; // stop the loop over num_dims
+            }
+          }
+          if (valid_kid)
+            reserve += num_family;
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  // assign new memory for the kept + refined nodes
+  std::vector<int> update;
+  update.reserve(num_dims * reserve);
+  for (int64_t i = 0; i < num; i++)
+  {
+    std::array<int, max_num_dimensions> idx;
+
+    switch (stat[i]) {
+      case istatus::keep:
+        //std::cout << i << " keep\n";
+        update.insert(update.end(), iset_[i], iset_[i] + num_dims);
+        break;
+      case istatus::refine:
+        {
+          //std::cout << i << " refine\n";
+          update.insert(update.end(), iset_[i], iset_[i] + num_dims);
+          std::copy_n(iset_[i], num_dims, idx.data());
+          for (int d : iindexof(num_dims)) {
+            idx[d] *= 2;
+            if (idx[d] >= max_index_[d]) { // enforce the max-level
+              idx[d] = iset_[i][d];
+              continue;
+            }
+            update.insert(update.end(), idx.data(), idx.data() + num_dims);
+            idx[d] += 1;
+            update.insert(update.end(), idx.data(), idx.data() + num_dims);
+            idx[d] = iset_[i][d];
+          }
+        }
+        break;
+      default: // remove the point, nothing to do
+        break;
+    }
+  }
+
+  indexset inew = make_index_set(span2d<int>(num_dims, update));
+
+  inew += compute_ancestry_completion(inew, hierarchy);
+
+  // indexset hcheck = compute_ancestry_completion(inew, hierarchy);
+  // std::cout << "  --     new nodes: " << inew.num_indexes() << "\n";
+  // std::cout << "  -- missing nodes: " << hcheck.num_indexes() << " (should be zero)\n";
+
+  // check if the new grid is different
+  bool change = false;
+  if (inew.num_indexes() != iset_.num_indexes()) {
+    change = true;
+  } else {
+    for (int64_t i = 0; i < num; i++) {
+      for (int d : iindexof(num_dims)) {
+        if (inew[i][d] != iset_[i][d]) {
+          change = true;
+          break;
+        }
+      }
+      if (change)
+        break;
+    }
+  }
+
+  if (not change) // done, nothing to do here
+    return;
+
+  // find the map from the old indexes to the new ones
+  int64_t const num_new = inew.num_indexes();
+  map_.resize(inew.num_indexes());
+#pragma omp parallel for
+  for (int64_t i = 0; i < num_new; i++) {
+    map_[i] = iset_.find(inew[i]);
+  }
+
+  // TODO: optimize this, it's slow
+  for (int d : iindexof(num_dims))
+    level_[d] = 0;
+  for (int64_t i = 0; i < num_new; i++) {
+    for (int d : iindexof(num_dims)) {
+      int const l = (inew[i][d] == 0) ? 0 : (1 + fm::intlog2(inew[i][d]));
+      level_[d] = std::max(level_[d], l);
+    }
+  }
+
+  iset_  = std::move(inew);
+  dsort_ = dimension_sort(iset_);
+
+  generation_ += 1; // grid changed
+}
+
+template<typename P>
+void sparse_grid::remap(int block_size, std::vector<P> &state) const
+{
+  int64_t const num = iset_.num_indexes();
+
+  std::vector<P> snew(num * block_size);
+
+  span2d<P> old_state(block_size, state);
+  span2d<P> new_state(block_size, snew);
+
+#pragma omp parallel for
+  for (int64_t i = 0; i < num; i++) {
+    if (map_[i] > -1)
+      std::copy_n(old_state[map_[i]], block_size, new_state[i]);
+    else
+      std::fill_n(new_state[i], block_size, P{0});
+  }
+
+  state = std::move(snew);
+}
+
+void sparse_grid::print_stats(std::ostream &os) const {
+  os << "sparse grid:\n";
+  os << "      levels  ";
+  for (int d : iindexof(num_dims()))
+    os << std::setw(4) << level_[d];
+  os << "\n  max levels  ";
+  for (int d : iindexof(num_dims()))
+    os << std::setw(4) << ((max_index_[d] == 0) ? 0 : fm::intlog2(max_index_[d]));
+  os << "\n  num indexes   " << tools::split_style(iset_.num_indexes()) << '\n';
+}
+
+template indexset sparse_grid::make_level_set<grid_type::dense>(std::vector<int> const &);
+template indexset sparse_grid::make_level_set<grid_type::sparse>(std::vector<int> const &);
+template indexset sparse_grid::make_level_set<grid_type::mixed>(std::vector<int> const &);
+
+template void sparse_grid::refine<double>(double, int, connect_1d const &,
+                                          strategy, std::vector<double> const &);
+template void sparse_grid::refine<float>(float, int, connect_1d const &,
+                                         strategy, std::vector<float> const &);
+template void sparse_grid::remap<double>(int, std::vector<double> &) const;
+template void sparse_grid::remap<float>(int, std::vector<float> &) const;
 
 } // namespace asgard

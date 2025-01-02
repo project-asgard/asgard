@@ -54,6 +54,8 @@ template<typename P>
 class distributed_grid
 {
 public:
+  distributed_grid() = default;
+
   distributed_grid(int max_level, prog_opts const &options);
 
   distributed_grid(PDE<P> const &pde)
@@ -144,7 +146,7 @@ private:
 
   elements::table table_;
   distribution_plan plan_;
-  int max_level_;
+  int max_level_ = 1;
 };
 
 } // namespace asgard::adapt

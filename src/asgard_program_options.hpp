@@ -18,6 +18,10 @@ namespace asgard
  * command line or an input file and also specify PDE specific options.
  */
 
+// forward declaration that can befriend relevant classes
+template<typename P>
+class h5writer;
+
 /*!
  * \ingroup asgard_common_options
  * \brief Allows reducing the amount of cout-noise
@@ -35,6 +39,8 @@ enum class verbosity_level
 {
   //! do not generate cout output, except on errors and important warnings
   quiet,
+  //! provides a few details but not too many
+  low,
   //! provide a detailed log of the various aspects of the simulation
   high
 };
@@ -89,6 +95,7 @@ enum class PDE_opts
   collisional_landau_1x3v
 };
 
+#ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \internal
  * \ingroup asgard_common_options
@@ -105,6 +112,7 @@ enum class PDE_case_opts
   case4,
   case_count
 };
+#endif
 
 /*!
  * \ingroup asgard_common_options
@@ -121,6 +129,7 @@ enum class kronmult_mode
   sparse
 };
 
+#ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \internal
  * \ingroup asgard_common_options
@@ -130,13 +139,15 @@ enum class kronmult_mode
  * right out.
  *
  * \endinternal
- *
  */
 enum class data_mode
 {
+  //! repalce/overwrite the current data
   replace,
+  //! increment the current data, i.e., +=
   increment
 };
+#endif
 
 /*!
  * \ingroup asgard_common_options
@@ -161,7 +172,7 @@ namespace time_advance
 enum class method
 {
   //! implicit solve, backward Euler
-  imp,
+  imp = 0,
   //! (default) explicit Runge–Kutta
   exp, // explicit is reserved keyword
   //! implicit-explicit scheme for nonlinear Vlasov-Poisson problems
@@ -183,6 +194,7 @@ enum adapt_norm
 
 namespace solver
 {
+#ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \internal
  * indicates the values is unspecified
@@ -193,6 +205,7 @@ int constexpr novalue = -1;
  * indicates the values is unspecified
  */
 double constexpr notolerance = -1.0;
+#endif
 } // namespace solver
 
 /*!
@@ -246,22 +259,6 @@ struct split_views
   std::vector<std::string_view> views_;
   vecstrview strview;
 };
-
-/*!
- * \internal
- * \brief (testing) splits a single string into multiple strings by spaces
- *
- * The method is intended for testing where it is much easier to write
- * a single string, e.g., "-p continuity_1 -d 3 -l 4" as opposed to multiple
- * lines setting pde_choice, degree and start_levels.
- *
- * However, the parsing of the string has little to no robustness,
- * especially when it comes to passing in lists.
- *
- * The use of this method in production is strongly discouraged.
- * \endinternal
- */
-split_views split_argv(std::string_view const &opts);
 
 /*!
  * \ingroup asgard_common_options
@@ -341,7 +338,7 @@ split_views split_argv(std::string_view const &opts);
  *   // extra_name will be set to "my favorite pde"
  *   std::optional<std::string> extra_name = options.file_value<std::string>("my keyname 4");
  *
- *   // key3 will be empty, the keyname is missing/misspelled
+ *   // key3 will be empty, the keyname is missing/misspelled (missing "my")
  *   std::optional<bool> key3 = options.file_value<bool>("keyname 3");
  * \endcode
  * Supported types are bool, int, float, double, and std::string.
@@ -394,6 +391,8 @@ struct prog_opts
 
   //! time stepping method, explicit, implicit or imex
   std::optional<time_advance::method> step_method;
+  //! final time for the integration
+  std::optional<double> stop_time;
   //! fixed time step, if missing the default cfl condition will be used
   std::optional<double> dt;
   //! number of fixed time steps to take
@@ -479,6 +478,88 @@ struct prog_opts
   {
     return get_val<out_type>(externals, s);
   }
+  //! check if an extra option was present in the cli
+  bool has_cli_entry(std::string_view const &s) const
+  {
+    return std::any_of(externals.begin(), externals.end(),
+                       [&](std::string const &v)-> bool { return (v == s); });
+  }
+  //! check if an extra option was present in the cli or set to true in a file
+  bool has_entry(std::string_view const &s) const
+  {
+    if (has_cli_entry(s)) // if present in the cli
+      return true;
+    // not in the cli, check the file
+    return file_value<bool>(s).value_or(false);
+  }
+
+  /*!
+   * \brief returns a list of cli options that are neither ASGarD standard nor in the provded lists
+   *
+   * Since custom files can include problem specific command line options,
+   * it is important to allow custom options, while also provide a way to catch
+   * misspelled or erroneous entries.
+   * This method will return a vector of command line entries that
+   * are not standard ASGarD options and not included in either of the two
+   * user-provided lists.
+   *
+   * \param singles are valid custom options that appear by themselves, i.e.,
+   *                do not require a second value entry
+   * \param with_value are valid custom options that should be followed by a value,
+   *                   this, both entries are considered "known"
+   *
+   * \returns a list of command-line entries that are neither ASGarD nor known custom
+   *          options
+   *
+   * See \ref asgard_examples_continuity_md
+   */
+  std::vector<std::string> get_unknown(std::vector<std::string> const &singles,
+                                       std::vector<std::string> const &with_value) const
+  {
+    std::vector<std::string> result;
+    auto ie = externals.begin();
+    while (ie < externals.end())
+    {
+      if (std::any_of(singles.begin(), singles.end(),
+                      [&](std::string const &s)-> bool { return (s == *ie); }))
+      {
+        ++ie;
+      } else if (std::any_of(with_value.begin(), with_value.end(),
+                             [&](std::string const &s)-> bool { return (s == *ie); }))
+      {
+        std::advance(ie, 2); // the second entry is the value
+      }
+      else
+      {
+        // unknown entry
+        result.push_back(*ie++);
+      }
+    }
+    return result;
+  }
+  //! throws if unknown command line arguments are encountered, see get_unknown()
+  void throw_if_argv_not_in(std::vector<std::string> const &singles,
+                            std::vector<std::string> const &with_value) const {
+    std::vector<std::string> unknown = get_unknown(singles, with_value);
+    if (not unknown.empty()) {
+      std::cerr << "\nunknown command line argument(s) encountered\n";
+      for (auto const &u : unknown)
+        std::cerr << u << "\n";
+      std::cerr << std::endl;
+
+      throw std::runtime_error("cannot process command line arguments");
+    }
+  }
+  //! throws if any invalid (unknown by ASGarD) command line arguments are present
+  void throw_if_invalid() const {
+    throw_if_argv_not_in({}, {});
+  }
+
+  //! sets the title, if the user did not provide a custom title
+  void set_default_title(std::string_view const &dtitle) {
+    if (title.empty())
+      title = dtitle;
+  }
 
   //! reads and returns a file_value, skips the optional but throws if the value is missing
   template<typename out_type>
@@ -509,6 +590,39 @@ struct prog_opts
       std::cerr << "warning: overriding the user-requested -solver" << std::endl;
     solver = method;
   }
+  //! used in palce of start_levels, if start_levels is not provided
+  std::vector<int> default_start_levels;
+  //! used in palce of degree, if degree is not provided
+  std::optional<int> default_degree;
+  //! used in place of dt, if dt is not set
+  std::optional<double> default_dt;
+  //! used in place of stop time, if stop time is not provided
+  std::optional<double> default_stop_time;
+
+  //! returns the first available from stop-time, default-stop-time or -1
+  double get_stop_time() const { return stop_time.value_or(default_stop_time.value_or(-1)); }
+  //! returns the first available from dt, default-dt or -1
+  double get_dt() const { return dt.value_or(dt.value_or(-1)); }
+  //! returns the max-level based on the current set of options
+  int max_level() const {
+    int ml = 0;
+    if (not default_start_levels.empty())
+      ml = *std::max_element(default_start_levels.begin(),default_start_levels.end());
+    if (not start_levels.empty())
+      ml = std::max(ml, *std::max_element(start_levels.begin(),start_levels.end()));
+    if (not max_levels.empty())
+      ml = std::max(ml, *std::max_element(max_levels.begin(),max_levels.end()));
+    return ml;
+  }
+
+  //! returns true if the options indicate a restart file
+  bool restarting() const { return not restart_file.empty(); }
+
+  //! allows overriding the verbosity level
+  std::optional<verbosity_level> verbosity;
+
+  //! (internal use) if we encounter a "no-adapt" option, must skip adaptivity during restart
+  bool set_no_adapt = false;
 
 private:
   //! mapping from cli options to variables and actions
@@ -532,6 +646,7 @@ private:
     num_time_steps,
     wavelet_output_freq,
     output_file,
+    stop_time,
     dt,
     pde_choice,
     solver,
@@ -541,6 +656,7 @@ private:
     isol_iterations,
     isol_outer_iterations,
     restart_file,
+    set_verbosity
   };
   enum class handle_mode
   {
@@ -607,27 +723,59 @@ private:
     {
       if (strs[i] == s)
       {
-        if (i + 1 == strs.size())
-          return {};
-        const std::string &val = strs[i + 1];
-        if constexpr (std::is_same_v<out_type, std::string>)
-          return val;
-        else if constexpr (std::is_same_v<out_type, int>)
-          return std::stoi(val);
-        else if constexpr (std::is_same_v<out_type, double>)
-          return std::stod(val);
-        else if constexpr (std::is_same_v<out_type, float>)
-          return std::stof(val);
-        else if constexpr (std::is_same_v<out_type, bool>)
-        {
-          if (val == "on" or val == "yes" or val == "enable" or val == "true"
-              or val == "1")
-            return true;
-          else if (val == "off" or val == "no" or val == "disable"
-                   or val == "false" or val == "0")
-            return false;
-          else
+        try {
+          if (i + 1 == strs.size())
             return {};
+          const std::string &val = strs[i + 1];
+          if constexpr (std::is_same_v<out_type, std::string>)
+            return val;
+          else if constexpr (std::is_same_v<out_type, int>)
+            return std::stoi(val);
+          else if constexpr (std::is_same_v<out_type, double>)
+            return std::stod(val);
+          else if constexpr (std::is_same_v<out_type, float>)
+            return std::stof(val);
+          else if constexpr (std::is_same_v<out_type, bool>)
+          {
+            if (val == "on" or val == "yes" or val == "enable" or val == "true"
+                or val == "1")
+              return true;
+            else if (val == "off" or val == "no" or val == "disable"
+                    or val == "false" or val == "0")
+              return false;
+            else
+              return {};
+          }
+        } catch (std::invalid_argument &) {
+          std::string msg = std::string("invalid value for '") + std::string(s)
+              + "', cannot convert '" + strs[i + 1] + "' to '";
+          if constexpr (std::is_same_v<out_type, std::string>)
+            msg += "string'";
+          else if constexpr (std::is_same_v<out_type, int>)
+            msg += "int'";
+          else if constexpr (std::is_same_v<out_type, double>)
+            msg += "double'";
+          else if constexpr (std::is_same_v<out_type, float>)
+            msg += "float'";
+          else if constexpr (std::is_same_v<out_type, bool>)
+            msg += "bool'";
+
+          throw std::runtime_error(msg);
+        } catch (std::out_of_range &) {
+          std::string msg = std::string("invalid value for '") + std::string(s)
+              + "', out-of-range error in conversion of '" + strs[i + 1] + "' to '";
+          if constexpr (std::is_same_v<out_type, std::string>)
+            msg += "string'";
+          else if constexpr (std::is_same_v<out_type, int>)
+            msg += "int'";
+          else if constexpr (std::is_same_v<out_type, double>)
+            msg += "double'";
+          else if constexpr (std::is_same_v<out_type, float>)
+            msg += "float'";
+          else if constexpr (std::is_same_v<out_type, bool>)
+            msg += "bool'";
+
+          throw std::runtime_error(msg);
         }
       }
     }
@@ -644,6 +792,23 @@ private:
   }
 };
 
+#ifndef __ASGARD_DOXYGEN_SKIP
+/*!
+ * \internal
+ * \brief (testing) splits a single string into multiple strings by spaces
+ *
+ * The method is intended for testing where it is much easier to write
+ * a single string, e.g., "-p continuity_1 -d 3 -l 4" as opposed to multiple
+ * lines setting pde_choice, degree and start_levels.
+ *
+ * However, the parsing of the string has little to no robustness,
+ * especially when it comes to passing in lists.
+ *
+ * The use of this method in production is strongly discouraged.
+ * \endinternal
+ */
+split_views split_argv(std::string_view const &opts);
+
 /*!
  * \internal
  * \brief Makes a prog_opts object from a single sting, see split_argv
@@ -654,6 +819,7 @@ inline prog_opts make_opts(std::string const &cli)
 {
   return prog_opts(split_argv(cli));
 }
+#endif
 
 //! overload for writing options to a stream
 inline std::ostream &operator<<(std::ostream &os, prog_opts const &options)

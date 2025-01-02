@@ -162,6 +162,17 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-dt", "dummy"})),
                         "invalid value for -dt, see exe -help");
   }
+  SECTION("-time")
+  {
+    prog_opts prog(vecstrview({"", "-time", "2.5"}));
+    REQUIRE(prog.stop_time);
+    REQUIRE(prog.stop_time.value() == 2.5);
+    REQUIRE(prog_opts(vecstrview({"exe", "-t", "0.1"})).stop_time);
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-time"})),
+                        "-time must be followed by a value, see exe -help");
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-t", "dummy"})),
+                        "invalid value for -t, see exe -help");
+  }
   SECTION("-adapt")
   {
     prog_opts prog(vecstrview({"", "-adapt", "0.5"}));
@@ -275,6 +286,18 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-subtitle"})),
                         "-subtitle must be followed by a value, see exe -help");
     REQUIRE(prog_opts(vecstrview({"exe", "-subtitle", "dummy", "-subtitle", ""})).subtitle.empty());
+  }
+  SECTION("-verbosity")
+  {
+    prog_opts prog(vecstrview({"", "-verbosity", "0"}));
+    REQUIRE(prog.verbosity);
+    REQUIRE(prog.verbosity.value() == verbosity_level::quiet);
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-verbosity"})),
+                        "-verbosity must be followed by a value, see exe -help");
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-verbosity", "wrong"})),
+                        "invalid value for -verbosity, see exe -help");
+    REQUIRE(prog_opts(vecstrview({"exe", "-verbosity", "1"})).verbosity.value() == verbosity_level::low);
+    REQUIRE(prog_opts(vecstrview({"exe", "-vv", "high"})).verbosity.value() == verbosity_level::high);
   }
   SECTION("-outfile")
   {

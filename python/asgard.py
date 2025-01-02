@@ -18,8 +18,14 @@ libasgard = CDLL(__pyasgard_libasgard_path__, mode = RTLD_GLOBAL)
 libasgard.asgard_make_dreconstruct_solution.restype = c_void_p
 libasgard.asgard_make_freconstruct_solution.restype = c_void_p
 
+libasgard.asgard_make_dreconstruct_solution_v2.restype = c_void_p
+libasgard.asgard_make_freconstruct_solution_v2.restype = c_void_p
+
 libasgard.asgard_make_dreconstruct_solution.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_double)]
 libasgard.asgard_make_freconstruct_solution.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_float)]
+
+libasgard.asgard_make_dreconstruct_solution_v2.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_double)]
+libasgard.asgard_make_freconstruct_solution_v2.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_float)]
 
 libasgard.asgard_pydelete_reconstruct_solution.argtypes = [c_void_p, ]
 
@@ -58,24 +64,51 @@ class pde_snapshot:
             self.title    = fdata['title'][()].decode("utf-8")
             self.subtitle = fdata['subtitle'][()].decode("utf-8")
 
-            self.num_dimensions = fdata['ndims'][()]
             self.degree         = fdata['degree'][()]
 
             self.state = fdata['state'][()]
-            self.cells = fdata['elements'][()]
-            self.time  = fdata['time'][()] # numeric time
 
             self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
-            self.num_cells = int(len(self.cells) / (2 * self.num_dimensions))
+            if 'ndims' in fdata: # using version 1
+                self.using_version_2 = False
 
-            self.dimension_names = [None for i in range(self.num_dimensions)]
-            self.dimension_min = np.zeros((self.num_dimensions,))
-            self.dimension_max = np.zeros((self.num_dimensions,))
-            for i in range(self.num_dimensions):
-                self.dimension_names[i] = fdata['dim{0}_name'.format(i)][()].decode("utf-8")
-                self.dimension_min[i] = fdata['dim{0}_min'.format(i)][()]
-                self.dimension_max[i] = fdata['dim{0}_max'.format(i)][()]
+                self.num_dimensions = fdata['ndims'][()]
+
+                self.cells = fdata['elements'][()]
+                self.time  = fdata['time'][()] # numeric time
+
+                self.num_cells = int(len(self.cells) / (2 * self.num_dimensions))
+
+                self.dimension_names = [None for i in range(self.num_dimensions)]
+                self.dimension_min = np.zeros((self.num_dimensions,))
+                self.dimension_max = np.zeros((self.num_dimensions,))
+                for i in range(self.num_dimensions):
+                    self.dimension_names[i] = fdata['dim{0}_name'.format(i)][()].decode("utf-8")
+                    self.dimension_min[i] = fdata['dim{0}_min'.format(i)][()]
+                    self.dimension_max[i] = fdata['dim{0}_max'.format(i)][()]
+
+            else:
+                assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
+                self.using_version_2 = True
+
+                self.num_dimensions = fdata['num_dims'][()]
+
+                self.cells = fdata['grid_indexes'][()]
+                self.time  = fdata['dtime_time'][()] # numeric time
+
+                self.num_cells = fdata['grid_num_indexes'][()]
+                assert self.num_cells == int(len(self.cells) / self.num_dimensions), "file corruption detected: wront number of cells"
+
+                drange = fdata['domain_range'][()] # domain ranges
+
+                self.dimension_names = [None for i in range(self.num_dimensions)]
+                self.dimension_min = np.zeros((self.num_dimensions,))
+                self.dimension_max = np.zeros((self.num_dimensions,))
+                for i in range(self.num_dimensions):
+                    self.dimension_names[i] = fdata['dim{0}_name'.format(i)][()].decode("utf-8")
+                    self.dimension_min[i] = drange[2 * i]
+                    self.dimension_max[i] = drange[2 * i + 1]
 
         # for plotting purposes, say aways from the domain edges
         # rounding error at the edge may skew the plots
@@ -98,14 +131,24 @@ class pde_snapshot:
         self.recsol = None
         if self.state.dtype == np.float64:
             self.double_precision = True
-            self.recsol = libasgard.asgard_make_dreconstruct_solution(
-                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+            if self.using_version_2:
+                self.recsol = libasgard.asgard_make_dreconstruct_solution_v2(
+                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+            else:
+                self.recsol = libasgard.asgard_make_dreconstruct_solution(
+                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
         else:
             self.double_precision = False
-            self.recsol = libasgard.asgard_make_freconstruct_solution(
-                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+            if self.using_version_2:
+                self.recsol = libasgard.asgard_make_freconstruct_solution_v2(
+                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+            else:
+                self.recsol = libasgard.asgard_make_freconstruct_solution(
+                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
 
         libasgard.asgard_reconstruct_solution_setbounds(self.recsol,
                                                         np.ctypeslib.as_ctypes(self.dimension_min.reshape(-1,)),
@@ -257,6 +300,8 @@ class pde_snapshot:
             s += "   sub: %s\n" % self.subtitle
         s += "  num-dimensions: %d\n" % self.num_dimensions
         s += "  degree:         %d\n" % self.degree
+        s += "  num-indexes:    %d\n" % self.num_cells
+        s += "  state size:     %d\n" % self.state.size
         s += "  time:           %f\n" % self.time
         return s
 
@@ -326,7 +371,7 @@ if __name__ == "__main__":
         else:
             plist = [(), ()]
             for i in range(2, shot.num_dimensions):
-                plist.append(0.49 * (shot.dimension_max[i] + shot.dimension_min[i]))
+                plist.append(0.5 * (shot.dimension_max[i] + shot.dimension_min[i]) + shot.eps)
 
             z, x, y = shot.plot_data2d(plist, num_points = 256)
 
@@ -335,7 +380,8 @@ if __name__ == "__main__":
             xmax = shot.dimension_max[0]
             ymax = shot.dimension_max[1]
 
-            p = asgplot.imshow(z, cmap='jet', extent=[xmin, xmax, ymin, ymax])
+            #p = asgplot.pcolor(x, y, z, cmap='jet') # , extent=[xmin, xmax, ymin, ymax])
+            p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
 
             asgplot.colorbar(p, orientation='vertical')
 

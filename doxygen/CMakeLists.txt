@@ -27,9 +27,13 @@ set(DOXYGEN_HTML_COLORSTYLE_GAMMA  "190")
 set(DOXYGEN_PROJECT_NAME "ASGarD - Adaptive Sparse Grid Discretization v${asgard_VERSION_MAJOR}.${asgard_VERSION_MINOR}.${asgard_VERSION_PATCH}")
 set(DOXYGEN_PROJECT_NUMBER "")
 
+set(DOXYGEN_EXAMPLE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../src/;${CMAKE_CURRENT_SOURCE_DIR}/../examples/")
+
+set(DOXYGEN_FORMULA_FONTSIZE "20")
+
 if (NOT DOXYGEN_INTERNAL_DOCS)
-# the \internal command works for functions and namespaces, but not classes
-# have to exclude the classes manually
+    # the \internal command works for functions and namespaces, but not classes
+    # have to exclude the classes manually
     set(DOXYGEN_EXCLUDE_SYMBOLS asgard::vecstrview asgard::split_views asgard::matrix_factor)
 
     set(DOXYGEN_PREDEFINED "__ASGARD_DOXYGEN_SKIP;__ASGARD_DOXYGEN_SKIP_INTERNAL;")
@@ -44,6 +48,8 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard_discretization.hpp
                  src/asgard_program_options.hpp
                  src/asgard_reconstruct.hpp
+                 examples/continuity_2d.cpp
+                 src/continuity.cpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")
 
