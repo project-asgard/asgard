@@ -22,7 +22,7 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_continuity_md Example 3, xD Continuity Equation
+ * \addtogroup asgard_examples_continuity_md Example 3, xD continuity equation
  *
  * \par Example 3
  * Solves the continuity partial differential equation in arbitrary dimension \b d

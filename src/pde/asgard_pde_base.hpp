@@ -62,16 +62,6 @@ enum class coefficient_type
   penalty
 };
 
-enum class operation_type
-{
-  identity,
-  mass,
-  grad,
-  div,
-  penalty,
-  chain
-};
-
 enum class pterm_dependence
 {
   none, // nothing special, uses generic g-func
@@ -1334,6 +1324,12 @@ inline void add_lenard_bernstein_collisions_1x3v(P const nu, term_set<P> &terms)
 #endif
 
 /*!
+ * \defgroup asgard_pde_definition ASGarD PDE Definition
+ *
+ * Tools for defining a PDE description and discretization scheme.
+ */
+
+/*!
  * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function
  */
@@ -1347,9 +1343,36 @@ template<typename P>
 using md_func_f = std::function<void(P t, vector2d<P> const &,
                                      std::vector<P> const &, std::vector<P> &)>;
 
-//! intermediate container for a mass term
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Defines the type of one-dimensional operation
+ */
+enum class operation_type
+{
+  //! identity term
+  identity,
+  //! mass term
+  mass,
+  //! grad term, derivative on the basis function
+  grad,
+  //! div term, derivative on the test function
+  div,
+  //! penalty term, regularizer used for stability purposes
+  penalty,
+  //! chain term, product of two or more one dimensional terms
+  chain
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for an identity mass term
+ */
 struct term_identity {};
-//! intermediate container for a mass term
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a mass term
+ */
 template<typename P>
 struct term_mass {
   //! make a mass term with constant coefficient
@@ -1360,11 +1383,18 @@ struct term_mass {
   term_mass(sfixed_func1d<P> lhs, sfixed_func1d<P> rhs)
     : left(std::move(lhs)), right(std::move(rhs))
   {}
-
+  //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
-  sfixed_func1d<P> left, right;
+  //! left-hand-side function
+  sfixed_func1d<P> left;
+  //! right-hand-side function
+  sfixed_func1d<P> right;
 };
-//! intermediate container for a grad term
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a grad term, includes flux and boundary conditions
+ */
 template<typename P>
 struct term_grad {
   //! make a grad term with constant coefficient
@@ -1380,12 +1410,23 @@ struct term_grad {
     : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
   {}
 
+  //! flux type
   flux_type flux;
+  //! boundary type
   boundary_type boundary;
+
+  //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
-  sfixed_func1d<P> left, right;
+  //! left-hand-side function
+  sfixed_func1d<P> left;
+  //! right-hand-side function
+  sfixed_func1d<P> right;
 };
-//! intermediate container for a div term
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a div term, includes flux and boundary conditions
+ */
 template<typename P>
 struct term_div {
   //! make a grad term with constant coefficient
@@ -1401,11 +1442,23 @@ struct term_div {
     : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
   {}
 
+  //! flux type
   flux_type flux;
+  //! boundary type
   boundary_type boundary;
+
+  //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
-  sfixed_func1d<P> left, right;
+  //! left-hand-side function
+  sfixed_func1d<P> left;
+  //! right-hand-side function
+  sfixed_func1d<P> right;
 };
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for chain of one-dimensional terms
+ */
 struct term_chain {};
 
 // forward declaration so it can be set as a friend
@@ -1413,6 +1466,7 @@ template<typename P>
 struct term_manager;
 
 /*!
+ * \ingroup asgard_pde_definition
  * \brief One dimensional term, building block of separable operators
  *
  * This class has two main modes of operation, first is as a single term representing
@@ -1965,12 +2019,6 @@ inline std::ostream &operator<<(std::ostream &os, time_data<P> const &dtime)
   dtime.print_time(os);
   return os;
 }
-
-/*!
- * \defgroup asgard_pde_definition ASGarD PDE definition
- *
- * Tools for defining a PDE description and discretization scheme.
- */
 
 /*!
  * \ingroup asgard_pde_definition

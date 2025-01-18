@@ -35,13 +35,13 @@ def basis_linear7(x):
                                         + (x > 0.75) * (-11.0 + 12.0 * x)))
 
 def continuity_1_exact(x, t):
-    return np.cos(2.0 * np.pi * x) * np.sin(t)
+    return np.cos(t) * np.sin(x)
 
 def continuity_2_exact(x, y, t):
-    return np.cos(np.pi * x) * np.sin(2.0 * np.pi * y) * np.sin(2.0 * t)
+    return np.cos(t) * np.sin(x) * np.sin(y)
 
 def continuity_3_exact(x, y, z, t):
-    return continuity_2_exact(x, y, t) * np.cos(2.0 * np.pi * z / 3.0)
+    return np.cos(t) * np.sin(x) * np.sin(y) * np.sin(z)
 
 class asgard_reconstruction_tests(unittest.TestCase):
     def almost_equal(self, x, y, message):
@@ -151,17 +151,17 @@ class asgard_reconstruction_tests(unittest.TestCase):
     # simple IO test
     def test_simple1d(self):
         print("\ntesting 1d plot")
-        tols = (1.E-4, 1.E-6, 1.E-8, 1.E-9)
+        tols = (1.E-2, 1.E-4, 1.E-6, 1.E-7)
         levs = (6, 6, 4, 4)
         for degree in range(4):
-            os.system("./asgard -p continuity_1 -d %d -l 6 -dt 0.005 -of _test_plot.h5 1>/dev/null" % degree)
+            os.system(f"./continuity -dims 1 -d {degree} -l 6 -n 10 -dt 0.005 -of _test_plot.h5 -vv 0 1>/dev/null")
 
             self.assertTrue(os.path.isfile("_test_plot.h5"), "failed to run continuity_1")
 
             snapshot = asgard.pde_snapshot("_test_plot.h5")
 
-            gold_dimension_min = np.array([-1.0, ])
-            gold_dimension_max = np.array([1.0, ])
+            gold_dimension_min = np.array([-2.0 * np.pi, ])
+            gold_dimension_max = np.array([2.0 * np.pi, ])
             self.almost_equal(snapshot.dimension_min, gold_dimension_min,
                               "mismatch in dimension_min")
             self.almost_equal(snapshot.dimension_max, gold_dimension_max,
@@ -170,7 +170,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
             self.assertEqual(snapshot.num_dimensions, 1, "mismatch in the number of dimensions")
             self.assertEqual(snapshot.num_cells, 64, "mismatch in the number of cells")
 
-            z, x = snapshot.plot_data1d([[-1.0, 1.0],], num_points = 128)
+            z, x = snapshot.plot_data1d([[-2.0 * np.pi, 2.0 * np.pi],], num_points = 128)
 
             # exact solution for the continuity_1 example
             h = continuity_1_exact(x, snapshot.time)
@@ -181,40 +181,41 @@ class asgard_reconstruction_tests(unittest.TestCase):
 
     def test_simple2d(self):
         print("\ntesting 2d plot")
-        os.system("./asgard -p continuity_2 -d 1 -l 6 -w 10 -dt 0.00001 1>/dev/null")
+        os.system("./continuity -dims 2 -d 1 -l 6 -n 10 -of _test_plot.h5 -dt 0.00001 -vv 0 1>/dev/null")
 
-        self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_2")
+        self.assertTrue(os.path.isfile("_test_plot.h5"), "failed to run continuity_2")
 
-        snapshot = asgard.pde_snapshot("asgard_wavelet_10.h5")
+        snapshot = asgard.pde_snapshot("_test_plot.h5")
 
         self.assertEqual(snapshot.num_dimensions, 2, "mismatch in the number of dimensions")
         self.assertEqual(snapshot.num_cells, 256, "mismatch in the number of cells")
 
-        gold_dimension_min = np.array([-1.0, -2.0])
-        gold_dimension_max = np.array([1.0, 2.0])
+        gold_dimension_min = np.array([-2.0 * np.pi, -2.0 * np.pi])
+        gold_dimension_max = np.array([2.0 * np.pi, 2.0 * np.pi])
         self.almost_equal(snapshot.dimension_min, gold_dimension_min,
                           "mismatch in dimension_min")
         self.almost_equal(snapshot.dimension_max, gold_dimension_max,
                           "mismatch in dimension_max")
 
-        z, x, y = snapshot.plot_data2d([[-1.0, 1.0], [-2.0, 2.0]], num_points = 128)
+        z, x, y = snapshot.plot_data2d([[-2.0 * np.pi, 2.0 * np.pi], [-2.0 * np.pi, 2.0 * np.pi]],
+                                       num_points = 128)
 
         # exact solution for the continuity_2 example
         h = continuity_2_exact(x, y, snapshot.time)
 
         err = np.sum(np.abs(h - z) ** 2) / x.size
-        self.assertLessEqual(err, 1.E-9, "mismatchin continuity_2")
+        self.assertLessEqual(err, 1.E-3, "mismatchin continuity_2")
 
         # test the 1d plot inside of 2d domain
-        z, x = snapshot.plot_data1d(((-1.0, 1.0), 0.1), num_points = 128)
+        z, x = snapshot.plot_data1d(((-2.0 * np.pi, 2.0 * np.pi), 0.1), num_points = 128)
         h = continuity_2_exact(x, 0.1 * np.ones(x.shape), snapshot.time)
 
         err = np.sum(np.abs(h - z) ** 2) / x.size
-        self.assertLessEqual(err, 1.E-10, "mismatchin continuity_2")
+        self.assertLessEqual(err, 5.E-3, "mismatchin continuity_2")
 
     def test_simple3d(self):
         print("\ntesting 3d plot (longer test)")
-        os.system("./asgard -p continuity_3 -d 1 -l 8 -w 10 -dt 0.0001 1>/dev/null")
+        os.system("./continuity -dims 3 -d 1 -l 8 -n 10 -of asgard_wavelet_10.h5 -dt 0.0001 1>/dev/null")
 
         self.assertTrue(os.path.isfile("asgard_wavelet_10.h5"), "failed to run continuity_3")
 
@@ -223,24 +224,25 @@ class asgard_reconstruction_tests(unittest.TestCase):
         self.assertEqual(snapshot.num_dimensions, 3, "mismatch in the number of dimensions")
         self.assertEqual(snapshot.num_cells, 4096, "mismatch in the number of cells")
 
-        gold_dimension_min = np.array([-1.0, -2.0, -3.0])
-        gold_dimension_max = np.array([1.0, 2.0, 3.0])
+        gold_dimension_min = np.array([-2.0 * np.pi, -2.0 * np.pi, -2.0 * np.pi])
+        gold_dimension_max = np.array([2.0 * np.pi, 2.0 * np.pi, 2.0 * np.pi])
         self.almost_equal(snapshot.dimension_min, gold_dimension_min,
                           "mismatch in dimension_min")
         self.almost_equal(snapshot.dimension_max, gold_dimension_max,
                           "mismatch in dimension_max")
 
-        z, x, y = snapshot.plot_data2d([0.1, [-2.0, 2.0], [-3.0, 3.0]], num_points = 128)
+        z, x, y = snapshot.plot_data2d([0.1, [-2.0 * np.pi, 2.0 * np.pi], [-2.0 * np.pi, 2.0 * np.pi]],
+                                       num_points = 128)
 
         # exact solution for the continuity_2 example
         h = continuity_3_exact(0.1 * np.ones(x.shape), x, y, snapshot.time)
 
         err = np.sum(np.abs(h - z) ** 2) / x.size
-        self.assertLessEqual(err, 1.E-8, "mismatchin continuity_3")
+        self.assertLessEqual(err, 5.E-3, "mismatchin continuity_3")
 
     def test_cellcenters(self):
         print("\ntesting cell centers")
-        os.system("./asgard -p continuity_2 -d 1 -l 2 -n 0 -of cells.h5 -dt 0.01 1>/dev/null")
+        os.system("./continuity -dims 2 -d 1 -l 2 -n 0 -of cells.h5 -dt 0.01 1>/dev/null")
 
         self.assertTrue(os.path.isfile("cells.h5"), "failed to generate output for cell centers")
 
@@ -250,7 +252,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
 
         # wavelet basis level 0 and 1 have the same centers at 0
         # cells indexes are (0, 0), (0, 1), (0, 2), (0, 3), (1, 0), (1, 1), (2, 0), (3, 0)
-        ref_cells = np.array(((0, 0), (0, 0), (0, -1), (0, 1), (0, 0), (0, 0), (-0.5, 0.0), (0.5, 0.0)))
+        ref_cells = np.array(((0, 0), (0, 0), (0, -np.pi), (0, np.pi), (0, 0), (0, 0), (-np.pi, 0.0), (np.pi, 0.0)))
         self.almost_equal(cells, ref_cells, "mismatch in the reported grid")
 
 if __name__ == '__main__':

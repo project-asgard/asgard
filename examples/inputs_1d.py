@@ -1,3 +1,5 @@
+# this is a Doxygen directive used for documentation
+## [inputs_1d python]
 
 import numpy as np
 import os
@@ -6,7 +8,7 @@ import matplotlib.pyplot as plt
 
 import asgard
 
-# This exmaple is related to continuity_2d.cpp
+# This example is related to continuity_2d.cpp
 # 1. This will run the C++ executable and generate an hdf5 file
 #    - The file contains a snapshot of the PDE solution
 # 2. The snapshot is loaded using the asgard python bindings
@@ -34,8 +36,8 @@ if __name__ == '__main__':
     outfile2 = 'waves2.h5'
 
     # providing the input file and also forcing the degree to 1
-    os.system("./{} -if inputs_1d_1.txt -d 2 -of {}".format(exefilename, outfile1))
-    os.system("./{} -if inputs_1d_2.txt -d 2 -of {}".format(exefilename, outfile2))
+    os.system(f"./{exefilename} -if inputs_1d_1.txt -d 2 -of {outfile1}")
+    os.system(f"./{exefilename} -if inputs_1d_2.txt -d 2 -of {outfile2}")
 
     if not os.path.isfile(outfile1) or not os.path.isfile(outfile2):
         print("ERROR: example_inputs_1d did not generate an output file")
@@ -91,3 +93,5 @@ if __name__ == '__main__':
     print("")  # prettier output
 
     plt.show()
+
+## [inputs_1d python]

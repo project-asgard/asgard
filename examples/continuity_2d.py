@@ -31,7 +31,7 @@ if __name__ == '__main__':
         exit(1)
 
     print("asgard: running the continuity example")
-    os.system("./%s -d 2 -l 5 -of cont1_final.h5" % exefilename)
+    os.system(f"./{exefilename} -d 2 -l 5 -of cont1_final.h5")
 
     # the example above will run for 10 time steps and the -w 10 options
     # will tell the code to output on the final 10-th step

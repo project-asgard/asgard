@@ -6,6 +6,8 @@
 
 namespace asgard
 {
+#ifndef __ASGARD_DOXYGEN_SKIP
+
 template<typename P>
 using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 
@@ -105,16 +107,22 @@ struct velocity_dims {
   int const num;
 };
 
+#endif
+
 /*!
+ * \ingroup asgard_pde_definition
  * \brief Indicates the left/right end-points of a dimension
  */
 template<typename P>
 struct domain_range {
+  //! left end-point
   P left;
+  //!  right end-point
   P right;
 };
 
 /*!
+ * \ingroup asgard_pde_definition
  * \brief Defines a domain for the PDE
  *
  * First we specify the number of dimensions, could be a single number
@@ -230,7 +238,7 @@ public:
     return msize;
   }
 
-  // used for i/o purposes
+  //! used for i/o purposes
   friend class h5writer<P>;
 
 private:
@@ -266,6 +274,7 @@ private:
 };
 
 /*!
+ * \ingroup asgard_pde_definition
  * \brief A function that is the product of 1d functions
  *
  * There are 3 modes of this function, depending on the way that the time
@@ -352,11 +361,15 @@ public:
     return dims;
   }
 
+  //! returns the i-th domain function
   svector_func1d<P> const &fdomain(int i) const { return source_func_[i]; }
+  //! returns the time function
   scalar_func<P> const &ftime() const { return time_func_; }
 
+  //! returns true if the function is set to ignore times
   bool ignores_time() const { return ignores_time_; }
 
+  //! (testing purposes) eval the function at the points x[] and time t
   P eval(P const x[], P t) {
     std::vector<P> xx(1), fx(1);
     P v = P{1};

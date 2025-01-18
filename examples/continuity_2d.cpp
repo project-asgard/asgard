@@ -71,7 +71,7 @@ int main(int argc, char** argv)
   // process the command-line arguments and all ASGarD options
   asgard::prog_opts options(argc, argv);
 
-  // raise an error if unknonw command line arguments are present
+  // raise an error if unknown command line arguments are present
   options.throw_if_invalid();
 
   // if the user asks for help, print a description of this file

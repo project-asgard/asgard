@@ -48,8 +48,10 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard_discretization.hpp
                  src/asgard_program_options.hpp
                  src/asgard_reconstruct.hpp
+                 src/asgard_dimension.hpp
                  src/pde/asgard_pde_base.hpp
                  examples/continuity_2d.cpp
+                 examples/inputs_1d.cpp
                  src/continuity.cpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")
