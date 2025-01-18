@@ -225,49 +225,6 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 3", "[time_advance]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-
-  SECTION("continuity3, explicit, level 2, degree 1, sparse grid")
-  {
-    auto const gold_base = time_advance_base_dir / "continuity3_sg_l2_d2_t";
-
-    auto opts = make_opts("-p continuity_3 -d 1 -l 2 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity3, explicit, level 4, degree 2, sparse grid")
-  {
-    auto const gold_base = time_advance_base_dir / "continuity3_sg_l4_d3_t";
-
-    auto opts = make_opts("-p continuity_3 -d 2 -l 4 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity3, explicit/non-uniform level, degree 3, sparse grid")
-  {
-    std::vector<int> const levels{3, 4, 2};
-
-    auto const gold_base =
-        time_advance_base_dir /
-        ("continuity3_sg_l" + get_level_string(levels) + "d4_t");
-
-    auto opts = make_opts("-p continuity_3 -d 3 -n 5");
-
-    opts.start_levels = levels;
-
-    time_advance_test(opts, gold_base, get_tolerance<TestType>(10));
-  }
-}
-
 TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", test_precs)
 {
   if (!is_active())

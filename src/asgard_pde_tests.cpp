@@ -188,58 +188,6 @@ TEMPLATE_TEST_CASE("pde v2", "[pde]", test_precs)
   }
 }
 
-
-
-template<typename P>
-void test_compile()
-{
-  asgard::prog_opts opts;
-  opts.pde_choice   = asgard::PDE_opts::custom;
-  opts.start_levels = {2, 2};
-
-  asgard::PDE<P> empty_pde;
-  asgard::ignore(empty_pde);
-
-  auto diff_pde =
-        asgard::make_custom_pde<asgard::PDE_diffusion_2d<P>>(opts);
-
-  static_assert(std::is_same_v<decltype(diff_pde),
-                               std::unique_ptr<asgard::PDE<P>>>);
-
-  auto cont3d = make_PDE<P>("-p continuity_3 -l 2 -d 0");
-
-  static_assert(std::is_same_v<decltype(cont3d),
-                               std::unique_ptr<asgard::PDE<P>>>);
-
-  try
-  {
-    auto derived = dynamic_cast<PDE_continuity_3d<P> *>(cont3d.get());
-    static_assert(std::is_same_v<decltype(derived),
-                                 PDE_continuity_3d<P> *>);
-    REQUIRE(derived->options().degree.value() == 0);
-  }
-  catch (std::bad_cast &e)
-  {
-    std::cerr << "using dynamic cast on PDE_continuity_3d failed with message\n";
-    std::cerr << e.what() << "\n";
-    REQUIRE(false);
-  }
-}
-
-TEST_CASE("compile time testing", "[main]")
-{
-
-#ifdef ASGARD_ENABLE_DOUBLE
-  test_compile<double>();
-#endif
-
-#ifdef ASGARD_ENABLE_FLOAT
-  test_compile<float>();
-#endif
-
-  REQUIRE(true);
-}
-
 template<typename P>
 void test_initial_condition(PDE<P> const &pde, std::filesystem::path base_dir,
                             fk::vector<P> const &x)
@@ -364,38 +312,6 @@ TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
   }
 
   SECTION("diffusion 1 dt")
-  {
-    auto filename = base_dir.filename().string();
-    TestType const gold =
-        read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / 0.01;
-    REQUIRE(dt == gold);
-  }
-}
-
-TEMPLATE_TEST_CASE("testing continuity 3 implementations", "[pde]", test_precs)
-{
-  auto const pde    = make_PDE<TestType>("-p continuity_3 -l 5 -d 3");
-  auto const base_dir          = pde_base_dir / "continuity_3_";
-  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
-  TestType const time          = 5;
-
-  SECTION("continuity 3 initial condition functions")
-  {
-    test_initial_condition<TestType>(*pde, base_dir, x);
-  }
-
-  SECTION("continuity 3 exact solution functions")
-  {
-    test_exact_solution<TestType>(*pde, base_dir, x, time);
-  }
-
-  SECTION("continuity 3 source functions")
-  {
-    test_source_vectors(*pde, base_dir, x, time);
-  }
-
-  SECTION("continuity 3 dt")
   {
     auto filename = base_dir.filename().string();
     TestType const gold =

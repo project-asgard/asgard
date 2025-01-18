@@ -146,134 +146,6 @@ void check_rowmaj_layout(distribution_plan const &to_test, int const num_cols)
   }
 }
 
-TEST_CASE("rank subgrid function", "[distribution]")
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  SECTION("4 ranks - even/square")
-  {
-    auto const pde = make_PDE<P>("-p continuity_3 -d 9 -l 7");
-    elements::table const table(*pde);
-
-    int const num_ranks  = 4;
-    int const first_rank = 0;
-
-    // testing the sizing and arrangement (row major) of subgrids
-    element_subgrid const e(get_subgrid(num_ranks, first_rank, table));
-
-    REQUIRE(e.row_start == 0);
-    REQUIRE(e.row_stop == table.size() / 2 - 1);
-    REQUIRE(e.col_start == 0);
-    REQUIRE(e.col_stop == table.size() / 2 - 1);
-
-    int const second_rank = 1;
-    element_subgrid const e2(get_subgrid(num_ranks, second_rank, table));
-
-    REQUIRE(e2.row_start == 0);
-    REQUIRE(e2.row_stop == table.size() / 2 - 1);
-    REQUIRE(e2.col_start == table.size() / 2);
-    REQUIRE(e2.col_stop == table.size() - 1);
-
-    int const third_rank = 2;
-    element_subgrid const e3(get_subgrid(num_ranks, third_rank, table));
-
-    REQUIRE(e3.row_start == table.size() / 2);
-    REQUIRE(e3.row_stop == table.size() - 1);
-    REQUIRE(e3.col_start == 0);
-    REQUIRE(e3.col_stop == table.size() / 2 - 1);
-
-    int const fourth_rank = 3;
-    element_subgrid const e4(get_subgrid(num_ranks, fourth_rank, table));
-
-    REQUIRE(e4.row_start == table.size() / 2);
-    REQUIRE(e4.row_stop == table.size() - 1);
-    REQUIRE(e4.col_start == table.size() / 2);
-    REQUIRE(e4.col_stop == table.size() - 1);
-  }
-
-  SECTION("9 ranks - odd/square")
-  {
-    auto const pde = make_PDE<P>("-p continuity_6 -d 3 -l 5");
-    elements::table const table(*pde);
-
-    int const num_ranks = 9;
-
-    distribution_plan plan;
-    for (int i = 0; i < num_ranks; ++i)
-    {
-      element_subgrid const e(get_subgrid(num_ranks, i, table));
-      REQUIRE(std::abs(e.nrows() - e.ncols()) < 2);
-      // square number of ranks should produce square subgrids
-      // left over elements are greedily assigned, maximum
-      // difference between row/col number should be one
-
-      plan.emplace(i, e);
-    }
-
-    check_coverage(table, plan);    // and the subgrids should cover the table
-    check_even_sizing(table, plan); // relatively similar sizing
-    int const grid_cols = 3;
-    check_rowmaj_layout(plan, grid_cols); // arranged row-major
-  }
-}
-
-TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
-                   test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  SECTION("multiple ranks")
-  {
-#ifdef ASGARD_USE_MPI
-
-    int const my_rank   = distrib_test_info.get_my_rank();
-    int const num_ranks = distrib_test_info.get_num_ranks();
-
-    if (my_rank < num_ranks)
-    {
-      auto const pde = make_PDE<P>("-p continuity_3 -d 4 -l 4");
-      elements::table const table(*pde);
-
-      auto const plan       = get_plan(num_ranks, table);
-      int const vector_size = 10;
-
-      std::vector<fk::vector<TestType>> rank_outputs;
-      for (int i = 0; i < static_cast<int>(plan.size()); ++i)
-      {
-        fk::vector<TestType> rank_output(vector_size);
-        std::iota(rank_output.begin(), rank_output.end(), i * vector_size);
-        rank_outputs.push_back(rank_output);
-      }
-      int const my_row = my_rank / get_num_subgrid_cols(num_ranks);
-      fk::vector<TestType> gold(vector_size);
-      for (int i = 0; i < static_cast<int>(rank_outputs.size()); ++i)
-      {
-        if (i / get_num_subgrid_cols(num_ranks) == my_row)
-        {
-          gold = gold + rank_outputs[i];
-        }
-      }
-
-      auto const &x =
-          rank_outputs[std::min(my_rank, static_cast<int>(plan.size()) - 1)];
-      fk::vector<TestType> fx(gold.size());
-      reduce_results(x, fx, plan, my_rank);
-
-      REQUIRE(fx == gold);
-    }
-
-#else
-    REQUIRE(true);
-#endif
-  }
-}
-
 void generate_messages_test(int const num_ranks, elements::table const &table)
 {
   auto const plan     = get_plan(num_ranks, table);
@@ -388,24 +260,6 @@ TEST_CASE("generate messages tests", "[distribution]")
   if (!is_active())
   {
     return;
-  }
-
-  SECTION("one rank, larger problem")
-  {
-    auto const pde = make_PDE<P>("-p continuity_3 -d 3 -l 3");
-    elements::table const table(*pde);
-
-    int const num_ranks = 1;
-    generate_messages_test(num_ranks, table);
-  }
-
-  SECTION("perfect square number of ranks, large")
-  {
-    auto const pde = make_PDE<default_precision>("-p continuity_3 -d 5 -l 5");
-    elements::table const table(*pde);
-
-    int const num_ranks = 36;
-    generate_messages_test(num_ranks, table);
   }
 
   SECTION("even but not square, large")
@@ -706,49 +560,6 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
     redistribute_vector_test<TestType>(plan, new_plan, changes);
   }
 
-  SECTION("two/four rank -- intermittent coarsen/deletion")
-  {
-    prog_opts opts;
-    opts.pde_choice   = PDE_opts::continuity_3;
-    opts.start_levels = {2, 3, 5};
-
-    auto const pde = make_PDE<P>(opts);
-    elements::table table(*pde);
-
-    auto const num_ranks = 2;
-    auto const old_plan  = get_plan(num_ranks, table);
-    // delete ~1/3 of the elements
-    distribution_plan const new_plan = {
-        {0, element_subgrid(0, 1, 0, table.size() / 3)},
-        {1, element_subgrid(0, 1, table.size() / 3 + 1,
-                            2 * table.size() / 3 - 1)}};
-
-    // intermittently
-    std::map<int64_t, grid_limits> const changes = {
-        {0, grid_limits(0, 4)},     {5, grid_limits(5, 5)},
-        {6, grid_limits(12, 60)},   {55, grid_limits(65, 80)},
-        {71, grid_limits(83, 84)},  {73, grid_limits(85, 100)},
-        {89, grid_limits(101, 105)}};
-
-    generate_messages_remap_test(old_plan, new_plan, changes);
-    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
-
-    // ensure multiple row behavior correct
-    auto const double_num_ranks             = 4;
-    auto const double_old_plan              = get_plan(double_num_ranks, table);
-    distribution_plan const double_new_plan = {
-        {0, element_subgrid(0, 1, 0, table.size() / 3)},
-        {1,
-         element_subgrid(0, 1, table.size() / 3 + 1, 2 * table.size() / 3 - 1)},
-
-        {2, element_subgrid(0, 1, 0, table.size() / 3)},
-        {3, element_subgrid(0, 1, table.size() / 3 + 1,
-                            2 * table.size() / 3 - 1)}};
-
-    generate_messages_remap_test(double_old_plan, double_new_plan, changes);
-    redistribute_vector_test<TestType>(double_old_plan, double_new_plan,
-                                       changes);
-  }
   SECTION("two/four rank -- refine")
   {
     distribution_plan const plan     = {{0, element_subgrid(0, 1, 0, 49)},

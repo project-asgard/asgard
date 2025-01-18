@@ -107,22 +107,6 @@ void test_adapt(prog_opts const &opts, std::filesystem::path gold_base)
   REQUIRE(test_coarse == my_gold_coarse);
 }
 
-TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
-                   test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  auto opts = make_opts("-p continuity_3 -d 3 -l 4 -m 8");
-
-  opts.adapt_threshold = adapt_threshold;
-  opts.anorm           = adapt_norm::linf;
-
-  test_adapt<TestType>(opts, adapt_base_dir / "continuity3_l4_d4_");
-}
-
 template<typename P>
 void test_initial(prog_opts const &opts, std::string const &gold_filepath)
 {
