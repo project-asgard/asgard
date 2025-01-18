@@ -8,14 +8,7 @@
 
 namespace asgard
 {
-
-//! multi-dimensional function
-template<typename P>
-using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
-//! multi-dimensional function with an additional field vector
-template<typename P>
-using md_func_f = std::function<void(P t, vector2d<P> const &,
-                                     std::vector<P> const &, std::vector<P> &)>;
+#ifndef __ASGARD_DOXYGEN_SKIP
 
 //
 // This file contains all of the interface and object definitions for our
@@ -120,8 +113,6 @@ enum class flux_type
   downwind      = 1,
   // lax_friedrich = 0
 };
-
-
 
 enum class imex_flag
 {
@@ -502,505 +493,6 @@ private:
   g_func_type<P> dv_func_;
 };
 
-/*!
- * \brief Chain containing one or more partial terms
- *
- * The operators in the chain will be multiplied together using small-matrix
- * logic in a local cell-by-cell algorithm.
- * Chains of partial terms are computationally more efficient than chains
- * of multidimensional terms, but have more restrictions on the types
- * of terms that can be chained:
- * - div or grad partial term with central flux can only chain with a mass term
- * - div or grad partial term with upwind/downwind flux can only chain with
- *   grad or div with opposing downwind/upwind flux
- * - a penalty partial_term is equivalent to div/grad with central flux
- */
-
-//! intermediate container for a mass term
-struct term_identity {};
-//! intermediate container for a mass term
-template<typename P>
-struct term_mass {
-  //! make a mass term with constant coefficient
-  term_mass(P cc) : const_coeff(cc) {}
-  //! make a mass term with given right hand side coefficient
-  term_mass(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
-  //! make a mass term with given left and right hand side coefficients
-  term_mass(sfixed_func1d<P> lhs, sfixed_func1d<P> rhs)
-    : left(std::move(lhs)), right(std::move(rhs))
-  {}
-
-  P const_coeff = 0;
-  sfixed_func1d<P> left, right;
-};
-//! intermediate container for a grad term
-template<typename P>
-struct term_grad {
-  //! make a grad term with constant coefficient
-  term_grad(flux_type flx, boundary_type bnd, P cc)
-    : flux(flx), boundary(bnd), const_coeff(cc)
-  {}
-  //! make a grad term with given right hand side coefficient
-  term_grad(flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs = nullptr)
-    : flux(flx), boundary(bnd), right(std::move(frhs))
-  {}
-  //! make a grad term with both right and left hand side coefficients
-  term_grad(flux_type flx, boundary_type bnd, sfixed_func1d<P> flhs, sfixed_func1d<P> frhs)
-    : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
-  {}
-
-  flux_type flux;
-  boundary_type boundary;
-  P const_coeff = 0;
-  sfixed_func1d<P> left, right;
-};
-//! intermediate container for a div term
-template<typename P>
-struct term_div {
-  //! make a grad term with constant coefficient
-  term_div(flux_type flx, boundary_type bnd, P cc)
-    : flux(flx), boundary(bnd), const_coeff(cc)
-  {}
-  //! make a grad term with given right hand side coefficient
-  term_div(flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs = nullptr)
-    : flux(flx), boundary(bnd), right(std::move(frhs))
-  {}
-  //! make a grad term with both right and left hand side coefficients
-  term_div(flux_type flx, boundary_type bnd, sfixed_func1d<P> flhs, sfixed_func1d<P> frhs)
-    : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
-  {}
-
-  flux_type flux;
-  boundary_type boundary;
-  P const_coeff = 0;
-  sfixed_func1d<P> left, right;
-};
-struct term_chain {};
-
-// forward declaration so it can be set as a friend
-template<typename P>
-struct term_manager;
-
-/*!
- * \brief One dimensional term, building block of separable operators
- *
- * This class has two main modes of operation, first is as a single term representing
- * mass, div, grad, or penalty operation. The simple operations are best created
- * using the helper structs term_identity, term_mass, term_div and term_grad.
- *
- * The second mode is to represent a chain of simple terms.
- * The operators in the chain will be multiplied together using small-matrix
- * logic in a local cell-by-cell algorithm.
- * Chains of partial terms are computationally more efficient than chains
- * of multidimensional terms, but have more restrictions on the types
- * of terms that can be chained:
- * - div or grad partial term with central flux can only chain with a mass term
- * - div or grad partial term with upwind/downwind flux can only chain with
- *   grad or div with opposing downwind/upwind flux
- * - a penalty term is equivalent to div/grad with central flux
- *
- * Chain-of-chains is not allowed as it makes little sense.
- */
-template<typename P>
-class term_1d
-{
-public:
-  //! make an identity term
-  term_1d() = default;
-  //! make an identity term
-  term_1d(term_identity) {}
-  //! make a general term
-  term_1d(operation_type opt, flux_type flx, boundary_type bnd,
-          sfixed_func1d<P> flhs, sfixed_func1d<P> frhs, P crhs)
-      : optype_(opt), flux_(flx), boundary_(bnd),
-        lhs_(std::move(flhs)), rhs_(std::move(frhs)), rhs_const_(crhs)
-  {
-    expect(optype_ != operation_type::identity);
-
-    if (optype_ == operation_type::grad) {
-      if (flux_ == flux_type::upwind)
-        flux_ = flux_type::downwind;
-      else if (flux_ == flux_type::downwind)
-        flux_ = flux_type::upwind;
-    }
-  }
-  //! make a term that depends on coupled fields, e.g., moments or electric field
-  term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc)
-    : optype_(operation_type::mass), depends_(dep), field_f_(std::move(ffunc))
-  {}
-
-  //! make a mass term
-  term_1d(term_mass<P> mt)
-    : term_1d(operation_type::mass, flux_type::central, boundary_type::free,
-              std::move(mt.left), std::move(mt.right), mt.const_coeff)
-  {}
-  //! make a grad term
-  term_1d(term_grad<P> grd)
-    : term_1d(operation_type::grad, grd.flux, grd.boundary,
-              std::move(grd.left), std::move(grd.right), grd.const_coeff)
-  {}
-  //! make a div term
-  term_1d(term_div<P> divt)
-    : term_1d(operation_type::div, divt.flux, divt.boundary,
-              std::move(divt.left), std::move(divt.right), divt.const_coeff)
-  {}
-  //! make a chain term
-  term_1d(std::vector<term_1d<P>> tvec)
-    : optype_(operation_type::chain), chain_(std::move(tvec))
-  {
-    // remove the identity terms in the chain
-    int numid = 0;
-    for (auto const &c : chain_) {
-      if (c.is_identity())
-        numid += 1;
-      if (c.is_chain())
-        throw std::runtime_error("cannot create a chain-of-chains of term1d");
-    }
-
-    int const num_chain = this->num_chain();
-    if (num_chain == numid) {
-      // all identities, nothing to chain
-      optype_ = operation_type::identity;
-      chain_.resize(0);
-    } else if (num_chain - numid == 1) {
-      // chain has only one non-identity term
-      for (auto &c : chain_) {
-        if (not c.is_identity()) {
-          term_1d<P> temp = std::move(c);
-          *this = std::move(temp);
-          break;
-        }
-      }
-    } else if (numid > 0) {
-      std::vector<term_1d<P>> vec = std::move(chain_);
-      chain_ = std::vector<term_1d<P>>();
-      chain_.reserve(vec.size() - numid);
-      for (auto &c : vec) {
-        if (not c.is_identity())
-          chain_.emplace_back(std::move(c));
-      }
-    }
-
-    if (not check_chain())
-      throw std::runtime_error("incompatible flux combination used in a term_1d chain, "
-                               "must split into a term_md chain");
-  }
-  //! make a chain term, add terms later with add_term() or +=
-  term_1d(term_chain) : optype_(operation_type::chain) {}
-
-  bool is_identity() const { return (optype_ == operation_type::identity); }
-  bool is_mass() const { return (optype_ == operation_type::mass); }
-  bool is_grad() const { return (optype_ == operation_type::grad); }
-  bool is_div() const { return (optype_ == operation_type::div); }
-  bool is_penalty() const { return (optype_ == operation_type::penalty); }
-
-  bool is_chain() const { return (optype_ == operation_type::chain); }
-
-  operation_type optype() const { return optype_; }
-
-  boundary_type boundary() const { return boundary_; }
-
-  flux_type flux() const { return flux_; }
-
-  sfixed_func1d<P> const &lhs() const { return lhs_; }
-  void lhs(std::vector<P> const &x, std::vector<P> &fx) const {
-    return lhs_(x, fx);
-  }
-
-  sfixed_func1d<P> const &rhs() const { return rhs_; }
-  void rhs(std::vector<P> const &x, std::vector<P> &fx) const {
-    return rhs_(x, fx);
-  }
-
-  int moment() const { return mom; }
-
-  sfixed_func1d_f<P> const &field() const { return field_f_; }
-  void field(std::vector<P> const &x, std::vector<P> const &f, std::vector<P> &fx) const {
-    return field_f_(x, f, fx);
-  }
-
-  P rhs_const() const { return rhs_const_; }
-
-  changes_with &change() { return change_; }
-  changes_with change() const { return change_; }
-
-  pterm_dependence depends() const { return depends_; }
-
-  //! (chain-mode only) number of chained terms
-  int num_chain() const { return static_cast<int>(chain_.size()); }
-  //! (chain-mode only) get the vector of the chain
-  std::vector<term_1d<P>> const &chain() const { return chain_; }
-  //! (chain-mode only) get the i-th term in the chain
-  term_1d<P> const &chain(int i) const { return chain_[i]; }
-  //! (chain-mode only) get the i-th term in the chain
-  term_1d<P> const &operator[](int i) const { return chain_[i]; }
-  //! (chain-mode only) add one more term to the chain
-  void add_term(term_1d<P> tm) {
-    chain_.emplace_back(std::move(tm));
-    if (not check_chain())
-      throw std::runtime_error("incompatible flux combination used in a term_1d chain, "
-                               "must split into a term_md chain");
-  }
-  //! (chain-mode only) add one more term to the chain
-  term_1d<P> & operator += (term_1d<P> tm) {
-    this->add_term(std::move(tm));
-    return *this;
-  }
-  //! returns true if the term has a flux
-  bool has_flux() const {
-    if (optype_ == operation_type::chain) {
-      for (auto const &cc : chain_)
-        if (cc.optype_ != operation_type::mass)
-          return true;
-      return false;
-    } else {
-      return (optype_ != operation_type::mass);
-    }
-  }
-
-  // allow direct access to the private data
-  friend struct term_manager<P>;
-
-private:
-  bool check_chain() {
-    int fluxdir = 2; // no flux direction found, two available
-    for (int i : iindexof(chain_)) {
-      term_1d<P> const &pt = chain_[i];
-      // get the int-value of the flux, flip for grad
-      int const fdir = static_cast<int>(pt.flux())
-                      * ((pt.optype() == operation_type::grad) ? -1 : 1);
-      switch (pt.optype())
-      {
-        case operation_type::penalty:
-          if (fluxdir == 2) // have two flux dirs available
-            fluxdir = 0; // take both dirs
-          else
-            return false; // conflict, no flux-dirs left
-          break;
-        case operation_type::div:
-        case operation_type::grad:
-          // if the fdir direction is already taken, bad setup
-          if (fluxdir == 0 or fluxdir == fdir)
-            return false;
-          else if (fdir == 0) { // requested central flux, takes two dirs
-            if (fluxdir != 2) // one flux dir already used, bad
-              return false;
-            else
-              fluxdir = 0; // take all flux dirs
-          } else { // requested up/down flux, take one dir
-            if (fluxdir != 2) // one flux already used
-              fluxdir = 0; // ok, but no flux available anymore
-            else
-              fluxdir = fdir; // two available, take one flux direction
-          }
-        default: // mass term has no flux, nothing to do
-          break;
-      }
-    }
-    return true;
-  }
-
-  operation_type optype_ = operation_type::identity;
-  pterm_dependence depends_ = pterm_dependence::none;
-
-  flux_type flux_ = flux_type::central;
-  boundary_type boundary_ = boundary_type::free;
-
-  changes_with change_ = changes_with::none;
-
-  sfixed_func1d<P> lhs_;
-  sfixed_func1d<P> rhs_;
-  P rhs_const_ = 1;
-
-  int mom = 0;
-  sfixed_func1d_f<P> field_f_;
-
-  std::vector<term_1d<P>> chain_;
-};
-
-/*!
- * \brief Multidimensional term of the partial differential equation
- *
- * The term can be one of three modes:
- * - a separable term consisting of a number of one-dimensional chains, one per dimension
- * - an interpolation term, possibly non-linear and non-separable
- * - a chain of separable or interpolation terms
- *
- * Cannot create a separable term with all pterm_chain as identity.
- * A chain can be build only of separable and interpolation terms, recursive chains
- * are not allowed.
- */
-template<typename P>
-class term_md
-{
-public:
-  //! indicates the mode of the multi-dimensional term
-  enum class mode { separable, interpolatory, chain };
-
-  //! empty term, to be reinitialized later
-  term_md() = default;
-
-  //! 1d separable case
-  term_md(term_1d<P> chain)
-    : term_md({std::move(chain), })
-  {}
-  //! multi-dimensional separable case, using initializer list
-  term_md(std::initializer_list<term_1d<P>> clist)
-    : mode_(mode::separable), num_dims_(static_cast<int>(clist.size()))
-  {
-    int num_identity = 0;
-    expect(num_dims_ <= max_num_dimensions);
-    for (int i : iindexof(num_dims_)) {
-      sep[i] = std::move(*(clist.begin() + i));
-      if (sep[i].is_identity())
-        num_identity++;
-    }
-
-    if (num_identity == num_dims_)
-      throw std::runtime_error("cannot create term_md with all terms being identities");
-  }
-  //! multi-dimensional separable case, using std::vector
-  term_md(std::vector<term_1d<P>> clist)
-    : mode_(mode::separable), num_dims_(static_cast<int>(clist.size()))
-  {
-    int num_identity = 0;
-    expect(num_dims_ <= max_num_dimensions);
-    for (int i : iindexof(num_dims_)) {
-      sep[i] = std::move(*(clist.begin() + i));
-      if (sep[i].is_identity())
-        num_identity++;
-    }
-
-    if (num_identity == num_dims_)
-      throw std::runtime_error("cannot create term_md with all terms being identities");
-  }
-  //! list of multi-dimensional terms, from initializer list
-  term_md(std::initializer_list<term_md<P>> clist)
-    : mode_(mode::chain), chain_(std::move(clist))
-  {
-    // first pass, look for term with set dimensions and disallow recursive chaining
-    for (auto const &ch : chain_)
-    {
-      switch (ch.term_mode())
-      {
-        case mode::chain:
-          throw std::runtime_error("recursive chains (chain with chains) of term_md are not supported");
-          break;
-        case mode::separable:
-          num_dims_ = ch.num_dims();
-          break;
-        default: // work on interpolation later
-          break;
-      }
-    }
-
-    for (auto const &ch : chain_)
-    {
-      if (ch.term_mode() == mode::separable and ch.num_dims() != num_dims_)
-        throw std::runtime_error("inconsistent dimension of terms in the chain");
-    }
-  }
-  //! list of multi-dimensional terms, from std::vector
-  term_md(std::vector<term_md<P>> clist)
-    : mode_(mode::chain), chain_(std::move(clist))
-  {
-    // first pass, look for term with set dimensions and disallow recursive chaining
-    for (auto const &ch : chain_)
-    {
-      switch (ch.term_mode())
-      {
-        case mode::chain:
-          throw std::runtime_error("recursive chains (chain with chains) of term_md are not supported");
-          break;
-        case mode::separable:
-          num_dims_ = ch.num_dims();
-          break;
-        default: // work on interpolation later
-          break;
-      }
-    }
-
-    for (auto const &ch : chain_)
-    {
-      if (ch.term_mode() == mode::separable and ch.num_dims() != num_dims_)
-        throw std::runtime_error("inconsistent dimension of terms in the chain");
-    }
-  }
-
-  //! (separable mode only) get the 1d term with index i
-  term_1d<P> & dim(int i) {
-    expect(mode_ == mode::separable);
-    return sep[i];
-  }
-  //! (separable mode only) get the 1d term with index i, const overload
-  term_1d<P> const & dim(int i) const {
-    expect(mode_ == mode::separable);
-    return sep[i];
-  }
-
-  //! get the chain term with index i
-  term_md<P> & chain(int i) {
-    expect(mode_ == mode::chain);
-    return chain_[i];
-  }
-  //! get the chain term with index i, const-overload
-  term_md<P> const & chain(int i) const {
-    expect(mode_ == mode::chain);
-    return chain_[i];
-  }
-
-  //! indicate which mode is being used
-  mode term_mode() const { return mode_; }
-  //! returns true if the terms is chain term
-  bool is_chain() const { return (mode_ == mode::chain); }
-  //! return true if the term uses interpolation
-  bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
-
-  //! separable case only, the number of dimensions
-  int num_dims() const { return num_dims_; }
-  //! (internal use) interpolation or chain mode only, set the number of dimensions
-  void set_num_dimensions(int dims) {
-    if (num_dims_ == dims)
-      return;
-
-    switch (mode_) {
-      case mode::separable:
-        throw std::runtime_error("wrong number of dimensions of separable term");
-      case mode::interpolatory:
-        num_dims_ = dims;
-        break;
-      default: // case mode::chain:
-        num_dims_ = dims;
-        for (auto &ch : chain_)
-        {
-          if (ch.term_mode() == mode::separable and ch.num_dims() != num_dims_)
-            throw std::runtime_error("wrong number of dimensions of separable term in a chain");
-          ch.set_num_dimensions(num_dims_);
-        }
-        break;
-    }
-  }
-  //! chain case only, the number of chained terms
-  int num_chain() const { return static_cast<int>(chain_.size()); }
-
-  //! mode for the imex time-stepping
-  imex_flag imex = imex_flag::unspecified;
-
-  // allow direct access to the private data
-  friend struct term_manager<P>;
-
-private:
-  // mode for the term
-  mode mode_ = mode::interpolatory;
-  // separable case
-  int num_dims_ = 0;
-  std::array<term_1d<P>, max_num_dimensions> sep;
-  // non-separable/interpolation case
-  md_func_f<P> interp_;
-  // chain of other terms
-  std::vector<term_md<P>> chain_;
-};
-
 template<typename P>
 class term
 {
@@ -1128,8 +620,6 @@ private:
   std::vector<vector_func<P>> source_funcs_;
   scalar_func<P> time_func_;
 };
-
-
 
 // ---------------------------------------------------------------------------
 //
@@ -1841,28 +1331,549 @@ inline void add_lenard_bernstein_collisions_1x3v(P const nu, term_set<P> &terms)
   terms.push_back({mass_theta, I, nu_div_grad, I});
   terms.push_back({mass_theta, I, I, nu_div_grad});
 }
+#endif
 
 /*!
- * \internal
- * \brief holds data for the time-discretization
+ * \ingroup asgard_pde_definition
+ * \brief Signature for a non-separable function
+ */
+template<typename P>
+using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Signature for a non-separable function that accepts an additional field parameter
+ */
+template<typename P>
+using md_func_f = std::function<void(P t, vector2d<P> const &,
+                                     std::vector<P> const &, std::vector<P> &)>;
+
+//! intermediate container for a mass term
+struct term_identity {};
+//! intermediate container for a mass term
+template<typename P>
+struct term_mass {
+  //! make a mass term with constant coefficient
+  term_mass(P cc) : const_coeff(cc) {}
+  //! make a mass term with given right hand side coefficient
+  term_mass(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
+  //! make a mass term with given left and right hand side coefficients
+  term_mass(sfixed_func1d<P> lhs, sfixed_func1d<P> rhs)
+    : left(std::move(lhs)), right(std::move(rhs))
+  {}
+
+  P const_coeff = 0;
+  sfixed_func1d<P> left, right;
+};
+//! intermediate container for a grad term
+template<typename P>
+struct term_grad {
+  //! make a grad term with constant coefficient
+  term_grad(flux_type flx, boundary_type bnd, P cc)
+    : flux(flx), boundary(bnd), const_coeff(cc)
+  {}
+  //! make a grad term with given right hand side coefficient
+  term_grad(flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs = nullptr)
+    : flux(flx), boundary(bnd), right(std::move(frhs))
+  {}
+  //! make a grad term with both right and left hand side coefficients
+  term_grad(flux_type flx, boundary_type bnd, sfixed_func1d<P> flhs, sfixed_func1d<P> frhs)
+    : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
+  {}
+
+  flux_type flux;
+  boundary_type boundary;
+  P const_coeff = 0;
+  sfixed_func1d<P> left, right;
+};
+//! intermediate container for a div term
+template<typename P>
+struct term_div {
+  //! make a grad term with constant coefficient
+  term_div(flux_type flx, boundary_type bnd, P cc)
+    : flux(flx), boundary(bnd), const_coeff(cc)
+  {}
+  //! make a grad term with given right hand side coefficient
+  term_div(flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs = nullptr)
+    : flux(flx), boundary(bnd), right(std::move(frhs))
+  {}
+  //! make a grad term with both right and left hand side coefficients
+  term_div(flux_type flx, boundary_type bnd, sfixed_func1d<P> flhs, sfixed_func1d<P> frhs)
+    : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
+  {}
+
+  flux_type flux;
+  boundary_type boundary;
+  P const_coeff = 0;
+  sfixed_func1d<P> left, right;
+};
+struct term_chain {};
+
+// forward declaration so it can be set as a friend
+template<typename P>
+struct term_manager;
+
+/*!
+ * \brief One dimensional term, building block of separable operators
  *
- * Holds initial time, final time, time-step, etc.
+ * This class has two main modes of operation, first is as a single term representing
+ * mass, div, grad, or penalty operation. The simple operations are best created
+ * using the helper structs term_identity, term_mass, term_div and term_grad.
  *
- * When remaining steps hits 0, current_time should be equal to the final_time,
+ * The second mode is to represent a chain of simple terms.
+ * The operators in the chain will be multiplied together using small-matrix
+ * logic in a local cell-by-cell algorithm.
+ * Chains of partial terms are computationally more efficient than chains
+ * of multidimensional terms, but have more restrictions on the types
+ * of terms that can be chained:
+ * - div or grad partial term with central flux can only chain with a mass term
+ * - div or grad partial term with upwind/downwind flux can only chain with
+ *   grad or div with opposing downwind/upwind flux
+ * - a penalty term is equivalent to div/grad with central flux
+ *
+ * Chain-of-chains is not allowed as it makes little sense.
+ */
+template<typename P>
+class term_1d
+{
+public:
+  //! make an identity term
+  term_1d() = default;
+  //! make an identity term
+  term_1d(term_identity) {}
+  //! make a general term
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd,
+          sfixed_func1d<P> flhs, sfixed_func1d<P> frhs, P crhs)
+      : optype_(opt), flux_(flx), boundary_(bnd),
+        lhs_(std::move(flhs)), rhs_(std::move(frhs)), rhs_const_(crhs)
+  {
+    expect(optype_ != operation_type::identity);
+
+    if (optype_ == operation_type::grad) {
+      if (flux_ == flux_type::upwind)
+        flux_ = flux_type::downwind;
+      else if (flux_ == flux_type::downwind)
+        flux_ = flux_type::upwind;
+    }
+  }
+  //! make a term that depends on coupled fields, e.g., moments or electric field
+  term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc)
+    : optype_(operation_type::mass), depends_(dep), field_f_(std::move(ffunc))
+  {}
+
+  //! make a mass term
+  term_1d(term_mass<P> mt)
+    : term_1d(operation_type::mass, flux_type::central, boundary_type::free,
+              std::move(mt.left), std::move(mt.right), mt.const_coeff)
+  {}
+  //! make a grad term
+  term_1d(term_grad<P> grd)
+    : term_1d(operation_type::grad, grd.flux, grd.boundary,
+              std::move(grd.left), std::move(grd.right), grd.const_coeff)
+  {}
+  //! make a div term
+  term_1d(term_div<P> divt)
+    : term_1d(operation_type::div, divt.flux, divt.boundary,
+              std::move(divt.left), std::move(divt.right), divt.const_coeff)
+  {}
+  //! make a chain term
+  term_1d(std::vector<term_1d<P>> tvec)
+    : optype_(operation_type::chain), chain_(std::move(tvec))
+  {
+    // remove the identity terms in the chain
+    int numid = 0;
+    for (auto const &c : chain_) {
+      if (c.is_identity())
+        numid += 1;
+      if (c.is_chain())
+        throw std::runtime_error("cannot create a chain-of-chains of term1d");
+    }
+
+    int const num_chain = this->num_chain();
+    if (num_chain == numid) {
+      // all identities, nothing to chain
+      optype_ = operation_type::identity;
+      chain_.resize(0);
+    } else if (num_chain - numid == 1) {
+      // chain has only one non-identity term
+      for (auto &c : chain_) {
+        if (not c.is_identity()) {
+          term_1d<P> temp = std::move(c);
+          *this = std::move(temp);
+          break;
+        }
+      }
+    } else if (numid > 0) {
+      std::vector<term_1d<P>> vec = std::move(chain_);
+      chain_ = std::vector<term_1d<P>>();
+      chain_.reserve(vec.size() - numid);
+      for (auto &c : vec) {
+        if (not c.is_identity())
+          chain_.emplace_back(std::move(c));
+      }
+    }
+
+    if (not check_chain())
+      throw std::runtime_error("incompatible flux combination used in a term_1d chain, "
+                               "must split into a term_md chain");
+  }
+  //! make a chain term, add terms later with add_term() or +=
+  term_1d(term_chain) : optype_(operation_type::chain) {}
+  //! indicates whether this is an identity term
+  bool is_identity() const { return (optype_ == operation_type::identity); }
+  //! indicates whether this is a mass term
+  bool is_mass() const { return (optype_ == operation_type::mass); }
+  //! indicates whether this is a grad term
+  bool is_grad() const { return (optype_ == operation_type::grad); }
+  //! indicates whether this is a div term
+  bool is_div() const { return (optype_ == operation_type::div); }
+  //! indicates whether this is a penalty term
+  bool is_penalty() const { return (optype_ == operation_type::penalty); }
+  //! indicates whether this is a chain term
+  bool is_chain() const { return (optype_ == operation_type::chain); }
+  //! returns the operation type
+  operation_type optype() const { return optype_; }
+  //! returns the boundary type
+  boundary_type boundary() const { return boundary_; }
+  //! returns the flux type
+  flux_type flux() const { return flux_; }
+
+  //! returns the left-hand-side function
+  sfixed_func1d<P> const &lhs() const { return lhs_; }
+  //! calls the left-hand-side function
+  void lhs(std::vector<P> const &x, std::vector<P> &fx) const {
+    return lhs_(x, fx);
+  }
+
+  //! returns the right-hand-side function
+  sfixed_func1d<P> const &rhs() const { return rhs_; }
+  //! calls the right-hand-side function
+  void rhs(std::vector<P> const &x, std::vector<P> &fx) const {
+    return rhs_(x, fx);
+  }
+
+  //! returns the required moment, if any
+  int moment() const { return mom; }
+
+  //! returns the rhs function that calls the field
+  sfixed_func1d_f<P> const &field() const { return field_f_; }
+  //! calls the rhs function that depends on the field
+  void field(std::vector<P> const &x, std::vector<P> const &f, std::vector<P> &fx) const {
+    return field_f_(x, f, fx);
+  }
+
+  //! returns the constant right-hand-side
+  P rhs_const() const { return rhs_const_; }
+
+  //! can read or set the the change option
+  changes_with &change() { return change_; }
+  //! can read the change option
+  changes_with change() const { return change_; }
+
+  //! returns the extra dependence
+  pterm_dependence depends() const { return depends_; }
+
+  //! (chain-mode only) number of chained terms
+  int num_chain() const { return static_cast<int>(chain_.size()); }
+  //! (chain-mode only) get the vector of the chain
+  std::vector<term_1d<P>> const &chain() const { return chain_; }
+  //! (chain-mode only) get the i-th term in the chain
+  term_1d<P> const &chain(int i) const { return chain_[i]; }
+  //! (chain-mode only) get the i-th term in the chain
+  term_1d<P> const &operator[](int i) const { return chain_[i]; }
+  //! (chain-mode only) add one more term to the chain
+  void add_term(term_1d<P> tm) {
+    chain_.emplace_back(std::move(tm));
+    if (not check_chain())
+      throw std::runtime_error("incompatible flux combination used in a term_1d chain, "
+                               "must split into a term_md chain");
+  }
+  //! (chain-mode only) add one more term to the chain
+  term_1d<P> & operator += (term_1d<P> tm) {
+    this->add_term(std::move(tm));
+    return *this;
+  }
+  //! returns true if the term has a flux
+  bool has_flux() const {
+    if (optype_ == operation_type::chain) {
+      for (auto const &cc : chain_)
+        if (cc.optype_ != operation_type::mass)
+          return true;
+      return false;
+    } else {
+      return (optype_ != operation_type::mass);
+    }
+  }
+
+  // allow direct access to the private data
+  friend struct term_manager<P>;
+
+private:
+  bool check_chain() {
+    int fluxdir = 2; // no flux direction found, two available
+    for (int i : iindexof(chain_)) {
+      term_1d<P> const &pt = chain_[i];
+      // get the int-value of the flux, flip for grad
+      int const fdir = static_cast<int>(pt.flux())
+                      * ((pt.optype() == operation_type::grad) ? -1 : 1);
+      switch (pt.optype())
+      {
+        case operation_type::penalty:
+          if (fluxdir == 2) // have two flux dirs available
+            fluxdir = 0; // take both dirs
+          else
+            return false; // conflict, no flux-dirs left
+          break;
+        case operation_type::div:
+        case operation_type::grad:
+          // if the fdir direction is already taken, bad setup
+          if (fluxdir == 0 or fluxdir == fdir)
+            return false;
+          else if (fdir == 0) { // requested central flux, takes two dirs
+            if (fluxdir != 2) // one flux dir already used, bad
+              return false;
+            else
+              fluxdir = 0; // take all flux dirs
+          } else { // requested up/down flux, take one dir
+            if (fluxdir != 2) // one flux already used
+              fluxdir = 0; // ok, but no flux available anymore
+            else
+              fluxdir = fdir; // two available, take one flux direction
+          }
+        default: // mass term has no flux, nothing to do
+          break;
+      }
+    }
+    return true;
+  }
+
+  operation_type optype_ = operation_type::identity;
+  pterm_dependence depends_ = pterm_dependence::none;
+
+  flux_type flux_ = flux_type::central;
+  boundary_type boundary_ = boundary_type::free;
+
+  changes_with change_ = changes_with::none;
+
+  sfixed_func1d<P> lhs_;
+  sfixed_func1d<P> rhs_;
+  P rhs_const_ = 1;
+
+  int mom = 0;
+  sfixed_func1d_f<P> field_f_;
+
+  std::vector<term_1d<P>> chain_;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Multidimensional term of the partial differential equation
+ *
+ * The term can be one of three modes:
+ * - a separable term consisting of a number of one-dimensional chains, one per dimension
+ * - an interpolation term, possibly non-linear and non-separable
+ * - a chain of separable or interpolation terms
+ *
+ * Cannot create a separable term with all pterm_chain as identity.
+ * A chain can be build only of separable and interpolation terms, recursive chains
+ * are not allowed.
+ */
+template<typename P>
+class term_md
+{
+public:
+  //! indicates the mode of the multi-dimensional term
+  enum class mode { separable, interpolatory, chain };
+
+  //! empty term, to be reinitialized later
+  term_md() = default;
+
+  //! 1d separable case
+  term_md(term_1d<P> chain)
+    : term_md({std::move(chain), })
+  {}
+  //! multi-dimensional separable case, using initializer list
+  term_md(std::initializer_list<term_1d<P>> clist)
+    : mode_(mode::separable), num_dims_(static_cast<int>(clist.size()))
+  {
+    int num_identity = 0;
+    expect(num_dims_ <= max_num_dimensions);
+    for (int i : iindexof(num_dims_)) {
+      sep[i] = std::move(*(clist.begin() + i));
+      if (sep[i].is_identity())
+        num_identity++;
+    }
+
+    if (num_identity == num_dims_)
+      throw std::runtime_error("cannot create term_md with all terms being identities");
+  }
+  //! multi-dimensional separable case, using std::vector
+  term_md(std::vector<term_1d<P>> clist)
+    : mode_(mode::separable), num_dims_(static_cast<int>(clist.size()))
+  {
+    int num_identity = 0;
+    expect(num_dims_ <= max_num_dimensions);
+    for (int i : iindexof(num_dims_)) {
+      sep[i] = std::move(*(clist.begin() + i));
+      if (sep[i].is_identity())
+        num_identity++;
+    }
+
+    if (num_identity == num_dims_)
+      throw std::runtime_error("cannot create term_md with all terms being identities");
+  }
+  //! list of multi-dimensional terms, from initializer list
+  term_md(std::initializer_list<term_md<P>> clist)
+    : mode_(mode::chain), chain_(std::move(clist))
+  {
+    // first pass, look for term with set dimensions and disallow recursive chaining
+    for (auto const &ch : chain_)
+    {
+      switch (ch.term_mode())
+      {
+        case mode::chain:
+          throw std::runtime_error("recursive chains (chain with chains) of term_md are not supported");
+          break;
+        case mode::separable:
+          num_dims_ = ch.num_dims();
+          break;
+        default: // work on interpolation later
+          break;
+      }
+    }
+
+    for (auto const &ch : chain_)
+    {
+      if (ch.term_mode() == mode::separable and ch.num_dims() != num_dims_)
+        throw std::runtime_error("inconsistent dimension of terms in the chain");
+    }
+  }
+  //! list of multi-dimensional terms, from std::vector
+  term_md(std::vector<term_md<P>> clist)
+    : mode_(mode::chain), chain_(std::move(clist))
+  {
+    // first pass, look for term with set dimensions and disallow recursive chaining
+    for (auto const &ch : chain_)
+    {
+      switch (ch.term_mode())
+      {
+        case mode::chain:
+          throw std::runtime_error("recursive chains (chain with chains) of term_md are not supported");
+          break;
+        case mode::separable:
+          num_dims_ = ch.num_dims();
+          break;
+        default: // work on interpolation later
+          break;
+      }
+    }
+
+    for (auto const &ch : chain_)
+    {
+      if (ch.term_mode() == mode::separable and ch.num_dims() != num_dims_)
+        throw std::runtime_error("inconsistent dimension of terms in the chain");
+    }
+  }
+
+  //! (separable mode only) get the 1d term with index i
+  term_1d<P> & dim(int i) {
+    expect(mode_ == mode::separable);
+    return sep[i];
+  }
+  //! (separable mode only) get the 1d term with index i, const overload
+  term_1d<P> const & dim(int i) const {
+    expect(mode_ == mode::separable);
+    return sep[i];
+  }
+
+  //! get the chain term with index i
+  term_md<P> & chain(int i) {
+    expect(mode_ == mode::chain);
+    return chain_[i];
+  }
+  //! get the chain term with index i, const-overload
+  term_md<P> const & chain(int i) const {
+    expect(mode_ == mode::chain);
+    return chain_[i];
+  }
+
+  //! indicate which mode is being used
+  mode term_mode() const { return mode_; }
+  //! returns true if the terms is chain term
+  bool is_chain() const { return (mode_ == mode::chain); }
+  //! return true if the term uses interpolation
+  bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
+
+  //! separable case only, the number of dimensions
+  int num_dims() const { return num_dims_; }
+  //! (internal use) interpolation or chain mode only, set the number of dimensions
+  void set_num_dimensions(int dims) {
+    if (num_dims_ == dims)
+      return;
+
+    switch (mode_) {
+      case mode::separable:
+        throw std::runtime_error("wrong number of dimensions of separable term");
+      case mode::interpolatory:
+        num_dims_ = dims;
+        break;
+      default: // case mode::chain:
+        num_dims_ = dims;
+        for (auto &ch : chain_)
+        {
+          if (ch.term_mode() == mode::separable and ch.num_dims() != num_dims_)
+            throw std::runtime_error("wrong number of dimensions of separable term in a chain");
+          ch.set_num_dimensions(num_dims_);
+        }
+        break;
+    }
+  }
+  //! chain case only, the number of chained terms
+  int num_chain() const { return static_cast<int>(chain_.size()); }
+
+  //! mode for the imex time-stepping
+  imex_flag imex = imex_flag::unspecified;
+
+  // allow direct access to the private data
+  friend struct term_manager<P>;
+
+private:
+  // mode for the term
+  mode mode_ = mode::interpolatory;
+  // separable case
+  int num_dims_ = 0;
+  std::array<term_1d<P>, max_num_dimensions> sep;
+  // non-separable/interpolation case
+  md_func_f<P> interp_;
+  // chain of other terms
+  std::vector<term_md<P>> chain_;
+};
+
+/*!
+ * \ingroup asgard_discretization
+ * \brief Holds initial time, final time, time-step, etc.
+ *
+ * When constructed, it takes 2 of 3 parameters, stop-time, time-step and number
+ * of time steps. Then sets the correct third parameter.
+ *
+ * When remaining steps hits 0, current_time is equal to final_time,
  * give or take some machine precision.
- * Between time-step dt, final time and number of steps, can specify 2 of 3.
- * \endinternal
  */
 template<typename P>
 class time_data
 {
 public:
+  //! type-tag for specifying  dt
   struct input_dt {
+    //! explicit constructor, temporarily stores dt
     explicit input_dt(P v) : value(v) {}
+    //! stored value
     P value;
   };
+  //! type-tag for specifying stop-time
   struct input_stop_time {
+    //! explicit constructor, temporarily stores the stop-time
     explicit input_stop_time(P v) : value(v) {}
+    //! stored value
     P value;
   };
   //! unset time-data, all entries are negative, must be set later
@@ -1894,21 +1905,30 @@ public:
     stop_time_ = num_remain_ * dt_;
   }
 
+  //! return the time-advance method
   time_advance::method method() const { return smethod_; }
 
+  //! returns the time-step
   P dt() const { return dt_; }
+  //! returns the stop-time
   P stop_time() const { return stop_time_; }
+  //! returns the current time
   P time() const { return time_; }
+  //! returns the current time, non-const ref that can reset the time
   P &time() { return time_; }
+  //! returns the current step number
   int64_t step() const { return step_; }
+  //! returns the number of remaining time-steps
   int64_t num_remain() const { return num_remain_; }
 
+  //! advances the time and updates the current and remaining steps
   void take_step() {
     ++step_;
     --num_remain_;
     time_ += dt_;
   }
 
+  //! prints the stepping data to a stream (human readable format)
   void print_time(std::ostream &os) const {
     os << "time stepping:\n  time (t)        " << time_
        << "\n  stop-time (T)   " << stop_time_
@@ -1920,8 +1940,9 @@ public:
   friend class h5writer<P>;
 
 private:
-  // cannot be negative, negative means "not-set"
   time_advance::method smethod_ = time_advance::method::exp;
+  // the following entries cannot be negative, negative means "not-set"
+
   //! current time-step
   P dt_ = -1;
   //! currently set final time
@@ -1934,7 +1955,10 @@ private:
   int64_t num_remain_ = -1;
 };
 
-//! overload for writing time-data stats
+/*!
+ * \ingroup asgard_discretization
+ * \brief Allows writing time-data to a stream
+ */
 template<typename P>
 inline std::ostream &operator<<(std::ostream &os, time_data<P> const &dtime)
 {
@@ -1943,7 +1967,28 @@ inline std::ostream &operator<<(std::ostream &os, time_data<P> const &dtime)
 }
 
 /*!
+ * \defgroup asgard_pde_definition ASGarD PDE definition
+ *
+ * Tools for defining a PDE description and discretization scheme.
+ */
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Container for terms, sources, boundary conditions, etc.
+ *
+ * The PDE descriptor only indirectly specifies a partial differential equation,
+ * the primary objective is to specify the discretization scheme.
+ *
+ * The main components are:
+ * - asgard::pde_domain defining the dimensions and ranges for each dimension
+ * - asgard::prog_opts defining user options for sparse grid, time-stepping scheme
+ *   and many others
+ * - initial conditions
+ * - terms indicating differential and integral operators
+ * - source terms that appear on the right-hand-side of the equation
+ *
+ * The first two are defined in the constructor of the object and the others
+ * can be specified later. See the included examples.
  */
 template<typename P>
 class PDEv2
