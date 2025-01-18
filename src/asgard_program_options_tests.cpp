@@ -255,16 +255,6 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-iso", "dummy"})),
                         "invalid value for -iso, see exe -help");
   }
-  SECTION("-pde")
-  {
-    prog_opts prog(vecstrview({"", "-pde", "continuity_6"}));
-    REQUIRE(prog.pde_choice);
-    REQUIRE(prog.pde_choice.value() == PDE_opts::continuity_6);
-    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-pde"})),
-                        "-pde must be followed by a value, see exe -help");
-    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-p", "dummy"})),
-                        "invalid pde 'dummy', see 'exe -pde?' for full list");
-  }
   SECTION("-title")
   {
     prog_opts prog(vecstrview({"", "-title", "mypde"}));
@@ -274,9 +264,9 @@ TEST_CASE("new program options", "[single options]")
                         "-title must be followed by a value, see exe -help");
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-title", ""})),
                         "invalid value for -title, see exe -help");
-    prog_opts prog2(vecstrview({"", "-title", "continuity_6"}));
+    prog_opts prog2(vecstrview({"", "-title", "continuity-6"}));
     REQUIRE_FALSE(prog2.title.empty());
-    REQUIRE(prog2.title == "continuity_6");
+    REQUIRE(prog2.title == "continuity-6");
   }
   SECTION("-subtitle")
   {

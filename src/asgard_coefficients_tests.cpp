@@ -95,29 +95,6 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("continuity 6 terms", "[coefficients]", test_precs)
-{
-  auto const gold_path      = coefficients_base_dir / "continuity6_coefficients";
-  auto constexpr tol_factor = get_tolerance<TestType>(1000);
-
-  prog_opts opts;
-  opts.pde_choice = PDE_opts::continuity_6;
-
-  SECTION("level 2, degree 3")
-  {
-    opts.start_levels = std::vector<int>(6, 2);
-    opts.degree       = 3;
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-
-  SECTION("non uniform level: levels 2, 3, 3, 3, 2, 4, degree 3")
-  {
-    opts.start_levels = {2, 3, 3, 3, 2, 4};
-    opts.degree       = 3;
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-}
-
 TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
                    test_precs)
 {

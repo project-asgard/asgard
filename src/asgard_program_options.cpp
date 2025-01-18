@@ -126,7 +126,6 @@ void prog_opts::print_pde_help(std::ostream &os)
 
 Option          Description
 custom          (default) user provided pde, can be omitted for the custom projects
-continuity_6    6D test case, continuity equation, df/dt + v.grad(f) = 0 where v={1,1,3,4,3,2}"
 diffusion_1     1D diffusion equation: df/dt = d^2 f/dx^2
 diffusion_2     2D (1x-1y) heat equation. df/dt = d^2 f/dx^2 + d^2 f/dy^2
 advection_1     1D test using continuity equation. df/dt = -2*df/dx - 2*sin(x)
@@ -602,7 +601,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
 {
   std::map<std::string_view, PDE_opts> pdes = {
       {"custom", PDE_opts::custom},
-      {"continuity_6", PDE_opts::continuity_6},
       {"fokkerplanck_1d_pitch_E_case1", PDE_opts::fokkerplanck_1d_pitch_E_case1},
       {"fokkerplanck_1d_pitch_E_case2", PDE_opts::fokkerplanck_1d_pitch_E_case2},
       {"fokkerplanck_1d_pitch_C", PDE_opts::fokkerplanck_1d_pitch_C},

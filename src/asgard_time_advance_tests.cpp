@@ -225,39 +225,6 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("time advance - continuity 6", "[time_advance]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-
-  SECTION("continuity6, level 2, degree 2, sparse grid")
-  {
-    auto const gold_base = time_advance_base_dir / "continuity6_sg_l2_d3_t";
-
-    auto opts = make_opts("-p continuity_6 -d 2 -l 2 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity6, explicit/non-uniform level, degree 3, sparse grid")
-  {
-    std::vector<int> const levels{2, 3, 2, 3, 3, 2};
-    auto const gold_base =
-        time_advance_base_dir /
-        ("continuity6_sg_l" + get_level_string(levels) + "d2_t");
-
-    auto opts = make_opts("-p continuity_6 -d 1 -n 5");
-
-    opts.start_levels = levels;
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-}
-
 TEMPLATE_TEST_CASE("time advance - fokkerplanck_1d_pitch_C", "[time_advance]",
                    test_precs)
 {

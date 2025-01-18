@@ -247,36 +247,6 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
-{
-  auto constexpr tol_factor = get_tolerance<TestType>(10000);
-
-  SECTION("6d - uniform level")
-  {
-    auto opts = make_opts("-p continuity_6 -d 1 -l 2");
-    test_kronmult(opts, tol_factor);
-  }
-
-  SECTION("6d - non-uniform level")
-  {
-    auto opts = make_opts("-p continuity_6 -d 0");
-
-    opts.start_levels = {2, 2, 2, 3, 2, 2};
-    test_kronmult(opts, tol_factor);
-  }
-}
-
-TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
-{
-  auto constexpr tol_factor = get_tolerance<TestType>(10000);
-
-  SECTION("6d - uniform level")
-  {
-    auto opts = make_opts("-p continuity_6 -d 1 -l 2");
-    test_kronmult(opts, tol_factor);
-  }
-}
-
 // solves u_xx = rhs over (xleft, xright), if bc is Dirichlet, dleft/dright are the boundary cond
 // returns the result from comparison against the du_ref, which should be u_x
 template<typename P>

@@ -321,39 +321,6 @@ TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("testing continuity 6 implementations", "[pde]", test_precs)
-{
-  //auto const level    = 3;
-  auto const pde      = make_PDE<TestType>("-p continuity_6 -l 3");
-  auto const base_dir = pde_base_dir / "continuity_6_";
-  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
-  TestType const time          = 5;
-
-  SECTION("continuity 6 initial condition functions")
-  {
-    test_initial_condition<TestType>(*pde, base_dir, x);
-  }
-
-  SECTION("continuity 6 exact solution functions")
-  {
-    test_exact_solution<TestType>(*pde, base_dir, x, time);
-  }
-
-  SECTION("continuity 6 source functions")
-  {
-    test_source_vectors(*pde, base_dir, x, time);
-  }
-
-  SECTION("continuity 6 dt")
-  {
-    auto filename = base_dir.filename().string();
-    TestType const gold =
-        read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / 0.01;
-    REQUIRE(dt == gold);
-  }
-}
-
 TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
                    "[pde]", test_precs)
 {

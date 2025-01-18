@@ -255,23 +255,6 @@ void generate_messages_test(int const num_ranks, elements::table const &table)
   }
 }
 
-TEST_CASE("generate messages tests", "[distribution]")
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  SECTION("even but not square, large")
-  {
-    auto const pde = make_PDE<P>("-p continuity_6 -d 2 -l 2");
-    elements::table const table(*pde);
-
-    int const num_ranks = 32;
-    generate_messages_test(num_ranks, table);
-  }
-}
-
 TEMPLATE_TEST_CASE("gather errors tests", "[distribution]", test_precs)
 {
   if (!is_active())
@@ -582,72 +565,6 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
     generate_messages_remap_test(double_plan, double_new_plan, changes);
 
     redistribute_vector_test<TestType>(double_plan, double_new_plan, changes);
-  }
-
-  SECTION("9 (odd/perfect square) rank -- coarsen")
-  {
-    prog_opts opts;
-    opts.pde_choice   = PDE_opts::continuity_6;
-    opts.start_levels = {2, 3, 4, 3, 2, 3};
-
-    auto const pde = make_PDE<P>(opts);
-    elements::table table(*pde);
-
-    auto const num_ranks = 9;
-    auto const old_plan  = get_plan(num_ranks, table);
-
-    // delete some elements
-    distribution_plan const new_plan = {
-        {0, element_subgrid(0, 1, 0, table.size() / 6)},
-        {1, element_subgrid(0, 1, table.size() / 6 + 1, 2 * table.size() / 6)},
-        {2, element_subgrid(0, 1, 2 * table.size() / 6 + 1, table.size() / 2)},
-        {3, element_subgrid(2, 3, 0, table.size() / 6)},
-        {4, element_subgrid(2, 3, table.size() / 6 + 1, 2 * table.size() / 6)},
-        {5, element_subgrid(2, 3, 2 * table.size() / 6 + 1, table.size() / 2)},
-        {6, element_subgrid(4, 5, 0, table.size() / 6)},
-        {7, element_subgrid(4, 5, table.size() / 6 + 1, 2 * table.size() / 6)},
-        {8, element_subgrid(4, 5, 2 * table.size() / 6 + 1, table.size() / 2)},
-    };
-
-    std::map<int64_t, grid_limits> const changes = {
-        {1, grid_limits(10, 19)},
-        {11, grid_limits(41, 65)},
-        {50, grid_limits(66, 66)},
-        {85, grid_limits(100, 180)},
-        {200, grid_limits(400, 404)}};
-
-    generate_messages_remap_test(old_plan, new_plan, changes);
-    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
-  }
-
-  SECTION("9 rank -- refine")
-  {
-    prog_opts opts;
-    opts.pde_choice   = PDE_opts::continuity_6;
-    opts.start_levels = {2, 3, 4, 3, 2, 3};
-
-    auto const pde = make_PDE<P>(opts);
-    elements::table table(*pde);
-
-    auto const num_ranks = 9;
-    auto const old_plan  = get_plan(num_ranks, table);
-
-    // delete some elements
-    distribution_plan const new_plan = {
-        {0, element_subgrid(0, 1, 0, 200)},
-        {1, element_subgrid(0, 1, 201, 401)},
-        {2, element_subgrid(0, 1, 402, 512)},
-        {3, element_subgrid(2, 3, 0, 200)},
-        {4, element_subgrid(2, 3, 201, 401)},
-        {5, element_subgrid(2, 3, 402, 512)},
-        {6, element_subgrid(4, 5, 0, 200)},
-        {7, element_subgrid(4, 5, 201, 401)},
-        {8, element_subgrid(4, 5, 402, 512)},
-    };
-
-    std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 412)}};
-    generate_messages_remap_test(old_plan, new_plan, changes);
-    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
   }
 }
 
