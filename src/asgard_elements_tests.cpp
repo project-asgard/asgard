@@ -246,10 +246,9 @@ void test_element_deletion(PDE_opts const pde_choice,
 
 TEST_CASE("element table object", "[element_table]")
 {
-  std::vector<std::vector<int>> const test_levels{{5, 2}, {3, 2, 3}};
+  std::vector<std::vector<int>> const test_levels{{3, 2, 3}, };
   int const max_level = 7;
-  std::vector<PDE_opts> const test_pdes{
-      PDE_opts::continuity_2, PDE_opts::continuity_3};
+  std::vector<PDE_opts> const test_pdes{PDE_opts::continuity_3, };
 
   std::string const gold_base       = "table_";
   std::string const gold_base_id    = "ids_";

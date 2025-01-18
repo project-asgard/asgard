@@ -3,7 +3,6 @@
 #include "pde/asgard_pde_collisional_landau.hpp"
 #include "pde/asgard_pde_collisional_landau_1x2v.hpp"
 #include "pde/asgard_pde_collisional_landau_1x3v.hpp"
-#include "pde/asgard_pde_continuity2.hpp"
 #include "pde/asgard_pde_continuity3.hpp"
 #include "pde/asgard_pde_continuity6.hpp"
 #include "pde/asgard_pde_diffusion1.hpp"
@@ -54,8 +53,6 @@ std::unique_ptr<PDE<P>> make_PDE(prog_opts const &cli_input)
   rassert(cli_input.pde_choice, "cannot create an unspecified PDE");
   switch (cli_input.pde_choice.value())
   {
-  case PDE_opts::continuity_2:
-    return std::make_unique<PDE_continuity_2d<P>>(cli_input);
   case PDE_opts::continuity_3:
     return std::make_unique<PDE_continuity_3d<P>>(cli_input);
   case PDE_opts::continuity_6:

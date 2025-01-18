@@ -195,42 +195,6 @@ TEST_CASE("adaptive time advance")
       time_advance_test(opts, gold_base, tol_factor);
     }
   }
-
-  SECTION("continuity 2 explicit")
-  {
-    auto const tol_factor = get_tolerance<default_precision>(100);
-
-    auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
-
-    auto opts = make_opts("-p continuity_2 -d 3 -l 3 -n 5 -m 8 -s expl -a 1.E-3");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity 2 explicit, l2 norm")
-  {
-    // Gold data was calculated with L^{\infty} norm
-    auto const tol_factor = static_cast<default_precision>(0.00001);
-
-    auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
-
-    auto opts = make_opts("-p continuity_2 -d 3 -l 3 -n 5 -m 8 -s expl -a 1.E-3");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity 2 explicit")
-  {
-    auto const tol_factor = get_tolerance<default_precision>(100);
-
-    auto const gold_base = time_advance_base_dir / "continuity2_ad_sg_l3_d4_t";
-
-    auto opts = make_opts("-p continuity_2 -d 3 -l 3 -n 5 -a 1.E-3");
-
-    opts.max_levels = {6, 8};
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
 }
 
 TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
@@ -256,58 +220,6 @@ TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
     auto const tol_factor = get_tolerance<TestType>(100000);
 
     auto opts = make_opts("-p diffusion_1 -d 3 -l 4 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - continuity 2", "[time_advance]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-
-  SECTION("continuity2, explicit, level 2, degree 1, sparse grid")
-  {
-    auto const gold_base = time_advance_base_dir / "continuity2_sg_l2_d2_t";
-
-    auto opts = make_opts("-p continuity_2 -d 1 -l 2 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity2, explicit, level 2, degree 1, full grid")
-  {
-    auto const gold_base = time_advance_base_dir / "continuity2_fg_l2_d2_t";
-
-    auto opts = make_opts("-p continuity_2 -d 1 -l 2 -n 5 -g dense");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity2, explicit, level 4, degree 2, sparse grid")
-  {
-    auto const gold_base = time_advance_base_dir / "continuity2_sg_l4_d3_t";
-
-    auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity2, explicit/non-uniform level, full grid, degree 2")
-  {
-    std::vector<int> const levels{3, 4};
-
-    auto const gold_base =
-        time_advance_base_dir /
-        ("continuity2_fg_l" + get_level_string(levels) + "d3_t");
-
-    auto opts = make_opts("-p continuity_2 -d 2 -n 5 -g dense");
-
-    opts.start_levels = levels;
 
     time_advance_test(opts, gold_base, tol_factor);
   }
@@ -608,61 +520,6 @@ TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
         ("diffusion2_implicit_sg_l" + get_level_string(levels) + "d2_t");
 
     auto opts = make_opts("-p diffusion_2 -d 1 -n 5 -s impl -sv direct");
-
-    opts.start_levels = levels;
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-}
-
-TEMPLATE_TEST_CASE("implicit time advance - continuity 2", "[time_advance]",
-                   test_precs)
-{
-  if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
-  {
-    return;
-  }
-
-  auto constexpr tol_factor = get_tolerance<TestType>(10);
-
-  SECTION("continuity2, level 2, degree 1, sparse grid")
-  {
-    auto const gold_base =
-        time_advance_base_dir / "continuity2_implicit_l2_d2_t";
-
-    auto opts = make_opts("-p continuity_2 -d 1 -l 2 -n 5 -s impl -sv direct");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity2, level 4, degree 2, sparse grid")
-  {
-    auto const gold_base =
-        time_advance_base_dir / "continuity2_implicit_l4_d3_t";
-    auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5 -s impl -sv direct");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("continuity2, level 4, degree 2, sparse grid, iterative")
-  {
-    auto constexpr temp_tol_factor = get_tolerance<TestType>(10);
-
-    auto const continuity2_base_dir =
-        time_advance_base_dir / "continuity2_implicit_l4_d3_t";
-
-    auto opts = make_opts("-p continuity_2 -d 2 -l 4 -n 5 -s impl -sv direct");
-
-    time_advance_test(opts, continuity2_base_dir, temp_tol_factor);
-  }
-  SECTION("continuity2, implicit/non-uniform level, degree 2, full grid")
-  {
-    std::vector<int> const levels = {3, 4};
-    auto const gold_base =
-        time_advance_base_dir /
-        ("continuity2_implicit_fg_l" + get_level_string(levels) + "d3_t");
-
-    auto opts = make_opts("-p continuity_2 -d 2 -n 5 -s impl -sv direct -g dense");
 
     opts.start_levels = levels;
 

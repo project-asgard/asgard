@@ -153,48 +153,6 @@ TEST_CASE("rank subgrid function", "[distribution]")
     return;
   }
 
-  SECTION("1 rank, whole problem")
-  {
-    auto const pde = make_PDE<P>("-p continuity_2 -d 3 -l 4");
-
-    elements::table const table(*pde);
-
-    int const num_ranks = 1;
-    int const my_rank   = 0;
-
-    element_subgrid const e(get_subgrid(num_ranks, my_rank, table));
-
-    REQUIRE(e.row_start == 0);
-    REQUIRE(e.row_stop == table.size() - 1);
-    REQUIRE(e.col_start == 0);
-    REQUIRE(e.col_stop == table.size() - 1);
-  }
-
-  SECTION("2 ranks")
-  {
-    auto const pde = make_PDE<P>("-p continuity_2 -d 5 -l 5");
-    elements::table const table(*pde);
-
-    int const num_ranks  = 2;
-    int const first_rank = 0;
-
-    // 2 ranks should divide by single vertical split
-    element_subgrid const e(get_subgrid(num_ranks, first_rank, table));
-
-    REQUIRE(e.row_start == 0);
-    REQUIRE(e.row_stop == table.size() - 1);
-    REQUIRE(e.col_start == 0);
-    REQUIRE(e.col_stop == table.size() / 2 - 1);
-
-    int const second_rank = 1;
-    element_subgrid const e2(get_subgrid(num_ranks, second_rank, table));
-
-    REQUIRE(e2.row_start == 0);
-    REQUIRE(e2.row_stop == table.size() - 1);
-    REQUIRE(e2.col_start == table.size() / 2);
-    REQUIRE(e2.col_stop == table.size() - 1);
-  }
-
   SECTION("4 ranks - even/square")
   {
     auto const pde = make_PDE<P>("-p continuity_3 -d 9 -l 7");
@@ -262,84 +220,12 @@ TEST_CASE("rank subgrid function", "[distribution]")
   }
 }
 
-TEST_CASE("distribution plan function", "[distribution]")
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  SECTION("1 rank")
-  {
-    auto const pde = make_PDE<P>("-p continuity_2 -d 2 -l 2");
-    elements::table const table(*pde);
-
-    int const num_ranks = 1;
-
-    auto const plan = get_plan(num_ranks, table);
-    check_coverage(table, plan);
-  }
-
-  SECTION("2 ranks - also, test 3rd rank ignored")
-  {
-    auto const pde = make_PDE<P>("-p continuity_2 -d 7 -l 5");
-    elements::table const table(*pde);
-
-    int const num_ranks = 2;
-    auto const plan     = get_plan(num_ranks, table);
-    check_coverage(table, plan);
-    check_even_sizing(table, plan);
-    int const ncols = 2;
-    check_rowmaj_layout(plan, ncols);
-
-    int const num_ranks_extra = 3;
-    auto const plan_extra     = get_plan(num_ranks_extra, table);
-    check_coverage(table, plan);
-
-    REQUIRE(plan.size() == plan_extra.size());
-    for (auto const &[rank, grid] : plan)
-    {
-      REQUIRE(grid == plan_extra.at(rank));
-    }
-  }
-
-  SECTION("20 ranks")
-  {
-    auto const pde = make_PDE<P>("-p continuity_2 -d 4 -l 5");
-    elements::table const table(*pde);
-
-    int const num_ranks = 20;
-    auto const plan     = get_plan(num_ranks, table);
-    check_coverage(table, plan);
-    check_even_sizing(table, plan);
-    int const ncols = 5;
-    check_rowmaj_layout(plan, ncols);
-  }
-}
-
 TEMPLATE_TEST_CASE("allreduce across row of subgrids", "[distribution]",
                    test_precs)
 {
   if (!is_active())
   {
     return;
-  }
-
-  SECTION("1 rank")
-  {
-    auto const num_ranks = 1;
-    auto const my_rank   = 0;
-
-    auto const pde = make_PDE<P>("-p continuity_2 -d 3 -l 2");
-    elements::table const table(*pde);
-
-    auto const plan = get_plan(num_ranks, table);
-
-    fk::vector<TestType> const gold{0, 1, 2, 3, 4, 5};
-    fk::vector<TestType> const x(gold);
-    fk::vector<TestType> fx(gold.size());
-    reduce_results(x, fx, plan, my_rank);
-    REQUIRE(fx == gold);
   }
 
   SECTION("multiple ranks")
@@ -513,15 +399,6 @@ TEST_CASE("generate messages tests", "[distribution]")
     generate_messages_test(num_ranks, table);
   }
 
-  SECTION("perfect square number of ranks, small")
-  {
-    auto const pde = make_PDE<P>("-p continuity_2 -d 2 -l 4");
-    elements::table const table(*pde);
-
-    int const num_ranks = 9;
-    generate_messages_test(num_ranks, table);
-  }
-
   SECTION("perfect square number of ranks, large")
   {
     auto const pde = make_PDE<default_precision>("-p continuity_3 -d 5 -l 5");
@@ -538,139 +415,6 @@ TEST_CASE("generate messages tests", "[distribution]")
 
     int const num_ranks = 32;
     generate_messages_test(num_ranks, table);
-  }
-}
-
-TEMPLATE_TEST_CASE("prepare inputs tests", "[distribution]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  // in this case, the source vector is simply copied into dest
-  SECTION("single rank")
-  {
-    fk::vector<TestType> const source{1, 2, 3, 4, 5};
-    fk::vector<TestType> dest(source.size());
-    distribution_plan plan;
-    plan.emplace(0, element_subgrid(0, 1, 2, 3));
-    int const segment_size = 0;
-    int const my_rank      = 0;
-    exchange_results(source, dest, segment_size, plan, my_rank);
-    REQUIRE(source == dest);
-  }
-  SECTION("multiple rank")
-  {
-#ifdef ASGARD_USE_MPI
-    int const my_rank   = distrib_test_info.get_my_rank();
-    int const num_ranks = distrib_test_info.get_num_ranks();
-    if (my_rank < num_ranks)
-    {
-      int const degree = 3;
-
-      auto const pde = make_PDE<P>("-p continuity_2 -d 3 -l 6");
-      int64_t const segment_size = fm::ipow(degree + 1, pde->num_dims());
-
-      elements::table const table(*pde);
-      if (num_ranks > table.size())
-      {
-        return;
-      }
-      // create the system vector
-      fk::vector<TestType> const fx = [&table, segment_size]() {
-        fk::vector<TestType> output(table.size() * segment_size);
-        std::iota(output.begin(), output.end(), -1e6);
-        return output;
-      }();
-
-      auto const plan = get_plan(num_ranks, table);
-      auto const grid = plan.at(my_rank);
-
-      int const input_start  = grid.row_start * segment_size;
-      int const input_end    = (grid.row_stop + 1) * segment_size - 1;
-      int const output_start = grid.col_start * segment_size;
-      int const output_end   = (grid.col_stop + 1) * segment_size - 1;
-      fk::vector<TestType> const my_input = fx.extract(input_start, input_end);
-      fk::vector<TestType> const gold = fx.extract(output_start, output_end);
-
-      fk::vector<TestType> result(gold.size());
-
-      exchange_results(my_input, result, segment_size, plan, my_rank);
-
-      REQUIRE(result == gold);
-    }
-
-#else
-    REQUIRE(true);
-#endif
-  }
-}
-
-TEMPLATE_TEST_CASE("gather results tests", "[distribution]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  SECTION("single rank")
-  {
-    fk::vector<TestType> const source{1, 2, 3, 4, 5};
-    distribution_plan plan;
-    plan.emplace(0, element_subgrid(0, 1, 2, 3));
-    int const segment_size = 0;
-    int const my_rank      = 0;
-    auto const result = gather_results(source, plan, my_rank, segment_size);
-    REQUIRE(source == fk::vector<TestType>(result));
-  }
-
-  SECTION("multiple rank")
-  {
-#ifdef ASGARD_USE_MPI
-
-    int const my_rank   = distrib_test_info.get_my_rank();
-    int const num_ranks = distrib_test_info.get_num_ranks();
-
-    if (my_rank < num_ranks)
-    {
-      int const degree = 1;
-
-      auto const pde = make_PDE<P>("-p continuity_2 -d 1 -l 2");
-      elements::table const table(*pde);
-      if (table.size() < num_ranks)
-      {
-        return;
-      }
-
-      auto const plan = get_plan(num_ranks, table);
-
-      int64_t const segment_size = fm::ipow(degree + 1, pde->num_dims());
-
-      // create the system vector
-      fk::vector<TestType> const fx = [&table, segment_size]() {
-        fk::vector<TestType> output(table.size() * segment_size);
-        std::iota(output.begin(), output.end(), -1e6);
-        return output;
-      }();
-
-      auto const grid = plan.at(my_rank);
-
-      int const my_start = grid.col_start * segment_size;
-      int const my_end   = (grid.col_stop + 1) * segment_size - 1;
-      fk::vector<TestType> const my_input = fx.extract(my_start, my_end);
-
-      std::vector<TestType> const results =
-          gather_results(my_input, plan, my_rank, segment_size);
-
-      if (my_rank == 0)
-      {
-        REQUIRE(fx == fk::vector<TestType>(results));
-      }
-    }
-#else
-    REQUIRE(true);
-#endif
   }
 }
 
@@ -960,43 +704,6 @@ TEMPLATE_TEST_CASE("messages and redistribution for adaptivity",
     std::map<int64_t, grid_limits> const changes = {{0, grid_limits(0, 8)}};
     generate_messages_remap_test(plan, new_plan, changes);
     redistribute_vector_test<TestType>(plan, new_plan, changes);
-  }
-
-  SECTION("two/four rank -- coarsen/delete from ends")
-  {
-    prog_opts opts;
-    opts.pde_choice   = PDE_opts::continuity_2;
-    opts.start_levels = {3, 4};
-
-    auto const pde = make_PDE<P>(opts);
-    elements::table table(*pde);
-
-    auto const num_ranks = 2;
-    auto const old_plan  = get_plan(num_ranks, table);
-    // delete half of the elements
-    distribution_plan const new_plan = {
-        {0, element_subgrid(0, 1, 0, table.size() / 4 - 1)},
-        {1, element_subgrid(0, 1, table.size() / 4, table.size() / 2 - 1)}};
-
-    // from the beginning and end
-    std::map<int64_t, grid_limits> const changes = {{0, grid_limits(10, 19)},
-                                                    {10, grid_limits(20, 29)}};
-
-    generate_messages_remap_test(old_plan, new_plan, changes);
-    redistribute_vector_test<TestType>(old_plan, new_plan, changes);
-
-    // ensure multiple row behavior correct
-    auto const double_num_ranks             = 4;
-    auto const double_old_plan              = get_plan(double_num_ranks, table);
-    distribution_plan const double_new_plan = {
-        {0, element_subgrid(0, 1, 0, table.size() / 4 - 1)},
-        {1, element_subgrid(0, 1, table.size() / 4, table.size() / 2 - 1)},
-        {2, element_subgrid(2, 3, 0, table.size() / 4 - 1)},
-        {3, element_subgrid(2, 3, table.size() / 4, table.size() / 2 - 1)}};
-
-    generate_messages_remap_test(double_old_plan, double_new_plan, changes);
-    redistribute_vector_test<TestType>(double_old_plan, double_new_plan,
-                                       changes);
   }
 
   SECTION("two/four rank -- intermittent coarsen/deletion")

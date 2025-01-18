@@ -107,25 +107,6 @@ void test_adapt(prog_opts const &opts, std::filesystem::path gold_base)
   REQUIRE(test_coarse == my_gold_coarse);
 }
 
-TEMPLATE_TEST_CASE("adapt - 2d, all zero", "[adapt]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  auto opts = make_opts("-p continuity_2 -d 1 -l 5 -m 8");
-
-  opts.adapt_threshold = adapt_threshold;
-  opts.anorm           = adapt_norm::linf;
-
-  // temporarily disable test for MPI due to table elements < num ranks
-  if (get_num_ranks() == 1)
-  {
-    test_adapt<default_precision>(opts, adapt_base_dir / "continuity2_l5_d2_");
-  }
-}
-
 TEMPLATE_TEST_CASE("adapt - 3d, scattered, contiguous refine/adapt", "[adapt]",
                    test_precs)
 {

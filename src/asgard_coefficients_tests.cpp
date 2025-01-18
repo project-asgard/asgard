@@ -95,29 +95,6 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", test_precs)
-{
-  auto const gold_path      = coefficients_base_dir / "continuity2_coefficients";
-  auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-  prog_opts opts;
-  opts.pde_choice = PDE_opts::continuity_2;
-
-  SECTION("level 4, degree 2")
-  {
-    opts.start_levels = {4, 4};
-    opts.degree       = 2;
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-
-  SECTION("non-uniform level: levels 4, 5, degree 2")
-  {
-    opts.start_levels = {4, 5};
-    opts.degree       = 2;
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-}
-
 TEMPLATE_TEST_CASE("continuity 3 terms", "[coefficients]", test_precs)
 {
   auto const gold_path      = coefficients_base_dir / "continuity3_coefficients";

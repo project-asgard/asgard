@@ -251,19 +251,6 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10000);
 
-  SECTION("2d - uniform level")
-  {
-    auto opts = make_opts("-p continuity_2 -d 2 -l 2");
-    test_kronmult(opts, tol_factor);
-  }
-  SECTION("2d - non-uniform level")
-  {
-    auto opts = make_opts("-p continuity_2 -d 2 -l 2");
-
-    opts.start_levels = {3, 2};
-    test_kronmult(opts, tol_factor);
-  }
-
   SECTION("6d - uniform level")
   {
     auto opts = make_opts("-p continuity_6 -d 1 -l 2");
@@ -282,20 +269,6 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 TEMPLATE_TEST_CASE("test kronmult w/ decompose", "[kronmult]", test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10000);
-
-  SECTION("2d - uniform level")
-  {
-    auto opts = make_opts("-p continuity_2 -d 1 -l 6");
-    test_kronmult(opts, tol_factor);
-  }
-
-  SECTION("2d - non-uniform level")
-  {
-    auto opts = make_opts("-p continuity_2 -d 1");
-
-    opts.start_levels = {6, 5};
-    test_kronmult(opts, tol_factor);
-  }
 
   SECTION("6d - uniform level")
   {
