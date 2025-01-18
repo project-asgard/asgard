@@ -568,6 +568,19 @@ void gemm_block_tri_lu(int const n, block_tri_matrix<P> const &A, block_tri_matr
 
 /*!
  * \internal
+ * \brief Multiply block-tri-diagonal matrices
+ *
+ * The assumption is that the matrices are upper and lower tri-diagonal but it is unclear
+ * which is which. Thus, the algorithm multiplies the matrices but ignores the entries
+ * outside of the three diagonals.
+ * \endinternal
+ */
+template<typename P>
+void gemm_block_tri(int const n, block_tri_matrix<P> const &A, block_tri_matrix<P> const &B,
+                    block_tri_matrix<P> &C);
+
+/*!
+ * \internal
  * \brief Multiply block-diagonal by block-tri-triagonal matrix
  *
  * \endinternal

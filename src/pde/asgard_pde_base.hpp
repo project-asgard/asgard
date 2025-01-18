@@ -1663,6 +1663,7 @@ public:
 
 private:
   bool check_chain() {
+    return true;
     int fluxdir = 2; // no flux direction found, two available
     for (int i : iindexof(chain_)) {
       term_1d<P> const &pt = chain_[i];

@@ -306,7 +306,9 @@ template<typename P>
 class separable_func
 {
 public:
+  //! type-tag that indicates the function does not depend on time
   struct type_tag_ignore_time{};
+  //! easy way to set the ignore time
   static constexpr type_tag_ignore_time set_ignore_time = type_tag_ignore_time{};
 
   //! set a function non-separable in time or not depending on time

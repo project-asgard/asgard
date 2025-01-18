@@ -283,10 +283,7 @@ void generate_coefficients(
                   rtri1->resize_and_zero(*rtri);
 
                 std::swap(rtri, rtri1);
-                if (pterm.flux() == flux_type::upwind)
-                  gemm_block_tri_ul(pdof, *rtri0, *rtri1, *rtri);
-                else
-                  gemm_block_tri_lu(pdof, *rtri0, *rtri1, *rtri);
+                gemm_block_tri(pdof, *rtri0, *rtri1, *rtri);
               }
               else
               {

@@ -107,6 +107,16 @@ protected:
   void build_raw_mat(int dim, term_1d<P> const &t1d, int level,
                      block_diag_matrix<P> &raw_diag,
                      block_tri_matrix<P> &raw_tri);
+
+private:
+  // workspace matrices
+  block_diag_matrix<P> raw_mass;
+
+  block_tri_matrix<P> wraw_tri;
+  block_diag_matrix<P> wraw_diag;
+
+  block_tri_matrix<P> raw_tri0, raw_tri1;
+  block_diag_matrix<P> raw_diag0, raw_diag1;
 };
 
 } // namespace asgard

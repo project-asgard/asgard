@@ -443,10 +443,6 @@ target_precompile_headers (libasgard
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_base.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_advection1.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_continuity1.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_continuity2.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_continuity3.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_continuity6.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_diffusion1.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_diffusion2.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck1_4p3.hpp>>
@@ -506,7 +502,7 @@ if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
-foreach (_asgexe continuity)
+foreach (_asgexe continuity diffusion)
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
     install(TARGETS ${_asgexe} EXPORT  "asgard-export" RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/share/asgard/pde")
@@ -574,7 +570,7 @@ if (ASGARD_BUILD_TESTS)
     asgard_coefficients
   )
 
-  foreach( _asg_pde continuity )
+  foreach( _asg_pde continuity diffusion)
       add_test (NAME asgard-pde-${_asg_pde}-test
                 COMMAND ${_asg_pde} -test
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})

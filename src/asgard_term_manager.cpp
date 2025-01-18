@@ -104,19 +104,17 @@ void term_manager<P>::rebuld_term(
     if (t1d.change() == changes_with::level and terms[tid].level[d] == level)
       continue;
 
-    static block_tri_matrix<P> raw_tri;
-    static block_diag_matrix<P> raw_diag;
-
     bool is_diag = t1d.is_mass();
     if (t1d.is_chain()) {
-      rebuld_chain(d, t1d, level, is_diag, raw_diag, raw_tri);
+      rebuld_chain(d, t1d, level, is_diag, wraw_diag, wraw_tri);
     } else {
-      build_raw_mat(d, t1d, level, raw_diag, raw_tri);
+      build_raw_mat(d, t1d, level, wraw_diag, wraw_tri);
     }
+    // the build/rebuild put the result in raw_diag or raw_tri
     if (is_diag)
-      terms[tid].coeffs[d] = hier.diag2hierarchical(raw_diag, level, conn);
+      terms[tid].coeffs[d] = hier.diag2hierarchical(wraw_diag, level, conn);
     else
-      terms[tid].coeffs[d] = hier.tri2hierarchical(raw_tri, level, conn);
+      terms[tid].coeffs[d] = hier.tri2hierarchical(wraw_tri, level, conn);
   } // move to next dimension d
 }
 
@@ -126,7 +124,7 @@ void term_manager<P>::build_raw_mat(
     block_tri_matrix<P> &raw_tri)
 {
   expect(not t1d.is_chain());
-  static block_diag_matrix<P> raw_mass;
+
   switch (t1d.optype())
   {
     case operation_type::mass:
@@ -201,10 +199,6 @@ void term_manager<P>::rebuld_chain(
     }
   }
 
-  // workspace matrices
-  static block_tri_matrix<P> raw_tri0, raw_tri1;
-  static block_diag_matrix<P> raw_diag0, raw_diag1;
-
   if (is_diag) { // a bunch of diag matrices, easy case
     // raw_tri will not be referenced, it's just passed in
     // using raw_diag to make the intermediate matrices, until the last one
@@ -273,7 +267,7 @@ void term_manager<P>::rebuld_chain(
         } else {
           // must be fill::lower, cannot be another upper or tri
           tri1->check_resize(raw_tri);
-          gemm_block_tri_ul(legendre.pdof, raw_tri, *tri0, *tri1);
+          gemm_block_tri(legendre.pdof, raw_tri, *tri0, *tri1);
           std::swap(tri0, tri1);
           current = fill::tri;
         }
@@ -287,7 +281,7 @@ void term_manager<P>::rebuld_chain(
         } else {
           // must be fill::upper, cannot be another lower or tri
           tri1->check_resize(raw_tri);
-          gemm_block_tri_lu(legendre.pdof, raw_tri, *tri0, *tri1);
+          gemm_block_tri(legendre.pdof, raw_tri, *tri0, *tri1);
           std::swap(tri0, tri1);
           current = fill::tri;
         }
@@ -318,7 +312,7 @@ void term_manager<P>::rebuld_chain(
       } else {
         // must be fill::lower, cannot be another upper or tri
         raw_tri.check_resize(*tri1);
-        gemm_block_tri_ul(legendre.pdof, *tri1, *tri0, raw_tri);
+        gemm_block_tri(legendre.pdof, *tri1, *tri0, raw_tri);
       }
       break;
     case fill::lower: // computed upper fill
@@ -328,7 +322,7 @@ void term_manager<P>::rebuld_chain(
       } else {
         // must be fill::upper, cannot be another lower or tri
         raw_tri.check_resize(*tri1);
-        gemm_block_tri_lu(legendre.pdof, *tri1, *tri0, raw_tri);
+        gemm_block_tri(legendre.pdof, *tri1, *tri0, raw_tri);
       }
       break;
     default: // computed tri matrix, the current must be diagonal

@@ -129,8 +129,6 @@ void gemm_block_tri_lu(
   expect(B.nrows() == M);
   expect(C.nrows() == M);
 
-  // std::cout << " this one\n"; // FIX THIS ALGORITHM
-
   smmat::gemm<0>(n, A.lower(0), B.diag(M - 1), C.lower(0));
   smmat::gemm<0>(n, A.lower(0), B.upper(M - 1), C.diag(0));
   smmat::gemm<1>(n, A.diag(0), B.diag(0), C.diag(0));
@@ -149,6 +147,52 @@ void gemm_block_tri_lu(
   smmat::gemm<0>(n, A.lower(M - 1), B.upper(M - 2), C.diag(M - 1));
   smmat::gemm<1>(n, A.diag(M - 1), B.diag(M - 1), C.diag(M - 1));
   smmat::gemm<0>(n, A.diag(M - 1), B.upper(M - 1), C.upper(M - 1));
+}
+
+template<typename P>
+void gemm_block_tri(int const n, block_tri_matrix<P> const &A, block_tri_matrix<P> const &B,
+                    block_tri_matrix<P> &C)
+{
+  int const M = A.nrows();
+  expect(A.nblock() == B.nblock());
+  expect(A.nblock() == C.nblock());
+  expect(A.nblock() == n * n);
+  expect(B.nrows() == M);
+  expect(C.nrows() == M);
+
+  smmat::gemm<0>(n, A.diag(0), B.lower(0), C.lower(0));
+  smmat::gemm<1>(n, A.lower(0), B.diag(M - 1), C.lower(0));
+
+  smmat::gemm<0>(n, A.lower(0), B.upper(M - 1), C.diag(0));
+  smmat::gemm<1>(n, A.diag(0), B.diag(0), C.diag(0));
+  smmat::gemm<1>(n, A.upper(0), B.lower(1), C.diag(0));
+
+  smmat::gemm<0>(n, A.diag(0), B.upper(0), C.upper(0));
+  smmat::gemm<1>(n, A.upper(0), B.diag(1), C.upper(0));
+
+#pragma omp parallel for
+  for (int64_t r = 1; r < M - 1; r++)
+  {
+    smmat::gemm<0>(n, A.diag(r), B.lower(r), C.lower(r));
+    smmat::gemm<1>(n, A.lower(r), B.diag(r - 1), C.lower(r));
+
+    smmat::gemm<0>(n, A.lower(r), B.upper(r - 1), C.diag(r));
+    smmat::gemm<1>(n, A.diag(r), B.diag(r), C.diag(r));
+    smmat::gemm<1>(n, A.upper(r), B.lower(r + 1), C.diag(r));
+
+    smmat::gemm<0>(n, A.diag(r), B.upper(r), C.upper(r));
+    smmat::gemm<1>(n, A.upper(r), B.diag(r + 1), C.upper(r));
+  }
+
+  smmat::gemm<0>(n, A.lower(M - 1), B.diag(M - 2), C.lower(M - 1));
+  smmat::gemm<1>(n, A.diag(M - 1), B.lower(M - 1), C.lower(M - 1));
+
+  smmat::gemm<0>(n, A.lower(M - 1), B.upper(M - 2), C.diag(M - 1));
+  smmat::gemm<1>(n, A.diag(M - 1), B.diag(M - 1), C.diag(M - 1));
+  smmat::gemm<1>(n, A.upper(M - 1), B.lower(0), C.diag(M - 1));
+
+  smmat::gemm<0>(n, A.diag(M - 1), B.upper(M - 1), C.upper(M - 1));
+  smmat::gemm<1>(n, A.upper(M - 1), B.diag(0), C.upper(M - 1));
 }
 
 template<typename P>
@@ -342,6 +386,9 @@ template void gemm_block_tri_ul<double>(
 template void gemm_block_tri_lu<double>(
     int const n, block_tri_matrix<double> const &A, block_tri_matrix<double> const &B,
     block_tri_matrix<double> &C);
+template void gemm_block_tri<double>(
+    int const n, block_tri_matrix<double> const &A, block_tri_matrix<double> const &B,
+    block_tri_matrix<double> &C);
 template void gemm_diag_tri<double>(
     int const n, block_diag_matrix<double> const &A, block_tri_matrix<double> const &B,
     block_tri_matrix<double> &C);
@@ -367,6 +414,9 @@ template void gemm_block_tri_ul<float>(
     int const n, block_tri_matrix<float> const &A, block_tri_matrix<float> const &B,
     block_tri_matrix<float> &C);
 template void gemm_block_tri_lu<float>(
+    int const n, block_tri_matrix<float> const &A, block_tri_matrix<float> const &B,
+    block_tri_matrix<float> &C);
+template void gemm_block_tri<float>(
     int const n, block_tri_matrix<float> const &A, block_tri_matrix<float> const &B,
     block_tri_matrix<float> &C);
 template void gemm_diag_tri<float>(
