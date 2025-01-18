@@ -504,15 +504,6 @@ TEST_CASE("generate messages tests", "[distribution]")
     return;
   }
 
-  SECTION("one rank, small problem")
-  {
-    auto const pde = make_PDE<P>("-p continuity_1 -l 2 -d 1");
-    elements::table const table(*pde);
-
-    int const num_ranks = 1;
-    generate_messages_test(num_ranks, table);
-  }
-
   SECTION("one rank, larger problem")
   {
     auto const pde = make_PDE<P>("-p continuity_3 -d 3 -l 3");
@@ -537,15 +528,6 @@ TEST_CASE("generate messages tests", "[distribution]")
     elements::table const table(*pde);
 
     int const num_ranks = 36;
-    generate_messages_test(num_ranks, table);
-  }
-
-  SECTION("even but not square, small")
-  {
-    auto const pde = make_PDE<P>("-p continuity_1 -d 4 -l 8");
-    elements::table const table(*pde);
-
-    int const num_ranks = 20;
     generate_messages_test(num_ranks, table);
   }
 

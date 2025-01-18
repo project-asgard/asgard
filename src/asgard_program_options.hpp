@@ -67,7 +67,6 @@ enum class PDE_opts
 {
   custom = 0, // user provided pde
   advection_1,
-  continuity_1,
   continuity_2,
   continuity_3,
   continuity_6,

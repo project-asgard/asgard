@@ -246,10 +246,10 @@ void test_element_deletion(PDE_opts const pde_choice,
 
 TEST_CASE("element table object", "[element_table]")
 {
-  std::vector<std::vector<int>> const test_levels{{7}, {5, 2}, {3, 2, 3}};
+  std::vector<std::vector<int>> const test_levels{{5, 2}, {3, 2, 3}};
   int const max_level = 7;
   std::vector<PDE_opts> const test_pdes{
-      PDE_opts::continuity_1, PDE_opts::continuity_2, PDE_opts::continuity_3};
+      PDE_opts::continuity_2, PDE_opts::continuity_3};
 
   std::string const gold_base       = "table_";
   std::string const gold_base_id    = "ids_";
@@ -334,34 +334,5 @@ TEST_CASE("1d mapping functions", "[element_table]")
     auto const [lev, cell] = elements::get_level_cell(id);
     REQUIRE(lev == pair[0]);
     REQUIRE(cell == pair[1]);
-  }
-}
-
-TEST_CASE("static helper - cell builder", "[element_table]")
-{
-  auto const levels = 3;
-  auto const degree = 1;
-
-  auto opts = elopts(PDE_opts::continuity_1, {levels, }, levels, false);
-  opts.degree = degree;
-
-  auto const pde = make_PDE<default_precision>(opts);
-  elements::table const t(*pde);
-
-  SECTION("cell index set builder")
-  {
-    std::vector<fk::vector<int>> const levels_set = {
-        {1}, {1, 2}, {2, 1}, {2, 3}};
-
-    std::vector<fk::matrix<int>> const gold_set = {
-        {{0}},
-        {{0, 0}, {0, 1}},
-        {{0, 0}, {1, 0}},
-        {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0, 2}, {1, 2}, {0, 3}, {1, 3}}};
-
-    for (auto i = 0; i < static_cast<int>(gold_set.size()); ++i)
-    {
-      REQUIRE(t.get_cell_index_set(levels_set[i]) == gold_set[i]);
-    }
   }
 }

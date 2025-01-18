@@ -251,12 +251,6 @@ TEMPLATE_TEST_CASE("test kronmult", "[kronmult]", test_precs)
 {
   auto constexpr tol_factor = get_tolerance<TestType>(10000);
 
-  SECTION("1d")
-  {
-    auto opts = make_opts("-p continuity_1 -d 1 -l 3");
-    test_kronmult(opts, tol_factor);
-  }
-
   SECTION("2d - uniform level")
   {
     auto opts = make_opts("-p continuity_2 -d 2 -l 2");

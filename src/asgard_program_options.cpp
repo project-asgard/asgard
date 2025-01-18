@@ -126,7 +126,6 @@ void prog_opts::print_pde_help(std::ostream &os)
 
 Option          Description
 custom          (default) user provided pde, can be omitted for the custom projects
-continuity_1    1D test case, continuity equation: df/dt + df/dx = 0
 continuity_2    2D test case, continuity equation: df/dt + df/dx + df/dy = 0"
 continuity_3    3D test case, continuity equation, df/dt + v.grad(f) = 0 where v={1,1,1}
 continuity_6    6D test case, continuity equation, df/dt + v.grad(f) = 0 where v={1,1,3,4,3,2}"
@@ -605,7 +604,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
 {
   std::map<std::string_view, PDE_opts> pdes = {
       {"custom", PDE_opts::custom},
-      {"continuity_1", PDE_opts::continuity_1},
       {"continuity_2", PDE_opts::continuity_2},
       {"continuity_3", PDE_opts::continuity_3},
       {"continuity_6", PDE_opts::continuity_6},

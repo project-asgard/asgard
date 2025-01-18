@@ -95,18 +95,6 @@ TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", test_precs)
   }
 }
 
-TEMPLATE_TEST_CASE("continuity 1 (single term)", "[coefficients]", test_precs)
-{
-  auto const gold_path  = coefficients_base_dir / "continuity1_coefficients";
-  auto constexpr tol_factor = get_tolerance<TestType>(1000);
-
-  SECTION("level 2, degree 1 (default)")
-  {
-    auto opts = make_opts("-p continuity_1 -l 2 -d 1");
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-}
-
 TEMPLATE_TEST_CASE("continuity 2 terms", "[coefficients]", test_precs)
 {
   auto const gold_path      = coefficients_base_dir / "continuity2_coefficients";
