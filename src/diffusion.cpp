@@ -20,7 +20,7 @@
  * Solves the continuity partial differential equation in arbitrary dimension \b d
  * \f[ \frac{d}{dt} f - \nabla \cdot \nabla f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution is
- * \f[ f(t, x, y) = (1 - \exp(-t)) \cos(\frac{\pi}{2} x) \cos(\frac{\pi}{2} y) \f]
+ * \f[ f(t, x, y) = (1 - \exp(-t)) (\exp(1 - x^2) - 1) \f]
  * The domain is (-1, 1) and the boundary conditions are zero-Dirichlet.
  *
  */
@@ -107,7 +107,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
       assert(fx.size() == x.size()); // this is guaranteed, do NOT resize fx
       // OpenMP and SIMD directives can be used here
       for (size_t i = 0; i < x.size(); i++)
-        fx[i] = std::cos(0.5 * PI * x[i]);
+        fx[i] = std::exp(1 - x[i] * x[i]) - 1;
     };
 
   // time functions are not called in batch
@@ -118,7 +118,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   auto ddcos_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 0.25 * PI * PI * std::cos(0.5 * PI * x[i]);
+        fx[i] = - (4 * x[i] * x[i] - 2) * std::exp(1 - x[i] * x[i]);
     };
 
   // negative exp(-t)
@@ -185,7 +185,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
     void {
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < static_cast<int64_t>(x.size()); i++)
-        fx[i] = std::cos(0.5 * PI * x[i]);
+        fx[i] = std::exp(1 - x[i] * x[i]) - 1;
     };
   auto nexp_t = [](P t) -> P { return 1 - std::exp(-t); };
 
@@ -194,11 +194,11 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
   std::vector<P> const eref = disc.project_function({exact, });
 
-  double const time_val    = nexp_t(disc.time_params().time());
+  double const xnorm    = asgard::fm::powi(2.719125363804229, num_dims);
+  double const time_val = nexp_t(disc.time_params().time());
 
   // this is the L^2 norm-squared of the exact solution
-  // the integral of cos(0.5 * PI * x)^2 is 1
-  double const enorm = time_val * time_val;
+  double const enorm = xnorm * time_val * time_val;
 
   std::vector<P> const &state = disc.current_state();
   assert(eref.size() == state.size());
@@ -281,7 +281,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde(1, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde(2, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method

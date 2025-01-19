@@ -111,4 +111,35 @@ TEST_CASE("small matrix methods", "[small mats]")
     smmat::gemm_pairt(2, a0.data(), t0.data(), a1.data(), t1.data(), C.data());
     REQUIRE(fm::rmserr(C, std::vector<double>{43, 56, -10, -7}) < 1.E-15);
   }
+  SECTION("kron_block 2")
+  {
+    std::vector<double> a = {1, 2, 3, 4};
+    std::vector<double> b = {2, 3, 4, 5};
+    std::vector<double> c = {3, 4, 5, 6};
+    std::vector<double> kron2(4 * 4, 1);
+    std::vector<double> kron3(8 * 8, 1);
+    std::vector<double> ref2 = { 2,  3,  4,  6,
+                                 4,  5,  8, 10,
+                                 6,  9,  8, 12,
+                                12, 15, 16, 20, };
+    std::vector<double> ref3 = { 6,  8,  9, 12, 12, 16,  18,  24,
+                                10, 12, 15, 18, 20, 24,  30,  36,
+                                12, 16, 15, 20, 24, 32,  30,  40,
+                                20, 24, 25, 30, 40, 48,  50,  60,
+                                18, 24, 27, 36, 24, 32,  36,  48,
+                                30, 36, 45, 54, 40, 48,  60,  72,
+                                36, 48, 45, 60, 48, 64,  60,  80,
+                                60, 72, 75, 90, 80, 96, 100, 120, };
+
+    smmat::kron_block(2, 1, 2, 2, a.data(), kron2.data());
+    smmat::kron_block(2, 2, 1, 2, b.data(), kron2.data());
+
+    REQUIRE(fm::rmserr(kron2, ref2) < 1.E-15);
+
+    smmat::kron_block(2, 1, 4, 4, a.data(), kron3.data());
+    smmat::kron_block(2, 2, 2, 4, b.data(), kron3.data());
+    smmat::kron_block(2, 4, 1, 4, c.data(), kron3.data());
+
+    REQUIRE(fm::rmserr(kron3, ref3) < 1.E-15);
+  }
 }

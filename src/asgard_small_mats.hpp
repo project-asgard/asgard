@@ -439,6 +439,25 @@ void gemm_outer_inc(int n, P const x[], P const y[], P A[]) {
   }
 }
 
+//! A is n x n, B is n^d by n^d, cycle is n^dim_id, stride is n^(d - dim_id - 1), repeat is n^(d - 1)
+template<typename P>
+void kron_block(int n, int cycle, int stride, int repeat, P const A[], P B[])
+{
+  for (int m = 0; m < cycle; m++)
+    for (int c = 0; c < n; c++) // for each column
+    {
+      for (int i = 0; i < repeat; i++)
+      {
+        ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+        for (int r = 0; r < n; r++) // for each row
+          for (int s = 0; s < stride; s++)
+            B[r * stride + s] *= A[c * n + r];
+
+        B += n * stride;
+      }
+    }
+}
+
 } // namespace asgard::smmat
 
 // put some fast-math overloads here that work with std::vector

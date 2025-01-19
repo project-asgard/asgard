@@ -1987,7 +1987,7 @@ public:
   void print_time(std::ostream &os) const {
     os << "time stepping:\n  time (t)        " << time_
        << "\n  stop-time (T)   " << stop_time_
-       << "\n  num-steps (n)   " << num_remain_
+       << "\n  num-steps (n)   " << tools::split_style(num_remain_)
        << "\n  time-step (dt)  " << dt_ << '\n';
   }
 
