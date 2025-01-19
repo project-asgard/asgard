@@ -1,51 +1,22 @@
 #pragma once
-#include "asgard_reconstruct.hpp"
-#include "asgard_boundary_conditions.hpp"
-#include "asgard_coefficients.hpp"
-#include "asgard_moment.hpp"
-#include "asgard_solver.hpp"
-#include "asgard_term_manager.hpp"
+#include "asgard_time_advance.hpp"
 
 #ifdef ASGARD_USE_HIGHFIVE
 #include "asgard_io.hpp"
 #endif
 
 /*!
+ * \internal
  * \file asgard_discretization.hpp
  * \brief Defines the container class discretization_manager
  * \author The ASGarD Team
  * \ingroup asgard_discretization
+ *
+ * \endinternal
  */
 
 namespace asgard
 {
-
-// forward declare so we can declare the fiend time-advance
-template<typename precision>
-class discretization_manager;
-
-/*!
- * \ingroup asgard_discretization
- * \brief Integrates in time until the final time or number of steps
- *
- * This method manipulates the problems internal state, applying adaptivity,
- * checkpointing and other related operations.
- * The method is decalred as a friend to simplify the implementation is external
- * to simplify the discretization_manager class, which will primarily focus on
- * data storage.
- *
- * The optional variable num_steps indicates the number of time steps to take:
- * - if zero, the method will return immediately,
- * - if negative, integration will continue until the final time step
- */
-template<typename P> // implemented in time-advance
-void advance_time(discretization_manager<P> &manager, int64_t num_steps = -1);
-
-#ifndef __ASGARD_DOXYGEN_SKIP
-// placeholder for the new api
-template<typename P> // implemented in time-advance
-void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps = -1);
-#endif
 
 /*!
  * \internal

@@ -9,6 +9,85 @@ using function_1d = std::function<void(std::vector<P> const &, std::vector<P> &)
 
 /*!
  * \internal
+ * \brief Stores a matrix in regular (non-block) column major format
+ *
+ * Stores a regular matrix and possibly the PLU factors.
+ * \endinternal
+ */
+template<typename P>
+class dense_matrix
+{
+public:
+  //! creates an empty matrix
+  dense_matrix() = default;
+  //! create a matrix with the given number of rows and columns
+  dense_matrix(int64_t rows, int64_t cols)
+      : nrows_(rows), ncols_(cols), data_(nrows_ * ncols_)
+  {}
+
+  //! number of rows
+  int64_t nrows() const { return nrows_; }
+  //! number of columns
+  int64_t ncols() const { return ncols_; }
+
+  //! returns a ref to the entry
+  P &operator() (int64_t r, int64_t c) { return data_[c * ncols_ + r]; }
+  //! returns a const-ref to the entry
+  P const &operator() (int64_t r, int64_t c) const { return data_[c * ncols_ + r]; }
+  //! returns pointer to the internal data
+  P *data() { return data_.data(); }
+  //! returns pointer to the internal data
+  P const *data() const { return data_.data(); }
+
+  //! returns pointer to the internal data at the given row-column
+  P *data(int64_t r, int64_t c) { return &data_[c * ncols_ + r]; }
+  //! returns pointer to the internal data at the given row-column
+  P const *data(int64_t r, int64_t c) const { return &data_[c * ncols_ + r]; }
+
+  //! shows if the matrix has been factorized
+  bool is_factorized() const { return (not ipiv.empty()); }
+  //! factorize the matrix using plu
+  void factorize() {
+    expect(nrows_ == ncols_);
+    ipiv.resize(nrows_);
+    int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(),nrows_,
+                                 ipiv.data());
+
+    if (info != 0)
+    {
+      std::stringstream sout;
+      if (info < 0)
+      {
+        sout << "getrf(): the " << -info << "-th parameter had an illegal value!\n";
+      }
+      else
+      {
+        sout << "getrf(): the diagonal element of the triangular factor of A,\n";
+        sout << "U(" << info << ',' << info << ") is zero, so that A is singular;\n";
+        sout << "the matrix could not be factorized.\n";
+      }
+      throw std::runtime_error(sout.str());
+    }
+  }
+
+  //! applies the inverse of the matrix to the provided vector
+  void solve(std::vector<P> &b)
+  {
+    expect(is_factorized());
+    int info = lib_dispatch::getrs('N', nrows_, 1, data_.data(), nrows_,
+                                   ipiv.data(), b.data(), nrows_);
+    expect(info == 0);
+  }
+
+private:
+  int64_t nrows_ = 0;
+  int64_t ncols_ = 0;
+  std::vector<P> data_;
+  std::vector<P> ipiv;
+};
+
+/*!
+ * \internal
  * \brief Stores a matrix in block format
  *
  * The entries of each block are stored contiguously in memory and logically
@@ -126,6 +205,7 @@ public:
     os << '\n';
   }
 
+  //! returns the l-inf max norm between the two matrices
   P max_diff(block_matrix<P> const &other) {
     expect(nrows_ == other.nrows_);
     expect(ncols_ == other.ncols_);
@@ -137,6 +217,18 @@ public:
     for (auto i : indexof(size))
       err = std::max(err, std::abs(v1[i] - v2[i]));
     return err;
+  }
+
+  //! convert the matrix to dense matrix
+  dense_matrix<P> to_dense_matrix(int const n) const
+  {
+    expect(n * n == data_.stride());
+    dense_matrix<P> mat(n * nrows_, n * ncols_);
+    for (int r = 0; r < nrows_; r++)
+      for (int c = 0; c < ncols_; c++)
+        for (int k = 0; k < n; k++)
+          std::copy_n(data_[c * nrows_ + r] + n * k , n, &mat(n * r, n * c + k));
+    return mat;
   }
 
 private:
@@ -529,6 +621,7 @@ public:
   }
   //! (testing) fill the matrix with a value
   void fill(P v) { data_.fill(v); }
+
 private:
   connect_1d::hierarchy htype_ = connect_1d::hierarchy::volume;
   vector2d<P> data_;

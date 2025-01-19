@@ -487,4 +487,15 @@ void axpy(P const alpha, std::vector<P> const &x, std::vector<P> &y)
     y[i] += alpha * x[i];
 }
 
+// y += alpha * x, parallel implementation
+template<typename P>
+void par_axpy(P const alpha, std::vector<P> const &x, std::vector<P> &y)
+{
+  expect(x.size() == y.size());
+  int64_t n = static_cast<int64_t>(x.size());
+  ASGARD_OMP_PARFOR_SIMD
+  for (int64_t i = 0; i < n; i++)
+    y[i] += alpha * x[i];
+}
+
 }

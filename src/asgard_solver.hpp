@@ -1,6 +1,7 @@
 #pragma once
 #include "asgard_batch.hpp"
 #include "asgard_kron_operators.hpp"
+#include "asgard_term_manager.hpp"
 
 namespace asgard::solver
 {
@@ -112,6 +113,40 @@ private:
   P xmin, xmax;
   int current_level;
   std::vector<P> diag, subdiag, rhs;
+};
+
+/*!
+ * \internal
+ * \brief Stores the data for a diagonal Jacobi preconditioner
+ *
+ * \endinternal
+ */
+template<typename P>
+struct diagonal_jacbi
+{
+  //! make a default, no-preconditioner
+  diagonal_jacbi() = default;
+  //! holds the inverse of the diagonal entries
+  std::vector<P> prec;
+};
+
+/*!
+ * \internal
+ * \brief Direct solver, explicitly forms the dense matrix, very expensive
+ *
+ * The dense solver is intended for testing and prototyping purposes,
+ * since it explicitly forms the dense matrix, the cost of the actual linear
+ * algebra operations is orders of magnitude more than alternatives.
+ *
+ * \endinternal
+ */
+template<typename P>
+struct direct_solver
+{
+  //! make a default, no-preconditioner
+  direct_solver() = default;
+  //! holds the factor of the dense matrix
+  dense_matrix<P> mat;
 };
 
 } // namespace asgard::solver

@@ -34,7 +34,8 @@ set(DOXYGEN_FORMULA_FONTSIZE "20")
 if (NOT DOXYGEN_INTERNAL_DOCS)
     # the \internal command works for functions and namespaces, but not classes
     # have to exclude the classes manually
-    set(DOXYGEN_EXCLUDE_SYMBOLS asgard::vecstrview asgard::split_views asgard::matrix_factor)
+    set(DOXYGEN_EXCLUDE_SYMBOLS asgard::vecstrview asgard::split_views asgard::matrix_factor
+        asgard::rungekutta3 asgard::time_advance::rungekutta3)
 
     set(DOXYGEN_PREDEFINED "__ASGARD_DOXYGEN_SKIP;__ASGARD_DOXYGEN_SKIP_INTERNAL;")
 endif()

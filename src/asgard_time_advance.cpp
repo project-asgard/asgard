@@ -1,5 +1,7 @@
 #include "asgard_time_advance.hpp"
 
+#include "asgard_small_mats.hpp"
+
 namespace asgard::time_advance
 {
 template<typename P>
@@ -547,6 +549,42 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
   }
 }
 
+template<typename P>
+void rungekutta3::next_step(
+    discretization_manager<P> const &dist, std::vector<P> const &current,
+    std::vector<P> &next) const
+{
+  tools::time_event performance_("runge kutta 3");
+
+  P const time = dist.time_params().time();
+  P const dt   = dist.time_params().dt();
+
+  k1.resize(current.size());
+  k2.resize(current.size());
+  k3.resize(current.size());
+  s1.resize(current.size());
+
+  dist.ode_rhs_v2(time, current, k1);
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    s1[i] = current[i] + 0.5 * dt * k1[i];
+
+  dist.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
+
+  dist.ode_rhs_v2(time + dt, s1, k3);
+
+  next.resize(current.size());
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
+}
+
 template<typename P> // implemented in time-advance
 void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
 {
@@ -607,11 +645,15 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template class rungekutta3<double>;
+
 template void advance_time(discretization_manager<double> &, int64_t);
 template void advance_time_v2(discretization_manager<double> &, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class rungekutta3<float>;
+
 template void advance_time(discretization_manager<float> &, int64_t);
 template void advance_time_v2(discretization_manager<float> &, int64_t);
 #endif

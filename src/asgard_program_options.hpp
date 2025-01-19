@@ -61,6 +61,16 @@ enum class solve_opts
 
 /*!
  * \ingroup asgard_common_options
+ * \brief the available preconditioners for the solvers
+ */
+enum class preconditioner_opts
+{
+  //! diagonal Jacobi preconditioner
+  diagonal = 0,
+};
+
+/*!
+ * \ingroup asgard_common_options
  * \brief list of builtin PDE specifications, refer to the specs in the src/pde folder
  */
 enum class PDE_opts
@@ -167,8 +177,10 @@ namespace time_advance
  */
 enum class method
 {
+  //! Runge Kutta 3-stage method, 4th order accuracy
+  rk3 = 0,
   //! implicit solve, backward Euler
-  imp = 0,
+  imp,
   //! (default) explicit Runge–Kutta
   exp, // explicit is reserved keyword
   //! implicit-explicit scheme for nonlinear Vlasov-Poisson problems
