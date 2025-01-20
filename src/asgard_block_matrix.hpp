@@ -83,7 +83,7 @@ private:
   int64_t nrows_ = 0;
   int64_t ncols_ = 0;
   std::vector<P> data_;
-  std::vector<P> ipiv;
+  std::vector<int> ipiv;
 };
 
 /*!
@@ -121,9 +121,9 @@ public:
   P const *operator() (int64_t i, int64_t j) const { return data_[j * nrows_ + i]; }
 
   //! returns the raw internal data
-  P *data() { return data_.data(); }
+  P *data() { return data_[0]; }
   //! returns the raw internal data, const-overload
-  P const *data() const { return data_.data(); }
+  P const *data() const { return data_[0]; }
 
   //! fill with single entry
   void fill(P v) { std::fill_n(data_[0], data_.total_size(), v); }

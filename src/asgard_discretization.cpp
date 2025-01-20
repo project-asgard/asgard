@@ -232,7 +232,7 @@ void discretization_manager<precision>::start_cold()
     }
 
     // if no method is set, defaulting to explicit time-stepping
-    time_advance::method sm = options.step_method.value_or(time_advance::method::exp);
+    time_advance::method sm = options.step_method.value_or(time_advance::method::rk3);
     if (n >= 0 and stop >= 0 and dt < 0)
       dtime = time_data<precision>(
           sm, n, typename time_data<precision>::input_stop_time{stop});
@@ -244,6 +244,8 @@ void discretization_manager<precision>::start_cold()
       dtime = time_data<precision>(sm, typename time_data<precision>::input_dt{dt}, n);
     else
       throw std::runtime_error("how did this happen?");
+
+    stepper = time_advance_manager<precision>(sm);
   }
 
   if (not stop_verbosity())
@@ -295,6 +297,8 @@ void discretization_manager<precision>::restart_from_file()
   terms.prapare_workspace(sgrid);
   // initialize the moments here, we already have the the state
   terms.build_matrices(sgrid, conn, hier);
+
+  stepper = time_advance_manager<precision>(dtime.step_method());
 
   if (not stop_verbosity()) {
     if (not options.title.empty())

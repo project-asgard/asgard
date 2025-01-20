@@ -1,6 +1,4 @@
 #pragma once
-// #include "asgard_discretization.hpp"
-
 #include "asgard_reconstruct.hpp"
 #include "asgard_boundary_conditions.hpp"
 #include "asgard_coefficients.hpp"
@@ -16,6 +14,9 @@
  *
  * \endinternal
  */
+
+namespace asgard
+{
 
 /*!
  * \internal
@@ -53,11 +54,29 @@ template<typename P> // implemented in time-advance
 void advance_time(discretization_manager<P> &manager, int64_t num_steps = -1);
 
 #ifndef __ASGARD_DOXYGEN_SKIP
+
+/*!
+ * \internal
+ * \brief holds matrix and pivot factors
+ *
+ * used to hold the matrix/factor combo for the direct implicit solvers that
+ * explicitly form the large Kronecker matrix
+ * \endinternal
+ */
+template<typename P>
+struct matrix_factor
+{
+  //! matrix or matrix factors, factorized if ipiv is not empty
+  fk::matrix<P> A;
+  //! pivots for the factorization
+  std::vector<int> ipiv;
+};
+
 // placeholder for the new api
 template<typename P> // implemented in time-advance
 void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps = -1);
 
-namespace asgard::time_advance
+namespace time_advance
 {
 #ifdef ASGARD_USE_CUDA
 static constexpr resource imex_resrc = resource::device;
@@ -68,6 +87,7 @@ static constexpr resource imex_resrc = resource::host;
 } // namespace asgard::time_advance
 
 #endif
+}
 
 /*!
  * \internal
@@ -101,7 +121,38 @@ private:
   mutable std::vector<P> k1, k2, k3, s1;
 };
 
+/*!
+ * \internal
+ * \ingroup asgard_time_advance
+ * \brief Runge Kutta 3-stage method, 4th order accuracy in step-size
+ *
+ * Simple 3-stage explicit method, stability region is 0.1.
+ * \endinternal
+ */
+template<typename P>
+struct crank_nicolson
+{
+  //! Default empty stepper
+  crank_nicolson() = default;
+  //! Performs RK3 step forward in time, uses the current and next step
+  void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
+                 std::vector<P> &next) const;
+
+  //! rebuilds the operator matrix
+  void rebuild_matrix(discretization_manager<P> const &dist) const;
+private:
+  // grid generation that constructed this grid
+  mutable int grid_gen = -1;
+  // operator matrix
+  mutable dense_matrix<P> mat;
+  // rhs vector
+  mutable std::vector<P> rhs;
+};
+
 }
+
+namespace asgard
+{
 
 /*!
  * \internal
@@ -111,12 +162,22 @@ private:
  * Simple 3-stage explicit method, stability region is 0.1.
  * \endinternal
  */
+template<typename P>
 struct time_advance_manager
 {
   //! default constructor, makes an empty manager
   time_advance_manager() = default;
+  //! creates a new time-stepping manager for the given method
+  time_advance_manager(time_advance::method set_mode);
+  //! advance to the next time-step
+  void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
+                 std::vector<P> &next) const;
 
+  //! holds the method used
   time_advance::method mode = time_advance::method::rk3;
-
-  std::variant<time_advance::rungekutta3<P>> data;
+  //! wrapper around the specific method being used
+  std::variant<time_advance::rungekutta3<P>, time_advance::crank_nicolson<P>> data;
 };
+
+}
+

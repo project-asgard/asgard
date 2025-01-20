@@ -19,23 +19,6 @@ namespace asgard
 {
 
 /*!
- * \internal
- * \brief holds matrix and pivot factors
- *
- * used to hold the matrix/factor combo for the direct implicit solvers that
- * explicitly form the large Kronecker matrix
- * \endinternal
- */
-template<typename P>
-struct matrix_factor
-{
-  //! matrix or matrix factors, factorized if ipiv is not empty
-  fk::matrix<P> A;
-  //! pivots for the factorization
-  std::vector<int> ipiv;
-};
-
-/*!
  * \ingroup asgard_discretization
  * \brief Wrapper around several aspects of the pde discretization
  *
@@ -279,6 +262,8 @@ public:
   void save_snapshot2(std::filesystem::path const &filename) const;
   sparse_grid const &get_sgrid() const { return sgrid; }
 
+  term_manager<precision> const & get_terms() const { return terms; }
+
   //! return the hierarchy_manipulator
   auto const &get_hiermanip() const { return hier; }
   //! return the fixed boundary conditions
@@ -334,6 +319,8 @@ public:
                                          int64_t num_steps);
 
   friend class h5writer<precision>;
+
+  friend struct time_advance_manager<precision>;
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 protected:
@@ -415,6 +402,8 @@ private:
 
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;
+  //! time advance manager for the different methods
+  time_advance_manager<precision> stepper;
 
   // constantly changing
   std::vector<precision> state;

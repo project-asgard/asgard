@@ -1,4 +1,4 @@
-#include "asgard_time_advance.hpp"
+#include "asgard_discretization.hpp"
 
 #include "asgard_small_mats.hpp"
 
@@ -6,7 +6,7 @@ namespace asgard::time_advance
 {
 template<typename P>
 fk::vector<P>
-rungekutta3(discretization_manager<P> const &dist, std::vector<P> const &current)
+rungekutta3_m(discretization_manager<P> const &dist, std::vector<P> const &current)
 {
   P const dt = dist.dt();
 
@@ -37,46 +37,6 @@ rungekutta3(discretization_manager<P> const &dist, std::vector<P> const &current
     r[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
 
   return r;
-}
-
-template<typename P> void
-rungekutta3(discretization_manager<P> const &dist, std::vector<P> const &current,
-            std::vector<P> &next)
-{
-  tools::time_event performance_("runge kutta 3");
-
-  P const time = dist.time_params().time();
-  P const dt   = dist.time_params().dt();
-
-  // 3 right-hand-sides and the intermediate step
-  // the assumption is that the time-stepping scheme does not change much
-  // thus it makes sense to make these static and avoid repeated allocation
-  static std::vector<P> k1, k2, k3, s1;
-
-  k1.resize(current.size());
-  k2.resize(current.size());
-  k3.resize(current.size());
-  s1.resize(current.size());
-
-  dist.ode_rhs_v2(time, current, k1);
-
-  ASGARD_OMP_PARFOR_SIMD
-  for (size_t i = 0; i < current.size(); i++)
-    s1[i] = current[i] + 0.5 * dt * k1[i];
-
-  dist.ode_rhs_v2(time + 0.5 * dt, s1, k2);
-
-  ASGARD_OMP_PARFOR_SIMD
-  for (size_t i = 0; i < current.size(); i++)
-    s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
-
-  dist.ode_rhs_v2(time + dt, s1, k3);
-
-  next.resize(current.size());
-
-  ASGARD_OMP_PARFOR_SIMD
-  for (size_t i = 0; i < current.size(); i++)
-    next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
 }
 
 // no-MPI solver yet
@@ -425,13 +385,15 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
         switch (method)
         {
         case time_advance::method::exp:
-          return time_advance::rungekutta3(manager, manager.current_state());
+          return time_advance::rungekutta3_m(manager, manager.current_state());
         case time_advance::method::imp:
           return time_advance::implicit_advance<P>(manager, manager.current_state());
         case time_advance::method::imex:
           return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                manager.current_state(), fk::vector<P>(),
                                                time);
+        default:
+          throw std::runtime_error("old time-advance called with new enum-tag");
         };
       }
 
@@ -464,14 +426,14 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
           switch (method)
           {
           case time_advance::method::exp:
-            return time_advance::rungekutta3(manager, y.to_std());
+            return time_advance::rungekutta3_m(manager, y.to_std());
           case time_advance::method::imp:
             return time_advance::implicit_advance<P>(manager, y.to_std());
           case time_advance::method::imex:
             return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                  y, y_first_refine, time);
           default:
-            return fk::vector<P>();
+            throw std::runtime_error("old time-advance called with new enum-tag");
           };
         }();
 
@@ -548,41 +510,231 @@ void advance_time(discretization_manager<P> &manager, int64_t num_steps)
       break;
   }
 }
+}
+
+namespace asgard::time_advance
+{
 
 template<typename P>
-void rungekutta3::next_step(
-    discretization_manager<P> const &dist, std::vector<P> const &current,
+void rungekutta3<P>::next_step(
+    discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
 {
   tools::time_event performance_("runge kutta 3");
 
-  P const time = dist.time_params().time();
-  P const dt   = dist.time_params().dt();
+  P const time = disc.time_params().time();
+  P const dt   = disc.time_params().dt();
 
   k1.resize(current.size());
   k2.resize(current.size());
   k3.resize(current.size());
   s1.resize(current.size());
 
-  dist.ode_rhs_v2(time, current, k1);
+  disc.ode_rhs_v2(time, current, k1);
 
   ASGARD_OMP_PARFOR_SIMD
   for (size_t i = 0; i < current.size(); i++)
     s1[i] = current[i] + 0.5 * dt * k1[i];
 
-  dist.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+  disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
 
   ASGARD_OMP_PARFOR_SIMD
   for (size_t i = 0; i < current.size(); i++)
     s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
 
-  dist.ode_rhs_v2(time + dt, s1, k3);
+  disc.ode_rhs_v2(time + dt, s1, k3);
 
   next.resize(current.size());
 
   ASGARD_OMP_PARFOR_SIMD
   for (size_t i = 0; i < current.size(); i++)
     next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
+}
+
+template<typename P>
+void crank_nicolson<P>::next_step(
+    discretization_manager<P> const &disc, std::vector<P> const &current,
+    std::vector<P> &next) const
+{
+  tools::time_event performance_("crank-nicolson");
+
+  P const time = disc.time_params().time();
+  P const dt   = disc.time_params().dt();
+
+  if (grid_gen != disc.get_sgrid().generation())
+    rebuild_matrix(disc);
+
+  next.resize(current.size());
+
+  disc.ode_rhs_v2(time + 0.5 * dt, current, next);
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    next[i] = current[i] + 0.5 * dt * next[i];
+
+  expect(mat.is_factorized());
+
+  mat.solve(next);
+}
+
+template<typename P>
+void crank_nicolson<P>::rebuild_matrix(discretization_manager<P> const &disc) const
+{
+  term_manager<P> const &terms = disc.get_terms();
+  sparse_grid const &grid      = disc.get_sgrid();
+
+  int const num_dims    = grid.num_dims();
+  int const num_indexes = grid.num_indexes();
+  int const pdof        = terms.legendre.pdof;
+
+  int const n = fm::ipow(pdof, num_dims);
+
+  block_matrix<P> bmat(n * n, num_indexes, num_indexes);
+  block_matrix<P> wmat(n * n, num_indexes, num_indexes);
+
+  std::array<block_matrix<P>, max_num_dimensions> ids; // identity coefficients
+  for (int d : iindexof(num_dims)) {
+    int const size = fm::ipow2(grid.current_level(d));
+    ids[d] = block_matrix<P>(pdof * pdof, size, size);
+    for (int i = 0; i < size; i++) {
+      for (int j = 0; j < pdof; j++)
+        ids[d](i, i)[j * pdof + j] = 1;
+    }
+  }
+
+  using wmat_type = std::array<block_matrix<P> const *, max_num_dimensions>;
+  wmat_type wcoeffs; // work coefficients
+
+  std::array<block_matrix<P>, max_num_dimensions> temp_mats;
+
+  auto kron_mats = [&](wmat_type const &wcoeffs, block_matrix<P> &mat)
+      -> void
+    {
+#pragma omp parallel for
+      for (int c = 0; c < num_indexes; c++) {
+        for (int r = 0; r < num_indexes; r++) {
+          int const *ic = grid[c];
+          int const *ir = grid[r];
+
+          if (num_dims == 1) {
+            std::copy_n((*wcoeffs[0])(r, c), n * n, mat(r, c));
+          } else {
+            int cyc    = 1;
+            int stride = fm::ipow(pdof, num_dims - 1);
+            int repeat = stride;
+            for (int d : iindexof(num_dims)) {
+              smmat::kron_block(pdof, cyc, stride, repeat, (*wcoeffs[0])(ir[d], ic[d]), mat(r, c));
+              stride /= pdof;
+              cyc   *= pdof;
+            }
+          }
+        }
+      }
+    };
+
+  auto it = terms.terms.begin();
+  while (it < terms.terms.end())
+  {
+    if (it->num_chain == 1) {
+      for (int d : iindexof(num_dims)) {
+        if (it->coeffs[d].nblock() > 0) {
+          temp_mats[d] = it->coeffs[d].to_full(disc.get_conn());
+          wcoeffs[d] = &temp_mats[d];
+        } else {
+          wcoeffs[d] = &ids[d];
+        }
+      }
+      std::fill_n(wmat.data(), n * n * num_indexes * num_indexes, 1);
+
+      kron_mats(wcoeffs, wmat);
+
+      int64_t const size = n * n * num_indexes * num_indexes;
+      P *mat_data        = bmat.data();
+      P const *wmat_data = wmat.data();
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < size; i++)
+        mat_data[i] += wmat_data[i];
+
+      ++it;
+    } else {
+      // dealing with a chain
+      throw std::runtime_error("not implemented for chains (yet)");
+      // int const num_chain = it->num_chain;
+
+      // kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+      // for (int i = num_chain - 2; i > 0; --i) {
+        // kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
+        //std::swap(t1, t2);
+      // }
+      //kron_term(grid, conns, *it, alpha, t1, b, y);
+
+      it += it->num_chain;
+    }
+  }
+
+  P const dt = disc.time_params().dt();
+
+  grid_gen = grid.generation();
+  mat      = bmat.to_dense_matrix(n);
+
+  int64_t const size = n * num_indexes;
+  P *data = mat.data();
+
+#pragma omp parallel for
+  for (int64_t c = 0; c < size - 1; c++) {
+    P *dd = data + c * (size + 1);
+    dd[0] = P{1} + dt * dd[0];
+    dd += 1;
+    ASGARD_OMP_SIMD
+    for (int64_t i = 0; i < size; i++) {
+      dd[i] *= dt;
+    }
+  }
+  mat(size, size) *= dt;
+
+  mat.factorize();
+}
+
+}
+
+namespace asgard
+{
+
+template<typename P>
+time_advance_manager<P>::time_advance_manager(time_advance::method set_mode)
+  : mode(set_mode)
+{
+  expect(static_cast<int>(mode) <= 1 ); // the new modes that have been implemented
+
+  switch (mode)
+  {
+    case time_advance::method::rk3:
+      data = time_advance::rungekutta3<P>();
+      break;
+    case time_advance::method::cn:
+      data = time_advance::crank_nicolson<P>();
+      break;
+    default:
+      throw std::runtime_error("unimplemented time-advance option");
+  }
+}
+
+template<typename P>
+void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
+                                        std::vector<P> const &current,
+                                        std::vector<P> &next) const
+{
+  switch (mode)
+  {
+    case time_advance::method::rk3:
+      std::get<time_advance::rungekutta3<P>>(data).next_step(dist, current, next);
+      break;
+    case time_advance::method::cn:
+      std::get<time_advance::crank_nicolson<P>>(data).next_step(dist, current, next);
+      break;
+    default:
+      throw std::runtime_error("unimplemented time-advance option");
+  }
 }
 
 template<typename P> // implemented in time-advance
@@ -594,6 +746,8 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
   // is num_steps is negative, run to the end of num_remain()
   // otherwise, run num_steps but no more than num_remain()
   time_data<P> &params = manager.dtime;
+
+  time_advance_manager<P> const &stepper = manager.stepper;
 
   if (num_steps > 0)
     num_steps = std::min(params.num_remain(), num_steps);
@@ -609,15 +763,7 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
   std::vector<P> next;
   while (--num_steps >= 0)
   {
-    switch (params.method())
-    {
-      case time_advance::method::exp:
-        time_advance::rungekutta3(manager, manager.state, next);
-        break;
-      default:
-        throw std::runtime_error("not implemented for pde-v2 (coming soon)");
-        break;
-    }
+    stepper.next_step(manager, manager.state, next);
 
     if (tol > 0) {
       int const gen = grid.generation();
@@ -645,14 +791,18 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template class rungekutta3<double>;
+template struct time_advance::rungekutta3<double>;
+template struct time_advance::crank_nicolson<double>;
+template struct time_advance_manager<double>;
 
 template void advance_time(discretization_manager<double> &, int64_t);
 template void advance_time_v2(discretization_manager<double> &, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template class rungekutta3<float>;
+template struct time_advance::rungekutta3<float>;
+template struct time_advance::crank_nicolson<float>;
+template struct time_advance_manager<float>;
 
 template void advance_time(discretization_manager<float> &, int64_t);
 template void advance_time_v2(discretization_manager<float> &, int64_t);

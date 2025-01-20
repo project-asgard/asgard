@@ -76,9 +76,11 @@ Options          Short   Value      Description
                                     to override adaptivity set in an input file or restart file.
 
 <<< time stepping options >>>
--step-method     -s      string     accepts: expl/impl/imex
+-step-method     -s      string     accepts (v1): expl/impl/imex
+                                    accepts (v2): rk3/cn
                                     indicates explicit (rk3), explicit (backward-Euler) or
-                                    imex (implicit-explicit) time-stepping scheme.
+                                    imex (implicit-explicit) time-stepping scheme
+                                    implicit crank-nicolson (cn)
 -time            -t      double     accepts: positive number (zero for no stepping)
                                     Final time for integration (v2 pdes only)
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
@@ -329,7 +331,11 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
-      if (*selected == "expl")
+      if (*selected == "rk3")
+        step_method = time_advance::method::rk3;
+      else if (*selected == "cn")
+        step_method = time_advance::method::cn;
+      else if (*selected == "expl")
         step_method = time_advance::method::exp;
       else if (*selected == "impl")
         step_method = time_advance::method::imp;
@@ -761,6 +767,12 @@ void prog_opts::print_options(std::ostream &os) const
   if (step_method)
     switch (step_method.value())
     {
+    case time_advance::method::rk3:
+      os << "  method: RK3\n";
+      break;
+    case time_advance::method::cn:
+      os << "  method: Crank-Nicolson\n";
+      break;
     case time_advance::method::imex:
       os << "  method: IMEX\n";
       break;

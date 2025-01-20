@@ -1961,7 +1961,7 @@ public:
   }
 
   //! return the time-advance method
-  time_advance::method method() const { return smethod_; }
+  time_advance::method step_method() const { return smethod_; }
 
   //! returns the time-step
   P dt() const { return dt_; }

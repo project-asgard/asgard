@@ -179,6 +179,8 @@ enum class method
 {
   //! Runge Kutta 3-stage method, 4th order accuracy
   rk3 = 0,
+  //! Implicit Crank-Nicolson, second order
+  cn,
   //! implicit solve, backward Euler
   imp,
   //! (default) explicit Runge–Kutta

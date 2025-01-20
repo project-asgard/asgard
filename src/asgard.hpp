@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_time_advance.hpp"
+#include "asgard_discretization.hpp"
 
 /*!
  * \file asgard.hpp
