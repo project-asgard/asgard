@@ -55,8 +55,10 @@ struct current_test{
     asgard_test_name += (adapt) ? "  adapt" : "  no-adapt";
     asgard_test_pass = true;
   }
-  current_test(std::string const &name, int num_dims) {
+  current_test(std::string const &name, int num_dims, std::string const &extra = std::string()) {
     asgard_test_name = std::to_string(num_dims) + "D  '" + name + "'";
+    if (not extra.empty())
+      asgard_test_name += " (" + extra + ")";
     asgard_test_pass = true;
   }
   ~current_test(){

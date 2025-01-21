@@ -308,7 +308,7 @@ void neg_transp_swap(int const &n, P A[], P B[])
 
 //! C += (dir) A B, dir must be +1/0/-1
 template<int dir = 0, typename P>
-void gemm(int const &n, P const A[], P const B[], P C[])
+void gemm(int const n, P const A[], P const B[], P C[])
 {
   static_assert(dir == 1 or dir == 0 or dir == -1);
   if constexpr (dir == 0)

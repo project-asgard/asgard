@@ -43,6 +43,13 @@
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
+ * \tparam chain1d the chain of div-grad operators can be done with either a chain of
+ *         1d or md terms, where the 1d chain allows the use of simpler data-structures
+ *         that yield better performance, but is restricted to problems where the
+ *         product of 1d matrices results in tri-diagonal matrix.
+ *         In this case here, chain1d will change the way the terms are chained but will
+ *         have no effect on the final result.
+ *
  * \param num_dims is the number of dimensions, currently between 1 and 6
  * \param options is the set of options
  *
@@ -51,7 +58,7 @@
  *
  * \snippet diffusion.cpp diffusion_md make
  */
-template<typename P = asgard::default_precision>
+template<typename P = asgard::default_precision, bool chain1d = true>
 asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [diffusion_md make]
@@ -97,16 +104,39 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
                                               asgard::boundary_type::dirichlet,
                                               P{-1});
 
-  // the second order operator is a chain of operators
-  asgard::term_1d<P> diffusion({div, grad});
-
-  // the multi-dimensional Laplacian, initially set to identity in md
-  std::vector<asgard::term_1d<P>> ops(num_dims);
-  for (int d = 0; d < num_dims; d++)
+  if constexpr (chain1d)
   {
-    ops[d] = diffusion; // using operator in the d-direction
-    pde += asgard::term_md<P>(ops);
-    ops[d] = asgard::term_identity{}; // reset back to identity
+    // the second order operator is a chain of operators
+    asgard::term_1d<P> diffusion({div, grad});
+
+    // the multi-dimensional Laplacian, initially set to identity in md
+    std::vector<asgard::term_1d<P>> ops(num_dims);
+    for (int d = 0; d < num_dims; d++)
+    {
+      ops[d] = diffusion; // using operator in the d-direction
+      pde += asgard::term_md<P>(ops);
+      ops[d] = asgard::term_identity{}; // reset back to identity
+    }
+  }
+  else
+  {
+    // workspace with only identity operators
+    std::vector<asgard::term_1d<P>> ops(num_dims);
+    for (int d = 0; d < num_dims; d++)
+    {
+      // creating multi-dimensional div-operator (for dimension d)
+      ops[d] = div;
+      asgard::term_md<P> div_md(ops);
+
+      // creating multi-dimensional grad-operator (for dimension d)
+      ops[d] = grad;
+      asgard::term_md<P> grad_md(ops);
+
+      // adding a multidimensional chain operator term
+      pde += asgard::term_md<P>({div_md, grad_md});
+
+      ops[d] = asgard::term_identity{}; // reset the workspace back to identity
+    }
   }
 
   // defining the separable known solution
@@ -290,7 +320,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde(2, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde<P, false>(2, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method
@@ -329,13 +359,13 @@ int main(int argc, char** argv)
 // normally, should only include what is needed
 using namespace asgard;
 
-template<typename P = double>
+template<typename P = double, bool chain1d = true>
 void dotest(double tol, int num_dims, std::string const &opts) {
-  current_test<P> test_(opts, num_dims);
+  current_test<P> test_(opts, num_dims, (chain1d) ? "" : "chain term_md");
 
   auto options = make_opts(opts);
 
-  discretization_manager<P> disc(make_diffusion_pde<P>(num_dims, options),
+  discretization_manager<P> disc(make_diffusion_pde<P, chain1d>(num_dims, options),
                                  verbosity_level::quiet);
 
   while (disc.time_params().num_remain() > 0)
@@ -343,7 +373,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
     advance_time(disc, 1);
 
     double const err = get_error_l2(disc);
-    std::cout << " err = " << err << "\n";
+    // std::cout << " err = " << err << "\n";
 
     tcheckless(disc.time_params().step(), err, tol);
   }
@@ -361,7 +391,7 @@ void longtest(double tol, int num_dims, std::string const &opts) {
   advance_time(disc);
 
   double const err = get_error_l2(disc);
-   std::cout << " err = " << err << "\n";
+  // std::cout << " err = " << err << "\n";
   tcheckless(disc.time_params().step(), err, tol);
 }
 
@@ -377,6 +407,10 @@ void self_test() {
   dotest(1.E-3, 1, "-l 4 -n 20");
   dotest(1.E-4, 1, "-l 5 -n 20");
   dotest(5.E-5, 1, "-l 6 -n 20");
+
+  dotest<double, false>(1.E-3, 1, "-l 4 -n 20"); // check chaining
+  dotest<double, false>(1.E-4, 1, "-l 5 -n 20");
+  dotest<double, false>(5.E-5, 1, "-l 6 -n 20");
 
   dotest(1.E-1, 1, "-l 5 -d 0 -n 20");
   dotest(5.E-3, 1, "-l 5 -d 1 -n 20");

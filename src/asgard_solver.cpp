@@ -624,14 +624,7 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     }
   }
 
-  // std::cout << "  -------------------------------------  \n";
-  // bmat.print(std::cout);
-  // std::cout << "  -------------------------------------  \n";
-
   mat = bmat.to_dense_matrix(n);
-
-  std::cout << std::scientific;
-  std::cout.precision(8);
 
   int64_t const size = n * num_indexes;
 

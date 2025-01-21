@@ -55,14 +55,19 @@ term_manager<P>::term_manager(PDEv2<P> &pde)
   {
     if (pde_terms[i].is_chain()) {
       int const num_chain = pde_terms[i].num_chain();
-      auto ic = ir + num_chain - 1;
-      for (int j : iindexof(pde_terms[i].num_chain())) {
-        ic->tmd = std::move(pde_terms[i].chain_[num_chain - j - 1]);
-        ic->set_perms();
-        --ic;
-      }
+
+      // this indicates that t1 and/or t2 workspaces are needed
+      if (num_chain >= 2 and t1.empty())
+        t1.resize(1);
+      if (num_chain >= 3 and t2.empty())
+        t2.resize(1);
+
       ir->num_chain = num_chain;
-      ir += num_chain;
+      for (int c : iindexof(num_chain)) {
+        ir->tmd = std::move(pde_terms[i].chain_[c]);
+        ir->set_perms();
+        ++ir;
+      }
     } else {
       ir->tmd = std::move(pde_terms[i]);
       ir->set_perms();
@@ -186,11 +191,6 @@ void term_manager<P>::rebuld_chain(
   int const num_chain = t1d.num_chain();
   expect(num_chain > 1);
 
-  if (num_chain >= 2 and t1.empty())
-    t1.resize(1);
-  if (num_chain >= 3 and t2.empty())
-    t2.resize(1);
-
   is_diag = true;
   for (int i : iindexof(num_chain)) {
     if (not t1d[i].is_mass()) {
@@ -227,17 +227,14 @@ void term_manager<P>::rebuld_chain(
   block_tri_matrix<P> *tri1 = &raw_tri1;
 
   enum class fill {
-    diag, upper, lower, tri
+    diag, tri
   };
-  auto get_fill = [](term_1d<P> const &t)
-      -> fill {
-      if (t.is_mass()) return fill::diag;
-      if (t.is_penalty() or t.flux() == flux_type::central)
-        return fill::tri;
-      return (t.flux() == flux_type::upwind) ? fill::upper : fill::lower;
-    };
 
-  fill current = get_fill(t1d[num_chain - 1]);
+  // here we start with either a diagonal or tri-diagonal matrix
+  // and at each stage we multiply by diag/tri-matrix
+  // if we start with a diagonal, we will switch to tri at some point
+
+  fill current = (t1d.is_mass()) ? fill::diag : fill::tri;
   build_raw_mat(d, t1d[num_chain - 1], level, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
@@ -245,90 +242,47 @@ void term_manager<P>::rebuld_chain(
     build_raw_mat(d, t1d[i], level, raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
-    switch (get_fill(t1d[i])) // computed fill
-    {
-      case fill::diag: // computed a diagonal fill
-        if (current == fill::diag){ // diag-to-diag
-          diag1->check_resize(raw_diag);
-          gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
-          std::swap(diag0, diag1);
-        } else { // the form of the tri-matrix does not matter
-          tri1->check_resize(raw_diag);
-          gemm_diag_tri(legendre.pdof, raw_diag, *tri0, *tri1);
-          std::swap(tri0, tri1);
-        }
-        break;
-      case fill::upper: // computed upper fill
-        if (current == fill::diag) {
-          tri1->check_resize(raw_tri);
-          gemm_tri_diag(legendre.pdof, raw_tri, *diag0, *tri1);
-          std::swap(tri0, tri1);
-          current = fill::upper;
-        } else {
-          // must be fill::lower, cannot be another upper or tri
-          tri1->check_resize(raw_tri);
-          gemm_block_tri(legendre.pdof, raw_tri, *tri0, *tri1);
-          std::swap(tri0, tri1);
-          current = fill::tri;
-        }
-        break;
-      case fill::lower: // computed upper fill
-        if (current == fill::diag ) {
-          tri1->check_resize(raw_tri);
-          gemm_tri_diag(legendre.pdof, raw_tri, *diag0, *tri1);
-          std::swap(tri0, tri1);
-          current = fill::lower;
-        } else {
-          // must be fill::upper, cannot be another lower or tri
-          tri1->check_resize(raw_tri);
-          gemm_block_tri(legendre.pdof, raw_tri, *tri0, *tri1);
-          std::swap(tri0, tri1);
-          current = fill::tri;
-        }
-        break;
-      default: // computed tri matrix, the current must be diagonal
+    if (t1d.is_mass()) { // computed a diagonal fill
+      if (current == fill::diag) { // diag-to-diag
+        diag1->check_resize(raw_diag);
+        gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
+        std::swap(diag0, diag1);
+      } else { // multiplying diag by tri-diag
+        tri1->check_resize(raw_diag);
+        gemm_diag_tri(legendre.pdof, raw_diag, *tri0, *tri1);
+        std::swap(tri0, tri1);
+      }
+    } else { // computed tri matrix (upper or lower diagonal)
+      if (current == fill::diag ) { // tri times diag
         tri1->check_resize(raw_tri);
         gemm_tri_diag(legendre.pdof, raw_tri, *diag0, *tri1);
         std::swap(tri0, tri1);
         current = fill::tri;
-        break;
+      } else {
+        tri1->check_resize(raw_tri);
+        gemm_block_tri(legendre.pdof, raw_tri, *tri0, *tri1);
+        std::swap(tri0, tri1);
+        current = fill::tri;
+      }
     }
   }
 
   // last term, compute in diag1/tri1 and multiply into raw_tri
   build_raw_mat(d, t1d[0], level, *diag1, *tri1);
 
-  switch (get_fill(t1d[0])) // computed fill
-  {
-    case fill::diag: // computed a diagonal fill
-      // the rest must be a tri-diagonal matrix already
-      raw_tri.check_resize(*tri0);
-      gemm_diag_tri(legendre.pdof, *diag1, *tri0, raw_tri);
-      break;
-    case fill::upper: // computed upper fill
-      if (current == fill::diag) {
-        raw_tri.check_resize(*tri1);
-        gemm_tri_diag(legendre.pdof, *tri1, *diag0, raw_tri);
-      } else {
-        // must be fill::lower, cannot be another upper or tri
-        raw_tri.check_resize(*tri1);
-        gemm_block_tri(legendre.pdof, *tri1, *tri0, raw_tri);
-      }
-      break;
-    case fill::lower: // computed upper fill
-      if (current == fill::diag ) {
-        raw_tri.check_resize(*tri1);
-        gemm_tri_diag(legendre.pdof, *tri1, *diag0, raw_tri);
-      } else {
-        // must be fill::upper, cannot be another lower or tri
-        raw_tri.check_resize(*tri1);
-        gemm_block_tri(legendre.pdof, *tri1, *tri0, raw_tri);
-      }
-      break;
-    default: // computed tri matrix, the current must be diagonal
+  if (t1d[0].is_mass()) {
+    // the rest must be a tri-diagonal matrix already
+    // otherwise the whole chain would consist of only diagonal ones
+    raw_tri.check_resize(*tri0);
+    gemm_diag_tri(legendre.pdof, *diag1, *tri0, raw_tri);
+  } else {
+    if (current == fill::diag) {
       raw_tri.check_resize(*tri1);
       gemm_tri_diag(legendre.pdof, *tri1, *diag0, raw_tri);
-      break;
+    } else {
+      raw_tri.check_resize(*tri1);
+      gemm_block_tri(legendre.pdof, *tri1, *tri0, raw_tri);
+    }
   }
 }
 

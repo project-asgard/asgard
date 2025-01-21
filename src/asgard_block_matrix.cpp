@@ -52,7 +52,7 @@ void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, bloc
   expect(B.nblock() == n * n);
   expect(C.nblock() == n * n);
 
-#pragma omp parallel
+#pragma omp parallel for
   for (int c = 0; c < N; c++) {
     for (int r = 0; r < M; r++) {
       for (int k = 0; k < K; k++)
