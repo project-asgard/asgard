@@ -158,4 +158,24 @@ TEST_CASE("small matrix methods", "[small mats]")
     smmat::getrf(1, A.data());
     REQUIRE(A[0] == 3);
   }
+  SECTION("LU apply L and U")
+  {
+    std::vector<double> A = {4, 1, 1, 1, 5, 0, 0, 2, 7};
+    std::vector<double> B = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    smmat::getrf(3, A.data());
+    smmat::getrs_l(3, A.data(), B.data());
+    std::vector<double> R = {
+        1, 1.75, 2.842105263157895e+00,
+        4, 4.00, 5.210526315789473e+00,
+        7, 6.25, 7.578947368421053e+00,};
+    REQUIRE(fm::rmserr(B, R) < 1.E-15);
+
+    B = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    smmat::getrs_u(3, A.data(), B.data());
+
+    R = {2.500000000000000e-01, 5.000000000000000e-01, 7.500000000000000e-01,
+         7.894736842105263e-01, 9.473684210526315e-01, 1.105263157894737e+00,
+         7.629629629629628e-01, 8.592592592592592e-01, 9.555555555555555e-01,};
+    REQUIRE(fm::rmserr(B, R) < 1.E-15);
+  }
 }

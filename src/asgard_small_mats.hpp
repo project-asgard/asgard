@@ -286,6 +286,28 @@ void getrf(int const n, P A[]) {
     }
   }
 }
+//! apply the L^{-1} block of getrf() on a block B
+template<typename P>
+void getrs_l(int const n, P const L[], P B[]) {
+  for (int i = 0; i < n; i++) {
+    ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+    for (int k = 0; k < n; k++)
+      for (int r = i + 1; r < n; r++)
+        B[k * n + r] -= L[i * n + r] * B[k * n + i];
+  }
+}
+//! apply the U^{-1} block of getrf() on a block B, i.e., B * U^{-1}
+template<typename P>
+void getrs_u(int const n, P const U[], P B[]) {
+  for (int i = 0; i < n; i++) {
+    // ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+    for (int k = 0; k < n; k++) {
+      B[i * n + k] /= U[i * n + i];
+      for (int r = i + 1; r < n; r++)
+        B[r * n + k] -= U[r * n + i] * B[i * n + k];
+    }
+  }
+}
 
 //! C += (dir) A^T B, dir must be +/-1, C is nrc by nrc
 template<int dir = +1, typename P>
