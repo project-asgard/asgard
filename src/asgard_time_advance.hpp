@@ -126,9 +126,9 @@ private:
 /*!
  * \internal
  * \ingroup asgard_time_advance
- * \brief Runge Kutta 3-stage method, 4th order accuracy in step-size
+ * \brief Crank-Nicolson 1-stage method, 2th order accuracy in step-size
  *
- * Simple 3-stage explicit method, stability region is 0.1.
+ * Simple 1-stage implicit method, unconditional stability.
  * \endinternal
  */
 template<typename P>
@@ -146,12 +146,6 @@ struct crank_nicolson
   static bool constexpr needs_solver = true;
 
 private:
-  // grid generation that constructed this grid
-  mutable int grid_gen = -1;
-  // operator matrix
-  // mutable dense_matrix<P> mat;
-  // rhs vector
-  mutable std::vector<P> rhs;
   // the solver used
   mutable solver_manager<P> solver;
 };

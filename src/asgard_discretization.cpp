@@ -99,6 +99,7 @@ discretization_manager<precision>::discretization_manager(
   }
 
   this->compute_coefficients();
+  matrices.term_coeffs[0].to_full(conn).print(std::cout);
 
   auto const msg = grid.get_subgrid(get_rank());
   fixed_bc = boundary_conditions::make_unscaled_bc_parts(

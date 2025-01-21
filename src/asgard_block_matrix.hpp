@@ -55,6 +55,15 @@ public:
   //! applies the inverse of the matrix to the provided vector
   void solve(std::vector<P> &b) const;
 
+  //! (testing) writes the the matric to the scream
+  void print(std::ostream &os = std::cout) {
+    for (int64_t r = 0; r < nrows_; r++) {
+      for (int64_t c = 0; c < nrows_; c++)
+        os << std::setw(16) << data_[c * nrows_ + r];
+      os << '\n';
+    }
+  }
+
 private:
   int64_t nrows_ = 0;
   int64_t ncols_ = 0;

@@ -11,6 +11,8 @@ void dense_matrix<P>::factorize() {
   int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(), nrows_,
                                  ipiv.data());
 
+  std::cout << " facotrization: " << info << "\n";
+
   if (info != 0)
   {
     std::stringstream sout;

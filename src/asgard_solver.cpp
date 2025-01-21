@@ -574,7 +574,7 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     {
       for (int d : iindexof(num_dims)) {
         if (te.coeffs[d].nblock() > 0) {
-          te.coeffs[d].to_full(conn).print(std::cout);
+          //te.coeffs[d].to_full(conn).print(std::cout);
           temp_mats[d] = te.coeffs[d].to_full(conn);
           wcoeffs[d]   = &temp_mats[d];
         } else {
@@ -628,8 +628,13 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
   // bmat.print(std::cout);
   // std::cout << "  -------------------------------------  \n";
 
-  grid_gen_ = grid.generation();
-  mat       = bmat.to_dense_matrix(n);
+  mat = bmat.to_dense_matrix(n);
+
+  std::cout << std::scientific;
+  std::cout.precision(8);
+
+  std::cout << "\n  raw mat\n";
+  mat.print();
 
   int64_t const size = n * num_indexes;
 
@@ -651,7 +656,14 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
       dd[i] *= alpha;
     }
   }
+
+  std::cout << mat.nrows() << "  " << mat.ncols() << "  size = " << size << "\n";
+
   mat(size - 1, size - 1) = P{1} + alpha * mat(size - 1, size - 1);
+  // mat(size - 1, size - 1) *= 5 * alpha;
+
+  //std::cout << "\n  I - alpha * mat\n";
+  //mat.print();
 
   // for (int r = 0; r < size; r++) {
   //   for (int c = 0; c < size; c++)
@@ -662,6 +674,9 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
   // std::cout << "-------------------------------\n";
 
   mat.factorize();
+
+  // std::cout << "\n  factorized\n";
+  // mat.print();
 
   // for (int r = 0; r < size; r++) {
   //   for (int c = 0; c < size; c++)

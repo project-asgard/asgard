@@ -561,13 +561,15 @@ void crank_nicolson<P>::next_step(
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
-  if (solver.opt == solve_opts::direct and grid_gen != disc.get_sgrid().generation())
+  if (solver.opt == solve_opts::direct and solver.grid_gen != disc.get_sgrid().generation())
     rebuild_matrix(disc);
 
   next = current; // copy
 
   disc.terms_apply_all(-0.5 * dt, current, 1, next);
-  disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
+  //disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
+  disc.add_ode_rhs_sources(time,      0.5 * dt, next);
+  disc.add_ode_rhs_sources(time + dt, 0.5 * dt, next);
 
   //disc.terms_apply_all(-dt, current, 1, next);
   //disc.add_ode_rhs_sources(time, dt, next);
@@ -586,12 +588,10 @@ void crank_nicolson<P>::rebuild_matrix(discretization_manager<P> const &disc) co
   P const alpha = 0.5 * disc.time_params().dt();
   // P const alpha = disc.time_params().dt();
 
-  std::cout << "rebuilding mat: " << alpha << "\n";
-
   solver.var = solvers::direct<P>(disc.get_sgrid(), disc.get_conn(),
                                   disc.get_terms(), alpha);
 
-  grid_gen = disc.get_sgrid().generation();
+  solver.grid_gen = disc.get_sgrid().generation();
 
   return;
 

@@ -103,7 +103,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   }
 
   // defining the separable known solution
-  auto cos_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto exp_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       // given values in x, must populate fx with the corresponding values
       assert(fx.size() == x.size()); // this is guaranteed, do NOT resize fx
@@ -117,7 +117,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   auto nexp_t = [](P t) -> P { return 1 - std::exp(-t); };
 
   // the derivatives, d/dx sin(x) = cos(x) and d/dx cos(t) = -sin(t)
-  auto ddcos_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto ddexp_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = - (4 * x[i] * x[i] - 2) * std::exp(1 - x[i] * x[i]);
@@ -127,22 +127,22 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   auto exp_t = [](P t) -> P { return std::exp(-t); };
 
   // multidimensional product of functions, initializing to just cos(x)
-  std::vector<asgard::svector_func1d<P>> cos_md(num_dims, cos_1d);
+  std::vector<asgard::svector_func1d<P>> exp_md(num_dims, exp_1d);
 
   // this is the exact solution
-  asgard::separable_func<P> exact(cos_md, nexp_t);
+  asgard::separable_func<P> exact(exp_md, nexp_t);
 
   // no-initial condition implies zero as the initial condition
 
   // setting up the sources
-  pde.add_source({cos_md, exp_t}); // derivative in time
+  pde.add_source({exp_md, exp_t}); // derivative in time
 
   // compute the spacial derivatives
   for (int d = 0; d < num_dims; d++)
   {
-    cos_md[d] = ddcos_1d; // set derivative in x for direction d
-    pde.add_source({cos_md, nexp_t});
-    cos_md[d] = cos_1d; // revert to the original value
+    exp_md[d] = ddexp_1d; // set derivative in x for direction d
+    pde.add_source({exp_md, nexp_t});
+    exp_md[d] = exp_1d; // revert to the original value
   }
 
   return pde;

@@ -150,9 +150,6 @@ public:
   direct(sparse_grid const &grid, connection_patterns const &conn,
          term_manager<P> const &terms, P alpha);
 
-  //! get the grid generation used when constricting the solver
-  int grid_gen() const { return grid_gen_; }
-
   //! inverts the stored matrix
   void operator() (std::vector<P> &x) const
   {
@@ -163,8 +160,6 @@ public:
   operator bool () const { return mat; }
 
 private:
-  //! remembers the generation of the grid being constructed
-  int grid_gen_ = -1;
   //! holds the factor of the dense matrix
   dense_matrix<P> mat;
 };
@@ -195,6 +190,8 @@ struct solver_manager
 
   //! selected solver
   solve_opts opt = solve_opts::direct;
+  //! remembers the generation of the grid that was used to last set the manager
+  int grid_gen = -1;
   //! holds the actual solver instance
   std::variant<solvers::direct<P>> var;
 };
