@@ -3,7 +3,7 @@
 #include "asgard_kron_operators.hpp"
 #include "asgard_term_manager.hpp"
 
-namespace asgard::solver
+namespace asgard::solvers
 {
 enum class poisson_bc
 {
@@ -122,10 +122,10 @@ private:
  * \endinternal
  */
 template<typename P>
-struct diagonal_jacbi
+struct prec_diagonal_jacobi
 {
   //! make a default, no-preconditioner
-  diagonal_jacbi() = default;
+  prec_diagonal_jacobi() = default;
   //! holds the inverse of the diagonal entries
   std::vector<P> prec;
 };
@@ -141,12 +141,62 @@ struct diagonal_jacbi
  * \endinternal
  */
 template<typename P>
-struct direct_solver
+class direct
 {
-  //! make a default, no-preconditioner
-  direct_solver() = default;
+public:
+  //! make a default, empty solver
+  direct() = default;
+  //! build a dense solver for the system I + alpha * terms
+  direct(sparse_grid const &grid, connection_patterns const &conn,
+         term_manager<P> const &terms, P alpha);
+
+  //! get the grid generation used when constricting the solver
+  int grid_gen() const { return grid_gen_; }
+
+  //! inverts the stored matrix
+  void operator() (std::vector<P> &x) const
+  {
+    expect(mat.is_factorized());
+    mat.solve(x);
+  }
+  //! checks whether the solver has been set
+  operator bool () const { return mat; }
+
+private:
+  //! remembers the generation of the grid being constructed
+  int grid_gen_ = -1;
   //! holds the factor of the dense matrix
   dense_matrix<P> mat;
 };
 
-} // namespace asgard::solver
+} // namespace asgard::solvers
+
+namespace asgard
+{
+
+/*!
+ * \internal
+ * \brief Allows a time-stepper to take a hold of some solver
+ *
+ * Variant that represents any of the available asgard solvers.
+ * Each time-stepper is expected to handle the intricacies of setting
+ * the correct solver parameters, this is just the container.
+ * \endinternal
+ */
+template<typename P>
+struct solver_manager
+{
+  //! assuming that solver S is loaded, applies the solver
+  template<typename S, typename ...Args>
+  void apply(Args... args) {
+    expect(static_cast<size_t>(opt) == var.index());
+    std::get<S>(var)(args...);
+  }
+
+  //! selected solver
+  solve_opts opt = solve_opts::direct;
+  //! holds the actual solver instance
+  std::variant<solvers::direct<P>> var;
+};
+
+}

@@ -5,6 +5,63 @@ namespace asgard
 {
 
 template<typename P>
+void dense_matrix<P>::factorize() {
+  expect(nrows_ == ncols_);
+  ipiv.resize(nrows_);
+  int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(), nrows_,
+                                  ipiv.data());
+
+  if (info != 0)
+  {
+    std::stringstream sout;
+    if (info < 0)
+    {
+      sout << "getrf(): the " << -info << "-th parameter had an illegal value!\n";
+    }
+    else
+    {
+      sout << "getrf(): the diagonal element of the triangular factor of A,\n";
+      sout << "U(" << info << ',' << info << ") is zero, so that A is singular;\n";
+      sout << "the matrix could not be factorized.\n";
+    }
+    throw std::runtime_error(sout.str());
+  }
+}
+
+template<typename P>
+void dense_matrix<P>::solve(std::vector<P> &b) const
+{
+  expect(is_factorized());
+  int info = lib_dispatch::getrs('N', nrows_, 1, data_.data(), nrows_,
+                                  ipiv.data(), b.data(), nrows_);
+  expect(info == 0);
+}
+
+template<typename P>
+void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, block_matrix<P> &C)
+{
+  int M = A.nrows();
+  int N = B.ncols();
+  int K = A.ncols();
+
+  expect(C.nrows() == M);
+  expect(C.ncols() == N);
+  expect(B.nrows() == K);
+
+  expect(A.nblock() == n * n);
+  expect(B.nblock() == n * n);
+  expect(C.nblock() == n * n);
+
+#pragma omp parallel
+  for (int c = 0; c < N; c++) {
+    for (int r = 0; r < M; r++) {
+      for (int k = 0; k < K; k++)
+        smmat::gemm<1>(n, A(r, k), B(k, c), C(r, c));
+    }
+  }
+}
+
+template<typename P>
 void block_diag_matrix<P>::apply_inverse(int const n, block_diag_matrix<P> &rhs)
 {
   switch (n)
@@ -378,7 +435,11 @@ void invert_mass(int const n, mass_matrix<P> const &mass, P x[])
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template class dense_matrix<double>;
 template class block_diag_matrix<double>;
+
+template void gemm1(int const n, block_matrix<double> const &A, block_matrix<double> const &B,
+                    block_matrix<double> &C);
 
 template void gemm_block_tri_ul<double>(
     int const n, block_tri_matrix<double> const &A, block_tri_matrix<double> const &B,
@@ -408,7 +469,11 @@ template void block_sparse_matrix<double>::gemv(
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class dense_matrix<float>;
 template class block_diag_matrix<float>;
+
+template void gemm1(int const n, block_matrix<float> const &A, block_matrix<float> const &B,
+                    block_matrix<float> &C);
 
 template void gemm_block_tri_ul<float>(
     int const n, block_tri_matrix<float> const &A, block_tri_matrix<float> const &B,

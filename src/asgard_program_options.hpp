@@ -150,8 +150,12 @@ enum class data_mode
 {
   //! repalce/overwrite the current data
   replace,
-  //! increment the current data, i.e., +=
-  increment
+  //! scale and overwrite, e.g., y = alpha * x
+  scal_rep,
+  //! increment the current data, e.g., y += x
+  increment,
+  //! scale and increment data, e.g., y += alpha * x
+  scal_inc
 };
 #endif
 
@@ -202,7 +206,7 @@ enum adapt_norm
   linf
 };
 
-namespace solver
+namespace solvers
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
 /*!
@@ -608,6 +612,8 @@ struct prog_opts
   std::optional<double> default_dt;
   //! used in place of stop time, if stop time is not provided
   std::optional<double> default_stop_time;
+  //! used in place of a solver type, if solver type i snot provided
+  std::optional<solve_opts> default_solver;
 
   //! returns the first available from stop-time, default-stop-time or -1
   double get_stop_time() const { return stop_time.value_or(default_stop_time.value_or(-1)); }

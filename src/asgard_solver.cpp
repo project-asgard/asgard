@@ -1,6 +1,8 @@
 #include "asgard_solver.hpp"
 
-namespace asgard::solver
+#include "asgard_small_mats.hpp"
+
+namespace asgard::solvers
 {
 template<typename P>
 class dense_preconditioner
@@ -505,7 +507,157 @@ void poisson_data<P>::solve(std::vector<P> const &density, P dleft, P dright,
   efield.back() = - (dright - rhs.back()) / dx;
 }
 
+template<typename P>
+direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
+                  term_manager<P> const &terms, P alpha)
+{
+  int const num_dims    = grid.num_dims();
+  int const num_indexes = grid.num_indexes();
+  int const pdof        = terms.legendre.pdof;
+
+  int const n = fm::ipow(pdof, num_dims);
+
+  block_matrix<P> bmat(n * n, num_indexes, num_indexes);
+  block_matrix<P> wmat(n * n, num_indexes, num_indexes);
+
+  std::array<block_matrix<P>, max_num_dimensions> ids; // identity coefficients
+  for (int d : iindexof(num_dims)) {
+    int const size = fm::ipow2(grid.current_level(d));
+    ids[d] = block_matrix<P>(pdof * pdof, size, size);
+    for (int i = 0; i < size; i++) {
+      for (int j = 0; j < pdof; j++)
+        ids[d](i, i)[j * pdof + j] = 1;
+    }
+  }
+
+  // work coefficients, full-block matrices that will be used for this term_md
+  std::array<block_matrix<P> const *, max_num_dimensions> wcoeffs;
+
+  std::array<block_matrix<P>, max_num_dimensions> temp_mats;
+
+  auto kron_mats = [&](block_matrix<P> &mat)
+      -> void
+    {
+      if (num_dims == 1) {
+#pragma omp parallel for
+        for (int c = 0; c < num_indexes; c++) {
+          for (int r = 0; r < num_indexes; r++) {
+            int const ic = grid[c][0];
+            int const ir = grid[r][0];
+
+            std::copy_n((*wcoeffs[0])(ir, ic), pdof * pdof, mat(r, c));
+          }
+        }
+      } else {
+#pragma omp parallel for
+        for (int c = 0; c < num_indexes; c++) {
+          for (int r = 0; r < num_indexes; r++) {
+            int const *ic = grid[c];
+            int const *ir = grid[r];
+
+            int cyc    = 1;
+            int stride = fm::ipow(pdof, num_dims - 1);
+            int repeat = stride;
+            for (int d : iindexof(num_dims)) {
+              smmat::kron_block(pdof, cyc, stride, repeat,
+                                (*wcoeffs[d])(ir[d], ic[d]), mat(r, c));
+              stride /= pdof;
+              cyc    *= pdof;
+            }
+          }
+        }
+      }
+    };
+
+  auto set_wcoeff = [&](term_entry<P> const &te)
+      -> void
+    {
+      for (int d : iindexof(num_dims)) {
+        if (te.coeffs[d].nblock() > 0) {
+          temp_mats[d] = te.coeffs[d].to_full(conn);
+          wcoeffs[d] = &temp_mats[d];
+        } else {
+          wcoeffs[d] = &ids[d];
+        }
+      }
+    };
+
+  auto it = terms.terms.begin();
+  while (it < terms.terms.end())
+  {
+    if (it->num_chain == 1) {
+      set_wcoeff(*it);
+      wmat.fill(1);
+      kron_mats(wmat);
+
+      int64_t const size = n * n * num_indexes * num_indexes;
+      P *mat_data        = bmat.data();
+      P const *wmat_data = wmat.data();
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < size; i++)
+        mat_data[i] += wmat_data[i];
+
+      ++it;
+    } else {
+      if (it->num_chain == 2) {
+        // need two temp matrices
+        block_matrix<P> t1(n * n, num_indexes, num_indexes);
+        set_wcoeff(*it);
+        t1.fill(1);
+        kron_mats(t1);
+
+        block_matrix<P> t2(n * n, num_indexes, num_indexes);
+        set_wcoeff(*(it + 1));
+        t2.fill(1);
+        kron_mats(t2);
+
+        gemm1(n, t1, t2, bmat);
+      } else {
+        throw std::runtime_error(
+            "term_md chains with num_chain >= 3 are not yet implemented "
+            "for the direct solver");
+      }
+
+      it += it->num_chain;
+    }
+  }
+
+  grid_gen_ = grid.generation();
+  mat       = bmat.to_dense_matrix(n);
+
+  int64_t const size = n * num_indexes;
+
+#pragma omp parallel for
+  for (int64_t c = 0; c < size - 1; c++) {
+    P *dd = mat.data() + c * (size + 1);
+    dd[0] = P{1} + alpha * dd[0];
+    dd += 1;
+    ASGARD_OMP_SIMD
+    for (int64_t i = 0; i < size; i++) {
+      dd[i] *= alpha;
+    }
+  }
+  mat(size - 1, size - 1) = P{1} + alpha * mat(size - 1, size - 1);
+
+  // for (int r = 0; r < size; r++) {
+  //   for (int c = 0; c < size; c++)
+  //     std::cout << "  " << mat(r, c);
+  //   std::cout << "\n";
+  // }
+  //
+  // std::cout << "-------------------------------\n";
+
+  mat.factorize();
+
+  // for (int r = 0; r < size; r++) {
+  //   for (int c = 0; c < size; c++)
+  //     std::cout << "  " << mat(r, c);
+  //   std::cout << "\n";
+  // }
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
+template class direct<double>;
 
 template gmres_info<double>
 simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
@@ -553,6 +705,8 @@ template void poisson_data<double>::solve(
 #endif // ASGARD_ENABLE_DOUBLE
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class direct<double>;
+
 template gmres_info<float>
 simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
              fk::vector<float> const &b, fk::matrix<float> const &M,
@@ -600,4 +754,4 @@ template void poisson_data<float>::solve(
 
 #endif // ASGARD_ENABLE_FLOAT
 
-} // namespace asgard::solver
+} // namespace asgard::solvers

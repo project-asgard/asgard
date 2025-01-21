@@ -251,6 +251,10 @@ void discretization_manager<precision>::start_cold()
   if (not stop_verbosity())
     std::cout << dtime;
 
+  if (stepper.needs_solver() and not options.solver)
+    throw std::runtime_error("the selected time-stepping method requires a solver, "
+                             "or a default solver set in the pde specification");
+
   hier = hierarchy_manipulator(degree_, pde2.domain());
 
   // first we must initialize the terms, which will also initialize the kron
@@ -561,10 +565,10 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
       sol.resize(static_cast<int>(x.size()));
       std::copy(x.begin(), x.end(), sol.begin());
       if (solver == solve_opts::gmres)
-        solver::simple_gmres_euler<precision, resource::host>(
+        solvers::simple_gmres_euler<precision, resource::host>(
             pde->get_dt(), imflag, kronops, sol, x, restart, max_iter, tolerance);
       else
-        solver::bicgstab_euler<precision, resource::host>(
+        solvers::bicgstab_euler<precision, resource::host>(
           pde->get_dt(), imflag, kronops, sol, x, max_iter, tolerance);
 
       std::copy(sol.begin(), sol.end(), x.begin());
@@ -597,6 +601,60 @@ discretization_manager<precision>::ode_rhs_v2(
             time, R);
     }
   }
+}
+
+template<typename precision> void
+discretization_manager<precision>::set_ode_rhs_sources(
+    precision time, precision alpha, std::vector<precision> &src) const
+{
+  tools::time_event performance_("set ode sources");
+
+  std::vector<separable_func<precision>> const &sep = pde2.source_sep();
+  if (sep.empty()) { // no sources, set to zero
+    if (src.empty())
+      src.resize(state.size());
+    else {
+      src.resize(state.size());
+      std::fill(src.begin(), src.end(), precision{0});
+    }
+    return;
+  }
+
+  if (alpha == 1) {
+    hier.template project_separable<data_mode::replace>
+        (sep.front(), pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src);
+    for (auto is = sep.begin() + 1; is < sep.end(); is++) {
+      hier.template project_separable<data_mode::increment>
+            (*is, pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src);
+    }
+  } else {
+    hier.template project_separable<data_mode::replace>
+        (sep.front(), pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
+    for (auto is = sep.begin() + 1; is < sep.end(); is++) {
+      hier.template project_separable<data_mode::increment>
+            (*is, pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
+    }
+  }
+}
+
+template<typename precision> void
+discretization_manager<precision>::add_ode_rhs_sources(
+    precision time, precision alpha, std::vector<precision> &src) const
+{
+  tools::time_event performance_("add ode sources");
+
+  std::vector<separable_func<precision>> const &sep = pde2.source_sep();
+
+  if (alpha == 1)
+    for (int i : iindexof(sep)) {
+      hier.template project_separable<data_mode::increment>
+            (sep[i], pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src);
+    }
+  else
+    for (int i : iindexof(sep)) {
+      hier.template project_separable<data_mode::scal_inc>
+            (sep[i], pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
+    }
 }
 
 template<typename precision> void

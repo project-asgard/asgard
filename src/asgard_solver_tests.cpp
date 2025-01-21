@@ -64,9 +64,9 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(b);
-    int const restart  = solver::novalue;
-    int const max_iter = solver::novalue;
-    P const tolerance  = solver::notolerance;
+    int const restart  = solvers::novalue;
+    int const max_iter = solvers::novalue;
+    P const tolerance  = solvers::notolerance;
     build_system_matrix<P>(
         pde, [&](int t, int d)->fk::matrix<P>{ return disc.get_coeff_matrix(t, d); },
         table, A, my_subgrid);
@@ -76,7 +76,7 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
     {
       A(i, i) += 1.0;
     }
-    solver::simple_gmres(A, x, b, fk::matrix<P>(), restart, max_iter,
+    solvers::simple_gmres(A, x, b, fk::matrix<P>(), restart, max_iter,
                          tolerance);
     return x;
   }();
@@ -89,8 +89,8 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
     auto const system_size = elem_size * table.size();
     fk::matrix<P> A(system_size, system_size);
     fk::vector<P> x(b);
-    int const max_iter = solver::novalue;
-    P const tolerance  = solver::notolerance;
+    int const max_iter = solvers::novalue;
+    P const tolerance  = solvers::notolerance;
     build_system_matrix<P>(
         pde, [&](int t, int d)->fk::matrix<P>{ return disc.get_coeff_matrix(t, d); },
         table, A, my_subgrid);
@@ -100,8 +100,8 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
     {
       A(i, i) += 1.0;
     }
-    solver::bicgstab(A, x, b, fk::matrix<P>(), max_iter,
-                     tolerance);
+    solvers::bicgstab(A, x, b, fk::matrix<P>(), max_iter,
+                      tolerance);
     return x;
   }();
 
@@ -116,11 +116,11 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
   fk::vector<P> const matrix_free_gmres = [&operator_matrices, &b,
                                            dt]() {
     fk::vector<P> x(b);
-    int const restart  = solver::novalue;
-    int const max_iter = solver::novalue;
+    int const restart  = solvers::novalue;
+    int const max_iter = solvers::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices, x,
-                               b, restart, max_iter, tolerance);
+    solvers::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices, x,
+                                b, restart, max_iter, tolerance);
     return x;
   }();
 
@@ -130,10 +130,10 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
   fk::vector<P> const matrix_free_bicgstab = [&operator_matrices, &b,
                                               dt]() {
     fk::vector<P> x(b);
-    int const max_iter = solver::novalue;
+    int const max_iter = solvers::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
-                           b, max_iter, tolerance);
+    solvers::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices, x,
+                            b, max_iter, tolerance);
     return x;
   }();
 
@@ -200,7 +200,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
     fk::vector<TestType> test(x_gold.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
         A_gold, test, b_gold, fk::matrix<TestType>(), A_gold.ncols(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
@@ -213,7 +213,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
     fk::vector<TestType> test(x_gold.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
         A_gold, test, b_gold, precond, A_gold.ncols(), A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
@@ -226,7 +226,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
     fk::vector<TestType> test(x_gold_2.size());
 
     std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
         A_gold, test, b_gold_2, fk::matrix<TestType>(), A_gold.ncols(),
         A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
@@ -238,7 +238,7 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
   {
     fk::vector<TestType> test(x_gold_2.size());
     std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solver::simple_gmres(
+    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
         A_gold, test, b_gold_2, precond, A_gold.ncols(), A_gold.ncols(),
         std::numeric_limits<TestType>::epsilon());
     std::cout.clear();
@@ -251,9 +251,9 @@ TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
 // returns the result from comparison against the du_ref, which should be u_x
 template<typename P>
 P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P xright,
-               P dleft, P dright, solver::poisson_bc const bc, int degree, int level)
+               P dleft, P dright, solvers::poisson_bc const bc, int degree, int level)
 {
-  solver::poisson_data<P> solver(degree, xleft, xright, level);
+  solvers::poisson_data<P> solver(degree, xleft, xright, level);
 
   // construct the cell-by-cell Legenre expansion of the rhs
   // we must switch to std::vector functions
@@ -307,7 +307,7 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     auto du  = [](TestType)->TestType { return TestType{1}; };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -2, 3, -2, 3, solver::poisson_bc::dirichlet, degree, level);
+        du, rhs, -2, 3, -2, 3, solvers::poisson_bc::dirichlet, degree, level);
 
     REQUIRE(err < tol);
   }
@@ -322,7 +322,7 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     auto du  = [](TestType)->TestType { return TestType{1}; };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -2, 3, -2, 3, solver::poisson_bc::dirichlet, degree, level);
+        du, rhs, -2, 3, -2, 3, solvers::poisson_bc::dirichlet, degree, level);
 
     REQUIRE(err < tol);
   }
@@ -337,7 +337,7 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     auto du  = [](TestType x)->TestType { return TestType{2} * x; };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -2, 3, 4, 9, solver::poisson_bc::dirichlet, degree, level);
+        du, rhs, -2, 3, 4, 9, solvers::poisson_bc::dirichlet, degree, level);
 
     REQUIRE(err < tol);
   }
@@ -359,7 +359,7 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     auto du  = [](TestType x)->TestType { return pi * std::cos(pi * x); };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -1, 1, 5, 11, solver::poisson_bc::periodic, degree, level);
+        du, rhs, -1, 1, 5, 11, solvers::poisson_bc::periodic, degree, level);
 
     // std::cout << " error = " << err << "\n";
 

@@ -115,6 +115,8 @@ struct rungekutta3
   //! Performs RK3 step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
+  //! explicit solver and does not require a solver
+  static bool constexpr needs_solver = false;
 
 private:
   // workspace vectors
@@ -134,19 +136,24 @@ struct crank_nicolson
 {
   //! Default empty stepper
   crank_nicolson() = default;
-  //! Performs RK3 step forward in time, uses the current and next step
+  //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
 
   //! rebuilds the operator matrix
   void rebuild_matrix(discretization_manager<P> const &dist) const;
+  //! requires a solver
+  static bool constexpr needs_solver = true;
+
 private:
   // grid generation that constructed this grid
   mutable int grid_gen = -1;
   // operator matrix
-  mutable dense_matrix<P> mat;
+  // mutable dense_matrix<P> mat;
   // rhs vector
   mutable std::vector<P> rhs;
+  // the solver used
+  mutable solver_manager<P> solver;
 };
 
 }
@@ -172,6 +179,17 @@ struct time_advance_manager
   //! advance to the next time-step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
+  //! returns whether the manager requires a solver
+  bool needs_solver() const {
+    switch (data.index()) {
+      case 0:
+        return time_advance::rungekutta3<P>::needs_solver;
+      case 1:
+        return time_advance::crank_nicolson<P>::needs_solver;
+      default:
+        return false; // unreachable
+    };
+  }
 
   //! holds the method used
   time_advance::method mode = time_advance::method::rk3;

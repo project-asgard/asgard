@@ -153,6 +153,20 @@ public:
   //! computes the right-hand-side of the ode
   void ode_rhs_v2(precision time, std::vector<precision> const &current,
                   std::vector<precision> &R) const;
+  //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
+  void set_ode_rhs_sources(precision time, precision alpha,
+                           std::vector<precision> &src) const;
+  //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
+  void add_ode_rhs_sources(precision time, precision alpha,
+                           std::vector<precision> &src) const;
+
+  //! applies all terms
+  void terms_apply_all(precision alpha, std::vector<precision> const &x, precision beta,
+                       std::vector<precision> &y) const
+  {
+    tools::time_event performance_("terms_apply_all kronmult");
+    terms.apply_all(sgrid, conn, alpha, x, beta, y);
+  }
 
   //! compute the electric field for the given state and update the coefficient matrices
   void do_poisson_update(std::vector<precision> const &field) const;
@@ -398,7 +412,7 @@ private:
   // moments, new implementation
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
-  mutable std::optional<solver::poisson_data<precision>> poisson_solver;
+  mutable std::optional<solvers::poisson_data<precision>> poisson_solver;
 
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;

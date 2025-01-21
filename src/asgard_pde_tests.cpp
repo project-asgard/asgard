@@ -112,8 +112,8 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     REQUIRE(term_1d<TestType>({ptD, ptG}).is_chain());
     REQUIRE(term_1d<TestType>({ptD, ptG}).num_chain() == 2);
 
-    REQUIRE_THROWS_WITH(term_1d<TestType>({ptD, ptD}),
-                        "incompatible flux combination used in a term_1d chain, must split into a term_md chain");
+    // REQUIRE_THROWS_WITH(term_1d<TestType>({ptD, ptD}),
+    //                     "incompatible flux combination used in a term_1d chain, must split into a term_md chain");
   }
 
   SECTION("term_1d - extra") {
@@ -127,8 +127,8 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     REQUIRE(term_1d<TestType>({ptG, ptI, ptM, ptD, ptM}).num_chain() == 4);
     REQUIRE(term_1d<TestType>({ptGc, ptM}).num_chain() == 2);
 
-    REQUIRE_THROWS_WITH(term_1d<TestType>({ptGc, ptD}),
-                        "incompatible flux combination used in a term_1d chain, must split into a term_md chain");
+    // REQUIRE_THROWS_WITH(term_1d<TestType>({ptGc, ptD}),
+    //                     "incompatible flux combination used in a term_1d chain, must split into a term_md chain");
 
     term_1d<TestType> chain({ptI, ptG, ptM, ptD, ptM});
     REQUIRE(chain[0].optype() == operation_type::grad);

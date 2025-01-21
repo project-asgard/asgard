@@ -873,11 +873,11 @@ public:
 
     // missing tolerance will be set within the solver module
     if (not options_.isolver_tolerance)
-      options_.isolver_tolerance = solver::notolerance;
+      options_.isolver_tolerance = solvers::notolerance;
     if (not options_.isolver_iterations)
-      options_.isolver_iterations = solver::novalue;
+      options_.isolver_iterations = solvers::novalue;
     if (not options_.isolver_outer_iterations)
-      options_.isolver_outer_iterations = solver::novalue;
+      options_.isolver_outer_iterations = solvers::novalue;
   }
 
   constexpr static int extract_dim0 = 1;
@@ -2104,6 +2104,10 @@ public:
         else
           throw std::runtime_error("must provide a polynomial degree with -d or default_degree()");
       }
+
+      // setting solver for the time-stepper
+      if (not options_.solver and options_.default_solver)
+        options_.solver = options_.default_solver.value();
     }
     // don't support l-inf norm yet
     if (options_.adapt_threshold)

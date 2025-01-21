@@ -150,7 +150,7 @@ public:
                          sparse_grid const &grid,
                          std::array<function_1d<P>, max_num_dimensions> const &dv,
                          mass_list &mass,
-                         P time, std::vector<P> &f) const
+                         P time, std::vector<P> &f, P alpha = 1) const
   {
     expect(f.size() == static_cast<size_t>(grid.num_indexes() * block_size_));
     int const num_dims = domain.num_dims();
@@ -185,8 +185,12 @@ public:
         }
         if constexpr (action == data_mode::replace)
           proj[i] = val;
+        else if constexpr (action == data_mode::scal_rep)
+          proj[i] = alpha * val;
         else if constexpr (action == data_mode::increment)
           proj[i] += val;
+        else if constexpr (action == data_mode::scal_inc)
+          proj[i] += alpha * val;
       }
 
       proj += block_size_;

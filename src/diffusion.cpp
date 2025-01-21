@@ -72,6 +72,8 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 
   options.default_stop_time = 1.0; // integrate until T = 1
 
+  options.default_solver = asgard::solve_opts::direct; // bad but OK for this example
+
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
   // the option entries may have been populated or updated with default values
@@ -281,7 +283,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde(2, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde(1, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method

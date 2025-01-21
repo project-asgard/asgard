@@ -47,37 +47,13 @@ public:
   //! shows if the matrix has been factorized
   bool is_factorized() const { return (not ipiv.empty()); }
   //! factorize the matrix using plu
-  void factorize() {
-    expect(nrows_ == ncols_);
-    ipiv.resize(nrows_);
-    int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(),nrows_,
-                                 ipiv.data());
+  void factorize();
 
-    if (info != 0)
-    {
-      std::stringstream sout;
-      if (info < 0)
-      {
-        sout << "getrf(): the " << -info << "-th parameter had an illegal value!\n";
-      }
-      else
-      {
-        sout << "getrf(): the diagonal element of the triangular factor of A,\n";
-        sout << "U(" << info << ',' << info << ") is zero, so that A is singular;\n";
-        sout << "the matrix could not be factorized.\n";
-      }
-      throw std::runtime_error(sout.str());
-    }
-  }
+  //! check whether the matrix has been set
+  operator bool () const { return (nrows_ > 0); }
 
   //! applies the inverse of the matrix to the provided vector
-  void solve(std::vector<P> &b)
-  {
-    expect(is_factorized());
-    int info = lib_dispatch::getrs('N', nrows_, 1, data_.data(), nrows_,
-                                   ipiv.data(), b.data(), nrows_);
-    expect(info == 0);
-  }
+  void solve(std::vector<P> &b) const;
 
 private:
   int64_t nrows_ = 0;
@@ -227,7 +203,7 @@ public:
     for (int r = 0; r < nrows_; r++)
       for (int c = 0; c < ncols_; c++)
         for (int k = 0; k < n; k++)
-          std::copy_n(data_[c * nrows_ + r] + n * k , n, &mat(n * r, n * c + k));
+          std::copy_n(data_[c * nrows_ + r] + n * k , n, mat.data(n * r, n * c + k));
     return mat;
   }
 
@@ -235,6 +211,10 @@ private:
   int64_t nrows_, ncols_;
   vector2d<P> data_;
 };
+
+//! C += A * B
+template<typename P>
+void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, block_matrix<P> &C);
 
 //! convert larger fk::matrix to block_matrix given the number of blocks and columns
 template<typename P, mem_type mem>
