@@ -434,6 +434,13 @@ void invert_mass(int const n, mass_matrix<P> const &mass, P x[])
   }
 }
 
+template<typename P>
+void psedoinvert(int const n, block_tri_matrix<P> &A,
+                 block_tri_matrix<P> &iA)
+{
+  //
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class dense_matrix<double>;
 template class block_diag_matrix<double>;
@@ -463,6 +470,8 @@ template void gemm_block_diag<double>(
 template void invert_mass(int const, mass_matrix<double> const &, block_tri_matrix<double> &);
 template void invert_mass(int const, mass_matrix<double> const &, block_diag_matrix<double> &);
 template void invert_mass(int const, mass_matrix<double> const &, double[]);
+
+template void psedoinvert<double>(int const, block_tri_matrix<double> &, block_tri_matrix<double> &);
 
 template void block_sparse_matrix<double>::gemv(
     int const, int const, connection_patterns const &, double const[], double[]) const;
@@ -497,6 +506,8 @@ template void gemm_block_diag<float>(
 template void invert_mass(int const, mass_matrix<float> const &, block_tri_matrix<float> &);
 template void invert_mass(int const, mass_matrix<float> const &, block_diag_matrix<float> &);
 template void invert_mass(int const, mass_matrix<float> const &, float[]);
+
+template void psedoinvert<float>(int const, block_tri_matrix<float> &, block_tri_matrix<float> &);
 
 template void block_sparse_matrix<float>::gemv(
     int const, int const, connection_patterns const &, float const[], float[]) const;

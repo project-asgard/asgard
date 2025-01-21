@@ -142,4 +142,20 @@ TEST_CASE("small matrix methods", "[small mats]")
 
     REQUIRE(fm::rmserr(kron3, ref3) < 1.E-15);
   }
+  SECTION("LU factorize")
+  {
+    std::vector<double> A = {4, 1, 1, 1, 5, 0, 0, 2, 7};
+    smmat::getrf(3, A.data());
+    std::vector<double> R = {4, 0.25, 0.25, 1, 4.75, -5.263157894736842e-02, 0, 2, 7.105263157894737};
+    REQUIRE(fm::rmserr(A, R) < 1.E-15);
+
+    A = {4, 2, 1, 6};
+    smmat::getrf(2, A.data());
+    R = {4, 0.5, 1, 5.5};
+    REQUIRE(fm::rmserr(A, R) < 1.E-15);
+
+    A = {3};
+    smmat::getrf(1, A.data());
+    REQUIRE(A[0] == 3);
+  }
 }

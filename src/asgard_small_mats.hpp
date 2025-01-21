@@ -262,6 +262,30 @@ void posvm(int const n, P const A[], P B[])
   for (int i = 0; i < n; i++)
     posv(n, A, B + i * n);
 }
+//! LU factorize, no pivot (diagonally dominant or close enough), L is unit diagonal
+template<typename P>
+void getrf(int const n, P A[]) {
+  ASGARD_OMP_SIMD
+  for (int r = 1; r < n; r++)
+    A[r] /= A[0];
+
+  for (int i = 1; i < n; i++) {
+    P s = A[i * n + i];
+    ASGARD_OMP_SIMD
+    for (int k = 0; k < i; k++)
+      s -= A[k * n + i] * A[i * n + k];
+
+    A[i * n + i] = s;
+
+    for (int r = i + 1; r < n; r ++) {
+      s = A[i * n + r];
+      ASGARD_OMP_SIMD
+      for (int k = 0; k < i; k++)
+        s -= A[k * n + r] * A[i * n + k];
+      A[i * n + r] = s / A[i * n + i];
+    }
+  }
+}
 
 //! C += (dir) A^T B, dir must be +/-1, C is nrc by nrc
 template<int dir = +1, typename P>

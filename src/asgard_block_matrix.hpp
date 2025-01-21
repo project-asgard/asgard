@@ -717,4 +717,14 @@ void invert_mass(int const n, mass_matrix<P> const &mass, block_diag_matrix<P> &
 template<typename P>
 void invert_mass(int const n, mass_matrix<P> const &mass, P x[]);
 
+/*!
+ * \internal
+ * \brief Destroys the content in A and forms approximate inverse of A, , similar to ILU
+ *
+ * \endinternal
+ */
+template<typename P>
+void psedoinvert(int const n, block_tri_matrix<P> &A,
+                 block_tri_matrix<P> &iA);
+
 } // namespace asgard
