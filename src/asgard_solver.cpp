@@ -574,8 +574,9 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     {
       for (int d : iindexof(num_dims)) {
         if (te.coeffs[d].nblock() > 0) {
+          te.coeffs[d].to_full(conn).print(std::cout);
           temp_mats[d] = te.coeffs[d].to_full(conn);
-          wcoeffs[d] = &temp_mats[d];
+          wcoeffs[d]   = &temp_mats[d];
         } else {
           wcoeffs[d] = &ids[d];
         }
@@ -593,6 +594,7 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
       int64_t const size = n * n * num_indexes * num_indexes;
       P *mat_data        = bmat.data();
       P const *wmat_data = wmat.data();
+
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < size; i++)
         mat_data[i] += wmat_data[i];
@@ -622,10 +624,22 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     }
   }
 
+  // std::cout << "  -------------------------------------  \n";
+  // bmat.print(std::cout);
+  // std::cout << "  -------------------------------------  \n";
+
   grid_gen_ = grid.generation();
   mat       = bmat.to_dense_matrix(n);
 
   int64_t const size = n * num_indexes;
+
+  // for (int r = 0; r < size; r++) {
+  //   for (int c = 0; c < size; c++)
+  //     std::cout << std::setw(16) << mat(r, c);
+  //   std::cout << "\n";
+  // }
+
+  // std::cout << "-------------------------------\n";
 
 #pragma omp parallel for
   for (int64_t c = 0; c < size - 1; c++) {

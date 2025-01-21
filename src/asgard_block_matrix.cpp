@@ -9,7 +9,7 @@ void dense_matrix<P>::factorize() {
   expect(nrows_ == ncols_);
   ipiv.resize(nrows_);
   int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(), nrows_,
-                                  ipiv.data());
+                                 ipiv.data());
 
   if (info != 0)
   {

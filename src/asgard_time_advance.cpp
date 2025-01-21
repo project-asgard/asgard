@@ -566,10 +566,11 @@ void crank_nicolson<P>::next_step(
 
   next = current; // copy
 
-  //disc.terms_apply_all(-0.5 * dt, current, 1, next);
-  //disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
+  disc.terms_apply_all(-0.5 * dt, current, 1, next);
+  disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
 
-  disc.add_ode_rhs_sources(time, dt, next);
+  //disc.terms_apply_all(-dt, current, 1, next);
+  //disc.add_ode_rhs_sources(time, dt, next);
 
   if (solver.opt == solve_opts::direct)
     solver.template apply<solvers::direct<P>>(next);
@@ -582,8 +583,8 @@ void crank_nicolson<P>::next_step(
 template<typename P>
 void crank_nicolson<P>::rebuild_matrix(discretization_manager<P> const &disc) const
 {
-  // P const alpha = 0.5 * disc.time_params().dt();
-  P const alpha = disc.time_params().dt();
+  P const alpha = 0.5 * disc.time_params().dt();
+  // P const alpha = disc.time_params().dt();
 
   std::cout << "rebuilding mat: " << alpha << "\n";
 

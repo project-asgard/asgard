@@ -31,18 +31,18 @@ public:
   int64_t ncols() const { return ncols_; }
 
   //! returns a ref to the entry
-  P &operator() (int64_t r, int64_t c) { return data_[c * ncols_ + r]; }
+  P &operator() (int64_t r, int64_t c) { return data_[c * nrows_ + r]; }
   //! returns a const-ref to the entry
-  P const &operator() (int64_t r, int64_t c) const { return data_[c * ncols_ + r]; }
+  P const &operator() (int64_t r, int64_t c) const { return data_[c * nrows_ + r]; }
   //! returns pointer to the internal data
   P *data() { return data_.data(); }
   //! returns pointer to the internal data
   P const *data() const { return data_.data(); }
 
   //! returns pointer to the internal data at the given row-column
-  P *data(int64_t r, int64_t c) { return &data_[c * ncols_ + r]; }
+  P *data(int64_t r, int64_t c) { return &data_[c * nrows_ + r]; }
   //! returns pointer to the internal data at the given row-column
-  P const *data(int64_t r, int64_t c) const { return &data_[c * ncols_ + r]; }
+  P const *data(int64_t r, int64_t c) const { return &data_[c * nrows_ + r]; }
 
   //! shows if the matrix has been factorized
   bool is_factorized() const { return (not ipiv.empty()); }
