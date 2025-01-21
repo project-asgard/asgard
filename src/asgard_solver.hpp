@@ -181,11 +181,9 @@ namespace asgard
 template<typename P>
 struct solver_manager
 {
-  //! assuming that solver S is loaded, applies the solver
-  template<typename S, typename ...Args>
-  void apply(Args... args) {
-    expect(static_cast<size_t>(opt) == var.index());
-    std::get<S>(var)(args...);
+  void direct_solve(std::vector<P> &x) {
+    expect(opt == solve_opts::direct);
+    std::get<solvers::direct<P>>(var)(x);
   }
 
   //! selected solver

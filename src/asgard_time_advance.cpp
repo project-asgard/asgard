@@ -567,160 +567,22 @@ void crank_nicolson<P>::next_step(
   next = current; // copy
 
   disc.terms_apply_all(-0.5 * dt, current, 1, next);
-  //disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
-  disc.add_ode_rhs_sources(time,      0.5 * dt, next);
-  disc.add_ode_rhs_sources(time + dt, 0.5 * dt, next);
-
-  //disc.terms_apply_all(-dt, current, 1, next);
-  //disc.add_ode_rhs_sources(time, dt, next);
+  disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
 
   if (solver.opt == solve_opts::direct)
-    solver.template apply<solvers::direct<P>>(next);
-
-  //expect(mat.is_factorized());
-
-  //mat.solve(next);
+    solver.direct_solve(next);
 }
 
 template<typename P>
 void crank_nicolson<P>::rebuild_matrix(discretization_manager<P> const &disc) const
 {
   P const alpha = 0.5 * disc.time_params().dt();
-  // P const alpha = disc.time_params().dt();
+  // P const alpha = disc.time_params().dt(); //back-Euler
 
   solver.var = solvers::direct<P>(disc.get_sgrid(), disc.get_conn(),
                                   disc.get_terms(), alpha);
 
   solver.grid_gen = disc.get_sgrid().generation();
-
-  return;
-
-//   term_manager<P> const &terms = disc.get_terms();
-//   sparse_grid const &grid      = disc.get_sgrid();
-//
-//   int const num_dims    = grid.num_dims();
-//   int const num_indexes = grid.num_indexes();
-//   int const pdof        = terms.legendre.pdof;
-//
-//   int const n = fm::ipow(pdof, num_dims);
-//
-//   block_matrix<P> bmat(n * n, num_indexes, num_indexes);
-//   block_matrix<P> wmat(n * n, num_indexes, num_indexes);
-//
-//   std::array<block_matrix<P>, max_num_dimensions> ids; // identity coefficients
-//   for (int d : iindexof(num_dims)) {
-//     int const size = fm::ipow2(grid.current_level(d));
-//     ids[d] = block_matrix<P>(pdof * pdof, size, size);
-//     for (int i = 0; i < size; i++) {
-//       for (int j = 0; j < pdof; j++)
-//         ids[d](i, i)[j * pdof + j] = 1;
-//     }
-//   }
-//
-//   using wmat_type = std::array<block_matrix<P> const *, max_num_dimensions>;
-//   wmat_type wcoeffs; // work coefficients
-//
-//   std::array<block_matrix<P>, max_num_dimensions> temp_mats;
-//
-//   auto kron_mats = [&](block_matrix<P> &mat)
-//       -> void
-//     {
-// #pragma omp parallel for
-//       for (int c = 0; c < num_indexes; c++) {
-//         for (int r = 0; r < num_indexes; r++) {
-//           int const *ic = grid[c];
-//           int const *ir = grid[r];
-//
-//           if (num_dims == 1) {
-//             std::copy_n((*wcoeffs[0])(r, c), n * n, mat(r, c));
-//           } else {
-//             int cyc    = 1;
-//             int stride = fm::ipow(pdof, num_dims - 1);
-//             int repeat = stride;
-//             for (int d : iindexof(num_dims)) {
-//               smmat::kron_block(pdof, cyc, stride, repeat,
-//                                 (*wcoeffs[0])(ir[d], ic[d]), mat(r, c));
-//               stride /= pdof;
-//               cyc    *= pdof;
-//             }
-//           }
-//         }
-//       }
-//     };
-//   auto set_wcoeff = [&](term_entry<P> const &te)
-//       -> void
-//     {
-//       for (int d : iindexof(num_dims)) {
-//         if (te.coeffs[d].nblock() > 0) {
-//           temp_mats[d] = te.coeffs[d].to_full(disc.get_conn());
-//           wcoeffs[d] = &temp_mats[d];
-//         } else {
-//           wcoeffs[d] = &ids[d];
-//         }
-//       }
-//     };
-//
-//   auto it = terms.terms.begin();
-//   while (it < terms.terms.end())
-//   {
-//     if (it->num_chain == 1) {
-//       set_wcoeff(*it);
-//       wmat.fill(1);
-//       kron_mats(wmat);
-//
-//       int64_t const size = n * n * num_indexes * num_indexes;
-//       P *mat_data        = bmat.data();
-//       P const *wmat_data = wmat.data();
-//       ASGARD_OMP_PARFOR_SIMD
-//       for (int64_t i = 0; i < size; i++)
-//         mat_data[i] += wmat_data[i];
-//
-//       ++it;
-//     } else {
-//       if (it->num_chain == 2) {
-//         // need two temp matrices
-//         block_matrix<P> t1(n * n, num_indexes, num_indexes);
-//         set_wcoeff(*it);
-//         wmat.fill(1);
-//         kron_mats(t1);
-//
-//         block_matrix<P> t2(n * n, num_indexes, num_indexes);
-//         set_wcoeff(*(it + 1));
-//         wmat.fill(1);
-//         kron_mats(t2);
-//
-//         gemm1(n, t1, t2, bmat);
-//       } else {
-//         throw std::runtime_error(
-//             "term_md chains with num_chain >= 3 are not yet implemented "
-//             "for the direct solver");
-//       }
-//
-//       it += it->num_chain;
-//     }
-//   }
-//
-//   P const dt = 0.5 * disc.time_params().dt();
-//
-//   grid_gen = grid.generation();
-//   mat      = bmat.to_dense_matrix(n);
-//
-//   int64_t const size = n * num_indexes;
-//   P *data = mat.data();
-//
-// #pragma omp parallel for
-//   for (int64_t c = 0; c < size - 1; c++) {
-//     P *dd = data + c * (size + 1);
-//     dd[0] = P{1} + dt * dd[0];
-//     dd += 1;
-//     ASGARD_OMP_SIMD
-//     for (int64_t i = 0; i < size; i++) {
-//       dd[i] *= dt;
-//     }
-//   }
-//   mat(size - 1, size - 1) *= dt;
-//
-//   mat.factorize();
 }
 
 }
@@ -729,19 +591,19 @@ namespace asgard
 {
 
 template<typename P>
-time_advance_manager<P>::time_advance_manager(time_advance::method set_mode)
-  : mode(set_mode)
+time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata)
+  : data(tdata)
 {
-  expect(static_cast<int>(mode) <= 1 ); // the new modes that have been implemented
+  expect(static_cast<int>(data.step_method()) <= 1 ); // the new modes that have been implemented
 
   // prepare the time-stepper
-  switch (mode)
+  switch (data.step_method())
   {
     case time_advance::method::rk3:
-      data = time_advance::rungekutta3<P>();
+      method = time_advance::rungekutta3<P>();
       break;
     case time_advance::method::cn:
-      data = time_advance::crank_nicolson<P>();
+      method = time_advance::crank_nicolson<P>();
       break;
     default:
       throw std::runtime_error("unimplemented time-advance option");
@@ -753,17 +615,27 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
                                         std::vector<P> const &current,
                                         std::vector<P> &next) const
 {
-  switch (mode)
+  switch (data.step_method())
   {
     case time_advance::method::rk3:
-      std::get<time_advance::rungekutta3<P>>(data).next_step(dist, current, next);
+      std::get<time_advance::rungekutta3<P>>(method).next_step(dist, current, next);
       break;
     case time_advance::method::cn:
-      std::get<time_advance::crank_nicolson<P>>(data).next_step(dist, current, next);
+      std::get<time_advance::crank_nicolson<P>>(method).next_step(dist, current, next);
       break;
     default:
       throw std::runtime_error("unimplemented time-advance option");
   }
+}
+
+template<typename P>
+std::string time_advance_manager<P>::method_name() const {
+  std::map<time_advance::method, std::string> names = {
+    {time_advance::method::rk3, "Runge-Kutta 3-step (explicit)"},
+    {time_advance::method::cn, "Crank-Nicolson 1-step (implicit)"},
+  };
+
+  return names.find(data.step_method())->second;
 }
 
 template<typename P> // implemented in time-advance
@@ -772,12 +644,12 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
   // periodically reports time
   static tools::simple_timer::time_point wctime = tools::simple_timer::current_time();
 
-  // is num_steps is negative, run to the end of num_remain()
-  // otherwise, run num_steps but no more than num_remain()
-  time_data<P> &params = manager.dtime;
-
   time_advance_manager<P> const &stepper = manager.stepper;
 
+  time_data<P> &params = manager.stepper.data;
+
+  // is num_steps is negative, run to the end of num_remain()
+  // otherwise, run num_steps but no more than num_remain()
   if (num_steps > 0)
     num_steps = std::min(params.num_remain(), num_steps);
   else

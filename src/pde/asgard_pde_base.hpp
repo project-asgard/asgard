@@ -1985,7 +1985,7 @@ public:
 
   //! prints the stepping data to a stream (human readable format)
   void print_time(std::ostream &os) const {
-    os << "time stepping:\n  time (t)        " << time_
+    os << "  time (t)        " << time_
        << "\n  stop-time (T)   " << stop_time_
        << "\n  num-steps (n)   " << tools::split_style(num_remain_)
        << "\n  time-step (dt)  " << dt_ << '\n';
@@ -2104,6 +2104,10 @@ public:
         else
           throw std::runtime_error("must provide a polynomial degree with -d or default_degree()");
       }
+
+      // setting step method
+      if (not options_.step_method and options_.default_step_method)
+        options_.step_method = options_.default_step_method.value();
 
       // setting solver for the time-stepper
       if (not options_.solver and options_.default_solver)

@@ -633,18 +633,7 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
   std::cout << std::scientific;
   std::cout.precision(8);
 
-  std::cout << "\n  raw mat\n";
-  mat.print();
-
   int64_t const size = n * num_indexes;
-
-  // for (int r = 0; r < size; r++) {
-  //   for (int c = 0; c < size; c++)
-  //     std::cout << std::setw(16) << mat(r, c);
-  //   std::cout << "\n";
-  // }
-
-  // std::cout << "-------------------------------\n";
 
 #pragma omp parallel for
   for (int64_t c = 0; c < size - 1; c++) {
@@ -657,32 +646,9 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     }
   }
 
-  std::cout << mat.nrows() << "  " << mat.ncols() << "  size = " << size << "\n";
-
   mat(size - 1, size - 1) = P{1} + alpha * mat(size - 1, size - 1);
-  // mat(size - 1, size - 1) *= 5 * alpha;
-
-  //std::cout << "\n  I - alpha * mat\n";
-  //mat.print();
-
-  // for (int r = 0; r < size; r++) {
-  //   for (int c = 0; c < size; c++)
-  //     std::cout << "  " << mat(r, c);
-  //   std::cout << "\n";
-  // }
-  //
-  // std::cout << "-------------------------------\n";
 
   mat.factorize();
-
-  // std::cout << "\n  factorized\n";
-  // mat.print();
-
-  // for (int r = 0; r < size; r++) {
-  //   for (int c = 0; c < size; c++)
-  //     std::cout << "  " << mat(r, c);
-  //   std::cout << "\n";
-  // }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -734,7 +700,7 @@ template void poisson_data<double>::solve(
 #endif // ASGARD_ENABLE_DOUBLE
 
 #ifdef ASGARD_ENABLE_FLOAT
-template class direct<double>;
+template class direct<float>;
 
 template gmres_info<float>
 simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,

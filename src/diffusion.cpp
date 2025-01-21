@@ -14,22 +14,24 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_diffusion Example 4, diffusion operator
+ * \addtogroup asgard_examples_diffusion Example 4, Diffusion operator
  *
  * \par Example 3
  * Solves the continuity partial differential equation in arbitrary dimension \b d
  * \f[ \frac{d}{dt} f - \nabla \cdot \nabla f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution is
  * \f[ f(t, x, y) = (1 - \exp(-t)) (\exp(1 - x^2) - 1) \f]
- * The domain is (-1, 1) and the boundary conditions are zero-Dirichlet.
+ * The domain is (-1, 1) and the boundary conditions are homogeneous Dirichlet.
+ * This example avoids the use of trigonometric functions, since those are eigenfunctions
+ * of the operator.
  *
+ * \par
+ * The second order operator is applied as a chain of two operators, namely
+ * \f[ \frac{d}{dt} f - \nabla \cdot g = s, \qquad g = \nabla f \f]
+ * Thus, applying Dirichlet boundary conditions on gradient operator results in
+ * Dirichlet boundary conditions for the field \b f, while applying Dirichlet
+ * conditions on the divergence yields Neumann conditions for the field.
  */
-
-/*!
- * \ingroup asgard_examples_diffusion
- * \brief The ratio of circumference to diameter of a circle
- */
-double constexpr PI = asgard::PI;
 
 /*!
  * \ingroup asgard_examples_diffusion
@@ -57,7 +59,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 
   options.title = "Diffusion " + std::to_string(num_dims) + "D";
 
-  // the domain will have range -2 * PI to 2 * PI in each direction
+  // the domain will have range (-1, 1) in each direction
   std::vector<asgard::domain_range<P>> ranges(num_dims, {-1, 1});
 
   asgard::pde_domain<P> domain(ranges); // can use move here, but copy is cheap enough
@@ -70,7 +72,10 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   // using implicit time-stepping, thus ignoring any CFL
   options.default_dt = 0.01;
 
-  options.default_stop_time = 1.0; // integrate until T = 1
+  options.default_stop_time = 3.0; // integrate until T = 3
+
+  // using implicit Crank-Nicolson method
+  options.default_step_method = asgard::time_advance::method::cn;
 
   options.default_solver = asgard::solve_opts::direct; // bad but OK for this example
 
@@ -80,20 +85,22 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   asgard::PDEv2<P> pde(options, std::move(domain));
 
   // one dimensional divergence term using upwind flux
+  // setting Dirichlet condition here will in fact yield Neumann boundary condition
+  // to the combined operator and respectively to the field
   asgard::term_1d<P> div = asgard::term_div(asgard::flux_type::upwind,
-                                            asgard::boundary_type::dirichlet,
+                                            asgard::boundary_type::free,
                                             P{1});
 
-  // Dirichlet conditions applied to the grad term apply Neumann conditions
-  // to the second order operator
+  // Dirichlet conditions applied to the grad term apply Dirichlet condition
+  // to the combined operator and respectively to the field
   asgard::term_1d<P> grad = asgard::term_grad(asgard::flux_type::upwind,
-                                              asgard::boundary_type::free,
+                                              asgard::boundary_type::dirichlet,
                                               P{-1});
 
   // the second order operator is a chain of operators
-  asgard::term_1d<P> diffusion({grad, div});
+  asgard::term_1d<P> diffusion({div, grad});
 
-  // the multi-dimensional divergence, initially set to identity in md
+  // the multi-dimensional Laplacian, initially set to identity in md
   std::vector<asgard::term_1d<P>> ops(num_dims);
   for (int d = 0; d < num_dims; d++)
   {
@@ -183,7 +190,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   int const num_dims = disc.num_dims();
 
   // setting the exact solution so we can project onto the basis
-  auto cos_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto exp_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < static_cast<int64_t>(x.size()); i++)
@@ -192,7 +199,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   auto nexp_t = [](P t) -> P { return 1 - std::exp(-t); };
 
   asgard::separable_func<P> exact(
-      std::vector<asgard::svector_func1d<P>>(num_dims, cos_1d), nexp_t);
+      std::vector<asgard::svector_func1d<P>>(num_dims, exp_1d), nexp_t);
 
   std::vector<P> const eref = disc.project_function({exact, });
 
@@ -277,13 +284,13 @@ int main(int argc, char** argv)
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
-    //self_test();
+    self_test();
     return 0;
   }
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde(1, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde(2, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method
@@ -311,3 +318,86 @@ int main(int argc, char** argv)
 //! [diffusion_md main]
 #endif
 };
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+///////////////////////////////////////////////////////////////////////////////
+// The code below is not part of the example, rather it is intended
+// for correctness checking and verification against the known solution
+///////////////////////////////////////////////////////////////////////////////
+
+// just for convenience to avoid using asgard:: all over the place
+// normally, should only include what is needed
+using namespace asgard;
+
+template<typename P = double>
+void dotest(double tol, int num_dims, std::string const &opts) {
+  current_test<P> test_(opts, num_dims);
+
+  auto options = make_opts(opts);
+
+  discretization_manager<P> disc(make_diffusion_pde<P>(num_dims, options),
+                                 verbosity_level::quiet);
+
+  while (disc.time_params().num_remain() > 0)
+  {
+    advance_time(disc, 1);
+
+    double const err = get_error_l2(disc);
+    std::cout << " err = " << err << "\n";
+
+    tcheckless(disc.time_params().step(), err, tol);
+  }
+}
+
+template<typename P = double>
+void longtest(double tol, int num_dims, std::string const &opts) {
+  current_test<P> test_(opts, num_dims);
+
+  auto options = make_opts(opts);
+
+  discretization_manager<P> disc(make_diffusion_pde<P>(num_dims, options),
+                                 verbosity_level::quiet);
+
+  advance_time(disc);
+
+  double const err = get_error_l2(disc);
+   std::cout << " err = " << err << "\n";
+  tcheckless(disc.time_params().step(), err, tol);
+}
+
+void self_test() {
+  all_tests testing_("diffusion equation:", " f_t + laplacian f = sources");
+
+  // the diffusion equation is a relatively simple PDE but the condition number
+  // of the matrices grows very fast with the level
+  // thus, the tests are primarily done in double-precision
+
+#ifdef ASGARD_ENABLE_DOUBLE
+  // check convergence w.r.t. level
+  dotest(1.E-3, 1, "-l 4 -n 20");
+  dotest(1.E-4, 1, "-l 5 -n 20");
+  dotest(5.E-5, 1, "-l 6 -n 20");
+
+  dotest(1.E-1, 1, "-l 5 -d 0 -n 20");
+  dotest(5.E-3, 1, "-l 5 -d 1 -n 20");
+  dotest(5.E-5, 1, "-l 5 -d 2 -n 40 -dt 0.005"); // time error manifests here
+
+  dotest(1.00E-2, 2, "-l 6 -t 0.5 -dt 0.1"); // second order in time
+  dotest(2.50E-3, 2, "-l 6 -t 0.5 -dt 0.05");
+  dotest(6.25E-4, 2, "-l 6 -t 0.5 -dt 0.025");
+
+  dotest(1.E-2, 3, "-l 4 -t 0.5 -dt 0.1"); // direct solver multi-d
+
+  // in the first few steps here, the grid is very coarse
+  // finer refinement and time-step is needed, only the final error is OK
+  longtest(2.E-3, 2, "-l 2 -m 8 -dt 0.01 -a 1.E-3"); // adapt
+  longtest(2.E-4, 2, "-l 2 -m 8 -dt 0.01 -a 1.E-4");
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+  dotest<float>(1.E-2, 1, "-l 4 -n 10");
+  dotest<float>(1.E-2, 2, "-l 5 -t 0.5 -dt 0.1");
+#endif
+}
+
+#endif //__ASGARD_DOXYGEN_SKIP

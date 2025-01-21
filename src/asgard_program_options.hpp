@@ -612,7 +612,9 @@ struct prog_opts
   std::optional<double> default_dt;
   //! used in place of stop time, if stop time is not provided
   std::optional<double> default_stop_time;
-  //! used in place of a solver type, if solver type i snot provided
+  //! used in place of the step method, if step method is provided
+  std::optional<time_advance::method> default_step_method;
+  //! used in place of the solver type, if solver type is not provided
   std::optional<solve_opts> default_solver;
 
   //! returns the first available from stop-time, default-stop-time or -1

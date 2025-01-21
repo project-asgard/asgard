@@ -65,7 +65,7 @@ public:
   int num_dims() const { return pde2.num_dims(); }
 
   //! returns the time discretization parameters
-  time_data<precision> const &time_params() const { return dtime; }
+  time_data<precision> const &time_params() const { return stepper.data; }
 
   //! get the current time-step number
   int64_t time_step() const { return time_step_; }
@@ -76,9 +76,9 @@ public:
   precision time() const { return time_; }
   //! set the time in the befinning of the simulation, time() must be zero to call this
   void set_time(precision t) {
-    if (dtime.step() != 0)
+    if (stepper.data.step() != 0)
       throw std::runtime_error("cannot reset the current time after the simulation start");
-    dtime.time() = t;
+    stepper.data.time() = t;
   }
   //! get the currently set final time step
   int64_t final_time_step() const { return final_time_step_; }
@@ -244,8 +244,8 @@ public:
 
   //! report time progress
   void progress_report(std::ostream &os = std::cout) {
-    os << "time-step: " << std::setw(10) << tools::split_style(dtime.step()) << "  time: ";
-    std::string s = std::to_string(dtime.time());
+    os << "time-step: " << std::setw(10) << tools::split_style(stepper.data.step()) << "  time: ";
+    std::string s = std::to_string(stepper.data.time());
 
     os << std::setw(10) << s << std::string(11 - s.size(), ' ')
        << "  grid size: " << std::setw(12) << tools::split_style(sgrid.num_indexes())
@@ -271,7 +271,7 @@ public:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
 
   PDEv2<precision> const &get_pde2() const { return pde2; }
-  time_data<precision> const &time_props() const { return dtime; }
+  time_data<precision> const &time_props() const { return stepper.data; }
   bool version2() const { return not pde; }
   void save_snapshot2(std::filesystem::path const &filename) const;
   sparse_grid const &get_sgrid() const { return sgrid; }
@@ -395,9 +395,6 @@ private:
   precision time_;
   int64_t time_step_;
   int64_t final_time_step_;
-
-  // time discretization (for version 2)
-  time_data<precision> dtime;
 
   // recompute only when the grid changes
   // left-right boundary conditions, time-independent components

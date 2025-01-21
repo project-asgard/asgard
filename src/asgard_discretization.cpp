@@ -99,7 +99,6 @@ discretization_manager<precision>::discretization_manager(
   }
 
   this->compute_coefficients();
-  matrices.term_coeffs[0].to_full(conn).print(std::cout);
 
   auto const msg = grid.get_subgrid(get_rank());
   fixed_bc = boundary_conditions::make_unscaled_bc_parts(
@@ -234,6 +233,7 @@ void discretization_manager<precision>::start_cold()
 
     // if no method is set, defaulting to explicit time-stepping
     time_advance::method sm = options.step_method.value_or(time_advance::method::rk3);
+    time_data<precision> dtime;
     if (n >= 0 and stop >= 0 and dt < 0)
       dtime = time_data<precision>(
           sm, n, typename time_data<precision>::input_stop_time{stop});
@@ -246,11 +246,11 @@ void discretization_manager<precision>::start_cold()
     else
       throw std::runtime_error("how did this happen?");
 
-    stepper = time_advance_manager<precision>(sm);
+    stepper = time_advance_manager<precision>(dtime);
   }
 
   if (not stop_verbosity())
-    std::cout << dtime;
+    std::cout << stepper;
 
   if (stepper.needs_solver() and not options.solver)
     throw std::runtime_error("the selected time-stepping method requires a solver, "
@@ -284,6 +284,7 @@ template<typename precision>
 void discretization_manager<precision>::restart_from_file()
 {
 #ifdef ASGARD_USE_HIGHFIVE
+  time_data<precision> dtime;
   h5writer<precision>::read(pde2.options().restart_file, high_verbosity(), pde2, sgrid,
                             dtime, state);
 #else
@@ -303,7 +304,7 @@ void discretization_manager<precision>::restart_from_file()
   // initialize the moments here, we already have the the state
   terms.build_matrices(sgrid, conn, hier);
 
-  stepper = time_advance_manager<precision>(dtime.step_method());
+  stepper = time_advance_manager<precision>(dtime);
 
   if (not stop_verbosity()) {
     if (not options.title.empty())
@@ -319,7 +320,7 @@ void discretization_manager<precision>::restart_from_file()
 template<typename precision>
 void discretization_manager<precision>::save_snapshot2(std::filesystem::path const &filename) const {
 #ifdef ASGARD_USE_HIGHFIVE
-  h5writer<precision>::write(pde2, degree_, sgrid, dtime, state, filename);
+  h5writer<precision>::write(pde2, degree_, sgrid, stepper.data, state, filename);
 #else
   ignore(filename);
   throw std::runtime_error("saving to a file requires CMake option -DASGARD_USE_HIGHFIVE=ON");
@@ -629,10 +630,10 @@ discretization_manager<precision>::set_ode_rhs_sources(
             (*is, pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src);
     }
   } else {
-    hier.template project_separable<data_mode::replace>
+    hier.template project_separable<data_mode::scal_rep>
         (sep.front(), pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
     for (auto is = sep.begin() + 1; is < sep.end(); is++) {
-      hier.template project_separable<data_mode::increment>
+      hier.template project_separable<data_mode::scal_inc>
             (*is, pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
     }
   }
@@ -672,7 +673,7 @@ discretization_manager<precision>::project_function(
     std::fill(out.begin(), out.end(), 0);
   }
 
-  precision time = dtime.time();
+  precision time = stepper.data.time();
 
   for (int i : iindexof(sep)) {
     hier.template project_separable<data_mode::increment>

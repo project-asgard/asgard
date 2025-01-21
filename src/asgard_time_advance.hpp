@@ -169,13 +169,13 @@ struct time_advance_manager
   //! default constructor, makes an empty manager
   time_advance_manager() = default;
   //! creates a new time-stepping manager for the given method
-  time_advance_manager(time_advance::method set_mode);
+  time_advance_manager(time_data<P> const &tdata);
   //! advance to the next time-step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
   //! returns whether the manager requires a solver
   bool needs_solver() const {
-    switch (data.index()) {
+    switch (method.index()) {
       case 0:
         return time_advance::rungekutta3<P>::needs_solver;
       case 1:
@@ -185,11 +185,33 @@ struct time_advance_manager
     };
   }
 
-  //! holds the method used
-  time_advance::method mode = time_advance::method::rk3;
+  //! returns human-readable string with the method name
+  std::string method_name() const;
+
+  //! prints the time-advance stats
+  void print_time(std::ostream &os = std::cout) const {
+    os << "time stepping:\n  method          " << method_name() << "\n" << data;
+  }
+
+  //! holds the common time-stepping parameters
+  time_data<P> data;
   //! wrapper around the specific method being used
-  std::variant<time_advance::rungekutta3<P>, time_advance::crank_nicolson<P>> data;
+  std::variant<time_advance::rungekutta3<P>, time_advance::crank_nicolson<P>> method;
 };
+
+/*!
+ * \internal
+ * \ingroup asgard_time_advance
+ * \brief Allows writing time-data to a stream
+ *
+ * \endinternal
+ */
+template<typename P>
+inline std::ostream &operator<<(std::ostream &os, time_advance_manager<P> const &manger)
+{
+  manger.print_time(os);
+  return os;
+}
 
 }
 

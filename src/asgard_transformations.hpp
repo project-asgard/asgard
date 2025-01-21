@@ -152,6 +152,9 @@ public:
                          mass_list &mass,
                          P time, std::vector<P> &f, P alpha = 1) const
   {
+    if constexpr (action == data_mode::replace or action == data_mode::increment)
+      expect(alpha == 1);
+
     expect(f.size() == static_cast<size_t>(grid.num_indexes() * block_size_));
     int const num_dims = domain.num_dims();
     for (int d : iindexof(num_dims))
@@ -208,6 +211,7 @@ public:
                          P const time = 0.0, P const time_multiplier = 1.0,
                          int sstart = -1, int sstop = -1) const
   {
+    static_assert(action == data_mode::replace or action == data_mode::increment);
     // first we perform the one-dimensional transformations
     int const num_dims = static_cast<int>(dims.size());
     for (int d : indexof<int>(num_dims))
