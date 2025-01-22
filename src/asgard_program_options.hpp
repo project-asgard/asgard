@@ -65,8 +65,12 @@ enum class solve_opts
  */
 enum class preconditioner_opts
 {
+  //! probably not a good idea for an iterative solve
+  none = 0,
   //! diagonal Jacobi preconditioner
-  diagonal = 0,
+  jacobi,
+  //! using alternating direction pseudoinverse
+  adi
 };
 
 /*!
@@ -417,6 +421,8 @@ struct prog_opts
 
   //! solver for implicit or imex methods: direct, gmres, bicgstab
   std::optional<solve_opts> solver;
+  //! preconditioner, used for iterative solvers
+  std::optional<preconditioner_opts> precon;
   //! tolerance for the iterative solvers (gmres, bicgstab)
   std::optional<double> isolver_tolerance;
   //! max number of iterations (inner iterations for gmres)
@@ -616,6 +622,8 @@ struct prog_opts
   std::optional<time_advance::method> default_step_method;
   //! used in place of the solver type, if solver type is not provided
   std::optional<solve_opts> default_solver;
+  //! used in place of the preconditioner type, if preconditioner is not specified
+  std::optional<preconditioner_opts> default_precon;
 
   //! returns the first available from stop-time, default-stop-time or -1
   double get_stop_time() const { return stop_time.value_or(default_stop_time.value_or(-1)); }
@@ -668,6 +676,7 @@ private:
     dt,
     pde_choice,
     solver,
+    precond,
     memory_limit,
     kron_mode,
     isol_tolerance,

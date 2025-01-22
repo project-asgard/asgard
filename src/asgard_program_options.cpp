@@ -106,10 +106,15 @@ Options          Short   Value      Description
                                     Direct: use LAPACK, expensive but stable.
                                     GMRES: general but sensitive to restart selection.
                                     bicgstab: cheaper alternative to GMRES
+-precon          -pc     string     accepts: none/jacobi/adi (iterative solvers only)
+                                    specifies the preconditioner for the iterative method
+                                    none - is not advisable as it takes too long
+                                    jacobi - preconditioner that applies basic rescaling
+                                    adi - very experimental, not very stable (yet)
 -isolve-tol      -ist    double     Iterative solver tolerance, applies to GMRES and BICG.
--isolve-iter     -isi    double     Iterative solver maximum number of iterations,
+-isolve-iter     -isi    int        Iterative solver maximum number of iterations,
                                     for GMRES this is the number of inner iterations.
--isolve-outer    -iso    double     (GMRES only) The maximum number of outer GMRES iterations.
+-isolve-outer    -iso    int        (GMRES only) The maximum number of outer GMRES iterations.
 
 Leaving soon:
 -memory                  int        Memory limit for the GPU, applied to the earlier versions
@@ -212,6 +217,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-time", optentry::stop_time}, {"-t", optentry::stop_time},
       {"-available-pdes", optentry::pde_help},
       {"-solver", optentry::solver}, {"-sv", optentry::solver},
+      {"-precon", optentry::precond}, {"-pc", optentry::precond},
       {"-memory", optentry::memory_limit},
       {"-kron-mode", optentry::kron_mode},
       {"-isolve-tol", optentry::isol_tolerance}, {"-ist", optentry::isol_tolerance},
@@ -481,6 +487,21 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
         solver = solve_opts::gmres;
       else if (*selected == "bicgstab")
         solver = solve_opts::bicgstab;
+      else
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::precond: {
+      // if we get more preconditioners we may switch to a map
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "none")
+        precon = preconditioner_opts::none;
+      else if (*selected == "jacobi")
+        precon = preconditioner_opts::jacobi;
+      else if (*selected == "adi")
+        precon = preconditioner_opts::adi;
       else
         throw std::runtime_error(report_wrong_value());
     }

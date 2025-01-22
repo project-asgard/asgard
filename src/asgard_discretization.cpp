@@ -246,7 +246,8 @@ void discretization_manager<precision>::start_cold()
     else
       throw std::runtime_error("how did this happen?");
 
-    stepper = time_advance_manager<precision>(dtime);
+    // the options are used to setup the solver
+    stepper = time_advance_manager<precision>(dtime, options);
   }
 
   if (not stop_verbosity())
@@ -271,10 +272,15 @@ void discretization_manager<precision>::start_cold()
     std::cout << "initial degrees of freedom: " << tools::split_style(dof) << "\n\n";
   }
 
-  // after setting the initial conditions, we do the moment/posson calculations
+  // after setting the initial conditions, we do the moment/poisson calculations
   // then we can rebuild the terms
 
-  terms.build_matrices(sgrid, conn, hier);
+  if (stepper.needed_precon() == preconditioner_opts::adi) {
+    std::cout << " adi precon\n";
+    terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
+                         0.5 * stepper.data.dt());
+  } else
+    terms.build_matrices(sgrid, conn, hier);
 
   if (high_verbosity())
     progress_report();
@@ -298,13 +304,13 @@ void discretization_manager<precision>::restart_from_file()
 
   hier = hierarchy_manipulator(degree_, pde2.domain());
 
+  stepper = time_advance_manager<precision>(dtime, options);
+
   terms = term_manager<precision>(pde2);
 
   terms.prapare_workspace(sgrid);
   // initialize the moments here, we already have the the state
   terms.build_matrices(sgrid, conn, hier);
-
-  stepper = time_advance_manager<precision>(dtime);
 
   if (not stop_verbosity()) {
     if (not options.title.empty())
@@ -312,7 +318,7 @@ void discretization_manager<precision>::restart_from_file()
     if (not options.subtitle.empty())
       std::cout << "subtitle: " << options.subtitle << '\n';
     std::cout << sgrid;
-    std::cout << dtime;
+    std::cout << stepper;
     if (high_verbosity())
       progress_report();
   }

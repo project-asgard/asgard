@@ -96,13 +96,13 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   // to the combined operator and respectively to the field
   asgard::term_1d<P> div = asgard::term_div(asgard::flux_type::upwind,
                                             asgard::boundary_type::free,
-                                            P{1});
+                                            P{-1});
 
   // Dirichlet conditions applied to the grad term apply Dirichlet condition
   // to the combined operator and respectively to the field
   asgard::term_1d<P> grad = asgard::term_grad(asgard::flux_type::upwind,
                                               asgard::boundary_type::dirichlet,
-                                              P{-1});
+                                              P{1});
 
   if constexpr (chain1d)
   {
@@ -320,7 +320,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde<P, false>(2, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde<P>(2, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method

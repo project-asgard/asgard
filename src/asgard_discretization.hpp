@@ -167,6 +167,13 @@ public:
     tools::time_event performance_("terms_apply_all kronmult");
     terms.apply_all(sgrid, conn, alpha, x, beta, y);
   }
+  //! applies ADI preconditioner for all terms
+  void terms_apply_adi(std::vector<precision> const &x,
+                       std::vector<precision> &y) const
+  {
+    tools::time_event performance_("terms_apply_adi kronmult");
+    terms.apply_all_adi(sgrid, conn, x, y);
+  }
 
   //! compute the electric field for the given state and update the coefficient matrices
   void do_poisson_update(std::vector<precision> const &field) const;
@@ -247,9 +254,19 @@ public:
     os << "time-step: " << std::setw(10) << tools::split_style(stepper.data.step()) << "  time: ";
     std::string s = std::to_string(stepper.data.time());
 
-    os << std::setw(10) << s << std::string(11 - s.size(), ' ')
-       << "  grid size: " << std::setw(12) << tools::split_style(sgrid.num_indexes())
-       << "  dof: " << std::setw(14) << tools::split_style(state.size()) << "\n";
+    if (s.size() < 7)
+      os << std::setw(10) << s << std::string(7 - s.size(), ' ');
+    else
+      os << std::setw(10) << s;
+    os << "  grid size: " << std::setw(12) << tools::split_style(sgrid.num_indexes())
+       << "  dof: " << std::setw(14) << tools::split_style(state.size());
+    int64_t const num_appy = stepper.solver_iterations();
+    if (num_appy > 0) { // using iterative solver
+      os << "  av-iter: " << std::setw(14) << tools::split_style(num_appy / stepper.data.step())
+         << '\n';
+    } else {
+      os << '\n';
+    }
   }
   //! projects and sum-of-separable functions and md_func onto the current basis
   void project_function(std::vector<separable_func<precision>> const &sep,

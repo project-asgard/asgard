@@ -569,8 +569,38 @@ void crank_nicolson<P>::next_step(
   disc.terms_apply_all(-0.5 * dt, current, 1, next);
   disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
 
-  if (solver.opt == solve_opts::direct)
+  if (solver.opt == solve_opts::direct) {
     solver.direct_solve(next);
+  } else {
+    work = next;
+
+    int64_t const n = static_cast<int64_t>(work.size());
+
+    if (solver.precon == preconditioner_opts::none) {
+      solver.iterate_solve(
+        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
+        {
+  ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+        }, work, next);
+    } else {
+      // assuming ADI
+      solver.iterate_solve(
+        [&](std::vector<P> const &x, std::vector<P> &y) -> void
+        {
+          disc.terms_apply_adi(x, y);
+        },
+        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
+        {
+  ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+        }, work, next);
+    }
+  }
 }
 
 template<typename P>
@@ -591,7 +621,7 @@ namespace asgard
 {
 
 template<typename P>
-time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata)
+time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_opts const &options)
   : data(tdata)
 {
   expect(static_cast<int>(data.step_method()) <= 1 ); // the new modes that have been implemented
@@ -603,7 +633,7 @@ time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata)
       method = time_advance::rungekutta3<P>();
       break;
     case time_advance::method::cn:
-      method = time_advance::crank_nicolson<P>();
+      method = time_advance::crank_nicolson<P>(options);
       break;
     default:
       throw std::runtime_error("unimplemented time-advance option");

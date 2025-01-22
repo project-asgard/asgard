@@ -25,9 +25,9 @@ simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
 // simple, node-local test version of bicgstab
 template<typename P>
 gmres_info<P>
-bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
-         fk::matrix<P> const &M, int const max_iter,
-         P const tolerance);
+simple_bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
+                fk::matrix<P> const &M, int const max_iter,
+                P const tolerance);
 
 // solves ( I - dt * mat ) * x = b
 template<typename P, resource resrc>
@@ -164,6 +164,65 @@ private:
   dense_matrix<P> mat;
 };
 
+/*!
+ * \internal
+ * \brief Signature for the left-hand linear operation for a solver
+ *
+ * Computes `y = alpha * A * x + beta * y`
+ *
+ * \endinternal
+ */
+template<typename P>
+using operatoin_apply_lhs =
+  std::function<void(P alpha, std::vector<P> const &x, P beta, std::vector<P> &y)>;
+
+/*!
+ * \internal
+ * \brief Signature for the preconditioner
+ *
+ * Computes `y = inverse-P * x` and do not need the constants
+ *
+ * \endinternal
+ */
+template<typename P>
+using operatoin_apply_precon =
+  std::function<void(std::vector<P> const &x, std::vector<P> &y)>;
+
+/*!
+ * \internal
+ * \brief BiCGSTAB method combines Conjugate-Gradient and GMRES
+ *
+ * The class mostly holds workspace vectors.
+ * \endinternal
+ */
+template<typename P>
+class bicgstab
+{
+public:
+  //! default constructor, nothing to do
+  bicgstab() = default;
+
+  //! construct and set the tolerance and maximum number of iterations
+  bicgstab(P tol_in, int maxi) : tol(tol_in), max_iter(maxi) {};
+
+  //! solve for the given linear operator, right-hand-side and initial iterate
+  int solve(operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
+            std::vector<P> &x) const;
+
+  //! preconditioning requires three extra workspace vectors
+  mutable std::vector<P> prec_rhs;
+  //! preconditioning requires three extra workspace vectors
+  mutable std::vector<P> prec_y;
+  //! preconditioning requires three extra workspace vectors
+  mutable std::vector<P> prec_yb;
+
+private:
+  P tol        = 0;
+  int max_iter = 0;
+
+  mutable std::vector<P> rref, r, p, v, t;
+};
+
 } // namespace asgard::solvers
 
 namespace asgard
@@ -181,17 +240,109 @@ namespace asgard
 template<typename P>
 struct solver_manager
 {
+  //! default constructor, probably not the best idea
+  solver_manager() = default;
+  //! create a new solver
+  solver_manager(prog_opts const &options)
+    : opt(options.solver.value())
+  {
+    switch (opt) {
+      case solve_opts::direct:
+        var = solvers::direct<P>(); // will be initialized later
+        break;
+      case solve_opts::bicgstab:
+        rassert(options.isolver_tolerance,
+                "missing tolerance for the iterative solver bicgstab");
+        rassert(options.isolver_iterations,
+                "missing number of iterations for the iterative solver bicgstab");
+        var = solvers::bicgstab<P>(options.isolver_tolerance.value(),
+                                   options.isolver_iterations.value());
+        precon = options.precon.value_or(preconditioner_opts::none);
+        break;
+      default: // unreachable
+        break;
+    }
+  }
+
+  //! direct solver only, just call the matrix inversion method
   void direct_solve(std::vector<P> &x) {
     expect(opt == solve_opts::direct);
     std::get<solvers::direct<P>>(var)(x);
   }
 
+  //! iterate_solve without a preconditioner
+  void iterate_solve(solvers::operatoin_apply_lhs<P> apply_lhs,
+                     std::vector<P> const &rhs, std::vector<P> &x) const
+  {
+    iterate_solve(nullptr, apply_lhs, rhs, x);
+  }
+
+  //! iterative solver, calls the appropriate iterative solver
+  void iterate_solve(solvers::operatoin_apply_precon<P> precon,
+                     solvers::operatoin_apply_lhs<P> apply_lhs,
+                     std::vector<P> const &rhs, std::vector<P> &x) const
+  {
+    expect(opt == solve_opts::bicgstab);
+    if (precon) {
+      // in the bicgstab, explicitly apply the preconditioner
+      solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
+      bicg.prec_rhs.resize(rhs.size());
+      bicg.prec_y.resize(rhs.size());
+      bicg.prec_yb.resize(rhs.size());
+
+      num_apply += 1;
+      precon(rhs, bicg.prec_rhs);
+      num_apply += 2 * bicg.solve(
+        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
+        {
+          if (beta != 0)
+            bicg.prec_yb = y;
+
+          apply_lhs(alpha, x, 0, bicg.prec_y);
+          precon(bicg.prec_y, y);
+
+          if (beta != 0)
+            for (size_t i = 0; i < y.size(); i++)
+              y[i] += beta * bicg.prec_yb[i];
+        },
+        bicg.prec_rhs, x);
+    } else {
+      num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
+    }
+  }
+
+  void update_grid(sparse_grid const &grid,
+                   connection_patterns const &conn,
+                   term_manager<P> const &terms, P alpha);
+
+  //! write the solver options in human-readable format
+  void print_opts(std::ostream &os) const;
+
   //! selected solver
   solve_opts opt = solve_opts::direct;
+  //! selected solver
+  preconditioner_opts precon = preconditioner_opts::none;
+  //! remember the total mat-vec products
+  mutable int64_t num_apply = 0;
   //! remembers the generation of the grid that was used to last set the manager
   int grid_gen = -1;
   //! holds the actual solver instance
-  std::variant<solvers::direct<P>> var;
+  std::variant<solvers::direct<P>, solvers::bicgstab<P>> var;
+  //! holds data for the jacobi preconditioner
+  std::vector<P> jacobi;
 };
+
+/*!
+ * \internal
+ * \brief Write the options to a stream
+ *
+ * \endinternal
+ */
+template<typename P>
+inline std::ostream &operator<<(std::ostream &os, solver_manager<P> const &solver)
+{
+  solver.print_opts(os);
+  return os;
+}
 
 }

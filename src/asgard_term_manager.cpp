@@ -84,7 +84,7 @@ term_manager<P>::term_manager(PDEv2<P> &pde)
 template<typename P>
 void term_manager<P>::rebuld_term(
     int const tid, sparse_grid const &grid, connection_patterns const &conn,
-    hierarchy_manipulator<P> const &hier)
+    hierarchy_manipulator<P> const &hier, preconditioner_opts precon, P alpha)
 {
   expect(legendre.pdof == hier.degree() + 1);
   expect(not terms[tid].tmd.is_chain());
@@ -120,6 +120,21 @@ void term_manager<P>::rebuld_term(
       terms[tid].coeffs[d] = hier.diag2hierarchical(wraw_diag, level, conn);
     else
       terms[tid].coeffs[d] = hier.tri2hierarchical(wraw_tri, level, conn);
+
+    // build the ADI preconditioner here
+    if (precon == preconditioner_opts::adi) {
+      std::cout << " rebuilding ad\n";
+      if (is_diag) {
+        to_euler(legendre.pdof, alpha, wraw_diag);
+        psedoinvert(legendre.pdof, wraw_diag, raw_diag0);
+        terms[tid].adi[d] = hier.diag2hierarchical(raw_diag0, level, conn);
+      } else {
+        to_euler(legendre.pdof, alpha, wraw_tri);
+        psedoinvert(legendre.pdof, wraw_tri, raw_tri0);
+        terms[tid].adi[d] = hier.tri2hierarchical(raw_tri0, level, conn);
+      }
+    }
+
   } // move to next dimension d
 }
 
@@ -319,6 +334,43 @@ void term_manager<P>::apply_all(
 
     b = 1; // next iteration appends on y
   }
+}
+
+template<typename P>
+void term_manager<P>::apply_all_adi(
+    sparse_grid const &grid, connection_patterns const &conns,
+    std::vector<P> const &x, std::vector<P> &y) const
+{
+  expect(x.size() == y.size());
+  expect(x.size() == kwork.w1.size());
+
+  std::vector<P> t1 = x;
+  std::vector<P> t2 = x;
+
+  auto it = terms.begin();
+  while (it < terms.end())
+  {
+    if (it->num_chain == 1) {
+      kron_term_adi(grid, conns, *it, 1, t1, 0, t2);
+      std::swap(t1, t2);
+      ++it;
+    } else {
+      // // dealing with a chain
+      // int const num_chain = it->num_chain;
+      //
+      // kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+      // for (int i = num_chain - 2; i > 0; --i) {
+      //   kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
+      //   std::swap(t1, t2);
+      // }
+      // kron_term(grid, conns, *it, alpha, t1, b, y);
+      //
+      it += it->num_chain;
+    }
+
+    // b = 1; // next iteration appends on y
+  }
+  y = t1;
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

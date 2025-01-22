@@ -2112,10 +2112,17 @@ public:
       // setting solver for the time-stepper
       if (not options_.solver and options_.default_solver)
         options_.solver = options_.default_solver.value();
+      // setting up preconditioner for a possibly iterative solver
+      if (not options_.precon and options_.default_precon)
+        options_.precon = options_.default_precon.value();
     }
+
     // don't support l-inf norm yet
-    if (options_.adapt_threshold)
+    if (options_.adapt_threshold) {
+      if (options_.anorm and options_.anorm.value() == adapt_norm::linf)
+        std::cerr << "warning: l-inf norm not implemented for pde-version 2, switching to l2\n";
       options_.anorm = adapt_norm::l2;
+    }
   }
 
   //! shortcut for the number of dimensions

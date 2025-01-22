@@ -136,6 +136,8 @@ struct crank_nicolson
 {
   //! Default empty stepper
   crank_nicolson() = default;
+  //! Initialize the stepper and
+  crank_nicolson(prog_opts const &options) : solver(options) {}
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
@@ -144,10 +146,21 @@ struct crank_nicolson
   void rebuild_matrix(discretization_manager<P> const &dist) const;
   //! requires a solver
   static bool constexpr needs_solver = true;
+  //! needed precondtioner, if using an iterative solver
+  preconditioner_opts needed_precon() const { return solver.precon; }
+  //! returns the number of matrix-vector products, if using an iterative solver
+  int64_t num_apply_calls() const { return solver.num_apply; }
+
+  //! prints options for the solver
+  void print_solver_opts(std::ostream &os = std::cout) const {
+    os << solver;
+  }
 
 private:
   // the solver used
   mutable solver_manager<P> solver;
+  // workspace
+  mutable std::vector<P> work;
 };
 
 }
@@ -169,7 +182,7 @@ struct time_advance_manager
   //! default constructor, makes an empty manager
   time_advance_manager() = default;
   //! creates a new time-stepping manager for the given method
-  time_advance_manager(time_data<P> const &tdata);
+  time_advance_manager(time_data<P> const &tdata, prog_opts const &options);
   //! advance to the next time-step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
@@ -184,6 +197,15 @@ struct time_advance_manager
         return false; // unreachable
     };
   }
+  //! returns the precondtioner required by the solver, if any
+  preconditioner_opts needed_precon() const {
+    switch (method.index()) {
+      case 1:
+        return std::get<1>(method).needed_precon();
+      default:
+        return preconditioner_opts::none;
+    };
+  }
 
   //! returns human-readable string with the method name
   std::string method_name() const;
@@ -191,6 +213,23 @@ struct time_advance_manager
   //! prints the time-advance stats
   void print_time(std::ostream &os = std::cout) const {
     os << "time stepping:\n  method          " << method_name() << "\n" << data;
+    if (needs_solver()) { // show solver data
+      switch (method.index()) {
+        case 1: // crank_nicolson
+          std::get<1>(method).print_solver_opts(os);
+        default: // implicit method, nothing to do
+          break;
+      };
+    }
+  }
+
+  int64_t solver_iterations() const {
+    switch (method.index()) {
+      case 1:
+        return std::get<1>(method).num_apply_calls();
+      default:
+        return -1;
+    };
   }
 
   //! holds the common time-stepping parameters

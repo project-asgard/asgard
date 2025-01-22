@@ -12,6 +12,8 @@ struct term_entry {
   term_md<P> tmd;
   //! coefficient matrices for the term
   std::array<block_sparse_matrix<P>, max_num_dimensions> coeffs;
+  //! ADI pseudoinverses of the coefficients
+  std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
   //! current level that has been constructed
   std::array<int, max_num_dimensions> level = {{0}};
   //! kronmult operation permutations
@@ -55,10 +57,12 @@ struct term_manager
   mutable vector2d<P> inodes;
   //! rebuild all matrices
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
-                      hierarchy_manipulator<P> const &hier) {
+                      hierarchy_manipulator<P> const &hier,
+                      preconditioner_opts precon = preconditioner_opts::none,
+                      P alpha = 0) {
     tools::time_event timing_("initial coefficients");
     for (int t : iindexof(terms))
-      rebuld_term(t, grid, conn, hier);
+      rebuld_term(t, grid, conn, hier, precon, alpha);
   }
 
   void prapare_workspace(sparse_grid const &grid) {
@@ -83,12 +87,23 @@ struct term_manager
   void apply_all(sparse_grid const &grid, connection_patterns const &conns,
                  P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
 
-  //! y += tme * x, assumes workspace has been set
+  //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
+  void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
+                     std::vector<P> const &x, std::vector<P> &y) const;
+
+  //! y = alpha * tme * x + beta * y, assumes workspace has been set
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
   {
     block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+              alpha, x.data(), beta, y.data(), kwork);
+  }
+  void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
+                     term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
+                     std::vector<P> &y) const
+  {
+    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.adi,
               alpha, x.data(), beta, y.data(), kwork);
   }
 
@@ -98,7 +113,8 @@ protected:
 
   //! rebuild term[tid], loops over all dimensions
   void rebuld_term(int const tid, sparse_grid const &grid, connection_patterns const &conn,
-                   hierarchy_manipulator<P> const &hier);
+                   hierarchy_manipulator<P> const &hier,
+                   preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(int const dim, term_1d<P> const &t1d, int const level, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
@@ -112,11 +128,11 @@ private:
   // workspace matrices
   block_diag_matrix<P> raw_mass;
 
-  block_tri_matrix<P> wraw_tri;
   block_diag_matrix<P> wraw_diag;
+  block_tri_matrix<P> wraw_tri;
 
-  block_tri_matrix<P> raw_tri0, raw_tri1;
   block_diag_matrix<P> raw_diag0, raw_diag1;
+  block_tri_matrix<P> raw_tri0, raw_tri1;
 };
 
 } // namespace asgard

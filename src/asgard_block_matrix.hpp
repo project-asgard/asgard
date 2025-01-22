@@ -719,12 +719,39 @@ void invert_mass(int const n, mass_matrix<P> const &mass, P x[]);
 
 /*!
  * \internal
- * \brief Destroys the content in A and forms approximate inverse of A, , similar to ILU
+ * \brief Overwrites A with (I + alpha * A)
+ *
+ * \endinternal
+ */
+template<typename P>
+void to_euler(int const n, P alpha, block_diag_matrix<P> &A);
+
+/*!
+ * \internal
+ * \brief Overwrites A with (I + alpha * A)
+ *
+ * \endinternal
+ */
+template<typename P>
+void to_euler(int const n, P alpha, block_tri_matrix<P> &A);
+
+/*!
+ * \internal
+ * \brief Destroys the content in A and forms approximate inverse of A, similar to ILU
  *
  * \endinternal
  */
 template<typename P>
 void psedoinvert(int const n, block_tri_matrix<P> &A,
                  block_tri_matrix<P> &iA);
+/*!
+ * \internal
+ * \brief Destroys the content in A and forms the inverse of A
+ *
+ * \endinternal
+ */
+template<typename P>
+void psedoinvert(int const n, block_diag_matrix<P> &A,
+                 block_diag_matrix<P> &iA);
 
 } // namespace asgard

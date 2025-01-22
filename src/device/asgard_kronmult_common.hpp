@@ -18,11 +18,13 @@
 #define ASGARD_PRAGMA_OMP_SIMD(x)
 #define ASGARD_OMP_SIMD
 #define ASGARD_OMP_PARFOR_SIMD
+#define ASGARD_OMP_PARFOR_SIMD_EXTRA(x)
 #else
 #define ASGARD_PRAGMA(x) _Pragma(#x)
 #define ASGARD_OMP_SIMD ASGARD_PRAGMA(omp simd)
 #define ASGARD_PRAGMA_OMP_SIMD(clause) ASGARD_PRAGMA(omp simd clause)
 #define ASGARD_OMP_PARFOR_SIMD ASGARD_PRAGMA(omp parallel for simd)
+#define ASGARD_OMP_PARFOR_SIMD_EXTRA(clause) ASGARD_PRAGMA(omp parallel for simd clause)
 #endif
 
 namespace asgard::kronmult
