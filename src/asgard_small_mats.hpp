@@ -296,17 +296,36 @@ void getrs_l(int const n, P const L[], P B[]) {
         B[k * n + r] -= L[i * n + r] * B[k * n + i];
   }
 }
-//! apply the U^{-1} block of getrf() on a block B, i.e., B * U^{-1}
+//! apply the U^{-1} block of getrf() on the right of block B, i.e., B * U^{-1}
 template<typename P>
-void getrs_u(int const n, P const U[], P B[]) {
+void getrs_u_right(int const n, P const U[], P B[]) {
   for (int i = 0; i < n; i++) {
-    // ASGARD_PRAGMA_OMP_SIMD(collapse(2))
     for (int k = 0; k < n; k++) {
       B[i * n + k] /= U[i * n + i];
+      ASGARD_OMP_SIMD
       for (int r = i + 1; r < n; r++)
         B[r * n + k] -= U[r * n + i] * B[i * n + k];
     }
   }
+}
+//! apply the U^{-1} block of getrf() on a block B, i.e., B * U^{-1}
+template<typename P>
+void getrs_u(int const n, P const U[], P B[]) {
+  for (int i = n - 1; i >= 0; --i) {
+    for (int k = 0; k < n; k++) {
+      B[k * n + i] /= U[i * n + i];
+      ASGARD_OMP_SIMD
+      for (int r = 0; r < i; r++)
+        B[k * n + r] -= B[k * n + i] * U[i * n + r];
+    }
+  }
+}
+//! sets a block to identity
+template<typename P>
+void set_eye(int const n, P I[]) {
+  std::fill_n(I, n * n, P{0});
+  for (int k = 0; k < n; k++)
+    I[k * (n + 1)] = P{1};
 }
 
 //! C += (dir) A^T B, dir must be +/-1, C is nrc by nrc

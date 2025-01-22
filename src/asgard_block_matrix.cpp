@@ -438,7 +438,64 @@ template<typename P>
 void psedoinvert(int const n, block_tri_matrix<P> &A,
                  block_tri_matrix<P> &iA)
 {
-  //
+  expect(A.nblock() == n * n);
+  iA.resize_and_zero(n * n, A.nrows());
+
+  int const nrows = A.nrows();
+
+  for (int i = 0; i < nrows; i++)
+    smmat::set_eye(n, iA.diag(i));
+
+  smmat::getrf(n, A.diag(0));
+
+  if (nrows <= 2) {
+    if (nrows == 1) {
+      smmat::getrs_l(n, A.diag(0), iA.diag(0));
+      smmat::getrs_u(n, A.diag(0), iA.diag(0));
+    } else {
+      // merge the periodic blocks
+      smmat::axpy(n * n, P{1}, A.lower(0), A.upper(0));
+      smmat::axpy(n * n, P{1}, A.upper(1), A.lower(1));
+      // factorize the rest of the blocks
+      smmat::getrs_l(n, A.diag(0), A.upper(0));
+      smmat::getrs_u_right(n, A.diag(0), A.lower(1));
+      smmat::gemm<-1>(n, A.lower(1), A.upper(0), A.diag(1));
+      smmat::getrf(n, A.diag(1));
+      // invert the L factor
+      smmat::getrs_l(n, A.diag(0), iA.diag(0));
+      smmat::gemm<-1>(n, A.lower(1), iA.diag(0), iA.lower(1));
+      smmat::getrs_l(n, A.diag(1), iA.lower(1));
+      smmat::getrs_l(n, A.diag(1), iA.diag(1));
+      // invert the U factor
+      smmat::getrs_u(n, A.diag(1), iA.lower(1));
+      smmat::getrs_u(n, A.diag(1), iA.diag(1));
+      smmat::gemm<-1>(n, A.upper(0), iA.lower(1), iA.diag(0));
+      smmat::gemm<-1>(n, A.upper(0), iA.diag(1), iA.upper(0));
+      smmat::getrs_u(n, A.diag(0), iA.diag(1));
+      smmat::getrs_u(n, A.diag(0), iA.upper(1));
+    }
+    return;
+  }
+
+  // factorization
+  smmat::getrs_l(n, A.diag(0), A.upper(0));
+  smmat::getrs_u_right(n, A.diag(0), A.lower(1));
+
+  for (int i = 1; i < nrows - 1; i++)
+  {
+    smmat::gemm<-1>(n, A.lower(i), A.upper(i - 1), A.diag(i));
+    smmat::getrf(n, A.diag(i));
+    smmat::getrs_l(n, A.diag(i), A.upper(i));
+    smmat::getrs_u_right(n, A.diag(i), A.lower(i + 1));
+  }
+
+  int const r = nrows - 1;
+  smmat::getrs_l(n, A.diag(0), A.upper(r));
+  smmat::getrs_u_right(n, A.diag(0), A.lower(0));
+
+  smmat::gemm<-1>(n, A.lower(r), A.upper(r - 1), A.diag(r));
+  smmat::gemm<-1>(n, A.upper(r), A.lower(0), A.diag(r));
+  smmat::getrf(n, A.diag(r));
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
