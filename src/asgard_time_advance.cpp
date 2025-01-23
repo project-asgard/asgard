@@ -561,23 +561,27 @@ void crank_nicolson<P>::next_step(
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
+  P const substep = (method == time_advance::method::cn) ? 0.5 : 1;
+
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
   if (solver.grid_gen != disc.get_sgrid().generation())
-    solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), 0.5 * dt);
+    solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), substep * dt);
 
   if (solver.opt == solve_opts::direct) {
     next = current; // copy
 
-    disc.terms_apply_all(-0.5 * dt, current, 1, next);
-    disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
+    if (substep < 1)
+      disc.terms_apply_all(-substep * dt, current, 1, next);
+    disc.add_ode_rhs_sources(time + substep * dt, dt, next);
 
     solver.direct_solve(next);
   } else { // iterative solver
     // form the right-hand-side inside work
     work = current;
-    disc.terms_apply_all(-0.5 * dt, current, 1, work);
-    disc.add_ode_rhs_sources(time + 0.5 * dt, dt, work);
+    if (substep < 1)
+      disc.terms_apply_all(-substep * dt, current, 1, work);
+    disc.add_ode_rhs_sources(time + substep * dt, dt, work);
 
     next = current; // use the current step as the initial guess
 
@@ -591,7 +595,7 @@ void crank_nicolson<P>::next_step(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+          disc.terms_apply_all(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
     case preconditioner_opts::jacobi:
@@ -608,7 +612,7 @@ void crank_nicolson<P>::next_step(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+          disc.terms_apply_all(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
     default: {
@@ -626,7 +630,7 @@ void crank_nicolson<P>::next_step(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+          disc.terms_apply_all(substep * alpha * dt, x, 1, y);
         }, work, next);
     }
     break;
@@ -643,7 +647,7 @@ template<typename P>
 time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_opts const &options)
   : data(tdata)
 {
-  expect(static_cast<int>(data.step_method()) <= 1 ); // the new modes that have been implemented
+  expect(static_cast<int>(data.step_method()) <= 2); // the new modes that have been implemented
 
   // prepare the time-stepper
   switch (data.step_method())
@@ -652,6 +656,7 @@ time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_op
       method = time_advance::rungekutta3<P>();
       break;
     case time_advance::method::cn:
+    case time_advance::method::beuler:
       method = time_advance::crank_nicolson<P>(options);
       break;
     default:
@@ -670,6 +675,7 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
       std::get<time_advance::rungekutta3<P>>(method).next_step(dist, current, next);
       break;
     case time_advance::method::cn:
+    case time_advance::method::beuler:
       std::get<time_advance::crank_nicolson<P>>(method).next_step(dist, current, next);
       break;
     default:
@@ -682,6 +688,7 @@ std::string time_advance_manager<P>::method_name() const {
   std::map<time_advance::method, std::string> names = {
     {time_advance::method::rk3, "Runge-Kutta 3-step (explicit)"},
     {time_advance::method::cn, "Crank-Nicolson 1-step (implicit)"},
+    {time_advance::method::beuler, "Backward-Euler 1-step (implicit)"},
   };
 
   return names.find(data.step_method())->second;

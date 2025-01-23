@@ -126,9 +126,10 @@ private:
 /*!
  * \internal
  * \ingroup asgard_time_advance
- * \brief Crank-Nicolson 1-stage method, 2th order accuracy in step-size
+ * \brief Crank-Nicolson or Backward-Euler 1-stage method, 2nd or 1st order accuracy in step-size
  *
- * Simple 1-stage implicit method, unconditional stability.
+ * The two methods are simple variants of each other, this class will read the correct
+ * one from the options and make the adjustments.
  * \endinternal
  */
 template<typename P>
@@ -137,7 +138,12 @@ struct crank_nicolson
   //! Default empty stepper
   crank_nicolson() = default;
   //! Initialize the stepper and
-  crank_nicolson(prog_opts const &options) : solver(options) {}
+  crank_nicolson(prog_opts const &options)
+      : method(options.step_method.value()), solver(options)
+  {
+    expect(method == time_advance::method::cn or
+           method == time_advance::method::beuler);
+  }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
@@ -157,6 +163,7 @@ struct crank_nicolson
   }
 
 private:
+  time_advance::method method = time_advance::method::cn;
   // the solver used
   mutable solver_manager<P> solver;
   // workspace

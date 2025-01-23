@@ -306,8 +306,10 @@ void discretization_manager<precision>::restart_from_file()
   terms.prapare_workspace(sgrid);
   // initialize the moments here, we already have the the state
   if (stepper.needed_precon() == preconditioner_opts::adi) {
+    precision const substep
+        = (options.step_method.value() == time_advance::method::cn) ? 0.5 : 1;
     terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
-                         0.5 * stepper.data.dt());
+                         substep * stepper.data.dt());
   } else
     terms.build_matrices(sgrid, conn, hier);
 

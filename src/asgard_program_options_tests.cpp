@@ -51,6 +51,13 @@ TEST_CASE("new program options", "[single options]")
     prog.force_step_method(time_advance::method::imex);
     REQUIRE(prog.step_method);
     REQUIRE(*prog.step_method == time_advance::method::imex);
+
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method.value() == time_advance::method::cn);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "crank-nicolson"})).step_method.value() == time_advance::method::cn);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method.value() == time_advance::method::beuler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "backward-euler"})).step_method.value() == time_advance::method::beuler);
   }
   SECTION("-adapt-norm")
   {

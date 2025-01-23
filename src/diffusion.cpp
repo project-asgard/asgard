@@ -17,7 +17,7 @@
  * \addtogroup asgard_examples_diffusion Example 4, Diffusion operator
  *
  * \par Example 3
- * Solves the continuity partial differential equation in arbitrary dimension \b d
+ * Solves the 2D diffusion partial differential equation
  * \f[ \frac{d}{dt} f - \nabla \cdot \nabla f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution is
  * \f[ f(t, x, y) = (1 - \exp(-t)) (\exp(1 - x^2) - 1) \f]
@@ -93,7 +93,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   // using implicit Crank-Nicolson method, which requires a solver
   options.default_step_method = asgard::time_advance::method::cn;
 
-  if (options.max_level() < 5) {
+  if (options.max_level() <= 5) {
     // direct (dense) solver is fast for small problems and works well for prototyping
     // and debugging, since it remove from the problem some additional factors,
     // such as solver tolerance and number of iterations
@@ -122,6 +122,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   // the inner iterations explicitly form and manipulate the basis for the Krylov sub-space
   // which requires lots of memory and the number here should be kept moderate
   // (memory usage is dominated by isolver_inner_iterations * degrees-of-freedom)
+  // (the bicgstab method ignores this value)
   options.isolver_inner_iterations = 50;
 
   // create a pde from the given options and domain

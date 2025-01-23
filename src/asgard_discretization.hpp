@@ -256,7 +256,7 @@ public:
   void set_verbosity(verbosity_level v) const { verb = v; }
 
   //! report time progress
-  void progress_report(std::ostream &os = std::cout) {
+  void progress_report(std::ostream &os = std::cout) const {
     os << "time-step: " << std::setw(10) << tools::split_style(stepper.data.step()) << "  time: ";
     std::string s = std::to_string(stepper.data.time());
 
@@ -274,6 +274,16 @@ public:
       os << '\n';
     }
   }
+  //! safe final result and print statistics, if verbosity allows it and output file is given
+  void final_output() const {
+    save_final_snapshot();
+    if (not stop_verbosity()) {
+      progress_report();
+      if (asgard::tools::timer.enabled())
+        std::cout << asgard::tools::timer.report() << '\n';
+    }
+  }
+
   //! projects and sum-of-separable functions and md_func onto the current basis
   void project_function(std::vector<separable_func<precision>> const &sep,
                         md_func<precision> const &fmd, std::vector<precision> &out) const;

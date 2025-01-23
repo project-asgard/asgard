@@ -77,10 +77,10 @@ Options          Short   Value      Description
 
 <<< time stepping options >>>
 -step-method     -s      string     accepts (v1): expl/impl/imex
-                                    accepts (v2): rk3/cn
-                                    indicates explicit (rk3), explicit (backward-Euler) or
+                                    accepts (v2): rk3/cn/crank-nicolson/be/backwar-euler
+                                    indicates explicit (rk3), implicit (backward-Euler) or
                                     imex (implicit-explicit) time-stepping scheme
-                                    implicit crank-nicolson (cn)
+                                    implicit crank-nicolson (cn) or backwar-euler (be)
 -time            -t      double     accepts: positive number (zero for no stepping)
                                     Final time for integration (v2 pdes only)
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
@@ -335,13 +335,17 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
     }
     break;
     case optentry::step_method: {
+      // allow longer options here, short for the command line
+      // long for more expressive files
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
       if (*selected == "rk3")
         step_method = time_advance::method::rk3;
-      else if (*selected == "cn")
+      else if (*selected == "cn" or *selected == "crank-nicolson")
         step_method = time_advance::method::cn;
+      else if (*selected == "be" or *selected == "backward-euler")
+        step_method = time_advance::method::beuler;
       else if (*selected == "expl")
         step_method = time_advance::method::exp;
       else if (*selected == "impl")

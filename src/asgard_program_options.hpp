@@ -191,6 +191,8 @@ enum class method
   rk3 = 0,
   //! Implicit Crank-Nicolson, second order
   cn,
+  //! Implicit Backward-Euler, first order
+  beuler,
   //! implicit solve, backward Euler
   imp,
   //! (default) explicit Runge–Kutta

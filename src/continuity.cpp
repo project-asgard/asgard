@@ -475,6 +475,15 @@ void self_test() {
 
   // adaptivity is tricky near the time-period when the solution vanishes
   dolongtest<double>(0.03, 2, "-l 4 -m 8 -t 10 -a 1.E-2");
+
+  // implicit stepping is fast, test some of the implicit methods
+  dotest<double>(0.05, 1, "-l 7 -n 20 -sv direct -s be -dt 0.05");
+  dotest<double>(0.025, 1, "-l 7 -n 20 -sv direct -s be -dt 0.025");
+  dotest<double>(0.01, 1, "-l 7 -n 20 -sv direct -s be -dt 0.01");
+
+  dotest<double>(0.001, 1, "-l 7 -n 20 -sv direct -s cn -dt 0.05");
+  dotest<double>(0.00025, 1, "-l 7 -n 20 -sv direct -s cn -dt 0.025");
+  dotest<double>(1.E-5, 1, "-l 7 -n 20 -sv direct -s cn -dt 0.01");
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -500,6 +509,12 @@ void self_test() {
   dotest<float>(0.02, 2, "-l 5 -n 20", 10);
 
   dolongtest<float>(0.02, 2, "-l 5 -t 10");
+
+  dotest<float>(0.05, 1, "-l 7 -n 20 -sv direct -s be -dt 0.05");
+  dotest<float>(0.025, 1, "-l 7 -n 20 -sv direct -s be -dt 0.025");
+
+  dotest<float>(0.02, 1, "-l 7 -n 20 -sv direct -s cn -dt 0.06");
+  dotest<float>(0.005, 1, "-l 7 -n 20 -sv direct -s cn -dt 0.03");
 #endif
 }
 

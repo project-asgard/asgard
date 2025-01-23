@@ -53,8 +53,8 @@ void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
 
     combine_dimensions(
         degree, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, test_partial.data());
-    for (auto &t : test_partial)
-      t *= time;
+    for (auto &tp : test_partial)
+      tp *= time;
     fk::vector<P> fk_test_partial(test_partial);
     REQUIRE(fk_test_partial == gold_partial);
     test.set_subvector(rank_start, fk_test_partial);
