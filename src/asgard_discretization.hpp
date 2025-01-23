@@ -167,6 +167,13 @@ public:
     tools::time_event performance_("terms_apply_all kronmult");
     terms.apply_all(sgrid, conn, alpha, x, beta, y);
   }
+  //! applies all terms, non-owning array signature
+  void terms_apply_all(precision alpha, precision const x[], precision beta,
+                       precision y[]) const
+  {
+    tools::time_event performance_("terms_apply_all kronmult");
+    terms.apply_all(sgrid, conn, alpha, x, beta, y);
+  }
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(std::vector<precision> const &x,
                        std::vector<precision> &y) const

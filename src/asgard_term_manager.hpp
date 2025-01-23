@@ -86,6 +86,9 @@ struct term_manager
   //! y = sum(terms * x), applies all terms
   void apply_all(sparse_grid const &grid, connection_patterns const &conns,
                  P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+  //! y = sum(terms * x), applies all terms
+  void apply_all(sparse_grid const &grid, connection_patterns const &conns,
+                 P alpha, P const x[], P beta, P y[]) const;
 
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
   void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
@@ -102,6 +105,13 @@ struct term_manager
   {
     block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
               alpha, x.data(), beta, y.data(), kwork);
+  }
+  //! y = alpha * tme * x + beta * y, assumes workspace has been set and x/y have proper size
+  void kron_term(sparse_grid const &grid, connection_patterns const &conns,
+                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
+  {
+    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+              alpha, x, beta, y, kwork);
   }
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
                      term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,

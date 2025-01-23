@@ -335,6 +335,36 @@ void term_manager<P>::apply_all(
     b = 1; // next iteration appends on y
   }
 }
+template<typename P>
+void term_manager<P>::apply_all(
+    sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, P const x[], P beta, P y[]) const
+{
+  P b = beta; // on first iteration, overwrite y
+
+  auto it = terms.begin();
+  while (it < terms.end())
+  {
+    if (it->num_chain == 1) {
+      kron_term(grid, conns, *it, alpha, x, b, y);
+      ++it;
+    } else {
+      // dealing with a chain
+      int const num_chain = it->num_chain;
+
+      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
+      for (int i = num_chain - 2; i > 0; --i) {
+        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
+        std::swap(t1, t2);
+      }
+      kron_term(grid, conns, *it, alpha, t1.data(), b, y);
+
+      it += it->num_chain;
+    }
+
+    b = 1; // next iteration appends on y
+  }
+}
 
 template<typename P>
 void term_manager<P>::apply_all_adi(

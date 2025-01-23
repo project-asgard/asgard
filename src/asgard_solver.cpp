@@ -730,8 +730,94 @@ ASGARD_OMP_PARFOR_SIMD
   return num_appy;
 }
 
+template<typename P>
+int gmres<P>::solve(
+    operatoin_apply_precon_arr<P> apply_precon,
+    operatoin_apply_lhs_arr<P> apply_lhs, std::vector<P> const &rhs,
+    std::vector<P> &x) const
+{
+  int const n = static_cast<int>(rhs.size());
+  expect(n == static_cast<int>(x.size()));
+
+  basis.resize(static_cast<int64_t>(n) * (max_inner_ + 1));
+
+  int num_appy = 0;
+
+  // int total_iterations = 0;
+  int outer_iterations = 0;
+  int inner_iterations = 0;
+
+  P inner_res = 0.;
+  P outer_res = tolerance_ + 1.;
+  while ((outer_res > tolerance_) && (outer_iterations < max_outer_))
+  {
+    std::copy(rhs.begin(), rhs.end(), basis.begin());
+    apply_lhs(-1, x.data(), 1, basis.data());
+    apply_precon(basis.data());
+    ++num_appy;
+
+    inner_res = lib_dispatch::nrm2(n, basis.data(), 1);
+    lib_dispatch::scal(n, P{1} / inner_res, basis.data(), 1);
+    krylov_sol[0] = inner_res;
+
+    inner_iterations = 0;
+    while (inner_res > tolerance_ and inner_iterations < max_inner_)
+    {
+      P *r = basis.data() + static_cast<int64_t>(n) * (inner_iterations + 1);
+      apply_lhs(1, basis.data() + static_cast<int64_t>(n) * inner_iterations, 0, r);
+      apply_precon(r);
+      ++num_appy;
+
+      // krylov projection coefficients for this iteration
+      P *coeff = krylov_proj + (inner_iterations * (inner_iterations + 1)) / 2;
+
+      lib_dispatch::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), n,
+                         r, 1, P{0}, coeff, 1);
+      lib_dispatch::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), n,
+                         coeff, 1, P{1}, r, 1);
+
+      P const nrm = lib_dispatch::nrm2(n, r, 1);
+      lib_dispatch::scal(n, P{1} / nrm, r, 1);
+      for (int k = 0; k < inner_iterations; k++)
+        lib_dispatch::rot(1, coeff + k, 1, coeff + k + 1, 1,
+                          cosines[k], sines[k]);
+
+      // compute given's rotation
+      P beta = nrm;
+      lib_dispatch::rotg(coeff + inner_iterations, &beta,
+                         cosines + inner_iterations,
+                         sines + inner_iterations);
+
+      inner_res =
+          std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
+
+      if (inner_res > tolerance_ and inner_iterations < max_inner_)
+      {
+        krylov_sol[inner_iterations + 1] = 0.;
+        lib_dispatch::rot(1, krylov_sol + inner_iterations, 1,
+                          krylov_sol + inner_iterations + 1, 1,
+                          cosines[inner_iterations], sines[inner_iterations]);
+      }
+
+      ++inner_iterations;
+    } // end of inner iteration loop
+
+    if (inner_iterations > 0)
+    {
+      lib_dispatch::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol, 1);
+      lib_dispatch::gemv('N', n, inner_iterations, P{1}, basis.data(), n,
+                         krylov_sol, 1, P{1}, x.data(), 1);
+    }
+    ++outer_iterations;
+    outer_res = inner_res;
+  } // end outer iteration
+
+  return num_appy;
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class direct<double>;
+template class bicgstab<double>;
 
 template gmres_info<double>
 simple_gmres(fk::matrix<double> const &A, fk::vector<double> &x,
@@ -780,6 +866,7 @@ template void poisson_data<double>::solve(
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class direct<float>;
+template class bicgstab<float>;
 
 template gmres_info<float>
 simple_gmres(fk::matrix<float> const &A, fk::vector<float> &x,
@@ -862,6 +949,13 @@ void solver_manager<P>::print_opts(std::ostream &os) const
       os << "  bicgstab\n";
       os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
       os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
+      has_precon = true;
+      break;
+    case 2:
+      os << "  gmres\n";
+      os << "  tolerance: " << std::get<solvers::gmres<P>>(var).tolerance() << '\n';
+      os << "  max inner: " << std::get<solvers::gmres<P>>(var).max_inner() << '\n';
+      os << "  max outer: " << std::get<solvers::gmres<P>>(var).max_outer() << '\n';
       has_precon = true;
       break;
     default:

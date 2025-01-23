@@ -571,7 +571,7 @@ void crank_nicolson<P>::next_step(
 
   if (solver.opt == solve_opts::direct) {
     solver.direct_solve(next);
-  } else {
+  } else if (solver.opt == solve_opts::bicgstab) {
     work = next;
 
     int64_t const n = static_cast<int64_t>(work.size());
@@ -611,6 +611,55 @@ void crank_nicolson<P>::next_step(
           disc.terms_apply_adi(x, y);
         },
         [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+        }, work, next);
+    break;
+    }
+  } else if (solver.opt == solve_opts::gmres) {
+    work = next;
+
+    int64_t const n = static_cast<int64_t>(work.size());
+
+    switch (solver.precon) {
+    case preconditioner_opts::none:
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+        }, work, next);
+    break;
+    case preconditioner_opts::jacobi:
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] *= solver.jacobi[i];
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+        }, work, next);
+    break;
+    default:
+      // assuming ADI
+      solver.iterate_solve(
+        [&](P []) -> void
+        {
+          // disc.terms_apply_adi(x, y);
+          throw std::runtime_error("ADI not implemented for GMRES");
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)

@@ -178,6 +178,18 @@ using operatoin_apply_lhs =
 
 /*!
  * \internal
+ * \brief Signature for the left-hand linear operation for a solver, raw-array variant
+ *
+ * Computes `y = alpha * A * x + beta * y`
+ *
+ * \endinternal
+ */
+template<typename P>
+using operatoin_apply_lhs_arr =
+  std::function<void(P alpha, P const x[], P beta, P y[])>;
+
+/*!
+ * \internal
  * \brief Signature for the preconditioner
  *
  * Computes `y = inverse-P * x` and do not need the constants
@@ -187,6 +199,18 @@ using operatoin_apply_lhs =
 template<typename P>
 using operatoin_apply_precon =
   std::function<void(std::vector<P> const &x, std::vector<P> &y)>;
+
+/*!
+ * \internal
+ * \brief Signature for the preconditioner
+ *
+ * Computes `y = inverse-P * y` and do not need the constants
+ * from the asgard::operatoin_apply_lhs
+ *
+ * \endinternal
+ */
+template<typename P>
+using operatoin_apply_precon_arr = std::function<void(P y[])>;
 
 /*!
  * \internal
@@ -227,6 +251,61 @@ private:
   mutable std::vector<P> rref, r, p, v, t;
 };
 
+/*!
+ * \internal
+ * \brief General Minimum Residual solver - GMRES
+ *
+ * Implements the restarted version with given max-number of inner and outer
+ * iterations. The class mostly holds workspace vectors.
+ * \endinternal
+ */
+template<typename P>
+class gmres
+{
+public:
+  //! default constructor, nothing to do
+  gmres() = default;
+
+  //! construct and set the tolerance and maximum number of iterations
+  gmres(P tol, int maxi, int maxo)
+    : tolerance_(tol), max_inner_(maxi), max_outer_(maxo)
+  {
+    krylov_data.resize(3 * (max_inner_ + 1) + ((max_inner_ + 1) * max_inner_) / 2);
+
+    P *data = krylov_data.data();
+    krylov_proj = std::exchange(data, data + ((max_inner_ + 1) * max_inner_ / 2));
+    sines       = std::exchange(data, data + max_inner_ + 1);
+    cosines     = std::exchange(data, data + max_inner_ + 1);
+    krylov_sol  = std::exchange(data, data + max_inner_ + 1);
+    expect(data == krylov_data.data() + krylov_data.size());
+  }
+
+  //! solve for the given linear operators, right-hand-side and initial iterate
+  int solve(operatoin_apply_precon_arr<P> apply_precon,
+            operatoin_apply_lhs_arr<P> apply_lhs, std::vector<P> const &rhs,
+            std::vector<P> &x) const;
+
+  //! returns the set tolerance
+  P tolerance() const { return tolerance_; }
+  //! returns the set max-number of iterations
+  int max_inner() const { return max_inner_; }
+  //! returns the max-number of restarts
+  int max_outer() const { return max_outer_; }
+
+private:
+  P tolerance_   = 0;
+  int max_inner_ = 0;
+  int max_outer_ = 0;
+
+  mutable std::vector<P> basis;
+
+  mutable std::vector<P> krylov_data;
+  mutable P *krylov_proj = nullptr;
+  mutable P *sines       = nullptr;
+  mutable P *cosines     = nullptr;
+  mutable P *krylov_sol  = nullptr;
+};
+
 } // namespace asgard::solvers
 
 namespace asgard
@@ -261,6 +340,18 @@ struct solver_manager
                 "missing number of iterations for the iterative solver bicgstab");
         var = solvers::bicgstab<P>(options.isolver_tolerance.value(),
                                    options.isolver_iterations.value());
+        precon = options.precon.value_or(preconditioner_opts::none);
+        break;
+      case solve_opts::gmres:
+        rassert(options.isolver_tolerance,
+                "missing tolerance for the iterative solver gmres");
+        rassert(options.isolver_iterations,
+                "missing number of iterations for the iterative solver gmres");
+        rassert(options.isolver_outer_iterations,
+                "missing number of outer iterations for the iterative solver gmres");
+        var = solvers::gmres<P>(options.isolver_tolerance.value(),
+                                options.isolver_iterations.value(),
+                                options.isolver_outer_iterations.value());
         precon = options.precon.value_or(preconditioner_opts::none);
         break;
       default: // unreachable
@@ -315,6 +406,29 @@ struct solver_manager
     }
   }
 
+  //! iterative solver, calls the appropriate iterative solver
+  void iterate_solve(solvers::operatoin_apply_lhs_arr<P> apply_lhs,
+                     std::vector<P> const &rhs, std::vector<P> &x) const
+  {
+    iterate_solve(nullptr, apply_lhs, rhs, x);
+  }
+
+  //! iterative solver, calls the appropriate iterative solver
+  void iterate_solve(solvers::operatoin_apply_precon_arr<P> precon,
+                     solvers::operatoin_apply_lhs_arr<P> apply_lhs,
+                     std::vector<P> const &rhs, std::vector<P> &x) const
+  {
+    expect(opt == solve_opts::gmres);
+    if (precon) {
+      solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
+
+      num_apply += gmres.solve(precon, apply_lhs, rhs, x);
+    } else {
+      num_apply += std::get<solvers::gmres<P>>(var).solve(
+        [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
+    }
+  }
+
   //! updates the internals for the current grid generation
   void update_grid(sparse_grid const &grid,
                    connection_patterns const &conn,
@@ -332,7 +446,7 @@ struct solver_manager
   //! remembers the generation of the grid that was used to last set the manager
   int grid_gen = -1;
   //! holds the actual solver instance
-  std::variant<solvers::direct<P>, solvers::bicgstab<P>> var;
+  std::variant<solvers::direct<P>, solvers::bicgstab<P>, solvers::gmres<P>> var;
   //! holds data for the jacobi preconditioner
   std::vector<P> jacobi;
 };
