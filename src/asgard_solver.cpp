@@ -691,7 +691,7 @@ ASGARD_OMP_PARFOR_SIMD
   rref = r; // initialize rref (hat-r-0) and p
   p    = r;
 
-  for (int i = 0; i < max_iter; i++) {
+  for (int i = 0; i < max_iter_; i++) {
     ++num_appy;
     apply_lhs(1, p, 0, v); // v = A * p
 
@@ -700,7 +700,7 @@ ASGARD_OMP_PARFOR_SIMD
     axpy(alpha, p, x);
     axpy(-alpha, v, r);
 
-    if (nrm(r) < tol) {
+    if (nrm(r) < tolerance_) {
       return num_appy;
     }
 
@@ -712,7 +712,7 @@ ASGARD_OMP_PARFOR_SIMD
     axpy(omega, r, x);
     axpy(-omega, t, r);
 
-    if (nrm(r) < tol) {
+    if (nrm(r) < tolerance_) {
       return num_appy;
     }
 
@@ -725,7 +725,8 @@ ASGARD_OMP_PARFOR_SIMD
 
     rho = rho1;
   }
-  std::cerr << "Warning: ASGarD BiCGSTAB solver failed to converge within " << max_iter << " iterations.\n";
+  std::cerr << "Warning: ASGarD BiCGSTAB solver failed to converge within "
+            << max_iter_ << " iterations.\n";
   return num_appy;
 }
 
@@ -837,7 +838,15 @@ void solver_manager<P>::update_grid(
     sparse_grid const &grid, connection_patterns const &conn,
     term_manager<P> const &terms, P alpha)
 {
-  //
+  if (opt == solve_opts::direct)
+    var = solvers::direct<P>(grid, conn, terms, alpha);
+
+  if (precon == preconditioner_opts::jacobi) {
+    terms.make_jacobi(grid, conn, jacobi);
+ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < jacobi.size(); i++)
+      jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
+  }
 }
 
 template<typename P>
@@ -851,6 +860,8 @@ void solver_manager<P>::print_opts(std::ostream &os) const
       break;
     case 1:
       os << "  bicgstab\n";
+      os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
+      os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
       has_precon = true;
       break;
     default:

@@ -91,6 +91,10 @@ struct term_manager
   void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
                      std::vector<P> const &x, std::vector<P> &y) const;
 
+  //! construct term diagonal
+  void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
+                   std::vector<P> &y) const;
+
   //! y = alpha * tme * x + beta * y, assumes workspace has been set
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
@@ -106,6 +110,10 @@ struct term_manager
     block_cpu(legendre.pdof, grid, conns, tme.perm, tme.adi,
               alpha, x.data(), beta, y.data(), kwork);
   }
+
+  template<data_mode mode>
+  void kron_diag(sparse_grid const &grid, connection_patterns const &conns,
+                 term_entry<P> const &tme, int const block_size, std::vector<P> &y) const;
 
 protected:
   //! remember which grid was cached for the workspace

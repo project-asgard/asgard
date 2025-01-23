@@ -203,7 +203,7 @@ public:
   bicgstab() = default;
 
   //! construct and set the tolerance and maximum number of iterations
-  bicgstab(P tol_in, int maxi) : tol(tol_in), max_iter(maxi) {};
+  bicgstab(P tol, int maxi) : tolerance_(tol), max_iter_(maxi) {};
 
   //! solve for the given linear operator, right-hand-side and initial iterate
   int solve(operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
@@ -215,10 +215,14 @@ public:
   mutable std::vector<P> prec_y;
   //! preconditioning requires three extra workspace vectors
   mutable std::vector<P> prec_yb;
+  //! returns the set tolerance
+  P tolerance() const { return tolerance_; }
+  //! returns the set max-number of iterations
+  int max_iter() const { return max_iter_; }
 
 private:
-  P tol        = 0;
-  int max_iter = 0;
+  P tolerance_  = 0;
+  int max_iter_ = 0;
 
   mutable std::vector<P> rref, r, p, v, t;
 };
@@ -292,7 +296,7 @@ struct solver_manager
 
       num_apply += 1;
       precon(rhs, bicg.prec_rhs);
-      num_apply += 2 * bicg.solve(
+      num_apply += bicg.solve(
         [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
         {
           if (beta != 0)
@@ -311,6 +315,7 @@ struct solver_manager
     }
   }
 
+  //! updates the internals for the current grid generation
   void update_grid(sparse_grid const &grid,
                    connection_patterns const &conn,
                    term_manager<P> const &terms, P alpha);

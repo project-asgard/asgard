@@ -159,7 +159,9 @@ enum class data_mode
   //! increment the current data, e.g., y += x
   increment,
   //! scale and increment data, e.g., y += alpha * x
-  scal_inc
+  scal_inc,
+  //! multiply, e.g., y *= x
+  multiply
 };
 #endif
 

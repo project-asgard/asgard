@@ -355,16 +355,7 @@ void term_manager<P>::apply_all_adi(
       std::swap(t1, t2);
       ++it;
     } else {
-      // // dealing with a chain
-      // int const num_chain = it->num_chain;
-      //
-      // kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
-      // for (int i = num_chain - 2; i > 0; --i) {
-      //   kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
-      //   std::swap(t1, t2);
-      // }
-      // kron_term(grid, conns, *it, alpha, t1, b, y);
-      //
+      // TODO: consider whether we should do this or not
       it += it->num_chain;
     }
 
@@ -373,14 +364,115 @@ void term_manager<P>::apply_all_adi(
   y = t1;
 }
 
+template<typename P>
+void term_manager<P>::make_jacobi(
+    sparse_grid const &grid, connection_patterns const &conns,
+    std::vector<P> &y) const
+{
+  int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
+  int64_t const num_entries = block_size * grid.num_indexes();
+
+  if (y.size() == 0)
+    y.resize(num_entries);
+  else {
+    y.resize(num_entries);
+    std::fill(y.begin(), y.end(), P{0});
+  }
+
+  kwork.w1.resize(num_entries);
+
+  auto it = terms.begin();
+  while (it < terms.end())
+  {
+    if (it->num_chain == 1) {
+      kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
+      ++it;
+    } else {
+      // dealing with a chain
+      int const num_chain = it->num_chain;
+
+      std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
+
+      kron_diag<data_mode::increment>(grid, conns, *(it + num_chain - 1),
+                                      block_size, kwork.w1);
+
+      for (int i = num_chain - 2; i >= 0; --i) {
+        kron_diag<data_mode::multiply>(grid, conns, *(it + i),
+                                       block_size, kwork.w1);
+      }
+ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_entries; i++)
+        y[i] += kwork.w1[i];
+
+      it += it->num_chain;
+    }
+  }
+}
+
+template<typename P>
+template<data_mode mode>
+void term_manager<P>::kron_diag(
+    sparse_grid const &grid, connection_patterns const &conn,
+    term_entry<P> const &tme, int const block_size, std::vector<P> &y) const
+{
+  static_assert(mode == data_mode::increment or mode == data_mode::multiply);
+
+  int const num_dims = grid.num_dims();
+
+#pragma omp parallel
+  {
+    std::array<P const *, max_num_dimensions> amats;
+
+    for (int i = 0; i < grid.num_indexes(); i++) {
+      for (int d : iindexof(num_dims))
+        if (tme.coeffs[d].empty())
+          amats[d] = nullptr;
+        else
+          amats[d] = tme.coeffs[d][conn[tme.coeffs[d]].row_diag(grid[i][d])];
+
+      for (int t : iindexof(block_size)) {
+        P a = 1;
+        int tt = i;
+        for (int d = num_dims - 1; d >= 0; --d)
+        {
+          if (amats[d] != nullptr) {
+            int const rc = tt % legendre.pdof;
+            a *= amats[d][rc * legendre.pdof + rc];
+          }
+          tt /= legendre.pdof;
+        }
+        if constexpr (mode == data_mode::increment)
+          y[i * block_size + t] += a;
+        else if constexpr (mode == data_mode::multiply)
+          y[i * block_size + t] *= a;
+      }
+    }
+  }
+}
+
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct term_entry<double>;
 template struct term_manager<double>;
+
+template void term_manager<double>::kron_diag<data_mode::increment>(
+    sparse_grid const &, connection_patterns const &,
+    term_entry<double> const &, int const, std::vector<double> &) const;
+template void term_manager<double>::kron_diag<data_mode::multiply>(
+    sparse_grid const &, connection_patterns const &,
+    term_entry<double> const &, int const, std::vector<double> &) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template struct term_entry<float>;
 template struct term_manager<float>;
+
+template void term_manager<float>::kron_diag<data_mode::increment>(
+    sparse_grid const &, connection_patterns const &,
+    term_entry<float> const &, int const, std::vector<float> &) const;
+template void term_manager<float>::kron_diag<data_mode::multiply>(
+    sparse_grid const &, connection_patterns const &,
+    term_entry<float> const &, int const, std::vector<float> &) const;
 #endif
 
 }

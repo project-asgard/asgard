@@ -277,6 +277,13 @@ void h5writer<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &grid
     H5Easy::dump(file, "dtime_remaining", dtime.num_remain_);
   }
 
+  { // solver data section
+    H5Easy::dump(file, "solver_method", static_cast<int>(options.solver.value_or(solve_opts::direct)));
+    H5Easy::dump(file, "solver_itol", options.isolver_tolerance.value_or(-1));
+    H5Easy::dump(file, "solver_iter", options.isolver_iterations.value_or(-1));
+    H5Easy::dump(file, "solver_oiter", options.isolver_outer_iterations.value_or(-1));
+  }
+
   H5Easy::dump(file, "timer_report", tools::timer.report());
 }
 
@@ -486,6 +493,17 @@ void h5writer<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
           pde.options_.adapt_threshold = adapt;
       }
     }
+  }
+
+  { // solver data section
+    if (not pde.options_.solver)
+      pde.options_.solver = static_cast<solve_opts>(H5Easy::load<int>(file, "solver_method"));
+    if (not pde.options_.isolver_tolerance)
+      pde.options_.isolver_tolerance = H5Easy::load<double>(file, "solver_itol");
+    if (not pde.options_.isolver_iterations)
+      pde.options_.isolver_iterations = H5Easy::load<int>(file, "solver_iter");
+    if (not pde.options_.isolver_outer_iterations)
+      pde.options_.isolver_outer_iterations = H5Easy::load<int>(file, "solver_oiter");
   }
 
   state = H5Easy::load<std::vector<P>>(file, "state");

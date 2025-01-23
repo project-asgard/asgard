@@ -366,13 +366,3 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     REQUIRE(err < 1.E-8);
   }
 }
-
-TEMPLATE_TEST_CASE("bicgstab solver", "[solver]", test_precs)
-{
-  TestType tol = (std::is_same_v<TestType, double>) ? 1.E-8 : 1.E-4;
-
-  SECTION("poisson-like operator")
-  {
-
-  }
-}

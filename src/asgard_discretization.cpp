@@ -276,7 +276,6 @@ void discretization_manager<precision>::start_cold()
   // then we can rebuild the terms
 
   if (stepper.needed_precon() == preconditioner_opts::adi) {
-    std::cout << " adi precon\n";
     terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
                          0.5 * stepper.data.dt());
   } else
@@ -310,7 +309,11 @@ void discretization_manager<precision>::restart_from_file()
 
   terms.prapare_workspace(sgrid);
   // initialize the moments here, we already have the the state
-  terms.build_matrices(sgrid, conn, hier);
+  if (stepper.needed_precon() == preconditioner_opts::adi) {
+    terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
+                         0.5 * stepper.data.dt());
+  } else
+    terms.build_matrices(sgrid, conn, hier);
 
   if (not stop_verbosity()) {
     if (not options.title.empty())

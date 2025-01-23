@@ -561,8 +561,8 @@ void crank_nicolson<P>::next_step(
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
-  if (solver.opt == solve_opts::direct and solver.grid_gen != disc.get_sgrid().generation())
-    rebuild_matrix(disc);
+  if (solver.grid_gen != disc.get_sgrid().generation())
+    solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), 0.5 * dt);
 
   next = current; // copy
 
@@ -576,16 +576,34 @@ void crank_nicolson<P>::next_step(
 
     int64_t const n = static_cast<int64_t>(work.size());
 
-    if (solver.precon == preconditioner_opts::none) {
+    switch (solver.precon) {
+    case preconditioner_opts::none:
       solver.iterate_solve(
         [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
         {
-  ASGARD_OMP_PARFOR_SIMD
+          ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
           disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
         }, work, next);
-    } else {
+    break;
+    case preconditioner_opts::jacobi:
+      solver.iterate_solve(
+        [&](std::vector<P> const &x, std::vector<P> &y) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = x[i] * solver.jacobi[i];
+        },
+        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
+        }, work, next);
+    break;
+    default:
       // assuming ADI
       solver.iterate_solve(
         [&](std::vector<P> const &x, std::vector<P> &y) -> void
@@ -594,25 +612,14 @@ void crank_nicolson<P>::next_step(
         },
         [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
         {
-  ASGARD_OMP_PARFOR_SIMD
+          ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
           disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
         }, work, next);
+    break;
     }
   }
-}
-
-template<typename P>
-void crank_nicolson<P>::rebuild_matrix(discretization_manager<P> const &disc) const
-{
-  P const alpha = 0.5 * disc.time_params().dt();
-  // P const alpha = disc.time_params().dt(); //back-Euler
-
-  solver.var = solvers::direct<P>(disc.get_sgrid(), disc.get_conn(),
-                                  disc.get_terms(), alpha);
-
-  solver.grid_gen = disc.get_sgrid().generation();
 }
 
 }

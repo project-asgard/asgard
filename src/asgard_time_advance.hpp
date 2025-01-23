@@ -143,7 +143,7 @@ struct crank_nicolson
                  std::vector<P> &next) const;
 
   //! rebuilds the operator matrix
-  void rebuild_matrix(discretization_manager<P> const &dist) const;
+  //void rebuild_matrix(discretization_manager<P> const &dist) const;
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
