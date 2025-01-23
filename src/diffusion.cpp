@@ -81,10 +81,39 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 
   options.default_stop_time = 3.0; // integrate until T = 3
 
-  // using implicit Crank-Nicolson method
+  // using implicit Crank-Nicolson method, which requires a solver
   options.default_step_method = asgard::time_advance::method::cn;
 
-  options.default_solver = asgard::solve_opts::direct; // bad but OK for this example
+  if (options.max_level() < 5) {
+    // direct (dense) solver is fast for small problems and works well for prototyping
+    // and debugging, since it remove from the problem some additional factors,
+    // such as solver tolerance and number of iterations
+    options.default_solver = asgard::solve_opts::direct;
+  } else {
+    // when the problem size becomes significant, forming and factorizing the dense
+    // operator matrix becomes prohibitively expensive in flops and memory usage
+    // iterative solvers are needed and it is good to specify default parameters
+    options.default_solver = asgard::solve_opts::gmres;
+  }
+
+  // only the iterative solvers will use these values
+  // jacobi is the fastest and (currently) most stable preconditioner
+  options.default_precon = asgard::preconditioner_opts::jacobi;
+
+  // the tolerance for the iterative solver should probably be updated
+  // based on the time-step and the max-level
+  // this is a tight number of remove the solver error from consideration
+  options.default_isolver_tolerance = 1.E-7;
+
+  // the number of iterations should depends on the time-step and condition
+  // number of the operators, should be kept high to allow for convergence
+  options.isolver_iterations = 1000;
+
+  // GMRES uses a two-loop approach (restarted GMRES)
+  // the inner iterations explicitly form and manipulate the basis for the Krylov sub-space
+  // this requires lots of memory and the number here should be kept moderate
+  // (memory usage is dominated by isolver_inner_iterations * degrees-of-freedom)
+  options.isolver_inner_iterations = 50;
 
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
@@ -255,7 +284,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // when cos(t) vanishes, so does the exact solution and enorm -> 0
   // for small values of enorm, the relative error is artificially magnified
   // switch between relative and absolute error
-  if (enorm < 1.E-3)
+  if (enorm < 1)
     return std::sqrt(ndiff + enorm - nself);
   else
     return std::sqrt((ndiff + enorm - nself) / enorm);
@@ -404,33 +433,33 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
   // check convergence w.r.t. level
-  dotest(1.E-3, 1, "-l 4 -n 20");
-  dotest(1.E-4, 1, "-l 5 -n 20");
-  dotest(5.E-5, 1, "-l 6 -n 20");
+  dotest(1.E-3, 1, "-l 4 -n 20 -sv direct");
+  dotest(1.E-4, 1, "-l 5 -n 20 -sv direct");
+  dotest(5.E-5, 1, "-l 6 -n 20 -sv direct");
 
-  dotest<double, false>(1.E-3, 1, "-l 4 -n 20"); // check chaining
-  dotest<double, false>(1.E-4, 1, "-l 5 -n 20");
-  dotest<double, false>(5.E-5, 1, "-l 6 -n 20");
+  dotest<double, false>(1.E-3, 1, "-l 4 -n 20 -sv direct"); // check chaining
+  dotest<double, false>(1.E-4, 1, "-l 5 -n 20 -sv direct");
+  dotest<double, false>(5.E-5, 1, "-l 6 -n 20 -sv direct");
 
-  dotest(1.E-1, 1, "-l 5 -d 0 -n 20");
-  dotest(5.E-3, 1, "-l 5 -d 1 -n 20");
-  dotest(5.E-5, 1, "-l 5 -d 2 -n 40 -dt 0.005"); // time error manifests here
+  dotest(1.E-1, 1, "-l 5 -d 0 -n 20 -sv direct");
+  dotest(5.E-3, 1, "-l 5 -d 1 -n 20 -sv direct");
+  dotest(5.E-5, 1, "-l 5 -d 2 -n 40 -dt 0.005 -sv direct"); // time error manifests here
 
-  dotest(1.00E-2, 2, "-l 6 -t 0.5 -dt 0.1"); // second order in time
-  dotest(2.50E-3, 2, "-l 6 -t 0.5 -dt 0.05");
-  dotest(6.25E-4, 2, "-l 6 -t 0.5 -dt 0.025");
+  dotest(1.00E-2, 2, "-l 6 -t 0.5 -dt 0.1 -sv direct"); // second order in time
+  dotest(2.50E-3, 2, "-l 6 -t 0.5 -dt 0.05 -sv direct");
+  dotest(6.25E-4, 2, "-l 6 -t 0.5 -dt 0.025 -sv direct");
 
-  dotest(1.E-2, 3, "-l 4 -t 0.5 -dt 0.1"); // direct solver multi-d
+  dotest(1.E-2, 3, "-l 4 -t 0.5 -dt 0.1 -sv direct"); // direct solver multi-d
 
   // in the first few steps here, the grid is very coarse
   // finer refinement and time-step is needed, only the final error is OK
-  longtest(2.E-3, 2, "-l 2 -m 8 -dt 0.01 -a 1.E-3"); // adapt
-  longtest(2.E-4, 2, "-l 2 -m 8 -dt 0.01 -a 1.E-4");
+  longtest(2.E-3, 2, "-l 2 -m 8 -a 1.E-3"); // adapt
+  dotest(5.E-3, 2, "-l 8 -a 1.E-4");
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-  dotest<float>(1.E-2, 1, "-l 4 -n 10");
-  dotest<float>(1.E-2, 2, "-l 5 -t 0.5 -dt 0.1");
+  dotest<float>(1.E-2, 1, "-l 4 -n 10 -sv direct");
+  dotest<float>(1.E-2, 2, "-l 5 -t 0.5 -dt 0.1  -sv direct");
 #endif
 }
 

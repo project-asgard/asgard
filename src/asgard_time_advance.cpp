@@ -171,8 +171,8 @@ imex_advance(discretization_manager<P> &disc,
   // Implicit step f_1: f_1 - dt B f_1 = f_1s
   solve_opts solver  = options.solver.value();
   P const tolerance  = *options.isolver_tolerance;
-  int const restart  = *options.isolver_iterations;
-  int const max_iter = *options.isolver_outer_iterations;
+  int const restart  = *options.isolver_inner_iterations;
+  int const max_iter = *options.isolver_iterations;
   fk::vector<P, mem_type::owner, imex_resrc> f_1(f.size());
   fk::vector<P, mem_type::owner, imex_resrc> f_1_output(f.size());
   if (pde.do_collision_operator())
@@ -561,66 +561,25 @@ void crank_nicolson<P>::next_step(
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
+  // if the grid changed since the last time we used the solver
+  // update the matrices and preconditioners, update-grid checks what's needed
   if (solver.grid_gen != disc.get_sgrid().generation())
     solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), 0.5 * dt);
 
-  next = current; // copy
-
-  disc.terms_apply_all(-0.5 * dt, current, 1, next);
-  disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
-
   if (solver.opt == solve_opts::direct) {
+    next = current; // copy
+
+    disc.terms_apply_all(-0.5 * dt, current, 1, next);
+    disc.add_ode_rhs_sources(time + 0.5 * dt, dt, next);
+
     solver.direct_solve(next);
-  } else if (solver.opt == solve_opts::bicgstab) {
-    work = next;
+  } else { // iterative solver
+    // form the right-hand-side inside work
+    work = current;
+    disc.terms_apply_all(-0.5 * dt, current, 1, work);
+    disc.add_ode_rhs_sources(time + 0.5 * dt, dt, work);
 
-    int64_t const n = static_cast<int64_t>(work.size());
-
-    switch (solver.precon) {
-    case preconditioner_opts::none:
-      solver.iterate_solve(
-        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
-        {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
-        }, work, next);
-    break;
-    case preconditioner_opts::jacobi:
-      solver.iterate_solve(
-        [&](std::vector<P> const &x, std::vector<P> &y) -> void
-        {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = x[i] * solver.jacobi[i];
-        },
-        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
-        {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
-        }, work, next);
-    break;
-    default:
-      // assuming ADI
-      solver.iterate_solve(
-        [&](std::vector<P> const &x, std::vector<P> &y) -> void
-        {
-          disc.terms_apply_adi(x, y);
-        },
-        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
-        {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
-        }, work, next);
-    break;
-    }
-  } else if (solver.opt == solve_opts::gmres) {
-    work = next;
+    next = current; // use the current step as the initial guess
 
     int64_t const n = static_cast<int64_t>(work.size());
 
@@ -639,6 +598,7 @@ void crank_nicolson<P>::next_step(
       solver.iterate_solve(
         [&](P y[]) -> void
         {
+          tools::time_event timing_("jacobi preconditioner");
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] *= solver.jacobi[i];
@@ -651,13 +611,15 @@ void crank_nicolson<P>::next_step(
           disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
         }, work, next);
     break;
-    default:
+    default: {
+      static std::vector<P> adi_work;
+      adi_work.resize(work.size());
       // assuming ADI
       solver.iterate_solve(
-        [&](P []) -> void
+        [&](P y[]) -> void
         {
-          // disc.terms_apply_adi(x, y);
-          throw std::runtime_error("ADI not implemented for GMRES");
+          disc.terms_apply_adi(y, adi_work.data());
+          std::copy(adi_work.begin(), adi_work.end(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -666,6 +628,7 @@ void crank_nicolson<P>::next_step(
             y[i] = alpha * x[i] + beta * y[i];
           disc.terms_apply_all(0.5 * alpha * dt, x, 1, y);
         }, work, next);
+    }
     break;
     }
   }

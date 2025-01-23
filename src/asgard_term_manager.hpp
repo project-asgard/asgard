@@ -92,7 +92,7 @@ struct term_manager
 
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
   void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
-                     std::vector<P> const &x, std::vector<P> &y) const;
+                     P const x[], P y[]) const;
 
   //! construct term diagonal
   void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
@@ -114,11 +114,10 @@ struct term_manager
               alpha, x, beta, y, kwork);
   }
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
-                     term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
-                     std::vector<P> &y) const
+                     term_entry<P> const &tme, P alpha, P const x[], P beta,
+                     P y[]) const
   {
-    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.adi,
-              alpha, x.data(), beta, y.data(), kwork);
+    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.adi, alpha, x, beta, y, kwork);
   }
 
   template<data_mode mode>

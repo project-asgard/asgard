@@ -876,8 +876,8 @@ public:
       options_.isolver_tolerance = solvers::notolerance;
     if (not options_.isolver_iterations)
       options_.isolver_iterations = solvers::novalue;
-    if (not options_.isolver_outer_iterations)
-      options_.isolver_outer_iterations = solvers::novalue;
+    if (not options_.isolver_inner_iterations)
+      options_.isolver_inner_iterations = solvers::novalue;
   }
 
   constexpr static int extract_dim0 = 1;
@@ -2115,6 +2115,13 @@ public:
       // setting up preconditioner for a possibly iterative solver
       if (not options_.precon and options_.default_precon)
         options_.precon = options_.default_precon.value();
+      // setting up the solver options
+      if (not options_.isolver_tolerance and options_.default_isolver_tolerance)
+        options_.isolver_tolerance = options_.default_isolver_tolerance.value();
+      if (not options_.isolver_iterations and options_.default_isolver_iterations)
+        options_.isolver_iterations = options_.default_isolver_iterations.value();
+      if (not options_.isolver_inner_iterations and options_.default_isolver_inner_iterations)
+        options_.isolver_inner_iterations = options_.default_isolver_inner_iterations.value();
     }
 
     // don't support l-inf norm yet

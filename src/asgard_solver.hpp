@@ -117,21 +117,6 @@ private:
 
 /*!
  * \internal
- * \brief Stores the data for a diagonal Jacobi preconditioner
- *
- * \endinternal
- */
-template<typename P>
-struct prec_diagonal_jacobi
-{
-  //! make a default, no-preconditioner
-  prec_diagonal_jacobi() = default;
-  //! holds the inverse of the diagonal entries
-  std::vector<P> prec;
-};
-
-/*!
- * \internal
  * \brief Direct solver, explicitly forms the dense matrix, very expensive
  *
  * The dense solver is intended for testing and prototyping purposes,
@@ -166,18 +151,6 @@ private:
 
 /*!
  * \internal
- * \brief Signature for the left-hand linear operation for a solver
- *
- * Computes `y = alpha * A * x + beta * y`
- *
- * \endinternal
- */
-template<typename P>
-using operatoin_apply_lhs =
-  std::function<void(P alpha, std::vector<P> const &x, P beta, std::vector<P> &y)>;
-
-/*!
- * \internal
  * \brief Signature for the left-hand linear operation for a solver, raw-array variant
  *
  * Computes `y = alpha * A * x + beta * y`
@@ -185,20 +158,8 @@ using operatoin_apply_lhs =
  * \endinternal
  */
 template<typename P>
-using operatoin_apply_lhs_arr =
+using operatoin_apply_lhs =
   std::function<void(P alpha, P const x[], P beta, P y[])>;
-
-/*!
- * \internal
- * \brief Signature for the preconditioner
- *
- * Computes `y = inverse-P * x` and do not need the constants
- *
- * \endinternal
- */
-template<typename P>
-using operatoin_apply_precon =
-  std::function<void(std::vector<P> const &x, std::vector<P> &y)>;
 
 /*!
  * \internal
@@ -210,7 +171,7 @@ using operatoin_apply_precon =
  * \endinternal
  */
 template<typename P>
-using operatoin_apply_precon_arr = std::function<void(P y[])>;
+using operatoin_apply_precon = std::function<void(P y[])>;
 
 /*!
  * \internal
@@ -281,8 +242,8 @@ public:
   }
 
   //! solve for the given linear operators, right-hand-side and initial iterate
-  int solve(operatoin_apply_precon_arr<P> apply_precon,
-            operatoin_apply_lhs_arr<P> apply_lhs, std::vector<P> const &rhs,
+  int solve(operatoin_apply_precon<P> apply_precon,
+            operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
             std::vector<P> &x) const;
 
   //! returns the set tolerance
@@ -327,8 +288,12 @@ struct solver_manager
   solver_manager() = default;
   //! create a new solver
   solver_manager(prog_opts const &options)
-    : opt(options.solver.value())
   {
+    rassert(options.solver, "implicit time-stepping requires a solver, e.g., "
+            "see --help for list of available solvers");
+
+    opt = options.solver.value();
+
     switch (opt) {
       case solve_opts::direct:
         var = solvers::direct<P>(); // will be initialized later
@@ -347,11 +312,11 @@ struct solver_manager
                 "missing tolerance for the iterative solver gmres");
         rassert(options.isolver_iterations,
                 "missing number of iterations for the iterative solver gmres");
-        rassert(options.isolver_outer_iterations,
+        rassert(options.isolver_inner_iterations,
                 "missing number of outer iterations for the iterative solver gmres");
         var = solvers::gmres<P>(options.isolver_tolerance.value(),
-                                options.isolver_iterations.value(),
-                                options.isolver_outer_iterations.value());
+                                options.isolver_inner_iterations.value(),
+                                options.isolver_iterations.value());
         precon = options.precon.value_or(preconditioner_opts::none);
         break;
       default: // unreachable
@@ -365,7 +330,7 @@ struct solver_manager
     std::get<solvers::direct<P>>(var)(x);
   }
 
-  //! iterate_solve without a preconditioner
+  //! iterative solver, calls the appropriate iterative solver
   void iterate_solve(solvers::operatoin_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x) const
   {
@@ -377,55 +342,39 @@ struct solver_manager
                      solvers::operatoin_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x) const
   {
-    expect(opt == solve_opts::bicgstab);
-    if (precon) {
-      // in the bicgstab, explicitly apply the preconditioner
-      solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
-      bicg.prec_rhs.resize(rhs.size());
-      bicg.prec_y.resize(rhs.size());
-      bicg.prec_yb.resize(rhs.size());
+    expect(opt != solve_opts::direct);
+    if (opt == solve_opts::bicgstab) {
+      if (precon) {
+        solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
 
-      num_apply += 1;
-      precon(rhs, bicg.prec_rhs);
-      num_apply += bicg.solve(
-        [&](P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) -> void
-        {
-          if (beta != 0)
-            bicg.prec_yb = y;
+        bicg.prec_y.resize(rhs.size());
 
-          apply_lhs(alpha, x, 0, bicg.prec_y);
-          precon(bicg.prec_y, y);
+        bicg.prec_rhs = rhs;
+        precon(bicg.prec_rhs.data());
 
-          if (beta != 0)
-            for (size_t i = 0; i < y.size(); i++)
-              y[i] += beta * bicg.prec_yb[i];
-        },
-        bicg.prec_rhs, x);
-    } else {
-      num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
-    }
-  }
+        num_apply += bicg.solve([&](P alpha, P const xx[], P beta, P y[])
+            -> void {
+              if (beta == 0) {
+                apply_lhs(alpha, xx, 0, y);
+                precon(y);
+              } else {
+                apply_lhs(alpha, xx, 0, bicg.prec_y.data());
+                precon(bicg.prec_y.data());
+                xpby(bicg.prec_y, beta, y);
+              }
+            }, bicg.prec_rhs, x);
+      } else {
+        num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
+      }
+    } else { // if (opt == solve_opts::gmres)
+      if (precon) {
+        solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
 
-  //! iterative solver, calls the appropriate iterative solver
-  void iterate_solve(solvers::operatoin_apply_lhs_arr<P> apply_lhs,
-                     std::vector<P> const &rhs, std::vector<P> &x) const
-  {
-    iterate_solve(nullptr, apply_lhs, rhs, x);
-  }
-
-  //! iterative solver, calls the appropriate iterative solver
-  void iterate_solve(solvers::operatoin_apply_precon_arr<P> precon,
-                     solvers::operatoin_apply_lhs_arr<P> apply_lhs,
-                     std::vector<P> const &rhs, std::vector<P> &x) const
-  {
-    expect(opt == solve_opts::gmres);
-    if (precon) {
-      solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
-
-      num_apply += gmres.solve(precon, apply_lhs, rhs, x);
-    } else {
-      num_apply += std::get<solvers::gmres<P>>(var).solve(
-        [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
+        num_apply += gmres.solve(precon, apply_lhs, rhs, x);
+      } else {
+        num_apply += std::get<solvers::gmres<P>>(var).solve(
+          [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
+      }
     }
   }
 
@@ -446,9 +395,12 @@ struct solver_manager
   //! remembers the generation of the grid that was used to last set the manager
   int grid_gen = -1;
   //! holds the actual solver instance
-  std::variant<solvers::direct<P>, solvers::bicgstab<P>, solvers::gmres<P>> var;
+  std::variant<solvers::direct<P>, solvers::gmres<P>, solvers::bicgstab<P>> var;
   //! holds data for the jacobi preconditioner
   std::vector<P> jacobi;
+
+  //! helper method, y = x + beta * y, compiles with OpenMP and SIMD
+  static void xpby(std::vector<P> const &x, P beta, P y[]);
 };
 
 /*!

@@ -175,8 +175,7 @@ public:
     terms.apply_all(sgrid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
-  void terms_apply_adi(std::vector<precision> const &x,
-                       std::vector<precision> &y) const
+  void terms_apply_adi(precision const x[], precision y[]) const
   {
     tools::time_event performance_("terms_apply_adi kronmult");
     terms.apply_all_adi(sgrid, conn, x, y);

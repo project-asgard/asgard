@@ -113,8 +113,9 @@ Options          Short   Value      Description
                                     adi - very experimental, not very stable (yet)
 -isolve-tol      -ist    double     Iterative solver tolerance, applies to GMRES and BICG.
 -isolve-iter     -isi    int        Iterative solver maximum number of iterations,
-                                    for GMRES this is the number of inner iterations.
--isolve-outer    -iso    int        (GMRES only) The maximum number of outer GMRES iterations.
+                                    for GMRES this is the number of outer iterations.
+-isolve-inner    -isn    int        (GMRES only) The maximum number of inner GMRES iterations,
+                                    this is ignored by BiCGSTAB.
 
 Leaving soon:
 -memory                  int        Memory limit for the GPU, applied to the earlier versions
@@ -222,8 +223,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-kron-mode", optentry::kron_mode},
       {"-isolve-tol", optentry::isol_tolerance}, {"-ist", optentry::isol_tolerance},
       {"-isolve-iter", optentry::isol_iterations}, {"-isi", optentry::isol_iterations},
-      {"-isolve-outer", optentry::isol_outer_iterations},
-      {"-iso", optentry::isol_outer_iterations},
+      {"-isolve-inner", optentry::isol_inner_iterations},
+      {"-isn", optentry::isol_inner_iterations},
       {"-restart", optentry::restart_file},
   };
 
@@ -558,12 +559,12 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       }
     }
     break;
-    case optentry::isol_outer_iterations: {
+    case optentry::isol_inner_iterations: {
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
       try {
-        isolver_outer_iterations = std::stoi(selected->data());
+        isolver_inner_iterations = std::stoi(selected->data());
       } catch(std::invalid_argument &) {
         throw std::runtime_error(report_wrong_value());
       } catch(std::out_of_range &) {

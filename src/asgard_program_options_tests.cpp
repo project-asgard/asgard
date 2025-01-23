@@ -245,15 +245,15 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-isi", "dummy"})),
                         "invalid value for -isi, see exe -help");
   }
-  SECTION("-isolve_outer")
+  SECTION("-isolve_inner")
   {
-    prog_opts prog(vecstrview({"", "-isolve-outer", "200"}));
-    REQUIRE(prog.isolver_outer_iterations);
-    REQUIRE(prog.isolver_outer_iterations.value() == 200);
-    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-isolve-outer"})),
-                        "-isolve-outer must be followed by a value, see exe -help");
-    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-iso", "dummy"})),
-                        "invalid value for -iso, see exe -help");
+    prog_opts prog(vecstrview({"", "-isolve-inner", "200"}));
+    REQUIRE(prog.isolver_inner_iterations);
+    REQUIRE(prog.isolver_inner_iterations.value() == 200);
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-isolve-inner"})),
+                        "-isolve-inner must be followed by a value, see exe -help");
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-isn", "dummy"})),
+                        "invalid value for -isn, see exe -help");
   }
   SECTION("-title")
   {

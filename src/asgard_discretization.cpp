@@ -155,15 +155,15 @@ void discretization_manager<precision>::start_cold()
 
   degree_ = options.degree.value();
 
-  if (not stop_verbosity())
-    std::cout << "\n -- ASGarD discretization options --\n";
-
   if (high_verbosity()) {
     std::cout << "Branch: " << GIT_BRANCH << '\n';
     std::cout << "Commit Summary: " << GIT_COMMIT_HASH
                     << GIT_COMMIT_SUMMARY << '\n';
-    std::cout << "This executable was built on " << BUILD_TIME << '\n';
+    std::cout << "The library was built on " << BUILD_TIME << '\n';
   }
+
+  if (not stop_verbosity())
+    std::cout << "\n -- ASGarD discretization options --\n";
 
   sgrid = sparse_grid(options);
 
@@ -572,7 +572,7 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
       kronops.make(imflag, *pde, matrices, grid);
       precision const tolerance = *options.isolver_tolerance;
       int const restart         = *options.isolver_iterations;
-      int const max_iter        = *options.isolver_outer_iterations;
+      int const max_iter        = *options.isolver_inner_iterations;
       sol.resize(static_cast<int>(x.size()));
       std::copy(x.begin(), x.end(), sol.begin());
       if (solver == solve_opts::gmres)

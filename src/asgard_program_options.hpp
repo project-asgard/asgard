@@ -69,7 +69,7 @@ enum class preconditioner_opts
   none = 0,
   //! diagonal Jacobi preconditioner
   jacobi,
-  //! using alternating direction pseudoinverse
+  //! using alternating direction pseudoinverse (experimental)
   adi
 };
 
@@ -430,7 +430,7 @@ struct prog_opts
   //! max number of iterations (inner iterations for gmres)
   std::optional<int> isolver_iterations;
   //! max number of output gmres iterations
-  std::optional<int> isolver_outer_iterations;
+  std::optional<int> isolver_inner_iterations;
 
   //! local kron method only, mode dense or sparse (faster but memory hungry)
   std::optional<kronmult_mode> kron_mode;
@@ -626,6 +626,12 @@ struct prog_opts
   std::optional<solve_opts> default_solver;
   //! used in place of the preconditioner type, if preconditioner is not specified
   std::optional<preconditioner_opts> default_precon;
+  //! used in place of the tolerance, if tolerance is not specified
+  std::optional<double> default_isolver_tolerance;
+  //! max number of iterations (inner iterations for gmres)
+  std::optional<int> default_isolver_iterations;
+  //! max number of outer gmres iterations
+  std::optional<int> default_isolver_inner_iterations;
 
   //! returns the first available from stop-time, default-stop-time or -1
   double get_stop_time() const { return stop_time.value_or(default_stop_time.value_or(-1)); }
@@ -683,7 +689,7 @@ private:
     kron_mode,
     isol_tolerance,
     isol_iterations,
-    isol_outer_iterations,
+    isol_inner_iterations,
     restart_file,
     set_verbosity
   };

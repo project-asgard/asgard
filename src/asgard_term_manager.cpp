@@ -123,7 +123,6 @@ void term_manager<P>::rebuld_term(
 
     // build the ADI preconditioner here
     if (precon == preconditioner_opts::adi) {
-      std::cout << " rebuilding ad\n";
       if (is_diag) {
         to_euler(legendre.pdof, alpha, wraw_diag);
         psedoinvert(legendre.pdof, wraw_diag, raw_diag0);
@@ -369,29 +368,29 @@ void term_manager<P>::apply_all(
 template<typename P>
 void term_manager<P>::apply_all_adi(
     sparse_grid const &grid, connection_patterns const &conns,
-    std::vector<P> const &x, std::vector<P> &y) const
+    P const x[], P y[]) const
 {
-  expect(x.size() == y.size());
-  expect(x.size() == kwork.w1.size());
+  int64_t const n = grid.num_indexes() * fm::ipow(legendre.pdof, grid.num_dims());
 
-  std::vector<P> t1 = x;
-  std::vector<P> t2 = x;
+  static std::vector<P> t1, t2; // more additional workspaces
+
+  t1.resize(n);
+  t2.resize(n);
+  std::copy_n(x, n, t1.data());
 
   auto it = terms.begin();
   while (it < terms.end())
   {
     if (it->num_chain == 1) {
-      kron_term_adi(grid, conns, *it, 1, t1, 0, t2);
+      kron_term_adi(grid, conns, *it, 1, t1.data(), 0, t2.data());
       std::swap(t1, t2);
       ++it;
     } else {
       // TODO: consider whether we should do this or not
       it += it->num_chain;
     }
-
-    // b = 1; // next iteration appends on y
   }
-  y = t1;
+  std::copy_n(t1.data(), n, y);
 }
 
 template<typename P>
@@ -479,7 +478,6 @@ void term_manager<P>::kron_diag(
     }
   }
 }
-
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct term_entry<double>;

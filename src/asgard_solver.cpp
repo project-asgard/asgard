@@ -657,7 +657,7 @@ int bicgstab<P>::solve(
   auto dot = [&](std::vector<P> const &a, std::vector<P> const &b)
     -> P {
       P r = 0;
-//ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:r))
+ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:r))
       for (int64_t i = 0; i < n; i++)
         r += a[i] * b[i];
       return r;
@@ -665,7 +665,7 @@ int bicgstab<P>::solve(
   auto dot1 = [&](std::vector<P> const &a)
     -> P {
       P r = 0;
-//ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:r))
+ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:r))
       for (int64_t i = 0; i < n; i++)
         r += a[i] * a[i];
       return r;
@@ -684,7 +684,7 @@ ASGARD_OMP_PARFOR_SIMD
   r = rhs;
 
   int num_appy = 1;
-  apply_lhs(-1, x, 1, r); // r0 = b - A * x0
+  apply_lhs(-1, x.data(), 1, r.data()); // r0 = b - A * x0
 
   P rho = dot1(r);
 
@@ -693,7 +693,7 @@ ASGARD_OMP_PARFOR_SIMD
 
   for (int i = 0; i < max_iter_; i++) {
     ++num_appy;
-    apply_lhs(1, p, 0, v); // v = A * p
+    apply_lhs(1, p.data(), 0, v.data()); // v = A * p
 
     P const alpha = rho / dot(rref, v);
 
@@ -705,7 +705,7 @@ ASGARD_OMP_PARFOR_SIMD
     }
 
     ++num_appy;
-    apply_lhs(1, r, 0, t); // t = A * p
+    apply_lhs(1, r.data(), 0, t.data()); // t = A * p
 
     P const omega = dot(r, t) / dot1(t);
 
@@ -732,8 +732,8 @@ ASGARD_OMP_PARFOR_SIMD
 
 template<typename P>
 int gmres<P>::solve(
-    operatoin_apply_precon_arr<P> apply_precon,
-    operatoin_apply_lhs_arr<P> apply_lhs, std::vector<P> const &rhs,
+    operatoin_apply_precon<P> apply_precon,
+    operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
     std::vector<P> &x) const
 {
   int const n = static_cast<int>(rhs.size());
@@ -937,6 +937,13 @@ ASGARD_OMP_PARFOR_SIMD
 }
 
 template<typename P>
+void solver_manager<P>::xpby(std::vector<P> const &x, P beta, P y[]) {
+ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < x.size(); i++)
+    y[i] = x[i] + beta * y[i];
+}
+
+template<typename P>
 void solver_manager<P>::print_opts(std::ostream &os) const
 {
   os << "solver:\n";
@@ -946,16 +953,16 @@ void solver_manager<P>::print_opts(std::ostream &os) const
       os << "  direct\n";
       break;
     case 1:
-      os << "  bicgstab\n";
-      os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
-      os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
-      has_precon = true;
-      break;
-    case 2:
       os << "  gmres\n";
       os << "  tolerance: " << std::get<solvers::gmres<P>>(var).tolerance() << '\n';
       os << "  max inner: " << std::get<solvers::gmres<P>>(var).max_inner() << '\n';
       os << "  max outer: " << std::get<solvers::gmres<P>>(var).max_outer() << '\n';
+      has_precon = true;
+      break;
+    case 2:
+      os << "  bicgstab\n";
+      os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
+      os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
       has_precon = true;
       break;
     default:
