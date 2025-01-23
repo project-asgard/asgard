@@ -452,6 +452,7 @@ void term_manager<P>::kron_diag(
   {
     std::array<P const *, max_num_dimensions> amats;
 
+#pragma omp for
     for (int i = 0; i < grid.num_indexes(); i++) {
       for (int d : iindexof(num_dims))
         if (tme.coeffs[d].empty())

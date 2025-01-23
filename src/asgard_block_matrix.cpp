@@ -5,7 +5,9 @@ namespace asgard
 {
 
 template<typename P>
-void dense_matrix<P>::factorize() {
+void dense_matrix<P>::factorize()
+{
+  tools::time_event timing_("dense-matrix::factorize");
   expect(nrows_ == ncols_);
   ipiv.resize(nrows_);
   int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(), nrows_,
@@ -31,6 +33,7 @@ void dense_matrix<P>::factorize() {
 template<typename P>
 void dense_matrix<P>::solve(std::vector<P> &b) const
 {
+  tools::time_event timing_("dense-matrix::solve");
   expect(is_factorized());
   int info = lib_dispatch::getrs('N', nrows_, 1, data_.data(), nrows_,
                                   ipiv.data(), b.data(), nrows_);

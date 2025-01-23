@@ -146,11 +146,11 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
         b.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
         b.clone_onto_device();
-    int const restart  = solver::novalue;
-    int const max_iter = solver::novalue;
+    int const restart  = solvers::novalue;
+    int const max_iter = solvers::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices,
-                               x_d, b_d, restart, max_iter, tolerance);
+    solvers::simple_gmres_euler(dt, imex_flag::unspecified, operator_matrices,
+                                x_d, b_d, restart, max_iter, tolerance);
     return x_d.clone_onto_host();
   }();
 
@@ -162,10 +162,10 @@ void test_kronmult(prog_opts const &opts, P const tol_factor)
         b.clone_onto_device();
     fk::vector<P, mem_type::owner, resource::device> b_d =
         b.clone_onto_device();
-    int const max_iter = solver::novalue;
+    int const max_iter = solvers::novalue;
     P const tolerance  = std::is_same_v<float, P> ? 1e-6 : 1e-12;
-    solver::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices,
-                           x_d, b_d, max_iter, tolerance);
+    solvers::bicgstab_euler(dt, imex_flag::unspecified, operator_matrices,
+                            x_d, b_d, max_iter, tolerance);
     return x_d.clone_onto_host();
   }();
 

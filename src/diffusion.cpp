@@ -31,6 +31,15 @@
  * Thus, applying Dirichlet boundary conditions on gradient operator results in
  * Dirichlet boundary conditions for the field \b f, while applying Dirichlet
  * conditions on the divergence yields Neumann conditions for the field.
+ *
+ * \par
+ * The condition number of the second order operator is the square of the first order one,
+ * and the corresponding CFL condition implies that the time step should be the square
+ * of the spacial resolution.
+ * Thus, the required number of time-steps is prohibitively high for any explicit
+ * time stepping method, and we want to use an implicit stepper.
+ * While more stable and less restrictive on the time-step,
+ * implicit methods come with the additional challenge of requiring a linear solver.
  */
 
 /*!
@@ -97,12 +106,12 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   }
 
   // only the iterative solvers will use these values
-  // jacobi is the fastest and (currently) most stable preconditioner
+  // jacobi is (currently) the fastest and most stable preconditioner
   options.default_precon = asgard::preconditioner_opts::jacobi;
 
   // the tolerance for the iterative solver should probably be updated
   // based on the time-step and the max-level
-  // this is a tight number of remove the solver error from consideration
+  // this is a tight number which removes the solver error from consideration
   options.default_isolver_tolerance = 1.E-7;
 
   // the number of iterations should depends on the time-step and condition
@@ -111,7 +120,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 
   // GMRES uses a two-loop approach (restarted GMRES)
   // the inner iterations explicitly form and manipulate the basis for the Krylov sub-space
-  // this requires lots of memory and the number here should be kept moderate
+  // which requires lots of memory and the number here should be kept moderate
   // (memory usage is dominated by isolver_inner_iterations * degrees-of-freedom)
   options.isolver_inner_iterations = 50;
 
@@ -122,17 +131,18 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 
   // one dimensional divergence term using upwind flux
   // setting Dirichlet condition here will in fact yield Neumann boundary condition
-  // to the combined operator and respectively to the field
+  // for the combined operator and onto the field
   asgard::term_1d<P> div = asgard::term_div(asgard::flux_type::upwind,
                                             asgard::boundary_type::free,
                                             P{-1});
 
   // Dirichlet conditions applied to the grad term apply Dirichlet condition
-  // to the combined operator and respectively to the field
+  // for the combined operator and respectively the field
   asgard::term_1d<P> grad = asgard::term_grad(asgard::flux_type::upwind,
                                               asgard::boundary_type::dirichlet,
                                               P{1});
 
+  // different way of operator chaining
   if constexpr (chain1d)
   {
     // the second order operator is a chain of operators
@@ -349,7 +359,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde<P>(2, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde<P, false>(2, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method
@@ -360,6 +370,17 @@ int main(int argc, char** argv)
     std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
 
   asgard::advance_time(disc); // integrate until num-steps or stop-time
+
+  // alternative to the one-shot approach above, integration can be done step-by-step
+  // and verbose output can be generated
+  // in the code below, first the builtin reporting mechanism is set to quiet,
+  // and the error is computed for each time step
+  // disc.set_verbosity(asgard::verbosity_level::quiet);
+  // while (disc.time_params().num_remain() > 0) {
+  //   asgard::advance_time(disc, 1);
+  //   disc.progress_report();
+  //   std::cout << " -- error: " << get_error_l2(disc) << "\n";
+  // }
 
   disc.progress_report();
 
@@ -441,6 +462,9 @@ void self_test() {
   dotest<double, false>(1.E-4, 1, "-l 5 -n 20 -sv direct");
   dotest<double, false>(5.E-5, 1, "-l 6 -n 20 -sv direct");
 
+  dotest<double>(1.E-4, 1, "-l 5 -n 10 -sv bicgstab"); // check the jacobi preconditioner
+  dotest<double, false>(1.E-4, 1, "-l 5 -n 10 -sv bicgstab"); // both chain-modes
+
   dotest(1.E-1, 1, "-l 5 -d 0 -n 20 -sv direct");
   dotest(5.E-3, 1, "-l 5 -d 1 -n 20 -sv direct");
   dotest(5.E-5, 1, "-l 5 -d 2 -n 40 -dt 0.005 -sv direct"); // time error manifests here
@@ -453,7 +477,8 @@ void self_test() {
 
   // in the first few steps here, the grid is very coarse
   // finer refinement and time-step is needed, only the final error is OK
-  longtest(2.E-3, 2, "-l 2 -m 8 -a 1.E-3"); // adapt
+  longtest(2.E-3, 2, "-l 2 -m 8 -a 1.E-3");
+  longtest(2.E-3, 2, "-l 2 -m 8 -a 1.E-3 -sv direct"); // check if solver is updated
   dotest(5.E-3, 2, "-l 8 -a 1.E-4");
 #endif
 

@@ -511,6 +511,7 @@ template<typename P>
 direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
                   term_manager<P> const &terms, P alpha)
 {
+  tools::time_event timing_("forming dense matrix");
   int const num_dims    = grid.num_dims();
   int const num_indexes = grid.num_indexes();
   int const pdof        = terms.legendre.pdof;
@@ -648,6 +649,7 @@ template<typename P>
 int bicgstab<P>::solve(
     operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const
 {
+  tools::time_event timing_("bicgstab::solve");
   int64_t const n = static_cast<int64_t>(rhs.size());
   if (v.size() != rhs.size()) // the other temps are initialized with a copy
     v.resize(n);
@@ -736,6 +738,7 @@ int gmres<P>::solve(
     operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
     std::vector<P> &x) const
 {
+  tools::time_event timing_("gmres::solve");
   int const n = static_cast<int>(rhs.size());
   expect(n == static_cast<int>(x.size()));
 
@@ -925,6 +928,7 @@ void solver_manager<P>::update_grid(
     sparse_grid const &grid, connection_patterns const &conn,
     term_manager<P> const &terms, P alpha)
 {
+  tools::time_event timing_("updating solver");
   if (opt == solve_opts::direct)
     var = solvers::direct<P>(grid, conn, terms, alpha);
 
@@ -934,6 +938,8 @@ ASGARD_OMP_PARFOR_SIMD
     for (size_t i = 0; i < jacobi.size(); i++)
       jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
   }
+
+  grid_gen = grid.generation();
 }
 
 template<typename P>
