@@ -292,10 +292,6 @@ void discretization_manager<precision>::restart_from_file()
   time_data<precision> dtime;
   h5writer<precision>::read(pde2.options().restart_file, high_verbosity(), pde2, sgrid,
                             dtime, state);
-#else
-  throw std::runtime_error("restarting from a file requires CMake option "
-                           "-DASGARD_USE_HIGHFIVE=ON");
-#endif
 
   auto const &options = pde2.options();
 
@@ -325,6 +321,11 @@ void discretization_manager<precision>::restart_from_file()
     if (high_verbosity())
       progress_report();
   }
+
+#else
+  throw std::runtime_error("restarting from a file requires CMake option "
+                           "-DASGARD_USE_HIGHFIVE=ON");
+#endif
 }
 template<typename precision>
 void discretization_manager<precision>::save_snapshot2(std::filesystem::path const &filename) const {

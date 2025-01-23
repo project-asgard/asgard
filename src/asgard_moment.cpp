@@ -73,12 +73,12 @@ moments1d<P>::moments1d(int num_mom, int degree, int max_level,
 template<typename P>
 void moments1d<P>::integrate(
     basis::canonical_integrator const &quad, P a, P b, g_func_type<P> const &dv,
-    vector2d<P> const &basis, std::vector<P> &work, span2d<P> integ) const
+    vector2d<P> const &basis, std::vector<P> &work, span2d<P> intg) const
 {
   expect(work.size() == 4 * quad.left_nodes().size());
   expect(basis.num_strips() == degree_ + 1);
-  expect(integ.stride() == degree_ + 1);
-  expect(integ.num_strips() == num_mom_);
+  expect(intg.stride() == degree_ + 1);
+  expect(intg.num_strips() == num_mom_);
 
   size_t nquad = quad.left_nodes().size(); // num-quad-points
 
@@ -112,7 +112,7 @@ void moments1d<P>::integrate(
       for (int i : iindexof(2 * nquad)) // does both left/right parts
         ml[i] *= nl[i];
 
-    P *ii = integ[moment];
+    P *ii = intg[moment];
     if (basis.stride() == degree_ + 1)
       for (int d : iindexof(degree_ + 1))
         *ii++ = scal * quad.integrate_lmom(ml, mr, basis[d]);

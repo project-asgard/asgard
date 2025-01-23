@@ -138,15 +138,15 @@ public:
   //! inverts the stored matrix
   void operator() (std::vector<P> &x) const
   {
-    expect(mat.is_factorized());
-    mat.solve(x);
+    expect(dense_mat.is_factorized());
+    dense_mat.solve(x);
   }
   //! checks whether the solver has been set
-  operator bool () const { return mat; }
+  operator bool () const { return dense_mat; }
 
 private:
   //! holds the factor of the dense matrix
-  dense_matrix<P> mat;
+  dense_matrix<P> dense_mat;
 };
 
 /*!
@@ -338,28 +338,28 @@ struct solver_manager
   }
 
   //! iterative solver, calls the appropriate iterative solver
-  void iterate_solve(solvers::operatoin_apply_precon<P> precon,
+  void iterate_solve(solvers::operatoin_apply_precon<P> prec,
                      solvers::operatoin_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x) const
   {
     expect(opt != solve_opts::direct);
     if (opt == solve_opts::bicgstab) {
-      if (precon) {
+      if (prec) {
         solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
 
         bicg.prec_y.resize(rhs.size());
 
         bicg.prec_rhs = rhs;
-        precon(bicg.prec_rhs.data());
+        prec(bicg.prec_rhs.data());
 
         num_apply += bicg.solve([&](P alpha, P const xx[], P beta, P y[])
             -> void {
               if (beta == 0) {
                 apply_lhs(alpha, xx, 0, y);
-                precon(y);
+                prec(y);
               } else {
                 apply_lhs(alpha, xx, 0, bicg.prec_y.data());
-                precon(bicg.prec_y.data());
+                prec(bicg.prec_y.data());
                 xpby(bicg.prec_y, beta, y);
               }
             }, bicg.prec_rhs, x);
@@ -367,10 +367,10 @@ struct solver_manager
         num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
       }
     } else { // if (opt == solve_opts::gmres)
-      if (precon) {
+      if (prec) {
         solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
 
-        num_apply += gmres.solve(precon, apply_lhs, rhs, x);
+        num_apply += gmres.solve(prec, apply_lhs, rhs, x);
       } else {
         num_apply += std::get<solvers::gmres<P>>(var).solve(
           [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);

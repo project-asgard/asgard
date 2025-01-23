@@ -372,8 +372,6 @@ void term_manager<P>::apply_all_adi(
 {
   int64_t const n = grid.num_indexes() * fm::ipow(legendre.pdof, grid.num_dims());
 
-  static std::vector<P> t1, t2; // more additional workspaces
-
   t1.resize(n);
   t2.resize(n);
   std::copy_n(x, n, t1.data());
@@ -445,8 +443,6 @@ void term_manager<P>::kron_diag(
     term_entry<P> const &tme, int const block_size, std::vector<P> &y) const
 {
   static_assert(mode == data_mode::increment or mode == data_mode::multiply);
-
-  int const num_dims = grid.num_dims();
 
 #pragma omp parallel
   {

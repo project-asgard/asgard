@@ -29,8 +29,8 @@ public:
         dimension<P>(drange[2*i], drange[2*i + 1], level, degree,
           [ff = funcs_[i]](fk::vector<P> const &x, P const) -> fk::vector<P> {
             fk::vector<P> fx(x.size());
-            for (auto i : indexof(x))
-              fx[i] = ff(x[i]);
+            for (auto k : indexof(x))
+              fx[k] = ff(x[k]);
             return fx;
           },
           nullptr, std::string("x_") + std::to_string(i))

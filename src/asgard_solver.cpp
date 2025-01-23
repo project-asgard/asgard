@@ -575,7 +575,6 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     {
       for (int d : iindexof(num_dims)) {
         if (te.coeffs[d].nblock() > 0) {
-          //te.coeffs[d].to_full(conn).print(std::cout);
           temp_mats[d] = te.coeffs[d].to_full(conn);
           wcoeffs[d]   = &temp_mats[d];
         } else {
@@ -625,13 +624,13 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     }
   }
 
-  mat = bmat.to_dense_matrix(n);
+  dense_mat = bmat.to_dense_matrix(n);
 
   int64_t const size = n * num_indexes;
 
 #pragma omp parallel for
   for (int64_t c = 0; c < size - 1; c++) {
-    P *dd = mat.data() + c * (size + 1);
+    P *dd = dense_mat.data() + c * (size + 1);
     dd[0] = P{1} + alpha * dd[0];
     dd += 1;
     ASGARD_OMP_SIMD
@@ -640,9 +639,9 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
     }
   }
 
-  mat(size - 1, size - 1) = P{1} + alpha * mat(size - 1, size - 1);
+  dense_mat(size - 1, size - 1) = P{1} + alpha * dense_mat(size - 1, size - 1);
 
-  mat.factorize();
+  dense_mat.factorize();
 }
 
 template<typename P>
@@ -658,19 +657,19 @@ int bicgstab<P>::solve(
 
   auto dot = [&](std::vector<P> const &a, std::vector<P> const &b)
     -> P {
-      P r = 0;
-ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:r))
+      P sum = 0;
+ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:sum))
       for (int64_t i = 0; i < n; i++)
-        r += a[i] * b[i];
-      return r;
+        sum += a[i] * b[i];
+      return sum;
     };
   auto dot1 = [&](std::vector<P> const &a)
     -> P {
-      P r = 0;
-ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:r))
+      P sum = 0;
+ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:sum))
       for (int64_t i = 0; i < n; i++)
-        r += a[i] * a[i];
-      return r;
+        sum += a[i] * a[i];
+      return sum;
     };
   auto nrm = [&](std::vector<P> const &a)
     -> P {
@@ -722,8 +721,8 @@ ASGARD_OMP_PARFOR_SIMD
     P const beta = (rho1 / rho) * (alpha / omega);
 
 ASGARD_OMP_PARFOR_SIMD
-    for (int64_t i = 0; i < n; i++)
-      p[i] = r[i] + beta * (p[i] - omega * v[i]);
+    for (int64_t k = 0; k < n; k++)
+      p[k] = r[k] + beta * (p[k] - omega * v[k]);
 
     rho = rho1;
   }
