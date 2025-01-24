@@ -29,6 +29,8 @@ public:
   moments1d() {}
   //! constructor, prepares the given number of moments, for dgree and up to the max_level
   moments1d(int num_mom, int degree, int max_level, std::vector<dimension<P>> const &dims);
+  //! constructor, prepares the given number of moments, for dgree and up to the max_level
+  moments1d(int num_mom, int degree, int max_level, pde_domain<P> const &domain);
 
   /*!
    * \brief Given the solution state and table, compute the moments
@@ -41,6 +43,15 @@ public:
                        elements::table const &etable, std::vector<P> &moments) const;
 
   /*!
+   * \brief Given the grid and solution state, compute the moments
+   *
+   * If no position dimension is present, the moments will collapse to a single value.
+   * Otherwise, the moments will be populated.
+   */
+  void project_moments(sparse_grid const &grid, std::vector<P> const &state,
+                       std::vector<P> &moments) const;
+
+  /*!
    * \brief Given the solution state and table, compute only one moment
    *
    * Simpler version of project_moments() that avoids recomputing everything.
@@ -48,6 +59,15 @@ public:
    */
   void project_moment(int const mom, int const dim0_level, std::vector<P> const &state,
                       elements::table const &etable, std::vector<P> &moment) const;
+
+  /*!
+   * \brief Given the solution state and table, compute only one moment
+   *
+   * Simpler version of project_moments() that avoids recomputing everything.
+   * Works up to moments with second power.
+   */
+  void project_moment(int const mom, sparse_grid const &grid, std::vector<P> const &state,
+                      std::vector<P> &moment) const;
 
   //! \brief Returns the number of loaded moments, based on the power of v
   int num_mom() const { return num_mom_; }
@@ -87,6 +107,8 @@ private:
   int num_mom_ = 0;
   //! number of dimensions
   int num_dims_ = 0;
+  //! number of position dimensions
+  int num_pos_ = 0;
   //! the degree of the basis
   int degree_ = 0;
   //! integral of the canonical basis, each index holds num_mom_ * (degree_ + 1) entries

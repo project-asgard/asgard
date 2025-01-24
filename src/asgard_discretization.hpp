@@ -442,7 +442,7 @@ private:
   // moments, new implementation
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
-  mutable std::optional<solvers::poisson_data<precision>> poisson_solver;
+  mutable solvers::poisson<precision> poisson;
 
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;

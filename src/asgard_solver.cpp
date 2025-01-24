@@ -433,8 +433,8 @@ simple_bicgstab(matrix_abstraction mat, fk::vector<P, mem_type::view, resrc> x,
 }
 
 template<typename P>
-void poisson_data<P>::solve(std::vector<P> const &density, P dleft, P dright,
-                            poisson_bc const bc, std::vector<P> &efield)
+void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
+                       poisson_bc const bc, std::vector<P> &efield)
 {
   tools::time_event psolve_("poisson_solver");
 
@@ -861,7 +861,7 @@ bicgstab_euler(const double dt, imex_flag imex,
 
 template int default_gmres_restarts<double>(int num_cols);
 
-template void poisson_data<double>::solve(
+template void poisson<double>::solve(
     std::vector<double> const &, double, double, poisson_bc const, std::vector<double> &);
 
 #endif // ASGARD_ENABLE_DOUBLE
@@ -912,7 +912,7 @@ bicgstab_euler(const float dt, imex_flag imex,
 
 template int default_gmres_restarts<float>(int num_cols);
 
-template void poisson_data<float>::solve(
+template void poisson<float>::solve(
     std::vector<float> const &, float, float, poisson_bc const, std::vector<float> &);
 
 #endif // ASGARD_ENABLE_FLOAT

@@ -56,11 +56,13 @@ int default_gmres_restarts(int num_cols);
  * Holds the domain size, the factor of the operator matrices, etc.
  */
 template<typename P>
-class poisson_data
+class poisson
 {
 public:
+  //! default, uninitialized constructor
+  poisson() = default;
   //! initialize Poisson solver over the domain with given min/max, level and degree of input basis
-  poisson_data(int pdegree, P domain_min, P domain_max, int level)
+  poisson(int pdegree, P domain_min, P domain_max, int level)
     : degree(pdegree), xmin(domain_min), xmax(domain_max), current_level(level)
   {
     if (current_level == 0) return; // nothing to solve
@@ -91,6 +93,8 @@ public:
   void solve_periodic(std::vector<P> const &density, std::vector<P> &efield) {
     solve(density, 0, 0, poisson_bc::periodic, efield);
   }
+  //! indicates whether the solver has been initialized
+  operator bool() const { return (current_level >= 0); }
 
 private:
   //! set the solver for the current level
@@ -109,9 +113,9 @@ private:
     fm::pttrf(diag, subdiag);
   }
 
-  int degree;
-  P xmin, xmax;
-  int current_level;
+  int degree = -1;
+  P xmin = 0, xmax = 0;
+  int current_level = -1;
   std::vector<P> diag, subdiag, rhs;
 };
 

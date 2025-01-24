@@ -27,9 +27,42 @@ void term_entry<P>::set_perms()
           std::swap(active_dirs.front(), active_dirs.back());
       }
     }
+
+    deps[d] = get_deps(t1d);
   }
 
   perm = kronmult::permutes(active_dirs, flux_dir);
+}
+
+template<typename P>
+mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
+  auto process_dep = [](term_1d<P> const &single)
+    -> mom_deps {
+      switch (single.depends()) {
+        case pterm_dependence::electric_field:
+        case pterm_dependence::electric_field_only:
+          return {true, 1};
+        case pterm_dependence::moment_divided_by_density:
+          return {false, std::abs(single.moment())};
+        case pterm_dependence::lenard_bernstein_coll_theta_1x1v:
+          return {false, 3};
+        case pterm_dependence::lenard_bernstein_coll_theta_1x2v:
+          return {false, 5};
+        case pterm_dependence::lenard_bernstein_coll_theta_1x3v:
+          return {false, 7};
+        default:
+          return {};
+      };
+    };
+
+  if (t1d.is_chain()) {
+    mom_deps result;
+    for (int i : iindexof(t1d.num_chain()))
+      result += process_dep(t1d[i]);
+    return result;
+  } else {
+    return process_dep(t1d);
+  }
 }
 
 template<typename P>
@@ -79,6 +112,18 @@ term_manager<P>::term_manager(PDEv2<P> &pde)
     xleft[d]  = pde.domain().xleft(d);
     xright[d] = pde.domain().xright(d);
   }
+}
+
+template<typename P>
+mom_deps term_manager<P>::find_deps() const
+{
+  mom_deps deps;
+
+  for (auto const &tentry : terms)
+    for (int d : iindexof(num_dims))
+      deps += tentry.deps[d];
+
+  return deps;
 }
 
 template<typename P>
