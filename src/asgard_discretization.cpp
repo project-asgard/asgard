@@ -610,6 +610,11 @@ discretization_manager<precision>::ode_rhs_v2(
     precision time, std::vector<precision> const &current,
     std::vector<precision> &R) const
 {
+  if (poisson) { // if we have a Poisson dependence
+    do_poisson_update(current);
+    terms.rebuild_poisson(sgrid, conn, hier);
+  }
+
   {
     tools::time_event performance_("ode-rhs kronmult");
     terms.apply_all(sgrid, conn, -1, current, 0, R);
@@ -718,6 +723,8 @@ discretization_manager<precision>::do_poisson_update(std::vector<precision> cons
     moms1d->project_moment(0, level, field, table, moment0);
 
     hier.reconstruct1d(1, level, span2d<precision>(degree_ + 1, fm::ipow2(level), moment0.data()));
+
+    poisson.solve_periodic(moment0, matrices.edata.electric_field);
 
     if (matrices.edata.electric_field_infnrm)
     {

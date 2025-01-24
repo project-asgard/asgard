@@ -300,10 +300,10 @@ int main(int argc, char** argv)
   if (not opt_dims)
     opt_dims = options.extra_cli_value<int>("-dm");
 
-  int const num_dims = opt_dims.value_or(3);
+  int const num_dims = opt_dims.value_or(2);
 
   if (not opt_dims)
-    std::cout << "no -dims provided, setting a default 3D problem\n";
+    std::cout << "no -dims provided, setting a default 2D problem\n";
   else
     std::cout << "setting a " << num_dims << "D problem\n";
 
@@ -475,6 +475,10 @@ void self_test() {
 
   // adaptivity is tricky near the time-period when the solution vanishes
   dolongtest<double>(0.03, 2, "-l 4 -m 8 -t 10 -a 1.E-2");
+
+  // different explicit time-stepping
+  dotest<double>(0.05, 2, "-s rk2 -l 5 -n 20");
+  dotest<double>(0.01, 2, "-s rk2 -l 6 -n 10");
 
   // implicit stepping is fast, test some of the implicit methods
   dotest<double>(0.05, 1, "-l 7 -n 20 -sv direct -s be -dt 0.05");

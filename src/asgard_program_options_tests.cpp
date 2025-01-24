@@ -52,6 +52,8 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE(prog.step_method);
     REQUIRE(*prog.step_method == time_advance::method::imex);
 
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk2"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk2"})).step_method.value() == time_advance::method::rk2);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method.value() == time_advance::method::cn);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "crank-nicolson"})).step_method.value() == time_advance::method::cn);

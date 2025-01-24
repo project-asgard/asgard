@@ -6,11 +6,14 @@ namespace asgard
 {
 
 template<typename P>
-void term_entry<P>::set_perms()
+term_entry<P>::term_entry(term_md<P> tin)
+  : tmd(std::move(tin))
 {
   expect(not tmd.is_chain());
-  if (tmd.is_interpolatory()) // no permutation to set
+  if (tmd.is_interpolatory()) {
+    deps[0] = {false, 0}; // set interpolation deps here
     return;
+  }
 
   int const num_dims = tmd.num_dims();
   std::vector<int> active_dirs;
@@ -95,16 +98,13 @@ term_manager<P>::term_manager(PDEv2<P> &pde)
       if (num_chain >= 3 and t2.empty())
         t2.resize(1);
 
-      ir->num_chain = num_chain;
-      for (int c : iindexof(num_chain)) {
-        ir->tmd = std::move(pde_terms[i].chain_[c]);
-        ir->set_perms();
-        ++ir;
+      *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
+      ir++->num_chain = num_chain;
+      for (int c = 1; c < num_chain; c++) {
+        *ir++ = term_entry<P>(std::move(pde_terms[i].chain_[c]));
       }
     } else {
-      ir->tmd = std::move(pde_terms[i]);
-      ir->set_perms();
-      ir += 1;
+      *ir++ = term_entry<P>(std::move(pde_terms[i]));
     }
   }
 
@@ -154,32 +154,42 @@ void term_manager<P>::rebuld_term(
     if (t1d.change() == changes_with::level and terms[tid].level[d] == level)
       continue;
 
-    bool is_diag = t1d.is_mass();
-    if (t1d.is_chain()) {
-      rebuld_chain(d, t1d, level, is_diag, wraw_diag, wraw_tri);
-    } else {
-      build_raw_mat(d, t1d, level, wraw_diag, wraw_tri);
-    }
-    // the build/rebuild put the result in raw_diag or raw_tri
-    if (is_diag)
-      terms[tid].coeffs[d] = hier.diag2hierarchical(wraw_diag, level, conn);
-    else
-      terms[tid].coeffs[d] = hier.tri2hierarchical(wraw_tri, level, conn);
-
-    // build the ADI preconditioner here
-    if (precon == preconditioner_opts::adi) {
-      if (is_diag) {
-        to_euler(legendre.pdof, alpha, wraw_diag);
-        psedoinvert(legendre.pdof, wraw_diag, raw_diag0);
-        terms[tid].adi[d] = hier.diag2hierarchical(raw_diag0, level, conn);
-      } else {
-        to_euler(legendre.pdof, alpha, wraw_tri);
-        psedoinvert(legendre.pdof, wraw_tri, raw_tri0);
-        terms[tid].adi[d] = hier.tri2hierarchical(raw_tri0, level, conn);
-      }
-    }
-
+    rebuld_term1d(terms[tid], d, level, conn, hier, precon, alpha);
   } // move to next dimension d
+}
+
+template<typename P>
+void term_manager<P>::rebuld_term1d(
+    term_entry<P> &tentry, int const dim, int level,
+    connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+    preconditioner_opts precon, P alpha)
+{
+  auto const &t1d = tentry.tmd.dim(dim);
+
+  bool is_diag = t1d.is_mass();
+  if (t1d.is_chain()) {
+    rebuld_chain(dim, t1d, level, is_diag, wraw_diag, wraw_tri);
+  } else {
+    build_raw_mat(dim, t1d, level, wraw_diag, wraw_tri);
+  }
+  // the build/rebuild put the result in raw_diag or raw_tri
+  if (is_diag)
+    tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
+  else
+    tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
+
+  // build the ADI preconditioner here
+  if (precon == preconditioner_opts::adi) {
+    if (is_diag) {
+      to_euler(legendre.pdof, alpha, wraw_diag);
+      psedoinvert(legendre.pdof, wraw_diag, raw_diag0);
+      tentry.adi[dim] = hier.diag2hierarchical(raw_diag0, level, conn);
+    } else {
+      to_euler(legendre.pdof, alpha, wraw_tri);
+      psedoinvert(legendre.pdof, wraw_tri, raw_tri0);
+      tentry.adi[dim] = hier.tri2hierarchical(raw_tri0, level, conn);
+    }
+  }
 }
 
 template<typename P>

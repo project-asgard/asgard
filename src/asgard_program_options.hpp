@@ -187,8 +187,10 @@ namespace time_advance
  */
 enum class method
 {
+  //! Runge Kutta 2-stage method, 3d order accuracy
+  rk2 = 0,
   //! Runge Kutta 3-stage method, 4th order accuracy
-  rk3 = 0,
+  rk3,
   //! Implicit Crank-Nicolson, second order
   cn,
   //! Implicit Backward-Euler, first order

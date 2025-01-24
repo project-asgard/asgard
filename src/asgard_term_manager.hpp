@@ -28,6 +28,10 @@ struct mom_deps {
 //! \brief Combines a term with data used for linear operations
 template<typename P>
 struct term_entry {
+  //! make default entry, needs to be re-initialized
+  term_entry() = default;
+  //! initialize the entry with the given term
+  term_entry(term_md<P> tin);
   //! the term, moved from the pde definition
   term_md<P> tmd;
   //! coefficient matrices for the term
@@ -42,11 +46,9 @@ struct term_entry {
   std::array<mom_deps, max_num_dimensions> deps;
   //! indicates if this a single term or a chain
   int num_chain = 1;
-  //! setup the perms
-  void set_perms();
   //! returns true if the term is separable
   bool is_separable() {
-    return perm; // check if perm has been set
+    return perm; // check if kronmult permutations have been set
   }
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
@@ -94,6 +96,16 @@ struct term_manager
     tools::time_event timing_("initial coefficients");
     for (int t : iindexof(terms))
       rebuld_term(t, grid, conn, hier, precon, alpha);
+  }
+  //! rebuild the terms that depend on the Poisson electric field
+  void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
+                      hierarchy_manipulator<P> const &hier)
+  {
+    for (auto &te : terms) {
+      for (int d : indexof(num_dims))
+        if (te.deps[d].poisson)
+          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+    }
   }
 
   void prapare_workspace(sparse_grid const &grid) {
@@ -163,6 +175,11 @@ protected:
   void rebuld_term(int const tid, sparse_grid const &grid, connection_patterns const &conn,
                    hierarchy_manipulator<P> const &hier,
                    preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
+  //! rebuild term[tmd][t1d], assumes non-identity
+  void rebuld_term1d(term_entry<P> &tentry, int const t1d,
+                     int level, connection_patterns const &conn,
+                     hierarchy_manipulator<P> const &hier,
+                     preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(int const dim, term_1d<P> const &t1d, int const level, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);

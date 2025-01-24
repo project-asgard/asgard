@@ -14,11 +14,19 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_two_stream Example 4, Diffusion operator
+ * \addtogroup asgard_examples_two_stream Example 5, Two stream instability
  *
  * \par Example 5
- * Solves the two stream instability equation
- * \f[ \frac{d}{dt} f - \nabla \cdot \nabla f = s \f]
+ * Solves the Vlasov-Poisson equation in a common example
+ * often called the two stream instability problem
+ * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) = 0 \f]
+ * where the electric field term depends on the Poisson equation
+ * \f[ - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
+ * The equation represents the evolution of a charged particle field under the effects
+ * of self-induced electric field.
+ * The right-hand integral represents the density of the particles and creates
+ * non-linear coupling between the fields.
+ *
  *
  */
 
@@ -60,8 +68,7 @@ int main(int argc, char** argv)
   // if help was selected in the command line, show general information about
   // this example runs 2D problem, testing does more options
   if (options.show_help) {
-    std::cout << "\n solves the two stream instability equation:\n";
-    std::cout << "    f_t ... \n\n";
+    std::cout << "\n solves the two stream Vlasov-Poisson in 1x-1v dimensions\n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << "<< additional options for this file >>\n";
@@ -87,16 +94,21 @@ int main(int argc, char** argv)
 
   // setting some default options
   // defaults are used only the corresponding values are missing from the command line
-  options.default_degree = 2;
-  options.default_start_levels = {4, 3};
+  int const default_degree = 2;
 
-  // using implicit time-stepping, thus ignoring any CFL
-  options.default_dt = 1.0 / 320.0;
+  options.default_degree = default_degree;
+  options.default_start_levels = {7, 7};
 
-  options.default_stop_time = 1.0; // integrate until T = 3
+  // the CFL is more complicated, it depends both on the polynomial degree
+  // and on the maximum number of cells (TODO: add more here)
+  int const k = options.degree.value_or(default_degree);
+  int const n = (1 << options.max_level());
+  options.default_dt = 3.0 / (2 * (2 * k + 1) * n);
+
+  options.default_stop_time = 1.0;
 
   // using explicit RK3
-  options.default_step_method = asgard::time_advance::method::rk3;
+  options.default_step_method = asgard::time_advance::method::rk2;
 
   // create a pde from the given options and domain
   asgard::PDEv2<P> pde(options, domain);
@@ -116,27 +128,27 @@ int main(int argc, char** argv)
     {
 #pragma omp parallel for
       for (size_t i = 0; i < x.size(); i++)
-        y[i] = std::max(P{0}, x[i]);
+        y[i] = std::min(P{0}, x[i]);
     };
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::term_mass<P>(positive),
-      asgard::term_div<P>(asgard::flux_type::upwind, asgard::boundary_type::periodic, P{-1})
+      asgard::term_div<P>(asgard::flux_type::upwind, asgard::boundary_type::periodic, P{1}),
+      asgard::term_mass<P>(positive)
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::term_mass<P>(negative),
-      asgard::term_div<P>(asgard::flux_type::downwind, asgard::boundary_type::periodic, P{-1})
+    asgard::term_div<P>(asgard::flux_type::downwind, asgard::boundary_type::periodic, P{1}),
+    asgard::term_mass<P>(negative),
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
       asgard::mass_electric<P>(positive),
-      asgard::term_div<P>(asgard::flux_type::upwind, asgard::boundary_type::periodic, P{1})
+      asgard::term_div<P>(asgard::flux_type::upwind, asgard::boundary_type::dirichlet, P{1})
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
       asgard::mass_electric<P>(negative),
-      asgard::term_div<P>(asgard::flux_type::downwind, asgard::boundary_type::periodic, P{1})
+      asgard::term_div<P>(asgard::flux_type::downwind, asgard::boundary_type::dirichlet, P{1})
     });
 
   // initial conditions in x and y
@@ -160,29 +172,12 @@ int main(int argc, char** argv)
   // separable and non-separable operators, holds the current state, etc.
   asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::high);
 
-  // time-integration is performed using the advance_time() method
-  // advance_time(disc, n); will integrate for n time-steps
-  // skipping n (or using a negative) will integrate until the end
-
-  //if (not disc.stop_verbosity())
-  //  std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
 
   asgard::advance_time(disc); // integrate until num-steps or stop-time
 
-  // alternative to the one-shot approach above, integration can be done step-by-step
-  // and verbose output can be generated
-  // in the code below, first the builtin reporting mechanism is set to quiet,
-  // and the error is computed for each time step
-  // disc.set_verbosity(asgard::verbosity_level::quiet);
-  // while (disc.time_params().num_remain() > 0) {
-  //   asgard::advance_time(disc, 1);
-  //   disc.progress_report();
-  //   std::cout << " -- error: " << get_error_l2(disc) << "\n";
-  // }
-
   disc.progress_report();
 
-
+  // PUT ENERGY CONVERSATION HERE
   //if (not disc.stop_verbosity())
   //  std::cout << " -- final error: " << get_error_l2(disc) << "\n";
 

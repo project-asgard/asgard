@@ -108,10 +108,15 @@ namespace asgard::time_advance
  * \endinternal
  */
 template<typename P>
-struct rungekutta3
+struct rungekutta
 {
   //! Default empty stepper
-  rungekutta3() = default;
+  rungekutta() = default;
+  //! Default empty stepper
+  rungekutta(method rk) : rktype(rk)
+  {
+    expect(rktype == method::rk2 or rktype == method::rk3);
+  }
   //! Performs RK3 step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
@@ -119,6 +124,8 @@ struct rungekutta3
   static bool constexpr needs_solver = false;
 
 private:
+  method rktype = method::rk3;
+
   // workspace vectors
   mutable std::vector<P> k1, k2, k3, s1;
 };
@@ -197,7 +204,7 @@ struct time_advance_manager
   bool needs_solver() const {
     switch (method.index()) {
       case 0:
-        return time_advance::rungekutta3<P>::needs_solver;
+        return time_advance::rungekutta<P>::needs_solver;
       case 1:
         return time_advance::crank_nicolson<P>::needs_solver;
       default:
@@ -242,7 +249,7 @@ struct time_advance_manager
   //! holds the common time-stepping parameters
   time_data<P> data;
   //! wrapper around the specific method being used
-  std::variant<time_advance::rungekutta3<P>, time_advance::crank_nicolson<P>> method;
+  std::variant<time_advance::rungekutta<P>, time_advance::crank_nicolson<P>> method;
 };
 
 /*!

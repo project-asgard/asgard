@@ -42,6 +42,23 @@
 #include <cuda_runtime.h>
 #endif
 
+#ifndef NDEBUG
+namespace asgard::debug {
+  //! debug tools, write a range-like object
+  template<typename range_like>
+  void dump(range_like const &x) {
+    for (auto const &v : x)
+      std::cout << v << '\n';
+  }
+  //! debug tools, write the first n entries of a range-like object
+  template<typename range_like>
+  void dump(int n, range_like const &x) {
+    for (int i = 0; i < n; i++)
+      std::cout << x[i] << '\n';
+  }
+}
+#endif
+
 namespace asgard::tools
 {
 #ifndef NDEBUG

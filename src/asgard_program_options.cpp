@@ -77,7 +77,7 @@ Options          Short   Value      Description
 
 <<< time stepping options >>>
 -step-method     -s      string     accepts (v1): expl/impl/imex
-                                    accepts (v2): rk3/cn/crank-nicolson/be/backwar-euler
+                                    accepts (v2): rk2/rk3/cn/crank-nicolson/be/backwar-euler
                                     indicates explicit (rk3), implicit (backward-Euler) or
                                     imex (implicit-explicit) time-stepping scheme
                                     implicit crank-nicolson (cn) or backwar-euler (be)
@@ -340,7 +340,9 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
-      if (*selected == "rk3")
+      if (*selected == "rk2")
+        step_method = time_advance::method::rk2;
+      else if (*selected == "rk3")
         step_method = time_advance::method::rk3;
       else if (*selected == "cn" or *selected == "crank-nicolson")
         step_method = time_advance::method::cn;
