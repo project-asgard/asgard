@@ -148,11 +148,11 @@ void term_manager<P>::build_raw_mat(
   {
     case operation_type::mass:
       if (t1d.rhs()) {
-        gen_diag_cmat<P, operation_type::mass, rhs_type::is_func>
-          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, raw_diag);
+        gen_diag_cmat<P, operation_type::mass>
+          (legendre, xleft[d], xright[d], level, t1d.rhs(), nullptr, raw_diag);
       } else {
-        gen_diag_cmat<P, operation_type::mass, rhs_type::is_const>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), raw_diag);
+        gen_diag_cmat<P, operation_type::mass>
+          (legendre, level, t1d.rhs_const(), raw_diag);
       }
       break;
     case operation_type::div:
@@ -187,8 +187,8 @@ void term_manager<P>::build_raw_mat(
       break;
   }
   if (t1d.lhs()) { // we have a lhs mass
-    gen_diag_cmat<P, operation_type::mass, rhs_type::is_func>
-      (legendre, xleft[d], xright[d], level, t1d.lhs(), 0, raw_mass);
+    gen_diag_cmat<P, operation_type::mass>
+      (legendre, xleft[d], xright[d], level, t1d.lhs(), nullptr, raw_mass);
     if (t1d.is_mass())
       raw_mass.apply_inverse(legendre.pdof, raw_diag);
     else

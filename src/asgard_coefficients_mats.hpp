@@ -276,11 +276,45 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   }
 }
 
-template<typename P, operation_type optype, rhs_type rtype>
+template<typename P, operation_type optype>
+void gen_diag_cmat(legendre_basis<P> const &basis, int level,
+                   P const rhs_const, block_diag_matrix<P> &coeff)
+{
+  static_assert(optype == operation_type::mass,
+                "only mass matrices should be used to create mass terms");
+
+  int const num_cells = fm::ipow2(level);
+  int const nblock = basis.pdof * basis.pdof;
+
+  coeff.resize_and_zero(nblock, num_cells);
+
+  // if the coefficient is constant, we have identical copies of the same matrix
+  // compute once and reuse as needed,
+  // also note that the penalty operation skips the volume component
+  std::vector<P> const_mat;
+  const_mat.resize(nblock);
+
+  for (int i = 0; i < basis.pdof; i++)
+  {
+    for (int j = 0; j < i; j++)
+      const_mat[i * basis.pdof + j] = 0;
+    const_mat[i * basis.pdof + i] = rhs_const;
+    for (int j = i + 1; j < basis.pdof; j++)
+      const_mat[i * basis.pdof + j] = 0;
+  }
+
+#pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+    std::copy_n(const_mat.data(), nblock, coeff[i]);
+}
+
+template<typename P, operation_type optype,
+         pterm_dependence depends = pterm_dependence::none>
 void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
-                   sfixed_func1d<P> const &rhs, P const rhs_const,
+                   sfixed_func1d<P> const &rhs, sfixed_func1d_f<P> const &rhs_f,
                    block_diag_matrix<P> &coeff)
 {
+  ignore(rhs_f);
   static_assert(optype == operation_type::mass,
                 "only mass matrices should be used to create mass terms");
 
@@ -295,7 +329,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   static std::vector<P> rhs_raw;
 
   span2d<P> rhs_vals;
-  if constexpr (rtype == rhs_type::is_func) {
+  if constexpr (depends == pterm_dependence::none) {
     rhs_pnts.resize(basis.num_quad * num_cells);
     rhs_raw.resize(rhs_pnts.size());
 #pragma omp parallel for
@@ -311,40 +345,18 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
     rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.data());
   }
 
-  std::vector<P> const_mat;
-  if constexpr (rtype == rhs_type::is_const) {
-    // if the coefficient is constant, we have identical copies of the same matrix
-    // compute once and reuse as needed,
-    // also note that the penalty operation skips the volume component
-    const_mat.resize(nblock);
-
-    for (int i = 0; i < basis.pdof; i++)
-    {
-      for (int j = 0; j < i; j++)
-        const_mat[i * basis.pdof + j] = 0;
-      const_mat[i * basis.pdof + i] = rhs_const;
-      for (int j = i + 1; j < basis.pdof; j++)
-        const_mat[i * basis.pdof + j] = 0;
-    }
-  }
-
 #pragma omp parallel
   {
     // each thread will allocate it's own tmp matrix
     std::vector<P> tmp;
-    if constexpr (rtype == rhs_type::is_func)
-      tmp.resize(basis.num_quad * basis.pdof); // if not using const coefficient
+    tmp.resize(basis.num_quad * basis.pdof); // if not using const coefficient
 
 #pragma omp for
     for (int i = 0; i < num_cells; i++)
     {
-      if constexpr (rtype == rhs_type::is_const) {
-        std::copy_n(const_mat.data(), nblock, coeff[i]);
-      } else {
-        smmat::col_scal(basis.num_quad, basis.pdof,
-                        rhs_vals[i], basis.legw, tmp.data());
-        smmat::gemm_tn<1>(basis.pdof, basis.num_quad, basis.leg, tmp.data(), coeff[i]);
-      }
+      smmat::col_scal(basis.num_quad, basis.pdof,
+                      rhs_vals[i], basis.legw, tmp.data());
+      smmat::gemm_tn<1>(basis.pdof, basis.num_quad, basis.leg, tmp.data(), coeff[i]);
     }
   }
 }
