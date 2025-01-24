@@ -49,6 +49,9 @@ struct term_manager
 
   legendre_basis<P> legendre;
 
+  //! data for the coupling with moments and electric field
+  coupled_term_data<P> cdata;
+
   // interpolation<P> interp; // must be rebuild as a module
 
   mutable kronmult::block_global_workspace<P> kwork;

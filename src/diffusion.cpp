@@ -16,7 +16,7 @@
  * \ingroup asgard_examples
  * \addtogroup asgard_examples_diffusion Example 4, Diffusion operator
  *
- * \par Example 3
+ * \par Example 4
  * Solves the 2D diffusion partial differential equation
  * \f[ \frac{d}{dt} f - \nabla \cdot \nabla f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution is
@@ -336,7 +336,7 @@ int main(int argc, char** argv)
   // if help was selected in the command line, show general information about
   // this example runs 2D problem, testing does more options
   if (options.show_help) {
-    std::cout << "\n solves the continuity equation:\n";
+    std::cout << "\n solves the diffusion equation:\n";
     std::cout << "    f_t - laplacian f = s(t, x)\n";
     std::cout << " with Dirichlet boundary conditions \n"
                  " and source term that generates a known artificial solution\n\n";

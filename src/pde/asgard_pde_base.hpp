@@ -66,6 +66,7 @@ enum class pterm_dependence
 {
   none, // nothing special, uses generic g-func
   electric_field, // depends on the electric field
+  electric_field_only, // depends only on the electric filed and not position
   electric_field_infnrm, // depends on the max abs( electric_field )
   moment_divided_by_density, // moment divided by moment 0
   lenard_bernstein_coll_theta_1x1v,
@@ -1461,6 +1462,33 @@ struct term_div {
  */
 struct term_chain {};
 
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Mass term that depends on the electric field
+ */
+template<typename P>
+struct mass_electric {
+  //! no left hand side, right side depends only on the field
+  mass_electric(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
+  //! with left hand side, right side depends only on the field
+  mass_electric(sfixed_func1d<P> lhs, sfixed_func1d<P> rhs)
+    : left(std::move(lhs)), right(std::move(rhs))
+  {}
+  //! no left hand side, right side depends only on the field and position
+  mass_electric(sfixed_func1d_f<P> rhs_f) : right_f(std::move(rhs_f)) {}
+  //! with left hand side, right side depends only on the field and position
+  mass_electric(sfixed_func1d<P> lhs, sfixed_func1d_f<P> rhs_f)
+    : left(std::move(lhs)), right_f(std::move(rhs_f))
+  {}
+
+  //! left-hand-side function
+  sfixed_func1d<P> left;
+  //! right-hand-side function, field only no spatial dependence
+  sfixed_func1d<P> right;
+  //! right-hand-side function, depends on position and field
+  sfixed_func1d_f<P> right_f;
+};
+
 // forward declaration so it can be set as a friend
 template<typename P>
 struct term_manager;
@@ -1572,6 +1600,16 @@ public:
   }
   //! make a chain term, add terms later with add_term() or +=
   term_1d(term_chain) : optype_(operation_type::chain) {}
+  //! make a term that depends on the electric field
+  term_1d(mass_electric<P> elmass)
+    : optype_(operation_type::mass), change_(changes_with::time),
+      lhs_(std::move(elmass.left)), rhs_(std::move(elmass.right)),
+      field_f_(std::move(elmass.right_f))
+  {
+    depends_ = (field_f_) ? pterm_dependence::electric_field
+                          : pterm_dependence::electric_field_only;
+  }
+
   //! indicates whether this is an identity term
   bool is_identity() const { return (optype_ == operation_type::identity); }
   //! indicates whether this is a mass term

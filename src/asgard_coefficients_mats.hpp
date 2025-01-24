@@ -308,6 +308,24 @@ void gen_diag_cmat(legendre_basis<P> const &basis, int level,
     std::copy_n(const_mat.data(), nblock, coeff[i]);
 }
 
+template<typename P>
+void gen_diag_cmat_pwc(legendre_basis<P> const &basis, int level,
+                       std::vector<P> const &pwc, block_diag_matrix<P> &coeff)
+{
+  int const num_cells = fm::ipow2(level);
+  int const nblock = basis.pdof * basis.pdof;
+
+  coeff.resize_and_zero(nblock, num_cells);
+
+  std::vector<P> const_mat(nblock, P{0});
+  for (int i = 0; i < basis.pdof; i++)
+    const_mat[i * basis.pdof + i] = 1;
+
+#pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+    smmat::axpy(nblock, pwc[i], const_mat.data(), coeff[i]);
+}
+
 template<typename P, operation_type optype,
          pterm_dependence depends = pterm_dependence::none>
 void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,

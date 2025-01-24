@@ -147,12 +147,30 @@ void term_manager<P>::build_raw_mat(
   switch (t1d.optype())
   {
     case operation_type::mass:
-      if (t1d.rhs()) {
-        gen_diag_cmat<P, operation_type::mass>
-          (legendre, xleft[d], xright[d], level, t1d.rhs(), nullptr, raw_diag);
-      } else {
-        gen_diag_cmat<P, operation_type::mass>
-          (legendre, level, t1d.rhs_const(), raw_diag);
+      switch (t1d.depends()) {
+        case pterm_dependence::electric_field_only:
+          if (t1d.rhs()) {
+            // using w1 as workspaces, it probably has enough space already
+            size_t const n = kwork.w1.size();
+            t1d.rhs(cdata.electric_field, kwork.w1);
+            gen_diag_cmat_pwc<P>(legendre, level, kwork.w1, raw_diag);
+            kwork.w1.resize(n);
+          } else {
+            gen_diag_cmat_pwc<P>(legendre, level, cdata.electric_field, raw_diag);
+          }
+          break;
+        case pterm_dependence::electric_field:
+          throw std::runtime_error("el-field with position depend is not done (yet)");
+          break;
+        default:
+          if (t1d.rhs()) {
+            gen_diag_cmat<P, operation_type::mass>
+              (legendre, xleft[d], xright[d], level, t1d.rhs(), nullptr, raw_diag);
+          } else {
+            gen_diag_cmat<P, operation_type::mass>
+              (legendre, level, t1d.rhs_const(), raw_diag);
+          }
+          break;
       }
       break;
     case operation_type::div:

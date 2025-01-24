@@ -312,14 +312,6 @@ public:
   static constexpr type_tag_ignore_time set_ignore_time = type_tag_ignore_time{};
 
   //! set a function non-separable in time or not depending on time
-  separable_func(std::list<svector_func1d<P>> fdomain)
-  {
-    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
-    int dims = 0;
-    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
-      source_func_[dims++] = std::move(*ip);
-  }
-  //! set a function non-separable in time or not depending on time
   separable_func(std::list<svector_func1d<P>> fdomain, type_tag_ignore_time)
     : ignores_time_(true)
   {

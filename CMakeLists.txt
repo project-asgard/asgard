@@ -502,7 +502,9 @@ if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
-foreach (_asgexe continuity diffusion)
+set (_asgard_pdes continuity diffusion two_stream)
+
+foreach (_asgexe ${_asgard_pdes})
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
     install(TARGETS ${_asgexe} EXPORT  "asgard-export" RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/share/asgard/pde")
@@ -570,7 +572,7 @@ if (ASGARD_BUILD_TESTS)
     asgard_coefficients
   )
 
-  foreach( _asg_pde continuity diffusion)
+  foreach( _asg_pde ${_asgard_pdes})
       add_test (NAME asgard-pde-${_asg_pde}-test
                 COMMAND ${_asg_pde} -test
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
