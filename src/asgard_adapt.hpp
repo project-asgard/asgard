@@ -150,3 +150,18 @@ private:
 };
 
 } // namespace asgard::adapt
+
+namespace asgard
+{
+
+inline fk::vector<int> linearize(fk::vector<int> const &coords)
+{
+  fk::vector<int> linear(coords.size() / 2);
+  for (int i = 0; i < linear.size(); ++i)
+  {
+    linear(i) = elements::get_1d_index(coords(i), coords(i + linear.size()));
+  }
+  return linear;
+}
+
+}

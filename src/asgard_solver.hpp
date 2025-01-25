@@ -1,5 +1,5 @@
 #pragma once
-#include "asgard_batch.hpp"
+#include "asgard_adapt.hpp"
 #include "asgard_kron_operators.hpp"
 #include "asgard_term_manager.hpp"
 
