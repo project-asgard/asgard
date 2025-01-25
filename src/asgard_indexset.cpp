@@ -220,9 +220,6 @@ indexset compute_ancestry_completion(indexset const &iset,
   // store all missing ancestors here
   vector2d<int> missing_ancestors(num_dimensions, 0);
 
-  // workspace for the algorithms
-  std::vector<int> scratch(num_dimensions);
-
   // do just one pass, considering the indexes in the iset only
   // after this, missing_ancestors will hold those from iset
   // we need to recurs only on the missing_ancestors from now on

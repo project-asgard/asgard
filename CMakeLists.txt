@@ -379,7 +379,6 @@ target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
      asgard_adapt
      asgard_basis
-     asgard_batch
      asgard_block_matrix
      asgard_boundary_conditions
      asgard_coefficients
