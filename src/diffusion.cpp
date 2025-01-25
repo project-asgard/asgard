@@ -40,6 +40,9 @@
  * time stepping method, and we want to use an implicit stepper.
  * While more stable and less restrictive on the time-step,
  * implicit methods come with the additional challenge of requiring a linear solver.
+ *
+ * \par
+ * The focus of this example is the use of implicit time-stepping and a linear solver.
  */
 
 /*!
@@ -313,8 +316,6 @@ void self_test();
  *
  * The main() processes the command line arguments and calls both
  * make_diffusion_pde() and get_error_l2().
- * The interesting part is how to add custom command line parameters
- * to the default ones provided by ASGarD.
  *
  * \snippet diffusion.cpp diffusion_md main
  */

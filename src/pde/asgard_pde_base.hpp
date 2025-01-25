@@ -30,15 +30,6 @@ enum class boundary_condition
   free
 };
 
-enum class boundary_type
-{
-  periodic,
-  dirichlet,
-  free,
-  left_free,
-  right_free,
-};
-
 // helper - single element size
 auto const element_segment_size = [](auto const &pde) {
   int const degree = pde.get_dimensions()[0].get_degree();
@@ -1322,13 +1313,6 @@ inline void add_lenard_bernstein_collisions_1x3v(P const nu, term_set<P> &terms)
   terms.push_back({mass_theta, I, nu_div_grad, I});
   terms.push_back({mass_theta, I, I, nu_div_grad});
 }
-#endif
-
-/*!
- * \defgroup asgard_pde_definition ASGarD PDE Definition
- *
- * Tools for defining a PDE description and discretization scheme.
- */
 
 /*!
  * \ingroup asgard_pde_definition
@@ -1343,6 +1327,39 @@ using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
 template<typename P>
 using md_func_f = std::function<void(P t, vector2d<P> const &,
                                      std::vector<P> const &, std::vector<P> &)>;
+
+#endif // doxygen skip
+
+/*!
+ * \defgroup asgard_pde_definition ASGarD PDE Definition
+ *
+ * Tools for defining a PDE description and discretization scheme.
+ */
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Defines the boundary conditions for separable operator
+ *
+ * The separable operators are always defined on a 1d interval. Periodic conditions
+ * "connect" the flux on the left-most and right-most cells, so that information
+ * moving out through the boundary is added to the other side. Dirichlet boundary
+ * imposes zero flux through the matrix entries and non-homogeneous conditions
+ * have to appear as a source. Free boundary conditions allow the flux to be
+ * determined by the dynamics of the PDE and the current field.
+ */
+enum class boundary_type
+{
+  //! periodic boundary conditions
+  periodic,
+  //! fixed flux at the boundary
+  dirichlet,
+  //! free boundary condition
+  free,
+  //! free boundary on the left, Dirichlet on the right
+  left_free,
+  //! free boundary on the right, Dirichlet on the left
+  right_free,
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -1522,7 +1539,7 @@ struct term_manager;
  *   grad or div with opposing downwind/upwind flux
  * - a penalty term is equivalent to div/grad with central flux
  *
- * Chain-of-chains is not allowed as it makes little sense.
+ * Chain-of-chains is not allowed as it is unnecessary.
  */
 template<typename P = default_precision>
 class term_1d
@@ -2040,7 +2057,7 @@ public:
   }
 
   //! allows writer to save/load the time data
-  friend class h5writer<P>;
+  friend class h5manager<P>;
 
 private:
   time_advance::method smethod_ = time_advance::method::exp;
@@ -2246,7 +2263,7 @@ public:
   md_func<P> const &source_md() const { return sources_md_; }
 
   //! allows writer to save/load the pde and options
-  friend class h5writer<P>;
+  friend class h5manager<P>;
   //! allows the term_manager to access the terms
   friend struct term_manager<P>;
 

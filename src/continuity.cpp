@@ -35,6 +35,11 @@
  * This example provides a flexibility in the choice of the dimension
  * which can be controlled from the command line.
  * The range in dimension is (-2 PI, 2 PI)
+ *
+ * \par
+ * The interesting part of this example is setup of a PDE in arbitrary dimension
+ * (between 1 and 6) and the use of the asgard::prog_opts to handle custom
+ * project options.
  */
 
 /*!
@@ -249,8 +254,6 @@ void self_test();
  *
  * The main() processes the command line arguments and calls both
  * make_continuity_pde() and get_error_l2().
- * The interesting part is how to add custom command line parameters
- * to the default ones provided by ASGarD.
  *
  * \snippet continuity.cpp continuity_md main
  */

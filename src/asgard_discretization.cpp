@@ -300,8 +300,8 @@ void discretization_manager<precision>::restart_from_file()
 {
 #ifdef ASGARD_USE_HIGHFIVE
   time_data<precision> dtime;
-  h5writer<precision>::read(pde2.options().restart_file, high_verbosity(), pde2, sgrid,
-                            dtime, state);
+  h5manager<precision>::read(pde2.options().restart_file, high_verbosity(), pde2, sgrid,
+                             dtime, state);
 
   auto const &options = pde2.options();
 
@@ -342,7 +342,7 @@ void discretization_manager<precision>::restart_from_file()
 template<typename precision>
 void discretization_manager<precision>::save_snapshot2(std::filesystem::path const &filename) const {
 #ifdef ASGARD_USE_HIGHFIVE
-  h5writer<precision>::write(pde2, degree_, sgrid, stepper.data, state, filename);
+  h5manager<precision>::write(pde2, degree_, sgrid, stepper.data, state, filename);
 #else
   ignore(filename);
   throw std::runtime_error("saving to a file requires CMake option -DASGARD_USE_HIGHFIVE=ON");

@@ -227,5 +227,4 @@ TEMPLATE_TEST_CASE("save/restart logic", "[io]", test_precs)
     REQUIRE_THROWS_WITH(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
                         "cannot reset the final time to an instance before the current time");
   }
-
 }

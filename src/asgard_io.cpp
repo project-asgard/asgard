@@ -201,9 +201,9 @@ restart_data<P> read_output(PDE<P> &pde, std::string const &restart_file)
 }
 
 template<typename P>
-void h5writer<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &grid,
-                        time_data<P> const &dtime, std::vector<P> const &state,
-                        std::string const &filename)
+void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &grid,
+                         time_data<P> const &dtime, std::vector<P> const &state,
+                         std::string const &filename)
 {
   tools::time_event writing("write output");
 
@@ -288,8 +288,8 @@ void h5writer<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &grid
 }
 
 template<typename P>
-void h5writer<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
-                       sparse_grid &grid, time_data<P> &dtime, std::vector<P> &state)
+void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
+                        sparse_grid &grid, time_data<P> &dtime, std::vector<P> &state)
 {
   HighFive::File file(filename, HighFive::File::ReadOnly);
 
@@ -532,7 +532,7 @@ template void write_output<double>(
 template restart_data<double> read_output<double>(
     PDE<double> &, std::string const &);
 
-template class h5writer<double>;
+template class h5manager<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -543,7 +543,7 @@ template void write_output<float>(
 template restart_data<float> read_output<float>(
     PDE<float> &, std::string const &);
 
-template class h5writer<float>;
+template class h5manager<float>;
 #endif
 
 } // namespace asgard

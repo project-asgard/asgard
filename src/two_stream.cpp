@@ -21,13 +21,18 @@
  * often called the two stream instability problem
  * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) = 0 \f]
  * where the electric field term depends on the Poisson equation
- * \f[ - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
+ * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
  * The equation represents the evolution of a charged particle field under the effects
  * of self-induced electric field.
  * The right-hand integral represents the density of the particles and creates
  * non-linear coupling between the fields.
  *
+ * \par
+ * The focus of this example is the coupling with the electric field and Poisson
+ * solver.
  *
+ * \par
+ * <i>This is still work-in-progress, the documentation needs more work.</i>
  */
 
 /*!
@@ -129,7 +134,7 @@ asgard::PDEv2<P> make_two_stream(asgard::prog_opts options) {
       asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::dirichlet)
     });
 
-  // initial conditions in x and y
+  // initial conditions in x and v
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
@@ -157,10 +162,7 @@ asgard::PDEv2<P> make_two_stream(asgard::prog_opts options) {
  * \ingroup asgard_examples_two_stream
  * \brief main() for the diffusion example
  *
- * The main() processes the command line arguments and calls both
- * make_diffusion_pde() and get_error_l2().
- * The interesting part is how to add custom command line parameters
- * to the default ones provided by ASGarD.
+ * The main() processes the command line arguments and calls make_two_stream().
  *
  * \snippet two_stream.cpp two_stream main
  */

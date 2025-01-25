@@ -232,7 +232,7 @@ public:
   }
 
   //! used for i/o purposes
-  friend class h5writer<P>;
+  friend class h5manager<P>;
 
 private:
   void check_init() {

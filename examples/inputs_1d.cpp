@@ -20,7 +20,6 @@
  * where both \b f and \b s are defined over domain
  * \f[ (-\pi N_w, \pi N_w) \f]
  * where N-w is the number of waves.
- * The number of waves is defined through an input file with custom options.
  *
  * \par
  * The right right-hand-side source is chosen so the exact solution
@@ -28,8 +27,8 @@
  * \f[ f(t, x) = \cos(t) \sin(x) \f]
  *
  * \par
- * The example comes with a companion file inputs_1d.py that demonstrates
- * plotting with Python and matplotlib.
+ * This example demonstrates the use of a input file to set problem parameters.
+ * Two example input files are included and a companion Python script.
  */
 
 /*!

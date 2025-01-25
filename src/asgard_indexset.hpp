@@ -319,7 +319,7 @@ public:
 
   // writer utilities
   template<typename P>
-  friend class h5writer;
+  friend class h5manager;
 
 protected:
   //! \brief Result of a comparison
@@ -513,7 +513,7 @@ public:
 
   //! allows writer to save/load the grid
   template<typename P>
-  friend class h5writer;
+  friend class h5manager;
 
 protected:
   enum class istatus { keep, refine, clear };

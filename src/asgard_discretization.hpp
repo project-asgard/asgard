@@ -365,7 +365,7 @@ public:
   friend void advance_time_v2<precision>(discretization_manager<precision> &disc,
                                          int64_t num_steps);
 
-  friend class h5writer<precision>;
+  friend class h5manager<precision>;
 
   friend struct time_advance_manager<precision>;
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL

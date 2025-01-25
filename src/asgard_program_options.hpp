@@ -20,7 +20,7 @@ namespace asgard
 
 // forward declaration that can befriend relevant classes
 template<typename P>
-class h5writer;
+class h5manager;
 
 /*!
  * \ingroup asgard_common_options
