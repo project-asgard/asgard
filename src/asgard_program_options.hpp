@@ -94,7 +94,6 @@ enum class PDE_opts
   diffusion_1,
   diffusion_2,
   vlasov_lb_full_f,
-  vlasov_two_stream,
   relaxation_1x1v,
   relaxation_1x2v,
   relaxation_1x3v,

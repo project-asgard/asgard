@@ -138,7 +138,6 @@ diffusion_1     1D diffusion equation: df/dt = d^2 f/dx^2
 diffusion_2     2D (1x-1y) heat equation. df/dt = d^2 f/dx^2 + d^2 f/dy^2
 advection_1     1D test using continuity equation. df/dt = -2*df/dx - 2*sin(x)
 vlasov          Vlasov lb full f. df/dt = -v*grad_x f + div_v((v-u)f + theta*grad_v f)
-two_stream      Vlasov two-stream. df/dt = -v*grad_x f -E*grad_v f
 
 fokkerplanck_1d_pitch_E_case1    1D pitch angle collisional term:
                                  df/dt = d/dz ( (1-z^2) df/dz, f0 is constant.
@@ -649,7 +648,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
       {"diffusion_2", PDE_opts::diffusion_2},
       {"advection_1", PDE_opts::advection_1},
       {"vlasov", PDE_opts::vlasov_lb_full_f},
-      {"two_stream", PDE_opts::vlasov_two_stream},
       {"relaxation_1x1v", PDE_opts::relaxation_1x1v},
       {"relaxation_1x2v", PDE_opts::relaxation_1x2v},
       {"relaxation_1x3v", PDE_opts::relaxation_1x3v},
