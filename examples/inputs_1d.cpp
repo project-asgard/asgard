@@ -33,7 +33,7 @@
  */
 
 /*!
- * \ingroup circumference
+ * \ingroup asgard_examples_continuity_2d
  * \brief Default precision for this example, favors double-precision
  *
  * if ASGarD is compiled with double precision, this defaults to double
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
   }
 
   // make the 1d domain
-  asgard::pde_domain<precision> domain({{-PI * num_waves, PI * num_waves}, });
+  asgard::pde_domain domain({{-PI * num_waves, PI * num_waves}, });
 
   // setting some default options
   // defaults are used only the corresponding values are missing from the command line
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
   int const max_level = options.max_level();
 
   // smallest cell size that we can have
-  precision const dx = domain.min_cell_size(max_level);
+  double const dx = domain.min_cell_size(max_level);
 
   // the cfl condition is that dt < stability-region * dx
   // RK3 stability region is 0.1
@@ -123,12 +123,11 @@ int main(int argc, char **argv)
   options.set_default_title("Example inputs 1D");
 
   // creates a pde description
-  asgard::PDEv2<precision> pde(options, domain);
+  asgard::PDEv2 pde(options, domain);
 
   // one dimensional divergence term using upwind flux
-  pde += asgard::term_1d<precision>{asgard::term_div(precision{1},
-                                                     asgard::flux_type::upwind,
-                                                     asgard::boundary_type::periodic)};
+  pde += asgard::term_1d{asgard::term_div(1, asgard::flux_type::upwind,
+                                             asgard::boundary_type::periodic)};
 
   // exact solution
   auto exact_x = [](std::vector<precision> const &x, precision /* time */,

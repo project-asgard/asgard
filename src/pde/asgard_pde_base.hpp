@@ -1377,7 +1377,7 @@ struct term_identity {};
 template<typename P = default_precision>
 struct term_mass {
   //! make a mass term with constant coefficient
-  term_mass(P cc) : const_coeff(cc) {}
+  term_mass(no_deduce<P> cc) : const_coeff(cc) {}
   //! make a mass term with given right hand side coefficient
   term_mass(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
   //! make a mass term with given left and right hand side coefficients
@@ -1399,7 +1399,7 @@ struct term_mass {
 template<typename P = default_precision>
 struct term_grad {
   //! make a grad term with constant coefficient
-  term_grad(P cc, flux_type flx, boundary_type bnd)
+  term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with constant coefficient 1
@@ -1435,7 +1435,7 @@ struct term_grad {
 template<typename P = default_precision>
 struct term_div {
   //! make a grad term with constant coefficient
-  term_div(P cc, flux_type flx, boundary_type bnd)
+  term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with constant coefficient 1
