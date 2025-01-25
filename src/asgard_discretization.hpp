@@ -28,7 +28,7 @@ namespace asgard
  *
  * Time integration can be performed with the advance_time() function.
  */
-template<typename precision>
+template<typename precision = default_precision>
 class discretization_manager
 {
 public:

@@ -115,9 +115,9 @@ int main(int argc, char** argv)
 
   // one dimensional divergence term using upwind flux
   asgard::term_1d<precision> div =
-      asgard::term_div(asgard::flux_type::upwind,
-                       asgard::boundary_type::periodic,
-                       precision{1});
+      asgard::term_div(precision{1},
+                       asgard::flux_type::upwind,
+                       asgard::boundary_type::periodic);
 
   asgard::term_1d<precision> I = asgard::term_identity{};
 

@@ -113,7 +113,7 @@ struct velocity_dims {
  * \ingroup asgard_pde_definition
  * \brief Indicates the left/right end-points of a dimension
  */
-template<typename P>
+template<typename P = default_precision>
 struct domain_range {
   //! left end-point
   P left;
@@ -132,7 +132,7 @@ struct domain_range {
  * on the moments.
  * If such operators are not used, then the split is meaningless.
  */
-template<typename P>
+template<typename P = default_precision>
 class pde_domain
 {
 public:
@@ -143,13 +143,6 @@ public:
     : num_dims_(num_dimensions)
   {
     check_init();
-  }
-  //! create a domain with given range in each dimension
-  pde_domain(std::initializer_list<domain_range<P>> list)
-    : num_dims_(static_cast<int>(list.size()))
-  {
-    check_init();
-    this->set(list);
   }
   //! create a domain with given range in each dimension
   pde_domain(std::vector<domain_range<P>> list)
@@ -302,7 +295,7 @@ private:
  * of the function will be recomputed several times per-time step.
  * The result will be the same but there will be some performance penalty.
  */
-template<typename P>
+template<typename P = default_precision>
 class separable_func
 {
 public:

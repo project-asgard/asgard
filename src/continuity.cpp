@@ -101,9 +101,8 @@ asgard::PDEv2<P> make_continuity_pde(int num_dims, asgard::prog_opts options) {
 
   // one dimensional divergence term using upwind flux
   // multiple terms can be chained to obtain higher order derivatives
-  asgard::term_1d<P> div = asgard::term_div(asgard::flux_type::upwind,
-                                            asgard::boundary_type::periodic,
-                                            P{1});
+  asgard::term_1d<P> div = asgard::term_div(P{1}, asgard::flux_type::upwind,
+                                            asgard::boundary_type::periodic);
 
   // the multi-dimensional divergence, initially set to identity in md
   std::vector<asgard::term_1d<P>> ops(num_dims);

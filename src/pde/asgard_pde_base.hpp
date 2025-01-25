@@ -1374,7 +1374,7 @@ struct term_identity {};
  * \ingroup asgard_pde_definition
  * \brief Intermediate container for a mass term
  */
-template<typename P>
+template<typename P = default_precision>
 struct term_mass {
   //! make a mass term with constant coefficient
   term_mass(P cc) : const_coeff(cc) {}
@@ -1396,25 +1396,24 @@ struct term_mass {
  * \ingroup asgard_pde_definition
  * \brief Intermediate container for a grad term, includes flux and boundary conditions
  */
-template<typename P>
+template<typename P = default_precision>
 struct term_grad {
   //! make a grad term with constant coefficient
-  term_grad(flux_type flx, boundary_type bnd, P cc)
-    : flux(flx), boundary(bnd), const_coeff(cc)
+  term_grad(P cc, flux_type flx, boundary_type bnd)
+    : const_coeff(cc), flux(flx), boundary(bnd)
+  {}
+  //! make a grad term with constant coefficient 1
+  term_grad(flux_type flx, boundary_type bnd)
+    : flux(flx), boundary(bnd)
   {}
   //! make a grad term with given right hand side coefficient
-  term_grad(flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs = nullptr)
-    : flux(flx), boundary(bnd), right(std::move(frhs))
+  term_grad(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
+    : right(std::move(frhs)), flux(flx), boundary(bnd)
   {}
   //! make a grad term with both right and left hand side coefficients
-  term_grad(flux_type flx, boundary_type bnd, sfixed_func1d<P> flhs, sfixed_func1d<P> frhs)
-    : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
+  term_grad(sfixed_func1d<P> flhs, sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
+    : left(std::move(flhs)), right(std::move(frhs)), flux(flx), boundary(bnd)
   {}
-
-  //! flux type
-  flux_type flux;
-  //! boundary type
-  boundary_type boundary;
 
   //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
@@ -1422,31 +1421,35 @@ struct term_grad {
   sfixed_func1d<P> left;
   //! right-hand-side function
   sfixed_func1d<P> right;
+
+  //! flux type
+  flux_type flux;
+  //! boundary type
+  boundary_type boundary;
 };
 
 /*!
  * \ingroup asgard_pde_definition
  * \brief Intermediate container for a div term, includes flux and boundary conditions
  */
-template<typename P>
+template<typename P = default_precision>
 struct term_div {
   //! make a grad term with constant coefficient
-  term_div(flux_type flx, boundary_type bnd, P cc)
-    : flux(flx), boundary(bnd), const_coeff(cc)
+  term_div(P cc, flux_type flx, boundary_type bnd)
+    : const_coeff(cc), flux(flx), boundary(bnd)
+  {}
+  //! make a grad term with constant coefficient 1
+  term_div(flux_type flx, boundary_type bnd)
+    : const_coeff(1), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given right hand side coefficient
-  term_div(flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs = nullptr)
-    : flux(flx), boundary(bnd), right(std::move(frhs))
+  term_div(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
+    : right(std::move(frhs)), flux(flx), boundary(bnd)
   {}
-  //! make a grad term with both right and left hand side coefficients
-  term_div(flux_type flx, boundary_type bnd, sfixed_func1d<P> flhs, sfixed_func1d<P> frhs)
-    : flux(flx), boundary(bnd), left(std::move(flhs)), right(std::move(frhs))
+  //! make a grad term with both left and right hand side coefficients
+  term_div(sfixed_func1d<P> flhs, sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
+    : left(std::move(flhs)), right(std::move(frhs)), flux(flx), boundary(bnd)
   {}
-
-  //! flux type
-  flux_type flux;
-  //! boundary type
-  boundary_type boundary;
 
   //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
@@ -1454,6 +1457,11 @@ struct term_div {
   sfixed_func1d<P> left;
   //! right-hand-side function
   sfixed_func1d<P> right;
+
+  //! flux type
+  flux_type flux;
+  //! boundary type
+  boundary_type boundary;
 };
 
 /*!
@@ -1466,8 +1474,10 @@ struct term_chain {};
  * \ingroup asgard_pde_definition
  * \brief Mass term that depends on the electric field
  */
-template<typename P>
+template<typename P = default_precision>
 struct mass_electric {
+  //! mass based only on the electric field only, same as rhs being identity function
+  mass_electric() {}
   //! no left hand side, right side depends only on the field
   mass_electric(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
   //! with left hand side, right side depends only on the field
@@ -1514,7 +1524,7 @@ struct term_manager;
  *
  * Chain-of-chains is not allowed as it makes little sense.
  */
-template<typename P>
+template<typename P = default_precision>
 class term_1d
 {
 public:
@@ -1770,7 +1780,7 @@ private:
  * A chain can be build only of separable and interpolation terms, recursive chains
  * are not allowed.
  */
-template<typename P>
+template<typename P = default_precision>
 class term_md
 {
 public:
@@ -1951,7 +1961,7 @@ private:
  * When remaining steps hits 0, current_time is equal to final_time,
  * give or take some machine precision.
  */
-template<typename P>
+template<typename P = default_precision>
 class time_data
 {
 public:
@@ -2077,7 +2087,7 @@ inline std::ostream &operator<<(std::ostream &os, time_data<P> const &dtime)
  * The first two are defined in the constructor of the object and the others
  * can be specified later. See the included examples.
  */
-template<typename P>
+template<typename P = default_precision>
 class PDEv2
 {
 public:

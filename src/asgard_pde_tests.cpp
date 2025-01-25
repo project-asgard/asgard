@@ -65,7 +65,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   }
 
   SECTION("term_1d - div") {
-    term_1d<TestType> ptD = term_div<TestType>{flux_type::upwind, boundary_type::dirichlet, mhs};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
     REQUIRE_FALSE(ptD.is_identity());
     REQUIRE(ptD.is_div());
     REQUIRE(ptD.optype() == operation_type::div);
@@ -76,7 +76,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   }
 
   SECTION("term_1d - grad") {
-    term_1d<TestType> ptG = term_grad<TestType>{flux_type::downwind, boundary_type::free, mhs};
+    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::free};
     REQUIRE_FALSE(ptG.is_identity());
     REQUIRE(ptG.is_grad());
     REQUIRE(ptG.optype() == operation_type::grad);
@@ -87,7 +87,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   }
 
   SECTION("term_1d - chain 1 term") {
-    term_1d<TestType> ptD = term_div<TestType>{flux_type::upwind, boundary_type::periodic, 1};
+    term_1d<TestType> ptD = term_div<TestType>{1, flux_type::upwind, boundary_type::periodic};
     term_1d<TestType> chain({ptD, });
     REQUIRE_FALSE(chain.is_identity());
     REQUIRE_FALSE(chain.is_chain());
@@ -101,8 +101,8 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     REQUIRE_FALSE(term_1d<TestType>({ptI, ptI}).is_chain());
     REQUIRE(term_1d<TestType>({ptI, ptI}).num_chain() == 0);
 
-    term_1d<TestType> ptD = term_div<TestType>{flux_type::upwind, boundary_type::dirichlet, mhs};
-    term_1d<TestType> ptG = term_div<TestType>{flux_type::downwind, boundary_type::dirichlet, mhs};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
+    term_1d<TestType> ptG = term_div<TestType>{mhs, flux_type::downwind, boundary_type::dirichlet};
 
     REQUIRE_FALSE(term_1d<TestType>({ptI, ptD}).is_chain());
     REQUIRE(term_1d<TestType>({ptI, ptD}).is_div());
@@ -119,9 +119,9 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   SECTION("term_1d - extra") {
     term_1d<TestType> ptI;
     term_1d<TestType> ptM = term_mass<TestType>(3);
-    term_1d<TestType> ptD = term_div<TestType>{flux_type::upwind, boundary_type::dirichlet, mhs};
-    term_1d<TestType> ptG = term_grad<TestType>{flux_type::downwind, boundary_type::dirichlet, mhs};
-    term_1d<TestType> ptGc = term_grad<TestType>{flux_type::central, boundary_type::dirichlet, 3.5};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
+    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::dirichlet};
+    term_1d<TestType> ptGc = term_grad<TestType>{3.5, flux_type::central, boundary_type::dirichlet};
 
     REQUIRE(term_1d<TestType>({ptI, ptD, ptM}).num_chain() == 2);
     REQUIRE(term_1d<TestType>({ptG, ptI, ptM, ptD, ptM}).num_chain() == 4);
@@ -166,7 +166,6 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
       REQUIRE(tm.term_mode() == term_md<TestType>::mode::separable);
       ptc[i] = ptI;
     }
-
   }
 }
 
