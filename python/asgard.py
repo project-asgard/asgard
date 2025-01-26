@@ -92,6 +92,8 @@ class pde_snapshot:
                 assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
                 self.using_version_2 = True
 
+                self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
+
                 self.num_dimensions = fdata['num_dims'][()]
 
                 self.cells = fdata['grid_indexes'][()]
@@ -362,6 +364,23 @@ if __name__ == "__main__":
         shot = pde_snapshot(sys.argv[1])
         print("\n", shot)
 
+        # we are plotting, consider extra options
+        plotview = None
+        savefig  = None
+        if len(sys.argv) > 2:
+            i = 2
+            n = len(sys.argv)
+            while i < n:
+                if sys.argv[i] == "-view":
+                    plotview = sys.argv[i + 1] if i + 1 < n else None
+                    i += 2
+                elif sys.argv[i] == "-fig":
+                    savefig = sys.argv[i + 1] if i + 1 < n else None
+                    i += 2
+                else:
+                    savefig = sys.argv[i]
+                    i += 1
+
         asgplot.title(shot.title, fontsize = 'large')
 
         if shot.num_dimensions == 1:
@@ -369,16 +388,32 @@ if __name__ == "__main__":
             asgplot.plot(x, z)
             asgplot.xlabel(shot.dimension_names[0], fontsize = 'large')
         else:
-            plist = [(), ()]
-            for i in range(2, shot.num_dimensions):
-                plist.append(0.5 * (shot.dimension_max[i] + shot.dimension_min[i]) + shot.eps)
+            if plotview is None and shot.default_view != "":
+                plotview = shot.default_view
+
+            dims = [0, 1]
+
+            if plotview is None:
+                plist = [(), ()]
+                for i in range(2, shot.num_dimensions):
+                    plist.append(0.5 * (shot.dimension_max[i] + shot.dimension_min[i]) + shot.eps)
+            else:
+                ss = plotview.split(':')
+                plist = []
+                dims = []
+                for s in ss:
+                    if '*' in s:
+                        plist.append(())
+                        dims.append(ss.index(s))
+                    else:
+                        plist.append(float(s))
 
             z, x, y = shot.plot_data2d(plist, num_points = 256)
 
-            xmin = shot.dimension_min[0]
-            ymin = shot.dimension_min[1]
-            xmax = shot.dimension_max[0]
-            ymax = shot.dimension_max[1]
+            xmin = shot.dimension_min[dims[0]]
+            ymin = shot.dimension_min[dims[1]]
+            xmax = shot.dimension_max[dims[0]]
+            ymax = shot.dimension_max[dims[1]]
 
             #p = asgplot.pcolor(x, y, z, cmap='jet') # , extent=[xmin, xmax, ymin, ymax])
             p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
@@ -387,11 +422,10 @@ if __name__ == "__main__":
 
             asgplot.gca().set_anchor('C')
 
-            asgplot.xlabel(shot.dimension_names[0], fontsize='large')
-            asgplot.ylabel(shot.dimension_names[1], fontsize='large')
+            asgplot.xlabel(shot.dimension_names[dims[0]], fontsize='large')
+            asgplot.ylabel(shot.dimension_names[dims[1]], fontsize='large')
 
-        if len(sys.argv) > 2:
-            asgplot.savefig(sys.argv[2])
+        if savefig is not None:
+            asgplot.savefig(savefig)
         else:
             asgplot.show()
-

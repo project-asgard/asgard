@@ -99,6 +99,15 @@ asgard::PDEv2<P> make_continuity_pde(int num_dims, asgard::prog_opts options) {
 
   options.default_stop_time = 1.0; // integrate until T = 1
 
+  // the exact solution vanishes when any dimension is at the origin
+  // setting an off-center default view will yield a better plots
+  // this is just the default and it does not limit any other options
+  if (num_dims > 2) {
+    options.default_plotter_view = " * : * ";
+    for (int d = 2; d < num_dims; d++)
+      options.default_plotter_view += " : 1.57";
+  }
+
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
   // the option entries may have been populated or updated with default values

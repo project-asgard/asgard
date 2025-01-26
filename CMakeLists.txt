@@ -249,6 +249,8 @@ if (ASGARD_USE_PYTHON)
     endforeach()
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
 
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/plot.sh" "${CMAKE_CURRENT_BINARY_DIR}/plot.sh" @ONLY)
+
     # install the module without the testing files
     set(__pyasgard_libasgard_path__ "${__asgard_final_path}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py")

@@ -655,6 +655,8 @@ struct prog_opts
   //! returns true if the options indicate a restart file
   bool restarting() const { return not restart_file.empty(); }
 
+  //! sets default view for the plotter
+  std::string default_plotter_view;
   //! allows overriding the verbosity level
   std::optional<verbosity_level> verbosity;
 
