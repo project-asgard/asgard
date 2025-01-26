@@ -303,6 +303,8 @@ void discretization_manager<precision>::restart_from_file()
   h5manager<precision>::read(pde2.options().restart_file, high_verbosity(), pde2, sgrid,
                              dtime, state);
 
+  conn = connection_patterns(pde2.max_level());
+
   auto const &options = pde2.options();
 
   degree_ = options.degree.value();

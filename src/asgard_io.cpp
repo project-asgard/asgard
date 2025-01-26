@@ -231,6 +231,7 @@ void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &gri
 
   H5Easy::dump(file, "title", options.title);
   H5Easy::dump(file, "subtitle", options.subtitle);
+  H5Easy::dump(file, "default_plotter_view", options.default_plotter_view);
 
   H5Easy::dump(file, "num_dims", domain.num_dims_);
   H5Easy::dump(file, "max_level", pde.max_level_);
@@ -308,7 +309,7 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
       throw std::runtime_error("wrong file version, is this an asgard file?");
   }
 
-  int num_dims = H5Easy::load<int>(file, "num_dims");
+  int const num_dims = H5Easy::load<int>(file, "num_dims");
 
   { // sanity checking
     int num_pos  = H5Easy::load<int>(file, "num_pos");
@@ -371,6 +372,7 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
   std::string subtitle = H5Easy::load<std::string>(file, "subtitle");
   if (pde.options_.subtitle.empty()) // if user has new subtitle, keep it, else set from file
     pde.options_.subtitle = H5Easy::load<std::string>(file, "subtitle");
+  pde.options_.default_plotter_view = H5Easy::load<std::string>(file, "default_plotter_view");
 
   pde.options_.degree = H5Easy::load<int>(file, "degree");
 
@@ -453,6 +455,8 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
 
     grid.iset_.indexes_ = H5Easy::load<std::vector<int>>(file, "grid_indexes");
 
+    grid.dsort_ = dimension_sort(grid.iset_);
+
     if (grid.iset_.indexes_.size() != static_cast<size_t>(num_dims * num_indexes))
       throw std::runtime_error("file corruption detected: wrong number of sparse grid "
                                "indexes found in the file");
@@ -462,6 +466,7 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
     // then we do not allow the max level to be reduced below the current level
     // to do this, we will have to delete indexes, which is complicated (maybe do later)
     int max_level = H5Easy::load<int>(file, "max_level");
+    // TODO: figure out the max-level logic
     if (pde.options_.max_levels.empty()) { // reusing the max levels
       pde.max_level_ = max_level;
     } else {
@@ -493,6 +498,8 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
           pde.options_.adapt_threshold = adapt;
       }
     }
+
+    pde.max_level_ = max_level;
   }
 
   { // solver data section
