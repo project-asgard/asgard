@@ -494,7 +494,7 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
     if (not pde.options_.adapt_threshold) { // no adapt is loaded
       if (not pde.options_.set_no_adapt) { // adaptivity wasn't explicitly canceled
         double const adapt = H5Easy::load<double>(file, "grid_adapt_threshold");
-        if (adapt > 0) // if negative, then adaptivity was never set to begind with
+        if (adapt > 0) // if negative, then adaptivity was never set to begin with
           pde.options_.adapt_threshold = adapt;
       }
     }

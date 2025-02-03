@@ -7,10 +7,12 @@
 #pragma once
 
 #include "asgard.hpp"
+#include "asgard_testpdes.hpp"
+
 #include <catch2/catch_all.hpp>
 
 /*!
- * \defgroup AsgardTesting Miscellaneous testing utilities
+ * \defgroup asgard_testing Miscellaneous testing utilities
  *
  * Helper functions to facilitate testing.
  */
