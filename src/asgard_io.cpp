@@ -411,9 +411,7 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
       }
     } else if (stop >= 0) { // overriding the stop time, dt is not set
       if (n >= 0) {
-        P const fdt = H5Easy::load<P>(file, "dtime_dt");
-        dtime = time_data<P>(sm, typename time_data<P>::input_dt{fdt}, n);
-        fstop += dtime.stop_time_;
+        dtime = time_data<P>(sm, n, typename time_data<P>::input_stop_time{stop - curr_time});
       } else {
         P const fdt = H5Easy::load<P>(file, "dtime_dt");
         dtime = time_data<P>(sm,
@@ -455,11 +453,11 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
 
     grid.iset_.indexes_ = H5Easy::load<std::vector<int>>(file, "grid_indexes");
 
-    grid.dsort_ = dimension_sort(grid.iset_);
-
     if (grid.iset_.indexes_.size() != static_cast<size_t>(num_dims * num_indexes))
       throw std::runtime_error("file corruption detected: wrong number of sparse grid "
                                "indexes found in the file");
+
+    grid.dsort_ = dimension_sort(grid.iset_);
 
     // checking the max levels, we can reset the max level for the simulation
     // first we follow the same logic for specifying either all dims or a single int

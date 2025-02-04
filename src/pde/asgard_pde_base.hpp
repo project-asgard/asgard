@@ -2008,6 +2008,8 @@ public:
     if (num_remain_ == 0)
       num_remain_ = 1;
     // readjust dt to minimize rounding error
+    if (dt_ * num_remain_ < stop_time_)
+      num_remain_ += 1;
     dt_ = stop_time_ / static_cast<P>(num_remain_);
   }
   //! specify number of steps and final time

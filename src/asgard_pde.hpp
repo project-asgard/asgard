@@ -112,4 +112,65 @@ std::unique_ptr<PDE<P>> make_PDE(std::string const &opts)
   return make_PDE<P>(make_opts(opts));
 }
 
+/*!
+ * \internal
+ * \brief Wraps around commonly used vector functions
+ *
+ * \endinternal
+ */
+template<typename P>
+struct builtin_v {
+  //! y is equal to x with all negative values replaced by zero
+  static void positive(std::vector<P> const &x, std::vector<P> &y);
+  //! y is equal to x with all positive values replaced by zero
+  static void negative(std::vector<P> const &x, std::vector<P> &y);
+
+  //! vector version of std::sin()
+  static void sin(std::vector<P> const &x, std::vector<P> &y);
+  //! vector version of std::cos()
+  static void cos(std::vector<P> const &x, std::vector<P> &y);
+  //! vector version of derivative of std::cos(), i.e., -std::sin()
+  static void dcos(std::vector<P> const &x, std::vector<P> &y);
+
+  //! wrapper for sin
+};
+
+/*!
+ * \internal
+ * \brief Wraps around commonly used functions, with time parameter
+ *
+ * \endinternal
+ */
+template<typename P>
+struct builtin_t {
+  //! overloads with dummy time parameter
+  static void sin(std::vector<P> const &x, P, std::vector<P> &y) {
+    builtin_v<P>::sin(x, y);
+  }
+  //! overloads with dummy time parameter
+  static void cos(std::vector<P> const &x, P, std::vector<P> &y) {
+    builtin_v<P>::cos(x, y);
+  }
+  //! overloads with dummy time parameter
+  static void dcos(std::vector<P> const &x, P, std::vector<P> &y) {
+    builtin_v<P>::dcos(x, y);
+  }
+};
+
+/*!
+ * \internal
+ * \brief Wraps around commonly used functions, scalar variant
+ *
+ * \endinternal
+ */
+template<typename P>
+struct builtin_s {
+  //! std::sin(x)
+  static P sin(P x) { return std::sin(x); }
+  //! std::sin(x)
+  static P cos(P x) { return std::cos(x); }
+  //! d/dx std::cos(x) = -std::sin(x)
+  static P dcos(P x) { return -std::sin(x); }
+};
+
 } // namespace asgard
