@@ -39,6 +39,25 @@ void builtin_v<P>::dcos(std::vector<P> const &x, std::vector<P> &y) {
     y[i] = -std::sin(x[i]);
 }
 
+template<typename P>
+void builtin_v<P>::expneg(std::vector<P> const &x, std::vector<P> &y) {
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < x.size(); i++)
+    y[i] = std::exp(-x[i]);
+}
+template<typename P>
+void builtin_v<P>::dexpneg(std::vector<P> const &x, std::vector<P> &y) {
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < x.size(); i++)
+    y[i] = -std::exp(-x[i]);
+}
+template<typename P>
+void builtin_v<P>::expneg2(std::vector<P> const &x, std::vector<P> &y) {
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < x.size(); i++)
+    y[i] = std::exp(-x[i] * x[i]);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
   template struct builtin_v<double>;
 #endif

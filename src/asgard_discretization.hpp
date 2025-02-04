@@ -152,13 +152,42 @@ public:
 
   //! computes the right-hand-side of the ode
   void ode_rhs_v2(precision time, std::vector<precision> const &current,
-                  std::vector<precision> &R) const;
+                  std::vector<precision> &R) const
+  {
+    if (poisson) { // if we have a Poisson dependence
+      tools::time_event performance_("ode-rhs poisson");
+      do_poisson_update(current);
+      terms.rebuild_poisson(sgrid, conn, hier);
+    }
+
+    {
+      tools::time_event performance_("ode-rhs kronmult");
+      terms.apply_all(sgrid, conn, -1, current, 0, R);
+    }{
+      tools::time_event performance_("ode-rhs sources");
+      terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, R);
+    }
+  }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
-  void set_ode_rhs_sources(precision time, precision alpha,
-                           std::vector<precision> &src) const;
+  void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
+    tools::time_event performance_("set ode sources");
+    terms.template apply_sources<data_mode::replace>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+  }
+  //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
+  void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
+    tools::time_event performance_("set ode sources");
+    terms.template apply_sources<data_mode::scal_rep>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+  }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
-  void add_ode_rhs_sources(precision time, precision alpha,
-                           std::vector<precision> &src) const;
+  void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
+    tools::time_event performance_("set ode sources");
+    terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+  }
+  //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
+  void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
+    tools::time_event performance_("set ode sources");
+    terms.template apply_sources<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+  }
 
   //! applies all terms
   void terms_apply_all(precision alpha, std::vector<precision> const &x, precision beta,
@@ -246,6 +275,19 @@ public:
   //! returns a ref to the sparse grid
   adapt::distributed_grid<precision> const &get_grid() const { return grid; }
 
+  //! returns the title of the PDE
+  std::string const &title() const { return pde2.options().title; }
+  //! returns the subtitle of the PDE
+  std::string const &subtitle() const { return pde2.options().subtitle; }
+  //! returns true if the title contains the given sub-string
+  bool title_contains(std::string const &substring) const {
+    return (title().find(substring) != std::string::npos);
+  }
+  //! returns true if the subtitle contains the given sub-string
+  bool subtitle_contains(std::string const &substring) const {
+    return (subtitle().find(substring) != std::string::npos);
+  }
+
   //! convenient check if we are using high verbosity level
   bool high_verbosity() const { return (verb == verbosity_level::high); }
   //! convenient check if we are using low verbosity level
@@ -255,15 +297,27 @@ public:
   //! resets the verbosity level
   void set_verbosity(verbosity_level v) const { verb = v; }
 
+  //! integrate in time for the given number of steps, -1 means until the end
+  void advance_time(int64_t num_steps = -1) {
+    advance_in_time(*this, num_steps);
+  }
+
   //! report time progress
   void progress_report(std::ostream &os = std::cout) const {
-    os << "time-step: " << std::setw(10) << tools::split_style(stepper.data.step()) << "  time: ";
-    std::string s = std::to_string(stepper.data.time());
-
-    if (s.size() < 7)
-      os << std::setw(10) << s << std::string(7 - s.size(), ' ');
+    if (stepper.is_steady_state())
+    {
+      os << "refinement iteration " << std::setw(10) << tools::split_style(stepper.data.step());
+    }
     else
-      os << std::setw(10) << s;
+    {
+      os << "time-step: " << std::setw(10) << tools::split_style(stepper.data.step()) << "  time: ";
+      std::string s = std::to_string(stepper.data.time());
+
+      if (s.size() < 7)
+        os << std::setw(10) << s << std::string(7 - s.size(), ' ');
+      else
+        os << std::setw(10) << s;
+    }
     os << "  grid size: " << std::setw(12) << tools::split_style(sgrid.num_indexes())
        << "  dof: " << std::setw(14) << tools::split_style(state.size());
     int64_t const num_appy = stepper.solver_iterations();
@@ -298,6 +352,15 @@ public:
 
     std::vector<precision> result;
     project_function(sep, fmd, result);
+    return result;
+  }
+  //! projects a single separable function and md_func onto the current basis
+  std::vector<precision> project_function(
+      separable_func<precision> const &sep = {},
+      md_func<precision> const &fmd = nullptr) const
+  {
+    std::vector<precision> result;
+    project_function({sep, }, fmd, result);
     return result;
   }
 
@@ -359,7 +422,7 @@ public:
    * \ingroup asgard_discretization
    * \brief Performs integration in time for a given number of steps
    */
-  friend void advance_time<precision>(discretization_manager<precision> &disc,
+  friend void advance_in_time<precision>(discretization_manager<precision> &disc,
                                       int64_t num_steps);
 
   friend void advance_time_v2<precision>(discretization_manager<precision> &disc,
@@ -446,6 +509,8 @@ private:
 
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;
+  //! source manager holding the sources and inhomogeneous boundary conditions
+  // mutable source_manager<precision> sources;
   //! time advance manager for the different methods
   time_advance_manager<precision> stepper;
 

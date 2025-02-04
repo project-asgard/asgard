@@ -304,15 +304,9 @@ public:
   //! easy way to set the ignore time
   static constexpr type_tag_ignore_time set_ignore_time = type_tag_ignore_time{};
 
-  //! set a function non-separable in time or not depending on time
-  separable_func(std::list<svector_func1d<P>> fdomain, type_tag_ignore_time)
-    : ignores_time_(true)
-  {
-    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
-    int dims = 0;
-    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
-      source_func_[dims++] = std::move(*ip);
-  }
+  //! default constructor, no function is set, equivalent to constant 0
+  separable_func() = default;
+
   //! set a function non-separable in time or not depending on time
   separable_func(std::vector<svector_func1d<P>> fdomain)
   {
@@ -350,11 +344,19 @@ public:
 
   //! returns the i-th domain function
   svector_func1d<P> const &fdomain(int i) const { return source_func_[i]; }
+  //! applies the i-th domain function on x and return the result in y
+  void fdomain(int i, std::vector<P> const &x, P t, std::vector<P> &y) const {
+    return source_func_[i](x, t, y);
+  }
   //! returns the time function
   scalar_func<P> const &ftime() const { return time_func_; }
+  //! returns the value of the time function
+  P ftime(P t) const { return time_func_(t); }
 
   //! returns true if the function is set to ignore times
   bool ignores_time() const { return ignores_time_; }
+  //! returns true if the function is separable in time
+  bool separable_time() const { return (!!time_func_ or ignores_time_); }
 
   //! (testing purposes) eval the function at the points x[] and time t
   P eval(P const x[], P t) {
@@ -377,6 +379,5 @@ private:
   std::array<svector_func1d<P>, max_num_dimensions> source_func_;
   scalar_func<P> time_func_;
 };
-
 
 } // namespace asgard

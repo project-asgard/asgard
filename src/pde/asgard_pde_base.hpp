@@ -1383,6 +1383,66 @@ enum class operation_type
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Defines the separable boundary conditions for div and grad
+ */
+template<typename P>
+struct dirichelt_boundary1d {
+  //! default case, identical to homogeneous boundary
+  dirichelt_boundary1d() = default;
+  //! constant in time
+  dirichelt_boundary1d(P left, P right)
+      : const_left(left), const_right(right)
+  {}
+  //! left constant, right variable
+  dirichelt_boundary1d(P left, scalar_func<P> right)
+      : const_left(left), right_t(std::move(right))
+  {}
+  //! left variable, right constant
+  dirichelt_boundary1d(scalar_func<P> left, P right)
+      : const_right(right), left_t(std::move(left))
+  {}
+  //! left variable, right constant
+  dirichelt_boundary1d(scalar_func<P> left, scalar_func<P> right)
+      : left_t(std::move(left)), right_t(std::move(right))
+  {}
+
+  //! constant left boundary condition
+  P const_left = 0;
+  //! constant right boundary condition
+  P const_right = 0;
+  //! time-dependent left-boundary condition
+  scalar_func<P> left_t;
+  //! time-dependent right-boundary condition
+  scalar_func<P> right_t;
+  //! returns true if there is left boundary condition
+  bool has_left() const { return (const_left != 0 or left_t); }
+  //! returns true if there is right boundary condition
+  bool has_right() const { return (const_right != 0 or right_t); }
+  //! return true if either left or right boundary has been set
+  bool has_any() const { return has_left() or has_right(); }
+  //! converts to true if either left or right boundary has been set
+  operator bool() const { return has_any(); }
+  //! throws if the boundary type is incompatible, i.e., inhomogeneous Dirichlet set for free boundary
+  void throw_if_invalid(boundary_type bnd) {
+    switch (bnd) {
+      case boundary_type::periodic:
+      case boundary_type::free:
+        rassert(not has_any(), "cannot specify dirichelt_boundary1d with boundary_type::periodic");
+        break;
+      case boundary_type::left_free:
+        rassert(not has_left(), "cannot specify left dirichelt_boundary1d with boundary_type::left_free");
+        break;
+      case boundary_type::right_free:
+        rassert(not has_right(), "cannot specify right dirichelt_boundary1d with boundary_type::right_free");
+        break;
+      default:
+        break;
+    };
+  }
+};
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Intermediate container for an identity mass term
  */
 struct term_identity {};
@@ -1397,14 +1457,9 @@ struct term_mass {
   term_mass(no_deduce<P> cc) : const_coeff(cc) {}
   //! make a mass term with given right hand side coefficient
   term_mass(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
-  //! make a mass term with given left and right hand side coefficients
-  term_mass(sfixed_func1d<P> lhs, sfixed_func1d<P> rhs)
-    : left(std::move(lhs)), right(std::move(rhs))
-  {}
+
   //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
-  //! left-hand-side function
-  sfixed_func1d<P> left;
   //! right-hand-side function
   sfixed_func1d<P> right;
 };
@@ -1416,26 +1471,28 @@ struct term_mass {
 template<typename P = default_precision>
 struct term_grad {
   //! make a grad term with constant coefficient
-  term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd)
-    : const_coeff(cc), flux(flx), boundary(bnd)
-  {}
+  term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd,
+            dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : const_coeff(cc), flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
   //! make a grad term with constant coefficient 1
-  term_grad(flux_type flx, boundary_type bnd)
-    : flux(flx), boundary(bnd)
-  {}
+  term_grad(flux_type flx, boundary_type bnd, dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
   //! make a grad term with given right hand side coefficient
-  term_grad(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
-    : right(std::move(frhs)), flux(flx), boundary(bnd)
-  {}
-  //! make a grad term with both right and left hand side coefficients
-  term_grad(sfixed_func1d<P> flhs, sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
-    : left(std::move(flhs)), right(std::move(frhs)), flux(flx), boundary(bnd)
-  {}
+  term_grad(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd,
+            dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : const_coeff(0), right(std::move(frhs)), flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
 
   //! constant coefficient, if left/right-hand-side functions are null
-  P const_coeff = 0;
-  //! left-hand-side function
-  sfixed_func1d<P> left;
+  P const_coeff = 1;
   //! right-hand-side function
   sfixed_func1d<P> right;
 
@@ -1443,6 +1500,8 @@ struct term_grad {
   flux_type flux;
   //! boundary type
   boundary_type boundary;
+  //! non-zero Dirichlet boundary
+  dirichelt_boundary1d<P> dirichlet;
 };
 
 /*!
@@ -1452,26 +1511,28 @@ struct term_grad {
 template<typename P = default_precision>
 struct term_div {
   //! make a grad term with constant coefficient
-  term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd)
-    : const_coeff(cc), flux(flx), boundary(bnd)
-  {}
+  term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd,
+           dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : const_coeff(cc), flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
   //! make a grad term with constant coefficient 1
-  term_div(flux_type flx, boundary_type bnd)
-    : const_coeff(1), flux(flx), boundary(bnd)
-  {}
+  term_div(flux_type flx, boundary_type bnd, dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : const_coeff(1), flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
   //! make a grad term with given right hand side coefficient
-  term_div(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
-    : right(std::move(frhs)), flux(flx), boundary(bnd)
-  {}
-  //! make a grad term with both left and right hand side coefficients
-  term_div(sfixed_func1d<P> flhs, sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
-    : left(std::move(flhs)), right(std::move(frhs)), flux(flx), boundary(bnd)
-  {}
+  term_div(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd,
+           dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : right(std::move(frhs)), flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
 
   //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
-  //! left-hand-side function
-  sfixed_func1d<P> left;
   //! right-hand-side function
   sfixed_func1d<P> right;
 
@@ -1479,11 +1540,23 @@ struct term_div {
   flux_type flux;
   //! boundary type
   boundary_type boundary;
+  //! non-zero Dirichlet boundary
+  dirichelt_boundary1d<P> dirichlet;
 };
 
 /*!
  * \ingroup asgard_pde_definition
  * \brief Intermediate container for chain of one-dimensional terms
+ *
+ * Example usage:
+ * \code
+ *   // declare a chain term
+ *   term_1d t1d(term_chain{});
+ *
+ *   // add the 1d terms later
+ *   t1d += term_div{-2, flux_type::upwind, boundary_type::free};
+ *   t1d += term_grad{2, flux_type::upwind, boundary_type::dirichlet};
+ * \endcode
  */
 struct term_chain {};
 
@@ -1493,23 +1566,13 @@ struct term_chain {};
  */
 template<typename P = default_precision>
 struct mass_electric {
-  //! mass based only on the electric field only, same as rhs being identity function
+  //! mass based only on the electric field, same as rhs being the identity function y = x
   mass_electric() {}
-  //! no left hand side, right side depends only on the field
+  //! right side depends only on the field
   mass_electric(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
-  //! with left hand side, right side depends only on the field
-  mass_electric(sfixed_func1d<P> lhs, sfixed_func1d<P> rhs)
-    : left(std::move(lhs)), right(std::move(rhs))
-  {}
-  //! no left hand side, right side depends only on the field and position
+  //! right side depends on the field and position
   mass_electric(sfixed_func1d_f<P> rhs_f) : right_f(std::move(rhs_f)) {}
-  //! with left hand side, right side depends only on the field and position
-  mass_electric(sfixed_func1d<P> lhs, sfixed_func1d_f<P> rhs_f)
-    : left(std::move(lhs)), right_f(std::move(rhs_f))
-  {}
 
-  //! left-hand-side function
-  sfixed_func1d<P> left;
   //! right-hand-side function, field only no spatial dependence
   sfixed_func1d<P> right;
   //! right-hand-side function, depends on position and field
@@ -1524,10 +1587,12 @@ struct term_manager;
  * \ingroup asgard_pde_definition
  * \brief One dimensional term, building block of separable operators
  *
+ * \par Main usage
  * This class has two main modes of operation, first is as a single term representing
  * mass, div, grad, or penalty operation. The simple operations are best created
  * using the helper structs term_identity, term_mass, term_div and term_grad.
  *
+ * \par
  * The second mode is to represent a chain of simple terms.
  * The operators in the chain will be multiplied together using small-matrix
  * logic in a local cell-by-cell algorithm.
@@ -1539,7 +1604,68 @@ struct term_manager;
  *   grad or div with opposing downwind/upwind flux
  * - a penalty term is equivalent to div/grad with central flux
  *
+ * \par
  * Chain-of-chains is not allowed as it is unnecessary.
+ *
+ * \par Type-safety
+ * ASGarD classes are templated to use either double or float precision, which can
+ * create inconveniences with the C++ type system.
+ * Consider the following code that creates a 1d mass term with coefficient 3.
+ * \code
+ *   // type explicitly set to float
+ *   term_mass<float> fmass{3};
+ *   // type explicitly set to double
+ *   term_mass<double> dmass{3};
+ *   // if double is available, type is double, else use float
+ *   term_mass<asgard::default_precision> long_name_mass{3};
+ *   // same as above but with less typing
+ *   term_mass amass{3};
+ * \endcode
+ * In all cases the coefficient is set from a constant with type int and converted
+ * to either float or double. Now take one more step and add the term to a 1D pde.
+ * \code
+ *   // assuming both double and float are available
+ *   // the domain is 1d and the options are not important here
+ *   asgard::PDEv2<float> fpde(options, domain1d);
+ *
+ *   // add mass term, type matches but uses lots of typing
+ *   fpde += term_mass<float>{3};
+ *
+ *   // different types, there will be a conversion but that's fine
+ *   // since ASGarD defaults to the higher precision, there may be an additional
+ *   // (cheap) conversion of a single constant but no loss of precision
+ *   fpde += term_mass{3};
+ * \endcode
+ * While this works fine for constants, it cannot be done if the coefficient is replaced
+ * by a function, since there is no automatic conversion between std::vector<double>
+ * and std::vector<float> and automatically doing such conversion is meaninglessly
+ * expensive.
+ * \code
+ *   sfixed_func1d<float> rhs =
+ *      [](std::vector<float> const &x, std::vector<float> &y)-> void {...};
+ *
+ *   // here mass will have type term_mass<float>
+ *   auto mass = term_mass{rhs};
+ *
+ *   // using PDE of matching type
+ *   PDEv2<float> fpde(options, domain1d);
+ *
+ *   fpde += term_1d{mass}; // OK, no need to explicitly specify 'float'
+ *
+ *   // creating PDE with default double precision
+ *   PDEv2 pde(options, domain1d);
+ *
+ *   // rhs will not be converted to using std::vector<double>
+ *   // a wrapper can be written but this has to be done explicitly
+ *   // pde += term_1d<float> mass; // will fail to compile
+ *   pde += term_1d{mass}; // will compile but yield runtime_error
+ * \endcode
+ * When using constant coefficients, ASGarD will handle most type conversion automatically
+ * and when using variable coefficients the type does not need to be explicitly carried
+ * for each template, which is convenient.
+ * However, as a trade-off, when using variable coefficients and incorrect types sometimes
+ * the error will occur at runtime, as opposed to compile time, since using constant vs.
+ * variable coefficient is not known until runtime.
  */
 template<typename P = default_precision>
 class term_1d
@@ -1551,11 +1677,15 @@ public:
   term_1d(term_identity) {}
   //! make a general term
   term_1d(operation_type opt, flux_type flx, boundary_type bnd,
-          sfixed_func1d<P> flhs, sfixed_func1d<P> frhs, P crhs)
+          sfixed_func1d<P> frhs, P crhs, dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
       : optype_(opt), flux_(flx), boundary_(bnd),
-        lhs_(std::move(flhs)), rhs_(std::move(frhs)), rhs_const_(crhs)
+        rhs_(std::move(frhs)), rhs_const_(crhs), dirichlet_(std::move(dir))
   {
     expect(optype_ != operation_type::identity);
+
+    if (optype_ != operation_type::div and optype_ != operation_type::grad)
+      rassert(not dirichlet_.has_any(), "cannot set boundary conditions for term_1d with operation_type "
+                                        "that is not div or grad");
 
     if (optype_ == operation_type::grad) {
       if (flux_ == flux_type::upwind)
@@ -1572,17 +1702,26 @@ public:
   //! make a mass term
   term_1d(term_mass<P> mt)
     : term_1d(operation_type::mass, flux_type::central, boundary_type::free,
-              std::move(mt.left), std::move(mt.right), mt.const_coeff)
+              std::move(mt.right), mt.const_coeff)
   {}
+  //! make a mass term, hack around creating term_1d<float> from term_mass<double>
+  template<typename otherP>
+  term_1d(term_mass<otherP> mt)
+    : term_1d(operation_type::mass, flux_type::central, boundary_type::free,
+              nullptr, static_cast<P>(mt.const_coeff))
+  {
+    rassert(not mt.right, "type mismatch using term_mass to create term_1d, "
+                          "see the type-safety documentation of term_1d");
+  }
   //! make a grad term
   term_1d(term_grad<P> grd)
     : term_1d(operation_type::grad, grd.flux, grd.boundary,
-              std::move(grd.left), std::move(grd.right), grd.const_coeff)
+              std::move(grd.right), grd.const_coeff, std::move(grd.dirichlet))
   {}
   //! make a div term
   term_1d(term_div<P> divt)
     : term_1d(operation_type::div, divt.flux, divt.boundary,
-              std::move(divt.left), std::move(divt.right), divt.const_coeff)
+              std::move(divt.right), divt.const_coeff, std::move(divt.dirichlet))
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
@@ -1630,8 +1769,7 @@ public:
   //! make a term that depends on the electric field
   term_1d(mass_electric<P> elmass)
     : optype_(operation_type::mass), change_(changes_with::time),
-      lhs_(std::move(elmass.left)), rhs_(std::move(elmass.right)),
-      field_f_(std::move(elmass.right_f))
+      rhs_(std::move(elmass.right)), field_f_(std::move(elmass.right_f))
   {
     depends_ = (field_f_) ? pterm_dependence::electric_field
                           : pterm_dependence::electric_field_only;
@@ -1655,13 +1793,6 @@ public:
   boundary_type boundary() const { return boundary_; }
   //! returns the flux type
   flux_type flux() const { return flux_; }
-
-  //! returns the left-hand-side function
-  sfixed_func1d<P> const &lhs() const { return lhs_; }
-  //! calls the left-hand-side function
-  void lhs(std::vector<P> const &x, std::vector<P> &fx) const {
-    return lhs_(x, fx);
-  }
 
   //! returns the right-hand-side function
   sfixed_func1d<P> const &rhs() const { return rhs_; }
@@ -1722,6 +1853,8 @@ public:
       return (optype_ != operation_type::mass);
     }
   }
+  //! returns the boundary conditions
+  dirichelt_boundary1d<P> const &dirichlet() const { return dirichlet_; }
 
   // allow direct access to the private data
   friend struct term_manager<P>;
@@ -1774,14 +1907,78 @@ private:
 
   changes_with change_ = changes_with::none;
 
-  sfixed_func1d<P> lhs_;
   sfixed_func1d<P> rhs_;
   P rhs_const_ = 1;
 
   int mom = 0;
   sfixed_func1d_f<P> field_f_;
 
+  dirichelt_boundary1d<P> dirichlet_;
+
   std::vector<term_1d<P>> chain_;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Separable mass term, i.e., num-dims mass 1d terms
+ *
+ * A regular term_1d that is mass or a term_md with with mass terms can depend on time,
+ * e.g., via moments. The mass-md term contains only mass terms that are time-independent
+ */
+template<typename P = default_precision>
+class mass_md
+{
+public:
+  //! constructs an empty term, nothing selected
+  mass_md() = default;
+  //! constructs an identity term
+  mass_md(int dims) : num_dims_(dims) {}
+  //! construct a term from the given list
+  mass_md(std::initializer_list<term_1d<P>> list)
+      : num_dims_(static_cast<int>(list.size()))
+  {
+    expect(num_dims_ <= max_num_dimensions);
+    for (int d : iindexof(num_dims_)) {
+      rassert((list.begin() + d)->is_mass() or (list.begin() + d)->is_identity(),
+              "mass_md terms must be mass or identity");
+      rassert((list.begin() + d)->depends() == pterm_dependence::none,
+              "the mass_md terms cannot depend on moments or the electric field")
+      terms_[d] = std::move(*((list.begin() + d)));
+    }
+  }
+  //! construct a term from the given list
+  mass_md(std::vector<term_1d<P>> list)
+      : num_dims_(static_cast<int>(list.size()))
+  {
+    expect(num_dims_ <= max_num_dimensions);
+    for (int d : iindexof(num_dims_)) {
+      rassert(list[d].is_mass() or list[d].is_identity(),
+              "mass_md terms must be mass or identity");
+      terms_[d] = std::move(list[d]);
+    }
+  }
+  //! returns the number of dimensions
+  int num_dims() const { return num_dims_; }
+
+  //! indicates whether the dimension and terms have been initialized
+  operator bool () const { return (num_dims_ > 0); }
+
+  //! returns true if all terms are identity
+  bool is_identity() const {
+    for (int d : iindexof(num_dims_))
+      if (not terms_[d].is_identity())
+        return false;
+    return true;
+  }
+  //! access the d-th term
+  term_1d<P> const &operator[] (int d) const { return terms_[d]; }
+  //! access the d-th term
+  term_1d<P> const &dim(int d) const { return terms_[d]; }
+
+private:
+  int num_dims_ = 0;
+
+  std::array<term_1d<P>, max_num_dimensions> terms_;
 };
 
 /*!
@@ -1808,8 +2005,9 @@ public:
   term_md() = default;
 
   //! 1d separable case
-  term_md(term_1d<P> chain)
-    : term_md({std::move(chain), })
+  template<typename otherP>
+  term_md(term_1d<otherP> trm)
+    : term_md({std::move(trm), })
   {}
   //! multi-dimensional separable case, using initializer list
   term_md(std::initializer_list<term_1d<P>> clist)
@@ -1916,12 +2114,26 @@ public:
     return chain_[i];
   }
 
+  //! returns true if the term has been set, i.e., dims is non-zero
+  operator bool () const { return (num_dims_ > 0); }
+
   //! indicate which mode is being used
   mode term_mode() const { return mode_; }
   //! returns true if the terms is chain term
   bool is_chain() const { return (mode_ == mode::chain); }
+  //! returns true if the terms is separable
+  bool is_separable() const { return (mode_ == mode::separable); }
   //! return true if the term uses interpolation
   bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
+
+  //! sets the mass term
+  void set_mass(mass_md<P> tmass) {
+    rassert(is_separable(), "mass can only be set for a separable term");
+    rassert(tmass.num_dims() == num_dims_, "the mass for term_md must have matching dimensions");
+    mass_ = std::move(tmass);
+  }
+  //! returns the stored mass term
+  mass_md<P> const &mass() const { return mass_; }
 
   //! separable case only, the number of dimensions
   int num_dims() const { return num_dims_; }
@@ -1962,6 +2174,7 @@ private:
   // separable case
   int num_dims_ = 0;
   std::array<term_1d<P>, max_num_dimensions> sep;
+  mass_md<P> mass_;
   // non-separable/interpolation case
   md_func_f<P> interp_;
   // chain of other terms
@@ -1998,6 +2211,9 @@ public:
   };
   //! unset time-data, all entries are negative, must be set later
   time_data() = default;
+  time_data(P endt)
+      : smethod_(time_advance::method::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)
+  {}
   //! specify time-step and final time
   time_data(time_advance::method smethod, input_dt dt, input_stop_time stop_time)
       : smethod_(smethod), dt_(dt.value), stop_time_(stop_time.value),
@@ -2042,6 +2258,11 @@ public:
   int64_t step() const { return step_; }
   //! returns the number of remaining time-steps
   int64_t num_remain() const { return num_remain_; }
+  //! set final time and zero out the num_remain
+  void set_final_time() {
+    time_       = stop_time_;
+    num_remain_ = 0;
+  }
 
   //! advances the time and updates the current and remaining steps
   void take_step() {
@@ -2090,6 +2311,34 @@ inline std::ostream &operator<<(std::ostream &os, time_data<P> const &dtime)
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Contains shorthand notation for common operators
+ *
+ * Many PDEs are build from common building blocks, divergence, Laplacian, etc.
+ * ASGarD has a list of commonly used operators as a shorthand when defining
+ * custom PDEs.
+ */
+namespace operators {
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief The divergence operator, sum of derivatives in each dimension
+ *
+ * The divergence operator in general form for d dimensions:
+ * \f[ \nabla \cdot f = \frac{\partial}{\partial x_1} f + \frac{\partial}{\partial x_2} f + \cdots + \frac{\partial}{\partial x_d} f \f]
+ * Each term can be assigned a separate coefficient.
+ */
+struct divergence {
+  //! boundary condition to use for all divergence terms
+  boundary_type btype;
+  //! coefficients of the divergence terms
+  std::vector<double> coeffs;
+};
+
+
+}
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Container for terms, sources, boundary conditions, etc.
  *
  * The PDE descriptor only indirectly specifies a partial differential equation,
@@ -2117,7 +2366,8 @@ public:
   PDEv2() = default;
   //! initialize the pde over the domain
   PDEv2(prog_opts opts, pde_domain<P> domain)
-    : options_(std::move(opts)), domain_(std::move(domain))
+    : options_(std::move(opts)), domain_(std::move(domain)),
+      mass_(domain_.num_dims())
   {
     int const numd = domain_.num_dims();
     if (domain_.num_dims() == 0)
@@ -2228,8 +2478,19 @@ public:
   //! returns the non-separable initial condition
   md_func<P> const &ic_md() const { return initial_md_; }
 
+  //! set the mass (density) of the pde
+  void set_mass(mass_md<P> tmass) {
+    rassert(tmass.num_dims() == num_dims(), "mass number of dimensions must match the domain");
+    mass_ = std::move(tmass);
+  }
+  //! returns the mass term
+  mass_md<P> const &mass() const { return mass_; }
+
   //! adding a term to the pde
   PDEv2<P> & operator += (term_md<P> tmd) {
+    rassert(not tmd.mass(), "only terms in a chain can have a mass_md");
+    if (tmd.is_chain())
+      rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
     tmd.set_num_dimensions(domain_.num_dims());
     terms_.emplace_back(std::move(tmd));
     return *this;
@@ -2277,6 +2538,7 @@ private:
   md_func<P> initial_md_;
   std::vector<separable_func<P>> initial_sep_;
 
+  mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
   md_func<P> sources_md_;

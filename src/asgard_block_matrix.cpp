@@ -65,39 +65,78 @@ void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, bloc
 }
 
 template<typename P>
-void block_diag_matrix<P>::apply_inverse(int const n, block_diag_matrix<P> &rhs)
+void block_diag_matrix<P>::spd_factorize(int const n)
 {
+  expect(n * n == nblock());
   switch (n)
   {
   case 1:
-#pragma omp parallel for
+    ASGARD_OMP_PARFOR_SIMD
     for (int64_t r = 0; r < nrows_; r++)
-    {
       data_[r][0] = P{1} / data_[r][0];
-      rhs[r][0] *= data_[r][0];
-    }
     break;
   case 2:
 #pragma omp parallel for
     for (int64_t r = 0; r < nrows_; r++)
-    {
       smmat::inv2by2(data_[r]);
-      smmat::gemm2by2(data_[r], rhs[r]);
-    }
     break;
   default:
 #pragma omp parallel for
     for (int64_t r = 0; r < nrows_; r++)
-    {
       smmat::potrf(n, data_[r]);
-      smmat::posvm(n, data_[r], rhs[r]);
-    }
     break;
   }
 }
 
 template<typename P>
-void block_diag_matrix<P>::apply_inverse(int const n, block_tri_matrix<P> &rhs)
+void block_diag_matrix<P>::solve(int const n, P rhs[]) const
+{
+  expect(n * n == nblock());
+  switch (n)
+  {
+  case 1:
+    ASGARD_OMP_PARFOR_SIMD
+    for (int64_t r = 0; r < nrows_; r++)
+      rhs[r] *= data_[r][0];
+    break;
+  case 2:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+      smmat::gemv2by2(data_[r], rhs + 2 * r);
+    break;
+  default:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+      smmat::posv(n, data_[r], rhs + n * r);
+    break;
+  }
+}
+
+template<typename P>
+void block_diag_matrix<P>::solve(int const n, block_diag_matrix<P> &rhs) const
+{
+  switch (n)
+  {
+  case 1:
+    ASGARD_OMP_PARFOR_SIMD
+    for (int64_t r = 0; r < nrows_; r++)
+      rhs[r][0] *= data_[r][0];
+    break;
+  case 2:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+      smmat::gemm2by2(data_[r], rhs[r]);
+    break;
+  default:
+#pragma omp parallel for
+    for (int64_t r = 0; r < nrows_; r++)
+      smmat::posvm(n, data_[r], rhs[r]);
+    break;
+  }
+}
+
+template<typename P>
+void block_diag_matrix<P>::solve(int const n, block_tri_matrix<P> &rhs) const
 {
   switch (n)
   {
@@ -105,17 +144,15 @@ void block_diag_matrix<P>::apply_inverse(int const n, block_tri_matrix<P> &rhs)
 #pragma omp parallel for
     for (int64_t r = 0; r < nrows_; r++)
     {
-      data_[r][0] = P{1} / data_[r][0];
-      *rhs.lower(r) *= data_[r][0];
-      *rhs.diag(r) *= data_[r][0];
-      *rhs.upper(r) *= data_[r][0];
+      rhs.lower(r)[0] *= data_[r][0];
+      rhs.diag(r)[0] *= data_[r][0];
+      rhs.upper(r)[0] *= data_[r][0];
     }
     break;
   case 2:
 #pragma omp parallel for
     for (int64_t r = 0; r < nrows_; r++)
     {
-      smmat::inv2by2(data_[r]);
       smmat::gemm2by2(data_[r], rhs.lower(r));
       smmat::gemm2by2(data_[r], rhs.diag(r));
       smmat::gemm2by2(data_[r], rhs.upper(r));
@@ -125,7 +162,6 @@ void block_diag_matrix<P>::apply_inverse(int const n, block_tri_matrix<P> &rhs)
 #pragma omp parallel for
     for (int64_t r = 0; r < nrows_; r++)
     {
-      smmat::potrf(n, data_[r]);
       smmat::posvm(n, data_[r], rhs.lower(r));
       smmat::posvm(n, data_[r], rhs.diag(r));
       smmat::posvm(n, data_[r], rhs.upper(r));

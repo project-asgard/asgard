@@ -16,7 +16,7 @@
  *
  * \par Example 2
  * Solves the continuity partial differential equation
- * \f[ \frac{d}{dt} f + \frac{d}{dx} f = s \f]
+ * \f[ \frac{\partial}{\partial t} f + \frac{\partial}{\partial x} f = s \f]
  * where both \b f and \b s are defined over domain
  * \f[ (-\pi N_w, \pi N_w) \f]
  * where N-w is the number of waves.

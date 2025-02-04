@@ -77,7 +77,11 @@ Options          Short   Value      Description
 
 <<< time stepping options >>>
 -step-method     -s      string     accepts (v1): expl/impl/imex
-                                    accepts (v2): rk2/rk3/cn/crank-nicolson/be/backwar-euler
+                                    accepts (v2): steady
+                                      forward-euler/fe/rk1/rk2/rk3/rk4
+                                      backwar-euler/be/crank-nicolson/cn
+                                    (fe, be and cn are shorthand acronyms for the longer names)
+                                    steady computes the steady state, not a time-stepping method
                                     indicates explicit (rk3), implicit (backward-Euler) or
                                     imex (implicit-explicit) time-stepping scheme
                                     implicit crank-nicolson (cn) or backwar-euler (be)
@@ -105,7 +109,7 @@ Options          Short   Value      Description
 -solver          -sv     string     accepts: direct/gmres/bicgstab (implicit/imex methods only)
                                     Direct: use LAPACK, expensive but stable.
                                     GMRES: general but sensitive to restart selection.
-                                    bicgstab: cheaper alternative to GMRES
+                                    bicgstab: cheaper (per-iteration) alternative to GMRES
 -precon          -pc     string     accepts: none/jacobi/adi (iterative solvers only)
                                     specifies the preconditioner for the iterative method
                                     none - is not advisable as it takes too long
@@ -339,14 +343,20 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
-      if (*selected == "rk2")
+      if (*selected == "steady")
+        step_method = time_advance::method::steady;
+      else if (*selected == "forward-euler" or *selected == "fe" or *selected == "rk1")
+        step_method = time_advance::method::forward_euler;
+      else if (*selected == "rk2")
         step_method = time_advance::method::rk2;
       else if (*selected == "rk3")
         step_method = time_advance::method::rk3;
+      else if (*selected == "rk4")
+        step_method = time_advance::method::rk4;
       else if (*selected == "cn" or *selected == "crank-nicolson")
         step_method = time_advance::method::cn;
       else if (*selected == "be" or *selected == "backward-euler")
-        step_method = time_advance::method::beuler;
+        step_method = time_advance::method::back_euler;
       else if (*selected == "expl")
         step_method = time_advance::method::exp;
       else if (*selected == "impl")

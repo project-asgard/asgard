@@ -51,7 +51,7 @@ class discretization_manager;
  * - if negative, integration will continue until the final time step
  */
 template<typename P> // implemented in time-advance
-void advance_time(discretization_manager<P> &manager, int64_t num_steps = -1);
+void advance_in_time(discretization_manager<P> &manager, int64_t num_steps = -1);
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 
@@ -102,6 +102,50 @@ namespace asgard::time_advance
 /*!
  * \internal
  * \ingroup asgard_time_advance
+ * \brief Steady state solver, advances to the final time and assumes d/dt = 0
+ *
+ * The two methods are simple variants of each other, this class will read the correct
+ * one from the options and make the adjustments.
+ * \endinternal
+ */
+template<typename P>
+struct steady_state
+{
+  //! Default empty stepper
+  steady_state() = default;
+  //! Initialize the stepper and
+  steady_state(prog_opts const &options)
+    : solver(options)
+  {
+    expect(options.step_method.value() == method);
+  }
+  //! Solves for the final step
+  void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
+                 std::vector<P> &endstep) const;
+
+  //! requires a solver
+  static bool constexpr needs_solver = true;
+  //! needed precondtioner, if using an iterative solver
+  preconditioner_opts needed_precon() const { return solver.precon; }
+  //! returns the number of matrix-vector products, if using an iterative solver
+  int64_t num_apply_calls() const { return solver.num_apply; }
+
+  //! prints options for the solver
+  void print_solver_opts(std::ostream &os = std::cout) const {
+    os << solver;
+  }
+
+private:
+  static time_advance::method constexpr method = time_advance::method::steady;
+  // the solver used
+  mutable solver_manager<P> solver;
+  // workspace (rhs)
+  mutable std::vector<P> work;
+};
+
+/*!
+ * \internal
+ * \ingroup asgard_time_advance
  * \brief Runge Kutta 3-stage method, 4th order accuracy in step-size
  *
  * Simple 3-stage explicit method, stability region is 0.1.
@@ -115,10 +159,11 @@ struct rungekutta
   //! Default empty stepper
   rungekutta(method rk) : rktype(rk)
   {
-    expect(rktype == method::rk2 or rktype == method::rk3);
+    expect(rktype == method::forward_euler or rktype == method::rk2
+           or rktype == method::rk3 or rktype == method::rk4);
   }
   //! Performs RK3 step forward in time, uses the current and next step
-  void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
+  void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
   //! explicit solver and does not require a solver
   static bool constexpr needs_solver = false;
@@ -127,7 +172,7 @@ private:
   method rktype = method::rk3;
 
   // workspace vectors
-  mutable std::vector<P> k1, k2, k3, s1;
+  mutable std::vector<P> k1, k2, k3, k4, s1;
 };
 
 /*!
@@ -149,7 +194,7 @@ struct crank_nicolson
       : method(options.step_method.value()), solver(options)
   {
     expect(method == time_advance::method::cn or
-           method == time_advance::method::beuler);
+           method == time_advance::method::back_euler);
   }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
@@ -204,8 +249,10 @@ struct time_advance_manager
   bool needs_solver() const {
     switch (method.index()) {
       case 0:
-        return time_advance::rungekutta<P>::needs_solver;
+        return time_advance::steady_state<P>::needs_solver;
       case 1:
+        return time_advance::rungekutta<P>::needs_solver;
+      case 2:
         return time_advance::crank_nicolson<P>::needs_solver;
       default:
         return false; // unreachable
@@ -214,8 +261,10 @@ struct time_advance_manager
   //! returns the precondtioner required by the solver, if any
   preconditioner_opts needed_precon() const {
     switch (method.index()) {
-      case 1:
-        return std::get<1>(method).needed_precon();
+      case 0: // steady state
+        return std::get<0>(method).needed_precon();
+      case 2: // implicit stepper
+        return std::get<2>(method).needed_precon();
       default:
         return preconditioner_opts::none;
     };
@@ -226,12 +275,18 @@ struct time_advance_manager
 
   //! prints the time-advance stats
   void print_time(std::ostream &os = std::cout) const {
+    if (method.index() == 0) {
+      os << "steady state solver:\n";
+      os << "  stop-time (T)   " << data.stop_time() << '\n';
+      std::get<0>(method).print_solver_opts(os);
+      return;
+    }
     os << "time stepping:\n  method          " << method_name() << "\n" << data;
     if (needs_solver()) { // show solver data
       switch (method.index()) {
-        case 1: // crank_nicolson
-          std::get<1>(method).print_solver_opts(os);
-        default: // implicit method, nothing to do
+        case 2: // crank_nicolson
+          std::get<2>(method).print_solver_opts(os);
+        default: // implicit method or steady-state already done above, nothing to do
           break;
       };
     }
@@ -239,17 +294,22 @@ struct time_advance_manager
 
   int64_t solver_iterations() const {
     switch (method.index()) {
-      case 1:
-        return std::get<1>(method).num_apply_calls();
+      case 0:
+        return std::get<0>(method).num_apply_calls();
+      case 2:
+        return std::get<2>(method).num_apply_calls();
       default:
         return -1;
     };
   }
 
+  bool is_steady_state() const { return (method.index() == 0); }
+
   //! holds the common time-stepping parameters
   time_data<P> data;
   //! wrapper around the specific method being used
-  std::variant<time_advance::rungekutta<P>, time_advance::crank_nicolson<P>> method;
+  std::variant<time_advance::steady_state<P>, time_advance::rungekutta<P>,
+               time_advance::crank_nicolson<P>> method;
 };
 
 /*!

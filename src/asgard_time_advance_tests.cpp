@@ -38,7 +38,7 @@ void time_advance_test(prog_opts const &opts,
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     fk::vector<P> f = disc.current_state();
 
@@ -482,7 +482,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     int const level0   = disc.get_pde().get_dimensions()[0].get_level();
     int const num_cell = fm::ipow2(level0);
@@ -551,7 +551,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   {
     disc.add_time_steps(1);
 
-    advance_time(disc);
+    disc.advance_time();
 
     fk::vector<TestType> f_val = disc.current_state();
 

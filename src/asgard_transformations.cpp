@@ -67,7 +67,7 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
   // we need to keep, the quadrature points and weights, 4 matrices corresponding
   // to the edge fluxes on the left and right, 2 matrices corresponding to
   // the values of the legendre polynomials and derivatives at the quadrature points
-  data_.resize(2 * num_quad + 4 * pdof * pdof + 3 * pdof * num_quad);
+  data_.resize(2 * num_quad + 4 * pdof * pdof + 3 * pdof * num_quad + 2 * pdof);
 
   { // create a scope, so that d is not visible outside of this scope, it is a temp variable
     P *d = data_.data();
@@ -82,6 +82,11 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
     leg  = std::exchange(d, d + pdof * num_quad);
     legw = std::exchange(d, d + pdof * num_quad);
     der  = std::exchange(d, d + pdof * num_quad);
+
+    leg_left  = std::exchange(d, d + pdof);
+    leg_right = std::exchange(d, d + pdof);
+
+    expect(static_cast<size_t>(std::distance(data_.data(), d)) == data_.size());
   }
 
   // copy the values returned by legendre into the locals
@@ -96,6 +101,9 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
   std::copy_n(lP.data(), num_quad * pdof, leg);
   smmat::col_scal(num_quad, pdof, P{0.5}, qw, leg, legw);
   std::copy_n(lPP.data(), num_quad * pdof, der);
+
+  std::copy_n(lP_L.data(), pdof, leg_left);
+  std::copy_n(lP_R.data(), pdof, leg_right);
 }
 
 template<typename P>
@@ -251,6 +259,53 @@ void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, level_
 
   if constexpr (skip_hierarchy)
     return;
+
+  pf[d].resize(pdof * num_cells);
+
+  // stage0 contains the projection data per-cell
+  // pf has the correct size to take the data, so project all levels up
+  switch (degree_)
+  { // hardcoded degrees first, the default uses the projection matrices
+  case 0:
+    projectlevels<0>(d, level);
+    break;
+  case 1:
+    projectlevels<1>(d, level);
+    break;
+  default:
+    projectlevels<-1>(d, level);
+  };
+}
+
+template<typename P>
+void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, block_diag_matrix<P> const &mass) const
+{
+  int const num_cells = fm::ipow2(level);
+
+  int const num_quad = quad.stride();
+  int const pdof     = degree_ + 1;
+
+  expect(fvals.size() == static_cast<size_t>(num_cells * num_quad));
+
+  stage0.resize(pdof * num_cells);
+
+  // doing the hierarchical projection, we must normalize the Legendre polynomial to unit l-2 norm
+  P const scale = std::pow(is2, level + 1) * std::sqrt(dsize);
+
+#pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+  {
+    smmat::gemv(pdof, num_quad, leg_vals[0], &fvals[i * num_quad],
+                &stage0[i * pdof]);
+    smmat::scal(pdof, scale, &stage0[i * pdof]);
+  }
+
+  if (mass)
+    mass.solve(pdof, stage0);
+
+  // std::cout << " --- num-cells = " << num_cells << " pdof = " << pdof << "\n";
+  // for (auto &a : stage0)
+  //   std::cout << a << "\n";
 
   pf[d].resize(pdof * num_cells);
 

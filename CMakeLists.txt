@@ -503,7 +503,8 @@ if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
-set (_asgard_pdes continuity diffusion two_stream)
+set (_asgard_pdes continuity diffusion two_stream sinwav
+                  mass_internal varcoeff_internal bound_internal)
 
 foreach (_asgexe ${_asgard_pdes})
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/${_asgexe}.cpp")

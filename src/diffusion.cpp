@@ -18,7 +18,7 @@
  *
  * \par Example 4
  * Solves the 2D diffusion partial differential equation
- * \f[ \frac{d}{dt} f - \nabla \cdot \nabla f = s \f]
+ * \f[ \frac{\partial}{\partial t} f - \nabla \cdot \nabla f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution is
  * \f[ f(t, x, y) = (1 - \exp(-t)) (\exp(1 - x^2) - 1) \f]
  * The domain is (-1, 1) and the boundary conditions are homogeneous Dirichlet.
@@ -369,7 +369,7 @@ int main(int argc, char** argv)
   if (not disc.stop_verbosity())
     std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
 
-  asgard::advance_time(disc); // integrate until num-steps or stop-time
+  disc.advance_time(); // integrate until num-steps or stop-time
 
   // alternative to the one-shot approach above, integration can be done step-by-step
   // and verbose output can be generated
@@ -420,7 +420,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 
   while (disc.time_params().num_remain() > 0)
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     double const err = get_error_l2(disc);
     // std::cout << " err = " << err << "\n";
@@ -438,7 +438,7 @@ void longtest(double tol, int num_dims, std::string const &opts) {
   discretization_manager<P> disc(make_diffusion_pde<P>(num_dims, options),
                                  verbosity_level::quiet);
 
-  advance_time(disc);
+  disc.advance_time();
 
   double const err = get_error_l2(disc);
   // std::cout << " err = " << err << "\n";

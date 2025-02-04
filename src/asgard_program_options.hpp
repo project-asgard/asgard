@@ -186,14 +186,20 @@ namespace time_advance
  */
 enum class method
 {
+  //! steady state solution, not a time-stepping method
+  steady = 0,
+  //! forward euler method
+  forward_euler,
   //! Runge Kutta 2-stage method, 3d order accuracy
-  rk2 = 0,
+  rk2,
   //! Runge Kutta 3-stage method, 4th order accuracy
   rk3,
+  //! Runge Kutta 4-stage method, 4th order accuracy
+  rk4,
+  //! Implicit Backward-Euler, first order
+  back_euler,
   //! Implicit Crank-Nicolson, second order
   cn,
-  //! Implicit Backward-Euler, first order
-  beuler,
   //! implicit solve, backward Euler
   imp,
   //! (default) explicit Runge–Kutta
@@ -503,6 +509,19 @@ struct prog_opts
   {
     return get_val<out_type>(externals, s);
   }
+  //! read an extra option from the cli extras
+  template<typename out_type>
+  std::optional<out_type> extra_cli_value_group(std::vector<std::string> const &group) const
+  {
+    std::optional<out_type> result;
+    for (auto const &g : group) {
+      if (not result)
+        result = get_val<out_type>(externals, g);
+      if (not result)
+        result = get_val<out_type>(filedata, g);
+    }
+    return result;
+  }
   //! check if an extra option was present in the cli
   bool has_cli_entry(std::string_view const &s) const
   {
@@ -759,7 +778,7 @@ private:
                   or std::is_same_v<out_type, float> or std::is_same_v<out_type, double>
                   or std::is_same_v<out_type, std::string>,
                   "prog_opts can only process: int, float, double, bool or string");
-    for (size_t i = 0; i < strs.size(); i += 2)
+    for (size_t i = 0; i < strs.size(); i++)
     {
       if (strs[i] == s)
       {

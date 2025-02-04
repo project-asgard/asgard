@@ -185,6 +185,37 @@ TEMPLATE_TEST_CASE("pde v2", "[pde]", test_precs)
     REQUIRE(!!pde.options().degree);
     REQUIRE(pde.options().degree.value() == 4);
   }
+  SECTION("constructors")
+  {
+    prog_opts opts = make_opts("-l 3 -d 1");
+    pde_domain<TestType> domain({{1, 3}, {-1, 6}});
+    PDEv2<TestType> pde(opts, std::move(domain));
+    REQUIRE(pde.mass().dim(0).is_identity());
+    REQUIRE(pde.mass().dim(1).is_identity());
+    REQUIRE(pde.mass().is_identity());
+    // REQUIRE_THROWS_WITH(pde.set_mass(term_md<TestType>{}),
+    //                     "the mass term must be separable");
+    pde.set_mass({term_mass{2}, term_mass{3}});
+    REQUIRE_FALSE(pde.mass().dim(0).is_identity());
+    REQUIRE(pde.mass().dim(0).rhs_const() == 2);
+    REQUIRE_FALSE(pde.mass().dim(1).is_identity());
+    REQUIRE(pde.mass().dim(1).rhs_const() == 3);
+  }
+}
+
+TEST_CASE("helper wrappers", "[pde]")
+{
+  SECTION("compile wrappers")
+  {
+    sfixed_func1d<double> dfx = vectorize<double>([](double x)->double { return std::sin(x); });
+    sfixed_func1d<float> ffx = vectorize<float>([](float x)->float { return std::sin(x); });
+
+    svector_func1d<double> dfxt = vectorize_t<double>([](double x)->double { return std::sin(x); });
+    svector_func1d<float> ffxt = vectorize_t<float>([](float x)->float { return std::sin(x); });
+
+    svector_func1d<double> dfxtt = vectorize_t<double>([](double x, double t)->double { return t * std::sin(x); });
+    svector_func1d<float> ffxtt = vectorize_t<float>([](float x, double t)->float { return t * std::sin(x); });
+  }
 }
 
 template<typename P>

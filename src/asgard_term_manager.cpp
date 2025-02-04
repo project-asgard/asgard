@@ -69,11 +69,15 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
 }
 
 template<typename P>
-term_manager<P>::term_manager(PDEv2<P> &pde)
+term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
+                              hierarchy_manipulator<P> const &hier)
   : num_dims(pde.num_dims()), max_level(pde.max_level()), legendre(pde.degree())
 {
   if (num_dims == 0)
     return;
+
+  if (pde.mass() and not pde.mass().is_identity())
+    mass_term = std::move(pde.mass_);
 
   std::vector<term_md<P>> &pde_terms = pde.terms_;
   int num_terms = [&]() -> int {
@@ -101,7 +105,8 @@ term_manager<P>::term_manager(PDEv2<P> &pde)
       *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
       ir++->num_chain = num_chain;
       for (int c = 1; c < num_chain; c++) {
-        *ir++ = term_entry<P>(std::move(pde_terms[i].chain_[c]));
+        *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
+        ir++->num_chain = -1;
       }
     } else {
       *ir++ = term_entry<P>(std::move(pde_terms[i]));
@@ -112,6 +117,197 @@ term_manager<P>::term_manager(PDEv2<P> &pde)
     xleft[d]  = pde.domain().xleft(d);
     xright[d] = pde.domain().xright(d);
   }
+
+  build_mass_matrices(); // large, up to max-level
+  rebuild_mass_matrices(grid); // small, up to the current level
+
+  std::vector<separable_func<P>> &sep = pde.sources_sep_;
+
+  int num_sources = 0;
+  for (auto const &s : sep) {
+    int const dims = s.num_dims();
+    rassert(dims == 0 or dims == num_dims, "incorrect dimension set for source");
+    if (dims > 0) ++num_sources;
+  }
+
+  num_interior_sources = num_sources;
+
+  for (auto &tmd : terms) {
+    for (int d : indexof(num_dims)) {
+      if (tmd.tmd.dim(d).dirichlet().has_any())
+        tmd.bc_source_id = num_sources++;
+    }
+  }
+
+  sources.reserve(num_sources);
+
+  for (auto &s : sep) {
+    if (s.num_dims() == 0)
+      continue;
+
+    if (s.ignores_time() or s.ftime()) {
+      // using constant entry
+      if (s.ignores_time()) {
+        sources.emplace_back(source_entry<P>::time_mode::constant);
+        sources.back().func = 0; // no need for a func
+      } else {
+        sources.emplace_back(source_entry<P>::time_mode::separable);
+        sources.back().func = s.ftime();
+      }
+
+      for (int d : iindexof(num_dims)) {
+        hier.project1d_f(
+            [&](std::vector<P> const &x, std::vector<P> &y)-> void { s.fdomain(d, x, 0, y); },
+            mass[d], d, max_level);
+        sources.back().consts[d] = hier.get_projected1d(d);
+      }
+
+    } else {
+      // non-separable in time
+      sources_have_time_dep = true;
+      sources.emplace_back(source_entry<P>::time_mode::time_dependent);
+      sources.back().func = std::move(s);
+    }
+  }
+
+  // extract the boundary sources and pre-compute as appropriate
+  // always compute up to the max level and use only the needed parts
+  int const num_cells = fm::ipow2(max_level);
+  int const pdof      = legendre.pdof;
+
+  for (int tid : iindexof(terms)) {
+    term_entry<P> &tmd = terms[tid];
+    for (int dim : iindexof(num_dims)) {
+      dirichelt_boundary1d<P> &dirichlet = tmd.tmd.dim(dim).dirichlet_;
+      if (not dirichlet.has_any())
+        continue;
+
+      sources.emplace_back(source_entry<P>::time_mode::boundary);
+
+      source_entry<P> &src = sources.back();
+
+      auto get_mmass = [&](int d) -> block_diag_matrix<P> const &{
+          if (tmd.num_chain >= 1) { // using top-level mass
+            return mass[d];
+          } else { // using local mass, build in the term
+            mass_md<P> const &tms = tmd.tmd.mass();
+            if (tms and not tms[d].is_identity()) {
+              if (tmd.mass[d].nrows() != num_cells) {
+                build_raw_mat(d, tms[d], max_level, tmd.mass[d]);
+                tmd.mass[d].spd_factorize(pdof);
+              }
+            }
+            return tmd.mass[d];
+          }
+        };
+
+      // build the constant terms along the boundary in other directions
+      for (int d : iindexof(num_dims)) {
+        if (d == dim)
+          continue;
+
+        block_diag_matrix<P> const &mmass = get_mmass(d);
+
+        if (tmd.tmd.dim(d).rhs()) {
+          hier.project1d_f(tmd.tmd.dim(d).rhs(), mmass, d, max_level);
+          src.consts[d] = hier.get_projected1d(d);
+        } else if (mmass) {
+          hier.project1d_f(
+              [&](std::vector<P> const &, std::vector<P> &y)-> void{
+                std::fill(y.begin(), y.end(), tmd.tmd.dim(d).rhs_const());
+              }, mmass, d, max_level);
+          src.consts[d] = hier.get_projected1d(d);
+        } else { // no mass and constant function
+          src.consts[d].resize(pdof * num_cells);
+          src.consts[d].front() = tmd.tmd.dim(d).rhs_const();
+        }
+      }
+
+      // will be moved into the source-term func
+      std::vector<P> const_r;
+
+      block_diag_matrix<P> const &mmass = get_mmass(dim);
+
+      // build the vectors with the actual boundary conditions
+      P const scale = P{1} / std::sqrt( pde.domain().length(dim) / num_cells );
+
+      // get the values of the term rhs
+      term_1d<P> const &t1d = tmd.tmd.dim(dim);
+      P rhs_left  = t1d.rhs_const();
+      P rhs_right = t1d.rhs_const();
+      if (t1d.rhs()) { // using variable rhs, get the correct values
+        if (dirichlet.has_left() and dirichlet.has_right()) { // need both
+          std::vector<P> const x = {pde.domain().xleft(dim), pde.domain().xright(dim)};
+          std::vector<P> rhs(2);
+          t1d.rhs(x, rhs);
+          rhs_left  = rhs[0];
+          rhs_right = rhs[1];
+        } else if (dirichlet.has_left()) { // need left only
+          std::vector<P> const x = {pde.domain().xleft(dim), };
+          std::vector<P> rhs(1);
+          t1d.rhs(x, rhs);
+          rhs_left  = rhs.front();
+        } else { // need right only
+          std::vector<P> const x = {pde.domain().xright(dim), };
+          std::vector<P> rhs(1);
+          t1d.rhs(x, rhs);
+          rhs_right = rhs.front();
+        }
+      }
+
+      if (not dirichlet.left_t and not dirichlet.right_t) {
+        // time-independent boundary, merge the two vectors into one
+        src.consts[dim].resize(pdof * num_cells);
+        if (dirichlet.has_left())
+          smmat::axpy(pdof, -dirichlet.const_left * rhs_left * scale,
+                      legendre.leg_left, src.consts[dim].data());
+        if (dirichlet.has_right())
+          smmat::axpy(pdof, dirichlet.const_right * rhs_right * scale,
+                      legendre.leg_right, src.consts[dim].data() + src.consts[dim].size() - pdof);
+
+      } else { // need to have separate left and/or right vectors
+        if (dirichlet.has_left()) {
+          src.consts[dim].resize(pdof * num_cells);
+          if (dirichlet.left_t)
+            smmat::axpy(pdof, - rhs_left * scale,
+                        legendre.leg_left, src.consts[dim].data());
+          else
+            smmat::axpy(pdof, -dirichlet.const_left * rhs_left * scale,
+                        legendre.leg_left, src.consts[dim].data());
+        }
+        if (dirichlet.has_right()) {
+          const_r.resize(pdof * num_cells);
+          if (dirichlet.right_t)
+            smmat::axpy(pdof, rhs_right * scale,
+                        legendre.leg_right, const_r.data() + const_r.size() - pdof);
+          else
+            smmat::axpy(pdof, dirichlet.const_right * rhs_right * scale,
+                        legendre.leg_right, const_r.data() + const_r.size() - pdof);
+        }
+      }
+
+      if (not src.consts[dim].empty()) {
+        if (mmass)
+          mmass.solve(pdof, src.consts[dim]);
+        hier.project1d(max_level, src.consts[dim]);
+      }
+      if (not const_r.empty()) {
+        if (mmass)
+          mmass.solve(pdof, const_r);
+        hier.project1d(max_level, const_r);
+      }
+
+      // move the time-functions into the
+      src.func = source_boundary_data<P>{
+          std::move(dirichlet.left_t), std::move(dirichlet.right_t),
+          std::move(const_r), std::vector<P>{}, dim};
+
+      if (tmd.num_chain < 0) // part of a chain
+        std::get<source_boundary_data<P>>(src.func).term_index = tid;
+    }
+  }
+
+  prapare_workspace(grid); // setup kronmult workspace
 }
 
 template<typename P>
@@ -124,6 +320,218 @@ mom_deps term_manager<P>::find_deps() const
       deps += tentry.deps[d];
 
   return deps;
+}
+
+template<typename P>
+void term_manager<P>::update_const_sources(
+    sparse_grid const &grid, connection_patterns const &conns,
+    hierarchy_manipulator<P> const &hier)
+{
+  if (grid.generation() != sources_grid_gen) {
+
+    int const pdof = hier.degree() + 1;
+
+    int64_t const block_size  = hier.block_size();
+    int64_t const num_entries = grid.num_indexes() * block_size;
+
+    // update the constant components
+    for (auto &src : sources) {
+      if (src.tmode == source_entry<P>::time_mode::time_dependent)
+        continue;
+
+      int const dim = (src.tmode == source_entry<P>::time_mode::boundary)
+                      ? std::get<source_boundary_data<P>>(src.func).dim : -1;
+
+      if (dim < 0 or not src.consts[dim].empty()) { // left vector
+        src.val.resize(num_entries);
+
+        #pragma omp parallel
+        {
+          std::array<P const *, max_num_dimensions> data1d;
+
+          #pragma omp for
+          for (int64_t c = 0; c < grid.num_indexes(); c++) {
+            P *proj = src.val.data() + c * block_size;
+
+            int const *idx = grid[c];
+            for (int d : iindexof(num_dims))
+              data1d[d] = src.consts[d].data() + idx[d] * pdof;
+
+            for (int i : iindexof(block_size))
+            {
+              int t   = i;
+              proj[i] = 1;
+              for (int d = num_dims - 1; d >= 0; d--) {
+                proj[i] *= data1d[d][t % pdof];
+                t /= pdof;
+              }
+            }
+          }
+        }
+      }
+      if (dim >= 0) {
+        std::vector<P> const &const_r = std::get<source_boundary_data<P>>(src.func).consts_r;
+        if (const_r.empty())
+          continue;
+
+        std::vector<P> &vals_r = std::get<source_boundary_data<P>>(src.func).vals_r;
+
+        vals_r.resize(num_entries);
+
+        #pragma omp parallel
+        {
+          std::array<P const *, max_num_dimensions> data1d;
+
+          #pragma omp for
+          for (int64_t c = 0; c < grid.num_indexes(); c++) {
+            P *proj = vals_r.data() + c * block_size;
+
+            int const *idx = grid[c];
+            for (int d = 0; d < dim; d++)
+              data1d[d] = src.consts[d].data() + idx[d] * pdof;
+
+            data1d[dim] = const_r.data() + idx[dim] * pdof;
+
+            for (int d = dim + 1; d < num_dims; d++)
+              data1d[d] = src.consts[d].data() + idx[d] * pdof;
+
+            for (int i : iindexof(block_size))
+            {
+              int t   = i;
+              proj[i] = 1;
+              for (int d = num_dims - 1; d >= 0; d--) {
+                proj[i] *= data1d[d][t % pdof];
+                t /= pdof;
+              }
+            }
+          }
+        }
+      }
+
+      if (src.tmode == source_entry<P>::time_mode::boundary) {
+        // recursively apply the previous terms in the chain
+        source_boundary_data<P> &bnd = std::get<source_boundary_data<P>>(src.func);
+        if (bnd.term_index < 0) // not chain, nothing to do
+          continue;
+        // this is a chain
+        t1.resize(num_entries); // workspace
+
+        bool keep_working = true;
+        int tid = bnd.term_index - 1;
+        while (keep_working) {
+
+          if (not src.val.empty()) {
+            kron_term(grid, conns, terms[tid], 1, src.consts[dim], 0, t1);
+            std::swap(src.consts[dim], t1);
+          }
+          if (not bnd.vals_r.empty()) {
+            kron_term(grid, conns, terms[tid], 1, bnd.vals_r, 0, t1);
+            std::swap(bnd.vals_r, t1);
+          }
+
+          keep_working = (terms[--tid].num_chain < 0);
+        }
+      }
+    }
+
+    if (sources_have_time_dep)
+      rebuild_mass_matrices(grid);
+
+    sources_grid_gen = grid.generation();
+  }
+}
+
+template<typename P>
+template<data_mode dmode>
+void term_manager<P>::apply_sources(
+    pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
+    hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
+{
+  update_const_sources(grid, conns, hier);
+
+  int64_t const num_entries = grid.num_indexes() * hier.block_size();
+  if constexpr (dmode == data_mode::replace or dmode == data_mode::scal_rep)
+    std::fill_n(y, num_entries, P{0});
+
+  for (auto const &src : sources) {
+    switch (src.tmode) {
+      case source_entry<P>::time_mode::constant:
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] += src.val[i];
+        else
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] += alpha * src.val[i];
+        break;
+      case source_entry<P>::time_mode::separable: {
+          P t = std::get<scalar_func<P>>(src.func)(time);
+          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+            t *= alpha;
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] += t * src.val[i];
+        }
+        break;
+      case source_entry<P>::time_mode::time_dependent:
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          hier.template project_separable<data_mode::increment>
+              (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+        else
+          hier.template project_separable<data_mode::scal_inc>
+              (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+        break;
+      case source_entry<P>::time_mode::boundary: {
+          // NOTE: when adding the "boundary" sources, the sign is flipped
+          source_boundary_data<P> const &bnd = std::get<source_boundary_data<P>>(src.func);
+
+          if (not src.val.empty()) { // we have left bc
+            if (bnd.left_f) { // time-dependant
+              P t = bnd.left_f(time);
+              if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+                t *= alpha;
+              ASGARD_OMP_PARFOR_SIMD
+              for (int64_t i = 0; i < num_entries; i++)
+                y[i] -= t * src.val[i];
+            } else {
+              if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+                ASGARD_OMP_PARFOR_SIMD
+                for (int64_t i = 0; i < num_entries; i++)
+                  y[i] -= src.val[i];
+              else
+                ASGARD_OMP_PARFOR_SIMD
+                for (int64_t i = 0; i < num_entries; i++)
+                  y[i] -= alpha * src.val[i];
+            }
+          }
+
+          if (not bnd.vals_r.empty()) { // we have right bc
+            if (bnd.right_f) { // time-dependant
+              P t = bnd.right_f(time);
+              if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+                t *= alpha;
+              ASGARD_OMP_PARFOR_SIMD
+              for (int64_t i = 0; i < num_entries; i++)
+                y[i] -= t * bnd.vals_r[i];
+            } else {
+              if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+                ASGARD_OMP_PARFOR_SIMD
+                for (int64_t i = 0; i < num_entries; i++)
+                  y[i] -= bnd.vals_r[i];
+              else
+                ASGARD_OMP_PARFOR_SIMD
+                for (int64_t i = 0; i < num_entries; i++)
+                  y[i] -= alpha * bnd.vals_r[i];
+            }
+          }
+        }
+        break;
+      default:
+        // unreachable here
+        break;
+    }
+  }
 }
 
 template<typename P>
@@ -164,6 +572,7 @@ void term_manager<P>::rebuld_term1d(
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
     preconditioner_opts precon, P alpha)
 {
+  int const n = hier.degree() + 1;
   auto const &t1d = tentry.tmd.dim(dim);
 
   bool is_diag = t1d.is_mass();
@@ -172,6 +581,41 @@ void term_manager<P>::rebuld_term1d(
   } else {
     build_raw_mat(dim, t1d, level, wraw_diag, wraw_tri);
   }
+  // apply the mass matrix, if any
+  if (tentry.num_chain < 0) {
+    // member of a chain, can have unique mass matrix
+    mass_md<P> const &tms = tentry.tmd.mass();
+    if (tms and not tms[dim].is_identity()) {
+      int const nrows = fm::ipow2(level); // needed number of rows
+      if (tentry.mass[dim].nrows() != nrows) {
+        build_raw_mat(dim, mass_term[dim], max_level, tentry.mass[dim]);
+        tentry.mass[dim].spd_factorize(n);
+      }
+      if (is_diag)
+        tentry.mass[dim].solve(n, wraw_diag);
+      else
+        tentry.mass[dim].solve(n, wraw_tri);
+    }
+  } else if (mass[dim]) { // no chain (or last link), and there's global mass
+    // global case, use the global mass matrices
+    if (level == max_level) {
+      if (is_diag)
+        mass[dim].solve(n, wraw_diag);
+      else
+        mass[dim].solve(n, wraw_tri);
+    } else { // using lower level, construct lower mass matrix
+      int const nrows = fm::ipow2(level); // needed number of rows
+      if (lmass[dim].nrows() != nrows) {
+        build_raw_mat(dim, mass_term[dim], max_level, lmass[dim]);
+        lmass[dim].spd_factorize(n);
+      }
+      if (is_diag)
+        lmass[dim].solve(n, wraw_diag);
+      else
+        lmass[dim].solve(n, wraw_tri);
+    }
+  }
+
   // the build/rebuild put the result in raw_diag or raw_tri
   if (is_diag)
     tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
@@ -256,16 +700,24 @@ void term_manager<P>::build_raw_mat(
       }
       break;
     default:
-      // must be a unreachable
+      // must be unreachable
       break;
   }
-  if (t1d.lhs()) { // we have a lhs mass
+}
+
+template<typename P>
+void term_manager<P>::build_raw_mat(int dim, term_1d<P> const &t1d, int level,
+                                    block_diag_matrix<P> &raw_diag)
+{
+  expect(t1d.is_mass());
+  expect(t1d.depends() == pterm_dependence::none);
+
+  if (t1d.rhs()) {
     gen_diag_cmat<P, operation_type::mass>
-      (legendre, xleft[d], xright[d], level, t1d.lhs(), nullptr, raw_mass);
-    if (t1d.is_mass())
-      raw_mass.apply_inverse(legendre.pdof, raw_diag);
-    else
-      raw_mass.apply_inverse(legendre.pdof, raw_tri);
+      (legendre, xleft[dim], xright[dim], level, t1d.rhs(), nullptr, raw_diag);
+  } else {
+    gen_diag_cmat<P, operation_type::mass>
+      (legendre, level, t1d.rhs_const(), raw_diag);
   }
 }
 
@@ -559,6 +1011,20 @@ template void term_manager<double>::kron_diag<data_mode::increment>(
 template void term_manager<double>::kron_diag<data_mode::multiply>(
     sparse_grid const &, connection_patterns const &,
     term_entry<double> const &, int const, std::vector<double> &) const;
+
+template void term_manager<double>::apply_sources<data_mode::replace>(
+  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<double> const &, double, double, double[]);
+template void term_manager<double>::apply_sources<data_mode::increment>(
+  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<double> const &, double, double, double[]);
+template void term_manager<double>::apply_sources<data_mode::scal_inc>(
+  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<double> const &, double, double, double[]);
+template void term_manager<double>::apply_sources<data_mode::scal_rep>(
+  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<double> const &, double, double, double[]);
+
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -571,6 +1037,19 @@ template void term_manager<float>::kron_diag<data_mode::increment>(
 template void term_manager<float>::kron_diag<data_mode::multiply>(
     sparse_grid const &, connection_patterns const &,
     term_entry<float> const &, int const, std::vector<float> &) const;
+
+template void term_manager<float>::apply_sources<data_mode::replace>(
+  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<float> const &, float, float, float[]);
+template void term_manager<float>::apply_sources<data_mode::increment>(
+  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<float> const &, float, float, float[]);
+template void term_manager<float>::apply_sources<data_mode::scal_inc>(
+  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<float> const &, float, float, float[]);
+template void term_manager<float>::apply_sources<data_mode::scal_rep>(
+  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
 
 }

@@ -351,7 +351,7 @@ imex_advance(discretization_manager<P> &disc,
 namespace asgard
 {
 template<typename P> // implemented in time-advance
-void advance_time(discretization_manager<P> &manager, int64_t num_steps)
+void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 {
   if (manager.version2()) {
     advance_time_v2(manager, num_steps);
@@ -516,61 +516,178 @@ namespace asgard::time_advance
 {
 
 template<typename P>
+void steady_state<P>::next_step(
+    discretization_manager<P> const &disc, std::vector<P> const &current,
+    std::vector<P> &endstep) const
+{
+  tools::time_event performance_("solve steady state");
+
+  P const time = disc.time_params().stop_time();
+
+  // if the grid changed since the last time we used the solver
+  // update the matrices and preconditioners, update-grid checks what's needed
+  if (solver.grid_gen != disc.get_sgrid().generation())
+    solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), 0);
+
+  if (solver.opt == solve_opts::direct) {
+
+    endstep.resize(current.size());
+    disc.set_ode_rhs_sources(time, 1, endstep);
+
+    solver.direct_solve(endstep);
+
+  } else { // iterative solver
+    // form the right-hand-side inside work
+    endstep = current; // initial guess
+
+    int64_t const n = static_cast<int64_t>(current.size());
+
+    work.resize(n);
+    disc.set_ode_rhs_sources(time, 1, work); // right-hand-side
+
+    switch (solver.precon) {
+    case preconditioner_opts::none:
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          disc.terms_apply_all(alpha, x, beta, y);
+        }, work, endstep);
+    break;
+    case preconditioner_opts::jacobi:
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          tools::time_event timing_("jacobi preconditioner");
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] *= solver.jacobi[i];
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          disc.terms_apply_all(alpha, x, beta, y);
+        }, work, endstep);
+    break;
+    default:
+      throw std::runtime_error("steady state solver cannot use the adi preconditioner");
+    }
+  }
+}
+
+template<typename P>
 void rungekutta<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
 {
-  std::string const name = (rktype == method::rk2) ? "runge kutta 2" : "runge kutta 3";
+  std::string const name = [&]() -> std::string {
+      switch (rktype) {
+        case method::forward_euler:
+          return "forw-euler";
+        case method::rk2:
+          return "runge kutta 2";
+        case method::rk3:
+          return "runge kutta 3";
+        default: // case method::rk4:
+          return "runge kutta 4";
+      };
+    }();
 
   tools::time_event performance_(name);
 
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
-  if (rktype == method::rk2) {
-    k1.resize(current.size());
-    k2.resize(current.size());
-    s1.resize(current.size());
+  switch (rktype) {
+    case method::forward_euler:
+      k1.resize(current.size());
+      disc.ode_rhs_v2(time, current, k1);
 
-    disc.ode_rhs_v2(time, current, k1);
+      next.resize(current.size());
 
-    ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < current.size(); i++)
-      s1[i] = current[i] + 0.5 * dt * k1[i];
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        next[i] = current[i] + dt * k1[i];
+      break;
+    case method::rk2:
+      k1.resize(current.size());
+      k2.resize(current.size());
+      s1.resize(current.size());
 
-    disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+      disc.ode_rhs_v2(time, current, k1);
 
-    next.resize(current.size());
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        s1[i] = current[i] + 0.5 * dt * k1[i];
 
-    ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < current.size(); i++)
-      next[i] = current[i] + dt * k2[i];
+      disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
 
-  } else { // rk 3
-    k1.resize(current.size());
-    k2.resize(current.size());
-    k3.resize(current.size());
-    s1.resize(current.size());
+      next.resize(current.size());
 
-    disc.ode_rhs_v2(time, current, k1);
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        next[i] = current[i] + dt * k2[i];
+      break;
+    case method::rk3:
+      k1.resize(current.size());
+      k2.resize(current.size());
+      k3.resize(current.size());
+      s1.resize(current.size());
 
-    ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < current.size(); i++)
-      s1[i] = current[i] + 0.5 * dt * k1[i];
+      disc.ode_rhs_v2(time, current, k1);
 
-    disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        s1[i] = current[i] + 0.5 * dt * k1[i];
 
-    ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < current.size(); i++)
-      s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
+      disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
 
-    disc.ode_rhs_v2(time + dt, s1, k3);
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
 
-    next.resize(current.size());
+      disc.ode_rhs_v2(time + dt, s1, k3);
 
-    ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < current.size(); i++)
-      next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
+      next.resize(current.size());
+
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
+      break;
+    case method::rk4:
+      k1.resize(current.size());
+      k2.resize(current.size());
+      k3.resize(current.size());
+      k4.resize(current.size());
+      s1.resize(current.size());
+
+      disc.ode_rhs_v2(time, current, k1);
+
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        s1[i] = current[i] + 0.5 * dt * k1[i];
+
+      disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        s1[i] = current[i] + 0.5 * dt * k2[i];
+
+      disc.ode_rhs_v2(time + 0.5 * dt, s1, k3);
+
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        s1[i] = current[i] + dt * k3[i];
+
+      disc.ode_rhs_v2(time + dt, s1, k4);
+
+      next.resize(current.size());
+
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < current.size(); i++)
+        next[i] = current[i] + dt * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) / P{6};
+      break;
+    default: // unreachable
+      expect(false); // should never get here
+      break;
   }
 }
 
@@ -579,7 +696,8 @@ void crank_nicolson<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
 {
-  tools::time_event performance_("crank-nicolson");
+  tools::time_event performance_(
+      (method == time_advance::method::cn) ? "crank-nicolson" : "back-euler");
 
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
@@ -670,17 +788,22 @@ template<typename P>
 time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_opts const &options)
   : data(tdata)
 {
-  expect(static_cast<int>(data.step_method()) <= 3); // the new modes that have been implemented
+  expect(static_cast<int>(data.step_method()) <= 6); // the new modes that have been implemented
 
   // prepare the time-stepper
   switch (data.step_method())
   {
+    case time_advance::method::steady:
+      method = time_advance::steady_state<P>(options);
+      break;
+    case time_advance::method::forward_euler:
     case time_advance::method::rk2:
     case time_advance::method::rk3:
+    case time_advance::method::rk4:
       method = time_advance::rungekutta<P>(data.step_method());
       break;
     case time_advance::method::cn:
-    case time_advance::method::beuler:
+    case time_advance::method::back_euler:
       method = time_advance::crank_nicolson<P>(options);
       break;
     default:
@@ -693,28 +816,31 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
                                         std::vector<P> const &current,
                                         std::vector<P> &next) const
 {
-  switch (data.step_method())
-  {
-    case time_advance::method::rk2:
-    case time_advance::method::rk3:
-      std::get<time_advance::rungekutta<P>>(method).next_step(dist, current, next);
+  switch (method.index()) {
+    case 0: // steady state
+      std::get<0>(method).next_step(dist, current, next);
       break;
-    case time_advance::method::cn:
-    case time_advance::method::beuler:
-      std::get<time_advance::crank_nicolson<P>>(method).next_step(dist, current, next);
+    case 1: // explicit rk
+      std::get<1>(method).next_step(dist, current, next);
+      break;
+    case 2: // implicit stepper
+      std::get<2>(method).next_step(dist, current, next);
       break;
     default:
       throw std::runtime_error("unimplemented time-advance option");
-  }
+  };
 }
 
 template<typename P>
 std::string time_advance_manager<P>::method_name() const {
   std::map<time_advance::method, std::string> names = {
+    {time_advance::method::steady, "Steady state solver"},
+    {time_advance::method::forward_euler, "Forward-Euler 1-step (explicit)"},
     {time_advance::method::rk2, "Runge-Kutta 2-step (explicit)"},
     {time_advance::method::rk3, "Runge-Kutta 3-step (explicit)"},
+    {time_advance::method::rk4, "Runge-Kutta 4-step (explicit)"},
     {time_advance::method::cn, "Crank-Nicolson 1-step (implicit)"},
-    {time_advance::method::beuler, "Backward-Euler 1-step (implicit)"},
+    {time_advance::method::back_euler, "Backward-Euler 1-step (implicit)"},
   };
 
   return names.find(data.step_method())->second;
@@ -736,12 +862,18 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
     num_steps = std::min(params.num_remain(), num_steps);
   else
     num_steps = std::max(params.num_remain(), num_steps);
+
   if (num_steps < 1)
     return;
+
+  if (stepper.is_steady_state())
+    num_steps = 1;
 
   P const tol = manager.get_pde2().options().adapt_threshold.value_or(-1);
 
   sparse_grid &grid = manager.sgrid;
+
+  sparse_grid::strategy grid_strategy = sparse_grid::strategy::refine;
 
   std::vector<P> next;
   while (--num_steps >= 0)
@@ -751,10 +883,14 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
     if (tol > 0) {
       int const gen = grid.generation();
       grid.refine(tol, manager.hier.block_size(), manager.conn[connect_1d::hierarchy::volume],
-                  sparse_grid::strategy::adapt, next);
+                  grid_strategy, next);
       if (grid.generation() != gen) {
         grid.remap(manager.hier.block_size(), next);
         manager.terms.prapare_workspace(grid);
+        if (stepper.is_steady_state()) {
+          num_steps = 1;
+          grid_strategy = sparse_grid::strategy::adapt;
+        }
       }
     }
 
@@ -770,24 +906,29 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
         wctime = tools::simple_timer::current_time();
       }
     }
+
+    if (stepper.is_steady_state())
+      params.set_final_time();
   }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template struct time_advance::steady_state<double>;
 template struct time_advance::rungekutta<double>;
 template struct time_advance::crank_nicolson<double>;
 template struct time_advance_manager<double>;
 
-template void advance_time(discretization_manager<double> &, int64_t);
+template void advance_in_time(discretization_manager<double> &, int64_t);
 template void advance_time_v2(discretization_manager<double> &, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template struct time_advance::steady_state<float>;
 template struct time_advance::rungekutta<float>;
 template struct time_advance::crank_nicolson<float>;
 template struct time_advance_manager<float>;
 
-template void advance_time(discretization_manager<float> &, int64_t);
+template void advance_in_time(discretization_manager<float> &, int64_t);
 template void advance_time_v2(discretization_manager<float> &, int64_t);
 #endif
 } // namespace asgard

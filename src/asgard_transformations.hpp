@@ -4,6 +4,15 @@
 
 namespace asgard
 {
+/*!
+ * \internal
+ * \brief Shorthand for array of diagonal mass matrices
+ *
+ * \endinternal
+ */
+template<typename P>
+using mass_diag = std::array<block_diag_matrix<P>, max_num_dimensions>;
+
 // combines the values from the vectors into the combined tensor list
 // the size of combined should be equal to the number of elements
 // times the tesor block size (degree + 1)^d
@@ -53,6 +62,11 @@ struct legendre_basis {
   P *legw = nullptr; // scale 1 / sqrt(dx)
   //! legendre derivatives evaluated at the quadrature points
   P *der = nullptr; // scale 1 / (2 * dx * sqrt(dx))
+
+  //! values of the legendre polynomials at the left end-point
+  P *leg_left = nullptr;
+  //! values of the legendre polynomials at the right end-point
+  P *leg_right = nullptr;
 };
 
 
@@ -145,24 +159,17 @@ public:
 
   //! project separable function on the basis level
   template<data_mode action = data_mode::replace>
-  void project_separable(separable_func<P> const &sep,
-                         pde_domain<P> const &domain,
-                         sparse_grid const &grid,
-                         std::array<function_1d<P>, max_num_dimensions> const &dv,
-                         mass_list &mass,
-                         P time, std::vector<P> &f, P alpha = 1) const
+  void project_separable(separable_func<P> const &sep, pde_domain<P> const &domain,
+                         sparse_grid const &grid, mass_diag<P> const &mass,
+                         P time, P alpha, P f[]) const
   {
-    if constexpr (action == data_mode::replace or action == data_mode::increment)
-      expect(alpha == 1);
-
-    expect(f.size() == static_cast<size_t>(grid.num_indexes() * block_size_));
     int const num_dims = domain.num_dims();
     for (int d : iindexof(num_dims))
     {
       project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
           -> void {
-        sep.fdomain(d)(x, time, fx);
-      }, dv[d], mass[d], d, grid.current_level(d));
+        sep.fdomain(d, x, time, fx);
+      }, mass[d], d, grid.current_level(d));
     }
 
     P const tmult = (sep.ftime()) ? sep.ftime()(time) : P{1};
@@ -170,7 +177,7 @@ public:
     int const pdof = degree_ + 1;
     std::array<P const *, max_num_dimensions> data1d;
 
-    P *proj = f.data();
+    P *proj = f;
 
     for (auto c : indexof(grid.num_indexes()))
     {
@@ -262,7 +269,7 @@ public:
     }
   }
 
-  //! computes the 1d projection of f onto the given level
+  //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
   void project1d_f(function_1d<P> const &f, function_1d<P> const &dv,
                    level_mass_matrces<P> &mass, int dim, int level) const
   {
@@ -280,6 +287,16 @@ public:
     }
 
     // project onto the basis
+    project1d(dim, level, dmax[dim] - dmin[dim], mass);
+  }
+  //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
+  void project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
+  {
+    int const num_cells = fm::ipow2(level);
+    prepare_quadrature(dim, num_cells);
+    fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
+    f(quad_points[dim], fvals);
+
     project1d(dim, level, dmax[dim] - dmin[dim], mass);
   }
 
@@ -395,6 +412,8 @@ protected:
    */
   template<bool skip_hierarchy = false>
   void project1d(int dim, int level, P const dsize, level_mass_matrces<P> const &mass) const;
+  //! project onto the basis
+  void project1d(int dim, int level, P const dsize, block_diag_matrix<P> const &mass) const;
 
   static constexpr P s2 = 1.41421356237309505; // std::sqrt(2.0)
   static constexpr P is2 = P{1} / s2;          // 1.0 / std::sqrt(2.0)
