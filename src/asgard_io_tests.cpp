@@ -1,6 +1,6 @@
 #include "tests_general.hpp"
 
-// workaround for missing include issue with highfive
+// reintroduce private headers
 #include <highfive/H5Easy.hpp>
 #include <highfive/H5DataType.hpp>
 #include <highfive/H5DataSpace.hpp>
@@ -96,7 +96,7 @@ TEMPLATE_TEST_CASE("save/restart logic", "[io]", test_precs)
   std::string const filename = (std::is_same_v<TestType, double>)
       ? "_asgard_dsave_test1.h5" : "_asgard_fsave_test1.h5";
 
-  SECTION("simple resrat")
+  SECTION("simple restart")
   {
     int const num_dims = 4;
     std::string const title    = "basic io test";
@@ -226,5 +226,115 @@ TEMPLATE_TEST_CASE("save/restart logic", "[io]", test_precs)
     opts2 = make_opts("-restart " + filename + " -dt 0.5 -time 1.0");
     REQUIRE_THROWS_WITH(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
                         "cannot reset the final time to an instance before the current time");
+  }
+}
+
+TEMPLATE_TEST_CASE("save/restart logic (longer)", "[io]", test_precs)
+{
+  using P = TestType;
+  SECTION("basic restart")
+  {
+    using pde = pde_contcos;
+
+    // 1. make a pde and set 4 time-steps, advance in time and save the state
+    //    - check initial and final error, and file-existing
+    // 2. restart and set 4 additional time-steps, advance in time
+    //    - make sure restarted matches the saved and new end-time is set
+    // 3. compare against a one-shot integration using 4 steps
+
+    auto options = make_opts("-l 5 -d 2 -dt 0.01 -n 4 -of _asg_testfile.h5");
+    discretization_manager<P> disc(make_testpde<pde, P>(2, options));
+    REQUIRE(get_qoi_indicator<pde, P>(disc) < 1.E-2);
+    advance_time(disc);
+    REQUIRE(get_qoi_indicator<pde, P>(disc) < 1.E-2);
+
+    disc.save_final_snapshot();
+    REQUIRE(std::filesystem::exists("_asg_testfile.h5"));
+
+    auto ropts = make_opts("-n 4 -dt 0.01 -restart _asg_testfile.h5");
+    discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
+
+    REQUIRE(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+
+    REQUIRE(std::abs(rdisc.time_params().stop_time() - 0.08) < 2.E-9); // updated the stop time
+    advance_time(rdisc);
+
+    REQUIRE(std::abs(rdisc.time_params().time() - 0.08) < 1.E-8);
+
+    options = make_opts("-l 5 -d 2 -dt 0.01 -n 8");
+    discretization_manager<P> reff(make_testpde<pde, P>(2, options));
+    advance_time(reff);
+
+    REQUIRE(std::abs(reff.time_params().time() - 0.08) < 1.E-8);
+
+    REQUIRE(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+  }
+
+  SECTION("adaptive restart")
+  {
+    using pde = pde_contcos;
+
+    // similar to above but uses adaptivity
+
+    auto options = make_opts("-l 8 -d 2 -dt 0.01 -n 8 -a 1.E-2 -of _asg_testfile.h5");
+    discretization_manager<P> disc(make_testpde<pde, P>(2, options));
+    REQUIRE(get_qoi_indicator<pde, P>(disc) < 1.E-2);
+    advance_time(disc, 4);
+    REQUIRE(get_qoi_indicator<pde, P>(disc) < 1.E-2);
+
+    disc.save_final_snapshot();
+    REQUIRE(std::filesystem::exists("_asg_testfile.h5"));
+
+    auto ropts = make_opts("-restart _asg_testfile.h5");
+    discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
+
+    REQUIRE(rdisc.get_sgrid().num_indexes() == disc.get_sgrid().num_indexes());
+    REQUIRE(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+
+    REQUIRE(std::abs(rdisc.time_params().stop_time() - 0.08) < 2.E-9); // updated the stop time
+    advance_time(rdisc);
+
+    REQUIRE(std::abs(rdisc.time_params().time() - 0.08) < 1.E-8);
+
+    options = make_opts("-l 8 -d 2 -dt 0.01 -n 8 -a 1.E-2");
+    discretization_manager<P> reff(make_testpde<pde, P>(2, options));
+    advance_time(reff);
+
+    REQUIRE(rdisc.get_sgrid().num_indexes() == reff.get_sgrid().num_indexes());
+
+    REQUIRE(std::abs(reff.time_params().time() - 0.08) < 1.E-8);
+
+    REQUIRE(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+  }
+
+  SECTION("moments restart")
+  {
+    using pde = pde_twostream;
+
+    // similar to above but uses adaptivity
+
+    auto options = make_opts("-l 7 -d 2 -dt 1.953125E-3 -n 8 -a 1.E-6 -of _asg_testfile.h5");
+    discretization_manager<P> disc(make_testpde<pde, P>(2, options));
+    double const ienergy = get_qoi_indicator<pde, P>(disc);
+    advance_time(disc, 4);
+    double tol = (std::is_same_v<P, double>) ? 1.E-8 : 1.E-5;
+    REQUIRE(std::abs(ienergy - get_qoi_indicator<pde, P>(disc)) < tol);
+
+    disc.save_final_snapshot();
+    REQUIRE(std::filesystem::exists("_asg_testfile.h5"));
+
+    auto ropts = make_opts("-restart _asg_testfile.h5");
+    discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
+
+    REQUIRE(rdisc.get_sgrid().num_indexes() == disc.get_sgrid().num_indexes());
+    REQUIRE(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+
+    REQUIRE(std::abs(rdisc.time_params().stop_time() - 1.5625E-2) < 1.E-10); // updated the stop time
+    advance_time(rdisc);
+
+    REQUIRE(std::abs(rdisc.time_params().time() - 1.5625E-2) < 1.E-10);
+
+    advance_time(disc);
+    REQUIRE(std::abs(get_qoi_indicator<pde, P>(rdisc) - get_qoi_indicator<pde, P>(disc)) < 1.E-8);
   }
 }

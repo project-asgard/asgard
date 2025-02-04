@@ -193,6 +193,10 @@ void discretization_manager<precision>::start_cold()
     std::cout << '\n';
 
     std::cout << sgrid;
+    if (options.adapt_threshold)
+      std::cout << "  adaptive tolerance: " << options.adapt_threshold.value() << '\n';
+    else
+      std::cout << "  non-adaptive\n";
   }
 
   { // setting up the time-step approach
@@ -299,6 +303,8 @@ template<typename precision>
 void discretization_manager<precision>::restart_from_file()
 {
 #ifdef ASGARD_USE_HIGHFIVE
+  tools::time_event timing_("restart from file");
+
   time_data<precision> dtime;
   h5manager<precision>::read(pde2.options().restart_file, high_verbosity(), pde2, sgrid,
                              dtime, state);
@@ -316,7 +322,19 @@ void discretization_manager<precision>::restart_from_file()
   terms = term_manager<precision>(pde2);
 
   terms.prapare_workspace(sgrid);
-  // initialize the moments here, we already have the the state
+
+  // moments, identical to the start_cold() case
+  mom_deps deps = terms.find_deps();
+  if (deps.num_moments > 0) {
+    moms1d = moments1d(deps.num_moments, degree_, pde2.max_level(), pde2.domain());
+    if (deps.poisson) {
+      poisson = solvers::poisson(degree_, pde2.domain().xleft(0), pde2.domain().xright(0),
+                                 sgrid.current_level(0));
+
+      terms.cdata.electric_field.resize(fm::ipow2(sgrid.current_level(0)));
+    }
+  }
+
   if (stepper.needed_precon() == preconditioner_opts::adi) {
     precision const substep
         = (options.step_method.value() == time_advance::method::cn) ? 0.5 : 1;
@@ -331,6 +349,10 @@ void discretization_manager<precision>::restart_from_file()
     if (not options.subtitle.empty())
       std::cout << "subtitle: " << options.subtitle << '\n';
     std::cout << sgrid;
+    if (options.adapt_threshold)
+      std::cout << "  adaptive tolerance: " << options.adapt_threshold.value() << '\n';
+    else
+      std::cout << "  non-adaptive\n";
     std::cout << stepper;
     if (high_verbosity())
       progress_report();

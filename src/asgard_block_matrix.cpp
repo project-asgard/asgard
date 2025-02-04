@@ -214,11 +214,17 @@ void gemm_block_tri(int const n, block_tri_matrix<P> const &A, block_tri_matrix<
                     block_tri_matrix<P> &C)
 {
   int const M = A.nrows();
+  expect(M >= 1);
   expect(A.nblock() == B.nblock());
   expect(A.nblock() == C.nblock());
   expect(A.nblock() == n * n);
   expect(B.nrows() == M);
   expect(C.nrows() == M);
+
+  if (M == 1) {
+    smmat::gemm<0>(n, A.diag(0), B.diag(0), C.diag(0));
+    return;
+  }
 
   smmat::gemm<0>(n, A.diag(0), B.lower(0), C.lower(0));
   smmat::gemm<1>(n, A.lower(0), B.diag(M - 1), C.lower(0));

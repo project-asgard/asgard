@@ -485,7 +485,7 @@ void self_test() {
   dolongtest<double>(0.02, 2, "-l 5 -t 10");
 
   // adaptivity is tricky near the time-period when the solution vanishes
-  dolongtest<double>(0.03, 2, "-l 4 -m 8 -t 10 -a 1.E-2");
+  dolongtest<double>(0.03, 2, "-l 4 -m 8 -t 10 -a 5.E-3");
 
   // different explicit time-stepping
   dotest<double>(0.05, 2, "-s rk2 -l 5 -n 20");
