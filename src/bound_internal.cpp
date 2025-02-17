@@ -88,8 +88,6 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 template<typename P = default_precision>
 PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
   // -u_xx = 1 u(0) = u(1) = 0 -> u = 0.5 * x * (1 - x)
-  rassert(num_dims == 1, "the quad example (error function) works only in 1d");
-
   options.title = "PDE quadratic solution " + std::to_string(num_dims) + "D";
 
   pde_domain<P> domain(std::vector<domain_range<P>>(num_dims, {0, 1}));
@@ -126,9 +124,19 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
     void {
       std::fill(fx.begin(), fx.end(), P{1});
     };
+  auto s1d = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+    void {
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = 0.5 * x[i] * (P{1} - x[i]);
+    };
 
-  pde.add_source({std::vector<svector_func1d<P>>(num_dims, one),
-                  separable_func<P>::set_ignore_time});
+  std::vector<svector_func1d<P>> func(num_dims, s1d);
+
+  for (int d : iindexof(num_dims)) {
+    func[d] = one;
+    pde.add_source({func, separable_func<P>::set_ignore_time});
+    func[d] = s1d;
+  }
 
   // no initial state
   return pde;
@@ -305,6 +313,8 @@ void dotest_quad(double tol, int num_dims, std::string const &opts) {
 
   double const err = get_error_l2(disc);
 
+  // std::cout << err << "\n";
+
   tcheckless(disc.time_params().step(), err, tol);
 }
 
@@ -333,8 +343,11 @@ void self_test() {
 
   dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s cn -d 1 -dt 0.1 -t 10");
   dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s cn -d 2 -dt 0.1 -t 10");
-  dotest_quad<double>(1.E-2, 1, "-quad -l 6 -s steady");
-  dotest_quad<double>(1.E-2, 1, "-quad -l 5 -s steady -sv bicgstab");
+  dotest_quad<double>(1.E-3, 1, "-quad -l 6 -s steady");
+  dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s steady -sv bicgstab");
+  dotest_quad<double>(1.E-4, 2, "-quad -l 5 -sv bicgstab");
+  dotest_quad<double>(1.E-5, 3, "-quad -l 5 -sv bicgstab");
+  dotest_quad<double>(1.E-6, 4, "-quad -l 5 -sv bicgstab");
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
