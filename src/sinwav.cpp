@@ -14,10 +14,10 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_sinwav Example 5, Moving sine wave
+ * \addtogroup asgard_examples_sinwav Example 6, Moving sine wave
  *
- * \par Example 5
- * Creates a simple 1D PDE where the solution starts from zero and
+ * \par Example 6
+ * Creates a simple hyperbolic 1D PDE where the solution starts from zero and
  * grows to a moving sine wave, namely
  * \f[ \frac{\partial}{\partial t} f +  \frac{\partial}{\partial x} f = 0 \f]
  * the domain is (0, 1) and initial and right boundary conditions are

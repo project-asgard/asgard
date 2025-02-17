@@ -1,0 +1,406 @@
+#include "asgard.hpp"
+
+#include "asgard_test_macros.hpp" // only for testing
+
+/*!
+ * \internal
+ * \file elliptic.cpp
+ * \brief Elliptic equation
+ * \author The ASGarD Team
+ *
+ * Simple example of steady-state partial differential equation.
+ * \endinternal
+ */
+
+/*!
+ * \ingroup asgard_examples
+ * \addtogroup asgard_examples_elliptic Example 5, Elliptic equation
+ *
+ * \par Example 5
+ * Creates a simple elliptic PDE that multiplies across the dimensions
+ * the same one-dimensional boundary value problem
+ * \f[ \frac{d^2}{d x^2} f = 2 \f]
+ * the domain is (0, 1) and the exact solution is
+ * \f[ f(x) = 2 x - x^2 \f]
+ * The solution can be obtained by assigning homogeneous boundary conditions,
+ * Dirichlet on the left and Neumann on the right,
+ * or alternatively we can assign inhomogeneous conditions
+ * \f[ \frac{d}{dx} f(0) = 2, \qquad f(1) = 1 \f]
+ * Since the solution is a quadratic function, using degree of 2 or more
+ * should resolve the exact solution regardless of the grid
+ * (up to rounding error due to conditioning and precision).
+ *
+ * This examples shows how to set different types of boundary conditions
+ * and how to solve a steady state problem.
+ */
+
+/*!
+ * \ingroup asgard_examples_elliptic
+ * \brief Indicates the type of boundary conditions to use
+ */
+enum class boundary_enum {
+  //! Dirichlet and Neumann set to zero value
+  homogeneous,
+  //! Dirichlet and Neumann set to non-zero value
+  inhomogeneous
+};
+
+/*!
+ * \ingroup asgard_examples_elliptic
+ * \brief Make an elliptic PDE
+ *
+ * Constructs the pde description for the given umber of dimensions
+ * and options.
+ *
+ * \tparam boudnary indicates the type of boundary to use
+ * \tparam P is either double or float, the asgard::default_precision will select
+ *           first double, if unavailable, will go for float
+ *
+ * \param options is the set of options
+ *
+ * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
+ *          removed in the near future
+ *
+ * \b Note: The asgard namespace includes the name \b boundary_type,
+ * it a natural name but it is possible to create a conflict if the entire namespace
+ * is included.
+ *
+ * \snippet elliptic.cpp elliptic make
+ */
+template<boundary_enum boudnary, typename P = asgard::default_precision>
+asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [elliptic make]
+#endif
+  rassert(1 <= num_dims and num_dims <= 6, "invalid number of dimensions");
+
+  options.title = "Elliptic PDE + " + std::to_string(num_dims) + "D";
+
+  asgard::pde_domain<P> domain(std::vector<asgard::domain_range<P>>(num_dims, {0, 1}));
+
+  options.default_degree = 1;
+  options.default_start_levels = {4, };
+
+  // previous examples were setting a default stepping method
+  // which allows the cli options to overwrite the selection
+  // here, we are overwriting the cli selection, if another
+  // method was requested then a warning will be generated
+  // (this should probably be an error instead of a warning)
+  options.force_step_method(asgard::time_advance::method::steady);
+
+  // OK for small problems, larger one should switch to gmres or bicgstab
+  options.default_solver = asgard::solve_opts::direct;
+
+  asgard::PDEv2<P> pde(options, std::move(domain));
+
+  if constexpr (boudnary == boundary_enum::homogeneous)
+  {
+    // Dirichlet boundary set to the div term corresponds to Neumann boundary
+    asgard::term_1d<P> div =
+        asgard::term_div<P>(-1, asgard::flux_type::upwind, asgard::boundary_type::left_free);
+    // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
+    asgard::term_1d<P> grad =
+        asgard::term_grad<P>(1, asgard::flux_type::upwind, asgard::boundary_type::right_free);
+
+    asgard::term_1d<P> fxx({div, grad});
+
+    // adding small penalty to stabilize the steady state equation
+    // not that the value will not change the result
+    fxx.set_penalty(0.01, asgard::flux_type::upwind, asgard::boundary_type::right_free);
+
+    // the multi-dimensional operator, initially set to identity in md
+    std::vector<asgard::term_1d<P>> ops(num_dims);
+    for (int d = 0; d < num_dims; d++)
+    {
+      ops[d] = fxx;
+      pde += asgard::term_md<P>(ops);
+      ops[d] = asgard::term_identity{};
+    }
+  }
+
+  // just the constant 2
+  auto two = [](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
+    void {
+      std::fill(fx.begin(), fx.end(), P{2});
+    };
+  // steady state solution
+  auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+    void {
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = x[i] * (P{2} - x[i]);
+    };
+
+  // set the right-hand-side for each dimension
+  std::vector<asgard::svector_func1d<P>> func(num_dims, s1d);
+  for (int d = 0; d < num_dims; d++) {
+    func[d] = two;
+    pde.add_source({func, asgard::separable_func<P>::set_ignore_time});
+    func[d] = s1d;
+  }
+
+  // if an initial condition is specified, it will be used as the initial guess
+  // of an iterative solver, other zeros is used as the initial guess
+  // the direct solver does not use an initial guess
+
+  return pde;
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [elliptic make]
+#endif
+}
+
+/*!
+ * \ingroup asgard_examples_elliptic
+ * \brief Computes the L^2 error for the given example
+ *
+ * The provided discretization_manager should hold a PDE made with
+ * make_elliptic_pde() and the solution should be set.
+ *
+ * \tparam P is double or float, the precision of the manager
+ *
+ * \param disc is the discretization of a PDE
+ *
+ * \returns the L^2 error between the known exact solution and
+ *          the current state in the \b disc manager
+ *
+ * \snippet elliptic.cpp elliptic get-err
+ */
+template<typename P>
+double get_error_l2(asgard::discretization_manager<P> const &disc)
+{
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [elliptic get-err]
+#endif
+
+  int const num_dims = disc.num_dims();
+
+  // see the continuity example for the orthogonality trick
+
+  // construct the exact solution, since there is no initial condition
+  auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+    void {
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = x[i] * (P{2} - x[i]);
+    };
+
+  // set the right-hand-side for each dimension
+  std::vector<asgard::svector_func1d<P>> func(num_dims, s1d);
+
+  std::vector<P> const eref = disc.project_function(asgard::separable_func<P>(func));
+
+  double constexpr space1d = 8.0 / 15.0; // integral of (2x - x^2)^2 over (0, 1)
+
+  // this is the L^2 norm-squared of the exact solution
+  double const enorm = asgard::fm::powi(space1d, num_dims);
+
+  std::vector<P> const &state = disc.current_state();
+  assert(eref.size() == state.size());
+
+  double nself = 0;
+  double ndiff = 0;
+  for (size_t i = 0; i < state.size(); i++)
+  {
+    double const e = eref[i] - state[i];
+    ndiff += e * e;
+    double const r = eref[i];
+    nself += r * r;
+  }
+
+  // when cos(t) vanishes, so does the exact solution and enorm -> 0
+  // for small values of enorm, the relative error is artificially magnified
+  // switch between relative and absolute error
+  if (enorm < 1.E-3)
+    return std::sqrt(ndiff + enorm - nself);
+  else
+    return std::sqrt((ndiff + enorm - nself) / enorm);
+  return 0;
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [elliptic get-err]
+#endif
+}
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+// self-consistency testing, not part of the example/tutorial
+void self_test();
+#endif
+
+/*!
+ * \ingroup asgard_examples_elliptic
+ * \brief main() for the sine-wave example
+ *
+ * The main() processes the command line arguments and calls both
+ * make_elliptic_pde() and get_error_l2().
+ *
+ * \snippet sinwav.cpp sinwav main
+ */
+int main(int argc, char** argv)
+{
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [sinwav main]
+#endif
+  using P = asgard::default_precision;
+
+  // parse the command-line inputs
+  asgard::prog_opts options(argc, argv);
+
+  // if help was selected in the command line, show general information about
+  // this example runs 2D problem, testing does more options
+  if (options.show_help) {
+    std::cout << "\n solves an elliptic PDE Laplacian f = 2 * num-dims:\n";
+    std::cout << "    -- standard ASGarD options --";
+    options.print_help(std::cout);
+    std::cout <<
+R"help(<< additional options for this file >>
+-dims            -dm     int        accepts: 1 - 6
+                                    the number of dimensions
+-bound           -bc     int        accepts: 0 or 1
+                                    0 - use homogeneous boundary conditions
+                                    1 - use inhomogeneous boundary conditions
+
+-test                               perform self-testing
+)help";
+    return 0;
+  }
+
+  options.throw_if_argv_not_in({"-test", }, {"-dims", "-dm", "-bound", "-bc"});
+
+  if (options.has_cli_entry("-test")) {
+    self_test();
+    return 0;
+  }
+
+  // using a method similar to extra_cli_value that will loop for multiple entries
+  // returns the first entry found
+  std::optional<int> cli_btype = options.extra_cli_value_group<int>({"-bound", "-bc"});
+  int const btype = cli_btype.value_or(0);
+
+  if (not cli_btype) {
+    std::cout << "using default homogeneous boundary\n";
+  } else if (btype == 0) {
+    std::cout << "using homogeneous boundary\n";
+  } else if (btype == 1) {
+    std::cout << "using inhomogeneous boundary\n";
+  } else {
+    std::cerr << "incorrect value for -bound, must use 0 or 1\n";
+    return 1;
+  }
+
+  // setting the dimensions
+  std::optional<int> cli_dims = options.extra_cli_value_group<int>({"-dims", "-dm"});
+  int const num_dims = cli_dims.value_or(2);
+
+  if (not cli_dims) {
+    std::cout << "setting default 2D problem\n";
+  } else {
+    std::cout << "setting " << num_dims << "D problem\n";
+  }
+
+  auto pde = (btype == 0)
+             ? make_elliptic_pde<boundary_enum::homogeneous, P>(num_dims, options)
+             : make_elliptic_pde<boundary_enum::inhomogeneous, P>(num_dims, options);
+
+  asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::low);
+
+  disc.advance_time();
+
+  disc.final_output();
+
+  if (not disc.stop_verbosity()) {
+    P const err = get_error_l2(disc);
+    std::cout << " -- final error: " << err << '\n';
+  }
+
+  return 0;
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [sinwav main]
+#endif
+}
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+///////////////////////////////////////////////////////////////////////////////
+// The code below is not part of the example, rather it is intended
+// for correctness checking and verification against the known solution
+///////////////////////////////////////////////////////////////////////////////
+
+// just for convenience to avoid using asgard:: all over the place
+// normally, one should only include what is needed
+using namespace asgard;
+
+template<typename P>
+void dotest(double tol, std::string const &opts) {
+  // current_test<P> test_(opts, 1);
+  //
+  // auto options = make_opts(opts);
+  //
+  // bool const left = options.has_cli_entry("-left");
+  //
+  // bool const final_only = options.has_cli_entry("-test-final-only");
+  //
+  // auto pde = (left) ? make_sinwav_pde<from_direction::left, P>(options)
+  //                   : make_sinwav_pde<from_direction::right, P>(options);
+  //
+  // discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
+  //
+  // if (final_only) {
+  //   disc.advance_time();
+  //   double const err = get_error_l2(disc);
+  //   // std::cout << err << '\n';
+  //   tcheckless(disc.time_params().step(), err, tol);
+  // } else {
+  //   while (disc.time_params().num_remain() > 0)
+  //   {
+  //     disc.advance_time(1);
+  //
+  //     if (not final_only) {
+  //       double const err = get_error_l2(disc);
+  //       // std::cout << err << '\n';
+  //       tcheckless(disc.time_params().step(), err, tol);
+  //     }
+  //   }
+  // }
+}
+
+void self_test() {
+  // #ifdef ASGARD_ENABLE_DOUBLE
+  // // the solution starts as constant zero and turns into sine wave
+  // // this creates a kink (discontinuity in the first derivative)
+  // // thus, at time t = 1 the convergence is only 1-st order in dx
+  // // after the initial kink leaves the domain, the error goes down
+  // dotest<double>(1.E-2, "-l 4 -t 1.1 -left");
+  // dotest<double>(1.E-2, "-l 4 -t 1.1 -right");
+  // dotest<double>(5.E-3, "-l 5 -t 1.1 -left");
+  // dotest<double>(5.E-3, "-l 5 -t 1.1 -right");
+  // dotest<double>(1.E-3, "-l 6 -t 1.1 -left");
+  // dotest<double>(1.E-3, "-l 6 -t 1.1 -right");
+  // dotest<double>(5.E-4, "-l 7 -t 1.1 -left");
+  // dotest<double>(5.E-4, "-l 7 -t 1.1 -right");
+  //
+  // dotest<double>(5.E-4, "-l 4 -t 1.4 -left -test-final-only");
+  // dotest<double>(5.E-4, "-l 4 -t 1.4 -right -test-final-only");
+  // dotest<double>(1.E-4, "-l 5 -t 1.4 -left -test-final-only");
+  // dotest<double>(1.E-4, "-l 5 -t 1.4 -right -test-final-only");
+  // dotest<double>(5.E-5, "-l 6 -t 1.4 -left -test-final-only");
+  // dotest<double>(5.E-5, "-l 6 -t 1.4 -right -test-final-only");
+  // dotest<double>(7.E-6, "-l 7 -t 1.4 -left -test-final-only");
+  // dotest<double>(7.E-6, "-l 7 -t 1.4 -right -test-final-only");
+  //
+  // dotest<double>(3.E-5, "-m 8 -a 1.E-5 -t 1.4 -test-final-only");
+  // #endif
+  //
+  // #ifdef ASGARD_ENABLE_FLOAT
+  // dotest<float>(1.E-2, "-l 4 -t 1.1 -left");
+  // dotest<float>(1.E-2, "-l 4 -t 1.1 -right");
+  // dotest<float>(5.E-3, "-l 5 -t 1.1 -left");
+  // dotest<float>(3.E-3, "-l 6 -t 1.1 -right");
+  //
+  // dotest<float>(5.E-2, "-l 2 -t 1.4 -left -test-final-only");
+  // dotest<float>(5.E-2, "-l 2 -t 1.4 -right -test-final-only");
+  // dotest<float>(5.E-3, "-l 3 -t 1.4 -left -test-final-only");
+  // dotest<float>(5.E-3, "-l 3 -t 1.4 -right -test-final-only");
+  // dotest<float>(1.E-3, "-l 4 -t 1.4 -left -test-final-only");
+  // dotest<float>(1.E-3, "-l 4 -t 1.4 -right -test-final-only");
+  //
+  // dotest<float>(3.E-3, "-m 6 -a 1.E-3 -t 1.4 -test-final-only");
+  // #endif
+}
+
+#endif

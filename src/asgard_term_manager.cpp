@@ -680,6 +680,10 @@ void term_manager<P>::build_raw_mat(
         gen_tri_cmat<P, operation_type::div, rhs_type::is_const>
           (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_tri);
       }
+      if (t1d.penalty() != 0) {
+        gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
+          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_tri);
+      }
       break;
     case operation_type::grad:
       if (t1d.rhs()) {
@@ -688,6 +692,10 @@ void term_manager<P>::build_raw_mat(
       } else {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_const>
           (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_tri);
+      }
+      if (t1d.penalty() != 0) {
+        gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
+          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_tri);
       }
       break;
     case operation_type::penalty:
@@ -822,6 +830,11 @@ void term_manager<P>::rebuld_chain(
       raw_tri.check_resize(*tri1);
       gemm_block_tri(legendre.pdof, *tri1, *tri0, raw_tri);
     }
+  }
+
+  if (t1d.penalty() != 0) {
+    gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
+      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_tri);
   }
 }
 

@@ -1901,13 +1901,35 @@ public:
   bool has_flux() const {
     if (optype_ == operation_type::chain) {
       for (auto const &cc : chain_)
-        if (cc.optype_ != operation_type::mass)
+        if (cc.optype_ != operation_type::mass and cc.optype_ != operation_type::identity)
           return true;
       return false;
     } else {
       return (optype_ != operation_type::mass);
     }
   }
+  //! add penalty to a div or grad term, more efficient than adding additional term
+  void set_penalty(P penalty_coefficient) {
+    rassert(optype_ == operation_type::div or optype_ == operation_type::grad,
+            "penalty can be added only to div or grad terms, if added to a chain "
+            "flux has to also be specified (and potentially boundary condition)");
+    rassert(penalty_coefficient > 0, "penalty coefficient has to be positive");
+    penalty_ = penalty_coefficient;
+  }
+  //! add penalty to a chain term, more efficient than adding additional term
+  void set_penalty(P penalty_coefficient, flux_type flx, boundary_type bnd, dirichelt_boundary1d<P> dir = {}) {
+    rassert(optype_ == operation_type::chain,
+            "penalty with specified flux can be added only to a chain term, adding "
+            "penalty to div or grad terms matches the provided flux");
+    rassert(penalty_coefficient > 0, "penalty coefficient has to be positive");
+    penalty_   = penalty_coefficient;
+    flux_      = flx;
+    boundary_  = bnd;
+    dirichlet_ = std::move(dir);
+  }
+  //! get the current penalty coefficient
+  P penalty() const { return penalty_; }
+
   //! returns the boundary conditions
   dirichelt_boundary1d<P> const &dirichlet() const { return dirichlet_; }
 
@@ -1964,6 +1986,7 @@ private:
 
   sfixed_func1d<P> rhs_;
   P rhs_const_ = 1;
+  P penalty_   = 0;
 
   int mom = 0;
   sfixed_func1d_f<P> field_f_;

@@ -112,6 +112,9 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
 
   term_1d<P> diffusion({div, grad});
 
+  if (num_dims > 1) // it is more efficient to add the penalty to the chain
+    diffusion.set_penalty(0.1, flux_type::upwind, boundary_type::dirichlet);
+
   term_1d<P> penalty = term_penalty<P>(0.1, flux_type::upwind, boundary_type::dirichlet);
 
   std::vector<term_1d<P>> ops(num_dims);
@@ -120,7 +123,7 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
     ops[d] = diffusion; // using operator in the d-direction
     pde += term_md<P>(ops);
 
-    if (pde.options().step_method.value_or(time_advance::method::rk3)
+    if (num_dims == 1 and pde.options().step_method.value_or(time_advance::method::rk3)
           == time_advance::method::steady) {
       ops[d] = penalty;
       pde += term_md<P>(ops);

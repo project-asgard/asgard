@@ -16,7 +16,7 @@ enum class rhs_type {
   is_func, is_const
 };
 
-template<typename P, operation_type optype, rhs_type rtype>
+template<typename P, operation_type optype, rhs_type rtype, data_mode dmode = data_mode::replace>
 void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                   sfixed_func1d<P> const &rhs, P const rhs_const, flux_type flux,
                   boundary_type boundary, block_tri_matrix<P> &coeff)
@@ -26,6 +26,9 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                 and optype != operation_type::chain,
                 "identity, mass and chain operations yield diagonal matrices, "
                 "should not be used in the tri-diagonal case");
+  static_assert(dmode == data_mode::replace or dmode == data_mode::increment,
+                "matrices can either replace existing data or add to it, "
+                "use data_mode::replace or data_mode::increment");
 
   if constexpr (optype == operation_type::grad) {
     // the grad operation flips the dirichlet and free boundayr conditions
@@ -51,7 +54,12 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   P const dx = (xright - xleft) / num_cells;
 
   int const nblock = basis.pdof * basis.pdof;
-  coeff.resize_and_zero(nblock, num_cells);
+  if constexpr (dmode == data_mode::replace) {
+    coeff.resize_and_zero(nblock, num_cells);
+  } else {
+    expect(coeff.nblock() == nblock);
+    expect(coeff.nrows() == num_cells);
+  }
 
   // if not using a constant rhs, get the values from the function
   static std::vector<P> rhs_pnts;
