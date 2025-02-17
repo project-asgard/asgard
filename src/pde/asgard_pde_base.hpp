@@ -1405,6 +1405,16 @@ struct dirichelt_boundary1d {
   dirichelt_boundary1d(scalar_func<P> left, scalar_func<P> right)
       : left_t(std::move(left)), right_t(std::move(right))
   {}
+  //! move constant boundary term with different precision
+  template<typename otherP>
+  dirichelt_boundary1d(dirichelt_boundary1d<otherP> other)
+      : const_left(static_cast<P>(other.const_left)),
+        const_right(static_cast<P>(other.const_right))
+  {
+    rassert(not other.left_t and not other.right_t,
+            "type mismatch using dirichelt_boundary1d, "
+            "see the type-safety documentation of term_1d");
+  }
 
   //! constant left boundary condition
   P const_left = 0;
@@ -1535,6 +1545,37 @@ struct term_div {
   P const_coeff = 0;
   //! right-hand-side function
   sfixed_func1d<P> right;
+
+  //! flux type
+  flux_type flux;
+  //! boundary type
+  boundary_type boundary;
+  //! non-zero Dirichlet boundary
+  dirichelt_boundary1d<P> dirichlet;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a div term, includes flux and boundary conditions
+ */
+template<typename P = default_precision>
+struct term_penalty {
+  //! make a grad term with constant coefficient
+  term_penalty(no_deduce<P> cc, flux_type flx, boundary_type bnd,
+               dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : const_coeff(cc), flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
+  //! make a grad term with constant coefficient 1
+  term_penalty(flux_type flx, boundary_type bnd, dirichelt_boundary1d<P> dir = dirichelt_boundary1d<P>{})
+    : const_coeff(1), flux(flx), boundary(bnd), dirichlet(std::move(dir))
+  {
+    dirichlet.throw_if_invalid(boundary);
+  }
+
+  //! constant coefficient, if left/right-hand-side functions are null
+  P const_coeff = 0;
 
   //! flux type
   flux_type flux;
@@ -1683,9 +1724,12 @@ public:
   {
     expect(optype_ != operation_type::identity);
 
-    if (optype_ != operation_type::div and optype_ != operation_type::grad)
-      rassert(not dirichlet_.has_any(), "cannot set boundary conditions for term_1d with operation_type "
-                                        "that is not div or grad");
+    if (optype_ != operation_type::div and
+        optype_ != operation_type::grad and
+        optype_ != operation_type::penalty)
+      rassert(not dirichlet_.has_any(),
+              "cannot set boundary conditions for term_1d with operation_type "
+              "that is not div, grad or penalty");
 
     if (optype_ == operation_type::grad) {
       if (flux_ == flux_type::upwind)
@@ -1722,6 +1766,17 @@ public:
   term_1d(term_div<P> divt)
     : term_1d(operation_type::div, divt.flux, divt.boundary,
               std::move(divt.right), divt.const_coeff, std::move(divt.dirichlet))
+  {}
+  //! make a penalty term
+  term_1d(term_penalty<P> pent)
+    : term_1d(operation_type::penalty, pent.flux, pent.boundary,
+              nullptr, pent.const_coeff, std::move(pent.dirichlet))
+  {}
+  //! make a penalty term
+  template<typename otherP>
+  term_1d(term_penalty<otherP> pent)
+    : term_1d(operation_type::penalty, pent.flux, pent.boundary,
+              nullptr, static_cast<P>(pent.const_coeff), std::move(pent.dirichlet))
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)

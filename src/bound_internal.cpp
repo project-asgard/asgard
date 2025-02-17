@@ -112,12 +112,21 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
 
   term_1d<P> diffusion({div, grad});
 
+  term_1d<P> penalty = term_penalty<P>(0.1, flux_type::upwind, boundary_type::dirichlet);
+
   std::vector<term_1d<P>> ops(num_dims);
   for (int d = 0; d < num_dims; d++)
   {
     ops[d] = diffusion; // using operator in the d-direction
-    pde += asgard::term_md<P>(ops);
-    ops[d] = asgard::term_identity{}; // reset back to identity
+    pde += term_md<P>(ops);
+
+    if (pde.options().step_method.value_or(time_advance::method::rk3)
+          == time_advance::method::steady) {
+      ops[d] = penalty;
+      pde += term_md<P>(ops);
+    }
+
+    ops[d] = term_identity{}; // reset back to identity
   }
 
   auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
@@ -343,10 +352,11 @@ void self_test() {
 
   dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s cn -d 1 -dt 0.1 -t 10");
   dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s cn -d 2 -dt 0.1 -t 10");
-  dotest_quad<double>(1.E-3, 1, "-quad -l 6 -s steady");
-  dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s steady -sv bicgstab");
-  dotest_quad<double>(1.E-4, 2, "-quad -l 5 -sv bicgstab");
-  dotest_quad<double>(1.E-5, 3, "-quad -l 5 -sv bicgstab");
+  dotest_quad<double>(5.E-5, 1, "-quad -l 6 -s steady");
+  dotest_quad<double>(1.E-8, 1, "-quad -l 6 -s steady -d 2");
+  dotest_quad<double>(1.E-4, 1, "-quad -l 5 -s steady -sv bicgstab");
+  dotest_quad<double>(1.E-4, 2, "-quad -l 5 -s steady");
+  dotest_quad<double>(1.E-5, 3, "-quad -l 5 -s steady");
   dotest_quad<double>(1.E-6, 4, "-quad -l 5 -sv bicgstab");
 #endif
 
@@ -368,7 +378,8 @@ void self_test() {
   dotest<float>(5.E-3,  6, "-dv 1");
   dotest<float>(5.E-3,  6, "-dv 2");
 
-  dotest_quad<float>(1.E-3, 1, "-quad -l 5 -s cn -d 1 -dt 0.1 -t 10");
-  dotest_quad<float>(1.E-3, 1, "-quad -l 5 -s cn -d 2 -dt 0.1 -t 10");
+  dotest_quad<float>(5.E-4, 1, "-quad -l 5");
+  dotest_quad<float>(1.E-4, 1, "-quad -l 6");
+  dotest_quad<float>(1.E-4, 1, "-quad -l 2 -d 2");
 #endif
 }

@@ -17,7 +17,7 @@
 /* NOTES TO SELF
  *
  * 1. Add steady state solver, which assumes existence and uniqueness
- *    - (almost) figure out the conditioning problem
+ *    - done
  *
  * 2. Add Poisson problem in 1D and 2D with homogeneous and inhomogeneous boundary conditions
  *    - it is easier to make a steady state problem
@@ -37,7 +37,6 @@
  * 5. Check small bugs
  *    - setting num-time-steps when dealing with default-dt and final-times
  *    - actually, recheck the whole logic in setting the time parameters
- *    - maybe check on an rk4 method
  *
  */
 
