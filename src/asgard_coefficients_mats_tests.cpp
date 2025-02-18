@@ -100,10 +100,12 @@ TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
 
   legendre_basis<P> const basis(0); // zero order
 
+  rhs_raw_data<P> rhs_raw;
+
   block_tri_matrix<P> mat;
 
   gen_tri_cmat<P, operation_type::div, rhs_type::is_const>(
-      basis, 0, 1, level, nullptr, 1, flux_type::upwind, boundary_type::periodic, mat);
+      basis, 0, 1, level, nullptr, 1, flux_type::upwind, boundary_type::periodic, rhs_raw, mat);
 
   for (int i = 0; i < 8; i++) {
     REQUIRE(mat.lower(i)[0] == -8);
@@ -118,7 +120,7 @@ TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
     };
 
   gen_tri_cmat<P, operation_type::div, rhs_type::is_func>(
-      basis, 0, 1, level + 1, cc, 0, flux_type::upwind, boundary_type::periodic, mat);
+      basis, 0, 1, level + 1, cc, 0, flux_type::upwind, boundary_type::periodic, rhs_raw, mat);
 
   for (int i = 0; i < 16; i++) {
     REQUIRE(mat.lower(i)[0] == -16);
@@ -127,7 +129,7 @@ TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
   }
 
   gen_tri_cmat<P, operation_type::div, rhs_type::is_const>(
-      basis, 0, 1, level, nullptr, 1, flux_type::central, boundary_type::free, mat);
+      basis, 0, 1, level, nullptr, 1, flux_type::central, boundary_type::free, rhs_raw, mat);
 
   std::vector<P> const ref = {0, -4, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4,
                               -4, 0, 4, -4, 0, 4, -4, 4, 0};

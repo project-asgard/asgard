@@ -127,9 +127,6 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
         asgard::term_grad<P>(1, asgard::flux_type::upwind, asgard::boundary_type::left_free,
                              asgard::dirichelt_boundary1d<P>{0, 1});
 
-    //asgard::term_1d<P> fxx({div, grad});
-    //asgard::term_1d<P> fxx({div, grad});
-
     // adding small penalty to stabilize the steady state equation
     // not that the value will not change the result
     // fxx.set_penalty(0.01, asgard::flux_type::upwind, asgard::boundary_type::right_free);
@@ -143,9 +140,13 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       grad_md[d] = grad;
       asgard::term_md<P> diff(std::vector<asgard::term_md<P>>{div_md, grad_md});
       pde += diff;
-      grad_md[d] = asgard::term_penalty(0.01, asgard::flux_type::upwind,
+
+      P const dx = pde.cell_size(d);
+
+      grad_md[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
                                         asgard::boundary_type::left_free,
-                                        asgard::dirichelt_boundary1d<P>{0, 1});
+                                        asgard::dirichelt_boundary1d<P>{0, -1});
+
       pde += grad_md;
 
       div_md[d]  = asgard::term_identity{};
@@ -341,7 +342,7 @@ R"help(<< additional options for this file >>
 
   if (not disc.stop_verbosity()) {
     P const err = get_error_l2(disc);
-    std::cout << " -- final error: " << err << '\n';
+    std::cout << " -- steady state error: " << err << '\n';
   }
 
   return 0;

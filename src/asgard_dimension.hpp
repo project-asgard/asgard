@@ -230,6 +230,10 @@ public:
       msize = std::min(msize, length_[d] / num_cells);
     return msize;
   }
+  P cell_size(int dim, int level) const {
+    int num_cells = fm::ipow2(level);
+    return length_[dim] / num_cells;
+  }
 
   //! used for i/o purposes
   friend class h5manager<P>;

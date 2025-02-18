@@ -141,8 +141,6 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
 
   sources.reserve(num_sources);
 
-  std::cout << " interior count = " << num_interior_sources << "  num_sources = " << num_sources << "\n";
-
   for (auto &s : sep) {
     if (s.num_dims() == 0)
       continue;
@@ -309,8 +307,6 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     }
   }
 
-  std::cout << " num sources = " << sources.size() << "\n";
-
   prapare_workspace(grid); // setup kronmult workspace
 }
 
@@ -375,37 +371,36 @@ void term_manager<P>::update_const_sources(
       }
       if (dim >= 0) {
         std::vector<P> const &const_r = std::get<source_boundary_data<P>>(src.func).consts_r;
-        if (const_r.empty())
-          continue;
+        if (not const_r.empty()) {
+          std::vector<P> &vals_r = std::get<source_boundary_data<P>>(src.func).vals_r;
 
-        std::vector<P> &vals_r = std::get<source_boundary_data<P>>(src.func).vals_r;
+          vals_r.resize(num_entries);
 
-        vals_r.resize(num_entries);
+          #pragma omp parallel
+          {
+            std::array<P const *, max_num_dimensions> data1d;
 
-        #pragma omp parallel
-        {
-          std::array<P const *, max_num_dimensions> data1d;
+            #pragma omp for
+            for (int64_t c = 0; c < grid.num_indexes(); c++) {
+              P *proj = vals_r.data() + c * block_size;
 
-          #pragma omp for
-          for (int64_t c = 0; c < grid.num_indexes(); c++) {
-            P *proj = vals_r.data() + c * block_size;
+              int const *idx = grid[c];
+              for (int d = 0; d < dim; d++)
+                data1d[d] = src.consts[d].data() + idx[d] * pdof;
 
-            int const *idx = grid[c];
-            for (int d = 0; d < dim; d++)
-              data1d[d] = src.consts[d].data() + idx[d] * pdof;
+              data1d[dim] = const_r.data() + idx[dim] * pdof;
 
-            data1d[dim] = const_r.data() + idx[dim] * pdof;
+              for (int d = dim + 1; d < num_dims; d++)
+                data1d[d] = src.consts[d].data() + idx[d] * pdof;
 
-            for (int d = dim + 1; d < num_dims; d++)
-              data1d[d] = src.consts[d].data() + idx[d] * pdof;
-
-            for (int i : iindexof(block_size))
-            {
-              int t   = i;
-              proj[i] = 1;
-              for (int d = num_dims - 1; d >= 0; d--) {
-                proj[i] *= data1d[d][t % pdof];
-                t /= pdof;
+              for (int i : iindexof(block_size))
+              {
+                int t   = i;
+                proj[i] = 1;
+                for (int d = num_dims - 1; d >= 0; d--) {
+                  proj[i] *= data1d[d][t % pdof];
+                  t /= pdof;
+                }
               }
             }
           }
@@ -425,8 +420,8 @@ void term_manager<P>::update_const_sources(
         while (keep_working) {
 
           if (not src.val.empty()) {
-            kron_term(grid, conns, terms[tid], 1, src.consts[dim], 0, t1);
-            std::swap(src.consts[dim], t1);
+            kron_term(grid, conns, terms[tid], 1, src.val, 0, t1);
+            std::swap(src.val, t1);
           }
           if (not bnd.vals_r.empty()) {
             kron_term(grid, conns, terms[tid], 1, bnd.vals_r, 0, t1);
@@ -679,37 +674,33 @@ void term_manager<P>::build_raw_mat(
     case operation_type::div:
       if (t1d.rhs()) {
         gen_tri_cmat<P, operation_type::div, rhs_type::is_func>
-          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_tri);
+          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       } else {
         gen_tri_cmat<P, operation_type::div, rhs_type::is_const>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_tri);
+          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       if (t1d.penalty() != 0) {
         gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_tri);
+          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       break;
     case operation_type::grad:
       if (t1d.rhs()) {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_func>
-          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_tri);
+          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       } else {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_const>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_tri);
+          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       if (t1d.penalty() != 0) {
         gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_tri);
+          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       break;
     case operation_type::penalty:
-      if (t1d.rhs()) {
-        gen_tri_cmat<P, operation_type::penalty, rhs_type::is_func>
-          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_tri);
-      } else {
-        gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_tri);
-      }
+      expect(not t1d.rhs());
+      gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
+        (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
     default:
       // must be unreachable
@@ -838,7 +829,7 @@ void term_manager<P>::rebuld_chain(
 
   if (t1d.penalty() != 0) {
     gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_tri);
+      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
   }
 }
 

@@ -317,7 +317,9 @@ protected:
                      block_diag_matrix<P> &raw_diag);
 
 private:
-  // workspace matrices
+  // workspace and workspace matrices
+  rhs_raw_data<P> raw_rhs;
+
   block_diag_matrix<P> raw_mass;
 
   block_diag_matrix<P> wraw_diag;

@@ -2603,6 +2603,20 @@ public:
   //! returns the non-separable source
   md_func<P> const &source_md() const { return sources_md_; }
 
+  //! returns the smallest cell size in given dimension and level, , uses max-level by default
+  P cell_size(int dim, int level = -1) const {
+    if (level < 0)
+      level = max_level_;
+    return domain_.cell_size(dim, level);
+  }
+  //! returns the smallest cell size across all dimensions, uses max-level by default
+  P min_cell_size(int level = -1) const {
+    if (level < 0)
+      level = max_level_;
+    return domain_.min_cell_size(level);
+  }
+
+
   //! allows writer to save/load the pde and options
   friend class h5manager<P>;
   //! allows the term_manager to access the terms
