@@ -141,6 +141,8 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
 
   sources.reserve(num_sources);
 
+  std::cout << " interior count = " << num_interior_sources << "  num_sources = " << num_sources << "\n";
+
   for (auto &s : sep) {
     if (s.num_dims() == 0)
       continue;
@@ -306,6 +308,8 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
         std::get<source_boundary_data<P>>(src.func).term_index = tid;
     }
   }
+
+  std::cout << " num sources = " << sources.size() << "\n";
 
   prapare_workspace(grid); // setup kronmult workspace
 }

@@ -117,6 +117,41 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       ops[d] = asgard::term_identity{};
     }
   }
+  else
+  {
+    asgard::term_1d<P> div =
+        asgard::term_div<P>(-1, asgard::flux_type::upwind, asgard::boundary_type::right_free,
+                            asgard::dirichelt_boundary1d<P>{2, 0});
+    // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
+    asgard::term_1d<P> grad =
+        asgard::term_grad<P>(1, asgard::flux_type::upwind, asgard::boundary_type::left_free,
+                             asgard::dirichelt_boundary1d<P>{0, 1});
+
+    //asgard::term_1d<P> fxx({div, grad});
+    //asgard::term_1d<P> fxx({div, grad});
+
+    // adding small penalty to stabilize the steady state equation
+    // not that the value will not change the result
+    // fxx.set_penalty(0.01, asgard::flux_type::upwind, asgard::boundary_type::right_free);
+
+    // the multi-dimensional operator, initially set to identity in md
+    std::vector<asgard::term_1d<P>> div_md(num_dims);
+    std::vector<asgard::term_1d<P>> grad_md(num_dims);
+    for (int d = 0; d < num_dims; d++)
+    {
+      div_md[d]  = div;
+      grad_md[d] = grad;
+      asgard::term_md<P> diff(std::vector<asgard::term_md<P>>{div_md, grad_md});
+      pde += diff;
+      grad_md[d] = asgard::term_penalty(0.01, asgard::flux_type::upwind,
+                                        asgard::boundary_type::left_free,
+                                        asgard::dirichelt_boundary1d<P>{0, 1});
+      pde += grad_md;
+
+      div_md[d]  = asgard::term_identity{};
+      grad_md[d] = asgard::term_identity{};
+    }
+  }
 
   // just the constant 2
   auto two = [](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
