@@ -117,8 +117,6 @@ enum class changes_with
 {
   //! no need to update the operator matrices
   none,
-  //! update on change in the discretization level and cell size
-  level,
   //! assume we must always update on chnge in the time or the solution field
   time
 };

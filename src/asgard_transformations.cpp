@@ -107,6 +107,27 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
 }
 
 template<typename P>
+void legendre_basis<P>::project(bool is_interior, int level, std::vector<P> const &raw_data,
+                                std::vector<P> &lgn) const {
+
+  int const num_cells = fm::ipow2(level);
+
+  span2d<P const> raw;
+  if (is_interior)
+    raw = span2d<P const>(pdof, num_cells, raw_data.data());
+  else
+    raw = span2d<P const>(pdof + 1, num_cells, raw_data.data() + 1);
+
+  lgn.resize(num_cells * pdof);
+  span2d<P> leg_basis(pdof, num_cells, lgn.data());
+
+#pragma omp parallel for
+  for (int i = 0; i < num_cells; i++) {
+    smmat::gemtv(num_quad, pdof, legw, raw[i], leg_basis[i]);
+  }
+}
+
+template<typename P>
 mass_matrix<P> hierarchy_manipulator<P>::make_mass(int dim, int level) const
 {
   int const num_cells = fm::ipow2(level);

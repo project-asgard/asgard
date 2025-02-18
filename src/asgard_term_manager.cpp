@@ -170,142 +170,152 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     }
   }
 
-  // extract the boundary sources and pre-compute as appropriate
-  // always compute up to the max level and use only the needed parts
-  int const num_cells = fm::ipow2(max_level);
-  int const pdof      = legendre.pdof;
-
   for (int tid : iindexof(terms)) {
-    term_entry<P> &tmd = terms[tid];
-    for (int dim : iindexof(num_dims)) {
-      dirichelt_boundary1d<P> &dirichlet = tmd.tmd.dim(dim).dirichlet_;
-      if (not dirichlet.has_any())
-        continue;
-
-      sources.emplace_back(source_entry<P>::time_mode::boundary);
-
-      source_entry<P> &src = sources.back();
-
-      auto get_mmass = [&](int d) -> block_diag_matrix<P> const &{
-          if (tmd.num_chain >= 1) { // using top-level mass
-            return mass[d];
-          } else { // using local mass, build in the term
-            mass_md<P> const &tms = tmd.tmd.mass();
-            if (tms and not tms[d].is_identity()) {
-              if (tmd.mass[d].nrows() != num_cells) {
-                build_raw_mat(d, tms[d], max_level, tmd.mass[d]);
-                tmd.mass[d].spd_factorize(pdof);
-              }
-            }
-            return tmd.mass[d];
-          }
-        };
-
-      // build the constant terms along the boundary in other directions
-      for (int d : iindexof(num_dims)) {
-        if (d == dim)
-          continue;
-
-        block_diag_matrix<P> const &mmass = get_mmass(d);
-
-        if (tmd.tmd.dim(d).rhs()) {
-          hier.project1d_f(tmd.tmd.dim(d).rhs(), mmass, d, max_level);
-          src.consts[d] = hier.get_projected1d(d);
-        } else if (mmass) {
-          hier.project1d_f(
-              [&](std::vector<P> const &, std::vector<P> &y)-> void{
-                std::fill(y.begin(), y.end(), tmd.tmd.dim(d).rhs_const());
-              }, mmass, d, max_level);
-          src.consts[d] = hier.get_projected1d(d);
-        } else { // no mass and constant function
-          src.consts[d].resize(pdof * num_cells);
-          src.consts[d].front() = tmd.tmd.dim(d).rhs_const();
-        }
+    auto const &tmd = terms[tid];
+    for (int d : indexof(num_dims)) {
+      if (tmd.tmd.dim(d).dirichlet().has_any()) {
+        sources.emplace_back(source_entry<P>::time_mode::boundary);
+        sources.back().func = source_boundary_data<P>{{}, d, tid};
       }
-
-      // will be moved into the source-term func
-      std::vector<P> const_r;
-
-      block_diag_matrix<P> const &mmass = get_mmass(dim);
-
-      // build the vectors with the actual boundary conditions
-      P const scale = P{1} / std::sqrt( pde.domain().length(dim) / num_cells );
-
-      // get the values of the term rhs
-      term_1d<P> const &t1d = tmd.tmd.dim(dim);
-      P rhs_left  = t1d.rhs_const();
-      P rhs_right = t1d.rhs_const();
-      if (t1d.rhs()) { // using variable rhs, get the correct values
-        if (dirichlet.has_left() and dirichlet.has_right()) { // need both
-          std::vector<P> const x = {pde.domain().xleft(dim), pde.domain().xright(dim)};
-          std::vector<P> rhs(2);
-          t1d.rhs(x, rhs);
-          rhs_left  = rhs[0];
-          rhs_right = rhs[1];
-        } else if (dirichlet.has_left()) { // need left only
-          std::vector<P> const x = {pde.domain().xleft(dim), };
-          std::vector<P> rhs(1);
-          t1d.rhs(x, rhs);
-          rhs_left  = rhs.front();
-        } else { // need right only
-          std::vector<P> const x = {pde.domain().xright(dim), };
-          std::vector<P> rhs(1);
-          t1d.rhs(x, rhs);
-          rhs_right = rhs.front();
-        }
-      }
-
-      if (not dirichlet.left_t and not dirichlet.right_t) {
-        // time-independent boundary, merge the two vectors into one
-        src.consts[dim].resize(pdof * num_cells);
-        if (dirichlet.has_left())
-          smmat::axpy(pdof, -dirichlet.const_left * rhs_left * scale,
-                      legendre.leg_left, src.consts[dim].data());
-        if (dirichlet.has_right())
-          smmat::axpy(pdof, dirichlet.const_right * rhs_right * scale,
-                      legendre.leg_right, src.consts[dim].data() + src.consts[dim].size() - pdof);
-
-      } else { // need to have separate left and/or right vectors
-        if (dirichlet.has_left()) {
-          src.consts[dim].resize(pdof * num_cells);
-          if (dirichlet.left_t)
-            smmat::axpy(pdof, - rhs_left * scale,
-                        legendre.leg_left, src.consts[dim].data());
-          else
-            smmat::axpy(pdof, -dirichlet.const_left * rhs_left * scale,
-                        legendre.leg_left, src.consts[dim].data());
-        }
-        if (dirichlet.has_right()) {
-          const_r.resize(pdof * num_cells);
-          if (dirichlet.right_t)
-            smmat::axpy(pdof, rhs_right * scale,
-                        legendre.leg_right, const_r.data() + const_r.size() - pdof);
-          else
-            smmat::axpy(pdof, dirichlet.const_right * rhs_right * scale,
-                        legendre.leg_right, const_r.data() + const_r.size() - pdof);
-        }
-      }
-
-      if (not src.consts[dim].empty()) {
-        if (mmass)
-          mmass.solve(pdof, src.consts[dim]);
-        hier.project1d(max_level, src.consts[dim]);
-      }
-      if (not const_r.empty()) {
-        if (mmass)
-          mmass.solve(pdof, const_r);
-        hier.project1d(max_level, const_r);
-      }
-
-      // move the time-functions into the
-      src.func = source_boundary_data<P>{
-          std::move(dirichlet.left_t), std::move(dirichlet.right_t),
-          std::move(const_r), std::vector<P>{}, dim};
-
-      if (tmd.num_chain < 0) // part of a chain
-        std::get<source_boundary_data<P>>(src.func).term_index = tid;
     }
   }
+
+  // extract the boundary sources and pre-compute as appropriate
+  // always compute up to the max level and use only the needed parts
+  // int const num_cells = fm::ipow2(max_level);
+  // int const pdof      = legendre.pdof;
+  //
+  // for (int tid : iindexof(terms)) {
+  //   term_entry<P> &tmd = terms[tid];
+  //   for (int dim : iindexof(num_dims)) {
+  //     dirichelt_boundary1d<P> &dirichlet = tmd.tmd.dim(dim).dirichlet_;
+  //     if (not dirichlet.has_any())
+  //       continue;
+  //
+  //     sources.emplace_back(source_entry<P>::time_mode::boundary);
+  //
+  //     source_entry<P> &src = sources.back();
+  //
+  //     auto get_mmass = [&](int d) -> block_diag_matrix<P> const &{
+  //         if (tmd.num_chain >= 1) { // using top-level mass
+  //           return mass[d];
+  //         } else { // using local mass, build in the term
+  //           mass_md<P> const &tms = tmd.tmd.mass();
+  //           if (tms and not tms[d].is_identity()) {
+  //             if (tmd.mass[d].nrows() != num_cells) {
+  //               build_raw_mass(d, tms[d], max_level, tmd.mass[d]);
+  //               tmd.mass[d].spd_factorize(pdof);
+  //             }
+  //           }
+  //           return tmd.mass[d];
+  //         }
+  //       };
+  //
+  //     // build the constant terms along the boundary in other directions
+  //     for (int d : iindexof(num_dims)) {
+  //       if (d == dim)
+  //         continue;
+  //
+  //       block_diag_matrix<P> const &mmass = get_mmass(d);
+  //
+  //       if (tmd.tmd.dim(d).rhs()) {
+  //         hier.project1d_f(tmd.tmd.dim(d).rhs(), mmass, d, max_level);
+  //         src.consts[d] = hier.get_projected1d(d);
+  //       } else if (mmass) {
+  //         hier.project1d_f(
+  //             [&](std::vector<P> const &, std::vector<P> &y)-> void{
+  //               std::fill(y.begin(), y.end(), tmd.tmd.dim(d).rhs_const());
+  //             }, mmass, d, max_level);
+  //         src.consts[d] = hier.get_projected1d(d);
+  //       } else { // no mass and constant function
+  //         src.consts[d].resize(pdof * num_cells);
+  //         src.consts[d].front() = tmd.tmd.dim(d).rhs_const();
+  //       }
+  //     }
+  //
+  //     // will be moved into the source-term func
+  //     std::vector<P> const_r;
+  //
+  //     block_diag_matrix<P> const &mmass = get_mmass(dim);
+  //
+  //     // build the vectors with the actual boundary conditions
+  //     P const scale = P{1} / std::sqrt( pde.domain().length(dim) / num_cells );
+  //
+  //     // get the values of the term rhs
+  //     term_1d<P> const &t1d = tmd.tmd.dim(dim);
+  //     P rhs_left  = t1d.rhs_const();
+  //     P rhs_right = t1d.rhs_const();
+  //     if (t1d.rhs()) { // using variable rhs, get the correct values
+  //       if (dirichlet.has_left() and dirichlet.has_right()) { // need both
+  //         std::vector<P> const x = {pde.domain().xleft(dim), pde.domain().xright(dim)};
+  //         std::vector<P> rhs(2);
+  //         t1d.rhs(x, rhs);
+  //         rhs_left  = rhs[0];
+  //         rhs_right = rhs[1];
+  //       } else if (dirichlet.has_left()) { // need left only
+  //         std::vector<P> const x = {pde.domain().xleft(dim), };
+  //         std::vector<P> rhs(1);
+  //         t1d.rhs(x, rhs);
+  //         rhs_left  = rhs.front();
+  //       } else { // need right only
+  //         std::vector<P> const x = {pde.domain().xright(dim), };
+  //         std::vector<P> rhs(1);
+  //         t1d.rhs(x, rhs);
+  //         rhs_right = rhs.front();
+  //       }
+  //     }
+  //
+  //     if (not dirichlet.left_t and not dirichlet.right_t) {
+  //       // time-independent boundary, merge the two vectors into one
+  //       src.consts[dim].resize(pdof * num_cells);
+  //       if (dirichlet.has_left())
+  //         smmat::axpy(pdof, -dirichlet.const_left * rhs_left * scale,
+  //                     legendre.leg_left, src.consts[dim].data());
+  //       if (dirichlet.has_right())
+  //         smmat::axpy(pdof, dirichlet.const_right * rhs_right * scale,
+  //                     legendre.leg_right, src.consts[dim].data() + src.consts[dim].size() - pdof);
+  //
+  //     } else { // need to have separate left and/or right vectors
+  //       if (dirichlet.has_left()) {
+  //         src.consts[dim].resize(pdof * num_cells);
+  //         if (dirichlet.left_t)
+  //           smmat::axpy(pdof, - rhs_left * scale,
+  //                       legendre.leg_left, src.consts[dim].data());
+  //         else
+  //           smmat::axpy(pdof, -dirichlet.const_left * rhs_left * scale,
+  //                       legendre.leg_left, src.consts[dim].data());
+  //       }
+  //       if (dirichlet.has_right()) {
+  //         const_r.resize(pdof * num_cells);
+  //         if (dirichlet.right_t)
+  //           smmat::axpy(pdof, rhs_right * scale,
+  //                       legendre.leg_right, const_r.data() + const_r.size() - pdof);
+  //         else
+  //           smmat::axpy(pdof, dirichlet.const_right * rhs_right * scale,
+  //                       legendre.leg_right, const_r.data() + const_r.size() - pdof);
+  //       }
+  //     }
+  //
+  //     if (not src.consts[dim].empty()) {
+  //       if (mmass)
+  //         mmass.solve(pdof, src.consts[dim]);
+  //       hier.project1d(max_level, src.consts[dim]);
+  //     }
+  //     if (not const_r.empty()) {
+  //       if (mmass)
+  //         mmass.solve(pdof, const_r);
+  //       hier.project1d(max_level, const_r);
+  //     }
+  //
+  //     // move the time-functions into the
+  //     src.func = source_boundary_data<P>{
+  //         std::move(dirichlet.left_t), std::move(dirichlet.right_t),
+  //         std::move(const_r), std::vector<P>{}, dim};
+  //
+  //     if (tmd.num_chain < 0) // part of a chain
+  //       std::get<source_boundary_data<P>>(src.func).term_index = tid;
+  //   }
+  // }
 
   prapare_workspace(grid); // setup kronmult workspace
 }
@@ -542,11 +552,15 @@ void term_manager<P>::rebuld_term(
   expect(not terms[tid].tmd.is_chain());
   expect(not terms[tid].tmd.is_interpolatory());
 
+  auto &tmd = terms[tid];
+
+  // if no boundary condition, use generic no_bc source entry
+  // otherwise, start using the entry from the sources
+  source_entry<P> no_bc;
+  source_entry<P> &bc = (tmd.bc_source_id >= 0) ? sources[tmd.bc_source_id] : no_bc;
+
   for (int d : iindexof(num_dims)) {
-    auto const &t1d = terms[tid].tmd.dim(d);
-    // do not build identity 1d terms
-    if (t1d.is_identity())
-      continue;
+    auto const &t1d = tmd.tmd.dim(d);
 
     int level = grid.current_level(d); // required level
 
@@ -557,29 +571,46 @@ void term_manager<P>::rebuld_term(
       else
         continue; // already build, we can skip
     }
-    // terms that change only on level should be build only on level change
-    if (t1d.change() == changes_with::level and terms[tid].level[d] == level)
-      continue;
 
-    rebuld_term1d(terms[tid], d, level, conn, hier, precon, alpha);
+    rebuld_term1d(terms[tid], d, level, conn, hier, bc, precon, alpha);
   } // move to next dimension d
+
+  if (bc.is_boundary()) {
+    // TODO: is this needed??? finalize the BC???
+  }
 }
 
 template<typename P>
 void term_manager<P>::rebuld_term1d(
     term_entry<P> &tentry, int const dim, int level,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    preconditioner_opts precon, P alpha)
+    source_entry<P> &bc, preconditioner_opts precon, P alpha)
 {
   int const n = hier.degree() + 1;
-  auto const &t1d = tentry.tmd.dim(dim);
+  auto &t1d   = tentry.tmd.dim(dim);
+
+  if (t1d.is_identity()) {
+    // identity has only a simple case of boundary conditions
+    if (bc.is_boundary()) {
+      expect(bc.dim() != dim); // boundary must be in another direction
+      // the assumption here is that mass[dim] is empty
+      bc.consts[dim] = hier.get_project1d_c(1, mass[dim], dim, level);
+    }
+    return; // nothing to do about the matrix
+  }
 
   bool is_diag = t1d.is_mass();
   if (t1d.is_chain()) {
-    rebuld_chain(dim, t1d, level, is_diag, wraw_diag, wraw_tri);
+    rebuld_chain(dim, t1d, level, is_diag, wraw_diag, wraw_tri, bc);
   } else {
-    build_raw_mat(dim, t1d, level, wraw_diag, wraw_tri);
+    if (bc.is_boundary() and bc.dim() != dim)
+      bc.consts[dim].resize(n * fm::ipow2(level));
+    build_raw_mat(dim, t1d, level, wraw_diag, wraw_tri, bc);
   }
+
+  block_diag_matrix<P> no_mass;
+  block_diag_matrix<P> *bmass = &no_mass; // mass to use for the boundary source
+
   // apply the mass matrix, if any
   if (tentry.num_chain < 0) {
     // member of a chain, can have unique mass matrix
@@ -587,39 +618,51 @@ void term_manager<P>::rebuld_term1d(
     if (tms and not tms[dim].is_identity()) {
       int const nrows = fm::ipow2(level); // needed number of rows
       if (tentry.mass[dim].nrows() != nrows) {
-        build_raw_mat(dim, mass_term[dim], max_level, tentry.mass[dim]);
+        build_raw_mass(dim, mass_term[dim], max_level, tentry.mass[dim]);
         tentry.mass[dim].spd_factorize(n);
       }
-      if (is_diag)
-        tentry.mass[dim].solve(n, wraw_diag);
-      else
-        tentry.mass[dim].solve(n, wraw_tri);
+      bmass = &tentry.mass[dim];
     }
   } else if (mass[dim]) { // no chain (or last link), and there's global mass
     // global case, use the global mass matrices
     if (level == max_level) {
-      if (is_diag)
-        mass[dim].solve(n, wraw_diag);
-      else
-        mass[dim].solve(n, wraw_tri);
+      bmass = &mass[dim];
     } else { // using lower level, construct lower mass matrix
       int const nrows = fm::ipow2(level); // needed number of rows
       if (lmass[dim].nrows() != nrows) {
-        build_raw_mat(dim, mass_term[dim], max_level, lmass[dim]);
+        build_raw_mass(dim, mass_term[dim], max_level, lmass[dim]);
         lmass[dim].spd_factorize(n);
       }
-      if (is_diag)
-        lmass[dim].solve(n, wraw_diag);
-      else
-        lmass[dim].solve(n, wraw_tri);
+      bmass = &lmass[dim];
     }
   }
 
   // the build/rebuild put the result in raw_diag or raw_tri
-  if (is_diag)
+  if (is_diag) {
+    if (bmass)
+      bmass->solve(n, wraw_diag);
     tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
-  else
+  } else {
+    if (bmass)
+      bmass->solve(n, wraw_tri);
     tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
+  }
+
+  if (bc.is_boundary()) {
+    if (bc.dim() == dim) { // boundary direction
+      // may have mass to apply
+      if (bmass) {
+        if (not bc.consts[dim].empty())
+          bmass->solve(n, bc.consts[dim]);
+        for (auto &tc : bc.time_boundary())
+          bmass->solve(n, tc.const_1d);
+      }
+    } else { // non-boundary direction
+      if (bmass)
+        bmass->solve(n, bc.consts[dim]);
+      hier.project1d(level, bc.consts[dim]);
+    }
+  }
 
   // build the ADI preconditioner here
   if (precon == preconditioner_opts::adi) {
@@ -637,8 +680,8 @@ void term_manager<P>::rebuld_term1d(
 
 template<typename P>
 void term_manager<P>::build_raw_mat(
-    int d, term_1d<P> const &t1d, int level, block_diag_matrix<P> &raw_diag,
-    block_tri_matrix<P> &raw_tri)
+    int d, term_1d<P> &t1d, int level, block_diag_matrix<P> &raw_diag,
+    block_tri_matrix<P> &raw_tri, source_entry<P> &bc)
 {
   expect(not t1d.is_chain());
 
@@ -706,11 +749,112 @@ void term_manager<P>::build_raw_mat(
       // must be unreachable
       break;
   }
+  if (bc.is_boundary() and bc.dim() == d) {
+    int const pdof = legendre.pdof;
+
+    // constant and time-dependent conditions
+    std::vector<P> &cnt = bc.consts[d];
+    std::vector<time_boundary_data<P>> &tdata = bc.time_boundary();
+
+    // multiply the current set of bc by the matrix
+    // this will happen when working with a 1d chain
+    if (t1d.is_mass()) { // using diag-matrix
+      if (not cnt.empty())
+        raw_diag.inplace_gemv(pdof, cnt, t1);
+      for (auto &st : bc.time_boundary())
+        raw_diag.inplace_gemv(pdof, st.const_1d, t1);
+    } else { // using tri-diag matrix
+      if (not cnt.empty())
+        raw_tri.inplace_gemv(pdof, cnt, t1);
+      for (auto &st : bc.time_boundary())
+        raw_tri.inplace_gemv(pdof, st.const_1d, t1);
+    }
+
+    // if this term has more boundary conditions to add
+    if (t1d.dirichlet().has_any()) {
+      int64_t const num_cells   = fm::ipow2(level);
+      int64_t const num_entries = legendre.pdof * num_cells;
+
+      P scale = P{1} / std::sqrt( (xright[d] - xleft[d]) / num_cells );
+      if (t1d.is_penalty()) // penalty flips the sign of the boundary conditions
+        scale = -scale;
+
+      if (t1d.penalty() != 0) { // penalty added directly to the term
+        scale *= P{1} - t1d.penalty();
+      }
+
+      dirichelt_boundary1d<P> &dir = t1d.dirichlet_;
+
+      if (dir.has_left()) {
+        if (dir.left_t) { // time-dependant
+          tdata.emplace_back(std::move(dir.left_t));
+          tdata.back().const_1d.resize(num_entries);
+          smmat::axpy(pdof, scale, legendre.leg_left, tdata.back().const_1d.data());
+        } else {
+          if (cnt.empty())
+            cnt.resize(num_entries);
+          smmat::axpy(pdof, scale * dir.const_left, legendre.leg_left, cnt.data());
+        }
+      }
+      if (dir.has_right()) {
+        if (dir.right_t) { // time-dependant
+          tdata.emplace_back(std::move(dir.right_t));
+          tdata.back().const_1d.resize(num_entries);
+          smmat::axpy(pdof, scale, legendre.leg_left,
+                      tdata.back().const_1d.data() + num_entries - pdof);
+        } else {
+          if (cnt.empty())
+            cnt.resize(num_entries);
+          smmat::axpy(pdof, scale * dir.const_right, legendre.leg_left, cnt.data() + num_entries - pdof);
+        }
+      }
+    }
+  } else if (bc.is_boundary() and not bc.consts[d].empty()) {
+    // has Dirichlet in other directions and expecting to load the rhs
+    // if using 1d-chain, this is handled externally
+    if (t1d.rhs()) {
+      legendre.project(t1d.is_mass(), level, raw_rhs.vals.data(), bc.consts[d]);
+    } else { // using a constant
+      if (legendre.pdof == 1) {
+        std::fill(bc.consts[d].begin(), bc.consts[d].end(), t1d.rhs_const());
+      } else {
+        int const num_cells = fm::ipow2(level);
+#pragma omp parallel for
+        for (int i = 0; i < num_cells; i++) {
+          bc.consts[d][i * legendre.pdof] = t1d.rhs_const();
+          std::fill_n(bc.consts[d].data() + i * legendre.pdof + 1, legendre.pdof - 1, P{0});
+        }
+      }
+    }
+  }
+//   } else if (bc.is_boundary()) { // has Dirichlet in other directions, load the rhs
+//     // should handle dependencies and coupling here
+//     if (t1d.rhs()) { // reuse the rhs for the boundary
+//       int const pdof = legendre.pdof;
+//
+//       int64_t const num_cells = fm::ipow2(level);
+//
+//       span2d<P> rhs_data;
+//       if (t1d.is_mass()) {
+//         rhs_data = span2d<P>(legendre.num_quad, num_cells, raw_rhs.vals.data());
+//       } else {
+//         rhs_data = span2d<P>(legendre.num_quad + 1, num_cells, raw_rhs.vals.data() + 1);
+//       }
+//
+//       bc.consts[d].resize(pdof * num_cells);
+//       span2d<P> bcc(pdof, num_cells, bc.consts[d].data());
+//
+// #pragma omp parallel for
+//       for (int64_t i = 0; i < num_cells; i++) {
+//         smmat::gemtv(legendre.num_quad, pdof, legendre.legw, rhs_data[i], bcc[i]);
+//       }
+//     }
+//   }
 }
 
 template<typename P>
-void term_manager<P>::build_raw_mat(int dim, term_1d<P> const &t1d, int level,
-                                    block_diag_matrix<P> &raw_diag)
+void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
+                                     block_diag_matrix<P> &raw_diag)
 {
   expect(t1d.is_mass());
   expect(t1d.depends() == pterm_dependence::none);
@@ -726,8 +870,9 @@ void term_manager<P>::build_raw_mat(int dim, term_1d<P> const &t1d, int level,
 
 template<typename P>
 void term_manager<P>::rebuld_chain(
-    int const d, term_1d<P> const &t1d, int const level, bool &is_diag,
-    block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
+    int const d, term_1d<P> &t1d, int const level, bool &is_diag,
+    block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,
+    source_entry<P> &bc)
 {
   expect(t1d.is_chain());
   int const num_chain = t1d.num_chain();
@@ -741,20 +886,29 @@ void term_manager<P>::rebuld_chain(
     }
   }
 
+  if (bc.is_boundary() and bc.dim() != d)
+    expect(is_diag); // boundary implies flux, non-boundary direction can have only mass
+
   if (is_diag) { // a bunch of diag matrices, easy case
+    std::vector<P> crhs;
+    if (bc.is_boundary() and bc.dim() != d)
+
+    bc.consts[d].resize(0);
+
+
     // raw_tri will not be referenced, it's just passed in
     // using raw_diag to make the intermediate matrices, until the last one
     // the last product has to be written to raw_diag
     block_diag_matrix<P> *diag0 = &raw_diag0;
     block_diag_matrix<P> *diag1 = &raw_diag1;
-    build_raw_mat(d, t1d[num_chain - 1], level, *diag0, raw_tri);
+    build_raw_mat(d, t1d[num_chain - 1], level, *diag0, raw_tri, bc);
     for (int i = num_chain - 2; i > 0; i--) {
-      build_raw_mat(d, t1d[i], level, raw_diag, raw_tri);
+      build_raw_mat(d, t1d[i], level, raw_diag, raw_tri, bc);
       diag1->check_resize(raw_diag);
       gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
     }
-    build_raw_mat(d, t1d[0], level, *diag1, raw_tri);
+    build_raw_mat(d, t1d[0], level, *diag1, raw_tri, bc);
     raw_diag.check_resize(*diag1);
     gemm_block_diag(legendre.pdof, *diag1, *diag0, raw_diag);
     return;

@@ -129,7 +129,7 @@ void axpy(int const n, P const alpha, P const x[], P y[]) {
 
 //! matrix-vector multiplication y += A * x, A has size nr X nc
 template<typename P>
-void gemv1(int const &nr, int const &nc, P const A[], P const x[], P y[])
+void gemv1(int const nr, int const nc, P const A[], P const x[], P y[])
 {
   ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int i = 0; i < nc; i++)
@@ -138,7 +138,7 @@ void gemv1(int const &nr, int const &nc, P const A[], P const x[], P y[])
 }
 //! matrix-vector multiplication y = A * x, A has size nr X nc
 template<typename P>
-void gemv(int const &nr, int const &nc, P const A[], P const x[], P y[])
+void gemv(int const nr, int const nc, P const A[], P const x[], P y[])
 {
   ASGARD_OMP_SIMD
   for (int j = 0; j < nr; j++)
@@ -151,7 +151,7 @@ void gemv(int const &nr, int const &nc, P const A[], P const x[], P y[])
 }
 //! matrix-vector multiplication y = A^T * x, A has size n X n
 template<typename P>
-void gemtv(int const &n, P const A[], P const x[], P y[])
+void gemtv(int const n, P const A[], P const x[], P y[])
 {
   for (int i = 0; i < n; i++)
   {
@@ -163,12 +163,24 @@ void gemtv(int const &n, P const A[], P const x[], P y[])
 }
 //! matrix-vector multiplication y = A^T * x, A has size n X n
 template<typename P>
-void gemtv1(int const &n, P const A[], P const x[], P y[])
+void gemtv1(int const n, P const A[], P const x[], P y[])
 {
   ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int i = 0; i < n; i++)
     for (int j = 0; j < n; j++)
       y[i] += A[i * n + j] * x[j];
+}
+//! matrix-vector multiplication y = A^T * x, A has size m X n
+template<typename P>
+void gemtv(int const m, int const n, P const A[], P const x[], P y[])
+{
+  for (int i = 0; i < n; i++)
+  {
+    y[i] = A[i * m] * x[0];
+    ASGARD_OMP_SIMD
+    for (int j = 1; j < m; j++)
+      y[i] += A[i * m + j] * x[j];
+  }
 }
 //! triple-matrix-matrix product, C = A * diag(d) * B, A is n by m, C is n by n
 template<typename P>

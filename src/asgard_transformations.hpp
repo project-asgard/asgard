@@ -67,6 +67,9 @@ struct legendre_basis {
   P *leg_left = nullptr;
   //! values of the legendre polynomials at the right end-point
   P *leg_right = nullptr;
+
+  void project(bool is_interior, int level, std::vector<P> const &raw,
+               std::vector<P> &lgn) const;
 };
 
 
@@ -298,6 +301,21 @@ public:
     f(quad_points[dim], fvals);
 
     project1d(dim, level, dmax[dim] - dmin[dim], mass);
+  }
+  //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
+  void project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
+  {
+    int const num_cells = fm::ipow2(level);
+    fvals.resize(num_cells * quad.stride());
+    std::fill(fvals.begin(), fvals.end(), c); // TODO: skip the projection below
+
+    project1d(dim, level, dmax[dim] - dmin[dim], mass);
+  }
+  //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
+  std::vector<P> get_project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
+  {
+    project1d_c(c, mass, dim, level);
+    return get_projected1d(dim);
   }
 
   //! (testing purposes, skips hierarchy) computes the 1d projection of f onto the cells of a given level

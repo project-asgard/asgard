@@ -58,17 +58,29 @@ struct term_entry {
   static mom_deps get_deps(term_1d<P> const &t1d);
 };
 
+/*!
+ * \brief Contains the data for a time-dependant boundary source
+ */
+template<typename P>
+struct time_boundary_data {
+  //! make empty data-entry
+  time_boundary_data() = default;
+  //! set a new entry with the given time
+  time_boundary_data(scalar_func<P> sf) : time(std::move(sf)) {}
+  //! time scalar function
+  scalar_func<P> time;
+  //! constant component in 1d
+  std::vector<P> const_1d;
+  //! constant component in multi-dimensions
+  std::vector<P> const_md;
+
+};
+
 //! holds the extra data, if using boundary condition with different left/right components
 template<typename P>
 struct source_boundary_data {
-  //! left boundary function, if time-dependent
-  scalar_func<P> left_f;
-  //! right boundary function, if time-dependent
-  scalar_func<P> right_f;
-  //! vector for the constant component of the right boundary condition
-  std::vector<P> consts_r;
-  //! val vector for the right boundary condition
-  std::vector<P> vals_r;
+  //! time components of the source
+  std::vector<time_boundary_data<P>> time_entries;
   //! dimension where the boundary is applied
   int dim = -1;
   //! if the source entry is associated with term in a chain
@@ -89,8 +101,34 @@ struct source_entry
   //! when should we recompute the sources and when can we reuse existing data
   time_mode tmode = time_mode::constant;
 
+  bool is_constant() const { return tmode == time_mode::constant; }
+  bool is_separable() const { return tmode == time_mode::separable; }
+  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
+  bool is_boundary() const { return tmode == time_mode::boundary; }
+
   //! if the function is separable or time-dependent, handle the extra data
   std::variant<int, scalar_func<P>, separable_func<P>, source_boundary_data<P>> func;
+
+  //! quick access to the boundary data
+  int dim() const {
+    expect(tmode == time_mode::boundary);
+    return std::get<source_boundary_data<P>>(func).dim;
+  }
+  //! quick access to the boundary data
+  int term_index() const {
+    expect(tmode == time_mode::boundary);
+    return std::get<source_boundary_data<P>>(func).term_index;
+  }
+  //! quick access to the boundary data
+  std::vector<time_boundary_data<P>> const &time_boundary() const {
+    expect(tmode == time_mode::boundary);
+    return std::get<source_boundary_data<P>>(func).time_entries;
+  }
+  //! quick access to the boundary data
+  std::vector<time_boundary_data<P>> &time_boundary() {
+    expect(tmode == time_mode::boundary);
+    return std::get<source_boundary_data<P>>(func).time_entries;
+  }
 
   //! vector for the current grid
   std::vector<P> val;
@@ -184,7 +222,7 @@ struct term_manager
       tools::time_event timing_("rebuild mass mats");
       for (int d : iindexof(num_dims))
         if (not mass_term[d].is_identity()) {
-          build_raw_mat(d, mass_term[d], max_level, mass[d]);
+          build_raw_mass(d, mass_term[d], max_level, mass[d]);
           mass[d].spd_factorize(legendre.pdof);
         }
     }
@@ -198,7 +236,7 @@ struct term_manager
         if (not mass_term[d].is_identity()) {
           int const nrows = fm::ipow2(grid.current_level(d));
           if (lmass[d].nrows() != nrows) {
-            build_raw_mat(d, mass_term[d], grid.current_level(d), lmass[d]);
+            build_raw_mass(d, mass_term[d], grid.current_level(d), lmass[d]);
             lmass[d].spd_factorize(legendre.pdof);
           }
         }
@@ -303,18 +341,23 @@ protected:
   //! rebuild term[tmd][t1d], assumes non-identity
   void rebuld_term1d(term_entry<P> &tentry, int const dim, int level,
                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                     source_entry<P> &bc,
                      preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
   //! rebuild the 1d term chain to the given level
-  void rebuld_chain(int const dim, term_1d<P> const &t1d, int const level, bool &is_diag,
-                    block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
+  void rebuld_chain(int const dim, term_1d<P> &t1d, int const level, bool &is_diag,
+                    block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,
+                    source_entry<P> &bc);
 
   //! helper method, build the matrix corresponding to the term
-  void build_raw_mat(int dim, term_1d<P> const &t1d, int level,
+  void build_raw_mat(int dim, term_1d<P> &t1d, int level,
                      block_diag_matrix<P> &raw_diag,
-                     block_tri_matrix<P> &raw_tri);
+                     block_tri_matrix<P> &raw_tri, source_entry<P> &bc);
   //! helper method, build a mass matrix with no dependencies
-  void build_raw_mat(int dim, term_1d<P> const &t1d, int level,
-                     block_diag_matrix<P> &raw_diag);
+  void build_raw_mass(int dim, term_1d<P> const &t1d, int level,
+                      block_diag_matrix<P> &raw_diag);
+  //! helper method, converts the data on quad
+  template<data_mode mode>
+  void raw2cells(bool is_diag, int level, std::vector<P> &out);
 
 private:
   // workspace and workspace matrices

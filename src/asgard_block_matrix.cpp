@@ -171,6 +171,61 @@ void block_diag_matrix<P>::solve(int const n, block_tri_matrix<P> &rhs) const
 }
 
 template<typename P>
+void block_diag_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<P> &work) const
+{
+  expect(nblock() == n * n);
+  expect(vec.size() == static_cast<size_t>(n * nrows_));
+  if (work.size() < vec.size())
+    work.resize(vec.size());
+
+  std::copy(vec.begin(), vec.end(), work.begin());
+
+  span2d<P> x(n, nrows_, work.data());
+  span2d<P> y(n, nrows_, vec.data());
+
+#pragma omp parallel for
+  for (int64_t r = 1; r < nrows_ - 1; r++) {
+    smmat::gemv(n, n, data_[r], x[r], y[r]);
+  }
+}
+
+template<typename P>
+void block_tri_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<P> &work) const
+{
+  expect(nblock() == n * n);
+  expect(vec.size() == static_cast<size_t>(n * nrows_));
+  if (work.size() < vec.size())
+    work.resize(vec.size());
+
+  std::copy(vec.begin(), vec.end(), work.begin());
+
+  span2d<P> x(n, nrows_, work.data());
+  span2d<P> y(n, nrows_, vec.data());
+
+  if (nrows_ == 1) {
+    smmat::gemv(n, n, diag(0), x[0], y[0]);
+    return;
+  }
+
+  int const s = nrows_ - 1; // stop row
+
+  smmat::gemv(n, n, diag(0), x[0], y[0]);
+  smmat::gemv1(n, n, lower(0), x[s], y[0]);
+  smmat::gemv1(n, n, upper(0), x[1], y[0]);
+
+#pragma omp parallel for
+  for (int64_t r = 1; r < nrows_ - 1; r++) {
+    smmat::gemv(n, n, diag(r), x[r], y[r]);
+    smmat::gemv1(n, n, lower(r), x[r - 1], y[r]);
+    smmat::gemv1(n, n, upper(r), x[r + 1], y[r]);
+  }
+
+  smmat::gemv(n, n, diag(s), x[s], y[s]);
+  smmat::gemv1(n, n, lower(s), x[s - 1], y[s]);
+  smmat::gemv1(n, n, upper(s), x[0], y[s]);
+}
+
+template<typename P>
 void gemm_block_tri_ul(
     int const n, block_tri_matrix<P> const &A, block_tri_matrix<P> const &B,
     block_tri_matrix<P> &C)

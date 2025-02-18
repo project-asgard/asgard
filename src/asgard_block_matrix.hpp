@@ -429,6 +429,8 @@ public:
   //! solves against a tri-matrix
   void solve(int const n, block_tri_matrix<P> &rhs) const;
 
+  void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
+
 private:
   int64_t nrows_;
   vector2d<P> data_;
@@ -546,6 +548,8 @@ public:
     }
     return full;
   };
+
+  void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
 
 private:
   int64_t nrows_;
