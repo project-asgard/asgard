@@ -684,6 +684,7 @@ void psedoinvert(int const n, block_tri_matrix<P> &A,
 #ifdef ASGARD_ENABLE_DOUBLE
 template class dense_matrix<double>;
 template class block_diag_matrix<double>;
+template class block_tri_matrix<double>;
 
 template void gemm1(int const n, block_matrix<double> const &A, block_matrix<double> const &B,
                     block_matrix<double> &C);
@@ -724,6 +725,7 @@ template void block_sparse_matrix<double>::gemv(
 #ifdef ASGARD_ENABLE_FLOAT
 template class dense_matrix<float>;
 template class block_diag_matrix<float>;
+template class block_tri_matrix<float>;
 
 template void gemm1(int const n, block_matrix<float> const &A, block_matrix<float> const &B,
                     block_matrix<float> &C);

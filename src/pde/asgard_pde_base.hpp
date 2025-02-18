@@ -1880,8 +1880,6 @@ public:
   //! (chain-mode only) get the vector of the chain
   std::vector<term_1d<P>> const &chain() const { return chain_; }
   //! (chain-mode only) get the i-th term in the chain
-  term_1d<P> const &chain(int i) const { return chain_[i]; }
-  //! (chain-mode only) get the i-th term in the chain
   term_1d<P> const &operator[](int i) const { return chain_[i]; }
   //! (chain-mode only) add one more term to the chain
   void add_term(term_1d<P> tm) {
@@ -1931,10 +1929,26 @@ public:
   //! returns the boundary conditions
   dirichelt_boundary1d<P> const &dirichlet() const { return dirichlet_; }
 
+  //! returns if has Dirichlet or any chain terms have Dirichlet bc
+  bool has_dirichlet() const {
+    if (dirichlet_.has_any())
+      return true;
+    if (is_chain()) {
+      for (auto const &c : chain_) {
+        if (c.dirichlet().has_any())
+          return true;
+      }
+    }
+    return false;
+  }
+
   // allow direct access to the private data
   friend struct term_manager<P>;
 
 private:
+  //! (chain-mode only) access the i-th term in the chain, allows mods
+  term_1d<P> &chain(int i) { return chain_[i]; }
+
   bool check_chain() {
     return true;
     int fluxdir = 2; // no flux direction found, two available

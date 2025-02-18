@@ -247,10 +247,11 @@ struct term_manager
   void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
                       hierarchy_manipulator<P> const &hier)
   {
+    source_entry<P> no_bc;
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
         if (te.deps[d].poisson)
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+          rebuld_term1d(te, d, grid.current_level(d), conn, hier, no_bc);
     }
   }
 

@@ -133,7 +133,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     term_1d<TestType> chain({ptI, ptG, ptM, ptD, ptM});
     REQUIRE(chain[0].optype() == operation_type::grad);
     REQUIRE(chain.chain()[1].optype() == operation_type::mass);
-    REQUIRE(chain.chain(2).optype() == operation_type::div);
+    REQUIRE(chain[2].optype() == operation_type::div);
     REQUIRE(chain[3].optype() == operation_type::mass);
   }
 

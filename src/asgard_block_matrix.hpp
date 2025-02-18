@@ -492,9 +492,9 @@ public:
   P const *upper(int64_t r) const { return data_[3 * r + 2]; }
 
   //! returns the raw internal data
-  P *data() { return data_.data(); }
+  P *data() { return data_[0]; }
   //! returns the raw internal data, const-overload
-  P const *data() const { return data_.data(); }
+  P const *data() const { return data_[0]; }
 
   //! fill with single entry
   void fill(P v) { std::fill_n(data_[0], data_.total_size(), v); }

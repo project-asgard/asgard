@@ -119,38 +119,54 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
   }
   else
   {
+    // Dirichlet boundary conditions for the field
+    asgard::dirichelt_boundary1d<P> field_dirichlet{0, 1};
+    // Neumann boundary conditions for the field
+    asgard::dirichelt_boundary1d<P> field_neumann{2, 0};
+
+    // setting Dirichlet boundary for the div term in the chain
+    // results in Neumann conditions imposed on the field
+    // think of this as imposing Dirichlet condition on the output of the grad term
+    // and the output of the grad term is the derivative of the field
     asgard::term_1d<P> div =
         asgard::term_div<P>(-1, asgard::flux_type::upwind, asgard::boundary_type::right_free,
-                            asgard::dirichelt_boundary1d<P>{2, 0});
+                            field_neumann);
     // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
     asgard::term_1d<P> grad =
         asgard::term_grad<P>(1, asgard::flux_type::upwind, asgard::boundary_type::left_free,
-                             asgard::dirichelt_boundary1d<P>{0, 1});
-
-    // adding small penalty to stabilize the steady state equation
-    // not that the value will not change the result
-    // fxx.set_penalty(0.01, asgard::flux_type::upwind, asgard::boundary_type::right_free);
+                             field_dirichlet);
 
     // the multi-dimensional operator, initially set to identity in md
     std::vector<asgard::term_1d<P>> div_md(num_dims);
     std::vector<asgard::term_1d<P>> grad_md(num_dims);
     for (int d = 0; d < num_dims; d++)
     {
-      div_md[d]  = div;
-      grad_md[d] = grad;
-      asgard::term_md<P> diff(std::vector<asgard::term_md<P>>{div_md, grad_md});
-      pde += diff;
-
+      // div_md[d]  = div;
+      // grad_md[d] = grad;
+      // asgard::term_md<P> diff(std::vector<asgard::term_md<P>>{div_md, grad_md});
+      // pde += diff;
+      //
       P const dx = pde.cell_size(d);
+      //
+      // grad_md[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
+      //                                   asgard::boundary_type::left_free,
+      //                                   field_dirichlet);
+      //
+      // pde += grad_md;
+      //
+      // div_md[d]  = asgard::term_identity{};
+      // grad_md[d] = asgard::term_identity{};
+      asgard::term_1d<P> fxx({div, grad});
+      // diffusion.set_penalty(P{1} / dx);
+      div_md[d] = fxx;
+      pde += div_md;
 
-      grad_md[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
-                                        asgard::boundary_type::left_free,
-                                        asgard::dirichelt_boundary1d<P>{0, -1});
+      div_md[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
+                                       asgard::boundary_type::left_free,
+                                       field_dirichlet);
+      pde += div_md;
 
-      pde += grad_md;
-
-      div_md[d]  = asgard::term_identity{};
-      grad_md[d] = asgard::term_identity{};
+      div_md[d] = asgard::term_identity{};
     }
   }
 

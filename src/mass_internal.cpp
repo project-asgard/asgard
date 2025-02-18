@@ -16,23 +16,16 @@
 
 /* NOTES TO SELF
  *
- * 1. Add steady state solver, which assumes existence and uniqueness
- *    - done
- *
  * 2. Add Poisson problem in 1D and 2D with homogeneous and inhomogeneous boundary conditions
- *    - it is easier to make a steady state problem
- *    - cross reference the solution in both cases
- *    - test the Dirichlet-Neumann BC when working with chains
+ *    - update and document and brush up the different chain types
  *
  * 3. Update the BC construction to be part of the term construction
- *    - cross-reference the boundary terms and boundary condition sources
- *    - allow BC for 1D chains to work as well
- *    - allow BC for terms with variable coefficients (dependencies)
- *    - see how to reuse the coefficients in the non-flux dimensions
+ *    - debugging
  *
  * 4. Update the Mass example where we have a non-trivial global mass term
  *    - current example needs boundary conditions
  *    - the derivative is wrong due to the variable coefficient
+ *    - (next PR)
  *
  * 5. Check small bugs
  *    - setting num-time-steps when dealing with default-dt and final-times
