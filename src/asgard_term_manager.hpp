@@ -87,12 +87,59 @@ struct source_boundary_data {
   int term_index = -1;
 };
 
+//! holds the extra data for an edge case, mostly the same as an interior
+template<typename P>
+class source_edge_data {
+public:
+  //! create a left-edge data
+  source_edge_data(separable_func<P> f, int d)
+    : sep_(std::move(f)), dim_(-d - 1)
+  {
+    expect(0 <= d and d < max_num_dimensions);
+  }
+  //! create a right-edge data
+  source_edge_data(int d, separable_func<P> f)
+    : sep_(std::move(f)), dim_(d + 1)
+  {
+    expect(0 <= d and d < max_num_dimensions);
+  }
+  //! returns the dimension for the edge
+  int dim() const { return std::abs(dim_) - 1; }
+  //! returns if the edge is left
+  bool left() const { return (dim_ < 0); }
+  //! returns if the edge is right
+  bool right() const { return (dim_ > 0); }
+  //! returns the separable function
+  separable_func<P> const &sep() const { return sep_; }
+
+private:
+  //! separable function
+  separable_func<P> sep_;
+  //! dimension holding the edge direction, negative implies left side
+  int dim_ = 0;
+};
+
 //! holds data associated with with either a source term of boundary condition
 template<typename P>
 struct source_entry
 {
   //! mode indicating when to recompute the coefficients
-  enum class time_mode { constant = 0, separable, time_dependent, boundary };
+  enum class time_mode {
+    //! interior source that is constant in time
+    constant = 0,
+    //! interior source that is separable in time, i.e., constant in space with time multiplier
+    separable,
+    //! interior source that is non-separable in time, still separable in space for fixed time
+    time_dependent,
+    //! boundary source that is constant across the wall
+    boundary,
+    //! boundary source that is constant in time but non-constant on the edge/boundary
+    edge_constant,
+    //! boundary source that is separable in time
+    edge_separable,
+    //! boundary source that is non-separable in time
+    edge_time
+  };
   //! default source entry, must be reinitialized before use
   source_entry() = default;
   //! create a new source entry
@@ -106,8 +153,25 @@ struct source_entry
   bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
   bool is_boundary() const { return tmode == time_mode::boundary; }
 
+  //! separable term, but one component is an edge component
+  bool is_edge() const {
+    return (tmode == time_mode::edge_constant or tmode == time_mode::edge_separable or
+            tmode == time_mode::edge_time);
+  }
+
+  bool is_edge_constant() const { return tmode == time_mode::edge_constant; }
+  bool is_edge_separable() const { return tmode == time_mode::edge_separable; }
+  bool is_edge_time() const { return tmode == time_mode::edge_time; }
+
   //! if the function is separable or time-dependent, handle the extra data
-  std::variant<int, scalar_func<P>, separable_func<P>, source_boundary_data<P>> func;
+  std::variant<int, scalar_func<P>, separable_func<P>, source_boundary_data<P>,
+               source_edge_data<P>> func;
+
+  //! quick access to the source-edge data, edge-time case only
+  source_edge_data<P> const &source_edge() const {
+    expect(tmode == time_mode::edge_time);
+    return std::get<source_edge_data<P>>(func);
+  }
 
   //! quick access to the boundary data
   int dim() const {

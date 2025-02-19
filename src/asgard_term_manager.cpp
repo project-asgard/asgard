@@ -660,17 +660,16 @@ void term_manager<P>::add_dirichlet(
   if (t1d.is_penalty()) // penalty flips the sign of the boundary conditions
     scale = -scale;
 
-  if (t1d.penalty() != 0) { // penalty added directly to the term
-    if (t1d.is_chain())
-      scale *= -t1d.penalty();
-    else
-      scale *= P{1} - t1d.penalty();
-  }
+  if (t1d.penalty() != 0 and t1d.is_chain()) // penalty added directly to the term
+    scale *= -t1d.penalty();
 
-  P const rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
-  P const rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
+  P rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
+  P rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
 
   if (dirichlet.has_left()) {
+    if (t1d.penalty() != 0 and not t1d.is_chain())
+      rhs_left *= P{1} + t1d.penalty();
+
     if (dirichlet.left_t) { // time-dependant
       tdata.emplace_back(std::move(dirichlet.left_t));
       tdata.back().const_1d.resize(num_entries);
@@ -682,6 +681,9 @@ void term_manager<P>::add_dirichlet(
     }
   }
   if (dirichlet.has_right()) {
+    if (t1d.penalty() != 0 and not t1d.is_chain())
+      rhs_right *= P{1} - t1d.penalty();
+
     if (dirichlet.right_t) { // time-dependant
       tdata.emplace_back(std::move(dirichlet.right_t));
       tdata.back().const_1d.resize(num_entries);
