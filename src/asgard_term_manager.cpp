@@ -601,7 +601,6 @@ void term_manager<P>::build_raw_mat(
 
     // constant and time-dependent conditions
     std::vector<P> &cnt = bc.consts[d];
-    std::vector<time_boundary_data<P>> &tdata = bc.time_boundary();
 
     // multiply the current set of bc by the matrix
     // this will happen when working with a 1d chain
@@ -617,49 +616,8 @@ void term_manager<P>::build_raw_mat(
         raw_tri.inplace_gemv(pdof, st.const_1d, t1);
     }
 
-    // if this term has more boundary conditions to add
-    if (t1d.dirichlet().has_any()) {
-      int64_t const num_cells   = fm::ipow2(level);
-      int64_t const num_entries = legendre.pdof * num_cells;
+    add_dirichlet(t1d, level, t1d.dirichlet_, bc);
 
-      P scale = P{1} / std::sqrt( (xright[d] - xleft[d]) / num_cells );
-      if (t1d.is_penalty()) // penalty flips the sign of the boundary conditions
-        scale = -scale;
-
-      if (t1d.penalty() != 0) { // penalty added directly to the term
-        scale *= P{1} - t1d.penalty();
-      }
-
-      dirichelt_boundary1d<P> &dir = t1d.dirichlet_;
-
-      P const rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
-      P const rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
-
-      if (dir.has_left()) {
-        if (dir.left_t) { // time-dependant
-          tdata.emplace_back(std::move(dir.left_t));
-          tdata.back().const_1d.resize(num_entries);
-          smmat::axpy(pdof, - rhs_left * scale, legendre.leg_left, tdata.back().const_1d.data());
-        } else {
-          if (cnt.empty())
-            cnt.resize(num_entries);
-          smmat::axpy(pdof, - rhs_left * scale * dir.const_left, legendre.leg_left, cnt.data());
-        }
-      }
-      if (dir.has_right()) {
-        if (dir.right_t) { // time-dependant
-          tdata.emplace_back(std::move(dir.right_t));
-          tdata.back().const_1d.resize(num_entries);
-          smmat::axpy(pdof, rhs_right * scale, legendre.leg_right,
-                      tdata.back().const_1d.data() + num_entries - pdof);
-        } else {
-          if (cnt.empty())
-            cnt.resize(num_entries);
-          smmat::axpy(pdof, rhs_right * scale * dir.const_right,
-                      legendre.leg_right, cnt.data() + num_entries - pdof);
-        }
-      }
-    }
   } else if (bc.is_boundary() and not bc.consts[d].empty()) {
     // has Dirichlet in other directions and expecting to load the rhs
     // if using 1d-chain, this is handled externally
@@ -678,6 +636,65 @@ void term_manager<P>::build_raw_mat(
       }
     }
   }
+}
+
+template<typename P>
+void term_manager<P>::add_dirichlet(
+    term_1d<P> const &t1d, int level, dirichelt_boundary1d<P> &dirichlet,
+    source_entry<P> &bc) const
+{
+  expect(bc.is_boundary());
+  if (not dirichlet.has_any()) // nothing to do
+    return;
+
+  int const d = bc.dim();
+  std::vector<P> &cnt = bc.consts[d];
+  std::vector<time_boundary_data<P>> &tdata = bc.time_boundary();
+
+  int const pdof = legendre.pdof;
+
+  int64_t const num_cells   = fm::ipow2(level);
+  int64_t const num_entries = legendre.pdof * num_cells;
+
+  P scale = P{1} / std::sqrt( (xright[d] - xleft[d]) / num_cells );
+  if (t1d.is_penalty()) // penalty flips the sign of the boundary conditions
+    scale = -scale;
+
+  if (t1d.penalty() != 0) { // penalty added directly to the term
+    if (t1d.is_chain())
+      scale *= -t1d.penalty();
+    else
+      scale *= P{1} - t1d.penalty();
+  }
+
+  P const rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
+  P const rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
+
+  if (dirichlet.has_left()) {
+    if (dirichlet.left_t) { // time-dependant
+      tdata.emplace_back(std::move(dirichlet.left_t));
+      tdata.back().const_1d.resize(num_entries);
+      smmat::axpy(pdof, - rhs_left * scale, legendre.leg_left, tdata.back().const_1d.data());
+    } else {
+      if (cnt.empty())
+        cnt.resize(num_entries);
+      smmat::axpy(pdof, - rhs_left * scale * dirichlet.const_left, legendre.leg_left, cnt.data());
+    }
+  }
+  if (dirichlet.has_right()) {
+    if (dirichlet.right_t) { // time-dependant
+      tdata.emplace_back(std::move(dirichlet.right_t));
+      tdata.back().const_1d.resize(num_entries);
+      smmat::axpy(pdof, rhs_right * scale, legendre.leg_right,
+                  tdata.back().const_1d.data() + num_entries - pdof);
+    } else {
+      if (cnt.empty())
+        cnt.resize(num_entries);
+      smmat::axpy(pdof, rhs_right * scale * dirichlet.const_right,
+                  legendre.leg_right, cnt.data() + num_entries - pdof);
+    }
+  }
+
 }
 
 template<typename P>
@@ -769,13 +786,6 @@ void term_manager<P>::rebuld_chain(
   // and at each stage we multiply by diag/tri-matrix
   // if we start with a diagonal, we will switch to tri at some point
 
-  std::cout << " REBUILDING TRI CHAIN\n";
-  if (bc.is_boundary()) {
-    std::cout << " boundary in dim = " << bc.dim() << "\n";
-  } else {
-    std::cout << " NO BOUNDARY \n";
-  }
-
   fill current = (t1d.is_mass()) ? fill::diag : fill::tri;
   build_raw_mat(d, t1d.chain(num_chain - 1), level, *diag0, *tri0, bc);
 
@@ -829,7 +839,10 @@ void term_manager<P>::rebuld_chain(
 
   if (t1d.penalty() != 0) {
     gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(),
+       t1d.boundary(), raw_rhs, raw_tri);
+
+    add_dirichlet(t1d, level, t1d.dirichlet_, bc);
   }
 }
 

@@ -359,6 +359,9 @@ protected:
   //! helper method, converts the data on quad
   template<data_mode mode>
   void raw2cells(bool is_diag, int level, std::vector<P> &out);
+  //! add Dirichlet boundary conditions to the source term
+  void add_dirichlet(term_1d<P> const &t1d, int level, dirichelt_boundary1d<P> &dirichlet,
+                     source_entry<P> &bc) const;
 
 private:
   // workspace and workspace matrices

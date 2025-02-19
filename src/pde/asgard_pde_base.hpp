@@ -1906,14 +1906,23 @@ public:
   }
   //! add penalty to a div or grad term, more efficient than adding additional term
   void set_penalty(P penalty_coefficient) {
-    rassert(optype_ == operation_type::div or optype_ == operation_type::grad,
-            "penalty can be added only to div or grad terms, if added to a chain "
-            "flux has to also be specified (and potentially boundary condition)");
+    rassert(optype_ == operation_type::div or optype_ == operation_type::grad
+            or optype_ == operation_type::chain,
+            "penalty can be added only to div grad or chain terms, if added to a chain "
+            "flux and boundary condition will be taken from the back of the chain");
     rassert(penalty_coefficient > 0, "penalty coefficient has to be positive");
     penalty_ = penalty_coefficient;
+    if (is_chain()) {
+      flux_      = chain_.back().flux();
+      boundary_  = chain_.back().boundary();
+      dirichlet_ = chain_.back().dirichlet(); // TODO: this should not copy or move
+      // the problem above is that adding the boundary condition to a term
+      // yields a source term, must combine the scale factors for to terms ...
+    }
   }
   //! add penalty to a chain term, more efficient than adding additional term
-  void set_penalty(P penalty_coefficient, flux_type flx, boundary_type bnd, dirichelt_boundary1d<P> dir = {}) {
+  void set_penalty(P penalty_coefficient, flux_type flx, boundary_type bnd,
+                   dirichelt_boundary1d<P> dir = {}) {
     rassert(optype_ == operation_type::chain,
             "penalty with specified flux can be added only to a chain term, adding "
             "penalty to div or grad terms matches the provided flux");

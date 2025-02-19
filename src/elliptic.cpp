@@ -93,32 +93,20 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
   asgard::PDEv2<P> pde(options, std::move(domain));
 
+  // two terms div and grad, combined those make the elliptic operator d^2/dx^2
+  asgard::term_1d<P> div;
+  asgard::term_1d<P> grad;
+
   if constexpr (boudnary == boundary_enum::homogeneous)
   {
     // Dirichlet boundary set to the div term corresponds to Neumann boundary
-    asgard::term_1d<P> div =
-        asgard::term_div<P>(-1, asgard::flux_type::upwind, asgard::boundary_type::left_free);
+    div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
+                              asgard::boundary_type::left_free);
     // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
-    asgard::term_1d<P> grad =
-        asgard::term_grad<P>(1, asgard::flux_type::upwind, asgard::boundary_type::right_free);
+    grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
+                                asgard::boundary_type::right_free);
 
-    asgard::term_1d<P> fxx({div, grad});
-
-    // adding small penalty to stabilize the steady state equation
-    // not that the value will not change the result
-    fxx.set_penalty(0.01, asgard::flux_type::upwind, asgard::boundary_type::right_free);
-
-    // the multi-dimensional operator, initially set to identity in md
-    std::vector<asgard::term_1d<P>> ops(num_dims);
-    for (int d = 0; d < num_dims; d++)
-    {
-      ops[d] = fxx;
-      pde += asgard::term_md<P>(ops);
-      ops[d] = asgard::term_identity{};
-    }
-  }
-  else
-  {
+  } else {
     // Dirichlet boundary conditions for the field
     asgard::dirichelt_boundary1d<P> field_dirichlet{0, 1};
     // Neumann boundary conditions for the field
@@ -128,46 +116,32 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
     // results in Neumann conditions imposed on the field
     // think of this as imposing Dirichlet condition on the output of the grad term
     // and the output of the grad term is the derivative of the field
-    asgard::term_1d<P> div =
-        asgard::term_div<P>(-1, asgard::flux_type::upwind, asgard::boundary_type::right_free,
-                            field_neumann);
+    div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
+                              asgard::boundary_type::right_free, field_neumann);
     // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
-    asgard::term_1d<P> grad =
-        asgard::term_grad<P>(1, asgard::flux_type::upwind, asgard::boundary_type::left_free,
-                             field_dirichlet);
+    grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
+                                asgard::boundary_type::left_free, field_dirichlet);
+  }
 
-    // the multi-dimensional operator, initially set to identity in md
-    std::vector<asgard::term_1d<P>> div_md(num_dims);
-    std::vector<asgard::term_1d<P>> grad_md(num_dims);
-    for (int d = 0; d < num_dims; d++)
-    {
-      // div_md[d]  = div;
-      // grad_md[d] = grad;
-      // asgard::term_md<P> diff(std::vector<asgard::term_md<P>>{div_md, grad_md});
-      // pde += diff;
-      //
-      P const dx = pde.cell_size(d);
-      //
-      // grad_md[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
-      //                                   asgard::boundary_type::left_free,
-      //                                   field_dirichlet);
-      //
-      // pde += grad_md;
-      //
-      // div_md[d]  = asgard::term_identity{};
-      // grad_md[d] = asgard::term_identity{};
-      asgard::term_1d<P> fxx({div, grad});
-      // diffusion.set_penalty(P{1} / dx);
-      div_md[d] = fxx;
-      pde += div_md;
+  // the multi-dimensional operator, initially set to identity in md
+  std::vector<asgard::term_1d<P>> ops(num_dims);
+  for (int d = 0; d < num_dims; d++)
+  {
+    // combine the div and grad into a single chain term
+    asgard::term_1d<P> fxx({div, grad});
 
-      div_md[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
-                                       asgard::boundary_type::left_free,
-                                       field_dirichlet);
-      pde += div_md;
+    // based on the domain and max-level, get the cell-size in direction d
+    P const dx = pde.cell_size(d);
 
-      div_md[d] = asgard::term_identity{};
-    }
+    // adding penalty to stabilize the steady state equation
+    // the penalty is applied only to discontinuities, if the solution is continuous
+    // then the penalty will not alter the result but only improve the conditioning
+    fxx.set_penalty(P{1} / dx);
+
+    // add the second order operator in dimension dim
+    ops[d] = fxx;
+    pde += asgard::term_md<P>(ops);
+    ops[d] = asgard::term_identity{};
   }
 
   // just the constant 2
