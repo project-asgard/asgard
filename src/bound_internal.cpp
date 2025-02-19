@@ -47,6 +47,11 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
   options.default_dt = 0.5 * 0.1 * dx;
   options.default_stop_time = 1.0;
 
+  options.default_isolver_tolerance  = 1.E-8;
+  options.default_isolver_iterations = 2000;
+
+  options.default_isolver_inner_iterations = 200;
+
   PDEv2<P> pde(options, std::move(domain));
 
   term_1d<P> div = []() -> term_1d<P> {
@@ -107,8 +112,8 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
   options.default_solver = solve_opts::direct;
 
   // for when we use bicgstab or gmres
-  options.default_isolver_tolerance  = 1.E-8;
-  options.default_isolver_iterations = 1000;
+  options.default_isolver_tolerance  = 1.E-6;
+  options.default_isolver_iterations = 4000;
 
   PDEv2<P> pde(options, std::move(domain));
 
@@ -117,10 +122,10 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
 
   term_1d<P> diffusion({div, grad});
 
-  if (num_dims > 1) // it is more efficient to add the penalty to the chain
-    diffusion.set_penalty(0.1, flux_type::upwind, boundary_type::dirichlet);
+  int const max_level = options.max_level();
+  P const dx = domain.min_cell_size(max_level);
 
-  term_1d<P> penalty = term_penalty<P>(0.1, flux_type::upwind, boundary_type::dirichlet);
+  term_1d<P> penalty = term_penalty<P>(P{1} / dx, flux_type::upwind, boundary_type::dirichlet);
 
   std::vector<term_1d<P>> ops(num_dims);
   for (int d = 0; d < num_dims; d++)
@@ -352,10 +357,10 @@ void self_test() {
   dotest<double>(2.E-7,  3, "-dv 2 -left");
   dotest<double>(2.E-7,  4, "-dv 0 -left");
   dotest<double>(1.E-7,  4, "-dv 2 -right");
-  dotest<double>(2.E-7,  5, "-dv 1 -left");
-  dotest<double>(1.E-7,  5, "-dv 3 -right");
-  dotest<double>(2.E-7,  6, "-dv 1 -left");
-  dotest<double>(1.E-7,  6, "-dv 2 -right");
+  dotest<double>(2.E-7,  5, "-dv 1 -left -sv gmres");
+  dotest<double>(1.E-7,  5, "-dv 3 -right -sv gmres");
+  dotest<double>(2.E-7,  6, "-dv 1 -left -sv gmres");
+  dotest<double>(1.E-7,  6, "-dv 2 -right -sv gmres");
 
   dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s cn -d 1 -dt 0.1 -t 10");
   dotest_quad<double>(1.E-3, 1, "-quad -l 5 -s cn -d 2 -dt 0.1 -t 10");
