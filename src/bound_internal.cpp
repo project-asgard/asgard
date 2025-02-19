@@ -41,6 +41,9 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
   int const max_level = options.max_level();
   P const dx = domain.min_cell_size(max_level);
 
+  options.default_step_method = time_advance::method::steady;
+  options.default_solver = solve_opts::direct;
+
   options.default_dt = 0.5 * 0.1 * dx;
   options.default_stop_time = 1.0;
 
@@ -55,6 +58,8 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
                            dirichelt_boundary1d<P>{0, 1});
       }
     }();
+
+  div.set_penalty(P{1} / pde.min_cell_size());
 
   // the multi-dimensional divergence, initially set to identity in md
   std::vector<term_1d<P>> ops(num_dims);
@@ -273,9 +278,6 @@ R"help(<< additional options for this file >>
     disc.emplace(std::move(pde), verbosity_level::low);
   }
 
-  if (not disc->stop_verbosity())
-    std::cout << " -- error in the initial conditions: " << get_error_l2(*disc) << "\n";
-
   disc->advance_time();
 
   disc->final_output();
@@ -300,6 +302,8 @@ void dotest(double tol, int num_dims, std::string const &opts) {
                     : make_side_pde<P, type_right>(num_dims, dv, options);
 
   discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
+
+  disc.set_current_state(std::vector<P>(disc.current_state().size(), P{0}));
 
   while (disc.time_params().num_remain() > 0)
   {

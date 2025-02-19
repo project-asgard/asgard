@@ -74,6 +74,14 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 #endif
   rassert(1 <= num_dims and num_dims <= 6, "invalid number of dimensions");
 
+  // the main limitation of separable boundary conditions is that those
+  // have to be constant across the surface
+  // this works well for periodic and free boundary, the homogeneous Dirichlet
+  // is easier to enforce for separable solutions, the inhomogeneous case is hard ...
+  if constexpr (boudnary == boundary_enum::inhomogeneous) {
+    rassert(num_dims == 1, "inhomogeneous boundary works only in 1D");
+  }
+
   options.title = "Elliptic PDE + " + std::to_string(num_dims) + "D";
 
   asgard::pde_domain<P> domain(std::vector<asgard::domain_range<P>>(num_dims, {0, 1}));
@@ -90,6 +98,10 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
   // OK for small problems, larger one should switch to gmres or bicgstab
   options.default_solver = asgard::solve_opts::direct;
+
+  // defaults for iterative solvers, not necessarily optimal
+  options.default_isolver_tolerance  = 1.E-8;
+  options.default_isolver_iterations = 1000;
 
   asgard::PDEv2<P> pde(options, std::move(domain));
 
@@ -118,6 +130,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
     // and the output of the grad term is the derivative of the field
     div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
                               asgard::boundary_type::right_free, field_neumann);
+
     // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
     grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
                                 asgard::boundary_type::left_free, field_dirichlet);
@@ -352,81 +365,58 @@ R"help(<< additional options for this file >>
 using namespace asgard;
 
 template<typename P>
-void dotest(double tol, std::string const &opts) {
-  // current_test<P> test_(opts, 1);
-  //
-  // auto options = make_opts(opts);
-  //
-  // bool const left = options.has_cli_entry("-left");
-  //
-  // bool const final_only = options.has_cli_entry("-test-final-only");
-  //
-  // auto pde = (left) ? make_sinwav_pde<from_direction::left, P>(options)
-  //                   : make_sinwav_pde<from_direction::right, P>(options);
-  //
-  // discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
-  //
-  // if (final_only) {
-  //   disc.advance_time();
-  //   double const err = get_error_l2(disc);
-  //   // std::cout << err << '\n';
-  //   tcheckless(disc.time_params().step(), err, tol);
-  // } else {
-  //   while (disc.time_params().num_remain() > 0)
-  //   {
-  //     disc.advance_time(1);
-  //
-  //     if (not final_only) {
-  //       double const err = get_error_l2(disc);
-  //       // std::cout << err << '\n';
-  //       tcheckless(disc.time_params().step(), err, tol);
-  //     }
-  //   }
-  // }
+void dotest(double tol, int num_dims, std::string const &opts) {
+  current_test<P> test_(opts, num_dims);
+
+  auto options = make_opts(opts);
+
+  // using a method similar to extra_cli_value that will loop for multiple entries
+  // returns the first entry found
+  int const btype = options.extra_cli_value<int>("-bc").value_or(0);
+
+  auto pde = (btype == 0)
+             ? make_elliptic_pde<boundary_enum::homogeneous, P>(num_dims, options)
+             : make_elliptic_pde<boundary_enum::inhomogeneous, P>(num_dims, options);
+
+  asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::quiet);
+
+  disc.advance_time();
+
+  double const err = get_error_l2(disc);
+  std::cout << err << '\n';
+  tcheckless(1, err, tol);
 }
 
 void self_test() {
-  // #ifdef ASGARD_ENABLE_DOUBLE
-  // // the solution starts as constant zero and turns into sine wave
-  // // this creates a kink (discontinuity in the first derivative)
-  // // thus, at time t = 1 the convergence is only 1-st order in dx
-  // // after the initial kink leaves the domain, the error goes down
-  // dotest<double>(1.E-2, "-l 4 -t 1.1 -left");
-  // dotest<double>(1.E-2, "-l 4 -t 1.1 -right");
-  // dotest<double>(5.E-3, "-l 5 -t 1.1 -left");
-  // dotest<double>(5.E-3, "-l 5 -t 1.1 -right");
-  // dotest<double>(1.E-3, "-l 6 -t 1.1 -left");
-  // dotest<double>(1.E-3, "-l 6 -t 1.1 -right");
-  // dotest<double>(5.E-4, "-l 7 -t 1.1 -left");
-  // dotest<double>(5.E-4, "-l 7 -t 1.1 -right");
-  //
-  // dotest<double>(5.E-4, "-l 4 -t 1.4 -left -test-final-only");
-  // dotest<double>(5.E-4, "-l 4 -t 1.4 -right -test-final-only");
-  // dotest<double>(1.E-4, "-l 5 -t 1.4 -left -test-final-only");
-  // dotest<double>(1.E-4, "-l 5 -t 1.4 -right -test-final-only");
-  // dotest<double>(5.E-5, "-l 6 -t 1.4 -left -test-final-only");
-  // dotest<double>(5.E-5, "-l 6 -t 1.4 -right -test-final-only");
-  // dotest<double>(7.E-6, "-l 7 -t 1.4 -left -test-final-only");
-  // dotest<double>(7.E-6, "-l 7 -t 1.4 -right -test-final-only");
-  //
-  // dotest<double>(3.E-5, "-m 8 -a 1.E-5 -t 1.4 -test-final-only");
-  // #endif
-  //
-  // #ifdef ASGARD_ENABLE_FLOAT
-  // dotest<float>(1.E-2, "-l 4 -t 1.1 -left");
-  // dotest<float>(1.E-2, "-l 4 -t 1.1 -right");
-  // dotest<float>(5.E-3, "-l 5 -t 1.1 -left");
-  // dotest<float>(3.E-3, "-l 6 -t 1.1 -right");
-  //
-  // dotest<float>(5.E-2, "-l 2 -t 1.4 -left -test-final-only");
-  // dotest<float>(5.E-2, "-l 2 -t 1.4 -right -test-final-only");
-  // dotest<float>(5.E-3, "-l 3 -t 1.4 -left -test-final-only");
-  // dotest<float>(5.E-3, "-l 3 -t 1.4 -right -test-final-only");
-  // dotest<float>(1.E-3, "-l 4 -t 1.4 -left -test-final-only");
-  // dotest<float>(1.E-3, "-l 4 -t 1.4 -right -test-final-only");
-  //
-  // dotest<float>(3.E-3, "-m 6 -a 1.E-3 -t 1.4 -test-final-only");
-  // #endif
+  #ifdef ASGARD_ENABLE_DOUBLE
+  // the solution starts as constant zero and turns into sine wave
+  // this creates a kink (discontinuity in the first derivative)
+  // thus, at time t = 1 the convergence is only 1-st order in dx
+  // after the initial kink leaves the domain, the error goes down
+
+  dotest<double>(5.E-3, 1, "-d 1 -l 3");
+  dotest<double>(1.E-3, 1, "-d 1 -l 4");
+  dotest<double>(5.E-4, 1, "-d 1 -l 5");
+  dotest<double>(5.E-4, 1, "-d 1 -l 5 -bc 1");
+  dotest<double>(5.E-4, 1, "-d 1 -l 5 -bc 1");
+  dotest<double>(5.E-4, 1, "-d 1 -l 5 -bc 1");
+
+  dotest<double>(1.E-3, 2, "-d 1 -l 4");
+  dotest<double>(1.E-3, 3, "-d 1 -l 5 -sv bicgstab");
+  dotest<double>(1.E-3, 4, "-d 1 -l 5 -sv bicgstab");
+
+  dotest<double>(1.E-7, 1, "-d 2 -l 3");
+  dotest<double>(5.E-7, 2, "-d 2 -l 3");
+  dotest<double>(5.E-7, 3, "-d 2 -l 3");
+  #endif
+
+  #ifdef ASGARD_ENABLE_FLOAT
+  dotest<float>(5.E-3, 1, "-d 1 -l 5");
+  dotest<float>(5.E-3, 1, "-d 2 -l 3");
+  dotest<float>(5.E-3, 1, "-d 2 -l 3 -bc 1");
+
+  dotest<float>(5.E-3, 2, "-d 1 -l 5");
+  #endif
 }
 
 #endif

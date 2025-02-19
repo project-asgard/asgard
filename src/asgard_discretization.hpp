@@ -405,6 +405,10 @@ public:
       moms1d->project_moments(pde->get_dimensions().front().get_level(),
                               f, grid.get_table(), rmom);
   }
+  void set_current_state(std::vector<precision> const &ns) {
+    rassert(ns.size() == state.size(), "cannot set state with different size");
+    state = ns;
+  }
   //! recomputes the coefficients, can select sub
   void compute_coefficients(coeff_update_mode mode = coeff_update_mode::all) {
     generate_coefficients(*pde, matrices, conn, hier, time_, mode);

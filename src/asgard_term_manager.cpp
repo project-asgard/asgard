@@ -694,7 +694,6 @@ void term_manager<P>::add_dirichlet(
                   legendre.leg_right, cnt.data() + num_entries - pdof);
     }
   }
-
 }
 
 template<typename P>
@@ -842,7 +841,8 @@ void term_manager<P>::rebuld_chain(
       (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(),
        t1d.boundary(), raw_rhs, raw_tri);
 
-    add_dirichlet(t1d, level, t1d.dirichlet_, bc);
+    if (bc.is_boundary())
+      add_dirichlet(t1d, level, t1d.dirichlet_, bc);
   }
 }
 
