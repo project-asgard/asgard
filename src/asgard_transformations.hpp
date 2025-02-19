@@ -169,10 +169,13 @@ public:
     int const num_dims = domain.num_dims();
     for (int d : iindexof(num_dims))
     {
-      project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
-          -> void {
-        sep.fdomain(d, x, time, fx);
-      }, mass[d], d, grid.current_level(d));
+      if (sep.is_const(d))
+        project1d_c(sep.cdomain(d), mass[d], d, grid.current_level(d));
+      else
+        project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
+            -> void {
+          sep.fdomain(d, x, time, fx);
+        }, mass[d], d, grid.current_level(d));
     }
 
     P const tmult = (sep.ftime()) ? sep.ftime()(time) : P{1};
@@ -302,14 +305,26 @@ public:
 
     project1d(dim, level, dmax[dim] - dmin[dim], mass);
   }
+  //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
+  std::vector<P> get_project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
+  {
+    project1d_f(f, mass, dim, level);
+    return get_projected1d(dim);
+  }
   //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
   void project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
   {
     int const num_cells = fm::ipow2(level);
-    fvals.resize(num_cells * quad.stride());
-    std::fill(fvals.begin(), fvals.end(), c); // TODO: skip the projection below
-
-    project1d(dim, level, dmax[dim] - dmin[dim], mass);
+    if (mass) {
+      fvals.resize(num_cells * quad.stride());
+      std::fill(fvals.begin(), fvals.end(), c); // TODO: skip the projection below
+      project1d(dim, level, dmax[dim] - dmin[dim], mass);
+    } else {
+      // the projection is trivial, exploiting orthogonality of the basis
+      pf[dim].resize(num_cells * (degree_ + 1));
+      std::fill(fvals.begin(), fvals.end(), 0);
+      pf[dim].front() = c;
+    }
   }
   //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
   std::vector<P> get_project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const

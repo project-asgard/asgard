@@ -379,7 +379,7 @@ public:
     return source_func_[i](x, t, y);
   }
   //! check if the given dimension is constant
-  void is_const(int dim) const { return !!source_func_[dim]; }
+  bool is_const(int dim) const { return not source_func_[dim]; }
 
   //! returns the time function
   scalar_func<P> const &ftime() const { return time_func_; }
@@ -400,6 +400,8 @@ public:
         xx.front() = x[d];
         source_func_[d](xx, t, fx);
         v *= fx[0];
+      } else if (consts_[d] != 0) {
+        v *= consts_[d];
       }
     }
     if (time_func_)

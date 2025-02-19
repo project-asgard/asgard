@@ -156,10 +156,14 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
       }
 
       for (int d : iindexof(num_dims)) {
-        hier.project1d_f(
-            [&](std::vector<P> const &x, std::vector<P> &y)-> void { s.fdomain(d, x, 0, y); },
-            mass[d], d, max_level);
-        sources.back().consts[d] = hier.get_projected1d(d);
+        if (s.is_const(d)) {
+          sources.back().consts[d]
+              = hier.get_project1d_c(s.cdomain(d), mass[d], d, max_level);
+        } else {
+          sources.back().consts[d] = hier.get_project1d_f(
+              [&](std::vector<P> const &x, std::vector<P> &y)-> void { s.fdomain(d, x, 0, y); },
+              mass[d], d, max_level);
+        }
       }
 
     } else {
