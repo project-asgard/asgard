@@ -1381,9 +1381,41 @@ enum class operation_type
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Defines the separable boundary conditions for div and grad
+ * \brief Helper allowing to specify left boundary conditions
  */
 template<typename P>
+struct left_boundary_cond {
+  //! constant left boundary
+  explicit left_boundary_cond(P cnt) : c(cnt) {}
+  //! time-dependent left boundary boundary
+  explicit left_boundary_cond(scalar_func<P> t) : time_(std::move(t)) {}
+  //! the constant
+  P c = 0;
+  //! the time function
+  scalar_func<P> time_;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Helper allowing to specify right boundary conditions
+ */
+template<typename P>
+struct right_boundary_cond {
+  //! constant left boundary
+  explicit right_boundary_cond(P cnt) : c(cnt) {}
+  //! time-dependent left boundary boundary
+  explicit right_boundary_cond(scalar_func<P> t) : time_(std::move(t)) {}
+  //! the constant
+  P c = 0;
+  //! the time function
+  scalar_func<P> time_;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Defines the separable boundary conditions for div and grad
+ */
+template<typename P = default_precision>
 struct dirichelt_boundary1d {
   //! default case, identical to homogeneous boundary
   dirichelt_boundary1d() = default;
@@ -1413,6 +1445,32 @@ struct dirichelt_boundary1d {
             "type mismatch using dirichelt_boundary1d, "
             "see the type-safety documentation of term_1d");
   }
+  //! left boundary
+  dirichelt_boundary1d(left_boundary_cond<P> left_bc)
+    : const_left(left_bc.c), left_t(std::move(left_bc.time_))
+  {}
+  //! left boundary, different precision
+  template<typename otherP>
+  dirichelt_boundary1d(left_boundary_cond<otherP> left_bc)
+    : const_left(left_bc.c)
+  {
+    rassert(not left_bc.time_,
+            "type mismatch using left_boundary_cond and dirichelt_boundary1d "
+            "see the type-safety documentation of term_1d");
+  }
+  //! right boundary
+  dirichelt_boundary1d(right_boundary_cond<P> right_bc)
+    : const_right(right_bc.c), right_t(std::move(right_bc.time_))
+  {}
+  //! left boundary, different precision
+  template<typename otherP>
+  dirichelt_boundary1d(right_boundary_cond<otherP> right_bc)
+    : const_right(right_bc.c)
+  {
+    rassert(not right_bc.time_,
+            "type mismatch using right_boundary_cond and dirichelt_boundary1d "
+            "see the type-safety documentation of term_1d");
+  }
 
   //! constant left boundary condition
   P const_left = 0;
@@ -1422,6 +1480,22 @@ struct dirichelt_boundary1d {
   scalar_func<P> left_t;
   //! time-dependent right-boundary condition
   scalar_func<P> right_t;
+  //! (non-const) separable boundary conditions on the left
+  std::vector<separable_func<P>> sep_left;
+  //! (non-const) separable boundary conditions on the right
+  std::vector<separable_func<P>> sep_right;
+
+  //! add left separable function
+  void add_left(separable_func<P> f) { sep_left.emplace_back(std::move(f)); }
+  //! add right separable function
+  void add_right(separable_func<P> f) { sep_right.emplace_back(std::move(f)); }
+  //! get the number of left separable functions
+  int num_left() const { return static_cast<int>(sep_left.size()); }
+  //! get the number of left separable functions
+  int num_right() const { return static_cast<int>(sep_right.size()); }
+  //! get the number of all separable functions
+  int num_sep() const { return num_left() + num_right(); }
+
   //! returns true if there is left boundary condition
   bool has_left() const { return (const_left != 0 or left_t); }
   //! returns true if there is right boundary condition
@@ -1435,12 +1509,15 @@ struct dirichelt_boundary1d {
     switch (bnd) {
       case boundary_type::periodic:
       case boundary_type::free:
-        rassert(not has_any(), "cannot specify dirichelt_boundary1d with boundary_type::periodic");
+        rassert(num_sep() == 0, "cannot specify dirichelt_boundary1d with boundary_type periodic or free");
+        rassert(not has_any(), "cannot specify dirichelt_boundary1d with boundary_type periodic or free");
         break;
       case boundary_type::left_free:
+        rassert(num_left() == 0, "cannot specify left separable dirichelt_boundary1d with boundary_type::left_free");
         rassert(not has_left(), "cannot specify left dirichelt_boundary1d with boundary_type::left_free");
         break;
       case boundary_type::right_free:
+        rassert(num_right() == 0, "cannot specify right separable dirichelt_boundary1d with boundary_type::right_free");
         rassert(not has_right(), "cannot specify right dirichelt_boundary1d with boundary_type::right_free");
         break;
       default:
@@ -1950,6 +2027,13 @@ public:
     }
     return false;
   }
+  //! return number of separable Dirichlet sources
+  int num_sep_dirichlet() const {
+    int num_sep = dirichlet_.num_sep();
+    for (auto const &c : chain_) // if not a chain, then chain_ is empty
+      num_sep += c.dirichlet().num_sep();
+    return num_sep;
+  }
 
   // allow direct access to the private data
   friend struct term_manager<P>;
@@ -2192,23 +2276,23 @@ public:
   }
 
   //! (separable mode only) get the 1d term with index i
-  term_1d<P> & dim(int i) {
+  term_1d<P> &dim(int i) {
     expect(mode_ == mode::separable);
     return sep[i];
   }
   //! (separable mode only) get the 1d term with index i, const overload
-  term_1d<P> const & dim(int i) const {
+  term_1d<P> const &dim(int i) const {
     expect(mode_ == mode::separable);
     return sep[i];
   }
 
   //! get the chain term with index i
-  term_md<P> & chain(int i) {
+  term_md<P> &chain(int i) {
     expect(mode_ == mode::chain);
     return chain_[i];
   }
   //! get the chain term with index i, const-overload
-  term_md<P> const & chain(int i) const {
+  term_md<P> const &chain(int i) const {
     expect(mode_ == mode::chain);
     return chain_[i];
   }

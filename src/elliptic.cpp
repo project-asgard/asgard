@@ -78,9 +78,9 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
   // have to be constant across the surface
   // this works well for periodic and free boundary, the homogeneous Dirichlet
   // is easier to enforce for separable solutions, the inhomogeneous case is hard ...
-  if constexpr (boudnary == boundary_enum::inhomogeneous) {
-    rassert(num_dims == 1, "inhomogeneous boundary works only in 1D");
-  }
+  // if constexpr (boudnary == boundary_enum::inhomogeneous) {
+  //   rassert(num_dims == 1, "inhomogeneous boundary works only in 1D");
+  // }
 
   options.title = "Elliptic PDE + " + std::to_string(num_dims) + "D";
 
@@ -105,76 +105,155 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
   asgard::PDEv2<P> pde(options, std::move(domain));
 
-  // two terms div and grad, combined those make the elliptic operator d^2/dx^2
-  asgard::term_1d<P> div;
-  asgard::term_1d<P> grad;
-
-  if constexpr (boudnary == boundary_enum::homogeneous)
-  {
-    // Dirichlet boundary set to the div term corresponds to Neumann boundary
-    div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-                              asgard::boundary_type::left_free);
-    // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
-    grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-                                asgard::boundary_type::right_free);
-
-  } else {
-    // Dirichlet boundary conditions for the field
-    asgard::dirichelt_boundary1d<P> field_dirichlet{0, 1};
-    // Neumann boundary conditions for the field
-    asgard::dirichelt_boundary1d<P> field_neumann{2, 0};
-
-    // setting Dirichlet boundary for the div term in the chain
-    // results in Neumann conditions imposed on the field
-    // think of this as imposing Dirichlet condition on the output of the grad term
-    // and the output of the grad term is the derivative of the field
-    div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-                              asgard::boundary_type::right_free, field_neumann);
-
-    // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
-    grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-                                asgard::boundary_type::left_free, field_dirichlet);
-  }
-
-  // the multi-dimensional operator, initially set to identity in md
-  std::vector<asgard::term_1d<P>> ops(num_dims);
-  for (int d = 0; d < num_dims; d++)
-  {
-    // combine the div and grad into a single chain term
-    asgard::term_1d<P> fxx({div, grad});
-
-    // based on the domain and max-level, get the cell-size in direction d
-    P const dx = pde.cell_size(d);
-
-    // adding penalty to stabilize the steady state equation
-    // the penalty is applied only to discontinuities, if the solution is continuous
-    // then the penalty will not alter the result but only improve the conditioning
-    fxx.set_penalty(P{1} / dx);
-
-    // add the second order operator in dimension dim
-    ops[d] = fxx;
-    pde += asgard::term_md<P>(ops);
-    ops[d] = asgard::term_identity{};
-  }
-
-  // just the constant 2
-  auto two = [](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
-    void {
-      std::fill(fx.begin(), fx.end(), P{2});
-    };
-  // steady state solution
+  // s1d is the exact solution in 1d
   auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = x[i] * (P{2} - x[i]);
     };
 
-  // set the right-hand-side for each dimension
-  std::vector<asgard::svector_func1d<P>> func(num_dims, s1d);
+  // "exact" is the solution in multiple dimensions
+  asgard::separable_func<P> exact(std::vector<asgard::svector_func1d<P>>(num_dims, s1d),
+                                  asgard::separable_func<P>::set_ignore_time);
+
+  if constexpr (boudnary == boundary_enum::homogeneous)
+  {
+    // Dirichlet boundary set to the div term corresponds to Neumann boundary
+    asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
+                                                 asgard::boundary_type::left_free);
+    // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
+    asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
+                                                   asgard::boundary_type::right_free);
+
+    // the multi-dimensional operator, initially set to identity in md
+    std::vector<asgard::term_1d<P>> ops(num_dims);
+    for (int d = 0; d < num_dims; d++)
+    {
+      // combine the div and grad into a single chain term
+      asgard::term_1d<P> fxx({div, grad});
+
+      // based on the domain and max-level, get the cell-size in direction d
+      P const dx = pde.cell_size(d);
+
+      // adding penalty to stabilize the steady state equation
+      // the penalty is applied only to discontinuities, if the solution is continuous
+      // then the penalty will not alter the result but only improve the conditioning
+      fxx.set_penalty(P{1} / dx);
+
+      // add the second order operator in dimension dim
+      ops[d] = fxx;
+      pde += asgard::term_md<P>(ops);
+      ops[d] = asgard::term_identity{};
+    }
+
+  } else { // inhomogeneous case
+
+    if (num_dims == 1)
+    {
+      // when dealing with only one dimension, the boundary conditions are scalar
+      // values at the left/right points
+
+      // Dirichlet boundary conditions for the field
+      asgard::dirichelt_boundary1d<P> field_dirichlet{asgard::right_boundary_cond{1}};
+      // Neumann boundary conditions for the field
+      asgard::dirichelt_boundary1d<P> field_neumann{asgard::left_boundary_cond{2}};
+
+      // setting Dirichlet boundary for the div term in the chain
+      // results in Neumann conditions imposed on the field
+      // think of this as imposing Dirichlet condition on the output of the grad term
+      // and the output of the grad term is the derivative of the field
+      asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
+                                                   asgard::boundary_type::right_free,
+                                                   field_neumann);
+
+      // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
+      asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
+                                                     asgard::boundary_type::left_free,
+                                                     field_dirichlet);
+
+      asgard::term_1d<P> fxx({div, grad});
+      P const dx = pde.min_cell_size();
+      fxx.set_penalty(P{1} / dx);
+
+      pde += fxx;
+    }
+    else
+    {
+      // when working with multiple dimensions, the boundary conditions are separable
+      // this requires that we use multi-dimensional chains
+
+      // setting some constants to show where things come from
+      P constexpr div_coeff  = -1;
+      P constexpr grad_coeff = 1;
+
+      // left/right Neumann and Dirichlet values
+      P constexpr left_neumann    = 2;
+      P constexpr right_dirichlet = 1;
+
+
+      for (int d = 0; d < num_dims; d++) {
+        // using penalty coefficient 1 / cell-size
+        // cell size in direction d, needed for the penalty term
+        P const penalty_coeff = P{1} / pde.cell_size(d);
+
+        // using the exact solution as the boundary condition, except in the d-th direction
+        asgard::separable_func<P> bc = exact;
+
+        bc.set_cdomain(d, grad_coeff * right_dirichlet); // setting constant 1 in direction d
+
+        asgard::dirichelt_boundary1d<P> field_dirichlet;
+        field_dirichlet.add_right(bc); // add separable boundary term
+
+        // the separable boundary conditions must return the product of
+        // the actual value and the field constant
+        bc.set_cdomain(d, div_coeff * left_neumann);
+        asgard::dirichelt_boundary1d<P> field_neumann;
+        field_neumann.add_left(bc);
+
+        bc.set_cdomain(d, penalty_coeff * right_dirichlet);
+        asgard::dirichelt_boundary1d<P> penalty_bc;
+        penalty_bc.add_right(bc);
+
+        // Dirichlet condition on the div sets Neumann condition for the field
+        asgard::term_1d<P> div = asgard::term_div<P>(
+            div_coeff, asgard::flux_type::upwind, asgard::boundary_type::right_free,
+            field_neumann);
+
+        // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
+        asgard::term_1d<P> grad = asgard::term_grad<P>(
+            grad_coeff, asgard::flux_type::upwind, asgard::boundary_type::left_free,
+            field_dirichlet);
+
+        // penalize discontinuities
+        asgard::term_1d<P> pen = asgard::term_penalty(
+            penalty_coeff, asgard::flux_type::upwind, asgard::boundary_type::left_free,
+            penalty_bc);
+
+        // set multidimensional identity
+        std::vector<asgard::term_1d<P>> ops(num_dims);
+
+        ops[d] = div;
+        asgard::term_md<P> div_md(ops);
+
+        ops[d] = grad;
+        asgard::term_md<P> grad_md(ops);
+
+        pde += asgard::term_md<P>({div_md, grad_md});
+
+        ops[d] = pen;
+        pde += asgard::term_md<P>(ops);
+      }
+    }
+  }
+
   for (int d = 0; d < num_dims; d++) {
-    func[d] = two;
-    pde.add_source({func, asgard::separable_func<P>::set_ignore_time});
-    func[d] = s1d;
+    // using separability properties, copy over the exact solution
+    asgard::separable_func<P> src = exact;
+    // differentiate in the d-th direction, i.e., replace the function
+    // with a constant 2
+    src.set_cdomain(d, 2);
+
+    pde.add_source(std::move(src));
   }
 
   // if an initial condition is specified, it will be used as the initial guess
@@ -239,19 +318,16 @@ double get_error_l2(asgard::discretization_manager<P> const &disc)
   for (size_t i = 0; i < state.size(); i++)
   {
     double const e = eref[i] - state[i];
+    std::cout << " diff = " << std::abs(e) << "\n";
     ndiff += e * e;
     double const r = eref[i];
     nself += r * r;
   }
 
-  // when cos(t) vanishes, so does the exact solution and enorm -> 0
-  // for small values of enorm, the relative error is artificially magnified
-  // switch between relative and absolute error
-  if (enorm < 1.E-3)
-    return std::sqrt(ndiff + enorm - nself);
-  else
-    return std::sqrt((ndiff + enorm - nself) / enorm);
-  return 0;
+  // std::cout << ndiff << "   " << enorm << "  " << nself << "\n";
+
+  return std::sqrt((ndiff + enorm - nself) / enorm);
+
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [elliptic get-err]
 #endif

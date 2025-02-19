@@ -54,6 +54,19 @@ struct term_entry {
   bool is_separable() {
     return perm; // check if kronmult permutations have been set
   }
+  //! if any of the dimensions have chain and separable bc, then keep the intermediate matrices
+  std::optional<std::array<std::vector<std::variant<block_diag_matrix<P>, block_tri_matrix<P>>>,
+                           max_num_dimensions>> interms;
+  //! save the diagonal or tri-diagonal matrix, if appropriate
+  void save_interms(int linkid, int d, bool is_diag,
+                    block_diag_matrix<P> const &diag, block_tri_matrix<P> const &tri) {
+    if (not interms)
+      return;
+    if (is_diag)
+      (*interms)[d][linkid] = diag;
+    else
+      (*interms)[d][linkid] = tri;
+  }
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
 };
@@ -73,7 +86,6 @@ struct time_boundary_data {
   std::vector<P> const_1d;
   //! constant component in multi-dimensions
   std::vector<P> const_md;
-
 };
 
 //! holds the extra data, if using boundary condition with different left/right components
@@ -87,7 +99,16 @@ struct source_boundary_data {
   int term_index = -1;
 };
 
-//! holds the extra data for an edge case, mostly the same as an interior
+//! holds the case for edge case when time is separable
+template<typename P>
+struct source_edge_stime {
+  //! the separable time function
+  scalar_func<P> time;
+  //! the index of the term
+  int term_index = -1;
+};
+
+//! holds the extra data for an edge case when everything depends on time
 template<typename P>
 class source_edge_data {
 public:
@@ -111,6 +132,11 @@ public:
   bool right() const { return (dim_ > 0); }
   //! returns the separable function
   separable_func<P> const &sep() const { return sep_; }
+
+  //! if the source entry is associated with term in a chain
+  int term_index = -1;
+  //! scaled value of the boundary condition
+  P mag = 0;
 
 private:
   //! separable function
@@ -165,7 +191,19 @@ struct source_entry
 
   //! if the function is separable or time-dependent, handle the extra data
   std::variant<int, scalar_func<P>, separable_func<P>, source_boundary_data<P>,
-               source_edge_data<P>> func;
+               source_edge_stime<P>, source_edge_data<P>> func;
+
+  int edge_term_index() const {
+    expect(is_edge());
+    switch (tmode) {
+      case time_mode::edge_constant:
+        return std::get<int>(func);
+      case time_mode::edge_separable:
+        return std::get<source_edge_stime<P>>(func).term_index;
+      default:
+        return std::get<source_edge_data<P>>(func).term_index;
+    }
+  }
 
   //! quick access to the source-edge data, edge-time case only
   source_edge_data<P> const &source_edge() const {
@@ -180,8 +218,19 @@ struct source_entry
   }
   //! quick access to the boundary data
   int term_index() const {
-    expect(tmode == time_mode::boundary);
-    return std::get<source_boundary_data<P>>(func).term_index;
+    switch (tmode) {
+      case time_mode::boundary:
+        return std::get<source_boundary_data<P>>(func).term_index;
+      case time_mode::edge_constant:
+        return std::get<int>(func);
+      case time_mode::edge_separable:
+        return std::get<source_edge_stime<P>>(func).term_index;
+      case time_mode::edge_time:
+        return std::get<source_edge_data<P>>(func).term_index;
+      default:
+        expect(is_boundary() or is_edge());
+        return 0;
+    }
   }
   //! quick access to the boundary data
   std::vector<time_boundary_data<P>> const &time_boundary() const {
@@ -277,7 +326,7 @@ struct term_manager
                       P alpha = 0) {
     tools::time_event timing_("initial coefficients");
     for (int t : iindexof(terms))
-      rebuld_term(t, grid, conn, hier, precon, alpha);
+      buld_term(t, grid, conn, hier, precon, alpha);
   }
   //! build the large matrices to the max level
   void build_mass_matrices()
@@ -400,9 +449,9 @@ protected:
   int sources_grid_gen = -1;
 
   //! rebuild term[tid], loops over all dimensions
-  void rebuld_term(int const tid, sparse_grid const &grid, connection_patterns const &conn,
-                   hierarchy_manipulator<P> const &hier,
-                   preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
+  void buld_term(int const tid, sparse_grid const &grid, connection_patterns const &conn,
+                 hierarchy_manipulator<P> const &hier,
+                 preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
   //! rebuild term[tmd][t1d], assumes non-identity
   void rebuld_term1d(term_entry<P> &tentry, int const dim, int level,
                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
@@ -411,7 +460,7 @@ protected:
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(int const dim, term_1d<P> &t1d, int const level, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,
-                    source_entry<P> &bc);
+                    term_entry<P> &tm, source_entry<P> &bc);
 
   //! helper method, build the matrix corresponding to the term
   void build_raw_mat(int dim, term_1d<P> &t1d, int level,

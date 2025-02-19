@@ -370,10 +370,17 @@ public:
   svector_func1d<P> const &fdomain(int i) const { return source_func_[i]; }
   //! returns the i-th constant function
   P cdomain(int i) const { return consts_[i]; }
-  //! returns the i-th domain function, allows modification
-  svector_func1d<P> &fdomain(int i) { return source_func_[i]; }
-  //! returns the i-th constant function, allows modification
-  P& cdomain(int i) { return consts_[i]; }
+  //! set the i-th function to f
+  void set_fdomain(int i, svector_func1d<P> f) {
+    source_func_[i] = std::move(f);
+    consts_[i] = 1;
+  }
+  //! sets the i-th function to a constant function
+  void set_cdomain(int i, P c) {
+    expect(c != 0);
+    source_func_[i] = nullptr;
+    consts_[i] = c;
+  }
   //! applies the i-th domain function on x and return the result in y
   void fdomain(int i, std::vector<P> const &x, P t, std::vector<P> &y) const {
     return source_func_[i](x, t, y);
