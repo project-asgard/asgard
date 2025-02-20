@@ -613,7 +613,7 @@ void term_manager<P>::rebuld_term1d(
 
   bool is_diag = t1d.is_mass();
   if (t1d.is_chain()) {
-    rebuld_chain(dim, t1d, level, is_diag, wraw_diag, wraw_tri, tentry, bc);
+    rebuld_chain(dim, t1d, level, is_diag, wraw_diag, wraw_tri, bc);
   } else {
     if (bc.is_boundary() and bc.dim() != dim)
       bc.consts[dim].resize(n * fm::ipow2(level));
@@ -888,7 +888,7 @@ template<typename P>
 void term_manager<P>::rebuld_chain(
     int const d, term_1d<P> &t1d, int const level, bool &is_diag,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,
-    term_entry<P> &tm, source_entry<P> &bc)
+    source_entry<P> &bc)
 {
   expect(t1d.is_chain());
   int const num_chain = t1d.num_chain();
@@ -901,9 +901,6 @@ void term_manager<P>::rebuld_chain(
       break;
     }
   }
-
-  if (tm.interms)
-    (*tm.interms)[d].resize(num_chain);
 
   if (bc.is_boundary() and bc.dim() != d)
     expect(is_diag); // boundary implies flux, non-boundary direction can have only mass
@@ -920,11 +917,9 @@ void term_manager<P>::rebuld_chain(
     block_diag_matrix<P> *diag0 = &raw_diag0;
     block_diag_matrix<P> *diag1 = &raw_diag1;
     build_raw_mat(d, t1d.chain(num_chain - 1), level, *diag0, raw_tri, bc);
-    tm.save_interms(num_chain - 1, d, is_diag, *diag0, raw_tri);
     crhs = raw_rhs.vals;
     for (int i = num_chain - 2; i > 0; i--) {
       build_raw_mat(d, t1d.chain(i), level, raw_diag, raw_tri, bc);
-      tm.save_interms(i, d, is_diag, raw_diag, raw_tri);
       diag1->check_resize(raw_diag);
       gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
@@ -935,7 +930,6 @@ void term_manager<P>::rebuld_chain(
       }
     }
     build_raw_mat(d, t1d.chain(0), level, *diag1, raw_tri, bc);
-    tm.save_interms(0, d, is_diag, *diag1, raw_tri);
     raw_diag.check_resize(*diag1);
     gemm_block_diag(legendre.pdof, *diag1, *diag0, raw_diag);
     if (use_bc) {
@@ -965,13 +959,10 @@ void term_manager<P>::rebuld_chain(
 
   fill current = (t1d.is_mass()) ? fill::diag : fill::tri;
   build_raw_mat(d, t1d.chain(num_chain - 1), level, *diag0, *tri0, bc);
-  tm.save_interms(num_chain - 1, d, t1d.chain(num_chain - 1).is_mass(),
-                  *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
   {
     build_raw_mat(d, t1d.chain(i), level, raw_diag, raw_tri, bc);
-    tm.save_interms(i, d, t1d.chain(i).is_mass(), raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
     if (t1d.is_mass()) { // computed a diagonal fill
@@ -1001,7 +992,6 @@ void term_manager<P>::rebuld_chain(
 
   // last term, compute in diag1/tri1 and multiply into raw_tri
   build_raw_mat(d, t1d.chain(0), level, *diag1, *tri1, bc);
-  tm.save_interms(0, d, t1d.chain(0).is_mass(), *diag1, *tri1);
 
   if (t1d[0].is_mass()) {
     // the rest must be a tri-diagonal matrix already

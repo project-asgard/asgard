@@ -54,19 +54,7 @@ struct term_entry {
   bool is_separable() {
     return perm; // check if kronmult permutations have been set
   }
-  //! if any of the dimensions have chain and separable bc, then keep the intermediate matrices
-  std::optional<std::array<std::vector<std::variant<block_diag_matrix<P>, block_tri_matrix<P>>>,
-                           max_num_dimensions>> interms;
-  //! save the diagonal or tri-diagonal matrix, if appropriate
-  void save_interms(int linkid, int d, bool is_diag,
-                    block_diag_matrix<P> const &diag, block_tri_matrix<P> const &tri) {
-    if (not interms)
-      return;
-    if (is_diag)
-      (*interms)[d][linkid] = diag;
-    else
-      (*interms)[d][linkid] = tri;
-  }
+
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
 };
@@ -460,7 +448,7 @@ protected:
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(int const dim, term_1d<P> &t1d, int const level, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,
-                    term_entry<P> &tm, source_entry<P> &bc);
+                    source_entry<P> &bc);
 
   //! helper method, build the matrix corresponding to the term
   void build_raw_mat(int dim, term_1d<P> &t1d, int level,
