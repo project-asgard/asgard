@@ -338,12 +338,12 @@ void self_test();
  * The main() processes the command line arguments and calls both
  * make_elliptic_pde() and get_error_l2().
  *
- * \snippet sinwav.cpp sinwav main
+ * \snippet elliptic.cpp elliptic main
  */
 int main(int argc, char** argv)
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [sinwav main]
+//! [elliptic main]
 #endif
   using P = asgard::default_precision;
 
@@ -419,7 +419,7 @@ R"help(<< additional options for this file >>
 
   return 0;
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [sinwav main]
+//! [elliptic main]
 #endif
 }
 

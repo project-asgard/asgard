@@ -14,16 +14,14 @@ split_views split_argv(std::string_view const &opts)
   return split_views(std::move(splits));
 }
 
-prog_opts::prog_opts(int const argc, char const *const *argv,
-                     bool ignore_unknown)
+prog_opts::prog_opts(int const argc, char const *const *argv)
 {
   std::vector<std::string_view> view_argv;
   view_argv.reserve(argc);
   for (auto i : indexof(argc))
     view_argv.emplace_back(argv[i]);
 
-  process_inputs(
-      view_argv, (ignore_unknown) ? handle_mode::ignore_unknown : handle_mode::warn_on_unknown);
+  process_inputs(view_argv, handle_mode::from_cli);
 }
 
 void prog_opts::print_help(std::ostream &os)
@@ -193,8 +191,7 @@ landau_1x3v    Collisional Landau 1x3v.
 )help";
 }
 
-void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
-                               handle_mode mode)
+void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle_mode mode)
 {
   std::map<std::string_view, optentry> commands = {
       {"help", optentry::show_help}, {"-help", optentry::show_help}, {"--help", optentry::show_help},
@@ -266,13 +263,11 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
   {
     auto imap = commands.find(*iarg);
     if (imap == commands.end())
-    { // entry not found
-      if (mode == handle_mode::warn_on_unknown)
-        std::cerr << "  unrecognized option: " << *iarg << "\n";
-      if (mode == handle_mode::save_unknown)
-        filedata.emplace_back(*iarg);
-      else
+    {
+      if (mode == handle_mode::from_cli)
         externals.emplace_back(*iarg);
+      else
+        filedata.emplace_back(*iarg);
       continue;
     }
 
@@ -741,7 +736,7 @@ void prog_opts::process_file(std::string_view const &exec_name)
   for (auto &s : line_pairs)
     views.emplace_back(s);
 
-  process_inputs(views, handle_mode::save_unknown);
+  process_inputs(views, handle_mode::from_file);
 }
 
 void prog_opts::print_options(std::ostream &os) const

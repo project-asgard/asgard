@@ -457,12 +457,41 @@ vector2d<int> complete_poly_order(vector2d<int> const &cells,
 
 /*!
  * \brief Manger for a sparse grid multi-index set
+ *
+ * \par Main components
+ * The main components of the grid are an indexset and a corresponding dimension_sort.
+ * Read access is provided for the multi-indexes and the grid can be refined using different
+ * strategies.
+ * After a refinement, the sparse grid can also remap a state vector from the old the grid
+ * to the new, by removing the data corresponding to the removed cells and adding zeros for
+ * the new cells.
+ *
+ * \par Generations
+ * Many components of ASGarD need to prepare intermediate data-structures based on the current
+ * set of indexes; therefore, there needs to be a mechanism that indicates when the grid
+ * has changed and the intermediates have to be updated.
+ * Simply counting the number of indexes is not sufficient, since refinement can both add and remove
+ * indexes, e.g., adding one index and removing another will change the grid but not change
+ * the number of indexes.
+ * Thus, we introduce the generation index, every time a refinement operation updates the grid,
+ * the generation index is incremented and that is the correct way to detect a change and update
+ * the appropriate data-structures.
+ * The generation index never decreases until we overflow the 32-bit signed int, thus the correct
+ * way to compare generations is the != operator (equal or not equal),
+ * as opposed to > (greater than or less than).
  */
 class sparse_grid
 {
 public:
   //! indicates whether to refine, coarsen (compress) or do both
-  enum class strategy { refine, coarsen, adapt };
+  enum class strategy {
+    //! add indexes based on the tolerance, does not remove indexes
+    refine,
+    //! remove indexes only (compress the solution)
+    coarsen,
+    //! simultaneously add and remove indexes
+    adapt };
+
   //! makes and empty grid, reinit before use
   sparse_grid() = default;
   //! number of dimensions and levels
@@ -472,11 +501,14 @@ public:
   //! Returns the number of indexes
   int64_t num_indexes() const { return iset_.num_indexes(); }
 
-  int const * operator[] (int64_t i) const { return iset_[i]; }
+  //! returns pointer to the i-th index in the grid
+  int const *operator[] (int64_t i) const { return iset_[i]; }
 
+  //! access the internal indexset
   indexset const &iset() const { return iset_; }
+  //! access the sort applied to the index set
   dimension_sort const &dsort() const { return dsort_; }
-
+  //! calls the () operator on the sort
   int dsorted(int d, int j) const { return dsort_(iset_, d, j); }
 
   //! Testing purposes, returns the raw vector of indexes
@@ -486,7 +518,7 @@ public:
   int current_level(int d) const { return level_[d]; }
   //! Returns the first index disallowed due to the max level
   int max_index(int d) const { return max_index_[d]; }
-  //! check generation, i.e., if the grid changed
+  //! Returns the current generation of the grid
   int generation() const { return generation_; }
   /*!
    * \brief Update the grid based on the strategy and current state
@@ -516,8 +548,17 @@ public:
   friend class h5manager;
 
 protected:
-  enum class istatus { keep, refine, clear };
+  //! marks the status of an entry
+  enum class istatus {
+    //! keep this index
+    keep,
+    //! refine this index, i.e., include the hierarchical descendants
+    refine,
+    //! mark index for removal
+    clear
+  };
 
+  //! helper method, constructs a sparse grid given type and anisotropy
   template<grid_type gtype>
   indexset make_level_set(std::vector<int> const &levels);
 

@@ -477,9 +477,8 @@ struct prog_opts
   //! create empty options, allows to manually fill the options later
   prog_opts() = default;
 
-  //! process the command line arguments, may yield warning if encountering unknown options
-  prog_opts(int const argc, char const *const *argv,
-            bool ignore_unknown = true);
+  //! process the command line arguments
+  prog_opts(int const argc, char const *const *argv);
 
   //! process from a file
   explicit prog_opts(std::filesystem::path const &filename)
@@ -491,7 +490,7 @@ struct prog_opts
   //! for testing purposes, can read from manually specified argc/argv
   explicit prog_opts(vecstrview const &argv)
   {
-    process_inputs(argv, handle_mode::ignore_unknown);
+    process_inputs(argv, handle_mode::from_cli);
   }
 
   //! read an extra option from a file
@@ -717,9 +716,8 @@ private:
   };
   enum class handle_mode
   {
-    warn_on_unknown, // print warning
-    ignore_unknown,  // do nothing (user inputs)
-    save_unknown     // reading from file
+    from_file, // reading from file
+    from_cli   // reading from cli
   };
 
   //! input filename
@@ -731,8 +729,7 @@ private:
   void process_file(std::string_view const &exec_name);
 
   //! not in the constructor so it can be reused when reading from file
-  void process_inputs(std::vector<std::string_view> const &argv,
-                      handle_mode mode);
+  void process_inputs(std::vector<std::string_view> const &argv, handle_mode mode);
   //! map pde options string to enum value
   static std::optional<PDE_opts> get_pde_opt(std::string_view const &pde_str);
 
