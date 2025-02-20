@@ -592,6 +592,12 @@ if (ASGARD_BUILD_TESTS)
 
 
   foreach (component IN LISTS components)
+    # TODO: while all components need testing, the transition period may leave some components hanging
+    # e.g., all tests depended on pdes that have been removed/transitioned to the new api
+    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/${component}_tests.cpp)
+      continue()
+    endif()
+
     add_executable (${component}-tests)
     target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
     target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
