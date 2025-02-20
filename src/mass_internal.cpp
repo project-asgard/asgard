@@ -14,26 +14,6 @@
  * \endinternal
  */
 
-/* NOTES TO SELF
- *
- * 2. Add Poisson problem in 1D and 2D with homogeneous and inhomogeneous boundary conditions
- *    - update and document and brush up the different chain types
- *
- * 3. Update the BC construction to be part of the term construction
- *    - debugging
- *
- * 4. Update the Mass example where we have a non-trivial global mass term
- *    - current example needs boundary conditions
- *    - the derivative is wrong due to the variable coefficient
- *    - (next PR)
- *
- * 5. Check small bugs
- *    - setting num-time-steps when dealing with default-dt and final-times
- *    - actually, recheck the whole logic in setting the time parameters
- *
- */
-
-
 // The PDE is:
 // exp(-x^2) cos(y) df/dt + cos(x) df/dx + y df/dy = sources
 // f = sin(x) cos(y) exp(-t)
