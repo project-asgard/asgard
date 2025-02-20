@@ -73,6 +73,8 @@ class pde_snapshot:
             if 'ndims' in fdata: # using version 1
                 self.using_version_2 = False
 
+                self.default_view = ""
+
                 self.num_dimensions = fdata['ndims'][()]
 
                 self.cells = fdata['elements'][()]
@@ -326,6 +328,7 @@ if __name__ == "__main__":
         print(" -v, -version, --version     : shows the library version info")
         print(" -s, -stat, -stats, -summary : shows the summary of a snapshot")
         print(" -g, -grid                   : plot the grid")
+        print(" -view                       : adjust the view plane")
         print("")
         print("no file and no option provided, shows the version of the")
         print("")
