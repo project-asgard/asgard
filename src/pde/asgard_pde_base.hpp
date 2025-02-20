@@ -2394,6 +2394,7 @@ public:
   };
   //! unset time-data, all entries are negative, must be set later
   time_data() = default;
+  //! steady state case, sets only the end time and num-steps to 1
   time_data(P endt)
       : smethod_(time_advance::method::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)
   {}

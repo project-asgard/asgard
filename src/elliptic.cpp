@@ -30,6 +30,7 @@
  * should resolve the exact solution regardless of the grid
  * (up to rounding error due to conditioning and precision).
  *
+ * \par
  * This examples shows how to set different types of boundary conditions
  * and how to solve a steady state problem.
  */
@@ -56,6 +57,7 @@ enum class boundary_enum {
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
+ * \param num_dims number of dimensions
  * \param options is the set of options
  *
  * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
@@ -450,7 +452,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   disc.advance_time();
 
   double const err = get_error_l2(disc);
-  std::cout << err << '\n';
+  //std::cout << err << '\n';
   tcheckless(1, err, tol);
 }
 
@@ -482,6 +484,8 @@ void self_test() {
   dotest<double>(1.E-3, 1, "-d 1 -l 4 -bc 1");
   dotest<double>(1.E-3, 2, "-d 1 -l 5 -bc 1");
   dotest<double>(1.E-3, 3, "-d 1 -l 6 -bc 1 -sv bicgstab");
+
+  dotest<double>(1.E-3, 2, "-bc 1 -l 3 -m 8 -a 1.E-5");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT
