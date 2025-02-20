@@ -60,41 +60,6 @@ void test_coefficients(prog_opts const &opts, std::string const &gold_path,
   }
 }
 
-TEMPLATE_TEST_CASE("diffusion 2 (single term)", "[coefficients]", test_precs)
-{
-  auto const gold_path      = coefficients_base_dir / "diffusion2_coefficients";
-  auto constexpr tol_factor = get_tolerance<TestType>(1000);
-
-  prog_opts opts;
-  opts.pde_choice = PDE_opts::diffusion_2;
-
-  SECTION("level 3, degree 4")
-  {
-    opts.degree       = 4;
-    opts.start_levels = {3, 3};
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-
-  SECTION("non-uniform level: levels 2, 3, degree 4")
-  {
-    opts.degree       = 4;
-    opts.start_levels = {2, 3};
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-}
-
-TEMPLATE_TEST_CASE("diffusion 1 (single term)", "[coefficients]", test_precs)
-{
-  auto const gold_path      = coefficients_base_dir / "diffusion1_coefficients";
-  auto constexpr tol_factor = get_tolerance<TestType>(10000);
-
-  SECTION("level 5, degree 5")
-  {
-    auto opts = make_opts("-p diffusion_1 -l 5 -d 5");
-    test_coefficients<TestType>(opts, gold_path, tol_factor);
-  }
-}
-
 TEMPLATE_TEST_CASE("fokkerplanck1_pitch_E case1 terms", "[coefficients]",
                    test_precs)
 {

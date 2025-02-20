@@ -1,10 +1,7 @@
 #pragma once
-#include "pde/asgard_pde_advection1.hpp"
 #include "pde/asgard_pde_collisional_landau.hpp"
 #include "pde/asgard_pde_collisional_landau_1x2v.hpp"
 #include "pde/asgard_pde_collisional_landau_1x3v.hpp"
-#include "pde/asgard_pde_diffusion1.hpp"
-#include "pde/asgard_pde_diffusion2.hpp"
 #include "pde/asgard_pde_fokkerplanck1_4p3.hpp"
 #include "pde/asgard_pde_fokkerplanck1_4p4.hpp"
 #include "pde/asgard_pde_fokkerplanck1_4p5.hpp"
@@ -76,12 +73,6 @@ std::unique_ptr<PDE<P>> make_PDE(prog_opts const &cli_input)
   case PDE_opts::fokkerplanck_2d_complete_case4:
     return std::make_unique<
         PDE_fokkerplanck_2d_complete<P, PDE_case_opts::case4>>(cli_input);
-  case PDE_opts::diffusion_1:
-    return std::make_unique<PDE_diffusion_1d<P>>(cli_input);
-  case PDE_opts::diffusion_2:
-    return std::make_unique<PDE_diffusion_2d<P>>(cli_input);
-  case PDE_opts::advection_1:
-    return std::make_unique<PDE_advection_1d<P>>(cli_input);
   case PDE_opts::vlasov_lb_full_f:
     return std::make_unique<PDE_vlasov_lb<P>>(cli_input);
   case PDE_opts::relaxation_1x1v:

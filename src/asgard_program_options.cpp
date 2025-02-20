@@ -138,9 +138,6 @@ void prog_opts::print_pde_help(std::ostream &os)
 
 Option          Description
 custom          (default) user provided pde, can be omitted for the custom projects
-diffusion_1     1D diffusion equation: df/dt = d^2 f/dx^2
-diffusion_2     2D (1x-1y) heat equation. df/dt = d^2 f/dx^2 + d^2 f/dy^2
-advection_1     1D test using continuity equation. df/dt = -2*df/dx - 2*sin(x)
 vlasov          Vlasov lb full f. df/dt = -v*grad_x f + div_v((v-u)f + theta*grad_v f)
 
 fokkerplanck_1d_pitch_E_case1    1D pitch angle collisional term:
@@ -654,9 +651,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
       {"fokkerplanck_2d_complete_case2", PDE_opts::fokkerplanck_2d_complete_case2},
       {"fokkerplanck_2d_complete_case3", PDE_opts::fokkerplanck_2d_complete_case3},
       {"fokkerplanck_2d_complete_case4", PDE_opts::fokkerplanck_2d_complete_case4},
-      {"diffusion_1", PDE_opts::diffusion_1},
-      {"diffusion_2", PDE_opts::diffusion_2},
-      {"advection_1", PDE_opts::advection_1},
       {"vlasov", PDE_opts::vlasov_lb_full_f},
       {"relaxation_1x1v", PDE_opts::relaxation_1x1v},
       {"relaxation_1x2v", PDE_opts::relaxation_1x2v},

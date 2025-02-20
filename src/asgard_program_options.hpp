@@ -80,7 +80,6 @@ enum class preconditioner_opts
 enum class PDE_opts
 {
   custom = 0, // user provided pde
-  advection_1,
   fokkerplanck_1d_pitch_E_case1,
   fokkerplanck_1d_pitch_E_case2,
   fokkerplanck_1d_pitch_C,
@@ -91,8 +90,6 @@ enum class PDE_opts
   fokkerplanck_2d_complete_case2,
   fokkerplanck_2d_complete_case3,
   fokkerplanck_2d_complete_case4,
-  diffusion_1,
-  diffusion_2,
   vlasov_lb_full_f,
   relaxation_1x1v,
   relaxation_1x2v,
