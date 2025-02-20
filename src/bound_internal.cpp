@@ -308,6 +308,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 
   discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
 
+  // make sure there's something to solve
   disc.set_current_state(std::vector<P>(disc.current_state().size(), P{0}));
 
   while (disc.time_params().num_remain() > 0)
@@ -385,10 +386,10 @@ void self_test() {
   dotest<float>(2.E-3,  3, "-dv 2 -left");
   dotest<float>(1.E-3,  4, "-dv 0");
   dotest<float>(1.E-3,  4, "-dv 2");
-  dotest<float>(5.E-3,  5, "-dv 1");
-  dotest<float>(5.E-3,  5, "-dv 3");
-  dotest<float>(5.E-3,  6, "-dv 1");
-  dotest<float>(5.E-3,  6, "-dv 2");
+  dotest<float>(5.E-3,  5, "-dv 1 -sv gmres");
+  dotest<float>(5.E-3,  5, "-dv 3 -sv gmres");
+  dotest<float>(5.E-3,  6, "-dv 1 -sv gmres");
+  dotest<float>(5.E-3,  6, "-dv 2 -sv gmres");
 
   dotest_quad<float>(5.E-4, 1, "-quad -l 5");
   dotest_quad<float>(1.E-4, 1, "-quad -l 6");
