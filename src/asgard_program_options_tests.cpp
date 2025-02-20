@@ -317,6 +317,14 @@ TEST_CASE("new program options", "[single options]")
                         "-of must be followed by a value, see exe -help");
     REQUIRE(prog_opts(vecstrview({"exe", "-outfile", "dummy", "-of", ""})).subtitle.empty());
   }
+  SECTION("-view")
+  {
+    prog_opts prog(vecstrview({"", "-view", "some-view"}));
+    REQUIRE_FALSE(prog.default_plotter_view.empty());
+    REQUIRE(prog.default_plotter_view == "some-view");
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-view"})),
+                        "-view must be followed by a value, see exe -help");
+  }
   SECTION("file_required")
   {
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-ist", "0.1"})).file_required<int>("none"),

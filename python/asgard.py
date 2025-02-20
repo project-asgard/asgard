@@ -323,6 +323,10 @@ if __name__ == "__main__":
         print("python -m asgard -s plt.data")
         print("   shows summary of the snapshot contained in the out.data")
         print("")
+        print("python -m asgard plt.data <-view string/-fig filename/-grid>")
+        print("   same as the first example but also adds more options,")
+        print("   set the view plane, save the figure to a file, add the grid entries")
+        print("")
         print("options:")
         print(" -h, -help, --help           : shows this help text")
         print(" -v, -version, --version     : shows the library version info")
@@ -370,6 +374,7 @@ if __name__ == "__main__":
         # we are plotting, consider extra options
         plotview = None
         savefig  = None
+        addgrid  = False
         if len(sys.argv) > 2:
             i = 2
             n = len(sys.argv)
@@ -380,6 +385,9 @@ if __name__ == "__main__":
                 elif sys.argv[i] == "-fig":
                     savefig = sys.argv[i + 1] if i + 1 < n else None
                     i += 2
+                elif sys.argv[i] == "-grid":
+                    addgrid = True
+                    i += 1
                 else:
                     savefig = sys.argv[i]
                     i += 1
@@ -390,6 +398,12 @@ if __name__ == "__main__":
             z, x = shot.plot_data1d(((),), num_points = 256)
             asgplot.plot(x, z)
             asgplot.xlabel(shot.dimension_names[0], fontsize = 'large')
+
+            if addgrid:
+                cc = shot.cell_centers()
+                ymin = np.min(z)
+                asgplot.plot(cc, ymin * np.ones(cc.shape), 'om')
+
         else:
             if plotview is None and shot.default_view != "":
                 plotview = shot.default_view
@@ -404,10 +418,11 @@ if __name__ == "__main__":
                 ss = plotview.split(':')
                 plist = []
                 dims = []
-                for s in ss:
+                for i in range(len(ss)):
+                    s = ss[i]
                     if '*' in s:
                         plist.append(())
-                        dims.append(ss.index(s))
+                        dims.append(i)
                     else:
                         plist.append(float(s))
 
@@ -418,12 +433,16 @@ if __name__ == "__main__":
             xmax = shot.dimension_max[dims[0]]
             ymax = shot.dimension_max[dims[1]]
 
-            #p = asgplot.pcolor(x, y, z, cmap='jet') # , extent=[xmin, xmax, ymin, ymax])
+            #p = asgplot.pcolor(x, y, z, cmap='jet')
             p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
 
             asgplot.colorbar(p, orientation='vertical')
 
             asgplot.gca().set_anchor('C')
+
+            if addgrid:
+                cc = shot.cell_centers()
+                asgplot.scatter(cc[:,0], cc[:,1], 5 * np.ones(cc[:,0].shape), color='purple')
 
             asgplot.xlabel(shot.dimension_names[dims[0]], fontsize='large')
             asgplot.ylabel(shot.dimension_names[dims[1]], fontsize='large')

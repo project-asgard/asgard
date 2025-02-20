@@ -2,11 +2,24 @@
 
 set -e
 
-exename=$1
+if [[ "$1" == "help" || "$1" == "-help" || "$1" == "--help" ]]; then
 
-shift
+    echo ""
+    echo "usage: asgardplot.sh <filename> <plot opts>"
+    echo ""
+    echo "calls the asgard python quick plot utility"
+    echo "for more details see:"
+    echo "@Python_EXECUTABLE@ -m asgard --help"
+    echo ""
 
-./$exename $@ -of _plt.h5
+    exit 0;
+fi
 
-@Python_EXECUTABLE@ -m asgard _plt.h5
+
+if [ ! -f $1 ]; then
+    echo "cannot find file '$1'"
+    exit 1
+fi
+
+@Python_EXECUTABLE@ -m asgard $@
 

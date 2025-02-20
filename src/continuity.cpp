@@ -102,7 +102,7 @@ asgard::PDEv2<P> make_continuity_pde(int num_dims, asgard::prog_opts options) {
   // the exact solution vanishes when any dimension is at the origin
   // setting an off-center default view will yield a better plots
   // this is just the default and it does not limit any other options
-  if (num_dims > 2) {
+  if (num_dims > 2 and options.default_plotter_view == "") {
     options.default_plotter_view = " * : * ";
     for (int d = 2; d < num_dims; d++)
       options.default_plotter_view += " : 1.57";

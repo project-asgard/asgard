@@ -692,7 +692,7 @@ private:
     subtitle,
     grid_mode,
     step_method,
-    adapt_norm,
+    anorm,
     adapt_threshold,
     no_adapt,
     start_levels,
@@ -712,6 +712,7 @@ private:
     isol_iterations,
     isol_inner_iterations,
     restart_file,
+    view,
     set_verbosity
   };
   enum class handle_mode

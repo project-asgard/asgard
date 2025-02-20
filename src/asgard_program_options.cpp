@@ -45,6 +45,11 @@ Options          Short   Value      Description
                                     If omitted, the string will assume the name of the PDE.
 -subtitle          -     string     An addition to the title, optional use.
 -infile          -if     filename   Read options and values from a provided file.
+-view              -     string     example: "* : * : 1.57" or "* : 2 : *"
+                                    passed into the default view of the plotter indicating the plane
+                                    to plot, the view is a string with ":" separated entries
+                                    holding up to two "*" entreis indicating the dimensions that
+                                    will vary and numbers for the other dimensions
 -verbosity       -vv     int/string accepts: 0/1/2 or quiet/low/high
                                     Asjusts the amount and frequency of cout logging.
 
@@ -199,13 +204,14 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-pde?", optentry::pde_help}, {"-p?", optentry::pde_help},
       {"-pde", optentry::pde_choice}, {"-p", optentry::pde_choice},
       {"-infile", optentry::input_file}, {"-if", optentry::input_file},
+      {"-view", optentry::view},
       {"-noexact", optentry::ignore_exact}, {"-ne", optentry::ignore_exact},
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
       {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
-      {"-adapt-norm", optentry::adapt_norm}, {"-an", optentry::adapt_norm},
+      {"-adapt-norm", optentry::anorm}, {"-an", optentry::anorm},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
       {"-noadapt", optentry::no_adapt},  {"-noa", optentry::no_adapt},
       {"-start-levels", optentry::start_levels}, {"-l", optentry::start_levels},
@@ -294,6 +300,13 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       process_file(argv.front());
     }
     break;
+    case optentry::view: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      default_plotter_view = *selected;
+    }
+    break;
     case optentry::grid_mode: {
       auto selected = move_process_next();
       if (not selected)
@@ -365,7 +378,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       }
     }
     break;
-    case optentry::adapt_norm: {
+    case optentry::anorm: {
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());

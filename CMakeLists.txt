@@ -252,6 +252,9 @@ if (ASGARD_USE_PYTHON)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardplot.sh" "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" @ONLY)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" DESTINATION bin PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardrun.sh" "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" DESTINATION bin PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+
     # install the module without the testing files
     set(__pyasgard_libasgard_path__ "${__asgard_final_path}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/pyinstall/asgard_config.py")
