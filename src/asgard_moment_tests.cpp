@@ -2,8 +2,6 @@
 
 using P = asgard::default_precision;
 
-static auto const moment_base_dir = gold_base_dir / "moment";
-
 using namespace asgard;
 
 class somepde : public PDE<P> {

@@ -2,65 +2,7 @@
 
 #include "asgard_small_mats.hpp"
 
-static auto const transformations_base_dir = gold_base_dir / "transformations";
-
 using namespace asgard;
-
-template<typename P>
-void test_combine_dimensions(PDE<P> const &pde, P const time = 1.0,
-                             int const num_ranks  = 1,
-                             bool const full_grid = false)
-{
-  int const dims = pde.num_dims();
-
-  dimension const dim = pde.get_dimensions()[0];
-  int const lev       = dim.get_level();
-  int const degree    = dim.get_degree();
-
-  std::string const filename =
-      "combine_dim_dim" + std::to_string(dims) + "_deg" + std::to_string(degree + 1) +
-      "_lev" + std::to_string(lev) + "_" + (full_grid ? "fg" : "sg") + ".dat";
-
-  elements::table const t(pde);
-
-  std::vector<std::vector<P>> vectors;
-  P counter = 1.0;
-  for (int i = 0; i < pde.num_dims(); ++i)
-  {
-    int const vect_size         = dims * fm::ipow2(lev);
-    std::vector<P> const vect_1d = [&counter, vect_size] {
-      std::vector<P> vect(vect_size);
-      std::iota(vect.begin(), vect.end(), static_cast<P>(counter));
-      counter += vect.size();
-      return vect;
-    }();
-    vectors.push_back(vect_1d);
-  }
-  distribution_plan const plan = get_plan(num_ranks, t);
-
-  fk::vector<P> const gold =
-      read_vector_from_txt_file<P>(transformations_base_dir / filename);
-  fk::vector<P> test(gold.size());
-  for (auto const &[rank, grid] : plan)
-  {
-    int const rank_start =
-        grid.row_start * fm::ipow(degree + 1, dims);
-    int const rank_stop =
-        (grid.row_stop + 1) * fm::ipow(degree + 1, dims) - 1;
-    fk::vector<P, mem_type::const_view> const gold_partial(gold, rank_start,
-                                                           rank_stop);
-    std::vector<P> test_partial(gold_partial.size());
-
-    combine_dimensions(
-        degree, t, plan.at(rank).row_start, plan.at(rank).row_stop, vectors, test_partial.data());
-    for (auto &tp : test_partial)
-      tp *= time;
-    fk::vector<P> fk_test_partial(test_partial);
-    REQUIRE(fk_test_partial == gold_partial);
-    test.set_subvector(rank_start, fk_test_partial);
-  }
-  REQUIRE(test == gold);
-}
 
 TEMPLATE_TEST_CASE("fast-transform", "[transformations]", test_precs)
 {
