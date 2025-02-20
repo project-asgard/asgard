@@ -74,15 +74,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 #endif
   rassert(1 <= num_dims and num_dims <= 6, "invalid number of dimensions");
 
-  // the main limitation of separable boundary conditions is that those
-  // have to be constant across the surface
-  // this works well for periodic and free boundary, the homogeneous Dirichlet
-  // is easier to enforce for separable solutions, the inhomogeneous case is hard ...
-  // if constexpr (boudnary == boundary_enum::inhomogeneous) {
-  //   rassert(num_dims == 1, "inhomogeneous boundary works only in 1D");
-  // }
-
-  options.title = "Elliptic PDE + " + std::to_string(num_dims) + "D";
+  options.title = "Elliptic PDE " + std::to_string(num_dims) + "D";
 
   asgard::pde_domain<P> domain(std::vector<asgard::domain_range<P>>(num_dims, {0, 1}));
 
@@ -137,7 +129,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
       // adding penalty to stabilize the steady state equation
       // the penalty is applied only to discontinuities, if the solution is continuous
-      // then the penalty will not alter the result but only improve the conditioning
+      // then the penalty will not alter the result, this only improves the conditioning
       fxx.set_penalty(P{1} / dx);
 
       // add the second order operator in dimension dim
@@ -170,8 +162,10 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
                                                      asgard::boundary_type::left_free,
                                                      field_dirichlet);
-
+      // merge the div and grad terms
       asgard::term_1d<P> fxx({div, grad});
+
+      // penalize discontinuities
       P const dx = pde.min_cell_size();
       fxx.set_penalty(P{1} / dx);
 
@@ -189,7 +183,6 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       // left/right Neumann and Dirichlet values
       P constexpr left_neumann    = 2;
       P constexpr right_dirichlet = 1;
-
 
       for (int d = 0; d < num_dims; d++) {
         // using penalty coefficient 1 / cell-size
@@ -210,6 +203,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
         asgard::dirichelt_boundary1d<P> field_neumann;
         field_neumann.add_left(bc);
 
+        // same goes for the penalty, must multiply the penalty coefficient by the value
         bc.set_cdomain(d, penalty_coeff * right_dirichlet);
         asgard::dirichelt_boundary1d<P> penalty_bc;
         penalty_bc.add_right(bc);
@@ -318,13 +312,10 @@ double get_error_l2(asgard::discretization_manager<P> const &disc)
   for (size_t i = 0; i < state.size(); i++)
   {
     double const e = eref[i] - state[i];
-    std::cout << " diff = " << std::abs(e) << "\n";
     ndiff += e * e;
     double const r = eref[i];
     nself += r * r;
   }
-
-  // std::cout << ndiff << "   " << enorm << "  " << nself << "\n";
 
   return std::sqrt((ndiff + enorm - nself) / enorm);
 
@@ -465,11 +456,6 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 
 void self_test() {
   #ifdef ASGARD_ENABLE_DOUBLE
-  // the solution starts as constant zero and turns into sine wave
-  // this creates a kink (discontinuity in the first derivative)
-  // thus, at time t = 1 the convergence is only 1-st order in dx
-  // after the initial kink leaves the domain, the error goes down
-
   dotest<double>(5.E-3, 1, "-d 1 -l 3");
   dotest<double>(1.E-3, 1, "-d 1 -l 4");
   dotest<double>(5.E-4, 1, "-d 1 -l 5");
@@ -484,6 +470,18 @@ void self_test() {
   dotest<double>(1.E-7, 1, "-d 2 -l 3");
   dotest<double>(5.E-7, 2, "-d 2 -l 3");
   dotest<double>(5.E-7, 3, "-d 2 -l 3");
+
+  dotest<double>(1.E-3, 1, "-d 1 -l 4");
+  dotest<double>(1.E-3, 2, "-d 1 -l 5");
+  dotest<double>(1.E-3, 3, "-d 1 -l 6  -sv bicgstab");
+
+  dotest<double>(1.E-7, 1, "-d 2 -l 3 -bc 1");
+  dotest<double>(5.E-7, 2, "-d 2 -l 3 -bc 1");
+  dotest<double>(5.E-7, 3, "-d 2 -l 3 -bc 1");
+
+  dotest<double>(1.E-3, 1, "-d 1 -l 4 -bc 1");
+  dotest<double>(1.E-3, 2, "-d 1 -l 5 -bc 1");
+  dotest<double>(1.E-3, 3, "-d 1 -l 6 -bc 1 -sv bicgstab");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT

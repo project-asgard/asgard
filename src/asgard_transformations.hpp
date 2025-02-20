@@ -169,13 +169,14 @@ public:
     int const num_dims = domain.num_dims();
     for (int d : iindexof(num_dims))
     {
-      if (sep.is_const(d))
+      if (sep.is_const(d)) {
         project1d_c(sep.cdomain(d), mass[d], d, grid.current_level(d));
-      else
+      } else {
         project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
             -> void {
           sep.fdomain(d, x, time, fx);
         }, mass[d], d, grid.current_level(d));
+      }
     }
 
     P const tmult = (sep.ftime()) ? sep.ftime()(time) : P{1};
@@ -322,7 +323,7 @@ public:
     } else {
       // the projection is trivial, exploiting orthogonality of the basis
       pf[dim].resize(num_cells * (degree_ + 1));
-      std::fill(fvals.begin(), fvals.end(), 0);
+      std::fill(pf[dim].begin(), pf[dim].end(), 0);
       pf[dim].front() = c;
     }
   }
