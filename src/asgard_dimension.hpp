@@ -230,6 +230,11 @@ public:
       msize = std::min(msize, length_[d] / num_cells);
     return msize;
   }
+  //! returns the cell-size for given dimension and level, uses the length
+  P cell_size(int dim, int level) const {
+    int num_cells = fm::ipow2(level);
+    return length_[dim] / num_cells;
+  }
 
   //! used for i/o purposes
   friend class h5manager<P>;
@@ -304,22 +309,18 @@ public:
   //! easy way to set the ignore time
   static constexpr type_tag_ignore_time set_ignore_time = type_tag_ignore_time{};
 
-  //! set a function non-separable in time or not depending on time
-  separable_func(std::list<svector_func1d<P>> fdomain, type_tag_ignore_time)
-    : ignores_time_(true)
-  {
-    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
-    int dims = 0;
-    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
-      source_func_[dims++] = std::move(*ip);
-  }
+  //! default constructor, no function is set, equivalent to constant 0
+  separable_func() = default;
+
   //! set a function non-separable in time or not depending on time
   separable_func(std::vector<svector_func1d<P>> fdomain)
   {
     expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
     int dims = 0;
-    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++) {
+      consts_[dims]        = P{1};
       source_func_[dims++] = std::move(*ip);
+    }
   }
   //! set a function non-separable in time or not depending on time
   separable_func(std::vector<svector_func1d<P>> fdomain, type_tag_ignore_time)
@@ -327,8 +328,10 @@ public:
   {
     expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
     int dims = 0;
-    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++) {
+      consts_[dims]        = P{1};
       source_func_[dims++] = std::move(*ip);
+    }
   }
   //! set a function that is separable in both space and time
   separable_func(std::vector<svector_func1d<P>> fdomain, scalar_func<P> f_time)
@@ -337,24 +340,64 @@ public:
     expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
 
     int dims = 0;
-    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++)
+    for (auto ip = fdomain.begin(); ip < fdomain.end(); ip++) {
+      consts_[dims]        = P{1};
       source_func_[dims++] = std::move(*ip);
+    }
+  }
+  //! set a function that is constant throughout the domain but has a time component
+  separable_func(std::vector<P> fdomain, scalar_func<P> f_time)
+    : time_func_(std::move(f_time))
+  {
+    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
+    std::copy(fdomain.begin(), fdomain.end(), consts_.begin());
+  }
+  //! set a function that is constant throughout the domain but has a time component
+  separable_func(std::vector<P> fdomain)
+    : ignores_time_(true)
+  {
+    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
+    std::copy(fdomain.begin(), fdomain.end(), consts_.begin());
   }
 
   //! check the number of dimensions, does not cache use primarily for verification
   int num_dims() const {
     int dims = 0;
-    for (auto const &s : source_func_) if (s) dims++;
+    for (auto const &s : consts_) if (s != 0) dims++;
     return dims;
   }
 
   //! returns the i-th domain function
   svector_func1d<P> const &fdomain(int i) const { return source_func_[i]; }
+  //! returns the i-th constant function
+  P cdomain(int i) const { return consts_[i]; }
+  //! set the i-th function to f
+  void set_fdomain(int i, svector_func1d<P> f) {
+    source_func_[i] = std::move(f);
+    consts_[i] = 1;
+  }
+  //! sets the i-th function to a constant function
+  void set_cdomain(int i, P c) {
+    expect(c != 0);
+    source_func_[i] = nullptr;
+    consts_[i] = c;
+  }
+  //! applies the i-th domain function on x and return the result in y
+  void fdomain(int i, std::vector<P> const &x, P t, std::vector<P> &y) const {
+    return source_func_[i](x, t, y);
+  }
+  //! check if the given dimension is constant
+  bool is_const(int dim) const { return (not source_func_[dim]); }
+
   //! returns the time function
   scalar_func<P> const &ftime() const { return time_func_; }
+  //! returns the value of the time function
+  P ftime(P t) const { return time_func_(t); }
 
   //! returns true if the function is set to ignore times
   bool ignores_time() const { return ignores_time_; }
+  //! returns true if the function is separable in time
+  bool separable_time() const { return (!!time_func_ or ignores_time_); }
 
   //! (testing purposes) eval the function at the points x[] and time t
   P eval(P const x[], P t) {
@@ -365,6 +408,8 @@ public:
         xx.front() = x[d];
         source_func_[d](xx, t, fx);
         v *= fx[0];
+      } else if (consts_[d] != 0) {
+        v *= consts_[d];
       }
     }
     if (time_func_)
@@ -375,8 +420,8 @@ public:
 private:
   bool ignores_time_ = false;
   std::array<svector_func1d<P>, max_num_dimensions> source_func_;
+  std::array<P, max_num_dimensions> consts_ = {{0}};
   scalar_func<P> time_func_;
 };
-
 
 } // namespace asgard

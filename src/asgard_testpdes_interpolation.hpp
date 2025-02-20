@@ -483,7 +483,7 @@ auto time_advance_errors(prog_opts const &opts)
   {
     ignore(i);
 
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     auto rmse = disc.rmse_exact_sol();
     rassert(rmse, "could not compute exact solution");

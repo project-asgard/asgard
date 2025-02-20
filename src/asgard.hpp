@@ -55,7 +55,7 @@ void simulate_builtin(prog_opts const &options)
   discretization_manager discretization(make_PDE<precision>(options),
                                         verbosity_level::high);
 
-  advance_time(discretization);
+  discretization.advance_time();
 
   discretization.save_final_snapshot();
 
@@ -142,7 +142,7 @@ void simulate(prog_opts const &options, verbosity_level verbosity = verbosity_le
  */
 template<typename precision>
 void simulate(discretization_manager<precision> &disc) {
-  asgard::advance_time(disc); // integrate until num-steps or stop-time
+  disc.advance_time(); // integrate until num-steps or stop-time
 
   if (not disc.stop_verbosity())
     disc.progress_report();

@@ -133,7 +133,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     term_1d<TestType> chain({ptI, ptG, ptM, ptD, ptM});
     REQUIRE(chain[0].optype() == operation_type::grad);
     REQUIRE(chain.chain()[1].optype() == operation_type::mass);
-    REQUIRE(chain.chain(2).optype() == operation_type::div);
+    REQUIRE(chain[2].optype() == operation_type::div);
     REQUIRE(chain[3].optype() == operation_type::mass);
   }
 
@@ -184,6 +184,37 @@ TEMPLATE_TEST_CASE("pde v2", "[pde]", test_precs)
     REQUIRE(pde.domain().length(1) == TestType{7});
     REQUIRE(!!pde.options().degree);
     REQUIRE(pde.options().degree.value() == 4);
+  }
+  SECTION("constructors")
+  {
+    prog_opts opts = make_opts("-l 3 -d 1");
+    pde_domain<TestType> domain({{1, 3}, {-1, 6}});
+    PDEv2<TestType> pde(opts, std::move(domain));
+    REQUIRE(pde.mass().dim(0).is_identity());
+    REQUIRE(pde.mass().dim(1).is_identity());
+    REQUIRE(pde.mass().is_identity());
+    // REQUIRE_THROWS_WITH(pde.set_mass(term_md<TestType>{}),
+    //                     "the mass term must be separable");
+    pde.set_mass({term_mass{2}, term_mass{3}});
+    REQUIRE_FALSE(pde.mass().dim(0).is_identity());
+    REQUIRE(pde.mass().dim(0).rhs_const() == 2);
+    REQUIRE_FALSE(pde.mass().dim(1).is_identity());
+    REQUIRE(pde.mass().dim(1).rhs_const() == 3);
+  }
+}
+
+TEST_CASE("helper wrappers", "[pde]")
+{
+  SECTION("compile wrappers")
+  {
+    sfixed_func1d<double> dfx = vectorize<double>([](double x)->double { return std::sin(x); });
+    sfixed_func1d<float> ffx = vectorize<float>([](float x)->float { return std::sin(x); });
+
+    svector_func1d<double> dfxt = vectorize_t<double>([](double x)->double { return std::sin(x); });
+    svector_func1d<float> ffxt = vectorize_t<float>([](float x)->float { return std::sin(x); });
+
+    svector_func1d<double> dfxtt = vectorize_t<double>([](double x, double t)->double { return t * std::sin(x); });
+    svector_func1d<float> ffxtt = vectorize_t<float>([](float x, double t)->float { return t * std::sin(x); });
   }
 }
 
@@ -252,71 +283,6 @@ void test_source_vectors(PDE<P> const &pde, std::filesystem::path base_dir,
         base_dir.replace_filename(source_string + "time.dat"));
     auto const fx = pde.sources()[i].time_func()(time);
     relaxed_fp_comparison(fx, gold, pde_eps_multiplier);
-  }
-}
-
-TEMPLATE_TEST_CASE("testing diffusion 2 implementations", "[pde]", test_precs)
-{
-  // auto const level  = 3;
-  // auto const degree = 1;
-  auto const pde = make_PDE<TestType>("-p diffusion_2 -l 3 -d 1");
-
-  auto const base_dir          = pde_base_dir / "diffusion_2_";
-  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
-  TestType const time          = 5;
-
-  SECTION("diffusion 2 initial condition functions")
-  {
-    test_initial_condition<TestType>(*pde, base_dir, x);
-  }
-
-  SECTION("diffusion 2 exact solution functions")
-  {
-    test_exact_solution<TestType>(*pde, base_dir, x, time);
-  }
-
-  // CFL not really working
-  SECTION("diffusion 2 dt")
-  {
-    auto filename = base_dir.filename().string();
-    TestType const gold =
-        read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / 0.01;
-    REQUIRE(dt == gold);
-  }
-}
-
-TEMPLATE_TEST_CASE("testing diffusion 1 implementations", "[pde]", test_precs)
-{
-  // auto const level  = 3;
-  // auto const degree = 1;
-  auto const pde    = make_PDE<TestType>("-p diffusion_1 -l 3 -d 1");
-  auto const base_dir          = pde_base_dir / "diffusion_1_";
-  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
-  TestType const time          = 5;
-
-  SECTION("diffusion 1 initial condition functions")
-  {
-    test_initial_condition<TestType>(*pde, base_dir, x);
-  }
-
-  SECTION("diffusion 1 exact solution functions")
-  {
-    test_exact_solution<TestType>(*pde, base_dir, x, time);
-  }
-
-  SECTION("diffusion 1 source functions")
-  {
-    test_source_vectors(*pde, base_dir, x, time);
-  }
-
-  SECTION("diffusion 1 dt")
-  {
-    auto filename = base_dir.filename().string();
-    TestType const gold =
-        read_scalar_from_txt_file(pde_base_dir / (filename + "dt.dat"));
-    TestType const dt = pde->get_dt() / 0.01;
-    REQUIRE(dt == gold);
   }
 }
 

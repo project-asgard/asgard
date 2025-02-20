@@ -293,7 +293,8 @@ struct solver_manager
   //! create a new solver
   solver_manager(prog_opts const &options)
   {
-    rassert(options.solver, "implicit time-stepping requires a solver, e.g., "
+    rassert(options.solver, "steady state and implicit time-stepping require a solver, e.g., "
+            "'-sv direct' or '-sv gmres -ist 1.E-6 -isi 300 -isn 50 "
             "see --help for list of available solvers");
 
     opt = options.solver.value();

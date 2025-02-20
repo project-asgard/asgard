@@ -383,6 +383,10 @@ public:
   P *data() { return data_[0]; }
   //! returns the raw internal data, const-overload
   P const *data() const { return data_[0]; }
+  //! indicates whether the matrix is empty
+  operator bool () const { return (nrows_ > 0); }
+  //! indicates whether the matrix is empty
+  bool empty() const { return (nrows_ == 0); }
 
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full() const
@@ -411,10 +415,21 @@ public:
       resize_and_zero(other);
   }
 
-  //! assuming the blocks are s.p.d., factorize and apply the inverse
-  void apply_inverse(int const n, block_diag_matrix<P> &rhs);
-  //! assuming the blocks are s.p.d., factorize and apply the inverse
-  void apply_inverse(int const n, block_tri_matrix<P> &rhs);
+  //! assuming the blocks are s.p.d., factorize the matrix
+  void spd_factorize(int const n);
+  //! solves against a vector
+  void solve(int const n, std::vector<P> &rhs) const {
+    expect(rhs.size() == static_cast<size_t>(n * nrows_));
+    solve(n, rhs.data());
+  }
+  //! solves against a raw-array
+  void solve(int const n, P rhs[]) const;
+  //! solves against a diag-matrix
+  void solve(int const n, block_diag_matrix<P> &rhs) const;
+  //! solves against a tri-matrix
+  void solve(int const n, block_tri_matrix<P> &rhs) const;
+
+  void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
 
 private:
   int64_t nrows_;
@@ -477,9 +492,9 @@ public:
   P const *upper(int64_t r) const { return data_[3 * r + 2]; }
 
   //! returns the raw internal data
-  P *data() { return data_.data(); }
+  P *data() { return data_[0]; }
   //! returns the raw internal data, const-overload
-  P const *data() const { return data_.data(); }
+  P const *data() const { return data_[0]; }
 
   //! fill with single entry
   void fill(P v) { std::fill_n(data_[0], data_.total_size(), v); }
@@ -533,6 +548,8 @@ public:
     }
     return full;
   };
+
+  void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
 
 private:
   int64_t nrows_;

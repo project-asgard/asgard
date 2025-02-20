@@ -52,14 +52,24 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE(prog.step_method);
     REQUIRE(*prog.step_method == time_advance::method::imex);
 
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "steady"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "steady"})).step_method.value() == time_advance::method::steady);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "fe"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "fe"})).step_method.value() == time_advance::method::forward_euler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "forward-euler"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "forward-euler"})).step_method.value() == time_advance::method::forward_euler);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk2"})).step_method);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk2"})).step_method.value() == time_advance::method::rk2);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk3"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk3"})).step_method.value() == time_advance::method::rk3);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk4"})).step_method);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk4"})).step_method.value() == time_advance::method::rk4);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method.value() == time_advance::method::cn);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "crank-nicolson"})).step_method.value() == time_advance::method::cn);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method.value() == time_advance::method::beuler);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "backward-euler"})).step_method.value() == time_advance::method::beuler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method.value() == time_advance::method::back_euler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "backward-euler"})).step_method.value() == time_advance::method::back_euler);
   }
   SECTION("-adapt-norm")
   {
@@ -306,6 +316,14 @@ TEST_CASE("new program options", "[single options]")
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-of"})),
                         "-of must be followed by a value, see exe -help");
     REQUIRE(prog_opts(vecstrview({"exe", "-outfile", "dummy", "-of", ""})).subtitle.empty());
+  }
+  SECTION("-view")
+  {
+    prog_opts prog(vecstrview({"", "-view", "some-view"}));
+    REQUIRE_FALSE(prog.default_plotter_view.empty());
+    REQUIRE(prog.default_plotter_view == "some-view");
+    REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-view"})),
+                        "-view must be followed by a value, see exe -help");
   }
   SECTION("file_required")
   {

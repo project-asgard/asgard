@@ -16,7 +16,7 @@
  *
  * \par Example 1
  * Solves the continuity partial differential equation
- * \f[ \frac{d}{dt} f + \nabla \cdot f = s \f]
+ * \f[ \frac{\partial}{\partial t} f + \nabla \cdot f = s \f]
  * where both \b f and \b s are defined over the two dimensional domain
  * \f[ (x, y) \in (-1, 1) \otimes (-2, 2) \f]
  *

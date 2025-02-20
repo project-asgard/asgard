@@ -26,7 +26,7 @@
  *
  * \par Example 3
  * Solves the continuity partial differential equation in arbitrary dimension \b d
- * \f[ \frac{d}{dt} f + \nabla \cdot f = s \f]
+ * \f[ \frac{\partial}{\partial t} f + \nabla \cdot f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution
  * is the d-dimensional separable function
  * \f[ f(t, x_1, x_2, \cdots, x_d) = \cos(t) \prod_{j=1}^d \sin(x_j) \f]
@@ -102,7 +102,7 @@ asgard::PDEv2<P> make_continuity_pde(int num_dims, asgard::prog_opts options) {
   // the exact solution vanishes when any dimension is at the origin
   // setting an off-center default view will yield a better plots
   // this is just the default and it does not limit any other options
-  if (num_dims > 2) {
+  if (num_dims > 2 and options.default_plotter_view == "") {
     options.default_plotter_view = " * : * ";
     for (int d = 2; d < num_dims; d++)
       options.default_plotter_view += " : 1.57";
@@ -330,7 +330,7 @@ int main(int argc, char** argv)
   if (not disc.stop_verbosity())
     std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
 
-  asgard::advance_time(disc); // integrate until num-steps or stop-time
+  disc.advance_time(); // integrate until num-steps or stop-time
 
   disc.progress_report();
 
@@ -356,7 +356,7 @@ int main(int argc, char** argv)
 ///////////////////////////////////////////////////////////////////////////////
 
 // just for convenience to avoid using asgard:: all over the place
-// normally, should only include what is needed
+// normally, one should only include what is needed
 using namespace asgard;
 
 template<typename P>
@@ -370,7 +370,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 
   while (disc.time_params().num_remain() > 0)
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     double const err = get_error_l2(disc);
 
@@ -387,7 +387,7 @@ void dolongtest(double tol, int num_dims, std::string const &opts) {
   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
                                  verbosity_level::quiet);
 
-  advance_time(disc);
+  disc.advance_time();
 
   double const err = get_error_l2(disc);
 
@@ -425,7 +425,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
 
   while (disc.time_params().num_remain() > 0)
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     double const time = disc.time_params().time();
 #pragma omp parallel for

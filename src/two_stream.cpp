@@ -14,9 +14,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_two_stream Example 5, Two stream instability
+ * \addtogroup asgard_examples_two_stream Example 7, Two stream instability
  *
- * \par Example 5
+ * \par Example 7
  * Solves the Vlasov-Poisson equation in a common example
  * often called the two stream instability problem
  * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) = 0 \f]
@@ -206,7 +206,7 @@ int main(int argc, char** argv)
   asgard::discretization_manager<P> disc(make_two_stream(options),
                                          asgard::verbosity_level::high);
 
-  asgard::advance_time(disc); // integrate until num-steps or stop-time
+  disc.advance_time(); // integrate until num-steps or stop-time
 
   disc.final_output();
 
@@ -251,7 +251,7 @@ void test_energy(std::string const &opt_str) {
 
   for (int i = 0; i < n; i++)
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     int const level0   = disc.get_sgrid().current_level(0);
     int const num_cell = fm::ipow2(level0);

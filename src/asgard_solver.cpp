@@ -626,20 +626,23 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
 
   dense_mat = bmat.to_dense_matrix(n);
 
-  int64_t const size = n * num_indexes;
+  if (alpha != 0)
+  {
+    int64_t const size = n * num_indexes;
 
-#pragma omp parallel for
-  for (int64_t c = 0; c < size - 1; c++) {
-    P *dd = dense_mat.data() + c * (size + 1);
-    dd[0] = P{1} + alpha * dd[0];
-    dd += 1;
-    ASGARD_OMP_SIMD
-    for (int64_t i = 0; i < size; i++) {
-      dd[i] *= alpha;
+    #pragma omp parallel for
+    for (int64_t c = 0; c < size - 1; c++) {
+      P *dd = dense_mat.data() + c * (size + 1);
+      dd[0] = P{1} + alpha * dd[0];
+      dd += 1;
+      ASGARD_OMP_SIMD
+      for (int64_t i = 0; i < size; i++) {
+        dd[i] *= alpha;
+      }
     }
-  }
 
-  dense_mat(size - 1, size - 1) = P{1} + alpha * dense_mat(size - 1, size - 1);
+    dense_mat(size - 1, size - 1) = P{1} + alpha * dense_mat(size - 1, size - 1);
+  }
 
   dense_mat.factorize();
 }

@@ -45,6 +45,11 @@ Options          Short   Value      Description
                                     If omitted, the string will assume the name of the PDE.
 -subtitle          -     string     An addition to the title, optional use.
 -infile          -if     filename   Read options and values from a provided file.
+-view              -     string     example: "* : * : 1.57" or "* : 2 : *"
+                                    passed into the default view of the plotter indicating the plane
+                                    to plot, the view is a string with ":" separated entries
+                                    holding up to two "*" entreis indicating the dimensions that
+                                    will vary and numbers for the other dimensions
 -verbosity       -vv     int/string accepts: 0/1/2 or quiet/low/high
                                     Asjusts the amount and frequency of cout logging.
 
@@ -77,7 +82,11 @@ Options          Short   Value      Description
 
 <<< time stepping options >>>
 -step-method     -s      string     accepts (v1): expl/impl/imex
-                                    accepts (v2): rk2/rk3/cn/crank-nicolson/be/backwar-euler
+                                    accepts (v2): steady
+                                      forward-euler/fe/rk1/rk2/rk3/rk4
+                                      backwar-euler/be/crank-nicolson/cn
+                                    (fe, be and cn are shorthand acronyms for the longer names)
+                                    steady computes the steady state, not a time-stepping method
                                     indicates explicit (rk3), implicit (backward-Euler) or
                                     imex (implicit-explicit) time-stepping scheme
                                     implicit crank-nicolson (cn) or backwar-euler (be)
@@ -105,7 +114,7 @@ Options          Short   Value      Description
 -solver          -sv     string     accepts: direct/gmres/bicgstab (implicit/imex methods only)
                                     Direct: use LAPACK, expensive but stable.
                                     GMRES: general but sensitive to restart selection.
-                                    bicgstab: cheaper alternative to GMRES
+                                    bicgstab: cheaper (per-iteration) alternative to GMRES
 -precon          -pc     string     accepts: none/jacobi/adi (iterative solvers only)
                                     specifies the preconditioner for the iterative method
                                     none - is not advisable as it takes too long
@@ -134,9 +143,6 @@ void prog_opts::print_pde_help(std::ostream &os)
 
 Option          Description
 custom          (default) user provided pde, can be omitted for the custom projects
-diffusion_1     1D diffusion equation: df/dt = d^2 f/dx^2
-diffusion_2     2D (1x-1y) heat equation. df/dt = d^2 f/dx^2 + d^2 f/dy^2
-advection_1     1D test using continuity equation. df/dt = -2*df/dx - 2*sin(x)
 vlasov          Vlasov lb full f. df/dt = -v*grad_x f + div_v((v-u)f + theta*grad_v f)
 
 fokkerplanck_1d_pitch_E_case1    1D pitch angle collisional term:
@@ -198,13 +204,14 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       {"-pde?", optentry::pde_help}, {"-p?", optentry::pde_help},
       {"-pde", optentry::pde_choice}, {"-p", optentry::pde_choice},
       {"-infile", optentry::input_file}, {"-if", optentry::input_file},
+      {"-view", optentry::view},
       {"-noexact", optentry::ignore_exact}, {"-ne", optentry::ignore_exact},
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
       {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
-      {"-adapt-norm", optentry::adapt_norm}, {"-an", optentry::adapt_norm},
+      {"-adapt-norm", optentry::anorm}, {"-an", optentry::anorm},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
       {"-noadapt", optentry::no_adapt},  {"-noa", optentry::no_adapt},
       {"-start-levels", optentry::start_levels}, {"-l", optentry::start_levels},
@@ -293,6 +300,13 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       process_file(argv.front());
     }
     break;
+    case optentry::view: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      default_plotter_view = *selected;
+    }
+    break;
     case optentry::grid_mode: {
       auto selected = move_process_next();
       if (not selected)
@@ -339,14 +353,20 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
-      if (*selected == "rk2")
+      if (*selected == "steady")
+        step_method = time_advance::method::steady;
+      else if (*selected == "forward-euler" or *selected == "fe" or *selected == "rk1")
+        step_method = time_advance::method::forward_euler;
+      else if (*selected == "rk2")
         step_method = time_advance::method::rk2;
       else if (*selected == "rk3")
         step_method = time_advance::method::rk3;
+      else if (*selected == "rk4")
+        step_method = time_advance::method::rk4;
       else if (*selected == "cn" or *selected == "crank-nicolson")
         step_method = time_advance::method::cn;
       else if (*selected == "be" or *selected == "backward-euler")
-        step_method = time_advance::method::beuler;
+        step_method = time_advance::method::back_euler;
       else if (*selected == "expl")
         step_method = time_advance::method::exp;
       else if (*selected == "impl")
@@ -358,7 +378,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv,
       }
     }
     break;
-    case optentry::adapt_norm: {
+    case optentry::anorm: {
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
@@ -644,9 +664,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
       {"fokkerplanck_2d_complete_case2", PDE_opts::fokkerplanck_2d_complete_case2},
       {"fokkerplanck_2d_complete_case3", PDE_opts::fokkerplanck_2d_complete_case3},
       {"fokkerplanck_2d_complete_case4", PDE_opts::fokkerplanck_2d_complete_case4},
-      {"diffusion_1", PDE_opts::diffusion_1},
-      {"diffusion_2", PDE_opts::diffusion_2},
-      {"advection_1", PDE_opts::advection_1},
       {"vlasov", PDE_opts::vlasov_lb_full_f},
       {"relaxation_1x1v", PDE_opts::relaxation_1x1v},
       {"relaxation_1x2v", PDE_opts::relaxation_1x2v},

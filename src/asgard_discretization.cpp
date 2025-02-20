@@ -200,55 +200,62 @@ void discretization_manager<precision>::start_cold()
   }
 
   { // setting up the time-step approach
+    // if no method is set, defaulting to explicit time-stepping
+    time_advance::method sm = options.step_method.value_or(time_advance::method::rk3);
+
+    time_data<precision> dtime; // initialize below
+
     precision stop = options.stop_time.value_or(-1);
     precision dt   = options.dt.value_or(-1);
     int64_t n      = options.num_time_steps.value_or(-1);
 
-    if (stop >= 0 and dt >= 0 and n >= 0)
-      throw std::runtime_error("Must provide exactly two of the three time-stepping parameters: "
-                               "-dt, -num-steps, -time");
+    if (sm == time_advance::method::steady) {
+      stop  = options.stop_time.value_or(options.default_stop_time.value_or(0));
+      dtime = time_data<precision>(stop);
+    } else {
+      if (stop >= 0 and dt >= 0 and n >= 0)
+        throw std::runtime_error("Must provide exactly two of the three time-stepping parameters: "
+                                "-dt, -num-steps, -time");
 
-    // replace options with defaults, when appropriate
-    if (n >= 0) {
-      if (stop < 0 and dt < 0) {
-        dt = options.default_dt.value_or(-1);
-        if (dt < 0) {
-          stop = options.default_stop_time.value_or(-1);
-          if (stop < 0)
-            throw std::runtime_error("number of steps provided, but no dt or stop-time");
+      // replace options with defaults, when appropriate
+      if (n >= 0) {
+        if (stop < 0 and dt < 0) {
+          dt = options.default_dt.value_or(-1);
+          if (dt < 0) {
+            stop = options.default_stop_time.value_or(-1);
+            if (stop < 0)
+              throw std::runtime_error("number of steps provided, but no dt or stop-time");
+          }
         }
+      } else if (stop >= 0) { // no num-steps, but dt may be provided or have a default
+        if (dt < 0) {
+          dt = options.default_dt.value_or(-1);
+          if (dt < 0)
+            throw std::runtime_error("stop-time provided but no time-step or number of steps");
+        }
+      } else if (dt >= 0) { // both n and stop are unspecified
+        stop = options.default_stop_time.value_or(-1);
+        if (stop < 0)
+          throw std::runtime_error("dt provided, but no stop-time or number of steps");
+      } else { // nothing provided, look for defaults
+        dt   = options.default_dt.value_or(-1);
+        stop = options.default_stop_time.value_or(-1);
+        if (dt < 0 or stop < 0)
+          throw std::runtime_error("need at least two time parameters: -dt, -num-steps, -time");
       }
-    } else if (stop >= 0) { // no num-steps, but dt may be provided or have a default
-      if (dt < 0) {
-        dt = options.default_dt.value_or(-1);
-        if (dt < 0)
-          throw std::runtime_error("stop-time provided but no time-step or number of steps");
-      }
-    } else if (dt >= 0) { // both n and stop are unspecified
-      stop = options.default_stop_time.value_or(-1);
-      if (stop < 0)
-        throw std::runtime_error("dt provided, but no stop-time or number of steps");
-    } else { // nothing provided, look for defaults
-      dt   = options.default_dt.value_or(-1);
-      stop = options.default_stop_time.value_or(-1);
-      if (dt < 0 or stop < 0)
-        throw std::runtime_error("need at least two time parameters: -dt, -num-steps, -time");
-    }
 
-    // if no method is set, defaulting to explicit time-stepping
-    time_advance::method sm = options.step_method.value_or(time_advance::method::rk3);
-    time_data<precision> dtime;
-    if (n >= 0 and stop >= 0 and dt < 0)
-      dtime = time_data<precision>(
-          sm, n, typename time_data<precision>::input_stop_time{stop});
-    else if (dt >= 0 and stop >= 0 and n < 0)
-      dtime = time_data<precision>(sm,
-                                   typename time_data<precision>::input_dt{dt},
-                                   typename time_data<precision>::input_stop_time{stop});
-    else if (dt >= 0 and n >= 0 and stop < 0)
-      dtime = time_data<precision>(sm, typename time_data<precision>::input_dt{dt}, n);
-    else
-      throw std::runtime_error("how did this happen?");
+      if (n >= 0 and stop >= 0 and dt < 0)
+        dtime = time_data<precision>(
+            sm, n, typename time_data<precision>::input_stop_time{stop});
+      else if (dt >= 0 and stop >= 0 and n < 0)
+        dtime = time_data<precision>(sm,
+                                    typename time_data<precision>::input_dt{dt},
+                                    typename time_data<precision>::input_stop_time{stop});
+      else if (dt >= 0 and n >= 0 and stop < 0)
+        dtime = time_data<precision>(sm, typename time_data<precision>::input_dt{dt}, n);
+      else
+        throw std::runtime_error("how did this happen?");
+    }
 
     // the options are used to setup the solver
     stepper = time_advance_manager<precision>(dtime, options);
@@ -265,9 +272,7 @@ void discretization_manager<precision>::start_cold()
 
   // first we must initialize the terms, which will also initialize the kron
   // operations and the interpolation engine
-  terms = term_manager<precision>(pde2);
-
-  terms.prapare_workspace(sgrid);
+  terms = term_manager<precision>(pde2, sgrid, hier);
 
   set_initial_condition();
 
@@ -319,9 +324,7 @@ void discretization_manager<precision>::restart_from_file()
 
   stepper = time_advance_manager<precision>(dtime, options);
 
-  terms = term_manager<precision>(pde2);
-
-  terms.prapare_workspace(sgrid);
+  terms = term_manager<precision>(pde2, sgrid, hier);
 
   // moments, identical to the start_cold() case
   mom_deps deps = terms.find_deps();
@@ -476,9 +479,10 @@ void discretization_manager<precision>::set_initial_condition()
     for (int i : iindexof(sep)) {
       expect(sep[i].num_dims() == pde2.num_dims());
 
+      terms.rebuild_mass_matrices(sgrid);
+
       hier.template project_separable<data_mode::increment>
-            (sep[i], pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass,
-            precision{0}, state);
+            (sep[i], pde2.domain(), sgrid, terms.lmass, precision{0}, 1, state.data());
     }
 
     if (tol >= 0) {
@@ -572,15 +576,15 @@ void discretization_manager<precision>::ode_irhs(
   {
     tools::time_event performance("computing sources");
 
-    auto const &sources = pde->sources();
+    auto const &src = pde->sources();
     hier.template project_separable<data_mode::replace>
-          (R.data(), pde->get_dimensions(), sources[0].source_funcs(),
-          matrices.dim_dv, matrices.dim_mass, grid, t, sources[0].time_func()(t));
+          (R.data(), pde->get_dimensions(), src[0].source_funcs(),
+          matrices.dim_dv, matrices.dim_mass, grid, t, src[0].time_func()(t));
 
-    for (size_t i = 1; i < sources.size(); i++)
+    for (size_t i = 1; i < src.size(); i++)
       hier.template project_separable<data_mode::increment>
-          (R.data(), pde->get_dimensions(), sources[i].source_funcs(),
-          matrices.dim_dv, matrices.dim_mass, grid, t, sources[i].time_func()(t));
+          (R.data(), pde->get_dimensions(), src[i].source_funcs(),
+          matrices.dim_dv, matrices.dim_mass, grid, t, src[i].time_func()(t));
   }
 
   {
@@ -630,92 +634,11 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
 }
 
 template<typename precision> void
-discretization_manager<precision>::ode_rhs_v2(
-    precision time, std::vector<precision> const &current,
-    std::vector<precision> &R) const
-{
-  if (poisson) { // if we have a Poisson dependence
-    do_poisson_update(current);
-    terms.rebuild_poisson(sgrid, conn, hier);
-  }
-
-  {
-    tools::time_event performance_("ode-rhs kronmult");
-    terms.apply_all(sgrid, conn, -1, current, 0, R);
-  }
-
-  std::vector<separable_func<precision>> const &sep = pde2.source_sep();
-
-  {
-    tools::time_event performance_("ode-rhs sources");
-    for (int i : iindexof(sep)) {
-      hier.template project_separable<data_mode::increment>
-            (sep[i], pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass,
-            time, R);
-    }
-  }
-}
-
-template<typename precision> void
-discretization_manager<precision>::set_ode_rhs_sources(
-    precision time, precision alpha, std::vector<precision> &src) const
-{
-  tools::time_event performance_("set ode sources");
-
-  std::vector<separable_func<precision>> const &sep = pde2.source_sep();
-  if (sep.empty()) { // no sources, set to zero
-    if (src.empty())
-      src.resize(state.size());
-    else {
-      src.resize(state.size());
-      std::fill(src.begin(), src.end(), precision{0});
-    }
-    return;
-  }
-
-  if (alpha == 1) {
-    hier.template project_separable<data_mode::replace>
-        (sep.front(), pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src);
-    for (auto is = sep.begin() + 1; is < sep.end(); is++) {
-      hier.template project_separable<data_mode::increment>
-            (*is, pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src);
-    }
-  } else {
-    hier.template project_separable<data_mode::scal_rep>
-        (sep.front(), pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
-    for (auto is = sep.begin() + 1; is < sep.end(); is++) {
-      hier.template project_separable<data_mode::scal_inc>
-            (*is, pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
-    }
-  }
-}
-
-template<typename precision> void
-discretization_manager<precision>::add_ode_rhs_sources(
-    precision time, precision alpha, std::vector<precision> &src) const
-{
-  tools::time_event performance_("add ode sources");
-
-  std::vector<separable_func<precision>> const &sep = pde2.source_sep();
-
-  if (alpha == 1)
-    for (int i : iindexof(sep)) {
-      hier.template project_separable<data_mode::increment>
-            (sep[i], pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src);
-    }
-  else
-    for (int i : iindexof(sep)) {
-      hier.template project_separable<data_mode::scal_inc>
-            (sep[i], pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass, time, src, alpha);
-    }
-}
-
-template<typename precision> void
 discretization_manager<precision>::project_function(
     std::vector<separable_func<precision>> const &sep,
     md_func<precision> const &, std::vector<precision> &out) const
 {
-  tools::time_event performance_("project funciton");
+  tools::time_event performance_("project functions");
 
   if (out.empty())
     out.resize(state.size());
@@ -726,10 +649,10 @@ discretization_manager<precision>::project_function(
 
   precision time = stepper.data.time();
 
+  terms.rebuild_mass_matrices(sgrid);
   for (int i : iindexof(sep)) {
     hier.template project_separable<data_mode::increment>
-          (sep[i], pde2.domain(), sgrid, matrices.dim_dv, matrices.dim_mass,
-          time, out);
+          (sep[i], pde2.domain(), sgrid, terms.lmass, time, 1, out.data());
   }
 }
 

@@ -249,7 +249,11 @@ if (ASGARD_USE_PYTHON)
     endforeach()
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
 
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/plot.sh" "${CMAKE_CURRENT_BINARY_DIR}/plot.sh" @ONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardplot.sh" "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" DESTINATION bin PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardrun.sh" "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" DESTINATION bin PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 
     # install the module without the testing files
     set(__pyasgard_libasgard_path__ "${__asgard_final_path}")
@@ -503,7 +507,8 @@ if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
-set (_asgard_pdes continuity diffusion two_stream)
+set (_asgard_pdes continuity diffusion elliptic sinwav two_stream
+                  mass_internal varcoeff_internal bound_internal)
 
 foreach (_asgexe ${_asgard_pdes})
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/${_asgexe}.cpp")

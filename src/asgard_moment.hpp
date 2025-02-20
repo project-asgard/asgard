@@ -27,9 +27,9 @@ class moments1d {
 public:
   //! empty constructor, no moments
   moments1d() {}
-  //! constructor, prepares the given number of moments, for dgree and up to the max_level
+  //! constructor, prepares the given number of moments, for degree and up to the max_level
   moments1d(int num_mom, int degree, int max_level, std::vector<dimension<P>> const &dims);
-  //! constructor, prepares the given number of moments, for dgree and up to the max_level
+  //! constructor, prepares the given number of moments, for degree and up to the max_level
   moments1d(int num_mom, int degree, int max_level, pde_domain<P> const &domain);
 
   /*!
@@ -80,7 +80,7 @@ protected:
    * \brief Computes the moment integrals over a sub-range of the domain
    *
    * The canonical interval (-1, 1) corresponds to the physical interval (a, b).
-   * The outpout is the integral of the basis functions (b0 ... b_degree)
+   * The output is the integral of the basis functions (b0 ... b_degree)
    * in blocks for each moment.
    *
    * No side-effects here, only reading from num_mom_ and degree_, thread-safe.

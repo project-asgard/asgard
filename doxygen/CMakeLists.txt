@@ -55,6 +55,8 @@ doxygen_add_docs(asgard_doxygen
                  examples/inputs_1d.cpp
                  src/continuity.cpp
                  src/diffusion.cpp
+                 src/elliptic.cpp
+                 src/sinwav.cpp
                  src/two_stream.cpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")

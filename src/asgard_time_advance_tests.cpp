@@ -38,7 +38,7 @@ void time_advance_test(prog_opts const &opts,
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     fk::vector<P> f = disc.current_state();
 
@@ -65,103 +65,11 @@ std::string get_level_string(std::vector<int> const &levels)
   return s;
 }
 
-TEMPLATE_TEST_CASE("time advance - diffusion 2", "[time_advance]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  SECTION("diffusion2, explicit, sparse grid, level 2, degree 1")
-  {
-    auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-    auto const gold_base = time_advance_base_dir / "diffusion2_sg_l2_d2_t";
-
-    auto opts = make_opts("-p diffusion_2 -d 1 -l 2 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("diffusion2, explicit, sparse grid, level 3, degree 2")
-  {
-    auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-    auto const gold_base = time_advance_base_dir / "diffusion2_sg_l3_d3_t";
-
-    auto opts = make_opts("-p diffusion_2 -d 2 -l 3 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("diffusion2, explicit, sparse grid, level 4, degree 3")
-  {
-    auto constexpr tol_factor = get_tolerance<TestType>(1000000);
-
-    auto const gold_base = time_advance_base_dir / "diffusion2_sg_l4_d4_t";
-
-    auto opts = make_opts("-p diffusion_2 -d 3 -l 4 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("diffusion2, explicit/non-uniform level, sparse grid, degree 1")
-  {
-    auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-    std::vector<int> const levels{4, 5};
-    auto const gold_base =
-        time_advance_base_dir /
-        ("diffusion2_sg_l" + get_level_string(levels) + "d2_t");
-
-    auto opts = make_opts("-p diffusion_2 -d 1 -n 5");
-
-    opts.start_levels = levels;
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-}
-
 TEST_CASE("adaptive time advance")
 {
   if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
   {
     return;
-  }
-
-  SECTION("diffusion 2 implicit")
-  {
-    // the condition number for the difusion PDE is large, use double-precision only
-    if (std::is_same_v<default_precision, double>)
-    {
-      auto const tol_factor = get_tolerance<default_precision>(1000);
-
-      auto const gold_base =
-          time_advance_base_dir / "diffusion2_ad_implicit_sg_l3_d4_t";
-
-      auto opts = make_opts("-p diffusion_2 -d 3 -l 3 -n 5 -s impl -a 0.05 -sv direct");
-
-      // temporarily disable test for MPI due to table elements < num ranks
-      if (get_num_ranks() == 1)
-        time_advance_test(opts, gold_base, tol_factor);
-    }
-    else
-      REQUIRE(true);
-  }
-  SECTION("diffusion 2 explicit")
-  {
-    // the condition number for the difusion PDE is large, use double-precision only
-    if (std::is_same_v<default_precision, double>)
-    {
-      auto const tol_factor = get_tolerance<default_precision>(1000);
-
-      auto const gold_base = time_advance_base_dir / "diffusion2_ad_sg_l3_d4_t";
-
-      auto opts = make_opts("-p diffusion_2 -d 3 -l 3 -n 5 -s expl -a 0.05");
-
-      // temporarily disable test for MPI due to table elements < num ranks
-      if (get_num_ranks() == 1)
-        time_advance_test(opts, gold_base, tol_factor);
-    }
   }
 
   SECTION("fokkerplanck1_pitch_E case1 explicit")
@@ -194,34 +102,6 @@ TEST_CASE("adaptive time advance")
     {
       time_advance_test(opts, gold_base, tol_factor);
     }
-  }
-}
-
-TEMPLATE_TEST_CASE("time advance - diffusion 1", "[time_advance]", test_precs)
-{
-  if (!is_active())
-  {
-    return;
-  }
-
-  SECTION("diffusion1, explicit, sparse grid, level 3, degree 2")
-  {
-    auto const gold_base      = time_advance_base_dir / "diffusion1_sg_l3_d3_t";
-    auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-    auto opts = make_opts("-p diffusion_1 -d 2 -l 3 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("diffusion1, explicit, sparse grid, level 4, degree 3")
-  {
-    auto const gold_base  = time_advance_base_dir / "diffusion1_sg_l4_d4_t";
-    auto const tol_factor = get_tolerance<TestType>(100000);
-
-    auto opts = make_opts("-p diffusion_1 -d 3 -l 4 -n 5");
-
-    time_advance_test(opts, gold_base, tol_factor);
   }
 }
 
@@ -375,82 +255,6 @@ TEMPLATE_TEST_CASE("implicit time advance - fokkerplanck_2d_complete_case4",
   }
 }
 
-TEMPLATE_TEST_CASE("implicit time advance - diffusion 1", "[time_advance]",
-                   test_precs)
-{
-  if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
-  {
-    return;
-  }
-
-  auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-  SECTION("diffusion1, implicit, sparse grid, level 4, degree 3")
-  {
-    auto const gold_base =
-        time_advance_base_dir / "diffusion1_implicit_sg_l4_d4_t";
-
-    auto opts = make_opts("-p diffusion_1 -d 3 -l 4 -n 5 -s impl -sv direct");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-}
-
-TEMPLATE_TEST_CASE("implicit time advance - diffusion 2", "[time_advance]",
-                   test_precs)
-{
-  if (!is_active() || get_num_ranks() == 2 || get_num_ranks() == 3)
-  {
-    return;
-  }
-
-  auto constexpr tol_factor = get_tolerance<TestType>(100);
-
-  SECTION("diffusion2, implicit, sparse grid, level 3, degree 2")
-  {
-    auto const gold_base =
-        time_advance_base_dir / "diffusion2_implicit_sg_l3_d3_t";
-
-    auto opts = make_opts("-p diffusion_2 -d 2 -l 3 -n 5 -s impl -sv direct");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("diffusion2, implicit, sparse grid, level 4, degree 2")
-  {
-    auto const gold_base =
-        time_advance_base_dir / "diffusion2_implicit_sg_l4_d3_t";
-
-    auto opts = make_opts("-p diffusion_2 -d 2 -l 4 -n 5 -s impl -sv direct");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("diffusion2, implicit, sparse grid, level 5, degree 2")
-  {
-    auto const gold_base =
-        time_advance_base_dir / "diffusion2_implicit_sg_l5_d3_t";
-
-    auto opts = make_opts("-p diffusion_2 -d 2 -l 5 -n 5 -s impl -sv direct");
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-
-  SECTION("diffusion2, implicit/non-uniform level, degree 1, sparse grid")
-  {
-    std::vector<int> const levels = {4, 5};
-    auto const gold_base =
-        time_advance_base_dir /
-        ("diffusion2_implicit_sg_l" + get_level_string(levels) + "d2_t");
-
-    auto opts = make_opts("-p diffusion_2 -d 1 -n 5 -s impl -sv direct");
-
-    opts.start_levels = levels;
-
-    time_advance_test(opts, gold_base, tol_factor);
-  }
-}
-
 TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
 {
   // Disable test for MPI - IMEX needs to be tested further with MPI
@@ -482,7 +286,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - landau", "[imex]", test_precs)
   // -- time loop
   for (auto i : indexof(disc.final_time_step()))
   {
-    advance_time(disc, 1);
+    disc.advance_time(1);
 
     int const level0   = disc.get_pde().get_dimensions()[0].get_level();
     int const num_cell = fm::ipow2(level0);
@@ -551,7 +355,7 @@ TEMPLATE_TEST_CASE("IMEX time advance - relaxation1x1v", "[imex]", test_precs)
   {
     disc.add_time_steps(1);
 
-    advance_time(disc);
+    disc.advance_time();
 
     fk::vector<TestType> f_val = disc.current_state();
 

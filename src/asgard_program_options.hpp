@@ -80,7 +80,6 @@ enum class preconditioner_opts
 enum class PDE_opts
 {
   custom = 0, // user provided pde
-  advection_1,
   fokkerplanck_1d_pitch_E_case1,
   fokkerplanck_1d_pitch_E_case2,
   fokkerplanck_1d_pitch_C,
@@ -91,8 +90,6 @@ enum class PDE_opts
   fokkerplanck_2d_complete_case2,
   fokkerplanck_2d_complete_case3,
   fokkerplanck_2d_complete_case4,
-  diffusion_1,
-  diffusion_2,
   vlasov_lb_full_f,
   relaxation_1x1v,
   relaxation_1x2v,
@@ -186,14 +183,20 @@ namespace time_advance
  */
 enum class method
 {
+  //! steady state solution, not a time-stepping method
+  steady = 0,
+  //! forward euler method
+  forward_euler,
   //! Runge Kutta 2-stage method, 3d order accuracy
-  rk2 = 0,
+  rk2,
   //! Runge Kutta 3-stage method, 4th order accuracy
   rk3,
+  //! Runge Kutta 4-stage method, 4th order accuracy
+  rk4,
+  //! Implicit Backward-Euler, first order
+  back_euler,
   //! Implicit Crank-Nicolson, second order
   cn,
-  //! Implicit Backward-Euler, first order
-  beuler,
   //! implicit solve, backward Euler
   imp,
   //! (default) explicit Runge–Kutta
@@ -503,6 +506,19 @@ struct prog_opts
   {
     return get_val<out_type>(externals, s);
   }
+  //! read an extra option from the cli extras
+  template<typename out_type>
+  std::optional<out_type> extra_cli_value_group(std::vector<std::string> const &group) const
+  {
+    std::optional<out_type> result;
+    for (auto const &g : group) {
+      if (not result)
+        result = get_val<out_type>(externals, g);
+      if (not result)
+        result = get_val<out_type>(filedata, g);
+    }
+    return result;
+  }
   //! check if an extra option was present in the cli
   bool has_cli_entry(std::string_view const &s) const
   {
@@ -676,7 +692,7 @@ private:
     subtitle,
     grid_mode,
     step_method,
-    adapt_norm,
+    anorm,
     adapt_threshold,
     no_adapt,
     start_levels,
@@ -696,6 +712,7 @@ private:
     isol_iterations,
     isol_inner_iterations,
     restart_file,
+    view,
     set_verbosity
   };
   enum class handle_mode
@@ -759,7 +776,7 @@ private:
                   or std::is_same_v<out_type, float> or std::is_same_v<out_type, double>
                   or std::is_same_v<out_type, std::string>,
                   "prog_opts can only process: int, float, double, bool or string");
-    for (size_t i = 0; i < strs.size(); i += 2)
+    for (size_t i = 0; i < strs.size(); i++)
     {
       if (strs[i] == s)
       {

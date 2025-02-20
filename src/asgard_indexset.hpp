@@ -206,7 +206,7 @@ public:
   bool empty() const { return (num_indexes() == 0); }
 
   //! \brief Get the i-th index of the lexicographical order.
-  const int *operator[](int i) const
+  const int *operator[](int64_t i) const
   {
     return &indexes_[i * num_dimensions_];
   }
@@ -472,7 +472,7 @@ public:
   //! Returns the number of indexes
   int64_t num_indexes() const { return iset_.num_indexes(); }
 
-  int const * operator[] (int i) const { return iset_[i]; }
+  int const * operator[] (int64_t i) const { return iset_[i]; }
 
   indexset const &iset() const { return iset_; }
   dimension_sort const &dsort() const { return dsort_; }
