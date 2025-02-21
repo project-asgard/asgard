@@ -123,7 +123,7 @@ void simulate(prog_opts const &options, verbosity_level verbosity = verbosity_le
 {
   auto discretization = discretize<pde_class>(options, verbosity);
 
-  advance_time(discretization);
+  discretization.advance_time();
 
   discretization.save_final_snapshot();
 }
