@@ -88,7 +88,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
   // here, we are overwriting the cli selection, if another
   // method was requested then a warning will be generated
   // (this should probably be an error instead of a warning)
-  options.force_step_method(asgard::time_stepper::steady);
+  options.force_step_method(asgard::time_method::steady);
 
   // OK for small problems, larger one should switch to gmres or bicgstab
   options.default_solver = asgard::solver_method::direct;

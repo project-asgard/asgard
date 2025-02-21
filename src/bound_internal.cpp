@@ -41,7 +41,7 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
   int const max_level = options.max_level();
   P const dx = domain.min_cell_size(max_level);
 
-  options.default_step_method = time_stepper::steady;
+  options.default_step_method = time_method::steady;
   options.default_solver = solver_method::direct;
 
   options.default_dt = 0.5 * 0.1 * dx;
@@ -107,7 +107,7 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
 
   options.default_stop_time = 0.0;
 
-  options.default_step_method = time_stepper::steady;
+  options.default_step_method = time_method::steady;
 
   options.default_solver = solver_method::direct;
 
@@ -133,8 +133,8 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
     ops[d] = diffusion; // using operator in the d-direction
     pde += term_md<P>(ops);
 
-    if (num_dims == 1 and pde.options().step_method.value_or(time_stepper::rk3)
-          == time_stepper::steady) {
+    if (num_dims == 1 and pde.options().step_method.value_or(time_method::rk3)
+          == time_method::steady) {
       ops[d] = penalty;
       pde += term_md<P>(ops);
     }

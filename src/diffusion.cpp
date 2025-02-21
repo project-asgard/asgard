@@ -94,7 +94,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   options.default_stop_time = 3.0; // integrate until T = 3
 
   // using implicit Crank-Nicolson method, which requires a solver
-  options.default_step_method = asgard::time_stepper::cn;
+  options.default_step_method = asgard::time_method::cn;
 
   if (options.max_level() <= 5) {
     // direct (dense) solver is fast for small problems and works well for prototyping

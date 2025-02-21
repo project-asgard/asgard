@@ -384,11 +384,11 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       {
         switch (method)
         {
-        case time_stepper::exp:
+        case time_method::exp:
           return time_advance::rungekutta3_m(manager, manager.current_state());
-        case time_stepper::imp:
+        case time_method::imp:
           return time_advance::implicit_advance<P>(manager, manager.current_state());
-        case time_stepper::imex:
+        case time_method::imex:
           return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                manager.current_state(), fk::vector<P>(),
                                                time);
@@ -425,11 +425,11 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         fk::vector<P> y_stepped = [&]() {
           switch (method)
           {
-          case time_stepper::exp:
+          case time_method::exp:
             return time_advance::rungekutta3_m(manager, y.to_std());
-          case time_stepper::imp:
+          case time_method::imp:
             return time_advance::implicit_advance<P>(manager, y.to_std());
-          case time_stepper::imex:
+          case time_method::imex:
             return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                  y, y_first_refine, time);
           default:
@@ -580,11 +580,11 @@ void rungekutta<P>::next_step(
 {
   std::string const name = [&]() -> std::string {
       switch (rktype) {
-        case time_stepper::forward_euler:
+        case time_method::forward_euler:
           return "forw-euler";
-        case time_stepper::rk2:
+        case time_method::rk2:
           return "runge kutta 2";
-        case time_stepper::rk3:
+        case time_method::rk3:
           return "runge kutta 3";
         default: // case method::rk4:
           return "runge kutta 4";
@@ -597,7 +597,7 @@ void rungekutta<P>::next_step(
   P const dt   = disc.time_params().dt();
 
   switch (rktype) {
-    case time_stepper::forward_euler:
+    case time_method::forward_euler:
       k1.resize(current.size());
       disc.ode_rhs_v2(time, current, k1);
 
@@ -607,7 +607,7 @@ void rungekutta<P>::next_step(
       for (size_t i = 0; i < current.size(); i++)
         next[i] = current[i] + dt * k1[i];
       break;
-    case time_stepper::rk2:
+    case time_method::rk2:
       k1.resize(current.size());
       k2.resize(current.size());
       s1.resize(current.size());
@@ -626,7 +626,7 @@ void rungekutta<P>::next_step(
       for (size_t i = 0; i < current.size(); i++)
         next[i] = current[i] + dt * k2[i];
       break;
-    case time_stepper::rk3:
+    case time_method::rk3:
       k1.resize(current.size());
       k2.resize(current.size());
       k3.resize(current.size());
@@ -652,7 +652,7 @@ void rungekutta<P>::next_step(
       for (size_t i = 0; i < current.size(); i++)
         next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
       break;
-    case time_stepper::rk4:
+    case time_method::rk4:
       k1.resize(current.size());
       k2.resize(current.size());
       k3.resize(current.size());
@@ -697,12 +697,12 @@ void crank_nicolson<P>::next_step(
     std::vector<P> &next) const
 {
   tools::time_event performance_(
-      (method == time_stepper::cn) ? "crank-nicolson" : "back-euler");
+      (method == time_method::cn) ? "crank-nicolson" : "back-euler");
 
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
-  P const substep = (method == time_stepper::cn) ? 0.5 : 1;
+  P const substep = (method == time_method::cn) ? 0.5 : 1;
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
@@ -793,17 +793,17 @@ time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_op
   // prepare the time-stepper
   switch (data.step_method())
   {
-    case time_stepper::steady:
+    case time_method::steady:
       method = time_advance::steady_state<P>(options);
       break;
-    case time_stepper::forward_euler:
-    case time_stepper::rk2:
-    case time_stepper::rk3:
-    case time_stepper::rk4:
+    case time_method::forward_euler:
+    case time_method::rk2:
+    case time_method::rk3:
+    case time_method::rk4:
       method = time_advance::rungekutta<P>(data.step_method());
       break;
-    case time_stepper::cn:
-    case time_stepper::back_euler:
+    case time_method::cn:
+    case time_method::back_euler:
       method = time_advance::crank_nicolson<P>(options);
       break;
     default:
@@ -833,14 +833,14 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
 
 template<typename P>
 std::string time_advance_manager<P>::method_name() const {
-  std::map<time_stepper, std::string> names = {
-    {time_stepper::steady, "Steady state solver"},
-    {time_stepper::forward_euler, "Forward-Euler 1-step (explicit)"},
-    {time_stepper::rk2, "Runge-Kutta 2-step (explicit)"},
-    {time_stepper::rk3, "Runge-Kutta 3-step (explicit)"},
-    {time_stepper::rk4, "Runge-Kutta 4-step (explicit)"},
-    {time_stepper::cn, "Crank-Nicolson 1-step (implicit)"},
-    {time_stepper::back_euler, "Backward-Euler 1-step (implicit)"},
+  std::map<time_method, std::string> names = {
+    {time_method::steady, "Steady state solver"},
+    {time_method::forward_euler, "Forward-Euler 1-step (explicit)"},
+    {time_method::rk2, "Runge-Kutta 2-step (explicit)"},
+    {time_method::rk3, "Runge-Kutta 3-step (explicit)"},
+    {time_method::rk4, "Runge-Kutta 4-step (explicit)"},
+    {time_method::cn, "Crank-Nicolson 1-step (implicit)"},
+    {time_method::back_euler, "Backward-Euler 1-step (implicit)"},
   };
 
   return names.find(data.step_method())->second;

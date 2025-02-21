@@ -201,7 +201,7 @@ void discretization_manager<precision>::start_cold()
 
   { // setting up the time-step approach
     // if no method is set, defaulting to explicit time-stepping
-    time_stepper sm = options.step_method.value_or(time_stepper::rk3);
+    time_method sm = options.step_method.value_or(time_method::rk3);
 
     time_data<precision> dtime; // initialize below
 
@@ -209,7 +209,7 @@ void discretization_manager<precision>::start_cold()
     precision dt   = options.dt.value_or(-1);
     int64_t n      = options.num_time_steps.value_or(-1);
 
-    if (sm == time_stepper::steady) {
+    if (sm == time_method::steady) {
       stop  = options.stop_time.value_or(options.default_stop_time.value_or(0));
       dtime = time_data<precision>(stop);
     } else {
@@ -340,7 +340,7 @@ void discretization_manager<precision>::restart_from_file()
 
   if (stepper.needed_precon() == precon_method::adi) {
     precision const substep
-        = (options.step_method.value() == time_stepper::cn) ? 0.5 : 1;
+        = (options.step_method.value() == time_method::cn) ? 0.5 : 1;
     terms.build_matrices(sgrid, conn, hier, precon_method::adi,
                          substep * stepper.data.dt());
   } else
