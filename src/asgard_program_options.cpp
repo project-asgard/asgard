@@ -503,11 +503,11 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       if (not selected)
         throw std::runtime_error(report_no_value());
       if (*selected == "direct")
-        solver = solve_opts::direct;
+        solver = solver_method::direct;
       else if (*selected == "gmres")
-        solver = solve_opts::gmres;
+        solver = solver_method::gmres;
       else if (*selected == "bicgstab")
-        solver = solve_opts::bicgstab;
+        solver = solver_method::bicgstab;
       else
         throw std::runtime_error(report_wrong_value());
     }

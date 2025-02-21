@@ -100,12 +100,12 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
     // direct (dense) solver is fast for small problems and works well for prototyping
     // and debugging, since it remove from the problem some additional factors,
     // such as solver tolerance and number of iterations
-    options.default_solver = asgard::solve_opts::direct;
+    options.default_solver = asgard::solver_method::direct;
   } else {
     // when the problem size becomes significant, forming and factorizing the dense
     // operator matrix becomes prohibitively expensive in flops and memory usage
     // iterative solvers are needed and it is good to specify default parameters
-    options.default_solver = asgard::solve_opts::gmres;
+    options.default_solver = asgard::solver_method::gmres;
   }
 
   // only the iterative solvers will use these values

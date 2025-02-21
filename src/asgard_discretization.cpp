@@ -602,21 +602,21 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
                                                std::vector<precision> &x) const
 {
   auto const &options     = pde->options();
-  solve_opts const solver = options.solver.value();
+  solver_method const solver = options.solver.value();
 
   static fk::vector<precision> sol; // used by the iterative solvers
 
   switch (solver)
   {
-  case solve_opts::gmres:
-  case solve_opts::bicgstab: {
+  case solver_method::gmres:
+  case solver_method::bicgstab: {
       kronops.make(imflag, *pde, matrices, grid);
       precision const tolerance = *options.isolver_tolerance;
       int const restart         = *options.isolver_iterations;
       int const max_iter        = *options.isolver_inner_iterations;
       sol.resize(static_cast<int>(x.size()));
       std::copy(x.begin(), x.end(), sol.begin());
-      if (solver == solve_opts::gmres)
+      if (solver == solver_method::gmres)
         solvers::simple_gmres_euler<precision, resource::host>(
             pde->get_dt(), imflag, kronops, sol, x, restart, max_iter, tolerance);
       else

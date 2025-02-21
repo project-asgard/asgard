@@ -48,7 +48,7 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
 
   auto const &options = disc.get_pde().options();
 
-  solve_opts const solver = options.solver.value();
+  solver_method const solver = options.solver.value();
 
   static std::vector<P> rhs;
   disc.ode_irhs(disc.time() + dt, current, rhs);
@@ -56,7 +56,7 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
   std::optional<matrix_factor<P>> &euler_mat = disc.get_op_matrix();
 
   // if using a direct solver, on the first run, we need to update the matrices
-  if (solver == solve_opts::direct and not euler_mat)
+  if (solver == solver_method::direct and not euler_mat)
   {
     auto const &table   = disc.get_grid().get_table();
     auto const &subgrid = disc.get_grid().get_subgrid(get_rank());
@@ -89,7 +89,7 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
     return rhs;
   } // end first time/update system
 
-  if (solver == solve_opts::direct)
+  if (solver == solver_method::direct)
   { // reusing the computed factor
     fm::getrs(euler_mat->A, rhs, euler_mat->ipiv);
     return rhs;
@@ -169,7 +169,7 @@ imex_advance(discretization_manager<P> &disc,
   tools::timer.stop("explicit_1");
 
   // Implicit step f_1: f_1 - dt B f_1 = f_1s
-  solve_opts solver  = options.solver.value();
+  solver_method solver  = options.solver.value();
   P const tolerance  = *options.isolver_tolerance;
   int const restart  = *options.isolver_inner_iterations;
   int const max_iter = *options.isolver_iterations;
@@ -206,13 +206,13 @@ imex_advance(discretization_manager<P> &disc,
         f_1 = x_prev;
       }
     }
-    if (solver == solve_opts::gmres)
+    if (solver == solver_method::gmres)
     {
       pde.gmres_outputs[0] = solvers::simple_gmres_euler(
           pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_1, f, restart, max_iter, tolerance);
     }
-    else if (solver == solve_opts::bicgstab)
+    else if (solver == solver_method::bicgstab)
     {
       pde.gmres_outputs[0] = solvers::bicgstab_euler(
           pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
@@ -305,13 +305,13 @@ imex_advance(discretization_manager<P> &disc,
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
                                          disc.get_cmatrices(), adaptive_grid);
 
-    if (solver == solve_opts::gmres)
+    if (solver == solver_method::gmres)
     {
       pde.gmres_outputs[1] = solvers::simple_gmres_euler(
           P{0.5} * pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_2, f, restart, max_iter, tolerance);
     }
-    else if (solver == solve_opts::bicgstab)
+    else if (solver == solver_method::bicgstab)
     {
       pde.gmres_outputs[1] = solvers::bicgstab_euler(
           P{0.5} * pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
@@ -529,7 +529,7 @@ void steady_state<P>::next_step(
   if (solver.grid_gen != disc.get_sgrid().generation())
     solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), 0);
 
-  if (solver.opt == solve_opts::direct) {
+  if (solver.opt == solver_method::direct) {
 
     endstep.resize(current.size());
     disc.set_ode_rhs_sources(time, 1, endstep);
@@ -709,7 +709,7 @@ void crank_nicolson<P>::next_step(
   if (solver.grid_gen != disc.get_sgrid().generation())
     solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), substep * dt);
 
-  if (solver.opt == solve_opts::direct) {
+  if (solver.opt == solver_method::direct) {
     next = current; // copy
 
     if (substep < 1)

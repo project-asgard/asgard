@@ -91,7 +91,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
   options.force_step_method(asgard::time_stepper::steady);
 
   // OK for small problems, larger one should switch to gmres or bicgstab
-  options.default_solver = asgard::solve_opts::direct;
+  options.default_solver = asgard::solver_method::direct;
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;

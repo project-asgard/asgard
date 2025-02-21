@@ -42,7 +42,7 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
   P const dx = domain.min_cell_size(max_level);
 
   options.default_step_method = time_stepper::steady;
-  options.default_solver = solve_opts::direct;
+  options.default_solver = solver_method::direct;
 
   options.default_dt = 0.5 * 0.1 * dx;
   options.default_stop_time = 1.0;
@@ -109,7 +109,7 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
 
   options.default_step_method = time_stepper::steady;
 
-  options.default_solver = solve_opts::direct;
+  options.default_solver = solver_method::direct;
 
   // for when we use bicgstab or gmres
   options.default_isolver_tolerance  = 1.E-6;

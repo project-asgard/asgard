@@ -931,7 +931,7 @@ void solver_manager<P>::update_grid(
     term_manager<P> const &terms, P alpha)
 {
   tools::time_event timing_("updating solver");
-  if (opt == solve_opts::direct)
+  if (opt == solver_method::direct)
     var = solvers::direct<P>(grid, conn, terms, alpha);
 
   if (precon == preconditioner_opts::jacobi) {

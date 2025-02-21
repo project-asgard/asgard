@@ -208,17 +208,17 @@ TEST_CASE("new program options", "[single options]")
   {
     prog_opts prog(vecstrview({"", "-solver", "direct"}));
     REQUIRE(prog.solver);
-    REQUIRE(prog.solver.value() == solve_opts::direct);
-    REQUIRE(prog_opts(vecstrview({"exe", "-sv", "gmres"})).solver.value() == solve_opts::gmres);
-    REQUIRE(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solve_opts::bicgstab);
+    REQUIRE(prog.solver.value() == solver_method::direct);
+    REQUIRE(prog_opts(vecstrview({"exe", "-sv", "gmres"})).solver.value() == solver_method::gmres);
+    REQUIRE(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solver_method::bicgstab);
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-solver", "dummy"})),
                         "invalid value for -solver, see exe -help");
 
     prog = prog_opts(vecstrview({"", "-dt", "0.1"}));
     REQUIRE_FALSE(prog.solver);
-    prog.force_solver(solve_opts::gmres);
+    prog.force_solver(solver_method::gmres);
     REQUIRE(prog.solver);
-    REQUIRE(*prog.solver == solve_opts::gmres);
+    REQUIRE(*prog.solver == solver_method::gmres);
   }
   SECTION("-memory")
   {

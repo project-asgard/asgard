@@ -859,7 +859,7 @@ public:
 
     if (use_imex_ or use_implicit_)
       if (not options_.solver)
-        options_.solver = solve_opts::bicgstab;
+        options_.solver = solver_method::bicgstab;
 
     // missing tolerance will be set within the solver module
     if (not options_.isolver_tolerance)

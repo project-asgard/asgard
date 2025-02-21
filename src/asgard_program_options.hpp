@@ -49,7 +49,7 @@ enum class verbosity_level
  * \ingroup asgard_common_options
  * \brief the available solvers for implicit time stepping
  */
-enum class solve_opts
+enum class solver_method
 {
   //! direct solve using LAPACK, slow but stable
   direct,
@@ -177,7 +177,7 @@ enum class grid_type
 
 /*!
  * \ingroup asgard_common_options
- * types of time time advance methods, declared here to be used in the program options
+ * types of time advance methods, declared here to be used in the program options
  */
 enum class time_stepper
 {
@@ -425,7 +425,7 @@ struct prog_opts
   std::optional<int> wavelet_output_freq;
 
   //! solver for implicit or imex methods: direct, gmres, bicgstab
-  std::optional<solve_opts> solver;
+  std::optional<solver_method> solver;
   //! preconditioner, used for iterative solvers
   std::optional<preconditioner_opts> precon;
   //! tolerance for the iterative solvers (gmres, bicgstab)
@@ -621,7 +621,7 @@ struct prog_opts
     step_method = method;
   }
   //! sets the step-method but issues a warning if a method is already provided
-  void force_solver(solve_opts method)
+  void force_solver(solver_method method)
   {
     if (solver)
       std::cerr << "warning: overriding the user-requested -solver" << std::endl;
@@ -638,7 +638,7 @@ struct prog_opts
   //! used in place of the step method, if step method is provided
   std::optional<time_stepper> default_step_method;
   //! used in place of the solver type, if solver type is not provided
-  std::optional<solve_opts> default_solver;
+  std::optional<solver_method> default_solver;
   //! used in place of the preconditioner type, if preconditioner is not specified
   std::optional<preconditioner_opts> default_precon;
   //! used in place of the tolerance, if tolerance is not specified

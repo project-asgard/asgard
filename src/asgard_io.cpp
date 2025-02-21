@@ -279,7 +279,7 @@ void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &gri
   }
 
   { // solver data section
-    H5Easy::dump(file, "solver_method", static_cast<int>(options.solver.value_or(solve_opts::direct)));
+    H5Easy::dump(file, "solver_method", static_cast<int>(options.solver.value_or(solver_method::direct)));
     H5Easy::dump(file, "solver_itol", options.isolver_tolerance.value_or(-1));
     H5Easy::dump(file, "solver_iter", options.isolver_iterations.value_or(-1));
     H5Easy::dump(file, "solver_inner", options.isolver_inner_iterations.value_or(-1));
@@ -502,7 +502,7 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
 
   { // solver data section
     if (not pde.options_.solver)
-      pde.options_.solver = static_cast<solve_opts>(H5Easy::load<int>(file, "solver_method"));
+      pde.options_.solver = static_cast<solver_method>(H5Easy::load<int>(file, "solver_method"));
     if (not pde.options_.isolver_tolerance) {
       pde.options_.isolver_tolerance = H5Easy::load<double>(file, "solver_itol");
       if (pde.options_.isolver_tolerance.value() < 0)
