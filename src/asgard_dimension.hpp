@@ -353,7 +353,7 @@ public:
     std::copy(fdomain.begin(), fdomain.end(), consts_.begin());
   }
   //! set a function that is constant throughout the domain but has a time component
-  separable_func(std::vector<P> fdomain)
+  separable_func(std::vector<P> const &fdomain)
     : ignores_time_(true)
   {
     expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);

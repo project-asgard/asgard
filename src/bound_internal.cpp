@@ -59,17 +59,30 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
         return term_div<P>(1, flux_type::upwind, boundary_type::dirichlet,
                            dirichelt_boundary1d<P>{1, 2});
       } else {
-        return term_div<P>(1, flux_type::central, boundary_type::dirichlet,
-                           dirichelt_boundary1d<P>{0, 1});
+        return term_div<P>(1, flux_type::central, boundary_type::dirichlet);
+                           //dirichelt_boundary1d<P>{0, 1});
       }
     }();
 
   div.set_penalty(P{1} / pde.min_cell_size());
 
-  // the multi-dimensional divergence, initially set to identity in md
-  std::vector<term_1d<P>> ops(num_dims);
-  ops[dim] = div;
-  pde += ops;
+  if constexpr (std::is_same_v<btype, type_left>) {
+    // the multi-dimensional divergence, initially set to identity in md
+    std::vector<term_1d<P>> ops(num_dims);
+    ops[dim] = div;
+    pde += ops;
+  } else {
+    std::vector<term_1d<P>> ops(num_dims);
+    ops[dim] = div;
+
+    term_md<P> div_md(ops);
+
+    separable_func<P> bc(std::vector<P>(num_dims, 1));
+    // adjust the flux based on the penalty
+    div_md += right_boundary_flux{bc};
+
+    pde += div_md;
+  }
 
   auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
     void {
