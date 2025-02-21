@@ -94,23 +94,23 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   options.default_stop_time = 3.0; // integrate until T = 3
 
   // using implicit Crank-Nicolson method, which requires a solver
-  options.default_step_method = asgard::time_advance::method::cn;
+  options.default_step_method = asgard::time_method::cn;
 
   if (options.max_level() <= 5) {
     // direct (dense) solver is fast for small problems and works well for prototyping
     // and debugging, since it remove from the problem some additional factors,
     // such as solver tolerance and number of iterations
-    options.default_solver = asgard::solve_opts::direct;
+    options.default_solver = asgard::solver_method::direct;
   } else {
     // when the problem size becomes significant, forming and factorizing the dense
     // operator matrix becomes prohibitively expensive in flops and memory usage
     // iterative solvers are needed and it is good to specify default parameters
-    options.default_solver = asgard::solve_opts::gmres;
+    options.default_solver = asgard::solver_method::gmres;
   }
 
   // only the iterative solvers will use these values
   // jacobi is (currently) the fastest and most stable preconditioner
-  options.default_precon = asgard::preconditioner_opts::jacobi;
+  options.default_precon = asgard::precon_method::jacobi;
 
   // the tolerance for the iterative solver should probably be updated
   // based on the time-step and the max-level

@@ -23,7 +23,7 @@ void time_advance_test(prog_opts const &opts,
                        P const tolerance_factor)
 {
   auto const num_ranks = get_num_ranks();
-  if (num_ranks > 1 and opts.step_method and opts.step_method.value() == time_advance::method::imp)
+  if (num_ranks > 1 and opts.step_method and opts.step_method.value() == time_method::imp)
   {
     // distributed implicit stepping not implemented
     return;

@@ -431,7 +431,7 @@ void term_manager<P>::apply_sources(
 template<typename P>
 void term_manager<P>::buld_term(
     int const tid, sparse_grid const &grid, connection_patterns const &conn,
-    hierarchy_manipulator<P> const &hier, preconditioner_opts precon, P alpha)
+    hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
 {
   expect(legendre.pdof == hier.degree() + 1);
   expect(not terms[tid].tmd.is_chain());
@@ -596,7 +596,7 @@ template<typename P>
 void term_manager<P>::rebuld_term1d(
     term_entry<P> &tentry, int const dim, int level,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    source_entry<P> &bc, preconditioner_opts precon, P alpha)
+    source_entry<P> &bc, precon_method precon, P alpha)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -681,7 +681,7 @@ void term_manager<P>::rebuld_term1d(
   }
 
   // build the ADI preconditioner here
-  if (precon == preconditioner_opts::adi) {
+  if (precon == precon_method::adi) {
     if (is_diag) {
       to_euler(legendre.pdof, alpha, wraw_diag);
       psedoinvert(legendre.pdof, wraw_diag, raw_diag0);

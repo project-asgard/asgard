@@ -11,9 +11,9 @@ enum class poisson_bc
   periodic
 };
 
-inline bool is_direct(solve_opts s)
+inline bool is_direct(solver_method s)
 {
-  return (s == solve_opts::direct);
+  return (s == solver_method::direct);
 }
 
 // simple, node-local test version of gmres
@@ -300,19 +300,19 @@ struct solver_manager
     opt = options.solver.value();
 
     switch (opt) {
-      case solve_opts::direct:
+      case solver_method::direct:
         var = solvers::direct<P>(); // will be initialized later
         break;
-      case solve_opts::bicgstab:
+      case solver_method::bicgstab:
         rassert(options.isolver_tolerance,
                 "missing tolerance for the iterative solver bicgstab");
         rassert(options.isolver_iterations,
                 "missing number of iterations for the iterative solver bicgstab");
         var = solvers::bicgstab<P>(options.isolver_tolerance.value(),
                                    options.isolver_iterations.value());
-        precon = options.precon.value_or(preconditioner_opts::none);
+        precon = options.precon.value_or(precon_method::none);
         break;
-      case solve_opts::gmres:
+      case solver_method::gmres:
         rassert(options.isolver_tolerance,
                 "missing tolerance for the iterative solver gmres");
         rassert(options.isolver_iterations,
@@ -322,7 +322,7 @@ struct solver_manager
         var = solvers::gmres<P>(options.isolver_tolerance.value(),
                                 options.isolver_inner_iterations.value(),
                                 options.isolver_iterations.value());
-        precon = options.precon.value_or(preconditioner_opts::none);
+        precon = options.precon.value_or(precon_method::none);
         break;
       default: // unreachable
         break;
@@ -331,7 +331,7 @@ struct solver_manager
 
   //! direct solver only, just call the matrix inversion method
   void direct_solve(std::vector<P> &x) {
-    expect(opt == solve_opts::direct);
+    expect(opt == solver_method::direct);
     std::get<solvers::direct<P>>(var)(x);
   }
 
@@ -347,8 +347,8 @@ struct solver_manager
                      solvers::operatoin_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x) const
   {
-    expect(opt != solve_opts::direct);
-    if (opt == solve_opts::bicgstab) {
+    expect(opt != solver_method::direct);
+    if (opt == solver_method::bicgstab) {
       if (prec) {
         solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
 
@@ -392,9 +392,9 @@ struct solver_manager
   void print_opts(std::ostream &os) const;
 
   //! selected solver
-  solve_opts opt = solve_opts::direct;
+  solver_method opt = solver_method::direct;
   //! selected solver
-  preconditioner_opts precon = preconditioner_opts::none;
+  precon_method precon = precon_method::none;
   //! remember the total mat-vec products
   mutable int64_t num_apply = 0;
   //! remembers the generation of the grid that was used to last set the manager

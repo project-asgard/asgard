@@ -49,7 +49,7 @@ enum class verbosity_level
  * \ingroup asgard_common_options
  * \brief the available solvers for implicit time stepping
  */
-enum class solve_opts
+enum class solver_method
 {
   //! direct solve using LAPACK, slow but stable
   direct,
@@ -63,7 +63,7 @@ enum class solve_opts
  * \ingroup asgard_common_options
  * \brief the available preconditioners for the solvers
  */
-enum class preconditioner_opts
+enum class precon_method
 {
   //! probably not a good idea for an iterative solve
   none = 0,
@@ -175,13 +175,11 @@ enum class grid_type
   mixed
 };
 
-namespace time_advance
-{
 /*!
  * \ingroup asgard_common_options
- * types of time time advance methods, declared here to be used in the program options
+ * types of time advance methods, declared here to be used in the program options
  */
-enum class method
+enum class time_method
 {
   //! steady state solution, not a time-stepping method
   steady = 0,
@@ -204,7 +202,6 @@ enum class method
   //! implicit-explicit scheme for nonlinear Vlasov-Poisson problems
   imex
 };
-} // namespace time_advance
 
 /*!
  * \ingroup asgard_common_options
@@ -416,7 +413,7 @@ struct prog_opts
   std::optional<adapt_norm> anorm;
 
   //! time stepping method, explicit, implicit or imex
-  std::optional<time_advance::method> step_method;
+  std::optional<time_method> step_method;
   //! final time for the integration
   std::optional<double> stop_time;
   //! fixed time step, if missing the default cfl condition will be used
@@ -428,9 +425,9 @@ struct prog_opts
   std::optional<int> wavelet_output_freq;
 
   //! solver for implicit or imex methods: direct, gmres, bicgstab
-  std::optional<solve_opts> solver;
+  std::optional<solver_method> solver;
   //! preconditioner, used for iterative solvers
-  std::optional<preconditioner_opts> precon;
+  std::optional<precon_method> precon;
   //! tolerance for the iterative solvers (gmres, bicgstab)
   std::optional<double> isolver_tolerance;
   //! max number of iterations (inner iterations for gmres)
@@ -617,14 +614,14 @@ struct prog_opts
   }
 
   //! sets the step-method but issues a warning if a method is already provided
-  void force_step_method(time_advance::method method)
+  void force_step_method(time_method method)
   {
     if (step_method)
       std::cerr << "warning: overriding the user-requested -step-method" << std::endl;
     step_method = method;
   }
   //! sets the step-method but issues a warning if a method is already provided
-  void force_solver(solve_opts method)
+  void force_solver(solver_method method)
   {
     if (solver)
       std::cerr << "warning: overriding the user-requested -solver" << std::endl;
@@ -639,11 +636,11 @@ struct prog_opts
   //! used in place of stop time, if stop time is not provided
   std::optional<double> default_stop_time;
   //! used in place of the step method, if step method is provided
-  std::optional<time_advance::method> default_step_method;
+  std::optional<time_method> default_step_method;
   //! used in place of the solver type, if solver type is not provided
-  std::optional<solve_opts> default_solver;
+  std::optional<solver_method> default_solver;
   //! used in place of the preconditioner type, if preconditioner is not specified
-  std::optional<preconditioner_opts> default_precon;
+  std::optional<precon_method> default_precon;
   //! used in place of the tolerance, if tolerance is not specified
   std::optional<double> default_isolver_tolerance;
   //! max number of iterations (inner iterations for gmres)

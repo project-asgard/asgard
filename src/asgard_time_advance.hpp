@@ -126,7 +126,7 @@ struct steady_state
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  preconditioner_opts needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return solver.precon; }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
@@ -136,7 +136,7 @@ struct steady_state
   }
 
 private:
-  static time_advance::method constexpr method = time_advance::method::steady;
+  static time_method constexpr method = time_method::steady;
   // the solver used
   mutable solver_manager<P> solver;
   // workspace (rhs)
@@ -157,10 +157,10 @@ struct rungekutta
   //! Default empty stepper
   rungekutta() = default;
   //! Default empty stepper
-  rungekutta(method rk) : rktype(rk)
+  rungekutta(time_method rk) : rktype(rk)
   {
-    expect(rktype == method::forward_euler or rktype == method::rk2
-           or rktype == method::rk3 or rktype == method::rk4);
+    expect(rktype == time_method::forward_euler or rktype == time_method::rk2
+           or rktype == time_method::rk3 or rktype == time_method::rk4);
   }
   //! Performs RK3 step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -169,7 +169,7 @@ struct rungekutta
   static bool constexpr needs_solver = false;
 
 private:
-  method rktype = method::rk3;
+  time_method rktype = time_method::rk3;
 
   // workspace vectors
   mutable std::vector<P> k1, k2, k3, k4, s1;
@@ -193,8 +193,8 @@ struct crank_nicolson
   crank_nicolson(prog_opts const &options)
       : method(options.step_method.value()), solver(options)
   {
-    expect(method == time_advance::method::cn or
-           method == time_advance::method::back_euler);
+    expect(method == time_method::cn or
+           method == time_method::back_euler);
   }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
@@ -205,7 +205,7 @@ struct crank_nicolson
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  preconditioner_opts needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return solver.precon; }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
@@ -215,7 +215,7 @@ struct crank_nicolson
   }
 
 private:
-  time_advance::method method = time_advance::method::cn;
+  time_method method = time_method::cn;
   // the solver used
   mutable solver_manager<P> solver;
   // workspace
@@ -259,14 +259,14 @@ struct time_advance_manager
     };
   }
   //! returns the precondtioner required by the solver, if any
-  preconditioner_opts needed_precon() const {
+  precon_method needed_precon() const {
     switch (method.index()) {
       case 0: // steady state
         return std::get<0>(method).needed_precon();
       case 2: // implicit stepper
         return std::get<2>(method).needed_precon();
       default:
-        return preconditioner_opts::none;
+        return precon_method::none;
     };
   }
 

@@ -835,15 +835,15 @@ public:
       // no step method requested, select a default method
       if (num_required_moments_ > 0) {
         // messing with moments, collision and/or poisson solver, default to imex
-        options_.step_method = time_advance::method::imex;
+        options_.step_method = time_method::imex;
       } else {
         // no moments needed for this PDE, use explicit integration
-        options_.step_method = time_advance::method::exp;
+        options_.step_method = time_method::exp;
       }
     }
 
-    use_imex_     = options_.step_method.value() == time_advance::method::imex;
-    use_implicit_ = options_.step_method.value() == time_advance::method::imp;
+    use_imex_     = options_.step_method.value() == time_method::imex;
+    use_implicit_ = options_.step_method.value() == time_method::imp;
 
     gmres_outputs.resize(use_imex_ ? 2 : 1);
 
@@ -859,7 +859,7 @@ public:
 
     if (use_imex_ or use_implicit_)
       if (not options_.solver)
-        options_.solver = solve_opts::bicgstab;
+        options_.solver = solver_method::bicgstab;
 
     // missing tolerance will be set within the solver module
     if (not options_.isolver_tolerance)
@@ -1978,7 +1978,7 @@ public:
           return true;
       return false;
     } else {
-      return (optype_ != operation_type::mass);
+      return (optype_ != operation_type::mass and optype_ != operation_type::identity);
     }
   }
   //! add penalty to a div or grad term, more efficient than adding additional term
@@ -2344,6 +2344,22 @@ public:
   }
   //! chain case only, the number of chained terms
   int num_chain() const { return static_cast<int>(chain_.size()); }
+  //! returns the dimension with flux, only one such is allowed, returns -1 if no flux is used
+  int flux_dim() const {
+    if (is_chain()) {
+      int dir  = -1;
+      size_t c = 0;
+      while (dir == -1 and c < chain_.size())
+        dir = chain_[c++].flux_dim();
+      return dir;
+    } else {
+      for (int d : iindexof(num_dims)) {
+        if (sep[d].has_flux())
+          return d;
+      }
+      return -1;
+    }
+  }
 
   //! mode for the imex time-stepping
   imex_flag imex = imex_flag::unspecified;
@@ -2396,10 +2412,10 @@ public:
   time_data() = default;
   //! steady state case, sets only the end time and num-steps to 1
   time_data(P endt)
-      : smethod_(time_advance::method::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)
+      : smethod_(time_method::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)
   {}
   //! specify time-step and final time
-  time_data(time_advance::method smethod, input_dt dt, input_stop_time stop_time)
+  time_data(time_method smethod, input_dt dt, input_stop_time stop_time)
       : smethod_(smethod), dt_(dt.value), stop_time_(stop_time.value),
         time_(0), step_(0)
   {
@@ -2413,14 +2429,14 @@ public:
     dt_ = stop_time_ / static_cast<P>(num_remain_);
   }
   //! specify number of steps and final time
-  time_data(time_advance::method smethod, int64_t num_steps, input_stop_time stop_time)
+  time_data(time_method smethod, int64_t num_steps, input_stop_time stop_time)
     : smethod_(smethod), stop_time_(stop_time.value), time_(0), step_(0),
       num_remain_(num_steps)
   {
     dt_ = stop_time_ / static_cast<P>(num_remain_);
   }
   //! specify time-step and number of steps
-  time_data(time_advance::method smethod, input_dt dt, int64_t num_steps)
+  time_data(time_method smethod, input_dt dt, int64_t num_steps)
     : smethod_(smethod), dt_(dt.value), time_(0), step_(0),
       num_remain_(num_steps)
   {
@@ -2428,7 +2444,7 @@ public:
   }
 
   //! return the time-advance method
-  time_advance::method step_method() const { return smethod_; }
+  time_method step_method() const { return smethod_; }
 
   //! returns the time-step
   P dt() const { return dt_; }
@@ -2467,7 +2483,7 @@ public:
   friend class h5manager<P>;
 
 private:
-  time_advance::method smethod_ = time_advance::method::exp;
+  time_method smethod_ = time_method::exp;
   // the following entries cannot be negative, negative means "not-set"
 
   //! current time-step

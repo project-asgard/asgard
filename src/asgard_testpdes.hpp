@@ -118,7 +118,7 @@ PDEv2<P> make_testpde(int num_dims, prog_opts options) {
     int const n = (1 << options.max_level());
     options.default_dt = 3.0 / (2 * (2 * k + 1) * n);
 
-    options.default_step_method = time_advance::method::rk2;
+    options.default_step_method = time_method::rk2;
 
     PDEv2<P> pde(options, domain);
 

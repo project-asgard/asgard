@@ -48,7 +48,7 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
 
   auto const &options = disc.get_pde().options();
 
-  solve_opts const solver = options.solver.value();
+  solver_method const solver = options.solver.value();
 
   static std::vector<P> rhs;
   disc.ode_irhs(disc.time() + dt, current, rhs);
@@ -56,7 +56,7 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
   std::optional<matrix_factor<P>> &euler_mat = disc.get_op_matrix();
 
   // if using a direct solver, on the first run, we need to update the matrices
-  if (solver == solve_opts::direct and not euler_mat)
+  if (solver == solver_method::direct and not euler_mat)
   {
     auto const &table   = disc.get_grid().get_table();
     auto const &subgrid = disc.get_grid().get_subgrid(get_rank());
@@ -89,7 +89,7 @@ implicit_advance(discretization_manager<P> const &disc, std::vector<P> const &cu
     return rhs;
   } // end first time/update system
 
-  if (solver == solve_opts::direct)
+  if (solver == solver_method::direct)
   { // reusing the computed factor
     fm::getrs(euler_mat->A, rhs, euler_mat->ipiv);
     return rhs;
@@ -169,7 +169,7 @@ imex_advance(discretization_manager<P> &disc,
   tools::timer.stop("explicit_1");
 
   // Implicit step f_1: f_1 - dt B f_1 = f_1s
-  solve_opts solver  = options.solver.value();
+  solver_method solver  = options.solver.value();
   P const tolerance  = *options.isolver_tolerance;
   int const restart  = *options.isolver_inner_iterations;
   int const max_iter = *options.isolver_iterations;
@@ -206,13 +206,13 @@ imex_advance(discretization_manager<P> &disc,
         f_1 = x_prev;
       }
     }
-    if (solver == solve_opts::gmres)
+    if (solver == solver_method::gmres)
     {
       pde.gmres_outputs[0] = solvers::simple_gmres_euler(
           pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_1, f, restart, max_iter, tolerance);
     }
-    else if (solver == solve_opts::bicgstab)
+    else if (solver == solver_method::bicgstab)
     {
       pde.gmres_outputs[0] = solvers::bicgstab_euler(
           pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
@@ -305,13 +305,13 @@ imex_advance(discretization_manager<P> &disc,
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
                                          disc.get_cmatrices(), adaptive_grid);
 
-    if (solver == solve_opts::gmres)
+    if (solver == solver_method::gmres)
     {
       pde.gmres_outputs[1] = solvers::simple_gmres_euler(
           P{0.5} * pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_2, f, restart, max_iter, tolerance);
     }
-    else if (solver == solve_opts::bicgstab)
+    else if (solver == solver_method::bicgstab)
     {
       pde.gmres_outputs[1] = solvers::bicgstab_euler(
           P{0.5} * pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
@@ -384,11 +384,11 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       {
         switch (method)
         {
-        case time_advance::method::exp:
+        case time_method::exp:
           return time_advance::rungekutta3_m(manager, manager.current_state());
-        case time_advance::method::imp:
+        case time_method::imp:
           return time_advance::implicit_advance<P>(manager, manager.current_state());
-        case time_advance::method::imex:
+        case time_method::imex:
           return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                manager.current_state(), fk::vector<P>(),
                                                time);
@@ -425,11 +425,11 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         fk::vector<P> y_stepped = [&]() {
           switch (method)
           {
-          case time_advance::method::exp:
+          case time_method::exp:
             return time_advance::rungekutta3_m(manager, y.to_std());
-          case time_advance::method::imp:
+          case time_method::imp:
             return time_advance::implicit_advance<P>(manager, y.to_std());
-          case time_advance::method::imex:
+          case time_method::imex:
             return time_advance::imex_advance<P>(manager, pde, kronops, grid,
                                                  y, y_first_refine, time);
           default:
@@ -529,7 +529,7 @@ void steady_state<P>::next_step(
   if (solver.grid_gen != disc.get_sgrid().generation())
     solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), 0);
 
-  if (solver.opt == solve_opts::direct) {
+  if (solver.opt == solver_method::direct) {
 
     endstep.resize(current.size());
     disc.set_ode_rhs_sources(time, 1, endstep);
@@ -546,14 +546,14 @@ void steady_state<P>::next_step(
     disc.set_ode_rhs_sources(time, 1, work); // right-hand-side
 
     switch (solver.precon) {
-    case preconditioner_opts::none:
+    case precon_method::none:
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           disc.terms_apply_all(alpha, x, beta, y);
         }, work, endstep);
     break;
-    case preconditioner_opts::jacobi:
+    case precon_method::jacobi:
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -580,11 +580,11 @@ void rungekutta<P>::next_step(
 {
   std::string const name = [&]() -> std::string {
       switch (rktype) {
-        case method::forward_euler:
+        case time_method::forward_euler:
           return "forw-euler";
-        case method::rk2:
+        case time_method::rk2:
           return "runge kutta 2";
-        case method::rk3:
+        case time_method::rk3:
           return "runge kutta 3";
         default: // case method::rk4:
           return "runge kutta 4";
@@ -597,7 +597,7 @@ void rungekutta<P>::next_step(
   P const dt   = disc.time_params().dt();
 
   switch (rktype) {
-    case method::forward_euler:
+    case time_method::forward_euler:
       k1.resize(current.size());
       disc.ode_rhs_v2(time, current, k1);
 
@@ -607,7 +607,7 @@ void rungekutta<P>::next_step(
       for (size_t i = 0; i < current.size(); i++)
         next[i] = current[i] + dt * k1[i];
       break;
-    case method::rk2:
+    case time_method::rk2:
       k1.resize(current.size());
       k2.resize(current.size());
       s1.resize(current.size());
@@ -626,7 +626,7 @@ void rungekutta<P>::next_step(
       for (size_t i = 0; i < current.size(); i++)
         next[i] = current[i] + dt * k2[i];
       break;
-    case method::rk3:
+    case time_method::rk3:
       k1.resize(current.size());
       k2.resize(current.size());
       k3.resize(current.size());
@@ -652,7 +652,7 @@ void rungekutta<P>::next_step(
       for (size_t i = 0; i < current.size(); i++)
         next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
       break;
-    case method::rk4:
+    case time_method::rk4:
       k1.resize(current.size());
       k2.resize(current.size());
       k3.resize(current.size());
@@ -697,19 +697,19 @@ void crank_nicolson<P>::next_step(
     std::vector<P> &next) const
 {
   tools::time_event performance_(
-      (method == time_advance::method::cn) ? "crank-nicolson" : "back-euler");
+      (method == time_method::cn) ? "crank-nicolson" : "back-euler");
 
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
-  P const substep = (method == time_advance::method::cn) ? 0.5 : 1;
+  P const substep = (method == time_method::cn) ? 0.5 : 1;
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
   if (solver.grid_gen != disc.get_sgrid().generation())
     solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), substep * dt);
 
-  if (solver.opt == solve_opts::direct) {
+  if (solver.opt == solver_method::direct) {
     next = current; // copy
 
     if (substep < 1)
@@ -729,7 +729,7 @@ void crank_nicolson<P>::next_step(
     int64_t const n = static_cast<int64_t>(work.size());
 
     switch (solver.precon) {
-    case preconditioner_opts::none:
+    case precon_method::none:
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -739,7 +739,7 @@ void crank_nicolson<P>::next_step(
           disc.terms_apply_all(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
-    case preconditioner_opts::jacobi:
+    case precon_method::jacobi:
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -793,17 +793,17 @@ time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_op
   // prepare the time-stepper
   switch (data.step_method())
   {
-    case time_advance::method::steady:
+    case time_method::steady:
       method = time_advance::steady_state<P>(options);
       break;
-    case time_advance::method::forward_euler:
-    case time_advance::method::rk2:
-    case time_advance::method::rk3:
-    case time_advance::method::rk4:
+    case time_method::forward_euler:
+    case time_method::rk2:
+    case time_method::rk3:
+    case time_method::rk4:
       method = time_advance::rungekutta<P>(data.step_method());
       break;
-    case time_advance::method::cn:
-    case time_advance::method::back_euler:
+    case time_method::cn:
+    case time_method::back_euler:
       method = time_advance::crank_nicolson<P>(options);
       break;
     default:
@@ -833,14 +833,14 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
 
 template<typename P>
 std::string time_advance_manager<P>::method_name() const {
-  std::map<time_advance::method, std::string> names = {
-    {time_advance::method::steady, "Steady state solver"},
-    {time_advance::method::forward_euler, "Forward-Euler 1-step (explicit)"},
-    {time_advance::method::rk2, "Runge-Kutta 2-step (explicit)"},
-    {time_advance::method::rk3, "Runge-Kutta 3-step (explicit)"},
-    {time_advance::method::rk4, "Runge-Kutta 4-step (explicit)"},
-    {time_advance::method::cn, "Crank-Nicolson 1-step (implicit)"},
-    {time_advance::method::back_euler, "Backward-Euler 1-step (implicit)"},
+  std::map<time_method, std::string> names = {
+    {time_method::steady, "Steady state solver"},
+    {time_method::forward_euler, "Forward-Euler 1-step (explicit)"},
+    {time_method::rk2, "Runge-Kutta 2-step (explicit)"},
+    {time_method::rk3, "Runge-Kutta 3-step (explicit)"},
+    {time_method::rk4, "Runge-Kutta 4-step (explicit)"},
+    {time_method::cn, "Crank-Nicolson 1-step (implicit)"},
+    {time_method::back_euler, "Backward-Euler 1-step (implicit)"},
   };
 
   return names.find(data.step_method())->second;

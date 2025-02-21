@@ -99,7 +99,7 @@ asgard::PDEv2<P> make_sinwav_pde(asgard::prog_opts options) {
 
   // do not stop right at 1, due to rounding integration should go until slightly more
   options.default_stop_time   = 1.25;
-  options.default_step_method = asgard::time_advance::method::rk2;
+  options.default_step_method = asgard::time_method::rk2;
 
   asgard::PDEv2<P> pde(options, std::move(domain));
 

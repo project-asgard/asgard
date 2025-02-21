@@ -39,37 +39,37 @@ TEST_CASE("new program options", "[single options]")
                         "invalid value for -s, see exe -help");
     prog_opts prog(vecstrview({"", "-s", "expl"}));
     REQUIRE(prog.step_method);
-    REQUIRE(*prog.step_method == time_advance::method::exp);
+    REQUIRE(*prog.step_method == time_method::exp);
     prog = prog_opts(vecstrview({"", "-s", "impl"}));
     REQUIRE(prog.step_method);
-    REQUIRE(*prog.step_method == time_advance::method::imp);
+    REQUIRE(*prog.step_method == time_method::imp);
     REQUIRE(prog_opts(vecstrview({"", "-s", "imex"})).step_method.value()
-            == time_advance::method::imex);
+            == time_method::imex);
 
     prog = prog_opts(vecstrview({"", "-s", "impl"}));
     std::cerr << "generating a warning about -step-method, ignore since it is part of the test\n";
-    prog.force_step_method(time_advance::method::imex);
+    prog.force_step_method(time_method::imex);
     REQUIRE(prog.step_method);
-    REQUIRE(*prog.step_method == time_advance::method::imex);
+    REQUIRE(*prog.step_method == time_method::imex);
 
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "steady"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "steady"})).step_method.value() == time_advance::method::steady);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "steady"})).step_method.value() == time_method::steady);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "fe"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "fe"})).step_method.value() == time_advance::method::forward_euler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "fe"})).step_method.value() == time_method::forward_euler);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "forward-euler"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "forward-euler"})).step_method.value() == time_advance::method::forward_euler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "forward-euler"})).step_method.value() == time_method::forward_euler);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk2"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk2"})).step_method.value() == time_advance::method::rk2);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk2"})).step_method.value() == time_method::rk2);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk3"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk3"})).step_method.value() == time_advance::method::rk3);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk3"})).step_method.value() == time_method::rk3);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk4"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk4"})).step_method.value() == time_advance::method::rk4);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "rk4"})).step_method.value() == time_method::rk4);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method.value() == time_advance::method::cn);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "crank-nicolson"})).step_method.value() == time_advance::method::cn);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "cn"})).step_method.value() == time_method::cn);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "crank-nicolson"})).step_method.value() == time_method::cn);
     REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method.value() == time_advance::method::back_euler);
-    REQUIRE(prog_opts(vecstrview({"exe", "-s", "backward-euler"})).step_method.value() == time_advance::method::back_euler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "be"})).step_method.value() == time_method::back_euler);
+    REQUIRE(prog_opts(vecstrview({"exe", "-s", "backward-euler"})).step_method.value() == time_method::back_euler);
   }
   SECTION("-adapt-norm")
   {
@@ -208,17 +208,17 @@ TEST_CASE("new program options", "[single options]")
   {
     prog_opts prog(vecstrview({"", "-solver", "direct"}));
     REQUIRE(prog.solver);
-    REQUIRE(prog.solver.value() == solve_opts::direct);
-    REQUIRE(prog_opts(vecstrview({"exe", "-sv", "gmres"})).solver.value() == solve_opts::gmres);
-    REQUIRE(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solve_opts::bicgstab);
+    REQUIRE(prog.solver.value() == solver_method::direct);
+    REQUIRE(prog_opts(vecstrview({"exe", "-sv", "gmres"})).solver.value() == solver_method::gmres);
+    REQUIRE(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solver_method::bicgstab);
     REQUIRE_THROWS_WITH(prog_opts(vecstrview({"exe", "-solver", "dummy"})),
                         "invalid value for -solver, see exe -help");
 
     prog = prog_opts(vecstrview({"", "-dt", "0.1"}));
     REQUIRE_FALSE(prog.solver);
-    prog.force_solver(solve_opts::gmres);
+    prog.force_solver(solver_method::gmres);
     REQUIRE(prog.solver);
-    REQUIRE(*prog.solver == solve_opts::gmres);
+    REQUIRE(*prog.solver == solver_method::gmres);
   }
   SECTION("-memory")
   {
@@ -344,7 +344,7 @@ TEST_CASE("input file processing", "[file i/o]")
     REQUIRE(prog.grid);
     REQUIRE(prog.grid.value() == grid_type::dense);
     REQUIRE(prog.step_method);
-    REQUIRE(prog.step_method.value() == time_advance::method::exp);
+    REQUIRE(prog.step_method.value() == time_method::exp);
 
     REQUIRE_FALSE(prog.file_value<int>("missing"));
     auto bbool = prog.file_value<bool>("bb1");

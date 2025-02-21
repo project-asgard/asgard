@@ -201,7 +201,7 @@ void discretization_manager<precision>::start_cold()
 
   { // setting up the time-step approach
     // if no method is set, defaulting to explicit time-stepping
-    time_advance::method sm = options.step_method.value_or(time_advance::method::rk3);
+    time_method sm = options.step_method.value_or(time_method::rk3);
 
     time_data<precision> dtime; // initialize below
 
@@ -209,7 +209,7 @@ void discretization_manager<precision>::start_cold()
     precision dt   = options.dt.value_or(-1);
     int64_t n      = options.num_time_steps.value_or(-1);
 
-    if (sm == time_advance::method::steady) {
+    if (sm == time_method::steady) {
       stop  = options.stop_time.value_or(options.default_stop_time.value_or(0));
       dtime = time_data<precision>(stop);
     } else {
@@ -294,8 +294,8 @@ void discretization_manager<precision>::start_cold()
     }
   }
 
-  if (stepper.needed_precon() == preconditioner_opts::adi) {
-    terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
+  if (stepper.needed_precon() == precon_method::adi) {
+    terms.build_matrices(sgrid, conn, hier, precon_method::adi,
                          0.5 * stepper.data.dt());
   } else
     terms.build_matrices(sgrid, conn, hier);
@@ -338,10 +338,10 @@ void discretization_manager<precision>::restart_from_file()
     }
   }
 
-  if (stepper.needed_precon() == preconditioner_opts::adi) {
+  if (stepper.needed_precon() == precon_method::adi) {
     precision const substep
-        = (options.step_method.value() == time_advance::method::cn) ? 0.5 : 1;
-    terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
+        = (options.step_method.value() == time_method::cn) ? 0.5 : 1;
+    terms.build_matrices(sgrid, conn, hier, precon_method::adi,
                          substep * stepper.data.dt());
   } else
     terms.build_matrices(sgrid, conn, hier);
@@ -602,21 +602,21 @@ void discretization_manager<precision>::ode_sv(imex_flag imflag,
                                                std::vector<precision> &x) const
 {
   auto const &options     = pde->options();
-  solve_opts const solver = options.solver.value();
+  solver_method const solver = options.solver.value();
 
   static fk::vector<precision> sol; // used by the iterative solvers
 
   switch (solver)
   {
-  case solve_opts::gmres:
-  case solve_opts::bicgstab: {
+  case solver_method::gmres:
+  case solver_method::bicgstab: {
       kronops.make(imflag, *pde, matrices, grid);
       precision const tolerance = *options.isolver_tolerance;
       int const restart         = *options.isolver_iterations;
       int const max_iter        = *options.isolver_inner_iterations;
       sol.resize(static_cast<int>(x.size()));
       std::copy(x.begin(), x.end(), sol.begin());
-      if (solver == solve_opts::gmres)
+      if (solver == solver_method::gmres)
         solvers::simple_gmres_euler<precision, resource::host>(
             pde->get_dt(), imflag, kronops, sol, x, restart, max_iter, tolerance);
       else
