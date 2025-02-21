@@ -377,8 +377,8 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
   pde.options_.degree = H5Easy::load<int>(file, "degree");
 
   { // reading time parameters
-    time_advance::method sm = pde.options_.step_method.value_or(
-        static_cast<time_advance::method>(H5Easy::load<int>(file, std::string("dtime_smethod"))));
+    time_stepper sm = pde.options_.step_method.value_or(
+        static_cast<time_stepper>(H5Easy::load<int>(file, std::string("dtime_smethod"))));
 
     P const stop    = pde.options_.stop_time.value_or(-1);
     P const dt      = pde.options_.dt.value_or(-1);

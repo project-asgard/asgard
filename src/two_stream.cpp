@@ -91,7 +91,7 @@ asgard::PDEv2<P> make_two_stream(asgard::prog_opts options) {
   options.default_stop_time = 1.0;
 
   // using explicit RK3
-  options.default_step_method = asgard::time_advance::method::rk2;
+  options.default_step_method = asgard::time_stepper::rk2;
 
   // create a pde from the given options and domain
   asgard::PDEv2<P> pde(options, domain);

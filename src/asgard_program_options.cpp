@@ -349,25 +349,25 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       if (not selected)
         throw std::runtime_error(report_no_value());
       if (*selected == "steady")
-        step_method = time_advance::method::steady;
+        step_method = time_stepper::steady;
       else if (*selected == "forward-euler" or *selected == "fe" or *selected == "rk1")
-        step_method = time_advance::method::forward_euler;
+        step_method = time_stepper::forward_euler;
       else if (*selected == "rk2")
-        step_method = time_advance::method::rk2;
+        step_method = time_stepper::rk2;
       else if (*selected == "rk3")
-        step_method = time_advance::method::rk3;
+        step_method = time_stepper::rk3;
       else if (*selected == "rk4")
-        step_method = time_advance::method::rk4;
+        step_method = time_stepper::rk4;
       else if (*selected == "cn" or *selected == "crank-nicolson")
-        step_method = time_advance::method::cn;
+        step_method = time_stepper::cn;
       else if (*selected == "be" or *selected == "backward-euler")
-        step_method = time_advance::method::back_euler;
+        step_method = time_stepper::back_euler;
       else if (*selected == "expl")
-        step_method = time_advance::method::exp;
+        step_method = time_stepper::exp;
       else if (*selected == "impl")
-        step_method = time_advance::method::imp;
+        step_method = time_stepper::imp;
       else if (*selected == "imex")
-        step_method = time_advance::method::imex;
+        step_method = time_stepper::imex;
       else {
         throw std::runtime_error(report_wrong_value());
       }
@@ -805,16 +805,16 @@ void prog_opts::print_options(std::ostream &os) const
   if (step_method)
     switch (step_method.value())
     {
-    case time_advance::method::rk3:
+    case time_stepper::rk3:
       os << "  method: RK3\n";
       break;
-    case time_advance::method::cn:
+    case time_stepper::cn:
       os << "  method: Crank-Nicolson\n";
       break;
-    case time_advance::method::imex:
+    case time_stepper::imex:
       os << "  method: IMEX\n";
       break;
-    case time_advance::method::imp:
+    case time_stepper::imp:
       os << "  method: Backward Euler\n";
       break;
     default:

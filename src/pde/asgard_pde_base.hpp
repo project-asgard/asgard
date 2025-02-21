@@ -835,15 +835,15 @@ public:
       // no step method requested, select a default method
       if (num_required_moments_ > 0) {
         // messing with moments, collision and/or poisson solver, default to imex
-        options_.step_method = time_advance::method::imex;
+        options_.step_method = time_stepper::imex;
       } else {
         // no moments needed for this PDE, use explicit integration
-        options_.step_method = time_advance::method::exp;
+        options_.step_method = time_stepper::exp;
       }
     }
 
-    use_imex_     = options_.step_method.value() == time_advance::method::imex;
-    use_implicit_ = options_.step_method.value() == time_advance::method::imp;
+    use_imex_     = options_.step_method.value() == time_stepper::imex;
+    use_implicit_ = options_.step_method.value() == time_stepper::imp;
 
     gmres_outputs.resize(use_imex_ ? 2 : 1);
 
@@ -2396,10 +2396,10 @@ public:
   time_data() = default;
   //! steady state case, sets only the end time and num-steps to 1
   time_data(P endt)
-      : smethod_(time_advance::method::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)
+      : smethod_(time_stepper::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)
   {}
   //! specify time-step and final time
-  time_data(time_advance::method smethod, input_dt dt, input_stop_time stop_time)
+  time_data(time_stepper smethod, input_dt dt, input_stop_time stop_time)
       : smethod_(smethod), dt_(dt.value), stop_time_(stop_time.value),
         time_(0), step_(0)
   {
@@ -2413,14 +2413,14 @@ public:
     dt_ = stop_time_ / static_cast<P>(num_remain_);
   }
   //! specify number of steps and final time
-  time_data(time_advance::method smethod, int64_t num_steps, input_stop_time stop_time)
+  time_data(time_stepper smethod, int64_t num_steps, input_stop_time stop_time)
     : smethod_(smethod), stop_time_(stop_time.value), time_(0), step_(0),
       num_remain_(num_steps)
   {
     dt_ = stop_time_ / static_cast<P>(num_remain_);
   }
   //! specify time-step and number of steps
-  time_data(time_advance::method smethod, input_dt dt, int64_t num_steps)
+  time_data(time_stepper smethod, input_dt dt, int64_t num_steps)
     : smethod_(smethod), dt_(dt.value), time_(0), step_(0),
       num_remain_(num_steps)
   {
@@ -2428,7 +2428,7 @@ public:
   }
 
   //! return the time-advance method
-  time_advance::method step_method() const { return smethod_; }
+  time_stepper step_method() const { return smethod_; }
 
   //! returns the time-step
   P dt() const { return dt_; }
@@ -2467,7 +2467,7 @@ public:
   friend class h5manager<P>;
 
 private:
-  time_advance::method smethod_ = time_advance::method::exp;
+  time_stepper smethod_ = time_stepper::exp;
   // the following entries cannot be negative, negative means "not-set"
 
   //! current time-step

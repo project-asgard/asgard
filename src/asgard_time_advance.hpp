@@ -136,7 +136,7 @@ struct steady_state
   }
 
 private:
-  static time_advance::method constexpr method = time_advance::method::steady;
+  static time_stepper constexpr method = time_stepper::steady;
   // the solver used
   mutable solver_manager<P> solver;
   // workspace (rhs)
@@ -157,10 +157,10 @@ struct rungekutta
   //! Default empty stepper
   rungekutta() = default;
   //! Default empty stepper
-  rungekutta(method rk) : rktype(rk)
+  rungekutta(time_stepper rk) : rktype(rk)
   {
-    expect(rktype == method::forward_euler or rktype == method::rk2
-           or rktype == method::rk3 or rktype == method::rk4);
+    expect(rktype == time_stepper::forward_euler or rktype == time_stepper::rk2
+           or rktype == time_stepper::rk3 or rktype == time_stepper::rk4);
   }
   //! Performs RK3 step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -169,7 +169,7 @@ struct rungekutta
   static bool constexpr needs_solver = false;
 
 private:
-  method rktype = method::rk3;
+  time_stepper rktype = time_stepper::rk3;
 
   // workspace vectors
   mutable std::vector<P> k1, k2, k3, k4, s1;
@@ -193,8 +193,8 @@ struct crank_nicolson
   crank_nicolson(prog_opts const &options)
       : method(options.step_method.value()), solver(options)
   {
-    expect(method == time_advance::method::cn or
-           method == time_advance::method::back_euler);
+    expect(method == time_stepper::cn or
+           method == time_stepper::back_euler);
   }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
@@ -215,7 +215,7 @@ struct crank_nicolson
   }
 
 private:
-  time_advance::method method = time_advance::method::cn;
+  time_stepper method = time_stepper::cn;
   // the solver used
   mutable solver_manager<P> solver;
   // workspace

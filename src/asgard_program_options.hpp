@@ -175,13 +175,11 @@ enum class grid_type
   mixed
 };
 
-namespace time_advance
-{
 /*!
  * \ingroup asgard_common_options
  * types of time time advance methods, declared here to be used in the program options
  */
-enum class method
+enum class time_stepper
 {
   //! steady state solution, not a time-stepping method
   steady = 0,
@@ -204,7 +202,6 @@ enum class method
   //! implicit-explicit scheme for nonlinear Vlasov-Poisson problems
   imex
 };
-} // namespace time_advance
 
 /*!
  * \ingroup asgard_common_options
@@ -416,7 +413,7 @@ struct prog_opts
   std::optional<adapt_norm> anorm;
 
   //! time stepping method, explicit, implicit or imex
-  std::optional<time_advance::method> step_method;
+  std::optional<time_stepper> step_method;
   //! final time for the integration
   std::optional<double> stop_time;
   //! fixed time step, if missing the default cfl condition will be used
@@ -617,7 +614,7 @@ struct prog_opts
   }
 
   //! sets the step-method but issues a warning if a method is already provided
-  void force_step_method(time_advance::method method)
+  void force_step_method(time_stepper method)
   {
     if (step_method)
       std::cerr << "warning: overriding the user-requested -step-method" << std::endl;
@@ -639,7 +636,7 @@ struct prog_opts
   //! used in place of stop time, if stop time is not provided
   std::optional<double> default_stop_time;
   //! used in place of the step method, if step method is provided
-  std::optional<time_advance::method> default_step_method;
+  std::optional<time_stepper> default_step_method;
   //! used in place of the solver type, if solver type is not provided
   std::optional<solve_opts> default_solver;
   //! used in place of the preconditioner type, if preconditioner is not specified
