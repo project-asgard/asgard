@@ -1978,7 +1978,7 @@ public:
           return true;
       return false;
     } else {
-      return (optype_ != operation_type::mass);
+      return (optype_ != operation_type::mass and optype_ != operation_type::identity);
     }
   }
   //! add penalty to a div or grad term, more efficient than adding additional term
@@ -2344,6 +2344,22 @@ public:
   }
   //! chain case only, the number of chained terms
   int num_chain() const { return static_cast<int>(chain_.size()); }
+  //! returns the dimension with flux, only one such is allowed, returns -1 if no flux is used
+  int flux_dim() const {
+    if (is_chain()) {
+      int dir  = -1;
+      size_t c = 0;
+      while (dir == -1 and c < chain_.size())
+        dir = chain_[c++].flux_dim();
+      return dir;
+    } else {
+      for (int d : iindexof(num_dims)) {
+        if (sep[d].has_flux())
+          return d;
+      }
+      return -1;
+    }
+  }
 
   //! mode for the imex time-stepping
   imex_flag imex = imex_flag::unspecified;
