@@ -936,9 +936,15 @@ void solver_manager<P>::update_grid(
 
   if (precon == precon_method::jacobi) {
     terms.make_jacobi(grid, conn, jacobi);
-ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < jacobi.size(); i++)
-      jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
+    if (alpha == 0) { // steady state solver
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < jacobi.size(); i++)
+        jacobi[i] = P{1} / jacobi[i];
+    } else {
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < jacobi.size(); i++)
+        jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
+    }
   }
 
   grid_gen = grid.generation();
