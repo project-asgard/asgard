@@ -546,14 +546,14 @@ void steady_state<P>::next_step(
     disc.set_ode_rhs_sources(time, 1, work); // right-hand-side
 
     switch (solver.precon) {
-    case preconditioner_opts::none:
+    case precon_method::none:
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           disc.terms_apply_all(alpha, x, beta, y);
         }, work, endstep);
     break;
-    case preconditioner_opts::jacobi:
+    case precon_method::jacobi:
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -729,7 +729,7 @@ void crank_nicolson<P>::next_step(
     int64_t const n = static_cast<int64_t>(work.size());
 
     switch (solver.precon) {
-    case preconditioner_opts::none:
+    case precon_method::none:
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -739,7 +739,7 @@ void crank_nicolson<P>::next_step(
           disc.terms_apply_all(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
-    case preconditioner_opts::jacobi:
+    case precon_method::jacobi:
       solver.iterate_solve(
         [&](P y[]) -> void
         {

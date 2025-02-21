@@ -294,8 +294,8 @@ void discretization_manager<precision>::start_cold()
     }
   }
 
-  if (stepper.needed_precon() == preconditioner_opts::adi) {
-    terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
+  if (stepper.needed_precon() == precon_method::adi) {
+    terms.build_matrices(sgrid, conn, hier, precon_method::adi,
                          0.5 * stepper.data.dt());
   } else
     terms.build_matrices(sgrid, conn, hier);
@@ -338,10 +338,10 @@ void discretization_manager<precision>::restart_from_file()
     }
   }
 
-  if (stepper.needed_precon() == preconditioner_opts::adi) {
+  if (stepper.needed_precon() == precon_method::adi) {
     precision const substep
         = (options.step_method.value() == time_stepper::cn) ? 0.5 : 1;
-    terms.build_matrices(sgrid, conn, hier, preconditioner_opts::adi,
+    terms.build_matrices(sgrid, conn, hier, precon_method::adi,
                          substep * stepper.data.dt());
   } else
     terms.build_matrices(sgrid, conn, hier);

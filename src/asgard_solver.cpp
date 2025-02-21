@@ -934,7 +934,7 @@ void solver_manager<P>::update_grid(
   if (opt == solver_method::direct)
     var = solvers::direct<P>(grid, conn, terms, alpha);
 
-  if (precon == preconditioner_opts::jacobi) {
+  if (precon == precon_method::jacobi) {
     terms.make_jacobi(grid, conn, jacobi);
 ASGARD_OMP_PARFOR_SIMD
     for (size_t i = 0; i < jacobi.size(); i++)
@@ -978,13 +978,13 @@ void solver_manager<P>::print_opts(std::ostream &os) const
   }
   if (has_precon) {
     switch (precon) {
-      case preconditioner_opts::none:
+      case precon_method::none:
         os << "  no preconditioner\n";
         break;
-      case preconditioner_opts::jacobi:
+      case precon_method::jacobi:
         os << "  jacobi diagonal preconditioner\n";
         break;
-      case preconditioner_opts::adi:
+      case precon_method::adi:
         os << "  adi preconditioner\n";
         break;
       default: // unreachable

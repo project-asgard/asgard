@@ -110,7 +110,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 
   // only the iterative solvers will use these values
   // jacobi is (currently) the fastest and most stable preconditioner
-  options.default_precon = asgard::preconditioner_opts::jacobi;
+  options.default_precon = asgard::precon_method::jacobi;
 
   // the tolerance for the iterative solver should probably be updated
   // based on the time-step and the max-level

@@ -310,7 +310,7 @@ struct term_manager
   //! rebuild all matrices
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
                       hierarchy_manipulator<P> const &hier,
-                      preconditioner_opts precon = preconditioner_opts::none,
+                      precon_method precon = precon_method::none,
                       P alpha = 0) {
     tools::time_event timing_("initial coefficients");
     for (int t : iindexof(terms))
@@ -439,12 +439,12 @@ protected:
   //! rebuild term[tid], loops over all dimensions
   void buld_term(int const tid, sparse_grid const &grid, connection_patterns const &conn,
                  hierarchy_manipulator<P> const &hier,
-                 preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
+                 precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild term[tmd][t1d], assumes non-identity
   void rebuld_term1d(term_entry<P> &tentry, int const dim, int level,
                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                      source_entry<P> &bc,
-                     preconditioner_opts precon = preconditioner_opts::none, P alpha = 0);
+                     precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(int const dim, term_1d<P> &t1d, int const level, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,

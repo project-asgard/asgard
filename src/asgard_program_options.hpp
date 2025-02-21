@@ -63,7 +63,7 @@ enum class solver_method
  * \ingroup asgard_common_options
  * \brief the available preconditioners for the solvers
  */
-enum class preconditioner_opts
+enum class precon_method
 {
   //! probably not a good idea for an iterative solve
   none = 0,
@@ -427,7 +427,7 @@ struct prog_opts
   //! solver for implicit or imex methods: direct, gmres, bicgstab
   std::optional<solver_method> solver;
   //! preconditioner, used for iterative solvers
-  std::optional<preconditioner_opts> precon;
+  std::optional<precon_method> precon;
   //! tolerance for the iterative solvers (gmres, bicgstab)
   std::optional<double> isolver_tolerance;
   //! max number of iterations (inner iterations for gmres)
@@ -640,7 +640,7 @@ struct prog_opts
   //! used in place of the solver type, if solver type is not provided
   std::optional<solver_method> default_solver;
   //! used in place of the preconditioner type, if preconditioner is not specified
-  std::optional<preconditioner_opts> default_precon;
+  std::optional<precon_method> default_precon;
   //! used in place of the tolerance, if tolerance is not specified
   std::optional<double> default_isolver_tolerance;
   //! max number of iterations (inner iterations for gmres)

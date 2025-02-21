@@ -126,7 +126,7 @@ struct steady_state
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  preconditioner_opts needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return solver.precon; }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
@@ -205,7 +205,7 @@ struct crank_nicolson
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  preconditioner_opts needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return solver.precon; }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
@@ -259,14 +259,14 @@ struct time_advance_manager
     };
   }
   //! returns the precondtioner required by the solver, if any
-  preconditioner_opts needed_precon() const {
+  precon_method needed_precon() const {
     switch (method.index()) {
       case 0: // steady state
         return std::get<0>(method).needed_precon();
       case 2: // implicit stepper
         return std::get<2>(method).needed_precon();
       default:
-        return preconditioner_opts::none;
+        return precon_method::none;
     };
   }
 

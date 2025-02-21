@@ -310,7 +310,7 @@ struct solver_manager
                 "missing number of iterations for the iterative solver bicgstab");
         var = solvers::bicgstab<P>(options.isolver_tolerance.value(),
                                    options.isolver_iterations.value());
-        precon = options.precon.value_or(preconditioner_opts::none);
+        precon = options.precon.value_or(precon_method::none);
         break;
       case solver_method::gmres:
         rassert(options.isolver_tolerance,
@@ -322,7 +322,7 @@ struct solver_manager
         var = solvers::gmres<P>(options.isolver_tolerance.value(),
                                 options.isolver_inner_iterations.value(),
                                 options.isolver_iterations.value());
-        precon = options.precon.value_or(preconditioner_opts::none);
+        precon = options.precon.value_or(precon_method::none);
         break;
       default: // unreachable
         break;
@@ -394,7 +394,7 @@ struct solver_manager
   //! selected solver
   solver_method opt = solver_method::direct;
   //! selected solver
-  preconditioner_opts precon = preconditioner_opts::none;
+  precon_method precon = precon_method::none;
   //! remember the total mat-vec products
   mutable int64_t num_apply = 0;
   //! remembers the generation of the grid that was used to last set the manager
