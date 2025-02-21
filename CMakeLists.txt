@@ -513,7 +513,7 @@ set (_asgard_pdes continuity diffusion elliptic sinwav two_stream
 foreach (_asgexe ${_asgard_pdes})
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
-    install(TARGETS ${_asgexe} EXPORT  "asgard-export" RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/share/asgard/pde")
+    install(TARGETS ${_asgexe} EXPORT  "asgard-export" RUNTIME DESTINATION "share/asgard/pde")
 endforeach()
 
 #-------------------------------------------------------------------------------
