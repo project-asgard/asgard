@@ -57,6 +57,9 @@ struct term_entry {
 
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
+
+  //! boundary conditions, start and stop
+  int bc_begin = 0, bc_end = 0;
 };
 
 /*!
@@ -243,6 +246,42 @@ struct source_entry
  * This is the core of the spatial discretization of the terms.
  */
 template<typename P>
+struct boundary_entry {
+  //! mode indicating when to recompute the coefficients
+  enum class time_mode {
+    //! boundary condition that is constant in time
+    constant = 0,
+    //! boundary condition that is separable in time, i.e., constant in space with time multiplier
+    separable,
+    //! boundary condition that is non-separable in time, still separable in space for fixed time
+    time_dependent
+  };
+  //! default source entry, must be reinitialized before use
+  boundary_entry() = default;
+  //! create a new source entry
+  boundary_entry(boundary_flux<P> f) : flux(std::move(f)) {}
+  //! defines the flux, moved out of the term
+  boundary_flux<P> flux;
+
+  //! when should we recompute the sources and when can we reuse existing data
+  time_mode tmode = time_mode::constant;
+
+  bool is_constant() const { return tmode == time_mode::constant; }
+  bool is_separable() const { return tmode == time_mode::separable; }
+  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
+
+  //! vector for the current grid
+  std::vector<P> val;
+  //! constant components of the source vector
+  std::array<std::vector<P>, max_num_dimensions> consts;
+};
+
+/*!
+ * \brief Manages the terms and matrices, also holds the mass-matrices and kronmult-workspace
+ *
+ * This is the core of the spatial discretization of the terms.
+ */
+template<typename P>
 struct term_manager
 {
   term_manager() = default;
@@ -284,6 +323,8 @@ struct term_manager
   int num_interior_sources = 0;
   //! all sources, interior and boundary conditions
   std::vector<source_entry<P>> sources;
+  //! all boundary conditions
+  std::vector<boundary_entry<P>> bcs;
 
   std::array<P, max_num_dimensions> xleft;
   std::array<P, max_num_dimensions> xright;

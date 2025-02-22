@@ -113,6 +113,8 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     }
   }
 
+  int num_bc = 0;
+
   // check if we need to keep the intermediate terms from matrix builds
   for (auto &tt : terms) {
     bool has_sep_dir = false;
@@ -125,8 +127,31 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     }
     rassert(not (has_sep_dir and has_1d_chain),
             "1d chain terms cannot be coupled with separable boundary conditions");
-    //if (has_sep_dir and has_1d_chain)
-    //  tt.interms.emplace();
+
+    tt.bc_begin = num_bc;
+    num_bc += static_cast<int>(tt.tmd.bc_flux_.size());
+    tt.bc_end = num_bc;
+  }
+  bcs.reserve(num_bc);
+  for (auto &tt : terms) {
+    for (auto &b : tt.tmd.bc_flux_) {
+      bcs.emplace_back(std::move(b));
+      if (bcs.back().flux.func().ignores_time()) {
+        bcs.back().tmode = boundary_entry<P>::time_mode::constant;
+      } else {
+        int const fdim = tt.tmd.flux_dim();
+        if (bcs.back().flux.func_.ftime()) {
+          if (bcs.back().flux.func_.cdomain(fdim) == 0) {
+            bcs.back().tmode = boundary_entry<P>::time_mode::time_dependent;
+          } else {
+            bcs.back().tmode = boundary_entry<P>::time_mode::separable;
+          }
+        } else {
+          // fdim is constant, but the other dirs are non-separable
+          bcs.back().tmode = boundary_entry<P>::time_mode::separable;
+        }
+      }
+    }
   }
 
   for (int d : iindexof(num_dims)) {
