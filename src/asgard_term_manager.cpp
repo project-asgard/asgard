@@ -128,21 +128,34 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     rassert(not (has_sep_dir and has_1d_chain),
             "1d chain terms cannot be coupled with separable boundary conditions");
 
-    tt.bc_begin = num_bc;
+    tt.bc.begin = num_bc;
     num_bc += static_cast<int>(tt.tmd.bc_flux_.size());
-    tt.bc_end = num_bc;
+    tt.bc.end = num_bc;
   }
   bcs.reserve(num_bc);
   for (auto &tt : terms) {
+    int const fdim = tt.tmd.flux_dim();
+    tt.flux_dim = fdim;
     for (auto &b : tt.tmd.bc_flux_) {
       bcs.emplace_back(std::move(b));
+      for (int d : iindexof(num_dims)) {
+        if (bcs.back().flux.chain_level(d) == -1) { // reset to the lowest level
+          bcs.back().flux.chain_level(d) = (tt.tmd.dim(d).is_chain())
+                                          ? (tt.tmd.dim(d).num_chain() - 1) : 0;
+        }
+      }
       if (bcs.back().flux.func().ignores_time()) {
         bcs.back().tmode = boundary_entry<P>::time_mode::constant;
       } else {
-        int const fdim = tt.tmd.flux_dim();
         if (bcs.back().flux.func_.ftime()) {
           if (bcs.back().flux.func_.cdomain(fdim) == 0) {
             bcs.back().tmode = boundary_entry<P>::time_mode::time_dependent;
+            for (int d : iindexof(num_dims)) {
+              rassert(not tt.tmd.dim(d).is_chain(),
+                      "cannot use non-separable in time boundary conditions with 1d-chains, "
+                      "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
+                      "data cannot be pre-computed, an md-chain must be used instead");
+            }
           } else {
             bcs.back().tmode = boundary_entry<P>::time_mode::separable;
           }
@@ -633,16 +646,21 @@ void term_manager<P>::rebuld_term1d(
       // the assumption here is that mass[dim] is empty
       bc.consts[dim] = hier.get_project1d_c(1, mass[dim], dim, level);
     }
+    if (tentry.bc.size() > 0) {
+      std::vector<P> ones = hier.get_project1d_c(1, mass[dim], dim, level);
+      for (int c = tentry.bc.begin; c < tentry.bc.end; c++)
+        bcs[c].consts[dim] = ones;
+    }
     return; // nothing to do about the matrix
   }
 
   bool is_diag = t1d.is_mass();
   if (t1d.is_chain()) {
-    rebuld_chain(dim, t1d, level, is_diag, wraw_diag, wraw_tri, bc);
+    rebuld_chain(tentry, dim, level, is_diag, wraw_diag, wraw_tri, bc);
   } else {
     if (bc.is_boundary() and bc.dim() != dim)
       bc.consts[dim].resize(n * fm::ipow2(level));
-    build_raw_mat(dim, t1d, level, wraw_diag, wraw_tri, bc);
+    build_raw_mat(tentry, dim, 0, level, wraw_diag, wraw_tri, bc);
   }
 
   block_diag_matrix<P> *bmass = nullptr; // mass to use for the boundary source
@@ -721,9 +739,10 @@ void term_manager<P>::rebuld_term1d(
 
 template<typename P>
 void term_manager<P>::build_raw_mat(
-    int d, term_1d<P> &t1d, int level, block_diag_matrix<P> &raw_diag,
-    block_tri_matrix<P> &raw_tri, source_entry<P> &bc)
+    term_entry<P> &tentry, int d, int clink, int level,
+    block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri, source_entry<P> &bc)
 {
+  term_1d<P> &t1d = (tentry.tmd.dim(d).is_chain()) ? tentry.tmd.dim(d).chain_[clink] : tentry.tmd.dim(d);
   expect(not t1d.is_chain());
 
   switch (t1d.optype())
@@ -831,6 +850,37 @@ void term_manager<P>::build_raw_mat(
       }
     }
   }
+
+  // boundary conditions
+  if (tentry.bc.size() == 0)
+    return;
+
+  for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+    boundary_entry<P> &bentry = bcs[b];
+    if (bentry.flux.chain_level(d) > clink) {
+      expect(not bentry.consts[d].empty());
+      if (t1d.is_mass())
+        raw_diag.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
+      else
+        raw_tri.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
+    } else if (bentry.flux.chain_level(d) == clink) {
+      // create a new entry
+      if (tentry.flux_dim == d) {
+        // this a derivative entry and it is separable in time (or constant)
+        // add the boundary terms to the vector, similar to add_dirichlet
+        // consider left/right and non-chain term penalty (chain penalty should be added else-where, in the chain thing)
+        // non-sep in time should be handled in the eval stage
+        // int const num_cells = fm::ipow2(level);
+      } else {
+        // this is a rhs combined with a derivative in a different direction
+        // build the legendre (not-hierarchical) entries, the mass matrix should be applied in rebuld_term1d
+        // and then the hierarchy rebuild
+
+        // consider cases, constant-times-constant, constant-times-variable and variable-times-variable
+        // expand the capabilities of legendre.project
+      }
+    }
+  }
 }
 
 template<typename P>
@@ -911,10 +961,11 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 
 template<typename P>
 void term_manager<P>::rebuld_chain(
-    int const d, term_1d<P> &t1d, int const level, bool &is_diag,
+    term_entry<P> &tentry, int const d, int const level, bool &is_diag,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,
     source_entry<P> &bc)
 {
+  term_1d<P> &t1d = tentry.tmd.dim(d);
   expect(t1d.is_chain());
   int const num_chain = t1d.num_chain();
   expect(num_chain > 1);
@@ -941,10 +992,10 @@ void term_manager<P>::rebuld_chain(
     // the last product has to be written to raw_diag
     block_diag_matrix<P> *diag0 = &raw_diag0;
     block_diag_matrix<P> *diag1 = &raw_diag1;
-    build_raw_mat(d, t1d.chain(num_chain - 1), level, *diag0, raw_tri, bc);
+    build_raw_mat(tentry, d, num_chain - 1, level, *diag0, raw_tri, bc);
     crhs = raw_rhs.vals;
     for (int i = num_chain - 2; i > 0; i--) {
-      build_raw_mat(d, t1d.chain(i), level, raw_diag, raw_tri, bc);
+      build_raw_mat(tentry, d, i, level, raw_diag, raw_tri, bc);
       diag1->check_resize(raw_diag);
       gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
@@ -954,7 +1005,7 @@ void term_manager<P>::rebuld_chain(
           crhs[j] *= raw_rhs.vals[j];
       }
     }
-    build_raw_mat(d, t1d.chain(0), level, *diag1, raw_tri, bc);
+    build_raw_mat(tentry, d, 0, level, *diag1, raw_tri, bc);
     raw_diag.check_resize(*diag1);
     gemm_block_diag(legendre.pdof, *diag1, *diag0, raw_diag);
     if (use_bc) {
@@ -983,11 +1034,11 @@ void term_manager<P>::rebuld_chain(
   // if we start with a diagonal, we will switch to tri at some point
 
   fill current = (t1d.is_mass()) ? fill::diag : fill::tri;
-  build_raw_mat(d, t1d.chain(num_chain - 1), level, *diag0, *tri0, bc);
+  build_raw_mat(tentry, d, num_chain - 1, level, *diag0, *tri0, bc);
 
   for (int i = num_chain - 2; i > 0; i--)
   {
-    build_raw_mat(d, t1d.chain(i), level, raw_diag, raw_tri, bc);
+    build_raw_mat(tentry, d, i, level, raw_diag, raw_tri, bc);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
     if (t1d.is_mass()) { // computed a diagonal fill
@@ -1016,7 +1067,7 @@ void term_manager<P>::rebuld_chain(
   }
 
   // last term, compute in diag1/tri1 and multiply into raw_tri
-  build_raw_mat(d, t1d.chain(0), level, *diag1, *tri1, bc);
+  build_raw_mat(tentry, d, 0, level, *diag1, *tri1, bc);
 
   if (t1d[0].is_mass()) {
     // the rest must be a tri-diagonal matrix already

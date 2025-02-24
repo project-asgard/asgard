@@ -25,6 +25,16 @@ struct mom_deps {
   }
 };
 
+//! \brief holds the range of the boundary conditions, begin/end
+struct bcs_range {
+  //! first index of the boundary conditions
+  int begin = 0;
+  //! one after the last index of the boundary conditions
+  int end   = 0;
+  //! returns the number of boundary conditions
+  int size() const { return (end - begin); }
+};
+
 //! \brief Combines a term with data used for linear operations
 template<typename P>
 struct term_entry {
@@ -58,8 +68,10 @@ struct term_entry {
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
 
-  //! boundary conditions, start and stop
-  int bc_begin = 0, bc_end = 0;
+  //! boundary conditions, start and end
+  bcs_range bc;
+  //! dimension holding a flux, -1 if no flux
+  int flux_dim = -1;
 };
 
 /*!
@@ -487,14 +499,13 @@ protected:
                      source_entry<P> &bc,
                      precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild the 1d term chain to the given level
-  void rebuld_chain(int const dim, term_1d<P> &t1d, int const level, bool &is_diag,
+  void rebuld_chain(term_entry<P> &tentry, int const dim, int const level, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri,
                     source_entry<P> &bc);
 
   //! helper method, build the matrix corresponding to the term
-  void build_raw_mat(int dim, term_1d<P> &t1d, int level,
-                     block_diag_matrix<P> &raw_diag,
-                     block_tri_matrix<P> &raw_tri, source_entry<P> &bc);
+  void build_raw_mat(term_entry<P> &tentry, int dim, int clink, int level,
+                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri, source_entry<P> &bc);
   //! helper method, build a mass matrix with no dependencies
   void build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                       block_diag_matrix<P> &raw_diag);
