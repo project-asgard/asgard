@@ -107,9 +107,27 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
 }
 
 template<typename P>
-void legendre_basis<P>::project(bool is_interior, int level, std::vector<P> const &raw_data,
-                                std::vector<P> &lgn) const {
+void legendre_basis<P>::interior_quad(
+    P xleft, P xright, int level, std::vector<P> &pnts)
+{
+  int const num_cells = fm::ipow2(level);
 
+  P const dx = (xright - xleft) / num_cells;
+
+  pnts.resize(num_cells * num_quad);
+
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells; i++) {
+    P const l = xleft + i * dx; // left edge of cell i
+    for (int k = 0; k < num_quad; k++)
+      pnts[i * num_quad + k] = (0.5 * qp[k] + 0.5) * dx + l;
+  }
+}
+
+template<typename P>
+std::vector<P> legendre_basis<P>::project(
+    bool is_interior, int level, P alpha, std::vector<P> const &raw_data) const
+{
   int const num_cells = fm::ipow2(level);
 
   span2d<P const> raw;
@@ -118,13 +136,68 @@ void legendre_basis<P>::project(bool is_interior, int level, std::vector<P> cons
   else
     raw = span2d<P const>(pdof + 1, num_cells, raw_data.data() + 1);
 
-  lgn.resize(num_cells * pdof);
+  std::vector<P> lgn(num_cells * pdof);
+  span2d<P> leg_basis(pdof, num_cells, lgn.data());
+
+  if (alpha == 1) {
+    #pragma omp parallel for
+    for (int i = 0; i < num_cells; i++) {
+      smmat::gemtv(num_quad, pdof, legw, raw[i], leg_basis[i]);
+    }
+  } else {
+    #pragma omp parallel for
+    for (int i = 0; i < num_cells; i++) {
+      smmat::gemtv(num_quad, pdof, legw, raw[i], leg_basis[i]);
+      smmat::scal(pdof, alpha, leg_basis[i]);
+    }
+  }
+
+  return lgn;
+}
+
+template<typename P>
+std::vector<P> legendre_basis<P>::project(int level, P alpha) const
+{
+  int const num_cells = fm::ipow2(level);
+
+  std::vector<P> lgn(num_cells * pdof);
+
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+    lgn[i * pdof] = alpha;
+
+  return lgn;
+}
+
+template<typename P>
+std::vector<P> legendre_basis<P>::project(
+    bool is_interior, int level, std::vector<P> const &raw_data1, std::vector<P> &raw_data2) const
+{
+  int const num_cells = fm::ipow2(level);
+
+  span2d<P const> raw1;
+  if (is_interior)
+    raw1 = span2d<P const>(pdof, num_cells, raw_data1.data());
+  else
+    raw1 = span2d<P const>(pdof + 1, num_cells, raw_data1.data() + 1);
+
+  span2d<P> raw2;
+  if (is_interior)
+    raw2 = span2d<P>(pdof, num_cells, raw_data2.data());
+  else
+    raw2 = span2d<P>(pdof + 1, num_cells, raw_data2.data() + 1);
+
+  std::vector<P> lgn(num_cells * pdof);
   span2d<P> leg_basis(pdof, num_cells, lgn.data());
 
 #pragma omp parallel for
   for (int i = 0; i < num_cells; i++) {
-    smmat::gemtv(num_quad, pdof, legw, raw[i], leg_basis[i]);
+    for (int p = 0; p < pdof; p++)
+      raw2[i][p] *= raw1[i][p];
+    smmat::gemtv(num_quad, pdof, legw, raw2[i], leg_basis[i]);
   }
+
+  return lgn;
 }
 
 template<typename P>

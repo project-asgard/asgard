@@ -68,8 +68,17 @@ struct legendre_basis {
   //! values of the legendre polynomials at the right end-point
   P *leg_right = nullptr;
 
-  void project(bool is_interior, int level, std::vector<P> const &raw,
-               std::vector<P> &lgn) const;
+  //! fill a vector with the interior quadrature shifted to the domain
+  void interior_quad(P xleft, P xright, int level, std::vector<P> &pnts);
+
+  //! raw comes from coefficient-mats and holds the values of rhs at quad points
+  std::vector<P> project(bool is_interior, int level, P alpha,
+                         std::vector<P> const &raw) const;
+  //! raw2 is multiplied by raw1 and then those are projected as above
+  std::vector<P> project(bool is_interior, int level, std::vector<P> const &raw1,
+                         std::vector<P> &raw2) const;
+  //! project the constant onto the legendre basis
+  std::vector<P> project(int level, P alpha) const;
 };
 
 

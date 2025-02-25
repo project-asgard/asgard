@@ -351,7 +351,6 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 #pragma omp parallel for
     for (int i = 0; i < num_cells; i++) {
       P const l = xleft + i * dx; // left edge of cell i
-      rhs_pnts[i * basis.num_quad] = l;
       for (int k = 0; k < basis.num_quad; k++)
         rhs_pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
     }

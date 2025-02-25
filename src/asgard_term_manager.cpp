@@ -836,7 +836,7 @@ void term_manager<P>::build_raw_mat(
     // has Dirichlet in other directions and expecting to load the rhs
     // if using 1d-chain, this is handled externally
     if (t1d.rhs()) {
-      legendre.project(t1d.is_mass(), level, raw_rhs.vals, bc.consts[d]);
+      bc.consts[d] = legendre.project(t1d.is_mass(), level, 1, raw_rhs.vals);
     } else { // using a constant
       if (legendre.pdof == 1) {
         std::fill(bc.consts[d].begin(), bc.consts[d].end(), t1d.rhs_const());
@@ -856,7 +856,9 @@ void term_manager<P>::build_raw_mat(
     return;
 
   for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+    // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
+
     if (bentry.flux.chain_level(d) > clink) {
       expect(not bentry.consts[d].empty());
       if (t1d.is_mass())
@@ -866,20 +868,76 @@ void term_manager<P>::build_raw_mat(
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry
       if (tentry.flux_dim == d) {
-        // this a derivative entry and it is separable in time (or constant)
-        // add the boundary terms to the vector, similar to add_dirichlet
-        // consider left/right and non-chain term penalty (chain penalty should be added else-where, in the chain thing)
-        // non-sep in time should be handled in the eval stage
-        // int const num_cells = fm::ipow2(level);
+        int const pdof = legendre.pdof;
+
+        int64_t const num_cells = fm::ipow2(level);
+        int64_t const num_entries = pdof * num_cells;
+
+        bentry.consts[d].resize(num_entries);
+
+        P scale = P{1} / std::sqrt( (xright[d] - xleft[d]) / num_cells );
+        if (t1d.is_penalty()) // penalty flips the sign of the boundary conditions
+          scale = -scale;
+
+        if (bentry.flux.is_left()) {
+          P rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
+          if (t1d.penalty() != 0)
+            rhs_left *= P{1} + t1d.penalty();
+
+          P const fc = bentry.flux.func().cdomain(d);
+          if (fc == 0) { // non-separable in time
+            // single-point value is always separable, so we can pre-compute in d-direction
+            smmat::axpy(pdof, - rhs_left * scale, legendre.leg_left, bentry.consts[d].data());
+          } else {
+            smmat::axpy(pdof, - rhs_left * scale * fc, legendre.leg_left, bentry.consts[d].data());
+          }
+        }
+
+        if (bentry.flux.is_right()) {
+          P rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
+          if (t1d.penalty() != 0)
+            rhs_right *= P{1} - t1d.penalty();
+
+          P const fc = bentry.flux.func().cdomain(d);
+          if (fc == 0) { // non-separable in time
+            // single-point value is always separable, so we can pre-compute in d-direction
+            smmat::axpy(pdof, rhs_right * scale, legendre.leg_right,
+                        bentry.consts[d].data() + num_entries - pdof);
+          } else {
+            smmat::axpy(pdof, rhs_right * scale * fc, legendre.leg_right,
+                        bentry.consts[d].data() + num_entries - pdof);
+          }
+        }
       } else {
         // this is a rhs combined with a derivative in a different direction
         // build the legendre (not-hierarchical) entries, the mass matrix should be applied in rebuld_term1d
         // and then the hierarchy rebuild
 
-        // consider cases, constant-times-constant, constant-times-variable and variable-times-variable
-        // expand the capabilities of legendre.project
+        if (bentry.is_time_dependent()) // no constant components to pre-compute
+          continue;
+
+        if (bentry.flux.func().is_const(d)) {
+          if (t1d.rhs()) { // constant times spatially variable
+            bentry.consts[d] = legendre.project(t1d.is_mass(), level,
+                                                bentry.flux.func().cdomain(d), raw_rhs.vals);
+          } else { // constant times a constant
+            bentry.consts[d] = legendre.project(level, bentry.flux.func().cdomain(d) * t1d.rhs_const());
+          }
+        } else {
+          if (t1d.rhs()) { // product of non-consts
+            std::vector<P> f(raw_rhs.pnts.size());
+            bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, f);
+            bentry.consts[d] = legendre.project(t1d.is_mass(), level, f, raw_rhs.vals);
+          } else {
+            // need function values, rhs is a constant
+            legendre.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
+            raw_rhs.vals.resize(raw_rhs.pnts.size());
+            bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, raw_rhs.vals);
+            bentry.consts[d] = legendre.project(true, level, t1d.rhs_const(), raw_rhs.vals);
+          }
+        }
       }
-    }
+    } // if the bentry is associated with a higher link, then do nothing here
   }
 }
 
@@ -1012,7 +1070,7 @@ void term_manager<P>::rebuld_chain(
       ASGARD_OMP_PARFOR_SIMD
       for (size_t j = 0; j < raw_rhs.vals.size(); j++)
         crhs[j] *= raw_rhs.vals[j];
-      legendre.project(is_diag, level, crhs, bc.consts[d]);
+      bc.consts[d] = legendre.project(is_diag, level, 1, crhs);
     }
     return;
   }
