@@ -1150,6 +1150,50 @@ void term_manager<P>::rebuld_chain(
     if (bc.is_boundary())
       add_dirichlet(t1d, level, t1d.dirichlet_, bc);
   }
+
+  // check if we have a chain and penalty added in the end
+  if (t1d.penalty() == 0 or tentry.bc.size() == 0)
+    return;
+
+  for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+    // handle the non-separable in time, keep rhs values
+    boundary_entry<P> &bentry = bcs[b];
+
+    if (bentry.flux.chain_level(d) == num_chain - 1) {
+
+      int const pdof = legendre.pdof;
+
+      int64_t const num_cells = fm::ipow2(level);
+      int64_t const num_entries = pdof * num_cells;
+
+      bentry.consts[d].resize(num_entries);
+
+      P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
+
+      if (bentry.flux.is_left()) {
+        P const fc = bentry.flux.func().cdomain(d);
+        if (fc == 0) { // non-separable in time
+          // single-point value is always separable, so we can pre-compute in d-direction
+          smmat::axpy(pdof, - scale, legendre.leg_left, bentry.consts[d].data());
+        } else {
+          smmat::axpy(pdof, - scale * fc, legendre.leg_left, bentry.consts[d].data());
+        }
+      }
+
+      if (bentry.flux.is_right()) {
+        P const fc = bentry.flux.func().cdomain(d);
+        if (fc == 0) { // non-separable in time
+          // single-point value is always separable, so we can pre-compute in d-direction
+          smmat::axpy(pdof, scale, legendre.leg_right,
+                      bentry.consts[d].data() + num_entries - pdof);
+        } else {
+          smmat::axpy(pdof, scale * fc, legendre.leg_right,
+                      bentry.consts[d].data() + num_entries - pdof);
+        }
+      }
+    } // if the bentry is associated with a higher link, then do nothing here
+  }
+
 }
 
 
