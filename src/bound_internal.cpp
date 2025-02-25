@@ -78,7 +78,7 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     term_md<P> div_md(ops);
 
     separable_func<P> bc(std::vector<P>(num_dims, 1));
-    // adjust the flux based on the penalty
+
     div_md += right_boundary_flux{bc};
 
     pde += div_md;

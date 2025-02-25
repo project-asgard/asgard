@@ -282,6 +282,8 @@ struct boundary_entry {
   bool is_separable() const { return tmode == time_mode::separable; }
   bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
 
+  //! the term associated with this boundary entry
+  int term_index = -1;
   //! vector for the current grid
   std::vector<P> val;
   //! constant components of the source vector
@@ -322,6 +324,7 @@ struct term_manager
   int max_level = 0;
 
   bool sources_have_time_dep = false;
+  bool bcs_have_time_dep     = false;
 
   mass_md<P> mass_term;
   // loaded to the max_level, done once and not changed
@@ -359,6 +362,10 @@ struct term_manager
   //! update constant components of the sources
   void update_const_sources(sparse_grid const &grid, connection_patterns const &conn,
                             hierarchy_manipulator<P> const &hier);
+
+  //! update constant components of the sources
+  void update_bc(sparse_grid const &grid, connection_patterns const &conn,
+                 hierarchy_manipulator<P> const &hier);
 
   //! rebuild all matrices
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
@@ -482,6 +489,21 @@ struct term_manager
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
     apply_sources<dmode>(domain, grid, conns, hier, time, alpha, y.data());
   }
+
+  //! process the boundary conditions and store the result into pre-allocated vector
+  template<data_mode dmode>
+  void apply_bc(pde_domain<P> const &domain, sparse_grid const &grid,
+                connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
+                P time, P alpha, P y[]);
+
+  // template<data_mode dmode>
+  // void apply_bc(pde_domain<P> const &domain, sparse_grid const &grid,
+  //               connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
+  //               P time, P alpha, std::vector<P> &y)
+  // {
+  //   expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
+  //   apply_bc<dmode>(domain, grid, conns, hier, time, alpha, y.data());
+  // }
 
 protected:
   //! remember which grid was cached for the workspace

@@ -133,11 +133,13 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     tt.bc.end = num_bc;
   }
   bcs.reserve(num_bc);
-  for (auto &tt : terms) {
+  for (int tid : iindexof(terms)) {
+    term_entry<P> &tt = terms[tid];
     int const fdim = tt.tmd.flux_dim();
     tt.flux_dim = fdim;
     for (auto &b : tt.tmd.bc_flux_) {
       bcs.emplace_back(std::move(b));
+      bcs.back().term_index = tid;
       for (int d : iindexof(num_dims)) {
         if (bcs.back().flux.chain_level(d) == -1) { // reset to the lowest level
           bcs.back().flux.chain_level(d) = (tt.tmd.dim(d).is_chain())
@@ -149,7 +151,8 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
       } else {
         if (bcs.back().flux.func_.ftime()) {
           if (bcs.back().flux.func_.cdomain(fdim) == 0) {
-            bcs.back().tmode = boundary_entry<P>::time_mode::time_dependent;
+            bcs_have_time_dep = true;
+            bcs.back().tmode  = boundary_entry<P>::time_mode::time_dependent;
             for (int d : iindexof(num_dims)) {
               rassert(not tt.tmd.dim(d).is_chain(),
                       "cannot use non-separable in time boundary conditions with 1d-chains, "
@@ -259,23 +262,61 @@ void term_manager<P>::update_const_sources(
     sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier)
 {
-  if (grid.generation() != sources_grid_gen) {
+  if (grid.generation() == sources_grid_gen)
+    return;
 
-    int const pdof = hier.degree() + 1;
+  int const pdof = hier.degree() + 1;
 
-    int64_t const block_size  = hier.block_size();
-    int64_t const num_entries = grid.num_indexes() * block_size;
+  int64_t const block_size  = hier.block_size();
+  int64_t const num_entries = grid.num_indexes() * block_size;
 
-    // update the constant components
-    for (auto &src : sources) {
-      if (src.is_time_dependent() or src.is_edge_time())
-        continue;
+  // update the constant components
+  for (auto &src : sources) {
+    if (src.is_time_dependent() or src.is_edge_time())
+      continue;
 
-      int const dim = (src.is_boundary()) ? src.dim() : -1;
+    int const dim = (src.is_boundary()) ? src.dim() : -1;
 
-      // either an interior source or boundary with constant term
-      if (dim < 0 or not src.consts[dim].empty()) {
-        src.val.resize(num_entries);
+    // either an interior source or boundary with constant term
+    if (dim < 0 or not src.consts[dim].empty()) {
+      src.val.resize(num_entries);
+
+      #pragma omp parallel
+      {
+        std::array<P const *, max_num_dimensions> data1d;
+
+        #pragma omp for
+        for (int64_t c = 0; c < grid.num_indexes(); c++) {
+          P *proj = src.val.data() + c * block_size;
+
+          int const *idx = grid[c];
+          for (int d : iindexof(num_dims))
+            data1d[d] = src.consts[d].data() + idx[d] * pdof;
+
+          for (int i : iindexof(block_size))
+          {
+            int t   = i;
+            proj[i] = 1;
+            for (int d = num_dims - 1; d >= 0; d--) {
+              proj[i] *= data1d[d][t % pdof];
+              t /= pdof;
+            }
+          }
+        }
+      }
+    }
+    // handle the time-dependent (separable part of the boundary conditions)
+    // and handle the chains, if using term_md chain
+    if (not src.is_boundary() and not src.is_edge()) // nothing more to do for interior boundary
+      continue;
+
+    if (src.is_boundary())
+      for (auto &tdata : src.time_boundary()) {
+        std::vector<P> const &c1d = tdata.const_1d;
+
+        std::vector<P> &md = tdata.const_md;
+
+        md.resize(num_entries);
 
         #pragma omp parallel
         {
@@ -283,10 +324,15 @@ void term_manager<P>::update_const_sources(
 
           #pragma omp for
           for (int64_t c = 0; c < grid.num_indexes(); c++) {
-            P *proj = src.val.data() + c * block_size;
+            P *proj = md.data() + c * block_size;
 
             int const *idx = grid[c];
-            for (int d : iindexof(num_dims))
+            for (int d = 0; d < dim; d++)
+              data1d[d] = src.consts[d].data() + idx[d] * pdof;
+
+            data1d[dim] = c1d.data() + idx[dim] * pdof;
+
+            for (int d = dim + 1; d < num_dims; d++)
               data1d[d] = src.consts[d].data() + idx[d] * pdof;
 
             for (int i : iindexof(block_size))
@@ -300,82 +346,42 @@ void term_manager<P>::update_const_sources(
             }
           }
         }
-      }
-      // handle the time-dependent (separable part of the boundary conditions)
-      // and handle the chains, if using term_md chain
-      if (not src.is_boundary() and not src.is_edge()) // nothing more to do for interior boundary
-        continue;
+      } // done with time entries
 
+    // not in a chain or last link, then nothing more to do
+    if (terms[src.term_index()].num_chain > 0)
+      continue;
+
+    // otherwise we have to push the vectors through the term_md chain
+
+    t1.resize(num_entries); // workspace
+
+    bool keep_working = true;
+    int tid = src.term_index();
+    while (keep_working) {
+      --tid;
+
+      if (not src.val.empty()) {
+        kron_term(grid, conns, terms[tid], 1, src.val, 0, t1);
+        std::swap(src.val, t1);
+      }
       if (src.is_boundary())
         for (auto &tdata : src.time_boundary()) {
-          std::vector<P> const &c1d = tdata.const_1d;
-
-          std::vector<P> &md = tdata.const_md;
-
-          md.resize(num_entries);
-
-          #pragma omp parallel
-          {
-            std::array<P const *, max_num_dimensions> data1d;
-
-            #pragma omp for
-            for (int64_t c = 0; c < grid.num_indexes(); c++) {
-              P *proj = md.data() + c * block_size;
-
-              int const *idx = grid[c];
-              for (int d = 0; d < dim; d++)
-                data1d[d] = src.consts[d].data() + idx[d] * pdof;
-
-              data1d[dim] = c1d.data() + idx[dim] * pdof;
-
-              for (int d = dim + 1; d < num_dims; d++)
-                data1d[d] = src.consts[d].data() + idx[d] * pdof;
-
-              for (int i : iindexof(block_size))
-              {
-                int t   = i;
-                proj[i] = 1;
-                for (int d = num_dims - 1; d >= 0; d--) {
-                  proj[i] *= data1d[d][t % pdof];
-                  t /= pdof;
-                }
-              }
-            }
-          }
-        } // done with time entries
-
-      // not in a chain or last link, then nothing more to do
-      if (terms[src.term_index()].num_chain > 0)
-        continue;
-
-      // otherwise we have to push the vectors through the term_md chain
-
-      t1.resize(num_entries); // workspace
-
-      bool keep_working = true;
-      int tid = src.term_index();
-      while (keep_working) {
-        --tid;
-
-        if (not src.val.empty()) {
-          kron_term(grid, conns, terms[tid], 1, src.val, 0, t1);
-          std::swap(src.val, t1);
+          kron_term(grid, conns, terms[tid], 1, tdata.const_md, 0, t1);
+          std::swap(tdata.const_md, t1);
         }
-        if (src.is_boundary())
-          for (auto &tdata : src.time_boundary()) {
-            kron_term(grid, conns, terms[tid], 1, tdata.const_md, 0, t1);
-            std::swap(tdata.const_md, t1);
-          }
 
-        keep_working = (terms[tid].num_chain < 0);
-      }
-    } // done with all sources
+      keep_working = (terms[tid].num_chain < 0);
+    }
+  } // done with all sources
 
-    if (sources_have_time_dep)
-      rebuild_mass_matrices(grid);
+  if (sources_have_time_dep)
+    rebuild_mass_matrices(grid);
 
-    sources_grid_gen = grid.generation();
-  }
+  // make sure to handle the boundary conditions too
+  update_bc(grid, conns, hier);
+
+  sources_grid_gen = grid.generation();
 }
 
 template<typename P>
@@ -458,6 +464,125 @@ void term_manager<P>::apply_sources(
               y[i] -= t * td.const_md[i];
           }
         }
+        break;
+      default:
+        // unreachable here
+        break;
+    }
+  }
+
+  if constexpr (dmode == data_mode::replace)
+    apply_bc<data_mode::increment>(domain, grid, conns, hier, time, alpha, y);
+  else if constexpr (dmode == data_mode::scal_rep)
+    apply_bc<data_mode::scal_inc>(domain, grid, conns, hier, time, alpha, y);
+  else
+    apply_bc<dmode>(domain, grid, conns, hier, time, alpha, y);
+}
+
+template<typename P>
+void term_manager<P>::update_bc(
+    sparse_grid const &grid, connection_patterns const &conns,
+    hierarchy_manipulator<P> const &hier)
+{
+  int const pdof = hier.degree() + 1;
+
+  int64_t const block_size  = hier.block_size();
+  int64_t const num_entries = grid.num_indexes() * block_size;
+
+  // update the constant components
+  for (auto &bc : bcs) {
+    if (bc.is_time_dependent())
+      continue;
+
+    bc.val.resize(num_entries);
+
+    #pragma omp parallel
+    {
+      std::array<P const *, max_num_dimensions> data1d;
+
+      #pragma omp for
+      for (int64_t c = 0; c < grid.num_indexes(); c++) {
+        P *proj = bc.val.data() + c * block_size;
+
+        int const *idx = grid[c];
+        for (int d : iindexof(num_dims))
+          data1d[d] = bc.consts[d].data() + idx[d] * pdof;
+
+        for (int i : iindexof(block_size))
+        {
+          int t   = i;
+          proj[i] = 1;
+          for (int d = num_dims - 1; d >= 0; d--) {
+            proj[i] *= data1d[d][t % pdof];
+            t /= pdof;
+          }
+        }
+      }
+    }
+
+    // not in a chain or last link, then nothing more to do
+    if (terms[bc.term_index].num_chain > 0)
+      continue;
+
+    // otherwise we have to push the vectors through the term_md chain
+
+    t1.resize(num_entries); // workspace
+
+    bool keep_working = true;
+    int tid = bc.term_index;
+    while (keep_working) {
+      --tid;
+
+      kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
+
+      keep_working = (terms[tid].num_chain < 0);
+    }
+  } // done with all sources
+}
+
+template<typename P>
+template<data_mode dmode>
+void term_manager<P>::apply_bc(
+    pde_domain<P> const &, sparse_grid const &grid,
+    connection_patterns const &, hierarchy_manipulator<P> const &hier,
+    P time, P alpha, P y[])
+{
+  // update_bc(grid, conns, hier);
+
+  int64_t const num_entries = grid.num_indexes() * hier.block_size();
+
+  for (auto const &bc : bcs) {
+    switch (bc.tmode) {
+      case boundary_entry<P>::time_mode::constant:
+        std::cout << "expected = " << num_entries << " has = " <<  bc.val.size() << "\n";
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] -= bc.val[i];
+        else
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] -= alpha * bc.val[i];
+        break;
+      case boundary_entry<P>::time_mode::separable: {
+          std::cout << " time-sep bc\n";
+          P t = bc.flux.func().ftime(time);
+          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+            t *= alpha;
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] -= t * bc.val[i];
+        }
+        break;
+      case boundary_entry<P>::time_mode::time_dependent:
+        std::cout << " time-dep bc\n";
+        // TIME DEPENDANT mess
+        // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        //   hier.template project_separable<data_mode::increment>
+        //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+        // else
+        //   hier.template project_separable<data_mode::scal_inc>
+        //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
         break;
       default:
         // unreachable here
@@ -1407,6 +1532,18 @@ template void term_manager<double>::apply_sources<data_mode::scal_rep>(
   pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
   hierarchy_manipulator<double> const &, double, double, double[]);
 
+// template void term_manager<double>::apply_bc<data_mode::replace>(
+//   pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+//   hierarchy_manipulator<double> const &, double, double, double[]);
+template void term_manager<double>::apply_bc<data_mode::increment>(
+  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<double> const &, double, double, double[]);
+template void term_manager<double>::apply_bc<data_mode::scal_inc>(
+  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<double> const &, double, double, double[]);
+// template void term_manager<double>::apply_bc<data_mode::scal_rep>(
+//   pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+//   hierarchy_manipulator<double> const &, double, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1432,6 +1569,19 @@ template void term_manager<float>::apply_sources<data_mode::scal_inc>(
 template void term_manager<float>::apply_sources<data_mode::scal_rep>(
   pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
   hierarchy_manipulator<float> const &, float, float, float[]);
+
+// template void term_manager<float>::apply_bc<data_mode::replace>(
+//   pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+//   hierarchy_manipulator<float> const &, float, float, float[]);
+template void term_manager<float>::apply_bc<data_mode::increment>(
+  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<float> const &, float, float, float[]);
+template void term_manager<float>::apply_bc<data_mode::scal_inc>(
+  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+  hierarchy_manipulator<float> const &, float, float, float[]);
+// template void term_manager<float>::apply_bc<data_mode::scal_rep>(
+//   pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+//   hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
 
 }
