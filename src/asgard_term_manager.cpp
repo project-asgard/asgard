@@ -723,6 +723,17 @@ void term_manager<P>::rebuld_term1d(
     }
   }
 
+  // apply the mass matrices and convert to hierarchical form
+  for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+    boundary_entry<P> &bentry = bcs[b];
+    if (not bentry.consts[dim].empty()) {
+      // will be empty if non-flux direction and non-separable in time
+      if (bmass)
+        bmass->solve(n, bentry.consts[dim]);
+      hier.project1d(level, bentry.consts[dim]);
+    }
+  }
+
   // build the ADI preconditioner here
   if (precon == precon_method::adi) {
     if (is_diag) {
@@ -1159,41 +1170,41 @@ void term_manager<P>::rebuld_chain(
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
 
-    if (bentry.flux.chain_level(d) == num_chain - 1) {
+    // apply only the conditions for the bottom link
+    if (bentry.flux.chain_level(d) != num_chain - 1)
+      continue;
 
-      int const pdof = legendre.pdof;
+    int const pdof = legendre.pdof;
 
-      int64_t const num_cells = fm::ipow2(level);
-      int64_t const num_entries = pdof * num_cells;
+    int64_t const num_cells = fm::ipow2(level);
+    int64_t const num_entries = pdof * num_cells;
 
-      bentry.consts[d].resize(num_entries);
+    expect(bentry.consts[d].size() == static_cast<size_t>(num_entries));
 
-      P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
+    P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
 
-      if (bentry.flux.is_left()) {
-        P const fc = bentry.flux.func().cdomain(d);
-        if (fc == 0) { // non-separable in time
-          // single-point value is always separable, so we can pre-compute in d-direction
-          smmat::axpy(pdof, - scale, legendre.leg_left, bentry.consts[d].data());
-        } else {
-          smmat::axpy(pdof, - scale * fc, legendre.leg_left, bentry.consts[d].data());
-        }
+    if (bentry.flux.is_left()) {
+      P const fc = bentry.flux.func().cdomain(d);
+      if (fc == 0) { // non-separable in time
+        // single-point value is always separable, so we can pre-compute in d-direction
+        smmat::axpy(pdof, -scale, legendre.leg_left, bentry.consts[d].data());
+      } else {
+        smmat::axpy(pdof, -scale * fc, legendre.leg_left, bentry.consts[d].data());
       }
+    }
 
-      if (bentry.flux.is_right()) {
-        P const fc = bentry.flux.func().cdomain(d);
-        if (fc == 0) { // non-separable in time
-          // single-point value is always separable, so we can pre-compute in d-direction
-          smmat::axpy(pdof, scale, legendre.leg_right,
-                      bentry.consts[d].data() + num_entries - pdof);
-        } else {
-          smmat::axpy(pdof, scale * fc, legendre.leg_right,
-                      bentry.consts[d].data() + num_entries - pdof);
-        }
+    if (bentry.flux.is_right()) {
+      P const fc = bentry.flux.func().cdomain(d);
+      if (fc == 0) { // non-separable in time
+        // single-point value is always separable, so we can pre-compute in d-direction
+        smmat::axpy(pdof, scale, legendre.leg_right,
+                    bentry.consts[d].data() + num_entries - pdof);
+      } else {
+        smmat::axpy(pdof, scale * fc, legendre.leg_right,
+                    bentry.consts[d].data() + num_entries - pdof);
       }
-    } // if the bentry is associated with a higher link, then do nothing here
+    }
   }
-
 }
 
 
