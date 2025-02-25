@@ -56,10 +56,10 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
   term_1d<P> div = []() -> term_1d<P> {
       if constexpr (std::is_same_v<btype, type_left>) {
-        return term_div<P>(1, flux_type::upwind, boundary_type::dirichlet,
-                           dirichelt_boundary1d<P>{1, 2});
+        return term_div<P>(1, flux_type::upwind, boundary_type::dirichlet);
+                           //dirichelt_boundary1d<P>{1, 2});
       } else {
-        return term_div<P>(1, flux_type::central, boundary_type::dirichlet);
+        return term_div<P>(1, flux_type::upwind, boundary_type::dirichlet);
                            //dirichelt_boundary1d<P>{0, 1});
       }
     }();
@@ -70,7 +70,16 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     // the multi-dimensional divergence, initially set to identity in md
     std::vector<term_1d<P>> ops(num_dims);
     ops[dim] = div;
-    pde += ops;
+
+    term_md<P> div_md(ops);
+
+    separable_func<P> lbc(std::vector<P>(num_dims, 1));
+    separable_func<P> rbc(std::vector<P>(num_dims, 2));
+
+    div_md += left_boundary_flux{lbc};
+    div_md += right_boundary_flux{rbc};
+
+    pde += div_md;
   } else {
     std::vector<term_1d<P>> ops(num_dims);
     ops[dim] = div;
