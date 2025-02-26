@@ -1002,6 +1002,7 @@ void term_manager<P>::build_raw_mat(
         raw_tri.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry
+      std::cout << "  tentry.flux_dim = " << tentry.flux_dim << "  d = " << d << "\n";
       if (tentry.flux_dim == d) {
         int const pdof = legendre.pdof;
 
@@ -1026,6 +1027,7 @@ void term_manager<P>::build_raw_mat(
           } else {
             smmat::axpy(pdof, - rhs_left * scale * fc, legendre.leg_left, bentry.consts[d].data());
           }
+          std::cout << " setting left\n";
         }
 
         if (bentry.flux.is_right()) {
@@ -1042,6 +1044,7 @@ void term_manager<P>::build_raw_mat(
             smmat::axpy(pdof, rhs_right * scale * fc, legendre.leg_right,
                         bentry.consts[d].data() + num_entries - pdof);
           }
+          std::cout << " setting right\n";
         }
       } else {
         // this is a rhs combined with a derivative in a different direction
@@ -1064,6 +1067,7 @@ void term_manager<P>::build_raw_mat(
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, f);
             bentry.consts[d] = legendre.project(t1d.is_mass(), level, f, raw_rhs.vals);
           } else {
+            std::cout << " setting mix\n";
             // need function values, rhs is a constant
             legendre.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
             raw_rhs.vals.resize(raw_rhs.pnts.size());
