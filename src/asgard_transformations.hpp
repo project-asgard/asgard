@@ -72,13 +72,13 @@ struct legendre_basis {
   void interior_quad(P xleft, P xright, int level, std::vector<P> &pnts);
 
   //! raw comes from coefficient-mats and holds the values of rhs at quad points
-  std::vector<P> project(bool is_interior, int level, P alpha,
+  std::vector<P> project(bool is_interior, int level, P dsqrt, P alpha,
                          std::vector<P> const &raw) const;
   //! raw2 is multiplied by raw1 and then those are projected as above
-  std::vector<P> project(bool is_interior, int level, std::vector<P> const &raw1,
-                         std::vector<P> &raw2) const;
+  std::vector<P> project(bool is_interior, int level, P dsqrt,
+                         std::vector<P> const &raw1, std::vector<P> &raw2) const;
   //! project the constant onto the legendre basis
-  std::vector<P> project(int level, P alpha) const;
+  std::vector<P> project(int level, P dsqrt, P alpha) const;
 };
 
 

@@ -126,15 +126,16 @@ void legendre_basis<P>::interior_quad(
 
 template<typename P>
 std::vector<P> legendre_basis<P>::project(
-    bool is_interior, int level, P alpha, std::vector<P> const &raw_data) const
+    bool is_interior, int level, P dsqrt, P alpha, std::vector<P> const &raw_data) const
 {
+  alpha *= dsqrt * fm::powi(std::sqrt(P{1} / P{2}), level);
   int const num_cells = fm::ipow2(level);
 
   span2d<P const> raw;
   if (is_interior)
-    raw = span2d<P const>(pdof, num_cells, raw_data.data());
+    raw = span2d<P const>(num_quad, num_cells, raw_data.data());
   else
-    raw = span2d<P const>(pdof + 1, num_cells, raw_data.data() + 1);
+    raw = span2d<P const>(num_quad + 1, num_cells, raw_data.data() + 1);
 
   std::vector<P> lgn(num_cells * pdof);
   span2d<P> leg_basis(pdof, num_cells, lgn.data());
@@ -156,7 +157,7 @@ std::vector<P> legendre_basis<P>::project(
 }
 
 template<typename P>
-std::vector<P> legendre_basis<P>::project(int level, P alpha) const
+std::vector<P> legendre_basis<P>::project(int level, P dsqrt, P alpha) const
 {
   int const num_cells = fm::ipow2(level);
 
@@ -171,7 +172,7 @@ std::vector<P> legendre_basis<P>::project(int level, P alpha) const
 
 template<typename P>
 std::vector<P> legendre_basis<P>::project(
-    bool is_interior, int level, std::vector<P> const &raw_data1, std::vector<P> &raw_data2) const
+    bool is_interior, int level, P dsqrt, std::vector<P> const &raw_data1, std::vector<P> &raw_data2) const
 {
   int const num_cells = fm::ipow2(level);
 

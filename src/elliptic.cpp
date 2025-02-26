@@ -112,6 +112,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
   if constexpr (boudnary == boundary_enum::homogeneous)
   {
+    /* <proper homogeneous code>
     // Dirichlet boundary set to the div term corresponds to Neumann boundary
     asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
                                                  asgard::boundary_type::left_free);
@@ -139,6 +140,70 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       pde += asgard::term_md<P>(ops);
       ops[d] = asgard::term_identity{};
     }
+    */
+
+    // setting some constants to show where things come from
+    P constexpr div_coeff  = -1;
+    P constexpr grad_coeff = 1;
+
+    // left/right Neumann and Dirichlet values
+    P constexpr left_neumann    = 2;
+    P constexpr right_dirichlet = 1;
+
+    for (int d = 0; d < num_dims; d++) {
+      // using penalty coefficient 1 / cell-size
+      // cell size in direction d, needed for the penalty term
+      P const penalty_coeff = P{1} / pde.cell_size(d);
+
+      // using the exact solution as the boundary condition, except in the d-th direction
+      asgard::separable_func<P> bc = exact;
+
+      bc.set_cdomain(d, grad_coeff * right_dirichlet); // setting constant 1 in direction d
+
+      asgard::dirichelt_boundary1d<P> field_dirichlet;
+      field_dirichlet.add_right(bc); // add separable boundary term
+
+      // the separable boundary conditions must return the product of
+      // the actual value and the field constant
+      bc.set_cdomain(d, div_coeff * left_neumann);
+      asgard::dirichelt_boundary1d<P> field_neumann;
+      field_neumann.add_left(bc);
+
+      // same goes for the penalty, must multiply the penalty coefficient by the value
+      bc.set_cdomain(d, penalty_coeff * right_dirichlet);
+      asgard::dirichelt_boundary1d<P> penalty_bc;
+      penalty_bc.add_right(bc);
+
+      // Dirichlet condition on the div sets Neumann condition for the field
+      asgard::term_1d<P> div = asgard::term_div<P>(
+          div_coeff, asgard::flux_type::upwind, asgard::boundary_type::right_free,
+          field_neumann);
+
+      // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
+      asgard::term_1d<P> grad = asgard::term_grad<P>(
+          grad_coeff, asgard::flux_type::upwind, asgard::boundary_type::left_free,
+          field_dirichlet);
+
+      // penalize discontinuities
+      asgard::term_1d<P> pen = asgard::term_penalty(
+          penalty_coeff, asgard::flux_type::upwind, asgard::boundary_type::left_free,
+          penalty_bc);
+
+      // set multidimensional identity
+      std::vector<asgard::term_1d<P>> ops(num_dims);
+
+      ops[d] = div;
+      asgard::term_md<P> div_md(ops);
+
+      ops[d] = grad;
+      asgard::term_md<P> grad_md(ops);
+
+      pde += asgard::term_md<P>({div_md, grad_md});
+
+      ops[d] = pen;
+      pde += asgard::term_md<P>(ops);
+    }
+
 
   } else { // inhomogeneous case
 
@@ -195,11 +260,11 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       // think of this as imposing Dirichlet condition on the output of the grad term
       // and the output of the grad term is the derivative of the field
       asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-                                                   asgard::boundary_type::free);
+                                                   asgard::boundary_type::right_free);
 
       // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
       asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-                                                     asgard::boundary_type::dirichlet);
+                                                     asgard::boundary_type::left_free);
       // merge the div and grad terms
       asgard::term_1d<P> fxx({div, grad});
 
@@ -212,16 +277,33 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       {
         // make vector of terms_1d for each dimension
         std::vector<asgard::term_1d<P>> terms(num_dims);
-        terms[d] = fxx;
+        // terms[d] = fxx;
+        //
+        // // merge into a multi-dimensional term with one dimension
+        // asgard::term_md<P> fxx_md(terms);
+        //
+        // asgard::separable_func<P> bc = exact;
+        // bc.set_cdomain(d, P{1});
+        // asgard::boundary_flux<P> rbc = asgard::right_boundary_flux(bc);
+        // fxx_md += asgard::right_boundary_flux(bc);
 
-        // merge into a multi-dimensional term with one dimension
-        asgard::term_md<P> fxx_md(terms);
+        // chain_md
+        terms[d] = div;
+        asgard::term_md<P> div_md(terms);
+        terms[d] = grad;
+        asgard::term_md<P> grad_md(terms);
 
         asgard::separable_func<P> bc = exact;
         bc.set_cdomain(d, P{1});
-        asgard::boundary_flux<P> rbc = asgard::right_boundary_flux(bc);
-        fxx_md += asgard::right_boundary_flux(bc);
+        grad_md += asgard::right_boundary_flux(bc);
 
+        bc = exact;
+        bc.set_cdomain(d, P{2});
+        div_md += asgard::left_boundary_flux(bc);
+
+        asgard::term_md<P> chain_md({div_md, grad_md});
+        pde += chain_md;
+        // end chain_md
 
         terms[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
                                         asgard::boundary_type::left_free);
@@ -230,7 +312,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
         bc.set_cdomain(d, P{1});
         pen_md += asgard::right_boundary_flux(bc);
 
-        // pde += pen_md;
+        pde += pen_md;
 
 
         // bc = exact;
@@ -239,7 +321,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
         // lbf.chain_level(d) = 0;
         // fxx_md += lbf;
 
-        pde += fxx_md;
+        // pde += fxx_md;
       }
 
 
@@ -476,6 +558,12 @@ R"help(<< additional options for this file >>
              : make_elliptic_pde<boundary_enum::inhomogeneous, P>(num_dims, options);
 
   asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::low);
+
+  std::vector<P> src(disc.current_state().size());
+  disc.set_ode_rhs_sources(0, src);
+
+  for (auto s : src)
+    std::cout << s << "\n";
 
   disc.advance_time();
 

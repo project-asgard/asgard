@@ -275,6 +275,11 @@ void term_manager<P>::update_const_sources(
     if (src.is_time_dependent() or src.is_edge_time())
       continue;
 
+    std::cout << " ------- next src -------------- \n";
+    for (size_t i = 0; i < src.consts[0].size(); i++) {
+      std::cout << src.consts[0][i] << "    " << src.consts[1][i] << "\n";
+    }
+
     int const dim = (src.is_boundary()) ? src.dim() : -1;
 
     // either an interior source or boundary with constant term
@@ -494,6 +499,11 @@ void term_manager<P>::update_bc(
     if (bc.is_time_dependent())
       continue;
 
+    std::cout << " ------- next bc -------------- \n";
+    for (size_t i = 0; i < bc.consts[0].size(); i++) {
+      std::cout << bc.consts[0][i] << "    " << bc.consts[1][i] << "\n";
+    }
+
     bc.val.resize(num_entries);
 
     #pragma omp parallel
@@ -534,6 +544,7 @@ void term_manager<P>::update_bc(
       --tid;
 
       kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
+      std::swap(bc.val, t1);
 
       keep_working = (terms[tid].num_chain < 0);
     }
@@ -976,7 +987,7 @@ void term_manager<P>::build_raw_mat(
     // has Dirichlet in other directions and expecting to load the rhs
     // if using 1d-chain, this is handled externally
     if (t1d.rhs()) {
-      bc.consts[d] = legendre.project(t1d.is_mass(), level, 1, raw_rhs.vals);
+      bc.consts[d] = legendre.project(t1d.is_mass(), level, std::sqrt(xright[d] - xleft[d]), 1, raw_rhs.vals);
     } else { // using a constant
       if (legendre.pdof == 1) {
         std::fill(bc.consts[d].begin(), bc.consts[d].end(), t1d.rhs_const());
@@ -1072,24 +1083,32 @@ void term_manager<P>::build_raw_mat(
         if (bentry.is_time_dependent()) // no constant components to pre-compute
           continue;
 
+        P const dsqr = std::sqrt(xright[d] - xleft[d]);
+
         if (bentry.flux.func().is_const(d)) {
           if (t1d.rhs()) { // constant times spatially variable
-            bentry.consts[d] = legendre.project(t1d.is_mass(), level,
+            bentry.consts[d] = legendre.project(t1d.is_mass(), level, dsqr,
                                                 bentry.flux.func().cdomain(d), raw_rhs.vals);
           } else { // constant times a constant
-            bentry.consts[d] = legendre.project(level, bentry.flux.func().cdomain(d) * t1d.rhs_const());
+            bentry.consts[d] = legendre.project(level, dsqr, bentry.flux.func().cdomain(d) * t1d.rhs_const());
           }
         } else {
           if (t1d.rhs()) { // product of non-consts
             std::vector<P> f(raw_rhs.pnts.size());
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, f);
-            bentry.consts[d] = legendre.project(t1d.is_mass(), level, f, raw_rhs.vals);
+            bentry.consts[d] = legendre.project(t1d.is_mass(), level, dsqr, f, raw_rhs.vals);
           } else {
             // need function values, rhs is a constant
             legendre.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
             raw_rhs.vals.resize(raw_rhs.pnts.size());
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, raw_rhs.vals);
-            bentry.consts[d] = legendre.project(true, level, t1d.rhs_const(), raw_rhs.vals);
+            bool constexpr use_interior = true;
+            std::cout << " FUNC EVAL\n";
+            // for (size_t i = 0; i < raw_rhs.pnts.size(); i++)
+            //   std::cout << raw_rhs.pnts[i] << "    " << raw_rhs.vals[i] << "\n";
+            bentry.consts[d] = legendre.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
+            for (auto q : bentry.consts[d])
+              std::cout << q << "\n";
           }
         }
       }
@@ -1226,7 +1245,7 @@ void term_manager<P>::rebuld_chain(
       ASGARD_OMP_PARFOR_SIMD
       for (size_t j = 0; j < raw_rhs.vals.size(); j++)
         crhs[j] *= raw_rhs.vals[j];
-      bc.consts[d] = legendre.project(is_diag, level, 1, crhs);
+      // bc.consts[d] = legendre.project(is_diag, level, 1, crhs);
     }
     return;
   }
