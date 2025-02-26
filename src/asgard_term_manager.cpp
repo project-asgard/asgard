@@ -940,11 +940,13 @@ void term_manager<P>::build_raw_mat(
       break;
     case operation_type::penalty:
       expect(not t1d.rhs());
+      std::cout << " added penalty\n";
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
         (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
     default:
       // identity, nothing to do
+      std::cout << " skipped identity\n";
       break;
   }
 
@@ -997,15 +999,22 @@ void term_manager<P>::build_raw_mat(
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
 
+    // std::cout << " b = " << b << " d = " << d << "  clink = " << clink << " chain-level = " << bentry.flux.chain_level(d) << "\n";
+
     if (bentry.flux.chain_level(d) > clink) {
       expect(not bentry.consts[d].empty());
-      if (t1d.is_mass())
+      if (t1d.is_mass()) {
         raw_diag.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
-      else
+        // std::cout << " b = " << b << " chain mult diag at link = " << clink << "\n";
+      } else {
         raw_tri.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
+        // std::cout << " b = " << b << " chain mult 3 at link = " << clink << "\n";
+      }
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry
+      // std::cout << " b = " << b << " make new dir = " << d << "\n";
       if (tentry.flux_dim == d) {
+        // std::cout << "   d = " << d << " is flux dir\n";
         int const pdof = legendre.pdof;
 
         int64_t const num_cells = fm::ipow2(level);
@@ -1019,24 +1028,31 @@ void term_manager<P>::build_raw_mat(
 
         if (bentry.flux.is_left()) {
           P rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
+          std::cout << " b = " << b << " rhs-left = " << rhs_left << "\n";
+
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
           P const fc = bentry.flux.func().cdomain(d);
+          std::cout << "            fc = " << fc << "  scale = " << scale << "\n";
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, - rhs_left * scale, legendre.leg_left, bentry.consts[d].data());
           } else {
             smmat::axpy(pdof, - rhs_left * scale * fc, legendre.leg_left, bentry.consts[d].data());
           }
+          //std::cout << " setting left\n";
         }
 
         if (bentry.flux.is_right()) {
           P rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
+          std::cout << " b = " << b << " rhs-right = " << rhs_right << "\n";
+
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
 
           P const fc = bentry.flux.func().cdomain(d);
+          std::cout << "            fc = " << fc << "  scale = " << scale << "\n";
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, rhs_right * scale, legendre.leg_right,
@@ -1045,9 +1061,10 @@ void term_manager<P>::build_raw_mat(
             smmat::axpy(pdof, rhs_right * scale * fc, legendre.leg_right,
                         bentry.consts[d].data() + num_entries - pdof);
           }
-          std::cout << " setting right\n";
+          // std::cout << " setting right\n";
         }
       } else {
+        // std::cout << "   d = " << d << " is non-flux dir\n";
         // this is a rhs combined with a derivative in a different direction
         // build the legendre (not-hierarchical) entries, the mass matrix should be applied in rebuld_term1d
         // and then the hierarchy rebuild
@@ -1068,7 +1085,6 @@ void term_manager<P>::build_raw_mat(
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, f);
             bentry.consts[d] = legendre.project(t1d.is_mass(), level, f, raw_rhs.vals);
           } else {
-            std::cout << " setting mix\n";
             // need function values, rhs is a constant
             legendre.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
             raw_rhs.vals.resize(raw_rhs.pnts.size());
@@ -1315,7 +1331,6 @@ void term_manager<P>::rebuld_chain(
     if (bentry.flux.is_left()) {
       P const fc = bentry.flux.func().cdomain(d);
       if (fc == 0) { // non-separable in time
-        // single-point value is always separable, so we can pre-compute in d-direction
         smmat::axpy(pdof, -scale, legendre.leg_left, bentry.consts[d].data());
       } else {
         smmat::axpy(pdof, -scale * fc, legendre.leg_left, bentry.consts[d].data());
@@ -1325,7 +1340,6 @@ void term_manager<P>::rebuld_chain(
     if (bentry.flux.is_right()) {
       P const fc = bentry.flux.func().cdomain(d);
       if (fc == 0) { // non-separable in time
-        // single-point value is always separable, so we can pre-compute in d-direction
         smmat::axpy(pdof, scale, legendre.leg_right,
                     bentry.consts[d].data() + num_entries - pdof);
       } else {

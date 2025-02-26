@@ -142,7 +142,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
   } else { // inhomogeneous case
 
-    if (num_dims == 1)
+    if (num_dims == 4) // TODO: this should not be 4
     {
       // when dealing with only one dimension, the boundary conditions are scalar
       // values at the left/right points
@@ -195,17 +195,18 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       // think of this as imposing Dirichlet condition on the output of the grad term
       // and the output of the grad term is the derivative of the field
       asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-                                                   asgard::boundary_type::right_free);
+                                                   asgard::boundary_type::free);
 
       // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
       asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-                                                     asgard::boundary_type::left_free);
+                                                     asgard::boundary_type::dirichlet);
       // merge the div and grad terms
       asgard::term_1d<P> fxx({div, grad});
 
       // penalize discontinuities
       P const dx = pde.min_cell_size();
-      fxx.set_penalty(P{1} / dx);
+      //fxx.set_penalty(P{1} / dx);
+      // std::cout << " 1d penalty = " << fxx.penalty() << "\n";
 
       for (int d = 0; d < num_dims; d++)
       {
@@ -218,13 +219,25 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
         asgard::separable_func<P> bc = exact;
         bc.set_cdomain(d, P{1});
+        asgard::boundary_flux<P> rbc = asgard::right_boundary_flux(bc);
         fxx_md += asgard::right_boundary_flux(bc);
 
-        bc = exact;
-        bc.set_cdomain(d, P{2});
-        asgard::boundary_flux<P> lbf = asgard::left_boundary_flux(bc);
-        lbf.chain_level(d) = 0;
-        fxx_md += lbf;
+
+        terms[d] = asgard::term_penalty(P{1} / dx, asgard::flux_type::upwind,
+                                        asgard::boundary_type::left_free);
+        asgard::term_md<P> pen_md(terms);
+
+        bc.set_cdomain(d, P{1});
+        pen_md += asgard::right_boundary_flux(bc);
+
+        // pde += pen_md;
+
+
+        // bc = exact;
+        // bc.set_cdomain(d, P{2});
+        // asgard::boundary_flux<P> lbf = asgard::left_boundary_flux(bc);
+        // lbf.chain_level(d) = 0;
+        // fxx_md += lbf;
 
         pde += fxx_md;
       }

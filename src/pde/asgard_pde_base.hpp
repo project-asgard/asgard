@@ -2171,7 +2171,11 @@ private:
  */
 template<typename P = default_precision>
 struct left_boundary_flux {
-  explicit left_boundary_flux(separable_func<P> f = nullptr) : func(std::move(f)) {}
+  explicit left_boundary_flux(separable_func<P> f = nullptr)
+    : func(std::move(f))
+  {
+    chain_level.fill(-1);
+  }
 
   explicit left_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
@@ -2179,12 +2183,13 @@ struct left_boundary_flux {
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of left_boundary_flux");
+    chain_level.fill(-1);
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
 
   separable_func<P> func;
-  std::array<int, max_num_dimensions> chain_level = {{-1}};
+  std::array<int, max_num_dimensions> chain_level;
 };
 
 /*!
@@ -2194,7 +2199,11 @@ struct left_boundary_flux {
  */
 template<typename P = default_precision>
 struct right_boundary_flux {
-  explicit right_boundary_flux(separable_func<P> f = nullptr) : func(std::move(f)) {}
+  explicit right_boundary_flux(separable_func<P> f = nullptr)
+    : func(std::move(f))
+  {
+    chain_level.fill(-1);
+  }
 
   explicit right_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
@@ -2202,12 +2211,13 @@ struct right_boundary_flux {
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of right_boundary_flux");
+    chain_level.fill(-1);
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
 
   separable_func<P> func;
-  std::array<int, max_num_dimensions> chain_level = {{-1}};
+  std::array<int, max_num_dimensions> chain_level = {-1};
 };
 
 /*!
@@ -2217,7 +2227,11 @@ struct right_boundary_flux {
  */
 template<typename P = default_precision>
 struct sym_boundary_flux {
-  explicit sym_boundary_flux(separable_func<P> f = nullptr) : func(std::move(f)) {}
+  explicit sym_boundary_flux(separable_func<P> f = nullptr)
+    : func(std::move(f))
+  {
+    chain_level.fill(-1);
+  }
 
   explicit sym_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
@@ -2225,12 +2239,13 @@ struct sym_boundary_flux {
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of sym_boundary_flux");
+    chain_level.fill(-1);
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
 
   separable_func<P> func;
-  std::array<int, max_num_dimensions> chain_level = {{-1}};
+  std::array<int, max_num_dimensions> chain_level = {-1};
 };
 
 /*!
@@ -2243,7 +2258,7 @@ template<typename P = default_precision>
 class boundary_flux {
 public:
   //! makes default, zero boundary flux
-  boundary_flux() = default;
+  boundary_flux() { ch_level_.fill(-1); }
   //! make a left boundary flux
   boundary_flux(left_boundary_flux<P> lbf)
     : side_(left_side), func_(std::move(lbf.func)), ch_level_(lbf.chain_level)
@@ -2279,7 +2294,7 @@ private:
 
   bf_mode side_ = unset;
   separable_func<P> func_;
-  std::array<int, max_num_dimensions> ch_level_ = {{-1}};
+  std::array<int, max_num_dimensions> ch_level_ = {-1};
 };
 
 /*!
