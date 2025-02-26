@@ -128,7 +128,7 @@ template<typename P>
 std::vector<P> legendre_basis<P>::project(
     bool is_interior, int level, P dsqrt, P alpha, std::vector<P> const &raw_data) const
 {
-  alpha *= dsqrt * fm::powi(std::sqrt(P{1} / P{2}), level);
+  alpha *= dsqrt * fm::powi(P{0.707106781186547}, level);
   int const num_cells = fm::ipow2(level);
 
   span2d<P const> raw;
@@ -140,24 +140,17 @@ std::vector<P> legendre_basis<P>::project(
   std::vector<P> lgn(num_cells * pdof);
   span2d<P> leg_basis(pdof, num_cells, lgn.data());
 
-  if (alpha == 1) {
-    #pragma omp parallel for
-    for (int i = 0; i < num_cells; i++) {
-      smmat::gemtv(num_quad, pdof, legw, raw[i], leg_basis[i]);
-    }
-  } else {
-    #pragma omp parallel for
-    for (int i = 0; i < num_cells; i++) {
-      smmat::gemtv(num_quad, pdof, legw, raw[i], leg_basis[i]);
-      smmat::scal(pdof, alpha, leg_basis[i]);
-    }
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells; i++) {
+    smmat::gemtv(num_quad, pdof, legw, raw[i], leg_basis[i]);
+    smmat::scal(pdof, alpha, leg_basis[i]);
   }
 
   return lgn;
 }
 
 template<typename P>
-std::vector<P> legendre_basis<P>::project(int level, P dsqrt, P alpha) const
+std::vector<P> legendre_basis<P>::project(int level, P alpha) const
 {
   int const num_cells = fm::ipow2(level);
 
@@ -174,6 +167,7 @@ template<typename P>
 std::vector<P> legendre_basis<P>::project(
     bool is_interior, int level, P dsqrt, std::vector<P> const &raw_data1, std::vector<P> &raw_data2) const
 {
+  dsqrt *= fm::powi(P{0.707106781186547}, level);
   int const num_cells = fm::ipow2(level);
 
   span2d<P const> raw1;
@@ -196,6 +190,7 @@ std::vector<P> legendre_basis<P>::project(
     for (int p = 0; p < pdof; p++)
       raw2[i][p] *= raw1[i][p];
     smmat::gemtv(num_quad, pdof, legw, raw2[i], leg_basis[i]);
+    smmat::scal(pdof, dsqrt, leg_basis[i]);
   }
 
   return lgn;

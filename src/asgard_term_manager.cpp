@@ -275,10 +275,10 @@ void term_manager<P>::update_const_sources(
     if (src.is_time_dependent() or src.is_edge_time())
       continue;
 
-    std::cout << " ------- next src -------------- \n";
-    for (size_t i = 0; i < src.consts[0].size(); i++) {
-      std::cout << src.consts[0][i] << "    " << src.consts[1][i] << "\n";
-    }
+    // std::cout << " ------- next src -------------- \n";
+    // for (size_t i = 0; i < src.consts[0].size(); i++) {
+    //   std::cout << src.consts[0][i] << "    " << src.consts[1][i] << "\n";
+    // }
 
     int const dim = (src.is_boundary()) ? src.dim() : -1;
 
@@ -499,11 +499,6 @@ void term_manager<P>::update_bc(
     if (bc.is_time_dependent())
       continue;
 
-    std::cout << " ------- next bc -------------- \n";
-    for (size_t i = 0; i < bc.consts[0].size(); i++) {
-      std::cout << bc.consts[0][i] << "    " << bc.consts[1][i] << "\n";
-    }
-
     bc.val.resize(num_entries);
 
     #pragma omp parallel
@@ -558,8 +553,6 @@ void term_manager<P>::apply_bc(
     connection_patterns const &, hierarchy_manipulator<P> const &hier,
     P time, P alpha, P y[])
 {
-  // update_bc(grid, conns, hier);
-
   int64_t const num_entries = grid.num_indexes() * hier.block_size();
 
   for (auto const &bc : bcs) {
@@ -575,7 +568,6 @@ void term_manager<P>::apply_bc(
             y[i] -= alpha * bc.val[i];
         break;
       case boundary_entry<P>::time_mode::separable: {
-          std::cout << " time-sep bc\n";
           P t = bc.flux.func().ftime(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             t *= alpha;
@@ -585,7 +577,8 @@ void term_manager<P>::apply_bc(
         }
         break;
       case boundary_entry<P>::time_mode::time_dependent:
-        std::cout << " time-dep bc\n";
+        rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
+                "separable in space, non-separable bc not yet implemented");
         // TIME DEPENDANT mess
         // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         //   hier.template project_separable<data_mode::increment>
@@ -774,22 +767,6 @@ void term_manager<P>::rebuld_term1d(
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
 
-  // if (t1d.is_identity()) {
-  //   // identity has only a simple case of boundary conditions
-  //   if (bc.is_boundary()) {
-  //     expect(bc.dim() != dim); // boundary must be in another direction
-  //     // the assumption here is that mass[dim] is empty
-  //     bc.consts[dim] = hier.get_project1d_c(1, mass[dim], dim, level);
-  //   }
-  //   if (tentry.bc.size() > 0) {
-  //     std::vector<P> ones = hier.get_project1d_c(1, mass[dim], dim, level);
-  //     for (int c = tentry.bc.begin; c < tentry.bc.end; c++)
-  //       bcs[c].consts[dim] = ones;
-  //       //bcs[c].consts[dim] = legendre.project(level, P{1});
-  //   }
-  //   return; // nothing to do about the matrix
-  // }
-
   bool is_diag = t1d.is_mass();
   if (t1d.is_chain()) {
     rebuld_chain(tentry, dim, level, is_diag, wraw_diag, wraw_tri, bc);
@@ -951,13 +928,11 @@ void term_manager<P>::build_raw_mat(
       break;
     case operation_type::penalty:
       expect(not t1d.rhs());
-      std::cout << " added penalty\n";
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
         (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
-    default:
-      // identity, nothing to do
-      std::cout << " skipped identity\n";
+    default: // case operation_type::identity:
+      // identity, nothing to do for the matrix, but may have to do boundary conditions
       break;
   }
 
@@ -1010,22 +985,16 @@ void term_manager<P>::build_raw_mat(
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
 
-    // std::cout << " b = " << b << " d = " << d << "  clink = " << clink << " chain-level = " << bentry.flux.chain_level(d) << "\n";
-
     if (bentry.flux.chain_level(d) > clink) {
       expect(not bentry.consts[d].empty());
       if (t1d.is_mass()) {
         raw_diag.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
-        // std::cout << " b = " << b << " chain mult diag at link = " << clink << "\n";
       } else {
         raw_tri.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
-        // std::cout << " b = " << b << " chain mult 3 at link = " << clink << "\n";
       }
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry
-      // std::cout << " b = " << b << " make new dir = " << d << "\n";
       if (tentry.flux_dim == d) {
-        // std::cout << "   d = " << d << " is flux dir\n";
         int const pdof = legendre.pdof;
 
         int64_t const num_cells = fm::ipow2(level);
@@ -1039,31 +1008,25 @@ void term_manager<P>::build_raw_mat(
 
         if (bentry.flux.is_left()) {
           P rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
-          std::cout << " b = " << b << " rhs-left = " << rhs_left << "\n";
-
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
           P const fc = bentry.flux.func().cdomain(d);
-          std::cout << "            fc = " << fc << "  scale = " << scale << "\n";
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, - rhs_left * scale, legendre.leg_left, bentry.consts[d].data());
           } else {
             smmat::axpy(pdof, - rhs_left * scale * fc, legendre.leg_left, bentry.consts[d].data());
           }
-          //std::cout << " setting left\n";
         }
 
         if (bentry.flux.is_right()) {
           P rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
-          std::cout << " b = " << b << " rhs-right = " << rhs_right << "\n";
 
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
 
           P const fc = bentry.flux.func().cdomain(d);
-          std::cout << "            fc = " << fc << "  scale = " << scale << "\n";
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, rhs_right * scale, legendre.leg_right,
@@ -1072,14 +1035,8 @@ void term_manager<P>::build_raw_mat(
             smmat::axpy(pdof, rhs_right * scale * fc, legendre.leg_right,
                         bentry.consts[d].data() + num_entries - pdof);
           }
-          // std::cout << " setting right\n";
         }
       } else {
-        // std::cout << "   d = " << d << " is non-flux dir\n";
-        // this is a rhs combined with a derivative in a different direction
-        // build the legendre (not-hierarchical) entries, the mass matrix should be applied in rebuld_term1d
-        // and then the hierarchy rebuild
-
         if (bentry.is_time_dependent()) // no constant components to pre-compute
           continue;
 
@@ -1090,7 +1047,7 @@ void term_manager<P>::build_raw_mat(
             bentry.consts[d] = legendre.project(t1d.is_mass(), level, dsqr,
                                                 bentry.flux.func().cdomain(d), raw_rhs.vals);
           } else { // constant times a constant
-            bentry.consts[d] = legendre.project(level, dsqr, bentry.flux.func().cdomain(d) * t1d.rhs_const());
+            bentry.consts[d] = legendre.project(level, bentry.flux.func().cdomain(d) * t1d.rhs_const());
           }
         } else {
           if (t1d.rhs()) { // product of non-consts
@@ -1103,12 +1060,7 @@ void term_manager<P>::build_raw_mat(
             raw_rhs.vals.resize(raw_rhs.pnts.size());
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, raw_rhs.vals);
             bool constexpr use_interior = true;
-            std::cout << " FUNC EVAL\n";
-            // for (size_t i = 0; i < raw_rhs.pnts.size(); i++)
-            //   std::cout << raw_rhs.pnts[i] << "    " << raw_rhs.vals[i] << "\n";
             bentry.consts[d] = legendre.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
-            for (auto q : bentry.consts[d])
-              std::cout << q << "\n";
           }
         }
       }

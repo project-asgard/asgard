@@ -31,8 +31,6 @@ exename=$1
 
 shift
 
-echo $1
-
 ./$exename $@ -of _plt.h5
 
 @Python_EXECUTABLE@ -m asgard _plt.h5 $plt_opts

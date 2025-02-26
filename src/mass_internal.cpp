@@ -14,6 +14,9 @@
  * \endinternal
  */
 
+// left/right/both/none/periodic
+// mass -> volume  term_volume{2}
+
 // The PDE is:
 // exp(-x^2) cos(y) df/dt + cos(x) df/dx + y df/dy = sources
 // f = sin(x) cos(y) exp(-t)

@@ -78,7 +78,7 @@ struct legendre_basis {
   std::vector<P> project(bool is_interior, int level, P dsqrt,
                          std::vector<P> const &raw1, std::vector<P> &raw2) const;
   //! project the constant onto the legendre basis
-  std::vector<P> project(int level, P dsqrt, P alpha) const;
+  std::vector<P> project(int level, P alpha) const;
 };
 
 

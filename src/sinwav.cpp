@@ -108,20 +108,28 @@ asgard::PDEv2<P> make_sinwav_pde(asgard::prog_opts options) {
     auto sine = [=](P t)-> P { return std::sin(-2 * PI * t); };
 
     asgard::term_1d<P> div1 = asgard::term_div<P>(
-        1, asgard::flux_type::upwind, asgard::boundary_type::right_free,
-        asgard::dirichelt_boundary1d<P>{sine, 0});
+        1, asgard::flux_type::upwind, asgard::boundary_type::right_free);
 
-    pde += div1;
+    asgard::term_md<P> div1_md({div1, });
+
+    asgard::separable_func<P> bc(std::vector<P>{1, }, sine);
+    div1_md += asgard::left_boundary_flux{bc};
+
+    pde += div1_md;
   }
   else
   {
     auto sine = [=](P t)-> P { return std::sin(2 * PI * t); };
 
     asgard::term_1d<P> div1 = asgard::term_div<P>(
-        -1, asgard::flux_type::upwind, asgard::boundary_type::left_free,
-        asgard::dirichelt_boundary1d<P>{0, sine});
+        -1, asgard::flux_type::upwind, asgard::boundary_type::left_free);
 
-    pde += div1;
+    asgard::term_md<P> div1_md({div1, });
+
+    asgard::separable_func<P> bc(std::vector<P>{1, }, sine);
+    div1_md += asgard::right_boundary_flux{bc};
+
+    pde += div1_md;
   }
 
   // no sources, initial condition is zero
