@@ -554,7 +554,6 @@ void term_manager<P>::apply_bc(
   for (auto const &bc : bcs) {
     switch (bc.tmode) {
       case boundary_entry<P>::time_mode::constant:
-        std::cout << "expected = " << num_entries << " has = " <<  bc.val.size() << "\n";
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < num_entries; i++)
