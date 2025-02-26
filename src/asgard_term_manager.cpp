@@ -763,20 +763,21 @@ void term_manager<P>::rebuld_term1d(
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
 
-  if (t1d.is_identity()) {
-    // identity has only a simple case of boundary conditions
-    if (bc.is_boundary()) {
-      expect(bc.dim() != dim); // boundary must be in another direction
-      // the assumption here is that mass[dim] is empty
-      bc.consts[dim] = hier.get_project1d_c(1, mass[dim], dim, level);
-    }
-    if (tentry.bc.size() > 0) {
-      std::vector<P> ones = hier.get_project1d_c(1, mass[dim], dim, level);
-      for (int c = tentry.bc.begin; c < tentry.bc.end; c++)
-        bcs[c].consts[dim] = ones;
-    }
-    return; // nothing to do about the matrix
-  }
+  // if (t1d.is_identity()) {
+  //   // identity has only a simple case of boundary conditions
+  //   if (bc.is_boundary()) {
+  //     expect(bc.dim() != dim); // boundary must be in another direction
+  //     // the assumption here is that mass[dim] is empty
+  //     bc.consts[dim] = hier.get_project1d_c(1, mass[dim], dim, level);
+  //   }
+  //   if (tentry.bc.size() > 0) {
+  //     std::vector<P> ones = hier.get_project1d_c(1, mass[dim], dim, level);
+  //     for (int c = tentry.bc.begin; c < tentry.bc.end; c++)
+  //       bcs[c].consts[dim] = ones;
+  //       //bcs[c].consts[dim] = legendre.project(level, P{1});
+  //   }
+  //   return; // nothing to do about the matrix
+  // }
 
   bool is_diag = t1d.is_mass();
   if (t1d.is_chain()) {
@@ -816,14 +817,16 @@ void term_manager<P>::rebuld_term1d(
   }
 
   // the build/rebuild put the result in raw_diag or raw_tri
-  if (is_diag) {
-    if (bmass)
-      bmass->solve(n, wraw_diag);
-    tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
-  } else {
-    if (bmass)
-      bmass->solve(n, wraw_tri);
-    tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
+  if (not t1d.is_identity()) {
+    if (is_diag) {
+      if (bmass)
+        bmass->solve(n, wraw_diag);
+      tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
+    } else {
+      if (bmass)
+        bmass->solve(n, wraw_tri);
+      tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
+    }
   }
 
   if (bc.is_boundary()) {
@@ -941,7 +944,7 @@ void term_manager<P>::build_raw_mat(
         (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
     default:
-      // must be unreachable
+      // identity, nothing to do
       break;
   }
 
@@ -1002,7 +1005,6 @@ void term_manager<P>::build_raw_mat(
         raw_tri.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry
-      std::cout << "  tentry.flux_dim = " << tentry.flux_dim << "  d = " << d << "\n";
       if (tentry.flux_dim == d) {
         int const pdof = legendre.pdof;
 
@@ -1027,7 +1029,6 @@ void term_manager<P>::build_raw_mat(
           } else {
             smmat::axpy(pdof, - rhs_left * scale * fc, legendre.leg_left, bentry.consts[d].data());
           }
-          std::cout << " setting left\n";
         }
 
         if (bentry.flux.is_right()) {
