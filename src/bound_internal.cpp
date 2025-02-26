@@ -54,17 +54,9 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
   PDEv2<P> pde(options, std::move(domain));
 
-  term_1d<P> div = []() -> term_1d<P> {
-      if constexpr (std::is_same_v<btype, type_left>) {
-        return term_div<P>(1, flux_type::upwind, boundary_type::dirichlet);
-                           //dirichelt_boundary1d<P>{1, 2});
-      } else {
-        return term_div<P>(1, flux_type::upwind, boundary_type::dirichlet);
-                           //dirichelt_boundary1d<P>{0, 1});
-      }
-    }();
+  term_1d<P> div = term_div<P>(1, flux_type::upwind, boundary_type::dirichlet);
 
-  div.set_penalty(P{1} / pde.min_cell_size());
+  // div.set_penalty(P{1} / pde.min_cell_size());
 
   if constexpr (std::is_same_v<btype, type_left>) {
     // the multi-dimensional divergence, initially set to identity in md
@@ -91,6 +83,14 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     div_md += right_boundary_flux{bc};
 
     pde += div_md;
+
+    ops[dim] = term_penalty<P>(P{1} / pde.min_cell_size(), flux_type::upwind, boundary_type::dirichlet);
+    term_md<P> pen_md(ops);
+    pen_md += right_boundary_flux{bc};
+
+    pde += pen_md;
+
+    std::cout << " NUM TERMS " << pde.terms().size() << "\n";
   }
 
   auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
@@ -303,6 +303,8 @@ R"help(<< additional options for this file >>
                       : make_side_pde<P, type_right>(num_dims, num_div, options);
 
     disc.emplace(std::move(pde), verbosity_level::low);
+
+    disc->set_current_state(std::vector<P>(disc->current_state().size(), P{0}));
   }
 
   disc->advance_time();
@@ -328,7 +330,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   auto pde = (left) ? make_side_pde<P, type_left>(num_dims, dv, options)
                     : make_side_pde<P, type_right>(num_dims, dv, options);
 
-  discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
+  discretization_manager<P> disc(std::move(pde), verbosity_level::high);
 
   // make sure there's something to solve
   disc.set_current_state(std::vector<P>(disc.current_state().size(), P{0}));
