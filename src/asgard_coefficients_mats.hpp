@@ -41,11 +41,11 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
       case boundary_type::free:
         boundary = boundary_type::bothsides;
         break;
-      case boundary_type::left_free:
+      case boundary_type::right:
         boundary = boundary_type::right_free;
         break;
       case boundary_type::right_free:
-        boundary = boundary_type::left_free;
+        boundary = boundary_type::right;
         break;
       default: // periodic, do nothing since it is symmetric anyway
         break;
@@ -196,7 +196,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 
         switch (boundary) {
           case boundary_type::bothsides:
-          case boundary_type::left_free: // dirichelt on the right
+          case boundary_type::right: // dirichelt on the right
             smmat::axpy(nblock, escale * rhs_const, basis.to_right, coeff.diag(rmost));
             break;
           case boundary_type::periodic:
@@ -212,7 +212,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
         // look at the left-boundary
         switch (boundary) {
           case boundary_type::free:
-          case boundary_type::left_free: // free on the left
+          case boundary_type::right: // free on the left
             smmat::axpy(nblock, -escale * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[0][0]), basis.to_left, coeff.diag(0));
             break;
           case boundary_type::periodic: {

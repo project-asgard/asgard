@@ -114,7 +114,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
   {
     // fixed boundary set to the div term corresponds to Neumann boundary
     asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-                                                 asgard::boundary_type::left_free);
+                                                 asgard::boundary_type::right);
     // fixed boundary set to the grad term corresponds to Dirichlet boundary
     asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
                                                    asgard::boundary_type::right_free);
@@ -188,7 +188,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
       // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
       asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-                                                     asgard::boundary_type::left_free);
+                                                     asgard::boundary_type::right);
       // merge the div and grad terms
       asgard::term_1d<P> fxx({div, grad});
 

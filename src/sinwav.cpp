@@ -122,7 +122,7 @@ asgard::PDEv2<P> make_sinwav_pde(asgard::prog_opts options) {
     auto sine = [=](P t)-> P { return std::sin(2 * PI * t); };
 
     asgard::term_1d<P> div1 = asgard::term_div<P>(
-        -1, asgard::flux_type::upwind, asgard::boundary_type::left_free);
+        -1, asgard::flux_type::upwind, asgard::boundary_type::right);
 
     asgard::term_md<P> div1_md({div1, });
 
