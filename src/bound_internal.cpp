@@ -84,7 +84,8 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
     pde += div_md;
 
-    ops[dim] = term_penalty<P>(P{1} / pde.min_cell_size(), flux_type::upwind, boundary_type::dirichlet);
+    ops[dim] = term_penalty<P>(P{1} / pde.min_cell_size(), flux_type::upwind,
+                               boundary_type::dirichlet);
     term_md<P> pen_md(ops);
     pen_md += right_boundary_flux{bc};
 
