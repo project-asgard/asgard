@@ -1883,8 +1883,7 @@ private:
  * an always positive coefficient.
  */
 template<typename P = default_precision>
-class mass_md
-{
+class mass_md {
 public:
   //! constructs an empty term, nothing selected
   mass_md() = default;
@@ -1945,12 +1944,15 @@ private:
  */
 template<typename P = default_precision>
 struct left_boundary_flux {
-  explicit left_boundary_flux(separable_func<P> f = nullptr)
+  //! make a null term, will have to be reinitialized
+  left_boundary_flux() = default;
+  //! set boundary condition with the given separable function
+  explicit left_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
     chain_level.fill(-1);
   }
-
+  //! create a new term and set the chain levels
   explicit left_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
@@ -1961,8 +1963,9 @@ struct left_boundary_flux {
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
-
+  //! the separable function
   separable_func<P> func;
+  //! the chain levels
   std::array<int, max_num_dimensions> chain_level;
 };
 
@@ -1973,12 +1976,15 @@ struct left_boundary_flux {
  */
 template<typename P = default_precision>
 struct right_boundary_flux {
-  explicit right_boundary_flux(separable_func<P> f = nullptr)
+  //! make a null term, will have to be reinitialized
+  right_boundary_flux() = default;
+  //! set boundary condition with the given separable function
+  explicit right_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
     chain_level.fill(-1);
   }
-
+  //! create a new term and set the chain levels
   explicit right_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
@@ -1989,8 +1995,9 @@ struct right_boundary_flux {
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
-
+  //! the separable function
   separable_func<P> func;
+  //! the chain levels
   std::array<int, max_num_dimensions> chain_level = {-1};
 };
 
@@ -1998,15 +2005,23 @@ struct right_boundary_flux {
  * \ingroup asgard_pde_definition
  * \brief Helper struct to make boundary_flux and set both left and right flags
  *
+ * This is useful when the boundary condition at the left and right points
+ * have exactly the same value.
+ * If the term is using boundary_type::bothsides but the left and right
+ * values are different, then left_boundary_flux and right_boundary_flux
+ * have to be specified separately.
  */
 template<typename P = default_precision>
 struct sym_boundary_flux {
-  explicit sym_boundary_flux(separable_func<P> f = nullptr)
+  //! make a null term, will have to be reinitialized
+  sym_boundary_flux() = default;
+  //! set boundary condition with the given separable function
+  explicit sym_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
     chain_level.fill(-1);
   }
-
+  //! create a new term and set the chain levels
   explicit sym_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
@@ -2017,8 +2032,9 @@ struct sym_boundary_flux {
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
-
+  //! the separable function
   separable_func<P> func;
+  //! the chain levels
   std::array<int, max_num_dimensions> chain_level = {-1};
 };
 
