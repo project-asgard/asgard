@@ -1358,8 +1358,8 @@ enum class boundary_type
   free,
   //! fixed flux on the right end of the boundary
   right,
-  //! free boundary on the right, Dirichlet on the left
-  right_free,
+  //! fixed flux on the left end of the boundary
+  left,
 };
 
 /*!

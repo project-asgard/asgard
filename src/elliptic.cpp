@@ -117,7 +117,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
                                                  asgard::boundary_type::right);
     // fixed boundary set to the grad term corresponds to Dirichlet boundary
     asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-                                                   asgard::boundary_type::right_free);
+                                                   asgard::boundary_type::left);
 
     // the multi-dimensional operator, initially set to identity in md
     std::vector<asgard::term_1d<P>> ops(num_dims);
@@ -184,7 +184,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
       // think of this as imposing Dirichlet condition on the output of the grad term
       // and the output of the grad term is the derivative of the field
       asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-                                                   asgard::boundary_type::right_free);
+                                                   asgard::boundary_type::left);
 
       // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
       asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
