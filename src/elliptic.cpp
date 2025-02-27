@@ -394,12 +394,6 @@ R"help(<< additional options for this file >>
 
   asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::low);
 
-  // std::vector<P> src(disc.current_state().size());
-  // disc.set_ode_rhs_sources(0, src);
-  //
-  // for (auto s : src)
-  //   std::cout << s << "\n";
-
   disc.advance_time();
 
   disc.final_output();
