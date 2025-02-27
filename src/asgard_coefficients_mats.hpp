@@ -21,7 +21,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                   sfixed_func1d<P> const &rhs, P const rhs_const, flux_type flux,
                   boundary_type boundary, rhs_raw_data<P> &rhs_raw, block_tri_matrix<P> &coeff)
 {
-  static_assert(optype != operation_type::mass
+  static_assert(optype != operation_type::volume
                 and optype != operation_type::identity
                 and optype != operation_type::chain,
                 "identity, mass and chain operations yield diagonal matrices, "
@@ -33,19 +33,19 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                 "cannot use spatially dependant penalty term");
 
   if constexpr (optype == operation_type::grad) {
-    // the grad operation flips the dirichlet and free boundayr conditions
+    // the grad operation flips the fixed and free boundary conditions
     switch (boundary) {
-      case boundary_type::dirichlet:
-        boundary = boundary_type::free;
+      case boundary_type::bothsides:
+        boundary = boundary_type::none;
         break;
-      case boundary_type::free:
-        boundary = boundary_type::dirichlet;
+      case boundary_type::none:
+        boundary = boundary_type::bothsides;
         break;
-      case boundary_type::left_free:
-        boundary = boundary_type::right_free;
+      case boundary_type::right:
+        boundary = boundary_type::left;
         break;
-      case boundary_type::right_free:
-        boundary = boundary_type::left_free;
+      case boundary_type::left:
+        boundary = boundary_type::right;
         break;
       default: // periodic, do nothing since it is symmetric anyway
         break;
@@ -174,8 +174,8 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
       if constexpr (optype == operation_type::penalty)
       {
         switch (boundary) {
-          case boundary_type::dirichlet:
-          case boundary_type::right_free: // dirichelt on the left
+          case boundary_type::bothsides:
+          case boundary_type::left: // dirichelt on the left
             smmat::axpy(nblock, escale * rhs_const, basis.to_left, coeff.diag(0));
             break;
           case boundary_type::periodic:
@@ -195,8 +195,8 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
         }
 
         switch (boundary) {
-          case boundary_type::dirichlet:
-          case boundary_type::left_free: // dirichelt on the right
+          case boundary_type::bothsides:
+          case boundary_type::right: // dirichelt on the right
             smmat::axpy(nblock, escale * rhs_const, basis.to_right, coeff.diag(rmost));
             break;
           case boundary_type::periodic:
@@ -211,8 +211,8 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
       {
         // look at the left-boundary
         switch (boundary) {
-          case boundary_type::free:
-          case boundary_type::left_free: // free on the left
+          case boundary_type::none:
+          case boundary_type::right: // free on the left
             smmat::axpy(nblock, -escale * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[0][0]), basis.to_left, coeff.diag(0));
             break;
           case boundary_type::periodic: {
@@ -242,8 +242,8 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 
         // look at the right-boundary
         switch (boundary) {
-          case boundary_type::free:
-          case boundary_type::right_free: // free on the right
+          case boundary_type::none:
+          case boundary_type::left: // free on the right
             smmat::axpy(nblock, escale * ((rtype == rhs_type::is_const) ? rhs_const : rhs_raw.vals.back()), basis.to_right, coeff.diag(rmost));
             break;
           case boundary_type::periodic: {
@@ -278,7 +278,7 @@ template<typename P, operation_type optype>
 void gen_diag_cmat(legendre_basis<P> const &basis, int level,
                    P const rhs_const, block_diag_matrix<P> &coeff)
 {
-  static_assert(optype == operation_type::mass,
+  static_assert(optype == operation_type::volume,
                 "only mass matrices should be used to create mass terms");
 
   int const num_cells = fm::ipow2(level);
@@ -331,7 +331,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                    block_diag_matrix<P> &coeff)
 {
   ignore(rhs_f);
-  static_assert(optype == operation_type::mass,
+  static_assert(optype == operation_type::volume,
                 "only mass matrices should be used to create mass terms");
 
   int const num_cells = fm::ipow2(level);
@@ -351,7 +351,6 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 #pragma omp parallel for
     for (int i = 0; i < num_cells; i++) {
       P const l = xleft + i * dx; // left edge of cell i
-      rhs_pnts[i * basis.num_quad] = l;
       for (int k = 0; k < basis.num_quad; k++)
         rhs_pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
     }

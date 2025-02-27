@@ -54,22 +54,38 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
   PDEv2<P> pde(options, std::move(domain));
 
-  term_1d<P> div = []() -> term_1d<P> {
-      if constexpr (std::is_same_v<btype, type_left>) {
-        return term_div<P>(1, flux_type::upwind, boundary_type::dirichlet,
-                           dirichelt_boundary1d<P>{1, 2});
-      } else {
-        return term_div<P>(1, flux_type::central, boundary_type::dirichlet,
-                           dirichelt_boundary1d<P>{0, 1});
-      }
-    }();
+  term_1d<P> div = term_div<P>(1, flux_type::upwind, boundary_type::bothsides);
 
   div.set_penalty(P{1} / pde.min_cell_size());
 
-  // the multi-dimensional divergence, initially set to identity in md
-  std::vector<term_1d<P>> ops(num_dims);
-  ops[dim] = div;
-  pde += ops;
+  if constexpr (std::is_same_v<btype, type_left>) {
+    // the multi-dimensional divergence, initially set to identity in md
+    std::vector<term_1d<P>> ops(num_dims);
+    ops[dim] = div;
+
+    term_md<P> div_md(ops);
+
+    separable_func<P> lbc(std::vector<P>(num_dims, 1));
+    separable_func<P> rbc(std::vector<P>(num_dims, 1));
+    rbc.set_cdomain(dim, 2);
+
+    div_md += left_boundary_flux{lbc};
+    div_md += right_boundary_flux{rbc};
+
+    pde += div_md;
+
+  } else {
+    std::vector<term_1d<P>> ops(num_dims);
+    ops[dim] = div;
+
+    term_md<P> div_md(ops);
+
+    separable_func<P> bc(std::vector<P>(num_dims, 1));
+
+    div_md += right_boundary_flux{bc};
+
+    pde += div_md;
+  }
 
   auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
     void {
@@ -117,15 +133,15 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
 
   PDEv2<P> pde(options, std::move(domain));
 
-  term_1d<P> div  = term_div<P>(-1, flux_type::upwind, boundary_type::free);
-  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::dirichlet);
+  term_1d<P> div  = term_div<P>(-1, flux_type::upwind, boundary_type::none);
+  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::bothsides);
 
   term_1d<P> diffusion({div, grad});
 
   int const max_level = options.max_level();
   P const dx = domain.min_cell_size(max_level);
 
-  term_1d<P> penalty = term_penalty<P>(P{1} / dx, flux_type::upwind, boundary_type::dirichlet);
+  term_1d<P> penalty = term_penalty<P>(P{1} / dx, flux_type::upwind, boundary_type::bothsides);
 
   std::vector<term_1d<P>> ops(num_dims);
   for (int d = 0; d < num_dims; d++)
@@ -281,6 +297,8 @@ R"help(<< additional options for this file >>
                       : make_side_pde<P, type_right>(num_dims, num_div, options);
 
     disc.emplace(std::move(pde), verbosity_level::low);
+
+    disc->set_current_state(std::vector<P>(disc->current_state().size(), P{0}));
   }
 
   disc->advance_time();

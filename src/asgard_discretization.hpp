@@ -166,27 +166,32 @@ public:
     }{
       tools::time_event performance_("ode-rhs sources");
       terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, R);
+      //terms.template apply_bc<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, R);
     }
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::replace>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+    //terms.template apply_bc<data_mode::replace>(pde2.domain(), sgrid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::scal_rep>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+    //terms.template apply_bc<data_mode::scal_rep>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+    //terms.template apply_bc<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+    //terms.template apply_bc<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
   }
 
   //! applies all terms

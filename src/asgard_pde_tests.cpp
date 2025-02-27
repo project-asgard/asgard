@@ -58,14 +58,14 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   }
 
   SECTION("term_1d - mass") {
-    term_1d<TestType> ptM = term_mass<TestType>{3.5};
+    term_1d<TestType> ptM = term_volume<TestType>{3.5};
     REQUIRE_FALSE(ptM.is_identity());
     REQUIRE(ptM.rhs_const() == 3.5);
-    REQUIRE(term_1d<TestType>(term_mass<TestType>{rhs}).rhs()); // loaded a function
+    REQUIRE(term_1d<TestType>(term_volume<TestType>{rhs}).rhs()); // loaded a function
   }
 
   SECTION("term_1d - div") {
-    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
     REQUIRE_FALSE(ptD.is_identity());
     REQUIRE(ptD.is_div());
     REQUIRE(ptD.optype() == operation_type::div);
@@ -76,7 +76,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   }
 
   SECTION("term_1d - grad") {
-    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::free};
+    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::none};
     REQUIRE_FALSE(ptG.is_identity());
     REQUIRE(ptG.is_grad());
     REQUIRE(ptG.optype() == operation_type::grad);
@@ -101,8 +101,8 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     REQUIRE_FALSE(term_1d<TestType>({ptI, ptI}).is_chain());
     REQUIRE(term_1d<TestType>({ptI, ptI}).num_chain() == 0);
 
-    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
-    term_1d<TestType> ptG = term_div<TestType>{mhs, flux_type::downwind, boundary_type::dirichlet};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
+    term_1d<TestType> ptG = term_div<TestType>{mhs, flux_type::downwind, boundary_type::bothsides};
 
     REQUIRE_FALSE(term_1d<TestType>({ptI, ptD}).is_chain());
     REQUIRE(term_1d<TestType>({ptI, ptD}).is_div());
@@ -118,10 +118,10 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
 
   SECTION("term_1d - extra") {
     term_1d<TestType> ptI;
-    term_1d<TestType> ptM = term_mass<TestType>(3);
-    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
-    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::dirichlet};
-    term_1d<TestType> ptGc = term_grad<TestType>{3.5, flux_type::central, boundary_type::dirichlet};
+    term_1d<TestType> ptM = term_volume<TestType>(3);
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
+    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::bothsides};
+    term_1d<TestType> ptGc = term_grad<TestType>{3.5, flux_type::central, boundary_type::bothsides};
 
     REQUIRE(term_1d<TestType>({ptI, ptD, ptM}).num_chain() == 2);
     REQUIRE(term_1d<TestType>({ptG, ptI, ptM, ptD, ptM}).num_chain() == 4);
@@ -132,14 +132,14 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
 
     term_1d<TestType> chain({ptI, ptG, ptM, ptD, ptM});
     REQUIRE(chain[0].optype() == operation_type::grad);
-    REQUIRE(chain.chain()[1].optype() == operation_type::mass);
+    REQUIRE(chain.chain()[1].optype() == operation_type::volume);
     REQUIRE(chain[2].optype() == operation_type::div);
-    REQUIRE(chain[3].optype() == operation_type::mass);
+    REQUIRE(chain[3].optype() == operation_type::volume);
   }
 
   SECTION("term_md") {
     term_1d<TestType> ptI = term_identity{};
-    term_1d<TestType> ptM = term_mass<TestType>{3.5};
+    term_1d<TestType> ptM = term_volume<TestType>{3.5};
 
     REQUIRE(term_md<TestType>({ptM, ptI}).num_dims() == 2);
     REQUIRE(term_md<TestType>({ptM, ptI}).term_mode() == term_md<TestType>::mode::separable);
@@ -195,7 +195,7 @@ TEMPLATE_TEST_CASE("pde v2", "[pde]", test_precs)
     REQUIRE(pde.mass().is_identity());
     // REQUIRE_THROWS_WITH(pde.set_mass(term_md<TestType>{}),
     //                     "the mass term must be separable");
-    pde.set_mass({term_mass{2}, term_mass{3}});
+    pde.set_mass({term_volume{2}, term_volume{3}});
     REQUIRE_FALSE(pde.mass().dim(0).is_identity());
     REQUIRE(pde.mass().dim(0).rhs_const() == 2);
     REQUIRE_FALSE(pde.mass().dim(1).is_identity());

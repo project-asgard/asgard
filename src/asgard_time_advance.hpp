@@ -291,7 +291,7 @@ struct time_advance_manager
       };
     }
   }
-
+  //! returns the count the iterations of the iterative solver, -1 if using a direct solver
   int64_t solver_iterations() const {
     switch (method.index()) {
       case 0:
@@ -302,7 +302,7 @@ struct time_advance_manager
         return -1;
     };
   }
-
+  //! returns true of the stepper is set to steady-state
   bool is_steady_state() const { return (method.index() == 0); }
 
   //! holds the common time-stepping parameters
