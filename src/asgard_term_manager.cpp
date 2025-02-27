@@ -117,9 +117,9 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
 
   // check if we need to keep the intermediate terms from matrix builds
   for (auto &tt : terms) {
-    tt.bc.begin = num_bc;
+    tt.bc.begin_ = num_bc;
     num_bc += static_cast<int>(tt.tmd.bc_flux_.size());
-    tt.bc.end = num_bc;
+    tt.bc.end_ = num_bc;
   }
 
   bcs.reserve(num_bc);
@@ -534,7 +534,7 @@ void term_manager<P>::rebuld_term1d(
   }
 
   // apply the mass matrices and convert to hierarchical form
-  for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+  for (int b : indexrange{tentry.bc}) {
     boundary_entry<P> &bentry = bcs[b];
     if (not bentry.consts[dim].empty()) {
       // will be empty if non-flux direction and non-separable in time
@@ -631,7 +631,7 @@ void term_manager<P>::build_raw_mat(
       break;
   }
 
-  for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+  for (int b : indexrange(tentry.bc)) {
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
 
@@ -848,7 +848,7 @@ void term_manager<P>::rebuld_chain(
     (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
       t1d.chain_.back().boundary(), raw_rhs, raw_tri);
 
-  for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+  for (int b : indexrange(tentry.bc)) {
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
 

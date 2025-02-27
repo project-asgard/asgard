@@ -362,6 +362,9 @@ struct index_iterator
  *
  * At -O3 Godbolt compiler profile yields the same code as for the constructs
  * for-indexof and the regular for-loop.
+ *
+ * Not sure how this relates to vectorization for small-matrix operations
+ * and the construct is incompatible with OpenMP for and simd pragmas.
  */
 template<typename idx_type = int64_t>
 struct indexof
@@ -393,5 +396,35 @@ struct indexof
 
 //! Alias for the regular int-case, saves on typing when using smaller ranges
 using iindexof = indexof<int>;
+
+
+/*!
+ * \brief Allows for range for-loops but using indexes
+ *
+ * This construct is similar to asgard::indexof but it focuses on working
+ * with slices of vectors (as opposed to entire vectors).
+ * The index-range defaults to int although it can use larger indexes.
+ */
+template<typename idx_type = int>
+struct indexrange
+{
+  template<typename range_type>
+  indexrange(range_type const &r)
+      : beg_(r.begin()), end_(r.end())
+  {}
+  indexrange(idx_type b, idx_type e)
+      : beg_(b), end_(e)
+  {}
+  indexrange(int e)
+      : beg_(0), end_(e)
+  {}
+
+  index_iterator<idx_type> begin() const { return index_iterator<idx_type>{beg_}; }
+  index_iterator<idx_type> end() const { return index_iterator<idx_type>{end_}; }
+
+  idx_type beg_;
+  idx_type end_;
+};
+
 
 } // namespace asgard

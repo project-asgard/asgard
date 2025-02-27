@@ -28,11 +28,15 @@ struct mom_deps {
 //! \brief holds the range of the boundary conditions, begin/end
 struct bcs_range {
   //! first index of the boundary conditions
-  int begin = 0;
+  int begin_ = 0;
   //! one after the last index of the boundary conditions
-  int end   = 0;
+  int end_   = 0;
   //! returns the number of boundary conditions
-  int size() const { return (end - begin); }
+  int size() const { return (end_ - begin_); }
+  //! returns the begin index
+  int begin() const { return begin_; }
+  //! returns the end index
+  int end() const { return end_; }
 };
 
 //! \brief Combines a term with data used for linear operations

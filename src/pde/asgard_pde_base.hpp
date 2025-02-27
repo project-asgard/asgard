@@ -1468,13 +1468,9 @@ struct term_div {
  */
 template<typename P = default_precision>
 struct term_penalty {
-  //! make a grad term with constant coefficient
+  //! make a penalty term with constant coefficient
   term_penalty(no_deduce<P> cc, flux_type flx, boundary_type bnd)
     : const_coeff(cc), flux(flx), boundary(bnd)
-  {}
-  //! make a grad term with constant coefficient 1
-  term_penalty(flux_type flx, boundary_type bnd)
-    : const_coeff(1), flux(flx), boundary(bnd)
   {}
 
   //! constant coefficient, if left/right-hand-side functions are null
@@ -2430,6 +2426,7 @@ inline std::ostream &operator<<(std::ostream &os, time_data<P> const &dtime)
   return os;
 }
 
+#ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \ingroup asgard_pde_definition
  * \brief Contains shorthand notation for common operators
@@ -2455,8 +2452,8 @@ struct divergence {
   std::vector<double> coeffs;
 };
 
-
-}
+} // namespace::operators
+#endif
 
 /*!
  * \ingroup asgard_pde_definition
