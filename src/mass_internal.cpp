@@ -14,9 +14,6 @@
  * \endinternal
  */
 
-// left/right/both/none/periodic
-// mass -> volume  term_volume{2}
-
 // The PDE is:
 // exp(-x^2) cos(y) df/dt + cos(x) df/dx + y df/dy = sources
 // f = sin(x) cos(y) exp(-t)
@@ -140,6 +137,7 @@ int main(int argc, char** argv)
   // if help was selected in the command line, show general information about
   // this example runs 2D problem, testing does more options
   if (options.show_help) {
+    std::cout << "\n NOT FULLY IMPLEMENTED YET \n";
     std::cout << "\n solves a messy testing pde:\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);

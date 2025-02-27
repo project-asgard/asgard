@@ -1384,13 +1384,13 @@ enum class operation_type
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Intermediate container for an identity mass term
+ * \brief Intermediate container for an identity term
  */
 struct term_identity {};
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Intermediate container for a mass term
+ * \brief Intermediate container for a volume term, no boundary or flux types
  */
 template<typename P = default_precision>
 struct term_volume {
@@ -1875,10 +1875,12 @@ private:
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Separable mass term, i.e., num-dims mass 1d terms
+ * \brief Separable mass term, i.e., num-dims volume 1d terms
  *
- * A regular term_1d that is mass or a term_md with with mass terms can depend on time,
- * e.g., via moments. The mass-md term contains only mass terms that are time-independent
+ * A regular term_1d that is volume or a term_md with with mass terms can depend on time,
+ * e.g., via moments, or can be negative in some areas of the domain.
+ * The mass-md term contains only volume terms that are time-independent and have
+ * an always positive coefficient.
  */
 template<typename P = default_precision>
 class mass_md
