@@ -129,7 +129,7 @@ TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
   }
 
   gen_tri_cmat<P, operation_type::div, rhs_type::is_const>(
-      basis, 0, 1, level, nullptr, 1, flux_type::central, boundary_type::free, rhs_raw, mat);
+      basis, 0, 1, level, nullptr, 1, flux_type::central, boundary_type::none, rhs_raw, mat);
 
   std::vector<P> const ref = {0, -4, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4,
                               -4, 0, 4, -4, 0, 4, -4, 4, 0};

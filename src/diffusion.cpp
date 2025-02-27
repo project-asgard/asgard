@@ -135,9 +135,10 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 
   // one dimensional divergence term using upwind flux
   // setting fixed condition here will in fact yield Neumann boundary condition
-  // for the combined operator and onto the field
-  asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-                                               asgard::boundary_type::free);
+  // leaving the boundary_type unspecified will result in boundary_type::none
+  // which does not impose constraints on the flux, i.e., let the problem
+  // dynamics determine the actual numeric value
+  asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind);
 
   // fixed conditions applied to the grad term apply Dirichlet condition
   // for the combined operator and respectively the field

@@ -36,9 +36,9 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
     // the grad operation flips the fixed and free boundary conditions
     switch (boundary) {
       case boundary_type::bothsides:
-        boundary = boundary_type::free;
+        boundary = boundary_type::none;
         break;
-      case boundary_type::free:
+      case boundary_type::none:
         boundary = boundary_type::bothsides;
         break;
       case boundary_type::right:
@@ -211,7 +211,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
       {
         // look at the left-boundary
         switch (boundary) {
-          case boundary_type::free:
+          case boundary_type::none:
           case boundary_type::right: // free on the left
             smmat::axpy(nblock, -escale * ((rtype == rhs_type::is_const) ? rhs_const : rhs_vals[0][0]), basis.to_left, coeff.diag(0));
             break;
@@ -242,7 +242,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 
         // look at the right-boundary
         switch (boundary) {
-          case boundary_type::free:
+          case boundary_type::none:
           case boundary_type::left: // free on the right
             smmat::axpy(nblock, escale * ((rtype == rhs_type::is_const) ? rhs_const : rhs_raw.vals.back()), basis.to_right, coeff.diag(rmost));
             break;

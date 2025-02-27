@@ -76,7 +76,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   }
 
   SECTION("term_1d - grad") {
-    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::free};
+    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::none};
     REQUIRE_FALSE(ptG.is_identity());
     REQUIRE(ptG.is_grad());
     REQUIRE(ptG.optype() == operation_type::grad);

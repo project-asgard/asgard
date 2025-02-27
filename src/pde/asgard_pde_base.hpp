@@ -1352,14 +1352,14 @@ enum class boundary_type
 {
   //! periodic boundary conditions
   periodic,
-  //! fixed flux at both ends of the boundary
-  bothsides,
-  //! free boundary condition
-  free,
-  //! fixed flux on the right end of the boundary
-  right,
   //! fixed flux on the left end of the boundary
   left,
+  //! fixed flux on the right end of the boundary
+  right,
+  //! fixed flux at both ends of the boundary
+  bothsides,
+  //! do not fix the flux on either end of the domain
+  none
 };
 
 /*!
@@ -1412,15 +1412,15 @@ struct term_mass {
 template<typename P = default_precision>
 struct term_grad {
   //! make a grad term with constant coefficient
-  term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd)
+  term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with constant coefficient 1
-  term_grad(flux_type flx, boundary_type bnd)
+  term_grad(flux_type flx, boundary_type bnd = boundary_type::none)
     : flux(flx), boundary(bnd)
   {}
   //! make a grad term with given right hand side coefficient
-  term_grad(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
+  term_grad(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(0), right(std::move(frhs)), flux(flx), boundary(bnd)
   {}
 
@@ -1442,15 +1442,15 @@ struct term_grad {
 template<typename P = default_precision>
 struct term_div {
   //! make a grad term with constant coefficient
-  term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd)
+  term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with constant coefficient 1
-  term_div(flux_type flx, boundary_type bnd)
+  term_div(flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(1), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given right hand side coefficient
-  term_div(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd)
+  term_div(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd = boundary_type::none)
     : right(std::move(frhs)), flux(flx), boundary(bnd)
   {}
 
@@ -1472,7 +1472,7 @@ struct term_div {
 template<typename P = default_precision>
 struct term_penalty {
   //! make a penalty term with constant coefficient
-  term_penalty(no_deduce<P> cc, flux_type flx, boundary_type bnd)
+  term_penalty(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
 
@@ -1637,13 +1637,13 @@ public:
 
   //! make a mass term
   term_1d(term_mass<P> mt)
-    : term_1d(operation_type::mass, flux_type::central, boundary_type::free,
+    : term_1d(operation_type::mass, flux_type::central, boundary_type::none,
               std::move(mt.right), mt.const_coeff)
   {}
   //! make a mass term, hack around creating term_1d<float> from term_mass<double>
   template<typename otherP>
   term_1d(term_mass<otherP> mt)
-    : term_1d(operation_type::mass, flux_type::central, boundary_type::free,
+    : term_1d(operation_type::mass, flux_type::central, boundary_type::none,
               nullptr, static_cast<P>(mt.const_coeff))
   {
     rassert(not mt.right, "type mismatch using term_mass to create term_1d, "
@@ -1859,7 +1859,7 @@ private:
   pterm_dependence depends_ = pterm_dependence::none;
 
   flux_type flux_ = flux_type::central;
-  boundary_type boundary_ = boundary_type::free;
+  boundary_type boundary_ = boundary_type::none;
 
   changes_with change_ = changes_with::none;
 

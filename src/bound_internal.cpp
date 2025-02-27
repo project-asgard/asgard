@@ -133,7 +133,7 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
 
   PDEv2<P> pde(options, std::move(domain));
 
-  term_1d<P> div  = term_div<P>(-1, flux_type::upwind, boundary_type::free);
+  term_1d<P> div  = term_div<P>(-1, flux_type::upwind, boundary_type::none);
   term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::bothsides);
 
   term_1d<P> diffusion({div, grad});

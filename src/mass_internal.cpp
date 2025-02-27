@@ -48,8 +48,8 @@ PDEv2<P> make_mass_pde(asgard::prog_opts options) {
 
   pde.set_mass({term_mass<P>{builtin_v<P>::expneg2}, term_mass<P>{builtin_v<P>::cos}});
 
-  term_1d<P> cdiv = term_div<P>(builtin_v<P>::cos, flux_type::upwind, boundary_type::free);
-  term_1d<P> ydiv = term_div<P>(builtin_v<P>::positive, flux_type::upwind, boundary_type::free);
+  term_1d<P> cdiv = term_div<P>(builtin_v<P>::cos, flux_type::upwind, boundary_type::none);
+  term_1d<P> ydiv = term_div<P>(builtin_v<P>::positive, flux_type::upwind, boundary_type::none);
 
   pde += {cdiv, term_mass<P>{builtin_v<P>::cos}};
   pde += {term_mass<P>{builtin_v<P>::expneg2}, ydiv};
