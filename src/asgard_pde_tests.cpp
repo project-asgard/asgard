@@ -65,7 +65,7 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   }
 
   SECTION("term_1d - div") {
-    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
     REQUIRE_FALSE(ptD.is_identity());
     REQUIRE(ptD.is_div());
     REQUIRE(ptD.optype() == operation_type::div);
@@ -101,8 +101,8 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     REQUIRE_FALSE(term_1d<TestType>({ptI, ptI}).is_chain());
     REQUIRE(term_1d<TestType>({ptI, ptI}).num_chain() == 0);
 
-    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
-    term_1d<TestType> ptG = term_div<TestType>{mhs, flux_type::downwind, boundary_type::dirichlet};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
+    term_1d<TestType> ptG = term_div<TestType>{mhs, flux_type::downwind, boundary_type::bothsides};
 
     REQUIRE_FALSE(term_1d<TestType>({ptI, ptD}).is_chain());
     REQUIRE(term_1d<TestType>({ptI, ptD}).is_div());
@@ -119,9 +119,9 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
   SECTION("term_1d - extra") {
     term_1d<TestType> ptI;
     term_1d<TestType> ptM = term_mass<TestType>(3);
-    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::dirichlet};
-    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::dirichlet};
-    term_1d<TestType> ptGc = term_grad<TestType>{3.5, flux_type::central, boundary_type::dirichlet};
+    term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
+    term_1d<TestType> ptG = term_grad<TestType>{mhs, flux_type::downwind, boundary_type::bothsides};
+    term_1d<TestType> ptGc = term_grad<TestType>{3.5, flux_type::central, boundary_type::bothsides};
 
     REQUIRE(term_1d<TestType>({ptI, ptD, ptM}).num_chain() == 2);
     REQUIRE(term_1d<TestType>({ptG, ptI, ptM, ptD, ptM}).num_chain() == 4);

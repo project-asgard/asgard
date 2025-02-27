@@ -112,10 +112,10 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
   if constexpr (boundary == boundary_enum::homogeneous)
   {
-    // Dirichlet boundary set to the div term corresponds to Neumann boundary
+    // fixed boundary set to the div term corresponds to Neumann boundary
     asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
                                                  asgard::boundary_type::left_free);
-    // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
+    // fixed boundary set to the grad term corresponds to Dirichlet boundary
     asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
                                                    asgard::boundary_type::right_free);
 
@@ -149,13 +149,13 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 
     if (num_dims == 1)
     {
-      // Fixed boundary set to the div term corresponds to Neumann boundary
+      // fixed boundary set to the div term corresponds to Neumann boundary
       asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
                                                    asgard::boundary_type::free);
 
-      // Fixed boundary set to the grad term corresponds to Dirichlet boundary
+      // fixed boundary set to the grad term corresponds to Dirichlet boundary
       asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-                                                     asgard::boundary_type::dirichlet);
+                                                     asgard::boundary_type::bothsides);
       // merge the div and grad terms
       asgard::term_1d<P> fxx({div, grad});
 
@@ -179,7 +179,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
     }
     else
     {
-      // setting Dirichlet boundary for the div term in the chain
+      // setting fixed boundary for the div term in the chain
       // results in Neumann conditions imposed on the field
       // think of this as imposing Dirichlet condition on the output of the grad term
       // and the output of the grad term is the derivative of the field

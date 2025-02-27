@@ -1340,17 +1340,20 @@ using md_func_f = std::function<void(P t, vector2d<P> const &,
  *
  * The separable operators are always defined on a 1d interval. Periodic conditions
  * "connect" the flux on the left-most and right-most cells, so that information
- * moving out through the boundary is added to the other side. Dirichlet boundary
- * imposes zero flux through the matrix entries and non-homogeneous conditions
- * have to appear as a source. Free boundary conditions allow the flux to be
- * determined by the dynamics of the PDE and the current field.
+ * moving out through the boundary is added to the other side.
+ * The flux can be "fixed" or "pinned" at either the left, right or bothsides,
+ * defaulting to zero (homogeneous) boundary condition, but a non-zero
+ * (inhomogeneous) flux can also be specified, e.g., see asgard::left_boundary_flux
+ * and asgard::right_boundary_flux.
+ * Finally, the flux can be unspecified, which allows the for the internal
+ * dynamics of the PDE to define the actual value, e.g., an outflow condition.
  */
 enum class boundary_type
 {
   //! periodic boundary conditions
   periodic,
-  //! fixed flux at the boundary
-  dirichlet,
+  //! fixed flux at both ends of the boundary
+  bothsides,
   //! free boundary condition
   free,
   //! free boundary on the left, Dirichlet on the right

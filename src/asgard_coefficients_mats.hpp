@@ -33,13 +33,13 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                 "cannot use spatially dependant penalty term");
 
   if constexpr (optype == operation_type::grad) {
-    // the grad operation flips the dirichlet and free boundayr conditions
+    // the grad operation flips the fixed and free boundary conditions
     switch (boundary) {
-      case boundary_type::dirichlet:
+      case boundary_type::bothsides:
         boundary = boundary_type::free;
         break;
       case boundary_type::free:
-        boundary = boundary_type::dirichlet;
+        boundary = boundary_type::bothsides;
         break;
       case boundary_type::left_free:
         boundary = boundary_type::right_free;
@@ -174,7 +174,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
       if constexpr (optype == operation_type::penalty)
       {
         switch (boundary) {
-          case boundary_type::dirichlet:
+          case boundary_type::bothsides:
           case boundary_type::right_free: // dirichelt on the left
             smmat::axpy(nblock, escale * rhs_const, basis.to_left, coeff.diag(0));
             break;
@@ -195,7 +195,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
         }
 
         switch (boundary) {
-          case boundary_type::dirichlet:
+          case boundary_type::bothsides:
           case boundary_type::left_free: // dirichelt on the right
             smmat::axpy(nblock, escale * rhs_const, basis.to_right, coeff.diag(rmost));
             break;
