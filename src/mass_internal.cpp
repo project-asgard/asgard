@@ -46,13 +46,13 @@ PDEv2<P> make_mass_pde(asgard::prog_opts options) {
 
   PDEv2<P> pde(options, std::move(domain));
 
-  pde.set_mass({term_mass<P>{builtin_v<P>::expneg2}, term_mass<P>{builtin_v<P>::cos}});
+  pde.set_mass({term_volume<P>{builtin_v<P>::expneg2}, term_volume<P>{builtin_v<P>::cos}});
 
   term_1d<P> cdiv = term_div<P>(builtin_v<P>::cos, flux_type::upwind, boundary_type::none);
   term_1d<P> ydiv = term_div<P>(builtin_v<P>::positive, flux_type::upwind, boundary_type::none);
 
-  pde += {cdiv, term_mass<P>{builtin_v<P>::cos}};
-  pde += {term_mass<P>{builtin_v<P>::expneg2}, ydiv};
+  pde += {cdiv, term_volume<P>{builtin_v<P>::cos}};
+  pde += {term_volume<P>{builtin_v<P>::expneg2}, ydiv};
 
   // exact solution
   auto exact_x = [](std::vector<P> const &x, P, std::vector<P> &fx) -> void {

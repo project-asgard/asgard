@@ -1370,8 +1370,8 @@ enum class operation_type
 {
   //! identity term
   identity,
-  //! mass term
-  mass,
+  //! volume term, i.e., no derivative or boundary flux
+  volume,
   //! grad term, derivative on the basis function
   grad,
   //! div term, derivative on the test function
@@ -1393,11 +1393,11 @@ struct term_identity {};
  * \brief Intermediate container for a mass term
  */
 template<typename P = default_precision>
-struct term_mass {
-  //! make a mass term with constant coefficient
-  term_mass(no_deduce<P> cc) : const_coeff(cc) {}
-  //! make a mass term with given right hand side coefficient
-  term_mass(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
+struct term_volume {
+  //! make a volume term with constant coefficient
+  term_volume(no_deduce<P> cc) : const_coeff(cc) {}
+  //! make a volume term with given right hand side coefficient
+  term_volume(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
 
   //! constant coefficient, if left/right-hand-side functions are null
   P const_coeff = 0;
@@ -1503,16 +1503,16 @@ struct term_chain {};
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Mass term that depends on the electric field
+ * \brief Volume term that depends on the electric field
  */
 template<typename P = default_precision>
-struct mass_electric {
+struct volume_electric {
   //! mass based only on the electric field, same as rhs being the identity function y = x
-  mass_electric() {}
+  volume_electric() {}
   //! right side depends only on the field
-  mass_electric(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
+  volume_electric(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
   //! right side depends on the field and position
-  mass_electric(sfixed_func1d_f<P> rhs_f) : right_f(std::move(rhs_f)) {}
+  volume_electric(sfixed_func1d_f<P> rhs_f) : right_f(std::move(rhs_f)) {}
 
   //! right-hand-side function, field only no spatial dependence
   sfixed_func1d<P> right;
@@ -1632,18 +1632,18 @@ public:
   }
   //! make a term that depends on coupled fields, e.g., moments or electric field
   term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc)
-    : optype_(operation_type::mass), depends_(dep), field_f_(std::move(ffunc))
+    : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
   {}
 
   //! make a mass term
-  term_1d(term_mass<P> mt)
-    : term_1d(operation_type::mass, flux_type::central, boundary_type::none,
+  term_1d(term_volume<P> mt)
+    : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
               std::move(mt.right), mt.const_coeff)
   {}
   //! make a mass term, hack around creating term_1d<float> from term_mass<double>
   template<typename otherP>
-  term_1d(term_mass<otherP> mt)
-    : term_1d(operation_type::mass, flux_type::central, boundary_type::none,
+  term_1d(term_volume<otherP> mt)
+    : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
               nullptr, static_cast<P>(mt.const_coeff))
   {
     rassert(not mt.right, "type mismatch using term_mass to create term_1d, "
@@ -1713,8 +1713,8 @@ public:
   //! make a chain term, add terms later with add_term() or +=
   term_1d(term_chain) : optype_(operation_type::chain) {}
   //! make a term that depends on the electric field
-  term_1d(mass_electric<P> elmass)
-    : optype_(operation_type::mass), change_(changes_with::time),
+  term_1d(volume_electric<P> elmass)
+    : optype_(operation_type::volume), change_(changes_with::time),
       rhs_(std::move(elmass.right)), field_f_(std::move(elmass.right_f))
   {
     depends_ = (field_f_) ? pterm_dependence::electric_field
@@ -1724,7 +1724,7 @@ public:
   //! indicates whether this is an identity term
   bool is_identity() const { return (optype_ == operation_type::identity); }
   //! indicates whether this is a mass term
-  bool is_mass() const { return (optype_ == operation_type::mass); }
+  bool is_volume() const { return (optype_ == operation_type::volume); }
   //! indicates whether this is a grad term
   bool is_grad() const { return (optype_ == operation_type::grad); }
   //! indicates whether this is a div term
@@ -1790,11 +1790,11 @@ public:
   bool has_flux() const {
     if (optype_ == operation_type::chain) {
       for (auto const &cc : chain_)
-        if (cc.optype_ != operation_type::mass and cc.optype_ != operation_type::identity)
+        if (not cc.is_identity() and not cc.is_volume())
           return true;
       return false;
     } else {
-      return (optype_ != operation_type::mass and optype_ != operation_type::identity);
+      return (not this->is_identity() and not this->is_volume());
     }
   }
   //! add penalty to a div or grad term, more efficient than adding additional term
@@ -1894,8 +1894,8 @@ public:
   {
     expect(num_dims_ <= max_num_dimensions);
     for (int d : iindexof(num_dims_)) {
-      rassert((list.begin() + d)->is_mass() or (list.begin() + d)->is_identity(),
-              "mass_md terms must be mass or identity");
+      rassert((list.begin() + d)->is_volume() or (list.begin() + d)->is_identity(),
+              "mass_md terms must be volume or identity");
       rassert((list.begin() + d)->depends() == pterm_dependence::none,
               "the mass_md terms cannot depend on moments or the electric field")
       terms_[d] = std::move(*((list.begin() + d)));
@@ -1907,8 +1907,8 @@ public:
   {
     expect(num_dims_ <= max_num_dimensions);
     for (int d : iindexof(num_dims_)) {
-      rassert(list[d].is_mass() or list[d].is_identity(),
-              "mass_md terms must be mass or identity");
+      rassert(list[d].is_volume() or list[d].is_identity(),
+              "mass_md terms must be volume or identity");
       terms_[d] = std::move(list[d]);
     }
   }

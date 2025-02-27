@@ -116,21 +116,21 @@ asgard::PDEv2<P> make_two_stream(asgard::prog_opts options) {
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
       asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
-      asgard::term_mass<P>(positive)
+      asgard::term_volume<P>(positive)
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
     asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
-    asgard::term_mass<P>(negative),
+    asgard::term_volume<P>(negative),
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::mass_electric<P>(positive),
+      asgard::volume_electric<P>(positive),
       asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::mass_electric<P>(negative),
+      asgard::volume_electric<P>(negative),
       asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)
     });
 

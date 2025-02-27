@@ -21,7 +21,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                   sfixed_func1d<P> const &rhs, P const rhs_const, flux_type flux,
                   boundary_type boundary, rhs_raw_data<P> &rhs_raw, block_tri_matrix<P> &coeff)
 {
-  static_assert(optype != operation_type::mass
+  static_assert(optype != operation_type::volume
                 and optype != operation_type::identity
                 and optype != operation_type::chain,
                 "identity, mass and chain operations yield diagonal matrices, "
@@ -278,7 +278,7 @@ template<typename P, operation_type optype>
 void gen_diag_cmat(legendre_basis<P> const &basis, int level,
                    P const rhs_const, block_diag_matrix<P> &coeff)
 {
-  static_assert(optype == operation_type::mass,
+  static_assert(optype == operation_type::volume,
                 "only mass matrices should be used to create mass terms");
 
   int const num_cells = fm::ipow2(level);
@@ -331,7 +331,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                    block_diag_matrix<P> &coeff)
 {
   ignore(rhs_f);
-  static_assert(optype == operation_type::mass,
+  static_assert(optype == operation_type::volume,
                 "only mass matrices should be used to create mass terms");
 
   int const num_cells = fm::ipow2(level);

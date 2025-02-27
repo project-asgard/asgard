@@ -124,21 +124,21 @@ PDEv2<P> make_testpde(int num_dims, prog_opts options) {
 
     pde += term_md<P>(std::vector<term_1d<P>>{
         term_div<P>(1, flux_type::upwind, boundary_type::periodic),
-        term_mass<P>(builtin_v<P>::positive)
+        term_volume<P>(builtin_v<P>::positive)
       });
 
     pde += term_md<P>(std::vector<term_1d<P>>{
         term_div<P>(1, flux_type::downwind, boundary_type::periodic),
-        term_mass<P>(builtin_v<P>::negative),
+        term_volume<P>(builtin_v<P>::negative),
       });
 
     pde += term_md<P>(std::vector<term_1d<P>>{
-        mass_electric<P>(builtin_v<P>::positive),
+        volume_electric<P>(builtin_v<P>::positive),
         term_div<P>(1, flux_type::upwind, boundary_type::bothsides)
       });
 
     pde += term_md<P>(std::vector<term_1d<P>>{
-        mass_electric<P>(builtin_v<P>::negative),
+        volume_electric<P>(builtin_v<P>::negative),
         term_div<P>(1, flux_type::downwind, boundary_type::bothsides)
       });
 

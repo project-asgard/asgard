@@ -153,7 +153,7 @@ TEMPLATE_TEST_CASE("simple mass", "[mass]", test_precs)
 
   block_diag_matrix<P> mat;
 
-  gen_diag_cmat<P, operation_type::mass>(basis, level, 1, mat);
+  gen_diag_cmat<P, operation_type::volume>(basis, level, 1, mat);
 
   for (int i = 0; i < 8; i++) {
     std::vector<P> ref = {1, 0, 0, 0, 1, 0, 0, 0, 1};
@@ -167,7 +167,7 @@ TEMPLATE_TEST_CASE("simple mass", "[mass]", test_precs)
         fx[i] = -3.5;
     };
 
-  gen_diag_cmat<P, operation_type::mass>(
+  gen_diag_cmat<P, operation_type::volume>(
       basis, 0, 1, level, cc, nullptr, mat);
 
   for (int i = 0; i < 8; i++) {
