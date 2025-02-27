@@ -541,6 +541,9 @@ void term_manager<P>::rebuld_term1d(
       if (bmass)
         bmass->solve(n, bentry.consts[dim]);
       hier.project1d(level, bentry.consts[dim]);
+      // std::cout << " for dim = " << dim << "\n";
+      // for (auto s : bentry.consts[dim])
+      //   std::cout << s << "\n";
     }
   }
 
@@ -673,10 +676,8 @@ void term_manager<P>::build_raw_mat(
         if (bentry.flux.is_right()) {
           P rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
 
-          if (t1d.penalty() != 0) {
-            std::cout << " adding right penalty\n";
+          if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
-          }
 
           P const fc = bentry.flux.func().cdomain(d);
           if (fc == 0) { // non-separable in time
@@ -699,7 +700,8 @@ void term_manager<P>::build_raw_mat(
             bentry.consts[d] = legendre.project(t1d.is_mass(), level, dsqr,
                                                 bentry.flux.func().cdomain(d), raw_rhs.vals);
           } else { // constant times a constant
-            bentry.consts[d] = legendre.project(level, bentry.flux.func().cdomain(d) * t1d.rhs_const());
+            bentry.consts[d] = legendre.project(level, dsqr,
+                                                bentry.flux.func().cdomain(d) * t1d.rhs_const());
           }
         } else {
           if (t1d.rhs()) { // product of non-consts
@@ -849,44 +851,45 @@ void term_manager<P>::rebuld_chain(
     (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(),
       t1d.boundary(), raw_rhs, raw_tri);
 
-  // this should be needed
-  // for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
-  //   // handle the non-separable in time, keep rhs values
-  //   boundary_entry<P> &bentry = bcs[b];
-  //
-  //   // apply only the conditions for the bottom link
-  //   if (bentry.flux.chain_level(d) != num_chain - 1)
-  //     continue;
-  //
-  //   int const pdof = legendre.pdof;
-  //
-  //   int64_t const num_cells = fm::ipow2(level);
-  //   int64_t const num_entries = pdof * num_cells;
-  //
-  //   expect(bentry.consts[d].size() == static_cast<size_t>(num_entries));
-  //
-  //   P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
-  //
-  //   if (bentry.flux.is_left()) {
-  //     P const fc = bentry.flux.func().cdomain(d);
-  //     if (fc == 0) { // non-separable in time
-  //       smmat::axpy(pdof, -scale, legendre.leg_left, bentry.consts[d].data());
-  //     } else {
-  //       smmat::axpy(pdof, -scale * fc, legendre.leg_left, bentry.consts[d].data());
-  //     }
-  //   }
-  //
-  //   if (bentry.flux.is_right()) {
-  //     P const fc = bentry.flux.func().cdomain(d);
-  //     if (fc == 0) { // non-separable in time
-  //       smmat::axpy(pdof, scale, legendre.leg_right,
-  //                   bentry.consts[d].data() + num_entries - pdof);
-  //     } else {
-  //       smmat::axpy(pdof, scale * fc, legendre.leg_right,
-  //                   bentry.consts[d].data() + num_entries - pdof);
-  //     }
-  //   }
-  // }
+  return;
+
+  for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
+    // handle the non-separable in time, keep rhs values
+    boundary_entry<P> &bentry = bcs[b];
+
+    // apply only the conditions for the bottom link
+    if (bentry.flux.chain_level(d) != num_chain - 1)
+      continue;
+
+    int const pdof = legendre.pdof;
+
+    int64_t const num_cells = fm::ipow2(level);
+    int64_t const num_entries = pdof * num_cells;
+
+    expect(bentry.consts[d].size() == static_cast<size_t>(num_entries));
+
+    P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
+
+    if (bentry.flux.is_left()) {
+      P const fc = bentry.flux.func().cdomain(d);
+      if (fc == 0) { // non-separable in time
+        smmat::axpy(pdof, -scale, legendre.leg_left, bentry.consts[d].data());
+      } else {
+        smmat::axpy(pdof, -scale * fc, legendre.leg_left, bentry.consts[d].data());
+      }
+    }
+
+    if (bentry.flux.is_right()) {
+      P const fc = bentry.flux.func().cdomain(d);
+      if (fc == 0) { // non-separable in time
+        smmat::axpy(pdof, scale, legendre.leg_right,
+                    bentry.consts[d].data() + num_entries - pdof);
+      } else {
+        smmat::axpy(pdof, scale * fc, legendre.leg_right,
+                    bentry.consts[d].data() + num_entries - pdof);
+      }
+    }
+  }
 }
 
 template<typename P>

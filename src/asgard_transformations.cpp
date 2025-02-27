@@ -150,8 +150,10 @@ std::vector<P> legendre_basis<P>::project(
 }
 
 template<typename P>
-std::vector<P> legendre_basis<P>::project(int level, P alpha) const
+std::vector<P> legendre_basis<P>::project(int level, P dsqrt, P alpha) const
 {
+  alpha *= dsqrt * fm::powi(P{0.707106781186547}, level);
+
   int const num_cells = fm::ipow2(level);
 
   std::vector<P> lgn(num_cells * pdof);

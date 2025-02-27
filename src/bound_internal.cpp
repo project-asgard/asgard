@@ -56,7 +56,7 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
   term_1d<P> div = term_div<P>(1, flux_type::upwind, boundary_type::dirichlet);
 
-  // div.set_penalty(P{1} / pde.min_cell_size());
+  div.set_penalty(P{1} / pde.min_cell_size());
 
   if constexpr (std::is_same_v<btype, type_left>) {
     // the multi-dimensional divergence, initially set to identity in md
@@ -66,12 +66,14 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     term_md<P> div_md(ops);
 
     separable_func<P> lbc(std::vector<P>(num_dims, 1));
-    separable_func<P> rbc(std::vector<P>(num_dims, 2));
+    separable_func<P> rbc(std::vector<P>(num_dims, 1));
+    rbc.set_cdomain(dim, 2);
 
     div_md += left_boundary_flux{lbc};
     div_md += right_boundary_flux{rbc};
 
     pde += div_md;
+
   } else {
     std::vector<term_1d<P>> ops(num_dims);
     ops[dim] = div;
@@ -83,15 +85,6 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     div_md += right_boundary_flux{bc};
 
     pde += div_md;
-
-    ops[dim] = term_penalty<P>(P{1} / pde.min_cell_size(), flux_type::upwind,
-                               boundary_type::dirichlet);
-    term_md<P> pen_md(ops);
-    pen_md += right_boundary_flux{bc};
-
-    pde += pen_md;
-
-    std::cout << " NUM TERMS " << pde.terms().size() << "\n";
   }
 
   auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
@@ -331,7 +324,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   auto pde = (left) ? make_side_pde<P, type_left>(num_dims, dv, options)
                     : make_side_pde<P, type_right>(num_dims, dv, options);
 
-  discretization_manager<P> disc(std::move(pde), verbosity_level::high);
+  discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
 
   // make sure there's something to solve
   disc.set_current_state(std::vector<P>(disc.current_state().size(), P{0}));
