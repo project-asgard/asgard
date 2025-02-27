@@ -541,9 +541,6 @@ void term_manager<P>::rebuld_term1d(
       if (bmass)
         bmass->solve(n, bentry.consts[dim]);
       hier.project1d(level, bentry.consts[dim]);
-      // std::cout << " for dim = " << dim << "\n";
-      // for (auto s : bentry.consts[dim])
-      //   std::cout << s << "\n";
     }
   }
 
@@ -848,10 +845,8 @@ void term_manager<P>::rebuld_chain(
     return;
 
   gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-    (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(),
-      t1d.boundary(), raw_rhs, raw_tri);
-
-  return;
+    (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
+      t1d.chain_.back().boundary(), raw_rhs, raw_tri);
 
   for (int b = tentry.bc.begin; b < tentry.bc.end; b++) {
     // handle the non-separable in time, keep rhs values
