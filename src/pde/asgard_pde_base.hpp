@@ -2473,6 +2473,19 @@ struct divergence {
   std::vector<double> coeffs;
 };
 
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Adds the Lenard-Bernstein collision operator to the PDE
+ *
+ * Currently sets zero boundary conditions at the edge of the velocity domain.
+ */
+struct lenard_bernstein_collisions {
+  //! sets the Lenard-Bernstein collision operator with the given collision frequency
+  lenard_bernstein_collisions(double coll_frequency) : nu(coll_frequency) {}
+  //! collision frequency
+  double nu = 0;
+};
+
 } // namespace::operators
 #endif
 
@@ -2657,6 +2670,8 @@ public:
     this->add_source(std::move(tmd));
     return *this;
   }
+  //! add collision operator
+  PDEv2<P> & operator += (operators::lenard_bernstein_collisions lbc);
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources
