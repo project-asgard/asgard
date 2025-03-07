@@ -1656,7 +1656,7 @@ public:
     }
   }
   //! make a term that depends on coupled fields, e.g., moments or electric field
-  term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc)
+  term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
     : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
   {}
 

@@ -115,6 +115,8 @@ struct velocity_dims {
  */
 template<typename P = default_precision>
 struct domain_range {
+  //! make a range
+  domain_range(P l, P r) : left(l), right(r) {}
   //! left end-point
   P left;
   //!  right end-point
@@ -153,7 +155,7 @@ public:
   }
   //! create a canonical domain for the given number of dimensions
   pde_domain(position_dims pos, velocity_dims vel,
-             std::initializer_list<domain_range<P>> list = {})
+             std::vector<domain_range<P>> list = {})
     : num_dims_(pos.num + vel.num), num_pos_(pos.num), num_vel_(vel.num)
   {
     check_init();

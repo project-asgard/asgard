@@ -505,7 +505,7 @@ if (${ASGARD_USE_PCH})
 endif ()
 
 set (_asgard_pdes continuity diffusion elliptic sinwav two_stream
-                  mass_internal varcoeff_internal bound_internal)
+                  mass_internal varcoeff_internal bound_internal relaxation_internal)
 
 foreach (_asgexe ${_asgard_pdes})
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp")

@@ -30,13 +30,35 @@ PDEv2<P> & PDEv2<P>::operator += (operators::lenard_bernstein_collisions lbc)
 
   if (domain_.num_vel() == 1) {
     *this += term_md<P>({I, divv_nuv});
+    *this += term_md<P>({term_moment_over_density{1}, div_nu});
+
+    term_1d<P> vol_theta(pterm_dependence::lenard_bernstein_coll_theta_1x1v);
+    *this += term_md<P>({vol_theta, nu_div_grad});
+
   } else if (domain_.num_vel() == 2) {
     *this += term_md<P>({I, divv_nuv, I});
     *this += term_md<P>({I, I, divv_nuv});
+
+    *this += term_md<P>({term_moment_over_density{1}, div_nu, I});
+    *this += term_md<P>({term_moment_over_density{2}, I, div_nu});
+
+    term_1d<P> vol_theta(pterm_dependence::lenard_bernstein_coll_theta_1x2v);
+    *this += term_md<P>({vol_theta, nu_div_grad, I});
+    *this += term_md<P>({vol_theta, I, nu_div_grad});
+
   } else {
     *this += term_md<P>({I, divv_nuv, I, I});
     *this += term_md<P>({I, I, divv_nuv, I});
     *this += term_md<P>({I, I, I, divv_nuv});
+
+    *this += term_md<P>({term_moment_over_density{1}, div_nu, I, I});
+    *this += term_md<P>({term_moment_over_density{2}, I, div_nu, I});
+    *this += term_md<P>({term_moment_over_density{3}, I, I, div_nu});
+
+    term_1d<P> vol_theta(pterm_dependence::lenard_bernstein_coll_theta_1x3v);
+    *this += term_md<P>({vol_theta, nu_div_grad, I, I});
+    *this += term_md<P>({vol_theta, I, nu_div_grad, I});
+    *this += term_md<P>({vol_theta, I, I, nu_div_grad});
   }
 
   return *this;
