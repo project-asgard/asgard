@@ -378,14 +378,11 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 
 //! moment over moment zero
 template<typename P, int multsign, pterm_dependence dep>
-void gen_diag_mom_by_mom0(
+void gen_diag_mom_cases(
     legendre_basis<P> const &basis, P xleft, P xright, int level, int mindex,
     std::vector<P> const &moms, block_diag_matrix<P> &coefficients)
 {
   static_assert(multsign == 1 or multsign == -1);
-  static_assert(not (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v and multsign == -1));
-  static_assert(not (dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v and multsign == -1));
-  static_assert(not (dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v and multsign == -1));
 
   // setup jacobi of variable x and define coeff_mat
   int const num_cells = fm::ipow2(level);
