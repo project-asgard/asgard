@@ -594,15 +594,15 @@ void term_manager<P>::build_raw_mat(
           }
           break;
         case pterm_dependence::lenard_bernstein_coll_theta_1x1v:
-          gen_diag_mom_cases<P, -1, pterm_dependence::lenard_bernstein_coll_theta_1x1v>
+          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x1v>
             (legendre, xleft[d], xright[d], level, 0, cdata.moments, raw_diag);
           break;
         case pterm_dependence::lenard_bernstein_coll_theta_1x2v:
-          gen_diag_mom_cases<P, -1, pterm_dependence::lenard_bernstein_coll_theta_1x2v>
+          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x2v>
             (legendre, xleft[d], xright[d], level, 0, cdata.moments, raw_diag);
           break;
         case pterm_dependence::lenard_bernstein_coll_theta_1x3v:
-          gen_diag_mom_cases<P, -1, pterm_dependence::lenard_bernstein_coll_theta_1x3v>
+          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x3v>
             (legendre, xleft[d], xright[d], level, 0, cdata.moments, raw_diag);
           break;
         default:

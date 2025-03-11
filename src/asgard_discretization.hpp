@@ -141,6 +141,11 @@ public:
     }
   }
 
+  //! check if the terms have poisson dependence
+  bool has_poisson() const { return poisson; }
+  //! check if the terms have moment dependence
+  bool has_moments() const { return moms1d.has_value(); }
+
   //! computes the right-hand-side of the ode
   void ode_rhs(imex_flag imflag, precision time, std::vector<precision> const &state,
                std::vector<precision> &R) const;
@@ -393,8 +398,11 @@ public:
   //! returns the coefficient matrices
   coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
   //! recomputes the moments given the state of interest
-  void compute_moments(std::vector<precision> const &f) {
-    if (moms1d) {
+  void compute_moments(std::vector<precision> const &f) const {
+    if (not moms1d)
+      return;
+
+    if (pde) {
       int const level = pde->get_dimensions().front().get_level();
       moms1d->project_moments(level, f, grid.get_table(), matrices.edata.moments);
       int const num_cells = fm::ipow2(level);
@@ -402,6 +410,16 @@ public:
       hier.reconstruct1d(
           num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
                                              matrices.edata.moments.data()));
+    } else {
+      int const level = sgrid.current_level(0);
+      moms1d->project_moments(sgrid, f, terms.cdata.moments);
+      int const num_cells = fm::ipow2(level);
+      int const num_outs  = moms1d->num_comp_mom();
+      hier.reconstruct1d(
+          num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
+                                             terms.cdata.moments.data()));
+      // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
+      terms.rebuild_moment_terms(sgrid, conn, hier);
     }
   }
   //! (testing) recomputes the moments given the state of interest, keeps in hierarchical form
@@ -410,6 +428,7 @@ public:
       moms1d->project_moments(pde->get_dimensions().front().get_level(),
                               f, grid.get_table(), rmom);
   }
+  //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
     rassert(ns.size() == state.size(), "cannot set state with different size");
     state = ns;
@@ -417,6 +436,7 @@ public:
   //! recomputes the coefficients, can select sub
   void compute_coefficients(coeff_update_mode mode = coeff_update_mode::all) {
     generate_coefficients(*pde, matrices, conn, hier, time_, mode);
+    // print_mats();
 #ifndef KRON_MODE_GLOBAL
     pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
     for (int64_t t : indexof(pde->coeffs_.size()))
@@ -427,6 +447,9 @@ public:
   {
     return matrices.term_coeffs[t * pde->num_dims() + d].to_fk_matrix(hier.degree() + 1, conn);
   }
+  //! (debugging) prints the term-matrices
+  void print_mats() const;
+
   /*!
    * \ingroup asgard_discretization
    * \brief Performs integration in time for a given number of steps
@@ -454,6 +477,7 @@ protected:
     tools::time_event performance("update grid components");
     kronops.clear();
     generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::independent);
+    // print_mats();
 
 #ifdef KRON_MODE_GLOBAL
     // the imex-flag is not used internally

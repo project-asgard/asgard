@@ -12,10 +12,10 @@ PDEv2<P> & PDEv2<P>::operator += (operators::lenard_bernstein_collisions lbc)
   rassert(domain_.num_pos() == 1, "currently lenard-bernstein collisions work for only 1 position dimension");
   rassert(lbc.nu > 0, "the collision frequency has to be positive");
 
-  auto vnu = [nu=lbc.nu](std::vector<P> const &x, std::vector<P> &y)
+  auto vnu = [nu=lbc.nu](std::vector<P> const &v, std::vector<P> &fv)
         -> void {
-      for (size_t i = 0; i < x.size(); i++)
-        y[i] = nu * x[i];
+      for (size_t i = 0; i < v.size(); i++)
+        fv[i] = -nu * v[i];
     };
 
   term_1d<P> I = term_identity{};
@@ -25,8 +25,8 @@ PDEv2<P> & PDEv2<P>::operator += (operators::lenard_bernstein_collisions lbc)
   term_1d<P> div_nu = term_div<P>{lbc.nu, flux_type::central, boundary_type::bothsides};
 
   double const snu = std::sqrt(lbc.nu);
-  term_1d<P> nu_div_grad = term_1d<P>({term_div{snu, flux_type::upwind, boundary_type::bothsides},
-                                       term_grad{snu, flux_type::upwind, boundary_type::bothsides}});
+  term_1d<P> nu_div_grad = term_1d<P>({term_div{-1, flux_type::upwind, boundary_type::bothsides},
+                                       term_grad{lbc.nu, flux_type::upwind, boundary_type::bothsides}});
 
   if (domain_.num_vel() == 1) {
     *this += term_md<P>({I, divv_nuv});

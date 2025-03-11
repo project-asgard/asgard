@@ -490,7 +490,8 @@ public:
     //! remove indexes only (compress the solution)
     coarsen,
     //! simultaneously add and remove indexes
-    adapt };
+    adapt
+  };
 
   //! makes and empty grid, reinit before use
   sparse_grid() = default;

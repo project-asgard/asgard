@@ -596,6 +596,9 @@ void rungekutta<P>::next_step(
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
+  if (disc.has_moments() and not disc.has_poisson())
+    disc.compute_moments(current);
+
   switch (rktype) {
     case time_method::forward_euler:
       k1.resize(current.size());
@@ -703,6 +706,11 @@ void crank_nicolson<P>::next_step(
   P const dt   = disc.time_params().dt();
 
   P const substep = (method == time_method::cn) ? 0.5 : 1;
+
+  if (disc.has_moments() and not disc.has_poisson()) {
+    disc.compute_moments(current);
+    // disc.print_mats();
+  }
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed

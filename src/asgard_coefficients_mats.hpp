@@ -395,31 +395,6 @@ void gen_diag_mom_cases(
   P const dx = (xright - xleft) / num_cells;
   P const vscale = P{1} / dx; // volume scale
 
-  // get quadrature points and quadrature_weights.
-  // we do the two-step store because we cannot have 'static' bindings
-  // static auto const legendre_values =
-  //     legendre_weights<P>(dim.get_degree(), -1.0, 1.0);
-  // auto const &quad_p = legendre_values[0];
-  // auto const &quad_w = legendre_values[1];
-
-  // int const num_quad = quad_p.size();
-
-  // the values of the normalized Legendre polynomials at the quad points
-  // Lv.nrows() == num_quad and Lv.ncols() == pdof
-  //fk::matrix<P> const Lv = [&]() {
-  //  auto [lP, lPP] = legendre(quad_p, dim.get_degree());
-
-  //  return lP * (P{1} / std::sqrt(dx));
-  //}();
-
-  // fk::matrix<P> const Lw = [&]() {
-  //   fk::matrix<P> R = Lv;
-  //   smmat::col_scal(num_quad, pdof, P{0.5} * dx, quad_w.data(), R.data());
-  //   return R;
-  // }();
-
-  // int const numerator_moment = multsign * pterm.mom_index();
-
   size_t const wsize = [&]() -> size_t {
     if constexpr (dep == pterm_dependence::moment_divided_by_density)
       return num_quad * pdof + 2 * num_quad;

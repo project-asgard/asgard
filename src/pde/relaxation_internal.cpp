@@ -37,35 +37,71 @@ asgard::PDEv2<P> make_relaxation(int vdims, asgard::prog_opts options) {
   pde_domain<P> domain(position_dims{1}, velocity_dims{vdims}, ranges);
 
   options.default_degree = 2;
-  options.default_start_levels = {7, 7};
+  options.default_start_levels = {7, };
 
   options.default_dt = 0.05;
 
   options.default_stop_time = 1.0;
 
+  options.default_solver = solver_method::gmres;
+  options.default_isolver_tolerance  = 1.E-8;
+  options.default_isolver_iterations = 1000;
+  options.default_isolver_inner_iterations = 50;
+
+  options.default_precon = precon_method::jacobi;
+
   // using implicit backward Euler
   options.default_step_method = asgard::time_method::back_euler;
 
-  // create a pde from the given options and domain
-  asgard::PDEv2<P> pde(options, domain);
+  // get the collision frequency
+  P const nu = options.extra_cli_value_group<P>({"-nu", "-collision_freq"}).value_or(1000);
+  options.subtitle = "collision frequency: " + std::to_string(nu);
 
+  // create a pde from the given options and domain
+  PDEv2<P> pde(options, domain);
+
+  pde += operators::lenard_bernstein_collisions{nu};
+
+  if (vdims == 1) {
+    separable_func<P> ic({0.5, 0.5}); // separable initial conditions
+
+    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr ux    = -1.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - ux) * (v[i] - ux));
+      });
+    pde.add_initial(ic);
+
+    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr ux    = 2.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - ux) * (v[i] - ux));
+      });
+    pde.add_initial(ic);
+  }
 
   // initial conditions in x and v
-  auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-    void {
-      for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 1.0 - 0.5 * std::cos(0.5 * x[i]);
-    };
-
-  auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
-    void {
-      P const c = P{1} / std::sqrt(PI);
-
-      for (size_t i = 0; i < v.size(); i++)
-        fv[i] = c * v[i] * v[i] * std::exp(-v[i] * v[i]);
-    };
-
-  pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
+  // auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  //   void {
+  //     for (size_t i = 0; i < x.size(); i++)
+  //       fx[i] = 1.0 - 0.5 * std::cos(0.5 * x[i]);
+  //   };
+  //
+  // auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
+  //   void {
+  //     P const c = P{1} / std::sqrt(PI);
+  //
+  //     for (size_t i = 0; i < v.size(); i++)
+  //       fv[i] = c * v[i] * v[i] * std::exp(-v[i] * v[i]);
+  //   };
+  //
+  // pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
 
   return pde;
 }
@@ -83,6 +119,8 @@ int main(int argc, char** argv)
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << "<< additional options for this file >>\n";
+    std::cout << "-vdims                              velocity dimensions (1 - 3)\n";
+    std::cout << "-nu                                 collision frequency\n";
     std::cout << "-test                               perform self-testing\n\n";
     return 0;
   }
@@ -100,7 +138,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  discretization_manager<P> disc(make_relaxation(2, options),
+  discretization_manager<P> disc(make_relaxation(1, options),
                                  asgard::verbosity_level::high);
 
   disc.advance_time(); // integrate until num-steps or stop-time
@@ -127,12 +165,14 @@ void test_energy(std::string const &opt_str) {
 }
 
 void self_test() {
-  all_tests testing_("two-stream instability");
+  // all_tests testing_("two-stream instability");
+
+  std::cout << " no tests, yet!\n";
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>("-l 5 -d 2 -g dense -dt 6.25e-3 -n 20");
-  test_energy<double>("-l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
+  // test_energy<double>("-l 5 -d 2 -g dense -dt 6.25e-3 -n 20");
+  // test_energy<double>("-l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
 
 #endif
 
