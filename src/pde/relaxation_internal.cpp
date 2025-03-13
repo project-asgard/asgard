@@ -85,25 +85,168 @@ asgard::PDEv2<P> make_relaxation(int vdims, asgard::prog_opts options) {
       });
     pde.add_initial(ic);
   }
+  else if (vdims == 2)
+  {
+    separable_func<P> ic({0.5, 0.5, 0.5}); // separable initial conditions
 
-  // initial conditions in x and v
-  // auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-  //   void {
-  //     for (size_t i = 0; i < x.size(); i++)
-  //       fx[i] = 1.0 - 0.5 * std::cos(0.5 * x[i]);
-  //   };
-  //
-  // auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
-  //   void {
-  //     P const c = P{1} / std::sqrt(PI);
-  //
-  //     for (size_t i = 0; i < v.size(); i++)
-  //       fv[i] = c * v[i] * v[i] * std::exp(-v[i] * v[i]);
-  //   };
-  //
-  // pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
+    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr u     = 3.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      });
+    ic.set_fdomain(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr u     = 0.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      });
+    pde.add_initial(ic);
+
+    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr u     = 0.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      });
+    ic.set_fdomain(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr u     = 3.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      });
+    pde.add_initial(ic);
+  }
+  else if (vdims == 3)
+  {
+    P constexpr xc = 1.0 / 3.0;
+
+    auto max3 = [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr u     = 3.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      };
+    auto max0 = [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+        P constexpr theta = 0.5;
+        P constexpr u     = 0.0;
+        P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
+
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      };
+
+    separable_func<P> ic({nullptr, max3, max0, max0});
+    ic.set_cdomain(0, xc);
+    pde.add_initial(ic);
+
+    ic = separable_func<P>({nullptr, max0, max3, max0});
+    ic.set_cdomain(0, xc);
+    pde.add_initial(ic);
+
+    ic = separable_func<P>({nullptr, max0, max0, max3});
+    ic.set_cdomain(0, xc);
+    pde.add_initial(ic);
+  }
 
   return pde;
+}
+
+template<typename P>
+double get_error_l2(asgard::discretization_manager<P> const &disc) {
+  // there is no analytic solution in time, only the final state
+  // in a "short" time, the solution will converge to a steady state
+  // effective time-scale is collision-frequency (nu) * final-time
+
+  int const num_dims = disc.num_dims();
+
+  std::vector<P> eref;
+  P enorm = fm::powi(0.170109559932217, num_dims - 1);
+
+  if (num_dims == 2) { // 1x1v
+    separable_func<P> exact({1.0, 1.0});
+    exact.set_fdomain(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+          -> void {
+        P constexpr theta = 2.75;
+        P constexpr u     = 0.5;
+
+        P const c = 1.0 / std::sqrt(2.0 * PI * theta);
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      });
+
+    eref = disc.project_function({exact, });
+  }
+  else if (num_dims == 3) // 1x2v
+  {
+    separable_func<P> exact({1.0, 1.0, 1.0});
+    exact.set_fdomain(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+          -> void {
+        P constexpr theta = 2.75;
+        P constexpr u     = 1.5;
+
+        P const c = 1.0 / std::sqrt(2.0 * PI * theta);
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      });
+    exact.set_fdomain(2, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+          -> void {
+        P constexpr theta = 2.75;
+        P constexpr u     = 1.5;
+
+        P const c = 1.0 / std::sqrt(2.0 * PI * theta);
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      });
+
+    eref = disc.project_function({exact, });
+  }
+  else if (num_dims == 4) // 1x3v
+  {
+    separable_func<P> exact({1.0, 1.0, 1.0, 1.0});
+    auto max1 = [](std::vector<P> const &v, P, std::vector<P> &fv)
+          -> void {
+        P constexpr theta = 2.5;
+        P constexpr u     = 1.0;
+
+        P const c = 1.0 / std::sqrt(2.0 * PI * theta);
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
+      };
+
+    exact.set_fdomain(1, max1);
+    exact.set_fdomain(2, max1);
+    exact.set_fdomain(3, max1);
+
+    eref = disc.project_function({exact, });
+
+    enorm = 5.679043443503443e-03;
+  }
+
+  std::vector<P> const &state = disc.current_state();
+  expect(eref.size() == state.size());
+
+  double nself = 0;
+  double ndiff = 0;
+  for (size_t i = 0; i < state.size(); i++)
+  {
+    double const e = eref[i] - state[i];
+    ndiff += e * e;
+    double const r = eref[i];
+    nself += r * r;
+  }
+
+  return std::sqrt(ndiff + enorm - nself);
 }
 
 int main(int argc, char** argv)
@@ -128,7 +271,7 @@ int main(int argc, char** argv)
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test"}, {});
+  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", "-vdims", "-vd"});
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -136,12 +279,17 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  int const vdims = options.extra_cli_value_group<int>({"-vdims", "-vd"}).value_or(1);
+
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  discretization_manager<P> disc(make_relaxation(1, options),
+  discretization_manager<P> disc(make_relaxation<P>(vdims, options),
                                  asgard::verbosity_level::high);
 
   disc.advance_time(); // integrate until num-steps or stop-time
+
+  if (not disc.stop_verbosity())
+    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
 
   disc.final_output();
 
@@ -149,36 +297,43 @@ int main(int argc, char** argv)
 };
 
 #ifndef __ASGARD_DOXYGEN_SKIP
-///////////////////////////////////////////////////////////////////////////////
-// The code below is not part of the example, rather it is intended
-// for correctness checking and verification against the known solution
-///////////////////////////////////////////////////////////////////////////////
-
-// just for convenience to avoid using asgard:: all over the place
-// normally, should only include what is needed
-using namespace asgard;
-
 template<typename P>
-void test_energy(std::string const &opt_str) {
-  current_test<P> test_(opt_str, 2);
+void test_final(double tol, int num_dims, std::string const &opt_str) {
+  current_test<P> test_(opt_str, num_dims);
 
+  auto options = make_opts(opt_str);
+
+  discretization_manager<P> disc(make_relaxation<P>(num_dims - 1, options),
+                                 verbosity_level::quiet);
+
+  disc.advance_time();
+
+  double const err = get_error_l2(disc);
+
+  // std::cout << " err = " << err << '\n';
+
+  tcheckless(disc.time_params().step(), err, tol);
 }
 
 void self_test() {
-  // all_tests testing_("two-stream instability");
-
-  std::cout << " no tests, yet!\n";
+  all_tests testing_("simple relaxation problem");
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  // test_energy<double>("-l 5 -d 2 -g dense -dt 6.25e-3 -n 20");
-  // test_energy<double>("-l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
+  test_final<double>(5.E-3, 2, "-l 5 -t 2 -d 2 -nu 1000");
+  test_final<double>(1.E-4, 2, "-l 6 -t 2 -d 2 -nu 1000");
+  test_final<double>(1.E-4, 2, "-l 6 -t 1 -d 2 -nu 2000");
+  test_final<double>(1.E-3, 2, "-l 2 -m 5 -nu 1000 -a 1.E-3");
+
+  test_final<double>(5.E-3, 3, "-l 5 -t 1 -d 2 -nu 2000");
+  test_final<double>(5.E-2, 4, "-l 4 -t 1 -d 2 -nu 2000");
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  std::cout << "no tests for single precision only builds\n";
+  test_final<float>(5.E-3, 2, "-l 5 -t 2 -d 2 -nu 1000");
+  test_final<float>(5.E-3, 3, "-l 5 -t 2 -d 2 -nu 100");
 
 #endif
 }

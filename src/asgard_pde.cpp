@@ -22,11 +22,11 @@ PDEv2<P> & PDEv2<P>::operator += (operators::lenard_bernstein_collisions lbc)
 
   term_1d<P> divv_nuv = term_div<P>{vnu, flux_type::upwind, boundary_type::bothsides};
 
-  term_1d<P> div_nu = term_div<P>{lbc.nu, flux_type::central, boundary_type::bothsides};
+  term_1d<P> div_nu = term_div<P>{static_cast<P>(lbc.nu), flux_type::central, boundary_type::bothsides};
 
-  double const snu = std::sqrt(lbc.nu);
-  term_1d<P> nu_div_grad = term_1d<P>({term_div{-1, flux_type::upwind, boundary_type::bothsides},
-                                       term_grad{lbc.nu, flux_type::upwind, boundary_type::bothsides}});
+  P const snu = std::sqrt(lbc.nu);
+  term_1d<P> nu_div_grad = term_1d<P>({term_div<P>{-snu, flux_type::upwind, boundary_type::bothsides},
+                                       term_grad<P>{snu, flux_type::upwind, boundary_type::bothsides}});
 
   if (domain_.num_vel() == 1) {
     *this += term_md<P>({I, divv_nuv});
