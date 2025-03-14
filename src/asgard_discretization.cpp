@@ -842,8 +842,6 @@ void discretization_manager<precision>::print_mats() const {
         if (matrices.term_coeffs[tid * num_dims + d].empty()) {
           std::cout << "identity\n";
         } else {
-            // std::cout << " matrices.term_coeffs.size() = " << matrices.term_coeffs.size()
-            //           << "   " << tid * num_dims + d << "\n";
           matrices.term_coeffs[tid * num_dims + d].to_full(conn).print(std::cout);
         }
         std::cout << '\n';
