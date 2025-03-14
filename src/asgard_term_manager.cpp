@@ -584,6 +584,27 @@ void term_manager<P>::build_raw_mat(
         case pterm_dependence::electric_field:
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;
+        case pterm_dependence::moment_divided_by_density:
+          if (t1d.moment() > 0) {
+            gen_diag_mom_cases<P, +1, pterm_dependence::moment_divided_by_density>
+              (legendre, xleft[d], xright[d], level, t1d.moment(), cdata.moments, raw_diag);
+          } else {
+            gen_diag_mom_cases<P, -1, pterm_dependence::moment_divided_by_density>
+              (legendre, xleft[d], xright[d], level, -t1d.moment(), cdata.moments, raw_diag);
+          }
+          break;
+        case pterm_dependence::lenard_bernstein_coll_theta_1x1v:
+          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x1v>
+            (legendre, xleft[d], xright[d], level, 0, cdata.moments, raw_diag);
+          break;
+        case pterm_dependence::lenard_bernstein_coll_theta_1x2v:
+          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x2v>
+            (legendre, xleft[d], xright[d], level, 0, cdata.moments, raw_diag);
+          break;
+        case pterm_dependence::lenard_bernstein_coll_theta_1x3v:
+          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x3v>
+            (legendre, xleft[d], xright[d], level, 0, cdata.moments, raw_diag);
+          break;
         default:
           if (t1d.rhs()) {
             gen_diag_cmat<P, operation_type::volume>

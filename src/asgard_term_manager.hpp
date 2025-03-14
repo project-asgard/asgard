@@ -269,11 +269,21 @@ struct term_manager
 
   //! rebuild the terms that depend on the Poisson electric field
   void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
-                      hierarchy_manipulator<P> const &hier)
+                       hierarchy_manipulator<P> const &hier)
   {
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
         if (te.deps[d].poisson)
+          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+    }
+  }
+  //! rebuild the terms that depend only on the moments
+  void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
+                            hierarchy_manipulator<P> const &hier)
+  {
+    for (auto &te : terms) {
+      for (int d : indexof(num_dims))
+        if (te.deps[d].num_moments > 0 and not te.deps[d].poisson)
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }

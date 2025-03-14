@@ -53,11 +53,11 @@ doxygen_add_docs(asgard_doxygen
                  src/pde/asgard_pde_base.hpp
                  examples/continuity_2d.cpp
                  examples/inputs_1d.cpp
-                 src/continuity.cpp
-                 src/diffusion.cpp
-                 src/elliptic.cpp
-                 src/sinwav.cpp
-                 src/two_stream.cpp
+                 src/pde/continuity.cpp
+                 src/pde/diffusion.cpp
+                 src/pde/elliptic.cpp
+                 src/pde/sinwav.cpp
+                 src/pde/two_stream.cpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")
 

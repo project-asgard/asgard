@@ -1520,6 +1520,31 @@ struct volume_electric {
   sfixed_func1d_f<P> right_f;
 };
 
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Volume term that depends on a given moment divided by the density (moment 0)
+ */
+struct term_moment_over_density {
+  //! constructor, sets the moment
+  explicit term_moment_over_density(int mom) : moment(mom) {
+    rassert(moment > 0, "The moment over density must be at least 1");
+  }
+  //! the moment to be used, must use something other than 0
+  int moment = 0;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Volume term that depends on the negative of a moment divided by the density (moment 0)
+ */
+ struct term_moment_over_density_neg {
+  explicit term_moment_over_density_neg(int mom) : moment(mom) {
+    rassert(moment > 0, "The moment over density must be at least 1");
+  }
+  //! the moment to be used, must use something other than 0
+  int moment = 0;
+};
+
 // forward declaration so it can be set as a friend
 template<typename P>
 struct term_manager;
@@ -1631,7 +1656,7 @@ public:
     }
   }
   //! make a term that depends on coupled fields, e.g., moments or electric field
-  term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc)
+  term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
     : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
   {}
 
@@ -1720,6 +1745,18 @@ public:
     depends_ = (field_f_) ? pterm_dependence::electric_field
                           : pterm_dependence::electric_field_only;
   }
+  //! make moment over density dependence term
+  term_1d(term_moment_over_density moment)
+    : optype_(operation_type::volume),
+      depends_(pterm_dependence::moment_divided_by_density),
+      change_(changes_with::time), mom(moment.moment)
+  {}
+  //! make moment over density dependence term, with negative sign
+  term_1d(term_moment_over_density_neg moment)
+    : optype_(operation_type::volume),
+      depends_(pterm_dependence::moment_divided_by_density),
+      change_(changes_with::time), mom(-moment.moment)
+  {}
 
   //! indicates whether this is an identity term
   bool is_identity() const { return (optype_ == operation_type::identity); }
@@ -2473,6 +2510,19 @@ struct divergence {
   std::vector<double> coeffs;
 };
 
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Adds the Lenard-Bernstein collision operator to the PDE
+ *
+ * Currently sets zero boundary conditions at the edge of the velocity domain.
+ */
+struct lenard_bernstein_collisions {
+  //! sets the Lenard-Bernstein collision operator with the given collision frequency
+  lenard_bernstein_collisions(double coll_frequency) : nu(coll_frequency) {}
+  //! collision frequency
+  double nu = 0;
+};
+
 } // namespace::operators
 #endif
 
@@ -2657,6 +2707,8 @@ public:
     this->add_source(std::move(tmd));
     return *this;
   }
+  //! add collision operator
+  PDEv2<P> & operator += (operators::lenard_bernstein_collisions lbc);
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources

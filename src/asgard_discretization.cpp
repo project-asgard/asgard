@@ -292,6 +292,7 @@ void discretization_manager<precision>::start_cold()
       // skip the first solve, putting in dummy data for the term construction
       terms.cdata.electric_field.resize(fm::ipow2(sgrid.current_level(0)));
     }
+    terms.cdata.moments.resize(deps.num_moments * fm::ipow2(sgrid.current_level(0)));
   }
 
   if (stepper.needed_precon() == precon_method::adi) {
@@ -829,6 +830,37 @@ discretization_manager<precision>::current_mpistate() const
 #endif
 
   return gather_results<precision>(state, grid.get_distrib_plan(), my_rank, s);
+}
+
+template<typename precision>
+void discretization_manager<precision>::print_mats() const {
+  if (pde) { // version 1
+    int const num_dims = pde->num_dims();
+    for (auto tid : iindexof(pde->num_terms())) {
+      for (int d : iindexof(num_dims)) {
+        std::cout << " term = " << tid << "  dim = " << d << '\n';
+        if (matrices.term_coeffs[tid * num_dims + d].empty()) {
+          std::cout << "identity\n";
+        } else {
+          matrices.term_coeffs[tid * num_dims + d].to_full(conn).print(std::cout);
+        }
+        std::cout << '\n';
+      }
+    }
+  } else {
+    int const num_dims = terms.num_dims;
+    for (auto tid : iindexof(terms.terms)) {
+      for (int d : iindexof(num_dims)) {
+        std::cout << " term = " << tid << "  dim = " << d << '\n';
+        if (terms.terms[tid].coeffs[d].empty()) {
+          std::cout << "identity\n";
+        } else {
+          terms.terms[tid].coeffs[d].to_full(conn).print(std::cout);
+        }
+        std::cout << '\n';
+      }
+    }
+  }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

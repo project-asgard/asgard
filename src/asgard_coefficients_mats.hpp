@@ -332,7 +332,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 {
   ignore(rhs_f);
   static_assert(optype == operation_type::volume,
-                "only mass matrices should be used to create mass terms");
+                "only volume matrices should be used to create volume terms");
 
   int const num_cells = fm::ipow2(level);
   P const dx = (xright - xleft) / num_cells;
@@ -374,6 +374,116 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
       smmat::gemm_tn<1>(basis.pdof, basis.num_quad, basis.leg, tmp.data(), coeff[i]);
     }
   }
+}
+
+//! moment over moment zero
+template<typename P, int multsign, pterm_dependence dep>
+void gen_diag_mom_cases(
+    legendre_basis<P> const &basis, P xleft, P xright, int level, int mindex,
+    std::vector<P> const &moms, block_diag_matrix<P> &coefficients)
+{
+  static_assert(multsign == 1 or multsign == -1);
+
+  // setup jacobi of variable x and define coeff_mat
+  int const num_cells = fm::ipow2(level);
+
+  int const pdof     = basis.pdof;
+  int const num_quad = basis.num_quad;
+
+  coefficients.resize_and_zero(pdof * pdof, num_cells);
+
+  P const dx = (xright - xleft) / num_cells;
+  P const vscale = P{1} / dx; // volume scale
+
+  size_t const wsize = [&]() -> size_t {
+    if constexpr (dep == pterm_dependence::moment_divided_by_density)
+      return num_quad * pdof + 2 * num_quad;
+    else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v
+                       or dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v
+                       or dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v)
+      return num_quad * pdof + 3 * num_quad;
+  }();
+
+  span2d<P const> moment(moms.size() / num_cells, num_cells, moms.data());
+
+#pragma omp parallel
+  {
+    // each thread will allocate it's own tmp matrix
+    std::vector<P> workspace(wsize);
+    P *tmp   = workspace.data();
+    P *gv    = tmp + num_quad * pdof;
+    P *gdiv  = gv + num_quad;
+    P *gv2   = (dep == pterm_dependence::moment_divided_by_density) ? nullptr : gdiv + num_quad;
+
+    // workspace will be captured inside the lambda closure
+    // no allocations will occur per call
+#pragma omp for
+    for (int i = 0; i < num_cells; ++i)
+    {
+      if constexpr (dep == pterm_dependence::moment_divided_by_density)
+      {
+        // make gv to be the values of rhs at the quad-nodes
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + mindex * pdof, gv);
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
+
+        for (int k : iindexof(num_quad))
+          gv[k] /= gdiv[k];
+      }
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v)
+      {
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + pdof, gv);
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 2 * pdof, gv2);
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
+
+        for (int k : iindexof(num_quad))
+          gv[k] = (gv2[k] / gdiv[k]) - gv[k] * gv[k] / (gdiv[k] * gdiv[k]);
+      }
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v)
+      {
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + pdof, gv2);
+        for (int k : iindexof(num_quad))
+          gv[k] = gv2[k] * gv2[k];
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 2 * pdof, gv2);
+        for (int k : iindexof(num_quad))
+          gv[k] += gv2[k] * gv2[k];
+
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 3 * pdof, gv2);
+        smmat::gemv1(num_quad, pdof, basis.leg, moment[i] + 4 * pdof, gv2);
+
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
+
+        for (int k : iindexof(num_quad))
+          gv[k] = 0.5 * ((gv2[k] / gdiv[k]) - gv[k] / (gdiv[k] * gdiv[k]));
+      }
+      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v)
+      {
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 1 * pdof, gv2);
+        for (int k : iindexof(num_quad))
+          gv[k] = gv2[k] * gv2[k];
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 2 * pdof, gv2);
+        for (int k : iindexof(num_quad))
+          gv[k] += gv2[k] * gv2[k];
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 3 * pdof, gv2);
+        for (int k : iindexof(num_quad))
+          gv[k] += gv2[k] * gv2[k];
+
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 4 * pdof, gv2);
+        smmat::gemv1(num_quad, pdof, basis.leg, moment[i] + 5 * pdof, gv2);
+        smmat::gemv1(num_quad, pdof, basis.leg, moment[i] + 6 * pdof, gv2);
+
+        smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
+
+        for (int k : iindexof(num_quad))
+          gv[k] = (P{1} / P{3}) * ((gv2[k] / gdiv[k]) - gv[k] / (gdiv[k] * gdiv[k]));
+      }
+
+      // multiply the values of rhs by the values of the Leg. polynomials
+      smmat::col_scal(num_quad, pdof, gv, basis.leg, tmp);
+
+      // multiply results in integration
+      smmat::gemm_tn<multsign>(pdof, num_quad, basis.legw, tmp, coefficients[i]);
+    }
+  } // #pragma omp parallel
 }
 
 template<typename P>
