@@ -167,17 +167,6 @@ fokkerplanck_2d_complete_case3    Full PDE from the 2D runaway electron paper:
 fokkerplanck_2d_complete_case4    Full PDE from the 2D runaway electron paper:
                                   d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 4
 
-relaxation_1x1v    Relaxation 1x1v. df/dt = div_{v} v f + d_{v} -u f  + d_{v}(th q), q = d_{v} f
-relaxation_1x2v    Relaxation 1x2v.
-                   df/dt = div_{v1} v_1 f + d_{v1} -u_1 f + div_{v2} v_2 f
-                          + d_{v2} -u_2 f + d_{v1}(th q),
-                   q = d_{v1} f + d_{v2}(th q), q = d_{v2} f
-
-relaxation_1x3v    Relaxation 1x3v.
-                   df/dt = div_{v1} v_1 f + d_{v1} -u_1 f + div_{v2} v_2 f
-                          + d_{v2} -u_2 f + d_{v1}(th q),
-                   q = d_{v1} f + d_{v2}(th q), q = d_{v2} f
-
 riemann_1x2v    Riemann 1x2v
 riemann_1x3v    Riemann 1x3v
 
@@ -660,9 +649,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
       {"fokkerplanck_2d_complete_case3", PDE_opts::fokkerplanck_2d_complete_case3},
       {"fokkerplanck_2d_complete_case4", PDE_opts::fokkerplanck_2d_complete_case4},
       {"vlasov", PDE_opts::vlasov_lb_full_f},
-      {"relaxation_1x1v", PDE_opts::relaxation_1x1v},
-      {"relaxation_1x2v", PDE_opts::relaxation_1x2v},
-      {"relaxation_1x3v", PDE_opts::relaxation_1x3v},
       {"riemann_1x2v", PDE_opts::riemann_1x2v},
       {"riemann_1x3v", PDE_opts::riemann_1x3v},
       {"landau", PDE_opts::collisional_landau},
