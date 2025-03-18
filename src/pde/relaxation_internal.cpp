@@ -315,6 +315,33 @@ void test_final(double tol, int num_dims, std::string const &opt_str) {
   tcheckless(disc.time_params().step(), err, tol);
 }
 
+template<typename P>
+void test_aniso(double tol, int num_dims, std::vector<int> const &levels,
+                std::string const &opt_str) {
+  expect(1 <= num_dims and num_dims <= max_num_dimensions);
+  expect(static_cast<size_t>(num_dims) == levels.size());
+  std::string rstr = "aniso {";
+  for (size_t i = 0; i < levels.size() - 1; i++)
+    rstr += std::to_string(levels[i]) + ", ";
+  rstr += std::to_string(levels.back()) + "} ";
+  current_test<P> test_(rstr + opt_str, num_dims);
+
+  auto options = make_opts(opt_str);
+
+  options.start_levels = levels;
+
+  discretization_manager<P> disc(make_relaxation<P>(num_dims - 1, options),
+                                 verbosity_level::quiet);
+
+  disc.advance_time();
+
+  double const err = get_error_l2(disc);
+
+  // std::cout << " err = " << err << '\n';
+
+  tcheckless(disc.time_params().step(), err, tol);
+}
+
 void self_test() {
   all_tests testing_("simple relaxation problem");
 
@@ -327,6 +354,9 @@ void self_test() {
 
   test_final<double>(5.E-3, 3, "-l 5 -t 1 -d 2 -nu 2000");
   test_final<double>(5.E-2, 4, "-l 4 -t 1 -d 2 -nu 2000");
+
+  // test ansitropic sparse grid with one level restricted to zero
+  test_aniso<double>(5.E-3, 2, {0, 4}, "-nu 1000");
 
 #endif
 

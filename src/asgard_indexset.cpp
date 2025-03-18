@@ -487,10 +487,10 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
   {
     int64_t m = 1;
     for (auto const &l : levels)
-      m *= l;
+      m *= (l == 0) ? 1 : l;
     std::array<int, max_num_dimensions> lidx;
-    for (int i = 0; i < numd; i++)
-      lidx[i] = m / levels[i];
+    for (int d : iindexof(numd))
+      lidx[d] = (levels[d] == 0) ? (m + 1) : (m / levels[d]);
     std::vector<int> idx = asgard::permutations::generate_lower_index_set_v2(
       numd, [&](std::array<int, max_num_dimensions> const &index)
         -> bool {
