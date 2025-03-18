@@ -426,5 +426,43 @@ struct indexrange
   idx_type end_;
 };
 
+/*!
+ * \brief Indicates a group of indexes, marked by the begin_ and end_ that is one after the last index
+ *
+ * The asgard::indexrange structure is used in the ranged-for-loop,
+ * the asgard::irange struct is used to hold and manipulate the indexes,
+ * e.g., create, assign after assignment, etc
+ */
+class irange {
+public:
+  //! create a new range with the given begin and end
+  irange(int b, int e)
+    : begin_(b), end_(e)
+  {
+    expect(e >= b);
+  }
+  //! create a new range from zero to the given end
+  irange(int e)
+    : begin_(0), end_(e)
+  {
+    expect(e >= 0);
+  }
+
+  //! returns the number of indexes
+  int size() const { return (end_ - begin_); }
+  //! returns the begin index
+  int begin() const { return begin_; }
+  //! returns the end index
+  int end() const { return end_; }
+  //! returns true if the range is empty
+  bool empty() const { return (end_ <= begin_); }
+
+private:
+  //! first index of the range
+  int begin_ = 0;
+  //! one after the last index of the range, when begin_ == end_ we have an empty range
+  int end_   = 0;
+};
+
 
 } // namespace asgard

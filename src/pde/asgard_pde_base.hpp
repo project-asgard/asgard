@@ -65,17 +65,6 @@ enum class pterm_dependence
   lenard_bernstein_coll_theta_1x3v,
 };
 
-//! allows grouping terms together
-enum class term_groups
-{
-  //! consider all terms
-  all,
-  //! imex excplicit terms
-  imex_explicit,
-  //! imex imex_implicit terms
-  imex_implicit,
-};
-
 template<coefficient_type>
 struct has_flux_t : public std::true_type{};
 

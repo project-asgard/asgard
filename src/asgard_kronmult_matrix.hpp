@@ -994,25 +994,25 @@ public:
   }
 
   //! \brief Return the number of flops for the current matrix type, if enabled for timing
-  int64_t flops(imex_flag etype, std::array<std::vector<int>, 3> term_groups) const
+  int64_t flops(imex_flag etype, std::array<std::vector<int>, 3> groups) const
   {
 #ifdef ASGARD_USE_FLOPCOUNTER
-    return count_flops(etype, term_groups);
+    return count_flops(etype, groups);
 #else
     ignore(etype);
-    ignore(term_groups);
+    ignore(groups);
     return 0;
 #endif
   }
   //! \brief Counts the number of floating point operations
-  int64_t count_flops(imex_flag etype, std::array<std::vector<int>, 3> term_groups) const
+  int64_t count_flops(imex_flag etype, std::array<std::vector<int>, 3> groups) const
   {
     int i = static_cast<int>(etype);
     if (flops_[i] == -1)
     {
       flops_[i] = kronmult::block_global_count_flops(
           num_dimensions_, block_size_, ilist_, dsort_, perms_,
-          flux_dir_, *conn_volumes_, *conn_full_, term_groups[i], *workspace_);
+          flux_dir_, *conn_volumes_, *conn_full_, groups[i], *workspace_);
       if (verb == verbosity_level::high)
       {
         switch (etype)
