@@ -2507,13 +2507,37 @@ struct divergence {
  */
 struct lenard_bernstein_collisions {
   //! sets the Lenard-Bernstein collision operator with the given collision frequency
-  lenard_bernstein_collisions(double coll_frequency) : nu(coll_frequency) {}
+  lenard_bernstein_collisions(double coll_frequency, double penalty_magnutude = 0.0)
+    : nu(coll_frequency), penalty(penalty_magnutude) {}
   //! collision frequency
   double nu = 0;
+  //! penalty, if any
+  double penalty = 0;
 };
 
 } // namespace::operators
 #endif
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Container for group id associated with imex explicit step
+ */
+struct imex_explicit_group {
+  //! sets the explicit group
+  explicit imex_explicit_group(int g = -1) : gid(g) {}
+  //! the group id
+  int gid = -1;
+};
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Container for group id associated with imex implicit step
+ */
+ struct imex_implicit_group {
+  //! sets the implicit group
+  explicit imex_implicit_group(int g = -1) : gid(g) {}
+  //! the group id
+  int gid = -1;
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -2717,7 +2741,47 @@ public:
       level = max_level_;
     return domain_.min_cell_size(level);
   }
+  //! begin a new term group, returns the index-id of the new group
+  int new_term_group() {
+    if (current_term_group == -1) { // initialize group engine
+      if (terms_.empty()) {
+        current_term_group = 0;
+      } else {
+        term_groups.emplace_back(0, static_cast<int>(terms_.size()));
+        current_term_group = 1;
+      }
+    } else { // new group
+      finalize_term_group();
+      current_term_group ++;
+    }
+    return current_term_group;
+  }
+  //! begin a new source group, returns the index-id of the new group
+  int new_source_troup() {
+    if (current_source_group == -1) { // initialize group engine
+      if (terms_.empty()) {
+        current_source_group = 0;
+      } else {
+        source_groups.emplace_back(0, static_cast<int>(terms_.size()));
+        current_source_group = 1;
+      }
+    } else { // new group
+      finalize_source_group();
+      current_source_group ++;
+    }
+    return current_source_group;
+  }
 
+  //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
+  void set(imex_implicit_group im, imex_explicit_group ex) {
+    expect(options_.step_method.value() == time_method::imex2);
+    im_ = im;
+    ex_ = ex;
+  }
+  //! returns the implicit group
+  imex_implicit_group imex_im() const { return im_; }
+  //! returns the explicit group
+  imex_explicit_group imex_ex() const { return ex_; }
 
   //! allows writer to save/load the pde and options
   friend class h5manager<P>;
@@ -2725,6 +2789,24 @@ public:
   friend struct term_manager<P>;
 
 private:
+  void finalize_term_group() {
+    if (current_term_group == -1) // no groups being used
+      return;
+    if (current_term_group == 0)
+      term_groups.emplace_back(0, static_cast<int>(terms_.size()));
+    else
+      term_groups.emplace_back(term_groups.back().begin(), static_cast<int>(terms_.size()));
+  }
+  void finalize_source_group() {
+    if (current_source_group == -1) // no groups being used
+      return;
+    if (current_source_group == 0)
+      source_groups.emplace_back(0, static_cast<int>(sources_sep_.size()));
+    else
+      source_groups.emplace_back(source_groups.back().begin(),
+                                 static_cast<int>(sources_sep_.size()));
+  }
+
   prog_opts options_;
   pde_domain<P> domain_;
   int max_level_ = 1;
@@ -2735,8 +2817,17 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
+  // TODO: update this to have one non-sep source per group
   md_func<P> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
+
+  int current_term_group = -1;
+  std::vector<irange> term_groups;
+  int current_source_group = -1;
+  std::vector<irange> source_groups;
+
+  imex_implicit_group im_;
+  imex_explicit_group ex_;
 };
 
 } // namespace asgard

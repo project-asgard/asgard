@@ -379,7 +379,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 //! moment over moment zero
 template<typename P, int multsign, pterm_dependence dep>
 void gen_diag_mom_cases(
-    legendre_basis<P> const &basis, P xleft, P xright, int level, int mindex,
+    legendre_basis<P> const &basis, int level, int mindex,
     std::vector<P> const &moms, block_diag_matrix<P> &coefficients)
 {
   static_assert(multsign == 1 or multsign == -1);
@@ -391,9 +391,6 @@ void gen_diag_mom_cases(
   int const num_quad = basis.num_quad;
 
   coefficients.resize_and_zero(pdof * pdof, num_cells);
-
-  P const dx = (xright - xleft) / num_cells;
-  P const vscale = P{1} / dx; // volume scale
 
   size_t const wsize = [&]() -> size_t {
     if constexpr (dep == pterm_dependence::moment_divided_by_density)

@@ -504,7 +504,7 @@ if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
-set (_asgard_pdes continuity diffusion elliptic sinwav two_stream
+set (_asgard_pdes continuity diffusion elliptic sinwav two_stream vplb
                   mass_internal varcoeff_internal bound_internal relaxation_internal)
 
 foreach (_asgexe ${_asgard_pdes})

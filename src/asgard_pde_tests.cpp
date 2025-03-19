@@ -201,6 +201,16 @@ TEMPLATE_TEST_CASE("pde v2", "[pde]", test_precs)
     REQUIRE_FALSE(pde.mass().dim(1).is_identity());
     REQUIRE(pde.mass().dim(1).rhs_const() == 3);
   }
+  SECTION("imex")
+  {
+    prog_opts opts = make_opts("-l 2 -d 1 -s imex2");
+    REQUIRE(opts.step_method);
+    REQUIRE(opts.step_method.value() == time_method::imex2);
+    PDEv2<TestType> pde(opts, pde_domain<TestType>(2));
+    pde.set(imex_implicit_group{2}, imex_explicit_group{5});
+    REQUIRE(pde.imex_im().gid == 2);
+    REQUIRE(pde.imex_ex().gid == 5);
+  }
 }
 
 TEST_CASE("helper wrappers", "[pde]")

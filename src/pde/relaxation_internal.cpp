@@ -33,7 +33,7 @@ asgard::PDEv2<P> make_relaxation(int vdims, asgard::prog_opts options) {
   for (int v : iindexof(vdims))
     ranges.emplace_back(-8.0, 12.0);
 
-  // the domain has one position and one velocity dimension: 1x1v
+  // the domain has one position and multiple velocity dimensions
   pde_domain<P> domain(position_dims{1}, velocity_dims{vdims}, ranges);
 
   options.default_degree = 2;

@@ -192,6 +192,8 @@ enum class time_method
   back_euler,
   //! Implicit Crank-Nicolson, second order
   cn,
+  //! Implicit-explicit, second order
+  imex2,
   //! implicit solve, backward Euler
   imp,
   //! (default) explicit Runge–Kutta

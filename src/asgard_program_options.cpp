@@ -83,6 +83,7 @@ Options          Short   Value      Description
                                     accepts (v2): steady
                                       forward-euler/fe/rk1/rk2/rk3/rk4
                                       backwar-euler/be/crank-nicolson/cn
+                                      imex2
                                     (fe, be and cn are shorthand acronyms for the longer names)
                                     steady computes the steady state, not a time-stepping method
                                     indicates explicit (rk3), implicit (backward-Euler) or
@@ -351,6 +352,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         step_method = time_method::cn;
       else if (*selected == "be" or *selected == "backward-euler")
         step_method = time_method::back_euler;
+      else if (*selected == "imex2")
+        step_method = time_method::imex2;
       else if (*selected == "expl")
         step_method = time_method::exp;
       else if (*selected == "impl")

@@ -88,24 +88,6 @@ static constexpr resource imex_resrc = resource::host;
 
 #endif
 
-/*!
- * \ingroup asgard_pde_definition
- * \brief Splits the terms into groups
- *
- * TODO: fix the name for the term groups enums
- */
-template<typename P>
-class term_groups
-{
-public:
-  term_groups(PDEv2<P> const &pde) {
-    // rassert(pde.
-  }
-
-private:
-
-};
-
 } // namespace asgard
 
 /*!
