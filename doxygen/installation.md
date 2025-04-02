@@ -98,15 +98,18 @@ ASGarD has a pip installer called [ornl-asgard](https://pypi.org/project/ornl-as
 
 Both venv and user-space installs are supported, e.g.,
 ```
-python3 -m pip install onrl-asgard==0.7.0a2 --user
+python3 -m pip install ornl-asgard --user
 ```
 The `--user` tag is not needed for a venv install
 ```
-python3 -m pip install onrl-asgard==0.7.0a2
+python3 -m pip install ornl-asgard
 ```
 
 The installer is still experimental and the version will be changing often,
 check the PyPIP project page and please report potential issues.
+
+OSX and other systems often come with different versions of python,
+be consistent between the version used for install and runtime.
 
 ### Basic usage
 
