@@ -257,8 +257,11 @@ void discretization_manager<precision>::start_cold()
         throw std::runtime_error("how did this happen?");
     }
 
-    // the options are used to setup the solver
-    stepper = time_advance_manager<precision>(dtime, options);
+    if (is_imex(sm)) {
+      stepper = time_advance_manager<precision>(dtime, options);
+    } else {
+      stepper = time_advance_manager<precision>(dtime, options);
+    }
   }
 
   if (not stop_verbosity())

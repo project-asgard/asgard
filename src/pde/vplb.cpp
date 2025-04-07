@@ -85,22 +85,16 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   asgard::pde_domain<P> domain(asgard::position_dims{1}, asgard::velocity_dims{vdims}, ranges);
 
   // setting some default options
-  // defaults are used only the corresponding values are missing from the command line
-  int const default_degree = 2;
+  options.default_degree = 2;
+  options.default_start_levels = {5, 5};
 
-  options.default_degree = default_degree;
-  options.default_start_levels = {7, 7};
-
-  // the CFL is more complicated, it depends both on the polynomial degree
-  // and on the maximum number of cells (TODO: add more here)
-  int const k = options.degree.value_or(default_degree);
-  int const n = (1 << options.max_level());
-  options.default_dt = 3.0 / (2 * (2 * k + 1) * n);
+  options.default_dt = 0.01;
 
   options.default_stop_time = 1.0;
 
-  // using explicit RK3
-  options.default_step_method = asgard::time_method::rk2;
+  // using implicit-explicit stepper
+  options.default_step_method = asgard::time_method::imex2;
+  options.throw_if_not_imex_stepper();
 
   // create a pde from the given options and domain
   asgard::PDEv2<P> pde(options, domain);
@@ -150,6 +144,10 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   int const lb_group_id = pde.new_term_group();
 
   pde += asgard::operators::lenard_bernstein_collisions{nu, 1.0 / pde.min_cell_size()};
+
+  // set the implicit and explicit operator groups
+  pde.set(asgard::imex_implicit_group{lb_group_id},
+          asgard::imex_explicit_group{vp_group_id});
 
   // initial conditions in x and v
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->

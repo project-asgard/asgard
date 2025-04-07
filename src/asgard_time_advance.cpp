@@ -849,6 +849,7 @@ std::string time_advance_manager<P>::method_name() const {
     {time_method::rk4, "Runge-Kutta 4-step (explicit)"},
     {time_method::cn, "Crank-Nicolson 1-step (implicit)"},
     {time_method::back_euler, "Backward-Euler 1-step (implicit)"},
+    {time_method::imex2, "Implicit-Explicit 2-step (imex)"},
   };
 
   return names.find(data.step_method())->second;

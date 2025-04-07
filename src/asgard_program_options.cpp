@@ -2,6 +2,36 @@
 
 namespace asgard
 {
+
+bool is_explicit(time_method method) {
+  switch (method) {
+    case time_method::forward_euler:
+    case time_method::rk2:
+    case time_method::rk3:
+    case time_method::rk4:
+      return true;
+    default:
+      return false;
+  }
+}
+bool is_implicit(time_method method) {
+  switch (method) {
+    case time_method::back_euler:
+    case time_method::cn:
+      return true;
+    default:
+      return false;
+  }
+}
+bool is_imex(time_method method) {
+  switch (method) {
+    case time_method::imex2:
+      return true;
+    default:
+      return false;
+  }
+}
+
 split_views split_argv(std::string_view const &opts)
 {
   std::stringstream inopts{std::string(opts)};

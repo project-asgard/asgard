@@ -223,6 +223,52 @@ private:
   mutable std::vector<P> work;
 };
 
+/*!
+ * \internal
+ * \ingroup asgard_time_advance
+ * \brief Implicit-Explicit time-stepper
+ *
+ * Variations combining implicit and explicit time-steppers.
+ * \endinternal
+ */
+template<typename P>
+struct imex_stepper
+{
+  //! Default empty stepper
+  imex_stepper() = default;
+  //! Initialize the stepper and
+  imex_stepper(prog_opts const &options)
+      : method(options.step_method.value()), solver(options)
+  {
+    expect(method == time_method::cn or
+           method == time_method::back_euler);
+  }
+  //! Performs Crank-Nicolson step forward in time, uses the current and next step
+  void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
+                 std::vector<P> &next) const;
+
+  //! rebuilds the operator matrix
+  //void rebuild_matrix(discretization_manager<P> const &dist) const;
+  //! requires a solver
+  static bool constexpr needs_solver = true;
+  //! needed precondtioner, if using an iterative solver
+  precon_method needed_precon() const { return solver.precon; }
+  //! returns the number of matrix-vector products, if using an iterative solver
+  int64_t num_apply_calls() const { return solver.num_apply; }
+
+  //! prints options for the solver
+  void print_solver_opts(std::ostream &os = std::cout) const {
+    os << solver;
+  }
+
+private:
+  time_method method = time_method::cn;
+  // the solver used
+  mutable solver_manager<P> solver;
+  // workspace
+  mutable std::vector<P> work;
+};
+
 }
 
 namespace asgard
