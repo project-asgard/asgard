@@ -237,11 +237,11 @@ struct imex_stepper
   //! Default empty stepper
   imex_stepper() = default;
   //! Initialize the stepper and
-  imex_stepper(prog_opts const &options)
-      : method(options.step_method.value()), solver(options)
+  imex_stepper(prog_opts const &options, imex_implicit_group im, imex_explicit_group ex)
+      : method(options.step_method.value()), solver(options),
+        imex_implicit(im), imex_explicit(ex)
   {
-    expect(method == time_method::cn or
-           method == time_method::back_euler);
+    expect(is_imex(method));
   }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
@@ -262,9 +262,12 @@ struct imex_stepper
   }
 
 private:
-  time_method method = time_method::cn;
+  time_method method = time_method::imex2;
   // the solver used
   mutable solver_manager<P> solver;
+  // implicit and explicit groups
+  imex_implicit_group imex_implicit;
+  imex_explicit_group imex_explicit;
   // workspace
   mutable std::vector<P> work;
 };
@@ -289,6 +292,9 @@ struct time_advance_manager
   time_advance_manager() = default;
   //! creates a new time-stepping manager for the given method
   time_advance_manager(time_data<P> const &tdata, prog_opts const &options);
+  //! creates a new time-stepping manager for the given imex method
+  time_advance_manager(time_data<P> const &tdata, prog_opts const &options,
+                       imex_implicit_group im, imex_explicit_group ex);
   //! advance to the next time-step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
@@ -301,6 +307,8 @@ struct time_advance_manager
         return time_advance::rungekutta<P>::needs_solver;
       case 2:
         return time_advance::crank_nicolson<P>::needs_solver;
+      case 3:
+        return time_advance::imex_stepper<P>::needs_solver;
       default:
         return false; // unreachable
     };
@@ -312,6 +320,8 @@ struct time_advance_manager
         return std::get<0>(method).needed_precon();
       case 2: // implicit stepper
         return std::get<2>(method).needed_precon();
+      case 3: // implicit stepper
+        return std::get<3>(method).needed_precon();
       default:
         return precon_method::none;
     };
@@ -333,6 +343,9 @@ struct time_advance_manager
       switch (method.index()) {
         case 2: // crank_nicolson
           std::get<2>(method).print_solver_opts(os);
+          break;
+        case 3: // imex
+          std::get<3>(method).print_solver_opts(os);
         default: // implicit method or steady-state already done above, nothing to do
           break;
       };
@@ -345,6 +358,8 @@ struct time_advance_manager
         return std::get<0>(method).num_apply_calls();
       case 2:
         return std::get<2>(method).num_apply_calls();
+      case 3:
+        return std::get<3>(method).num_apply_calls();
       default:
         return -1;
     };
@@ -356,7 +371,7 @@ struct time_advance_manager
   time_data<P> data;
   //! wrapper around the specific method being used
   std::variant<time_advance::steady_state<P>, time_advance::rungekutta<P>,
-               time_advance::crank_nicolson<P>> method;
+               time_advance::crank_nicolson<P>, time_advance::imex_stepper<P>> method;
 };
 
 /*!

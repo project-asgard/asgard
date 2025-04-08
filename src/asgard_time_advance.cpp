@@ -787,6 +787,98 @@ void crank_nicolson<P>::next_step(
   }
 }
 
+template<typename P>
+void imex_stepper<P>::next_step(
+    discretization_manager<P> const &disc, std::vector<P> const &current,
+    std::vector<P> &next) const
+{
+  tools::time_event performance_("imex");
+
+  P const time = disc.time_params().time();
+  P const dt   = disc.time_params().dt();
+
+
+
+  // if (disc.has_moments() and not disc.has_poisson()) {
+  //   disc.compute_moments(current);
+  //   // disc.print_mats();
+  // }
+  //
+  // // if the grid changed since the last time we used the solver
+  // // update the matrices and preconditioners, update-grid checks what's needed
+  // if (solver.grid_gen != disc.get_sgrid().generation())
+  //   solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), substep * dt);
+  //
+  // if (solver.opt == solver_method::direct) {
+  //   next = current; // copy
+  //
+  //   if (substep < 1)
+  //     disc.terms_apply_all(-substep * dt, current, 1, next);
+  //   disc.add_ode_rhs_sources(time + substep * dt, dt, next);
+  //
+  //   solver.direct_solve(next);
+  // } else { // iterative solver
+  //   // form the right-hand-side inside work
+  //   work = current;
+  //   if (substep < 1)
+  //     disc.terms_apply_all(-substep * dt, current, 1, work);
+  //   disc.add_ode_rhs_sources(time + substep * dt, dt, work);
+  //
+  //   next = current; // use the current step as the initial guess
+  //
+  //   int64_t const n = static_cast<int64_t>(work.size());
+  //
+  //   switch (solver.precon) {
+  //   case precon_method::none:
+  //     solver.iterate_solve(
+  //       [&](P alpha, P const x[], P beta, P y[]) -> void
+  //       {
+  //         ASGARD_OMP_PARFOR_SIMD
+  //         for (int64_t i = 0; i < n; i++)
+  //           y[i] = alpha * x[i] + beta * y[i];
+  //         disc.terms_apply_all(substep * alpha * dt, x, 1, y);
+  //       }, work, next);
+  //   break;
+  //   case precon_method::jacobi:
+  //     solver.iterate_solve(
+  //       [&](P y[]) -> void
+  //       {
+  //         tools::time_event timing_("jacobi preconditioner");
+  //         ASGARD_OMP_PARFOR_SIMD
+  //         for (int64_t i = 0; i < n; i++)
+  //           y[i] *= solver.jacobi[i];
+  //       },
+  //       [&](P alpha, P const x[], P beta, P y[]) -> void
+  //       {
+  //         ASGARD_OMP_PARFOR_SIMD
+  //         for (int64_t i = 0; i < n; i++)
+  //           y[i] = alpha * x[i] + beta * y[i];
+  //         disc.terms_apply_all(substep * alpha * dt, x, 1, y);
+  //       }, work, next);
+  //   break;
+  //   default: {
+  //     static std::vector<P> adi_work;
+  //     adi_work.resize(work.size());
+  //     // assuming ADI
+  //     solver.iterate_solve(
+  //       [&](P y[]) -> void
+  //       {
+  //         disc.terms_apply_adi(y, adi_work.data());
+  //         std::copy(adi_work.begin(), adi_work.end(), y);
+  //       },
+  //       [&](P alpha, P const x[], P beta, P y[]) -> void
+  //       {
+  //         ASGARD_OMP_PARFOR_SIMD
+  //         for (int64_t i = 0; i < n; i++)
+  //           y[i] = alpha * x[i] + beta * y[i];
+  //         disc.terms_apply_all(substep * alpha * dt, x, 1, y);
+  //       }, work, next);
+  //   }
+  //   break;
+  //   }
+  // }
+}
+
 }
 
 namespace asgard
@@ -820,6 +912,17 @@ time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_op
 }
 
 template<typename P>
+time_advance_manager<P>::time_advance_manager(
+    time_data<P> const &tdata, prog_opts const &options,
+    imex_implicit_group im, imex_explicit_group ex)
+    : data(tdata)
+{
+  expect(is_imex(data.step_method()));
+
+  method = time_advance::imex_stepper<P>(options, im, ex);
+}
+
+template<typename P>
 void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
                                         std::vector<P> const &current,
                                         std::vector<P> &next) const
@@ -833,6 +936,9 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
       break;
     case 2: // implicit stepper
       std::get<2>(method).next_step(dist, current, next);
+      break;
+    case 3: // imex stepper
+      std::get<3>(method).next_step(dist, current, next);
       break;
     default:
       throw std::runtime_error("unimplemented time-advance option");
