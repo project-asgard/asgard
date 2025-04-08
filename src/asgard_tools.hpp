@@ -408,6 +408,8 @@ using iindexof = indexof<int>;
 template<typename idx_type = int>
 struct indexrange
 {
+  indexrange() : beg_(0), end_(0) {}
+
   template<typename range_type>
   indexrange(range_type const &r)
       : beg_(r.begin()), end_(r.end())
@@ -418,9 +420,19 @@ struct indexrange
   indexrange(int e)
       : beg_(0), end_(e)
   {}
+  template<typename T>
+  indexrange(std::vector<T> const &vec)
+      : beg_(0), end_(static_cast<idx_type>(vec.size()))
+  {}
 
   index_iterator<idx_type> begin() const { return index_iterator<idx_type>{beg_}; }
   index_iterator<idx_type> end() const { return index_iterator<idx_type>{end_}; }
+
+  idx_type ibegin() const { return beg_; }
+  idx_type iend() const { return end_; }
+
+  bool empty() const { return (beg_ == end_); }
+  bool contains(idx_type a) const { return (beg_ <= a and a < end_); }
 
   idx_type beg_;
   idx_type end_;

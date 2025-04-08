@@ -258,7 +258,7 @@ void discretization_manager<precision>::start_cold()
     }
 
     if (is_imex(sm)) {
-      stepper = time_advance_manager<precision>(dtime, options);
+      stepper = time_advance_manager<precision>(dtime, options, pde2.imex_im(), pde2.imex_ex());
     } else {
       stepper = time_advance_manager<precision>(dtime, options);
     }
@@ -277,25 +277,13 @@ void discretization_manager<precision>::start_cold()
   // operations and the interpolation engine
   terms = term_manager<precision>(pde2, sgrid, hier);
 
+  start_moments();
+
   set_initial_condition();
 
   if (not stop_verbosity()) {
     int64_t const dof = sgrid.num_indexes() * hier.block_size();
     std::cout << "initial degrees of freedom: " << tools::split_style(dof) << "\n\n";
-  }
-
-  // process the moments, can compute moments based on the initial conditions
-  mom_deps deps = terms.find_deps();
-  if (deps.num_moments > 0) {
-    moms1d = moments1d(deps.num_moments, degree_, pde2.max_level(), pde2.domain());
-    if (deps.poisson) {
-      poisson = solvers::poisson(degree_, pde2.domain().xleft(0), pde2.domain().xright(0),
-                                 sgrid.current_level(0));
-
-      // skip the first solve, putting in dummy data for the term construction
-      terms.cdata.electric_field.resize(fm::ipow2(sgrid.current_level(0)));
-    }
-    terms.cdata.moments.resize(deps.num_moments * fm::ipow2(sgrid.current_level(0)));
   }
 
   if (stepper.needed_precon() == precon_method::adi) {
@@ -326,21 +314,17 @@ void discretization_manager<precision>::restart_from_file()
 
   hier = hierarchy_manipulator(degree_, pde2.domain());
 
+  if (is_imex(dtime.step_method())) {
+    stepper = time_advance_manager<precision>(dtime, options, pde2.imex_im(), pde2.imex_ex());
+  } else {
+    stepper = time_advance_manager<precision>(dtime, options);
+  }
+
   stepper = time_advance_manager<precision>(dtime, options);
 
   terms = term_manager<precision>(pde2, sgrid, hier);
 
-  // moments, identical to the start_cold() case
-  mom_deps deps = terms.find_deps();
-  if (deps.num_moments > 0) {
-    moms1d = moments1d(deps.num_moments, degree_, pde2.max_level(), pde2.domain());
-    if (deps.poisson) {
-      poisson = solvers::poisson(degree_, pde2.domain().xleft(0), pde2.domain().xright(0),
-                                 sgrid.current_level(0));
-
-      terms.cdata.electric_field.resize(fm::ipow2(sgrid.current_level(0)));
-    }
-  }
+  start_moments();
 
   if (stepper.needed_precon() == precon_method::adi) {
     precision const substep
@@ -370,6 +354,25 @@ void discretization_manager<precision>::restart_from_file()
                            "-DASGARD_USE_HIGHFIVE=ON");
 #endif
 }
+
+template<typename precision>
+void discretization_manager<precision>::start_moments() {
+  // process the moments, can compute moments based on the initial conditions
+  if (terms.deps().poisson or terms.deps().num_moments > 0) {
+    // the poisson solver needs 1 moment
+    int const num = std::max(terms.deps().num_moments, 1);
+    moms1d = moments1d(num, degree_, pde2.max_level(), pde2.domain());
+    if (terms.deps().poisson) {
+      poisson = solvers::poisson(degree_, pde2.domain().xleft(0), pde2.domain().xright(0),
+                                 sgrid.current_level(0));
+
+      // skip the first solve, putting in dummy data for the term construction
+      terms.cdata.electric_field.resize(fm::ipow2(sgrid.current_level(0)));
+    }
+    terms.cdata.moments.resize(num * fm::ipow2(sgrid.current_level(0)));
+  }
+}
+
 template<typename precision>
 void discretization_manager<precision>::save_snapshot2(std::filesystem::path const &filename) const {
 #ifdef ASGARD_USE_HIGHFIVE

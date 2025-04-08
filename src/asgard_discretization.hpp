@@ -171,32 +171,43 @@ public:
     }{
       tools::time_event performance_("ode-rhs sources");
       terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, R);
-      //terms.template apply_bc<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, R);
     }
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::replace>(pde2.domain(), sgrid, conn, hier, time, 1, src);
-    //terms.template apply_bc<data_mode::replace>(pde2.domain(), sgrid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::scal_rep>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
-    //terms.template apply_bc<data_mode::scal_rep>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
-    //terms.template apply_bc<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
     terms.template apply_sources<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
-    //terms.template apply_bc<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+  }
+
+  //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
+  void set_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
+    tools::time_event performance_("set ode sources");
+    terms.template apply_sources<data_mode::replace>(gid, pde2.domain(), sgrid, conn, hier, time, 1, src);
+  }
+  //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
+  void add_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
+    tools::time_event performance_("set ode sources");
+    terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+  }
+  //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
+  void add_ode_rhs_sources_group(int gid, precision time, precision alpha, std::vector<precision> &src) const {
+    tools::time_event performance_("set ode sources");
+    terms.template apply_sources<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
   }
 
   //! applies all terms
@@ -212,6 +223,20 @@ public:
   {
     tools::time_event performance_("terms_apply_all kronmult");
     terms.apply_all(sgrid, conn, alpha, x, beta, y);
+  }
+  //! applies terms for the given group
+  void terms_apply(int gid, precision alpha, std::vector<precision> const &x, precision beta,
+                   std::vector<precision> &y) const
+  {
+    tools::time_event performance_("terms_apply kronmult");
+    terms.apply_group(gid, sgrid, conn, alpha, x, beta, y);
+  }
+  //! applies all terms, non-owning array signature
+  void terms_apply(int gid, precision alpha, precision const x[], precision beta,
+                   precision y[]) const
+  {
+    tools::time_event performance_("terms_apply kronmult");
+    terms.apply_group(gid, sgrid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(precision const x[], precision y[]) const
@@ -422,6 +447,29 @@ public:
       terms.rebuild_moment_terms(sgrid, conn, hier);
     }
   }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments(int groupid, std::vector<precision> const &f) const {
+    if (not moms1d or terms.deps(groupid).num_moments == 0)
+      return;
+
+    int const level = sgrid.current_level(0);
+    moms1d->project_moments(sgrid, f, terms.cdata.moments);
+    int const num_cells = fm::ipow2(level);
+    int const num_outs  = moms1d->num_comp_mom();
+    hier.reconstruct1d(
+        num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
+                                            terms.cdata.moments.data()));
+
+    terms.rebuild_moment_terms(groupid, sgrid, conn, hier);
+  }
+  //! recomputes the poisson term for the given group
+  void compute_poisson(int groupid, std::vector<precision> const &f) const {
+    if (not poisson or not terms.deps(groupid).poisson)
+      return;
+
+    do_poisson_update(f);
+    terms.rebuild_poisson(sgrid, conn, hier);
+  }
   //! (testing) recomputes the moments given the state of interest, keeps in hierarchical form
   void compute_hmoments(std::vector<precision> const &f, std::vector<precision> &rmom) {
     if (moms1d)
@@ -500,6 +548,8 @@ protected:
   void start_cold();
   //! restart from a file
   void restart_from_file();
+  //! common operations for the two start methods
+  void start_moments();
 
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 

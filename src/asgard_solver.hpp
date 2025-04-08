@@ -137,6 +137,11 @@ public:
   direct() = default;
   //! build a dense solver for the system I + alpha * terms
   direct(sparse_grid const &grid, connection_patterns const &conn,
+         term_manager<P> const &terms, P alpha)
+      : direct(-1, grid, conn, terms, alpha)
+  {}
+  //! builds a dense solver for a given term group
+  direct(int groupid, sparse_grid const &grid, connection_patterns const &conn,
          term_manager<P> const &terms, P alpha);
 
   //! inverts the stored matrix
@@ -385,6 +390,10 @@ struct solver_manager
 
   //! updates the internals for the current grid generation
   void update_grid(sparse_grid const &grid,
+                   connection_patterns const &conn,
+                   term_manager<P> const &terms, P alpha);
+  //! updates the internals for the current grid generation
+  void update_grid(int groupid, sparse_grid const &grid,
                    connection_patterns const &conn,
                    term_manager<P> const &terms, P alpha);
 

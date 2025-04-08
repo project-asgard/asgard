@@ -244,7 +244,7 @@ struct imex_stepper
     expect(is_imex(method));
   }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
-  void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
+  void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
 
   //! rebuilds the operator matrix
@@ -262,6 +262,13 @@ struct imex_stepper
   }
 
 private:
+  //! fills into R the ode_rhs for the explicit part
+  void explicit_ode_rhs(discretization_manager<P> const &disc, P time,
+                        std::vector<P> const &current, std::vector<P> &R) const;
+  //! fills into R the ode_rhs for the explicit part
+  void implicit_solve(discretization_manager<P> const &disc, P time,
+                      std::vector<P> &current, std::vector<P> &R) const;
+
   time_method method = time_method::imex2;
   // the solver used
   mutable solver_manager<P> solver;
@@ -270,6 +277,7 @@ private:
   imex_explicit_group imex_explicit;
   // workspace
   mutable std::vector<P> work;
+  mutable std::vector<P> f1, imp1;
 };
 
 }

@@ -2744,32 +2744,16 @@ public:
   //! begin a new term group, returns the index-id of the new group
   int new_term_group() {
     if (current_term_group == -1) { // initialize group engine
-      if (terms_.empty()) {
-        current_term_group = 0;
-      } else {
-        term_groups.emplace_back(0, static_cast<int>(terms_.size()));
-        current_term_group = 1;
-      }
+      rassert(not (terms_.empty() and sources_sep_.empty()),
+              "if using term-groups, new_term_group() must be called before any terms/sources are added");
+      term_groups.emplace_back(0, static_cast<int>(terms_.size()));
+      source_groups.emplace_back(0, static_cast<int>(sources_sep_.size()));
+      current_term_group = 1;
     } else { // new group
-      finalize_term_group();
+      finalize_term_groups();
       current_term_group ++;
     }
     return current_term_group;
-  }
-  //! begin a new source group, returns the index-id of the new group
-  int new_source_troup() {
-    if (current_source_group == -1) { // initialize group engine
-      if (terms_.empty()) {
-        current_source_group = 0;
-      } else {
-        source_groups.emplace_back(0, static_cast<int>(terms_.size()));
-        current_source_group = 1;
-      }
-    } else { // new group
-      finalize_source_group();
-      current_source_group ++;
-    }
-    return current_source_group;
   }
 
   //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
@@ -2789,22 +2773,17 @@ public:
   friend struct term_manager<P>;
 
 private:
-  void finalize_term_group() {
+  void finalize_term_groups() {
     if (current_term_group == -1) // no groups being used
       return;
-    if (current_term_group == 0)
+    if (current_term_group == 0) {
       term_groups.emplace_back(0, static_cast<int>(terms_.size()));
-    else
-      term_groups.emplace_back(term_groups.back().begin(), static_cast<int>(terms_.size()));
-  }
-  void finalize_source_group() {
-    if (current_source_group == -1) // no groups being used
-      return;
-    if (current_source_group == 0)
       source_groups.emplace_back(0, static_cast<int>(sources_sep_.size()));
-    else
+    } else {
+      term_groups.emplace_back(term_groups.back().begin(), static_cast<int>(terms_.size()));
       source_groups.emplace_back(source_groups.back().begin(),
                                  static_cast<int>(sources_sep_.size()));
+    }
   }
 
   prog_opts options_;
@@ -2823,7 +2802,6 @@ private:
 
   int current_term_group = -1;
   std::vector<irange> term_groups;
-  int current_source_group = -1;
   std::vector<irange> source_groups;
 
   imex_implicit_group im_;

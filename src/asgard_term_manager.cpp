@@ -44,7 +44,8 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
       switch (single.depends()) {
         case pterm_dependence::electric_field:
         case pterm_dependence::electric_field_only:
-          return {true, 1};
+          // technically, el-field requires 1 moment, but it is a special case
+          return {true, 0};
         case pterm_dependence::moment_divided_by_density:
           return {false, std::abs(single.moment())};
         case pterm_dependence::lenard_bernstein_coll_theta_1x1v:
@@ -76,8 +77,7 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
   if (num_dims == 0)
     return;
 
-  pde.finalize_term_group();
-  pde.finalize_source_group();
+  pde.finalize_term_groups(); // if using groups, else this does nothing
 
   if (pde.mass() and not pde.mass().is_identity())
     mass_term = std::move(pde.mass_);
@@ -90,6 +90,19 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
       n += (t.is_chain()) ? t.num_chain() : 1;
     return n;
   }();
+
+  { // copy over the group ids, keep flattened format
+    term_groups.reserve(pde.term_groups.size());
+    int ibegin = 0;
+    for (auto const &tg : pde.term_groups) {
+      int n = 0;
+      for (int i : indexrange(tg))
+        n += (pde_terms[i].is_chain()) ? pde_terms[i].num_chain() : 1;
+      term_groups.emplace_back(ibegin, ibegin + n);
+      ibegin += n;
+    }
+    source_groups = std::move(pde.source_groups);
+  }
 
   terms.resize(num_terms);
 
@@ -116,13 +129,35 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     }
   }
 
+  // compute the dependencies
+  if (term_groups.empty()) {
+    mom_deps deps;
+    for (auto const &tentry : terms)
+      for (int d : iindexof(num_dims))
+        deps += tentry.deps[d];
+    deps_.emplace_back(deps);
+  } else {
+    deps_.reserve(term_groups.size() + 1);
+    for (auto const &tg : term_groups) {
+      mom_deps deps;
+      for (int tid : indexrange(tg))
+        for (int d : iindexof(num_dims))
+          deps += terms[tid].deps[d];
+      deps_.emplace_back(deps);
+    }
+    mom_deps deps;
+    for (auto const &dp : deps_)
+      deps += dp;
+    deps_.emplace_back(deps);
+  }
+
   int num_bc = 0;
 
   // check if we need to keep the intermediate terms from matrix builds
   for (auto &tt : terms) {
-    tt.bc.begin_ = num_bc;
-    num_bc += static_cast<int>(tt.tmd.bc_flux_.size());
-    tt.bc.end_ = num_bc;
+    int const n = static_cast<int>(tt.tmd.bc_flux_.size());
+    tt.bc = indexrange(num_bc, num_bc + n);
+    num_bc += n;
   }
 
   bcs.reserve(num_bc);
@@ -219,20 +254,8 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
 }
 
 template<typename P>
-mom_deps term_manager<P>::find_deps() const
-{
-  mom_deps deps;
-
-  for (auto const &tentry : terms)
-    for (int d : iindexof(num_dims))
-      deps += tentry.deps[d];
-
-  return deps;
-}
-
-template<typename P>
 void term_manager<P>::update_const_sources(
-    sparse_grid const &grid, connection_patterns const &conns,
+    int groupid, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier)
 {
   if (grid.generation() == sources_grid_gen)
@@ -243,8 +266,12 @@ void term_manager<P>::update_const_sources(
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
 
+  indexrange const irng = (groupid == -1) ? indexrange(sources) : source_groups[groupid];
+
   // update the constant components
-  for (auto &src : sources) {
+  for (int is : irng) {
+    auto &src = sources[is];
+
     if (src.is_time_dependent())
       continue;
 
@@ -279,7 +306,7 @@ void term_manager<P>::update_const_sources(
     rebuild_mass_matrices(grid);
 
   // make sure to handle the boundary conditions too
-  update_bc(grid, conns, hier);
+  update_bc(groupid, grid, conns, hier);
 
   sources_grid_gen = grid.generation();
 }
@@ -287,10 +314,10 @@ void term_manager<P>::update_const_sources(
 template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_sources(
-    pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
+    int groupid, pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
-  update_const_sources(grid, conns, hier);
+  update_const_sources(groupid, grid, conns, hier);
 
   int64_t const num_entries = grid.num_indexes() * hier.block_size();
   if constexpr (dmode == data_mode::replace or dmode == data_mode::scal_rep)
@@ -298,7 +325,10 @@ void term_manager<P>::apply_sources(
 
   // NOTE: when adding the "boundary" and "edge" sources, the sign is flipped
 
-  for (auto const &src : sources) {
+  indexrange irng = (groupid == -1) ? indexrange(sources) : source_groups[groupid];
+
+  for (int is : irng) {
+    auto const &src = sources[is];
     switch (src.tmode) {
       case source_entry<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -334,16 +364,16 @@ void term_manager<P>::apply_sources(
   }
 
   if constexpr (dmode == data_mode::replace)
-    apply_bc<data_mode::increment>(domain, grid, conns, hier, time, alpha, y);
+    apply_bc<data_mode::increment>(groupid, domain, grid, conns, hier, time, alpha, y);
   else if constexpr (dmode == data_mode::scal_rep)
-    apply_bc<data_mode::scal_inc>(domain, grid, conns, hier, time, alpha, y);
+    apply_bc<data_mode::scal_inc>(groupid, domain, grid, conns, hier, time, alpha, y);
   else
-    apply_bc<dmode>(domain, grid, conns, hier, time, alpha, y);
+    apply_bc<dmode>(groupid, domain, grid, conns, hier, time, alpha, y);
 }
 
 template<typename P>
 void term_manager<P>::update_bc(
-    sparse_grid const &grid, connection_patterns const &conns,
+    int groupid, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier)
 {
   int const pdof = hier.degree() + 1;
@@ -351,9 +381,14 @@ void term_manager<P>::update_bc(
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
 
+  indexrange irnage = (groupid == -1) ? indexrange(0) : term_groups[groupid];
+
   // update the constant components
   for (auto &bc : bcs) {
     if (bc.is_time_dependent())
+      continue;
+
+    if (groupid >= 0 and irnage.contains(bc.term_index))
       continue;
 
     bc.val.resize(num_entries);
@@ -406,49 +441,93 @@ void term_manager<P>::update_bc(
 template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_bc(
-    pde_domain<P> const &, sparse_grid const &grid,
+    int groupid, pde_domain<P> const &, sparse_grid const &grid,
     connection_patterns const &, hierarchy_manipulator<P> const &hier,
     P time, P alpha, P y[])
 {
   int64_t const num_entries = grid.num_indexes() * hier.block_size();
 
-  for (auto const &bc : bcs) {
-    switch (bc.tmode) {
-      case boundary_entry<P>::time_mode::constant:
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= bc.val[i];
-        else
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= alpha * bc.val[i];
-        break;
-      case boundary_entry<P>::time_mode::separable: {
-          P t = bc.flux.func().ftime(time);
-          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-            t *= alpha;
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= t * bc.val[i];
+  if (groupid == -1) {
+    for (auto const &bc : bcs) {
+      switch (bc.tmode) {
+        case boundary_entry<P>::time_mode::constant:
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] -= bc.val[i];
+          else
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] -= alpha * bc.val[i];
+          break;
+        case boundary_entry<P>::time_mode::separable: {
+            P t = bc.flux.func().ftime(time);
+            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+              t *= alpha;
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] -= t * bc.val[i];
+          }
+          break;
+        case boundary_entry<P>::time_mode::time_dependent:
+          rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
+                  "separable in space, non-separable bc not yet implemented");
+          // TIME DEPENDANT mess
+          // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          //   hier.template project_separable<data_mode::increment>
+          //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+          // else
+          //   hier.template project_separable<data_mode::scal_inc>
+          //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+          break;
+        default:
+          // unreachable here
+          break;
+      }
+    }
+  } else {
+    for (int it : indexrange(term_groups[groupid])) {
+      for (int ib : terms[it].bc) {
+        auto const &bc = bcs[ib];
+        switch (bc.tmode) {
+          case boundary_entry<P>::time_mode::constant:
+            if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+              ASGARD_OMP_PARFOR_SIMD
+              for (int64_t i = 0; i < num_entries; i++)
+                y[i] -= bc.val[i];
+            else
+              ASGARD_OMP_PARFOR_SIMD
+              for (int64_t i = 0; i < num_entries; i++)
+                y[i] -= alpha * bc.val[i];
+            break;
+          case boundary_entry<P>::time_mode::separable: {
+              P t = bc.flux.func().ftime(time);
+              if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+                t *= alpha;
+              ASGARD_OMP_PARFOR_SIMD
+              for (int64_t i = 0; i < num_entries; i++)
+                y[i] -= t * bc.val[i];
+            }
+            break;
+          case boundary_entry<P>::time_mode::time_dependent:
+            rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
+                    "separable in space, non-separable bc not yet implemented");
+            // TIME DEPENDANT mess
+            // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            //   hier.template project_separable<data_mode::increment>
+            //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+            // else
+            //   hier.template project_separable<data_mode::scal_inc>
+            //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+            break;
+          default:
+            // unreachable here
+            break;
         }
-        break;
-      case boundary_entry<P>::time_mode::time_dependent:
-        rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
-                "separable in space, non-separable bc not yet implemented");
-        // TIME DEPENDANT mess
-        // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        //   hier.template project_separable<data_mode::increment>
-        //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-        // else
-        //   hier.template project_separable<data_mode::scal_inc>
-        //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-        break;
-      default:
-        // unreachable here
-        break;
+      }
     }
   }
+
 }
 
 template<typename P>
@@ -976,6 +1055,78 @@ void term_manager<P>::apply_all(
 }
 
 template<typename P>
+void term_manager<P>::apply_group(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const
+{
+  expect(x.size() == y.size());
+  expect(x.size() == kwork.w1.size());
+
+  expect(gid < static_cast<int>(term_groups.size()));
+
+  P b = beta; // on first iteration, overwrite y
+
+  int icurrent = term_groups[gid].begin();
+  while (icurrent < term_groups[gid].end())
+  {
+    auto it = terms.begin() + icurrent;
+
+    if (it->num_chain == 1) {
+      kron_term(grid, conns, *it, alpha, x, b, y);
+      ++icurrent;
+    } else {
+      // dealing with a chain
+      int const num_chain = it->num_chain;
+
+      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+      for (int i = num_chain - 2; i > 0; --i) {
+        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
+        std::swap(t1, t2);
+      }
+      kron_term(grid, conns, *it, alpha, t1, b, y);
+
+      icurrent += it->num_chain;
+    }
+
+    b = 1; // next iteration appends on y
+  }
+}
+template<typename P>
+void term_manager<P>::apply_group(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, P const x[], P beta, P y[]) const
+{
+  expect(gid < static_cast<int>(term_groups.size()));
+
+  P b = beta; // on first iteration, overwrite y
+
+  int icurrent = term_groups[gid].begin();
+  while (icurrent < term_groups[gid].end())
+  {
+    auto it = terms.begin() + icurrent;
+
+    if (it->num_chain == 1) {
+      kron_term(grid, conns, *it, alpha, x, b, y);
+      ++icurrent;
+    } else {
+      // dealing with a chain
+      int const num_chain = it->num_chain;
+
+      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
+      for (int i = num_chain - 2; i > 0; --i) {
+        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
+        std::swap(t1, t2);
+      }
+      kron_term(grid, conns, *it, alpha, t1.data(), b, y);
+
+      icurrent += it->num_chain;
+    }
+
+    b = 1; // next iteration appends on y
+  }
+}
+
+template<typename P>
 void term_manager<P>::apply_all_adi(
     sparse_grid const &grid, connection_patterns const &conns,
     P const x[], P y[]) const
@@ -1047,6 +1198,53 @@ ASGARD_OMP_PARFOR_SIMD
 }
 
 template<typename P>
+void term_manager<P>::make_jacobi(
+    int groupid, sparse_grid const &grid, connection_patterns const &conns,
+    std::vector<P> &y) const
+{
+  int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
+  int64_t const num_entries = block_size * grid.num_indexes();
+
+  if (y.size() == 0)
+    y.resize(num_entries);
+  else {
+    y.resize(num_entries);
+    std::fill(y.begin(), y.end(), P{0});
+  }
+
+  kwork.w1.resize(num_entries);
+
+  int c = term_groups[groupid].begin();
+  while (c < term_groups[groupid].end())
+  {
+    auto it = terms.begin() + c;
+
+    if (it->num_chain == 1) {
+      kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
+      ++c;
+    } else {
+      // dealing with a chain
+      int const num_chain = it->num_chain;
+
+      std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
+
+      kron_diag<data_mode::increment>(grid, conns, *(it + num_chain - 1),
+                                      block_size, kwork.w1);
+
+      for (int i = num_chain - 2; i >= 0; --i) {
+        kron_diag<data_mode::multiply>(grid, conns, *(it + i),
+                                       block_size, kwork.w1);
+      }
+ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_entries; i++)
+        y[i] += kwork.w1[i];
+
+      c += it->num_chain;
+    }
+  }
+}
+
+template<typename P>
 template<data_mode mode>
 void term_manager<P>::kron_diag(
     sparse_grid const &grid, connection_patterns const &conn,
@@ -1098,30 +1296,24 @@ template void term_manager<double>::kron_diag<data_mode::multiply>(
     term_entry<double> const &, int const, std::vector<double> &) const;
 
 template void term_manager<double>::apply_sources<data_mode::replace>(
-  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<double> const &, double, double, double[]);
+    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::increment>(
-  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<double> const &, double, double, double[]);
+    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_inc>(
-  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<double> const &, double, double, double[]);
+    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_rep>(
-  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<double> const &, double, double, double[]);
+    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<double> const &, double, double, double[]);
 
-// template void term_manager<double>::apply_bc<data_mode::replace>(
-//   pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-//   hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_bc<data_mode::increment>(
-  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<double> const &, double, double, double[]);
+    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_bc<data_mode::scal_inc>(
-  pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<double> const &, double, double, double[]);
-// template void term_manager<double>::apply_bc<data_mode::scal_rep>(
-//   pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-//   hierarchy_manipulator<double> const &, double, double, double[]);
+    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<double> const &, double, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1136,30 +1328,24 @@ template void term_manager<float>::kron_diag<data_mode::multiply>(
     term_entry<float> const &, int const, std::vector<float> &) const;
 
 template void term_manager<float>::apply_sources<data_mode::replace>(
-  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<float> const &, float, float, float[]);
+    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::increment>(
-  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<float> const &, float, float, float[]);
+    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_inc>(
-  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<float> const &, float, float, float[]);
+    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_rep>(
-  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<float> const &, float, float, float[]);
+    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<float> const &, float, float, float[]);
 
-// template void term_manager<float>::apply_bc<data_mode::replace>(
-//   pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-//   hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_bc<data_mode::increment>(
-  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<float> const &, float, float, float[]);
+    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_bc<data_mode::scal_inc>(
-  pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-  hierarchy_manipulator<float> const &, float, float, float[]);
-// template void term_manager<float>::apply_bc<data_mode::scal_rep>(
-//   pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-//   hierarchy_manipulator<float> const &, float, float, float[]);
+    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
 
 }

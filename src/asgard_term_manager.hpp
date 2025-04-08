@@ -25,20 +25,6 @@ struct mom_deps {
   }
 };
 
-//! \brief holds the range of the boundary conditions, begin/end
-struct bcs_range {
-  //! first index of the boundary conditions
-  int begin_ = 0;
-  //! one after the last index of the boundary conditions
-  int end_   = 0;
-  //! returns the number of boundary conditions
-  int size() const { return (end_ - begin_); }
-  //! returns the begin index
-  int begin() const { return begin_; }
-  //! returns the end index
-  int end() const { return end_; }
-};
-
 //! \brief Combines a term with data used for linear operations
 template<typename P>
 struct term_entry {
@@ -73,7 +59,7 @@ struct term_entry {
   static mom_deps get_deps(term_1d<P> const &t1d);
 
   //! boundary conditions, start and end
-  bcs_range bc;
+  indexrange<int> bc;
   //! dimension holding a flux, -1 if no flux
   int flux_dim = -1;
 };
@@ -219,15 +205,26 @@ struct term_manager
 
   mutable vector2d<P> inodes;
 
-  //! find the dependencies of the current term set
-  mom_deps find_deps() const;
+  //! term groups, chains are flattened
+  std::vector<irange> term_groups;
+  //! source groups, same as the PDE
+  std::vector<irange> source_groups;
+
+  //! deps for each term group, last entry is for all terms
+  std::vector<mom_deps> deps_;
+
+  //! get the moment dependencies for all terms
+  mom_deps const &deps() const { return deps_.back(); }
+  //! get the moment dependencies for the given group
+  mom_deps const &deps(int groupid) const { return deps_[groupid]; }
 
   //! update constant components of the sources
-  void update_const_sources(sparse_grid const &grid, connection_patterns const &conn,
+  void update_const_sources(int groupid, sparse_grid const &grid,
+                            connection_patterns const &conn,
                             hierarchy_manipulator<P> const &hier);
 
   //! update constant components of the sources
-  void update_bc(sparse_grid const &grid, connection_patterns const &conn,
+  void update_bc(int groupid, sparse_grid const &grid, connection_patterns const &conn,
                  hierarchy_manipulator<P> const &hier);
 
   //! rebuild all matrices
@@ -287,6 +284,20 @@ struct term_manager
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
+  //! rebuild the terms for the given group
+  void rebuild_moment_terms(int groupid, sparse_grid const &grid,
+                            connection_patterns const &conn,
+                            hierarchy_manipulator<P> const &hier)
+  {
+    expect(0 <= groupid and groupid < static_cast<int>(term_groups.size()));
+
+    for (int it : indexrange(term_groups[groupid])) {
+      auto &te = terms[it];
+      for (int d : indexof(num_dims))
+        if (te.deps[d].num_moments > 0 and not te.deps[d].poisson)
+          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+    }
+  }
 
   void prapare_workspace(sparse_grid const &grid) {
     if (workspace_grid_gen == grid.generation())
@@ -313,12 +324,22 @@ struct term_manager
   void apply_all(sparse_grid const &grid, connection_patterns const &conns,
                  P alpha, P const x[], P beta, P y[]) const;
 
+  //! y = sum(terms * x), applies all terms
+  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conns,
+                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+  //! y = sum(terms * x), applies all terms
+  void apply_group(int igid, sparse_grid const &grid, connection_patterns const &conns,
+                   P alpha, P const x[], P beta, P y[]) const;
+
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
   void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
                      P const x[], P y[]) const;
 
   //! construct term diagonal
   void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
+                   std::vector<P> &y) const;
+  //! construct term diagonal
+  void make_jacobi(int groupid, sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const;
 
   //! y = alpha * tme * x + beta * y, assumes workspace has been set
@@ -349,23 +370,38 @@ struct term_manager
 
   //! process the sources and store the result into pre-allocated vector
   template<data_mode dmode>
-  void apply_sources(pde_domain<P> const &domain, sparse_grid const &grid,
+  void apply_sources(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]);
 
   template<data_mode dmode>
   void apply_sources(pde_domain<P> const &domain, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
+                     P time, P alpha, P y[]) {
+    apply_sources<dmode>(-1, domain, grid, conns, hier, time, alpha, y);
+  }
+
+  template<data_mode dmode>
+  void apply_sources(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
+                     connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, std::vector<P> &y)
   {
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(domain, grid, conns, hier, time, alpha, y.data());
+    apply_sources<dmode>(groupid, domain, grid, conns, hier, time, alpha, y.data());
+  }
+  template<data_mode dmode>
+  void apply_sources(pde_domain<P> const &domain, sparse_grid const &grid,
+                     connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
+                     P time, P alpha, std::vector<P> &y)
+  {
+    expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
+    apply_sources<dmode>(-1, domain, grid, conns, hier, time, alpha, y.data());
   }
 
 protected:
   //! process the boundary conditions and store the result into pre-allocated vector
   template<data_mode dmode>
-  void apply_bc(pde_domain<P> const &domain, sparse_grid const &grid,
+  void apply_bc(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
                 connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                 P time, P alpha, P y[]);
 

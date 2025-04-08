@@ -508,8 +508,9 @@ void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
 }
 
 template<typename P>
-direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
-                  term_manager<P> const &terms, P alpha)
+direct<P>::direct(
+    int groupid, sparse_grid const &grid, connection_patterns const &conn,
+    term_manager<P> const &terms, P alpha)
 {
   tools::time_event timing_("forming dense matrix");
   int const num_dims    = grid.num_dims();
@@ -583,9 +584,15 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
       }
     };
 
-  auto it = terms.terms.begin();
-  while (it < terms.terms.end())
+
+  int const iend = (groupid == -1) ? static_cast<int>(terms.terms.size())
+                                   : terms.term_groups[groupid].end();
+
+  int tid = (groupid == -1) ? 0 : terms.term_groups[groupid].begin();
+  while (tid < iend)
   {
+    auto it = terms.terms.begin() + tid;
+
     if (it->num_chain == 1) {
       set_wcoeff(*it);
       wmat.fill(1);
@@ -599,7 +606,7 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
       for (int64_t i = 0; i < size; i++)
         mat_data[i] += wmat_data[i];
 
-      ++it;
+      ++tid;
     } else {
       if (it->num_chain == 2) {
         // need two temp matrices
@@ -620,7 +627,7 @@ direct<P>::direct(sparse_grid const &grid, connection_patterns const &conn,
             "for the direct solver");
       }
 
-      it += it->num_chain;
+      tid += it->num_chain;
     }
   }
 
@@ -936,6 +943,31 @@ void solver_manager<P>::update_grid(
 
   if (precon == precon_method::jacobi) {
     terms.make_jacobi(grid, conn, jacobi);
+    if (alpha == 0) { // steady state solver
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < jacobi.size(); i++)
+        jacobi[i] = P{1} / jacobi[i];
+    } else {
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < jacobi.size(); i++)
+        jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
+    }
+  }
+
+  grid_gen = grid.generation();
+}
+
+template<typename P>
+void solver_manager<P>::update_grid(
+    int groupid, sparse_grid const &grid,
+    connection_patterns const &conn, term_manager<P> const &terms, P alpha)
+{
+  tools::time_event timing_("updating solver");
+  if (opt == solver_method::direct)
+    var = solvers::direct<P>(grid, conn, terms, alpha);
+
+  if (precon == precon_method::jacobi) {
+    terms.make_jacobi(groupid, grid, conn, jacobi);
     if (alpha == 0) { // steady state solver
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < jacobi.size(); i++)

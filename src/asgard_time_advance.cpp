@@ -788,6 +788,38 @@ void crank_nicolson<P>::next_step(
 }
 
 template<typename P>
+void imex_stepper<P>::explicit_ode_rhs(
+    discretization_manager<P> const &disc, P time, std::vector<P> const &current,
+    std::vector<P> &R) const
+{
+  disc.compute_poisson(imex_explicit.gid, current);
+  disc.compute_moments(imex_explicit.gid, current);
+
+  if (R.size() != current.size())
+    R.resize(current.size());
+
+  disc.terms_apply(imex_explicit.gid, -1, current, 0, R);
+  disc.add_ode_rhs_sources_group(imex_explicit.gid, time, R);
+}
+template<typename P>
+void imex_stepper<P>::implicit_solve(
+    discretization_manager<P> const &disc, P time,
+    std::vector<P> &current, std::vector<P> &R) const
+{
+  // disc.compute_poisson(imex_implicit.gid, current); // not needed
+  disc.compute_moments(imex_implicit.gid, current);
+
+  solver.update_grid(imex_implicit.gid, disc.get_sgrid(), disc.get_conn(),
+                     disc.get_terms(), disc.time_params().dt());
+
+  if (R.size() != current.size())
+    imp1 = current;
+
+  disc.add_ode_rhs_sources_group(imex_implicit.gid, time, disc.time_params().dt(), current);
+
+}
+
+template<typename P>
 void imex_stepper<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
@@ -797,7 +829,11 @@ void imex_stepper<P>::next_step(
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
+  explicit_ode_rhs(disc, time, current, f1);
 
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < current.size(); i++)
+    f1[i] = current[i] + dt * f1[i];
 
   // if (disc.has_moments() and not disc.has_poisson()) {
   //   disc.compute_moments(current);
