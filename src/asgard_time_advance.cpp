@@ -147,6 +147,8 @@ imex_advance(discretization_manager<P> &disc,
   operator_matrices.reset_coefficients(imex_flag::imex_explicit, pde,
                                        disc.get_cmatrices(), adaptive_grid);
 
+  // disc.print_mats();
+
   // Explicit step f_1s = f_0 + dt A f_0
   fk::vector<P, mem_type::owner, imex_resrc> fx(f.size());
 
@@ -165,6 +167,14 @@ imex_advance(discretization_manager<P> &disc,
 #else
   fm::axpy(fx, f, dt);   // f here is f_1s
 #endif
+
+  // for (auto x : f)
+  //   std::cout << x << "\n";
+
+  // std::cout << " dt = " << dt << "\n";
+  // for (size_t i = 0; i < f_0.size(); i++) {
+  //   std::cout << f_0[i] << "   " << fx[i] << "  " << f[i] << "\n";
+  // }
 
   tools::timer.stop("explicit_1");
 
@@ -190,6 +200,8 @@ imex_advance(discretization_manager<P> &disc,
     operator_matrices.reset_coefficients(imex_flag::imex_implicit, pde,
                                          disc.get_cmatrices(), adaptive_grid);
 
+    disc.print_mats();
+
     // use previous refined solution as initial guess to GMRES if it exists
     if (x_prev.empty())
     {
@@ -214,6 +226,9 @@ imex_advance(discretization_manager<P> &disc,
     }
     else if (solver == solver_method::bicgstab)
     {
+      for (auto x : f_1)
+        std::cout << x << "\n";
+
       pde.gmres_outputs[0] = solvers::bicgstab_euler(
           pde.get_dt(), imex_flag::imex_implicit, operator_matrices,
           f_1, f, max_iter, tolerance);
@@ -709,7 +724,6 @@ void crank_nicolson<P>::next_step(
 
   if (disc.has_moments() and not disc.has_poisson()) {
     disc.compute_moments(current);
-    // disc.print_mats();
   }
 
   // if the grid changed since the last time we used the solver
@@ -795,11 +809,16 @@ void imex_stepper<P>::explicit_ode_rhs(
   disc.compute_poisson(imex_explicit.gid, current);
   disc.compute_moments(imex_explicit.gid, current);
 
+  // disc.print_mats();
+
   if (R.size() != current.size())
     R.resize(current.size());
 
   disc.terms_apply(imex_explicit.gid, -1, current, 0, R);
   disc.add_ode_rhs_sources_group(imex_explicit.gid, time, R);
+
+  // for (auto r : R)
+  //   std::cout << r << "\n";
 }
 template<typename P>
 void imex_stepper<P>::implicit_solve(
@@ -807,6 +826,8 @@ void imex_stepper<P>::implicit_solve(
     std::vector<P> &current, std::vector<P> &R) const
 {
   disc.compute_moments(imex_implicit.gid, current);
+
+  // disc.print_mats();
 
   P const dt = disc.time_params().dt();
 
@@ -822,7 +843,7 @@ void imex_stepper<P>::implicit_solve(
     // form the right-hand-side inside work
     R = current;
 
-    int64_t const n = static_cast<int64_t>(work.size());
+    int64_t const n = static_cast<int64_t>(R.size());
 
     switch (solver.precon) {
     case precon_method::none:
@@ -836,6 +857,9 @@ void imex_stepper<P>::implicit_solve(
         }, current, R);
     break;
     case precon_method::jacobi:
+      // for (auto x : current)
+      //   std::cout << x << "\n";
+
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -875,7 +899,11 @@ void imex_stepper<P>::next_step(
 
   ASGARD_OMP_PARFOR_SIMD
   for (size_t i = 0; i < current.size(); i++)
-    f[i] = current[i] - dt * fs[i];
+    f[i] = current[i] + dt * fs[i];
+
+  // for (size_t i = 0; i < current.size(); i++) {
+  //   std::cout << current[i] << "   " << fs[i] << "  " << f[i] << "\n";
+  // }
 
   implicit_solve(disc, time + dt, f, fs);
 
@@ -883,7 +911,7 @@ void imex_stepper<P>::next_step(
 
   ASGARD_OMP_PARFOR_SIMD
   for (size_t i = 0; i < f.size(); i++)
-    f[i] = 0.5 * current[i] + 0.5 * (fs[i] - dt * f[i]);
+    f[i] = 0.5 * current[i] + 0.5 * (fs[i] + dt * f[i]);
 
   implicit_solve(disc, time + dt, f, next);
 }

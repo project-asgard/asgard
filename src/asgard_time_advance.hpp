@@ -276,7 +276,6 @@ private:
   imex_implicit_group imex_implicit;
   imex_explicit_group imex_explicit;
   // workspace
-  mutable std::vector<P> work;
   mutable std::vector<P> fs, f;
 };
 

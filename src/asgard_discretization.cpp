@@ -694,7 +694,7 @@ discretization_manager<precision>::do_poisson_update(std::vector<precision> cons
     std::vector<precision> moment0;
     moms1d->project_moment(0, sgrid, field, moment0);
 
-    int const level     = sgrid.current_level(0);
+    int const level = sgrid.current_level(0);
     hier.reconstruct1d(1, level, span2d<precision>(degree_ + 1, fm::ipow2(level), moment0.data()));
 
     poisson.solve_periodic(moment0, terms.cdata.electric_field);

@@ -1017,7 +1017,7 @@ void term_manager<P>::apply_all(
       }
       kron_term(grid, conns, *it, alpha, t1, b, y);
 
-      it += it->num_chain;
+      it += num_chain;
     }
 
     b = 1; // next iteration appends on y
@@ -1047,7 +1047,7 @@ void term_manager<P>::apply_all(
       }
       kron_term(grid, conns, *it, alpha, t1.data(), b, y);
 
-      it += it->num_chain;
+      it += num_chain;
     }
 
     b = 1; // next iteration appends on y
@@ -1085,7 +1085,7 @@ void term_manager<P>::apply_group(
       }
       kron_term(grid, conns, *it, alpha, t1, b, y);
 
-      icurrent += it->num_chain;
+      icurrent += num_chain;
     }
 
     b = 1; // next iteration appends on y
@@ -1119,7 +1119,7 @@ void term_manager<P>::apply_group(
       }
       kron_term(grid, conns, *it, alpha, t1.data(), b, y);
 
-      icurrent += it->num_chain;
+      icurrent += num_chain;
     }
 
     b = 1; // next iteration appends on y
@@ -1239,7 +1239,7 @@ ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++)
         y[i] += kwork.w1[i];
 
-      c += it->num_chain;
+      c += num_chain;
     }
   }
 }

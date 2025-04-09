@@ -1176,6 +1176,8 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
   std::function<P(P const, P const)> const_nu = [nnu = nu](P const, P const = 0)->P{ return nnu; };
   std::function<P(P const, P const)> get_nuv = [nnu = nu](P const v, P const = 0)->P{ return nnu * v; };
 
+  std::function<P(P const, P const)> const_snu = [nnu = nu](P const, P const = 0)->P{ return std::sqrt(nnu); };
+
   bool constexpr time_depend = true;
 
   imex_flag constexpr imex = imex_flag::imex_implicit;
@@ -1189,9 +1191,9 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
 
   partial_term<P> pt_nu_divv{pt_div_dirichlet_zero, flux_type::central, const_nu};
 
-  partial_term<P> pt_div_up{pt_div_dirichlet_zero, flux_type::upwind};
+  partial_term<P> pt_div_up{pt_div_dirichlet_zero, flux_type::upwind, const_snu};
 
-  partial_term<P> pt_nu_grad_down{pt_grad_dirichlet_zero, flux_type::downwind, const_nu};
+  partial_term<P> pt_nu_grad_down{pt_grad_dirichlet_zero, flux_type::downwind, const_snu};
 
   term<P> I("LB_I", pt_identity, imex);
 

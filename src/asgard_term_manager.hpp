@@ -268,10 +268,12 @@ struct term_manager
   void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
                        hierarchy_manipulator<P> const &hier)
   {
+    int i = 0;
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
         if (te.deps[d].poisson)
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+      ++i;
     }
   }
   //! rebuild the terms that depend only on the moments
@@ -280,7 +282,7 @@ struct term_manager
   {
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0 and not te.deps[d].poisson)
+        if (te.deps[d].num_moments > 0)
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
@@ -294,7 +296,7 @@ struct term_manager
     for (int it : indexrange(term_groups[groupid])) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0 and not te.deps[d].poisson)
+        if (te.deps[d].num_moments > 0)
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
@@ -328,7 +330,7 @@ struct term_manager
   void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conns,
                    P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
   //! y = sum(terms * x), applies all terms
-  void apply_group(int igid, sparse_grid const &grid, connection_patterns const &conns,
+  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conns,
                    P alpha, P const x[], P beta, P y[]) const;
 
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms

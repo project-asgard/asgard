@@ -85,17 +85,19 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   asgard::pde_domain<P> domain(asgard::position_dims{1}, asgard::velocity_dims{vdims}, ranges);
 
   // setting some default options
-  options.default_degree = 2;
+  options.default_degree = 3;
   options.default_start_levels = {5, 5};
 
-  options.default_dt = 0.001;
+  options.default_dt = 0.01 * domain.min_cell_size(options.max_level());
 
   options.default_stop_time = 1.0;
 
-  options.default_solver = asgard::solver_method::gmres;
-  options.default_isolver_tolerance  = 1.E-10;
-  options.default_isolver_iterations = 100;
+  options.default_solver = asgard::solver_method::bicgstab;
+  options.default_isolver_tolerance  = 1.E-8;
+  options.default_isolver_iterations = 400;
   options.default_isolver_inner_iterations = 100;
+
+  options.default_precon = asgard::precon_method::jacobi;
 
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;
@@ -125,6 +127,11 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
       for (size_t i = 0; i < x.size(); i++)
         y[i] = std::min(P{0}, x[i]);
     };
+  auto itt = [](std::vector<P> const &x, std::vector<P> &y)
+      -> void
+    {
+      y = x;
+    };
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
       asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
@@ -137,18 +144,23 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::volume_electric<P>(positive),
-      asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)
+      asgard::volume_electric<P>(itt),
+      asgard::term_div<P>(1, asgard::flux_type::central, asgard::boundary_type::bothsides)
     });
-
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::volume_electric<P>(negative),
-      asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)
-    });
+  // pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+  //     asgard::volume_electric<P>(positive),
+  //     asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)
+  //   });
+  //
+  // pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+  //     asgard::volume_electric<P>(negative),
+  //     asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)
+  //   });
 
   int const lb_group_id = pde.new_term_group();
 
-  pde += asgard::operators::lenard_bernstein_collisions{nu, 1.0 / pde.min_cell_size()};
+  pde += asgard::operators::lenard_bernstein_collisions{nu, 10.0 / pde.min_cell_size(1)};
+  // pde += asgard::operators::lenard_bernstein_collisions{nu};
 
   // set the implicit and explicit operator groups
   pde.set(asgard::imex_implicit_group{lb_group_id},
@@ -158,7 +170,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 1.0 - 1.E-4 * std::cos(0.5 * x[i]);
+        fx[i] = 1.0 + 1.E-4 * std::cos(0.5 * x[i]);
     };
 
   auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
