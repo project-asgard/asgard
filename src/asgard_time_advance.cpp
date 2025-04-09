@@ -806,16 +806,57 @@ void imex_stepper<P>::implicit_solve(
     discretization_manager<P> const &disc, P time,
     std::vector<P> &current, std::vector<P> &R) const
 {
-  // disc.compute_poisson(imex_implicit.gid, current); // not needed
   disc.compute_moments(imex_implicit.gid, current);
 
+  P const dt = disc.time_params().dt();
+
   solver.update_grid(imex_implicit.gid, disc.get_sgrid(), disc.get_conn(),
-                     disc.get_terms(), disc.time_params().dt());
+                     disc.get_terms(), dt);
 
-  if (R.size() != current.size())
-    imp1 = current;
+  disc.add_ode_rhs_sources_group(imex_implicit.gid, time, dt, current);
 
-  disc.add_ode_rhs_sources_group(imex_implicit.gid, time, disc.time_params().dt(), current);
+  if (solver.opt == solver_method::direct) {
+    R = current; // copy
+    solver.direct_solve(R);
+  } else { // iterative solver
+    // form the right-hand-side inside work
+    R = current;
+
+    int64_t const n = static_cast<int64_t>(work.size());
+
+    switch (solver.precon) {
+    case precon_method::none:
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply(imex_implicit.gid, alpha * dt, x, 1, y);
+        }, current, R);
+    break;
+    case precon_method::jacobi:
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          tools::time_event timing_("jacobi preconditioner");
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] *= solver.jacobi[i];
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < n; i++)
+            y[i] = alpha * x[i] + beta * y[i];
+          disc.terms_apply(imex_implicit.gid, alpha * dt, x, 1, y);
+        }, current, R);
+    break;
+    default:
+      throw std::runtime_error("adi preconditioner not available for IMEX steppers");
+    break;
+    }
+  }
 
 }
 
@@ -835,84 +876,15 @@ void imex_stepper<P>::next_step(
   for (size_t i = 0; i < current.size(); i++)
     f1[i] = current[i] + dt * f1[i];
 
-  // if (disc.has_moments() and not disc.has_poisson()) {
-  //   disc.compute_moments(current);
-  //   // disc.print_mats();
-  // }
-  //
-  // // if the grid changed since the last time we used the solver
-  // // update the matrices and preconditioners, update-grid checks what's needed
-  // if (solver.grid_gen != disc.get_sgrid().generation())
-  //   solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), substep * dt);
-  //
-  // if (solver.opt == solver_method::direct) {
-  //   next = current; // copy
-  //
-  //   if (substep < 1)
-  //     disc.terms_apply_all(-substep * dt, current, 1, next);
-  //   disc.add_ode_rhs_sources(time + substep * dt, dt, next);
-  //
-  //   solver.direct_solve(next);
-  // } else { // iterative solver
-  //   // form the right-hand-side inside work
-  //   work = current;
-  //   if (substep < 1)
-  //     disc.terms_apply_all(-substep * dt, current, 1, work);
-  //   disc.add_ode_rhs_sources(time + substep * dt, dt, work);
-  //
-  //   next = current; // use the current step as the initial guess
-  //
-  //   int64_t const n = static_cast<int64_t>(work.size());
-  //
-  //   switch (solver.precon) {
-  //   case precon_method::none:
-  //     solver.iterate_solve(
-  //       [&](P alpha, P const x[], P beta, P y[]) -> void
-  //       {
-  //         ASGARD_OMP_PARFOR_SIMD
-  //         for (int64_t i = 0; i < n; i++)
-  //           y[i] = alpha * x[i] + beta * y[i];
-  //         disc.terms_apply_all(substep * alpha * dt, x, 1, y);
-  //       }, work, next);
-  //   break;
-  //   case precon_method::jacobi:
-  //     solver.iterate_solve(
-  //       [&](P y[]) -> void
-  //       {
-  //         tools::time_event timing_("jacobi preconditioner");
-  //         ASGARD_OMP_PARFOR_SIMD
-  //         for (int64_t i = 0; i < n; i++)
-  //           y[i] *= solver.jacobi[i];
-  //       },
-  //       [&](P alpha, P const x[], P beta, P y[]) -> void
-  //       {
-  //         ASGARD_OMP_PARFOR_SIMD
-  //         for (int64_t i = 0; i < n; i++)
-  //           y[i] = alpha * x[i] + beta * y[i];
-  //         disc.terms_apply_all(substep * alpha * dt, x, 1, y);
-  //       }, work, next);
-  //   break;
-  //   default: {
-  //     static std::vector<P> adi_work;
-  //     adi_work.resize(work.size());
-  //     // assuming ADI
-  //     solver.iterate_solve(
-  //       [&](P y[]) -> void
-  //       {
-  //         disc.terms_apply_adi(y, adi_work.data());
-  //         std::copy(adi_work.begin(), adi_work.end(), y);
-  //       },
-  //       [&](P alpha, P const x[], P beta, P y[]) -> void
-  //       {
-  //         ASGARD_OMP_PARFOR_SIMD
-  //         for (int64_t i = 0; i < n; i++)
-  //           y[i] = alpha * x[i] + beta * y[i];
-  //         disc.terms_apply_all(substep * alpha * dt, x, 1, y);
-  //       }, work, next);
-  //   }
-  //   break;
-  //   }
-  // }
+  implicit_solve(disc, time + dt, f1, f2);
+
+  explicit_ode_rhs(disc, time + dt, f2, f1);
+
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < f2.size(); i++)
+    f1[i] = 0.5 * current[i] + 0.5 * (f2[i] + dt * f1[i]);
+
+  implicit_solve(disc, time + dt, f1, next);
 }
 
 }

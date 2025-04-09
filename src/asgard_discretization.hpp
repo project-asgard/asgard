@@ -202,12 +202,12 @@ public:
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::increment>(gid, pde2.domain(), sgrid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+    terms.template apply_sources<data_mode::scal_inc>(gid, pde2.domain(), sgrid, conn, hier, time, alpha, src);
   }
 
   //! applies all terms
