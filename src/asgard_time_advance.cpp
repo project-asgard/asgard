@@ -857,7 +857,6 @@ void imex_stepper<P>::implicit_solve(
     break;
     }
   }
-
 }
 
 template<typename P>
@@ -865,26 +864,28 @@ void imex_stepper<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
 {
-  tools::time_event performance_("imex");
+  tools::time_event performance_("stepper-imex");
 
   P const time = disc.time_params().time();
   P const dt   = disc.time_params().dt();
 
-  explicit_ode_rhs(disc, time, current, f1);
+  explicit_ode_rhs(disc, time, current, fs);
+
+  f.resize(fs.size());
 
   ASGARD_OMP_PARFOR_SIMD
   for (size_t i = 0; i < current.size(); i++)
-    f1[i] = current[i] + dt * f1[i];
+    f[i] = current[i] - dt * fs[i];
 
-  implicit_solve(disc, time + dt, f1, f2);
+  implicit_solve(disc, time + dt, f, fs);
 
-  explicit_ode_rhs(disc, time + dt, f2, f1);
+  explicit_ode_rhs(disc, time + dt, fs, f);
 
   ASGARD_OMP_PARFOR_SIMD
-  for (size_t i = 0; i < f2.size(); i++)
-    f1[i] = 0.5 * current[i] + 0.5 * (f2[i] + dt * f1[i]);
+  for (size_t i = 0; i < f.size(); i++)
+    f[i] = 0.5 * current[i] + 0.5 * (fs[i] - dt * f[i]);
 
-  implicit_solve(disc, time + dt, f1, next);
+  implicit_solve(disc, time + dt, f, next);
 }
 
 }

@@ -360,16 +360,17 @@ void discretization_manager<precision>::start_moments() {
   // process the moments, can compute moments based on the initial conditions
   if (terms.deps().poisson or terms.deps().num_moments > 0) {
     // the poisson solver needs 1 moment
-    int const num = std::max(terms.deps().num_moments, 1);
+    int const num      = std::max(terms.deps().num_moments, 1);
+    int const mom_size = fm::ipow2(sgrid.current_level(0)) * (degree_ + 1);
     moms1d = moments1d(num, degree_, pde2.max_level(), pde2.domain());
     if (terms.deps().poisson) {
       poisson = solvers::poisson(degree_, pde2.domain().xleft(0), pde2.domain().xright(0),
                                  sgrid.current_level(0));
 
       // skip the first solve, putting in dummy data for the term construction
-      terms.cdata.electric_field.resize(fm::ipow2(sgrid.current_level(0)));
+      terms.cdata.electric_field.resize(mom_size);
     }
-    terms.cdata.moments.resize(num * fm::ipow2(sgrid.current_level(0)));
+    terms.cdata.moments.resize(num * mom_size);
   }
 }
 

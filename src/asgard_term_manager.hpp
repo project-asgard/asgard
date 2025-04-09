@@ -8,7 +8,7 @@ namespace asgard
 //! holds the moment dependencies in the current term set
 struct mom_deps {
   //! requires an electric field and poisson solver
-  bool poisson    = false;
+  bool poisson = false;
   //! number of required moments
   int num_moments = 0;
   //! set new minimum moments required

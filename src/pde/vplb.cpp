@@ -77,7 +77,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
   std::vector<asgard::domain_range<P>> ranges;
   ranges.reserve(vdims + 1);
-  ranges.emplace_back(2 * PI, 2 * PI);
+  ranges.emplace_back(-2 * PI, 2 * PI);
   for (int v = 0; v < vdims; v++)
     ranges.emplace_back(-6.0, 6.0);
 
@@ -88,9 +88,14 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   options.default_degree = 2;
   options.default_start_levels = {5, 5};
 
-  options.default_dt = 0.01;
+  options.default_dt = 0.001;
 
   options.default_stop_time = 1.0;
+
+  options.default_solver = asgard::solver_method::gmres;
+  options.default_isolver_tolerance  = 1.E-10;
+  options.default_isolver_iterations = 100;
+  options.default_isolver_inner_iterations = 100;
 
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;

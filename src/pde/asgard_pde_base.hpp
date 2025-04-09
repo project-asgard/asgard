@@ -2744,11 +2744,9 @@ public:
   //! begin a new term group, returns the index-id of the new group
   int new_term_group() {
     if (current_term_group == -1) { // initialize group engine
-      rassert(not (terms_.empty() and sources_sep_.empty()),
+      rassert(terms_.empty() and sources_sep_.empty(),
               "if using term-groups, new_term_group() must be called before any terms/sources are added");
-      term_groups.emplace_back(0, static_cast<int>(terms_.size()));
-      source_groups.emplace_back(0, static_cast<int>(sources_sep_.size()));
-      current_term_group = 1;
+      current_term_group = 0;
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
@@ -2780,8 +2778,8 @@ private:
       term_groups.emplace_back(0, static_cast<int>(terms_.size()));
       source_groups.emplace_back(0, static_cast<int>(sources_sep_.size()));
     } else {
-      term_groups.emplace_back(term_groups.back().begin(), static_cast<int>(terms_.size()));
-      source_groups.emplace_back(source_groups.back().begin(),
+      term_groups.emplace_back(term_groups.back().end(), static_cast<int>(terms_.size()));
+      source_groups.emplace_back(source_groups.back().end(),
                                  static_cast<int>(sources_sep_.size()));
     }
   }
