@@ -19,7 +19,8 @@
  * \par Example 8
  * Solves the Vlasov-Poisson equation with Lenard-Bernstein collisions
  *
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) = 0 \f]
+ * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
+ *  \mathcal{C}_{LB}[f](x, v, t) \f]
  * where the electric field term depends on the Poisson equation
  * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
  *
@@ -88,10 +89,16 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   options.default_degree = 2;
   options.default_start_levels = {5, 5};
 
+  // using implicit-explicit stepper
+  options.default_step_method = asgard::time_method::imex2;
+  options.throw_if_not_imex_stepper();
+
+  // cfl condition for the explicit component
   options.default_dt = 0.01 * domain.min_cell_size(options.max_level());
 
   options.default_stop_time = 1.0;
 
+  // default solver parameters for the implicit component
   options.default_solver = asgard::solver_method::bicgstab;
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 400;
@@ -99,18 +106,22 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
   options.default_precon = asgard::precon_method::jacobi;
 
-  // using implicit-explicit stepper
-  options.default_step_method = asgard::time_method::imex2;
-  options.throw_if_not_imex_stepper();
-
   // create a pde from the given options and domain
   asgard::PDEv2<P> pde(options, domain);
+
+  // adding the terms for the pde
+  // the terms are split into two groups
+  // explicit vlassov-position, implicit lenard-bernstein
+  // each group corresponds to a set of terms that has been added constitutively
+  // 1. initialize a new term group, get the group-id
+  // 2. add the term from the group
+  // 3. move to the next group, or stop adding terms
 
   // adding the vlassov-poisson terms
   // the vp_group_id will persist until new_term_group() is called again
   int const vp_group_id = pde.new_term_group();
 
-  // terms are split into positive and negative
+  // see the two-stream instability example for details
   auto positive = [](std::vector<P> const &x, std::vector<P> &y)
       -> void
     {
@@ -119,18 +130,12 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
         y[i] = std::max(P{0}, x[i]);
     };
 
-  // terms are split into positive and negative
   auto negative = [](std::vector<P> const &x, std::vector<P> &y)
       -> void
     {
 #pragma omp parallel for
       for (size_t i = 0; i < x.size(); i++)
         y[i] = std::min(P{0}, x[i]);
-    };
-  auto itt = [](std::vector<P> const &x, std::vector<P> &y)
-      -> void
-    {
-      y = x;
     };
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
@@ -144,29 +149,38 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
     });
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::volume_electric<P>(itt),
-      asgard::term_div<P>(1, asgard::flux_type::central, asgard::boundary_type::bothsides)
+      asgard::volume_electric<P>(positive),
+      asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)
     });
-  // pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-  //     asgard::volume_electric<P>(positive),
-  //     asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)
-  //   });
-  //
-  // pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-  //     asgard::volume_electric<P>(negative),
-  //     asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)
-  //   });
 
+  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+      asgard::volume_electric<P>(negative),
+      asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)
+    });
+
+  // here, the vlassov-poisson group will be finalized
+  // moving over to the lenard-bernstein group
   int const lb_group_id = pde.new_term_group();
 
-  pde += asgard::operators::lenard_bernstein_collisions{nu, 10.0 / pde.min_cell_size(1)};
-  // pde += asgard::operators::lenard_bernstein_collisions{nu};
+  pde += asgard::operators::lenard_bernstein_collisions{nu};
+
+  double const pen = 10.0 / pde.min_cell_size(1);
+  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+      asgard::term_identity{},
+      asgard::term_penalty<P>(pen, asgard::flux_type::upwind, asgard::boundary_type::none)
+    });
+
+  // finished with the terms
+
+  // using IMEX stepper requires that the pde "knows" the corresponding groups
+  // the technique used here is called "strong-types" for C++,
+  // e.g., see here: https://www.fluentcpp.com/2016/12/08/strong-types-for-strong-interfaces/
 
   // set the implicit and explicit operator groups
   pde.set(asgard::imex_implicit_group{lb_group_id},
           asgard::imex_explicit_group{vp_group_id});
 
-  // initial conditions in x and v
+  // separable initial conditions in x and v
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
@@ -217,14 +231,9 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
   // The Maxwellian is the initial condition
   // but with constant value of 1.0 set in dimension 0 (the position dimension)
   asgard::separable_func<P> maxw = disc.get_pde2().ic_sep().front();
-  // maxw.set_cdomain(0, P{1});
-  maxw.set_fdomain(0, [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-                          void {
-                            for (size_t i = 0; i < x.size(); i++)
-                              fx[i] = 1; //  + 1.E-4 * std::cos(0.5 * x[i]);
-                          });
+
+  // set dimension 0 to be a constant function with value 1
   maxw.set_cdomain(0, P{1});
-  // maxw.set_cdomain(1, P{1});
 
   // project the Maxwellian onto the current grid
   std::vector<P> proj_max = disc.project_function(maxw);
@@ -232,23 +241,18 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
   // subtract the current state
   std::vector<P> const &state = disc.current_state();
 
+  // the projected size will always match the size of the current state
   if (proj_max.size() != state.size())
     throw std::runtime_error("this will never happen");
 
-  P s = 0;
-  P d = 0;
-
   size_t n = state.size();
-  for (size_t i = 0; i < n; i++) {
-    s += proj_max[i] * proj_max[i];
-    // proj_max[i] -= state[i];
-    // proj_max[i] = state[i] - proj_max[i];
-    // std::cout << state[i] << "\n";
-    std::cout << proj_max[i] << "\n";
-    d += proj_max[i] * proj_max[i];
-  }
+  for (size_t i = 0; i < n; i++)
+    proj_max[i] -= state[i];
 
-  std::cout << " norm of max = " << std::sqrt(s) << ", norm of diff = " << std::sqrt(d) << "\n";
+  P s = 0;
+  for (auto p : proj_max) s += p * p;
+
+  std::cout << " nrm = " << std::sqrt(s) << "\n";
 
   return proj_max;
 
@@ -292,7 +296,7 @@ int main(int argc, char** argv)
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test"}, {});
+  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", });
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -305,10 +309,12 @@ int main(int argc, char** argv)
   asgard::discretization_manager<P> disc(make_vplb(1, options),
                                          asgard::verbosity_level::high);
 
+  // save the perturbation as an auxiliary field, for plotting
   disc.add_aux_field({"initial perturbation", compute_perturbation(disc)});
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
+  // save the final perturbation
   disc.add_aux_field({"final perturbation", compute_perturbation(disc)});
 
   disc.final_output();
@@ -330,84 +336,78 @@ int main(int argc, char** argv)
 // normally, should only include what is needed
 using namespace asgard;
 
-// template<typename P>
-// void test_energy(std::string const &opt_str) {
-//   current_test<P> test_(opt_str, 2);
-//   // analytic solution is not available, hence we use energy conservation for
-//   // the test quantity in place of an L^2 error
+template<typename P>
+void test_energy(int const vdims, std::string const &opt_str) {
+  current_test<P> test_(opt_str, 1 + vdims);
+  // analytic solution is not available, hence we use energy conservation for
+  // the test quantity in place of an L^2 error
 
-//   prog_opts const options = make_opts(opt_str);
+  prog_opts const options = make_opts(opt_str);
 
-//   discretization_manager disc(make_two_stream(options), verbosity_level::quiet);
+  discretization_manager disc(make_vplb<P>(vdims, options), verbosity_level::quiet);
 
-//   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
+  P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
 
-//   // the pde needs only the zeroth moment and computes that internally
-//   // we are using the other moments to check conservation properties
-//   int const num_moms = 3;
-//   int const pdof     = disc.degree() + 1;
-//   moments1d moms(num_moms, pdof - 1, disc.get_pde2().max_level(),
-//                  disc.get_pde2().domain());
-//   std::vector<P> mom_vec;
+  // the pde needs only the zeroth moment and computes that internally
+  // we are using the other moments to check conservation properties
+  int const num_moms = 3;
+  int const pdof     = disc.degree() + 1;
+  moments1d moms(num_moms, pdof - 1, disc.get_pde2().max_level(),
+                 disc.get_pde2().domain());
+  std::vector<P> mom_vec;
 
-//   int const n = disc.time_params().num_remain();
+  int const n = disc.time_params().num_remain();
 
-//   for (int i = 0; i < n; i++)
-//   {
-//     disc.advance_time(1);
+  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 1.E-4;
 
-//     int const level0   = disc.get_sgrid().current_level(0);
-//     int const num_cell = fm::ipow2(level0);
-//     P const dx         = disc.get_pde2().domain().length(0) / num_cell;
+  for (int i = 0; i < n; i++)
+  {
+    disc.advance_time(1);
 
-//     moms.project_moments(disc.get_sgrid(), disc.current_state(), mom_vec);
+    int const level0   = disc.get_sgrid().current_level(0);
+    int const num_cell = fm::ipow2(level0);
+    P const dx         = disc.get_pde2().domain().length(0) / num_cell;
 
-//     disc.do_poisson_update(disc.current_state()); // update the electric field
+    moms.project_moments(disc.get_sgrid(), disc.current_state(), mom_vec);
 
-//     auto const &efield = disc.get_terms().cdata.electric_field;
+    disc.do_poisson_update(disc.current_state()); // update the electric field
 
-//     P Ep = 0;
-//     for (auto e : efield)
-//       Ep += e * e;
-//     Ep *= dx;
+    auto const &efield = disc.get_terms().cdata.electric_field;
 
-//     span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
+    P Ep = 0;
+    for (auto e : efield)
+      Ep += e * e;
+    Ep *= dx;
 
-//     P Ek = 0;
-//     for (int j : iindexof(num_cell))
-//       Ek += moments[j][2 * pdof]; // integrating the third moment
-//     Ek *= std::sqrt(disc.get_pde2().domain().length(0));
+    span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
 
-//     if (disc.time_params().step() == 1) // first time-step
-//       E0 = Ep + Ek;
+    P Ek = 0;
+    for (int j : iindexof(num_cell))
+      Ek += moments[j][2 * pdof]; // integrating the third moment
+    Ek *= std::sqrt(disc.get_pde2().domain().length(0));
 
-//     tcheckless(i, std::abs(Ep + Ek - E0), 1.E-6);
+    if (disc.time_params().step() == 1) // first time-step
+      E0 = Ep + Ek;
 
-//     P mv = 0;
-//     for (auto j : indexof(num_cell))
-//       for (auto k : indexof(pdof))
-//         mv += moments[j][k] * moments[j][k + pdof];
-//     tcheckless(i, std::abs(mv), 1.0e-14);
-
-//     // check the initial slight energy decay before it stabilizes
-//     if (i > 0)
-//       tassert(std::abs(Ep + Ek - E0) > 1.E-9);
-//   }
-// }
+    // check the initial slight energy decay before it stabilizes
+    // std::cout << i << "  err = " << std::abs(Ep + Ek - E0) << "\n";
+    tcheckless(i, std::abs(Ep + Ek - E0), tol);
+  }
+}
 
 void self_test() {
   all_tests testing_("Vlassov-Poisson-Lenard-Bernstein");
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  // test_energy<double>("-l 5 -d 2 -g dense -dt 6.25e-3 -n 20");
-  // test_energy<double>("-l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
+  test_energy<double>(1, "-l 5 -t 0.5");
+  test_energy<double>(1, "-l 6 -t 0.25");
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  std::cout << "no tests for single precision only builds\n";
+  test_energy<float>(1, "-l 5");
 
 #endif
 }

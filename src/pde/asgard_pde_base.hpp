@@ -2505,16 +2505,13 @@ struct divergence {
  * \ingroup asgard_pde_definition
  * \brief Adds the Lenard-Bernstein collision operator to the PDE
  *
- * Currently sets zero boundary conditions at the edge of the velocity domain.
+ * Currently sets homogeneous (zero) boundary conditions at the edge of the velocity domain.
  */
 struct lenard_bernstein_collisions {
   //! sets the Lenard-Bernstein collision operator with the given collision frequency
-  lenard_bernstein_collisions(double coll_frequency, double penalty_magnutude = 0.0)
-    : nu(coll_frequency), penalty(penalty_magnutude) {}
+  lenard_bernstein_collisions(double coll_frequency) : nu(coll_frequency) {}
   //! collision frequency
   double nu = 0;
-  //! penalty, if any
-  double penalty = 0;
 };
 
 } // namespace::operators

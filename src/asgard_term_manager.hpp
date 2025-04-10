@@ -268,6 +268,7 @@ struct term_manager
   void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
                        hierarchy_manipulator<P> const &hier)
   {
+    tools::time_event timing_("rebuild - poisson");
     int i = 0;
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
@@ -280,6 +281,7 @@ struct term_manager
   void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
                             hierarchy_manipulator<P> const &hier)
   {
+    tools::time_event timing_("rebuild - moments (all)");
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
         if (te.deps[d].num_moments > 0)
@@ -291,6 +293,7 @@ struct term_manager
                             connection_patterns const &conn,
                             hierarchy_manipulator<P> const &hier)
   {
+    tools::time_event timing_("rebuild - moments");
     expect(0 <= groupid and groupid < static_cast<int>(term_groups.size()));
 
     for (int it : indexrange(term_groups[groupid])) {

@@ -28,19 +28,12 @@ PDEv2<P> & PDEv2<P>::operator += (operators::lenard_bernstein_collisions lbc)
   term_1d<P> nu_div_grad = term_1d<P>({term_div<P>{-snu, flux_type::upwind, boundary_type::bothsides},
                                        term_grad<P>{snu, flux_type::upwind, boundary_type::bothsides}});
 
-  // if (lbc.penalty != 0)
-  //   nu_div_grad.set_penalty(lbc.penalty);
-
   if (domain_.num_vel() == 1) {
     *this += term_md<P>({I, divv_nuv});
     *this += term_md<P>({term_moment_over_density{1}, div_nu});
 
     term_1d<P> vol_theta(pterm_dependence::lenard_bernstein_coll_theta_1x1v);
     *this += term_md<P>({vol_theta, nu_div_grad});
-
-    if (lbc.penalty != 0)
-      *this += term_md<P>({term_identity{},
-                          term_penalty{lbc.penalty, flux_type::upwind, boundary_type::bothsides}});
 
   } else if (domain_.num_vel() == 2) {
     *this += term_md<P>({I, divv_nuv, I});
