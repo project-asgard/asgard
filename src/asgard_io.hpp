@@ -43,11 +43,14 @@ public:
   //! write to file
   static void write(PDEv2<P> const &pde, int degree, sparse_grid const &grid,
                     time_data<P> const &tdata, std::vector<P> const &state,
+                    std::vector<aux_field_entry<P>> const &aux_fields,
                     std::string const &filename);
 
   //! read from file
   static void read(std::string const &filename, bool silent, PDEv2<P> &pde,
-                   sparse_grid &grid, time_data<P> &tdata, std::vector<P> &state);
+                   sparse_grid &grid, time_data<P> &tdata,
+                   std::vector<aux_field_entry<P>> &aux_fields,
+                   std::vector<P> &state);
 
   //! indicator for the asgard "safe-file" version (mostly a future feature)
   static int constexpr asgard_file_version = 1;

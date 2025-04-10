@@ -426,4 +426,24 @@ private:
   scalar_func<P> time_func_;
 };
 
+/*!
+ * \ingroup asgard_discretization
+ * \brief Extra data-entry for plotting and post-processing
+ *
+ * In plotting and post-processing, it is sometime desirable to store
+ * additional data that sits on the sparse grid mesh, e.g.,
+ * deviation from a nominal state or initial condition.
+ * Since the data is defined on a sparse grid, it has to be accessed with
+ * the asgard::reconstruct_solution class (e.g., via python), but the data
+ * has to be saved/loaded in the asgard::discretization_manager
+ */
+template<typename P>
+struct aux_field_entry {
+  //! reference name for the field, should be unique
+  std::string name;
+  //! vector data
+  std::vector<P> data;
+};
+
+
 } // namespace asgard

@@ -85,7 +85,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   asgard::pde_domain<P> domain(asgard::position_dims{1}, asgard::velocity_dims{vdims}, ranges);
 
   // setting some default options
-  options.default_degree = 3;
+  options.default_degree = 2;
   options.default_start_levels = {5, 5};
 
   options.default_dt = 0.01 * domain.min_cell_size(options.max_level());
@@ -192,6 +192,73 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
 /*!
  * \ingroup asgard_examples_vplb
+ * \brief Computes the perturbation between the Maxwellian and the current state
+ *
+ * The initial condition is a small perturbation of a Maxwellian, which is not
+ * visible on a regular plot of the state.
+ * This method computes the difference between the current state of the
+ * discretization and the final Maxwellian distribution.
+ *
+ * \tparam P is the precision to use, float or double
+ *
+ * \param disc is a discretization of a PDE created with make_vplb()
+ *
+ * \returns the difference between the current state and the Maxwellian
+ *          projected on the current sparse grid
+ *
+ * \snippet vplb.cpp asgard_examples_vplb compute_perturbation
+ */
+template<typename P = asgard::default_precision>
+std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &disc) {
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_examples_vplb compute_perturbation]
+#endif
+
+  // The Maxwellian is the initial condition
+  // but with constant value of 1.0 set in dimension 0 (the position dimension)
+  asgard::separable_func<P> maxw = disc.get_pde2().ic_sep().front();
+  // maxw.set_cdomain(0, P{1});
+  maxw.set_fdomain(0, [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+                          void {
+                            for (size_t i = 0; i < x.size(); i++)
+                              fx[i] = 1; //  + 1.E-4 * std::cos(0.5 * x[i]);
+                          });
+  maxw.set_cdomain(0, P{1});
+  // maxw.set_cdomain(1, P{1});
+
+  // project the Maxwellian onto the current grid
+  std::vector<P> proj_max = disc.project_function(maxw);
+
+  // subtract the current state
+  std::vector<P> const &state = disc.current_state();
+
+  if (proj_max.size() != state.size())
+    throw std::runtime_error("this will never happen");
+
+  P s = 0;
+  P d = 0;
+
+  size_t n = state.size();
+  for (size_t i = 0; i < n; i++) {
+    s += proj_max[i] * proj_max[i];
+    // proj_max[i] -= state[i];
+    // proj_max[i] = state[i] - proj_max[i];
+    // std::cout << state[i] << "\n";
+    std::cout << proj_max[i] << "\n";
+    d += proj_max[i] * proj_max[i];
+  }
+
+  std::cout << " norm of max = " << std::sqrt(s) << ", norm of diff = " << std::sqrt(d) << "\n";
+
+  return proj_max;
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_examples_vplb compute_perturbation]
+#endif
+}
+
+/*!
+ * \ingroup asgard_examples_vplb
  * \brief main() for the diffusion example
  *
  * The main() processes the command line arguments and calls make_two_stream().
@@ -238,7 +305,11 @@ int main(int argc, char** argv)
   asgard::discretization_manager<P> disc(make_vplb(1, options),
                                          asgard::verbosity_level::high);
 
+  disc.add_aux_field({"initial perturbation", compute_perturbation(disc)});
+
   disc.advance_time(); // integrate until num-steps or stop-time
+
+  disc.add_aux_field({"final perturbation", compute_perturbation(disc)});
 
   disc.final_output();
 

@@ -399,6 +399,12 @@ public:
     return result;
   }
 
+  //! allows an auxiliary field to be saved for post-processing
+  void add_aux_field(aux_field_entry<precision> f) { aux_fields.emplace_back(std::move(f)); }
+  //! return reference to the saved fields
+  std::vector<aux_field_entry<precision>> const &
+  get_aux_fields() const { return aux_fields; }
+
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
 
   PDEv2<precision> const &get_pde2() const { return pde2; }
@@ -599,6 +605,9 @@ private:
 
   // constantly changing
   std::vector<precision> state;
+
+  //! fields to store and save for plotting
+  std::vector<aux_field_entry<precision>> aux_fields;
 };
 
 } // namespace asgard
