@@ -52,35 +52,65 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
                     std::vector<std::function<P(P)>> const base,
                     std::vector<std::function<P(P)>> const moments)
 {
+  expect(drange.size() % 2 == 0);
+  expect(drange.size() / 2 == base.size());
+  expect(not base.empty());
 
+  std::vector<domain_range<P>> ranges;
+  for (size_t i = 0; i < drange.size(); i += 2)
+    ranges.emplace_back(drange[i], drange[i + 1]);
 
+  prog_opts options;
+  options.default_degree = degree;
+  options.start_levels = {level, };
+  options.default_dt        = 0.01;
+  options.default_stop_time = 1;
+
+  pde_domain domain(position_dims{1},
+                    velocity_dims{static_cast<int>(base.size()) - 1},
+                    ranges);
+
+  // make the reference PDE
+  PDEv2<P> pde(options, domain);
+
+  separable_func<P> vbase(std::vector<P>(base.size(), 1));
+  for (int d : iindexof(base)) {
+    vbase.set_fdomain(d, [&, d](std::vector<P> const &x, P, std::vector<P> &fx)
+                              -> void {
+                                for (size_t i = 0; i < x.size(); i++)
+                                  fx[i] = base[d](x[i]);
+                              });
+  }
+
+  pde.add_initial(vbase);
+
+  discretization_manager<P> disc(pde, verbosity_level::quiet);
 
   int const num_moms = static_cast<int>(moments.size());
 
-  discretization_manager<P> disc( std::make_unique<somepde>(drange, level, degree, base) );
+  moments1d<P> moms(num_mom, degree, disc.max_level(), domain);
 
   std::vector<std::unique_ptr<discretization_manager<P>>> dmoms;
 
   for (int m = 0; m < num_moms; m++)
   {
-    dmoms.emplace_back(
-      std::make_unique<discretization_manager<P>>(
-        std::make_unique<somepde>(
-          std::vector<P>{drange[0], drange[1]}, level, degree,
-                         std::vector<std::function<P(P)>>{moments[m], })));
+    PDEv2<P> pde2(options, pde_domain({ranges[0], }));
+
+    separable_func<P> vb(std::vector<P>{1, });
+    vb.set_fdomain(0, [&, m](std::vector<P> const &x, P, std::vector<P> &fx)
+                              -> void {
+                                for (size_t i = 0; i < x.size(); i++)
+                                  fx[i] = moments[m](x[i]);
+                              });
+
+    pde2.add_initial(vb);
+
+    dmoms.emplace_back(std::make_unique<discretization_manager<P>>
+                       (std::move(pde2), verbosity_level::quiet));
   }
 
-  auto const &pde   = disc.get_pde();
-  auto const &dims  = pde.get_dimensions();
-  auto const &grid  = disc.get_grid();
-  auto const &table = grid.get_table();
-
-  int const level0  = dims[0].get_level();
-
-  moments1d<P> moms(num_mom, degree, pde.max_level(), dims);
-
   std::vector<P> raw_moments;
-  moms.project_moments(level0, disc.current_state(), table, raw_moments);
+  moms.project_moments(disc.get_sgrid(), disc.current_state(), raw_moments);
 
   // the raw_moments are stored interlaces, e.g., cell0-mom0, cell0-mom1, cell1-mom0 ...
   // splitting into separate vectors, for easier comparison against the reference states
@@ -104,26 +134,13 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
   P err = 0;
   for (int m = 0; m < num_comp; m++)
   {
-    // reorder the nodes for the reference solution, to match the order of the 1d moments
-    vector2d<int> cells1d = dmoms[m]->get_grid().get_table().get_cells();
-    dimension_sort dsort(cells1d);
-    auto const &state1d = dmoms[m]->current_state();
-
-    std::vector<P> ref(state1d.size());
-    {
-      int const dim = 0;
-      int64_t size = cells1d.num_strips();
-      span2d<P const> sstate(degree + 1, size, state1d.data());
-      span2d<P> sref(degree + 1, size, ref.data());
-      for (auto i : indexof(size))
-        std::copy_n(sstate[dsort.map(dim, i)], degree + 1, sref[i]);
-    }
+    std::vector<P> const &ref = dmoms[m]->current_state();
 
     err = std::max(err, fm::diff_inf(vmoms[m], ref));
 
     // also include comparison with the solution of a single moment
     std::vector<P> single_mom;
-    moms.project_moment(m, level0, disc.current_state(), table, single_mom);
+    moms.project_moment(m, disc.get_sgrid(), disc.current_state(), single_mom);
     err = std::max(err, fm::diff_inf(single_mom, ref));
   }
 
@@ -243,7 +260,7 @@ void test_compute_moments()
 
 int main(int, char**)
 {
-  all_tests global_("computing moments", " moments of the field");
+  all_tests global_("computing moments", " field integrals in velocity domain");
 
   test_compute_moments();
 
