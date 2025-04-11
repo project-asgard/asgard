@@ -31,6 +31,14 @@ bool asgard_all_tests  = true;  // reports total result of all tests
                              + " line: " + std::to_string(__LINE__) );  \
   }
 
+#define terror_message(_code_, _message_) \
+  try { \
+    (_code_); \
+  } catch (std::runtime_error &err) { \
+    if (std::string_view(err.what()).find((_message_)) != 0) { \
+      throw std::runtime_error(" expected error: '" + std::string((_message_)) + "' but found '" + err.what() + "'"); \
+    } \
+  } \
 
 namespace asgard {
 
