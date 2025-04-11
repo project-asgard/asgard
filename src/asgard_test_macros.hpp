@@ -2,6 +2,8 @@
 
 #include "asgard.hpp"
 
+#include "asgard_testpdes.hpp"
+
 std::string asgard_test_name;   // the name of the currently running test
 bool asgard_test_pass  = true;  // helps in reporting whether the last test passed
 bool asgard_all_tests  = true;  // reports total result of all tests
@@ -12,9 +14,9 @@ bool asgard_all_tests  = true;  // reports total result of all tests
   if (!(_result_)){            \
     asgard_test_pass = false;  \
     asgard_all_tests = false;  \
-    throw std::runtime_error("  test " + asgard_test_name \
-                             + " in file: " + __FILE__    \
-                             + " line: " + std::to_string(__LINE__) );  \
+    throw std::runtime_error("test: " + asgard_test_name \
+                             + "\n        in file: " + __FILE__    \
+                             + "\n           line: " + std::to_string(__LINE__) );  \
   }
 
 #define tcheckless_loud(_iinx_, _terr_, _ttol_)      \
@@ -26,9 +28,9 @@ bool asgard_all_tests  = true;  // reports total result of all tests
     asgard_test_pass = false;  \
     asgard_all_tests = false;  \
     tcheckless_loud(_iinx_, _terr_, _ttol_) \
-    throw std::runtime_error("  test " + asgard_test_name \
-                             + " in file: " + __FILE__    \
-                             + " line: " + std::to_string(__LINE__) );  \
+    throw std::runtime_error("test: " + asgard_test_name \
+                             + "\n        in file: " + __FILE__    \
+                             + "\n           line: " + std::to_string(__LINE__) );  \
   }
 
 #define terror_message(_code_, _message_) \
@@ -57,30 +59,35 @@ struct all_tests {
 };
 
 template<typename P>
+std::string prepend_type(std::string const &name) {
+  if constexpr (std::is_same_v<P, double>) {
+    return "(double) " + name;
+  } else if constexpr (std::is_same_v<P, float>) {
+    return "(float) " + name;
+  } else {
+    return name;
+  }
+}
+
+template<typename P = void>
 struct current_test{
   current_test(std::string const &name) {
-    asgard_test_name = name;
+    asgard_test_name = prepend_type<P>(name);
     asgard_test_pass = true;
   }
   current_test(std::string const &name, int num_dims, int level, bool adapt = false) {
-    asgard_test_name = name + " " + std::to_string(num_dims) + "D  level " + std::to_string(level);
+    asgard_test_name = prepend_type<P>(name) + " " + std::to_string(num_dims) + "D  level " + std::to_string(level);
     asgard_test_name += (adapt) ? "  adapt" : "  no-adapt";
     asgard_test_pass = true;
   }
   current_test(std::string const &name, int num_dims, std::string const &extra = std::string()) {
-    asgard_test_name = std::to_string(num_dims) + "D  '" + name + "'";
+    asgard_test_name = prepend_type<P>(std::to_string(num_dims) + "D  '" + name + "'");
     if (not extra.empty())
       asgard_test_name += " (" + extra + ")";
     asgard_test_pass = true;
   }
   ~current_test(){
-    std::string s ="";
-    if constexpr (std::is_same_v<P, double>)
-      s += "    (double) ";
-    else
-      s += "    (float)  ";
-
-    s += asgard_test_name;
+    std::string s = "    " + asgard_test_name;
 
     if (s.size() < 60)
       std::cout << s << std::setw(70 - s.size()) << ((asgard_test_pass) ? "pass" : "FAIL") << '\n';

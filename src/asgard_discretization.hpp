@@ -63,6 +63,8 @@ public:
 
   //! returns the number of dimensions
   int num_dims() const { return pde2.num_dims(); }
+  //! returns the max level of the grid
+  int max_level() const { return pde2.max_level(); }
 
   //! returns the time discretization parameters
   time_data<precision> const &time_params() const { return stepper.data; }

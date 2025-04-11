@@ -22,7 +22,7 @@ if (asgard_PYTHON_FOUND)
 endif()
 
 # additional examples following the same pattern
-foreach (_example continuity diffusion elliptic sinwav two_stream vplb)
+foreach (_example @_asgard_doc_pdes_str@)
     add_executable(${_example}  ${_example}.cpp)
     target_link_libraries(${_example}  asgard::asgard)
 endforeach()

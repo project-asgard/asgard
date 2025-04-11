@@ -1,4 +1,4 @@
-#include "tests_general.hpp"
+#include "asgard_test_macros.hpp"
 
 #include "asgard_coefficients_mats.hpp"
 
@@ -63,38 +63,39 @@ std::array<P, 2> test_mass_coeff_moments(func_lhs flhs, func_rhs frhs,
   return {err2, err3};
 }
 
-TEMPLATE_TEST_CASE("projected mass", "[mass-coefficients]", test_precs)
+template<typename P>
+void test_projected_mass()
 {
-  // compare the construction between a mass term constructed from simple function
+  current_test<P> name_("projected volume coefficients");
+  // compare the construction between a volume term constructed from simple function
   // as opposed to the projection of the functions onto the Legendre basis
-  using P = TestType;
   P constexpr tol = (std::is_same_v<P, double>) ? 1.E-11 : 1.E-4;
 
   std::array<P, 2> err = {0, 0};
 
   err = test_mass_coeff_moments<P>([](P)->P{ return 1; }, [](P)->P{ return -1; }, 0, 1, 2, 0);
-  REQUIRE(std::max(err[0], err[1]) < tol);
+  tassert(std::max(err[0], err[1]) < tol);
 
   err = test_mass_coeff_moments<P>([](P)->P{ return 1; }, [](P)->P{ return -1; }, 0, 1, 5, 2);
-  REQUIRE(std::max(err[0], err[1]) < tol);
+  tassert(std::max(err[0], err[1]) < tol);
 
   err = test_mass_coeff_moments<P>([](P)->P{ return 2; }, [](P)->P{ return 1; }, 0, 1, 5, 2);
-  REQUIRE(std::max(err[0], err[1]) < tol);
+  tassert(std::max(err[0], err[1]) < tol);
 
   err = test_mass_coeff_moments<P>([](P)->P{ return 1; },
                                    [](P x)->P{ return std::sin(x); },
                                    -3.14, 3.14, 3, 0);
-  REQUIRE(std::max(err[0], err[1]) < tol);
+  tassert(std::max(err[0], err[1]) < tol);
 
   err = test_mass_coeff_moments<P>([](P x)->P{ return 1 + 0.1 * std::sin(x); },
                                    [](P x)->P{ return 1 + x + 0.1 *std::cos(x); },
                                    -3.14, 3.14, 7, 1);
-  REQUIRE(std::max(err[0], err[1]) < 5.E-5);
+  tassert(std::max(err[0], err[1]) < 5.E-5);
 }
-
-TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
+template<typename P>
+void test_div_matrix()
 {
-  using P = TestType;
+  current_test<P> name_("div matrix");
 
   int const level = 3;
 
@@ -108,9 +109,9 @@ TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
       basis, 0, 1, level, nullptr, 1, flux_type::upwind, boundary_type::periodic, rhs_raw, mat);
 
   for (int i = 0; i < 8; i++) {
-    REQUIRE(mat.lower(i)[0] == -8);
-    REQUIRE(mat.diag(i)[0] == 8);
-    REQUIRE(mat.upper(i)[0] == 0);
+    tassert(mat.lower(i)[0] == -8);
+    tassert(mat.diag(i)[0] == 8);
+    tassert(mat.upper(i)[0] == 0);
   }
 
   auto cc = [](std::vector<P> const &x, std::vector<P> &fx)
@@ -123,9 +124,9 @@ TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
       basis, 0, 1, level + 1, cc, 0, flux_type::upwind, boundary_type::periodic, rhs_raw, mat);
 
   for (int i = 0; i < 16; i++) {
-    REQUIRE(mat.lower(i)[0] == -16);
-    REQUIRE(mat.diag(i)[0] == 16);
-    REQUIRE(mat.upper(i)[0] == 0);
+    tassert(mat.lower(i)[0] == -16);
+    tassert(mat.diag(i)[0] == 16);
+    tassert(mat.upper(i)[0] == 0);
   }
 
   gen_tri_cmat<P, operation_type::div, rhs_type::is_const>(
@@ -134,15 +135,15 @@ TEMPLATE_TEST_CASE("simple div", "[div]", test_precs)
   std::vector<P> const ref = {0, -4, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4, -4, 0, 4,
                               -4, 0, 4, -4, 0, 4, -4, 4, 0};
   for (int i = 0; i < 8; i++) {
-    REQUIRE(mat.lower(i)[0] == ref[3 * i]);
-    REQUIRE(mat.diag(i)[0] == ref[3 * i + 1]);
-    REQUIRE(mat.upper(i)[0] == ref[3 * i + 2]);
+    tassert(mat.lower(i)[0] == ref[3 * i]);
+    tassert(mat.diag(i)[0] == ref[3 * i + 1]);
+    tassert(mat.upper(i)[0] == ref[3 * i + 2]);
   }
 }
-
-TEMPLATE_TEST_CASE("simple mass", "[mass]", test_precs)
+template<typename P>
+void test_volume_matrix()
 {
-  using P = TestType;
+  current_test<P> name_("volume matrix");
 
   P constexpr tol = (std::is_same_v<P, double>) ? 1.E-13 : 1.E-4;
 
@@ -158,7 +159,7 @@ TEMPLATE_TEST_CASE("simple mass", "[mass]", test_precs)
   for (int i = 0; i < 8; i++) {
     std::vector<P> ref = {1, 0, 0, 0, 1, 0, 0, 0, 1};
     for (int k = 0; k < pdof * pdof; k++)
-     REQUIRE(std::abs(ref[k] - mat[i][k]) < tol);
+     tassert(std::abs(ref[k] - mat[i][k]) < tol);
   }
 
   auto cc = [](std::vector<P> const &x, std::vector<P> &fx)
@@ -173,6 +174,30 @@ TEMPLATE_TEST_CASE("simple mass", "[mass]", test_precs)
   for (int i = 0; i < 8; i++) {
     std::vector<P> ref = {-3.5, 0, 0, 0, -3.5, 0, 0, 0, -3.5};
     for (int k = 0; k < pdof * pdof; k++)
-     REQUIRE(std::abs(ref[k] - mat[i][k]) < tol);
+     tassert(std::abs(ref[k] - mat[i][k]) < tol);
   }
+}
+
+template<typename P>
+void all_templated_tests()
+{
+  test_projected_mass<P>();
+  test_div_matrix<P>();
+  test_volume_matrix<P>();
+}
+
+int main(int, char**)
+{
+  all_tests global_("coefficient-tests", " construction of coefficient matrices");
+
+  #ifdef ASGARD_ENABLE_DOUBLE
+  all_templated_tests<double>();
+  #endif
+
+  #ifdef ASGARD_ENABLE_FLOAT
+  all_templated_tests<float>();
+  #endif
+
+
+  return 0;
 }
