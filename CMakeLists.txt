@@ -413,13 +413,11 @@ set (components
      asgard_pde
      asgard_permutations
      asgard_quadrature
-     asgard_reconstruct
      asgard_resources
      asgard_small_mats
      asgard_sparse
      asgard_solver
      asgard_tensors
-     asgard_term_manager
      asgard_time_advance
      asgard_tools
 )
@@ -431,6 +429,8 @@ set(asgard_components
     indexset
     moment
     program_options
+    reconstruct
+    term_manager
     transformations
 )
 
