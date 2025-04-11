@@ -589,12 +589,11 @@ struct prog_opts
                             std::vector<std::string> const &with_value) const {
     std::vector<std::string> unknown = get_unknown(singles, with_value);
     if (not unknown.empty()) {
-      std::cerr << "\nunknown command line argument(s) encountered\n";
+      std::string ucli = "unknown command line argument(s) encountered\n";
       for (auto const &u : unknown)
-        std::cerr << u << "\n";
-      std::cerr << std::endl;
+        ucli += u + '\n';
 
-      throw std::runtime_error("cannot process command line arguments");
+      throw std::runtime_error(ucli);
     }
   }
   //! throws if any invalid (unknown by ASGarD) command line arguments are present

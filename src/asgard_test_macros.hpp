@@ -62,12 +62,14 @@ template<typename P>
 std::string prepend_type(std::string const &name) {
   if constexpr (std::is_same_v<P, double>) {
     return "(double) " + name;
-  } else {
+  } else if constexpr (std::is_same_v<P, float>) {
     return "(float) " + name;
+  } else {
+    return name;
   }
 }
 
-template<typename P>
+template<typename P = void>
 struct current_test{
   current_test(std::string const &name) {
     asgard_test_name = prepend_type<P>(name);

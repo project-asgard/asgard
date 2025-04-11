@@ -415,7 +415,6 @@ set (components
      asgard_moment
      asgard_pde
      asgard_permutations
-     asgard_program_options
      asgard_quadrature
      asgard_reconstruct
      asgard_resources
@@ -432,6 +431,7 @@ set (components
 # version 2 components, do not depend on catch2
 set(asgard_components
     boundary_conditions
+    program_options
 )
 
 if (ASGARD_USE_HIGHFIVE)
@@ -621,7 +621,7 @@ if (ASGARD_BUILD_TESTS)
           continue()
       endif()
 
-      set(_asgname "asgard-${component}-tests")
+      set(_asgname "asgard_${component}_tests")
 
       add_executable (${_asgname})
       target_sources (${_asgname} PRIVATE src/asgard_${component}_tests.cpp)
