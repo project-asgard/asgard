@@ -143,7 +143,7 @@ endif()
 # e.g., _asgard_doc_pdes_str is used in the example file
 ###############################################################################
 
-set (_asgard_doc_pdes "continuity diffusion elliptic sinwav two_stream vplb")
+set (_asgard_doc_pdes "continuity diffusion elliptic sinwav two_stream vplb sod_shock")
 set (_asgard_int_pdes mass_internal varcoeff_internal bound_internal relaxation_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}")

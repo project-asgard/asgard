@@ -61,6 +61,7 @@ doxygen_add_docs(asgard_doxygen
                  src/pde/sinwav.cpp
                  src/pde/two_stream.cpp
                  src/pde/vplb.cpp
+                 src/pde/sod_shock.cpp
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
                  COMMENT "Building the ${PROJECT_NAME} documentation")
 
