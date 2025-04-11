@@ -419,7 +419,6 @@ set (components
      asgard_solver
      asgard_tensors
      asgard_time_advance
-     asgard_tools
 )
 
 # version 2 components, do not depend on catch2
@@ -432,6 +431,7 @@ set(asgard_components
     reconstruct
     term_manager
     transformations
+    tools
 )
 
 if (ASGARD_USE_HIGHFIVE)
