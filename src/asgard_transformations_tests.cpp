@@ -1,11 +1,11 @@
-#include "tests_general.hpp"
-
-#include "asgard_small_mats.hpp"
+#include "asgard_test_macros.hpp"
 
 using namespace asgard;
 
-TEMPLATE_TEST_CASE("fast-transform", "[transformations]", test_precs)
+template<typename TestType>
+void test_transform()
 {
+  current_test<TestType> name_("fast-transform");
   std::minstd_rand park_miller(42);
   std::uniform_real_distribution<TestType> unif(-1.0, 1.0);
 
@@ -39,12 +39,33 @@ TEMPLATE_TEST_CASE("fast-transform", "[transformations]", test_precs)
         }
 
         if (level > 0)
-          REQUIRE(fm::diff_inf(ref, hp) > 1.E-2); // sanity check, did we transform anything
+          tassert(fm::diff_inf(ref, hp) > 1.E-2); // sanity check, did we transform anything
 
         hier.reconstruct1d(nbatch, level, span2d<TestType>(pdof, nbatch * num, hp.data()));
 
-        REQUIRE(fm::diff_inf(ref, hp) < 5.E-6); // inverse transform should get us back
+        tassert(fm::diff_inf(ref, hp) < 5.E-6); // inverse transform should get us back
       }
     }
   }
+}
+
+template<typename P>
+void all_templated_tests()
+{
+  test_transform<P>();
+}
+
+int main(int, char**)
+{
+  all_tests global_("transformation-tests", " hierarchical<->cell-by-cell basis");
+
+  #ifdef ASGARD_ENABLE_DOUBLE
+  all_templated_tests<double>();
+  #endif
+
+  #ifdef ASGARD_ENABLE_FLOAT
+  all_templated_tests<float>();
+  #endif
+
+  return 0;
 }

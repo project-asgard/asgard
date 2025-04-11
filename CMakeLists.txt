@@ -423,7 +423,6 @@ set (components
      asgard_term_manager
      asgard_time_advance
      asgard_tools
-     asgard_transformations
 )
 
 # version 2 components, do not depend on catch2
@@ -432,6 +431,7 @@ set(asgard_components
     coefficients_mats
     indexset
     program_options
+    transformations
 )
 
 if (ASGARD_USE_HIGHFIVE)
