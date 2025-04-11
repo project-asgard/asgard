@@ -4,50 +4,6 @@ using P = asgard::default_precision;
 
 using namespace asgard;
 
-class somepde : public PDE<P> {
-public:
-  somepde(std::vector<P> const &drange, int level, int degree,
-          std::vector<std::function<P(P)>> const funcs)
-    : funcs_(std::move(funcs))
-  {
-    expect(drange.size() % 2 == 0);
-    expect(drange.size() / 2 == funcs_.size());
-    expect(not funcs.empty());
-    expect(static_cast<int>(funcs_.size()) <= max_num_dimensions);
-
-    int const ndims   = static_cast<int>(funcs_.size());
-    this->interp_nox_ = [](P, std::vector<P> const &, std::vector<P> &) -> void {};
-
-    std::vector<dimension<P>> dims;
-    dims.reserve(ndims);
-
-    for (int i = 0; i < ndims; i++)
-    {
-      dims.push_back(
-        dimension<P>(drange[2*i], drange[2*i + 1], level, degree,
-          [ff = funcs_[i]](fk::vector<P> const &x, P const) -> fk::vector<P> {
-            fk::vector<P> fx(x.size());
-            for (auto k : indexof(x))
-              fx[k] = ff(x[k]);
-            return fx;
-          },
-          nullptr, std::string("x_") + std::to_string(i))
-      );
-    }
-
-    prog_opts opts;
-
-    this->initialize(opts, ndims, 0, dims,
-                     term_set<P>{}, std::vector<source<P>>{},
-                     std::vector<md_func_type<P>>{},
-                     get_dt_, false, false);
-  }
-
-  std::vector<std::function<P(P)>> funcs_;
-
-  static P get_dt_(dimension<P> const &) { return 0.0; }
-};
-
 double test_moments(std::vector<P> const &drange, int level, int degree, int num_mom,
                     std::vector<std::function<P(P)>> const base,
                     std::vector<std::function<P(P)>> const moments)
@@ -146,7 +102,6 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
 
   return err;
 }
-
 
 void test_compute_moments()
 {
