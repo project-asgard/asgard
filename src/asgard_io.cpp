@@ -295,6 +295,9 @@ void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &gri
       file.createDataSet<P>(
           "aux_field_" + std::to_string(i) + "_data",
           HighFive::DataSpace(aux_fields[i].data.size()), vopts).write_raw(aux_fields[i].data.data());
+      file.createDataSet<int>(
+          "aux_field_" + std::to_string(i) + "_grid",
+          HighFive::DataSpace(aux_fields[i].grid.size()), vopts).write_raw(aux_fields[i].grid.data());
     }
   }
 }
@@ -546,6 +549,7 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
     for (int i : iindexof(num_aux)) {
       aux_fields[i].name = H5Easy::load<std::string>(file, "aux_field_" + std::to_string(i) + "_name");
       aux_fields[i].data = H5Easy::load<std::vector<P>>(file, "aux_field_" + std::to_string(i) + "_data");
+      aux_fields[i].grid = H5Easy::load<std::vector<int>>(file, "aux_field_" + std::to_string(i) + "_grid");
     }
   }
 }

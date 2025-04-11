@@ -400,10 +400,15 @@ public:
   }
 
   //! allows an auxiliary field to be saved for post-processing
-  void add_aux_field(aux_field_entry<precision> f) { aux_fields.emplace_back(std::move(f)); }
+  void add_aux_field(aux_field_entry<precision> f) {
+    aux_fields.emplace_back(std::move(f));
+    aux_fields.back().grid = sgrid.get_cells(); // copy the grid
+  }
   //! return reference to the saved fields
   std::vector<aux_field_entry<precision>> const &
   get_aux_fields() const { return aux_fields; }
+  //! deletes the current list of auxiliary fields
+  void clear_aux_fields() { aux_fields.clear(); }
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
 

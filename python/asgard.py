@@ -123,7 +123,8 @@ class pde_snapshot:
                 for i in range(num_aux):
                     self.aux_fields[i] = {
                         'name' : fdata[f"aux_field_{i}_name"][()].decode("utf-8"),
-                        'data' : fdata[f"aux_field_{i}_data"][()]
+                        'data' : fdata[f"aux_field_{i}_data"][()],
+                        'grid' : fdata[f"aux_field_{i}_grid"][()]
                         }
 
         # for plotting purposes, say aways from the domain edges
@@ -190,13 +191,13 @@ class pde_snapshot:
         aux.subtitle = "aux-field"
         aux.degree   = self.degree
         aux.state    = self.aux_fields[idnum]['data']
+        aux.cells    = self.aux_fields[idnum]['grid']
 
         aux.default_view = self.default_view
 
         aux.num_dimensions = self.num_dimensions
-        aux.num_cells      = self.num_cells
+        aux.num_cells      = aux.num_cells.shape[0] / aux.num_dimensions
 
-        aux.cells = self.cells
         aux.time  = self.time
         aux.time  = self.time
 
@@ -212,14 +213,14 @@ class pde_snapshot:
             aux.double_precision = True
 
             aux.recsol = libasgard.asgard_make_dreconstruct_solution_v2(
-                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
         else:
             aux.double_precision = False
 
             aux.recsol = libasgard.asgard_make_freconstruct_solution_v2(
-                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
         libasgard.asgard_reconstruct_solution_setbounds(aux.recsol,

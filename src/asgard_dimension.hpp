@@ -439,10 +439,18 @@ private:
  */
 template<typename P>
 struct aux_field_entry {
+  //! default constructor, creates and empty entry
+  aux_field_entry() = default;
+  //! constructor, set the name and data
+  aux_field_entry(std::string nm, std::vector<P> dat)
+      : name(std::move(nm)), data(std::move(dat))
+  {}
   //! reference name for the field, should be unique
   std::string name;
   //! vector data
   std::vector<P> data;
+  //! multi-indexes
+  std::vector<int> grid;
 };
 
 

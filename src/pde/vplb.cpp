@@ -392,7 +392,6 @@ void test_energy(int const vdims, std::string const &opt_str) {
       E0 = Ep + Ek;
 
     // check the initial slight energy decay before it stabilizes
-    // std::cout << i << "  err = " << std::abs(Ep + Ek - E0) << "\n";
     tcheckless(i, std::abs(Ep + Ek - E0), tol);
   }
 }

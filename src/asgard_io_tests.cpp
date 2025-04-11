@@ -296,8 +296,13 @@ TEMPLATE_TEST_CASE("save/restart logic (longer)", "[io]", test_precs)
     REQUIRE(rdisc.get_aux_fields().size() == 1);
     REQUIRE(rdisc.get_aux_fields().front().name == "aux-field");
     REQUIRE(rdisc.get_aux_fields().front().data.size() == 3);
+    REQUIRE(rdisc.get_aux_fields().front().grid.size() ==
+            static_cast<size_t>(2 * disc.get_sgrid().num_indexes()));
     REQUIRE(rdisc.get_aux_fields().front().data[1] == 42);
     REQUIRE(rdisc.get_aux_fields().front().data[2] == 3);
+
+    rdisc.clear_aux_fields();
+    REQUIRE(rdisc.get_aux_fields().empty());
 
     REQUIRE(std::abs(rdisc.time_params().stop_time() - 0.08) < 2.E-9); // updated the stop time
     rdisc.advance_time();
