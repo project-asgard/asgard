@@ -139,6 +139,20 @@ if(NOT ASGARD_USE_HIGHFIVE)
 endif()
 
 ###############################################################################
+# set the list of the PDEs that will be used, needed to configure files
+# e.g., _asgard_doc_pdes_str is used in the example file
+###############################################################################
+
+set (_asgard_doc_pdes "continuity diffusion elliptic sinwav two_stream vplb")
+set (_asgard_int_pdes mass_internal varcoeff_internal bound_internal relaxation_internal)
+
+set (_asgard_doc_pdes_str "${_asgard_doc_pdes}")
+separate_arguments(_asgard_doc_pdes)
+
+list(APPEND _asgard_pdes ${_asgard_doc_pdes})
+list(APPEND _asgard_pdes ${_asgard_int_pdes})
+
+###############################################################################
 ## Pull in external support as needed
 ###############################################################################
 
@@ -386,7 +400,6 @@ set (components
      asgard_adapt
      asgard_basis
      asgard_block_matrix
-     asgard_boundary_conditions
      asgard_coefficients
      asgard_coefficients_mats
      asgard_distribution
@@ -416,8 +429,13 @@ set (components
      asgard_transformations
 )
 
+# version 2 components, do not depend on catch2
+set(asgard_components
+    boundary_conditions
+)
+
 if (ASGARD_USE_HIGHFIVE)
-    list (APPEND components asgard_io)
+    list (APPEND asgard_components io)
 endif ()
 
 foreach (component IN LISTS components)
@@ -431,6 +449,20 @@ foreach (component IN LISTS components)
     target_precompile_headers (libasgard
                                PUBLIC
                                $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.hpp>>
+    )
+endforeach ()
+
+foreach (component IN LISTS asgard_components)
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.cpp)
+        # some components don't have .cpp files
+        target_sources (libasgard
+                        PRIVATE
+                        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.cpp>
+        )
+    endif()
+    target_precompile_headers (libasgard
+                               PUBLIC
+                               $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.hpp>>
     )
 endforeach ()
 
@@ -457,7 +489,6 @@ target_precompile_headers (libasgard
 )
 target_link_libraries (libasgard
                        PUBLIC
-                       $<$<BOOL:${scalapack_FOUND}>:scalapack>
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
                        $<$<BOOL:${LINALG_FOUND}>:asgard::LINALG>
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
@@ -504,10 +535,7 @@ if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
-set (_asgard_pdes continuity diffusion elliptic sinwav two_stream vplb
-                  mass_internal varcoeff_internal bound_internal relaxation_internal)
-
-foreach (_asgexe ${_asgard_pdes})
+foreach (_asgexe IN LISTS _asgard_pdes)
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
     install(TARGETS ${_asgexe} RUNTIME DESTINATION "share/asgard/pde")
@@ -588,6 +616,40 @@ if (ASGARD_BUILD_TESTS)
       endif()
   endforeach()
 
+  foreach (component IN LISTS asgard_components)
+      if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}_tests.cpp)
+          continue()
+      endif()
+
+      set(_asgname "asgard-${component}-tests")
+
+      add_executable (${_asgname})
+      target_sources (${_asgname} PRIVATE src/asgard_${component}_tests.cpp)
+
+      target_include_directories (${_asgname} PRIVATE ${CMAKE_SOURCE_DIR}/testing)
+      target_include_directories (${_asgname} PRIVATE ${CMAKE_BINARY_DIR})
+
+      target_link_libraries(${_asgname} libasgard)
+
+      if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
+          set_target_properties(${_asgname} PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
+      endif()
+
+      if (${ASGARD_USE_PCH})
+          target_precompile_headers (${_asgname} REUSE_FROM libasgard)
+      endif ()
+
+      add_test (NAME ${_asgname}
+                COMMAND ${_asgname}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+      if (ASGARD_TEST_OMP_NUM_THREADS)
+          set_tests_properties (${_asgname} PROPERTIES
+              PROCESSORS ${ASGARD_TEST_OMP_NUM_THREADS}
+              ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_OMP_NUM_THREADS})
+      endif()
+
+  endforeach()
 
   foreach (component IN LISTS components)
     # TODO: while all components need testing, the transition period may leave some components hanging
