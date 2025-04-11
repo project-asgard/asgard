@@ -401,7 +401,6 @@ set (components
      asgard_basis
      asgard_block_matrix
      asgard_coefficients
-     asgard_coefficients_mats
      asgard_distribution
      asgard_discretization
      asgard_elements
@@ -432,6 +431,7 @@ set (components
 set(asgard_components
     boundary_conditions
     program_options
+    coefficients_mats
 )
 
 if (ASGARD_USE_HIGHFIVE)
