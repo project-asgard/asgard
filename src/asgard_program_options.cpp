@@ -2,6 +2,36 @@
 
 namespace asgard
 {
+
+bool is_explicit(time_method method) {
+  switch (method) {
+    case time_method::forward_euler:
+    case time_method::rk2:
+    case time_method::rk3:
+    case time_method::rk4:
+      return true;
+    default:
+      return false;
+  }
+}
+bool is_implicit(time_method method) {
+  switch (method) {
+    case time_method::back_euler:
+    case time_method::cn:
+      return true;
+    default:
+      return false;
+  }
+}
+bool is_imex(time_method method) {
+  switch (method) {
+    case time_method::imex2:
+      return true;
+    default:
+      return false;
+  }
+}
+
 split_views split_argv(std::string_view const &opts)
 {
   std::stringstream inopts{std::string(opts)};
@@ -83,6 +113,7 @@ Options          Short   Value      Description
                                     accepts (v2): steady
                                       forward-euler/fe/rk1/rk2/rk3/rk4
                                       backwar-euler/be/crank-nicolson/cn
+                                      imex2
                                     (fe, be and cn are shorthand acronyms for the longer names)
                                     steady computes the steady state, not a time-stepping method
                                     indicates explicit (rk3), implicit (backward-Euler) or
@@ -138,7 +169,6 @@ void prog_opts::print_pde_help(std::ostream &os)
 // keep the padding to 100 characters                                                      100 -> //
 // ---------------------------------------------------------------------------------------------- //
   os << R"help(
-
 Option          Description
 custom          (default) user provided pde, can be omitted for the custom projects
 vlasov          Vlasov lb full f. df/dt = -v*grad_x f + div_v((v-u)f + theta*grad_v f)
@@ -169,13 +199,6 @@ fokkerplanck_2d_complete_case4    Full PDE from the 2D runaway electron paper:
 
 riemann_1x2v    Riemann 1x2v
 riemann_1x3v    Riemann 1x3v
-
-landau         Collisional Landau.
-               df/dt = -v*grad_x f -E*grad_v f + div_v((v-u)f + theta*grad_v f)
-landau_1x2v    Collisional Landau 1x2v.
-               df/dt = -v*grad_x f -E*grad_v f + div_v((v-u)f + theta*grad_v f)
-landau_1x3v    Collisional Landau 1x3v.
-               df/dt == -v*grad_x f -E*grad_v f + div_v((v-u)f + theta*grad_v f)
 
 )help";
 }
@@ -351,6 +374,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         step_method = time_method::cn;
       else if (*selected == "be" or *selected == "backward-euler")
         step_method = time_method::back_euler;
+      else if (*selected == "imex2")
+        step_method = time_method::imex2;
       else if (*selected == "expl")
         step_method = time_method::exp;
       else if (*selected == "impl")
@@ -651,9 +676,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
       {"vlasov", PDE_opts::vlasov_lb_full_f},
       {"riemann_1x2v", PDE_opts::riemann_1x2v},
       {"riemann_1x3v", PDE_opts::riemann_1x3v},
-      {"landau", PDE_opts::collisional_landau},
-      {"landau_1x2v", PDE_opts::collisional_landau_1x2v},
-      {"landau_1x3v", PDE_opts::collisional_landau_1x3v},
   };
 
   auto imap = pdes.find(pde_str);

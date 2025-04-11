@@ -14,9 +14,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_elliptic Example 5, Elliptic equation
+ * \addtogroup asgard_examples_elliptic Example: Elliptic equation
  *
- * \par Example 5
+ * \par Elliptic equation
  * Creates a simple elliptic PDE that multiplies across the dimensions
  * the same one-dimensional boundary value problem
  * \f[ \frac{d^2}{d x^2} f = 2 \f]

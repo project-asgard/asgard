@@ -12,9 +12,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_input_1d Example 2, Simple 1D equation
+ * \addtogroup asgard_examples_input_1d Example: Simple 1D equation
  *
- * \par Example 2
+ * \par Simple 1D equation
  * Solves the continuity partial differential equation
  * \f[ \frac{\partial}{\partial t} f + \frac{\partial}{\partial x} f = s \f]
  * where both \b f and \b s are defined over domain

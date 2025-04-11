@@ -12,9 +12,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_continuity_2d Example 1, 2D continuity equation
+ * \addtogroup asgard_examples_continuity_2d Example: 2D continuity equation
  *
- * \par Example 1
+ * \par 2D continuity equation
  * Solves the continuity partial differential equation
  * \f[ \frac{\partial}{\partial t} f + \nabla \cdot f = s \f]
  * where both \b f and \b s are defined over the two dimensional domain

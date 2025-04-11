@@ -203,6 +203,7 @@ restart_data<P> read_output(PDE<P> &pde, std::string const &restart_file)
 template<typename P>
 void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &grid,
                          time_data<P> const &dtime, std::vector<P> const &state,
+                         std::vector<aux_field_entry<P>> const &aux_fields,
                          std::string const &filename)
 {
   tools::time_event writing("write output");
@@ -286,11 +287,25 @@ void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &gri
   }
 
   H5Easy::dump(file, "timer_report", tools::timer.report());
+
+  { // aux fields section
+    H5Easy::dump(file, "num_aux_fields", static_cast<int>(aux_fields.size()));
+    for (int i : iindexof(aux_fields)) {
+      H5Easy::dump(file, "aux_field_" + std::to_string(i) + "_name", aux_fields[i].name);
+      file.createDataSet<P>(
+          "aux_field_" + std::to_string(i) + "_data",
+          HighFive::DataSpace(aux_fields[i].data.size()), vopts).write_raw(aux_fields[i].data.data());
+      file.createDataSet<int>(
+          "aux_field_" + std::to_string(i) + "_grid",
+          HighFive::DataSpace(aux_fields[i].grid.size()), vopts).write_raw(aux_fields[i].grid.data());
+    }
+  }
 }
 
 template<typename P>
 void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
-                        sparse_grid &grid, time_data<P> &dtime, std::vector<P> &state)
+                        sparse_grid &grid, time_data<P> &dtime,
+                        std::vector<aux_field_entry<P>> &aux_fields, std::vector<P> &state)
 {
   HighFive::File file(filename, HighFive::File::ReadOnly);
 
@@ -312,8 +327,8 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
   int const num_dims = H5Easy::load<int>(file, "num_dims");
 
   { // sanity checking
-    int num_pos  = H5Easy::load<int>(file, "num_pos");
-    int num_vel  = H5Easy::load<int>(file, "num_vel");
+    int const num_pos  = H5Easy::load<int>(file, "num_pos");
+    int const num_vel  = H5Easy::load<int>(file, "num_vel");
 
     if (num_dims != pde.num_dims())
       throw std::runtime_error("Mismatch in the number of dimensions, "
@@ -527,6 +542,16 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
   if (state.size() != static_cast<size_t>(size))
     throw std::runtime_error("file corruption detected: wrong number of state coefficients "
                              "found in the file");
+
+  { // reading aux fields
+    int const num_aux = H5Easy::load<int>(file, "num_aux_fields");
+    aux_fields.resize(num_aux);
+    for (int i : iindexof(num_aux)) {
+      aux_fields[i].name = H5Easy::load<std::string>(file, "aux_field_" + std::to_string(i) + "_name");
+      aux_fields[i].data = H5Easy::load<std::vector<P>>(file, "aux_field_" + std::to_string(i) + "_data");
+      aux_fields[i].grid = H5Easy::load<std::vector<int>>(file, "aux_field_" + std::to_string(i) + "_grid");
+    }
+  }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

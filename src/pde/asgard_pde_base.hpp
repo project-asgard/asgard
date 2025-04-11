@@ -65,17 +65,6 @@ enum class pterm_dependence
   lenard_bernstein_coll_theta_1x3v,
 };
 
-//! allows grouping terms together
-enum class term_groups
-{
-  //! consider all terms
-  all,
-  //! imex excplicit terms
-  imex_explicit,
-  //! imex imex_implicit terms
-  imex_implicit,
-};
-
 template<coefficient_type>
 struct has_flux_t : public std::true_type{};
 
@@ -1187,6 +1176,8 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
   std::function<P(P const, P const)> const_nu = [nnu = nu](P const, P const = 0)->P{ return nnu; };
   std::function<P(P const, P const)> get_nuv = [nnu = nu](P const v, P const = 0)->P{ return nnu * v; };
 
+  std::function<P(P const, P const)> const_snu = [nnu = nu](P const, P const = 0)->P{ return std::sqrt(nnu); };
+
   bool constexpr time_depend = true;
 
   imex_flag constexpr imex = imex_flag::imex_implicit;
@@ -1200,9 +1191,9 @@ inline void add_lenard_bernstein_collisions_1x1v(P const nu, term_set<P> &terms)
 
   partial_term<P> pt_nu_divv{pt_div_dirichlet_zero, flux_type::central, const_nu};
 
-  partial_term<P> pt_div_up{pt_div_dirichlet_zero, flux_type::upwind};
+  partial_term<P> pt_div_up{pt_div_dirichlet_zero, flux_type::upwind, const_snu};
 
-  partial_term<P> pt_nu_grad_down{pt_grad_dirichlet_zero, flux_type::downwind, const_nu};
+  partial_term<P> pt_nu_grad_down{pt_grad_dirichlet_zero, flux_type::downwind, const_snu};
 
   term<P> I("LB_I", pt_identity, imex);
 
@@ -2514,7 +2505,7 @@ struct divergence {
  * \ingroup asgard_pde_definition
  * \brief Adds the Lenard-Bernstein collision operator to the PDE
  *
- * Currently sets zero boundary conditions at the edge of the velocity domain.
+ * Currently sets homogeneous (zero) boundary conditions at the edge of the velocity domain.
  */
 struct lenard_bernstein_collisions {
   //! sets the Lenard-Bernstein collision operator with the given collision frequency
@@ -2525,6 +2516,27 @@ struct lenard_bernstein_collisions {
 
 } // namespace::operators
 #endif
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Container for group id associated with imex explicit step
+ */
+struct imex_explicit_group {
+  //! sets the explicit group
+  explicit imex_explicit_group(int g = -1) : gid(g) {}
+  //! the group id
+  int gid = -1;
+};
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Container for group id associated with imex implicit step
+ */
+ struct imex_implicit_group {
+  //! sets the implicit group
+  explicit imex_implicit_group(int g = -1) : gid(g) {}
+  //! the group id
+  int gid = -1;
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -2728,7 +2740,29 @@ public:
       level = max_level_;
     return domain_.min_cell_size(level);
   }
+  //! begin a new term group, returns the index-id of the new group
+  int new_term_group() {
+    if (current_term_group == -1) { // initialize group engine
+      rassert(terms_.empty() and sources_sep_.empty(),
+              "if using term-groups, new_term_group() must be called before any terms/sources are added");
+      current_term_group = 0;
+    } else { // new group
+      finalize_term_groups();
+      current_term_group ++;
+    }
+    return current_term_group;
+  }
 
+  //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
+  void set(imex_implicit_group im, imex_explicit_group ex) {
+    expect(options_.step_method.value() == time_method::imex2);
+    im_ = im;
+    ex_ = ex;
+  }
+  //! returns the implicit group
+  imex_implicit_group imex_im() const { return im_; }
+  //! returns the explicit group
+  imex_explicit_group imex_ex() const { return ex_; }
 
   //! allows writer to save/load the pde and options
   friend class h5manager<P>;
@@ -2736,6 +2770,19 @@ public:
   friend struct term_manager<P>;
 
 private:
+  void finalize_term_groups() {
+    if (current_term_group == -1) // no groups being used
+      return;
+    if (current_term_group == 0) {
+      term_groups.emplace_back(0, static_cast<int>(terms_.size()));
+      source_groups.emplace_back(0, static_cast<int>(sources_sep_.size()));
+    } else {
+      term_groups.emplace_back(term_groups.back().end(), static_cast<int>(terms_.size()));
+      source_groups.emplace_back(source_groups.back().end(),
+                                 static_cast<int>(sources_sep_.size()));
+    }
+  }
+
   prog_opts options_;
   pde_domain<P> domain_;
   int max_level_ = 1;
@@ -2746,8 +2793,16 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
+  // TODO: update this to have one non-sep source per group
   md_func<P> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
+
+  int current_term_group = -1;
+  std::vector<irange> term_groups;
+  std::vector<irange> source_groups;
+
+  imex_implicit_group im_;
+  imex_explicit_group ex_;
 };
 
 } // namespace asgard

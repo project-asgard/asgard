@@ -17,16 +17,28 @@ bool asgard_all_tests  = true;  // reports total result of all tests
                              + " line: " + std::to_string(__LINE__) );  \
   }
 
+#define tcheckless_loud(_iinx_, _terr_, _ttol_)      \
+  std::cerr << "at iteration = " << (_iinx_) \
+            << "  error = " << (_terr_) << "  tol = " << (_ttol_) << '\n';
+
 #define tcheckless(_iinx_, _terr_, _ttol_)      \
   if ((_terr_) >= (_ttol_)){            \
     asgard_test_pass = false;  \
     asgard_all_tests = false;  \
-    std::cerr << "at iteration = " << _iinx_ \
-              << "  error = " << (_terr_) << "  tol = " << (_ttol_) << '\n'; \
+    tcheckless_loud(_iinx_, _terr_, _ttol_) \
     throw std::runtime_error("  test " + asgard_test_name \
                              + " in file: " + __FILE__    \
                              + " line: " + std::to_string(__LINE__) );  \
   }
+
+#define terror_message(_code_, _message_) \
+  try { \
+    (_code_); \
+  } catch (std::runtime_error &err) { \
+    if (std::string_view(err.what()).find((_message_)) != 0) { \
+      throw std::runtime_error(" expected error: '" + std::string((_message_)) + "' but found '" + err.what() + "'"); \
+    } \
+  } \
 
 namespace asgard {
 

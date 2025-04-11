@@ -5,18 +5,18 @@
 /*!
  * \internal
  * \file two_stream.cpp
- * \brief Simple continuity example
+ * \brief Two stream instability example
  * \author The ASGarD Team
- * \ingroup asgard_examples_diffusion
+ * \ingroup asgard_examples_two_stream
  *
  * \endinternal
  */
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_two_stream Example 7, Two stream instability
+ * \addtogroup asgard_examples_two_stream Example: Two stream instability
  *
- * \par Example 7
+ * \par Two stream instability
  * Solves the Vlasov-Poisson equation in a common example
  * often called the two stream instability problem
  * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) = 0 \f]
@@ -48,7 +48,7 @@ void self_test();
 
 /*!
  * \ingroup asgard_examples_two_stream
- * \brief Make single continuity PDE
+ * \brief Make single two-stream PDE
  *
  * Constructs the pde description for the given umber of dimensions
  * and options.

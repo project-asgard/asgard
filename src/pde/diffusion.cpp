@@ -14,9 +14,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_diffusion Example 4, Diffusion operator
+ * \addtogroup asgard_examples_diffusion Example: Diffusion operator
  *
- * \par Example 4
+ * \par Diffusion operator
  * Solves the 2D diffusion partial differential equation
  * \f[ \frac{\partial}{\partial t} f - \nabla \cdot \nabla f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution is

@@ -11,3 +11,7 @@ add_subdirectory("@__asgard_install_prefix@/share/asgard/examples" examples_cxx)
 
 add_test(continuity_2d  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/continuity_2d")
 add_test(input_1d       "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/inputs_1d" "-if" "examples_cxx/inputs_1d_1.txt")
+
+foreach (_example continuity diffusion elliptic sinwav two_stream vplb)
+    add_test(${_example}  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/${_example}" -test)
+endforeach()

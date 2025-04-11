@@ -504,13 +504,14 @@ if (${ASGARD_USE_PCH})
     target_precompile_headers (asgard_exe REUSE_FROM libasgard)
 endif ()
 
-set (_asgard_pdes continuity diffusion elliptic sinwav two_stream
+set (_asgard_pdes continuity diffusion elliptic sinwav two_stream vplb
                   mass_internal varcoeff_internal bound_internal relaxation_internal)
 
 foreach (_asgexe ${_asgard_pdes})
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
-    install(TARGETS ${_asgexe} EXPORT  "asgard-export" RUNTIME DESTINATION "share/asgard/pde")
+    install(TARGETS ${_asgexe} RUNTIME DESTINATION "share/asgard/pde")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp" DESTINATION "share/asgard/examples")
 endforeach()
 
 #-------------------------------------------------------------------------------

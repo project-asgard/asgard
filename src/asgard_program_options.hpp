@@ -92,10 +92,7 @@ enum class PDE_opts
   fokkerplanck_2d_complete_case4,
   vlasov_lb_full_f,
   riemann_1x2v,
-  riemann_1x3v,
-  collisional_landau,
-  collisional_landau_1x2v,
-  collisional_landau_1x3v
+  riemann_1x3v
 };
 
 #ifndef __ASGARD_DOXYGEN_SKIP
@@ -192,6 +189,8 @@ enum class time_method
   back_euler,
   //! Implicit Crank-Nicolson, second order
   cn,
+  //! Implicit-explicit, second order
+  imex2,
   //! implicit solve, backward Euler
   imp,
   //! (default) explicit Runge–Kutta
@@ -199,6 +198,21 @@ enum class time_method
   //! implicit-explicit scheme for nonlinear Vlasov-Poisson problems
   imex
 };
+/*!
+ * \ingroup asgard_common_options
+ * returns true if the given time_method is explicit
+ */
+bool is_explicit(time_method method);
+/*!
+ * \ingroup asgard_common_options
+ * returns true if the given time_method is implicit
+ */
+bool is_implicit(time_method method);
+/*!
+ * \ingroup asgard_common_options
+ * returns true if the given time_method is mixed implicit-explicit
+ */
+bool is_imex(time_method method);
 
 /*!
  * \ingroup asgard_common_options
@@ -301,13 +315,12 @@ struct split_views
  * \code
  *   int main(int argc, char **argv) {
  *
- *     prog_opts options(argc, argv);
+ *     asgard::prog_opts options(argc, argv);
  *
- *     // force the use of imex irrespective of the cli options
- *     options.step_method = time_advance::method::imex;
+ *     // add defaults
+ *     options.default_start_levels = {4, };
  *
- *     // make a new PDE with these options
- *     auto pde = asgard::make_custom_pde<mypde>(options);
+ *     asgard::PDE<P> pde(options, domain);
  *
  * \endcode
  * This will process the inputs from argv and will also include any inputs
@@ -608,6 +621,16 @@ struct prog_opts
                                + std::string("' is missing required entry '")
                                + std::string(s) + std::string("'"));
     return x.value();
+  }
+
+  //! throw an exception if the user attempts to select a non-imex stepping method
+  void throw_if_not_imex_stepper() const {
+    switch (step_method.value_or(time_method::imex2)) {
+      case time_method::imex2:
+        return;
+      default:
+        throw std::runtime_error("invalid time-stepping method, only imex methods are allowed");
+    }
   }
 
   //! sets the step-method but issues a warning if a method is already provided

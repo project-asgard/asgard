@@ -1,7 +1,4 @@
 #pragma once
-#include "pde/asgard_pde_collisional_landau.hpp"
-#include "pde/asgard_pde_collisional_landau_1x2v.hpp"
-#include "pde/asgard_pde_collisional_landau_1x3v.hpp"
 #include "pde/asgard_pde_fokkerplanck1_4p3.hpp"
 #include "pde/asgard_pde_fokkerplanck1_4p4.hpp"
 #include "pde/asgard_pde_fokkerplanck1_4p5.hpp"
@@ -76,12 +73,6 @@ std::unique_ptr<PDE<P>> make_PDE(prog_opts const &cli_input)
     return std::make_unique<PDE_riemann_1x2v<P>>(cli_input);
   case PDE_opts::riemann_1x3v:
     return std::make_unique<PDE_riemann_1x3v<P>>(cli_input);
-  case PDE_opts::collisional_landau:
-    return std::make_unique<PDE_collisional_landau<P>>(cli_input);
-  case PDE_opts::collisional_landau_1x2v:
-    return std::make_unique<PDE_collisional_landau_1x2v<P>>(cli_input);
-  case PDE_opts::collisional_landau_1x3v:
-    return std::make_unique<PDE_collisional_landau_1x3v<P>>(cli_input);
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);

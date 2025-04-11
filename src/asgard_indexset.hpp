@@ -541,6 +541,9 @@ public:
   template<typename P>
   void remap(int block_size, std::vector<P> &state) const;
 
+  //! returns the internal set of cells
+  std::vector<int> const &get_cells() const { return iset_.indexes(); }
+
   //! print summary of the grid
   void print_stats(std::ostream &os) const;
 

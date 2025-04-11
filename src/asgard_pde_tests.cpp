@@ -1,5 +1,7 @@
 #include "tests_general.hpp"
 
+#include "asgard_test_macros.hpp"
+
 static auto const pde_eps_multiplier = 1e2;
 
 static auto const pde_base_dir = gold_base_dir / "pde";
@@ -18,10 +20,10 @@ TEMPLATE_TEST_CASE("pde book-keeping", "[pde]", test_precs)
     REQUIRE(pde_domain<TestType>(1).name(0) == std::string("x1"));
     REQUIRE(pde_domain<TestType>(4).name(3) == std::string("x4"));
 
-    REQUIRE_THROWS_WITH(pde_domain<TestType>(-3),
-                        "pde_domain created with zero or negative dimensions");
-    REQUIRE_THROWS_WITH(pde_domain<TestType>(max_num_dimensions + 1),
-                        "pde_domain created with too many dimensions, max is 6D");
+    terror_message(pde_domain<TestType>(-3),
+                   "pde_domain created with zero or negative dimensions");
+    terror_message(pde_domain<TestType>(max_num_dimensions + 1),
+                   "pde_domain created with too many dimensions, max is 6D");
 
     REQUIRE(pde_domain<TestType>({{0, 2}, {-2, 1}}).length(0) == TestType{2});
     REQUIRE(pde_domain<TestType>({{0, 2}, {-2, 1}}).xleft(1) == TestType{-2});
@@ -193,13 +195,23 @@ TEMPLATE_TEST_CASE("pde v2", "[pde]", test_precs)
     REQUIRE(pde.mass().dim(0).is_identity());
     REQUIRE(pde.mass().dim(1).is_identity());
     REQUIRE(pde.mass().is_identity());
-    // REQUIRE_THROWS_WITH(pde.set_mass(term_md<TestType>{}),
-    //                     "the mass term must be separable");
+    terror_message(pde.set_mass(mass_md<TestType>{2}),
+                   "the mass term must be separable");
     pde.set_mass({term_volume{2}, term_volume{3}});
     REQUIRE_FALSE(pde.mass().dim(0).is_identity());
     REQUIRE(pde.mass().dim(0).rhs_const() == 2);
     REQUIRE_FALSE(pde.mass().dim(1).is_identity());
     REQUIRE(pde.mass().dim(1).rhs_const() == 3);
+  }
+  SECTION("imex")
+  {
+    prog_opts opts = make_opts("-l 2 -d 1 -s imex2");
+    REQUIRE(opts.step_method);
+    REQUIRE(opts.step_method.value() == time_method::imex2);
+    PDEv2<TestType> pde(opts, pde_domain<TestType>(2));
+    pde.set(imex_implicit_group{2}, imex_explicit_group{5});
+    REQUIRE(pde.imex_im().gid == 2);
+    REQUIRE(pde.imex_ex().gid == 5);
   }
 }
 

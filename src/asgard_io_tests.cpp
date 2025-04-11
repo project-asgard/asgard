@@ -282,6 +282,8 @@ TEMPLATE_TEST_CASE("save/restart logic (longer)", "[io]", test_precs)
     disc.advance_time(4);
     REQUIRE(get_qoi_indicator<pde, P>(disc) < 1.E-2);
 
+    disc.add_aux_field({"aux-field", {0, 42, 3}}); // add some AUX data
+
     disc.save_final_snapshot();
     REQUIRE(std::filesystem::exists("_asg_testfile.h5"));
 
@@ -290,6 +292,17 @@ TEMPLATE_TEST_CASE("save/restart logic (longer)", "[io]", test_precs)
 
     REQUIRE(rdisc.get_sgrid().num_indexes() == disc.get_sgrid().num_indexes());
     REQUIRE(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+
+    REQUIRE(rdisc.get_aux_fields().size() == 1);
+    REQUIRE(rdisc.get_aux_fields().front().name == "aux-field");
+    REQUIRE(rdisc.get_aux_fields().front().data.size() == 3);
+    REQUIRE(rdisc.get_aux_fields().front().grid.size() ==
+            static_cast<size_t>(2 * disc.get_sgrid().num_indexes()));
+    REQUIRE(rdisc.get_aux_fields().front().data[1] == 42);
+    REQUIRE(rdisc.get_aux_fields().front().data[2] == 3);
+
+    rdisc.clear_aux_fields();
+    REQUIRE(rdisc.get_aux_fields().empty());
 
     REQUIRE(std::abs(rdisc.time_params().stop_time() - 0.08) < 2.E-9); // updated the stop time
     rdisc.advance_time();

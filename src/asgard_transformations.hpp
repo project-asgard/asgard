@@ -332,8 +332,8 @@ public:
     } else {
       // the projection is trivial, exploiting orthogonality of the basis
       pf[dim].resize(num_cells * (degree_ + 1));
-      std::fill(pf[dim].begin(), pf[dim].end(), 0);
-      pf[dim].front() = c;
+      pf[dim].front() = c * std::sqrt(dmax[dim] - dmin[dim]);
+      std::fill(pf[dim].begin() + 1, pf[dim].end(), 0);
     }
   }
   //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)

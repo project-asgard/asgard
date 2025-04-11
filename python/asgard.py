@@ -54,6 +54,10 @@ class pde_snapshot:
 
     def __init__(self, filename, verbose = False):
         self.verbose = verbose
+        if filename == "::aux-filed":
+            self.recsol = None
+            return
+
         if self.verbose:
             print(' -- reading from: %s' % filename)
 
@@ -98,6 +102,9 @@ class pde_snapshot:
 
                 self.num_dimensions = fdata['num_dims'][()]
 
+                self.num_position = fdata['num_pos'][()]
+                self.num_velocity = fdata['num_vel'][()]
+
                 self.cells = fdata['grid_indexes'][()]
                 self.time  = fdata['dtime_time'][()] # numeric time
 
@@ -113,6 +120,15 @@ class pde_snapshot:
                     self.dimension_names[i] = fdata['dim{0}_name'.format(i)][()].decode("utf-8")
                     self.dimension_min[i] = drange[2 * i]
                     self.dimension_max[i] = drange[2 * i + 1]
+
+                num_aux = fdata['num_aux_fields'][()]
+                self.aux_fields = [None for i in range(num_aux)]
+                for i in range(num_aux):
+                    self.aux_fields[i] = {
+                        'name' : fdata[f"aux_field_{i}_name"][()].decode("utf-8"),
+                        'data' : fdata[f"aux_field_{i}_data"][()],
+                        'grid' : fdata[f"aux_field_{i}_grid"][()]
+                        }
 
         # for plotting purposes, say aways from the domain edges
         # rounding error at the edge may skew the plots
@@ -157,6 +173,66 @@ class pde_snapshot:
         libasgard.asgard_reconstruct_solution_setbounds(self.recsol,
                                                         np.ctypeslib.as_ctypes(self.dimension_min.reshape(-1,)),
                                                         np.ctypeslib.as_ctypes(self.dimension_max.reshape(-1,)))
+
+    def get_aux_field(self, auxid):
+        assert isinstance(auxid, int) or isinstance(auxid, string), "auxid must be in int or a string"
+        if isinstance(auxid, int):
+            assert 0 <= auxid and auxid < len(self.aux_fields), f"the auxid {auxid} must point to a valid entry in the list with size {len(self.aux_fields)}"
+
+            idnum = auxid
+        else: # must be a string due to the assertion on top
+            idnum = -1
+            for i in range(len(self.aux_fields)):
+                if self.aux_fields[i].name == auxid:
+                    idnum = i
+                    break
+            assert idnum != -1, f"the auxid '{auxid}' is not in the list of aux-fields"
+
+        aux = pde_snapshot("::aux-filed", self.verbose)
+
+        aux.title    = self.aux_fields[idnum]['name']
+        aux.subtitle = "aux-field"
+        aux.degree   = self.degree
+        aux.state    = self.aux_fields[idnum]['data']
+        aux.cells    = self.aux_fields[idnum]['grid']
+
+        aux.default_view = self.default_view
+
+        aux.num_dimensions = self.num_dimensions
+        aux.num_position   = self.num_position
+        aux.num_velocity   = self.num_velocity
+        aux.num_cells      = aux.cells.shape[0] / aux.num_dimensions
+
+        aux.time  = self.time
+        aux.time  = self.time
+
+        aux.dimension_names = self.dimension_names
+        aux.dimension_min   = self.dimension_min
+        aux.dimension_max   = self.dimension_max
+
+        aux.aux_fields = []
+
+        aux.eps = self.eps
+
+        if self.state.dtype == np.float64:
+            aux.double_precision = True
+
+            aux.recsol = libasgard.asgard_make_dreconstruct_solution_v2(
+                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
+                self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
+
+        else:
+            aux.double_precision = False
+
+            aux.recsol = libasgard.asgard_make_freconstruct_solution_v2(
+                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
+                self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
+
+        libasgard.asgard_reconstruct_solution_setbounds(aux.recsol,
+                                                        np.ctypeslib.as_ctypes(self.dimension_min.reshape(-1,)),
+                                                        np.ctypeslib.as_ctypes(self.dimension_max.reshape(-1,)))
+
+        return aux
 
     def plot_data1d(self, dims, num_points = 32):
         '''
@@ -301,8 +377,11 @@ class pde_snapshot:
     def __str__(self):
         s = "title: %s\n" % self.title
         if self.subtitle != "":
-            s += "   sub: %s\n" % self.subtitle
-        s += "  num-dimensions: %d\n" % self.num_dimensions
+            s += "        %s\n" % self.subtitle
+        if self.num_position == 0 and self.num_velocity == 0:
+            s += "  num-dimensions: %d\n" % self.num_dimensions
+        else: # have position/velocity dimensions
+            s += f"  num-dimensions: {self.num_dimensions}  ({self.num_position}x{self.num_velocity}v)\n"
         s += "  degree:         %d\n" % self.degree
         s += "  num-indexes:    %d\n" % self.num_cells
         s += "  state size:     %d\n" % self.state.size
@@ -374,6 +453,7 @@ if __name__ == "__main__":
         # we are plotting, consider extra options
         plotview = None
         savefig  = None
+        auxfield = None
         addgrid  = False
         if len(sys.argv) > 2:
             i = 2
@@ -385,12 +465,20 @@ if __name__ == "__main__":
                 elif sys.argv[i] == "-fig":
                     savefig = sys.argv[i + 1] if i + 1 < n else None
                     i += 2
+                elif sys.argv[i] == "-aux":
+                    auxfield = sys.argv[i + 1] if i + 1 < n else None
+                    i += 2
+                    assert auxfield is not None, "-aux requires an filed number"
+                    auxfield = int(auxfield)
                 elif sys.argv[i] == "-grid":
                     addgrid = True
                     i += 1
                 else:
                     savefig = sys.argv[i]
                     i += 1
+
+        if auxfield is not None:
+            shot = shot.get_aux_field(auxfield)
 
         asgplot.title(shot.title, fontsize = 'large')
 

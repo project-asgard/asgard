@@ -243,14 +243,11 @@ public:
 
 private:
   void check_init() {
-    if (num_dims_ < 1)
-      throw std::runtime_error("pde_domain created with zero or negative dimensions");
-    if (num_dims_ > max_num_dimensions)
-      throw std::runtime_error("pde_domain created with too many dimensions, max is 6D");
-    if (num_pos_ < 0)
-      throw std::runtime_error("pde_domain created with negative position dimensions");
-    if (num_vel_ < 0)
-      throw std::runtime_error("pde_domain created with negative velocity dimensions");
+    rassert(num_dims_ >= 1, "pde_domain created with zero or negative dimensions");
+    rassert(num_dims_ <= max_num_dimensions,
+            "pde_domain created with too many dimensions, max is 6D");
+    rassert(num_pos_ >= 0, "pde_domain created with negative position dimensions");
+    rassert(num_vel_ >= 0, "pde_domain created with negative velocity dimensions");
 
     if (num_pos_ == 0 and num_vel_ == 0) {
       for (int d : iindexof(num_dims_))
@@ -425,5 +422,33 @@ private:
   std::array<P, max_num_dimensions> consts_ = {{0}};
   scalar_func<P> time_func_;
 };
+
+/*!
+ * \ingroup asgard_discretization
+ * \brief Extra data-entry for plotting and post-processing
+ *
+ * In plotting and post-processing, it is sometime desirable to store
+ * additional data that sits on the sparse grid mesh, e.g.,
+ * deviation from a nominal state or initial condition.
+ * Since the data is defined on a sparse grid, it has to be accessed with
+ * the asgard::reconstruct_solution class (e.g., via python), but the data
+ * has to be saved/loaded in the asgard::discretization_manager
+ */
+template<typename P>
+struct aux_field_entry {
+  //! default constructor, creates and empty entry
+  aux_field_entry() = default;
+  //! constructor, set the name and data
+  aux_field_entry(std::string nm, std::vector<P> dat)
+      : name(std::move(nm)), data(std::move(dat))
+  {}
+  //! reference name for the field, should be unique
+  std::string name;
+  //! vector data
+  std::vector<P> data;
+  //! multi-indexes
+  std::vector<int> grid;
+};
+
 
 } // namespace asgard
