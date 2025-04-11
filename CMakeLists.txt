@@ -405,7 +405,6 @@ set (components
      asgard_discretization
      asgard_elements
      asgard_fast_math
-     asgard_indexset
      asgard_interpolation1d
      asgard_interpolation
      asgard_kronmult_matrix
@@ -430,8 +429,9 @@ set (components
 # version 2 components, do not depend on catch2
 set(asgard_components
     boundary_conditions
-    program_options
     coefficients_mats
+    indexset
+    program_options
 )
 
 if (ASGARD_USE_HIGHFIVE)
