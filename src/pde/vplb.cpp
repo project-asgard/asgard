@@ -108,13 +108,6 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
   options.default_precon = asgard::precon_method::jacobi;
 
-  // move the plotter off the center location
-  options.default_plotter_view = " * : * ";
-  if (vdims == 2)
-    options.default_plotter_view += ": 0.001";
-  else if (vdims == 3)
-    options.default_plotter_view += ": 0.001 : 0.001";
-
   // create a pde from the given options and domain
   asgard::PDEv2<P> pde(options, domain);
 

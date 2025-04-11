@@ -243,14 +243,11 @@ public:
 
 private:
   void check_init() {
-    if (num_dims_ < 1)
-      throw std::runtime_error("pde_domain created with zero or negative dimensions");
-    if (num_dims_ > max_num_dimensions)
-      throw std::runtime_error("pde_domain created with too many dimensions, max is 6D");
-    if (num_pos_ < 0)
-      throw std::runtime_error("pde_domain created with negative position dimensions");
-    if (num_vel_ < 0)
-      throw std::runtime_error("pde_domain created with negative velocity dimensions");
+    rassert(num_dims_ >= 1, "pde_domain created with zero or negative dimensions");
+    rassert(num_dims_ <= max_num_dimensions,
+            "pde_domain created with too many dimensions, max is 6D");
+    rassert(num_pos_ >= 0, "pde_domain created with negative position dimensions");
+    rassert(num_vel_ >= 0, "pde_domain created with negative velocity dimensions");
 
     if (num_pos_ == 0 and num_vel_ == 0) {
       for (int d : iindexof(num_dims_))

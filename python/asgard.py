@@ -102,6 +102,9 @@ class pde_snapshot:
 
                 self.num_dimensions = fdata['num_dims'][()]
 
+                self.num_position = fdata['num_pos'][()]
+                self.num_velocity = fdata['num_vel'][()]
+
                 self.cells = fdata['grid_indexes'][()]
                 self.time  = fdata['dtime_time'][()] # numeric time
 
@@ -196,6 +199,8 @@ class pde_snapshot:
         aux.default_view = self.default_view
 
         aux.num_dimensions = self.num_dimensions
+        aux.num_position   = self.num_position
+        aux.num_velocity   = self.num_velocity
         aux.num_cells      = aux.cells.shape[0] / aux.num_dimensions
 
         aux.time  = self.time
@@ -372,8 +377,11 @@ class pde_snapshot:
     def __str__(self):
         s = "title: %s\n" % self.title
         if self.subtitle != "":
-            s += "   sub: %s\n" % self.subtitle
-        s += "  num-dimensions: %d\n" % self.num_dimensions
+            s += "        %s\n" % self.subtitle
+        if self.num_position == 0 and self.num_velocity == 0:
+            s += "  num-dimensions: %d\n" % self.num_dimensions
+        else: # have position/velocity dimensions
+            s += f"  num-dimensions: {self.num_dimensions}  ({self.num_position}x{self.num_velocity}v)\n"
         s += "  degree:         %d\n" % self.degree
         s += "  num-indexes:    %d\n" % self.num_cells
         s += "  state size:     %d\n" % self.state.size

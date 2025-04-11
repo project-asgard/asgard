@@ -327,8 +327,8 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
   int const num_dims = H5Easy::load<int>(file, "num_dims");
 
   { // sanity checking
-    int num_pos  = H5Easy::load<int>(file, "num_pos");
-    int num_vel  = H5Easy::load<int>(file, "num_vel");
+    int const num_pos  = H5Easy::load<int>(file, "num_pos");
+    int const num_vel  = H5Easy::load<int>(file, "num_vel");
 
     if (num_dims != pde.num_dims())
       throw std::runtime_error("Mismatch in the number of dimensions, "
