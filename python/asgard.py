@@ -196,7 +196,7 @@ class pde_snapshot:
         aux.default_view = self.default_view
 
         aux.num_dimensions = self.num_dimensions
-        aux.num_cells      = aux.num_cells.shape[0] / aux.num_dimensions
+        aux.num_cells      = aux.cells.shape[0] / aux.num_dimensions
 
         aux.time  = self.time
         aux.time  = self.time

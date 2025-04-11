@@ -70,7 +70,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 //! [asgard_examples_vplb make]
 #endif
 
-  rassert(1 <= vdims and vdims <= 1, "problem is set for 1, 2 or 3 velocity dimensions")
+  rassert(1 <= vdims and vdims <= 3, "problem is set for 1, 2 or 3 velocity dimensions")
 
   options.title = "Vlassov-Poisson-Lenard-Bernstein 1x" + std::to_string(vdims) + "v";
 
@@ -89,7 +89,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
   // setting some default options
   options.default_degree = 2;
-  options.default_start_levels = {5, 5};
+  options.default_start_levels = {5,};
 
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;
@@ -104,22 +104,29 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   options.default_solver = asgard::solver_method::bicgstab;
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 400;
-  options.default_isolver_inner_iterations = 100;
+  options.default_isolver_inner_iterations = 50;
 
   options.default_precon = asgard::precon_method::jacobi;
+
+  // move the plotter off the center location
+  options.default_plotter_view = " * : * ";
+  if (vdims == 2)
+    options.default_plotter_view += ": 0.001";
+  else if (vdims == 3)
+    options.default_plotter_view += ": 0.001 : 0.001";
 
   // create a pde from the given options and domain
   asgard::PDEv2<P> pde(options, domain);
 
   // adding the terms for the pde
   // the terms are split into two groups
-  // explicit vlassov-position, implicit lenard-bernstein
+  // explicit Vlassov-Poisson, implicit Lenard-Bernstein
   // each group corresponds to a set of terms that has been added constitutively
   // 1. initialize a new term group, get the group-id
   // 2. add the term from the group
   // 3. move to the next group, or stop adding terms
 
-  // adding the vlassov-poisson terms
+  // adding the Vlassov-Poisson terms
   // the vp_group_id will persist until new_term_group() is called again
   int const vp_group_id = pde.new_term_group();
 
@@ -140,37 +147,56 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
         y[i] = std::min(P{0}, x[i]);
     };
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+  std::vector<asgard::term_1d<P>> dx_positive = {
       asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
       asgard::term_volume<P>(positive)
-    });
+    };
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-    asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
-    asgard::term_volume<P>(negative),
-    });
+  std::vector<asgard::term_1d<P>> dx_negative = {
+      asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
+      asgard::term_volume<P>(negative),
+    };
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+  std::vector<asgard::term_1d<P>> dv_Epositive = {
       asgard::volume_electric<P>(positive),
       asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)
-    });
+    };
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+  std::vector<asgard::term_1d<P>> dv_Enegative = {
       asgard::volume_electric<P>(negative),
       asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)
-    });
+    };
 
-  // here, the vlassov-poisson group will be finalized
+  // pad with identity term for dimensions after v1
+  for (int v = 1; v < vdims; v++) {
+    dx_positive.emplace_back(asgard::term_identity{});
+    dx_negative.emplace_back(asgard::term_identity{});
+    dv_Epositive.emplace_back(asgard::term_identity{});
+    dv_Enegative.emplace_back(asgard::term_identity{});
+  }
+
+  pde += dx_positive;
+  pde += dx_negative;
+  pde += dv_Epositive;
+  pde += dv_Enegative;
+
+  // here, the Vlassov-Poisson group will be finalized
   // moving over to the lenard-bernstein group
   int const lb_group_id = pde.new_term_group();
 
   pde += asgard::operators::lenard_bernstein_collisions{nu};
 
+  // adding penalty
   double const pen = 10.0 / pde.min_cell_size(1);
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+  std::vector<asgard::term_1d<P>> penop = {
       asgard::term_identity{},
       asgard::term_penalty<P>(pen, asgard::flux_type::upwind, asgard::boundary_type::none)
-    });
+    };
+
+  for (int v = 1; v < vdims; v++)
+    penop.emplace_back(asgard::term_identity{});
+
+  pde += penop;
 
   // finished with the terms
 
@@ -197,7 +223,20 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
         fv[i] = c * std::exp(-0.5 * v[i] * v[i]);
     };
 
-  pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
+  // setting the initial conditions based on the number of dimensions
+  switch (vdims) {
+    case 1:
+      pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
+      break;
+    case 2:
+      pde.add_initial(asgard::separable_func<P>({ic_x, ic_v, ic_v}));
+      break;
+    case 3:
+      pde.add_initial(asgard::separable_func<P>({ic_x, ic_v, ic_v, ic_v}));
+      break;
+    default:
+      break;
+  }
 
   return pde;
 
@@ -287,18 +326,24 @@ int main(int argc, char** argv)
   // if help was selected in the command line, show general information about
   // this example runs 2D problem, testing does more options
   if (options.show_help) {
-    std::cout << "\n solves the two stream Vlasov-Poisson in 1x-1v dimensions\n\n";
+    std::cout << "\n solves the two stream Vlasov-Poisson in 1x-(1v-3v) dimensions\n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
-    std::cout << "<< additional options for this file >>\n";
-    std::cout << "-test                               perform self-testing\n\n";
+    std::cout << R"help(<< additional options for this file >>
+-vdims           -dv     int        accepts: 1, 2 or 3
+                                    number of velocity dimensions
+-nu                      double     accepts: a positive number
+                                    collision frequency
+
+-test                               perform self-testing
+)help";
     return 0;
   }
 
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", });
+  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", "-vdims", "-dv" });
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -306,9 +351,12 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  // get the number of velocity dimensions, defaults to 1
+  int const vdims = options.extra_cli_value_group<P>({"-dv", "-vdims"}).value_or(1);
+
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_vplb(1, options),
+  asgard::discretization_manager<P> disc(make_vplb(vdims, options),
                                          asgard::verbosity_level::high);
 
   // save the perturbation as an auxiliary field, for plotting
