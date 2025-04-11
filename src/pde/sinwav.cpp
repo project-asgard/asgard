@@ -14,9 +14,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_sinwav Example 6, Moving sine wave
+ * \addtogroup asgard_examples_sinwav Example: Moving sine wave
  *
- * \par Example 6
+ * \par Moving sine wave
  * Creates a simple hyperbolic 1D PDE where the solution starts from zero and
  * grows to a moving sine wave, namely
  * \f[ \frac{\partial}{\partial t} f +  \frac{\partial}{\partial x} f = 0 \f]

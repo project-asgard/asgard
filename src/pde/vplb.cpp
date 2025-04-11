@@ -14,20 +14,22 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_vplb Example 8, Vlassor-Poisson-Lenard-Bernstein
+ * \addtogroup asgard_examples_vplb Example: Vlassov-Poisson-Lenard-Bernstein
  *
- * \par Example 8
- * Solves the Vlasov-Poisson equation with Lenard-Bernstein collisions
+ * \par Vlassov-Poisson-Lenard-Bernstein
+ * Solves the Vlassov-Poisson equation with Lenard-Bernstein collisions
  *
  * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
  *  \mathcal{C}_{LB}[f](x, v, t) \f]
  * where the electric field term depends on the Poisson equation
  * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
- *
+ * and the Lenard Bernstein collision operator is the same as defined in equations
+ * (2.1) - (2.6) in <a href="https://arxiv.org/pdf/2402.06493">Schnake, et al.</a>
  *
  * \par
- * The focus of this example is the term groups needed for the IMEX time-stepping
- * and the LB collision operator.
+ * The focus of this example is the term groups needed for the IMEX time-stepping,
+ * the builtin LB collision operator and the functionality to store and plot additional
+ * (auxiliary) fields for the problem.
  *
  * \par
  * <i>This is still work-in-progress, the documentation needs more work.</i>

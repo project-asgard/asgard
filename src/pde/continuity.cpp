@@ -22,9 +22,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_continuity_md Example 3, xD continuity equation
+ * \addtogroup asgard_examples_continuity_md Example: xD continuity equation
  *
- * \par Example 3
+ * \par xD continuity equation
  * Solves the continuity partial differential equation in arbitrary dimension \b d
  * \f[ \frac{\partial}{\partial t} f + \nabla \cdot f = s \f]
  * where the right-hand-side source \b s is chosen so the exact solution

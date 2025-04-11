@@ -20,3 +20,9 @@ if (asgard_PYTHON_FOUND)
 
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/inputs_1d.py"   "${CMAKE_CURRENT_BINARY_DIR}/inputs_1d.py" COPYONLY)
 endif()
+
+# additional examples following the same pattern
+foreach (_example continuity diffusion elliptic sinwav two_stream vplb)
+    add_executable(${_example}  ${_example}.cpp)
+    target_link_libraries(${_example}  asgard::asgard)
+endforeach()
