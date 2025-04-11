@@ -30,13 +30,8 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
   PDEv2<P> pde(options, domain);
 
   separable_func<P> vbase(std::vector<P>(base.size(), 1));
-  for (int d : iindexof(base)) {
-    vbase.set_fdomain(d, [&, d](std::vector<P> const &x, P, std::vector<P> &fx)
-                              -> void {
-                                for (size_t i = 0; i < x.size(); i++)
-                                  fx[i] = base[d](x[i]);
-                              });
-  }
+  for (int d : iindexof(base))
+    vbase.set_fdomain(d, vectorize_t<P>(base[d]));
 
   pde.add_initial(vbase);
 
@@ -52,14 +47,7 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
   {
     PDEv2<P> pde2(options, pde_domain({ranges[0], }));
 
-    separable_func<P> vb(std::vector<P>{1, });
-    vb.set_fdomain(0, [&, m](std::vector<P> const &x, P, std::vector<P> &fx)
-                              -> void {
-                                for (size_t i = 0; i < x.size(); i++)
-                                  fx[i] = moments[m](x[i]);
-                              });
-
-    pde2.add_initial(vb);
+    pde2.add_initial(separable_func<P>({vectorize_t<P>(moments[m]), }));
 
     dmoms.emplace_back(std::make_unique<discretization_manager<P>>
                        (std::move(pde2), verbosity_level::quiet));
