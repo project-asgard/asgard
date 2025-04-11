@@ -1,4 +1,4 @@
-#include "tests_general.hpp"
+#include "asgard_test_macros.hpp"
 
 using P = asgard::default_precision;
 
@@ -52,6 +52,9 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
                     std::vector<std::function<P(P)>> const base,
                     std::vector<std::function<P(P)>> const moments)
 {
+
+
+
   int const num_moms = static_cast<int>(moments.size());
 
   discretization_manager<P> disc( std::make_unique<somepde>(drange, level, degree, base) );
@@ -128,12 +131,12 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
 }
 
 
-TEST_CASE("compute moments", "[moments]")
+void test_compute_moments()
 {
-  double tol = (std::is_same_v<P, double>) ? 5.E-14 : 5.E-6;
+  double constexpr tol = (std::is_same_v<P, double>) ? 5.E-14 : 5.E-6;
 
-  SECTION("2D")
   {
+    current_test<P> name_("compute moments", 2);
     std::vector<std::function<P(P)>> base(2), moms(3);
 
     base[0] = [](P x) -> P { return std::sin(x); };
@@ -146,7 +149,7 @@ TEST_CASE("compute moments", "[moments]")
     for (int d = 0; d < 4; d++) {
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1}, l, d, 3, base, moms);
-        REQUIRE(err < tol);
+        tassert(err < tol);
       }
     }
 
@@ -163,13 +166,12 @@ TEST_CASE("compute moments", "[moments]")
         rmoms.push_back(moms[m]);
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1}, l, d, std::min(d+1, 3), base, rmoms);
-        REQUIRE(err < 5 * tol);
+        tassert(err < 5 * tol);
       }
     }
   }
-
-  SECTION("3D")
   {
+    current_test<P> name_("compute moments", 3);
     std::vector<std::function<P(P)>> base(3), moms(5);
 
     base[0] = [](P x) -> P { return std::sin(x); };
@@ -190,13 +192,12 @@ TEST_CASE("compute moments", "[moments]")
         rmoms.push_back(moms[m]);
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1, -1, 2}, l, d, npow, base, rmoms);
-        REQUIRE(err < 10 * tol);
+        tassert(err < 10 * tol);
       }
     }
   }
-
-  SECTION("4D")
   {
+    current_test<P> name_("compute moments", 4);
     std::vector<std::function<P(P)>> base(4), moms(7);
 
     base[0] = [](P x) -> P { return std::sin(x); };
@@ -234,18 +235,17 @@ TEST_CASE("compute moments", "[moments]")
         rmoms.push_back(moms[m]);
       for (int l = 1; l < 7; l++) {
         double err = test_moments({-2, 1, -2, 1, -1, 2, -0.5, 0.4}, l, d, npow, base, rmoms);
-        REQUIRE(err < tol);
+        tassert(err < tol);
       }
     }
   }
 }
 
-struct distribution_test_init
+int main(int, char**)
 {
-  distribution_test_init() { initialize_distribution(); }
-  ~distribution_test_init() { finalize_distribution(); }
-};
+  all_tests global_("computing moments", " moments of the field");
 
-#ifdef ASGARD_USE_MPI
-static distribution_test_init const distrib_test_info;
-#endif
+  test_compute_moments();
+
+  return 0;
+}

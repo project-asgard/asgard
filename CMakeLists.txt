@@ -410,7 +410,6 @@ set (components
      asgard_kronmult_matrix
      asgard_lib_dispatch
      asgard_matlab_utilities
-     asgard_moment
      asgard_pde
      asgard_permutations
      asgard_quadrature
@@ -430,6 +429,7 @@ set(asgard_components
     boundary_conditions
     coefficients_mats
     indexset
+    moment
     program_options
     transformations
 )
