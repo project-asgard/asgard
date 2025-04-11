@@ -279,6 +279,15 @@ void new_prog_opts() {
     options.throw_if_argv_not_in({"-test", }, {"-nu",}); // should not throw
     terror_message(options.throw_if_argv_not_in({"-test", }, {}),
                    "unknown command line argument(s) encountered\n-nu\n42");
+  }{
+    current_test name_("make_opts");
+    prog_opts const null_opts;
+    tassert(null_opts.start_levels.empty());
+    tassert(not null_opts.solver);
+    prog_opts const parsed = make_opts("-l 5 -sv gmres");
+    tassert(not parsed.start_levels.empty());
+    tassert(parsed.start_levels.size() == 1 and parsed.start_levels[0] == 5);
+    tassert(parsed.solver.value_or(solver_method::direct) == solver_method::gmres);
   }
 }
 
@@ -349,7 +358,7 @@ void input_files() {
     tassert(nu.value() == 314);
   }
   {
-    current_test name_("test_input1.txt -- direct");
+    current_test name_("test_input1.txt -- direct read");
     prog_opts prog("test_input1.txt");
     tassert(prog.start_levels.size() == 1);
     tassert(prog.start_levels[0] == 5);
