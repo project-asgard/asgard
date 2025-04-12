@@ -102,9 +102,10 @@ Options          Short   Value      Description
                                     Maximum level for the refinement process,
                                     if missing, the starting levels will be used as the max.
 
--adapt           -a      double     Enable grid adaptivity and set the tolerance threshold.
--adapt-norm      -an     string     accepts: linf/l2
-                                    The norm to use for the refinement criteria.
+-adapt           -a      double     Enable grid adaptivity and absolute tolerance threshold.
+-adapt-abs       -aa     double     Identical to -a, alias for consistency with -ar
+-adapt-rel       -ar     double     Enable grid adaptivity and relative tolerance threshold.
+
 -noadapt         -noa    -          Ignore any previously set adapt options, can be used
                                     to override adaptivity set in an input file or restart file.
 
@@ -160,7 +161,8 @@ Leaving soon:
                                     of Kronmult, where data was kept in CPU RAM and moved
                                     on-the-fly in an out-of-core algorithm. The data-transfer
                                     cost makes the approach impractical.
-
+-adapt-norm      -an     string     accepts: linf/l2
+                                    The norm to use for the refinement criteria.
 )help";
 }
 
@@ -222,6 +224,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
       {"-adapt-norm", optentry::anorm}, {"-an", optentry::anorm},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
+      {"-adapt-abs", optentry::adapt_threshold},  {"-aa", optentry::adapt_threshold},
+      {"-adapt-rel", optentry::adapt_relative},  {"-ar", optentry::adapt_relative},
       {"-noadapt", optentry::no_adapt},  {"-noa", optentry::no_adapt},
       {"-start-levels", optentry::start_levels}, {"-l", optentry::start_levels},
       {"-max-levels", optentry::max_levels}, {"-m", optentry::max_levels},
@@ -503,9 +507,23 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       }
     }
     break;
+    case optentry::adapt_relative: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        adapt_ralative = std::stod(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
     case optentry::no_adapt:
       // sufficient to override a deck file adapt options
       adapt_threshold.reset();
+      adapt_ralative.reset();
       anorm.reset();
       // needed to cancel adaptivity from a restart file
       set_no_adapt = true;

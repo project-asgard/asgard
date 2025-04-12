@@ -195,7 +195,9 @@ void discretization_manager<precision>::start_cold()
     std::cout << sgrid;
     if (options.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options.adapt_threshold.value() << '\n';
-    else
+    if (options.adapt_ralative)
+      std::cout << "  relative tolerance: " << options.adapt_ralative.value() << '\n';
+    if (not options.adapt_threshold and not options.adapt_ralative)
       std::cout << "  non-adaptive\n";
   }
 
@@ -342,7 +344,9 @@ void discretization_manager<precision>::restart_from_file()
     std::cout << sgrid;
     if (options.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options.adapt_threshold.value() << '\n';
-    else
+    if (options.adapt_ralative)
+      std::cout << "  relative tolerance: " << options.adapt_ralative.value() << '\n';
+    if (not options.adapt_threshold and not options.adapt_ralative)
       std::cout << "  non-adaptive\n";
     std::cout << stepper;
     if (high_verbosity())
@@ -474,7 +478,8 @@ void discretization_manager<precision>::set_initial_condition()
   auto const &options = pde2.options();
   std::vector<separable_func<precision>> const &sep = pde2.ic_sep();
 
-  precision const tol = options.adapt_threshold.value_or(-1);
+  precision const atol = options.adapt_threshold.value_or(0);
+  precision const rtol = options.adapt_ralative.value_or(0);
 
   bool keep_refining = true;
 
@@ -493,13 +498,13 @@ void discretization_manager<precision>::set_initial_condition()
             (sep[i], pde2.domain(), sgrid, terms.lmass, precision{0}, 1, state.data());
     }
 
-    if (tol >= 0) {
+    if (atol > 0 or rtol > 0) {
       // on the first iteration, do both refine and coarsen with a full-adapt
       // on followon iteration, only add more nodes for stability and to avoid stagnation
       sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
                                                      : sparse_grid::strategy::refine;
       int const gid = sgrid.generation();
-      sgrid.refine(tol, hier.block_size(), conn[connect_1d::hierarchy::volume], mode, state);
+      sgrid.refine(atol, rtol, hier.block_size(), conn[connect_1d::hierarchy::volume], mode, state);
 
       // if the grid remained the same, there's nothing to do
       keep_refining = (gid != sgrid.generation());

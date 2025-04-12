@@ -265,6 +265,8 @@ void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &gri
 
     double const adapt = options.adapt_threshold.value_or(-1);
     H5Easy::dump(file, "grid_adapt_threshold", adapt);
+    double const adapt_rel = options.adapt_threshold.value_or(-1);
+    H5Easy::dump(file, "grid_adapt_relative", adapt_rel);
   }
 
   file.createDataSet<P>("state", HighFive::DataSpace(state.size()), vopts)
@@ -509,6 +511,9 @@ void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
         double const adapt = H5Easy::load<double>(file, "grid_adapt_threshold");
         if (adapt > 0) // if negative, then adaptivity was never set to begin with
           pde.options_.adapt_threshold = adapt;
+        double const adapt_rel = H5Easy::load<double>(file, "grid_adapt_relative");
+        if (adapt_rel > 0) // if negative, then adaptivity was never set to begin with
+          pde.options_.adapt_ralative = adapt_rel;
       }
     }
 

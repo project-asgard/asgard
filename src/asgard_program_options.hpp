@@ -417,8 +417,10 @@ struct prog_opts
   //! degree of the polynomial basis
   std::optional<int> degree;
 
-  //! if set, enables grid adaptivity and provides the tolerance threshold
+  //! provides the absolute tolerance threshold for adaptivity
   std::optional<double> adapt_threshold;
+  //! provides the relative tolerance threshold for adaptivity
+  std::optional<double> adapt_ralative;
   //! adaptivity norm, either l2 or linf
   std::optional<adapt_norm> anorm;
 
@@ -709,6 +711,7 @@ private:
     step_method,
     anorm,
     adapt_threshold,
+    adapt_relative,
     no_adapt,
     start_levels,
     max_levels,

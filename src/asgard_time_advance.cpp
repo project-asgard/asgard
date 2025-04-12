@@ -992,7 +992,8 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
   if (stepper.is_steady_state())
     num_steps = 1;
 
-  P const tol = manager.get_pde2().options().adapt_threshold.value_or(-1);
+  P const atol = manager.get_pde2().options().adapt_threshold.value_or(0);
+  P const rtol = manager.get_pde2().options().adapt_ralative.value_or(0);
 
   sparse_grid &grid = manager.sgrid;
 
@@ -1003,10 +1004,10 @@ void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps)
   {
     stepper.next_step(manager, manager.state, next);
 
-    if (tol > 0) {
+    if (atol > 0 or rtol > 0) {
       int const gen = grid.generation();
-      grid.refine(tol, manager.hier.block_size(), manager.conn[connect_1d::hierarchy::volume],
-                  grid_strategy, next);
+      grid.refine(atol, rtol, manager.hier.block_size(),
+                  manager.conn[connect_1d::hierarchy::volume], grid_strategy, next);
       if (grid.generation() != gen) {
         grid.remap(manager.hier.block_size(), next);
         manager.terms.prapare_workspace(grid);
