@@ -19,6 +19,8 @@ if (asgard_PYTHON_FOUND)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/continuity_2d.m"   "${CMAKE_CURRENT_BINARY_DIR}/continuity_2d.m" COPYONLY)
 
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/inputs_1d.py"   "${CMAKE_CURRENT_BINARY_DIR}/inputs_1d.py" COPYONLY)
+
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/slideshow.py"   "${CMAKE_CURRENT_BINARY_DIR}/slideshow.py" COPYONLY)
 endif()
 
 # additional examples following the same pattern
