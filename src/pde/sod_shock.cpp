@@ -113,13 +113,13 @@ asgard::PDEv2<P> make_sod(int vdims, asgard::prog_opts options) {
 
   // adding the terms for the pde
   // the terms are split into two groups
-  // explicit Vlassov-Poisson, implicit Lenard-Bernstein
+  // explicit Vlasov-Poisson, implicit Lenard-Bernstein
   // each group corresponds to a set of terms that has been added constitutively
   // 1. initialize a new term group, get the group-id
   // 2. add the term from the group
   // 3. move to the next group, or stop adding terms
 
-  // adding the Vlassov-Poisson terms
+  // adding the Vlasov-Poisson terms
   // the vp_group_id will persist until new_term_group() is called again
   int const vp_group_id = pde.new_term_group();
 
@@ -173,7 +173,7 @@ asgard::PDEv2<P> make_sod(int vdims, asgard::prog_opts options) {
   pde += dv_Epositive;
   pde += dv_Enegative;
 
-  // here, the Vlassov-Poisson group will be finalized
+  // here, the Vlasov-Poisson group will be finalized
   // moving over to the lenard-bernstein group
   int const lb_group_id = pde.new_term_group();
 
@@ -349,7 +349,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_vplb(vdims, options),
+  asgard::discretization_manager<P> disc(make_sod(vdims, options),
                                          asgard::verbosity_level::high);
 
   // save the perturbation as an auxiliary field, for plotting
@@ -379,77 +379,76 @@ int main(int argc, char** argv)
 // normally, should only include what is needed
 using namespace asgard;
 
-template<typename P>
-void test_energy(int const vdims, std::string const &opt_str) {
-  current_test<P> test_(opt_str, 1 + vdims);
-  // analytic solution is not available, hence we use energy conservation for
-  // the test quantity in place of an L^2 error
-
-  prog_opts const options = make_opts(opt_str);
-
-  discretization_manager disc(make_vplb<P>(vdims, options), verbosity_level::quiet);
-
-  P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
-
-  // the pde needs only the zeroth moment and computes that internally
-  // we are using the other moments to check conservation properties
-  int const num_moms = 3;
-  int const pdof     = disc.degree() + 1;
-  moments1d moms(num_moms, pdof - 1, disc.get_pde2().max_level(),
-                 disc.get_pde2().domain());
-  std::vector<P> mom_vec;
-
-  int const n = disc.time_params().num_remain();
-
-  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 1.E-4;
-
-  for (int i = 0; i < n; i++)
-  {
-    disc.advance_time(1);
-
-    int const level0   = disc.get_sgrid().current_level(0);
-    int const num_cell = fm::ipow2(level0);
-    P const dx         = disc.get_pde2().domain().length(0) / num_cell;
-
-    moms.project_moments(disc.get_sgrid(), disc.current_state(), mom_vec);
-
-    disc.do_poisson_update(disc.current_state()); // update the electric field
-
-    auto const &efield = disc.get_terms().cdata.electric_field;
-
-    P Ep = 0;
-    for (auto e : efield)
-      Ep += e * e;
-    Ep *= dx;
-
-    span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
-
-    P Ek = 0;
-    for (int j : iindexof(num_cell))
-      Ek += moments[j][2 * pdof]; // integrating the third moment
-    Ek *= std::sqrt(disc.get_pde2().domain().length(0));
-
-    if (disc.time_params().step() == 1) // first time-step
-      E0 = Ep + Ek;
-
-    // check the initial slight energy decay before it stabilizes
-    tcheckless(i, std::abs(Ep + Ek - E0), tol);
-  }
-}
+// template<typename P>
+// void test_energy(int const vdims, std::string const &opt_str) {
+//   current_test<P> test_(opt_str, 1 + vdims);
+//   // analytic solution is not available, hence we use energy conservation for
+//   // the test quantity in place of an L^2 error
+//
+//   prog_opts const options = make_opts(opt_str);
+//
+//   discretization_manager disc(make_vplb<P>(vdims, options), verbosity_level::quiet);
+//
+//   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
+//
+//   // the pde needs only the zeroth moment and computes that internally
+//   // we are using the other moments to check conservation properties
+//   int const num_moms = 3;
+//   int const pdof     = disc.degree() + 1;
+//   moments1d moms(num_moms, pdof - 1, disc.get_pde2().max_level(),
+//                  disc.get_pde2().domain());
+//   std::vector<P> mom_vec;
+//
+//   int const n = disc.time_params().num_remain();
+//
+//   P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 1.E-4;
+//
+//   for (int i = 0; i < n; i++)
+//   {
+//     disc.advance_time(1);
+//
+//     int const level0   = disc.get_sgrid().current_level(0);
+//     int const num_cell = fm::ipow2(level0);
+//     P const dx         = disc.get_pde2().domain().length(0) / num_cell;
+//
+//     moms.project_moments(disc.get_sgrid(), disc.current_state(), mom_vec);
+//
+//     disc.do_poisson_update(disc.current_state()); // update the electric field
+//
+//     auto const &efield = disc.get_terms().cdata.electric_field;
+//
+//     P Ep = 0;
+//     for (auto e : efield)
+//       Ep += e * e;
+//     Ep *= dx;
+//
+//     span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
+//
+//     P Ek = 0;
+//     for (int j : iindexof(num_cell))
+//       Ek += moments[j][2 * pdof]; // integrating the third moment
+//     Ek *= std::sqrt(disc.get_pde2().domain().length(0));
+//
+//     if (disc.time_params().step() == 1) // first time-step
+//       E0 = Ep + Ek;
+//
+//     // check the initial slight energy decay before it stabilizes
+//     tcheckless(i, std::abs(Ep + Ek - E0), tol);
+//   }
+// }
 
 void self_test() {
-  all_tests testing_("Vlassov-Poisson-Lenard-Bernstein");
+  all_tests testing_("Vlasov-Poisson-Lenard-Bernstein");
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>(1, "-l 5 -t 0.5");
-  test_energy<double>(1, "-l 6 -t 0.25");
+  std::cout << "(double) no here yet\n";
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  test_energy<float>(1, "-l 5");
+  std::cout << "(float) no here yet\n";
 
 #endif
 }

@@ -35,7 +35,7 @@ void test_coefficients(prog_opts const &opts, std::string const &gold_path,
 
   int num_terms = pde.num_terms();
   // hack here!
-  // skip the last vlassov term, the coefficients are hard-coded but had to be changed
+  // skip the last vlasov term, the coefficients are hard-coded but had to be changed
   // to use alternating fluxes which in turn creates a discrepancy
   if (gold_path.find("vlasov_lb_full_f_coefficients") != std::string::npos)
     num_terms -= 1;

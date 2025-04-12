@@ -1145,7 +1145,7 @@ private:
 
 //! add the two-part Vlasov operator, periodic boundary
 template<typename P>
-inline void add_vlassov_1x1v(term_set<P> &terms)
+inline void add_vlasov_1x1v(term_set<P> &terms)
 {
   imex_flag constexpr imex = imex_flag::imex_explicit;
 

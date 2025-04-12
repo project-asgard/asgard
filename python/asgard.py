@@ -86,6 +86,9 @@ class pde_snapshot:
 
                 self.num_cells = int(len(self.cells) / (2 * self.num_dimensions))
 
+                self.num_position = 0
+                self.num_velocity = 0
+
                 self.dimension_names = [None for i in range(self.num_dimensions)]
                 self.dimension_min = np.zeros((self.num_dimensions,))
                 self.dimension_max = np.zeros((self.num_dimensions,))

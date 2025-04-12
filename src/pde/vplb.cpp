@@ -5,7 +5,7 @@
 /*!
  * \internal
  * \file vplb.cpp
- * \brief Vlassov-Poisson-Lenard-Bernstein
+ * \brief Vlasov-Poisson-Lenard-Bernstein
  * \author The ASGarD Team
  * \ingroup asgard_examples_vplb
  *
@@ -14,10 +14,10 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_vplb Example: Vlassov-Poisson-Lenard-Bernstein
+ * \addtogroup asgard_examples_vplb Example: Vlasov-Poisson-Lenard-Bernstein
  *
- * \par Vlassov-Poisson-Lenard-Bernstein
- * Solves the Vlassov-Poisson equation with Lenard-Bernstein collisions
+ * \par Vlasov-Poisson-Lenard-Bernstein
+ * Solves the Vlasov-Poisson equation with Lenard-Bernstein collisions
  *
  * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
  *  \mathcal{C}_{LB}[f](x, v, t) \f]
@@ -72,7 +72,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
   rassert(1 <= vdims and vdims <= 3, "problem is set for 1, 2 or 3 velocity dimensions")
 
-  options.title = "Vlassov-Poisson-Lenard-Bernstein 1x" + std::to_string(vdims) + "v";
+  options.title = "Vlasov-Poisson-Lenard-Bernstein 1x" + std::to_string(vdims) + "v";
 
   // get the collision frequency
   P const nu = options.extra_cli_value_group<P>({"-nu", "-collision_freq"}).value_or(1.0);
@@ -113,13 +113,13 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
   // adding the terms for the pde
   // the terms are split into two groups
-  // explicit Vlassov-Poisson, implicit Lenard-Bernstein
+  // explicit Vlasov-Poisson, implicit Lenard-Bernstein
   // each group corresponds to a set of terms that has been added constitutively
   // 1. initialize a new term group, get the group-id
   // 2. add the term from the group
   // 3. move to the next group, or stop adding terms
 
-  // adding the Vlassov-Poisson terms
+  // adding the Vlasov-Poisson terms
   // the vp_group_id will persist until new_term_group() is called again
   int const vp_group_id = pde.new_term_group();
 
@@ -173,7 +173,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   pde += dv_Epositive;
   pde += dv_Enegative;
 
-  // here, the Vlassov-Poisson group will be finalized
+  // here, the Vlasov-Poisson group will be finalized
   // moving over to the lenard-bernstein group
   int const lb_group_id = pde.new_term_group();
 
@@ -438,7 +438,7 @@ void test_energy(int const vdims, std::string const &opt_str) {
 }
 
 void self_test() {
-  all_tests testing_("Vlassov-Poisson-Lenard-Bernstein");
+  all_tests testing_("Vlasov-Poisson-Lenard-Bernstein");
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
