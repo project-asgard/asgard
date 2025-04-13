@@ -67,42 +67,13 @@ private:
   static P constexpr nuEE  = 1;
   static P constexpr vT    = 1;
   static P constexpr delta = []() {
-    if constexpr (user_case == PDE_case_opts::case4)
-    {
-      return 0.3;
-    }
-    else
-    {
-      return 0.042;
-    }
+    return 0.042;
   }();
   static P constexpr Z = []() {
-    if constexpr (user_case == PDE_case_opts::case4)
-    {
-      return 5.0;
-    }
-    else
-    {
-      return 1.0;
-    }
+    return 1.0;
   }();
   static P constexpr E = []() {
-    if constexpr (user_case == PDE_case_opts::case1)
-    {
-      return 0.0025;
-    }
-    else if constexpr (user_case == PDE_case_opts::case2)
-    {
-      return 0.25;
-    }
-    else if constexpr (user_case == PDE_case_opts::case3)
-    {
-      return 0.0025;
-    }
-    else if constexpr (user_case == PDE_case_opts::case4)
-    {
-      return 0.4;
-    }
+    return 0.0025;
   }();
   static P constexpr tau      = 1e5;
   static auto constexpr gamma = [](P p) {
@@ -231,22 +202,7 @@ private:
   }
 
   inline static vector_func<P> const initial_condition_p = []() {
-    if constexpr (user_case == PDE_case_opts::case1)
-    {
-      return initial_condition_p_case1;
-    }
-    else if constexpr (user_case == PDE_case_opts::case2)
-    {
-      return initial_condition_p_case2;
-    }
-    else if constexpr (user_case == PDE_case_opts::case3)
-    {
-      return initial_condition_p_case3;
-    }
-    else if constexpr (user_case == PDE_case_opts::case4)
-    {
-      return initial_condition_p_case4;
-    }
+    return initial_condition_p_case1;
   }();
 
   static P volume_jacobian_dV_p(P const x, P const time)
@@ -311,22 +267,7 @@ private:
   }
 
   inline static vector_func<P> const initial_condition_z = []() {
-    if constexpr (user_case == PDE_case_opts::case1)
-    {
-      return initial_condition_z_case1;
-    }
-    else if constexpr (user_case == PDE_case_opts::case2)
-    {
-      return initial_condition_z_case2;
-    }
-    else if constexpr (user_case == PDE_case_opts::case3)
-    {
-      return initial_condition_z_case3;
-    }
-    else if constexpr (user_case == PDE_case_opts::case4)
-    {
-      return initial_condition_z_case4;
-    }
+    return initial_condition_z_case1;
   }();
 
   // p dimension

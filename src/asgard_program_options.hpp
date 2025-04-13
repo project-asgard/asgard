@@ -80,16 +80,7 @@ enum class precon_method
 enum class PDE_opts
 {
   custom = 0, // user provided pde
-  fokkerplanck_1d_pitch_E_case1,
-  fokkerplanck_1d_pitch_E_case2,
-  fokkerplanck_1d_pitch_C,
-  fokkerplanck_1d_4p3,
-  fokkerplanck_1d_4p4,
-  fokkerplanck_1d_4p5,
   fokkerplanck_2d_complete_case1,
-  fokkerplanck_2d_complete_case2,
-  fokkerplanck_2d_complete_case3,
-  fokkerplanck_2d_complete_case4,
 };
 
 #ifndef __ASGARD_DOXYGEN_SKIP
@@ -102,11 +93,7 @@ enum class PDE_opts
  */
 enum class PDE_case_opts
 {
-  case0,
   case1,
-  case2,
-  case3,
-  case4,
   case_count
 };
 #endif

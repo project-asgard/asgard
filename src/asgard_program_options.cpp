@@ -174,29 +174,8 @@ void prog_opts::print_pde_help(std::ostream &os)
 Option          Description
 custom          (default) user provided pde, can be omitted for the custom projects
 
-fokkerplanck_1d_pitch_E_case1    1D pitch angle collisional term:
-                                 df/dt = d/dz ( (1-z^2) df/dz, f0 is constant.
-
-fokkerplanck_1d_pitch_E_case2    1D pitch angle collisional term:
-                                 df/dt = d/dz ( (1-z^2) df/dz, f0 is gaussian.
-
-fokkerplanck_1d_pitch_C        1D pitch angle collisional term: df/dt = d/dz ( (1-z^2) df/dz
-fokkerplanck_1d_4p3            Radiation damping term: df/dt = -d/dz ( z(1-z^2)f )
-fokkerplanck_1d_4p4            Evolution of f's pitch angle dependence with electric
-                               field acceleration/collision:
-                               df/dt = -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz)
-fokkerplanck_1d_4p5            Same as 4p4, but with radiation damping:
-                               df/dt = -E d/dz((1-z^2) f) + C d/dz((1-z^2) df/dz)
-                                       -R d/dz(z(1-z^2) f)
-
 fokkerplanck_2d_complete_case1    Full PDE from the 2D runaway electron paper:
                                   d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 1
-fokkerplanck_2d_complete_case2    Full PDE from the 2D runaway electron paper:
-                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 2
-fokkerplanck_2d_complete_case3    Full PDE from the 2D runaway electron paper:
-                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 3
-fokkerplanck_2d_complete_case4    Full PDE from the 2D runaway electron paper:
-                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 4
 
 )help";
 }
@@ -677,16 +656,7 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
 {
   std::map<std::string_view, PDE_opts> pdes = {
       {"custom", PDE_opts::custom},
-      {"fokkerplanck_1d_pitch_E_case1", PDE_opts::fokkerplanck_1d_pitch_E_case1},
-      {"fokkerplanck_1d_pitch_E_case2", PDE_opts::fokkerplanck_1d_pitch_E_case2},
-      {"fokkerplanck_1d_pitch_C", PDE_opts::fokkerplanck_1d_pitch_C},
-      {"fokkerplanck_1d_4p3", PDE_opts::fokkerplanck_1d_4p3},
-      {"fokkerplanck_1d_4p4", PDE_opts::fokkerplanck_1d_4p4},
-      {"fokkerplanck_1d_4p5", PDE_opts::fokkerplanck_1d_4p5},
       {"fokkerplanck_2d_complete_case1", PDE_opts::fokkerplanck_2d_complete_case1},
-      {"fokkerplanck_2d_complete_case2", PDE_opts::fokkerplanck_2d_complete_case2},
-      {"fokkerplanck_2d_complete_case3", PDE_opts::fokkerplanck_2d_complete_case3},
-      {"fokkerplanck_2d_complete_case4", PDE_opts::fokkerplanck_2d_complete_case4},
   };
 
   auto imap = pdes.find(pde_str);
