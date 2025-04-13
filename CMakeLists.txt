@@ -485,7 +485,6 @@ target_precompile_headers (libasgard
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck1_pitch_C.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck1_pitch_E.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck2_complete.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_vlasov_lb_full_f.hpp>>
 )
 target_link_libraries (libasgard
                        PUBLIC

@@ -173,7 +173,6 @@ void prog_opts::print_pde_help(std::ostream &os)
   os << R"help(
 Option          Description
 custom          (default) user provided pde, can be omitted for the custom projects
-vlasov          Vlasov lb full f. df/dt = -v*grad_x f + div_v((v-u)f + theta*grad_v f)
 
 fokkerplanck_1d_pitch_E_case1    1D pitch angle collisional term:
                                  df/dt = d/dz ( (1-z^2) df/dz, f0 is constant.
@@ -198,9 +197,6 @@ fokkerplanck_2d_complete_case3    Full PDE from the 2D runaway electron paper:
                                   d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 3
 fokkerplanck_2d_complete_case4    Full PDE from the 2D runaway electron paper:
                                   d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 4
-
-riemann_1x2v    Riemann 1x2v
-riemann_1x3v    Riemann 1x3v
 
 )help";
 }
@@ -691,9 +687,6 @@ std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
       {"fokkerplanck_2d_complete_case2", PDE_opts::fokkerplanck_2d_complete_case2},
       {"fokkerplanck_2d_complete_case3", PDE_opts::fokkerplanck_2d_complete_case3},
       {"fokkerplanck_2d_complete_case4", PDE_opts::fokkerplanck_2d_complete_case4},
-      {"vlasov", PDE_opts::vlasov_lb_full_f},
-      {"riemann_1x2v", PDE_opts::riemann_1x2v},
-      {"riemann_1x3v", PDE_opts::riemann_1x3v},
   };
 
   auto imap = pdes.find(pde_str);

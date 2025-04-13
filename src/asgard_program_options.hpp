@@ -90,9 +90,6 @@ enum class PDE_opts
   fokkerplanck_2d_complete_case2,
   fokkerplanck_2d_complete_case3,
   fokkerplanck_2d_complete_case4,
-  vlasov_lb_full_f,
-  riemann_1x2v,
-  riemann_1x3v
 };
 
 #ifndef __ASGARD_DOXYGEN_SKIP
