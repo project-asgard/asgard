@@ -1145,7 +1145,7 @@ private:
 
 //! add the two-part Vlasov operator, periodic boundary
 template<typename P>
-inline void add_vlassov_1x1v(term_set<P> &terms)
+inline void add_vlasov_1x1v(term_set<P> &terms)
 {
   imex_flag constexpr imex = imex_flag::imex_explicit;
 
@@ -2399,7 +2399,7 @@ public:
     : smethod_(smethod), stop_time_(stop_time.value), time_(0), step_(0),
       num_remain_(num_steps)
   {
-    dt_ = stop_time_ / static_cast<P>(num_remain_);
+    dt_ = (num_remain_ == 0) ? 0 : (stop_time_ / static_cast<P>(num_remain_));
   }
   //! specify time-step and number of steps
   time_data(time_method smethod, input_dt dt, int64_t num_steps)

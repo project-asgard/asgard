@@ -143,7 +143,7 @@ endif()
 # e.g., _asgard_doc_pdes_str is used in the example file
 ###############################################################################
 
-set (_asgard_doc_pdes "continuity diffusion elliptic sinwav two_stream vplb")
+set (_asgard_doc_pdes "continuity diffusion elliptic sinwav two_stream vplb sod_shock")
 set (_asgard_int_pdes mass_internal varcoeff_internal bound_internal relaxation_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}")
@@ -252,10 +252,10 @@ if (ASGARD_USE_PYTHON)
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}")
         list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
     endforeach()
-    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py)
+    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py slideshow.py)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}"
                            COMMAND "${CMAKE_COMMAND}"
-                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}
+                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
                            DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}"
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}")
         list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}")
@@ -485,7 +485,6 @@ target_precompile_headers (libasgard
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck1_pitch_C.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck1_pitch_E.hpp>>
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck2_complete.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_vlasov_lb_full_f.hpp>>
 )
 target_link_libraries (libasgard
                        PUBLIC

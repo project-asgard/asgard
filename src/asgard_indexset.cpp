@@ -524,7 +524,7 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
 }
 
 template<typename P>
-void sparse_grid::refine(P tol, int block_size, connect_1d const &hierarchy,
+void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hierarchy,
                          strategy mode, std::vector<P> const &state)
 {
   tools::time_event refining("grid refining");
@@ -533,17 +533,31 @@ void sparse_grid::refine(P tol, int block_size, connect_1d const &hierarchy,
   int64_t const num = iset_.num_indexes();
   std::vector<P> weights(num);
 
+  P wsum = 0.0;
+
   // compute the L^2 weight of each multi-index
-#pragma omp parallel for
-  for (int64_t i = 0; i < num; i++)
+  #pragma omp parallel
   {
-    P w{0};
-    for (int j : iindexof(block_size)) {
-      P s = state[i * block_size + j];
-      w += s * s;
+    P lsum = 0;
+
+    #pragma omp for
+    for (int64_t i = 0; i < num; i++)
+    {
+      P w{0};
+      for (int j : iindexof(block_size)) {
+        P s = state[i * block_size + j];
+        w += s * s;
+      }
+      weights[i] = std::sqrt(w);
+
+      lsum += weights[i];
     }
-    weights[i] = std::sqrt(w);
+
+    #pragma omp atomic
+    wsum += lsum;
   }
+
+  P const tol = rtol * std::sqrt(wsum) + atol;
 
   // decide which index to keep and which to clear
   std::vector<istatus> stat(num, istatus::keep);
@@ -742,9 +756,9 @@ template indexset sparse_grid::make_level_set<grid_type::dense>(std::vector<int>
 template indexset sparse_grid::make_level_set<grid_type::sparse>(std::vector<int> const &);
 template indexset sparse_grid::make_level_set<grid_type::mixed>(std::vector<int> const &);
 
-template void sparse_grid::refine<double>(double, int, connect_1d const &,
+template void sparse_grid::refine<double>(double,  double,int, connect_1d const &,
                                           strategy, std::vector<double> const &);
-template void sparse_grid::refine<float>(float, int, connect_1d const &,
+template void sparse_grid::refine<float>(float, float, int, connect_1d const &,
                                          strategy, std::vector<float> const &);
 template void sparse_grid::remap<double>(int, std::vector<double> &) const;
 template void sparse_grid::remap<float>(int, std::vector<float> &) const;

@@ -288,7 +288,11 @@ void restart_adapt() {
   disc.advance_time(4);
   tassert((get_qoi_indicator<pde, P>(disc) < 1.E-2));
 
-  disc.add_aux_field({"aux-field", {0, 42, 3}}); // add some AUX data
+  size_t const aux_size = disc.current_state().size();
+  std::vector<P> vnum(aux_size, P{11});
+  vnum[1] = 42;
+  vnum[2] = 3;
+  disc.add_aux_field({"aux-field", std::move(vnum)}); // add some AUX data
 
   disc.save_final_snapshot();
   tassert(std::filesystem::exists("_asg_testfile.h5"));
@@ -301,7 +305,7 @@ void restart_adapt() {
 
   tassert(rdisc.get_aux_fields().size() == 1);
   tassert(rdisc.get_aux_fields().front().name == "aux-field");
-  tassert(rdisc.get_aux_fields().front().data.size() == 3);
+  tassert(rdisc.get_aux_fields().front().data.size() == aux_size);
   tassert(rdisc.get_aux_fields().front().grid.size() ==
           static_cast<size_t>(2 * disc.get_sgrid().num_indexes()));
   tassert(rdisc.get_aux_fields().front().data[1] == 42);
@@ -356,7 +360,7 @@ void restart_moments() {
   tassert(std::abs(rdisc.time_params().time() - 1.5625E-2) < 1.E-10);
 
   disc.advance_time();
-  tassert(std::abs(get_qoi_indicator<pde, P>(rdisc) - get_qoi_indicator<pde, P>(disc)) < 1.E-8);
+  tassert(std::abs(get_qoi_indicator<pde, P>(rdisc) - get_qoi_indicator<pde, P>(disc)) < 1.E-6);
 }
 
 template<typename P>

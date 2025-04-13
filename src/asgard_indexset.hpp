@@ -526,7 +526,8 @@ public:
    *
    * \tparam P is float or double
    *
-   * \param tolerance indicates the absolute tolerance for the refinement
+   * \param atolerance indicates the absolute tolerance for the refinement
+   * \param rtolerance indicates the relative tolerance for the refinement
    * \param block_size is the number of degrees of freedom in a cell
    * \param hierarchy is the volume hierarchy build up to the max level
    * \param mode indicates whether we are coarsening, refining or both (adapt)
@@ -534,7 +535,7 @@ public:
    *              the size of \b state should be block_size * num_indexes()
    */
   template<typename P>
-  void refine(P tolerance, int block_size, connect_1d const &hierarchy,
+  void refine(P atolerance, P rtolerance, int block_size, connect_1d const &hierarchy,
               strategy mode, std::vector<P> const &state);
 
   //! remaps the vector entries from an old grid to the new one, pads with zero

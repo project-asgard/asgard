@@ -404,7 +404,12 @@ public:
   //! allows an auxiliary field to be saved for post-processing
   void add_aux_field(aux_field_entry<precision> f) {
     aux_fields.emplace_back(std::move(f));
-    aux_fields.back().grid = sgrid.get_cells(); // copy the grid
+    if (aux_fields.back().grid.empty()) // if grid provided
+      aux_fields.back().grid = sgrid.get_cells(); // assume the current grid
+    rassert(aux_fields.back().data.size()
+            == static_cast<size_t>(hier.block_size()
+                                   * (aux_fields.back().grid.size() / num_dims())),
+            "incompatible data size and number of cells");
   }
   //! return reference to the saved fields
   std::vector<aux_field_entry<precision>> const &

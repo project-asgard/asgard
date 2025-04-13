@@ -5,9 +5,6 @@
 #include "pde/asgard_pde_fokkerplanck1_pitch_C.hpp"
 #include "pde/asgard_pde_fokkerplanck1_pitch_E.hpp"
 #include "pde/asgard_pde_fokkerplanck2_complete.hpp"
-#include "pde/asgard_pde_riemann_1x2v.hpp"
-#include "pde/asgard_pde_riemann_1x3v.hpp"
-#include "pde/asgard_pde_vlasov_lb_full_f.hpp"
 
 namespace asgard
 {
@@ -67,12 +64,6 @@ std::unique_ptr<PDE<P>> make_PDE(prog_opts const &cli_input)
   case PDE_opts::fokkerplanck_2d_complete_case4:
     return std::make_unique<
         PDE_fokkerplanck_2d_complete<P, PDE_case_opts::case4>>(cli_input);
-  case PDE_opts::vlasov_lb_full_f:
-    return std::make_unique<PDE_vlasov_lb<P>>(cli_input);
-  case PDE_opts::riemann_1x2v:
-    return std::make_unique<PDE_riemann_1x2v<P>>(cli_input);
-  case PDE_opts::riemann_1x3v:
-    return std::make_unique<PDE_riemann_1x3v<P>>(cli_input);
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);

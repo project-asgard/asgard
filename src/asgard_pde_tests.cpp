@@ -388,23 +388,3 @@ TEMPLATE_TEST_CASE("testing fokkerplanck2_complete_case4 implementations",
     }
   }
 }
-
-TEMPLATE_TEST_CASE("testing vlasov full f implementations", "[pde]", test_precs)
-{
-  prog_opts opts;
-  opts.pde_choice     = PDE_opts::vlasov_lb_full_f;
-  opts.degree         = 2;
-  opts.start_levels   = {4, 3};
-  opts.grid           = grid_type::dense;
-  opts.num_time_steps = 1;
-
-  auto const pde = make_PDE<TestType>(opts);
-  //auto const pde               = make_PDE<TestType>(parse);
-  auto const base_dir          = pde_base_dir / "vlasov_lb_full_f_";
-  fk::vector<TestType> const x = {0.1, 0.2, 0.3, 0.4, 0.5};
-
-  SECTION("vlasov full f initial condition functions")
-  {
-    test_initial_condition<TestType>(*pde, base_dir, x);
-  }
-}
