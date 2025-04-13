@@ -22,7 +22,7 @@ namespace asgard
 // q=df/fz  with homogeneous Dirichlet BC
 //
 // ---------------------------------------------------------------------------
-template<typename P, PDE_case_opts user_case = PDE_case_opts::case0>
+template<typename P, PDE_case_opts user_case = PDE_case_opts::case1>
 class PDE_fokkerplanck_1d_pitch_E : public PDE<P>
 {
 public:
