@@ -340,13 +340,28 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  std::cout << "(double) no here yet\n";
+  {
+    using P = double;
+    current_test<P> name_("basic adaptivity");
+
+    prog_opts options;
+    options.stop_time = 0.1;
+    discretization_manager<P> disc(make_sod(1, options), verbosity_level::quiet);
+
+    // initial grid, 2D, level 5, degree 2
+    tassert(disc.current_state().size() == 900u);
+
+    disc.advance_time();
+
+    size_t const dofs = disc.current_state().size();
+    tassert(dofs == 2511u); // maybe too exact?
+  }
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  std::cout << "(float) no here yet\n";
+  std::cout << "(float) no tests due to bad conditioning\n";
 
 #endif
 }
