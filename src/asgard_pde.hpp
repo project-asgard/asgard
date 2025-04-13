@@ -1,9 +1,4 @@
 #pragma once
-#include "pde/asgard_pde_fokkerplanck1_4p3.hpp"
-#include "pde/asgard_pde_fokkerplanck1_4p4.hpp"
-#include "pde/asgard_pde_fokkerplanck1_4p5.hpp"
-#include "pde/asgard_pde_fokkerplanck1_pitch_C.hpp"
-#include "pde/asgard_pde_fokkerplanck1_pitch_E.hpp"
 #include "pde/asgard_pde_fokkerplanck2_complete.hpp"
 
 namespace asgard
