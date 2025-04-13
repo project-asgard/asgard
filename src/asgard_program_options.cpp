@@ -655,6 +655,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
 std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
 {
   std::map<std::string_view, PDE_opts> pdes = {
+      {"custom", PDE_opts::custom},
       {"fokkerplanck_2d_complete_case1", PDE_opts::fokkerplanck_2d_complete_case1},
   };
 
