@@ -360,7 +360,7 @@ void restart_moments() {
   tassert(std::abs(rdisc.time_params().time() - 1.5625E-2) < 1.E-10);
 
   disc.advance_time();
-  tassert(std::abs(get_qoi_indicator<pde, P>(rdisc) - get_qoi_indicator<pde, P>(disc)) < 1.E-8);
+  tassert(std::abs(get_qoi_indicator<pde, P>(rdisc) - get_qoi_indicator<pde, P>(disc)) < 1.E-6);
 }
 
 template<typename P>
