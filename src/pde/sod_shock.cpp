@@ -89,6 +89,11 @@ asgard::PDEv2<P> make_sod(int vdims, asgard::prog_opts options) {
   options.default_degree = 2;
   options.default_start_levels = {5,};
 
+  // if no adaptivity is set and adaptivity is not explicitly disabled
+  // then enable adaptivity to relative tolerance 0.1%
+  if (not options.adapt_ralative and not options.set_no_adapt)
+    options.adapt_ralative = 1.E-3;
+
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;
   options.throw_if_not_imex_stepper();
@@ -306,6 +311,9 @@ int main(int argc, char** argv)
 
   // save final state
   disc.add_aux_field({"final state", disc.current_state()});
+
+  // re-enable the output to show final stats
+  disc.set_verbosity(asgard::verbosity_level::high);
 
   // write everything to a file
   disc.final_output();

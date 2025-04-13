@@ -204,7 +204,7 @@ class pde_snapshot:
         aux.num_dimensions = self.num_dimensions
         aux.num_position   = self.num_position
         aux.num_velocity   = self.num_velocity
-        aux.num_cells      = aux.cells.shape[0] / aux.num_dimensions
+        aux.num_cells      = int(aux.cells.shape[0] / aux.num_dimensions)
 
         aux.time  = self.time
         aux.time  = self.time
@@ -221,14 +221,14 @@ class pde_snapshot:
             aux.double_precision = True
 
             aux.recsol = libasgard.asgard_make_dreconstruct_solution_v2(
-                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
+                self.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
         else:
             aux.double_precision = False
 
             aux.recsol = libasgard.asgard_make_freconstruct_solution_v2(
-                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
+                self.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
         libasgard.asgard_reconstruct_solution_setbounds(aux.recsol,
