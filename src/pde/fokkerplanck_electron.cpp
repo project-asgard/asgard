@@ -131,7 +131,7 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
     P const vp = vx(p);
     P const dphi_dx  = 2.0 / std::sqrt(M_PI) * std::exp(-vp * vp);
     P const phi_dphi = 0.5 * (phi(vp) - vp * dphi_dx);
-    return (std::pow(p, 5) / std::pow(gamma(p), 3)) * phi_dphi;
+    return (std::pow(gamma(p), 3) / p) * phi_dphi;
   };
 
   // auto constexpr Cb = [=](P p) {
@@ -147,8 +147,8 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
     P const dphi_dx  = 2.0 / std::sqrt(M_PI) * std::exp(-vp * vp);
     P const phi_dphi = 0.5 * (phivp - vp * dphi_dx);
     // return (std::pow(p, 5) / std::pow(gamma(p), 3)) * phi_dphi;
-    return (0.5 * p / gamma(p)) * (p *p + p * p * phivp
-      - (std::pow(p, 4) / std::pow(gamma(p), 2)) * phi_dphi
+    return (0.5 *  gamma(p) / p) * (p *p + p * p * phivp
+      - std::pow(gamma(p), 2) * phi_dphi
       + delta4 * std::pow(vp, 2) / 2.0);
   };
 
@@ -162,7 +162,7 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
     P const vp = vx(p);
     P const dphi_dx  = 2.0 / std::sqrt(M_PI) * std::exp(-vp * vp);
     P const phi_dphi = 0.5 * (phi(vp) - vp * dphi_dx);
-    return (std::pow(p, 4) / std::pow(gamma(p), 2)) * phi_dphi;
+    return std::pow(gamma(p), 2) * phi_dphi;
   };
 
   // termC1 == 1/p^2 * d/dp * p^2 * Ca * df/dp
