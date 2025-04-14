@@ -56,6 +56,7 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
   options.title = "Fokker-Planck 2D (electron example)";
 
   asgard::pde_domain<P> domain({{0.0, 10}, {-1.0, 1.0}}); // can use move here, but copy is cheap enough
+  domain.set_names({"p", "z"});
 
   // setting some default options
   // defaults are used only the corresponding values are missing from the command line
@@ -82,6 +83,83 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
   // the option entries may have been populated or updated with default values
   asgard::PDEv2<P> pde(options, std::move(domain));
 
+  // using spherical coordinates, the angle dimension has been integrated
+  auto dp = [](P p)-> P { return p * p; };
+  auto vec_dp = [&](std::vector<P> const &p, std::vector<P> &fp) {
+    for (size_t i = 0; i < p.size(); i++)
+      fp[i] = dp(p[i]);
+  };
+
+  // setting up the mass matrix
+  pde.set_mass({asgard::term_volume<P>{vec_dp}, asgard::term_identity{}});
+
+
+  // constant parameters, problem specific
+  static auto constexpr phi = [](P x) { return std::erf(x); };
+
+  static auto constexpr psi = [](P x) {
+    auto const dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(-x * x);
+    auto ret           = 1.0 / (2 * x * x) * (phi(x) - x * dphi_dx);
+    // DOUBLE CHECK THIS!
+    if (std::abs(x) < 1e-5)
+      ret = 0;
+    return ret;
+  };
+
+  P constexpr delta  = 0.042;
+  P constexpr delta4 = 0.042 * 0.042 * 0.042 * 0.042;
+
+  P constexpr E = []() {
+    return 0.0025;
+  }();
+  P constexpr tau      = 1e5;
+
+  auto constexpr gamma = [](P p) {
+    return std::sqrt(1 + std::pow(delta * p, 2));
+  };
+  auto constexpr vx = [=](P p) { return 1.0 / (p / gamma(p)); };
+
+  auto constexpr Ca = [=](P p) {
+    return (psi(vx(p)) / vx(p));
+  };
+
+  auto constexpr Cb = [=](P p) {
+    return 1.0 / 2.0 * 1.0 / vx(p) *
+           (1 + phi(vx(p)) - psi(vx(p)) +
+            delta4 * std::pow(vx(p), 2) / 2.0);
+  };
+
+  auto constexpr Cf = [=](P p) { return 2.0 * psi(vx(p)); };
+
+  // term (d / dp)^2
+  {
+    auto g_div = [=](std::vector<P> const &p, std::vector<P> &fp) {
+      for (size_t i = 0; i < p.size(); i++)
+        fp[i] = -std::sqrt(Ca(p[i])) * dp(p[i]);
+    };
+    auto g_grad = [=](std::vector<P> const &p, std::vector<P> &fp) {
+      for (size_t i = 0; i < p.size(); i++)
+        fp[i] = std::sqrt(Ca(p[i])) * dp(p[i]);
+    };
+
+    asgard::term_1d<P> const dpp({
+            asgard::term_div<P>{g_div, asgard::flux_type::upwind},
+            asgard::term_grad<P>{g_grad, asgard::flux_type::upwind}
+        });
+
+    pde += asgard::term_md<P>({dpp, asgard::term_identity{}});
+  }
+
+  // term d / dp
+  {
+    auto g_div = [=](std::vector<P> const &p, std::vector<P> &fp) {
+      for (size_t i = 0; i < p.size(); i++)
+        fp[i] = - Cf(p[i]) * dp(p[i]);
+    };
+    pde += asgard::term_md<P>({asgard::term_div<P>{g_div, asgard::flux_type::upwind},
+                              asgard::term_identity{}});
+  }
+
   // one dimensional divergence term using upwind flux
   // multiple terms can be chained to obtain higher order derivatives
   asgard::term_1d<P> div = asgard::term_div<P>(1, asgard::flux_type::upwind,
@@ -101,16 +179,18 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
 
   // dv -> 1/ p^2
 
-  auto icp = [](std::vector<P> const &p, std::vector<P> &fp) {
+
+
+  auto icp = [&](std::vector<P> const &p, P /* time */, std::vector<P> &fp) {
     for (size_t i = 0; i < p.size(); i++)
-      fp[i] = (P{1} / (p[i] * p[i])) * ((p[i] <= 5) ? P{3.0 / 250.0} : 0);
+      fp[i] = dp(p[i]) * ((p[i] <= 5) ? P{3.0 / 250.0} : 0);
   };
-  auto icz = [](std::vector<P> const &z, std::vector<P> &fz) {
+  auto icz = [](std::vector<P> const &z, P /* time */, std::vector<P> &fz) {
     for (size_t i = 0; i < z.size(); i++)
       fz[i] = (z[i] <= 0) ? P{3.0 / 250.0} : 0;
   };
 
-
+  pde.add_initial(asgard::separable_func<P>({icp, icz}));
 
   return pde;
 
@@ -194,17 +274,17 @@ void self_test();
 
 /*!
  * \ingroup asgard_examples_continuity_md
- * \brief main() for the continuity example
+ * \brief main() for the Fokker-Planck example
  *
  * The main() processes the command line arguments and calls both
  * make_continuity_pde() and get_error_l2().
  *
- * \snippet continuity.cpp continuity_md main
+ * \snippet fokkerpanck_electron.cpp asgard_fokkerplanck_el main
  */
 int main(int argc, char** argv)
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [continuity_md main]
+//! [asgard_fokkerplanck_el main]
 #endif
 
   // if double precision is available the P is double
@@ -250,15 +330,15 @@ int main(int argc, char** argv)
   // advance_time(disc, n); will integrate for n time-steps
   // skipping n (or using a negative) will integrate until the end
 
-  if (not disc.stop_verbosity())
-    std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
+  // if (not disc.stop_verbosity())
+  //   std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
   disc.progress_report();
 
-  if (not disc.stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+  // if (not disc.stop_verbosity())
+  //   std::cout << " -- final error: " << get_error_l2(disc) << "\n";
 
   disc.save_final_snapshot(); // only if output filename is provided
 
@@ -268,7 +348,7 @@ int main(int argc, char** argv)
   return 0;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [continuity_md main]
+//! [asgard_fokkerplanck_el main]
 #endif
 };
 
