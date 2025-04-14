@@ -494,6 +494,8 @@ void discretization_manager<precision>::set_initial_condition()
 
       terms.rebuild_mass_matrices(sgrid);
 
+      std::array<block_diag_matrix<precision>, max_num_dimensions> mock;
+
       hier.template project_separable<data_mode::increment>
             (sep[i], pde2.domain(), sgrid, terms.lmass, precision{0}, 1, state.data());
     }

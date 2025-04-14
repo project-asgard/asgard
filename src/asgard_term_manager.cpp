@@ -583,7 +583,7 @@ void term_manager<P>::rebuld_term1d(
     if (tms and not tms[dim].is_identity()) {
       int const nrows = fm::ipow2(level); // needed number of rows
       if (tentry.mass[dim].nrows() != nrows) {
-        build_raw_mass(dim, mass_term[dim], max_level, tentry.mass[dim]);
+        build_raw_mass(dim, tms[dim], max_level, tentry.mass[dim]);
         tentry.mass[dim].spd_factorize(n);
       }
       bmass = &tentry.mass[dim];
