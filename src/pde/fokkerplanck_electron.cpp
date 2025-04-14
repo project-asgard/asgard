@@ -99,9 +99,15 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
   // defining the separable known solution
   // sin(x_1) * sin(x_2) * ... * sin(x_d) * cos(t)
 
-  auto icp = [](std::vector<P> const &x, std::vector<P> &fx) {
-    for (size_t i = 0; i < x.size(); i++)
-      fx[i] = (x[i] <= P{5}) ? P{3.0 / 250.0} : 0;
+  // dv -> 1/ p^2
+
+  auto icp = [](std::vector<P> const &p, std::vector<P> &fp) {
+    for (size_t i = 0; i < p.size(); i++)
+      fp[i] = (P{1} / (p[i] * p[i])) * ((p[i] <= 5) ? P{3.0 / 250.0} : 0);
+  };
+  auto icz = [](std::vector<P> const &z, std::vector<P> &fz) {
+    for (size_t i = 0; i < z.size(); i++)
+      fz[i] = (z[i] <= 0) ? P{3.0 / 250.0} : 0;
   };
 
 
