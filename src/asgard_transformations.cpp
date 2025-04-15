@@ -395,10 +395,6 @@ void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, block_
   if (mass)
     mass.solve(pdof, stage0);
 
-  // std::cout << " --- num-cells = " << num_cells << " pdof = " << pdof << "\n";
-  // for (auto &a : stage0)
-  //   std::cout << a << "\n";
-
   pf[d].resize(pdof * num_cells);
 
   // stage0 contains the projection data per-cell

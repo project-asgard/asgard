@@ -57,6 +57,7 @@ doxygen_add_docs(asgard_doxygen
                  examples/continuity_2d.cpp
                  src/pde/continuity.cpp
                  src/pde/diffusion.cpp
+                 src/pde/spherical_diffusion.cpp
                  src/pde/elliptic.cpp
                  src/pde/sinwav.cpp
                  src/pde/two_stream.cpp
