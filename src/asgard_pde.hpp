@@ -3,47 +3,6 @@
 
 namespace asgard
 {
-//
-// this file contains the PDE factory and the utilities to
-// select the PDEs being made available by the included
-// implementations
-//
-
-// ---------------------------------------------------------------------------
-//
-// A free function factory for making pdes. eventually will want to change the
-// return for some of these once we implement them...
-//
-// ---------------------------------------------------------------------------
-
-template<typename pde_class>
-auto make_custom_pde(prog_opts const &cli_input)
-{
-  static_assert(std::is_base_of_v<PDE<float>, pde_class> or std::is_base_of_v<PDE<double>, pde_class>,
-                "the requested PDE class must inherit from the asgard::PDE base-class");
-
-  using precision = typename pde_class::precision_mode;
-
-  return std::unique_ptr<PDE<precision>>(std::make_unique<pde_class>(cli_input));
-}
-
-template<typename P>
-std::unique_ptr<PDE<P>> make_PDE(prog_opts const &cli_input)
-{
-  rassert(cli_input.pde_choice, "cannot create an unspecified PDE");
-  switch (cli_input.pde_choice.value())
-  {
-  default:
-    std::cout << "Invalid pde choice" << std::endl;
-    exit(-1);
-  }
-}
-
-template<typename P>
-std::unique_ptr<PDE<P>> make_PDE(std::string const &opts)
-{
-  return make_PDE<P>(make_opts(opts));
-}
 
 /*!
  * \internal
