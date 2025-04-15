@@ -96,10 +96,10 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
 
   static auto constexpr psi = [](P x) {
     auto const dphi_dx = 2.0 / std::sqrt(M_PI) * std::exp(-std::pow(x, 2));
-    auto ret           = 1.0 / (2 * std::pow(x, 2)) * (phi(x) - x * dphi_dx);
-    if (std::abs(x) < 1e-5)
-      ret = 0;
-    return ret;
+    return 1.0 / (2 * std::pow(x, 2)) * (phi(x) - x * dphi_dx);
+    // if (std::abs(x) < 1e-5)
+    //   ret = 0;
+    // return ret;
   };
 
   static P constexpr nuEE  = 1;
@@ -127,12 +127,11 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
   };
 
   auto constexpr Ca = [=](P p) {
-    if (p < 1.E-6) return P{0}; // lim_{x->0} Ca(x) = 0
     P const gam = gamma(p);
     P const vp  = p / gam;
     P const dphi_dx  = (2.0 / std::sqrt(M_PI)) * std::exp(-vp * vp);
     P const phi_dphi = 0.5 * (phi(vp) - vp * dphi_dx);
-    return (gam * gam * gam / p) * phi_dphi;
+    return (gam * gam * gam * p) * phi_dphi;
   };
 
 
@@ -145,37 +144,27 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
   static auto constexpr Cf = [](P p) { return 2.0 * nuEE * vT * psi(vx(p)); };
 
   auto constexpr Cb_v2 = [=](P p) {
-    if (p < 1.E-6) return P{0}; // lim_{x->0} Cb(x) = 0
-    P const vp    = vx(p);
-    P const phivp = phi(vp);
-    P const dphi_dx  = 2.0 / std::sqrt(M_PI) * std::exp(-vp * vp);
-    P const phi_dphi = 0.5 * (phivp - vp * dphi_dx);
-    // return (std::pow(p, 5) / std::pow(gamma(p), 3)) * phi_dphi;
-    return (0.5 *  gamma(p) / p) * (p *p + p * p * phivp
-      - std::pow(gamma(p), 2) * phi_dphi
-      + delta4 * std::pow(vp, 2) / 2.0);
+    P const gam = gamma(p);
+    P const vp  = p / gam;
+    return 0.5 * p * gam * (1 + phi(vp) - psi(vx(p)) + 0.5 * delta4 * vp * vp);
   };
 
   auto constexpr Cf_v2 = [=](P p) {
     if (p < 1.E-6) return P{0}; // lim_{x->0} Cf(x) = 0
     P const gam = gamma(p);
     P const vp  = p / gam;
-    P const dphi_dx  = (2.0 / std::sqrt(M_PI)) * std::exp(-vp * vp);
-    P const phi_dphi = 0.5 * (phi(vp) - vp * dphi_dx);
-    return 2.0 * gam * gam * phi_dphi;
+    return 2.0 * p * p * psi(vp);
   };
 
   // termC1 == 1/p^2 * d/dp * p^2 * Ca * df/dp
   {
     auto g_div = [=](std::vector<P> const &p, std::vector<P> &fp) {
-      for (size_t i = 0; i < p.size(); i++) {
-        fp[i] = -std::sqrt(Ca(p[i])) * p[i];
-        // std::cout << p[i] << "   " << std::sqrt(Ca(p[i])) * p[i] << "   " << std::sqrt(Ca_old(p[i])) * p[i] * p[i] << "\n";
-      }
+      for (size_t i = 0; i < p.size(); i++)
+        fp[i] = -std::sqrt(Ca(p[i]));
     };
     auto g_grad = [=](std::vector<P> const &p, std::vector<P> &fp) {
       for (size_t i = 0; i < p.size(); i++)
-        fp[i] = std::sqrt(Ca(p[i])) * p[i];
+        fp[i] = std::sqrt(Ca(p[i])); // * p[i];
     };
 
     asgard::term_1d<P> const dpp({
@@ -186,13 +175,11 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
     pde += asgard::term_md<P>({dpp, asgard::term_identity{}});
   }
 
-  // // termC2 == 1/p^2 * d/dp * p^2 * Cf * f
+  // termC2 == 1/p^2 * d/dp * p^2 * Cf * f
   {
     auto g_div = [=](std::vector<P> const &p, std::vector<P> &fp) {
-      for (size_t i = 0; i < p.size(); i++) {
+      for (size_t i = 0; i < p.size(); i++)
         fp[i] = - Cf_v2(p[i]);
-        // std::cout << p[i] << "  " << Cf_v2(p[i]) << "   " << Cf(p[i]) * p[i] * p[i] << "\n";
-      }
     };
     pde += asgard::term_md<P>({asgard::term_div<P>{g_div, asgard::flux_type::upwind, asgard::boundary_type::right},
                               asgard::term_identity{}});
@@ -201,10 +188,8 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
   // termC3 == Cb(p)/p^4 * d/dz( (1-z^2) * df/dz )
   {
     auto g_vol = [=](std::vector<P> const &p, std::vector<P> &fp) {
-      for (size_t i = 0; i < p.size(); i++) {
+      for (size_t i = 0; i < p.size(); i++)
         fp[i] = std::sqrt( Cb_v2(p[i]) );
-        // std::cout << p[i] << "  " << std::sqrt( Cb_v2(p[i]) ) << "   " << std::sqrt( Cb(p[i]) ) * p[i] << "\n";
-      }
     };
     auto g_z3_pos = [=](std::vector<P> const &z, std::vector<P> &fz) {
       for (size_t i = 0; i < z.size(); i++)
@@ -217,16 +202,9 @@ asgard::PDEv2<P> make_fokkerplanck(asgard::prog_opts options) {
 
     asgard::term_1d<P> cmass = asgard::term_volume<P>{g_vol};
 
-    // TODO: check if this should be downwind or upwind
     asgard::term_1d<P> div  = asgard::term_div<P>{g_z3_neg, asgard::flux_type::upwind, asgard::boundary_type::bothsides};
     asgard::term_1d<P> grad = asgard::term_grad<P>{g_z3_pos, asgard::flux_type::upwind};
 
-    // asgard::term_md<P> link1 = {cmass, div};
-    // asgard::term_md<P> link2 = {cmass, grad};
-
-    // link2.set_mass({asgard::term_volume<P>{vec_dp}, asgard::term_identity{}});
-
-    // pde += {link1, link2};
     pde += asgard::term_md<P>({asgard::term_1d<P>({cmass, cmass}),
                                asgard::term_1d<P>({div, grad})});
   }
@@ -419,12 +397,22 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  using discretization_manager = asgard::discretization_manager<P>;
+
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
   asgard::discretization_manager<P> disc(make_fokkerplanck(options),
-                                         asgard::verbosity_level::high);
+                                         asgard::verbosity_level::quiet);
 
-  disc.print_mats();
+  // disc.print_mats();
+  //
+  // std::cout << " old pde\n";
+  // discretization_manager disc_old =
+  // discretization_manager(asgard::make_custom_pde<asgard::PDE_fokkerplanck_2d_complete<P>>(options),
+  //                        asgard::verbosity_level::quiet);
+  //
+  // disc_old.print_mats();
+
 
   // time-integration is performed using the advance_time() method
   // advance_time(disc, n); will integrate for n time-steps
