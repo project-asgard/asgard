@@ -1,5 +1,5 @@
 #pragma once
-#include "pde/asgard_pde_fokkerplanck2_complete.hpp"
+#include "pde/asgard_pde_base.hpp"
 
 namespace asgard
 {
@@ -33,9 +33,6 @@ std::unique_ptr<PDE<P>> make_PDE(prog_opts const &cli_input)
   rassert(cli_input.pde_choice, "cannot create an unspecified PDE");
   switch (cli_input.pde_choice.value())
   {
-  case PDE_opts::fokkerplanck_2d_complete_case1:
-    return std::make_unique<
-        PDE_fokkerplanck_2d_complete<P, PDE_case_opts::case1>>(cli_input);
   default:
     std::cout << "Invalid pde choice" << std::endl;
     exit(-1);

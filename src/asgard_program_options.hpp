@@ -80,23 +80,7 @@ enum class precon_method
 enum class PDE_opts
 {
   custom = 0, // user provided pde
-  fokkerplanck_2d_complete_case1,
 };
-
-#ifndef __ASGARD_DOXYGEN_SKIP
-/*!
- * \internal
- * \ingroup asgard_common_options
- * \brief some PDE options allow for variants
- *
- * \endinternal
- */
-enum class PDE_case_opts
-{
-  case1,
-  case_count
-};
-#endif
 
 /*!
  * \ingroup asgard_common_options
