@@ -429,8 +429,6 @@ struct prog_opts
   bool show_help = false;
   //! indicates if the --version option was selected
   bool show_version = false;
-  //! indicates if the -pde? options was selected
-  bool show_pde_help = false;
   //! indicates if the exact solution should be ignored or the error computed and shown every time-step
   bool ignore_exact = false;
 
@@ -670,7 +668,6 @@ private:
   {
     show_help,
     version_help,
-    pde_help,
     input_file,
     ignore_exact,
     title,
@@ -689,7 +686,6 @@ private:
     output_file,
     stop_time,
     dt,
-    pde_choice,
     solver,
     precond,
     memory_limit,

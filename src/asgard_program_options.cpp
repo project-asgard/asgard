@@ -63,11 +63,7 @@ void prog_opts::print_help(std::ostream &os)
 Options          Short   Value      Description
 -help/--help     -h/-?   -          Show help information (this text).
 --version        -v      -          Show version, git info and build options.
--pde?            -p?     -          Show list of builtin PDEs.
--pde             -p      string     accepts: PDEs shown by -p?
-                                    Indicates the PDE to use from the list builtin PDEs,
-                                    defaults to custom PDE and should not be used by
-                                    custom projects.
+
 -title             -     string     Human redable string focused on organizing i/o files,
                                     will be saved, reloaded and printed to the screen.
                                     If omitted, the string will assume the name of the PDE.
@@ -187,8 +183,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-h", optentry::show_help}, {"-?", optentry::show_help},
       {"--version", optentry::version_help}, {"-version", optentry::version_help},
       {"version", optentry::version_help}, {"-v", optentry::version_help},
-      {"-pde?", optentry::pde_help}, {"-p?", optentry::pde_help},
-      {"-pde", optentry::pde_choice}, {"-p", optentry::pde_choice},
       {"-infile", optentry::input_file}, {"-if", optentry::input_file},
       {"-view", optentry::view},
       {"-noexact", optentry::ignore_exact}, {"-ne", optentry::ignore_exact},
@@ -210,7 +204,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-outfile", optentry::output_file}, {"-of", optentry::output_file},
       {"-dt", optentry::dt},
       {"-time", optentry::stop_time}, {"-t", optentry::stop_time},
-      {"-available-pdes", optentry::pde_help},
       {"-solver", optentry::solver}, {"-sv", optentry::solver},
       {"-precon", optentry::precond}, {"-pc", optentry::precond},
       {"-memory", optentry::memory_limit},
@@ -233,11 +226,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       -> std::string {
     return std::string("invalid value for ") + std::string(*(iarg - 1))
            + ", see " + std::string(argv.front()) + " -help";
-  };
-  auto report_wrong_pde = [&]()
-      -> std::string {
-    return std::string("invalid pde '") + std::string(*iarg) + "', see '"
-           + std::string(argv.front()) + " -pde?' for full list";
   };
 
   auto move_process_next = [&]()
@@ -269,9 +257,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       break;
     case optentry::version_help:
       show_version = true;
-      break;
-    case optentry::pde_help:
-      show_pde_help = true;
       break;
     case optentry::ignore_exact:
       ignore_exact = true;
@@ -607,17 +592,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       restart_file = *selected;
     }
     break;
-    case optentry::pde_choice: {
-      auto selected = move_process_next();
-      if (not selected)
-        throw std::runtime_error(report_no_value());
-      pde_choice = get_pde_opt(*selected);
-      if (not pde_choice)
-        throw std::runtime_error(report_wrong_pde());
-      if (title.empty())
-        title = *selected;
-    }
-    break;
     case optentry::title: {
       auto selected = move_process_next();
       if (not selected)
@@ -650,18 +624,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
     break;
     };
   }
-}
-
-std::optional<PDE_opts> prog_opts::get_pde_opt(std::string_view const &pde_str)
-{
-  std::map<std::string_view, PDE_opts> pdes = {
-      {"custom", PDE_opts::custom},
-      {"fokkerplanck_2d_complete_case1", PDE_opts::fokkerplanck_2d_complete_case1},
-  };
-
-  auto imap = pdes.find(pde_str);
-
-  return (imap != pdes.end()) ? imap->second : std::optional<PDE_opts>();
 }
 
 void prog_opts::process_file(std::string_view const &exec_name)
