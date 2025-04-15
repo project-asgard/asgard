@@ -55,6 +55,8 @@ void simulate_builtin(prog_opts const &options)
   discretization_manager discretization(make_PDE<precision>(options),
                                         verbosity_level::high);
 
+  discretization.print_mats();
+
   discretization.advance_time();
 
   discretization.save_final_snapshot();
