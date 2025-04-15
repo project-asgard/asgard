@@ -411,6 +411,7 @@ set (components
      asgard_lib_dispatch
      asgard_matlab_utilities
      asgard_pde
+     asgard_pde_utils
      asgard_permutations
      asgard_quadrature
      asgard_resources
