@@ -411,7 +411,6 @@ set (components
      asgard_permutations
      asgard_quadrature
      asgard_resources
-     asgard_small_mats
      asgard_sparse
      asgard_solver
      asgard_tensors
@@ -422,6 +421,7 @@ set(asgard_components
     block_matrix
     boundary_conditions
     coefficients_mats
+    compute
     discretization
     indexset
     moment
@@ -429,6 +429,7 @@ set(asgard_components
     pde_functions
     program_options
     reconstruct
+    small_mats
     term_manager
     time_advance
     transformations

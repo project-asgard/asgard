@@ -4,21 +4,10 @@
 //
 //-----------------------------------------------------------------------------
 #pragma once
-#include "asgard_tools.hpp"
+#include "asgard_compute.hpp"
 
 namespace asgard
 {
-// used to suppress warnings in unused variables
-auto const ignore = [](auto ignored) { (void)ignored; };
-
-/*!
- * \brief Default precision to use, double if enabled and float otherwise.
- */
-#ifdef ASGARD_ENABLE_DOUBLE
-using default_precision = double;
-#else
-using default_precision = float;
-#endif
 
 enum class resource
 {
