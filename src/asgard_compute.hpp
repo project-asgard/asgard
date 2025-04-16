@@ -27,12 +27,17 @@ class compute_resources {
 public:
   //! initialize the engine, call once per application
   compute_resources();
+
+  //! PLU factorization of an M x M matrix
+  template<typename P>
+  void getrf(int M, std::vector<P> &A, std::vector<int> &ipiv);
+
 private:
 };
 
 inline std::optional<compute_resources> compute;
 
-void init_compute() {
+inline void init_compute() {
   if (not compute)
     compute.emplace();
 }
