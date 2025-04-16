@@ -1,4 +1,4 @@
-#include "asgard_pde_utils.hpp"
+#include "asgard_pde_functions.hpp"
 
 #include "device/asgard_kronmult_common.hpp"
 
