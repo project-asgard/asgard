@@ -10,7 +10,12 @@ void dense_matrix<P>::factorize()
   tools::time_event timing_("dense-matrix::factorize");
   expect(nrows_ == ncols_);
 
+  #ifdef ASGARD_USE_CUDA
+  gpu_factor = data_;
+  compute->getrf(nrows_, gpu_factor, gpu_ipiv);
+  #else
   compute->getrf(nrows_, data_, ipiv);
+  #endif
 }
 
 template<typename P>
@@ -19,8 +24,23 @@ void dense_matrix<P>::solve(std::vector<P> &b) const
   tools::time_event timing_("dense-matrix::solve");
   expect(is_factorized());
 
+  #ifdef ASGARD_USE_CUDA
+  compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
+  #else
   compute->getrs(nrows_, data_, ipiv, b);
+  #endif
 }
+
+#ifdef ASGARD_USE_CUDA
+template<typename P>
+void dense_matrix<P>::solve(gpu::vector<P> &b) const
+{
+  tools::time_event timing_("dense-matrix::solve");
+  expect(is_factorized());
+
+  compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
+}
+#endif
 
 template<typename P>
 void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, block_matrix<P> &C)

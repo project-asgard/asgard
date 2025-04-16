@@ -31,11 +31,21 @@ namespace gpu
 
 //! converts CUDA error to a human readable string
 std::string error_message(cudaError_t err);
+std::string error_message(cusolverStatus_t err);
 
-#define gpu_check_error(_call_) \
+#define cuda_check_error(_call_) \
   { cudaError_t __asgard_intcudaerr__ = (_call_); \
     if (__asgard_intcudaerr__ != cudaSuccess) {\
-      throw std::runtime_error(error_message(__asgard_intcudaerr__) \
+      throw std::runtime_error(::asgard::gpu::error_message(__asgard_intcudaerr__) \
+                               + "\n        in file: " + __FILE__    \
+                               + "\n           line: " + std::to_string(__LINE__) );  \
+    } \
+  } \
+
+#define cusolver_check_error(_call_) \
+  { cusolverStatus_t __asgard_intcudaerr__ = (_call_); \
+    if (__asgard_intcudaerr__ != CUSOLVER_STATUS_SUCCESS) {\
+      throw std::runtime_error(::asgard::gpu::error_message(__asgard_intcudaerr__) \
                                + "\n        in file: " + __FILE__    \
                                + "\n           line: " + std::to_string(__LINE__) );  \
     } \
@@ -54,14 +64,14 @@ public:
   //! \brief The value type.
   using value_type = T;
   //! \brief Construct an empty vector.
-  vector() : data_(nullptr), size_(0) {}
+  vector() = default;
   //! \brief Free all resouces.
   ~vector() {
     if (data_ != nullptr)
       cudaFree(data_);
   }
   //! \brief Construct a vector with given size.
-  vector(int64_t size) : data_(nullptr), size_(0)
+  vector(int64_t size)
   {
     this->resize(size);
   }
@@ -87,7 +97,7 @@ public:
   vector<T> &operator=(vector<T> const &other)
   {
     this->resize(other.size());
-    gpu_check_error( cudaMemcpy(data_, other.data_, size_ * sizeof(T), cudaMemcpyDeviceToDevice) );
+    cuda_check_error( cudaMemcpy(data_, other.data_, size_ * sizeof(T), cudaMemcpyDeviceToDevice) );
     return *this;
   }
   //! \brief Constructor that copies from an existing std::vector
@@ -99,7 +109,7 @@ public:
   vector<T> &operator=(std::vector<T> const &other)
   {
     this->resize(other.size());
-    gpu_check_error( cudaMemcpy(data_, other.data(), size_ * sizeof(T), cudaMemcpyHostToDevice) );
+    cuda_check_error( cudaMemcpy(data_, other.data(), size_ * sizeof(T), cudaMemcpyHostToDevice) );
     return *this;
   }
   //! \brief Does not rellocate the data, i.e., if size changes all old data is lost.
@@ -109,8 +119,8 @@ public:
     if (new_size != size_)
     {
       if (data_ != nullptr)
-        gpu_check_error( cudaFree(data_) );
-      gpu_check_error( cudaMalloc((void**)&data_, new_size * sizeof(T)) );
+        cuda_check_error( cudaFree(data_) );
+      cuda_check_error( cudaMalloc((void**)&data_, new_size * sizeof(T)) );
       size_ = new_size;
     }
   }
@@ -127,12 +137,18 @@ public:
   //! \brief Copy to a device array, the destination must be large enough
   void copy_to_device(T *destination) const
   {
-    gpu_check_error( cudaMemcpy(destination, data_, size_ * sizeof(T), cudaMemcpyDeviceToDevice) );
+    cuda_check_error( cudaMemcpy(destination, data_, size_ * sizeof(T), cudaMemcpyDeviceToDevice) );
   }
   //! \brief Copy to a host array, the destination must be large enough
   void copy_to_host(T *destination) const
   {
-    gpu_check_error( cudaMemcpy(destination, data_, size_ * sizeof(T), cudaMemcpyDeviceToHost) );
+    cuda_check_error( cudaMemcpy(destination, data_, size_ * sizeof(T), cudaMemcpyDeviceToHost) );
+  }
+  //! \brief Copy to a std::vector on the host.
+  void copy_to_host(std::vector<T> &destination) const
+  {
+    destination.resize(size_);
+    this->copy_to_host(destination.data());
   }
   //! \brief Copy to a std::vector on the host.
   std::vector<T> copy_to_host() const
@@ -145,8 +161,8 @@ public:
   operator std::vector<T>() const { return this->copy_to_host(); }
 
 private:
-  T *data_;
-  int64_t size_;
+  T *data_ = nullptr;
+  int64_t size_ = 0;
 };
 
 } // namespace gpu
@@ -163,17 +179,45 @@ private:
  */
 class compute_resources {
 public:
-  //! initialize the engine, call once per application
+  //! initialize the compute engine, call once per application
   compute_resources();
+  //! free all resources associated with the engine
+  ~compute_resources();
+
+  //! return the number of usable GPU devices
+  int num_gpus() const { return num_gpus_; }
+  //! returns true if there is an available GPU
+  bool has_gpu() const { return (num_gpus_ > 0); }
 
   //! PLU factorization of an M x M matrix
   template<typename P>
-  void getrf(int M, std::vector<P> &A, std::vector<int> &ipiv);
+  void getrf(int M, std::vector<P> &A, std::vector<int> &ipiv) const;
   //! PLU solve of an M x M matrix
   template<typename P>
-  void getrs(int M, std::vector<P> const &A, std::vector<int> const &ipiv, std::vector<P> &b);
+  void getrs(int M, std::vector<P> const &A, std::vector<int> const &ipiv, std::vector<P> &b) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! PLU factorization of an M x M matrix
+  template<typename P>
+  void getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) const;
+  //! PLU solve of an M x M matrix
+  template<typename P>
+  void getrs(int M, gpu::vector<P> const &A, gpu::vector<int> const &ipiv, gpu::vector<P> &b) const;
+  //! PLU solve of an M x M matrix
+  template<typename P>
+  void getrs(int M, gpu::vector<P> const &A, gpu::vector<int> const &ipiv, std::vector<P> &b) const {
+    gpu::vector<P> gpu_b = b;
+    getrs(M, A, ipiv, gpu_b);
+    gpu_b.copy_to_host(b);
+  }
+  #endif
 
 private:
+  int num_gpus_ = 0;
+  #ifdef ASGARD_USE_CUDA
+  // std::array<cusolverDnHandle_t, max_num_gpus>
+  cusolverDnHandle_t cusolverdn;
+  #endif
 };
 
 inline std::optional<compute_resources> compute;

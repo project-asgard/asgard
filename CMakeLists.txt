@@ -126,6 +126,16 @@ if (ASGARD_USE_GPU_MEM_LIMIT AND NOT ASGARD_USE_CUDA)
   message(FATAL_ERROR " ASGARD_USE_GPU_MEM_LIMIT=ON requires ASGARD_USE_CUDA=ON")
 endif()
 
+if (ASGARD_USE_CUDA)
+    set (ASGARD_MAX_NUM_GPUS "4" CACHE STRING "Maximum number of GPU devices to use simultaneously")
+    if (ASGARD_MAX_NUM_GPUS LESS 1)
+        message(FATAL_ERROR "ASGARD_MAX_NUM_GPUS must be at least 1, but it is set to '${ASGARD_MAX_NUM_GPUS}'")
+    endif()
+else()
+    set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
+endif()
+
+
 # add scripts directory location
 set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")
 
@@ -511,6 +521,7 @@ if (ASGARD_USE_CUDA)
                            PUBLIC
                            CUDA::cudart
                            CUDA::cublas
+                           CUDA::cusolver
                            CUDA::cusparse
     )
 endif ()
