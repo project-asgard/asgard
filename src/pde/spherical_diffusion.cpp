@@ -66,7 +66,7 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
 
   options.title = "Spherical Diffusion 2D";
 
-  asgard::pde_domain<P> domain({{0.0, 1.0}, {0.0, PI}});
+  asgard::pde_domain<P> domain({{0.0, 0.860333589019379762483893424}, {0.0, PI}});
   domain.set_names({"r", "theta"});
 
   // setting some default options
@@ -129,7 +129,7 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
     auto grad_dr = vec_dr;
 
     term_1d div_grad_dr({
-        term_div{div_dr, asgard::flux_type::upwind, asgard::boundary_type::right},
+        term_div{div_dr, asgard::flux_type::upwind, asgard::boundary_type::bothsides},
         term_grad{grad_dr, asgard::flux_type::upwind}
       });
 
@@ -165,8 +165,7 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
   auto source_r_dr = [=](std::vector<P> const &r, P /*time*/, std::vector<P> &fr) {
     #pragma omp parallel for
     for (size_t i = 0; i < r.size(); i++)
-      fr[i] = (P{2} + r[i] * r[i] * (PI * PI - 1.0)) * std::cos(PI * r[i])
-             + P{2} * r[i] * PI * std::sin(PI * r[i]);
+      fr[i] = P{4} * r[i] * r[i] * std::sin(r[i]);
   };
   auto source_th_dtheta = [=](std::vector<P> const &th, P /*time*/, std::vector<P> &fth) {
     #pragma omp parallel for
@@ -183,7 +182,7 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
   auto exact_r = [=](std::vector<P> const &r, P /*time*/, std::vector<P> &fr) {
     #pragma omp parallel for
     for (size_t i = 0; i < r.size(); i++)
-      fr[i] = dr(r[i]) * std::cos(PI * r[i]);
+      fr[i] = dr(r[i]) * r[i] * std::cos(r[i]);
   };
   auto exact_th = [=](std::vector<P> const &th, P /*time*/, std::vector<P> &fth) {
     #pragma omp parallel for
@@ -231,7 +230,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // using the fact that the initial condition is the exact solution
   std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
 
-  double constexpr space = 2 * PI; // TODO: put the right number here
+  double constexpr space = 0.209526877839756;
   double const time_val  = std::exp(-disc.time_params().time());
 
   // this is the L^2 norm-squared of the exact solution
@@ -251,8 +250,14 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
     nself += r * r;
   }
 
+  // in other examples, the enorm is the "exact-norm" or norm of the exact solution
+  // the nself is the norm of the computed solution and due to the orthogonal
+  // projection, the computed norm should be strictly less
+  // here, we have the extra step of the application of the mass-matrix,
+  // which can lead to nself exceeding enorm
+
   // the solution decays exponentially, stick to relative error
-  return std::sqrt((ndiff + enorm - nself) / enorm);
+  return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [asgard_spherical_diffusion get-err]
 #endif
@@ -289,9 +294,8 @@ int main(int argc, char** argv)
   // this file and the two additional options accepted for this problem
   if (options.show_help) {
     std::cout << "\n solves the spherical diffusion equation:\n";
-    std::cout << "    f_t + div f = s(t, x)\n";
-    std::cout << " with periodic boundary conditions \n"
-                 " and source term that generates a known artificial solution\n\n";
+    std::cout << "    f_t - div . grad f = s(t, x)\n";
+    std::cout << " using spherical coordinate system \n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << "<< additional options for this file >>\n";
@@ -315,15 +319,15 @@ int main(int argc, char** argv)
   asgard::discretization_manager<P> disc(make_spherical(options),
                                          asgard::verbosity_level::high);
 
-  // if (not disc.stop_verbosity())
-  //   std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
+  if (not disc.stop_verbosity())
+    std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
   disc.progress_report();
 
-  // if (not disc.stop_verbosity())
-  //   std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+  if (not disc.stop_verbosity())
+    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
 
   disc.save_final_snapshot(); // only if output filename is provided
 
@@ -347,100 +351,40 @@ int main(int argc, char** argv)
 // normally, one should only include what is needed
 using namespace asgard;
 
-// template<typename P>
-// void dotest(double tol, int num_dims, std::string const &opts) {
-//   current_test<P> test_(opts, num_dims);
-//
-//   auto options = make_opts(opts);
-//
-//   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
-//                                  verbosity_level::quiet);
-//
-//   while (disc.time_params().num_remain() > 0)
-//   {
-//     disc.advance_time(1);
-//
-//     double const err = get_error_l2(disc);
-//
-//     tcheckless(disc.time_params().step(), err, tol);
-//   }
-// }
-//
-// template<typename P>
-// void dolongtest(double tol, int num_dims, std::string const &opts) {
-//   current_test<P> test_(opts, num_dims);
-//
-//   auto options = make_opts(opts);
-//
-//   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
-//                                  verbosity_level::quiet);
-//
-//   disc.advance_time();
-//
-//   double const err = get_error_l2(disc);
-//
-//   tcheckless(disc.time_params().step(), err, tol);
-// }
-//
-// template<typename P>
-// void dotest(double tol, int num_dims, std::string const &opts, int np) {
-//   current_test<P> test_(opts, num_dims);
-//
-//   auto options = make_opts(opts);
-//
-//   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
-//                                  verbosity_level::quiet);
-//
-//   // makes a dense grid over the domain using np points each direction
-//   vector2d<double> const mesh = make_grid<double>(disc.get_pde2().domain(), np);
-//
-//   // the reconstruction is always done in double-precision even if the data
-//   // coming from the discretization_manager is in floats
-//   // thus, use the double-precision version of the exact solution
-//   auto sin_1d = [](std::vector<double> const &x, double, std::vector<double> &fx) ->
-//     void {
-//       for (size_t i = 0; i < x.size(); i++)
-//         fx[i] = std::sin(x[i]);
-//     };
-//
-//   auto cos_t = [](double t) -> double { return std::cos(t); };
-//
-//   separable_func<double> exact(
-//       std::vector<svector_func1d<double>>(num_dims, sin_1d), cos_t);
-//
-//   std::vector<double> ref(mesh.num_strips());
-//   std::vector<double> com(mesh.num_strips());
-//
-//   while (disc.time_params().num_remain() > 0)
-//   {
-//     disc.advance_time(1);
-//
-//     double const time = disc.time_params().time();
-// #pragma omp parallel for
-//     for (int64_t i = 0; i < mesh.num_strips(); i++)
-//       ref[i] = exact.eval(mesh[i], time);
-//
-//     auto shot = disc.get_snapshot();
-//
-//     shot.reconstruct(mesh[0], mesh.num_strips(), com.data());
-//
-//     double err = 0;
-//     for (size_t i = 0; i < ref.size(); i++)
-//       err = std::max(err, std::abs(com[i] - ref[i]));
-//
-//     tcheckless(disc.time_params().step(), err, tol);
-//   }
-// }
+template<typename P>
+void dotest(double tol, std::string const &opts) {
+  current_test<P> test_(opts);
+
+  auto options = make_opts(opts);
+
+  discretization_manager<P> disc(make_spherical<P>(options),
+                                 verbosity_level::quiet);
+
+  while (disc.time_params().num_remain() > 0)
+  {
+    disc.advance_time(1);
+
+    double const err = get_error_l2(disc);
+
+    tcheckless(disc.time_params().step(), err, tol);
+  }
+}
 
 void self_test() {
   all_tests testing_("spherical diffusion");
 
-#ifdef ASGARD_ENABLE_DOUBLE
+  // the convergence rate is slow due to bad conditioning
 
+#ifdef ASGARD_ENABLE_DOUBLE
+  dotest<double>(5.E-3, "-l 4 -dt 0.01");
+  dotest<double>(1.E-3, "-l 4 -dt 0.005");
+  dotest<double>(5.E-4, "-l 6 -dt 0.0025");
+  dotest<double>(5.E-4, "-l 5 -dt 0.0025 -ar 1.E-5");
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-
+  dotest<float>(5.E-3, "-l 4 -dt 0.01");
+  dotest<float>(2.E-3, "-l 4 -dt 0.005");
 #endif
 }
 
