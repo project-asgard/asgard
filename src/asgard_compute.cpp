@@ -9,6 +9,14 @@ extern "C" {
                int const *lda, int const *ipiv, double *b, int const*ldb, int *info);
   void sgetrs_(char const *trans, int const *n, int const *nrhs, float const *A,
                int const *lda, int const *ipiv, float *b, int const *ldb, int *info);
+
+  // tri-diagonal factorize
+  void dpttrf_(int const *n, double *D, double *E, int *info);
+  void spttrf_(int const *n, float *D, float *E, int *info);
+  void dpttrs_(int const *n, int const *nrhs, double const *D, double const *E, double *B,
+               int const *ldb, int *info);
+  void spttrs_(int const *n, int const *nrhs, float const *D, float const *E, float *B,
+               int const *ldb, int *info);
 }
 
 namespace asgard
@@ -126,13 +134,13 @@ void compute_resources::getrs(int M, std::vector<P> const &A, std::vector<int> c
   expect(ipiv.size() == b.size());
 
   int info  = 0;
-  int const one = 1;
+  int const nrhs = 1; // num right-hand-sides
   char const trans = 'N';
 
   if constexpr (is_double<P>) {
-    dgetrs_(&trans, &M, &one, A.data(), &M, ipiv.data(), b.data(), &M, &info);
+    dgetrs_(&trans, &M, &nrhs, A.data(), &M, ipiv.data(), b.data(), &M, &info);
   } else {
-    sgetrs_(&trans, &M, &one, A.data(), &M, ipiv.data(), b.data(), &M, &info);
+    sgetrs_(&trans, &M, &nrhs, A.data(), &M, ipiv.data(), b.data(), &M, &info);
   }
 
   // only check if arguments have illegal value
@@ -216,7 +224,53 @@ template void compute_resources::getrs<double>(
     int, gpu::vector<double> const &A, gpu::vector<int> const &ipiv, gpu::vector<double> &b) const;
 template void compute_resources::getrs<float>(
     int, gpu::vector<float> const &A, gpu::vector<int> const &ipiv, gpu::vector<float> &b) const;
-
 #endif
+
+template<typename P>
+void compute_resources::pttrf(std::vector<P> &diag, std::vector<P> &sub) const
+{
+  expect(sub.size() + 1 == diag.size());
+
+  int const N = static_cast<int>(diag.size());
+  int info = 0;
+
+  if constexpr (is_double<P>)
+    dpttrf_(&N, diag.data(), sub.data(), &info);
+  else
+    spttrf_(&N, diag.data(), sub.data(), &info);
+
+  if (info < 0)
+    throw std::runtime_error(std::string("pttrf() argument ") + std::to_string(info)
+                             + " has illegal value");
+}
+
+template void
+compute_resources::pttrf<double>(std::vector<double> &, std::vector<double> &) const;
+template void
+compute_resources::pttrf<float>(std::vector<float> &, std::vector<float> &) const;
+
+template<typename P>
+void compute_resources::pttrs(std::vector<P> const &diag, std::vector<P> const &sub,
+                              std::vector<P> &b) const {
+  expect(sub.size() + 1 == diag.size());
+
+  int const N = static_cast<int>(diag.size());
+  int const nrhs = 1;
+  int info = 0;
+
+  if constexpr (is_double<P>)
+    dpttrs_(&N, &nrhs, diag.data(), sub.data(), b.data(), &N, &info);
+  else
+    spttrs_(&N, &nrhs, diag.data(), sub.data(), b.data(), &N, &info);
+
+}
+
+template void
+compute_resources::pttrs<double>(std::vector<double> const &, std::vector<double> const &,
+                                 std::vector<double> &) const;
+template void
+compute_resources::pttrs<float>(std::vector<float> const &, std::vector<float> const &,
+                                std::vector<float> &) const;
+
 
 } // namespace asgard

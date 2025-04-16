@@ -1,90 +1,6 @@
-#include "tests_general.hpp"
+#include "asgard_test_macros.hpp"
 
 using namespace asgard;
-
-struct distribution_test_init
-{
-  distribution_test_init() { initialize_distribution(); }
-  ~distribution_test_init() { finalize_distribution(); }
-};
-
-#ifdef ASGARD_USE_MPI
-static distribution_test_init const distrib_test_info;
-#endif
-
-TEMPLATE_TEST_CASE("simple GMRES", "[solver]", test_precs)
-{
-  fk::matrix<TestType> const A_gold{
-      {3.383861628748717e+00, 1.113343240310116e-02, 2.920740795411032e+00},
-      {3.210305545769361e+00, 3.412141162288144e+00, 3.934494120167269e+00},
-      {1.723479266939425e+00, 1.710451084172946e+00, 4.450671104482062e+00}};
-
-  fk::matrix<TestType> const precond{{3.383861628748717e+00, 0.0, 0.0},
-                                     {0.0, 3.412141162288144e+00, 0.0},
-                                     {0.0, 0.0, 4.450671104482062e+00}};
-
-  fk::vector<TestType> const b_gold{
-      2.084406360034887e-01, 6.444769305362776e-01, 3.687335330031937e-01};
-
-  fk::vector<TestType> const x_gold{
-      4.715561567725287e-02, 1.257695999382253e-01, 1.625351700791827e-02};
-
-  fk::vector<TestType> const b_gold_2{
-      9.789303188021963e-01, 8.085725142873675e-01, 7.370498473207234e-01};
-  fk::vector<TestType> const x_gold_2{
-      1.812300946484165e-01, -7.824949213916167e-02, 1.254969087137521e-01};
-
-  SECTION("gmres test case 1")
-  {
-    fk::vector<TestType> test(x_gold.size());
-
-    std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
-        A_gold, test, b_gold, fk::matrix<TestType>(), A_gold.ncols(),
-        A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
-    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
-    REQUIRE(test == x_gold);
-  }
-
-  SECTION("test case 1, point jacobi preconditioned")
-  {
-    fk::vector<TestType> test(x_gold.size());
-
-    std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
-        A_gold, test, b_gold, precond, A_gold.ncols(), A_gold.ncols(),
-        std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
-    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
-    REQUIRE(test == x_gold);
-  }
-
-  SECTION("gmres test case 2")
-  {
-    fk::vector<TestType> test(x_gold_2.size());
-
-    std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
-        A_gold, test, b_gold_2, fk::matrix<TestType>(), A_gold.ncols(),
-        A_gold.ncols(), std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
-    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
-    REQUIRE(test == x_gold_2);
-  }
-
-  SECTION("test case 2, point jacobi preconditioned")
-  {
-    fk::vector<TestType> test(x_gold_2.size());
-    std::cout.setstate(std::ios_base::failbit);
-    gmres_info<TestType> const gmres_output = solvers::simple_gmres(
-        A_gold, test, b_gold_2, precond, A_gold.ncols(), A_gold.ncols(),
-        std::numeric_limits<TestType>::epsilon());
-    std::cout.clear();
-    REQUIRE(gmres_output.error < std::numeric_limits<TestType>::epsilon());
-    rmse_comparison(x_gold_2, test, get_tolerance<TestType>(10));
-  }
-}
 
 // solves u_xx = rhs over (xleft, xright), if bc is Dirichlet, dleft/dright are the boundary cond
 // returns the result from comparison against the du_ref, which should be u_x
@@ -132,12 +48,13 @@ P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P x
   return fm::diff_inf(sv, vref);
 }
 
-TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
+template<typename TestType>
+void poisson_tests()
 {
   TestType tol = (std::is_same_v<TestType, double>) ? 1.E-14 : 1.E-5;
 
-  SECTION("constant gradient, low degree")
   {
+    current_test<TestType> name_("poisson - const-gradient, low degree");
     int const degree = 0;
     int const level  = 3;
 
@@ -148,11 +65,10 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     TestType err = test_poisson<TestType>(
         du, rhs, -2, 3, -2, 3, solvers::poisson_bc::dirichlet, degree, level);
 
-    REQUIRE(err < tol);
+    tassert(err < tol);
   }
-
-  SECTION("constant gradient, high degree")
   {
+    current_test<TestType> name_("poisson - const-gradient, high degree");
     int const degree = 2;
     int const level  = 5;
 
@@ -163,11 +79,10 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     TestType err = test_poisson<TestType>(
         du, rhs, -2, 3, -2, 3, solvers::poisson_bc::dirichlet, degree, level);
 
-    REQUIRE(err < tol);
+    tassert(err < tol);
   }
-
-  SECTION("variable gradient")
   {
+    current_test<TestType> name_("poisson - variable-gradient");
     int const degree = 1;
     int const level  = 4;
 
@@ -178,11 +93,10 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     TestType err = test_poisson<TestType>(
         du, rhs, -2, 3, 4, 9, solvers::poisson_bc::dirichlet, degree, level);
 
-    REQUIRE(err < tol);
+    tassert(err < tol);
   }
-
-  SECTION("messy gradient, high degree")
   {
+    current_test<TestType> name_("poisson - messy-gradient");
     // do not attempt this in single precision
     if (std::is_same_v<TestType, float>)
       return;
@@ -200,8 +114,21 @@ TEMPLATE_TEST_CASE("poisson solver projected", "[solver]", test_precs)
     TestType err = test_poisson<TestType>(
         du, rhs, -1, 1, 5, 11, solvers::poisson_bc::periodic, degree, level);
 
-    // std::cout << " error = " << err << "\n";
-
-    REQUIRE(err < 1.E-8);
+    tassert(err < 1.E-8);
   }
+}
+
+int main(int, char**) {
+
+  all_tests global_("solver tests", " builtin solver functionality");
+
+  #ifdef ASGARD_ENABLE_DOUBLE
+  poisson_tests<double>();
+  #endif
+
+  #ifdef ASGARD_ENABLE_FLOAT
+  poisson_tests<float>();
+  #endif
+
+  return 0;
 }

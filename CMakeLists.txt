@@ -420,7 +420,6 @@ set (components
      asgard_quadrature
      asgard_resources
      asgard_sparse
-     asgard_solver
      asgard_tensors
 )
 
@@ -438,6 +437,7 @@ set(asgard_components
     program_options
     reconstruct
     small_mats
+    solver
     term_manager
     time_advance
     transformations

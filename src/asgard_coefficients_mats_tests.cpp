@@ -198,6 +198,5 @@ int main(int, char**)
   all_templated_tests<float>();
   #endif
 
-
   return 0;
 }

@@ -212,6 +212,13 @@ public:
   }
   #endif
 
+  //! tri-diagonal solver, factorization stage
+  template<typename P>
+  void pttrf(std::vector<P> &diag, std::vector<P> &subdiag) const;
+  //! tri-diagonal solver, solve using the factors
+  template<typename P>
+  void pttrs(std::vector<P> const &diag, std::vector<P> const &subdiag, std::vector<P> &b) const;
+
 private:
   int num_gpus_ = 0;
   #ifdef ASGARD_USE_CUDA
@@ -226,5 +233,76 @@ inline void init_compute() {
   if (not compute)
     compute.emplace();
 }
+
+/*!
+ * \brief Math utilities for commonly used operations
+ *
+ * Many multi-index operations require the use of methods such as log()
+ * and pow(), but use integer arithmetic instead.
+ * This namesapce provides shorthand operations for methods that
+ * compute the power of 2, power with integer component, integer log-2,
+ * and several others.
+ */
+namespace fm {
+//! computes 2^exponent using bit-shift operations, only for int-like types
+template<typename T>
+inline constexpr T ipow2(T const exponent)
+{
+  static_assert(std::is_same_v<T, int> || std::is_same_v<T, unsigned> ||
+                std::is_same_v<T, long> || std::is_same_v<T, unsigned long> ||
+                std::is_same_v<T, long long> ||
+                std::is_same_v<T, unsigned long long>);
+  expect(exponent >= 0);
+  expect(exponent < std::numeric_limits<T>::digits);
+  return T{1} << exponent;
+}
+
+//! Raise the base to an integer power
+template<typename T = int64_t>
+inline constexpr T ipow(T base, int exponent)
+{
+  expect(exponent >= 1);
+  T result = base;
+  for (int e = 1; e < exponent; e++)
+    result *= base;
+  return result;
+}
+
+//! computes std::floor( std::log2(x) ), returns 0 for x = 0 using bit-wise shifts
+inline constexpr int intlog2(int x)
+{
+  int result = 0;
+  while (x >>= 1)
+    result++;
+  return result;
+}
+//! computes std::pow( 2, std::floor( std::log2(x) ) ) using bit-wise shifts
+inline int ipow2_log2(int x)
+{
+  int result = 1;
+  while (x >>= 1)
+    result <<= 1;
+  return result;
+}
+//! computes ipow2_log2(i) and std::pow(std::sqrt(2.0), intlog2(i))
+inline void intlog2_pow2pows2(int x, int &i2l2, double &is2l2)
+{
+  i2l2  = 1;
+  is2l2 = 1.0;
+  while (x >>= 1)
+  {
+    i2l2 <<= 1;
+    is2l2 *= 1.41421356237309505; // sqrt(2.0)
+  }
+}
+//! computes base^p where p is in integer
+template<typename P>
+P powi(P base, int p) {
+  P res = 1;
+  while (--p > -1)
+    res *= base;
+  return res;
+}
+} // namespace fm
 
 } // namespace asgard

@@ -303,9 +303,7 @@ void self_test() {
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-
-  std::cout << "no tests for single precision only builds\n";
-
+  current_test<float> test_("no-test, compile only");
 #endif
 }
 
