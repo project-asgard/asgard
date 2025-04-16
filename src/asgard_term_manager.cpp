@@ -567,13 +567,6 @@ void term_manager<P>::rebuld_term1d(
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
 
-  bool is_diag = t1d.is_volume();
-  if (t1d.is_chain()) {
-    rebuld_chain(tentry, dim, level, is_diag, wraw_diag, wraw_tri);
-  } else {
-    build_raw_mat(tentry, dim, 0, level, wraw_diag, wraw_tri);
-  }
-
   block_diag_matrix<P> *bmass = nullptr; // mass to use for the boundary source
 
   // apply the mass matrix, if any
@@ -583,7 +576,7 @@ void term_manager<P>::rebuld_term1d(
     if (tms and not tms[dim].is_identity()) {
       int const nrows = fm::ipow2(level); // needed number of rows
       if (tentry.mass[dim].nrows() != nrows) {
-        build_raw_mass(dim, mass_term[dim], max_level, tentry.mass[dim]);
+        build_raw_mass(dim, tms[dim], max_level, tentry.mass[dim]);
         tentry.mass[dim].spd_factorize(n);
       }
       bmass = &tentry.mass[dim];
@@ -602,15 +595,18 @@ void term_manager<P>::rebuld_term1d(
     }
   }
 
+  bool is_diag = t1d.is_volume();
+  if (t1d.is_chain()) {
+    rebuld_chain(tentry, dim, level, bmass, is_diag, wraw_diag, wraw_tri);
+  } else {
+    build_raw_mat(tentry, dim, 0, level, bmass, wraw_diag, wraw_tri);
+  }
+
   // the build/rebuild put the result in raw_diag or raw_tri
   if (not t1d.is_identity()) {
     if (is_diag) {
-      if (bmass)
-        bmass->solve(n, wraw_diag);
       tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
     } else {
-      if (bmass)
-        bmass->solve(n, wraw_tri);
       tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
     }
   }
@@ -643,6 +639,7 @@ void term_manager<P>::rebuld_term1d(
 template<typename P>
 void term_manager<P>::build_raw_mat(
     term_entry<P> &tentry, int d, int clink, int level,
+    block_diag_matrix<P> const *bmass,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
   term_1d<P> &t1d = (tentry.tmd.dim(d).is_chain()) ? tentry.tmd.dim(d).chain_[clink] : tentry.tmd.dim(d);
@@ -732,6 +729,13 @@ void term_manager<P>::build_raw_mat(
     default: // case operation_type::identity:
       // identity, nothing to do for the matrix, but may have to do boundary conditions
       break;
+  }
+
+  if (bmass) {
+    if (t1d.optype() == operation_type::volume)
+      bmass->solve(legendre.pdof, raw_diag);
+    else
+      bmass->solve(legendre.pdof, raw_tri);
   }
 
   for (int b : indexrange(tentry.bc)) {
@@ -840,8 +844,9 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 
 template<typename P>
 void term_manager<P>::rebuld_chain(
-    term_entry<P> &tentry, int const d, int const level, bool &is_diag,
-    block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
+    term_entry<P> &tentry, int const d, int const level,
+    block_diag_matrix<P> const *bmass,
+    bool &is_diag, block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
   term_1d<P> &t1d = tentry.tmd.dim(d);
   expect(t1d.is_chain());
@@ -862,14 +867,14 @@ void term_manager<P>::rebuld_chain(
     // the last product has to be written to raw_diag
     block_diag_matrix<P> *diag0 = &raw_diag0;
     block_diag_matrix<P> *diag1 = &raw_diag1;
-    build_raw_mat(tentry, d, num_chain - 1, level, *diag0, raw_tri);
+    build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, raw_tri);
     for (int i = num_chain - 2; i > 0; i--) {
-      build_raw_mat(tentry, d, i, level, raw_diag, raw_tri);
+      build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
       diag1->check_resize(raw_diag);
       gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
     }
-    build_raw_mat(tentry, d, 0, level, *diag1, raw_tri);
+    build_raw_mat(tentry, d, 0, level, bmass, *diag1, raw_tri);
     raw_diag.check_resize(*diag1);
     gemm_block_diag(legendre.pdof, *diag1, *diag0, raw_diag);
 
@@ -893,11 +898,11 @@ void term_manager<P>::rebuld_chain(
   // if we start with a diagonal, we will switch to tri at some point
 
   fill current = (t1d.is_volume()) ? fill::diag : fill::tri;
-  build_raw_mat(tentry, d, num_chain - 1, level, *diag0, *tri0);
+  build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
   {
-    build_raw_mat(tentry, d, i, level, raw_diag, raw_tri);
+    build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
     if (t1d.is_volume()) { // computed a diagonal fill
@@ -926,7 +931,7 @@ void term_manager<P>::rebuld_chain(
   }
 
   // last term, compute in diag1/tri1 and multiply into raw_tri
-  build_raw_mat(tentry, d, 0, level, *diag1, *tri1);
+  build_raw_mat(tentry, d, 0, level, bmass, *diag1, *tri1);
 
   if (t1d[0].is_volume()) {
     // the rest must be a tri-diagonal matrix already

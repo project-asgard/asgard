@@ -6,7 +6,7 @@ void new_prog_opts() {
   {
     current_test name_("no opts");
     prog_opts prog(vecstrview({""}));
-    tassert(not (prog.show_help and prog.show_pde_help));
+    tassert(not prog.show_help);
   }{
     current_test name_("no help");
     prog_opts prog(vecstrview({"", "--help"}));
@@ -15,9 +15,6 @@ void new_prog_opts() {
     tassert(prog_opts(vecstrview({"", "-h"})).show_help);
     tassert(prog_opts(vecstrview({"", "-help"})).show_help);
     tassert(prog_opts(vecstrview({"", "help"})).show_help);
-    prog_opts prog2(vecstrview({"", "-p?"}));
-    tassert(prog2.show_pde_help);
-    tassert(prog_opts(vecstrview({"", "-pde?"})).show_pde_help);
   }{
     current_test name_("-step-method");
     terror_message(prog_opts(vecstrview({"exe", "-step-method"})),

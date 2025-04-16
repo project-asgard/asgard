@@ -269,12 +269,10 @@ struct term_manager
                        hierarchy_manipulator<P> const &hier)
   {
     tools::time_event timing_("rebuild - poisson");
-    int i = 0;
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
         if (te.deps[d].poisson)
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
-      ++i;
     }
   }
   //! rebuild the terms that depend only on the moments
@@ -424,11 +422,13 @@ protected:
                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                      precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild the 1d term chain to the given level
-  void rebuld_chain(term_entry<P> &tentry, int const dim, int const level, bool &is_diag,
+  void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
+                    block_diag_matrix<P> const *bmass, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
 
   //! helper method, build the matrix corresponding to the term
   void build_raw_mat(term_entry<P> &tentry, int dim, int clink, int level,
+                     block_diag_matrix<P> const *bmass,
                      block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
   //! helper method, build a mass matrix with no dependencies
   void build_raw_mass(int dim, term_1d<P> const &t1d, int level,

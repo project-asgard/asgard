@@ -80,23 +80,7 @@ enum class precon_method
 enum class PDE_opts
 {
   custom = 0, // user provided pde
-  fokkerplanck_2d_complete_case1,
 };
-
-#ifndef __ASGARD_DOXYGEN_SKIP
-/*!
- * \internal
- * \ingroup asgard_common_options
- * \brief some PDE options allow for variants
- *
- * \endinternal
- */
-enum class PDE_case_opts
-{
-  case1,
-  case_count
-};
-#endif
 
 /*!
  * \ingroup asgard_common_options
@@ -445,8 +429,6 @@ struct prog_opts
   bool show_help = false;
   //! indicates if the --version option was selected
   bool show_version = false;
-  //! indicates if the -pde? options was selected
-  bool show_pde_help = false;
   //! indicates if the exact solution should be ignored or the error computed and shown every time-step
   bool ignore_exact = false;
 
@@ -686,7 +668,6 @@ private:
   {
     show_help,
     version_help,
-    pde_help,
     input_file,
     ignore_exact,
     title,
@@ -705,7 +686,6 @@ private:
     output_file,
     stop_time,
     dt,
-    pde_choice,
     solver,
     precond,
     memory_limit,

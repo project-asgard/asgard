@@ -1,6 +1,5 @@
 #pragma once
-#include "asgard_block_matrix.hpp"
-#include "asgard_pde.hpp"
+#include "asgard_pde_functions.hpp"
 #include "asgard_wavelet_basis.hpp"
 
 namespace asgard

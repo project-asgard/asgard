@@ -1,0 +1,447 @@
+#include "asgard.hpp"
+
+#include "asgard_test_macros.hpp" // only for testing
+
+/*!
+ * \internal
+ * \file spherical_diffusion.cpp
+ * \brief Diffusion using spherical coordinates
+ * \author The ASGarD Team
+ * \ingroup asgard_spherical_diffusion
+ *
+ * \endinternal
+ */
+
+/*!
+ * \ingroup asgard_examples
+ * \addtogroup asgard_spherical_diffusion Example: Spherical coordinates
+ *
+ * \par Spherical diffusion equation
+ * Solves the spherical diffusion equation
+ * \f[ \frac{\partial}{\partial t} f + \delta \cdot f = s \f]
+ *
+ *
+ * \par
+ * This example shows how to apply a volume Jacobian to the discretization scheme,
+ * which will result in a non-trivial (non-identity) mass matrix and all terms
+ * functions, sources and initial conditions need to be multiplied by
+ * the corresponding volume terms.
+ */
+
+/*!
+ * \ingroup asgard_spherical_diffusion
+ * \brief The ratio of circumference to diameter of a circle
+ */
+double constexpr PI = asgard::PI;
+
+/*!
+ * \ingroup asgard_spherical_diffusion
+ * \brief Make single Fokker-Planck PDE
+ *
+ * Constructs the pde description for the given umber of dimensions
+ * and options.
+ *
+ * \tparam P is either double or float, the asgard::default_precision will select
+ *           first double, if unavailable, will go for float
+ *
+ * \param options is the set of options
+ *
+ * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
+ *          removed in the near future
+ *
+ * \snippet spherical_diffusion.cpp asgard_spherical_diffusion make
+ */
+template<typename P = asgard::default_precision>
+asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_spherical_diffusion make]
+#endif
+
+  // selectively pull from the asgard namespace
+  using term_identity = asgard::term_identity;
+  using term_volume   = asgard::term_volume<P>;
+  using term_div      = asgard::term_div<P>;
+  using term_grad     = asgard::term_grad<P>;
+  using term_1d       = asgard::term_1d<P>;
+
+  options.title = "Spherical Diffusion 2D";
+
+  asgard::pde_domain<P> domain({{0.0, 1.0}, {0.0, PI}});
+  domain.set_names({"r", "theta"});
+
+  // setting some default options
+  // defaults are used only the corresponding values are missing from the command line
+  options.default_degree = 2;
+  options.default_start_levels = {5, };
+
+  options.default_step_method = asgard::time_method::back_euler;
+
+  options.default_dt = 0.01;
+
+  options.default_stop_time = 1.0; // integrate until T = 1
+
+  options.default_solver = asgard::solver_method::direct;
+
+  options.default_isolver_tolerance  = 1.E-8;
+  options.default_isolver_iterations = 1000;
+  options.default_isolver_inner_iterations = 50;
+
+  // create a pde from the given options and domain
+  // we can read the variables using pde.options() and pde.domain() (both return const-refs)
+  // the option entries may have been populated or updated with default values
+  asgard::PDEv2<P> pde(options, std::move(domain));
+
+  // volume Jacobian in r
+  auto dr = [](P r)-> P { return r * r; };
+  // vector variants of the single dimensional volume Jacobian
+  auto vec_dr = [=](std::vector<P> const &r, std::vector<P> &vol_r)
+      -> void {
+    #pragma omp parallel for
+    for (size_t i = 0; i < r.size(); i++)
+      vol_r[i] = dr(r[i]);
+  };
+
+  // volume Jacobian in theta
+  auto dtheta = [](P theta)-> P { return std::sin(theta); };
+  // vector variants of the single dimensional volume Jacobian
+  auto vec_dtheta = [&](std::vector<P> const &theta, std::vector<P> &vol_theta)
+      -> void {
+    #pragma omp parallel for
+    for (size_t i = 0; i < theta.size(); i++)
+      vol_theta[i] = dtheta(theta[i]);
+  };
+
+  // setting up the mass matrix
+  pde.set_mass({term_volume{vec_dr}, term_volume{vec_dtheta}});
+
+  // the coefficients of the diffusion equation must contain the volume Jacobian
+  // merging the Jacobian and the coefficient allows for cancellation
+  // of numerical singularities which in turn improves stability
+  {
+    // merging -1 and dr()
+    auto div_dr = [=](std::vector<P> const &r, std::vector<P> &vol_r)
+        -> void {
+      #pragma omp parallel for
+      for (size_t i = 0; i < r.size(); i++)
+        vol_r[i] = -dr(r[i]);
+    };
+    // merging 1 and dr(), i.e., there is only dr()
+    auto grad_dr = vec_dr;
+
+    term_1d div_grad_dr({
+        term_div{div_dr, asgard::flux_type::upwind, asgard::boundary_type::right},
+        term_grad{grad_dr, asgard::flux_type::upwind}
+      });
+
+    // the volume term is exactly the same as the mass matrix
+    // applying the inverse of the mass matrix will yield an identity term
+
+    pde += {div_grad_dr, term_identity{}};
+  }
+
+  {
+    // volume Jacobian dr associated with the theta derivative
+    auto sqrt_dr = [&](std::vector<P> const &r, std::vector<P> &vr) -> void { vr = r; };
+    // merging -1 and dtheta()
+    auto div_dtheta = [&](std::vector<P> const &th, std::vector<P> &vth)
+        -> void {
+      #pragma omp parallel for
+      for (size_t i = 0; i < th.size(); i++)
+        vth[i] = -dtheta(th[i]);
+    };
+    // merging 1 and dtheta(), i.e., there is only dtheta()
+    auto grad_dtheta = vec_dtheta;
+
+    term_1d volume_2dr({term_volume{sqrt_dr}, term_volume{sqrt_dr}});
+    term_1d div_grad_dtheta({
+        term_div{div_dtheta, asgard::flux_type::upwind, asgard::boundary_type::bothsides},
+        term_grad{grad_dtheta, asgard::flux_type::upwind}
+      });
+
+    pde += {volume_2dr, div_grad_dtheta};
+  }
+
+  // source function
+  auto source_r_dr = [=](std::vector<P> const &r, P /*time*/, std::vector<P> &fr) {
+    #pragma omp parallel for
+    for (size_t i = 0; i < r.size(); i++)
+      fr[i] = (P{2} + r[i] * r[i] * (PI * PI - 1.0)) * std::cos(PI * r[i])
+             + P{2} * r[i] * PI * std::sin(PI * r[i]);
+  };
+  auto source_th_dtheta = [=](std::vector<P> const &th, P /*time*/, std::vector<P> &fth) {
+    #pragma omp parallel for
+    for (size_t i = 0; i < th.size(); i++)
+      fth[i] = std::cos(th[i]) * std::sin(th[i]);
+  };
+  // used both for the source and the exact solution
+  auto exact_time = [](P t) -> P { return std::exp(-t); };
+
+  asgard::separable_func<P> source({source_r_dr, source_th_dtheta}, exact_time);
+  pde.add_source(source);
+
+  // exact solution
+  auto exact_r = [=](std::vector<P> const &r, P /*time*/, std::vector<P> &fr) {
+    #pragma omp parallel for
+    for (size_t i = 0; i < r.size(); i++)
+      fr[i] = dr(r[i]) * std::cos(PI * r[i]);
+  };
+  auto exact_th = [=](std::vector<P> const &th, P /*time*/, std::vector<P> &fth) {
+    #pragma omp parallel for
+    for (size_t i = 0; i < th.size(); i++)
+      fth[i] = dtheta(th[i]) * std::cos(th[i]);
+  };
+
+  asgard::separable_func<P> exact({exact_r, exact_th}, exact_time);
+
+  // technically, the initial condition does not need a time component
+  // the functions will be evaluated only once and using t = 0
+  // however, here we are using the initial condition as the exact solution
+  // when doing error checking
+  pde.add_initial(exact);
+
+  return pde;
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_spherical_diffusion make]
+#endif
+}
+
+/*!
+ * \ingroup asgard_spherical_diffusion
+ * \brief Computes the L^2 error for the given example
+ *
+ * The provided discretization_manager should hold a PDE made with
+ * make_continuity_pde(). This will compute the L^2 error.
+ *
+ * \tparam P is double or float, the precision of the manager
+ *
+ * \param disc is the discretization of a PDE
+ *
+ * \returns the L^2 error between the known exact solution and
+ *          the current state in the \b disc manager
+ *
+ * \snippet spherical_diffusion.cpp asgard_spherical_diffusion get-err
+ */
+template<typename P>
+double get_error_l2(asgard::discretization_manager<P> const &disc) {
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_spherical_diffusion get-err]
+#endif
+
+  // using the fact that the initial condition is the exact solution
+  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+
+  double constexpr space = 2 * PI; // TODO: put the right number here
+  double const time_val  = std::exp(-disc.time_params().time());
+
+  // this is the L^2 norm-squared of the exact solution
+  // powi works the same as std::pow but the second input is an integer
+  double const enorm = space * time_val * time_val;
+
+  std::vector<P> const &state = disc.current_state();
+  assert(eref.size() == state.size());
+
+  double nself = 0;
+  double ndiff = 0;
+  for (size_t i = 0; i < state.size(); i++)
+  {
+    double const e = eref[i] - state[i];
+    ndiff += e * e;
+    double const r = eref[i];
+    nself += r * r;
+  }
+
+  // the solution decays exponentially, stick to relative error
+  return std::sqrt((ndiff + enorm - nself) / enorm);
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_spherical_diffusion get-err]
+#endif
+}
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+// self-consistency testing, not part of the example/tutorial
+void self_test();
+#endif
+
+/*!
+ * \ingroup asgard_spherical_diffusion
+ * \brief main() for the Fokker-Planck example
+ *
+ * The main() processes the command line arguments and calls both
+ * make_spherical() and get_error_l2().
+ *
+ * \snippet spherical_diffusion.cpp asgard_spherical_diffusion main
+ */
+int main(int argc, char** argv)
+{
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_spherical_diffusion main]
+#endif
+
+  // if double precision is available the P is double
+  // otherwise P is float
+  using P = asgard::default_precision;
+
+  // parse the command-line inputs
+  asgard::prog_opts options(argc, argv);
+
+  // if help was selected in the command line, show general information about
+  // this file and the two additional options accepted for this problem
+  if (options.show_help) {
+    std::cout << "\n solves the spherical diffusion equation:\n";
+    std::cout << "    f_t + div f = s(t, x)\n";
+    std::cout << " with periodic boundary conditions \n"
+                 " and source term that generates a known artificial solution\n\n";
+    std::cout << "    -- standard ASGarD options --";
+    options.print_help(std::cout);
+    std::cout << "<< additional options for this file >>\n";
+    std::cout << "-test                               perform self-testing\n\n";
+    return 0;
+  }
+
+  // this is an optional step, check if there are misspelled or incorrect cli entries
+  // the first set/vector of entries are those that can appear by themselves
+  // the second set/vector requires extra parameters
+  options.throw_if_argv_not_in({"-test", "--test"}, {});
+
+  if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
+    // perform series of internal tests, not part of the example/tutorial
+    self_test();
+    return 0;
+  }
+
+  // the discretization_manager takes in a pde and handles sparse-grid construction
+  // separable and non-separable operators, holds the current state, etc.
+  asgard::discretization_manager<P> disc(make_spherical(options),
+                                         asgard::verbosity_level::high);
+
+  // if (not disc.stop_verbosity())
+  //   std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
+
+  disc.advance_time(); // integrate until num-steps or stop-time
+
+  disc.progress_report();
+
+  // if (not disc.stop_verbosity())
+  //   std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+
+  disc.save_final_snapshot(); // only if output filename is provided
+
+  if (asgard::tools::timer.enabled() and not disc.stop_verbosity())
+    std::cout << asgard::tools::timer.report() << '\n';
+
+  return 0;
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [asgard_spherical_diffusion main]
+#endif
+};
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+///////////////////////////////////////////////////////////////////////////////
+// The code below is not part of the example, rather it is intended
+// for correctness checking and verification against the known solution
+///////////////////////////////////////////////////////////////////////////////
+
+// just for convenience to avoid using asgard:: all over the place
+// normally, one should only include what is needed
+using namespace asgard;
+
+// template<typename P>
+// void dotest(double tol, int num_dims, std::string const &opts) {
+//   current_test<P> test_(opts, num_dims);
+//
+//   auto options = make_opts(opts);
+//
+//   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
+//                                  verbosity_level::quiet);
+//
+//   while (disc.time_params().num_remain() > 0)
+//   {
+//     disc.advance_time(1);
+//
+//     double const err = get_error_l2(disc);
+//
+//     tcheckless(disc.time_params().step(), err, tol);
+//   }
+// }
+//
+// template<typename P>
+// void dolongtest(double tol, int num_dims, std::string const &opts) {
+//   current_test<P> test_(opts, num_dims);
+//
+//   auto options = make_opts(opts);
+//
+//   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
+//                                  verbosity_level::quiet);
+//
+//   disc.advance_time();
+//
+//   double const err = get_error_l2(disc);
+//
+//   tcheckless(disc.time_params().step(), err, tol);
+// }
+//
+// template<typename P>
+// void dotest(double tol, int num_dims, std::string const &opts, int np) {
+//   current_test<P> test_(opts, num_dims);
+//
+//   auto options = make_opts(opts);
+//
+//   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
+//                                  verbosity_level::quiet);
+//
+//   // makes a dense grid over the domain using np points each direction
+//   vector2d<double> const mesh = make_grid<double>(disc.get_pde2().domain(), np);
+//
+//   // the reconstruction is always done in double-precision even if the data
+//   // coming from the discretization_manager is in floats
+//   // thus, use the double-precision version of the exact solution
+//   auto sin_1d = [](std::vector<double> const &x, double, std::vector<double> &fx) ->
+//     void {
+//       for (size_t i = 0; i < x.size(); i++)
+//         fx[i] = std::sin(x[i]);
+//     };
+//
+//   auto cos_t = [](double t) -> double { return std::cos(t); };
+//
+//   separable_func<double> exact(
+//       std::vector<svector_func1d<double>>(num_dims, sin_1d), cos_t);
+//
+//   std::vector<double> ref(mesh.num_strips());
+//   std::vector<double> com(mesh.num_strips());
+//
+//   while (disc.time_params().num_remain() > 0)
+//   {
+//     disc.advance_time(1);
+//
+//     double const time = disc.time_params().time();
+// #pragma omp parallel for
+//     for (int64_t i = 0; i < mesh.num_strips(); i++)
+//       ref[i] = exact.eval(mesh[i], time);
+//
+//     auto shot = disc.get_snapshot();
+//
+//     shot.reconstruct(mesh[0], mesh.num_strips(), com.data());
+//
+//     double err = 0;
+//     for (size_t i = 0; i < ref.size(); i++)
+//       err = std::max(err, std::abs(com[i] - ref[i]));
+//
+//     tcheckless(disc.time_params().step(), err, tol);
+//   }
+// }
+
+void self_test() {
+  all_tests testing_("spherical diffusion");
+
+#ifdef ASGARD_ENABLE_DOUBLE
+
+#endif
+
+#ifdef ASGARD_ENABLE_FLOAT
+
+#endif
+}
+
+#endif //__ASGARD_DOXYGEN_SKIP
