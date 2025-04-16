@@ -9,25 +9,8 @@ void dense_matrix<P>::factorize()
 {
   tools::time_event timing_("dense-matrix::factorize");
   expect(nrows_ == ncols_);
-  ipiv.resize(nrows_);
-  int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(), nrows_,
-                                 ipiv.data());
 
-  if (info != 0)
-  {
-    std::stringstream sout;
-    if (info < 0)
-    {
-      sout << "getrf(): the " << -info << "-th parameter had an illegal value!\n";
-    }
-    else
-    {
-      sout << "getrf(): the diagonal element of the triangular factor of A,\n";
-      sout << "U(" << info << ',' << info << ") is zero, so that A is singular;\n";
-      sout << "the matrix could not be factorized.\n";
-    }
-    throw std::runtime_error(sout.str());
-  }
+  compute->getrf(nrows_, data_, ipiv);
 }
 
 template<typename P>
@@ -35,9 +18,8 @@ void dense_matrix<P>::solve(std::vector<P> &b) const
 {
   tools::time_event timing_("dense-matrix::solve");
   expect(is_factorized());
-  int info = lib_dispatch::getrs('N', nrows_, 1, data_.data(), nrows_,
-                                  ipiv.data(), b.data(), nrows_);
-  expect(info == 0);
+
+  compute->getrs(nrows_, data_, ipiv, b);
 }
 
 template<typename P>

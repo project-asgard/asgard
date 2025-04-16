@@ -989,8 +989,14 @@ public:
   template<resource rec>
   auto const &get_diagonal_preconditioner() const
   {
-    static_assert(rec == resource::host, "GPU not enabled");
+#ifdef ASGARD_USE_CUDA
+    if constexpr (rec == resource::host)
+      return pre_con_;
+    else
+      return gpu_pre_con_; // WARNING: this si not working yet
+#else
     return pre_con_;
+#endif
   }
 
   //! \brief Return the number of flops for the current matrix type, if enabled for timing
@@ -1056,6 +1062,10 @@ private:
   mutable kronmult::block_global_workspace<precision> *workspace_ = nullptr;
 
   mutable std::array<int64_t, num_imex_variants> flops_ = {{-1}};
+
+#ifdef ASGARD_USE_CUDA
+  gpu::vector<precision> gpu_pre_con_;
+#endif
 
   verbosity_level verb = verbosity_level::quiet;
 };

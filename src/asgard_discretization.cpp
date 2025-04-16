@@ -11,6 +11,8 @@ discretization_manager<precision>::discretization_manager(
       degree_(0), dt_(0), time_(0), time_step_(0),
       final_time_step_(0), matrices(*pde), kronops(&conn, verbosity)
 {
+  init_compute();
+
   rassert(!!pde, "invalid pde object");
 
   auto const &options = pde->options();
@@ -139,6 +141,8 @@ discretization_manager<precision>::discretization_manager(
     pde2(std::move(pde_in)), conn(pde2.max_level()),
     matrices(pde2)
 {
+  init_compute();
+
   if (pde2.num_dims() == 0)
     throw std::runtime_error("cannot discretize an empty pde");
 

@@ -129,7 +129,7 @@ simple_gmres_euler(const P dt, imex_flag imex,
       fk::vector<P, mem_type::view, resrc>(x), b,
       [&](fk::vector<P, mem_type::view, resrc> &x_in) -> void {
         tools::time_event performance("kronmult - preconditioner", pc.size());
-        apply_diagonal_precond(pc, dt, x_in);
+         apply_diagonal_precond(pc, dt, x_in);
       },
       restart, max_iter, tolerance, ops.verbosity);
 }

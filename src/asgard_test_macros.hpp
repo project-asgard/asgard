@@ -64,6 +64,8 @@ std::string prepend_type(std::string const &name) {
     return "(double) " + name;
   } else if constexpr (std::is_same_v<P, float>) {
     return "(float) " + name;
+  } else if constexpr (std::is_same_v<P, int>) {
+    return "(int) " + name;
   } else {
     return name;
   }

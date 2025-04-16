@@ -103,6 +103,10 @@ option (ASGARD_USE_TIMER "Enable the builtin profiling tool" ON)
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "(incomplete) Build the documentation." OFF)
 
+if (ASGARD_USE_MPI)
+  message(FATAL_ERROR "Distributed MPI capabilities are temporarily disabled during the transition to the new API")
+endif()
+
 if (ASGARD_USE_TIMER)
   if (ASGARD_USE_MPI)
     option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" ON)
@@ -111,17 +115,11 @@ if (ASGARD_USE_TIMER)
   endif()
 endif()
 
-if (NOT ASGARD_USE_MPI AND ASGARD_USE_CUDA)
-  message(FATAL_ERROR "CUDA has been temporarily disabled for the non-mpi mode")
-endif()
-
 if (ASGARD_RECOMMENDED_DEFAULTS)
   # add compiler flags we always want to use
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")
   # Improves CPU knonmult performance but adds additional compilation time.
-  if (NOT ASGARD_USE_CUDA)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
-  endif ()
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
 endif ()
 
 if (ASGARD_USE_GPU_MEM_LIMIT AND NOT ASGARD_USE_CUDA)

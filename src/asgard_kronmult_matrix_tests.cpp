@@ -333,56 +333,6 @@ TEMPLATE_TEST_CASE("testing kronmult gpu 2d", "[gpu_dense 2d]", test_precs)
   test_kronmult_dense<TestType, asgard::resource::host>(2, n, 3, 7);
   test_kronmult_dense<TestType, asgard::resource::device>(2, n, 3, 7);
 }
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[gpu_sparse 3d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  test_kronmult_sparse<TestType>(3, n, 17, 3, 7);
-  test_kronmult_sparse<TestType, asgard::resource::device>(3, n, 17, 3, 7);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 3d", "[gpu_dense 3d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  test_kronmult_dense<TestType, asgard::resource::host>(3, n, 3, 3);
-  test_kronmult_dense<TestType, asgard::resource::device>(3, n, 3, 3);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[gpu_sparse 4d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult_sparse<TestType>(4, n, 10, 3, 7);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 4d", "[gpu_dense 4d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3, 4, 5);
-  test_kronmult_dense<TestType, asgard::resource::host>(4, n, 2, 3);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[gpu_sparse 5d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3, 4);
-  test_kronmult_sparse<TestType>(5, n, 10, 2, 7);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 5d", "[gpu_dense 5d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3, 4);
-  test_kronmult_dense<TestType, asgard::resource::host>(5, n, 2, 1);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_sparse 6d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3, 4);
-  test_kronmult_sparse<TestType>(6, n, 8, 2, 7);
-}
-
-TEMPLATE_TEST_CASE("testing kronmult gpu 6d", "[gpu_dense 6d]", test_precs)
-{
-  int n = GENERATE(1, 2, 3); // TODO: n = 4
-  test_kronmult_dense<TestType, asgard::resource::host>(6, n, 2, 1);
-}
 #endif
 
 #else

@@ -28,9 +28,9 @@
 
 #define ASGARD_NUM_QUADRATURE @ASGARD_NUM_QUADRATURE@
 
-#ifndef ASGARD_USE_MPI
+// #ifndef ASGARD_USE_MPI
 #define KRON_MODE_GLOBAL
-#endif
+// #endif
 
 // fixed variables, maybe adjust later using CMake
 // for now, we can keep project-wide constants here
