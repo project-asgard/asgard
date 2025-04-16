@@ -327,10 +327,9 @@ void gen_diag_cmat_pwc(legendre_basis<P> const &basis, int level,
 template<typename P, operation_type optype,
          pterm_dependence depends = pterm_dependence::none>
 void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
-                   sfixed_func1d<P> const &rhs, sfixed_func1d_f<P> const &rhs_f,
+                   sfixed_func1d<P> const &rhs, rhs_raw_data<P> &rhs_raw,
                    block_diag_matrix<P> &coeff)
 {
-  ignore(rhs_f);
   static_assert(optype == operation_type::volume,
                 "only volume matrices should be used to create volume terms");
 
@@ -340,24 +339,20 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   int const nblock = basis.pdof * basis.pdof;
   coeff.resize_and_zero(nblock, num_cells);
 
-  // if not using a constant rhs, get the values from the function
-  static std::vector<P> rhs_pnts;
-  static std::vector<P> rhs_raw;
-
   span2d<P> rhs_vals;
   if constexpr (depends == pterm_dependence::none) {
-    rhs_pnts.resize(basis.num_quad * num_cells);
-    rhs_raw.resize(rhs_pnts.size());
+    rhs_raw.pnts.resize(basis.num_quad * num_cells);
+    rhs_raw.vals.resize(rhs_raw.pnts.size());
 #pragma omp parallel for
     for (int i = 0; i < num_cells; i++) {
       P const l = xleft + i * dx; // left edge of cell i
       for (int k = 0; k < basis.num_quad; k++)
-        rhs_pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
+        rhs_raw.pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
     }
     // right most cell
-    rhs(rhs_pnts, rhs_raw);
+    rhs(rhs_raw.pnts, rhs_raw.vals);
 
-    rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.data());
+    rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.vals.data());
   }
 
 #pragma omp parallel

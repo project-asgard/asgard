@@ -168,8 +168,9 @@ void test_volume_matrix()
         fx[i] = -3.5;
     };
 
+  rhs_raw_data<P> dummy;
   gen_diag_cmat<P, operation_type::volume>(
-      basis, 0, 1, level, cc, nullptr, mat);
+      basis, 0, 1, level, cc, dummy, mat);
 
   for (int i = 0; i < 8; i++) {
     std::vector<P> ref = {-3.5, 0, 0, 0, -3.5, 0, 0, 0, -3.5};

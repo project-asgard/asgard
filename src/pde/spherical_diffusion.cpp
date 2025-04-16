@@ -63,10 +63,13 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
   using term_div      = asgard::term_div<P>;
   using term_grad     = asgard::term_grad<P>;
   using term_1d       = asgard::term_1d<P>;
+  using term_md       = asgard::term_md<P>;
+  using boundary_flux = asgard::boundary_flux<P>;
 
   options.title = "Spherical Diffusion 2D";
 
-  asgard::pde_domain<P> domain({{0.0, 0.860333589019379762483893424}, {0.0, PI}});
+  //asgard::pde_domain<P> domain({{0.0, 0.860333589019379762483893424}, {0.0, PI}});
+  asgard::pde_domain<P> domain({{0.0, 1}, {0.0, PI}});
   domain.set_names({"r", "theta"});
 
   // setting some default options
@@ -135,8 +138,37 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
 
     // the volume term is exactly the same as the mass matrix
     // applying the inverse of the mass matrix will yield an identity term
+    //   -- using an identity term will reduce the computational cost
+    //      but that means we have to manually add the volume Jacobian to the theta
+    //      component of the boundary conditions
+    //      since identity will not have volume Jacobian information
+    //   -- using a non-identity term will increase the computational cost
+    //      there is no need to worry about volume Jacobian term in theta
 
-    pde += {div_grad_dr, term_identity{}};
+    term_md drr({div_grad_dr, term_volume{vec_dtheta}});
+
+    // setting up the inhomogeneous Neumann condition on the right
+    // since the components of the boundary function are multiplied by the term coefficients
+    // there is no need to add the volume Jacobian
+
+    // setting the fixed condition for r, leaving dummy value of 1 in theta direction
+    asgard::separable_func<P> boundary_func({std::cos(P{1}) - std::sin(P{1}), 1},
+                                            [](P t)->P{ return std::exp(-t); });
+    // setting the boundary condition for theta
+    boundary_func.set_fdomain(1,
+        [&](std::vector<P> const &th, P, std::vector<P> &fth)
+              -> void {
+              for (size_t i = 0; i < th.size(); i++)
+                fth[i] = std::cos(th[i]);
+            });
+
+    // set the function as right-boundary flux
+    boundary_flux bc = asgard::right_boundary_flux{boundary_func};
+    // see the example of the elliptic equation regarding the chain levels
+    bc.chain_level(0);
+
+    // add the boundary condition to the term and add the term to the pde
+    pde += drr += bc;
   }
 
   {
@@ -230,7 +262,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // using the fact that the initial condition is the exact solution
   std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
 
-  double constexpr space = 0.209526877839756;
+  // double constexpr space = 0.209526877839756;
+  double constexpr space = 0.276919039487987;
   double const time_val  = std::exp(-disc.time_params().time());
 
   // this is the L^2 norm-squared of the exact solution

@@ -616,8 +616,6 @@ void term_manager<P>::rebuld_term1d(
     boundary_entry<P> &bentry = bcs[b];
     if (not bentry.consts[dim].empty()) {
       // will be empty if non-flux direction and non-separable in time
-      if (bmass)
-        bmass->solve(n, bentry.consts[dim]);
       hier.project1d(level, bentry.consts[dim]);
     }
   }
@@ -687,7 +685,7 @@ void term_manager<P>::build_raw_mat(
         default:
           if (t1d.rhs()) {
             gen_diag_cmat<P, operation_type::volume>
-              (legendre, xleft[d], xright[d], level, t1d.rhs(), nullptr, raw_diag);
+              (legendre, xleft[d], xright[d], level, t1d.rhs(), raw_rhs, raw_diag);
           } else {
             gen_diag_cmat<P, operation_type::volume>
               (legendre, level, t1d.rhs_const(), raw_diag);
@@ -793,6 +791,10 @@ void term_manager<P>::build_raw_mat(
                         bentry.consts[d].data() + num_entries - pdof);
           }
         }
+
+        if (bmass)
+          bmass->solve(pdof, bentry.consts[d]);
+
       } else {
         if (bentry.is_time_dependent()) // no constant components to pre-compute
           continue;
@@ -821,6 +823,9 @@ void term_manager<P>::build_raw_mat(
             bentry.consts[d] = legendre.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
           }
         }
+
+        if (bmass)
+          bmass->solve(legendre.pdof, bentry.consts[d]);
       }
     } // if the bentry is associated with a higher link, then do nothing here
   }
@@ -835,7 +840,7 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 
   if (t1d.rhs()) {
     gen_diag_cmat<P, operation_type::volume>
-      (legendre, xleft[dim], xright[dim], level, t1d.rhs(), nullptr, raw_diag);
+      (legendre, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
   } else {
     gen_diag_cmat<P, operation_type::volume>
       (legendre, level, t1d.rhs_const(), raw_diag);
