@@ -58,7 +58,6 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
 #endif
 
   // selectively pull from the asgard namespace
-  using term_identity = asgard::term_identity;
   using term_volume   = asgard::term_volume<P>;
   using term_div      = asgard::term_div<P>;
   using term_grad     = asgard::term_grad<P>;
@@ -68,7 +67,6 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
 
   options.title = "Spherical Diffusion 2D";
 
-  //asgard::pde_domain<P> domain({{0.0, 0.860333589019379762483893424}, {0.0, PI}});
   asgard::pde_domain<P> domain({{0.0, 1}, {0.0, PI}});
   domain.set_names({"r", "theta"});
 
