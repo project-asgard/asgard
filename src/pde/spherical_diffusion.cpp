@@ -165,7 +165,7 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
     // set the function as right-boundary flux
     boundary_flux bc = asgard::right_boundary_flux{boundary_func};
     // see the example of the elliptic equation regarding the chain levels
-    bc.chain_level(0);
+    bc.chain_level(0) = 0;
 
     // add the boundary condition to the term and add the term to the pde
     pde += drr += bc;
@@ -262,7 +262,6 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // using the fact that the initial condition is the exact solution
   std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
 
-  // double constexpr space = 0.209526877839756;
   double constexpr space = 0.276919039487987;
   double const time_val  = std::exp(-disc.time_params().time());
 
