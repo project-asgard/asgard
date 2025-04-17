@@ -174,22 +174,22 @@ std::vector<P> legendre_basis<P>::project(
 
   span2d<P const> raw1;
   if (is_interior)
-    raw1 = span2d<P const>(pdof, num_cells, raw_data1.data());
+    raw1 = span2d<P const>(num_quad, num_cells, raw_data1.data());
   else
-    raw1 = span2d<P const>(pdof + 1, num_cells, raw_data1.data() + 1);
+    raw1 = span2d<P const>(num_quad + 1, num_cells, raw_data1.data() + 1);
 
   span2d<P> raw2;
   if (is_interior)
-    raw2 = span2d<P>(pdof, num_cells, raw_data2.data());
+    raw2 = span2d<P>(num_quad, num_cells, raw_data2.data());
   else
-    raw2 = span2d<P>(pdof + 1, num_cells, raw_data2.data() + 1);
+    raw2 = span2d<P>(num_quad + 1, num_cells, raw_data2.data() + 1);
 
   std::vector<P> lgn(num_cells * pdof);
   span2d<P> leg_basis(pdof, num_cells, lgn.data());
 
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int i = 0; i < num_cells; i++) {
-    for (int p = 0; p < pdof; p++)
+    for (int p = 0; p < num_quad; p++)
       raw2[i][p] *= raw1[i][p];
     smmat::gemtv(num_quad, pdof, legw, raw2[i], leg_basis[i]);
     smmat::scal(pdof, dsqrt, leg_basis[i]);

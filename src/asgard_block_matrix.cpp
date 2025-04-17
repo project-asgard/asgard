@@ -9,25 +9,13 @@ void dense_matrix<P>::factorize()
 {
   tools::time_event timing_("dense-matrix::factorize");
   expect(nrows_ == ncols_);
-  ipiv.resize(nrows_);
-  int info = lib_dispatch::getrf(nrows_, ncols_, data_.data(), nrows_,
-                                 ipiv.data());
 
-  if (info != 0)
-  {
-    std::stringstream sout;
-    if (info < 0)
-    {
-      sout << "getrf(): the " << -info << "-th parameter had an illegal value!\n";
-    }
-    else
-    {
-      sout << "getrf(): the diagonal element of the triangular factor of A,\n";
-      sout << "U(" << info << ',' << info << ") is zero, so that A is singular;\n";
-      sout << "the matrix could not be factorized.\n";
-    }
-    throw std::runtime_error(sout.str());
-  }
+  #ifdef ASGARD_USE_CUDA
+  gpu_factor = data_;
+  compute->getrf(nrows_, gpu_factor, gpu_ipiv);
+  #else
+  compute->getrf(nrows_, data_, ipiv);
+  #endif
 }
 
 template<typename P>
@@ -35,10 +23,24 @@ void dense_matrix<P>::solve(std::vector<P> &b) const
 {
   tools::time_event timing_("dense-matrix::solve");
   expect(is_factorized());
-  int info = lib_dispatch::getrs('N', nrows_, 1, data_.data(), nrows_,
-                                  ipiv.data(), b.data(), nrows_);
-  expect(info == 0);
+
+  #ifdef ASGARD_USE_CUDA
+  compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
+  #else
+  compute->getrs(nrows_, data_, ipiv, b);
+  #endif
 }
+
+#ifdef ASGARD_USE_CUDA
+template<typename P>
+void dense_matrix<P>::solve(gpu::vector<P> &b) const
+{
+  tools::time_event timing_("dense-matrix::solve");
+  expect(is_factorized());
+
+  compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
+}
+#endif
 
 template<typename P>
 void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, block_matrix<P> &C)

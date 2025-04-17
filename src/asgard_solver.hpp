@@ -110,7 +110,7 @@ private:
 
     rhs.resize(nnodes);
 
-    fm::pttrf(diag, subdiag);
+    compute->pttrf(diag, subdiag);
   }
 
   int degree = -1;

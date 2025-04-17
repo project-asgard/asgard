@@ -345,11 +345,11 @@ public:
     }
   }
   //! set a function that is constant throughout the domain but has a time component
-  separable_func(std::vector<P> fdomain, scalar_func<P> f_time)
+  separable_func(std::vector<P> cdomain, scalar_func<P> f_time)
     : time_func_(std::move(f_time))
   {
-    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
-    std::copy(fdomain.begin(), fdomain.end(), consts_.begin());
+    expect(static_cast<int>(cdomain.size()) <= max_num_dimensions);
+    std::copy(cdomain.begin(), cdomain.end(), consts_.begin());
   }
   //! set a function that is constant throughout the domain but has a time component
   separable_func(std::vector<P> const &fdomain)

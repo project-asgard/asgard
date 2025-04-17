@@ -1099,17 +1099,19 @@ void block_global_kron_matrix<precision>::apply(
     std::vector<block_sparse_matrix<precision>> const &tcoeffs,
     std::vector<int> const &used_terms, precision alpha, precision *y) const
 {
-  std::fill_n(workspace_->y.begin(), num_padded_, precision{0});
+  if constexpr (rec == resource::host) {
+    std::fill_n(workspace_->y.begin(), num_padded_, precision{0});
 
-  kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
-                       perms_, flux_dir_, *conn_volumes_, *conn_full_,
-                       tcoeffs, used_terms, workspace_->x.data(),
-                       workspace_->y.data(), *workspace_);
+    kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
+                        perms_, flux_dir_, *conn_volumes_, *conn_full_,
+                        tcoeffs, used_terms, workspace_->x.data(),
+                        workspace_->y.data(), *workspace_);
 
-  precision const *py = workspace_->y.data();
-#pragma omp parallel for
-  for (int64_t i = 0; i < num_active_; i++)
-    y[i] += alpha * py[i];
+    precision const *py = workspace_->y.data();
+  #pragma omp parallel for
+    for (int64_t i = 0; i < num_active_; i++)
+      y[i] += alpha * py[i];
+  }
 }
 
 template<typename precision>
@@ -1194,6 +1196,9 @@ template class block_global_kron_matrix<double>;
 template void block_global_kron_matrix<double>::apply<resource::host>(
     std::vector<block_sparse_matrix<double>> const &, std::vector<int> const &,
     double, double *) const;
+template void block_global_kron_matrix<double>::apply<resource::device>(
+    std::vector<block_sparse_matrix<double>> const &, std::vector<int> const &,
+    double, double *) const;
 
 template block_global_kron_matrix<double>
 make_block_global_kron_matrix<double>(PDE<double> const &,
@@ -1237,6 +1242,9 @@ template void build_preconditioner(
 template class block_global_kron_matrix<float>;
 
 template void block_global_kron_matrix<float>::apply<resource::host>(
+    std::vector<block_sparse_matrix<float>> const &, std::vector<int> const &,
+    float, float *) const;
+template void block_global_kron_matrix<float>::apply<resource::device>(
     std::vector<block_sparse_matrix<float>> const &, std::vector<int> const &,
     float, float *) const;
 

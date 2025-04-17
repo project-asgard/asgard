@@ -45,7 +45,11 @@ public:
   P const *data(int64_t r, int64_t c) const { return &data_[c * nrows_ + r]; }
 
   //! shows if the matrix has been factorized
+  #ifdef ASGARD_USE_GPU
+  bool is_factorized() const { return (not ipiv.empty() or not gpu_ipiv.empty()); }
+  #else
   bool is_factorized() const { return (not ipiv.empty()); }
+  #endif
   //! factorize the matrix using plu
   void factorize();
 
@@ -54,6 +58,10 @@ public:
 
   //! applies the inverse of the matrix to the provided vector
   void solve(std::vector<P> &b) const;
+  #ifdef ASGARD_USE_GPU
+  //! applies the inverse of the matrix to the provided vector
+  void solve(gpu::vector<P> &b) const;
+  #endif
 
   //! (testing) writes the the matric to the scream
   void print(std::ostream &os = std::cout) {
@@ -69,6 +77,10 @@ private:
   int64_t ncols_ = 0;
   std::vector<P> data_;
   std::vector<int> ipiv;
+  #ifdef ASGARD_USE_GPU
+  gpu::vector<P> gpu_factor;
+  gpu::vector<int> gpu_ipiv;
+  #endif
 };
 
 /*!
