@@ -18,14 +18,22 @@
  *
  * \par Spherical diffusion equation
  * Solves the spherical diffusion equation
- * \f[ \frac{\partial}{\partial t} f + \delta \cdot f = s \f]
- *
+ * \f[ \frac{\partial}{\partial t} f -
+ *    \frac{1}{r^2} \frac{\partial}{\partial r} \left( r^2 \frac{\partial f }{\partial r} \right)
+ *    - \frac{1}{r^2 \sin(\theta)} \frac{\partial}{\partial \theta}
+ *    \left( \sin(\theta) \frac{\partial f}{\partial \theta} \right) = s \f]
+ * where the operator is the Laplacian in spherical coordinates and the source
+ * is chosen so that
+ * \f[ f(t, r, \theta) = \exp(-t) r \cos(r) \cos(\theta) \f]
+ * Due to the volume Jacobian that needs to be incorporated in all integrals,
+ * even though the basis functions are orthonormal, the mass matrix for this
+ * problem is no longer identity.
+ * The explicit inversion of the matrix is computationally cheap, since it can be done in
+ * the non-hierarchical block-diagonal form.
  *
  * \par
- * This example shows how to apply a volume Jacobian to the discretization scheme,
- * which will result in a non-trivial (non-identity) mass matrix and all terms
- * functions, sources and initial conditions need to be multiplied by
- * the corresponding volume terms.
+ * The purpose of this example is to show how to incorporate volume Jacobian
+ * and non-trivial mass matrix into the discretization scheme.
  */
 
 /*!
@@ -324,7 +332,7 @@ int main(int argc, char** argv)
   // this file and the two additional options accepted for this problem
   if (options.show_help) {
     std::cout << "\n solves the spherical diffusion equation:\n";
-    std::cout << "    f_t - div . grad f = s(t, x)\n";
+    std::cout << "    f_t - Laplacian(f) = s(t, r, theta)\n";
     std::cout << " using spherical coordinate system \n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
