@@ -212,6 +212,12 @@ public:
     terms.template apply_sources<data_mode::scal_inc>(gid, pde2.domain(), sgrid, conn, hier, time, alpha, src);
   }
 
+  //! computes the l-2 norm, taking the mass matrix into account
+  precision normL2(std::vector<precision> const &x) const {
+    expect(x.size() == state.size());
+    return terms.normL2(sgrid, conn, x);
+  }
+
   //! applies all terms
   void terms_apply_all(precision alpha, std::vector<precision> const &x, precision beta,
                        std::vector<precision> &y) const

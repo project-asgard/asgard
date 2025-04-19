@@ -165,7 +165,8 @@ struct term_manager
    * conditions and then repeatedly passed into every single call here.
    */
   term_manager(PDEv2<P> &pde, sparse_grid const &grid,
-               hierarchy_manipulator<P> const &hier);
+               hierarchy_manipulator<P> const &hier,
+               connection_patterns const &conn);
 
   int num_dims = 0;
   int max_level = 0;
@@ -173,11 +174,16 @@ struct term_manager
   bool sources_have_time_dep = false;
   bool bcs_have_time_dep     = false;
 
+  //! definition of the mass matrix, usually used in inverse
   mass_md<P> mass_term;
-  // loaded to the max_level, done once and not changed
+  //! loaded to the max_level, done once and not changed
   std::array<block_diag_matrix<P>, max_num_dimensions> mass;
-  // loaded to the current level, updated as needed
+  //! loaded to the current level, updated as needed
   std::array<block_diag_matrix<P>, max_num_dimensions> lmass;
+  //! not factorized for direct application
+  std::array<block_sparse_matrix<P>, max_num_dimensions> mass_forward;
+  //! mass permutes for kronmult
+  kronmult::permutes mass_perm;
 
   //! all terms, chains are serialized and marked
   std::vector<term_entry<P>> terms;
@@ -237,15 +243,21 @@ struct term_manager
       buld_term(t, grid, conn, hier, precon, alpha);
   }
   //! build the large matrices to the max level
-  void build_mass_matrices()
+  void build_mass_matrices(hierarchy_manipulator<P> const &hier,
+                           connection_patterns const &conn)
   {
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
+      std::vector<int> active_dirs;
+      active_dirs.reserve(num_dims);
       for (int d : iindexof(num_dims))
         if (not mass_term[d].is_identity()) {
           build_raw_mass(d, mass_term[d], max_level, mass[d]);
+          mass_forward[d] = hier.diag2hierarchical(mass[d], max_level, conn);
           mass[d].spd_factorize(legendre.pdof);
+          active_dirs.push_back(d);
         }
+      mass_perm = kronmult::permutes(active_dirs);
     }
   }
   //! rebuild the small matrices to the current level for the grid
@@ -320,8 +332,14 @@ struct term_manager
     workspace_grid_gen = grid.generation();
   }
 
+  //! apply the mass matrix
+  void mass_apply(sparse_grid const &grid, connection_patterns const &conns,
+                  P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+  //! compute the inner product < x, mass * x >
+  P normL2(sparse_grid const &grid, connection_patterns const &conns,
+           std::vector<P> const &x) const;
   //! y = sum(terms * x), applies all terms
-  void apply_all(sparse_grid const &grid, connection_patterns const &conns,
+  void apply_all(sparse_grid const &grid, connection_patterns const &conn,
                  P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
   //! y = sum(terms * x), applies all terms
   void apply_all(sparse_grid const &grid, connection_patterns const &conns,

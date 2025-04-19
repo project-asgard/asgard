@@ -60,7 +60,7 @@ void self_test();
  * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
  *          removed in the near future
  *
- * \snippet sod_shock.cpp asgard_examples_vplb make
+ * \snippet sod_shock.cpp asgard_examples_sodshock make
  */
 template<typename P = asgard::default_precision>
 asgard::PDEv2<P> make_sod(int vdims, asgard::prog_opts options) {
