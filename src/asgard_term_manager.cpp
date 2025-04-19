@@ -71,7 +71,8 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
 
 template<typename P>
 term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
-                              hierarchy_manipulator<P> const &hier)
+                              hierarchy_manipulator<P> const &hier,
+                              connection_patterns const &conn)
   : num_dims(pde.num_dims()), max_level(pde.max_level()), legendre(pde.degree())
 {
   if (num_dims == 0)
@@ -203,7 +204,7 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     xright[d] = pde.domain().xright(d);
   }
 
-  build_mass_matrices(); // large, up to max-level
+  build_mass_matrices(hier, conn); // large, up to max-level
   rebuild_mass_matrices(grid); // small, up to the current level
 
   std::vector<separable_func<P>> &sep = pde.sources_sep_;
@@ -997,6 +998,44 @@ void term_manager<P>::rebuld_chain(
                     bentry.consts[d].data() + num_entries - pdof);
       }
     }
+  }
+}
+
+template<typename P>
+void term_manager<P>::mass_apply(
+    sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const
+{
+  if (beta == 0) {
+    y.resize(x.size());
+  } else {
+    expect(y.size() == x.size());
+  }
+  if (mass_term) {
+    block_cpu(legendre.pdof, grid, conns, mass_perm, mass_forward,
+              alpha, x.data(), beta, y.data(), kwork);
+  } else {
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < x.size(); i++)
+      y[i] = alpha * x[i] + beta * y[i];
+  }
+}
+template<typename P>
+P term_manager<P>::normL2(
+    sparse_grid const &grid, connection_patterns const &conns,
+    std::vector<P> const &x) const
+{
+  if (mass_term) {
+    mass_apply(grid, conns, 1, x, 0, t1);
+    P nrm = 0;
+    for (size_t i = 0; i < x.size(); i++)
+      nrm += x[i] * t1[i];
+    return std::sqrt(nrm);
+  } else {
+    P nrm = 0;
+    for (size_t i = 0; i < x.size(); i++)
+      nrm += x[i] * x[i];
+    return std::sqrt(nrm);
   }
 }
 

@@ -18,14 +18,22 @@
  *
  * \par Spherical diffusion equation
  * Solves the spherical diffusion equation
- * \f[ \frac{\partial}{\partial t} f + \delta \cdot f = s \f]
- *
+ * \f[ \frac{\partial}{\partial t} f -
+ *    \frac{1}{r^2} \frac{\partial}{\partial r} \left( r^2 \frac{\partial f }{\partial r} \right)
+ *    - \frac{1}{r^2 \sin(\theta)} \frac{\partial}{\partial \theta}
+ *    \left( \sin(\theta) \frac{\partial f}{\partial \theta} \right) = s \f]
+ * where the operator is the Laplacian in spherical coordinates and the source
+ * is chosen so that
+ * \f[ f(t, r, \theta) = \exp(-t) r \cos(r) \cos(\theta) \f]
+ * Due to the volume Jacobian that needs to be incorporated in all integrals,
+ * even though the basis functions are orthonormal, the mass matrix for this
+ * problem is no longer identity.
+ * The explicit inversion of the matrix is computationally cheap, since it can be done in
+ * the non-hierarchical block-diagonal form.
  *
  * \par
- * This example shows how to apply a volume Jacobian to the discretization scheme,
- * which will result in a non-trivial (non-identity) mass matrix and all terms
- * functions, sources and initial conditions need to be multiplied by
- * the corresponding volume terms.
+ * The purpose of this example is to show how to incorporate volume Jacobian
+ * and non-trivial mass matrix into the discretization scheme.
  */
 
 /*!
@@ -257,28 +265,38 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 //! [asgard_spherical_diffusion get-err]
 #endif
 
+  // the discrete l2 norm and the continuous L2 norm are different but connected
+  // the L2 norm is induced by the positive-definite mass-matrix
+  // the wavelet basis used by ASGarD is orthonormal
+  // therefore the mass-matrix in Cartesian coordinates is the identity
+  // and both L2 and l2 norms are the same
+  // using spherical coordinates, the mass-matrix is non-trivial
+
+  // ASGarD normL2() method computes the continuous L2 norm
+  // but the difference between the error vector must be formed explicitly
+
   // using the fact that the initial condition is the exact solution
+  // form the projection of the exact solution
   std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
 
-  double constexpr space = 0.276919039487987;
-  double const time_val  = std::exp(-disc.time_params().time());
-
   // this is the L^2 norm-squared of the exact solution
-  // powi works the same as std::pow but the second input is an integer
-  double const enorm = space * time_val * time_val;
+  double constexpr space = 0.245458116975280;
+  double const enorm = space * std::exp(-disc.time_params().time());
 
+  // this is the currently computed solution
   std::vector<P> const &state = disc.current_state();
+
+  // this will always hold true
   assert(eref.size() == state.size());
 
-  double nself = 0;
-  double ndiff = 0;
+  // form the difference vector
+  std::vector<P> err(state.size());
   for (size_t i = 0; i < state.size(); i++)
-  {
-    double const e = eref[i] - state[i];
-    ndiff += e * e;
-    double const r = eref[i];
-    nself += r * r;
-  }
+    err[i] = eref[i] - state[i];
+
+  // computing the L2 norm of the difference and expected vectors
+  double const nself = disc.normL2(eref);
+  double const ndiff = disc.normL2(err);
 
   // in other examples, the enorm is the "exact-norm" or norm of the exact solution
   // the nself is the norm of the computed solution and due to the orthogonal
@@ -286,8 +304,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // here, we have the extra step of the application of the mass-matrix,
   // which can lead to nself exceeding enorm
 
-  // the solution decays exponentially, stick to relative error
-  return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
+  return std::sqrt((ndiff * ndiff + std::abs(enorm * enorm - nself * nself))) / enorm;
+
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [asgard_spherical_diffusion get-err]
 #endif
@@ -324,7 +342,7 @@ int main(int argc, char** argv)
   // this file and the two additional options accepted for this problem
   if (options.show_help) {
     std::cout << "\n solves the spherical diffusion equation:\n";
-    std::cout << "    f_t - div . grad f = s(t, x)\n";
+    std::cout << "    f_t - Laplacian(f) = s(t, r, theta)\n";
     std::cout << " using spherical coordinate system \n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
@@ -403,7 +421,7 @@ void dotest(double tol, std::string const &opts) {
 void self_test() {
   all_tests testing_("spherical diffusion");
 
-  // the convergence rate is slow due to bad conditioning
+  // the convergence rate is slow due to ill-conditioning
 
 #ifdef ASGARD_ENABLE_DOUBLE
   dotest<double>(5.E-3, "-l 4 -dt 0.01");

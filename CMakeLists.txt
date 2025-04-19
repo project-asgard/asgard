@@ -152,7 +152,7 @@ endif()
 ###############################################################################
 
 set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic sinwav two_stream vplb sod_shock")
-set (_asgard_int_pdes mass_internal varcoeff_internal bound_internal relaxation_internal)
+set (_asgard_int_pdes varcoeff_internal bound_internal relaxation_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}")
 separate_arguments(_asgard_doc_pdes)
