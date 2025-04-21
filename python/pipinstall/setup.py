@@ -7,7 +7,7 @@ from skbuild.exceptions import SKBuildError
 from skbuild.cmaker import get_cmake_version
 from skbuild import setup  # This line replaces 'from setuptools import setup'
 
-asg_ver = '0.7.0a6'
+asg_ver = '0.7.0a7'
 
 # Add CMake as a build requirement if cmake is not installed or too old
 setup_requires = []
@@ -68,6 +68,7 @@ cmake_args=[
         '-DASGARD_BUILD_TESTS=OFF',
         '-DASGARD_USE_MPI=OFF',
         '-DASGARD_PRECISIONS=double',
+        '-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON'
         ]
 
 if isosxframework:

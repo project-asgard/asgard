@@ -89,7 +89,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
 
   // setting some default options
   options.default_degree = 2;
-  options.default_start_levels = {5,};
+  options.default_start_levels = {6, 7};
 
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;
@@ -282,11 +282,6 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
   size_t n = state.size();
   for (size_t i = 0; i < n; i++)
     proj_max[i] -= state[i];
-
-  P s = 0;
-  for (auto p : proj_max) s += p * p;
-
-  std::cout << " nrm = " << std::sqrt(s) << "\n";
 
   return proj_max;
 

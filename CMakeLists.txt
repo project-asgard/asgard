@@ -543,8 +543,11 @@ endif ()
 foreach (_asgexe IN LISTS _asgard_pdes)
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
-    install(TARGETS ${_asgexe} RUNTIME DESTINATION "share/asgard/pde")
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp" DESTINATION "share/asgard/examples")
+    if (${_asgexe} IN_LIST _asgard_doc_pdes)
+        install(TARGETS ${_asgexe} RUNTIME DESTINATION "share/asgard/pde")
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp"
+                DESTINATION "share/asgard/examples")
+    endif()
 endforeach()
 
 #-------------------------------------------------------------------------------
