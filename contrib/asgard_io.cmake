@@ -57,7 +57,7 @@ if (ASGARD_USE_HIGHFIVE)
   else() # not building HDF5, using the find-package
 
     find_package (HDF5 REQUIRED)
-    target_link_libraries (asgard_hdf5 INTERFACE hdf5::hdf5)
+    target_link_libraries (asgard_hdf5 INTERFACE HDF5::HDF5)
 
   endif ()
 
