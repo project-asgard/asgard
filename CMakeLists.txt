@@ -431,6 +431,7 @@ set(asgard_components
     compute
     discretization
     indexset
+    interp
     moment
     pde
     pde_functions
