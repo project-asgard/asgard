@@ -53,8 +53,8 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard_reconstruct.hpp
                  src/asgard_dimension.hpp
                  src/pde/asgard_pde_base.hpp
-                 examples/inputs_1d.cpp
                  examples/continuity_2d.cpp
+                 examples/inputs_1d.cpp
                  src/pde/continuity.cpp
                  src/pde/diffusion.cpp
                  src/pde/elliptic.cpp
