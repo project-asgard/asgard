@@ -90,6 +90,8 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   // setting some default options
   options.default_degree = 2;
   options.default_start_levels = {6, 7};
+  for (int v = 1; v < vdims; v++)
+    options.default_start_levels.emplace_back(7);
 
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;

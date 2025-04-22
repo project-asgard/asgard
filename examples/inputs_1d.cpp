@@ -12,9 +12,9 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_input_1d Example: Simple 1D equation
+ * \addtogroup asgard_examples_input_1d Example: Handling inputs file
  *
- * \par Simple 1D equation
+ * \par Handling inputs file
  * Solves the continuity partial differential equation
  * \f[ \frac{\partial}{\partial t} f + \frac{\partial}{\partial x} f = s \f]
  * where both \b f and \b s are defined over domain
@@ -36,7 +36,7 @@
  * \brief Default precision for this example, favors double-precision
  *
  * if ASGarD is compiled with double precision, this defaults to double
- * if only single precision is avaiable, this will be float
+ * if only single precision is available, this will be float
  */
 using precision = asgard::default_precision;
 
@@ -74,17 +74,6 @@ int main(int argc, char **argv)
   // raise an error if unknown command line arguments are present
   options.throw_if_invalid();
 
-  // we expect to find a file with "number of waves" defined in it
-  std::optional<int> opt_num_waves = options.file_value<int>("number of waves");
-  if (not opt_num_waves)
-    throw std::runtime_error("inputs_1d needs an input file with "
-                             "the 'number of waves' defined in it");
-
-  // alternative to the check above
-  // int const num_waves = options.file_required<int>("number of waves");
-  // the "file_required" method will throw if the value is missing
-  int const num_waves = opt_num_waves.value();
-
   // if the user asks for help, print a description of this file
   // and the accepted command line options
   if (options.show_help) {
@@ -96,6 +85,17 @@ int main(int argc, char **argv)
     options.print_help(std::cout);
     return 0;
   }
+
+  // we expect to find a file with "number of waves" defined in it
+  std::optional<int> opt_num_waves = options.file_value<int>("number of waves");
+  if (not opt_num_waves)
+    throw std::runtime_error("inputs_1d needs an input file with "
+                             "the 'number of waves' defined in it");
+
+  // alternative to the check above
+  // int const num_waves = options.file_required<int>("number of waves");
+  // the "file_required" method will throw if the value is missing
+  int const num_waves = opt_num_waves.value();
 
   // make the 1d domain
   asgard::pde_domain domain({{-PI * num_waves, PI * num_waves}, });
@@ -115,10 +115,10 @@ int main(int argc, char **argv)
   // RK3 stability region is 0.1
   options.default_dt = 0.5 * 0.1 * dx;
 
-  // the time funcitons cos(t) reaches negative max at PI
+  // the time function cos(t) reaches negative max at PI
   options.default_stop_time = PI;
 
-  // title and subtitle are usefult to keep track of multiple files and problems
+  // title and subtitle are useful to keep track of multiple files and problems
   options.set_default_title("Example inputs 1D");
 
   // creates a pde description

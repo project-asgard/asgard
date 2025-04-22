@@ -35,7 +35,7 @@
  * \brief Default precision for this example, favors double-precision
  *
  * if ASGarD is compiled with double precision, this defaults to double
- * if only single precision is avaiable, this will be float
+ * if only single precision is available, this will be float
  */
 using precision = asgard::default_precision;
 
@@ -50,8 +50,8 @@ precision constexpr PI = asgard::PI;
  * \brief main() for the continuity 2D example
  *
  * Demonstration of simple PDE definition.
- * The file can be used either direcly from the command line
- * or though a proivded simple \ref cont2d_python_code "python driver",
+ * The file can be used either directly from the command line
+ * or though a provided simple \ref cont2d_python_code "python driver",
  * which runs the pde and plots the solution.
  *
  * \snippet continuity_2d.cpp continuity_2d main
@@ -104,10 +104,10 @@ int main(int argc, char** argv)
   // RK3 stability region is 0.1
   options.default_dt = 0.5 * 0.1 * dx;
 
-  // the time funcitons sin(2 * t) reaches peak at PI / 4
+  // the time function sin(2 * t) reaches peak at PI / 4
   options.default_stop_time = PI / 4;
 
-  // title and subtitle are usefult to keep track of multiple files and problems
+  // title and subtitle are useful to keep track of multiple files and problems
   options.set_default_title("Example continuity 2D");
 
   // creates a pde description

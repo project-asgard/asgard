@@ -162,15 +162,15 @@ asgard::PDEv2<P> make_sod(int vdims, asgard::prog_opts options) {
 
   // adding penalty
   double const pen = 10.0 / pde.min_cell_size(1);
-  std::vector<asgard::term_1d<P>> penop = {
-      asgard::term_identity{},
-      asgard::term_penalty<P>(pen, asgard::flux_type::upwind, asgard::boundary_type::none)
-    };
+  asgard::term_1d<P> const term_pen = asgard::term_penalty<P>(
+      pen, asgard::flux_type::upwind, asgard::boundary_type::none);
 
-  for (int v = 1; v < vdims; v++)
-    penop.emplace_back(asgard::term_identity{});
-
-  pde += penop;
+  std::vector<asgard::term_1d<P>> penop(1 + vdims);
+  for (int v = 0; v < vdims; v++) {
+    penop[1 + v] = term_pen;
+    pde += penop;
+    penop[1 + v] = asgard::term_identity{};
+  }
 
   // finished with the terms
 
@@ -291,7 +291,7 @@ int main(int argc, char** argv)
                                          asgard::verbosity_level::high);
 
   // disable the built in status report during time integration
-  disc.set_verbosity(asgard::verbosity_level::quiet);
+  disc.set_verbosity(asgard::verbosity_level::low);
 
   // save the initial condition
   disc.add_aux_field({"initial condition", disc.current_state()});
