@@ -8,7 +8,7 @@ void interp_nodes() {
   P constexpr tol = (std::is_same_v<P, double>) ? 1.E-12 : 1.E-5;
 
   {
-    current_test<P> name_("linear nodes");
+    current_test<P> name_("nodes linear");
 
     int const max_level = 1;
     interpolation_manager1d<P, 1> interp;
@@ -36,7 +36,7 @@ void interp_nodes() {
       tassert(std::abs(r[i] - ref[i]) < tol);
   }
   {
-    current_test<P> name_("quadratic nodes");
+    current_test<P> name_("nodes quadratic");
 
     int const max_level = 1;
     interpolation_manager1d<P, 2> interp(max_level);
@@ -62,7 +62,7 @@ void interp_nodes() {
       tassert(std::abs(r[i] - ref[i]) < tol);
   }
   {
-    current_test<P> name_("cubic nodes");
+    current_test<P> name_("nodes cubic");
 
     int const max_level = 2;
     interpolation_manager1d<P, 3> interp(max_level);
@@ -78,14 +78,34 @@ void interp_nodes() {
     for (auto i : indexof(ref))
       tassert(std::abs(r[i] - ref[i]) < tol);
   }
-
 }
 
-// connect_1d conn(max_level, connect_1d::hierarchy::volume);
+template<typename P>
+void interp_wav2nodal() {
+  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-12 : 1.E-5;
+
+  connect_1d conn;
+
+  {
+    current_test<P> name_("wav2nodal linear");
+
+    int const max_level = 2;
+
+    conn = connect_1d(max_level, connect_1d::hierarchy::volume);
+    wavelet_interp1d<1, P> interp_v1(&conn);
+
+    interpolation_manager1d<P, 1> interp(conn);
+
+    P const *p2n = interp_v1.proj2node();
+    P const *b2  = interp.wav2nodal()[0];
+
+  }
+}
 
 template<typename P>
 void do_all_tests() {
   interp_nodes<P>();
+  interp_wav2nodal<P>();
 }
 
 int main(int, char**) {
