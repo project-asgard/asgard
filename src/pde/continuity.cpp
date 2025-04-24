@@ -244,9 +244,9 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // for small values of enorm, the relative error is artificially magnified
   // switch between relative and absolute error
   if (enorm < 1.E-3)
-    return std::sqrt(ndiff + enorm - nself);
+    return std::sqrt(ndiff + std::abs(enorm - nself));
   else
-    return std::sqrt((ndiff + enorm - nself) / enorm);
+    return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [continuity_md get-err]
 #endif
@@ -505,7 +505,7 @@ void self_test() {
   dotest<float>(0.05,  2, "-l 4 -n 20");
   dotest<float>(0.02,  2, "-l 5 -n 20");
   dotest<float>(0.005, 2, "-l 6 -n 20");
-  dotest<float>(0.001, 2, "-l 7 -n 20");
+  dotest<float>(0.002, 2, "-l 7 -n 20");
 
   dotest<float>(0.8,   2, "-l 5 -d 0 -n 20");
   dotest<float>(0.3,   2, "-l 5 -d 1 -n 20");

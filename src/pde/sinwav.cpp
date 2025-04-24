@@ -210,7 +210,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc)
     nself += r * r;
   }
 
-  return std::sqrt((ndiff + enorm - nself) / enorm);
+  return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [sinwav get-err]
 #endif

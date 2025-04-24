@@ -87,9 +87,9 @@ double get_error_l2(discretization_manager<P> const &disc)
   }
 
   if (enorm < 1.0)
-    return std::sqrt(ndiff + enorm - nself);
+    return std::sqrt(ndiff + std::abs(enorm - nself));
   else
-    return std::sqrt((ndiff + enorm - nself) / enorm);
+    return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 }
 
 void self_test();

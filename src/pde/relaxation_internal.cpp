@@ -246,7 +246,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
     nself += r * r;
   }
 
-  return std::sqrt(ndiff + enorm - nself);
+  return std::sqrt(ndiff + std::abs(enorm - nself));
 }
 
 int main(int argc, char** argv)

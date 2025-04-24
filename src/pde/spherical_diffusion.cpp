@@ -298,12 +298,6 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   double const nself = disc.normL2(eref);
   double const ndiff = disc.normL2(err);
 
-  // in other examples, the enorm is the "exact-norm" or norm of the exact solution
-  // the nself is the norm of the computed solution and due to the orthogonal
-  // projection, the computed norm should be strictly less
-  // here, we have the extra step of the application of the mass-matrix,
-  // which can lead to nself exceeding enorm
-
   return std::sqrt((ndiff * ndiff + std::abs(enorm * enorm - nself * nself))) / enorm;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
