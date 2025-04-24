@@ -23,7 +23,9 @@ void interpolation_manager1d<P, degree>::initialize_nodes(int const max_level)
 
   // follow on levels follow a pattern of jumps in the numerators
   std::array<P, n> const jumps = []() -> std::array<P, n> {
-      if constexpr (degree == 1)
+      if constexpr (degree == 0)
+        return {2, };
+      else if constexpr (degree == 1)
         return {4, 2};
       else if constexpr (degree == 2)
         return {2, 2, 2};
@@ -141,20 +143,58 @@ void interpolation_manager1d<P, degree>::make_wav2nodal(
       apply_w1(wav2nodal_[c], scale); // uses captured x
     }
   }
-
 }
 
+template<typename P>
+vector2d<P> const &interpolation_manager<P>::nodes(
+    sparse_grid const &grid) const
+{
+  if (grid.generation() == grid_gen)
+    return nodes_;
+
+  int64_t const num_points = grid.num_indexes() * block_size;
+
+  nodes_.resize(num_dims, num_points);
+
+  int const n = degree() + 1;
+  vector2d<P> const &nd1d = nodes1d();
+
+  std::array<P const *, max_num_dimensions> offs;
+
+  for (int i : iindexof(grid.num_indexes()))
+  {
+    for (int d = 0; d < num_dims; d++)
+      offs[d] = nd1d[grid[i][d]];
+
+    for (int j : iindexof(block_size))
+    {
+      int64_t t = j;
+      for (int d = num_dims - 1; d >= 0; d--) {
+        nodes_[i * block_size + j][d] = offs[d][t % n];
+        t /= n;
+      }
+    }
+  }
+
+  return nodes_;
+}
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template class interpolation_manager1d<double, 0>;
 template class interpolation_manager1d<double, 1>;
 template class interpolation_manager1d<double, 2>;
 template class interpolation_manager1d<double, 3>;
+
+template class interpolation_manager<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class interpolation_manager1d<float, 0>;
 template class interpolation_manager1d<float, 1>;
 template class interpolation_manager1d<float, 2>;
 template class interpolation_manager1d<float, 3>;
+
+template class interpolation_manager<float>;
 #endif
 
 } // namespace asgard

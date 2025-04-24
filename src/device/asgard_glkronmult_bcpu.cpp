@@ -1303,8 +1303,78 @@ void block_cpu(
           y[j] += alpha * w1[j];
       }
     }
+  }
+}
 
+template<typename precision>
+void block_cpu(
+    int n, sparse_grid const &grid, connection_patterns const &conns,
+    permutes const &perm, block_sparse_matrix<precision> const &cmat,
+    precision alpha, precision const x[], precision beta, precision y[],
+    block_global_workspace<precision> &workspace)
+{
+  precision *w1 = workspace.w1.data();
+  precision *w2 = workspace.w2.data();
 
+  auto get_connect_1d = [&](permutes::matrix_fill const fill)
+      -> connect_1d const & {
+    // if the term has flux, i.e., fdir != -1
+    // then the direction using fill::both will use the flux+volume connectivity
+    // otherwise we will use only the volume connectivity
+    if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
+      return conns[connect_1d::hierarchy::full];
+    else
+      return conns[connect_1d::hierarchy::volume];
+  };
+
+  int const num_dims    = grid.num_dims();
+  int const active_dims = perm.num_dimensions();
+  expect(active_dims > 0);
+
+  for (size_t i = 0; i < perm.fill.size(); i++)
+  {
+    int dir = perm.direction[i][0];
+
+    block_cpu(num_dims, n, grid, dir, perm.fill[i][0],
+                get_connect_1d(perm.fill[i][0]),
+                cmat.data(), x, w1, workspace.row_map);
+
+    for (int d = 1; d < active_dims; d++)
+    {
+      dir = perm.direction[i][d];
+      block_cpu(num_dims, n, grid, dir, perm.fill[i][d],
+                get_connect_1d(perm.fill[i][d]),
+                cmat.data(), w1, w2, workspace.row_map);
+      std::swap(w1, w2);
+    }
+
+    int64_t num_entries = static_cast<int64_t>(workspace.w1.size());
+
+    if (i == 0) {
+      if (alpha == 1) {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] = beta * y[j] + w1[j];
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] = beta * y[j] + alpha * w1[j];
+      }
+    } else {
+      if (alpha == 1) {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] += w1[j];
+      } else if (alpha == -1) {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] -= w1[j];
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t j = 0; j < num_entries; j++)
+          y[j] += alpha * w1[j];
+      }
+    }
   }
 }
 
@@ -1314,6 +1384,11 @@ template void block_cpu<double>(
     int, sparse_grid const &, connection_patterns const &, permutes const &,
     std::array<block_sparse_matrix<double>, max_num_dimensions> const &,
     double, double const[], double, double[], block_global_workspace<double> &);
+
+template void block_cpu<double>(
+      int, sparse_grid const &, connection_patterns const &, permutes const &,
+      block_sparse_matrix<double> const &,
+      double, double const[], double, double[], block_global_workspace<double> &);
 
 template void global_cpu<double>(
     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
@@ -1353,6 +1428,11 @@ template void block_cpu<float>(
     int, sparse_grid const &, connection_patterns const &, permutes const &,
     std::array<block_sparse_matrix<float>, max_num_dimensions> const &,
     float, float const[], float, float[], block_global_workspace<float> &);
+
+template void block_cpu<float>(
+      int, sparse_grid const &, connection_patterns const &, permutes const &,
+      block_sparse_matrix<float> const &,
+      float, float const[], float, float[], block_global_workspace<float> &);
 
 template void global_cpu<float>(
     int, int, int64_t, vector2d<int> const &, dimension_sort const &,

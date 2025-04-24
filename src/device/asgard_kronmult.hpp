@@ -351,4 +351,15 @@ void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
                precision alpha, precision const x[], precision beta, precision y[],
                block_global_workspace<precision> &workspace);
 
+/*!
+ * \brief Driver for the cpu version of the block-global kronmult
+ *
+ * Works on one term with a single matrix for all dimensions.
+ */
+template<typename precision>
+void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
+               permutes const &perm, block_sparse_matrix<precision> const &cmats,
+               precision alpha, precision const x[], precision beta, precision y[],
+               block_global_workspace<precision> &workspace);
+
 } // namespace asgard::kronmult

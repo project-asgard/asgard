@@ -1632,7 +1632,7 @@ public:
   term_1d() = default;
   //! make an identity term
   term_1d(term_identity) {}
-  //! make a general term
+  //! make a general term, prefer using the helper structs term_(volume,grad,div,penalty)
   term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
       : optype_(opt), flux_(flx), boundary_(bnd),
         rhs_(std::move(frhs)), rhs_const_(crhs)
@@ -1651,12 +1651,12 @@ public:
     : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
   {}
 
-  //! make a mass term
+  //! make a volume term
   term_1d(term_volume<P> mt)
     : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
               std::move(mt.right), mt.const_coeff)
   {}
-  //! make a mass term, hack around creating term_1d<float> from term_mass<double>
+  //! make a volume term, hack around creating term_1d<float> from term_mass<double>
   template<typename otherP>
   term_1d(term_volume<otherP> mt)
     : term_1d(operation_type::volume, flux_type::central, boundary_type::none,

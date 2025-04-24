@@ -24,7 +24,7 @@ bool asgard_all_tests  = true;  // reports total result of all tests
             << "  error = " << (_terr_) << "  tol = " << (_ttol_) << '\n';
 
 #define tcheckless(_iinx_, _terr_, _ttol_)      \
-  if ((_terr_) >= (_ttol_)){            \
+  if (std::isnan(_terr_) or (_terr_) >= (_ttol_)){            \
     asgard_test_pass = false;  \
     asgard_all_tests = false;  \
     tcheckless_loud(_iinx_, _terr_, _ttol_) \

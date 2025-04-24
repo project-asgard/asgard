@@ -139,11 +139,18 @@ class pde_domain
 {
 public:
   //! create an empty domain
-  pde_domain() {}
+  pde_domain() {
+    std::fill(xleft_.begin(), xleft_.end(), 0);
+    std::fill(xright_.begin(), xright_.end(), 0);
+    std::fill(length_.begin(), length_.end(), 0);
+  }
   //! create a canonical domain for the given number of dimensions
   pde_domain(int num_dimensions)
     : num_dims_(num_dimensions)
   {
+    std::fill(xleft_.begin(), xleft_.end(), 0);
+    std::fill(xright_.begin(), xright_.end(), 1);
+    std::fill(length_.begin(), length_.end(), 1);
     check_init();
   }
   //! create a domain with given range in each dimension
@@ -263,9 +270,9 @@ private:
   int num_dims_ = 0;
   int num_pos_ = 0;
   int num_vel_ = 0;
-  std::array<P, max_num_dimensions> length_ = {{P{1}}};
-  std::array<P, max_num_dimensions> xleft_ = {{P{0}}};
-  std::array<P, max_num_dimensions> xright_ = {{P{1}}};
+  std::array<P, max_num_dimensions> length_;
+  std::array<P, max_num_dimensions> xleft_;
+  std::array<P, max_num_dimensions> xright_;
 
   std::array<std::string, max_num_dimensions> dnames_;
 };
