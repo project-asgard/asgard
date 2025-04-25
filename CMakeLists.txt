@@ -630,7 +630,7 @@ if (ASGARD_BUILD_TESTS)
           continue()
       endif()
 
-      set(_asgname "asgard-${component}_tests")
+      set(_asgname "asgard-${component}-tests")
 
       add_executable (${_asgname})
       target_sources (${_asgname} PRIVATE src/asgard_${component}_tests.cpp)

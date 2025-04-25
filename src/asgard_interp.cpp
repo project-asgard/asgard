@@ -21,6 +21,7 @@ interp_basis<P, degree>::interp_basis(vector2d<P> const &nodes) {
       w0[i] *= (x0[i] - x0[j]);
     for (int j = i + 1; j < n; j++)
       w0[i] *= (x0[i] - x0[j]);
+    w0[i] = P{1} / w0[i];
   }
   for (int i = 0; i < nL; i++) {
     wL[i] = 1;
@@ -28,14 +29,31 @@ interp_basis<P, degree>::interp_basis(vector2d<P> const &nodes) {
       wL[i] *= (xL[i] - xL[j]);
     for (int j = i + 1; j < n; j++)
       wL[i] *= (xL[i] - xL[j]);
+    wL[i] = P{1} / wL[i];
   }
   for (int i = 0; i < nR; i++) {
     wR[i] = 1;
     for (int j = 0; j < nL + i; j++)
-      wR[i] *= (xR[i] - xR[j]);
-    for (int j = nL + i; j < n; j++)
-      wR[i] *= (xR[i] - xR[j]);
+      wR[i] *= (xR[i + nL] - xR[j]);
+    for (int j = nL + i + 1; j < n; j++)
+      wR[i] *= (xR[i + nL] - xR[j]);
+    wR[i] = P{1} / wR[i];
   }
+
+  // for(auto x : x0) std::cout << x << "   ";
+  // std::cout << "\n";
+  // for(auto x : xL) std::cout << x << "   ";
+  // std::cout << "\n";
+  // for(auto x : xR) std::cout << x << "   ";
+  // std::cout << "\n";
+  // std::cout << "                     \n";
+
+  // for(auto x : w0) std::cout << x << "   ";
+  // std::cout << "\n";
+  // for(auto x : wL) std::cout << x << "   ";
+  // std::cout << "\n";
+  // for(auto x : wR) std::cout << x << "   ";
+  // std::cout << "\n";
 }
 
 template<typename P, int degree>
@@ -194,7 +212,10 @@ void interpolation_manager1d<P, degree>::make_nodal2hier(
     return;
   }
 
-  for (int row : iindexof(conn.num_rows()))
+  std::copy_n(nodes_[1], n, x.begin());
+  basis.eval0(x, nodal2hier_[conn.row_begin(1)]);
+
+  for (int row = 2; row < conn.num_rows(); row++)
   {
     P const *const raw_x = nodes_[row];
 
@@ -206,12 +227,12 @@ void interpolation_manager1d<P, degree>::make_nodal2hier(
 
     // first two cells always have global support
     basis.eval0(x, nodal2hier_[c++]);
-    basis.eval1(x, nodal2hier_[c++], 1);
+    basis.eval1(x, nodal2hier_[c++]);
 
     // the above gets us to level 2
     int level_begin = 2; // first cell on each level
-    P scale = s2;
-    P dx    = 0.5; // cell size
+
+    P dx = 0.5; // cell size
 
     // loop over the rest of the row
     for (; c < row_end; c++)
@@ -222,7 +243,6 @@ void interpolation_manager1d<P, degree>::make_nodal2hier(
       while (col >= 2 * level_begin)
       {
         level_begin *= 2;
-        scale *= s2;
         dx    *= 0.5;
       }
 
@@ -232,7 +252,7 @@ void interpolation_manager1d<P, degree>::make_nodal2hier(
       for (int i = 0; i < n; i++)
         x[i] = (raw_x[i] - xl) / dx;
 
-      basis.eval1(x, nodal2hier_[c], scale); // uses captured x
+      basis.eval1(x, nodal2hier_[c]); // uses captured x
     }
   }
 }

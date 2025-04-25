@@ -128,8 +128,6 @@ void interp_wav2nodal() {
     PDEv2<P> pde(options, domain);
     pde.add_initial(ic);
 
-    // pde += {term_volume{1}, term_identity{}};
-
     discretization_manager<P> disc(pde, verbosity_level::quiet);
 
     // check the loaded nodes
@@ -203,9 +201,41 @@ void interp_wav2nodal() {
 }
 
 template<typename P>
+void interp_nodal2hier() {
+  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-12 : 1.E-5;
+
+  int max_level = 3;
+  connect_1d conn(max_level);
+
+  wavelet_interp1d<1, P> intold(&conn);
+  interpolation_manager1d<P, 1> interp(conn);
+
+  P const *iold = intold.node2hier();
+  P const *inew = interp.nodal2hier().data();
+
+  P err = 0;
+
+  std::cout << std::scientific;
+  std::cout.precision(4);
+  for (int i = 0; i < interp.nodal2hier().nnz(); i++) {
+    // std::cout << inew[4*i] << "    " << inew[4*i + 2] << "      "
+    //           << iold[4*i] << "    " << iold[4*i + 2] << "\n";
+    // std::cout << inew[4*i + 1] << "    " << inew[4*i + 3] << "      "
+    //           << iold[4*i + 1] << "    " << iold[4*i + 3] << "\n";
+    // std::cout << " ------------------------------------------------- \n";
+    for (int j = 0; j < 4; j++)
+      err = std::max(err, std::abs(inew[4*i + j] - iold[4*i + j]));
+  }
+
+  std::cout << " error = " << err << "\n";
+
+}
+
+template<typename P>
 void do_all_tests() {
-  interp_nodes<P>();
-  interp_wav2nodal<P>();
+  // interp_nodes<P>();
+  // interp_wav2nodal<P>();
+  interp_nodal2hier<P>();
 }
 
 int main(int, char**) {

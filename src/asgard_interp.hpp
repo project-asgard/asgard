@@ -27,23 +27,23 @@ public:
           v *= (x[i] - x0[k]);
         for (int k = j + 1; k < n; k++)
           v *= (x[i] - x0[k]);
-        vals[j * n + i] = v / w0[j];
+        vals[j * n + i] = -v * w0[j];
       }
     }
   }
-  void eval1(std::array<P, n> const &x, P vals[], P scale) const {
+  void eval1(std::array<P, n> const &x, P vals[]) const {
     for (int i = 0; i < n; i++) {
       if (x[i] < 0 or x[i] > 1) {
         for (int j = 0; j < n; j++)
           vals[j * n + i] = 0;
       } else if (x[i] < 0.5) {
         for (int j = 0; j < nL; j++) {
-          P v = scale;
+          P v = 1;
           for (int k = 0; k < j; k++)
             v *= (x[i] - xL[k]);
           for (int k = j + 1; k < n; k++)
             v *= (x[i] - xL[k]);
-          vals[j * n + i] = -v / wL[j];
+          vals[j * n + i] = -v * wL[j];
         }
         for (int j = nL; j < n; j++)
           vals[j * n + i] = 0;
@@ -51,12 +51,12 @@ public:
         for (int j = 0; j < nL; j++)
           vals[j * n + i] = 0;
         for (int j = nL; j < n; j++) {
-          P v = scale;
+          P v = 1;
           for (int k = 0; k < j; k++)
             v *= (x[i] - xR[k]);
           for (int k = j + 1; k < n; k++)
             v *= (x[i] - xR[k]);
-          vals[j * n + i] = -v / wR[j - nL];
+          vals[j * n + i] = -v * wR[j - nL];
         }
       }
     }
@@ -178,6 +178,21 @@ public:
     wav2nodal(grid, conn, f.data(), vals.data(), workspace);
   }
 
+  //! compute hierarchical representation from the nodal values
+  void nodal2hier(sparse_grid const &grid, connection_patterns const &conn,
+                  P vals[], kronmult::block_global_workspace<P> &workspace)
+  {
+    globalsv_cpu(num_dims, n, grid, conn[connect_1d::hierarchy::volume],
+                 nodal2hier1d(), vals, workspace);
+  }
+  //! compute hierarchical representation from the nodal values
+  void nodal2hier(sparse_grid const &grid, connection_patterns const &conn,
+                  std::vector<P> &vals, kronmult::block_global_workspace<P> &workspace)
+  {
+    expect(static_cast<int64_t>(vals.size()) == block_size * grid.num_indexes());
+    nodal2hier(grid, conn, vals.data(), workspace);
+  }
+
 private:
   //! returns the 1d nodes
   vector2d<P> const &nodes1d() const {
@@ -197,6 +212,16 @@ private:
       case 2: return std::get<2>(interp).wav2nodal();
       default: // case 3
         return std::get<3>(interp).wav2nodal();
+    }
+  }
+  //! return the 1d nodal2hier matrix
+  block_sparse_matrix<P> const &nodal2hier1d() const {
+    switch(interp.index()) {
+      case 0: return std::get<0>(interp).nodal2hier();
+      case 1: return std::get<1>(interp).nodal2hier();
+      case 2: return std::get<2>(interp).nodal2hier();
+      default: // case 3
+        return std::get<3>(interp).nodal2hier();
     }
   }
 
