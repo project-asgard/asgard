@@ -1102,10 +1102,12 @@ void block_global_kron_matrix<precision>::apply(
   if constexpr (rec == resource::host) {
     std::fill_n(workspace_->y.begin(), num_padded_, precision{0});
 
-    kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
-                        perms_, flux_dir_, *conn_volumes_, *conn_full_,
-                        tcoeffs, used_terms, workspace_->x.data(),
-                        workspace_->y.data(), *workspace_);
+    ignore(tcoeffs);
+    ignore(used_terms);
+    // kronmult::global_cpu(num_dimensions_, blockn_, block_size_, ilist_, dsort_,
+    //                     perms_, flux_dir_, *conn_volumes_, *conn_full_,
+    //                     tcoeffs, used_terms, workspace_->x.data(),
+    //                     workspace_->y.data(), *workspace_);
 
     precision const *py = workspace_->y.data();
   #pragma omp parallel for

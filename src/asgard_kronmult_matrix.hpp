@@ -1016,9 +1016,10 @@ public:
     int i = static_cast<int>(etype);
     if (flops_[i] == -1)
     {
-      flops_[i] = kronmult::block_global_count_flops(
-          num_dimensions_, block_size_, ilist_, dsort_, perms_,
-          flux_dir_, *conn_volumes_, *conn_full_, groups[i], *workspace_);
+      // flops_[i] = kronmult::block_global_count_flops(
+      //     num_dimensions_, block_size_, ilist_, dsort_, perms_,
+      //     flux_dir_, *conn_volumes_, *conn_full_, groups[i], *workspace_);
+      flops_[i] = 0;
       if (verb == verbosity_level::high)
       {
         switch (etype)

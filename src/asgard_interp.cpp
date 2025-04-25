@@ -4,6 +4,41 @@ namespace asgard
 {
 
 template<typename P, int degree>
+interp_basis<P, degree>::interp_basis(vector2d<P> const &nodes) {
+  expect(nodes.num_strips() >= 2);
+  expect(nodes.stride() == n);
+
+  std::copy_n(nodes[0], n, x0.begin());
+
+  std::copy_n(nodes[1], nL, xL.begin());
+  std::copy_n(nodes[0], nR, xL.begin() + nL);
+
+  std::copy_n(nodes[0] + nR, nL, xR.begin());
+  std::copy_n(nodes[1] + nL, nR, xR.begin() + nL);
+  for (int i = 0; i < n; i++) {
+    w0[i] = 1;
+    for (int j = 0; j < i; j++)
+      w0[i] *= (x0[i] - x0[j]);
+    for (int j = i + 1; j < n; j++)
+      w0[i] *= (x0[i] - x0[j]);
+  }
+  for (int i = 0; i < nL; i++) {
+    wL[i] = 1;
+    for (int j = 0; j < i; j++)
+      wL[i] *= (xL[i] - xL[j]);
+    for (int j = i + 1; j < n; j++)
+      wL[i] *= (xL[i] - xL[j]);
+  }
+  for (int i = 0; i < nR; i++) {
+    wR[i] = 1;
+    for (int j = 0; j < nL + i; j++)
+      wR[i] *= (xR[i] - xR[j]);
+    for (int j = nL + i; j < n; j++)
+      wR[i] *= (xR[i] - xR[j]);
+  }
+}
+
+template<typename P, int degree>
 void interpolation_manager1d<P, degree>::initialize_nodes(int const max_level)
 {
   int const num_cells = fm::ipow2(max_level);
@@ -145,6 +180,63 @@ void interpolation_manager1d<P, degree>::make_wav2nodal(
   }
 }
 
+template<typename P, int degree>
+void interpolation_manager1d<P, degree>::make_nodal2hier(
+    connect_1d const &conn, interp_basis<P, degree> const &basis)
+{
+  nodal2hier_ = block_sparse_matrix<P>(n * n, conn.num_connections(), connect_1d::hierarchy::volume);
+
+  std::array<P, n> x;
+
+  if (conn.max_loaded_level() == 0) {
+    std::copy_n(nodes_[0], n, x.begin());
+    basis.eval0(x, nodal2hier_[0]);
+    return;
+  }
+
+  for (int row : iindexof(conn.num_rows()))
+  {
+    P const *const raw_x = nodes_[row];
+
+    std::copy_n(raw_x, n, x.begin());
+
+    int const row_end = conn.row_diag(row);
+
+    int c = conn.row_begin(row);
+
+    // first two cells always have global support
+    basis.eval0(x, nodal2hier_[c++]);
+    basis.eval1(x, nodal2hier_[c++], 1);
+
+    // the above gets us to level 2
+    int level_begin = 2; // first cell on each level
+    P scale = s2;
+    P dx    = 0.5; // cell size
+
+    // loop over the rest of the row
+    for (; c < row_end; c++)
+    {
+      int const col = conn[c]; // connected cell
+
+      // move to the next level
+      while (col >= 2 * level_begin)
+      {
+        level_begin *= 2;
+        scale *= s2;
+        dx    *= 0.5;
+      }
+
+      P xl = dx * (col - level_begin); // left-most node
+
+      #pragma omp simd
+      for (int i = 0; i < n; i++)
+        x[i] = (raw_x[i] - xl) / dx;
+
+      basis.eval1(x, nodal2hier_[c], scale); // uses captured x
+    }
+  }
+}
+
 template<typename P>
 vector2d<P> const &interpolation_manager<P>::nodes(
     sparse_grid const &grid) const
@@ -180,6 +272,11 @@ vector2d<P> const &interpolation_manager<P>::nodes(
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
+template class interp_basis<double, 0>;
+template class interp_basis<double, 1>;
+template class interp_basis<double, 2>;
+template class interp_basis<double, 3>;
+
 template class interpolation_manager1d<double, 0>;
 template class interpolation_manager1d<double, 1>;
 template class interpolation_manager1d<double, 2>;
@@ -189,6 +286,11 @@ template class interpolation_manager<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
+template class interp_basis<float, 0>;
+template class interp_basis<float, 1>;
+template class interp_basis<float, 2>;
+template class interp_basis<float, 3>;
+
 template class interpolation_manager1d<float, 0>;
 template class interpolation_manager1d<float, 1>;
 template class interpolation_manager1d<float, 2>;

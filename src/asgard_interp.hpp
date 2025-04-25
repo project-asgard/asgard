@@ -4,6 +4,74 @@
 
 namespace asgard
 {
+/*!
+ * \brief Defines an interpolation basis for the given degree
+ */
+template<typename P, int degree>
+class interp_basis {
+public:
+  interp_basis(vector2d<P> const &nodes);
+
+  //! number of basis functions per level
+  static constexpr int n = degree + 1;
+  //! number of level 0 nodes in the left half-cell
+  static constexpr int nL = n / 2 + n % 2;
+  //! number of level 1 nodes in the left half-cell
+  static constexpr int nR = n - nL;
+
+  void eval0(std::array<P, n> const &x, P vals[]) const {
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < n; j++) {
+        P v = 1;
+        for (int k = 0; k < j; k++)
+          v *= (x[i] - x0[k]);
+        for (int k = j + 1; k < n; k++)
+          v *= (x[i] - x0[k]);
+        vals[j * n + i] = v / w0[j];
+      }
+    }
+  }
+  void eval1(std::array<P, n> const &x, P vals[], P scale) const {
+    for (int i = 0; i < n; i++) {
+      if (x[i] < 0 or x[i] > 1) {
+        for (int j = 0; j < n; j++)
+          vals[j * n + i] = 0;
+      } else if (x[i] < 0.5) {
+        for (int j = 0; j < nL; j++) {
+          P v = scale;
+          for (int k = 0; k < j; k++)
+            v *= (x[i] - xL[k]);
+          for (int k = j + 1; k < n; k++)
+            v *= (x[i] - xL[k]);
+          vals[j * n + i] = -v / wL[j];
+        }
+        for (int j = nL; j < n; j++)
+          vals[j * n + i] = 0;
+      } else {
+        for (int j = 0; j < nL; j++)
+          vals[j * n + i] = 0;
+        for (int j = nL; j < n; j++) {
+          P v = scale;
+          for (int k = 0; k < j; k++)
+            v *= (x[i] - xR[k]);
+          for (int k = j + 1; k < n; k++)
+            v *= (x[i] - xR[k]);
+          vals[j * n + i] = -v / wR[j - nL];
+        }
+      }
+    }
+  }
+
+private:
+  // nodes and Lagrane weights at level 0
+  std::array<P, n> x0, w0;
+  // nodes and additional zeros at level 1, left-right
+  std::array<P, n> xL, xR;
+  // Lagrange weights at level 1, left
+  std::array<P, nL> wL;
+  // Lagrange weights at level 1, right
+  std::array<P, nR> wR;
+};
 
 template<typename P, int degree>
 class interpolation_manager1d {
@@ -13,7 +81,7 @@ public:
   //! initialize the manager using the connection pattern
   interpolation_manager1d(connect_1d const &conn) {
     static_assert(0 <= degree and degree <= 3);
-    initialize_nodes(conn.max_loaded_level());
+    initialize_nodes(std::max(1, conn.max_loaded_level()));
 
     vector2d<P> const w0 = basis::legendre_poly<P>(degree);
     basis::canonical_integrator quad(degree);
@@ -21,6 +89,8 @@ public:
 
     make_wav2nodal(w0, w1, conn);
 
+    interp_basis<P, degree> basis(nodes_);
+    make_nodal2hier(conn, basis);
   }
   //! converts to true if the manager has been initialized
   operator bool () const { return (nodes_.num_strips() > 0); }
@@ -29,6 +99,8 @@ public:
   vector2d<P> const &nodes() const { return nodes_; }
   //! return the wavelet to nodal matrix
   block_sparse_matrix<P> const &wav2nodal() const { return wav2nodal_; }
+  //! return the nodal to hierarchical matrix
+  block_sparse_matrix<P> const &nodal2hier() const { return nodal2hier_; }
 
 protected:
   //! pre-computed constant, std::sqrt(2.0)
@@ -39,10 +111,12 @@ protected:
   void initialize_nodes(int const max_level);
   void make_wav2nodal(vector2d<P> const &w0, vector2d<P> const &w1,
                       connect_1d const &conn);
+  void make_nodal2hier(connect_1d const &conn, interp_basis<P, degree> const &basis);
 
 private:
   vector2d<P> nodes_;
   block_sparse_matrix<P> wav2nodal_;
+  block_sparse_matrix<P> nodal2hier_;
 };
 
 /*!

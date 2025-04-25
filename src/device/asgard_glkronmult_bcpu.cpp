@@ -1053,6 +1053,83 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
   } // pragma parallel
 }
 
+template<typename precision, int num_dimensions, int dim, int n>
+void globalsv_cpu(
+    sparse_grid const &grid, connect_1d const &conn, precision const vals[],
+    precision y[], std::vector<std::vector<int64_t>> &row_wspace)
+{
+  constexpr int n2 = n * n;
+
+  constexpr int64_t block_size = ipow<n, num_dimensions>();
+
+  dimension_sort const &dsort = grid.dsort();
+
+  int const num_vecs = dsort.num_vecs(dim);
+
+#ifdef _OPENMP
+  int const max_threads = omp_get_max_threads();
+#else
+  int const max_threads = 1;
+#endif
+
+  if (static_cast<int>(row_wspace.size()) < max_threads)
+    row_wspace.resize(max_threads);
+
+  int threadid = 0;
+#pragma omp parallel
+  {
+    int tid;
+#pragma omp critical
+    tid = threadid++;
+
+    // xidx holds indexes for the entries of the current
+    // sparse row that are present in the current ilist
+    std::vector<int64_t> &xidx = row_wspace[tid];
+    if (static_cast<int>(xidx.size()) < conn.num_rows())
+      xidx.resize(conn.num_rows(), -1);
+
+#pragma omp for schedule(dynamic)
+    for (int vec_id = 0; vec_id < num_vecs; vec_id++)
+    {
+      int const vec_begin = dsort.vec_begin(dim, vec_id);
+      int const vec_end   = dsort.vec_end(dim, vec_id);
+      // map the indexes of present entries
+      for (int j = vec_begin; j < vec_end; j++)
+        xidx[grid.dsorted(dim, j)] = dsort.map(dim, j) * block_size;
+
+      // matrix-vector product using xidx as a row
+      for (int rj = vec_begin; rj < vec_end; rj++)
+      {
+        // row in the 1d pattern
+        int const row = grid.dsorted(dim, rj);
+
+        precision *const local_y = y + xidx[row];
+
+        // columns for the 1d pattern, lower part only
+        int col_begin = conn.row_begin(row);
+        int col_end   = conn.row_diag(row);
+
+        for (int c = col_begin; c < col_end; c++)
+        {
+          int64_t const xj = xidx[conn[c]];
+          if (xj != -1)
+          {
+            if constexpr (n == -1)
+#pragma omp atomic
+              ++number_of_blocks_;
+            else
+              gbkron_mult_add<precision, num_dimensions, dim, n>(vals + n2 * c, y + xj, local_y);
+          }
+        }
+      }
+
+      // restore the entries
+      for (int j = vec_begin; j < vec_end; j++)
+        xidx[grid.dsorted(dim, j)] = -1;
+    }
+  }
+}
+
 template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim>
 void block_cpu(int n, sparse_grid const &grid,
                connect_1d const &conn, precision const vals[],
@@ -1378,6 +1455,15 @@ void block_cpu(
   }
 }
 
+template<typename precision>
+void globalsv_cpu(int num_dimensions, int n, sparse_grid const &grid,
+                  connect_1d const &vconn,
+                  block_global_workspace<precision> const &gvals,
+                  precision y[], block_global_workspace<precision> &workspace)
+{
+
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 
 template void block_cpu<double>(
@@ -1390,36 +1476,41 @@ template void block_cpu<double>(
       block_sparse_matrix<double> const &,
       double, double const[], double, double[], block_global_workspace<double> &);
 
-template void global_cpu<double>(
-    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
-    std::vector<permutes> const &, std::vector<int> const &, connect_1d const &,
-    connect_1d const &, std::vector<block_sparse_matrix<double>> const &,
-    std::vector<int> const &, double const[], double[],
-    block_global_workspace<double> &);
-
-template int64_t block_global_count_flops<double>(
-    int num_dimensions, int64_t block_size,
-    vector2d<int> const &ilist, dimension_sort const &dsort,
-    std::vector<permutes> const &perms,
-    std::vector<int> const &flux_dir,
-    connect_1d const &conn_volumes, connect_1d const &conn_full,
-    std::vector<int> const &terms,
-    block_global_workspace<double> &workspace);
-
-template void global_cpu<double>(
-    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
-    permutes const &, connect_1d const &, double const[], double const[],
+template void globalsv_cpu<double>(
+    int, int, sparse_grid const &, connect_1d const &,
+    block_global_workspace<double> const &,
     double[], block_global_workspace<double> &);
 
-template void global_cpu<double>(
-    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
-    permutes const &, connect_1d const &, double const[], double,
-    double const[], double[], block_global_workspace<double> &);
+// template void global_cpu<double>(
+//     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+//     std::vector<permutes> const &, std::vector<int> const &, connect_1d const &,
+//     connect_1d const &, std::vector<block_sparse_matrix<double>> const &,
+//     std::vector<int> const &, double const[], double[],
+//     block_global_workspace<double> &);
 
-template void globalsv_cpu(
-    int, int, vector2d<int> const &, dimension_sort const &,
-    connect_1d const &, double const[], double[],
-    block_global_workspace<double> &workspace);
+// template int64_t block_global_count_flops<double>(
+//     int num_dimensions, int64_t block_size,
+//     vector2d<int> const &ilist, dimension_sort const &dsort,
+//     std::vector<permutes> const &perms,
+//     std::vector<int> const &flux_dir,
+//     connect_1d const &conn_volumes, connect_1d const &conn_full,
+//     std::vector<int> const &terms,
+//     block_global_workspace<double> &workspace);
+
+// template void global_cpu<double>(
+//     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+//     permutes const &, connect_1d const &, double const[], double const[],
+//     double[], block_global_workspace<double> &);
+
+// template void global_cpu<double>(
+//     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+//     permutes const &, connect_1d const &, double const[], double,
+//     double const[], double[], block_global_workspace<double> &);
+
+// template void globalsv_cpu(
+//     int, int, vector2d<int> const &, dimension_sort const &,
+//     connect_1d const &, double const[], double[],
+//     block_global_workspace<double> &workspace);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1434,36 +1525,41 @@ template void block_cpu<float>(
       block_sparse_matrix<float> const &,
       float, float const[], float, float[], block_global_workspace<float> &);
 
-template void global_cpu<float>(
-    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
-    std::vector<permutes> const &, std::vector<int> const &, connect_1d const &,
-    connect_1d const &, std::vector<block_sparse_matrix<float>> const &,
-    std::vector<int> const &, float const[], float[],
-    block_global_workspace<float> &);
+template void globalsv_cpu<float>(
+      int, int, sparse_grid const &, connect_1d const &,
+      block_global_workspace<float> const &,
+      float y[], block_global_workspace<float> &workspace);
 
-template int64_t block_global_count_flops<float>(
-    int num_dimensions, int64_t block_size,
-    vector2d<int> const &ilist, dimension_sort const &dsort,
-    std::vector<permutes> const &perms,
-    std::vector<int> const &flux_dir,
-    connect_1d const &conn_volumes, connect_1d const &conn_full,
-    std::vector<int> const &terms,
-    block_global_workspace<float> &workspace);
+// template void global_cpu<float>(
+//     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+//     std::vector<permutes> const &, std::vector<int> const &, connect_1d const &,
+//     connect_1d const &, std::vector<block_sparse_matrix<float>> const &,
+//     std::vector<int> const &, float const[], float[],
+//     block_global_workspace<float> &);
 
-template void global_cpu<float>(
-    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
-    permutes const &, connect_1d const &, float const[], float const[],
-    float[], block_global_workspace<float> &);
+// template int64_t block_global_count_flops<float>(
+//     int num_dimensions, int64_t block_size,
+//     vector2d<int> const &ilist, dimension_sort const &dsort,
+//     std::vector<permutes> const &perms,
+//     std::vector<int> const &flux_dir,
+//     connect_1d const &conn_volumes, connect_1d const &conn_full,
+//     std::vector<int> const &terms,
+//     block_global_workspace<float> &workspace);
 
-template void global_cpu<float>(
-    int, int, int64_t, vector2d<int> const &, dimension_sort const &,
-    permutes const &, connect_1d const &, float const[], float,
-    float const[], float[], block_global_workspace<float> &);
+// template void global_cpu<float>(
+//     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+//     permutes const &, connect_1d const &, float const[], float const[],
+//     float[], block_global_workspace<float> &);
 
-template void globalsv_cpu(
-    int, int, vector2d<int> const &, dimension_sort const &,
-    connect_1d const &, float const[], float[],
-    block_global_workspace<float> &workspace);
+// template void global_cpu<float>(
+//     int, int, int64_t, vector2d<int> const &, dimension_sort const &,
+//     permutes const &, connect_1d const &, float const[], float,
+//     float const[], float[], block_global_workspace<float> &);
+
+// template void globalsv_cpu(
+//     int, int, vector2d<int> const &, dimension_sort const &,
+//     connect_1d const &, float const[], float[],
+//     block_global_workspace<float> &workspace);
 #endif
 
 } // namespace asgard::kronmult

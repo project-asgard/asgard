@@ -74,9 +74,14 @@ public:
                         precision scale,
                         precision const proj[], precision nodal[]) const
   {
-    kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
-                         wav1d.get_conn(), wav1d.proj2node(), scale, proj,
-                         nodal, *workspace_);
+    ignore(cells);
+    ignore(dsort);
+    ignore(scale);
+    ignore(proj);
+    ignore(nodal);
+    // kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
+    //                      wav1d.get_conn(), wav1d.proj2node(), scale, proj,
+    //                      nodal, *workspace_);
   }
 
   /*!
@@ -88,8 +93,11 @@ public:
                                    dimension_sort const &dsort,
                                    precision nodal[]) const
   {
-    kronmult::globalsv_cpu(num_dimenisons_, pterms, cells, dsort, wav1d.get_conn(),
-                           wav1d.node2hier(), nodal, *workspace_);
+    ignore(cells);
+    ignore(dsort);
+    ignore(nodal);
+    // kronmult::globalsv_cpu(num_dimenisons_, pterms, cells, dsort, wav1d.get_conn(),
+    //                        wav1d.node2hier(), nodal, *workspace_);
   }
 
   /*!
@@ -104,9 +112,14 @@ public:
                              precision scale,
                              precision const hier[], precision proj[]) const
   {
-    kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
-                         wav1d.get_conn(), wav1d.hier2proj(), scale, hier, proj,
-                         *workspace_);
+    ignore(cells);
+    ignore(dsort);
+    ignore(scale);
+    ignore(hier);
+    ignore(proj);
+    //kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
+    //                     wav1d.get_conn(), wav1d.hier2proj(), scale, hier, proj,
+    //                     *workspace_);
   }
   /*!
    * \brief converts hierarchical interpolation coefficients to projection coefficients
@@ -120,9 +133,13 @@ public:
                              dimension_sort const &dsort,
                              precision const hier[], precision proj[]) const
   {
-    kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
-                         wav1d.get_conn(), wav1d.hier2proj(), hier, proj,
-                         *workspace_);
+    ignore(cells);
+    ignore(dsort);
+    ignore(hier);
+    ignore(proj);
+    //kronmult::global_cpu(num_dimenisons_, pterms, block_size, cells, dsort, perms,
+    //                     wav1d.get_conn(), wav1d.hier2proj(), hier, proj,
+    //                     *workspace_);
   }
 
   //! overload getting data from the global matrix

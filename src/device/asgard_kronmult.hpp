@@ -319,25 +319,25 @@ int64_t block_global_count_flops(
     std::vector<int> const &terms,
     block_global_workspace<precision> &workspace);
 
-template<typename precision>
-void global_cpu(int num_dimensions, int n, int64_t block_size,
-                vector2d<int> const &ilist, dimension_sort const &dsort,
-                permutes const &perm, connect_1d const &vconn,
-                precision const gvals[], precision alpha, precision const x[],
-                precision y[], block_global_workspace<precision> &workspace);
+// template<typename precision>
+// void global_cpu(int num_dimensions, int n, int64_t block_size,
+//                vector2d<int> const &ilist, dimension_sort const &dsort,
+//                permutes const &perm, connect_1d const &vconn,
+//                precision const gvals[], precision alpha, precision const x[],
+//                precision y[], block_global_workspace<precision> &workspace);
 
-template<typename precision>
-void global_cpu(int num_dimensions, int n, int64_t block_size,
-                vector2d<int> const &ilist, dimension_sort const &dsort,
-                permutes const &perm, connect_1d const &vconn,
-                precision const gvals[], precision const x[], precision y[],
-                block_global_workspace<precision> &workspace);
+// template<typename precision>
+// void global_cpu(int num_dimensions, int n, int64_t block_size,
+//                 vector2d<int> const &ilist, dimension_sort const &dsort,
+//                 permutes const &perm, connect_1d const &vconn,
+//                 precision const gvals[], precision const x[], precision y[],
+//                 block_global_workspace<precision> &workspace);
 
-template<typename precision>
-void globalsv_cpu(int num_dimensions, int n, vector2d<int> const &ilist,
-                  dimension_sort const &dsort, connect_1d const &vconn,
-                  precision const gvals[], precision y[],
-                  block_global_workspace<precision> &workspace);
+// template<typename precision>
+// void globalsv_cpu(int num_dimensions, int n, vector2d<int> const &ilist,
+//                   dimension_sort const &dsort, connect_1d const &vconn,
+//                   precision const gvals[], precision y[],
+//                   block_global_workspace<precision> &workspace);
 
 /*!
  * \brief Driver for the cpu version of the block-global kronmult
@@ -361,5 +361,11 @@ void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
                permutes const &perm, block_sparse_matrix<precision> const &cmats,
                precision alpha, precision const x[], precision beta, precision y[],
                block_global_workspace<precision> &workspace);
+
+template<typename precision>
+void globalsv_cpu(int num_dimensions, int n, sparse_grid const &grid,
+                  connect_1d const &vconn,
+                  block_global_workspace<precision> const &gvals,
+                  precision y[], block_global_workspace<precision> &workspace);
 
 } // namespace asgard::kronmult
