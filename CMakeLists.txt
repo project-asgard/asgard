@@ -630,7 +630,7 @@ if (ASGARD_BUILD_TESTS)
           continue()
       endif()
 
-      set(_asgname "asgard_${component}_tests")
+      set(_asgname "asgard-${component}_tests")
 
       add_executable (${_asgname})
       target_sources (${_asgname} PRIVATE src/asgard_${component}_tests.cpp)
@@ -733,7 +733,7 @@ if (ASGARD_BUILD_TESTS)
   endforeach()
 
   if (ASGARD_USE_PYTHON)
-    add_test(NAME pyreconstruct-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
+    add_test(NAME asgard-pyrecons-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
   endif()
 
 # assuming testing makes us into a stand-alone project, so be more verbose

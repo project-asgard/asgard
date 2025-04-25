@@ -365,7 +365,7 @@ void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
 template<typename precision>
 void globalsv_cpu(int num_dimensions, int n, sparse_grid const &grid,
                   connect_1d const &vconn,
-                  block_global_workspace<precision> const &gvals,
+                  block_sparse_matrix<precision> const &gvals,
                   precision y[], block_global_workspace<precision> &workspace);
 
 } // namespace asgard::kronmult
