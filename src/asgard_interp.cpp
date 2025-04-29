@@ -199,6 +199,13 @@ void interpolation_manager1d<P, degree>::make_wav2nodal(
 }
 
 template<typename P, int degree>
+void interpolation_manager1d<P, degree>::make_hier2wav(connect_1d const &conn,
+    interp_wavelet_integrator<P, degree> const &integ)
+{
+  hier2wav_ = block_sparse_matrix<P>(n * n, conn.num_connections(), connect_1d::hierarchy::volume);
+}
+
+template<typename P, int degree>
 void interpolation_manager1d<P, degree>::make_nodal2hier(
     connect_1d const &conn, interp_basis<P, degree> const &basis)
 {
@@ -268,7 +275,6 @@ vector2d<P> const &interpolation_manager<P>::nodes(
 
   nodes_.resize(num_dims, num_points);
 
-  int const n = degree() + 1;
   vector2d<P> const &nd1d = nodes1d();
 
   std::array<P const *, max_num_dimensions> offs;

@@ -1011,7 +1011,7 @@ public:
 #endif
   }
   //! \brief Counts the number of floating point operations
-  int64_t count_flops(imex_flag etype, std::array<std::vector<int>, 3> groups) const
+  int64_t count_flops(imex_flag etype, std::array<std::vector<int>, 3> /* groups */) const
   {
     int i = static_cast<int>(etype);
     if (flops_[i] == -1)

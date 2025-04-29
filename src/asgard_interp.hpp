@@ -10,6 +10,7 @@ namespace asgard
 template<typename P, int degree>
 class interp_basis {
 public:
+  //! construct the basis, first two level of nodes are always used
   interp_basis(vector2d<P> const &nodes);
 
   //! number of basis functions per level
@@ -19,6 +20,7 @@ public:
   //! number of level 1 nodes in the left half-cell
   static constexpr int nR = n - nL;
 
+  //! computes the (negative) values of the interpolation basis at level 0
   void eval0(std::array<P, n> const &x, P vals[]) const {
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < n; j++) {
@@ -31,6 +33,7 @@ public:
       }
     }
   }
+  //! computes the (negative) values of the interpolation basis at level 1
   void eval1(std::array<P, n> const &x, P vals[]) const {
     for (int i = 0; i < n; i++) {
       if (x[i] < 0 or x[i] > 1) {
@@ -61,6 +64,36 @@ public:
       }
     }
   }
+  //! get the values of the j-th interpolation function at level 0
+  P ival0(int j, P x) const
+  {
+    P v = 1;
+    for (int k = 0; k < j; k++)
+      v *= (x - x0[k]);
+    for (int k = j + 1; k < n; k++)
+      v *= (x - x0[k]);
+    return v * w0[j];
+  }
+  //! get the values of the j-th interpolation function at level 1, left
+  P ival1L(int j, P x) const
+  {
+    P v = 1;
+    for (int k = 0; k < j; k++)
+      v *= (x - xL[k]);
+    for (int k = j + 1; k < n; k++)
+      v *= (x - xL[k]);
+    return v * wL[j];
+  }
+  //! get the values of the j-th interpolation function at level 1, right
+  P ival1R(int j, P x) const
+  {
+    P v = 1;
+    for (int k = 0; k < j; k++)
+      v *= (x - xR[k]);
+    for (int k = j + 1; k < n; k++)
+      v *= (x - xR[k]);
+    return v * wR[j - nL];
+  }
 
 private:
   // nodes and Lagrane weights at level 0
@@ -71,6 +104,134 @@ private:
   std::array<P, nL> wL;
   // Lagrange weights at level 1, right
   std::array<P, nR> wR;
+};
+
+/*!
+ * \brief Integrator of wavelets and interpolation basis functions
+ */
+template<typename P, int degree>
+class interp_wavelet_integrator {
+public:
+  //! wrap wavelet and interpolation basis, and the integrator
+  interp_wavelet_integrator(vector2d<P> const &w0_in, vector2d<P> const &w1_in,
+                            interp_basis<P, degree> const &ibasis_in,
+                            basis::canonical_integrator const &quad_in)
+      : w0(w0_in), w1(w1_in), ibasis(ibasis_in), quad(quad_in)
+  {}
+  //! number of basis functions per level
+  static constexpr int n = degree + 1;
+  //! pre-computed constant, std::sqrt(2.0)
+  static P constexpr s2 = 1.41421356237309505; // sqrt(2.0)
+  //! integrate wavelets to i-basis at level 0
+  void mat00(P block[]) {
+    for (int j = 0; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
+        for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+          P const x = quad.left_nodes()[k];
+          q += quad.left_weights()[k] * wval0(i, x) * ibasis.ival0(j, x);
+        }
+        for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+          P const x = quad.right_nodes()[k];
+          q += quad.right_weights()[k] * wval0(i, x) * ibasis.ival0(j, x);
+        }
+        block[j * n + i] = q;
+      }
+    }
+  }
+  //! integrate wavelets level 0 to i-basis at level 1
+  void mat01(P block[]) {
+    for (int j = 0; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
+        for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+          P const x = quad.left_nodes()[k];
+          q += quad.left_weights()[k] * wval0(i, x) * ibasis.ival1L(j, x);
+        }
+        for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+          P const x = quad.right_nodes()[k];
+          q += quad.right_weights()[k] * wval0(i, x) * ibasis.ival1R(j, x);
+        }
+        block[j * n + i] = q;
+      }
+    }
+  }
+  //! integrate wavelets level 1 to i-basis at level 0
+  void mat10(P block[]) {
+    for (int j = 0; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
+        for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+          P const x = quad.left_nodes()[k];
+          q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival0(j, x);
+        }
+        for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+          P const x = quad.right_nodes()[k];
+          q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival0(j, x);
+        }
+        block[j * n + i] = q;
+      }
+    }
+  }
+  //! integrate wavelets i-basis at level > 0 and matching support
+  void mat11(P block[], P scale) {
+    for (int j = 0; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
+        for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+          P const x = quad.left_nodes()[k];
+          q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival1L(j, x);
+        }
+        for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+          P const x = quad.right_nodes()[k];
+          q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival1R(j, x);
+        }
+        block[j * n + i] = scale * q;
+      }
+    }
+  }
+  //! get the values of the j-th wavelet function at level 0
+  P wval0(int j, P x) const
+  {
+    P const w = 2 * x - 1;
+    P b = 0, m = 1;
+    for (int k = 0; k <= j; k++) {
+      b += m * w0[j][k];
+      m *= w;
+    }
+    return s2 * b;
+  }
+  //! get the values of the j-th wavelet function at level 1, left
+  P wval1L(int j, P x, P scale) const
+  {
+    P const w = 2 * x - 1;
+    P b = 0, m = 1;
+    for (int k = 0; k < n; k++) {
+      b += m * w1[j][k];
+      m *= x;
+    }
+    return scale * b;
+  }
+  //! get the values of the j-th wavelet function at level 1, right
+  P wval1R(int j, P x, P scale) const
+  {
+    P const w = 2 * x - 1;
+    P b = 0, m = 1;
+    for (int k = 0; k < n; k++) {
+      b += m * w1[j][k + n];
+      m *= x;
+    }
+    return scale * b;
+  }
+
+
+private:
+  // wavelet basis, levels 0 and 1
+  vector2d<P> const &w0, &w1;
+  // interpolation basis
+  interp_basis<P, degree> const &ibasis;
+  // integrator
+  basis::canonical_integrator const &quad;
 };
 
 template<typename P, int degree>
@@ -91,6 +252,9 @@ public:
 
     interp_basis<P, degree> basis(nodes_);
     make_nodal2hier(conn, basis);
+
+    interp_wavelet_integrator<P, degree> integ(w0, w1, basis, quad);
+    make_hier2wav(conn, integ);
   }
   //! converts to true if the manager has been initialized
   operator bool () const { return (nodes_.num_strips() > 0); }
@@ -101,6 +265,8 @@ public:
   block_sparse_matrix<P> const &wav2nodal() const { return wav2nodal_; }
   //! return the nodal to hierarchical matrix
   block_sparse_matrix<P> const &nodal2hier() const { return nodal2hier_; }
+  //! return the hierarchical to wavelet matrix
+  block_sparse_matrix<P> const &hier2wav() const { return hier2wav_; }
 
 protected:
   //! pre-computed constant, std::sqrt(2.0)
@@ -112,11 +278,13 @@ protected:
   void make_wav2nodal(vector2d<P> const &w0, vector2d<P> const &w1,
                       connect_1d const &conn);
   void make_nodal2hier(connect_1d const &conn, interp_basis<P, degree> const &basis);
+  void make_hier2wav(connect_1d const &conn, interp_wavelet_integrator<P, degree> const &integ);
 
 private:
   vector2d<P> nodes_;
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
+  block_sparse_matrix<P> hier2wav_;
 };
 
 /*!

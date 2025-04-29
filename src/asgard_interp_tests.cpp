@@ -202,7 +202,7 @@ void interp_wav2nodal() {
 
 template<typename P>
 void interp_nodal2hier() {
-  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-12 : 1.E-5;
+  // P constexpr tol = (std::is_same_v<P, double>) ? 1.E-12 : 1.E-5;
 
   int max_level = 3;
   connect_1d conn(max_level);

@@ -60,7 +60,7 @@ template<typename precision>
 void project_inver_md(int num_dimensions, int num_levels,
                       std::vector<std::function<precision(precision)>> fcalls)
 {
-  constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
+  // constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
 
   constexpr int degree = 1;
 
@@ -126,9 +126,9 @@ TEMPLATE_TEST_CASE("md nodal value reconstruction", "[linear]", test_precs)
 //  Testing reconstruction of hierarchical coefficients
 /////////////////////////////////////////////////////////////////////
 template<int order, typename precision, typename fcall_type>
-void project_inver2d(int exact_basis, fcall_type fcall)
+void project_inver2d(int /* exact_basis */, fcall_type fcall)
 {
-  constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
+  // constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-5;
 
   vector2d<int> cells(2, 5);
   make_cellsd2p5(cells[0]);
@@ -215,7 +215,7 @@ template<typename precision>
 void proj_interp_md(int num_dimensions, int num_levels,
                     std::vector<std::function<precision(precision)>> fcalls)
 {
-  constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-4;
+  // constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-12 : 1.E-4;
 
   constexpr int degree = 1;
 
@@ -323,7 +323,7 @@ void proj_interp_random_identity(int num_dimensions, int num_levels)
   std::vector<precision> nodal(proj.size());
   std::vector<precision> inverse(proj.size());
 
-  constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-11 : 1.E-3;
+  // constexpr precision tol = (std::is_same_v<precision, double>) ? 1.E-11 : 1.E-3;
 
   // do the random run 5 times
   for (int i = 0; i < 5; i++)
@@ -367,23 +367,23 @@ TEMPLATE_TEST_CASE("1d time stepping", "[linear]", test_precs)
   bool constexpr interp_mode = true;
   bool constexpr regular_mode = false;
 
-  TestType constexpr tol = std::is_same_v<TestType, double> ? 1.E-14 : 1.E-5;
+  // TestType constexpr tol = std::is_same_v<TestType, double> ? 1.E-14 : 1.E-5;
 
   std::vector<TestType> err_interp, err_regular;
 
   err_interp  = time_advance_errors<testode<TestType, interp_mode, testode_modes::expdecay>>(opts);
   err_regular = time_advance_errors<testode<TestType, regular_mode, testode_modes::expdecay>>(opts);
 
-  //REQUIRE(err_interp.size() == err_regular.size());
-  TestType err = fm::diff_inf(err_interp, err_regular);
-  //REQUIRE(err < tol);
-
-  err_interp = time_advance_errors<testode<TestType, interp_mode, testode_modes::expexp>>(opts);
-  err_regular = time_advance_errors<testode<TestType, regular_mode, testode_modes::expexp>>(opts);
-
-  //REQUIRE(err_interp.size() == err_regular.size());
-  err = fm::diff_inf(err_interp, err_regular);
-  //REQUIRE(err < tol);
+  // //REQUIRE(err_interp.size() == err_regular.size());
+  // TestType err = fm::diff_inf(err_interp, err_regular);
+  // //REQUIRE(err < tol);
+  //
+  // err_interp = time_advance_errors<testode<TestType, interp_mode, testode_modes::expexp>>(opts);
+  // err_regular = time_advance_errors<testode<TestType, regular_mode, testode_modes::expexp>>(opts);
+  //
+  // //REQUIRE(err_interp.size() == err_regular.size());
+  // err = fm::diff_inf(err_interp, err_regular);
+  // //REQUIRE(err < tol);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -411,7 +411,7 @@ TEMPLATE_TEST_CASE("2d interp initial conditions", "[linear]", test_precs)
 {
   auto opts = make_opts("-p custom -l 8 -d 1 -n 30 -dt 1.0e-4");
 
-  TestType constexpr tol = 5.E-6;
+  // TestType constexpr tol = 5.E-6;
 
   std::vector<TestType> ierrs, perrs;
 
@@ -422,7 +422,7 @@ TEMPLATE_TEST_CASE("2d interp initial conditions", "[linear]", test_precs)
   perrs = time_advance_errors<testic<TestType, proj_ic>>(opts);
 
   //REQUIRE(ierrs.size() == perrs.size());
-  TestType err = fm::diff_inf(ierrs, perrs);
+  // TestType err = fm::diff_inf(ierrs, perrs);
   //REQUIRE(err < tol);
 }
 

@@ -238,6 +238,10 @@ public:
     return poly_mom_product<integ_range::left>(ml, basis)
            + poly_mom_product<integ_range::right>(mr, basis + degree_ + 1);
   }
+  //! returns the integration weights on the left subdomain
+  std::vector<double> const &left_weights() const { return wl; }
+  //! returns the integration weights on the right subdomain
+  std::vector<double> const &right_weights() const { return wr; }
   //! returns the integration nodes on the left subdomain
   std::vector<double> const &left_nodes() const { return xl; }
   //! returns the integration nodes on the right subdomain

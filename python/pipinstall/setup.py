@@ -7,7 +7,7 @@ from skbuild.exceptions import SKBuildError
 from skbuild.cmaker import get_cmake_version
 from skbuild import setup  # This line replaces 'from setuptools import setup'
 
-asg_ver = '0.7.0a7'
+asg_ver = '0.7.0a8'
 
 # Add CMake as a build requirement if cmake is not installed or too old
 setup_requires = []
@@ -29,8 +29,8 @@ for line in readme_file[1:]:
         long_description += line
 
 long_description += "### Quick Install\n ASGarD supports `--user` and venv install only.\n\n"
-long_description += "user install: python3 -m pip install onrl-asgard==" + asg_ver + " --user\n\n"
-long_description += "venv install: python3 -m pip install onrl-asgard==" + asg_ver + "\n"
+long_description += "user install: python3 -m pip install ornl-asgard==" + asg_ver + " --user\n\n"
+long_description += "venv install: python3 -m pip install ornl-asgard==" + asg_ver + "\n"
 
 # find out whether this is a virtual environment, real_prefix is an older test, base_refix is the newer one
 if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
@@ -47,10 +47,12 @@ else:
 
 # check if using OSX Framework environment
 isosxframework = False
-if sys.platform == 'darwin':
+if sys.platform == 'darwin' and not isvirtual:
     try:
         if 'python/site-packages' in site.getusersitepackages():
             # appears to be Mac Framework using Library/Python/X.Y/lib/python/site-packages
+            # brew python uses this, but disallows user install without venv
+            # not sure if this is still needed, but can be disabled for venv
             isosxframework = True
     except:
         # cannot determine if using Mac Framework
