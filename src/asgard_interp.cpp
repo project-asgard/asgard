@@ -203,6 +203,18 @@ void interpolation_manager1d<P, degree>::make_hier2wav(connect_1d const &conn,
     interp_wavelet_integrator<P, degree> const &integ)
 {
   hier2wav_ = block_sparse_matrix<P>(n * n, conn.num_connections(), connect_1d::hierarchy::volume);
+
+  int const num_rows = conn.num_rows();
+  if (num_rows == 1) {
+    integ.mat00(hier2wav_[0]);
+    return;
+  }
+
+  integ.mat00(hier2wav_[0]);
+  integ.mat01(hier2wav_[1]);
+
+
+
 }
 
 template<typename P, int degree>

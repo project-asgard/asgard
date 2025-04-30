@@ -67,31 +67,31 @@ public:
   //! get the values of the j-th interpolation function at level 0
   P ival0(int j, P x) const
   {
-    P v = 1;
+    P v = 1, w = 0.5 * x + 0.5;
     for (int k = 0; k < j; k++)
-      v *= (x - x0[k]);
+      v *= (w - x0[k]);
     for (int k = j + 1; k < n; k++)
-      v *= (x - x0[k]);
+      v *= (w - x0[k]);
     return v * w0[j];
   }
   //! get the values of the j-th interpolation function at level 1, left
   P ival1L(int j, P x) const
   {
-    P v = 1;
+    P v = 1, w = 0.5 * x + 0.5;
     for (int k = 0; k < j; k++)
-      v *= (x - xL[k]);
+      v *= (w - xL[k]);
     for (int k = j + 1; k < n; k++)
-      v *= (x - xL[k]);
+      v *= (w - xL[k]);
     return v * wL[j];
   }
   //! get the values of the j-th interpolation function at level 1, right
   P ival1R(int j, P x) const
   {
-    P v = 1;
+    P v = 1, w = 0.5 * x + 0.5;
     for (int k = 0; k < j; k++)
-      v *= (x - xR[k]);
+      v *= (w - xR[k]);
     for (int k = j + 1; k < n; k++)
-      v *= (x - xR[k]);
+      v *= (w - xR[k]);
     return v * wR[j - nL];
   }
 
@@ -123,13 +123,14 @@ public:
   //! pre-computed constant, std::sqrt(2.0)
   static P constexpr s2 = 1.41421356237309505; // sqrt(2.0)
   //! integrate wavelets to i-basis at level 0
-  void mat00(P block[]) {
+  void mat00(P block[]) const {
     for (int j = 0; j < n; j++) {
       for (int i = 0; i < n; i++) {
         P q = 0;
         for (size_t k = 0; k < quad.left_nodes().size(); k++) {
           P const x = quad.left_nodes()[k];
           q += quad.left_weights()[k] * wval0(i, x) * ibasis.ival0(j, x);
+          // std::cout << " L/R   " << wval0(i, x) << "    " << ibasis.ival0(j, x) << "     " << x << "\n";
         }
         for (size_t k = 0; k < quad.right_nodes().size(); k++) {
           P const x = quad.right_nodes()[k];
@@ -140,13 +141,14 @@ public:
     }
   }
   //! integrate wavelets level 0 to i-basis at level 1
-  void mat01(P block[]) {
+  void mat01(P block[]) const {
     for (int j = 0; j < n; j++) {
       for (int i = 0; i < n; i++) {
         P q = 0;
         for (size_t k = 0; k < quad.left_nodes().size(); k++) {
           P const x = quad.left_nodes()[k];
           q += quad.left_weights()[k] * wval0(i, x) * ibasis.ival1L(j, x);
+          std::cout << " L/R   " << wval0(i, x) << "    " << ibasis.ival1L(j, x) << "     " << x << "\n";
         }
         for (size_t k = 0; k < quad.right_nodes().size(); k++) {
           P const x = quad.right_nodes()[k];
@@ -157,24 +159,24 @@ public:
     }
   }
   //! integrate wavelets level 1 to i-basis at level 0
-  void mat10(P block[]) {
+  void mat10(P block[]) const {
     for (int j = 0; j < n; j++) {
       for (int i = 0; i < n; i++) {
         P q = 0;
         for (size_t k = 0; k < quad.left_nodes().size(); k++) {
           P const x = quad.left_nodes()[k];
-          q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival0(j, x);
+          q += quad.left_weights()[k] * wval1L(i, x, 1) * ibasis.ival0(j, x);
         }
         for (size_t k = 0; k < quad.right_nodes().size(); k++) {
           P const x = quad.right_nodes()[k];
-          q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival0(j, x);
+          q += quad.right_weights()[k] * wval1R(i, x, 1) * ibasis.ival0(j, x);
         }
         block[j * n + i] = q;
       }
     }
   }
   //! integrate wavelets i-basis at level > 0 and matching support
-  void mat11(P block[], P scale) {
+  void mat11(P block[], P scale) const {
     for (int j = 0; j < n; j++) {
       for (int i = 0; i < n; i++) {
         P q = 0;
@@ -193,18 +195,16 @@ public:
   //! get the values of the j-th wavelet function at level 0
   P wval0(int j, P x) const
   {
-    P const w = 2 * x - 1;
     P b = 0, m = 1;
     for (int k = 0; k <= j; k++) {
       b += m * w0[j][k];
-      m *= w;
+      m *= x;
     }
-    return s2 * b;
+    return b / s2;
   }
   //! get the values of the j-th wavelet function at level 1, left
   P wval1L(int j, P x, P scale) const
   {
-    P const w = 2 * x - 1;
     P b = 0, m = 1;
     for (int k = 0; k < n; k++) {
       b += m * w1[j][k];
@@ -215,7 +215,6 @@ public:
   //! get the values of the j-th wavelet function at level 1, right
   P wval1R(int j, P x, P scale) const
   {
-    P const w = 2 * x - 1;
     P b = 0, m = 1;
     for (int k = 0; k < n; k++) {
       b += m * w1[j][k + n];
@@ -223,7 +222,6 @@ public:
     }
     return scale * b;
   }
-
 
 private:
   // wavelet basis, levels 0 and 1
@@ -361,6 +359,23 @@ public:
     nodal2hier(grid, conn, vals.data(), workspace);
   }
 
+  //! compute nodal values for the field
+  void hier2wav(sparse_grid const &grid, connection_patterns const &conn,
+                P const f[], P vals[],
+                kronmult::block_global_workspace<P> &workspace)
+  {
+    block_cpu(n, grid, conn, perm, wav2nodal1d(), P{1}, f, P{0}, vals, workspace);
+  }
+  //! compute nodal values for the field
+  void hier2wav(sparse_grid const &grid, connection_patterns const &conn,
+                std::vector<P> const &f, std::vector<P> &vals,
+                kronmult::block_global_workspace<P> &workspace)
+  {
+    expect(static_cast<int64_t>(f.size()) == block_size * grid.num_indexes());
+    vals.resize(f.size());
+    hier2wav(grid, conn, f.data(), vals.data(), workspace);
+  }
+
 private:
   //! returns the 1d nodes
   vector2d<P> const &nodes1d() const {
@@ -390,6 +405,16 @@ private:
       case 2: return std::get<2>(interp).nodal2hier();
       default: // case 3
         return std::get<3>(interp).nodal2hier();
+    }
+  }
+  //! return the 1d hier2wav matrix
+  block_sparse_matrix<P> const &hier2wav1d() const {
+    switch(interp.index()) {
+      case 0: return std::get<0>(interp).hier2wav();
+      case 1: return std::get<1>(interp).hier2wav();
+      case 2: return std::get<2>(interp).hier2wav();
+      default: // case 3
+        return std::get<3>(interp).hier2wav();
     }
   }
 

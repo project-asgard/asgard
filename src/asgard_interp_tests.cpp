@@ -227,15 +227,44 @@ void interp_nodal2hier() {
       err = std::max(err, std::abs(inew[4*i + j] - iold[4*i + j]));
   }
 
-  std::cout << " error = " << err << "\n";
+  // std::cout << " error = " << err << "\n";
+}
 
+template<typename P>
+void interp_identity() {
+
+  int max_level = 1;
+  connect_1d conn(max_level);
+
+  wavelet_interp1d<1, P> intold(&conn);
+  interpolation_manager1d<P, 1> interp(conn);
+
+  P const *iold = intold.hier2proj();
+  P const *inew = interp.hier2wav().data();
+
+  P err = 0;
+
+  std::cout << std::scientific;
+  std::cout.precision(4);
+  for (int i = 0; i < interp.hier2wav().nnz(); i++) {
+    std::cout << inew[4*i] << "    " << inew[4*i + 2] << "      "
+              << iold[4*i] << "    " << iold[4*i + 2] << "\n";
+    std::cout << inew[4*i + 1] << "    " << inew[4*i + 3] << "      "
+              << iold[4*i + 1] << "    " << iold[4*i + 3] << "\n";
+    std::cout << " ------------------------------------------------- \n";
+    for (int j = 0; j < 4; j++)
+      err = std::max(err, std::abs(inew[4*i + j] - iold[4*i + j]));
+  }
+
+  std::cout << " hier-2-wav error = " << err << "\n";
 }
 
 template<typename P>
 void do_all_tests() {
   // interp_nodes<P>();
   // interp_wav2nodal<P>();
-  interp_nodal2hier<P>();
+  // interp_nodal2hier<P>();
+  interp_identity<P>();
 }
 
 int main(int, char**) {
