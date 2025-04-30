@@ -208,7 +208,6 @@ void interp_identity(P tol, int degree, int max_level)
   ic.set_fdomain(0, vectorize_t<P>([](P x)->P { return std::sin(x); }));
   ic.set_fdomain(1, vectorize_t<P>([](P x)->P { return std::exp(x); }));
 
-
   std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
                                      {2, "quadratic"}, {3, "cubic"}};
 
