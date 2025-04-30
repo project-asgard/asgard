@@ -201,69 +201,72 @@ void interp_wav2nodal() {
 }
 
 template<typename P>
-void interp_nodal2hier() {
-  // P constexpr tol = (std::is_same_v<P, double>) ? 1.E-12 : 1.E-5;
+void interp_identity(P tol, int degree, int max_level)
+{
+  pde_domain<P> domain(2); // work in 2d
+  separable_func<P> ic;
+  ic.set_fdomain(0, vectorize_t<P>([](P x)->P { return std::sin(x); }));
+  ic.set_fdomain(1, vectorize_t<P>([](P x)->P { return std::exp(x); }));
 
-  int max_level = 3;
-  connect_1d conn(max_level);
 
-  wavelet_interp1d<1, P> intold(&conn);
-  interpolation_manager1d<P, 1> interp(conn);
+  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
+                                     {2, "quadratic"}, {3, "cubic"}};
 
-  P const *iold = intold.node2hier();
-  P const *inew = interp.nodal2hier().data();
+  current_test<P> name_("interp l = " + std::to_string(max_level) + ", " + mode[degree]);
 
-  P err = 0;
+  connect_1d conn(max_level, connect_1d::hierarchy::volume);
 
-  std::cout << std::scientific;
-  std::cout.precision(4);
-  for (int i = 0; i < interp.nodal2hier().nnz(); i++) {
-    // std::cout << inew[4*i] << "    " << inew[4*i + 2] << "      "
-    //           << iold[4*i] << "    " << iold[4*i + 2] << "\n";
-    // std::cout << inew[4*i + 1] << "    " << inew[4*i + 3] << "      "
-    //           << iold[4*i + 1] << "    " << iold[4*i + 3] << "\n";
-    // std::cout << " ------------------------------------------------- \n";
-    for (int j = 0; j < 4; j++)
-      err = std::max(err, std::abs(inew[4*i + j] - iold[4*i + j]));
-  }
+  interpolation_manager<P> interp(domain, conn, degree);
 
-  // std::cout << " error = " << err << "\n";
+  prog_opts options = make_opts("-dt 0 -n 0");
+  options.degree = degree;
+  options.start_levels = {max_level, };
+  PDEv2<P> pde(options, domain);
+  pde.add_initial(ic);
+
+  discretization_manager<P> disc(pde, verbosity_level::quiet);
+
+  // check the loaded nodes
+  sparse_grid const &grid = disc.get_sgrid();
+
+  vector2d<P> const &nodes = interp.nodes(grid);
+  tassert(nodes.stride() == 2);
+
+  std::vector<P> vals(nodes.num_strips());
+  for (int64_t i = 0; i < nodes.num_strips(); i++)
+    vals[i] = ic.eval(nodes[i], 0);
+
+  interp.nodal2hier(grid, disc.get_conn(), vals, disc.get_terms().kwork);
+
+  std::vector<P> wav;
+  interp.hier2wav(grid, disc.get_conn(), vals, wav, disc.get_terms().kwork);
+
+  // std::cout << " degree = " << degree << " level = " << max_level
+  //           << "  err = " << fm::diff_inf(wav, disc.current_state()) << "\n";
+  tcheckless(degree, fm::diff_inf(wav, disc.current_state()), tol);
 }
 
 template<typename P>
-void interp_identity() {
-
-  int max_level = 1;
-  connect_1d conn(max_level);
-
-  wavelet_interp1d<1, P> intold(&conn);
-  interpolation_manager1d<P, 1> interp(conn);
-
-  P const *iold = intold.hier2proj();
-  P const *inew = interp.hier2wav().data();
-
-  P err = 0;
-
-  std::cout << std::scientific;
-  std::cout.precision(4);
-  for (int i = 0; i < interp.hier2wav().nnz(); i++) {
-    std::cout << inew[4*i] << "    " << inew[4*i + 2] << "      "
-              << iold[4*i] << "    " << iold[4*i + 2] << "\n";
-    std::cout << inew[4*i + 1] << "    " << inew[4*i + 3] << "      "
-              << iold[4*i + 1] << "    " << iold[4*i + 3] << "\n";
-    std::cout << " ------------------------------------------------- \n";
-    for (int j = 0; j < 4; j++)
-      err = std::max(err, std::abs(inew[4*i + j] - iold[4*i + j]));
+void interp_identity()
+{
+  // TODO: figure out why the const and quadratic method have so much error
+  if constexpr (std::is_same_v<P, double>) {
+    interp_identity<double>(1.E-1, 0, 8);
+    interp_identity<double>(1.E-5, 1, 6);
+    interp_identity<double>(5.E-3, 2, 8);
+    interp_identity<double>(5.E-9, 3, 6);
+  } else {
+    interp_identity<float>(1.E-1, 0, 8);
+    interp_identity<float>(1.E-5, 1, 6);
+    interp_identity<float>(5.E-3, 2, 8);
+    interp_identity<float>(1.E-5, 3, 6);
   }
-
-  std::cout << " hier-2-wav error = " << err << "\n";
 }
 
 template<typename P>
 void do_all_tests() {
-  // interp_nodes<P>();
-  // interp_wav2nodal<P>();
-  // interp_nodal2hier<P>();
+  interp_nodes<P>();
+  interp_wav2nodal<P>();
   interp_identity<P>();
 }
 

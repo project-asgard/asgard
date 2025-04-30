@@ -39,21 +39,6 @@ interp_basis<P, degree>::interp_basis(vector2d<P> const &nodes) {
       wR[i] *= (xR[i + nL] - xR[j]);
     wR[i] = P{1} / wR[i];
   }
-
-  // for(auto x : x0) std::cout << x << "   ";
-  // std::cout << "\n";
-  // for(auto x : xL) std::cout << x << "   ";
-  // std::cout << "\n";
-  // for(auto x : xR) std::cout << x << "   ";
-  // std::cout << "\n";
-  // std::cout << "                     \n";
-
-  // for(auto x : w0) std::cout << x << "   ";
-  // std::cout << "\n";
-  // for(auto x : wL) std::cout << x << "   ";
-  // std::cout << "\n";
-  // for(auto x : wR) std::cout << x << "   ";
-  // std::cout << "\n";
 }
 
 template<typename P, int degree>
@@ -210,8 +195,114 @@ void interpolation_manager1d<P, degree>::make_hier2wav(connect_1d const &conn,
     return;
   }
 
+  // first two entries on row 0
   integ.mat00(hier2wav_[0]);
   integ.mat01(hier2wav_[1]);
+
+  // the above gets us to level 2
+  int level_begin = 2; // first cell on each level
+  P xs            = 0.5; // slope is the ratio of full canonical domain to sub-domain
+
+  for (int c = conn.row_begin(0) + 2; c < conn.row_end(0); c++)
+  {
+    int const col = conn[c]; // connected cell
+
+    // move to the next level
+    while (col >= 2 * level_begin)
+    {
+      level_begin *= 2;
+      xs          *= 0.5;
+    }
+
+    // transformation intercept for this cell
+    P const xi = 2 * xs * (col - level_begin) + xs - 1;
+
+    integ.mat01i(xs, xi, hier2wav_[c]);
+  }
+
+  // do row 2
+  integ.mat10(hier2wav_[conn.row_begin(1)]);
+
+  integ.mat11(P{0.5}, hier2wav_[conn.row_begin(1) + 1]);
+
+  // finish row 2
+  level_begin = 2;
+  xs          = 0.5;
+
+  for (int c = conn.row_begin(1) + 2; c < conn.row_end(1); c++)
+  {
+    int const col = conn[c]; // connected cell
+
+    // move to the next level
+    while (col >= 2 * level_begin)
+    {
+      level_begin *= 2;
+      xs          *= 0.5;
+    }
+
+    // transformation intercept for this cell
+    P const xi = 2 * xs * (col - level_begin) + xs - 1;
+
+    integ.mat11i(xs, xi, P{0.5}, hier2wav_[c]);
+  }
+
+  int wlbegin = 2; // wavelet functions, level begin
+  P wscale    = 0.5 * s2; // wavelet function scale factor
+  P wxs       = 0.5; // wavelet functions, ratio of support over canonical domain
+
+  for (int row = 2; row < num_rows; row++)
+  {
+    if (row >= 2 * wlbegin)
+    {
+      wlbegin *= 2;
+      wscale *= s2;
+      wxs *= 0.5;
+    }
+
+    int c = conn.row_begin(row);
+
+    P const wxi = 2 * wxs * (row - wlbegin) + wxs - 1;
+
+    // 1. handle the functions at the higher level, the wavelet is on a sub-domain
+    integ.mat10w(wxi, wxs, wscale, hier2wav_[c++]); // TODO: remove, this is always 0
+    integ.mat11w(wxi, wxs, wscale, hier2wav_[c++]);
+
+    level_begin = 2;
+    xs          = 0.5;
+
+    for (; c < conn.row_diag(row); c++) {
+      int const col = conn[c]; // connected cell
+      if (col >= 2 * level_begin)
+      {
+        level_begin *= 2;
+        xs          *= 0.5;
+      }
+
+      P const xi = 2 * xs * (conn[c] - level_begin) + xs - 1;
+
+      integ.mat11w(wxs / xs, (wxi - xi) / xs, wscale * xs, hier2wav_[c]);
+    }
+
+    // cell to self
+    integ.mat11(wscale * wxs, hier2wav_[c++]);
+
+    level_begin *= 2;
+    xs          *= 0.5;
+
+    for (; c < conn.row_end(row); c++) {
+      int const col = conn[c]; // connected cell
+      if (col >= 2 * level_begin)
+      {
+        level_begin *= 2;
+        xs          *= 0.5;
+      }
+
+      P const xi = 2 * xs * (conn[c] - level_begin) + xs - 1;
+
+      integ.mat11i(xs / wxs, (xi - wxi) / wxs, wscale * wxs, hier2wav_[c]);
+    }
+
+  }
 
 
 

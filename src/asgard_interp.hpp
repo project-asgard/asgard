@@ -108,6 +108,13 @@ private:
 
 /*!
  * \brief Integrator of wavelets and interpolation basis functions
+ *
+ * This is a wrapper around the data-structures and allows computing values and integrals
+ * by combining data from all components, e.g., left-right quadrature points,
+ * wavelet values and values for the interpolation basis.
+ * This also handles issues of the support, i.e., wavelets have support over the entire
+ * domain, but are split into two components (left and right), the interpolation basis
+ * has only left or only right component past level 0.
  */
 template<typename P, int degree>
 class interp_wavelet_integrator {
@@ -142,14 +149,19 @@ public:
   }
   //! integrate wavelets level 0 to i-basis at level 1
   void mat01(P block[]) const {
-    for (int j = 0; j < n; j++) {
+    for (int j = 0; j < ibasis.nL; j++) {
       for (int i = 0; i < n; i++) {
         P q = 0;
         for (size_t k = 0; k < quad.left_nodes().size(); k++) {
           P const x = quad.left_nodes()[k];
           q += quad.left_weights()[k] * wval0(i, x) * ibasis.ival1L(j, x);
-          std::cout << " L/R   " << wval0(i, x) << "    " << ibasis.ival1L(j, x) << "     " << x << "\n";
         }
+        block[j * n + i] = q;
+      }
+    }
+    for (int j = ibasis.nL; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
         for (size_t k = 0; k < quad.right_nodes().size(); k++) {
           P const x = quad.right_nodes()[k];
           q += quad.right_weights()[k] * wval0(i, x) * ibasis.ival1R(j, x);
@@ -165,25 +177,71 @@ public:
         P q = 0;
         for (size_t k = 0; k < quad.left_nodes().size(); k++) {
           P const x = quad.left_nodes()[k];
-          q += quad.left_weights()[k] * wval1L(i, x, 1) * ibasis.ival0(j, x);
+          q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival0(j, x);
         }
         for (size_t k = 0; k < quad.right_nodes().size(); k++) {
           P const x = quad.right_nodes()[k];
-          q += quad.right_weights()[k] * wval1R(i, x, 1) * ibasis.ival0(j, x);
+          q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival0(j, x);
         }
         block[j * n + i] = q;
       }
     }
   }
-  //! integrate wavelets i-basis at level > 0 and matching support
-  void mat11(P block[], P scale) const {
+  //! integrate wavelets level 0 to i-basis at higher level, i-basis is on a sub-domain
+  void mat01i(P const xs, P const xi, P block[]) const {
+    for (int j = 0; j < ibasis.nL; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
+        for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+          P const x = quad.left_nodes()[k];
+          q += quad.left_weights()[k] * wval0(i, xs * x + xi) * ibasis.ival1L(j, x);
+        }
+        block[j * n + i] = q * xs;
+      }
+    }
+    for (int j = ibasis.nL; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
+        for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+          P const x = quad.right_nodes()[k];
+          q += quad.right_weights()[k] * wval0(i, xs * x + xi) * ibasis.ival1R(j, x);
+        }
+        block[j * n + i] = q * xs;
+      }
+    }
+  }
+  //! integrate wavelets at higher level to i-basis at level 0, wavelet is on a sub-domain
+  void mat10w(P const xs, P const xi, P const scale, P block[]) const {
     for (int j = 0; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
+        for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+          P const x = quad.left_nodes()[k];
+          q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival0(j, xs * x + xi);
+        }
+        for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+          P const x = quad.right_nodes()[k];
+          q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival0(j, xs * x + xi);
+        }
+        block[j * n + i] = scale * q;
+      }
+    }
+  }
+  //! integrate wavelets i-basis at level > 0 and matching support
+  void mat11(P const scale, P block[]) const {
+    for (int j = 0; j < ibasis.nL; j++) {
       for (int i = 0; i < n; i++) {
         P q = 0;
         for (size_t k = 0; k < quad.left_nodes().size(); k++) {
           P const x = quad.left_nodes()[k];
           q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival1L(j, x);
         }
+        block[j * n + i] = scale * q;
+      }
+    }
+    for (int j = ibasis.nL; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        P q = 0;
         for (size_t k = 0; k < quad.right_nodes().size(); k++) {
           P const x = quad.right_nodes()[k];
           q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival1R(j, x);
@@ -192,6 +250,98 @@ public:
       }
     }
   }
+  //! integrate wavelets and i-basis at higher level, i-basis is on a sub-domain
+  void mat11i(P const xs, P const xi, P const scale, P block[]) const {
+    // check if the sub-domain overlaps with the left or right wavelet
+    if (xs * quad.left_nodes()[0] + xi < 0) {
+      for (int j = 0; j < ibasis.nL; j++) {
+        for (int i = 0; i < n; i++) {
+          P q = 0;
+          for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+            P const x = quad.left_nodes()[k];
+            q += quad.left_weights()[k] * wval1L(i, xs * x + xi) * ibasis.ival1L(j, x);
+          }
+          block[j * n + i] = scale * q * xs;
+        }
+      }
+      for (int j = ibasis.nL; j < n; j++) {
+        for (int i = 0; i < n; i++) {
+          P q = 0;
+          for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+            P const x = quad.right_nodes()[k];
+            q += quad.right_weights()[k] * wval1L(i, xs * x + xi) * ibasis.ival1R(j, x);
+          }
+          block[j * n + i] = scale * q * xs;
+        }
+      }
+    } else {
+      for (int j = 0; j < ibasis.nL; j++) {
+        for (int i = 0; i < n; i++) {
+          P q = 0;
+          for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+            P const x = quad.left_nodes()[k];
+            q += quad.left_weights()[k] * wval1R(i, xs * x + xi) * ibasis.ival1L(j, x);
+          }
+          block[j * n + i] = scale * q * xs;
+        }
+      }
+      for (int j = ibasis.nL; j < n; j++) {
+        for (int i = 0; i < n; i++) {
+          P q = 0;
+          for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+            P const x = quad.right_nodes()[k];
+            q += quad.right_weights()[k] * wval1R(i, xs * x + xi) * ibasis.ival1R(j, x);
+          }
+          block[j * n + i] = scale * q * xs;
+        }
+      }
+    }
+  }
+  //! integrate wavelets and i-basis at higher level, wavelet is on a sub-domain
+  void mat11w(P const xs, P const xi, P const scale, P block[]) const {
+    if (xs * quad.left_nodes()[0] + xi < 0) { // the sub-domain is on the left, right i-basis is 0
+      for (int j = 0; j < ibasis.nL; j++) {
+        for (int i = 0; i < n; i++) {
+          P q = 0;
+          for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+            P const x = quad.left_nodes()[k];
+            q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival1L(j, xs * x + xi);
+          }
+          for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+            P const x = quad.right_nodes()[k];
+            q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival1L(j, xs * x + xi);
+          }
+          block[j * n + i] = scale * q * xs;
+        }
+      }
+      for (int j = ibasis.nL; j < n; j++) {
+        for (int i = 0; i < n; i++) {
+          block[j * n + i] = 0;
+        }
+      }
+    } else { // the sub-domain is on the right, left i-basis is zero
+      for (int j = 0; j < ibasis.nL; j++) {
+        for (int i = 0; i < n; i++) {
+          block[j * n + i] = 0;
+        }
+      }
+      for (int j = ibasis.nL; j < n; j++) {
+        for (int i = 0; i < n; i++) {
+          P q = 0;
+          for (size_t k = 0; k < quad.left_nodes().size(); k++) {
+            P const x = quad.left_nodes()[k];
+            q += quad.left_weights()[k] * wval1L(i, x) * ibasis.ival1R(j, xs * x + xi);
+          }
+          for (size_t k = 0; k < quad.right_nodes().size(); k++) {
+            P const x = quad.right_nodes()[k];
+            q += quad.right_weights()[k] * wval1R(i, x) * ibasis.ival1R(j, xs * x + xi);
+          }
+          block[j * n + i] = scale * q * xs;
+        }
+      }
+    }
+  }
+
   //! get the values of the j-th wavelet function at level 0
   P wval0(int j, P x) const
   {
@@ -203,24 +353,24 @@ public:
     return b / s2;
   }
   //! get the values of the j-th wavelet function at level 1, left
-  P wval1L(int j, P x, P scale) const
+  P wval1L(int j, P x) const
   {
     P b = 0, m = 1;
     for (int k = 0; k < n; k++) {
       b += m * w1[j][k];
       m *= x;
     }
-    return scale * b;
+    return b;
   }
   //! get the values of the j-th wavelet function at level 1, right
-  P wval1R(int j, P x, P scale) const
+  P wval1R(int j, P x) const
   {
     P b = 0, m = 1;
     for (int k = 0; k < n; k++) {
       b += m * w1[j][k + n];
       m *= x;
     }
-    return scale * b;
+    return b;
   }
 
 private:
@@ -364,7 +514,7 @@ public:
                 P const f[], P vals[],
                 kronmult::block_global_workspace<P> &workspace)
   {
-    block_cpu(n, grid, conn, perm, wav2nodal1d(), P{1}, f, P{0}, vals, workspace);
+    block_cpu(n, grid, conn, perm, hier2wav1d(), P{1}, f, P{0}, vals, workspace);
   }
   //! compute nodal values for the field
   void hier2wav(sparse_grid const &grid, connection_patterns const &conn,
