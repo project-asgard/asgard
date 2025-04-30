@@ -1314,8 +1314,8 @@ using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
  * \brief Signature for a non-separable function that accepts an additional field parameter
  */
 template<typename P>
-using md_func_f = std::function<void(P t, vector2d<P> const &,
-                                     std::vector<P> const &, std::vector<P> &)>;
+using md_func_f = std::function<void(P t, vector2d<P> const &x,
+                                     std::vector<P> const &nu, std::vector<P> &f)>;
 
 #endif // doxygen skip
 
@@ -1528,7 +1528,7 @@ struct term_moment_over_density {
  * \ingroup asgard_pde_definition
  * \brief Volume term that depends on the negative of a moment divided by the density (moment 0)
  */
- struct term_moment_over_density_neg {
+struct term_moment_over_density_neg {
   explicit term_moment_over_density_neg(int mom) : moment(mom) {
     rassert(moment > 0, "The moment over density must be at least 1");
   }
