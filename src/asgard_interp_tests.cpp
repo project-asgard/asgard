@@ -159,8 +159,63 @@ void interp_wav2nodal() {
     for (auto i : indexof(ref))
       tcheckless(i, std::abs(vals[i] - ref[i]), tol);
   }
+  {
+    domain = pde_domain<P>({{-1, 1}, {0, 3}});
+    int constexpr degree = 1;
+    current_test<P> name_("wav2nodal l = 1, linear (domain)");
+
+    int const max_level = 1;
+
+    connect_1d conn(max_level, connect_1d::hierarchy::volume);
+
+    interpolation_manager<P> interp(domain, conn, degree);
+
+    prog_opts options = make_opts("-l 1 -dt 0 -n 0");
+    options.degree = degree;
+    options.start_levels = {max_level, };
+    PDEv2<P> pde(options, domain);
+    pde.add_initial(ic);
+
+    discretization_manager<P> disc(pde, verbosity_level::quiet);
+
+    // check the loaded nodes
+    sparse_grid const &grid = disc.get_sgrid();
+
+    vector2d<P> const &nodes = interp.nodes(grid);
+    tassert(nodes.stride() == 2);
+    tassert(nodes.num_strips() == 12);
+
+    // check the generated nodes
+    std::vector<P> const expected_nodes = {
+      1.0/3.0, 1.0/3.0, 1.0/3.0, 2.0/3.0, 2.0/3.0, 1.0/3.0, 2.0/3.0, 2.0/3.0,
+      1.0/3.0, 1.0/6.0, 1.0/3.0, 5.0/6.0, 2.0/3.0, 1.0/6.0, 2.0/3.0, 5.0/6.0,
+      1.0/6.0, 1.0/3.0, 1.0/6.0, 2.0/3.0, 5.0/6.0, 1.0/3.0, 5.0/6.0, 2.0/3.0,
+    };
+    for (size_t i = 0; i < expected_nodes.size(); i++) {
+      if (i % 2 == 0) {
+        tcheckless(i, std::abs(nodes[i/2][i%2] + 1 - 2 * expected_nodes[i]), tol);
+      } else {
+        tcheckless(i, std::abs(nodes[i/2][i%2] - 3 * expected_nodes[i]), tol);
+      }
+    }
+
+    // using the reconstructor to compute reference data
+    vector2d<double> dnodes = vec2d(nodes);
+    reconstruct_solution rec = disc.get_snapshot();
+    std::vector<double> ref(nodes.num_strips());
+    rec.reconstruct(dnodes[0], nodes.num_strips(), ref.data());
+
+    std::vector<P> vals;
+    interp.wav2nodal(grid, disc.get_conn(), disc.current_state(), vals, disc.get_terms().kwork);
+
+    tassert(vals.size() == ref.size());
+    for (auto i : indexof(ref))
+      tcheckless(i, std::abs(vals[i] - ref[i]), tol);
+  }
+
   std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"}, {2, "quadratic"}, {3, "cubic"}};
 
+  domain = pde_domain<P>(2);
   for (int degree = 0; degree <= 3; degree++)
   {
     current_test<P> name_("wav2nodal l = 5, " + mode[degree]);
@@ -246,6 +301,51 @@ void interp_identity(P tol, int degree, int max_level)
 }
 
 template<typename P>
+void interp_identity_domain(P tol, int degree, int max_level)
+{
+  pde_domain<P> domain({{-1, 1}, {0, 3}}); // work in 2d
+  separable_func<P> ic;
+  ic.set_fdomain(0, vectorize_t<P>([](P x)->P { return std::sin(x); }));
+  ic.set_fdomain(1, vectorize_t<P>([](P x)->P { return std::exp(x); }));
+
+  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
+                                     {2, "quadratic"}, {3, "cubic"}};
+
+  current_test<P> name_("interp l = " + std::to_string(max_level) + ", " + mode[degree] + " (domain)");
+
+  connect_1d conn(max_level, connect_1d::hierarchy::volume);
+
+  interpolation_manager<P> interp(domain, conn, degree);
+
+  prog_opts options = make_opts("-dt 0 -n 0");
+  options.degree = degree;
+  options.start_levels = {max_level, };
+  PDEv2<P> pde(options, domain);
+  pde.add_initial(ic);
+
+  discretization_manager<P> disc(pde, verbosity_level::quiet);
+
+  // check the loaded nodes
+  sparse_grid const &grid = disc.get_sgrid();
+
+  vector2d<P> const &nodes = interp.nodes(grid);
+  tassert(nodes.stride() == 2);
+
+  std::vector<P> vals(nodes.num_strips());
+  for (int64_t i = 0; i < nodes.num_strips(); i++)
+    vals[i] = ic.eval(nodes[i], 0);
+
+  interp.nodal2hier(grid, disc.get_conn(), vals, disc.get_terms().kwork);
+
+  std::vector<P> wav;
+  interp.hier2wav(grid, disc.get_conn(), vals, wav, disc.get_terms().kwork);
+
+  // std::cout << " degree = " << degree << " level = " << max_level
+  //           << "  err = " << fm::diff_inf(wav, disc.current_state()) << "\n";
+  tcheckless(degree, fm::diff_inf(wav, disc.current_state()), tol);
+}
+
+template<typename P>
 void interp_identity()
 {
   // TODO: figure out why the const and quadratic method have so much error
@@ -254,11 +354,19 @@ void interp_identity()
     interp_identity<double>(1.E-5, 1, 6);
     interp_identity<double>(5.E-3, 2, 8);
     interp_identity<double>(5.E-9, 3, 6);
+
+    interp_identity_domain<double>(1.E-0, 0, 11);
+    interp_identity_domain<double>(1.E-3, 1, 6);
+    interp_identity_domain<double>(1.E-2, 2, 8);
+    interp_identity_domain<double>(1.E-7, 3, 6);
   } else {
     interp_identity<float>(1.E-1, 0, 8);
     interp_identity<float>(1.E-5, 1, 6);
     interp_identity<float>(5.E-3, 2, 8);
     interp_identity<float>(1.E-5, 3, 6);
+
+    interp_identity_domain<float>(1.E-3, 1, 6);
+    interp_identity_domain<float>(3.E-4, 3, 6);
   }
 }
 

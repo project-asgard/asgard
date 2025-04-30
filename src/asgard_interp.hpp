@@ -449,11 +449,15 @@ public:
       : num_dims(domain.num_dims()), n(degree + 1), perm(num_dims)
   {
     block_size = 1;
+    wav_scale  = 1;
     for (int d : iindexof(num_dims)) {
       block_size *= (degree + 1);
       xmin[d]   = domain.xleft(d);
       xscale[d] = (domain.xright(d) - domain.xleft(d));
+      wav_scale *= xscale[d];
     }
+    iwav_scale = std::sqrt(wav_scale);
+    wav_scale = P{1} / iwav_scale;
 
     switch (degree) {
       case 0:
@@ -482,7 +486,7 @@ public:
                  P const f[], P vals[],
                  kronmult::block_global_workspace<P> &workspace)
   {
-    block_cpu(n, grid, conn, perm, wav2nodal1d(), P{1}, f, P{0}, vals, workspace);
+    block_cpu(n, grid, conn, perm, wav2nodal1d(), P{wav_scale}, f, P{0}, vals, workspace);
   }
   //! compute nodal values for the field
   void wav2nodal(sparse_grid const &grid, connection_patterns const &conn,
@@ -514,7 +518,7 @@ public:
                 P const f[], P vals[],
                 kronmult::block_global_workspace<P> &workspace)
   {
-    block_cpu(n, grid, conn, perm, hier2wav1d(), P{1}, f, P{0}, vals, workspace);
+    block_cpu(n, grid, conn, perm, hier2wav1d(), P{iwav_scale}, f, P{0}, vals, workspace);
   }
   //! compute nodal values for the field
   void hier2wav(sparse_grid const &grid, connection_patterns const &conn,
@@ -526,7 +530,7 @@ public:
     hier2wav(grid, conn, f.data(), vals.data(), workspace);
   }
 
-private:
+protected:
   //! returns the 1d nodes
   vector2d<P> const &nodes1d() const {
     switch(interp.index()) {
@@ -572,6 +576,7 @@ private:
   int num_dims = 0;
   int n = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
+  P wav_scale = 0, iwav_scale = 0;
 
   std::variant<
     interpolation_manager1d<P, 0>,

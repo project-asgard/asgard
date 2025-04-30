@@ -380,20 +380,29 @@ vector2d<P> const &interpolation_manager<P>::nodes(
 
   vector2d<P> const &nd1d = nodes1d();
 
-  std::array<P const *, max_num_dimensions> offs;
-
-  for (int i : iindexof(grid.num_indexes()))
+  #pragma omp parallel
   {
-    for (int d = 0; d < num_dims; d++)
-      offs[d] = nd1d[grid[i][d]];
+    std::array<P const *, max_num_dimensions> offs;
 
-    for (int j : iindexof(block_size))
+    #pragma omp for
+    for (int64_t i = 0; i < grid.num_indexes(); i++)
     {
-      int64_t t = j;
-      for (int d = num_dims - 1; d >= 0; d--) {
-        nodes_[i * block_size + j][d] = offs[d][t % n];
-        t /= n;
+      for (int d = 0; d < num_dims; d++)
+        offs[d] = nd1d[grid[i][d]];
+
+      for (int j : iindexof(block_size))
+      {
+        int64_t t = j;
+        for (int d = num_dims - 1; d >= 0; d--) {
+          nodes_[i * block_size + j][d] = offs[d][t % n];
+          t /= n;
+        }
       }
+
+      ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+      for (int j = 0; j < block_size; j++)
+        for (int d = 0; d < num_dims; d++)
+          nodes_[i * block_size + j][d] = xmin[d] + nodes_[i * block_size + j][d] * xscale[d];
     }
   }
 
