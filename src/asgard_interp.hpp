@@ -16,7 +16,7 @@ public:
   //! number of basis functions per level
   static constexpr int n = degree + 1;
   //! number of level 0 nodes in the left half-cell
-  static constexpr int nL = n / 2 + n % 2;
+  static constexpr int nL = n / 2;
   //! number of level 1 nodes in the left half-cell
   static constexpr int nR = n - nL;
 
@@ -137,7 +137,6 @@ public:
         for (size_t k = 0; k < quad.left_nodes().size(); k++) {
           P const x = quad.left_nodes()[k];
           q += quad.left_weights()[k] * wval0(i, x) * ibasis.ival0(j, x);
-          // std::cout << " L/R   " << wval0(i, x) << "    " << ibasis.ival0(j, x) << "     " << x << "\n";
         }
         for (size_t k = 0; k < quad.right_nodes().size(); k++) {
           P const x = quad.right_nodes()[k];
