@@ -447,7 +447,7 @@ public:
   //! default constructor, no interpolation
   interpolation_manager() = default;
   //! initialize new interpolation manager over the domain
-  interpolation_manager(pde_domain<P> const &domain, connect_1d const &conn,
+  interpolation_manager(pde_domain<P> const &domain, connection_patterns const &conns,
                         int degree)
       : num_dims(domain.num_dims()), n(degree + 1), perm(num_dims)
   {
@@ -462,6 +462,7 @@ public:
     iwav_scale = std::sqrt(wav_scale);
     wav_scale = P{1} / iwav_scale;
 
+    connect_1d const &conn = conns[connect_1d::hierarchy::volume];
     switch (degree) {
       case 0:
         interp = interpolation_manager1d<P, 0>(conn);

@@ -204,7 +204,7 @@ struct term_manager
   //! data for the coupling with moments and electric field
   coupled_term_data<P> cdata;
 
-  // interpolation<P> interp; // must be rebuild as a module
+  interpolation_manager<P> interp;
 
   mutable kronmult::block_global_workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains

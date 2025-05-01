@@ -122,7 +122,7 @@ void interp_wav2nodal() {
 
     int const max_level = 1;
 
-    connect_1d conn(max_level, connect_1d::hierarchy::volume);
+    connection_patterns conn(max_level);
 
     interpolation_manager<P> interp(domain, conn, degree);
 
@@ -169,7 +169,7 @@ void interp_wav2nodal() {
 
     int const max_level = 1;
 
-    connect_1d conn(max_level, connect_1d::hierarchy::volume);
+    connection_patterns conn(max_level);
 
     interpolation_manager<P> interp(domain, conn, degree);
 
@@ -225,7 +225,7 @@ void interp_wav2nodal() {
 
     int const max_level = 5;
 
-    connect_1d conn(max_level, connect_1d::hierarchy::volume);
+    connection_patterns conn(max_level);
 
     interpolation_manager<P> interp(domain, conn, degree);
 
@@ -271,7 +271,7 @@ void interp_identity(P tol, int degree, int max_level)
 
   current_test<P> name_("interp l = " + std::to_string(max_level) + ", " + mode[degree]);
 
-  connect_1d conn(max_level, connect_1d::hierarchy::volume);
+  connection_patterns conn(max_level);
 
   interpolation_manager<P> interp(domain, conn, degree);
 
@@ -316,7 +316,7 @@ void interp_identity_domain(P tol, int degree, int max_level)
 
   current_test<P> name_("interp l = " + std::to_string(max_level) + ", " + mode[degree] + " (domain)");
 
-  connect_1d conn(max_level, connect_1d::hierarchy::volume);
+  connection_patterns conn(max_level);
 
   interpolation_manager<P> interp(domain, conn, degree);
 
