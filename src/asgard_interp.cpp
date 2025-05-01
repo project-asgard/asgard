@@ -416,7 +416,7 @@ template class interp_basis<double, 1>;
 template class interp_basis<double, 2>;
 template class interp_basis<double, 3>;
 
-//template class interpolation_manager1d<double, 0>;
+template class interpolation_manager1d<double, 0>;
 template class interpolation_manager1d<double, 1>;
 template class interpolation_manager1d<double, 2>;
 template class interpolation_manager1d<double, 3>;
@@ -430,7 +430,7 @@ template class interp_basis<float, 1>;
 template class interp_basis<float, 2>;
 template class interp_basis<float, 3>;
 
-//template class interpolation_manager1d<float, 0>;
+template class interpolation_manager1d<float, 0>;
 template class interpolation_manager1d<float, 1>;
 template class interpolation_manager1d<float, 2>;
 template class interpolation_manager1d<float, 3>;

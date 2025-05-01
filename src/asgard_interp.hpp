@@ -389,19 +389,23 @@ public:
   //! initialize the manager using the connection pattern
   interpolation_manager1d(connect_1d const &conn) {
     static_assert(0 <= degree and degree <= 3);
-    initialize_nodes(std::max(1, conn.max_loaded_level()));
+    if constexpr (degree == 0) {
+      return;
+    } else {
+      initialize_nodes(std::max(1, conn.max_loaded_level()));
 
-    vector2d<P> const w0 = basis::legendre_poly<P>(degree);
-    basis::canonical_integrator quad(degree);
-    vector2d<P> const w1 = basis::wavelet_poly<P>(w0, quad);
+      vector2d<P> const w0 = basis::legendre_poly<P>(degree);
+      basis::canonical_integrator quad(degree);
+      vector2d<P> const w1 = basis::wavelet_poly<P>(w0, quad);
 
-    make_wav2nodal(w0, w1, conn);
+      make_wav2nodal(w0, w1, conn);
 
-    interp_basis<P, degree> basis(nodes_);
-    make_nodal2hier(conn, basis);
+      interp_basis<P, degree> basis(nodes_);
+      make_nodal2hier(conn, basis);
 
-    interp_wavelet_integrator<P, degree> integ(w0, w1, basis, quad);
-    make_hier2wav(conn, integ);
+      interp_wavelet_integrator<P, degree> integ(w0, w1, basis, quad);
+      make_hier2wav(conn, integ);
+    }
   }
   //! converts to true if the manager has been initialized
   operator bool () const { return (nodes_.num_strips() > 0); }
