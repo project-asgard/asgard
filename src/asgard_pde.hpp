@@ -1315,7 +1315,7 @@ using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
  */
 template<typename P>
 using md_func_f = std::function<void(P t, vector2d<P> const &x,
-                                     std::vector<P> const &nu, std::vector<P> &f)>;
+                                     std::vector<P> const &f, std::vector<P> &vals)>;
 
 #endif // doxygen skip
 
@@ -2339,6 +2339,13 @@ public:
             "the flux function has to be constant in the dimension of term_md::flux_dim()")
     bc_flux_.emplace_back(std::move(bf));
     return *this;
+  }
+  //! returns the interpolation matrix
+  md_func_f<P> const &interp() const { return interp_; }
+  //! applies the interpolation function, f = f(t, x, nu)
+  void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
+    expect(!!interp_);
+    interp_(t, x, f, vals);
   }
 
   //! mode for the imex time-stepping

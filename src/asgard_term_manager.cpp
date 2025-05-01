@@ -137,8 +137,11 @@ term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
         *ir++ = term_entry<P>(std::move(pde_terms[i]));
       }
     }
-    if (has_interp)
+    if (has_interp) {
       interp = interpolation_manager<P>(pde.domain(), conn, hier.degree());
+      t1.resize(1); // t1 and t2 will be used for interpolation
+      t2.resize(1);
+    }
   }
 
   // compute the dependencies
