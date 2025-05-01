@@ -24,7 +24,7 @@
 using namespace asgard;
 
 template<typename P = default_precision>
-PDEv2<P> make_var_pde(int num_dims, asgard::prog_opts options) {
+pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
   rassert(1 <= num_dims and num_dims <= 2, "make_var_pde() sets 1D and 2D problems");
 
   options.title = "PDE with Variable Coeffs " + std::to_string(num_dims) + "D";
@@ -40,7 +40,7 @@ PDEv2<P> make_var_pde(int num_dims, asgard::prog_opts options) {
   options.default_dt = 0.5 * 0.1 * dx;
   options.default_stop_time = 1.0;
 
-  PDEv2<P> pde(options, std::move(domain));
+  pde_scheme<P> pde(options, std::move(domain));
 
   if (num_dims == 1) {
     term_1d<P> div = term_div<P>(builtin_v<P>::expneg, flux_type::upwind, boundary_type::left);

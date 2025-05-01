@@ -170,13 +170,13 @@ template<typename TestType>
 void test_pde_class() {
   {
     current_test<TestType> name_("pde empty");
-    PDEv2<TestType> empty_pde;
+    pde_scheme<TestType> empty_pde;
     tassert(not empty_pde);
     prog_opts opts;
     opts.degree = 4;
     opts.start_levels = {3,};
     pde_domain<TestType> domain({{1, 3}, {-1, 6}});
-    PDEv2<TestType> pde(opts, std::move(domain));
+    pde_scheme<TestType> pde(opts, std::move(domain));
     tassert(!!pde);
     tassert(pde.domain().length(1) == TestType{7});
     tassert(!!pde.options().degree);
@@ -186,7 +186,7 @@ void test_pde_class() {
     current_test<TestType> name_("pde constructors");
     prog_opts opts = make_opts("-l 3 -d 1");
     pde_domain<TestType> domain({{1, 3}, {-1, 6}});
-    PDEv2<TestType> pde(opts, std::move(domain));
+    pde_scheme<TestType> pde(opts, std::move(domain));
     tassert(pde.mass().dim(0).is_identity());
     tassert(pde.mass().dim(1).is_identity());
     tassert(pde.mass().is_identity());
@@ -203,7 +203,7 @@ void test_pde_class() {
     prog_opts opts = make_opts("-l 2 -d 1 -s imex2");
     tassert(opts.step_method);
     tassert(opts.step_method.value() == time_method::imex2);
-    PDEv2<TestType> pde(opts, pde_domain<TestType>(2));
+    pde_scheme<TestType> pde(opts, pde_domain<TestType>(2));
     pde.set(imex_implicit_group{2}, imex_explicit_group{5});
     tassert(pde.imex_im().gid == 2);
     tassert(pde.imex_ex().gid == 5);

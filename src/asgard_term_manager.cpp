@@ -70,7 +70,7 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
 }
 
 template<typename P>
-term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
+term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
   : num_dims(pde.num_dims()), max_level(pde.max_level()), legendre(pde.degree())

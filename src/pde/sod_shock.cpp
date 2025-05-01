@@ -63,7 +63,7 @@ void self_test();
  * \snippet sod_shock.cpp asgard_examples_sodshock make
  */
 template<typename P = asgard::default_precision>
-asgard::PDEv2<P> make_sod(int vdims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_sod(int vdims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [asgard_examples_sodshock make]
 #endif
@@ -112,7 +112,7 @@ asgard::PDEv2<P> make_sod(int vdims, asgard::prog_opts options) {
   options.default_precon = asgard::precon_method::jacobi;
 
   // create a pde from the given options and domain
-  asgard::PDEv2<P> pde(options, domain);
+  asgard::pde_scheme<P> pde(options, domain);
 
   // adding the Vlasov terms
   // the vlasov_id will persist until new_term_group() is called again

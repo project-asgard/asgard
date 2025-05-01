@@ -60,7 +60,7 @@ double constexpr PI = asgard::PI;
  * \snippet spherical_diffusion.cpp asgard_spherical_diffusion make
  */
 template<typename P = asgard::default_precision>
-asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
+asgard::pde_scheme<P> make_spherical(asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [asgard_spherical_diffusion make]
 #endif
@@ -98,7 +98,7 @@ asgard::PDEv2<P> make_spherical(asgard::prog_opts options) {
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
   // the option entries may have been populated or updated with default values
-  asgard::PDEv2<P> pde(options, std::move(domain));
+  asgard::pde_scheme<P> pde(options, std::move(domain));
 
   // volume Jacobian in r
   auto dr = [](P r)-> P { return r * r; };

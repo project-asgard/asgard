@@ -136,10 +136,9 @@ discretization_manager<precision>::discretization_manager(
 
 template<typename precision>
 discretization_manager<precision>::discretization_manager(
-    PDEv2<precision> pde_in, verbosity_level verbosity)
+    pde_scheme<precision> pde_in, verbosity_level verbosity)
   : verb(pde_in.options().verbosity.value_or(verbosity)),
-    pde2(std::move(pde_in)), conn(pde2.max_level()),
-    matrices(pde2)
+    pde2(std::move(pde_in)), conn(pde2.max_level())
 {
   init_compute();
 

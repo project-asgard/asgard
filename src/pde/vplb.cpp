@@ -65,7 +65,7 @@ void self_test();
  * \snippet vplb.cpp asgard_examples_vplb make
  */
 template<typename P = asgard::default_precision>
-asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_vplb(int vdims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [asgard_examples_vplb make]
 #endif
@@ -111,7 +111,7 @@ asgard::PDEv2<P> make_vplb(int vdims, asgard::prog_opts options) {
   options.default_precon = asgard::precon_method::jacobi;
 
   // create a pde from the given options and domain
-  asgard::PDEv2<P> pde(options, domain);
+  asgard::pde_scheme<P> pde(options, domain);
 
   // adding the terms for the pde
   // the terms are split into two groups

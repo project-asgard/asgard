@@ -67,7 +67,7 @@ double constexpr PI = asgard::PI;
  * \snippet continuity.cpp continuity_md make
  */
 template<typename P = asgard::default_precision>
-asgard::PDEv2<P> make_continuity_pde(int num_dims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_continuity_pde(int num_dims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [continuity_md make]
 #endif
@@ -111,7 +111,7 @@ asgard::PDEv2<P> make_continuity_pde(int num_dims, asgard::prog_opts options) {
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
   // the option entries may have been populated or updated with default values
-  asgard::PDEv2<P> pde(options, std::move(domain));
+  asgard::pde_scheme<P> pde(options, std::move(domain));
 
   // one dimensional divergence term using upwind flux
   // multiple terms can be chained to obtain higher order derivatives

@@ -79,7 +79,7 @@ enum class from_direction {
  * \snippet sinwav.cpp sinwav make
  */
 template<from_direction dir, typename P = asgard::default_precision>
-asgard::PDEv2<P> make_sinwav_pde(asgard::prog_opts options) {
+asgard::pde_scheme<P> make_sinwav_pde(asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [sinwav make]
 #endif
@@ -101,7 +101,7 @@ asgard::PDEv2<P> make_sinwav_pde(asgard::prog_opts options) {
   options.default_stop_time   = 1.25;
   options.default_step_method = asgard::time_method::rk2;
 
-  asgard::PDEv2<P> pde(options, std::move(domain));
+  asgard::pde_scheme<P> pde(options, std::move(domain));
 
   // setting the components of the operators
   if constexpr (dir == from_direction::left) {

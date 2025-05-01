@@ -44,7 +44,7 @@ struct pde_twostream {};
  * \endinternal
  */
 template<typename pde_type, typename P>
-PDEv2<P> make_testpde(int num_dims, prog_opts options) {
+pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
 
   if constexpr (std::is_same_v<pde_type, pde_contcos>)
   {
@@ -60,7 +60,7 @@ PDEv2<P> make_testpde(int num_dims, prog_opts options) {
 
     options.default_dt = 0.5 * 0.1 * dx;
 
-    PDEv2<P> pde(std::move(options), std::move(domain));
+    pde_scheme<P> pde(std::move(options), std::move(domain));
 
     term_1d<P> div = term_div<P>(1, flux_type::upwind, boundary_type::periodic);
 
@@ -120,7 +120,7 @@ PDEv2<P> make_testpde(int num_dims, prog_opts options) {
 
     options.default_step_method = time_method::rk2;
 
-    PDEv2<P> pde(options, domain);
+    pde_scheme<P> pde(options, domain);
 
     pde += term_md<P>(std::vector<term_1d<P>>{
         term_div<P>(1, flux_type::upwind, boundary_type::periodic),

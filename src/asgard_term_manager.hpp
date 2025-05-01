@@ -164,7 +164,7 @@ struct term_manager
    * a separate manager class, but that would be used only in the initial
    * conditions and then repeatedly passed into every single call here.
    */
-  term_manager(PDEv2<P> &pde, sparse_grid const &grid,
+  term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
                hierarchy_manipulator<P> const &hier,
                connection_patterns const &conn);
 

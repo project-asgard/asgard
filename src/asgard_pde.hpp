@@ -1967,6 +1967,18 @@ private:
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a multidimensional interpolation term
+ */
+template<typename P>
+struct term_interp {
+  //! create the intermediate term and set the interpolation function
+  term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
+  //! holds the interpolation function
+  md_func_f<P> interp;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Helper struct to make boundary_flux and set the left flag
  *
  */
@@ -2225,6 +2237,10 @@ public:
         throw std::runtime_error("inconsistent dimension of terms in the chain");
     }
   }
+  //! set an interpolation term
+  term_md(term_interp<P> tint)
+    : mode_(mode::interpolation), interp_(std::move(tint.interp))
+  {}
 
   //! (separable mode only) get the 1d term with index i
   term_1d<P> &dim(int i) {
@@ -2557,16 +2573,16 @@ struct imex_explicit_group {
  * can be specified later. See the included examples.
  */
 template<typename P = default_precision>
-class PDEv2
+class pde_scheme
 {
 public:
   //! used for sanity/error checking
   using precision_mode = P;
 
   //! creates an empty pde
-  PDEv2() = default;
+  pde_scheme() = default;
   //! initialize the pde over the domain
-  PDEv2(prog_opts opts, pde_domain<P> domain)
+  pde_scheme(prog_opts opts, pde_domain<P> domain)
     : options_(std::move(opts)), domain_(std::move(domain)),
       mass_(domain_.num_dims())
   {
@@ -2688,7 +2704,7 @@ public:
   mass_md<P> const &mass() const { return mass_; }
 
   //! adding a term to the pde
-  PDEv2<P> & operator += (term_md<P> tmd) {
+  pde_scheme<P> &operator += (term_md<P> tmd) {
     rassert(not tmd.mass(), "only terms in a chain can have a mass_md");
     if (tmd.is_chain())
       rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
@@ -2715,12 +2731,12 @@ public:
     sources_sep_.emplace_back(std::move(smd));
   }
   //! add separable right-hand-source, can have multiple
-  PDEv2<P> & operator += (separable_func<P> tmd) {
+  pde_scheme<P> & operator += (separable_func<P> tmd) {
     this->add_source(std::move(tmd));
     return *this;
   }
   //! add collision operator
-  PDEv2<P> & operator += (operators::lenard_bernstein_collisions lbc);
+  pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources
@@ -2804,5 +2820,13 @@ private:
   imex_implicit_group im_;
   imex_explicit_group ex_;
 };
+
+/*!
+ * \brief Alias for backwards computationally
+ *
+ * TODO: remove
+ */
+template<typename P>
+using PDEv2 = pde_scheme<P>;
 
 } // namespace asgard

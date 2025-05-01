@@ -128,7 +128,7 @@ void interp_wav2nodal() {
 
     prog_opts options = make_opts("-l 1 -dt 0 -n 0");
     options.degree = degree;
-    PDEv2<P> pde(options, domain);
+    pde_scheme<P> pde(options, domain);
     pde.add_initial(ic);
 
     discretization_manager<P> disc(pde, verbosity_level::quiet);
@@ -176,7 +176,7 @@ void interp_wav2nodal() {
     prog_opts options = make_opts("-l 1 -dt 0 -n 0");
     options.degree = degree;
     options.start_levels = {max_level, };
-    PDEv2<P> pde(options, domain);
+    pde_scheme<P> pde(options, domain);
     pde.add_initial(ic);
 
     discretization_manager<P> disc(pde, verbosity_level::quiet);
@@ -231,7 +231,7 @@ void interp_wav2nodal() {
 
     prog_opts options = make_opts("-l 5 -dt 0 -n 0");
     options.degree = degree;
-    PDEv2<P> pde(options, domain);
+    pde_scheme<P> pde(options, domain);
     pde.add_initial(ic);
 
     discretization_manager<P> disc(pde, verbosity_level::quiet);
@@ -278,7 +278,7 @@ void interp_identity(P tol, int degree, int max_level)
   prog_opts options = make_opts("-dt 0 -n 0");
   options.degree = degree;
   options.start_levels = {max_level, };
-  PDEv2<P> pde(options, domain);
+  pde_scheme<P> pde(options, domain);
   pde.add_initial(ic);
 
   discretization_manager<P> disc(pde, verbosity_level::quiet);
@@ -323,7 +323,7 @@ void interp_identity_domain(P tol, int degree, int max_level)
   prog_opts options = make_opts("-dt 0 -n 0");
   options.degree = degree;
   options.start_levels = {max_level, };
-  PDEv2<P> pde(options, domain);
+  pde_scheme<P> pde(options, domain);
   pde.add_initial(ic);
 
   discretization_manager<P> disc(pde, verbosity_level::quiet);

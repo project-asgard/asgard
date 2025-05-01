@@ -106,12 +106,12 @@ void simple_restart() {
   options.title    = title;
   options.subtitle = subtitle;
   pde_domain<TestType> domain(num_dims);
-  discretization_manager<TestType> ref(PDEv2<TestType>(options, domain));
+  discretization_manager<TestType> ref(pde_scheme<TestType>(options, domain));
 
   ref.save_snapshot2(filename);
 
   prog_opts opts2 = make_opts("-restart " + filename);
-  discretization_manager<TestType> disc(PDEv2<TestType>(opts2, domain));
+  discretization_manager<TestType> disc(pde_scheme<TestType>(opts2, domain));
 
   tassert(ref.get_pde2().num_dims() == num_dims);
   tassert(disc.get_pde2().num_dims() == num_dims);
@@ -161,7 +161,7 @@ void reset_time_params() {
   options.title    = title;
   options.subtitle = subtitle;
   pde_domain<TestType> domain(num_dims);
-  discretization_manager<TestType> ref(PDEv2<TestType>(options, domain));
+  discretization_manager<TestType> ref(pde_scheme<TestType>(options, domain));
   ref.set_time(TestType{2});
   tassert(ref.time_props().time() == 2);
   tassert(ref.time_props().stop_time() == 3);
@@ -170,21 +170,21 @@ void reset_time_params() {
   ref.save_snapshot2(filename);
 
   prog_opts opts2 = make_opts("-restart " + filename + " -time 4");
-  discretization_manager<TestType> d1(PDEv2<TestType>(opts2, domain));
+  discretization_manager<TestType> d1(pde_scheme<TestType>(opts2, domain));
   tassert(d1.time_params().time() == 2);
   tassert(d1.time_params().stop_time() == 4);
   tassert(d1.get_pde2().options().adapt_threshold);
   tassert(d1.get_pde2().options().adapt_threshold.value() == 0.0625);
 
   opts2 = make_opts("-restart " + filename + " -dt 0.25 -a 0.125");
-  discretization_manager<TestType> d2(PDEv2<TestType>(opts2, domain));
+  discretization_manager<TestType> d2(pde_scheme<TestType>(opts2, domain));
   tassert(d2.time_params().dt() == TestType{0.25});
   // stop time minus current time is 1, with dt = 0.25 we have 4 steps
   tassert(d2.time_params().num_remain() == 4);
   tassert(d2.get_pde2().options().adapt_threshold.value() == 0.125);
 
   opts2 = make_opts("-restart " + filename + " -n 8 -noa");
-  discretization_manager<TestType> d3(PDEv2<TestType>(opts2, domain));
+  discretization_manager<TestType> d3(pde_scheme<TestType>(opts2, domain));
   tassert(d3.time_params().num_remain() == 8);
   // stop time minus current time is 1, with 8 streps, we have dt = 0.25
   tassert(d3.time_params().dt() == TestType{0.125});
@@ -203,32 +203,32 @@ void restart_errors() {
   options.title    = title;
   options.subtitle = subtitle;
   pde_domain<TestType> domain(num_dims);
-  discretization_manager<TestType> ref(PDEv2<TestType>(options, domain));
+  discretization_manager<TestType> ref(pde_scheme<TestType>(options, domain));
   ref.set_time(TestType{2});
 
   ref.save_snapshot2(filename);
 
   // try to restart from a missing file
   prog_opts opts2 = make_opts("-restart wrong_file");
-  terror_message(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
+  terror_message(discretization_manager<TestType>(pde_scheme<TestType>(opts2, domain)),
                  "Cannot find file: 'wrong_file'");
 
   // the file is correct, but the dimensions are wrong
   opts2 = make_opts("-restart " + filename);
   terror_message(discretization_manager<TestType>(
-                      PDEv2<TestType>(opts2, pde_domain<TestType>(num_dims + 1))),
+                 pde_scheme<TestType>(opts2, pde_domain<TestType>(num_dims + 1))),
                  "Mismatch in the number of dimensions, pde is set for '3' "
                  "but the file contains data for '2'. "
                  "The restart file must match the dimensions.");
 
   // dimension is correct but there are too many time parameters
   opts2 = make_opts("-restart " + filename + " -dt 0.5 -time 1.0 -n 20");
-  terror_message(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
+  terror_message(discretization_manager<TestType>(pde_scheme<TestType>(opts2, domain)),
                  "cannot simultaneously specify -dt, -num-steps, and -time");
 
   // setting end time before the current time
   opts2 = make_opts("-restart " + filename + " -dt 0.5 -time 1.0");
-  terror_message(discretization_manager<TestType>(PDEv2<TestType>(opts2, domain)),
+  terror_message(discretization_manager<TestType>(pde_scheme<TestType>(opts2, domain)),
                  "cannot reset the final time to an instance before the current time");
 }
 

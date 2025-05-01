@@ -64,7 +64,7 @@ void self_test();
  * \snippet two_stream.cpp two_stream make
  */
 template<typename P = asgard::default_precision>
-asgard::PDEv2<P> make_two_stream(asgard::prog_opts options) {
+asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [two_stream make]
 #endif
@@ -94,7 +94,7 @@ asgard::PDEv2<P> make_two_stream(asgard::prog_opts options) {
   options.default_step_method = asgard::time_method::rk2;
 
   // create a pde from the given options and domain
-  asgard::PDEv2<P> pde(options, domain);
+  asgard::pde_scheme<P> pde(options, domain);
 
   // terms are split into positive and negative
   auto positive = [](std::vector<P> const &x, std::vector<P> &y)

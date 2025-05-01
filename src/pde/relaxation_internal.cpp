@@ -22,7 +22,7 @@ void self_test();
 #endif
 
 template<typename P = asgard::default_precision>
-asgard::PDEv2<P> make_relaxation(int vdims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
   rassert(1 <= vdims and vdims <= 3, "problem is set for 1, 2 or 3 velocity dimensions")
 
   options.title = "Relaxation 1x" + std::to_string(vdims) + "v";
@@ -58,7 +58,7 @@ asgard::PDEv2<P> make_relaxation(int vdims, asgard::prog_opts options) {
   options.subtitle = "collision frequency: " + std::to_string(nu);
 
   // create a pde from the given options and domain
-  PDEv2<P> pde(options, domain);
+  pde_scheme<P> pde(options, domain);
 
   pde += operators::lenard_bernstein_collisions{nu};
 
