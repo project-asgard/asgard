@@ -5,7 +5,7 @@
 #include <set>
 
 #include "asgard_block_matrix.hpp"
-#include "asgard_interpolation1d.hpp"
+#include "asgard_indexset.hpp"
 #include "asgard_kronmult_common.hpp"
 
 namespace asgard::kronmult

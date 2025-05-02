@@ -1,5 +1,7 @@
 #include "tests_general.hpp"
 
+#include "asgard_interpolation.hpp"
+
 #include "asgard_testpdes_interpolation.hpp"
 
 using namespace asgard;

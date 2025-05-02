@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_interpolation.hpp"
+#include "asgard_indexset.hpp"
 #include "asgard_kronmult_matrix.hpp"
 
 namespace asgard
@@ -229,27 +229,6 @@ struct kron_operators
     std::copy_n(x, kglobal.num_active(), workspace.x.begin());
 
     kglobal.template apply<rec>(*tcoeffs, terms, alpha, y);
-
-    if (interp)
-    {
-      // using the fact that workspace.x contains the padded values of x
-      // and workspace.y is extra scratch space that can be used here
-      interp.get_nodal_values(kglobal, domain_scale, workspace.x, workspace.y);
-      if (pde_->interp_nox())
-      {
-        pde_->interp_nox()(time, workspace.y, finterp);
-      }
-      else // must be interp_x
-      {
-        check_make_inodes();
-        pde_->interp_x()(time, inodes, workspace.y, finterp);
-      }
-      interp.compute_hierarchical_coeffs(kglobal, finterp);
-      interp.get_projection_coeffs(kglobal, finterp, workspace.y);
-      alpha /= domain_scale;
-      for (int64_t i = 0; i < kglobal.num_active(); i++)
-        y[i] += alpha * workspace.y[i];
-    }
   }
 
   int64_t flops(imex_flag entry) const
@@ -280,9 +259,6 @@ struct kron_operators
           domain_scale *= dslope[d];
         }
         domain_scale = precision{1} / std::sqrt(domain_scale);
-
-
-        interp = interpolation(pde_->num_dims(), conn_->get(connect_1d::hierarchy::volume), &workspace);
       }
     }
     if (not kglobal)
@@ -290,11 +266,6 @@ struct kron_operators
       kglobal = make_block_global_kron_matrix(
           pde, grid, conn_->get(connect_1d::hierarchy::volume),
           conn_->get(connect_1d::hierarchy::full), &workspace, verbosity);
-      if (interp)
-      {
-        finterp.resize(workspace.x.size());
-        inodes.clear();
-      }
     }
 
     // rebuild the preconditioner
@@ -338,7 +309,6 @@ struct kron_operators
    */
   vector2d<precision> const &get_inodes() const
   {
-    rassert(!!interp, "get_inodes() requires enabled interpolation and made operators");
     check_make_inodes();
     return inodes;
   }
@@ -350,11 +320,7 @@ struct kron_operators
    */
   std::vector<precision> get_nodals(precision const x[]) const
   {
-    if (not interp or not kglobal)
-      throw std::runtime_error("get_nodals() requires enabled interpolation and made operators");
-    std::copy_n(x, kglobal.num_active(), workspace.x.begin());
-    interp.get_nodal_values(kglobal, domain_scale, workspace.x, finterp);
-    return finterp;
+    return std::vector<precision>{};
   }
   /*!
    * \brief Convert to projection from nodal values, uses the padded grid.
@@ -364,35 +330,15 @@ struct kron_operators
    * the size will be set to include any padding.
    */
   template<typename container_type> // std::vector or fk::vector
-  void get_project(precision const nodal[], container_type &proj) const
-  {
-    if (not interp or not kglobal)
-      throw std::runtime_error("get_nodals() requires enabled interpolation and made operators");
-    proj.resize(workspace.x.size());
-    std::copy_n(nodal, kglobal.num_active(), workspace.x.begin());
-    interp.compute_hierarchical_coeffs(kglobal, workspace.x);
-    interp.get_projection_coeffs(kglobal.get_cells(), kglobal.get_dsort(),
-                                 precision{1} / domain_scale,
-                                 workspace.x.data(), proj.data());
-    proj.resize(kglobal.num_active());
-  }
+  void get_project(precision const[], container_type &) const
+  {}
 
   //! adjusts the verbosity level
   verbosity_level verbosity = verbosity_level::high;
 
 private:
   void check_make_inodes() const
-  {
-    if (inodes.empty())
-    {
-      inodes = interp.get_nodes(kglobal.get_cells());
-      for (int64_t i = 0; i < inodes.num_strips(); i++)
-      {
-        for (int d = 0; d < pde_->num_dims(); d++)
-          inodes[i][d] = dmin[d] + inodes[i][d] * dslope[d];
-      }
-    }
-  }
+  {}
 
   PDE<precision> const *pde_ = nullptr;
   precision domain_scale;
@@ -404,7 +350,6 @@ private:
 
   block_global_kron_matrix<precision> kglobal;
 
-  interpolation<precision> interp;
   mutable vector2d<precision> inodes;
 
   mutable kronmult::block_global_workspace<precision> workspace;
