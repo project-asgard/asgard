@@ -550,9 +550,11 @@ void term_manager<P>::buld_term(
     int const tid, sparse_grid const &grid, connection_patterns const &conn,
     hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
 {
+  if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms
+    return;
+
   expect(legendre.pdof == hier.degree() + 1);
   expect(not terms[tid].tmd.is_chain());
-  expect(not terms[tid].tmd.is_interpolatory());
 
   auto &tmd = terms[tid];
 

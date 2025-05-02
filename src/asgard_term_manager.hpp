@@ -209,8 +209,6 @@ struct term_manager
   mutable kronmult::block_global_workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
 
-  mutable vector2d<P> inodes;
-
   //! term groups, chains are flattened
   std::vector<irange> term_groups;
   //! source groups, same as the PDE
@@ -368,15 +366,23 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
   {
-    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-              alpha, x.data(), beta, y.data(), kwork);
+    if (tme.tmd.is_interpolatory()) {
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, t1, t2);
+    } else {
+      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                alpha, x.data(), beta, y.data(), kwork);
+    }
   }
   //! y = alpha * tme * x + beta * y, assumes workspace has been set and x/y have proper size
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
-    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-              alpha, x, beta, y, kwork);
+    if (tme.tmd.is_interpolatory()) {
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, t1, t2);
+    } else {
+      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                alpha, x, beta, y, kwork);
+    }
   }
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
                      term_entry<P> const &tme, P alpha, P const x[], P beta,

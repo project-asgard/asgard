@@ -2239,7 +2239,7 @@ public:
   }
   //! set an interpolation term
   term_md(term_interp<P> tint)
-    : mode_(mode::interpolation), interp_(std::move(tint.interp))
+    : mode_(mode::interpolatory), interp_(std::move(tint.interp))
   {}
 
   //! (separable mode only) get the 1d term with index i
