@@ -7,26 +7,23 @@ void interp_nodes() {
 
   P constexpr tol = (std::is_same_v<P, double>) ? 1.E-12 : 1.E-5;
 
-  // {
-  //   current_test<P> name_("nodes constant");
-  //
-  //   int const max_level = 2;
-  //   interpolation_manager1d<P, 0> interp;
-  //   tassert(not interp); // default constructor
-  //   interp = interpolation_manager1d<P, 0>(max_level);
-  //   tassert(!!interp);
-  //
-  //   tassert(interp.nodes().num_strips() == 4);
-  //   tassert(interp.nodes().stride() == 1);
-  //
-  //   P const *r = interp.nodes()[0];
-  //   std::vector<P> ref = {1.0/3.0, 2.0/3.0, 1.0/6.0, 5.0/6.0};
-  //   std::cout << " checking\n";
-  //   for (auto i : indexof(ref)) {
-  //     std::cout << r[i] << "\n";
-  //     tcheckless(i, std::abs(r[i] - ref[i]), tol);
-  //   }
-  // }
+  {
+    current_test<P> name_("nodes constant");
+
+    int const max_level = 2;
+    interpolation_manager1d<P, 0> interp;
+    tassert(not interp); // default constructor
+    interp = interpolation_manager1d<P, 0>(max_level);
+    tassert(!!interp);
+
+    tassert(interp.nodes().num_strips() == 4);
+    tassert(interp.nodes().stride() == 1);
+
+    P const *r = interp.nodes()[0];
+    std::vector<P> ref = {0, 0.5, 0.25, 0.75};
+    for (auto i : indexof(ref))
+      tcheckless(i, std::abs(r[i] - ref[i]), tol);
+  }
   {
     current_test<P> name_("nodes linear");
 
@@ -219,7 +216,7 @@ void interp_wav2nodal() {
   std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"}, {2, "quadratic"}, {3, "cubic"}};
 
   domain = pde_domain<P>(2);
-  for (int degree = 1; degree <= 3; degree++)
+  for (int degree = 0; degree <= 3; degree++)
   {
     current_test<P> name_("wav2nodal l = 5, " + mode[degree]);
 
@@ -351,8 +348,8 @@ void interp_identity_domain(P tol, int degree, int max_level)
 template<typename P>
 void interp_identity()
 {
-  // TODO: figure out why the const and quadratic method have so much error
   if constexpr (std::is_same_v<P, double>) {
+    interp_identity<double>(1.E-1, 0, 6);
     interp_identity<double>(1.E-5, 1, 6);
     interp_identity<double>(5.E-5, 2, 8);
     interp_identity<double>(5.E-9, 3, 6);

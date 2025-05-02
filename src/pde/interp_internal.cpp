@@ -364,4 +364,6 @@ int main(int, char**)
   test_ic();
   test_sources();
   test_pde();
+
+  return 0;
 }

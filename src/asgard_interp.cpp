@@ -49,11 +49,11 @@ void interpolation_manager1d<P, degree>::initialize_nodes(int const max_level)
   nodes_ = vector2d<P>(n, num_cells);
 
   // for degree 0, 1, 2, 3 ..., start start_den is 3, 3, 5, 5 ...
-  P constexpr start_den = 2 * (degree / 2) + 3;
+  P constexpr start_den = (degree == 0) ? 1 : 2 * (degree / 2) + 3;
 
   std::array<P, n> const num0 = []() -> std::array<P, n> {
       if constexpr (degree == 0)
-        return {1, };
+        return {0, };
       else if constexpr (degree == 1)
         return {1, 2};
       else if constexpr (degree == 2)
@@ -64,7 +64,7 @@ void interpolation_manager1d<P, degree>::initialize_nodes(int const max_level)
 
   std::array<P, n> const num1 = []() -> std::array<P, n> {
       if constexpr (degree == 0)
-        return {4, };
+        return {1, };
       else if constexpr (degree == 1)
         return {1, 5};
       else if constexpr (degree == 2)
@@ -411,7 +411,7 @@ vector2d<P> const &interpolation_manager<P>::nodes(
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-//template class interp_basis<double, 0>;
+template class interp_basis<double, 0>;
 template class interp_basis<double, 1>;
 template class interp_basis<double, 2>;
 template class interp_basis<double, 3>;
@@ -425,7 +425,7 @@ template class interpolation_manager<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-//template class interp_basis<float, 0>;
+template class interp_basis<float, 0>;
 template class interp_basis<float, 1>;
 template class interp_basis<float, 2>;
 template class interp_basis<float, 3>;
