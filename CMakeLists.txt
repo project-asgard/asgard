@@ -411,8 +411,6 @@ set (components
      asgard_distribution
      asgard_elements
      asgard_fast_math
-     asgard_interpolation1d
-     asgard_interpolation
      asgard_kronmult_matrix
      asgard_lib_dispatch
      asgard_matlab_utilities

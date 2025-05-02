@@ -213,7 +213,7 @@ struct kron_operators
 
   //! \brief Apply the given matrix entry
   template<resource rec = resource::host>
-  void apply(imex_flag entry, precision time, precision alpha, precision const x[],
+  void apply(imex_flag entry, precision, precision alpha, precision const x[],
              precision beta, precision y[]) const
   {
     auto const &terms = term_groups_[static_cast<int>(entry)];
@@ -318,7 +318,7 @@ struct kron_operators
    *
    * Gives the nodal values of the solution at the inodes.
    */
-  std::vector<precision> get_nodals(precision const x[]) const
+  std::vector<precision> get_nodals(precision const[]) const
   {
     return std::vector<precision>{};
   }
