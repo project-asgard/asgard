@@ -12,9 +12,10 @@ void test_ode1d(double const tol, std::string const &opts)
   pde_domain<P> domain({{0, 2}, });
 
   options.default_degree = 1;
-  options.default_stop_time = 1.01;
+  options.default_stop_time = 0.01;
   options.default_start_levels = {5, };
 
+  options.default_step_method = time_method::forward_euler;
   options.default_dt = P{1} / P{64};
 
   // separable and interpolation odes
@@ -27,8 +28,8 @@ void test_ode1d(double const tol, std::string const &opts)
         -> void {
       std::cout << " ----------------------- \n";
       for (size_t i = 0; i < f.size(); i++) {
-        std::cout << f[i] << "\n";
         vals[i] = 2 * f[i];
+        std::cout << " vals = " << vals[i] << "  " << f[i] << "\n";
       }
     });
 
@@ -39,6 +40,11 @@ void test_ode1d(double const tol, std::string const &opts)
   discretization_manager<P> sdisc(sode, verbosity_level::quiet);
   discretization_manager<P> idisc(iode, verbosity_level::quiet);
 
+  for (auto i : indexof(sdisc.current_state())) {
+    std::cout << sdisc.current_state()[i] << "   " << idisc.current_state()[i] << "\n";
+  }
+  std::cout << " ========================== \n";
+
   sdisc.advance_time();
   idisc.advance_time();
 
@@ -48,6 +54,7 @@ void test_ode1d(double const tol, std::string const &opts)
   double err = 0;
   for (auto i : indexof(sstate)) {
     P const e = sstate[i] - istate[i];
+    std::cout << sstate[i] << "   " << istate[i] << "\n";
     err += e * e;
   }
 

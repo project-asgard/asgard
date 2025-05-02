@@ -203,11 +203,12 @@ struct term_manager
 
   //! data for the coupling with moments and electric field
   coupled_term_data<P> cdata;
-
+  //! interpolation data
   interpolation_manager<P> interp;
 
   mutable kronmult::block_global_workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
+  mutable std::vector<P> it1, it2; // used for interpolation
 
   //! term groups, chains are flattened
   std::vector<irange> term_groups;
@@ -327,6 +328,11 @@ struct term_manager
     if (not t2.empty())
       t2.resize(num_entries);
 
+    if (interp) {
+      it1.resize(num_entries);
+      it2.resize(num_entries);
+    }
+
     workspace_grid_gen = grid.generation();
   }
 
@@ -367,7 +373,9 @@ struct term_manager
                  std::vector<P> &y) const
   {
     if (tme.tmd.is_interpolatory()) {
-      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, t1, t2);
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+      for (size_t i = 0; i < it1.size(); i++)
+        std::cout << " kron = " << x[i] << "   " << y[i] << "\n";
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -378,7 +386,9 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.tmd.is_interpolatory()) {
-      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, t1, t2);
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+      for (size_t i = 0; i < it1.size(); i++)
+        std::cout << " kron = " << x[i] << "   " << y[i] << "\n";
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);
