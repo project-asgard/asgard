@@ -576,7 +576,7 @@ public:
   {
     wav2nodal(grid, conn, state, t1.data(), workspace);
     func(time, nodes(grid), t1, t2);
-    nodal2hier(grid, conn, t1, workspace);
+    nodal2hier(grid, conn, t2, workspace);
     hier2wav(grid, conn, alpha, t2.data(), beta, y, workspace);
   }
   /*!
@@ -598,6 +598,45 @@ public:
       expect(y.size() == state.size());
     (*this)(grid, conn, time, state.data(), alpha, func, beta, y.data(),
             workspace, t1, t2);
+  }
+  /*!
+   * \brief Performs the interpolation of the function func
+   *
+   * Given the grid, connection patterns, and current time:
+   * 1. recomputes the nodes
+   * 2. call func() with the time, nodes, and computes vals
+   * 3. projects the result back in the basis and y = alpha * vals + beta * y
+   *
+   * The workspace is needed to call kronmult, the t1 and t2 are additional
+   * workspace with size equal to the state.
+   * The names t1/t2 come because this sues term_manager scratch space for working with chains
+   */
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn, P time,
+       P alpha, md_func<P> const &func, P beta, P y[],
+       kronmult::block_global_workspace<P> &workspace,
+       std::vector<P> &t1) const
+  {
+    func(time, nodes(grid), t1);
+    nodal2hier(grid, conn, t1, workspace);
+    hier2wav(grid, conn, alpha, t1.data(), beta, y, workspace);
+  }
+  /*!
+   * \brief Performs the interpolation of the function func
+   *
+   * Vector variant
+   */
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn, P time,
+       P alpha, md_func<P> const &func, P beta, std::vector<P> &y,
+       kronmult::block_global_workspace<P> &workspace,
+       std::vector<P> &t1) const
+  {
+    if (beta == 0)
+      y.resize(t1.size());
+    else
+      expect(y.size() == t1.size());
+    (*this)(grid, conn, time, alpha, func, beta, y.data(), workspace, t1);
   }
 
 protected:

@@ -374,8 +374,6 @@ struct term_manager
   {
     if (tme.tmd.is_interpolatory()) {
       interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
-      for (size_t i = 0; i < it1.size(); i++)
-        std::cout << " kron = " << x[i] << "   " << y[i] << "\n";
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -387,8 +385,6 @@ struct term_manager
   {
     if (tme.tmd.is_interpolatory()) {
       interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
-      for (size_t i = 0; i < it1.size(); i++)
-        std::cout << " kron = " << x[i] << "   " << y[i] << "\n";
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);
