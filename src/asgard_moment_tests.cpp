@@ -27,7 +27,7 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
                     ranges);
 
   // make the reference PDE
-  PDEv2<P> pde(options, domain);
+  pde_scheme<P> pde(options, domain);
 
   separable_func<P> vbase(std::vector<P>(base.size(), 1));
   for (int d : iindexof(base))
@@ -45,7 +45,7 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
 
   for (int m = 0; m < num_moms; m++)
   {
-    PDEv2<P> pde2(options, pde_domain({ranges[0], }));
+    pde_scheme<P> pde2(options, pde_domain({ranges[0], }));
 
     pde2.add_initial(separable_func<P>({vectorize_t<P>(moments[m]), }));
 

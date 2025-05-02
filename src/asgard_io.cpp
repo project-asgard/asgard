@@ -201,7 +201,7 @@ restart_data<P> read_output(PDE<P> &pde, std::string const &restart_file)
 }
 
 template<typename P>
-void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &grid,
+void h5manager<P>::write(pde_scheme<P> const &pde, int degree, sparse_grid const &grid,
                          time_data<P> const &dtime, std::vector<P> const &state,
                          std::vector<aux_field_entry<P>> const &aux_fields,
                          std::string const &filename)
@@ -305,7 +305,7 @@ void h5manager<P>::write(PDEv2<P> const &pde, int degree, sparse_grid const &gri
 }
 
 template<typename P>
-void h5manager<P>::read(std::string const &filename, bool silent, PDEv2<P> &pde,
+void h5manager<P>::read(std::string const &filename, bool silent, pde_scheme<P> &pde,
                         sparse_grid &grid, time_data<P> &dtime,
                         std::vector<aux_field_entry<P>> &aux_fields, std::vector<P> &state)
 {

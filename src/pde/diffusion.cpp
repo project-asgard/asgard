@@ -71,7 +71,7 @@
  * \snippet diffusion.cpp diffusion_md make
  */
 template<typename P = asgard::default_precision, bool chain1d = true>
-asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [diffusion_md make]
 #endif
@@ -131,7 +131,7 @@ asgard::PDEv2<P> make_diffusion_pde(int num_dims, asgard::prog_opts options) {
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
   // the option entries may have been populated or updated with default values
-  asgard::PDEv2<P> pde(options, std::move(domain));
+  asgard::pde_scheme<P> pde(options, std::move(domain));
 
   // one dimensional divergence term using upwind flux
   // setting fixed condition here will in fact yield Neumann boundary condition
@@ -298,9 +298,9 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // for small values of enorm, the relative error is artificially magnified
   // switch between relative and absolute error
   if (enorm < 1)
-    return std::sqrt(ndiff + enorm - nself);
+    return std::sqrt(ndiff + std::abs(enorm - nself));
   else
-    return std::sqrt((ndiff + enorm - nself) / enorm);
+    return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [diffusion_md get-err]
 #endif

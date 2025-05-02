@@ -11,7 +11,7 @@ try:
 except:
     _matplotlib_found_ = False
 
-from asgard_config import __version__, __author__, __pyasgard_libasgard_path__
+from asgard_config import __version__, __author__, __pyasgard_libasgard_path__, __enable_double__
 
 libasgard = CDLL(__pyasgard_libasgard_path__, mode = RTLD_GLOBAL)
 

@@ -122,7 +122,7 @@ int main(int argc, char **argv)
   options.set_default_title("Example inputs 1D");
 
   // creates a pde description
-  asgard::PDEv2 pde(options, domain);
+  asgard::pde_scheme pde(options, domain);
 
   // one dimensional divergence term using upwind flux
   pde += asgard::term_1d{asgard::term_div(1, asgard::flux_type::upwind,

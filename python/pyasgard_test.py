@@ -46,7 +46,7 @@ def continuity_3_exact(x, y, z, t):
 class asgard_reconstruction_tests(unittest.TestCase):
     def almost_equal(self, x, y, message):
         verbose = True
-        digits  = 13
+        digits  = 13 if asgard.__enable_double__ else 6
         np.testing.assert_almost_equal(x, y, digits, message, verbose)
 
     def onedim_match_basis(self, ibasis, basis):

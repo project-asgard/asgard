@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_interpolation.hpp"
+#include "asgard_indexset.hpp"
 
 /*!
  * \file asgard_reconstruct.hpp

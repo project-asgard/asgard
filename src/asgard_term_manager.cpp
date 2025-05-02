@@ -70,7 +70,7 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
 }
 
 template<typename P>
-term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
+term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
   : num_dims(pde.num_dims()), max_level(pde.max_level()), legendre(pde.degree())
@@ -107,27 +107,42 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
 
   terms.resize(num_terms);
 
-  auto ir = terms.begin();
-  for (int i : iindexof(pde_terms.size()))
   {
-    if (pde_terms[i].is_chain()) {
-      int const num_chain = pde_terms[i].num_chain();
+    bool has_interp = !!pde.initial_md_;
+    if (not has_interp)
+      for (auto const &s : pde.sources_md_)
+        if (s) has_interp = true;
 
-      // this indicates that t1 and/or t2 workspaces are needed
-      if (num_chain >= 2 and t1.empty())
-        t1.resize(1);
-      if (num_chain >= 3 and t2.empty())
-        t2.resize(1);
+    auto ir = terms.begin();
+    for (int i : iindexof(pde_terms.size()))
+    {
+      if (pde_terms[i].is_chain()) {
+        int const num_chain = pde_terms[i].num_chain();
 
-      *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
-      ir++->num_chain = num_chain;
-      for (int c = 1; c < num_chain; c++) {
-        *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
-        ir++->num_chain = -1;
+        // this indicates that t1 and/or t2 workspaces are needed
+        if (num_chain >= 2 and t1.empty())
+          t1.resize(1);
+        if (num_chain >= 3 and t2.empty())
+          t2.resize(1);
+
+        has_interp = has_interp or pde_terms[i].chain_[0].is_interpolatory();
+
+        *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
+        ir++->num_chain = num_chain;
+        for (int c = 1; c < num_chain; c++) {
+          has_interp = has_interp or pde_terms[i].chain_[c].is_interpolatory();
+
+          *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
+          ir++->num_chain = -1;
+        }
+      } else {
+        has_interp = has_interp or pde_terms[i].is_interpolatory();
+
+        *ir++ = term_entry<P>(std::move(pde_terms[i]));
       }
-    } else {
-      *ir++ = term_entry<P>(std::move(pde_terms[i]));
     }
+    if (has_interp)
+      interp = interpolation_manager<P>(pde.domain(), conn, hier.degree());
   }
 
   // compute the dependencies
@@ -216,6 +231,7 @@ term_manager<P>::term_manager(PDEv2<P> &pde, sparse_grid const &grid,
     if (dims > 0) ++num_sources;
   }
 
+  sources_md = std::move(pde.sources_md_);
   sources.reserve(num_sources);
 
   for (auto &s : sep) {
@@ -361,6 +377,23 @@ void term_manager<P>::apply_sources(
       default:
         // unreachable here
         break;
+    }
+  }
+
+  if (groupid == -1) {
+    for (auto const &s : sources_md)
+      if (s) {
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          interp(grid, conns, time, 1, s, 1, y, kwork, it1);
+        else
+          interp(grid, conns, time, alpha, s, 1, y, kwork, it1);
+      }
+  } else {
+    if (sources_md[groupid]) {
+      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1);
+      else
+        interp(grid, conns, time, alpha, sources_md[groupid], 1, y, kwork, it1);
     }
   }
 
@@ -536,9 +569,11 @@ void term_manager<P>::buld_term(
     int const tid, sparse_grid const &grid, connection_patterns const &conn,
     hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
 {
+  if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms
+    return;
+
   expect(legendre.pdof == hier.degree() + 1);
   expect(not terms[tid].tmd.is_chain());
-  expect(not terms[tid].tmd.is_interpolatory());
 
   auto &tmd = terms[tid];
 

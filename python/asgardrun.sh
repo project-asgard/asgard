@@ -31,7 +31,7 @@ exename=$1
 
 shift
 
-./$exename $@ -of _asgardplt.h5
+./$exename "$@" -of _asgardplt.h5
 
-@Python_EXECUTABLE@ -m asgard _asgardplt.h5 $plt_opts
+@Python_EXECUTABLE@ -m asgard _asgardplt.h5 "$plt_opts"
 

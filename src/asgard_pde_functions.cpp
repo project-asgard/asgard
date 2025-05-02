@@ -6,7 +6,7 @@ namespace asgard
 {
 
 template<typename P>
-PDEv2<P> & PDEv2<P>::operator += (operators::lenard_bernstein_collisions lbc)
+pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collisions lbc)
 {
   rassert(domain_.num_vel() > 0, "cannot set collision operator for a pde_domain with velocity dimensions");
   rassert(domain_.num_pos() == 1, "currently lenard-bernstein collisions work for only 1 position dimension");
@@ -118,13 +118,13 @@ void builtin_v<P>::expneg2(std::vector<P> const &x, std::vector<P> &y) {
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-  template class PDEv2<double>;
+  template class pde_scheme<double>;
 
   template struct builtin_v<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-  template class PDEv2<float>;
+  template class pde_scheme<float>;
 
   template struct builtin_v<float>;
 #endif

@@ -1314,8 +1314,8 @@ using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
  * \brief Signature for a non-separable function that accepts an additional field parameter
  */
 template<typename P>
-using md_func_f = std::function<void(P t, vector2d<P> const &,
-                                     std::vector<P> const &, std::vector<P> &)>;
+using md_func_f = std::function<void(P t, vector2d<P> const &x,
+                                     std::vector<P> const &f, std::vector<P> &vals)>;
 
 #endif // doxygen skip
 
@@ -1528,7 +1528,7 @@ struct term_moment_over_density {
  * \ingroup asgard_pde_definition
  * \brief Volume term that depends on the negative of a moment divided by the density (moment 0)
  */
- struct term_moment_over_density_neg {
+struct term_moment_over_density_neg {
   explicit term_moment_over_density_neg(int mom) : moment(mom) {
     rassert(moment > 0, "The moment over density must be at least 1");
   }
@@ -1632,7 +1632,7 @@ public:
   term_1d() = default;
   //! make an identity term
   term_1d(term_identity) {}
-  //! make a general term
+  //! make a general term, prefer using the helper structs term_(volume,grad,div,penalty)
   term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
       : optype_(opt), flux_(flx), boundary_(bnd),
         rhs_(std::move(frhs)), rhs_const_(crhs)
@@ -1651,12 +1651,12 @@ public:
     : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
   {}
 
-  //! make a mass term
+  //! make a volume term
   term_1d(term_volume<P> mt)
     : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
               std::move(mt.right), mt.const_coeff)
   {}
-  //! make a mass term, hack around creating term_1d<float> from term_mass<double>
+  //! make a volume term, hack around creating term_1d<float> from term_mass<double>
   template<typename otherP>
   term_1d(term_volume<otherP> mt)
     : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
@@ -1967,6 +1967,18 @@ private:
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a multidimensional interpolation term
+ */
+template<typename P>
+struct term_interp {
+  //! create the intermediate term and set the interpolation function
+  term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
+  //! holds the interpolation function
+  md_func_f<P> interp;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Helper struct to make boundary_flux and set the left flag
  *
  */
@@ -2225,6 +2237,10 @@ public:
         throw std::runtime_error("inconsistent dimension of terms in the chain");
     }
   }
+  //! set an interpolation term
+  term_md(term_interp<P> tint)
+    : mode_(mode::interpolatory), interp_(std::move(tint.interp))
+  {}
 
   //! (separable mode only) get the 1d term with index i
   term_1d<P> &dim(int i) {
@@ -2323,6 +2339,13 @@ public:
             "the flux function has to be constant in the dimension of term_md::flux_dim()")
     bc_flux_.emplace_back(std::move(bf));
     return *this;
+  }
+  //! returns the interpolation matrix
+  md_func_f<P> const &interp() const { return interp_; }
+  //! applies the interpolation function, f = f(t, x, nu)
+  void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
+    expect(!!interp_);
+    interp_(t, x, f, vals);
   }
 
   //! mode for the imex time-stepping
@@ -2557,18 +2580,18 @@ struct imex_explicit_group {
  * can be specified later. See the included examples.
  */
 template<typename P = default_precision>
-class PDEv2
+class pde_scheme
 {
 public:
   //! used for sanity/error checking
   using precision_mode = P;
 
   //! creates an empty pde
-  PDEv2() = default;
+  pde_scheme() = default;
   //! initialize the pde over the domain
-  PDEv2(prog_opts opts, pde_domain<P> domain)
+  pde_scheme(prog_opts opts, pde_domain<P> domain)
     : options_(std::move(opts)), domain_(std::move(domain)),
-      mass_(domain_.num_dims())
+      mass_(domain_.num_dims()), sources_md_(1)
   {
     int const numd = domain_.num_dims();
     if (domain_.num_dims() == 0)
@@ -2688,7 +2711,7 @@ public:
   mass_md<P> const &mass() const { return mass_; }
 
   //! adding a term to the pde
-  PDEv2<P> & operator += (term_md<P> tmd) {
+  pde_scheme<P> &operator += (term_md<P> tmd) {
     rassert(not tmd.mass(), "only terms in a chain can have a mass_md");
     if (tmd.is_chain())
       rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
@@ -2706,27 +2729,27 @@ public:
   //! returns the i-th term
   term_md<P> const &term(int i) const { return terms_[i]; }
 
-  //! set non-separable right-hand-source, can have only one
+  //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_func<P> smd) {
-    sources_md_ = std::move(smd);
+    sources_md_[std::max(current_term_group, 0)] = std::move(smd);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
     sources_sep_.emplace_back(std::move(smd));
   }
   //! add separable right-hand-source, can have multiple
-  PDEv2<P> & operator += (separable_func<P> tmd) {
+  pde_scheme<P> & operator += (separable_func<P> tmd) {
     this->add_source(std::move(tmd));
     return *this;
   }
   //! add collision operator
-  PDEv2<P> & operator += (operators::lenard_bernstein_collisions lbc);
+  pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources
   separable_func<P> const &source_sep(int i) const { return sources_sep_[i]; }
   //! returns the non-separable source
-  md_func<P> const &source_md() const { return sources_md_; }
+  md_func<P> const &source_md(int i) const { return sources_md_[i]; }
 
   //! returns the smallest cell size in given dimension and level, , uses max-level by default
   P cell_size(int dim, int level = -1) const {
@@ -2749,6 +2772,7 @@ public:
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
+      sources_md_.push_back(nullptr); // add empty interpolatory source
     }
     return current_term_group;
   }
@@ -2794,7 +2818,7 @@ private:
   std::vector<term_md<P>> terms_;
 
   // TODO: update this to have one non-sep source per group
-  md_func<P> sources_md_;
+  std::vector<md_func<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
 
   int current_term_group = -1;
@@ -2804,5 +2828,13 @@ private:
   imex_implicit_group im_;
   imex_explicit_group ex_;
 };
+
+/*!
+ * \brief Alias for backwards computationally
+ *
+ * TODO: remove
+ */
+template<typename P>
+using PDEv2 = pde_scheme<P>;
 
 } // namespace asgard

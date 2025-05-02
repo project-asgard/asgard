@@ -111,7 +111,7 @@ int main(int argc, char** argv)
   options.set_default_title("Example continuity 2D");
 
   // creates a pde description
-  asgard::PDEv2<precision> pde(options, domain);
+  asgard::pde_scheme<precision> pde(options, domain);
 
   // one dimensional divergence term using upwind flux
   asgard::term_1d<precision> div =

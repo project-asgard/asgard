@@ -64,6 +64,7 @@ struct coupled_term_data
 template<typename P>
 struct coefficient_matrices
 {
+  coefficient_matrices() = default;
   //! initializes the storage space and the non-Cartesian volumes
   coefficient_matrices(PDE<P> const &pde)
       : current_levels(pde.num_terms(), pde.num_dims())
@@ -96,27 +97,6 @@ struct coefficient_matrices
       }
 
     std::fill_n(current_levels[0], num_dimensions * num_terms, -1);
-  }
-
-  coefficient_matrices(PDEv2<P> const &pde)
-  {
-    int const num_dimensions = pde.num_dims();
-    if (num_dimensions == 0)
-      return; // building on top of an empty pde, will have to reinit anyway
-
-    std::vector<term_md<P>> const &terms = pde.terms();
-
-    term_pntr = std::vector<int>(terms.size() + 1);
-    for (int t : iindexof(terms)) {
-      if (terms[t].term_mode() == term_md<P>::mode::chain)
-        term_pntr[t + 1] = term_pntr[t] + terms[t].num_chain();
-      else
-        term_pntr[t + 1] = term_pntr[t] + 1;
-    }
-
-    term_mats = vector2d<block_sparse_matrix<P>>(num_dimensions, term_pntr.back());
-
-    current_levels = vector2d<int>(num_dimensions, term_pntr.back());
   }
 
   //! dimension mass matrices, e.g., associated with the coordinates (Cartesian or non-Cartesian)
@@ -1011,14 +991,15 @@ public:
 #endif
   }
   //! \brief Counts the number of floating point operations
-  int64_t count_flops(imex_flag etype, std::array<std::vector<int>, 3> groups) const
+  int64_t count_flops(imex_flag etype, std::array<std::vector<int>, 3> /* groups */) const
   {
     int i = static_cast<int>(etype);
     if (flops_[i] == -1)
     {
-      flops_[i] = kronmult::block_global_count_flops(
-          num_dimensions_, block_size_, ilist_, dsort_, perms_,
-          flux_dir_, *conn_volumes_, *conn_full_, groups[i], *workspace_);
+      // flops_[i] = kronmult::block_global_count_flops(
+      //     num_dimensions_, block_size_, ilist_, dsort_, perms_,
+      //     flux_dir_, *conn_volumes_, *conn_full_, groups[i], *workspace_);
+      flops_[i] = 0;
       if (verb == verbosity_level::high)
       {
         switch (etype)

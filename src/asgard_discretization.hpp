@@ -37,7 +37,7 @@ public:
                          verbosity_level verbosity = verbosity_level::quiet);
 
   //! take ownership of the pde object and discretize the pde
-  discretization_manager(PDEv2<precision> pde_in,
+  discretization_manager(pde_scheme<precision> pde_in,
                          verbosity_level verbosity = verbosity_level::quiet);
 
   /*!
@@ -425,7 +425,7 @@ public:
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
 
-  PDEv2<precision> const &get_pde2() const { return pde2; }
+  pde_scheme<precision> const &get_pde2() const { return pde2; }
   time_data<precision> const &time_props() const { return stepper.data; }
   bool version2() const { return not pde; }
   void save_snapshot2(std::filesystem::path const &filename) const;
@@ -580,7 +580,7 @@ protected:
 private:
   mutable verbosity_level verb;
   std::unique_ptr<PDE<precision>> pde;
-  PDEv2<precision> pde2;
+  pde_scheme<precision> pde2;
 
   adapt::distributed_grid<precision> grid;
 

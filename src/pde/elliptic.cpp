@@ -70,7 +70,7 @@ enum class boundary_enum {
  * \snippet elliptic.cpp elliptic make
  */
 template<boundary_enum boundary, typename P = asgard::default_precision>
-asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [elliptic make]
 #endif
@@ -97,7 +97,7 @@ asgard::PDEv2<P> make_elliptic_pde(int num_dims, asgard::prog_opts options) {
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 1000;
 
-  asgard::PDEv2<P> pde(options, std::move(domain));
+  asgard::pde_scheme<P> pde(options, std::move(domain));
 
   // s1d is the exact solution in 1d
   auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
@@ -304,7 +304,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc)
     nself += r * r;
   }
 
-  return std::sqrt((ndiff + enorm - nself) / enorm);
+  return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [elliptic get-err]

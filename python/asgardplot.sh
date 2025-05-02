@@ -21,5 +21,5 @@ if [ ! -f $1 ]; then
     exit 1
 fi
 
-@Python_EXECUTABLE@ -m asgard $@
+@Python_EXECUTABLE@ -m asgard "$@"
 

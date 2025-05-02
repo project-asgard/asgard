@@ -136,10 +136,9 @@ discretization_manager<precision>::discretization_manager(
 
 template<typename precision>
 discretization_manager<precision>::discretization_manager(
-    PDEv2<precision> pde_in, verbosity_level verbosity)
+    pde_scheme<precision> pde_in, verbosity_level verbosity)
   : verb(pde_in.options().verbosity.value_or(verbosity)),
-    pde2(std::move(pde_in)), conn(pde2.max_level()),
-    matrices(pde2)
+    pde2(std::move(pde_in)), conn(pde2.max_level())
 {
   init_compute();
 
@@ -487,11 +486,17 @@ void discretization_manager<precision>::set_initial_condition()
 
   bool keep_refining = true;
 
+  constexpr precision time = 0;
+
   int iterations = 0;
   while (keep_refining)
   {
     state.resize(sgrid.num_indexes() * hier.block_size());
-    std::fill(state.begin(), state.end(), precision{0});
+
+    if (pde2.ic_md())
+      terms.interp(sgrid, conn, time, 1, pde2.ic_md(), 0, state, terms.kwork, terms.it1);
+    else
+      std::fill(state.begin(), state.end(), precision{0});
 
     for (int i : iindexof(sep)) {
       expect(sep[i].num_dims() == pde2.num_dims());
@@ -501,7 +506,7 @@ void discretization_manager<precision>::set_initial_condition()
       std::array<block_diag_matrix<precision>, max_num_dimensions> mock;
 
       hier.template project_separable<data_mode::increment>
-            (sep[i], pde2.domain(), sgrid, terms.lmass, precision{0}, 1, state.data());
+            (sep[i], pde2.domain(), sgrid, terms.lmass, time, 1, state.data());
     }
 
     if (atol > 0 or rtol > 0) {

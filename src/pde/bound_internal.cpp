@@ -22,7 +22,7 @@ struct type_left {};
 struct type_right {};
 
 template<typename P = default_precision, typename btype = type_right>
-PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
+pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
   // df / dt + df / dx_i = 1, exact solution is f = x_i, i = dim
   static_assert(std::is_same_v<btype, type_left> or std::is_same_v<btype, type_right>);
 
@@ -52,7 +52,7 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
   options.default_isolver_inner_iterations = 200;
 
-  PDEv2<P> pde(options, std::move(domain));
+  pde_scheme<P> pde(options, std::move(domain));
 
   term_1d<P> div = term_div<P>(1, flux_type::upwind, boundary_type::bothsides);
 
@@ -112,7 +112,7 @@ PDEv2<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 }
 
 template<typename P = default_precision>
-PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
+pde_scheme<P> make_quad_pde(int num_dims, prog_opts options) {
   // -u_xx = 1 u(0) = u(1) = 0 -> u = 0.5 * x * (1 - x)
   options.title = "PDE quadratic solution " + std::to_string(num_dims) + "D";
 
@@ -131,7 +131,7 @@ PDEv2<P> make_quad_pde(int num_dims, prog_opts options) {
   options.default_isolver_tolerance  = 1.E-6;
   options.default_isolver_iterations = 4000;
 
-  PDEv2<P> pde(options, std::move(domain));
+  pde_scheme<P> pde(options, std::move(domain));
 
   term_1d<P> div  = term_div<P>(-1, flux_type::upwind, boundary_type::none);
   term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::bothsides);
@@ -213,7 +213,7 @@ double get_error_l2(discretization_manager<P> const &disc)
       nnn += state[i] * state[i];
     }
 
-    return std::sqrt(ndiff + enorm - nself);
+    return std::sqrt(ndiff + std::abs(enorm - nself));
   }
 
   std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
@@ -235,9 +235,9 @@ double get_error_l2(discretization_manager<P> const &disc)
   }
 
   if (enorm < 1.0)
-    return std::sqrt(ndiff + enorm - nself);
+    return std::sqrt(ndiff + std::abs(enorm - nself));
   else
-    return std::sqrt((ndiff + enorm - nself) / enorm);
+    return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 }
 
 void self_test();

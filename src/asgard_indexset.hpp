@@ -96,12 +96,17 @@ public:
     this->data_.clear();
     this->num_strips_ = 0;
   }
-  //! \brief Resizes and sets all entries to zero (avoids calling allocate)
-  void resize_and_zero(int64_t stride, int64_t num_strips)
+  //! \brief Resizes, avoids calling allocate
+  void resize(int64_t stride, int64_t num_strips)
   {
     this->stride_     = stride;
     this->num_strips_ = num_strips;
     this->data_.resize(stride * num_strips);
+  }
+  //! \brief Resizes and sets all entries to zero (avoids calling allocate)
+  void resize_and_zero(int64_t stride, int64_t num_strips)
+  {
+    resize(stride, num_strips);
     std::fill(this->data_.begin(), this->data_.end(), T{0});
   }
   //! \brief Copies the data into the provided vector

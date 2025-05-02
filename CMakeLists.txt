@@ -152,7 +152,7 @@ endif()
 ###############################################################################
 
 set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic sinwav two_stream vplb sod_shock")
-set (_asgard_int_pdes varcoeff_internal bound_internal relaxation_internal)
+set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}")
 separate_arguments(_asgard_doc_pdes)
@@ -411,8 +411,6 @@ set (components
      asgard_distribution
      asgard_elements
      asgard_fast_math
-     asgard_interpolation1d
-     asgard_interpolation
      asgard_kronmult_matrix
      asgard_lib_dispatch
      asgard_matlab_utilities
@@ -431,6 +429,7 @@ set(asgard_components
     compute
     discretization
     indexset
+    interp
     moment
     pde
     pde_functions
@@ -629,7 +628,7 @@ if (ASGARD_BUILD_TESTS)
           continue()
       endif()
 
-      set(_asgname "asgard_${component}_tests")
+      set(_asgname "asgard-${component}-tests")
 
       add_executable (${_asgname})
       target_sources (${_asgname} PRIVATE src/asgard_${component}_tests.cpp)
@@ -732,7 +731,7 @@ if (ASGARD_BUILD_TESTS)
   endforeach()
 
   if (ASGARD_USE_PYTHON)
-    add_test(NAME pyreconstruct-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
+    add_test(NAME asgard-pyrecons-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
   endif()
 
 # assuming testing makes us into a stand-alone project, so be more verbose

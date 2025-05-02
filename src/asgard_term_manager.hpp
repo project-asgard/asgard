@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_transformations.hpp"
+#include "asgard_interp.hpp"
 
 namespace asgard
 {
@@ -164,7 +164,7 @@ struct term_manager
    * a separate manager class, but that would be used only in the initial
    * conditions and then repeatedly passed into every single call here.
    */
-  term_manager(PDEv2<P> &pde, sparse_grid const &grid,
+  term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
                hierarchy_manipulator<P> const &hier,
                connection_patterns const &conn);
 
@@ -192,6 +192,8 @@ struct term_manager
   std::vector<source_entry<P>> sources;
   //! all boundary conditions
   std::vector<boundary_entry<P>> bcs;
+  //! interpolatory sources
+  std::vector<md_func<P>> sources_md;
 
   //! left end-point of the domain
   std::array<P, max_num_dimensions> xleft;
@@ -203,13 +205,12 @@ struct term_manager
 
   //! data for the coupling with moments and electric field
   coupled_term_data<P> cdata;
-
-  // interpolation<P> interp; // must be rebuild as a module
+  //! interpolation data
+  interpolation_manager<P> interp;
 
   mutable kronmult::block_global_workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
-
-  mutable vector2d<P> inodes;
+  mutable std::vector<P> it1, it2; // used for interpolation
 
   //! term groups, chains are flattened
   std::vector<irange> term_groups;
@@ -329,6 +330,11 @@ struct term_manager
     if (not t2.empty())
       t2.resize(num_entries);
 
+    if (interp) {
+      it1.resize(num_entries);
+      it2.resize(num_entries);
+    }
+
     workspace_grid_gen = grid.generation();
   }
 
@@ -368,15 +374,23 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
   {
-    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-              alpha, x.data(), beta, y.data(), kwork);
+    if (tme.tmd.is_interpolatory()) {
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+    } else {
+      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                alpha, x.data(), beta, y.data(), kwork);
+    }
   }
   //! y = alpha * tme * x + beta * y, assumes workspace has been set and x/y have proper size
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
-    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-              alpha, x, beta, y, kwork);
+    if (tme.tmd.is_interpolatory()) {
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+    } else {
+      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                alpha, x, beta, y, kwork);
+    }
   }
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
                      term_entry<P> const &tme, P alpha, P const x[], P beta,
