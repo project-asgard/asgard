@@ -108,7 +108,11 @@ term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
   terms.resize(num_terms);
 
   {
-    bool has_interp = pde.initial_md_ or pde.sources_md_;
+    bool has_interp = !!pde.initial_md_;
+    if (not has_interp)
+      for (auto const &s : pde.sources_md_)
+        if (s) has_interp = true;
+
     auto ir = terms.begin();
     for (int i : iindexof(pde_terms.size()))
     {
@@ -227,6 +231,7 @@ term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
     if (dims > 0) ++num_sources;
   }
 
+  sources_md = std::move(pde.sources_md_);
   sources.reserve(num_sources);
 
   for (auto &s : sep) {
@@ -372,6 +377,23 @@ void term_manager<P>::apply_sources(
       default:
         // unreachable here
         break;
+    }
+  }
+
+  if (groupid == -1) {
+    for (auto const &s : sources_md)
+      if (s) {
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          interp(grid, conns, time, 1, s, 1, y, kwork, it1);
+        else
+          interp(grid, conns, time, alpha, s, 1, y, kwork, it1);
+      }
+  } else {
+    if (sources_md[groupid]) {
+      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1);
+      else
+        interp(grid, conns, time, alpha, sources_md[groupid], 1, y, kwork, it1);
     }
   }
 

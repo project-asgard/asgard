@@ -2591,7 +2591,7 @@ public:
   //! initialize the pde over the domain
   pde_scheme(prog_opts opts, pde_domain<P> domain)
     : options_(std::move(opts)), domain_(std::move(domain)),
-      mass_(domain_.num_dims())
+      mass_(domain_.num_dims()), sources_md_(1)
   {
     int const numd = domain_.num_dims();
     if (domain_.num_dims() == 0)
@@ -2729,9 +2729,9 @@ public:
   //! returns the i-th term
   term_md<P> const &term(int i) const { return terms_[i]; }
 
-  //! set non-separable right-hand-source, can have only one
+  //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_func<P> smd) {
-    sources_md_ = std::move(smd);
+    sources_md_[std::max(current_term_group, 0)] = std::move(smd);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
@@ -2749,7 +2749,7 @@ public:
   //! returns the i-th separable sources
   separable_func<P> const &source_sep(int i) const { return sources_sep_[i]; }
   //! returns the non-separable source
-  md_func<P> const &source_md() const { return sources_md_; }
+  md_func<P> const &source_md(int i) const { return sources_md_[i]; }
 
   //! returns the smallest cell size in given dimension and level, , uses max-level by default
   P cell_size(int dim, int level = -1) const {
@@ -2772,6 +2772,7 @@ public:
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
+      sources_md_.push_back(nullptr); // add empty interpolatory source
     }
     return current_term_group;
   }
@@ -2817,7 +2818,7 @@ private:
   std::vector<term_md<P>> terms_;
 
   // TODO: update this to have one non-sep source per group
-  md_func<P> sources_md_;
+  std::vector<md_func<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
 
   int current_term_group = -1;

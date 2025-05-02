@@ -192,6 +192,8 @@ struct term_manager
   std::vector<source_entry<P>> sources;
   //! all boundary conditions
   std::vector<boundary_entry<P>> bcs;
+  //! interpolatory sources
+  std::vector<md_func<P>> sources_md;
 
   //! left end-point of the domain
   std::array<P, max_num_dimensions> xleft;

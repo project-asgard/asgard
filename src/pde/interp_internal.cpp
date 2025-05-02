@@ -145,10 +145,106 @@ void test_ic() {
 #endif
 }
 
+template<typename P>
+void test_sources(double const tol, std::string const &opts)
+{
+  prog_opts options = make_opts(opts);
+
+  pde_domain<P> domain({{-0.5 * PI, 0.5 * PI}, {0, 1}});
+
+  options.default_degree = 1;
+  options.default_stop_time = 0.5;
+  options.default_start_levels = {5, };
+
+  options.default_step_method = time_method::rk2;
+  int const max_level = options.max_level();
+  P const dx = domain.min_cell_size(max_level);
+
+  options.default_dt = 0.1 * 0.5 * dx;
+
+  // function that will build the sources and initial conditions
+  auto ft  = [](P t) -> P { return  std::exp(-t); };
+  auto fdt = [](P t) -> P { return -std::exp(-t); };
+  auto fx  = [](P x) -> P { return std::sin(x); };
+  auto fdx = [](P x) -> P { return std::cos(x); };
+  auto fy  = [](P y) -> P { return std::cos(y); };
+
+  separable_func<P> exact({vectorize_t<P>(fx), vectorize_t<P>(fy)}, ft);
+  separable_func<P> s0({vectorize_t<P>(fx), vectorize_t<P>(fy)}, fdt);
+  separable_func<P> s1({vectorize_t<P>(fdx), vectorize_t<P>(fy)}, ft);
+
+  separable_func<P> bc = exact;
+  bc.set_cdomain(0, P{-1});
+
+  auto smd = [=](P t, vector2d<P> const &nodes, std::vector<P> &vals) ->
+    void {
+      for (auto i : indexof(vals)) {
+        P const x = nodes[i][0];
+        P const y = nodes[i][1];
+        vals[i] = fdt(t) * fx(x) * fy(y) + ft(t) * fdx(x) * fy(y);
+      }
+    };
+
+  // separable and interpolation odes
+  pde_scheme<P> spde(options, domain);
+  pde_scheme<P> ipde(options, domain);
+
+  term_md<P> div = {term_div<P>(1, flux_type::upwind, boundary_type::left), term_identity{}};
+  div += left_boundary_flux<P>(bc);
+
+  spde += div;
+  ipde += div;
+
+  spde.add_initial(exact);
+  ipde.add_initial(exact);
+
+  spde.add_source(s0);
+  spde.add_source(s1);
+  ipde.set_source(smd);
+
+  discretization_manager<P> sdisc(spde, verbosity_level::quiet);
+  discretization_manager<P> idisc(ipde, verbosity_level::quiet);
+
+  sdisc.advance_time();
+  idisc.advance_time();
+
+  auto const &sstate = sdisc.current_state();
+  auto const &istate = idisc.current_state();
+
+  double err = 0;
+  double total = 0;
+  for (auto i : indexof(sstate)) {
+    P const e = sstate[i] - istate[i];
+    err += e * e;
+    total += sstate[i] * sstate[i];
+  }
+
+  // std::cout << " err = " << std::sqrt(err) / std::sqrt(total) << "\n";
+  tcheckless(0, std::sqrt(err) / std::sqrt(total), tol);
+}
+
+void test_sources() {
+  current_test name_("source terms");
+#ifdef ASGARD_ENABLE_DOUBLE
+  test_sources<double>(5.E-3, "-l 4 -d 1");
+  test_sources<double>(1.E-3, "-l 5 -d 1");
+  test_sources<double>(5.E-4, "-l 6 -d 1");
+  test_sources<double>(5.E-3, "-l 4 -d 2");
+  test_sources<double>(1.E-3, "-l 5 -d 2");
+  test_sources<double>(1.E-7, "-l 5 -d 3");
+  test_sources<double>(5.E-8, "-l 6 -d 3");
+#endif
+#ifdef ASGARD_ENABLE_FLOAT
+  test_sources<float>(1.E-3, "-l 5 -d 1");
+  test_sources<float>(1.E-4, "-l 5 -d 3");
+#endif
+}
+
 int main(int, char**)
 {
   all_tests global_("interpolation operators");
 
-  // test_ode1d();
+  test_ode1d();
   test_ic();
+  test_sources();
 }
