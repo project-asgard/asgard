@@ -34,12 +34,6 @@ static auto const transformations_base_dir = gold_base_dir / "transformations";
 
 using namespace asgard;
 
-struct distribution_test_init
-{
-  distribution_test_init() { initialize_distribution(); }
-  ~distribution_test_init() { finalize_distribution(); }
-};
-
 #ifdef ASGARD_USE_MPI
 static distribution_test_init const distrib_test_info;
 #endif
