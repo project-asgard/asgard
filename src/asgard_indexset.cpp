@@ -473,7 +473,7 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
 
   if constexpr (gtype == grid_type::dense)
   {
-    std::vector<int> idx = asgard::permutations::generate_lower_index_set_v2(
+    std::vector<int> idx = asgard::permutations::generate_lower_index_set(
       numd, [&](std::array<int, max_num_dimensions> const &index)
         -> bool {
           for (int d = 0; d < numd; d++)
@@ -491,7 +491,7 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
     std::array<int, max_num_dimensions> lidx;
     for (int d : iindexof(numd))
       lidx[d] = (levels[d] == 0) ? (m + 1) : (m / levels[d]);
-    std::vector<int> idx = asgard::permutations::generate_lower_index_set_v2(
+    std::vector<int> idx = asgard::permutations::generate_lower_index_set(
       numd, [&](std::array<int, max_num_dimensions> const &index)
         -> bool {
           int l = 0;
@@ -509,7 +509,7 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
     std::array<int, max_num_dimensions> lidx;
     for (int i = 0; i < numd; i++)
       lidx[i] = m / levels[i];
-    std::vector<int> idx = asgard::permutations::generate_lower_index_set_v2(
+    std::vector<int> idx = asgard::permutations::generate_lower_index_set(
       numd, [&](std::array<int, max_num_dimensions> const &index)
         -> bool {
           int l1 = 0, l2 = 0;
