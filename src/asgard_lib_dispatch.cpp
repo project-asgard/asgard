@@ -1,5 +1,4 @@
 #include "asgard_lib_dispatch.hpp"
-#include "asgard_sparse.hpp"
 
 // ==========================================================================
 // external declarations for calling blas routines linked with -lblas

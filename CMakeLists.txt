@@ -410,7 +410,6 @@ set (components
      asgard_matlab_utilities
      asgard_quadrature
      asgard_resources
-     asgard_sparse
      asgard_tensors
 )
 
