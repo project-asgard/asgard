@@ -1,6 +1,8 @@
 #pragma once
-#include "asgard_adapt.hpp"
-#include "asgard_kron_operators.hpp"
+#include "./device/asgard_kronmult.hpp"
+#include "asgard_pde.hpp"
+#include "asgard_basis.hpp"
+#include "asgard_block_matrix.hpp"
 
 namespace asgard
 {
@@ -12,15 +14,6 @@ namespace asgard
  */
 template<typename P>
 using mass_diag = std::array<block_diag_matrix<P>, max_num_dimensions>;
-
-// combines the values from the vectors into the combined tensor list
-// the size of combined should be equal to the number of elements
-// times the tesor block size (degree + 1)^d
-template<typename P>
-void combine_dimensions(int const degree, elements::table const &table,
-                        int const start_element, int const stop_element,
-                        std::vector<std::vector<P>> const &vectors,
-                        P combined[]);
 
 /*!
  * \internal
@@ -217,68 +210,6 @@ public:
           proj[i] += val;
         else if constexpr (action == data_mode::scal_inc)
           proj[i] += alpha * val;
-      }
-
-      proj += block_size_;
-    }
-  }
-
-  //! project separable function on the basis level
-  template<data_mode action = data_mode::replace>
-  void project_separable(P proj[],
-                         std::vector<dimension<P>> const &dims,
-                         std::vector<vector_func<P>> const &funcs,
-                         std::array<function_1d<P>, max_num_dimensions> const &dv,
-                         mass_list &mass,
-                         adapt::distributed_grid<P> const &grid,
-                         P const time = 0.0, P const time_multiplier = 1.0,
-                         int sstart = -1, int sstop = -1) const
-  {
-    static_assert(action == data_mode::replace or action == data_mode::increment);
-    // first we perform the one-dimensional transformations
-    int const num_dims = static_cast<int>(dims.size());
-    for (int d : indexof<int>(num_dims))
-    {
-      project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
-          -> void {
-        auto fkvec = funcs[d](x, time);
-        std::copy(fkvec.begin(), fkvec.end(), fx.data());
-      }, dv[d], mass[d], d, dims[d].get_level());
-    }
-
-    // looking at row start and stop
-    auto const &subgrid    = grid.get_subgrid(get_rank());
-    int const *const cells = grid.get_table().get_active_table().data();
-
-    if (sstart == -1)
-    {
-      sstart = subgrid.row_start;
-      sstop  = subgrid.row_stop;
-    }
-
-    std::array<int, max_num_dimensions> midx;
-    std::array<P const *, max_num_dimensions> data1d;
-
-    int const pdof = degree_ + 1;
-    for (int64_t s = sstart; s <= sstop; s++)
-    {
-      asg2tsg_convert(num_dims, cells + 2 * num_dims * s, midx.data());
-      for (int d : indexof<int>(num_dims))
-        data1d[d] = pf[d].data() + midx[d] * pdof;
-
-      for (int64_t i : indexof(block_size_))
-      {
-        int64_t t = i;
-        P val     = time_multiplier;
-        for (int d = num_dims - 1; d >= 0; d--)
-        {
-          val *= data1d[d][t % pdof];
-          t /= pdof;
-        }
-        if constexpr (action == data_mode::replace)
-          proj[i] = val;
-        else if constexpr (action == data_mode::increment)
-          proj[i] += val;
       }
 
       proj += block_size_;

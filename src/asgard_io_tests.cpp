@@ -108,7 +108,7 @@ void simple_restart() {
   pde_domain<TestType> domain(num_dims);
   discretization_manager<TestType> ref(pde_scheme<TestType>(options, domain));
 
-  ref.save_snapshot2(filename);
+  ref.save_snapshot(filename);
 
   prog_opts opts2 = make_opts("-restart " + filename);
   discretization_manager<TestType> disc(pde_scheme<TestType>(opts2, domain));
@@ -167,7 +167,7 @@ void reset_time_params() {
   tassert(ref.time_props().stop_time() == 3);
   tassert(ref.time_props().num_remain() == 6);
 
-  ref.save_snapshot2(filename);
+  ref.save_snapshot(filename);
 
   prog_opts opts2 = make_opts("-restart " + filename + " -time 4");
   discretization_manager<TestType> d1(pde_scheme<TestType>(opts2, domain));
@@ -206,7 +206,7 @@ void restart_errors() {
   discretization_manager<TestType> ref(pde_scheme<TestType>(options, domain));
   ref.set_time(TestType{2});
 
-  ref.save_snapshot2(filename);
+  ref.save_snapshot(filename);
 
   // try to restart from a missing file
   prog_opts opts2 = make_opts("-restart wrong_file");

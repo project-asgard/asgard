@@ -33,10 +33,6 @@ class discretization_manager
 {
 public:
   //! take ownership of the pde object and discretize the pde
-  discretization_manager(std::unique_ptr<PDE<precision>> &&pde_in,
-                         verbosity_level verbosity = verbosity_level::quiet);
-
-  //! take ownership of the pde object and discretize the pde
   discretization_manager(pde_scheme<precision> pde_in,
                          verbosity_level verbosity = verbosity_level::quiet);
 
@@ -52,12 +48,6 @@ public:
    */
   discretization_manager(discretization_manager &&) = delete;
 
-  //! total degrees of freedom for the problem
-  int64_t degrees_of_freedom() const
-  {
-    return grid.size() * fm::ipow(degree_ + 1, pde->num_dims());
-  }
-
   //! returns the degree of the discretization
   int degree() const { return degree_; }
 
@@ -72,10 +62,6 @@ public:
   //! get the current time-step number
   int64_t time_step() const { return time_step_; }
 
-  //! get the current time-step size
-  precision dt() const { return dt_; }
-  //! get the current integration time
-  precision time() const { return time_; }
   //! set the time in the befinning of the simulation, time() must be zero to call this
   void set_time(precision t) {
     if (stepper.data.step() != 0)
@@ -113,34 +99,18 @@ public:
   //! return a snapshot of the current solution
   reconstruct_solution get_snapshot() const
   {
-    if (pde) { // version 1
-      reconstruct_solution shot(
-          pde->num_dims(), grid.size(), grid.get_table().get_active_table().data(),
-          degree_, state.data());
+    reconstruct_solution shot(
+        pde2.num_dims(), sgrid.num_indexes(), sgrid[0], degree_, state.data(), true);
 
-      std::array<double, max_num_dimensions> xmin, xmax;
-      for (int d : iindexof(pde->num_dims())) {
-        xmin[d] = pde->get_dimensions()[d].domain_min;
-        xmax[d] = pde->get_dimensions()[d].domain_max;
-      }
-
-      shot.set_domain_bounds(xmin.data(), xmax.data());
-
-      return shot;
-    } else {
-      reconstruct_solution shot(
-          pde2.num_dims(), sgrid.num_indexes(), sgrid[0], degree_, state.data(), true);
-
-      std::array<double, max_num_dimensions> xmin, xmax;
-      for (int d : iindexof(pde2.num_dims())) {
-        xmin[d] = pde2.domain().xleft(d);
-        xmax[d] = pde2.domain().xright(d);
-      }
-
-      shot.set_domain_bounds(xmin.data(), xmax.data());
-
-      return shot;
+    std::array<double, max_num_dimensions> xmin, xmax;
+    for (int d : iindexof(pde2.num_dims())) {
+      xmin[d] = pde2.domain().xleft(d);
+      xmax[d] = pde2.domain().xright(d);
     }
+
+    shot.set_domain_bounds(xmin.data(), xmax.data());
+
+    return shot;
   }
 
   //! check if the terms have poisson dependence
@@ -149,17 +119,8 @@ public:
   bool has_moments() const { return moms1d.has_value(); }
 
   //! computes the right-hand-side of the ode
-  void ode_rhs(imex_flag imflag, precision time, std::vector<precision> const &state,
-               std::vector<precision> &R) const;
-  //! computes the right-hand-side of the backward Euler method
-  void ode_irhs(precision time, std::vector<precision> const &state,
-                std::vector<precision> &R) const;
-  //! solves x = A^{-1} x where A is the kron_operators with given flag, uses method from options
-  void ode_sv(imex_flag imflag, std::vector<precision> &x) const;
-
-  //! computes the right-hand-side of the ode
-  void ode_rhs_v2(precision time, std::vector<precision> const &current,
-                  std::vector<precision> &R) const
+  void ode_rhs(precision time, std::vector<precision> const &current,
+               std::vector<precision> &R) const
   {
     if (poisson) { // if we have a Poisson dependence
       tools::time_event performance_("ode-rhs poisson");
@@ -256,23 +217,6 @@ public:
   //! compute the electric field for the given state and update the coefficient matrices
   void do_poisson_update(std::vector<precision> const &field) const;
 
-  //! register the next time step and checkpoint
-  void set_next_step(fk::vector<precision> const &next,
-                     std::optional<precision> new_dt = {})
-  {
-    if (new_dt)
-      dt_ = new_dt.value();
-
-    state.resize(next.size());
-    std::copy(next.begin(), next.end(), state.begin());
-
-    time_ += dt_;
-
-    ++time_step_;
-
-    checkpoint();
-  }
-
   //! write out checkpoint/restart data and data for plotting
   void checkpoint() const;
   //! write out snapshot data, same as checkpoint but can be invoked manually
@@ -280,43 +224,9 @@ public:
   //! calls save-snapshot for the final step, if requested with -outfile
   void save_final_snapshot() const
   {
-    if (pde) {
-      if (not pde->options().outfile.empty())
-        save_snapshot(pde->options().outfile);
-    } else {
-      if (not pde2.options().outfile.empty())
-        save_snapshot(pde2.options().outfile);
-    }
+    if (not pde2.options().outfile.empty())
+      save_snapshot(pde2.options().outfile);
   }
-
-  /*!
-   * \brief if analytic solution exists, return the rmse error
-   *
-   * If no analytic solution has been specified, the optional will be empty.
-   * If an analytic solution exists, this will return both the absolute and
-   * relative rmse (normalized by the max entry of the exact solution).
-   * The vector contains an entry for each mpi rank.
-   *
-   * (note: we are working on computing the rmse for all mpi ranks instead
-   * of per rank)
-   */
-  std::optional<std::array<std::vector<precision>, 2>> rmse_exact_sol() const;
-  /*!
-   * \brief returns the vector of the exact solution at the current time step
-   *
-   * If no analytic solution has been specified, the optional will be empty.
-   * If the solution has been specified, this will return the exact solution
-   * at the current time and projected on the current grid.
-   */
-  std::optional<std::vector<precision>> get_exact_solution() const;
-
-  //! collect the current state from across all mpi ranks
-  fk::vector<precision> current_mpistate() const;
-
-  //! returns a ref to the original pde
-  PDE<precision> const &get_pde() const { return *pde; }
-  //! returns a ref to the sparse grid
-  adapt::distributed_grid<precision> const &get_grid() const { return grid; }
 
   //! returns the title of the PDE
   std::string const &title() const { return pde2.options().title; }
@@ -427,49 +337,29 @@ public:
 
   pde_scheme<precision> const &get_pde2() const { return pde2; }
   time_data<precision> const &time_props() const { return stepper.data; }
-  bool version2() const { return not pde; }
-  void save_snapshot2(std::filesystem::path const &filename) const;
   sparse_grid const &get_sgrid() const { return sgrid; }
 
   term_manager<precision> const & get_terms() const { return terms; }
 
   //! return the hierarchy_manipulator
   auto const &get_hiermanip() const { return hier; }
-  //! return the fixed boundary conditions
-  auto const &get_fixed_bc() const { return fixed_bc; }
   //! return the connection patterns
   auto const &get_conn() const { return conn; }
 
-  //! get kronopts, return the kronmult operators for iterative solvers
-  kron_operators<precision> &get_kronops() const { return kronops; }
-  //! return operator matrix for direct solves
-  std::optional<matrix_factor<precision>> &get_op_matrix() const { return op_matrix; }
-  //! returns the coefficient matrices
-  coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
   //! recomputes the moments given the state of interest
   void compute_moments(std::vector<precision> const &f) const {
     if (not moms1d)
       return;
 
-    if (pde) {
-      int const level = pde->get_dimensions().front().get_level();
-      moms1d->project_moments(level, f, grid.get_table(), matrices.edata.moments);
-      int const num_cells = fm::ipow2(level);
-      int const num_outs  = moms1d->num_comp_mom();
-      hier.reconstruct1d(
-          num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
-                                             matrices.edata.moments.data()));
-    } else {
-      int const level = sgrid.current_level(0);
-      moms1d->project_moments(sgrid, f, terms.cdata.moments);
-      int const num_cells = fm::ipow2(level);
-      int const num_outs  = moms1d->num_comp_mom();
-      hier.reconstruct1d(
-          num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
-                                             terms.cdata.moments.data()));
-      // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
-      terms.rebuild_moment_terms(sgrid, conn, hier);
-    }
+    int const level = sgrid.current_level(0);
+    moms1d->project_moments(sgrid, f, terms.cdata.moments);
+    int const num_cells = fm::ipow2(level);
+    int const num_outs  = moms1d->num_comp_mom();
+    hier.reconstruct1d(
+        num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
+                                            terms.cdata.moments.data()));
+    // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
+    terms.rebuild_moment_terms(sgrid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(int groupid, std::vector<precision> const &f) const {
@@ -494,30 +384,10 @@ public:
     do_poisson_update(f);
     terms.rebuild_poisson(sgrid, conn, hier);
   }
-  //! (testing) recomputes the moments given the state of interest, keeps in hierarchical form
-  void compute_hmoments(std::vector<precision> const &f, std::vector<precision> &rmom) {
-    if (moms1d)
-      moms1d->project_moments(pde->get_dimensions().front().get_level(),
-                              f, grid.get_table(), rmom);
-  }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
     rassert(ns.size() == state.size(), "cannot set state with different size");
     state = ns;
-  }
-  //! recomputes the coefficients, can select sub
-  void compute_coefficients(coeff_update_mode mode = coeff_update_mode::all) {
-    generate_coefficients(*pde, matrices, conn, hier, time_, mode);
-    // print_mats();
-#ifndef KRON_MODE_GLOBAL
-    pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
-    for (int64_t t : indexof(pde->coeffs_.size()))
-      pde->coeffs_[t] = matrices.term_coeffs[t].to_fk_matrix(degree_ + 1, conn);
-#endif
-  }
-  fk::matrix<precision> get_coeff_matrix(int t, int d) const
-  {
-    return matrices.term_coeffs[t * pde->num_dims() + d].to_fk_matrix(hier.degree() + 1, conn);
   }
   //! (debugging) prints the term-matrices
   void print_mats() const;
@@ -529,9 +399,6 @@ public:
   friend void advance_in_time<precision>(discretization_manager<precision> &disc,
                                       int64_t num_steps);
 
-  friend void advance_time_v2<precision>(discretization_manager<precision> &disc,
-                                         int64_t num_steps);
-
   friend class h5manager<precision>;
 
   friend struct time_advance_manager<precision>;
@@ -540,33 +407,7 @@ public:
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! sets the initial conditions, performs adaptivity in the process
-  void set_initial_condition_v1();
-  //! sets the initial conditions, performs adaptivity in the process
   void set_initial_condition();
-  //! update components on grid reset
-  void update_grid_components()
-  {
-    tools::time_event performance("update grid components");
-    kronops.clear();
-    generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::independent);
-    // print_mats();
-
-#ifdef KRON_MODE_GLOBAL
-    // the imex-flag is not used internally
-    kronops.make(imex_flag::unspecified, *pde, matrices, grid);
-#else
-    pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
-    for (int64_t t : indexof(pde->coeffs_.size()))
-      pde->coeffs_[t] = matrices.term_coeffs[t].to_fk_matrix(degree_ + 1, conn);
-#endif
-
-    auto const my_subgrid = grid.get_subgrid(get_rank());
-    fixed_bc = boundary_conditions::make_unscaled_bc_parts(
-        *pde, grid.get_table(), hier, matrices,
-        conn, my_subgrid.row_start, my_subgrid.row_stop);
-    if (op_matrix)
-      op_matrix.reset();
-  }
 
   //! start from time 0 and nothing has been set
   void start_cold();
@@ -579,10 +420,7 @@ protected:
 
 private:
   mutable verbosity_level verb;
-  std::unique_ptr<PDE<precision>> pde;
   pde_scheme<precision> pde2;
-
-  adapt::distributed_grid<precision> grid;
 
   sparse_grid sgrid;
 
@@ -594,21 +432,9 @@ private:
   int degree_;
 
   // extra parameters
-  precision dt_;
-  precision time_;
   int64_t time_step_;
   int64_t final_time_step_;
 
-  // recompute only when the grid changes
-  // left-right boundary conditions, time-independent components
-  std::array<boundary_conditions::unscaled_bc_parts<precision>, 2> fixed_bc;
-
-  // stores the coefficient matrices
-  mutable coefficient_matrices<precision> matrices;
-  // used for all separable operations and iterative solvers
-  mutable kron_operators<precision> kronops;
-  // used for direct solvers
-  mutable std::optional<matrix_factor<precision>> op_matrix;
   // moments, new implementation
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
@@ -616,8 +442,6 @@ private:
 
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;
-  //! source manager holding the sources and inhomogeneous boundary conditions
-  // mutable source_manager<precision> sources;
   //! time advance manager for the different methods
   time_advance_manager<precision> stepper;
 

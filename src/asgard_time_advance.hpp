@@ -1,7 +1,6 @@
 #pragma once
 #include "asgard_reconstruct.hpp"
-#include "asgard_boundary_conditions.hpp"
-#include "asgard_coefficients.hpp"
+#include "asgard_transformations.hpp"
 #include "asgard_moment.hpp"
 #include "asgard_solver.hpp"
 
@@ -52,41 +51,6 @@ class discretization_manager;
  */
 template<typename P> // implemented in time-advance
 void advance_in_time(discretization_manager<P> &manager, int64_t num_steps = -1);
-
-#ifndef __ASGARD_DOXYGEN_SKIP
-
-/*!
- * \internal
- * \brief holds matrix and pivot factors
- *
- * used to hold the matrix/factor combo for the direct implicit solvers that
- * explicitly form the large Kronecker matrix
- * \endinternal
- */
-template<typename P>
-struct matrix_factor
-{
-  //! matrix or matrix factors, factorized if ipiv is not empty
-  fk::matrix<P> A;
-  //! pivots for the factorization
-  std::vector<int> ipiv;
-};
-
-// placeholder for the new api
-template<typename P> // implemented in time-advance
-void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps = -1);
-
-namespace time_advance
-{
-#ifdef ASGARD_USE_CUDA
-static constexpr resource imex_resrc = resource::device;
-#else
-static constexpr resource imex_resrc = resource::host;
-#endif
-
-} // namespace asgard::time_advance
-
-#endif
 
 } // namespace asgard
 

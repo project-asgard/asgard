@@ -1,6 +1,4 @@
 #include "asgard_lib_dispatch.hpp"
-#include "asgard_distribution.hpp" // seems needed for MPI
-#include "asgard_sparse.hpp"
 
 // ==========================================================================
 // external declarations for calling blas routines linked with -lblas
@@ -70,8 +68,6 @@ extern "C"
 #include <iostream>
 #include <new>
 #include <type_traits>
-
-#include "asgard_mpi.hpp"
 
 #ifdef ASGARD_USE_CUDA
 #include <cublas_v2.h>

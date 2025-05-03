@@ -1,6 +1,6 @@
 #pragma once
+#include "asgard_pde.hpp"
 #include "asgard_basis.hpp"
-#include "asgard_elements.hpp"
 #include "asgard_transformations.hpp"
 
 namespace asgard
@@ -33,16 +33,6 @@ public:
   moments1d(int num_mom, int degree, int max_level, pde_domain<P> const &domain);
 
   /*!
-   * \brief Given the solution state and table, compute the moments
-   *
-   * The dim0_level is the current level of dimension zero and will determine
-   * the size of moments, but if any indexes are not present in the etable,
-   * those will be filled with zeros.
-   */
-  void project_moments(int const dim0_level, std::vector<P> const &state,
-                       elements::table const &etable, std::vector<P> &moments) const;
-
-  /*!
    * \brief Given the grid and solution state, compute the moments
    *
    * If no position dimension is present, the moments will collapse to a single value.
@@ -50,15 +40,6 @@ public:
    */
   void project_moments(sparse_grid const &grid, std::vector<P> const &state,
                        std::vector<P> &moments) const;
-
-  /*!
-   * \brief Given the solution state and table, compute only one moment
-   *
-   * Simpler version of project_moments() that avoids recomputing everything.
-   * Works up to moments with second power.
-   */
-  void project_moment(int const mom, int const dim0_level, std::vector<P> const &state,
-                      elements::table const &etable, std::vector<P> &moment) const;
 
   /*!
    * \brief Given the solution state and table, compute only one moment
@@ -98,9 +79,6 @@ protected:
   template<int ndims>
   void project_cell(int const mom, P const x[], int const idx[], P moment[],
                     std::vector<P> &work) const;
-
-  //! construct global indexe list from the etable
-  static vector2d<int> get_cells(int num_dimensions, elements::table const &etable);
 
 private:
   //! number of moments

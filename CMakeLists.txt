@@ -405,32 +405,25 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
-     asgard_adapt
-     asgard_basis
-     asgard_coefficients
-     asgard_distribution
-     asgard_elements
      asgard_fast_math
-     asgard_kronmult_matrix
      asgard_lib_dispatch
      asgard_matlab_utilities
-     asgard_permutations
      asgard_quadrature
      asgard_resources
-     asgard_sparse
      asgard_tensors
 )
 
 # version 2 components, do not depend on catch2
 set(asgard_components
+    basis
     block_matrix
-    boundary_conditions
     coefficients_mats
     compute
     discretization
     indexset
     interp
     moment
+    permutations
     pde
     pde_functions
     program_options

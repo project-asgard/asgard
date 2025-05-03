@@ -138,22 +138,6 @@ default_initial_condition(asgard::fk::vector<P> const vect)
   return vect;
 }
 
-template<typename P>
-asgard::dimension<P>
-make_dummy_dim(int const level = 0, int const degree = 0,
-               P const domain_min = 0.0, P const domain_max = 0.0,
-               asgard::boundary_condition const left =
-                   asgard::boundary_condition::periodic,
-               asgard::boundary_condition const right =
-                   asgard::boundary_condition::periodic,
-               asgard::vector_func<P> const initial_condition =
-                   default_initial_condition<P>,
-               std::string const name = "")
-{
-  return asgard::dimension<P>(left, right, domain_min, domain_max, level,
-                              degree, initial_condition, name);
-}
-
 template<typename T>
 std::string to_string_with_precision(T const a_value, int const precision = 6)
 {
