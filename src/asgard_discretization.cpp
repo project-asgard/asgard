@@ -261,90 +261,6 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
 }
 
 template<typename precision>
-void discretization_manager<precision>::set_initial_condition_v1()
-{
-  auto const &options = pde->options();
-
-  auto &dims   = pde->get_dimensions();
-  size_t num_initial = dims.front().initial_condition.size();
-  for (auto const &dim : dims)
-    rassert(dim.initial_condition.size() == num_initial,
-            "each dimension must define equal number of initial conditions");
-
-  // some PDEs incorrectly implement the initial conditions in terms of
-  // strictly spatially dependent functions times a separable time component
-  // the time-component comes from the exact solution and this is incorrect
-  // since the actual functions set as initial conditions are not
-  precision const tmult = pde->has_exact_time() ? pde->exact_time(0.0) : 1;
-
-  std::vector<vector_func<precision>> fx;
-  fx.reserve(dims.size());
-
-  std::vector<precision> icn, ic; // interpolation parameters
-
-  bool keep_working  = true; // make at least once cycle and refine if refining
-  bool final_coarsen = false; // set to true after the final iteration
-
-  // we need to make at least one iteration to generate the initial conditions
-  // if refining, we want to keep working until there is no more refinement
-  // after that, we want another iteration to coarsen the solution
-  // (refining and coarsening should be one step ... but priorities)
-  while (keep_working)
-  {
-    auto const &subgrid = grid.get_subgrid(get_rank());
-    state.resize(subgrid.ncols() * hier.block_size());
-    std::fill(state.begin(), state.end(), precision{0});
-
-    for (auto i : indexof(num_initial))
-    {
-      fx.clear();
-      for (auto const &dim : dims)
-        fx.push_back(dim.initial_condition[i]);
-
-      hier.template project_separable<data_mode::increment>
-          (state.data(), dims, fx, matrices.dim_dv, matrices.dim_mass, grid, 0,
-           tmult, subgrid.col_start, subgrid.col_stop);
-    }
-#ifdef KRON_MODE_GLOBAL
-    if (pde->interp_initial())
-    {
-      kronops.make(imex_flag::unspecified, *pde, matrices, grid);
-      vector2d<precision> const &nodes = kronops.get_inodes();
-      icn.resize(state.size());
-      pde->interp_initial()(nodes, icn);
-      kronops.get_project(icn.data(), ic);
-
-      for (auto i : indexof(ic))
-        state[i] += ic[i];
-
-      kronops.clear();
-    }
-#endif
-
-    if (options.adapt_threshold) // adapting
-    {
-      if (final_coarsen)
-        keep_working = false;
-      else
-      {
-        auto refined = grid.refine(state, options);
-
-        if (static_cast<size_t>(refined.size()) == state.size())
-        {
-          auto coarse = grid.coarsen(refined, options);
-          final_coarsen = true;
-        }
-        auto const new_levels = adapt::get_levels(grid.get_table(), dims.size());
-        for (int d : indexof<int>(dims))
-          dims[d].set_level(new_levels[d]);
-      }
-    }
-    else
-      keep_working = false;
-  }
-}
-
-template<typename precision>
 void discretization_manager<precision>::set_initial_condition()
 {
   auto const &options = pde2.options();
@@ -400,97 +316,6 @@ void discretization_manager<precision>::set_initial_condition()
   }
 }
 
-template<typename precision>
-void discretization_manager<precision>::ode_rhs(
-    imex_flag imflag, precision t, std::vector<precision> const &x,
-    std::vector<precision> &R) const
-{
-  R.resize(x.size());
-
-#ifdef ASGARD_USE_MPI
-  element_subgrid const &subgrid = grid.get_subgrid(get_rank());
-
-  distribution_plan const &plan = grid.get_distrib_plan();
-
-  int64_t const row_size = hier.block_size() * subgrid.nrows();
-
-  // MPI-mode has two extra steps, reduce the result across the rows
-  // then redistribute across the columns
-  // two work-vectors are needed
-  static std::vector<precision> local_row;
-  static std::vector<precision> reduced_row;
-
-  local_row.resize(row_size);
-  reduced_row.resize(row_size);
-#else
-  std::vector<precision> &local_row   = R;
-  std::vector<precision> &reduced_row = R;
-#endif
-
-  kronops.make(imflag, *pde, matrices, grid);
-  {
-    tools::time_event performance("kronmult", kronops.flops(imflag));
-    kronops.apply(imflag, t, 1.0, x.data(), 0.0, local_row.data());
-  }
-
-#ifdef ASGARD_USE_MPI
-  reduce_results(local_row, reduced_row, plan, get_rank());
-#endif
-
-  {
-    tools::time_event performance("computing sources");
-    for (auto const &source : pde->sources())
-      hier.template project_separable<data_mode::increment>
-          (reduced_row.data(), pde->get_dimensions(), source.source_funcs(),
-          matrices.dim_dv, matrices.dim_mass, grid, t, source.time_func()(t));
-  }{
-    tools::time_event performance("computing boundary conditions");
-
-    boundary_conditions::generate_scaled_bc(fixed_bc[0], fixed_bc[1], *pde, t, reduced_row);
-  }
-
-#ifdef ASGARD_USE_MPI
-  exchange_results(reduced_row, R, hier.block_size(), plan, get_rank());
-#endif
-}
-
-template<typename precision>
-void discretization_manager<precision>::ode_irhs(
-    precision t, std::vector<precision> const &x, std::vector<precision> &R) const
-{
-  if (R.empty())
-    R.resize(x.size());
-  else {
-    R.resize(x.size());
-    std::fill(R.begin(), R.end(), 0);
-  }
-
-  if (not pde->sources().empty())
-  {
-    tools::time_event performance("computing sources");
-
-    auto const &src = pde->sources();
-    hier.template project_separable<data_mode::replace>
-          (R.data(), pde->get_dimensions(), src[0].source_funcs(),
-          matrices.dim_dv, matrices.dim_mass, grid, t, src[0].time_func()(t));
-
-    for (size_t i = 1; i < src.size(); i++)
-      hier.template project_separable<data_mode::increment>
-          (R.data(), pde->get_dimensions(), src[i].source_funcs(),
-          matrices.dim_dv, matrices.dim_mass, grid, t, src[i].time_func()(t));
-  }
-
-  {
-    tools::time_event performance("computing boundary conditions");
-
-    boundary_conditions::generate_scaled_bc(fixed_bc[0], fixed_bc[1], *pde, t, R);
-
-    precision const dt = pde->get_dt();
-    for (auto i : indexof(R))
-      R[i] = x[i] + dt * R[i];
-  }
-}
-
 template<typename precision> void
 discretization_manager<precision>::project_function(
     std::vector<separable_func<precision>> const &sep,
@@ -519,82 +344,29 @@ discretization_manager<precision>::do_poisson_update(std::vector<precision> cons
   if (not poisson)
     return; // nothing to update, no term has Poisson dependence
 
-  if (pde) { // version 1
-    auto const &table = grid.get_table();
-    expect(field.size() == static_cast<size_t>(table.size() * fm::ipow(degree_ + 1, pde->num_dims())));
+  expect(field.size() == static_cast<size_t>(sgrid.num_indexes() * fm::ipow(degree_ + 1, sgrid.num_dims())));
 
-    int const level = pde->get_dimensions()[0].get_level();
-    std::vector<precision> moment0;
-    moms1d->project_moment(0, level, field, table, moment0);
+  std::vector<precision> moment0;
+  moms1d->project_moment(0, sgrid, field, moment0);
 
-    hier.reconstruct1d(1, level, span2d<precision>(degree_ + 1, fm::ipow2(level), moment0.data()));
+  int const level = sgrid.current_level(0);
+  hier.reconstruct1d(1, level, span2d<precision>(degree_ + 1, fm::ipow2(level), moment0.data()));
 
-    poisson.solve_periodic(moment0, matrices.edata.electric_field);
-
-    if (matrices.edata.electric_field_infnrm)
-    {
-      precision emax = 0;
-      for (auto e : matrices.edata.electric_field)
-        emax = std::max(emax, std::abs(e));
-      matrices.edata.electric_field_infnrm = emax;
-    }
-  } else {
-    expect(field.size() == static_cast<size_t>(sgrid.num_indexes() * fm::ipow(degree_ + 1, sgrid.num_dims())));
-
-    std::vector<precision> moment0;
-    moms1d->project_moment(0, sgrid, field, moment0);
-
-    int const level = sgrid.current_level(0);
-    hier.reconstruct1d(1, level, span2d<precision>(degree_ + 1, fm::ipow2(level), moment0.data()));
-
-    poisson.solve_periodic(moment0, terms.cdata.electric_field);
-  }
-}
-
-template<typename precision>
-fk::vector<precision>
-discretization_manager<precision>::current_mpistate() const
-{
-  auto const s = element_segment_size(*pde);
-
-  // gather results from all ranks. not currently writing the result anywhere
-  // yet, but rank 0 holds the complete result after this call
-  int my_rank = 0;
-#ifdef ASGARD_USE_MPI
-  int status = MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-  expect(status == 0);
-#endif
-
-  return gather_results<precision>(state, grid.get_distrib_plan(), my_rank, s);
+  poisson.solve_periodic(moment0, terms.cdata.electric_field);
 }
 
 template<typename precision>
 void discretization_manager<precision>::print_mats() const {
-  if (pde) { // version 1
-    int const num_dims = pde->num_dims();
-    for (auto tid : iindexof(pde->num_terms())) {
-      for (int d : iindexof(num_dims)) {
-        std::cout << " term = " << tid << "  dim = " << d << '\n';
-        if (matrices.term_coeffs[tid * num_dims + d].empty()) {
-          std::cout << "identity\n";
-        } else {
-          matrices.term_coeffs[tid * num_dims + d].to_full(conn).print(std::cout);
-        }
-        std::cout << '\n';
+  int const num_dims = terms.num_dims;
+  for (auto tid : iindexof(terms.terms)) {
+    for (int d : iindexof(num_dims)) {
+      std::cout << " term = " << tid << "  dim = " << d << '\n';
+      if (terms.terms[tid].coeffs[d].empty()) {
+        std::cout << "identity\n";
+      } else {
+        terms.terms[tid].coeffs[d].to_full(conn).print(std::cout);
       }
-    }
-  } else {
-    int const num_dims = terms.num_dims;
-    for (auto tid : iindexof(terms.terms)) {
-      for (int d : iindexof(num_dims)) {
-        std::cout << " term = " << tid << "  dim = " << d << '\n';
-        if (terms.terms[tid].coeffs[d].empty()) {
-          std::cout << "identity\n";
-        } else {
-          terms.terms[tid].coeffs[d].to_full(conn).print(std::cout);
-        }
-        std::cout << '\n';
-      }
+      std::cout << '\n';
     }
   }
 }

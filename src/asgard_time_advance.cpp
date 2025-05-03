@@ -92,7 +92,7 @@ void rungekutta<P>::next_step(
   switch (rktype) {
     case time_method::forward_euler:
       k1.resize(current.size());
-      disc.ode_rhs_v2(time, current, k1);
+      disc.ode_rhs(time, current, k1);
 
       next.resize(current.size());
 
@@ -105,13 +105,13 @@ void rungekutta<P>::next_step(
       k2.resize(current.size());
       s1.resize(current.size());
 
-      disc.ode_rhs_v2(time, current, k1);
+      disc.ode_rhs(time, current, k1);
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
         s1[i] = current[i] + 0.5 * dt * k1[i];
 
-      disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+      disc.ode_rhs(time + 0.5 * dt, s1, k2);
 
       next.resize(current.size());
 
@@ -125,19 +125,19 @@ void rungekutta<P>::next_step(
       k3.resize(current.size());
       s1.resize(current.size());
 
-      disc.ode_rhs_v2(time, current, k1);
+      disc.ode_rhs(time, current, k1);
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
         s1[i] = current[i] + 0.5 * dt * k1[i];
 
-      disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+      disc.ode_rhs(time + 0.5 * dt, s1, k2);
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
         s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
 
-      disc.ode_rhs_v2(time + dt, s1, k3);
+      disc.ode_rhs(time + dt, s1, k3);
 
       next.resize(current.size());
 
@@ -152,25 +152,25 @@ void rungekutta<P>::next_step(
       k4.resize(current.size());
       s1.resize(current.size());
 
-      disc.ode_rhs_v2(time, current, k1);
+      disc.ode_rhs(time, current, k1);
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
         s1[i] = current[i] + 0.5 * dt * k1[i];
 
-      disc.ode_rhs_v2(time + 0.5 * dt, s1, k2);
+      disc.ode_rhs(time + 0.5 * dt, s1, k2);
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
         s1[i] = current[i] + 0.5 * dt * k2[i];
 
-      disc.ode_rhs_v2(time + 0.5 * dt, s1, k3);
+      disc.ode_rhs(time + 0.5 * dt, s1, k3);
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
         s1[i] = current[i] + dt * k3[i];
 
-      disc.ode_rhs_v2(time + dt, s1, k4);
+      disc.ode_rhs(time + dt, s1, k4);
 
       next.resize(current.size());
 

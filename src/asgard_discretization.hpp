@@ -99,34 +99,18 @@ public:
   //! return a snapshot of the current solution
   reconstruct_solution get_snapshot() const
   {
-    if (pde) { // version 1
-      reconstruct_solution shot(
-          pde->num_dims(), grid.size(), grid.get_table().get_active_table().data(),
-          degree_, state.data());
+    reconstruct_solution shot(
+        pde2.num_dims(), sgrid.num_indexes(), sgrid[0], degree_, state.data(), true);
 
-      std::array<double, max_num_dimensions> xmin, xmax;
-      for (int d : iindexof(pde->num_dims())) {
-        xmin[d] = pde->get_dimensions()[d].domain_min;
-        xmax[d] = pde->get_dimensions()[d].domain_max;
-      }
-
-      shot.set_domain_bounds(xmin.data(), xmax.data());
-
-      return shot;
-    } else {
-      reconstruct_solution shot(
-          pde2.num_dims(), sgrid.num_indexes(), sgrid[0], degree_, state.data(), true);
-
-      std::array<double, max_num_dimensions> xmin, xmax;
-      for (int d : iindexof(pde2.num_dims())) {
-        xmin[d] = pde2.domain().xleft(d);
-        xmax[d] = pde2.domain().xright(d);
-      }
-
-      shot.set_domain_bounds(xmin.data(), xmax.data());
-
-      return shot;
+    std::array<double, max_num_dimensions> xmin, xmax;
+    for (int d : iindexof(pde2.num_dims())) {
+      xmin[d] = pde2.domain().xleft(d);
+      xmax[d] = pde2.domain().xright(d);
     }
+
+    shot.set_domain_bounds(xmin.data(), xmax.data());
+
+    return shot;
   }
 
   //! check if the terms have poisson dependence
@@ -135,15 +119,8 @@ public:
   bool has_moments() const { return moms1d.has_value(); }
 
   //! computes the right-hand-side of the ode
-  void ode_rhs(imex_flag imflag, precision time, std::vector<precision> const &state,
-               std::vector<precision> &R) const;
-  //! computes the right-hand-side of the backward Euler method
-  void ode_irhs(precision time, std::vector<precision> const &state,
-                std::vector<precision> &R) const;
-
-  //! computes the right-hand-side of the ode
-  void ode_rhs_v2(precision time, std::vector<precision> const &current,
-                  std::vector<precision> &R) const
+  void ode_rhs(precision time, std::vector<precision> const &current,
+               std::vector<precision> &R) const
   {
     if (poisson) { // if we have a Poisson dependence
       tools::time_event performance_("ode-rhs poisson");
@@ -247,22 +224,9 @@ public:
   //! calls save-snapshot for the final step, if requested with -outfile
   void save_final_snapshot() const
   {
-    if (pde) {
-      if (not pde->options().outfile.empty())
-        save_snapshot(pde->options().outfile);
-    } else {
-      if (not pde2.options().outfile.empty())
-        save_snapshot(pde2.options().outfile);
-    }
+    if (not pde2.options().outfile.empty())
+      save_snapshot(pde2.options().outfile);
   }
-
-  //! collect the current state from across all mpi ranks
-  fk::vector<precision> current_mpistate() const;
-
-  //! returns a ref to the original pde
-  PDE<precision> const &get_pde() const { return *pde; }
-  //! returns a ref to the sparse grid
-  adapt::distributed_grid<precision> const &get_grid() const { return grid; }
 
   //! returns the title of the PDE
   std::string const &title() const { return pde2.options().title; }
@@ -373,46 +337,29 @@ public:
 
   pde_scheme<precision> const &get_pde2() const { return pde2; }
   time_data<precision> const &time_props() const { return stepper.data; }
-  bool version2() const { return not pde; }
   sparse_grid const &get_sgrid() const { return sgrid; }
 
   term_manager<precision> const & get_terms() const { return terms; }
 
   //! return the hierarchy_manipulator
   auto const &get_hiermanip() const { return hier; }
-  //! return the fixed boundary conditions
-  auto const &get_fixed_bc() const { return fixed_bc; }
   //! return the connection patterns
   auto const &get_conn() const { return conn; }
 
-  //! get kronopts, return the kronmult operators for iterative solvers
-  kron_operators<precision> &get_kronops() const { return kronops; }
-  //! returns the coefficient matrices
-  coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
   //! recomputes the moments given the state of interest
   void compute_moments(std::vector<precision> const &f) const {
     if (not moms1d)
       return;
 
-    if (pde) {
-      int const level = pde->get_dimensions().front().get_level();
-      moms1d->project_moments(level, f, grid.get_table(), matrices.edata.moments);
-      int const num_cells = fm::ipow2(level);
-      int const num_outs  = moms1d->num_comp_mom();
-      hier.reconstruct1d(
-          num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
-                                             matrices.edata.moments.data()));
-    } else {
-      int const level = sgrid.current_level(0);
-      moms1d->project_moments(sgrid, f, terms.cdata.moments);
-      int const num_cells = fm::ipow2(level);
-      int const num_outs  = moms1d->num_comp_mom();
-      hier.reconstruct1d(
-          num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
-                                             terms.cdata.moments.data()));
-      // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
-      terms.rebuild_moment_terms(sgrid, conn, hier);
-    }
+    int const level = sgrid.current_level(0);
+    moms1d->project_moments(sgrid, f, terms.cdata.moments);
+    int const num_cells = fm::ipow2(level);
+    int const num_outs  = moms1d->num_comp_mom();
+    hier.reconstruct1d(
+        num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
+                                            terms.cdata.moments.data()));
+    // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
+    terms.rebuild_moment_terms(sgrid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(int groupid, std::vector<precision> const &f) const {
@@ -437,12 +384,6 @@ public:
     do_poisson_update(f);
     terms.rebuild_poisson(sgrid, conn, hier);
   }
-  //! (testing) recomputes the moments given the state of interest, keeps in hierarchical form
-  void compute_hmoments(std::vector<precision> const &f, std::vector<precision> &rmom) {
-    if (moms1d)
-      moms1d->project_moments(pde->get_dimensions().front().get_level(),
-                              f, grid.get_table(), rmom);
-  }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
     rassert(ns.size() == state.size(), "cannot set state with different size");
@@ -466,8 +407,6 @@ public:
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! sets the initial conditions, performs adaptivity in the process
-  void set_initial_condition_v1();
-  //! sets the initial conditions, performs adaptivity in the process
   void set_initial_condition();
 
   //! start from time 0 and nothing has been set
@@ -481,10 +420,7 @@ protected:
 
 private:
   mutable verbosity_level verb;
-  std::unique_ptr<PDE<precision>> pde;
   pde_scheme<precision> pde2;
-
-  adapt::distributed_grid<precision> grid;
 
   sparse_grid sgrid;
 
@@ -499,14 +435,6 @@ private:
   int64_t time_step_;
   int64_t final_time_step_;
 
-  // recompute only when the grid changes
-  // left-right boundary conditions, time-independent components
-  std::array<boundary_conditions::unscaled_bc_parts<precision>, 2> fixed_bc;
-
-  // stores the coefficient matrices
-  mutable coefficient_matrices<precision> matrices;
-  // used for all separable operations and iterative solvers
-  mutable kron_operators<precision> kronops;
   // moments, new implementation
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
@@ -514,8 +442,6 @@ private:
 
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;
-  //! source manager holding the sources and inhomogeneous boundary conditions
-  // mutable source_manager<precision> sources;
   //! time advance manager for the different methods
   time_advance_manager<precision> stepper;
 
