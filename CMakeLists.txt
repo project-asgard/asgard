@@ -408,7 +408,6 @@ set (components
      asgard_fast_math
      asgard_lib_dispatch
      asgard_matlab_utilities
-     asgard_permutations
      asgard_quadrature
      asgard_resources
      asgard_sparse
@@ -425,6 +424,7 @@ set(asgard_components
     indexset
     interp
     moment
+    permutations
     pde
     pde_functions
     program_options
