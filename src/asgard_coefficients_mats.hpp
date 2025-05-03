@@ -1,6 +1,5 @@
 #pragma once
 #include "asgard_transformations.hpp"
-#include "asgard_coefficients.hpp"
 
 #include "asgard_kronmult_matrix.hpp"
 

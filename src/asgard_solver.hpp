@@ -1,6 +1,7 @@
 #pragma once
+#include "./device/asgard_kronmult.hpp"
 #include "asgard_adapt.hpp"
-#include "asgard_kron_operators.hpp"
+#include "asgard_block_matrix.hpp"
 #include "asgard_term_manager.hpp"
 
 namespace asgard::solvers

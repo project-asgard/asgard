@@ -8,50 +8,6 @@
 
 namespace asgard
 {
-
-/*!
- * \internal
- * \brief holds the points and values of a variable rhs function
- *
- * Used a both workspace/scratch-space and a way to avoid double-evals
- * of the rhs, e.g., once for the operator matrix and once for
- * the separable boundary condition.
- * \endinternal
- */
-template<typename P>
-struct rhs_raw_data {
-  //! points in the domain, where rhs was evaluated
-  std::vector<P> pnts;
-  //! the values of the rhs
-  std::vector<P> vals;
-};
-
-/*!
- * \internal
- * \brief Additional data for term coupling, e.g., Poisson electric field
- *
- * This just holds a bunch of vectors with data needed for the term coefficients,
- * the data depends on coupling, e.g., moments or Poisson solver, and thus
- * cannot be hard-coded in the PDE spec.
- *
- * Note to devs: this will replace the parameter_manager singleton
- * and will allow for tighter integration with the coefficient construciton.
- *
- * \endinternal
- */
-template<typename P>
-struct coupled_term_data
-{
-  //! electic field from the Poisson solver
-  std::vector<P> electric_field;
-  //! max-absolute value of the electric field
-  std::optional<P> electric_field_infnrm;
-  //! number of computed moments
-  int num_moments = 0;
-  //! data for the computed moments
-  std::vector<P> moments;
-};
-
 /*!
  * \internal
  * \brief Stores the matrices for the pde operators
