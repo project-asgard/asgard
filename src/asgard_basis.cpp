@@ -168,79 +168,14 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
   return {h0, h1, g0, g1};
 }
 
-template<typename R>
-fk::matrix<R> operator_two_scale(int const degree, int const num_levels)
-{
-  expect(degree >= 0);
-  expect(num_levels > 1);
-
-  int const pdof      = degree + 1;
-  int const max_level = fm::ipow2(num_levels);
-
-  // this is to get around unused warnings
-  // because can't unpack only some args w structured binding (until c++20)
-  auto const [h0, h1, g0, g1] = generate_multi_wavelets<R>(degree);
-
-  fk::matrix<R> fmwt(pdof * max_level, pdof * max_level);
-
-  fk::matrix<R> const h_block = fk::matrix<R>(h0.nrows(), h0.ncols() * 2)
-                                    .set_submatrix(0, 0, h0)
-                                    .set_submatrix(0, h0.ncols(), h1);
-  fk::matrix<R> const g_block = fk::matrix<R>(g0.nrows(), g0.ncols() * 2)
-                                    .set_submatrix(0, 0, g0)
-                                    .set_submatrix(0, g0.ncols(), g1);
-
-  // set the top vertical half of fmwt along the block diagonal with h_block
-  // the lower half is set in the same manner, but with g_block
-  for (int i = 0; i < max_level / 2; ++i)
-  {
-    fmwt.set_submatrix(pdof * i, 2 * pdof * i, h_block);
-    fmwt.set_submatrix(pdof * (i + max_level / 2), 2 * pdof * i, g_block);
-  }
-
-  fk::matrix<R> fmwt_comp = eye<R>(pdof * max_level);
-
-  int const n = std::floor(std::log2(max_level));
-  for (int j = 1; j <= n; j++)
-  {
-    fk::matrix<R> cfmwt(pdof * max_level, pdof * max_level);
-    if (j == 1)
-    {
-      cfmwt = fmwt;
-    }
-    else
-    {
-      int const cn = fm::ipow2(n - j + 1) * pdof;
-
-      std::fill(cfmwt.begin(), cfmwt.end(), 0.0);
-      cfmwt.set_submatrix(cn, cn, eye<R>(pdof * max_level - cn));
-      cfmwt.set_submatrix(
-          0, 0,
-          fk::matrix<R, mem_type::const_view>(fmwt, 0, cn / 2 - 1, 0, cn - 1));
-      cfmwt.set_submatrix(cn / 2, 0,
-                          fk::matrix<R, mem_type::const_view>(
-                              fmwt, pdof * max_level / 2,
-                              pdof * max_level / 2 + cn / 2 - 1, 0, cn - 1));
-    }
-    fmwt_comp = cfmwt * fmwt_comp;
-  }
-  std::transform(fmwt_comp.begin(), fmwt_comp.end(), fmwt_comp.begin(),
-                 [](R &elem) { return std::abs(elem) < 1e-12 ? 0.0 : elem; });
-  return fmwt_comp;
-}
-
 #ifdef ASGARD_ENABLE_DOUBLE
 template std::array<fk::matrix<double>, 4>
 generate_multi_wavelets(int const degree);
-template fk::matrix<double>
-operator_two_scale(int const degree, int const num_levels);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template std::array<fk::matrix<float>, 4>
 generate_multi_wavelets(int const degree);
-template fk::matrix<float>
-operator_two_scale(int const degree, int const num_levels);
 #endif
 
 } // namespace asgard
