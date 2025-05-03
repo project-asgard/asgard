@@ -33,10 +33,6 @@ class discretization_manager
 {
 public:
   //! take ownership of the pde object and discretize the pde
-  discretization_manager(std::unique_ptr<PDE<precision>> &&pde_in,
-                         verbosity_level verbosity = verbosity_level::quiet);
-
-  //! take ownership of the pde object and discretize the pde
   discretization_manager(pde_scheme<precision> pde_in,
                          verbosity_level verbosity = verbosity_level::quiet);
 
@@ -52,12 +48,6 @@ public:
    */
   discretization_manager(discretization_manager &&) = delete;
 
-  //! total degrees of freedom for the problem
-  int64_t degrees_of_freedom() const
-  {
-    return grid.size() * fm::ipow(degree_ + 1, pde->num_dims());
-  }
-
   //! returns the degree of the discretization
   int degree() const { return degree_; }
 
@@ -72,10 +62,6 @@ public:
   //! get the current time-step number
   int64_t time_step() const { return time_step_; }
 
-  //! get the current time-step size
-  precision dt() const { return dt_; }
-  //! get the current integration time
-  precision time() const { return time_; }
   //! set the time in the befinning of the simulation, time() must be zero to call this
   void set_time(precision t) {
     if (stepper.data.step() != 0)
@@ -254,23 +240,6 @@ public:
   //! compute the electric field for the given state and update the coefficient matrices
   void do_poisson_update(std::vector<precision> const &field) const;
 
-  //! register the next time step and checkpoint
-  void set_next_step(fk::vector<precision> const &next,
-                     std::optional<precision> new_dt = {})
-  {
-    if (new_dt)
-      dt_ = new_dt.value();
-
-    state.resize(next.size());
-    std::copy(next.begin(), next.end(), state.begin());
-
-    time_ += dt_;
-
-    ++time_step_;
-
-    checkpoint();
-  }
-
   //! write out checkpoint/restart data and data for plotting
   void checkpoint() const;
   //! write out snapshot data, same as checkpoint but can be invoked manually
@@ -286,27 +255,6 @@ public:
         save_snapshot(pde2.options().outfile);
     }
   }
-
-  /*!
-   * \brief if analytic solution exists, return the rmse error
-   *
-   * If no analytic solution has been specified, the optional will be empty.
-   * If an analytic solution exists, this will return both the absolute and
-   * relative rmse (normalized by the max entry of the exact solution).
-   * The vector contains an entry for each mpi rank.
-   *
-   * (note: we are working on computing the rmse for all mpi ranks instead
-   * of per rank)
-   */
-  std::optional<std::array<std::vector<precision>, 2>> rmse_exact_sol() const;
-  /*!
-   * \brief returns the vector of the exact solution at the current time step
-   *
-   * If no analytic solution has been specified, the optional will be empty.
-   * If the solution has been specified, this will return the exact solution
-   * at the current time and projected on the current grid.
-   */
-  std::optional<std::vector<precision>> get_exact_solution() const;
 
   //! collect the current state from across all mpi ranks
   fk::vector<precision> current_mpistate() const;
@@ -426,7 +374,6 @@ public:
   pde_scheme<precision> const &get_pde2() const { return pde2; }
   time_data<precision> const &time_props() const { return stepper.data; }
   bool version2() const { return not pde; }
-  void save_snapshot2(std::filesystem::path const &filename) const;
   sparse_grid const &get_sgrid() const { return sgrid; }
 
   term_manager<precision> const & get_terms() const { return terms; }
@@ -440,8 +387,6 @@ public:
 
   //! get kronopts, return the kronmult operators for iterative solvers
   kron_operators<precision> &get_kronops() const { return kronops; }
-  //! return operator matrix for direct solves
-  std::optional<matrix_factor<precision>> &get_op_matrix() const { return op_matrix; }
   //! returns the coefficient matrices
   coefficient_matrices<precision> &get_cmatrices() const { return matrices; }
   //! recomputes the moments given the state of interest
@@ -503,20 +448,6 @@ public:
     rassert(ns.size() == state.size(), "cannot set state with different size");
     state = ns;
   }
-  //! recomputes the coefficients, can select sub
-  void compute_coefficients(coeff_update_mode mode = coeff_update_mode::all) {
-    generate_coefficients(*pde, matrices, conn, hier, time_, mode);
-    // print_mats();
-#ifndef KRON_MODE_GLOBAL
-    pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
-    for (int64_t t : indexof(pde->coeffs_.size()))
-      pde->coeffs_[t] = matrices.term_coeffs[t].to_fk_matrix(degree_ + 1, conn);
-#endif
-  }
-  fk::matrix<precision> get_coeff_matrix(int t, int d) const
-  {
-    return matrices.term_coeffs[t * pde->num_dims() + d].to_fk_matrix(hier.degree() + 1, conn);
-  }
   //! (debugging) prints the term-matrices
   void print_mats() const;
 
@@ -538,30 +469,6 @@ protected:
   void set_initial_condition_v1();
   //! sets the initial conditions, performs adaptivity in the process
   void set_initial_condition();
-  //! update components on grid reset
-  void update_grid_components()
-  {
-    tools::time_event performance("update grid components");
-    kronops.clear();
-    generate_coefficients(*pde, matrices, conn, hier, time_, coeff_update_mode::independent);
-    // print_mats();
-
-#ifdef KRON_MODE_GLOBAL
-    // the imex-flag is not used internally
-    kronops.make(imex_flag::unspecified, *pde, matrices, grid);
-#else
-    pde->coeffs_.resize(pde->num_terms() * pde->num_dims());
-    for (int64_t t : indexof(pde->coeffs_.size()))
-      pde->coeffs_[t] = matrices.term_coeffs[t].to_fk_matrix(degree_ + 1, conn);
-#endif
-
-    auto const my_subgrid = grid.get_subgrid(get_rank());
-    fixed_bc = boundary_conditions::make_unscaled_bc_parts(
-        *pde, grid.get_table(), hier, matrices,
-        conn, my_subgrid.row_start, my_subgrid.row_stop);
-    if (op_matrix)
-      op_matrix.reset();
-  }
 
   //! start from time 0 and nothing has been set
   void start_cold();
@@ -589,8 +496,6 @@ private:
   int degree_;
 
   // extra parameters
-  precision dt_;
-  precision time_;
   int64_t time_step_;
   int64_t final_time_step_;
 
@@ -602,8 +507,6 @@ private:
   mutable coefficient_matrices<precision> matrices;
   // used for all separable operations and iterative solvers
   mutable kron_operators<precision> kronops;
-  // used for direct solvers
-  mutable std::optional<matrix_factor<precision>> op_matrix;
   // moments, new implementation
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
