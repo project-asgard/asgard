@@ -185,63 +185,6 @@ void moments1d<P>::integrate(
 
 template<typename P>
 void moments1d<P>::project_moments(
-    int const dim0_level, std::vector<P> const &state,
-    elements::table const &etable, std::vector<P> &moments) const
-{
-  tools::time_event performance("moments project");
-
-  int const mom_outs = 1 + (num_dims_ - 1) * (num_mom_ - 1);
-
-  int const pdof = degree_ + 1;
-  int const nout = fm::ipow2(dim0_level);
-  if (moments.empty())
-    moments.resize(nout * mom_outs * pdof);
-  else {
-    moments.resize(nout * mom_outs * pdof);
-    std::fill(moments.begin(), moments.end(), P{0});
-  }
-
-  vector2d<int> cells = etable.get_cells();
-
-  auto const ncells = cells.num_strips();
-
-  int64_t const tsize = fm::ipow(pdof, num_dims_);
-
-  span2d<P const> x(tsize, ncells, state.data());
-
-  span2d<P> smom(mom_outs * pdof, nout, moments.data());
-
-  std::vector<P> work; // persistent workspace
-
-  switch (num_dims_) {
-    case 2:
-      for (int64_t i = 0; i < ncells; i++)
-      {
-        int const *idx = cells[i];
-        project_cell<2>(x[i], idx, span2d<P>(pdof, mom_outs, smom[idx[0]]), work);
-      }
-      break;
-    case 3:
-      work.resize(pdof * pdof);
-      for (int64_t i = 0; i < ncells; i++)
-      {
-        int const *idx = cells[i];
-        project_cell<3>(x[i], idx, span2d<P>(pdof, mom_outs, smom[idx[0]]), work);
-      }
-      break;
-    case 4:
-      work.resize(pdof * pdof * pdof + pdof * pdof);
-      for (int64_t i = 0; i < ncells; i++)
-      {
-        int const *idx = cells[i];
-        project_cell<4>(x[i], idx, span2d<P>(pdof, mom_outs, smom[idx[0]]), work);
-      }
-      break;
-  }
-}
-
-template<typename P>
-void moments1d<P>::project_moments(
     sparse_grid const &grid, std::vector<P> const &state, std::vector<P> &moments) const
 {
   tools::time_event performance("moments project");
@@ -467,61 +410,6 @@ void moments1d<P>::project_cell(P const x[], int const idx[], span2d<P> moments,
         for (int j = 0; j < pdof; j++)
           mout[i] += wm[j] * t[i * pdof + j];
     }
-  }
-}
-
-template<typename P>
-void moments1d<P>::project_moment(
-    int const mom, int const dim0_level, std::vector<P> const &state,
-    elements::table const &etable, std::vector<P> &moment) const
-{
-  tools::time_event performance("moment project");
-
-  int const pdof = degree_ + 1;
-  int const nout = fm::ipow2(dim0_level);
-  if (moment.empty())
-    moment.resize(nout * pdof);
-  else {
-    moment.resize(nout * pdof);
-    std::fill(moment.begin(), moment.end(), P{0});
-  }
-
-  vector2d<int> cells = etable.get_cells();
-
-  auto const ncells = cells.num_strips();
-
-  int64_t const tsize = fm::ipow(pdof, num_dims_);
-
-  span2d<P const> x(tsize, ncells, state.data());
-
-  span2d<P> smom(pdof, nout, moment.data());
-
-  std::vector<P> work; // persistent workspace
-
-  switch (num_dims_) {
-    case 2:
-      for (int64_t i = 0; i < ncells; i++)
-      {
-        int const *idx = cells[i];
-        project_cell<2>(mom, x[i], idx, smom[idx[0]], work);
-      }
-      break;
-    case 3:
-      work.resize(pdof * pdof);
-      for (int64_t i = 0; i < ncells; i++)
-      {
-        int const *idx = cells[i];
-        project_cell<3>(mom, x[i], idx, smom[idx[0]], work);
-      }
-      break;
-    case 4:
-      work.resize(pdof * pdof * pdof + pdof * pdof);
-      for (int64_t i = 0; i < ncells; i++)
-      {
-        int const *idx = cells[i];
-        project_cell<4>(mom, x[i], idx, smom[idx[0]], work);
-      }
-      break;
   }
 }
 

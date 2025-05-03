@@ -1,7 +1,7 @@
 #pragma once
 #include "./device/asgard_kronmult.hpp"
+#include "asgard_pde.hpp"
 #include "asgard_basis.hpp"
-#include "asgard_elements.hpp"
 #include "asgard_mpi.hpp"
 #include "asgard_block_matrix.hpp"
 
@@ -15,15 +15,6 @@ namespace asgard
  */
 template<typename P>
 using mass_diag = std::array<block_diag_matrix<P>, max_num_dimensions>;
-
-// combines the values from the vectors into the combined tensor list
-// the size of combined should be equal to the number of elements
-// times the tesor block size (degree + 1)^d
-template<typename P>
-void combine_dimensions(int const degree, elements::table const &table,
-                        int const start_element, int const stop_element,
-                        std::vector<std::vector<P>> const &vectors,
-                        P combined[]);
 
 /*!
  * \internal

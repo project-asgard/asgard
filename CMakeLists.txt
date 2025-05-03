@@ -406,7 +406,6 @@ endif()
 target_compile_features (libasgard PUBLIC cxx_std_17)
 set (components
      asgard_basis
-     asgard_elements
      asgard_fast_math
      asgard_lib_dispatch
      asgard_matlab_utilities
