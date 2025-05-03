@@ -72,20 +72,6 @@ struct matrix_factor
   std::vector<int> ipiv;
 };
 
-// placeholder for the new api
-template<typename P> // implemented in time-advance
-void advance_time_v2(discretization_manager<P> &manager, int64_t num_steps = -1);
-
-namespace time_advance
-{
-#ifdef ASGARD_USE_CUDA
-static constexpr resource imex_resrc = resource::device;
-#else
-static constexpr resource imex_resrc = resource::host;
-#endif
-
-} // namespace asgard::time_advance
-
 #endif
 
 } // namespace asgard
