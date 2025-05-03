@@ -10,41 +10,11 @@ namespace asgard
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
 
-//
-// This file contains all of the interface and object definitions for our
-// representation of a PDE
-//
-
-//----------------------------------------------------------------------------
-//
-// Define member classes of the PDE type: dimension, term, source
-//
-//----------------------------------------------------------------------------
-
-// just a small enumeration of the possibly boundary condition types needed in
-// the following 'dimension' member class
-enum class boundary_condition
-{
-  periodic,
-  dirichlet,
-  free
-};
-
-// helper - single element size
-auto const element_segment_size = [](auto const &pde) {
-  int const degree = pde.get_dimensions()[0].get_degree();
-  return fm::ipow(degree + 1, pde.num_dims());
-};
-
 // ---------------------------------------------------------------------------
 //
 // Dimension: holds all information for a single dimension in the pde
 //
 // ---------------------------------------------------------------------------
-// forward dec
-template<typename P>
-class PDE;
-
 enum class coefficient_type
 {
   grad,
@@ -65,17 +35,6 @@ enum class pterm_dependence
   lenard_bernstein_coll_theta_1x3v,
 };
 
-template<coefficient_type>
-struct has_flux_t : public std::true_type{};
-
-template<> struct has_flux_t<coefficient_type::mass> : public std::false_type{};
-
-template<coefficient_type t>
-constexpr bool has_flux_v = has_flux_t<t>::value;
-
-constexpr bool has_flux(coefficient_type t) {
-  return (t != coefficient_type::mass);
-}
 
 enum class flux_type
 {
@@ -84,14 +43,6 @@ enum class flux_type
   downwind      = 1,
   // lax_friedrich = 0
 };
-
-enum class imex_flag
-{
-  unspecified = 0,
-  imex_explicit = 1,
-  imex_implicit = 2,
-};
-int constexpr num_imex_variants = 3;
 
 /*!
  * \brief Indicates wither we need to recompute matrices based different conditions
@@ -109,7 +60,6 @@ enum class changes_with
   //! assume we must always update on chnge in the time or the solution field
   time
 };
-
 
 /*!
  * \ingroup asgard_pde_definition
@@ -1155,9 +1105,6 @@ public:
     expect(!!interp_);
     interp_(t, x, f, vals);
   }
-
-  //! mode for the imex time-stepping
-  imex_flag imex = imex_flag::unspecified;
 
   // allow direct access to the private data
   friend struct term_manager<P>;
