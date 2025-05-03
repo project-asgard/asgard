@@ -621,41 +621,6 @@ void discretization_manager<precision>::ode_irhs(
       R[i] = x[i] + dt * R[i];
   }
 }
-template<typename precision>
-void discretization_manager<precision>::ode_sv(imex_flag imflag,
-                                               std::vector<precision> &x) const
-{
-  auto const &options     = pde->options();
-  solver_method const solver = options.solver.value();
-
-  static fk::vector<precision> sol; // used by the iterative solvers
-
-  switch (solver)
-  {
-  case solver_method::gmres:
-  case solver_method::bicgstab: {
-      kronops.make(imflag, *pde, matrices, grid);
-      precision const tolerance = *options.isolver_tolerance;
-      int const restart         = *options.isolver_iterations;
-      int const max_iter        = *options.isolver_inner_iterations;
-      sol.resize(static_cast<int>(x.size()));
-      std::copy(x.begin(), x.end(), sol.begin());
-      if (solver == solver_method::gmres)
-        solvers::simple_gmres_euler<precision, resource::host>(
-            pde->get_dt(), imflag, kronops, sol, x, restart, max_iter, tolerance);
-      else
-        solvers::bicgstab_euler<precision, resource::host>(
-          pde->get_dt(), imflag, kronops, sol, x, max_iter, tolerance);
-
-      std::copy(sol.begin(), sol.end(), x.begin());
-    }
-    break;
-  default: // case solve_opts::direct:
-    rassert(!!op_matrix, "must specify the operator matrix first");
-    fm::getrs(op_matrix->A, x, op_matrix->ipiv);
-    break;
-  };
-}
 
 template<typename precision> void
 discretization_manager<precision>::project_function(

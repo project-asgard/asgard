@@ -154,8 +154,6 @@ public:
   //! computes the right-hand-side of the backward Euler method
   void ode_irhs(precision time, std::vector<precision> const &state,
                 std::vector<precision> &R) const;
-  //! solves x = A^{-1} x where A is the kron_operators with given flag, uses method from options
-  void ode_sv(imex_flag imflag, std::vector<precision> &x) const;
 
   //! computes the right-hand-side of the ode
   void ode_rhs_v2(precision time, std::vector<precision> const &current,

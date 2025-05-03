@@ -11,45 +11,6 @@ enum class poisson_bc
   periodic
 };
 
-inline bool is_direct(solver_method s)
-{
-  return (s == solver_method::direct);
-}
-
-// simple, node-local test version of gmres
-template<typename P>
-gmres_info<P>
-simple_gmres(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
-             fk::matrix<P> const &M, int const restart, int const max_iter,
-             P const tolerance);
-// simple, node-local test version of bicgstab
-template<typename P>
-gmres_info<P>
-simple_bicgstab(fk::matrix<P> const &A, fk::vector<P> &x, fk::vector<P> const &b,
-                fk::matrix<P> const &M, int const max_iter,
-                P const tolerance);
-
-// solves ( I - dt * mat ) * x = b
-template<typename P, resource resrc>
-gmres_info<P>
-simple_gmres_euler(const P dt, imex_flag imex,
-                   kron_operators<P> const &ops,
-                   fk::vector<P, mem_type::owner, resrc> &x,
-                   fk::vector<P, mem_type::owner, resrc> const &b,
-                   int const restart, int const max_iter, P const tolerance);
-
-// solves ( I - dt * mat ) * x = b
-template<typename P, resource resrc>
-gmres_info<P>
-bicgstab_euler(const P dt, imex_flag imex,
-               kron_operators<P> const &ops,
-               fk::vector<P, mem_type::owner, resrc> &x,
-               fk::vector<P, mem_type::owner, resrc> const &b,
-               int const max_iter, P const tolerance);
-
-template<typename P>
-int default_gmres_restarts(int num_cols);
-
 /*!
  * \brief Stores the data for a poisson solver
  *
