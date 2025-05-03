@@ -1,8 +1,6 @@
 #pragma once
 #include "asgard_transformations.hpp"
 
-#include "asgard_kronmult_matrix.hpp"
-
 #include "asgard_small_mats.hpp"
 
 // private header, exposes some of the coefficient methods for easier testing
