@@ -408,7 +408,6 @@ set (components
      asgard_fast_math
      asgard_lib_dispatch
      asgard_matlab_utilities
-     asgard_quadrature
      asgard_resources
      asgard_tensors
 )
@@ -427,6 +426,7 @@ set(asgard_components
     pde
     pde_functions
     program_options
+    quadrature
     reconstruct
     small_mats
     solver

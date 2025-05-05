@@ -51,4 +51,10 @@ vector2d<P> make_quadrature(int const degree, no_deduce<P> const min,
   return quad;
 }
 
+template<typename P>
+std::array<std::vector<P>, 2>
+legendre_weightsv2(int const degree, no_deduce<P> const lower_bound,
+                   no_deduce<P> const upper_bound,
+                   quadrature_mode const quad_mode = quadrature_mode::use_fixed);
+
 } // namespace asgard

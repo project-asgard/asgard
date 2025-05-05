@@ -410,6 +410,110 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
 
   return std::array<fk::vector<P>, 2>{x_roots, weights};
 }
+template<typename P>
+std::array<std::vector<P>, 2>
+legendre_weightsv2(int const degree, no_deduce<P> const lower_bound,
+                 no_deduce<P> const upper_bound,
+                 quadrature_mode const quad_mode)
+{
+  expect(degree >= 0);
+  expect(lower_bound < upper_bound);
+
+  int const default_num_quad = std::max(ASGARD_NUM_QUADRATURE, degree + 2);
+
+  int const num_points = (quad_mode == quadrature_mode::use_degree)
+                        ? degree + 1
+                        : default_num_quad;
+
+  std::vector<P> x_roots(num_points);
+  std::vector<P> weights(num_points);
+
+  // Initial guess at the roots for the Legendre polynomial of degree num_points
+  // x_roots = cos((2*(0:num_points-1)'+1)*pi /
+  // (2*(num_points-1)+2))+(0.27/num_points) *
+  // sin(pi*x_linspace*((num_points-1)/(num_points+1);
+
+  // It is unkown where this guess comes from, but seems to work well
+
+  // reversing the order so the final set of point is ordered left-right
+  // computing the cos() component
+  {
+    P const a = M_PI / static_cast<P>(2 * num_points);
+    for (int i = 0; i < num_points; i++)
+      x_roots[num_points - i - 1] = std::cos((2 * i + 1) * a);
+  }
+
+  // computing the sin() component
+  {
+    P const a = (P{0.27} / num_points);
+    P const b = M_PI * P(num_points - 1) / P(num_points + 1);
+    P const dx = 2 / (num_points - 1);
+    P f = 0;
+    for (int i = 1; i < num_points; i++) {
+      x_roots[num_points - i - 1] += a * std::sin(b * f);
+      f += dx;
+    }
+    x_roots.front() += a * std::sin(b);
+  }
+
+  P const eps = std::numeric_limits<P>::epsilon();
+
+  // This piece of the code uses Newton's method to solve for the
+  // Legendre polynomial roots
+  // x_roots = x_roots - f(x_roots) / f'(x_roots)
+  // f() is the values of Legendre polynomials
+
+  std::vector<P> workspace(4 * num_points);
+  P *prev = workspace.data();
+  P *curr = prev + num_points;
+  P *next = curr + num_points;
+
+  P *leg_prime = next + num_points;
+
+  P diff = 1000 * eps; // make sure we enter the while loop below
+  while (diff > eps)
+  {
+    // set the constant and linear polynomials, recurrence relation
+    std::fill_n(prev, num_points, 1);
+    std::copy_n(x_roots.begin(), num_points, curr);
+    for (int i = 1; i < num_points; ++i)
+    {
+      // P_i+1(x_roots) = ((2*i+1)*x_roots*P_i(x_roots) - i*P_i-1(x_roots))/(i+1)
+      P const nscale = 2 * i + 1;
+      P const dscale = P{1} / P(i + 1);
+
+      for (int j = 0; j < num_points; j++)
+        next[j] = (x_roots[j] * nscale * curr[j] - prev[j] * i) * dscale;
+
+      P *t = prev;
+      prev = curr;
+      curr = next;
+      next = t;
+    }
+
+    diff = 0;
+    for (int j = 0; j < num_points; j++)
+    {
+      // lp is the derivative of the Legenre polynomial
+      P const lp = num_points * (prev[j] - curr[j] * x_roots[j]) / (1 - x_roots[j] * x_roots[j]);
+      P const dl = curr[j] / lp; // Newton correction
+      leg_prime[j] = lp;
+      x_roots[j] -= dl;
+      diff = std::max(diff, std::abs(dl));
+    }
+  }
+
+  // Compute the weights
+  for (int j = 0; j < num_points; j++)
+    weights[j] = (upper_bound - lower_bound) / ((1 - x_roots[j] * x_roots[j]) * leg_prime[j] * leg_prime[j]);
+
+  // remap to (lower, upper)
+  for (int j = 0; j < num_points; j++)
+    x_roots[j] = P{0.5} * (lower_bound * (1 - x_roots[j]) + upper_bound * (1 + x_roots[j]));
+
+  return std::array<std::vector<P>, 2>{x_roots, weights};
+}
+
 
 // always enable double for plotting
 template fk::vector<double> linspace(double const start, double const end,
@@ -423,6 +527,10 @@ template std::array<fk::vector<double>, 2>
 legendre_weights(int const degree, double const lower_bound,
                  double const upper_bound, quadrature_mode const quad_mode);
 
+template std::array<std::vector<double>, 2>
+legendre_weightsv2(int const degree, double const lower_bound,
+                   double const upper_bound, quadrature_mode const quad_mode);
+
 #ifdef ASGARD_ENABLE_FLOAT
 template fk::vector<float> linspace(float const start, float const end,
                                     unsigned int const num_elems = 100);
@@ -434,6 +542,11 @@ legendre(fk::vector<float> const &domain, int const degree,
 template std::array<fk::vector<float>, 2>
 legendre_weights(int const degree, float const lower_bound,
                  float const upper_bound, quadrature_mode const quad_mode);
+
+template std::array<std::vector<float>, 2>
+legendre_weightsv2(int const degree, float const lower_bound,
+                   float const upper_bound, quadrature_mode const quad_mode);
+
 #endif
 
 } // namespace asgard
