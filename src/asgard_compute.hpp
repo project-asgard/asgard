@@ -303,6 +303,48 @@ P powi(P base, int p) {
     res *= base;
   return res;
 }
+
+/*!
+ * \brief Computes the l-inf norm of the difference between x and y
+ *
+ * This works with all std::vector, std::array and fk::vector.
+ * Does not work with GPU vectors and does not check if the data is on the device.
+ */
+template<typename vecx, typename vecy>
+auto diff_inf(vecx const &x, vecy const &y)
+{
+  using precision = typename vecx::value_type;
+  using index     = decltype(x.size());
+  expect(x.size() == static_cast<index>(y.size()));
+
+  precision m{0};
+  for (index i = index{0}; i < x.size(); i++)
+    m = std::max(m, std::abs(x[i] - y[i]));
+  return m;
+}
+
+/*!
+ * \brief Computes the root-mean-square-error between two vectors
+ *
+ * This works with all std::vector, std::array and fk::vector.
+ * Does not work with GPU vectors and does not check if the data is on the device.
+ */
+template<typename vecx, typename vecy>
+auto rmserr(vecx const &x, vecy const &y)
+{
+  using precision = typename vecx::value_type;
+  using index     = decltype(x.size());
+  expect(x.size() == y.size());
+
+  precision err{0};
+  for (index i = index{0}; i < x.size(); i++)
+  {
+    precision const d = x[i] - y[i];
+    err += d * d;
+  }
+  return std::sqrt(err / x.size());
+}
+
 } // namespace fm
 
 } // namespace asgard
