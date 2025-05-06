@@ -9,6 +9,8 @@
 #include "asgard.hpp"
 #include "asgard_testpdes.hpp"
 
+#include "asgard_lib_dispatch.hpp"
+
 #include <catch2/catch_all.hpp>
 
 /*!
