@@ -190,10 +190,10 @@ public:
     auto [fkxl, fkwl] = legendre_weights<double>(2 * degree_ + 1, -1, 0);
     auto [fkxr, fkwr] = legendre_weights<double>(2 * degree_ + 1, 0, 1);
 
-    wl = fkwl.to_std();
-    xl = fkxl.to_std();
-    wr = fkwr.to_std();
-    xr = fkxr.to_std();
+    wl = fkwl;
+    xl = fkxl;
+    wr = fkwr;
+    xr = fkxr;
 
     work1.resize(xl.size());
     work2.resize(xl.size());
@@ -204,10 +204,10 @@ public:
     auto [fkxl, fkwl] = legendre_weights<double>(num_mom + degree_ + 1, -1, 0);
     auto [fkxr, fkwr] = legendre_weights<double>(num_mom + degree_ + 1,  0, 1);
 
-    wl = fkwl.to_std();
-    xl = fkxl.to_std();
-    wr = fkwr.to_std();
-    xr = fkxr.to_std();
+    wl = fkwl;
+    xl = fkxl;
+    wr = fkwr;
+    xr = fkxr;
 
     work1.resize(xl.size());
     work2.resize(xl.size());

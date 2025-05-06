@@ -10,7 +10,7 @@ void test_quad() {
 
   {
     current_test<P> name_("legendre quadrature 1pnt");
-    auto [p, w] = legendre_weightsv2<double>(0, -1, 1, quadrature_mode::use_degree);
+    auto [p, w] = legendre_weights<double>(0, -1, 1, quadrature_mode::use_degree);
 
     tassert(p.size() == w.size());
     tassert(p.size() == 1u);
@@ -19,7 +19,7 @@ void test_quad() {
     tcheckless(0, std::abs(w[0] - 2), tol);
   }{
     current_test<P> name_("legendre quadrature 2pnt");
-    auto [p, w] = legendre_weightsv2<double>(1, -1, 1, quadrature_mode::use_degree);
+    auto [p, w] = legendre_weights<double>(1, -1, 1, quadrature_mode::use_degree);
 
     tassert(p.size() == w.size());
     tassert(p.size() == 2u);
@@ -33,7 +33,7 @@ void test_quad() {
     }
   }{
     current_test<P> name_("legendre quadrature 3pnt");
-    auto [p, w] = legendre_weightsv2<double>(2, -1, 1, quadrature_mode::use_degree);
+    auto [p, w] = legendre_weights<double>(2, -1, 1, quadrature_mode::use_degree);
 
     tassert(p.size() == 3u);
 
@@ -46,7 +46,7 @@ void test_quad() {
     }
   }{
     current_test<P> name_("legendre quadrature - shift points");
-    auto [p, w] = legendre_weightsv2<double>(1, 2, 4, quadrature_mode::use_degree);
+    auto [p, w] = legendre_weights<double>(1, 2, 4, quadrature_mode::use_degree);
 
     tassert(p.size() == w.size());
     tassert(p.size() == 2u);
@@ -60,7 +60,7 @@ void test_quad() {
     }
   }{
     current_test<P> name_("legendre quadrature - scale weights");
-    auto [p, w] = legendre_weightsv2<double>(2, 0, 1, quadrature_mode::use_degree);
+    auto [p, w] = legendre_weights<double>(2, 0, 1, quadrature_mode::use_degree);
 
     std::vector<double> wref = {5.0 / 9.0, 8.0 / 9.0, 5.0/9.0};
 
@@ -70,7 +70,7 @@ void test_quad() {
   }{
     current_test<P> name_("legendre quadrature - sin(x)^2");
     P constexpr pi2 = P{0.5} * PI;
-    auto [p, w] = legendre_weightsv2<double>(3, -pi2, pi2);
+    auto [p, w] = legendre_weights<double>(3, -pi2, pi2);
 
     double q = 0;
     for (size_t i = 0; i < p.size(); i++) {

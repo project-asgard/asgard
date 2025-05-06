@@ -19,10 +19,14 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
 
   num_quad = weights.size();
 
-  auto [lP_L, lPP_L] = legendre(fk::vector<P>{-1}, degree);
-  auto [lP_R, lPP_R] = legendre(fk::vector<P>{+1}, degree);
+  // auto [lP_L, lPP_L] = legendre(fk::vector<P>{-1}, degree);
+  // auto [lP_R, lPP_R] = legendre(fk::vector<P>{+1}, degree);
+  // auto [lP, lPP] = legendre(fk::vector(points), degree);
 
-  auto [lP, lPP] = legendre(points, degree);
+  auto [lP_L, lPP_L] = legendre_vals(std::vector<P>{-1}, degree);
+  auto [lP_R, lPP_R] = legendre_vals(std::vector<P>{+1}, degree);
+
+  auto [lP, lPP] = legendre_vals(points, degree);
 
   // we need to keep, the quadrature points and weights, 4 matrices corresponding
   // to the edge fluxes on the left and right, 2 matrices corresponding to
