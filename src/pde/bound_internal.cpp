@@ -285,7 +285,7 @@ R"help(<< additional options for this file >>
 
   if (options.has_cli_entry("-quad")) {
 
-    disc.emplace(make_quad_pde(num_dims, options), verbosity_level::low);
+    disc.emplace(make_quad_pde<P>(num_dims, options), verbosity_level::low);
 
   } else {
 

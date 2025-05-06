@@ -1084,18 +1084,18 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 
   if (degree_ >= 2) // need projection matrices, degree_ <= 1 are hard-coded
   {
-    auto rawmats = generate_multi_wavelets<P>(degree_);
+    auto rawmats = basis::generate_multi_wavelets<P>(degree_);
     int const pdof = degree_ + 1;
     // copy the matrices twice, once for level 1->0 and once for generic levels
     pmats.resize(8 * pdof * pdof);
     auto ip = pmats.data();
     for (int i : indexof<int>(pdof)) {
-      ip = std::copy_n(rawmats[0].data(0, i), pdof, ip);
-      ip = std::copy_n(rawmats[2].data(0, i), pdof, ip);
+      ip = std::copy_n(rawmats[0].data() + pdof * i, pdof, ip);
+      ip = std::copy_n(rawmats[2].data() + pdof * i, pdof, ip);
     }
     for (int i : indexof<int>(pdof)) {
-      ip = std::copy_n(rawmats[1].data(0, i), pdof, ip);
-      ip = std::copy_n(rawmats[3].data(0, i), pdof, ip);
+      ip = std::copy_n(rawmats[1].data() + pdof * i, pdof, ip);
+      ip = std::copy_n(rawmats[3].data() + pdof * i, pdof, ip);
     }
 
     pmatup = ip;
@@ -1103,7 +1103,7 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 
     for (int j : indexof<int>(4))
       for (int i : indexof<int>(pdof))
-        ip = std::copy_n(rawmats[j].data(0, i), pdof, ip);
+        ip = std::copy_n(rawmats[j].data() + i * pdof, pdof, ip);
   }
 }
 

@@ -2,8 +2,6 @@
 
 #include "./device/asgard_kronmult.hpp"
 
-#include "asgard_lib_dispatch.hpp"
-
 /*!
  * \file asgard_small_mats.hpp
  * \brief Private header containing small matrix algorithms

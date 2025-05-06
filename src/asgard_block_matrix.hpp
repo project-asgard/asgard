@@ -237,30 +237,6 @@ private:
 template<typename P>
 void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, block_matrix<P> &C);
 
-//! convert larger fk::matrix to block_matrix given the number of blocks and columns
-template<typename P, mem_type mem>
-block_matrix<P> block_convert(fk::matrix<P, mem> const &fm, int br, int bc)
-{
-  int64_t const nrows = fm.nrows() / br;
-  int64_t const ncols = fm.ncols() / bc;
-  expect(nrows * br == fm.nrows());
-  expect(ncols * bc == fm.ncols());
-
-  block_matrix<P> mat(br * bc, nrows, ncols);
-
-  for (auto c : indexof(ncols))
-  {
-    for (auto r : indexof(nrows))
-    {
-      P *im = mat(r, c);
-      for (int j : indexof<int>(bc))
-        im = std::copy_n(fm.data(br * r, c * bc + j), br, im);
-    }
-  }
-
-  return mat;
-}
-
 /*!
  * \internal
  * \brief Block-diagonal matrix, stores the factorized mass matrix
@@ -624,18 +600,6 @@ public:
   void copy_out(std::vector<P> &out) const
   {
     data_.copy_out(out);
-  }
-  //! convert the matrix to dense fk::matrix
-  fk::matrix<P> to_fk_matrix(int const n, connection_patterns const &conns) const
-  {
-    connect_1d const &conn = conns(htype_);
-    int const nrows = conn.num_rows();
-    fk::matrix<P> mat(n * nrows, n * nrows);
-    for (int r = 0; r < nrows; r++)
-      for (int j = conn.row_begin(r); j < conn.row_end(r); j++)
-        for (int k = 0; k < n; k++)
-          std::copy_n(data_[j] + n * k , n, &mat(n * r, n * conn[j] + k));
-    return mat;
   }
   //! (testing) fill the matrix with a value
   void fill(P v) { data_.fill(v); }

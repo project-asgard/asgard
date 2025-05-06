@@ -61,6 +61,9 @@ struct quadratic
 // p(x) = sum_i c_i x^i -> p(x) is represented as a vector (c_0, c_1 ... c_n)
 // addition/subtraction/scalar-mult applies the action to the vector/s
 
+template<typename P>
+std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree);
+
 //! Indicates whether to integrate left, right sub-interval or all of (-1, 1)
 enum class integ_range
 {

@@ -1,15 +1,11 @@
 #pragma once
 
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
+#include "asgard_compute.hpp"
 #include "asgard_program_options.hpp"
 
 namespace asgard
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
-
-template<typename P>
-using vector_func = std::function<fk::vector<P>(fk::vector<P> const, P const)>;
 
 //! vector function using std::vector signature, computes fx(x, t) in 1d
 template<typename P>
@@ -23,9 +19,6 @@ using sfixed_func1d = std::function<void(std::vector<P> const &x, std::vector<P>
 template<typename P>
 using sfixed_func1d_f = std::function<void(std::vector<P> const &x, std::vector<P> const &f,
                                            std::vector<P> &fx)>;
-
-template<typename P>
-using md_func_type = std::vector<vector_func<P>>;
 
 // same pi used by matlab
 static constexpr double const PI = 3.141592653589793;
@@ -41,58 +34,6 @@ using g_func_type = std::function<P(P const, P const)>;
 // uses field-feedback, e.g., g_func_f(x, t, E_field_at_x_t)
 template<typename P>
 using g_func_f_type = std::function<P(P const, P const, P const)>;
-
-
-template<typename P>
-struct dimension
-{
-  P domain_min;
-  P domain_max;
-  std::vector<vector_func<P>> initial_condition;
-  g_func_type<P> volume_jacobian_dV;
-  std::string name;
-  dimension(P const d_min, P const d_max, int const level, int const degree,
-            vector_func<P> const initial_condition_in,
-            g_func_type<P> const volume_jacobian_dV_in,
-            std::string const name_in)
-
-      : dimension(d_min, d_max, level, degree,
-                  std::vector<vector_func<P>>({initial_condition_in}),
-                  volume_jacobian_dV_in, name_in)
-  {}
-
-  dimension(P const d_min, P const d_max, int const level, int const degree,
-            std::vector<vector_func<P>> const initial_condition_in,
-            g_func_type<P> const volume_jacobian_dV_in,
-            std::string const name_in)
-
-      : domain_min(d_min), domain_max(d_max),
-        initial_condition(std::move(initial_condition_in)),
-        volume_jacobian_dV(volume_jacobian_dV_in), name(name_in)
-  {
-    expect(domain_min < domain_max);
-    set_level(level);
-    set_degree(degree);
-  }
-
-  int get_level() const { return level_; }
-  int get_degree() const { return degree_; }
-
-  void set_level(int const level)
-  {
-    expect(level >= 0);
-    level_ = level;
-  }
-
-  void set_degree(int const degree)
-  {
-    expect(degree >= 0);
-    degree_ = degree;
-  }
-
-  int level_;
-  int degree_;
-};
 
 //! usage, pde_domain<double> domain(position_dims{3}, velocity_dims{3});
 struct position_dims {

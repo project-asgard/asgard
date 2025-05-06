@@ -1,7 +1,8 @@
 #pragma once
 #include "./device/asgard_kronmult.hpp"
 #include "asgard_pde.hpp"
-#include "asgard_basis.hpp"
+#include "asgard_pde_functions.hpp"
+#include "asgard_wavelet_basis.hpp"
 #include "asgard_block_matrix.hpp"
 
 namespace asgard
@@ -135,18 +136,6 @@ public:
     expect(num_dimensions <= max_num_dimensions);
     std::copy_n(rmin.begin(), num_dimensions, dmin.begin());
     std::copy_n(rmax.begin(), num_dimensions, dmax.begin());
-    setup_projection_matrices();
-  }
-  //! initialize form the given set of dimensions
-  hierarchy_manipulator(int degree, std::vector<dimension<P>> const &dims)
-      : degree_(degree), block_size_(fm::ipow(degree + 1, dims.size())),
-        quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
-  {
-    for (auto i : indexof<int>(dims))
-    {
-      dmin[i] = dims[i].domain_min;
-      dmax[i] = dims[i].domain_max;
-    }
     setup_projection_matrices();
   }
   //! initialize form the given set of dimensions
@@ -317,27 +306,6 @@ public:
   //! return the 1d projection in the given direction
   std::vector<P> const &get_projected1d(int dim) const { return pf[dim]; }
 
-  //! transforms the vector to a hierarchical representation
-  void project1d(int const level, fk::vector<P> &x) const
-  {
-    int64_t const size = fm::ipow2(level) * (degree_ + 1);
-    expect(size == x.size());
-    stage0.resize(size);
-    pf[0].resize(size);
-    std::copy_n(x.begin(), size, stage0.begin());
-    switch (degree_)
-    { // hardcoded degrees first, the default uses the projection matrices
-    case 0:
-      projectlevels<0>(0, level);
-      break;
-    case 1:
-      projectlevels<1>(0, level);
-      break;
-    default:
-      projectlevels<-1>(0, level);
-    };
-    std::copy_n(pf[0].begin(), size, x.begin());
-  }
   //! transforms the vector to a hierarchical representation
   void project1d(int const level, std::vector<P> &x) const
   {

@@ -410,7 +410,6 @@ set (components
 
 # version 2 components, do not depend on catch2
 set(asgard_components
-    basis
     blas
     block_matrix
     coefficients_mats
@@ -431,6 +430,7 @@ set(asgard_components
     time_advance
     transformations
     tools
+    wavelet_basis
 )
 
 if (ASGARD_USE_HIGHFIVE)

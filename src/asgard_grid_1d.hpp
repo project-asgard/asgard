@@ -1,7 +1,6 @@
 #pragma once
 
-#include "asgard_matrix.hpp"
-#include "asgard_vector.hpp"
+#include "asgard_compute.hpp"
 #include "asgard_program_options.hpp"
 
 namespace asgard

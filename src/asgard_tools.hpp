@@ -483,5 +483,12 @@ private:
   int end_   = 0;
 };
 
+template<typename T>
+struct no_deduce_struct {
+  using type = T;
+};
+
+template<typename T>
+using no_deduce = typename no_deduce_struct<T>::type;
 
 } // namespace asgard
