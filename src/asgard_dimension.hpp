@@ -1,7 +1,6 @@
 #pragma once
 
 #include "asgard_fast_math.hpp"
-#include "asgard_matlab_utilities.hpp"
 #include "asgard_program_options.hpp"
 
 namespace asgard
