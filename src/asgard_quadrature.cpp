@@ -115,7 +115,7 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
   }
 
   // computing the sin() component
-  {
+  if (num_points > 1) {
     P const a = (P{0.27} / num_points);
     P const b = M_PI * P(num_points - 1) / P(num_points + 1);
     P const dx = 2 / (num_points - 1);
