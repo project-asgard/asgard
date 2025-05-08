@@ -248,7 +248,7 @@ struct term_manager
   //! interpolation data
   interpolation_manager<P> interp;
 
-  mutable kronmult::block_global_workspace<P> kwork;
+  mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   mutable std::vector<P> it1, it2; // used for interpolation
 

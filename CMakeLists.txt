@@ -407,6 +407,9 @@ set(asgard_components
     grid_1d
     indexset
     interp
+    kronmult
+    kronmult_common
+    kronmult_cpu
     moment
     permutations
     pde
@@ -448,7 +451,6 @@ target_sources (libasgard
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult_cpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_bcpu.cpp>
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp>
 )
 target_precompile_headers (libasgard
@@ -680,15 +682,15 @@ foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
   endif()
 endforeach()
 
-
+# installing the headers
 foreach (_asgcomp ${asgard_components})
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp"
             DESTINATION include)
+  endif()
 endforeach()
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.hpp"
         DESTINATION include)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/device/"
-        DESTINATION include/device/)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)
 

@@ -1,6 +1,6 @@
 #include "asgard_pde_functions.hpp"
 
-#include "device/asgard_kronmult_common.hpp"
+#include "asgard_kronmult_common.hpp"
 
 namespace asgard
 {

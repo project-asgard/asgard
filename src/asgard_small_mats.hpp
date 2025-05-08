@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./device/asgard_kronmult.hpp"
+#include "asgard_kronmult.hpp"
 
 /*!
  * \file asgard_small_mats.hpp
