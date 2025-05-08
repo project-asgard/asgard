@@ -97,16 +97,6 @@ constexpr int ipow()
 template<typename T>
 void set_gpu_buffer_to_zero(int64_t num, T *x);
 
-//! \brief Specialization for the gpu case
-template<typename T>
-struct buff_utils<resource::device, T>
-{
-  //! \brief Set the first num entries of x to zero
-  static void set_to_zero(int64_t num, T *x)
-  {
-    set_gpu_buffer_to_zero(num, x);
-  }
-};
 //! \brief Helper method, fills the buffer with zeros
 template<typename T>
 void set_buffer_to_zero(gpu::vector<T> &x)
