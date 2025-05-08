@@ -1,5 +1,6 @@
 #include "asgard_solver.hpp"
 
+#include "asgard_blas.hpp"
 #include "asgard_small_mats.hpp"
 
 namespace asgard::solvers
@@ -333,16 +334,17 @@ int gmres<P>::solve(
   int inner_iterations = 0;
 
   P inner_res = 0.;
-  P outer_res = tolerance_ + 1.;
-  while ((outer_res > tolerance_) && (outer_iterations < max_outer_))
+  P outer_res = tolerance_ + 1.0;
+  while (outer_res > tolerance_ and outer_iterations < max_outer_)
   {
     std::copy(rhs.begin(), rhs.end(), basis.begin());
     apply_lhs(-1, x.data(), 1, basis.data());
     apply_precon(basis.data());
     ++num_appy;
 
-    inner_res = lib_dispatch::nrm2(n, basis.data(), 1);
-    lib_dispatch::scal(n, P{1} / inner_res, basis.data(), 1);
+    inner_res = fm::nrm2(n, basis.data());
+
+    fm::scal(n, P{1} / inner_res, basis.data());
     krylov_sol[0] = inner_res;
 
     inner_iterations = 0;
@@ -356,32 +358,25 @@ int gmres<P>::solve(
       // krylov projection coefficients for this iteration
       P *coeff = krylov_proj + (inner_iterations * (inner_iterations + 1)) / 2;
 
-      lib_dispatch::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), n,
-                         r, 1, P{0}, coeff, 1);
-      lib_dispatch::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), n,
-                         coeff, 1, P{1}, r, 1);
+      fm::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
+      fm::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
 
-      P const nrm = lib_dispatch::nrm2(n, r, 1);
-      lib_dispatch::scal(n, P{1} / nrm, r, 1);
+      P const nrm = fm::nrm2(n, r);
+      fm::scal(n, P{1} / nrm, r);
       for (int k = 0; k < inner_iterations; k++)
-        lib_dispatch::rot(1, coeff + k, 1, coeff + k + 1, 1,
-                          cosines[k], sines[k]);
+        fm::rot(1, coeff + k, coeff + k + 1, cosines[k], sines[k]);
 
       // compute given's rotation
       P beta = nrm;
-      lib_dispatch::rotg(coeff + inner_iterations, &beta,
-                         cosines + inner_iterations,
-                         sines + inner_iterations);
+      fm::rotg(coeff + inner_iterations, &beta, cosines + inner_iterations, sines + inner_iterations);
 
-      inner_res =
-          std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
+      inner_res = std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
 
       if (inner_res > tolerance_ and inner_iterations < max_inner_)
       {
         krylov_sol[inner_iterations + 1] = 0.;
-        lib_dispatch::rot(1, krylov_sol + inner_iterations, 1,
-                          krylov_sol + inner_iterations + 1, 1,
-                          cosines[inner_iterations], sines[inner_iterations]);
+        fm::rot(1, krylov_sol + inner_iterations, krylov_sol + inner_iterations + 1,
+                cosines[inner_iterations], sines[inner_iterations]);
       }
 
       ++inner_iterations;
@@ -389,9 +384,8 @@ int gmres<P>::solve(
 
     if (inner_iterations > 0)
     {
-      lib_dispatch::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol, 1);
-      lib_dispatch::gemv('N', n, inner_iterations, P{1}, basis.data(), n,
-                         krylov_sol, 1, P{1}, x.data(), 1);
+      fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
+      fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
     }
     ++outer_iterations;
     outer_res = inner_res;

@@ -4,7 +4,7 @@
  -a: 0.125 
 # nothing of interest here
   -g:   dense   
--s : expl  
+-s : rk4  
   # more comments
 
  bb1 :   yes 

@@ -164,30 +164,6 @@ list(APPEND _asgard_pdes ${_asgard_int_pdes})
 ## Pull in external support as needed
 ###############################################################################
 
-if (ASGARD_BUILD_TESTS)
-    # Catch2 for testing, if Catch2_ROOT is provided then look for the existing installation,
-    # if Catch2_ROOT is not given, download and build together with ASGarD
-    if (Catch2_ROOT OR DEFINED ENV{Catch2_ROOT})
-      find_package(Catch2 REQUIRED)
-    else()
-      register_project (Catch2
-                        CATCH2
-                        https://github.com/catchorg/Catch2.git
-                        v3.3.0
-      )
-    endif()
-endif()
-
-#Mark CATCH variables as advanced.
-get_cmake_property(_variableNames VARIABLES)
-foreach (_variableName ${_variableNames})
-    string(FIND "${_variableName}" "CATCH_" out)
-    if("${out}" EQUAL 0)
-        mark_as_advanced(${_variableName})
-    endif()
-endforeach()
-
-
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 find_package (LINALG REQUIRED)
 
@@ -404,18 +380,10 @@ if (ASGARD_BUILD_HDF5)
 endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
-set (components
-     asgard_fast_math
-     asgard_lib_dispatch
-     asgard_matlab_utilities
-     asgard_quadrature
-     asgard_resources
-     asgard_tensors
-)
 
-# version 2 components, do not depend on catch2
+# version 2 components
 set(asgard_components
-    basis
+    blas
     block_matrix
     coefficients_mats
     compute
@@ -427,6 +395,7 @@ set(asgard_components
     pde
     pde_functions
     program_options
+    quadrature
     reconstruct
     small_mats
     solver
@@ -434,25 +403,12 @@ set(asgard_components
     time_advance
     transformations
     tools
+    wavelet_basis
 )
 
 if (ASGARD_USE_HIGHFIVE)
     list (APPEND asgard_components io)
 endif ()
-
-foreach (component IN LISTS components)
-    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp)
-        # some components don't have .cpp files
-        target_sources (libasgard
-                        PRIVATE
-                        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp>
-        )
-    endif()
-    target_precompile_headers (libasgard
-                               PUBLIC
-                               $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.hpp>>
-    )
-endforeach ()
 
 foreach (component IN LISTS asgard_components)
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.cpp)
@@ -480,8 +436,6 @@ target_sources (libasgard
 target_precompile_headers (libasgard
                            PUBLIC
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_base.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck2_complete.hpp>>
 )
 target_link_libraries (libasgard
                        PUBLIC
@@ -560,49 +514,11 @@ if (ASGARD_BUILD_TESTS)
   # contain all the appropriate link flags and dependencies, but does nothing
   # other than play with some code
   add_executable(sandbox ./testing/sandbox.cpp)
-  target_link_libraries (sandbox PUBLIC libasgard Catch2::Catch2)
+  target_link_libraries (sandbox PUBLIC libasgard)
 
-  # Define ctest tests and their executables. The _main variant of these targets
-  # uses the default main function from the catch two framework. The non _main
-  # variant uses a custom defined main in MPI based tests.
-  add_library (tests_general testing/tests_general.cpp)
-  add_library (tests_general_main testing/tests_general.cpp)
-  target_link_libraries (tests_general PUBLIC libasgard Catch2::Catch2)
-  target_link_libraries (tests_general_main PUBLIC libasgard Catch2::Catch2WithMain)
-  target_include_directories(tests_general
-                             PRIVATE ${CMAKE_BINARY_DIR}
-                             PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-  target_include_directories(tests_general_main
-                             PRIVATE ${CMAKE_BINARY_DIR}
-                             PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   if (${ASGARD_USE_PCH})
     target_precompile_headers (sandbox REUSE_FROM libasgard)
-    target_precompile_headers (tests_general REUSE_FROM libasgard)
-    target_precompile_headers (tests_general_main REUSE_FROM libasgard)
   endif ()
-
-  if (ASGARD_USE_MPI)
-    # new kronmult benchmarking
-    add_executable(asgard_kronmult_benchmark ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_benchmark.cpp)
-    target_link_libraries (asgard_kronmult_benchmark PUBLIC libasgard)
-    target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/testing)
-    target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/)
-  endif()
-
-  # components with MPI-enabled testing
-  # needed for multiple ranks and mpi-init
-  set (mpi_test_components
-    asgard_adapt
-    asgard_boundary_conditions
-    asgard_distribution
-    asgard_coefficients
-    asgard_time_advance
-  )
-  # still need mpi-init but not the extra ranks
-  set (mpi_single_rank_tests
-    asgard_boundary_conditions
-    asgard_coefficients
-  )
 
   foreach( _asg_pde ${_asgard_pdes})
       add_test (NAME asgard-pde-${_asg_pde}-test
@@ -668,47 +584,7 @@ if (ASGARD_BUILD_TESTS)
     endif()
 
     if (ASGARD_USE_MPI)
-      if (${component} IN_LIST mpi_test_components)
-        target_link_libraries (${component}-tests PUBLIC tests_general)
-        if (${ASGARD_USE_PCH})
-            target_precompile_headers (${component}-tests REUSE_FROM tests_general)
-        endif ()
-
-        set(test_ranks "4")
-        if (ASGARD_USE_CUDA OR ${component} IN_LIST mpi_single_rank_tests)
-          set(test_ranks "1")
-        endif ()
-        if (${ASGARD_TESTING_RANKS})
-         set(test_ranks ${ASGARD_TESTING_RANKS})
-        endif ()
-#  Avoid over subscribe errors by limiting the number of MPI processes
-#  to the maximum number detected by FindMPI
-        if (${test_ranks} GREATER ${MPIEXEC_MAX_NUMPROCS})
-            set(test_ranks ${MPIEXEC_MAX_NUMPROCS})
-        endif ()
-
-        foreach (rank RANGE 1 ${test_ranks})
-          add_test (NAME ${component}-test-mpi_${rank}
-                    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank} ./${component}-tests
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-
-#  A 10 minute timeout should be enough time to allow a normal run. If
-#  the test runs longer than this, there is probably a bug or deadlock.
-          set_tests_properties (${component}-test-mpi_${rank} PROPERTIES PROCESSORS ${rank}
-                                                                         ENVIRONMENT OMP_NUM_THREADS=1
-                                                                         TIMEOUT 600)
-        endforeach ()
-      else ()
-        target_link_libraries (${component}-tests PUBLIC tests_general_main)
-        if (${ASGARD_USE_PCH})
-            target_precompile_headers (${component}-tests REUSE_FROM tests_general_main)
-        endif ()
-      endif ()
-    else ()
-      target_link_libraries (${component}-tests PUBLIC tests_general_main)
-      if (${ASGARD_USE_PCH})
-        target_precompile_headers (${component}-tests REUSE_FROM tests_general_main)
-      endif ()
+    # TODO: RENABLE MPI TESTING
     endif ()
 
     add_test (NAME ${component}-test
@@ -732,13 +608,13 @@ if (ASGARD_BUILD_TESTS)
   message(STATUS "")
   message(STATUS "ASGarD build options (summary):")
   foreach(_opt CMAKE_CXX_FLAGS
-                  ASGARD_PRECISIONS
-                  ASGARD_USE_OPENMP
-                  ASGARD_USE_MPI
-                  ASGARD_USE_CUDA
-                  ASGARD_USE_PYTHON
-                  ASGARD_USE_HIGHFIVE
-                  ASGARD_USE_TIMER)
+               ASGARD_PRECISIONS
+               ASGARD_USE_OPENMP
+               ASGARD_USE_MPI
+               ASGARD_USE_CUDA
+               ASGARD_USE_PYTHON
+               ASGARD_USE_HIGHFIVE
+               ASGARD_USE_TIMER)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_TIMER)
@@ -783,7 +659,8 @@ endforeach()
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
         DESTINATION include
-        FILES_MATCHING PATTERN "*.hpp" PATTERN "*.tpp")
+        FILES_MATCHING PATTERN "*.hpp"
+        )
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)
 
@@ -809,9 +686,6 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt"
 install(EXPORT "asgard-export" DESTINATION "lib/${CMAKE_PROJECT_NAME}" FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
 
 if (TARGET asgard_highfive)
-    # must install the highfive dependency
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/contrib/highfive/include/"
-            DESTINATION include)
     set(__asgard_custom_hdf5 ON)
     if (TARGET hdf5::hdf5)
         set(__asgard_find_hdf5 ON)

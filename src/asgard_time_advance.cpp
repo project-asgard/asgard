@@ -443,22 +443,6 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
   };
 }
 
-template<typename P>
-std::string time_advance_manager<P>::method_name() const {
-  std::map<time_method, std::string> names = {
-    {time_method::steady, "Steady state solver"},
-    {time_method::forward_euler, "Forward-Euler 1-step (explicit)"},
-    {time_method::rk2, "Runge-Kutta 2-step (explicit)"},
-    {time_method::rk3, "Runge-Kutta 3-step (explicit)"},
-    {time_method::rk4, "Runge-Kutta 4-step (explicit)"},
-    {time_method::cn, "Crank-Nicolson 1-step (implicit)"},
-    {time_method::back_euler, "Backward-Euler 1-step (implicit)"},
-    {time_method::imex2, "Implicit-Explicit 2-step (imex)"},
-  };
-
-  return names.find(data.step_method())->second;
-}
-
 template<typename P> // implemented in time-advance
 void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 {

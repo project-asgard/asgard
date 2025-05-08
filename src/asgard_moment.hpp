@@ -1,16 +1,11 @@
 #pragma once
 #include "asgard_pde.hpp"
-#include "asgard_basis.hpp"
+#include "asgard_pde_functions.hpp"
+#include "asgard_wavelet_basis.hpp"
 #include "asgard_transformations.hpp"
 
 namespace asgard
 {
-#ifdef ASGARD_USE_CUDA
-static constexpr resource sparse_resrc = resource::device;
-#else
-static constexpr resource sparse_resrc = resource::host;
-#endif
-
 /*!
  * \brief Holds information about the moments
  *
@@ -27,8 +22,6 @@ class moments1d {
 public:
   //! empty constructor, no moments
   moments1d() {}
-  //! constructor, prepares the given number of moments, for degree and up to the max_level
-  moments1d(int num_mom, int degree, int max_level, std::vector<dimension<P>> const &dims);
   //! constructor, prepares the given number of moments, for degree and up to the max_level
   moments1d(int num_mom, int degree, int max_level, pde_domain<P> const &domain);
 

@@ -35,7 +35,7 @@ jobs:
               run: make -j VERBOSE=1
             - name: Test
               working-directory: ${{runner.workspace}}/asgard/build
-              run: ctest --output-on-failure
+              run: ctest -V --output-on-failure
             - name: Show Log
               if: failure()
               working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary

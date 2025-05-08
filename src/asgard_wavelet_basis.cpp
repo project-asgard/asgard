@@ -1,13 +1,13 @@
-#include "asgard_basis.hpp"
+#include "asgard_wavelet_basis.hpp"
 
-namespace asgard
+namespace asgard::basis
 {
 // generate_multi_wavelets routine creates wavelet basis (phi_co)
 // then uses these to generate the two-scale coefficients which can be
 // used (outside of this routine) to construct the forward multi-wavelet
 // transform
 template<typename P>
-std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
+std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree)
 {
   expect(degree >= 0);
 
@@ -29,20 +29,20 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
     {
     case 0: {
       P const is2 = 1 / s2;
-      fk::matrix<P> h0 = {{is2,},};
-      fk::matrix<P> h1 = {{is2,},};
-      fk::matrix<P> g0 = {{-is2,},};
-      fk::matrix<P> g1 = {{is2,},};
+      std::vector<P> h0 = {is2,};
+      std::vector<P> h1 = {is2,};
+      std::vector<P> g0 = {-is2,};
+      std::vector<P> g1 = {is2,};
       return {h0, h1, g0, g1};
     }
     case 1: {
       P const is2  = 1 / s2;
       P const is22 = 1 / (2 * s2);
       P const is6  = std::sqrt(P{6}) / 4;
-      fk::matrix<P> h0 = {{is2, 0}, {-is6, is22}};
-      fk::matrix<P> h1 = {{is2, 0}, {is6, is22}};
-      fk::matrix<P> g0 = {{0, -is2}, {is22, is6}};
-      fk::matrix<P> g1 = {{0, is2}, {-is22, is6}};
+      std::vector<P> h0 = {is2, -is6, 0, is22};
+      std::vector<P> h1 = {is2,  is6, 0, is22};
+      std::vector<P> g0 = {0,  is22, -is2, is6};
+      std::vector<P> g1 = {0, -is22,  is2, is6};
       return {h0, h1, g0, g1};
     }
     case 2: {
@@ -51,10 +51,10 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
       P const is24 = 1 / (4 * s2);
       P const is6  = std::sqrt(P{6}) / 4;
       P const is30 = 15 / (P{4} * std::sqrt(P{30}));
-      fk::matrix<P> h0 = {{is2, 0, 0}, {-is6, is22, 0}, {0, -is30, is24}};
-      fk::matrix<P> h1 = {{is2, 0, 0}, {is6, is22, 0}, {0, is30, is24}};
-      fk::matrix<P> g0 = {{0, 0, -is2}, {0, is24, is30}, {-is22, -is6, 0}};
-      fk::matrix<P> g1 = {{0, 0, is2}, {0, -is24, is30}, {is22, -is6, 0}};
+      std::vector<P> h0 = {is2, -is6, 0, 0, is22, -is30, 0, 0, is24};
+      std::vector<P> h1 = {is2,  is6, 0, 0, is22,  is30, 0, 0, is24};
+      std::vector<P> g0 = {0, 0, -is22, 0,  is24, -is6, -is2, is30, 0};
+      std::vector<P> g1 = {0, 0,  is22, 0, -is24, -is6,  is2, is30, 0};
       return {h0, h1, g0, g1};
     }
     default:
@@ -62,10 +62,10 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
     };
   }
 
-  fk::matrix<P> g0(pdof, pdof);
-  fk::matrix<P> g1(pdof, pdof);
-  fk::matrix<P> h0(pdof, pdof);
-  fk::matrix<P> h1(pdof, pdof);
+  std::vector<P> g0(pdof * pdof);
+  std::vector<P> g1(pdof * pdof);
+  std::vector<P> h0(pdof * pdof);
+  std::vector<P> h1(pdof * pdof);
 
   basis::canonical_integrator quad(degree);
 
@@ -76,18 +76,18 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
   P const  s2 = std::sqrt(P{2});
   P const is2 = P{1} / s2;
 
-  fk::matrix<P> scalets(pdof, pdof);
+  vector2d<P> scalets(pdof, pdof);
   for (auto i : indexof<int>(pdof))
     for (auto j : indexof<int>(pdof))
-      scalets(i, j) = s2 * leg[i][degree - j];
+      scalets[j][i] = s2 * leg[i][degree - j];
 
-  fk::matrix<P> phi_co(pdof * 2, pdof);
+  vector2d<P> phi_co(pdof * 2, pdof);
   for (auto i : indexof<int>(pdof))
     for (auto j : indexof<int>(pdof))
-      phi_co(i, j) = wav[i][degree - j];
+      phi_co[j][i] = wav[i][degree - j];
   for (auto i : indexof<int>(pdof))
     for (auto j : indexof<int>(pdof))
-      phi_co(i + pdof, j) = wav[i][pdof + degree - j];
+      phi_co[j][i + pdof] = wav[i][pdof + degree - j];
 
   // Calculate Two-Scale Coefficients
 
@@ -130,12 +130,12 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
     {
       P const it = quad.integrate_right(leg2[col], leg[row]);
 
-      h1(row, col) = it;
-      h0(row, col) = ((row - col) % 2 == 0) ? it : -it;
+      h1[row + col * pdof] = it;
+      h0[row + col * pdof] = ((row - col) % 2 == 0) ? it : -it;
     }
 
-    h0(row, row) = is2 / s;
-    h1(row, row) = h0(row, row);
+    h0[row + row * pdof] = is2 / s;
+    h1[row + row * pdof] = h0[row + row * pdof];
 
     s *= 2;
   }
@@ -146,15 +146,15 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
     {
       P const it = is2 * quad.integrate_right(leg2[col], wav[row] + pdof);
 
-      g1(row, col) = it;
-      g0(row, col) = ((col - row + degree) % 2 == 0) ? -it : it;
+      g1[row + col * pdof] = it;
+      g0[row + col * pdof] = ((col - row + degree) % 2 == 0) ? -it : it;
     }
   }
 
   P constexpr tol = (std::is_same_v<P, double>) ? 1.e-12 : 1.e-4;
 
-  auto const normalize = [&](fk::matrix<P> &matrix) -> void {
-    for (auto &m : matrix)
+  auto const normalize = [&](std::vector<P> &mat) -> void {
+    for (auto &m : mat)
       if (std::abs(m) < tol)
         m = 0;
   };
@@ -167,13 +167,13 @@ std::array<fk::matrix<P>, 4> generate_multi_wavelets(int const degree)
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template std::array<fk::matrix<double>, 4>
+template std::array<std::vector<double>, 4>
 generate_multi_wavelets(int const degree);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template std::array<fk::matrix<float>, 4>
+template std::array<std::vector<float>, 4>
 generate_multi_wavelets(int const degree);
 #endif
 
-} // namespace asgard
+} // namespace asgard::basis

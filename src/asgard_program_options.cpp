@@ -106,8 +106,8 @@ Options          Short   Value      Description
                                     to override adaptivity set in an input file or restart file.
 
 <<< time stepping options >>>
--step-method     -s      string     accepts (v1): expl/impl/imex
-                                    accepts (v2): steady
+-step-method     -s      string     accepts:
+                                      steady
                                       forward-euler/fe/rk1/rk2/rk3/rk4
                                       backwar-euler/be/crank-nicolson/cn
                                       imex2
@@ -121,22 +121,11 @@ Options          Short   Value      Description
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
 -dt                      double     Fixed time step to use (must be positive).
 
--noexact         -ne     -          If a pde has known exact solution, it must be for testing
-                                    of the code, therefore for each time step the computed solution
-                                    will be compared to the exact one. This option will disable
-                                    the comparison and speed the simulations of the test.
-
 <<< i/o options >>>
--wave-freq       -w      int        Interval (in time steps) for outputting the hierarchical
-                                    wavelet data, compatible with Python plotting.
 -restart                 filename   Wavelet output file to restart the simulation.
 -outfile         -of     filename   File to write the last step of the simulation.
 
 <<< solvers and linear algebra options >>>
--kron-mode       -       string     accepts: dense/sparse
-                                    Applies to the local Kronmult algorithms, the sparse approach
-                                    results in flop savings but, also high additional RAM usage
-                                    due to the extra indexing.
 -solver          -sv     string     accepts: direct/gmres/bicgstab (implicit/imex methods only)
                                     Direct: use LAPACK, expensive but stable.
                                     GMRES: general but sensitive to restart selection.
@@ -152,13 +141,6 @@ Options          Short   Value      Description
 -isolve-inner    -isn    int        (GMRES only) The maximum number of inner GMRES iterations,
                                     this is ignored by BiCGSTAB.
 
-Leaving soon:
--memory                  int        Memory limit for the GPU, applied to the earlier versions
-                                    of Kronmult, where data was kept in CPU RAM and moved
-                                    on-the-fly in an out-of-core algorithm. The data-transfer
-                                    cost makes the approach impractical.
--adapt-norm      -an     string     accepts: linf/l2
-                                    The norm to use for the refinement criteria.
 )help";
 }
 
@@ -191,7 +173,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
-      {"-adapt-norm", optentry::anorm}, {"-an", optentry::anorm},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
       {"-adapt-abs", optentry::adapt_threshold},  {"-aa", optentry::adapt_threshold},
       {"-adapt-rel", optentry::adapt_relative},  {"-ar", optentry::adapt_relative},
@@ -200,14 +181,11 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-max-levels", optentry::max_levels}, {"-m", optentry::max_levels},
       {"-degree", optentry::degree}, {"-d", optentry::degree},
       {"-num-steps", optentry::num_time_steps}, {"-n", optentry::num_time_steps},
-      {"-wave-freq", optentry::wavelet_output_freq}, {"-w", optentry::wavelet_output_freq},
       {"-outfile", optentry::output_file}, {"-of", optentry::output_file},
       {"-dt", optentry::dt},
       {"-time", optentry::stop_time}, {"-t", optentry::stop_time},
       {"-solver", optentry::solver}, {"-sv", optentry::solver},
       {"-precon", optentry::precond}, {"-pc", optentry::precond},
-      {"-memory", optentry::memory_limit},
-      {"-kron-mode", optentry::kron_mode},
       {"-isolve-tol", optentry::isol_tolerance}, {"-ist", optentry::isol_tolerance},
       {"-isolve-iter", optentry::isol_iterations}, {"-isi", optentry::isol_iterations},
       {"-isolve-inner", optentry::isol_inner_iterations},
@@ -340,25 +318,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         step_method = time_method::back_euler;
       else if (*selected == "imex2")
         step_method = time_method::imex2;
-      else if (*selected == "expl")
-        step_method = time_method::exp;
-      else if (*selected == "impl")
-        step_method = time_method::imp;
-      else if (*selected == "imex")
-        step_method = time_method::imex;
-      else {
-        throw std::runtime_error(report_wrong_value());
-      }
-    }
-    break;
-    case optentry::anorm: {
-      auto selected = move_process_next();
-      if (not selected)
-        throw std::runtime_error(report_no_value());
-      if (*selected == "l2")
-        anorm = adapt_norm::l2;
-      else if (*selected == "linf")
-        anorm = adapt_norm::linf;
       else {
         throw std::runtime_error(report_wrong_value());
       }
@@ -401,19 +360,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         throw std::runtime_error(report_no_value());
       try {
         num_time_steps = std::stoi(selected->data());
-      } catch(std::invalid_argument &) {
-        throw std::runtime_error(report_wrong_value());
-      } catch(std::out_of_range &) {
-        throw std::runtime_error(report_wrong_value());
-      }
-    }
-    break;
-    case optentry::wavelet_output_freq: {
-      auto selected = move_process_next();
-      if (not selected)
-        throw std::runtime_error(report_no_value());
-      try {
-        wavelet_output_freq = std::stoi(selected->data());
       } catch(std::invalid_argument &) {
         throw std::runtime_error(report_wrong_value());
       } catch(std::out_of_range &) {
@@ -484,7 +430,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       // sufficient to override a deck file adapt options
       adapt_threshold.reset();
       adapt_ralative.reset();
-      anorm.reset();
       // needed to cancel adaptivity from a restart file
       set_no_adapt = true;
     break;
@@ -515,32 +460,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         precon = precon_method::jacobi;
       else if (*selected == "adi")
         precon = precon_method::adi;
-      else
-        throw std::runtime_error(report_wrong_value());
-    }
-    break;
-    case optentry::memory_limit: {
-      auto selected = move_process_next();
-      if (not selected)
-        throw std::runtime_error(report_no_value());
-      try {
-        memory_limit = std::stoi(selected->data());
-      } catch(std::invalid_argument &) {
-        throw std::runtime_error(report_wrong_value());
-      } catch(std::out_of_range &) {
-        throw std::runtime_error(report_wrong_value());
-      }
-    }
-    break;
-    case optentry::kron_mode: {
-      // this may go away soon, does not apply to global-kron
-      auto selected = move_process_next();
-      if (not selected)
-        throw std::runtime_error(report_no_value());
-      if (*selected == "sparse")
-        kron_mode = kronmult_mode::sparse;
-      else if (*selected == "dense")
-        kron_mode = kronmult_mode::dense;
       else
         throw std::runtime_error(report_wrong_value());
     }
@@ -695,7 +614,7 @@ void prog_opts::print_options(std::ostream &os) const
   os << "ASGarD problem configuration:\n";
   os << "  title: " << title << '\n';
   if (not subtitle.empty())
-    os << "  sub:   " << subtitle << '\n';
+    os << "         " << subtitle << '\n';
 
   os << "discretization:\n";
   if (degree)
@@ -741,37 +660,21 @@ void prog_opts::print_options(std::ostream &os) const
   if (not max_levels.empty())
     os << "    max levels: " << max_levels_str() << '\n';
 
-  if (adapt_threshold)
+  if (adapt_threshold or adapt_ralative)
   {
-    os << "  adaptive tolerance: " << adapt_threshold.value() << '\n';
-    if (anorm and anorm.value() == adapt_norm::l2)
-      os << "  adaptive norm: l2\n";
-    else
-      os << "  adaptive norm: l-infty\n";
+    os << "  adaptive tolerance:";
+    if (adapt_ralative)
+      os << " (relative)" << adapt_ralative.value();
+    if (adapt_threshold)
+      os << " (absolute)" << adapt_threshold.value();
+    os << '\n';
   }
   else
     os << "  non-adaptive grid\n";
 
   os << "time stepping:\n";
   if (step_method)
-    switch (step_method.value())
-    {
-    case time_method::rk3:
-      os << "  method: RK3\n";
-      break;
-    case time_method::cn:
-      os << "  method: Crank-Nicolson\n";
-      break;
-    case time_method::imex:
-      os << "  method: IMEX\n";
-      break;
-    case time_method::imp:
-      os << "  method: Backward Euler\n";
-      break;
-    default:
-      os << "  method: RK3\n";
-      break;
-    };
+    os << "  " << get_name(step_method.value()) << "\n";
 
   if (stop_time)
     os << "  stop-time: " << stop_time.value() << '\n';
@@ -786,14 +689,8 @@ void prog_opts::print_options(std::ostream &os) const
   if (num_time_steps)
     os << "  number of time-steps: " << num_time_steps.value() << '\n';
 
-  if (restart_file.empty() and not wavelet_output_freq)
-    os << "input-output (i/o): none\n";
-  else
-    os << "input-output (i/o):\n";
   if (not restart_file.empty())
     os << "  restarting from: " << restart_file << '\n';
-  if (wavelet_output_freq)
-    os << "  write freq: " << wavelet_output_freq.value() << '\n';
 }
 
 void prog_opts::print_version_help(std::ostream &os)
@@ -835,6 +732,22 @@ void prog_opts::print_version_help(std::ostream &os)
   os << "Available precision      float\n";
 #endif
   os << '\n';
+}
+
+std::string prog_opts::get_name(time_method t)
+{
+  std::map<time_method, std::string> names = {
+    {time_method::steady, "Steady state solver"},
+    {time_method::forward_euler, "Forward-Euler 1-step (explicit)"},
+    {time_method::rk2, "Runge-Kutta 2-step (explicit)"},
+    {time_method::rk3, "Runge-Kutta 3-step (explicit)"},
+    {time_method::rk4, "Runge-Kutta 4-step (explicit)"},
+    {time_method::cn, "Crank-Nicolson 1-step (implicit)"},
+    {time_method::back_euler, "Backward-Euler 1-step (implicit)"},
+    {time_method::imex2, "Implicit-Explicit 2-step (imex)"},
+  };
+
+  return names.find(t)->second;
 }
 
 } // namespace asgard

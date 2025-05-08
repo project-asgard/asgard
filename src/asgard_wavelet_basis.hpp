@@ -61,6 +61,9 @@ struct quadratic
 // p(x) = sum_i c_i x^i -> p(x) is represented as a vector (c_0, c_1 ... c_n)
 // addition/subtraction/scalar-mult applies the action to the vector/s
 
+template<typename P>
+std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree);
+
 //! Indicates whether to integrate left, right sub-interval or all of (-1, 1)
 enum class integ_range
 {
@@ -187,13 +190,13 @@ public:
   //! Create and store the quadratures for (-1, 0) and (0, 1)
   canonical_integrator(int const degree_in) : degree_(degree_in)
   {
-    auto [fkxl, fkwl] = legendre_weights<double>(2 * degree_ + 1, -1, 0);
-    auto [fkxr, fkwr] = legendre_weights<double>(2 * degree_ + 1, 0, 1);
+    auto [fkxl, fkwl] = legendre_weights(2 * degree_ + 1, -1, 0);
+    auto [fkxr, fkwr] = legendre_weights(2 * degree_ + 1, 0, 1);
 
-    wl = fkwl.to_std();
-    xl = fkxl.to_std();
-    wr = fkwr.to_std();
-    xr = fkxr.to_std();
+    wl = fkwl;
+    xl = fkxl;
+    wr = fkwr;
+    xr = fkxr;
 
     work1.resize(xl.size());
     work2.resize(xl.size());
@@ -201,13 +204,13 @@ public:
   //! Create and store the quadratures for (-1, 0) and (0, 1), uses moments
   canonical_integrator(int const num_mom, int const degree_in) : degree_(degree_in)
   {
-    auto [fkxl, fkwl] = legendre_weights<double>(num_mom + degree_ + 1, -1, 0);
-    auto [fkxr, fkwr] = legendre_weights<double>(num_mom + degree_ + 1,  0, 1);
+    auto [fkxl, fkwl] = legendre_weights(num_mom + degree_ + 1, -1, 0);
+    auto [fkxr, fkwr] = legendre_weights(num_mom + degree_ + 1,  0, 1);
 
-    wl = fkwl.to_std();
-    xl = fkxl.to_std();
-    wr = fkwr.to_std();
-    xr = fkxr.to_std();
+    wl = fkwl;
+    xl = fkxl;
+    wr = fkwr;
+    xr = fkxr;
 
     work1.resize(xl.size());
     work2.resize(xl.size());

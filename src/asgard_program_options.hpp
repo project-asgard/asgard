@@ -73,30 +73,6 @@ enum class precon_method
   adi
 };
 
-/*!
- * \ingroup asgard_common_options
- * \brief list of builtin PDE specifications, refer to the specs in the src/pde folder
- */
-enum class PDE_opts
-{
-  custom = 0, // user provided pde
-};
-
-/*!
- * \ingroup asgard_common_options
- * \brief Indicates whether we should be using sparse or dense kronmult.
- *
- * Used by the local kronmult, global kronmult (block or non-block case)
- * will ignore these options.
- */
-enum class kronmult_mode
-{
-  //! \brief Using a dense matrix (assumes everything is connected).
-  dense,
-  //! \brief Using a sparse matrix (checks for connectivity).
-  sparse
-};
-
 #ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \internal
@@ -159,12 +135,6 @@ enum class time_method
   cn,
   //! Implicit-explicit, second order
   imex2,
-  //! implicit solve, backward Euler
-  imp,
-  //! (default) explicit Runge–Kutta
-  exp, // explicit is reserved keyword
-  //! implicit-explicit scheme for nonlinear Vlasov-Poisson problems
-  imex
 };
 /*!
  * \ingroup asgard_common_options
@@ -370,9 +340,6 @@ struct prog_opts
   //! if provided, the subtitile is an addition to the main title
   std::string subtitle;
 
-  //! if set, one of the builtin PDEs will be used, keep unset for custom PDE projects
-  std::optional<PDE_opts> pde_choice;
-
   //! read from -start_levels
   std::vector<int> start_levels;
   //! read from -max_levels
@@ -389,8 +356,6 @@ struct prog_opts
   std::optional<double> adapt_threshold;
   //! provides the relative tolerance threshold for adaptivity
   std::optional<double> adapt_ralative;
-  //! adaptivity norm, either l2 or linf
-  std::optional<adapt_norm> anorm;
 
   //! time stepping method, explicit, implicit or imex
   std::optional<time_method> step_method;
@@ -400,9 +365,6 @@ struct prog_opts
   std::optional<double> dt;
   //! number of fixed time steps to take
   std::optional<int> num_time_steps;
-
-  //! output frequency of wavelet data used for restarts or python plotting
-  std::optional<int> wavelet_output_freq;
 
   //! solver for implicit or imex methods: direct, gmres, bicgstab
   std::optional<solver_method> solver;
@@ -414,11 +376,6 @@ struct prog_opts
   std::optional<int> isolver_iterations;
   //! max number of output gmres iterations
   std::optional<int> isolver_inner_iterations;
-
-  //! local kron method only, mode dense or sparse (faster but memory hungry)
-  std::optional<kronmult_mode> kron_mode;
-  //! local kron method only, sparse mode, keeps less data on the device
-  std::optional<int> memory_limit;
 
   //! restart the simulation from a file
   std::string restart_file;
@@ -662,6 +619,9 @@ struct prog_opts
   //! (internal use) if we encounter a "no-adapt" option, must skip adaptivity during restart
   bool set_no_adapt = false;
 
+  //! provides a long string for the given time-stepping method
+  static std::string get_name(time_method);
+
 private:
   //! mapping from cli options to variables and actions
   enum class optentry
@@ -674,7 +634,6 @@ private:
     subtitle,
     grid_mode,
     step_method,
-    anorm,
     adapt_threshold,
     adapt_relative,
     no_adapt,
@@ -682,14 +641,11 @@ private:
     max_levels,
     degree,
     num_time_steps,
-    wavelet_output_freq,
     output_file,
     stop_time,
     dt,
     solver,
     precond,
-    memory_limit,
-    kron_mode,
     isol_tolerance,
     isol_iterations,
     isol_inner_iterations,
@@ -713,8 +669,6 @@ private:
 
   //! not in the constructor so it can be reused when reading from file
   void process_inputs(std::vector<std::string_view> const &argv, handle_mode mode);
-  //! map pde options string to enum value
-  static std::optional<PDE_opts> get_pde_opt(std::string_view const &pde_str);
 
   //! converts a string of ints into a vector of ints, limited to max_num_dimensions
   static std::vector<int> parse_ints(std::string const &number_string)

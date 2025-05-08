@@ -12,17 +12,14 @@ namespace asgard
 template<typename P>
 legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
 
-  static auto const legendre_values =
-      legendre_weights<P>(degree, -1.0, 1.0);
-  auto const &points  = legendre_values[0];
-  auto const &weights = legendre_values[1];
+  auto const quad_vals = legendre_weights(degree, -1.0, 1.0);
 
-  num_quad = weights.size();
+  num_quad = quad_vals[0].size();
 
-  auto [lP_L, lPP_L] = legendre(fk::vector<P>{-1}, degree);
-  auto [lP_R, lPP_R] = legendre(fk::vector<P>{+1}, degree);
+  auto [lP_L, lPP_L] = legendre_vals({-1.0}, degree);
+  auto [lP_R, lPP_R] = legendre_vals({+1.0}, degree);
 
-  auto [lP, lPP] = legendre(points, degree);
+  auto [lP, lPP] = legendre_vals(quad_vals[0], degree);
 
   // we need to keep, the quadrature points and weights, 4 matrices corresponding
   // to the edge fluxes on the left and right, 2 matrices corresponding to
@@ -50,17 +47,39 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
   }
 
   // copy the values returned by legendre into the locals
-  std::copy_n(points.data(), num_quad, qp);
-  std::copy_n(weights.data(), num_quad, qw);
+  std::copy_n(quad_vals[0].data(), num_quad, qp);
+  std::copy_n(quad_vals[1].data(), num_quad, qw);
 
-  smmat::gemm_outer_inc(pdof, lP_L.data(), lP_L.data(), to_left);
-  smmat::gemm_outer_inc(pdof, lP_L.data(), lP_R.data(), from_left);
-  smmat::gemm_outer_inc(pdof, lP_R.data(), lP_L.data(), from_right);
-  smmat::gemm_outer_inc(pdof, lP_R.data(), lP_R.data(), to_right);
+  if constexpr (std::is_same_v<P, double>)
+  {
+    smmat::gemm_outer_inc(pdof, lP_L.data(), lP_L.data(), to_left);
+    smmat::gemm_outer_inc(pdof, lP_L.data(), lP_R.data(), from_left);
+    smmat::gemm_outer_inc(pdof, lP_R.data(), lP_L.data(), from_right);
+    smmat::gemm_outer_inc(pdof, lP_R.data(), lP_R.data(), to_right);
 
-  std::copy_n(lP.data(), num_quad * pdof, leg);
-  smmat::col_scal(num_quad, pdof, P{0.5}, qw, leg, legw);
-  std::copy_n(lPP.data(), num_quad * pdof, der);
+    std::copy_n(lP.data(), num_quad * pdof, leg);
+    smmat::col_scal(num_quad, pdof, P{0.5}, qw, leg, legw);
+    std::copy_n(lPP.data(), num_quad * pdof, der);
+  }
+  else
+  {
+    std::vector<double> ddata(4 * pdof * pdof + 3 * pdof * num_quad);
+
+    double *d = ddata.data();
+
+    smmat::gemm_outer_inc(pdof, lP_L.data(), lP_L.data(), std::exchange(d, d + pdof * pdof));
+    smmat::gemm_outer_inc(pdof, lP_L.data(), lP_R.data(), std::exchange(d, d + pdof * pdof));
+    smmat::gemm_outer_inc(pdof, lP_R.data(), lP_L.data(), std::exchange(d, d + pdof * pdof));
+    smmat::gemm_outer_inc(pdof, lP_R.data(), lP_R.data(), std::exchange(d, d + pdof * pdof));
+
+    std::copy_n(lP.data(), num_quad * pdof, std::exchange(d, d + pdof * num_quad));
+    smmat::col_scal(num_quad, pdof, 0.5, quad_vals[1].data(),
+                    ddata.data() + 4 * pdof * pdof,
+                    std::exchange(d, d + pdof * num_quad));
+    std::copy_n(lPP.data(), num_quad * pdof, std::exchange(d, d + pdof * num_quad));
+
+    std::copy(ddata.begin(), ddata.end(), to_left);
+  }
 
   std::copy_n(lP_L.data(), pdof, leg_left);
   std::copy_n(lP_R.data(), pdof, leg_right);
@@ -1084,18 +1103,18 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 
   if (degree_ >= 2) // need projection matrices, degree_ <= 1 are hard-coded
   {
-    auto rawmats = generate_multi_wavelets<P>(degree_);
+    auto rawmats = basis::generate_multi_wavelets<P>(degree_);
     int const pdof = degree_ + 1;
     // copy the matrices twice, once for level 1->0 and once for generic levels
     pmats.resize(8 * pdof * pdof);
     auto ip = pmats.data();
     for (int i : indexof<int>(pdof)) {
-      ip = std::copy_n(rawmats[0].data(0, i), pdof, ip);
-      ip = std::copy_n(rawmats[2].data(0, i), pdof, ip);
+      ip = std::copy_n(rawmats[0].data() + pdof * i, pdof, ip);
+      ip = std::copy_n(rawmats[2].data() + pdof * i, pdof, ip);
     }
     for (int i : indexof<int>(pdof)) {
-      ip = std::copy_n(rawmats[1].data(0, i), pdof, ip);
-      ip = std::copy_n(rawmats[3].data(0, i), pdof, ip);
+      ip = std::copy_n(rawmats[1].data() + pdof * i, pdof, ip);
+      ip = std::copy_n(rawmats[3].data() + pdof * i, pdof, ip);
     }
 
     pmatup = ip;
@@ -1103,7 +1122,7 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 
     for (int j : indexof<int>(4))
       for (int i : indexof<int>(pdof))
-        ip = std::copy_n(rawmats[j].data(0, i), pdof, ip);
+        ip = std::copy_n(rawmats[j].data() + i * pdof, pdof, ip);
   }
 }
 
