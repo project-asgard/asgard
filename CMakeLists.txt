@@ -402,7 +402,9 @@ set(asgard_components
     block_matrix
     coefficients_mats
     compute
+    dimension
     discretization
+    grid_1d
     indexset
     interp
     moment
@@ -415,6 +417,7 @@ set(asgard_components
     small_mats
     solver
     term_manager
+    test_macros
     time_advance
     transformations
     tools
@@ -678,10 +681,14 @@ foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
 endforeach()
 
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
-        DESTINATION include
-        FILES_MATCHING PATTERN "*.hpp"
-        )
+foreach (_asgcomp ${asgard_components})
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp"
+            DESTINATION include)
+endforeach()
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.hpp"
+        DESTINATION include)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/device/"
+        DESTINATION include/device/)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)
 
