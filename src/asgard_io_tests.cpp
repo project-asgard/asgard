@@ -114,14 +114,14 @@ void simple_restart() {
   prog_opts opts2 = make_opts("-restart " + filename);
   discretization_manager<TestType> disc(pde_scheme<TestType>(opts2, domain));
 
-  tassert(ref.get_pde2().num_dims() == num_dims);
-  tassert(disc.get_pde2().num_dims() == num_dims);
+  tassert(ref.num_dims() == num_dims);
+  tassert(disc.num_dims() == num_dims);
 
-  tassert(disc.get_pde2().num_dims() == num_dims);
-  tassert(disc.get_pde2().num_dims() == num_dims);
+  tassert(disc.num_dims() == num_dims);
+  tassert(disc.num_dims() == num_dims);
 
-  tassert(disc.get_pde2().options().title == title);
-  tassert(disc.get_pde2().options().subtitle == subtitle);
+  tassert(disc.options().title == title);
+  tassert(disc.options().subtitle == subtitle);
 
   tassert(disc.degree() == 3);
 
@@ -174,22 +174,22 @@ void reset_time_params() {
   discretization_manager<TestType> d1(pde_scheme<TestType>(opts2, domain));
   tassert(d1.time_params().time() == 2);
   tassert(d1.time_params().stop_time() == 4);
-  tassert(d1.get_pde2().options().adapt_threshold);
-  tassert(d1.get_pde2().options().adapt_threshold.value() == 0.0625);
+  tassert(d1.options().adapt_threshold);
+  tassert(d1.options().adapt_threshold.value() == 0.0625);
 
   opts2 = make_opts("-restart " + filename + " -dt 0.25 -a 0.125");
   discretization_manager<TestType> d2(pde_scheme<TestType>(opts2, domain));
   tassert(d2.time_params().dt() == TestType{0.25});
   // stop time minus current time is 1, with dt = 0.25 we have 4 steps
   tassert(d2.time_params().num_remain() == 4);
-  tassert(d2.get_pde2().options().adapt_threshold.value() == 0.125);
+  tassert(d2.options().adapt_threshold.value() == 0.125);
 
   opts2 = make_opts("-restart " + filename + " -n 8 -noa");
   discretization_manager<TestType> d3(pde_scheme<TestType>(opts2, domain));
   tassert(d3.time_params().num_remain() == 8);
   // stop time minus current time is 1, with 8 streps, we have dt = 0.25
   tassert(d3.time_params().dt() == TestType{0.125});
-  tassert(not d3.get_pde2().options().adapt_threshold);
+  tassert(not d3.options().adapt_threshold);
 }
 
 template<typename TestType>

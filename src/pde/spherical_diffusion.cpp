@@ -277,7 +277,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
   // using the fact that the initial condition is the exact solution
   // form the projection of the exact solution
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   // this is the L^2 norm-squared of the exact solution
   double constexpr space = 0.245458116975280;

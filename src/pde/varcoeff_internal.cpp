@@ -66,7 +66,7 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
 template<typename P>
 double get_error_l2(discretization_manager<P> const &disc)
 {
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   double const space = (disc.num_dims() == 1) ? 1 : 1;
   double const time_val  = std::cos(disc.time_params().time());

@@ -243,8 +243,8 @@ void test_energy(std::string const &opt_str) {
   // we are using the other moments to check conservation properties
   int const num_moms = 3;
   int const pdof     = disc.degree() + 1;
-  moments1d moms(num_moms, pdof - 1, disc.get_pde2().max_level(),
-                 disc.get_pde2().domain());
+  moments1d moms(num_moms, pdof - 1, disc.options().max_level(),
+                 disc.domain());
   std::vector<P> mom_vec;
 
   int const n = disc.time_params().num_remain();
@@ -255,7 +255,7 @@ void test_energy(std::string const &opt_str) {
 
     int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
-    P const dx         = disc.get_pde2().domain().length(0) / num_cell;
+    P const dx         = disc.domain().length(0) / num_cell;
 
     moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
 
@@ -273,7 +273,7 @@ void test_energy(std::string const &opt_str) {
     P Ek = 0;
     for (int j : iindexof(num_cell))
       Ek += moments[j][2 * pdof]; // integrating the third moment
-    Ek *= std::sqrt(disc.get_pde2().domain().length(0));
+    Ek *= std::sqrt(disc.domain().length(0));
 
     if (disc.time_params().step() == 1) // first time-step
       E0 = Ep + Ek;

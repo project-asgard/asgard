@@ -216,7 +216,7 @@ double get_error_l2(discretization_manager<P> const &disc)
     return std::sqrt(ndiff + std::abs(enorm - nself));
   }
 
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   bool const left    = disc.title_contains("(left)");
   double const enorm = (left) ? P{7} / P{3} : P{1} / P{3};

@@ -187,8 +187,7 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
     // energy as the indicator, it is not zero but must be near constant
     int const num_moms = 3;
     int const pdof     = disc.degree() + 1;
-    moments1d moms(num_moms, pdof - 1, disc.get_pde2().max_level(),
-                   disc.get_pde2().domain());
+    moments1d moms(num_moms, pdof - 1, disc.max_level(), disc.domain());
     std::vector<P> mom_vec;
 
     moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
@@ -199,7 +198,7 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
 
     int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
-    double const dx    = disc.get_pde2().domain().length(0) / num_cell;
+    double const dx    = disc.domain().length(0) / num_cell;
 
     double Ep = 0;
     for (auto e : efield)
@@ -211,14 +210,14 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
     double Ek = 0;
     for (int j : iindexof(num_cell))
       Ek += moments[j][2 * pdof]; // integrating the third moment
-    Ek *= std::sqrt(disc.get_pde2().domain().length(0));
+    Ek *= std::sqrt(disc.domain().length(0));
 
     return Ep + Ek;
   }
 
   int const num_dims = disc.num_dims();
 
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   auto [space1d, timev] = [&]() -> std::array<double, 2> {
     if constexpr (std::is_same_v<pde_type, pde_contcos>) {

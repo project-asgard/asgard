@@ -54,13 +54,18 @@ public:
   //! returns the number of dimensions
   int num_dims() const { return grid.num_dims(); }
   //! returns the max level of the grid
-  int max_level() const { return pde2.max_level(); }
+  int max_level() const { return terms.max_level; }
   //! returns the user provided program options
   prog_opts const &options() const { return options_; }
+  pde_domain<precision> const &domain() const { return domain_; }
 
   //! returns the time discretization parameters
   time_data<precision> const &time_params() const { return stepper.data; }
 
+  //! returns the non-separable initial conditions
+  md_func<precision> const &initial_cond_md() const { return initial_md_; }
+  //! returns the separable initial conditions
+  std::vector<separable_func<precision>> const &initial_cond_sep() const { return initial_sep_; }
 
   //! set the time in the befinning of the simulation, time() must be zero to call this
   void set_time(precision t) {
@@ -77,12 +82,12 @@ public:
   reconstruct_solution get_snapshot() const
   {
     reconstruct_solution shot(
-        pde2.num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
+        num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
 
     std::array<double, max_num_dimensions> xmin, xmax;
-    for (int d : iindexof(pde2.num_dims())) {
-      xmin[d] = pde2.domain().xleft(d);
-      xmax[d] = pde2.domain().xright(d);
+    for (int d : iindexof(num_dims())) {
+      xmin[d] = domain_.xleft(d);
+      xmax[d] = domain_.xright(d);
     }
 
     shot.set_domain_bounds(xmin.data(), xmax.data());
@@ -110,44 +115,44 @@ public:
       terms.apply_all(grid, conn, -1, current, 0, R);
     }{
       tools::time_event performance_("ode-rhs sources");
-      terms.template apply_sources<data_mode::increment>(pde2.domain(), grid, conn, hier, time, 1, R);
+      terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
     }
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(pde2.domain(), grid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::replace>(domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_rep>(pde2.domain(), grid, conn, hier, time, alpha, src);
+    terms.template apply_sources<data_mode::scal_rep>(domain_, grid, conn, hier, time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(pde2.domain(), grid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(pde2.domain(), grid, conn, hier, time, alpha, src);
+    terms.template apply_sources<data_mode::scal_inc>(domain_, grid, conn, hier, time, alpha, src);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(gid, pde2.domain(), grid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::replace>(gid, domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(gid, pde2.domain(), grid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(gid, pde2.domain(), grid, conn, hier, time, alpha, src);
+    terms.template apply_sources<data_mode::scal_inc>(gid, domain_, grid, conn, hier, time, alpha, src);
   }
 
   //! computes the l-2 norm, taking the mass matrix into account
@@ -201,14 +206,14 @@ public:
   //! calls save-snapshot for the final step, if requested with -outfile
   void save_final_snapshot() const
   {
-    if (not pde2.options().outfile.empty())
-      save_snapshot(pde2.options().outfile);
+    if (not options_.outfile.empty())
+      save_snapshot(options_.outfile);
   }
 
   //! returns the title of the PDE
-  std::string const &title() const { return pde2.options().title; }
+  std::string const &title() const { return options_.title; }
   //! returns the subtitle of the PDE
-  std::string const &subtitle() const { return pde2.options().subtitle; }
+  std::string const &subtitle() const { return options_.subtitle; }
   //! returns true if the title contains the given sub-string
   bool title_contains(std::string const &substring) const {
     return (title().find(substring) != std::string::npos);
@@ -312,7 +317,7 @@ public:
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
 
-  pde_scheme<precision> const &get_pde2() const { return pde2; }
+  // pde_scheme<precision> const &get_pde2() const { return pde2; }
   time_data<precision> const &time_props() const { return stepper.data; }
   sparse_grid const &get_grid() const { return grid; }
 
@@ -387,9 +392,9 @@ protected:
   void set_initial_condition();
 
   //! start from time 0 and nothing has been set
-  void start_cold();
+  void start_cold(pde_scheme<precision> &pde);
   //! restart from a file
-  void restart_from_file();
+  void restart_from_file(pde_scheme<precision> &pde);
   //! common operations for the two start methods
   void start_moments();
 
@@ -399,15 +404,18 @@ private:
   mutable verbosity_level verb;
   // user provided options
   prog_opts options_;
-  pde_scheme<precision> pde2;
+  // initial conditions, non-separable
+  md_func<precision> initial_md_;
+  // initial conditions, separable
+  std::vector<separable_func<precision>> initial_sep_;
+  // pde-domain
+  pde_domain<precision> domain_;
 
   sparse_grid grid;
-
   connection_patterns conn;
-
   hierarchy_manipulator<precision> hier; // new transformer
 
-  // moments, new implementation
+  // moments
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
   mutable solvers::poisson<precision> poisson;

@@ -70,10 +70,11 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
 }
 
 template<typename P>
-term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
+term_manager<P>::term_manager(pde_domain<P> const &domain, pde_scheme<P> &pde,
+                              int max_level_in, sparse_grid const &grid,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
-  : num_dims(pde.num_dims()), max_level(pde.max_level()), legendre(pde.degree())
+  : num_dims(domain.num_dims()), max_level(max_level_in), legendre(hier.degree())
 {
   if (num_dims == 0)
     return;
@@ -108,10 +109,7 @@ term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
   terms.resize(num_terms);
 
   {
-    bool has_interp = !!pde.initial_md_;
-    if (not has_interp)
-      for (auto const &s : pde.sources_md_)
-        if (s) has_interp = true;
+    bool has_interp = pde.has_interp_funcs;
 
     auto ir = terms.begin();
     for (int i : iindexof(pde_terms.size()))
@@ -142,7 +140,7 @@ term_manager<P>::term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
       }
     }
     if (has_interp)
-      interp = interpolation_manager<P>(pde.domain(), conn, hier.degree());
+      interp = interpolation_manager<P>(domain, conn, hier.degree());
   }
 
   // compute the dependencies

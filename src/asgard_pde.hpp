@@ -1442,6 +1442,7 @@ public:
 
   //! set non-separable initial condition, can have only one
   void set_initial(md_func<P> ic_md) {
+    has_interp_funcs = true;
     initial_md_ = std::move(ic_md);
   }
   //! add separable initial condition, can have multiple
@@ -1482,6 +1483,7 @@ public:
 
   //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_func<P> smd) {
+    has_interp_funcs = true;
     sources_md_[std::max(current_term_group, 0)] = std::move(smd);
   }
   //! add separable right-hand-source, can have multiple
@@ -1563,6 +1565,8 @@ private:
   prog_opts options_;
   pde_domain<P> domain_;
   int max_level_ = 1;
+
+  bool has_interp_funcs = false;
 
   md_func<P> initial_md_;
   std::vector<separable_func<P>> initial_sep_;

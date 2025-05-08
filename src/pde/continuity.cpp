@@ -218,7 +218,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // disc.get_pde2().ic_sep() returns the separable initial conditions
   // disc.project_function() projects a set of separable functions
   // onto the current sparse grid basis and returns the coefficients
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   double constexpr space1d = 2 * PI; // integral of sin(x)^2 over (-2 * PI, 2 * PI)
   double const time_val    = std::cos(disc.time_params().time());
@@ -404,7 +404,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
                                  verbosity_level::quiet);
 
   // makes a dense grid over the domain using np points each direction
-  vector2d<double> const mesh = make_grid<double>(disc.get_pde2().domain(), np);
+  vector2d<double> const mesh = make_grid<double>(disc.domain(), np);
 
   // the reconstruction is always done in double-precision even if the data
   // coming from the discretization_manager is in floats

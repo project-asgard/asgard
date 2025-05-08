@@ -5,25 +5,29 @@ namespace asgard
 
 template<typename precision>
 discretization_manager<precision>::discretization_manager(
-    pde_scheme<precision> pde_in, verbosity_level verbosity)
-  : verb(pde_in.options().verbosity.value_or(verbosity)),
-    pde2(std::move(pde_in)), conn(pde2.max_level())
+    pde_scheme<precision> pde, verbosity_level verbosity)
+  : verb(pde.options().verbosity.value_or(verbosity)),
+    // pde2(std::move(pde_in)),
+    conn(pde.max_level())
 {
-  options_ = std::move(pde2.options_);
+  rassert(pde.num_dims() > 0, "cannot discretize an empty pde");
 
-  init_compute();
+  options_ = std::move(pde.options_);
+  domain_  = std::move(pde.domain_);
 
-  if (pde2.num_dims() == 0)
-    throw std::runtime_error("cannot discretize an empty pde");
+  initial_md_  = std::move(pde.initial_md_);
+  initial_sep_ = std::move(pde.initial_sep_);
 
-  if (pde2.options().restarting())
-    restart_from_file();
+  init_compute(); // compute engine, detect GPUs, etc.
+
+  if (options_.restarting())
+    restart_from_file(pde);
   else
-    start_cold();
+    start_cold(pde);
 }
 
 template<typename precision>
-void discretization_manager<precision>::start_cold()
+void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 {
   int const degree_ = options_.degree.value();
 
@@ -132,7 +136,7 @@ void discretization_manager<precision>::start_cold()
     }
 
     if (is_imex(sm)) {
-      stepper = time_advance_manager<precision>(dtime, options_, pde2.imex_im(), pde2.imex_ex());
+      stepper = time_advance_manager<precision>(dtime, options_, pde.imex_im(), pde.imex_ex());
     } else {
       stepper = time_advance_manager<precision>(dtime, options_);
     }
@@ -145,11 +149,11 @@ void discretization_manager<precision>::start_cold()
     throw std::runtime_error("the selected time-stepping method requires a solver, "
                              "or a default solver set in the pde specification");
 
-  hier = hierarchy_manipulator(degree_, pde2.domain());
+  hier = hierarchy_manipulator(degree_, domain_);
 
   // first we must initialize the terms, which will also initialize the kron
   // operations and the interpolation engine
-  terms = term_manager<precision>(pde2, grid, hier, conn);
+  terms = term_manager<precision>(domain_, pde, options_.max_level(), grid, hier, conn);
 
   start_moments();
 
@@ -171,54 +175,51 @@ void discretization_manager<precision>::start_cold()
 }
 
 template<typename precision>
-void discretization_manager<precision>::restart_from_file()
+void discretization_manager<precision>::restart_from_file(pde_scheme<precision> &pde)
 {
 #ifdef ASGARD_USE_HIGHFIVE
   tools::time_event timing_("restart from file");
 
   time_data<precision> dtime;
-  h5manager<precision>::read(pde2.options().restart_file, high_verbosity(), pde2, grid,
+  h5manager<precision>::read(options_.restart_file, high_verbosity(),
+                             options_, domain_, grid,
                              dtime, aux_fields, state);
 
-  conn = connection_patterns(pde2.max_level());
+  conn = connection_patterns(options_.max_level());
 
-  auto const &options = pde2.options();
-
-  int const degree_ = options.degree.value();
-
-  hier = hierarchy_manipulator(degree_, pde2.domain());
+  hier = hierarchy_manipulator(options_.degree.value(), domain_);
 
   if (is_imex(dtime.step_method())) {
-    stepper = time_advance_manager<precision>(dtime, options, pde2.imex_im(), pde2.imex_ex());
+    stepper = time_advance_manager<precision>(dtime, options_, pde.imex_im(), pde.imex_ex());
   } else {
-    stepper = time_advance_manager<precision>(dtime, options);
+    stepper = time_advance_manager<precision>(dtime, options_);
   }
 
-  stepper = time_advance_manager<precision>(dtime, options);
+  stepper = time_advance_manager<precision>(dtime, options_);
 
-  terms = term_manager<precision>(pde2, grid, hier, conn);
+  terms = term_manager<precision>(domain_, pde, options_.max_level(), grid, hier, conn);
 
   start_moments();
 
   if (stepper.needed_precon() == precon_method::adi) {
     precision const substep
-        = (options.step_method.value() == time_method::cn) ? 0.5 : 1;
+        = (options_.step_method.value() == time_method::cn) ? 0.5 : 1;
     terms.build_matrices(grid, conn, hier, precon_method::adi,
                          substep * stepper.data.dt());
   } else
     terms.build_matrices(grid, conn, hier);
 
   if (not stop_verbosity()) {
-    if (not options.title.empty())
-      std::cout << "  title: " << options.title << '\n';
-    if (not options.subtitle.empty())
-      std::cout << "subtitle: " << options.subtitle << '\n';
+    if (not options_.title.empty())
+      std::cout << "  title: " << options_.title << '\n';
+    if (not options_.subtitle.empty())
+      std::cout << "subtitle: " << options_.subtitle << '\n';
     std::cout << grid;
-    if (options.adapt_threshold)
-      std::cout << "  adaptive tolerance: " << options.adapt_threshold.value() << '\n';
-    if (options.adapt_ralative)
-      std::cout << "  relative tolerance: " << options.adapt_ralative.value() << '\n';
-    if (not options.adapt_threshold and not options.adapt_ralative)
+    if (options_.adapt_threshold)
+      std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
+    if (options_.adapt_ralative)
+      std::cout << "  relative tolerance: " << options_.adapt_ralative.value() << '\n';
+    if (not options_.adapt_threshold and not options_.adapt_ralative)
       std::cout << "  non-adaptive\n";
     std::cout << stepper;
     if (high_verbosity())
@@ -238,9 +239,9 @@ void discretization_manager<precision>::start_moments() {
     // the poisson solver needs 1 moment
     int const num      = std::max(terms.deps().num_moments, 1);
     int const mom_size = fm::ipow2(grid.current_level(0)) * (degree() + 1);
-    moms1d = moments1d(num, degree(), pde2.max_level(), pde2.domain());
+    moms1d = moments1d(num, degree(), options_.max_level(), domain_);
     if (terms.deps().poisson) {
-      poisson = solvers::poisson(degree(), pde2.domain().xleft(0), pde2.domain().xright(0),
+      poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
                                  grid.current_level(0));
 
       // skip the first solve, putting in dummy data for the term construction
@@ -253,7 +254,8 @@ void discretization_manager<precision>::start_moments() {
 template<typename precision>
 void discretization_manager<precision>::save_snapshot(std::filesystem::path const &filename) const {
 #ifdef ASGARD_USE_HIGHFIVE
-  h5manager<precision>::write(pde2, degree(), grid, stepper.data, state, aux_fields, filename);
+  h5manager<precision>::write(options_, domain_, degree(), grid, stepper.data,
+                              state, aux_fields, filename);
 #else
   ignore(filename);
   throw std::runtime_error("saving to a file requires CMake option -DASGARD_USE_HIGHFIVE=ON");
@@ -263,11 +265,8 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
 template<typename precision>
 void discretization_manager<precision>::set_initial_condition()
 {
-  auto const &options = pde2.options();
-  std::vector<separable_func<precision>> const &sep = pde2.ic_sep();
-
-  precision const atol = options.adapt_threshold.value_or(0);
-  precision const rtol = options.adapt_ralative.value_or(0);
+  precision const atol = options_.adapt_threshold.value_or(0);
+  precision const rtol = options_.adapt_ralative.value_or(0);
 
   bool keep_refining = true;
 
@@ -278,20 +277,20 @@ void discretization_manager<precision>::set_initial_condition()
   {
     state.resize(grid.num_indexes() * hier.block_size());
 
-    if (pde2.ic_md())
-      terms.interp(grid, conn, time, 1, pde2.ic_md(), 0, state, terms.kwork, terms.it1);
+    if (initial_md_)
+      terms.interp(grid, conn, time, 1, initial_md_, 0, state, terms.kwork, terms.it1);
     else
       std::fill(state.begin(), state.end(), precision{0});
 
-    for (int i : iindexof(sep)) {
-      expect(sep[i].num_dims() == pde2.num_dims());
+    for (int i : iindexof(initial_sep_)) {
+      expect(initial_sep_[i].num_dims() == num_dims());
 
       terms.rebuild_mass_matrices(grid);
 
       std::array<block_diag_matrix<precision>, max_num_dimensions> mock;
 
       hier.template project_separable<data_mode::increment>
-            (sep[i], pde2.domain(), grid, terms.lmass, time, 1, state.data());
+            (initial_sep_[i], domain_, grid, terms.lmass, time, 1, state.data());
     }
 
     if (atol > 0 or rtol > 0) {
@@ -335,7 +334,7 @@ discretization_manager<precision>::project_function(
   terms.rebuild_mass_matrices(grid);
   for (int i : iindexof(sep)) {
     hier.template project_separable<data_mode::increment>
-          (sep[i], pde2.domain(), grid, terms.lmass, time, 1, out.data());
+          (sep[i], domain_, grid, terms.lmass, time, 1, out.data());
   }
 }
 

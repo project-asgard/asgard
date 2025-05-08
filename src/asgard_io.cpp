@@ -7,7 +7,8 @@
 namespace asgard
 {
 template<typename P>
-void h5manager<P>::write(pde_scheme<P> const &pde, int degree, sparse_grid const &grid,
+void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
+                         int degree, sparse_grid const &grid,
                          time_data<P> const &dtime, std::vector<P> const &state,
                          std::vector<aux_field_entry<P>> const &aux_fields,
                          std::string const &filename)
@@ -32,16 +33,14 @@ void h5manager<P>::write(pde_scheme<P> const &pde, int degree, sparse_grid const
   // as opposed to release version, try to keep it backwards compatible
   H5Easy::dump(file, "asgard file version", asgard_file_version);
 
-  int const num_dims  = pde.num_dims();
-  auto const &options = pde.options();
-  auto const &domain  = pde.domain();
+  int const num_dims  = domain.num_dims();
 
   H5Easy::dump(file, "title", options.title);
   H5Easy::dump(file, "subtitle", options.subtitle);
   H5Easy::dump(file, "default_plotter_view", options.default_plotter_view);
 
   H5Easy::dump(file, "num_dims", domain.num_dims_);
-  H5Easy::dump(file, "max_level", pde.max_level_);
+  H5Easy::dump(file, "max_level", options.max_level());
   H5Easy::dump(file, "degree", degree);
 
   { // domain section
@@ -111,7 +110,8 @@ void h5manager<P>::write(pde_scheme<P> const &pde, int degree, sparse_grid const
 }
 
 template<typename P>
-void h5manager<P>::read(std::string const &filename, bool silent, pde_scheme<P> &pde,
+void h5manager<P>::read(std::string const &filename, bool silent,
+                        prog_opts &options, pde_domain<P> &domain,
                         sparse_grid &grid, time_data<P> &dtime,
                         std::vector<aux_field_entry<P>> &aux_fields, std::vector<P> &state)
 {
@@ -138,21 +138,21 @@ void h5manager<P>::read(std::string const &filename, bool silent, pde_scheme<P> 
     int const num_pos  = H5Easy::load<int>(file, "num_pos");
     int const num_vel  = H5Easy::load<int>(file, "num_vel");
 
-    if (num_dims != pde.num_dims())
+    if (num_dims != domain.num_dims())
       throw std::runtime_error("Mismatch in the number of dimensions, "
-                               "pde is set for '" + std::to_string(pde.num_dims()) +
+                               "pde is set for '" + std::to_string(domain.num_dims()) +
                                "' but the file contains data for '" + std::to_string(num_dims) +
                                "'. The restart file must match the dimensions.");
 
-    if (num_pos != pde.domain().num_pos())
+    if (num_pos != domain.num_pos())
       throw std::runtime_error("Mismatch in the number of position dimensions, "
-                               "pde is set for '" + std::to_string(pde.domain().num_pos()) +
+                               "pde is set for '" + std::to_string(domain.num_pos()) +
                                "' but the file contains data for '" + std::to_string(num_pos) +
                                "'. The restart file must match the dimensions.");
 
-    if (num_vel != pde.domain().num_vel())
+    if (num_vel != domain.num_vel())
       throw std::runtime_error("Mismatch in the number of velocity dimensions, "
-                               "pde is set for '" + std::to_string(pde.domain().num_vel()) +
+                               "pde is set for '" + std::to_string(domain.num_vel()) +
                                "' but the file contains data for '" + std::to_string(num_vel) +
                                "'. The restart file must match the dimensions.");
 
@@ -165,16 +165,16 @@ void h5manager<P>::read(std::string const &filename, bool silent, pde_scheme<P> 
       P constexpr tol = (std::is_same_v<P, double>) ? 1.E-14 : 1.E-6;
       for (int d : iindexof(num_dims)) {
         P val = std::max( std::abs(drng[2 * d]), std::abs(drng[2 * d + 1]) );
-        P err = std::max( std::abs(pde.domain().xleft(d) - drng[2 * d]),
-                          std::abs(pde.domain().xright(d) - drng[2 * d + 1]) );
+        P err = std::max( std::abs(domain.xleft(d) - drng[2 * d]),
+                          std::abs(domain.xright(d) - drng[2 * d + 1]) );
         if (val > 1) // if large, switch to relative error
           err /= val;
         if (err > tol) { // should probably be an error, but hard to judge on what is "significant mismatch"
           std::cout << " -- ASGarD WARNING: dimension " << d << " has mismatch in the end-points.\n";
           std::cout << std::scientific;
           std::cout.precision((std::is_same_v<P, double>) ? 16 : 8);
-          std::cout << "  expected:      " << std::setw(25) << pde.domain().xleft(d)
-                    << std::setw(25) << pde.domain().xright(d) << '\n';
+          std::cout << "  expected:      " << std::setw(25) << domain.xleft(d)
+                    << std::setw(25) << domain.xright(d) << '\n';
           std::cout << "  found in file: " << std::setw(25) << drng[2 * d]
                     << std::setw(25) << drng[2 * d + 1] << '\n';
         }
@@ -182,30 +182,30 @@ void h5manager<P>::read(std::string const &filename, bool silent, pde_scheme<P> 
     }
 
     std::string title = H5Easy::load<std::string>(file, "title");
-    if (pde.options_.title.empty()) {
-      pde.options_.title = title;
-    } else if (title != pde.options_.title) {
+    if (options.title.empty()) {
+      options.title = title;
+    } else if (title != options.title) {
       std::cout << " -- ASGarD WARNING: mismatch in the problem title, possibly using the wrong restart file.\n";
-      std::cout << "  expected:      " << pde.options().title << '\n';
+      std::cout << "  expected:      " << options.title << '\n';
       std::cout << "  found in file: " << title << '\n';
     }
 
   }
 
   std::string subtitle = H5Easy::load<std::string>(file, "subtitle");
-  if (pde.options_.subtitle.empty()) // if user has new subtitle, keep it, else set from file
-    pde.options_.subtitle = H5Easy::load<std::string>(file, "subtitle");
-  pde.options_.default_plotter_view = H5Easy::load<std::string>(file, "default_plotter_view");
+  if (options.subtitle.empty()) // if user has new subtitle, keep it, else set from file
+    options.subtitle = H5Easy::load<std::string>(file, "subtitle");
+  options.default_plotter_view = H5Easy::load<std::string>(file, "default_plotter_view");
 
-  pde.options_.degree = H5Easy::load<int>(file, "degree");
+  options.degree = H5Easy::load<int>(file, "degree");
 
   { // reading time parameters
-    time_method sm = pde.options_.step_method.value_or(
+    time_method sm = options.step_method.value_or(
         static_cast<time_method>(H5Easy::load<int>(file, std::string("dtime_smethod"))));
 
-    P const stop    = pde.options_.stop_time.value_or(-1);
-    P const dt      = pde.options_.dt.value_or(-1);
-    int64_t const n = pde.options_.num_time_steps.value_or(-1);
+    P const stop    = options.stop_time.value_or(-1);
+    P const dt      = options.dt.value_or(-1);
+    int64_t const n = options.num_time_steps.value_or(-1);
 
     P fstop                 = H5Easy::load<P>(file, "dtime_stop");
     P const curr_time       = H5Easy::load<P>(file, "dtime_time");
@@ -286,14 +286,12 @@ void h5manager<P>::read(std::string const &filename, bool silent, pde_scheme<P> 
     // first we follow the same logic for specifying either all dims or a single int
     // then we do not allow the max level to be reduced below the current level
     // to do this, we will have to delete indexes, which is complicated (maybe do later)
-    int max_level = H5Easy::load<int>(file, "max_level");
+    options.loaded_max_level_ = H5Easy::load<int>(file, "max_level");
     // TODO: figure out the max-level logic
-    if (pde.options_.max_levels.empty()) { // reusing the max levels
-      pde.max_level_ = max_level;
-    } else {
-      std::vector<int> &max_levels = pde.options_.max_levels;
+    if (not options.max_levels.empty()) { // reusing the max levels
+      std::vector<int> &max_levels = options.max_levels;
       if (max_levels.size() == 1 and num_dims > 1)
-        max_levels.resize(num_dims, pde.options_.max_levels.front());
+        max_levels.resize(num_dims, options.max_levels.front());
 
       if (max_levels.size() != static_cast<size_t>(num_dims))
         throw std::runtime_error("the max levels must include either a single entry"
@@ -305,50 +303,48 @@ void h5manager<P>::read(std::string const &filename, bool silent, pde_scheme<P> 
                                    "of the grid");
       }
 
-      pde.max_level_ = *std::max_element(max_levels.begin(), max_levels.end());
-
       // overriding the loaded max-indexes
       for (int d : iindexof(num_dims))
         grid.max_index_[d] = (max_levels[d] == 0) ? 1 : fm::ipow2(max_levels[d]);
     }
 
-    if (not pde.options_.adapt_threshold) { // no adapt is loaded
-      if (not pde.options_.set_no_adapt) { // adaptivity wasn't explicitly canceled
+    if (not options.adapt_threshold) { // no adapt is loaded
+      if (not options.set_no_adapt) { // adaptivity wasn't explicitly canceled
         double const adapt = H5Easy::load<double>(file, "grid_adapt_threshold");
         if (adapt > 0) // if negative, then adaptivity was never set to begin with
-          pde.options_.adapt_threshold = adapt;
+          options.adapt_threshold = adapt;
         double const adapt_rel = H5Easy::load<double>(file, "grid_adapt_relative");
         if (adapt_rel > 0) // if negative, then adaptivity was never set to begin with
-          pde.options_.adapt_ralative = adapt_rel;
+          options.adapt_ralative = adapt_rel;
       }
     }
 
-    pde.max_level_ = max_level;
+    // pde.max_level_ = max_level;
   }
 
   { // solver data section
-    if (not pde.options_.solver)
-      pde.options_.solver = static_cast<solver_method>(H5Easy::load<int>(file, "solver_method"));
-    if (not pde.options_.isolver_tolerance) {
-      pde.options_.isolver_tolerance = H5Easy::load<double>(file, "solver_itol");
-      if (pde.options_.isolver_tolerance.value() < 0)
-        pde.options_.isolver_tolerance = pde.options_.default_isolver_tolerance;
+    if (not options.solver)
+      options.solver = static_cast<solver_method>(H5Easy::load<int>(file, "solver_method"));
+    if (not options.isolver_tolerance) {
+      options.isolver_tolerance = H5Easy::load<double>(file, "solver_itol");
+      if (options.isolver_tolerance.value() < 0)
+        options.isolver_tolerance = options.default_isolver_tolerance;
     }
-    if (not pde.options_.isolver_iterations) {
-      pde.options_.isolver_iterations = H5Easy::load<int>(file, "solver_iter");
-      if (pde.options_.isolver_iterations.value() < 0)
-        pde.options_.isolver_iterations = pde.options_.default_isolver_iterations;
+    if (not options.isolver_iterations) {
+      options.isolver_iterations = H5Easy::load<int>(file, "solver_iter");
+      if (options.isolver_iterations.value() < 0)
+        options.isolver_iterations = options.default_isolver_iterations;
     }
-    if (not pde.options_.isolver_inner_iterations) {
-      pde.options_.isolver_inner_iterations = H5Easy::load<int>(file, "solver_inner");
-      if (pde.options_.isolver_inner_iterations.value() < 0)
-        pde.options_.isolver_inner_iterations = pde.options_.default_isolver_inner_iterations;
+    if (not options.isolver_inner_iterations) {
+      options.isolver_inner_iterations = H5Easy::load<int>(file, "solver_inner");
+      if (options.isolver_inner_iterations.value() < 0)
+        options.isolver_inner_iterations = options.default_isolver_inner_iterations;
     }
   }
 
   state = H5Easy::load<std::vector<P>>(file, "state");
 
-  int64_t const size = grid.num_indexes() * fm::ipow(pde.options_.degree.value() + 1, num_dims);
+  int64_t const size = grid.num_indexes() * fm::ipow(options.degree.value() + 1, num_dims);
 
   if (state.size() != static_cast<size_t>(size))
     throw std::runtime_error("file corruption detected: wrong number of state coefficients "
