@@ -578,24 +578,24 @@ void gpu_dense(int const dimensions, int const n, int const output_size,
     std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
 }
 
-#ifdef ASGARD_ENABLE_DOUBLE
-
-template void gpu_dense<double>(int const, int const, int const, int64_t const,
-                                int const, int const, int const[], int const,
-                                int const, double const *const[], int const,
-                                double const, double const[], double const,
-                                double[]);
-
-#endif
-
-#ifdef ASGARD_ENABLE_FLOAT
-
-template void gpu_dense<float>(int const, int const, int const, int64_t const,
-                               int const, int const, int const[], int const,
-                               int const, float const *const[], int const,
-                               float const, float const[], float const,
-                               float[]);
-#endif
+// #ifdef ASGARD_ENABLE_DOUBLE
+//
+// template void gpu_dense<double>(int const, int const, int const, int64_t const,
+//                                 int const, int const, int const[], int const,
+//                                 int const, double const *const[], int const,
+//                                 double const, double const[], double const,
+//                                 double[]);
+//
+// #endif
+//
+// #ifdef ASGARD_ENABLE_FLOAT
+//
+// template void gpu_dense<float>(int const, int const, int const, int64_t const,
+//                                int const, int const, int const[], int const,
+//                                int const, float const *const[], int const,
+//                                float const, float const[], float const,
+//                                float[]);
+// #endif
 
 #endif
 

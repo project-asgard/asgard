@@ -460,22 +460,22 @@ void gpu_sparse(int const dimensions, int const n, int const output_size,
   }
 }
 
-#ifdef ASGARD_ENABLE_DOUBLE
-
-template void gpu_sparse<double>(int const, int const, int const, int const,
-                                 int const[], int const[], int const,
-                                 int const[], double const[], double const,
-                                 double const[], double const, double[]);
-
-#endif
-
-#ifdef ASGARD_ENABLE_FLOAT
-
-template void gpu_sparse<float>(int const, int const, int const, int const,
-                                int const[], int const[], int const,
-                                int const[], float const[], float const,
-                                float const[], float const, float[]);
-#endif
+// #ifdef ASGARD_ENABLE_DOUBLE
+//
+// template void gpu_sparse<double>(int const, int const, int const, int const,
+//                                  int const[], int const[], int const,
+//                                  int const[], double const[], double const,
+//                                  double const[], double const, double[]);
+//
+// #endif
+//
+// #ifdef ASGARD_ENABLE_FLOAT
+//
+// template void gpu_sparse<float>(int const, int const, int const, int const,
+//                                 int const[], int const[], int const,
+//                                 int const[], float const[], float const,
+//                                 float const[], float const, float[]);
+// #endif
 
 #endif
 
