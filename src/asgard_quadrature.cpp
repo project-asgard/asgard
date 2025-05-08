@@ -3,9 +3,8 @@
 namespace asgard
 {
 
-template<typename P>
-std::array<std::vector<P>, 2>
-legendre_vals(std::vector<P> const &points, int const degree,
+std::array<std::vector<double>, 2>
+legendre_vals(std::vector<double> const &points, int const degree,
               legendre_normalization const norm)
 {
   expect(degree >= 0);
@@ -15,11 +14,11 @@ legendre_vals(std::vector<P> const &points, int const degree,
   int const nump = static_cast<int>(points.size());
 
   // allocate and zero the output Legendre polynomials, their derivatives
-  std::vector<P> vec_leg(points.size() * pdof);
-  std::vector<P> vec_leg_prime(points.size() * pdof);
+  std::vector<double> vec_leg(points.size() * pdof);
+  std::vector<double> vec_leg_prime(points.size() * pdof);
 
-  span2d<P> leg(points.size(), pdof, vec_leg.data());
-  span2d<P> leg_prime(points.size(), pdof, vec_leg_prime.data());
+  span2d<double> leg(points.size(), pdof, vec_leg.data());
+  span2d<double> leg_prime(points.size(), pdof, vec_leg_prime.data());
 
   std::fill_n(leg[0], nump, 1); // constant Legenre polynomial
   // vec_leg_prime is implicitly set to zero
@@ -28,11 +27,14 @@ legendre_vals(std::vector<P> const &points, int const degree,
 
   // using the recurrence relation (k + 1) P_{k + 1} = (2k + 1) x P_k - k P_{k-1}
   for (int k = 1; k < degree; k++) {
-    P const nscale = 2 * k + 1;
-    P const dscale = P{1} / P(k + 1);
+    double const nscale = 2.0 * k + 1.0;
+    double const dscale = 1.0 / (k + 1.0);
 
     for (int j = 0; j < nump; j++)
-      leg[k+1][j] = (points[j] * nscale * leg[k][j] - leg[k-1][j] * k) * dscale;
+      leg[k+1][j] = points[j] * nscale * leg[k][j] * dscale;
+
+    for (int j = 0; j < nump; j++)
+      leg[k+1][j] -= leg[k-1][j] * k * dscale;
   }
 
   // vec_leg_prime[0] is already set to zero
@@ -58,7 +60,7 @@ legendre_vals(std::vector<P> const &points, int const degree,
     switch (norm) {
       case legendre_normalization::lin:
         for (int k = 0; k <= degree; k++) {
-          P const dscale = std::sqrt(P(2 * k + 1));
+          double const dscale = std::sqrt(2.0 * k + 1.0);
           for (int j = 0; j < nump; j++)
             leg[k][j] *= dscale;
           for (int j = 0; j < nump; j++)
@@ -68,7 +70,7 @@ legendre_vals(std::vector<P> const &points, int const degree,
       case legendre_normalization::matlab:
         break;
       default: { // case legendre_normalization::unnormalized
-          P const dscale = std::sqrt(2.0);
+          double const dscale = std::sqrt(2.0);
           for (size_t i = 0; i < vec_leg.size(); i++)
             vec_leg[i] *= dscale;
           for (size_t i = 0; i < vec_leg_prime.size(); i++)
@@ -81,10 +83,8 @@ legendre_vals(std::vector<P> const &points, int const degree,
   return {vec_leg, vec_leg_prime};
 }
 
-template<typename P>
-std::array<std::vector<P>, 2>
-legendre_weights(int const degree, no_deduce<P> const lower_bound,
-                 no_deduce<P> const upper_bound,
+std::array<std::vector<double>, 2>
+legendre_weights(int const degree, double const lower_bound, double const upper_bound,
                  quadrature_mode const quad_mode)
 {
   expect(degree >= 0);
@@ -96,8 +96,8 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
                         ? degree + 1
                         : default_num_quad;
 
-  std::vector<P> x_roots(num_points);
-  std::vector<P> weights(num_points);
+  std::vector<double> x_roots(num_points);
+  std::vector<double> weights(num_points);
 
   // Initial guess at the roots for the Legendre polynomial of degree num_points
   // x_roots = cos((2*(0:num_points-1)'+1)*pi /
@@ -109,17 +109,17 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
   // reversing the order so the final set of point is ordered left-right
   // computing the cos() component
   {
-    P const a = M_PI / static_cast<P>(2 * num_points);
+    double const a = M_PI / (2.0 * num_points);
     for (int i = 0; i < num_points; i++)
-      x_roots[num_points - i - 1] = std::cos((2 * i + 1) * a);
+      x_roots[num_points - i - 1] = std::cos((2.0 * i + 1.0) * a);
   }
 
   // computing the sin() component
   if (num_points > 1) {
-    P const a = (P{0.27} / num_points);
-    P const b = M_PI * P(num_points - 1) / P(num_points + 1);
-    P const dx = 2 / (num_points - 1);
-    P f = 0;
+    double const a = (0.27 / num_points);
+    double const b = M_PI * (num_points - 1.0) / (num_points + 1.0);
+    double const dx = 2.0 / (num_points - 1.0);
+    double f = 0;
     for (int i = 1; i < num_points; i++) {
       x_roots[num_points - i - 1] += a * std::sin(b * f);
       f += dx;
@@ -127,22 +127,20 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
     x_roots.front() += a * std::sin(b);
   }
 
-  P const eps = std::numeric_limits<P>::epsilon();
-
   // This piece of the code uses Newton's method to solve for the
   // Legendre polynomial roots
   // x_roots = x_roots - f(x_roots) / f'(x_roots)
   // f() is the values of Legendre polynomials
 
-  std::vector<P> workspace(4 * num_points);
-  P *prev = workspace.data();
-  P *curr = prev + num_points;
-  P *next = curr + num_points;
+  std::vector<double> workspace(4 * num_points);
+  double *prev = workspace.data();
+  double *curr = prev + num_points;
+  double *next = curr + num_points;
 
-  P *leg_prime = next + num_points;
+  double *leg_prime = next + num_points;
 
-  P diff = 1000 * eps; // make sure we enter the while loop below
-  while (diff > eps)
+  double diff = 1000; // make sure we enter the while loop below
+  while (diff > std::numeric_limits<double>::epsilon())
   {
     // set the constant and linear polynomials, recurrence relation
     std::fill_n(prev, num_points, 1);
@@ -150,13 +148,16 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
     for (int i = 1; i < num_points; ++i)
     {
       // P_i+1(x_roots) = ((2*i+1)*x_roots*P_i(x_roots) - i*P_i-1(x_roots))/(i+1)
-      P const nscale = 2 * i + 1;
-      P const dscale = P{1} / P(i + 1);
+      double const nscale = 2.0 * i + 1.0;
+      double const dscale = 1.0 / (i + 1.0);
 
       for (int j = 0; j < num_points; j++)
-        next[j] = (x_roots[j] * nscale * curr[j] - prev[j] * i) * dscale;
+        next[j] = x_roots[j] * nscale * curr[j] * dscale;
 
-      P *t = prev;
+      for (int j = 0; j < num_points; j++)
+        next[j] -= prev[j] * i * dscale;
+
+      double *t = prev;
       prev = curr;
       curr = next;
       next = t;
@@ -166,10 +167,10 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
     for (int j = 0; j < num_points; j++)
     {
       // lp is the derivative of the Legenre polynomial
-      P const lp = num_points * (prev[j] - curr[j] * x_roots[j]) / (1 - x_roots[j] * x_roots[j]);
-      P const dl = curr[j] / lp; // Newton correction
+      double const lp = num_points * (prev[j] - curr[j] * x_roots[j]) / (1 - x_roots[j] * x_roots[j]);
+      double const dl = curr[j] / lp; // Newton correction
       leg_prime[j] = lp;
-      x_roots[j] -= dl;
+      x_roots[j] = (lp * x_roots[j] - curr[j]) / lp;
       diff = std::max(diff, std::abs(dl));
     }
   }
@@ -180,31 +181,9 @@ legendre_weights(int const degree, no_deduce<P> const lower_bound,
 
   // remap to (lower, upper)
   for (int j = 0; j < num_points; j++)
-    x_roots[j] = P{0.5} * (lower_bound * (1 - x_roots[j]) + upper_bound * (1 + x_roots[j]));
+    x_roots[j] = 0.5 * (lower_bound * (1.0 - x_roots[j]) + upper_bound * (1.0 + x_roots[j]));
 
-  return std::array<std::vector<P>, 2>{x_roots, weights};
+  return std::array<std::vector<double>, 2>{x_roots, weights};
 }
-
-
-// always enable double for plotting
-template std::array<std::vector<double>, 2>
-legendre_vals(std::vector<double> const &points, int const degree,
-              legendre_normalization const norm);
-
-template std::array<std::vector<double>, 2>
-legendre_weights(int const degree, double const lower_bound,
-                 double const upper_bound, quadrature_mode const quad_mode);
-
-#ifdef ASGARD_ENABLE_FLOAT
-
-template std::array<std::vector<float>, 2>
-legendre_vals(std::vector<float> const &points, int const degree,
-              legendre_normalization const norm);
-
-template std::array<std::vector<float>, 2>
-legendre_weights(int const degree, float const lower_bound,
-                 float const upper_bound, quadrature_mode const quad_mode);
-
-#endif
 
 } // namespace asgard

@@ -190,8 +190,8 @@ public:
   //! Create and store the quadratures for (-1, 0) and (0, 1)
   canonical_integrator(int const degree_in) : degree_(degree_in)
   {
-    auto [fkxl, fkwl] = legendre_weights<double>(2 * degree_ + 1, -1, 0);
-    auto [fkxr, fkwr] = legendre_weights<double>(2 * degree_ + 1, 0, 1);
+    auto [fkxl, fkwl] = legendre_weights(2 * degree_ + 1, -1, 0);
+    auto [fkxr, fkwr] = legendre_weights(2 * degree_ + 1, 0, 1);
 
     wl = fkwl;
     xl = fkxl;
@@ -204,8 +204,8 @@ public:
   //! Create and store the quadratures for (-1, 0) and (0, 1), uses moments
   canonical_integrator(int const num_mom, int const degree_in) : degree_(degree_in)
   {
-    auto [fkxl, fkwl] = legendre_weights<double>(num_mom + degree_ + 1, -1, 0);
-    auto [fkxr, fkwr] = legendre_weights<double>(num_mom + degree_ + 1,  0, 1);
+    auto [fkxl, fkwl] = legendre_weights(num_mom + degree_ + 1, -1, 0);
+    auto [fkxr, fkwr] = legendre_weights(num_mom + degree_ + 1,  0, 1);
 
     wl = fkwl;
     xl = fkxl;

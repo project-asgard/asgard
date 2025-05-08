@@ -284,7 +284,7 @@ void test_energy(std::string const &opt_str) {
     for (auto j : indexof(num_cell))
       for (auto k : indexof(pdof))
         mv += moments[j][k] * moments[j][k + pdof];
-    tcheckless(i, std::abs(mv) / level0, 1.0e-14);
+    tcheckless(i, std::abs(mv), 1.0e-14);
 
     // check the initial slight energy decay before it stabilizes
     if (i > 0)
