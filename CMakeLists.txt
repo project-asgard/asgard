@@ -411,7 +411,6 @@ set(asgard_components
     kronmult_common
     kronmult_cpu
     moment
-    permutations
     pde
     pde_functions
     program_options
