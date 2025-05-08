@@ -4,9 +4,7 @@
 
 #ifdef ASGARD_USE_CUDA
 
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <sm_60_atomic_functions.h>
+// #include <sm_60_atomic_functions.h> // TODO: move to private headers
 
 #define ASGARD_GPU_WARP_SIZE 32
 

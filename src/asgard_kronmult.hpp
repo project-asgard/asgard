@@ -10,60 +10,17 @@
 
 namespace asgard::kronmult
 {
-
 /*!
- * \brief Perform global Kronecked product
+ * \internal
+ * \brief Persistent workspace for kronmult operations
  *
- * Reference algorithm using the multi-index data-structures directly.
- *
- * The permutations between upper/lower parts and the order of the directions
- * is stored in \b kron_permute.
- *
- * The definition of the sparsity pattern and sets is the same as in
- * global_kron_1d().
- * The vals contains a vector for each dimension.
- *
- * The result is y += sum_{t in terms} alpha * mat_t * x
- * i.e., one such operation has to be applied for each term.
- *
- * The size of the workspace must be twice the size of x/y,
- * i.e., it must match 2 * iset.num_indexes()
+ * The methods will use resize on the vectors, thus adjusting the memory
+ * being used, but also minimizing the new allocations.
+ * \endinternal
  */
-template<typename precision>
-void global_cpu(permutes const &perms,
-                vector2d<int> const &ilist, dimension_sort const &dsort,
-                connect_1d const &conn, std::vector<int> const &terms,
-                std::vector<std::vector<precision>> const &vals,
-                precision alpha, precision const *x, precision *y,
-                precision *worspace1, precision *worspace2);
-
-/*!
- * \brief Perform global Kronecked product
- *
- * Fast algorithm, using a sparsity pattern loaded into the vectors.
- *
- * The index vector lists gpntr, gindx, gdiag hold a vector for each dimension,
- * this is the common part of the sparse matrices.
- * The values gvals are number-of-terms X number-of-dimensions.
- *
- * terms gives the subset of terms to use for this operation
- *
- * computes y += A * x
- */
-template<typename precision>
-void global_cpu(int num_dimensions,
-                std::vector<permutes> const &perms,
-                std::vector<std::vector<int>> const &gpntr,
-                std::vector<std::vector<int>> const &gindx,
-                std::vector<std::vector<int>> const &gdiag,
-                std::vector<std::vector<precision>> const &gvals,
-                std::vector<int> const &terms, precision const *x, precision *y,
-                precision *worspace1, precision *worspace2);
-
 template<typename precision>
 struct workspace
 {
-  std::vector<precision> x, y; // TODO: rename for the v2
   std::vector<precision> w1, w2;
   std::vector<std::vector<int64_t>> row_map;
 };
