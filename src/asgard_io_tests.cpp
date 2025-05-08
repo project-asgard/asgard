@@ -130,19 +130,19 @@ void simple_restart() {
   tassert(std::abs(ref.time_props().stop_time() - disc.time_props().stop_time()) < tol);
   tassert(std::abs(ref.time_props().num_remain() - disc.time_props().num_remain()) < tol);
 
-  tassert(ref.get_sgrid().num_indexes() == disc.get_sgrid().num_indexes());
-  tassert(ref.get_sgrid().num_dims() == disc.get_sgrid().num_dims());
-  tassert(ref.get_sgrid().generation() == disc.get_sgrid().generation());
+  tassert(ref.get_grid().num_indexes() == disc.get_grid().num_indexes());
+  tassert(ref.get_grid().num_dims() == disc.get_grid().num_dims());
+  tassert(ref.get_grid().generation() == disc.get_grid().generation());
   {
-    int const *g1 = ref.get_sgrid()[0];
-    int const *g2 = disc.get_sgrid()[0];
-    int64_t const num = ref.get_sgrid().num_indexes() * ref.get_sgrid().num_dims();
+    int const *g1 = ref.get_grid()[0];
+    int const *g2 = disc.get_grid()[0];
+    int64_t const num = ref.get_grid().num_indexes() * ref.get_grid().num_dims();
     int max_index_error = 0;
     for (int64_t i = 0; i < num; i++)
       max_index_error = std::max(max_index_error, std::abs(g1[i] - g2[i]));
     tassert(max_index_error == 0);
 
-    auto const &grid = disc.get_sgrid();
+    auto const &grid = disc.get_grid();
     for (int d : iindexof(num_dims)) {
       tassert(grid.current_level(d) == 3);
       tassert(grid.max_index(d) == 16);
@@ -301,14 +301,14 @@ void restart_adapt() {
   auto ropts = make_opts("-restart _asg_testfile.h5");
   discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
 
-  tassert(rdisc.get_sgrid().num_indexes() == disc.get_sgrid().num_indexes());
+  tassert(rdisc.get_grid().num_indexes() == disc.get_grid().num_indexes());
   tassert(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
 
   tassert(rdisc.get_aux_fields().size() == 1);
   tassert(rdisc.get_aux_fields().front().name == "aux-field");
   tassert(rdisc.get_aux_fields().front().data.size() == aux_size);
   tassert(rdisc.get_aux_fields().front().grid.size() ==
-          static_cast<size_t>(2 * disc.get_sgrid().num_indexes()));
+          static_cast<size_t>(2 * disc.get_grid().num_indexes()));
   tassert(rdisc.get_aux_fields().front().data[1] == 42);
   tassert(rdisc.get_aux_fields().front().data[2] == 3);
 
@@ -324,7 +324,7 @@ void restart_adapt() {
   discretization_manager<P> reff(make_testpde<pde, P>(2, options));
   reff.advance_time();
 
-  tassert(rdisc.get_sgrid().num_indexes() == reff.get_sgrid().num_indexes());
+  tassert(rdisc.get_grid().num_indexes() == reff.get_grid().num_indexes());
 
   tassert(std::abs(reff.time_params().time() - 0.08) < 1.E-8);
 
@@ -352,7 +352,7 @@ void restart_moments() {
   auto ropts = make_opts("-restart _asg_testfile.h5");
   discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
 
-  tassert(rdisc.get_sgrid().num_indexes() == disc.get_sgrid().num_indexes());
+  tassert(rdisc.get_grid().num_indexes() == disc.get_grid().num_indexes());
   tassert(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
 
   tassert(std::abs(rdisc.time_params().stop_time() - 1.5625E-2) < 1.E-10); // updated the stop time

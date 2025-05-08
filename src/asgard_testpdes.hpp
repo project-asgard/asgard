@@ -191,13 +191,13 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
                    disc.get_pde2().domain());
     std::vector<P> mom_vec;
 
-    moms.project_moments(disc.get_sgrid(), disc.current_state(), mom_vec);
+    moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
 
     disc.do_poisson_update(disc.current_state()); // update the electric field
 
     auto const &efield = disc.get_terms().cdata.electric_field;
 
-    int const level0   = disc.get_sgrid().current_level(0);
+    int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
     double const dx    = disc.get_pde2().domain().length(0) / num_cell;
 

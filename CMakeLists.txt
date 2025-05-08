@@ -444,14 +444,6 @@ foreach (component IN LISTS asgard_components)
     )
 endforeach ()
 
-target_sources (libasgard
-                PRIVATE
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult_cpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp>
-)
 target_precompile_headers (libasgard
                            PUBLIC
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp>>

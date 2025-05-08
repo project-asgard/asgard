@@ -253,11 +253,11 @@ void test_energy(std::string const &opt_str) {
   {
     disc.advance_time(1);
 
-    int const level0   = disc.get_sgrid().current_level(0);
+    int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
     P const dx         = disc.get_pde2().domain().length(0) / num_cell;
 
-    moms.project_moments(disc.get_sgrid(), disc.current_state(), mom_vec);
+    moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
 
     disc.do_poisson_update(disc.current_state()); // update the electric field
 

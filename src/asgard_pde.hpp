@@ -298,6 +298,9 @@ struct term_moment_over_density_neg {
 template<typename P>
 struct term_manager;
 
+template<typename P>
+class discretization_manager;
+
 /*!
  * \ingroup asgard_pde_definition
  * \brief One dimensional term, building block of separable operators
@@ -1540,6 +1543,8 @@ public:
   friend class h5manager<P>;
   //! allows the term_manager to access the terms
   friend struct term_manager<P>;
+  //! allows the discretization_manager to access the options
+  friend struct discretization_manager<P>;
 
 private:
   void finalize_term_groups() {

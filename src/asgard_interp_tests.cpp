@@ -131,7 +131,7 @@ void interp_wav2nodal() {
     discretization_manager<P> disc(pde, verbosity_level::quiet);
 
     // check the loaded nodes
-    sparse_grid const &grid = disc.get_sgrid();
+    sparse_grid const &grid = disc.get_grid();
 
     vector2d<P> const &nodes = interp.nodes(grid);
     tassert(nodes.stride() == 2);
@@ -179,7 +179,7 @@ void interp_wav2nodal() {
     discretization_manager<P> disc(pde, verbosity_level::quiet);
 
     // check the loaded nodes
-    sparse_grid const &grid = disc.get_sgrid();
+    sparse_grid const &grid = disc.get_grid();
 
     vector2d<P> const &nodes = interp.nodes(grid);
     tassert(nodes.stride() == 2);
@@ -234,7 +234,7 @@ void interp_wav2nodal() {
     discretization_manager<P> disc(pde, verbosity_level::quiet);
 
     // check the loaded nodes
-    sparse_grid const &grid = disc.get_sgrid();
+    sparse_grid const &grid = disc.get_grid();
 
     vector2d<P> const &nodes = interp.nodes(grid);
     tassert(nodes.stride() == 2);
@@ -281,7 +281,7 @@ void interp_identity(P tol, int degree, int max_level)
   discretization_manager<P> disc(pde, verbosity_level::quiet);
 
   // check the loaded nodes
-  sparse_grid const &grid = disc.get_sgrid();
+  sparse_grid const &grid = disc.get_grid();
 
   vector2d<P> const &nodes = interp.nodes(grid);
   tassert(nodes.stride() == 2);
@@ -326,7 +326,7 @@ void interp_identity_domain(P tol, int degree, int max_level)
   discretization_manager<P> disc(pde, verbosity_level::quiet);
 
   // check the loaded nodes
-  sparse_grid const &grid = disc.get_sgrid();
+  sparse_grid const &grid = disc.get_grid();
 
   vector2d<P> const &nodes = interp.nodes(grid);
   tassert(nodes.stride() == 2);

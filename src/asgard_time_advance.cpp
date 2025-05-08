@@ -16,8 +16,8 @@ void steady_state<P>::next_step(
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
-  if (solver.grid_gen != disc.get_sgrid().generation())
-    solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), 0);
+  if (solver.grid_gen != disc.get_grid().generation())
+    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), 0);
 
   if (solver.opt == solver_method::direct) {
 
@@ -203,8 +203,8 @@ void crank_nicolson<P>::next_step(
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
-  if (solver.grid_gen != disc.get_sgrid().generation())
-    solver.update_grid(disc.get_sgrid(), disc.get_conn(), disc.get_terms(), substep * dt);
+  if (solver.grid_gen != disc.get_grid().generation())
+    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt);
 
   if (solver.opt == solver_method::direct) {
     next = current; // copy
@@ -299,7 +299,7 @@ void imex_stepper<P>::implicit_solve(
 
   P const dt = disc.time_params().dt();
 
-  solver.update_grid(imex_implicit.gid, disc.get_sgrid(), disc.get_conn(),
+  solver.update_grid(imex_implicit.gid, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt);
 
   disc.add_ode_rhs_sources_group(imex_implicit.gid, time, dt, current);
@@ -469,7 +469,7 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   P const atol = manager.get_pde2().options().adapt_threshold.value_or(0);
   P const rtol = manager.get_pde2().options().adapt_ralative.value_or(0);
 
-  sparse_grid &grid = manager.sgrid;
+  sparse_grid &grid = manager.grid;
 
   sparse_grid::strategy grid_strategy = sparse_grid::strategy::refine;
 
