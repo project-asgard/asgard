@@ -436,8 +436,6 @@ target_sources (libasgard
 target_precompile_headers (libasgard
                            PUBLIC
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_base.hpp>>
-                           $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/pde/asgard_pde_fokkerplanck2_complete.hpp>>
 )
 target_link_libraries (libasgard
                        PUBLIC
@@ -521,29 +519,6 @@ if (ASGARD_BUILD_TESTS)
   if (${ASGARD_USE_PCH})
     target_precompile_headers (sandbox REUSE_FROM libasgard)
   endif ()
-
-  if (ASGARD_USE_MPI)
-    # new kronmult benchmarking
-    add_executable(asgard_kronmult_benchmark ./src/asgard_kronmult_tests.hpp ./src/asgard_kronmult_benchmark.cpp)
-    target_link_libraries (asgard_kronmult_benchmark PUBLIC libasgard)
-    target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/testing)
-    target_include_directories (asgard_kronmult_benchmark PRIVATE ${CMAKE_SOURCE_DIR}/)
-  endif()
-
-  # components with MPI-enabled testing
-  # needed for multiple ranks and mpi-init
-  set (mpi_test_components
-    asgard_adapt
-    asgard_boundary_conditions
-    asgard_distribution
-    asgard_coefficients
-    asgard_time_advance
-  )
-  # still need mpi-init but not the extra ranks
-  set (mpi_single_rank_tests
-    asgard_boundary_conditions
-    asgard_coefficients
-  )
 
   foreach( _asg_pde ${_asgard_pdes})
       add_test (NAME asgard-pde-${_asg_pde}-test
@@ -633,13 +608,13 @@ if (ASGARD_BUILD_TESTS)
   message(STATUS "")
   message(STATUS "ASGarD build options (summary):")
   foreach(_opt CMAKE_CXX_FLAGS
-                  ASGARD_PRECISIONS
-                  ASGARD_USE_OPENMP
-                  ASGARD_USE_MPI
-                  ASGARD_USE_CUDA
-                  ASGARD_USE_PYTHON
-                  ASGARD_USE_HIGHFIVE
-                  ASGARD_USE_TIMER)
+               ASGARD_PRECISIONS
+               ASGARD_USE_OPENMP
+               ASGARD_USE_MPI
+               ASGARD_USE_CUDA
+               ASGARD_USE_PYTHON
+               ASGARD_USE_HIGHFIVE
+               ASGARD_USE_TIMER)
     message(STATUS "  ${_opt}=${${_opt}}")
   endforeach()
   if (ASGARD_USE_TIMER)
@@ -684,7 +659,8 @@ endforeach()
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
         DESTINATION include
-        FILES_MATCHING PATTERN "*.hpp" PATTERN "*.tpp")
+        FILES_MATCHING PATTERN "*.hpp"
+        )
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)
 
@@ -710,9 +686,6 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt"
 install(EXPORT "asgard-export" DESTINATION "lib/${CMAKE_PROJECT_NAME}" FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
 
 if (TARGET asgard_highfive)
-    # must install the highfive dependency
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/contrib/highfive/include/"
-            DESTINATION include)
     set(__asgard_custom_hdf5 ON)
     if (TARGET hdf5::hdf5)
         set(__asgard_find_hdf5 ON)
