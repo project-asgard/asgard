@@ -73,12 +73,12 @@ list(APPEND CMAKE_BUILD_RPATH "${__asgard_install_prefix}/lib")
 include(CMakeDependentOption)
 option (BUILD_SHARED_LIBS "Build the ASGarD library with dynamic or static linking" ON)
 
-option (ASGARD_BUILD_TESTS "Build tests for asgard" ON)
-option (ASGARD_USE_OPENMP "Optional OpenMP support for asgard" OFF)
+option (ASGARD_BUILD_TESTS "Build tests for ASGarD" ON)
+option (ASGARD_USE_OPENMP "Optional OpenMP multi-threading support" OFF)
 set (ASGARD_TEST_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in testing (only in testing)")
-option (ASGARD_USE_CUDA "Optional CUDA support for asgard" OFF)
-cmake_dependent_option (ASGARD_USE_GPU_MEM_LIMIT "Allow the ability to limit the GPU memory used by kronmult (can hurt performance)" OFF "ASGARD_USE_CUDA" OFF)
-option (ASGARD_USE_MPI "Optional distributed computing support for asgard" OFF)
+option (ASGARD_USE_CUDA "Optional Nvidia/CUDA support" OFF)
+option (ASGARD_USE_ROCM "Optional AMD/ROCm support" OFF)
+option (ASGARD_USE_MPI "Optional distributed computing support" OFF)
 
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
 option (ASGARD_USE_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
@@ -122,11 +122,10 @@ if (ASGARD_RECOMMENDED_DEFAULTS)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
 endif ()
 
-if (ASGARD_USE_GPU_MEM_LIMIT AND NOT ASGARD_USE_CUDA)
-  message(FATAL_ERROR " ASGARD_USE_GPU_MEM_LIMIT=ON requires ASGARD_USE_CUDA=ON")
+if (ASGARD_USE_CUDA AND ASGARD_USE_ROCM)
+    message(FATAL_ERROR "Cannot simultaneously use ")
 endif()
-
-if (ASGARD_USE_CUDA)
+if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
     set (ASGARD_MAX_NUM_GPUS "4" CACHE STRING "Maximum number of GPU devices to use simultaneously")
     if (ASGARD_MAX_NUM_GPUS LESS 1)
         message(FATAL_ERROR "ASGARD_MAX_NUM_GPUS must be at least 1, but it is set to '${ASGARD_MAX_NUM_GPUS}'")
@@ -345,6 +344,22 @@ but then the appropriate CMAKE_CUDA_FLAGS must be set manually.")
     set (ASGARD_NUM_GPU_BLOCKS "300" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
 
+if (ASGARD_USE_ROCM)
+    if (CMAKE_VERSION VERSION_LESS 3.21)
+        message(FATAL_ERROR "ASGarD AMD/ROCm GPU backend requires CMake version 3.21 or newer")
+    endif()
+    if (ROCM_PATH)
+        set(ASGARD_ROCM_PATH "${ROCM_PATH}")
+    elseif (DEFINED ENV{ROCM_PATH})
+        set(ASGARD_ROCM_PATH "ENV{ROCM_PATH}")
+    elseif (IS_DIRECTORY /opt/rocm)
+        set(ASGARD_ROCM_PATH "/opt/rocm")
+    endif()
+    list (APPEND CMAKE_PREFIX_PATH ${ASGARD_ROCM_PATH}/hip ${ASGARD_ROCM_PATH})
+    enable_language(HIP)
+    find_package(rocsolver REQUIRED)
+endif()
+
 if (NOT ASGARD_PRECISIONS OR "${ASGARD_PRECISIONS}" STREQUAL "")
     message(FATAL_ERROR "ASGARD_PRECISIONS must be defined to either 'float', 'double' or 'float;double'")
 endif()
@@ -471,6 +486,11 @@ if (ASGARD_USE_CUDA)
                            CUDA::cusparse
     )
 endif ()
+
+if (ASGARD_USE_ROCM)
+    target_link_libraries (libasgard PUBLIC roc::rocsolver hip::host)
+endif()
+
 
 #-------------------------------------------------------------------------------
 #  Define a asgard executables targets.
@@ -612,6 +632,7 @@ if (ASGARD_BUILD_TESTS)
                ASGARD_USE_OPENMP
                ASGARD_USE_MPI
                ASGARD_USE_CUDA
+               ASGARD_USE_ROCM
                ASGARD_USE_PYTHON
                ASGARD_USE_HIGHFIVE
                ASGARD_USE_TIMER)

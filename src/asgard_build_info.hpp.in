@@ -14,6 +14,7 @@
 #cmakedefine ASGARD_USE_TIMER
 #cmakedefine ASGARD_USE_FLOPCOUNTER
 #cmakedefine ASGARD_USE_CUDA
+#cmakedefine ASGARD_USE_ROCM
 #cmakedefine ASGARD_USE_GPU_MEM_LIMIT
 #cmakedefine ASGARD_USE_OPENMP
 #cmakedefine ASGARD_USE_MPI
@@ -36,6 +37,9 @@
 
 // enable arch agnostic GPU capabilities
 #ifdef ASGARD_USE_CUDA
+#define ASGARD_USE_GPU
+#endif
+#ifdef ASGARD_USE_ROCM
 #define ASGARD_USE_GPU
 #endif
 

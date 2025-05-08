@@ -74,17 +74,39 @@ std::string error_message(cusolverStatus_t err) {
 } // namespace gpu
 #endif
 
+#ifdef ASGARD_USE_ROCM
+namespace gpu
+{
+std::string error_message(hipError_t  err) {
+  return std::string("ROCM reported an error: '") + hipGetErrorString(err) + std::string("'");
+}
+
+std::string error_message(rocblas_status err) {
+  return std::string("rocBLAS reported an error: '") + rocblas_status_to_string(err) + std::string("'");
+}
+
+} // namespace gpu
+#endif
+
 compute_resources::compute_resources() {
   #ifdef ASGARD_USE_CUDA
   cudaGetDeviceCount(&num_gpus_);
   rassert(has_gpu(), "CUDA is enabled but there are no visible CUDA devices, maybe a driver problem");
   cusolver_check_error( cusolverDnCreate(&cusolverdn) );
   #endif
+  #ifdef ASGARD_USE_ROCM
+  rocm_check_error( hipGetDeviceCount(&num_gpus_) );
+  rassert(has_gpu(), "ROCM is enabled but there are no visible ROCM devices, maybe a driver problem");
+  rocblas_check_error( rocblas_create_handle(&rocblas) );
+  #endif
 }
 
 compute_resources::~compute_resources() {
   #ifdef ASGARD_USE_CUDA
   cusolverDnDestroy(cusolverdn);
+  #endif
+  #ifdef ASGARD_USE_ROCM
+  rocblas_destroy_handle(rocblas);
   #endif
 }
 
@@ -196,11 +218,6 @@ void compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) 
   }
 }
 
-template void
-compute_resources::getrf<double>(int, gpu::vector<double> &A, gpu::vector<int> &ipiv) const;
-template void
-compute_resources::getrf<float>(int, gpu::vector<float> &A, gpu::vector<int> &ipiv) const;
-
 template<typename P>
 void compute_resources::getrs(int M, gpu::vector<P> const &A, gpu::vector<int> const &ipiv,
                               gpu::vector<P> &b) const
@@ -219,6 +236,67 @@ void compute_resources::getrs(int M, gpu::vector<P> const &A, gpu::vector<int> c
                                            ipiv.data(), b.data(), M, gpu_info.data()) );
   }
 }
+#endif
+
+#ifdef ASGARD_USE_ROCM
+template<typename P>
+void compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<gpu::direct_int> &ipiv) const {
+  expect(static_cast<int64_t>(M) * M == A.size());
+
+  ipiv.resize(M);
+
+  gpu::vector<gpu::direct_int> gpu_info(1);
+
+  if constexpr (is_double<P>) {
+    rocblas_check_error( rocsolver_dgetrf(rocblas, M, M, A.data(), M,
+                                          ipiv.data(), gpu_info.data()) );
+  } else {
+    rocblas_check_error( rocsolver_sgetrf(rocblas, M, M, A.data(), M,
+                                          ipiv.data(), gpu_info.data()) );
+  }
+
+  int info = gpu_info.copy_to_host()[0];
+
+  if (info != 0) {
+    std::stringstream sout;
+    if (info < 0)
+    {
+      sout << "rocsolver-getrf(): the diagonal element of the triangular factor of A,\n";
+      sout << "U(" << info << ',' << info << ") is zero, so that A is singular;\n";
+      sout << "the matrix could not be factorized.\n";
+    }
+    throw std::runtime_error(sout.str());
+  }
+}
+
+template<typename P>
+void compute_resources::getrs(int M, gpu::vector<P> const &A,
+                              gpu::vector<gpu::direct_int> const &ipiv,
+                              gpu::vector<P> &b) const
+{
+  expect(M == ipiv.size());
+  expect(ipiv.size() * ipiv.size() == A.size());
+  expect(ipiv.size() == b.size());
+
+  gpu::vector<int> gpu_info(1);
+
+  if constexpr (is_double<P>) {
+    rocblas_check_error( rocsolver_dgetrs(
+        rocblas, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
+        ipiv.data(), b.data(), M) );
+  } else {
+    rocblas_check_error( rocsolver_sgetrs(
+        rocblas, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
+        ipiv.data(), b.data(), M) );
+  }
+}
+#endif
+
+#ifdef ASGARD_USE_GPU
+template void
+compute_resources::getrf<double>(int, gpu::vector<double> &A, gpu::vector<int> &ipiv) const;
+template void
+compute_resources::getrf<float>(int, gpu::vector<float> &A, gpu::vector<int> &ipiv) const;
 
 template void compute_resources::getrs<double>(
     int, gpu::vector<double> const &A, gpu::vector<int> const &ipiv, gpu::vector<double> &b) const;

@@ -4,7 +4,7 @@
 
 using namespace asgard;
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU
 template<typename vec_type_1, typename vec_type_2>
 bool data_match(vec_type_1 const &v1, vec_type_2 const &v2)
 {
@@ -83,7 +83,7 @@ int main(int, char**) {
     init_compute();
   }
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU
   gpu_vector_tests<int>();
   gpu_vector_tests<double>();
   gpu_vector_tests<float>();
