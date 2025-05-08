@@ -1227,7 +1227,7 @@ public:
   friend class h5manager<P>;
 
 private:
-  time_method smethod_ = time_method::exp;
+  time_method smethod_ = time_method::rk2;
   // the following entries cannot be negative, negative means "not-set"
 
   //! current time-step
@@ -1418,13 +1418,6 @@ public:
         options_.isolver_iterations = options_.default_isolver_iterations.value();
       if (not options_.isolver_inner_iterations and options_.default_isolver_inner_iterations)
         options_.isolver_inner_iterations = options_.default_isolver_inner_iterations.value();
-    }
-
-    // don't support l-inf norm yet
-    if (options_.adapt_threshold) {
-      if (options_.anorm and options_.anorm.value() == adapt_norm::linf)
-        std::cerr << "warning: l-inf norm not implemented for pde-version 2, switching to l2\n";
-      options_.anorm = adapt_norm::l2;
     }
   }
 

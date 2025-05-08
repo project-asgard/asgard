@@ -148,12 +148,6 @@ legendre_weights(int const degree, double const lower_bound, double const upper_
       double const nscale = 2.0 * i + 1.0;
       double const dscale = 1.0 / (i + 1.0);
 
-      //for (int j = 0; j < num_points; j++)
-      //  next[j] = x_roots[j] * nscale * curr[j] * dscale;
-      //
-      //for (int j = 0; j < num_points; j++)
-      //  next[j] -= prev[j] * i * dscale;
-
       for (int j = 0; j < num_points; j++)
         next[j] = (x_roots[j] * nscale * curr[j] - prev[j] * i) * dscale;
 
@@ -171,25 +165,13 @@ legendre_weights(int const degree, double const lower_bound, double const upper_
       double const dl = curr[j] / lp; // Newton correction
       leg_prime[j] = lp;
       x_roots[j] = (lp * x_roots[j] - curr[j]) / lp;
-      //x_roots[j] *= lp;
       diff = std::max(diff, std::abs(dl));
     }
-    //for (int j = 0; j < num_points; j++)
-    //  x_roots[j] = (x_roots[j] - curr[j]) / leg_prime[j];
   }
 
   // Compute the weights
   for (int j = 0; j < num_points; j++)
     weights[j] = (upper_bound - lower_bound) / ((1 - x_roots[j] * x_roots[j]) * leg_prime[j] * leg_prime[j]);
-
-  // for (int j = 0; j < num_points; j++)
-  //   weights[j] = leg_prime[j] * leg_prime[j];
-  //
-  // for (int j = 0; j < num_points; j++)
-  //   weights[j] -= x_roots[j] * x_roots[j] * leg_prime[j] * leg_prime[j];
-  //
-  // for (int j = 0; j < num_points; j++)
-  //   weights[j] = (upper_bound - lower_bound) / weights[j];
 
   // remap to (lower, upper)
   for (int j = 0; j < num_points; j++)

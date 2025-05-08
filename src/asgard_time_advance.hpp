@@ -298,9 +298,6 @@ struct time_advance_manager
     };
   }
 
-  //! returns human-readable string with the method name
-  std::string method_name() const;
-
   //! prints the time-advance stats
   void print_time(std::ostream &os = std::cout) const {
     if (method.index() == 0) {
@@ -309,7 +306,8 @@ struct time_advance_manager
       std::get<0>(method).print_solver_opts(os);
       return;
     }
-    os << "time stepping:\n  method          " << method_name() << "\n" << data;
+    os << "time stepping:\n  method          " << prog_opts::get_name(data.step_method()) << "\n"
+       << data;
     if (needs_solver()) { // show solver data
       switch (method.index()) {
         case 2: // crank_nicolson

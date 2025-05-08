@@ -21,20 +21,6 @@ void new_prog_opts() {
                    "-step-method must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-s", "dummy"})),
                    "invalid value for -s, see exe -help");
-    prog_opts prog(vecstrview({"", "-s", "expl"}));
-    tassert(prog.step_method);
-    tassert(*prog.step_method == time_method::exp);
-    prog = prog_opts(vecstrview({"", "-s", "impl"}));
-    tassert(prog.step_method);
-    tassert(*prog.step_method == time_method::imp);
-    tassert(prog_opts(vecstrview({"", "-s", "imex"})).step_method.value()
-            == time_method::imex);
-
-    // prog = prog_opts(vecstrview({"", "-s", "impl"}));
-    // std::cerr << "generating a warning about -step-method, ignore since it is part of the test\n";
-    // prog.force_step_method(time_method::imex);
-    // tassert(prog.step_method);
-    // tassert(*prog.step_method == time_method::imex);
 
     tassert(prog_opts(vecstrview({"exe", "-s", "steady"})).step_method);
     tassert(prog_opts(vecstrview({"exe", "-s", "steady"})).step_method.value() == time_method::steady);
@@ -122,16 +108,6 @@ void new_prog_opts() {
                    "-m must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-num-steps", "dummy"})),
                    "invalid value for -num-steps, see exe -help");
-  }{
-    current_test name_("-wave_freq");
-    prog_opts prog(vecstrview({"", "-wave-freq", "10"}));
-    tassert(prog.wavelet_output_freq);
-    tassert(prog.wavelet_output_freq.value() == 10);
-    tassert(prog_opts(vecstrview({"exe", "-w", "4"})).wavelet_output_freq);
-    terror_message(prog_opts(vecstrview({"exe", "-w"})),
-                   "-w must be followed by a value, see exe -help");
-    terror_message(prog_opts(vecstrview({"exe", "-wave-freq", "dummy"})),
-                   "invalid value for -wave-freq, see exe -help");
   }{
     current_test name_("-dt");
     prog_opts prog(vecstrview({"", "-dt", "0.5"}));
@@ -299,7 +275,7 @@ void input_files() {
     tassert(prog.grid);
     tassert(prog.grid.value() == grid_type::dense);
     tassert(prog.step_method);
-    tassert(prog.step_method.value() == time_method::exp);
+    tassert(prog.step_method.value() == time_method::rk4);
 
     tassert(not prog.file_value<int>("missing"));
     auto bbool = prog.file_value<bool>("bb1");
