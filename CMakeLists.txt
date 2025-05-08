@@ -164,30 +164,6 @@ list(APPEND _asgard_pdes ${_asgard_int_pdes})
 ## Pull in external support as needed
 ###############################################################################
 
-if (ASGARD_BUILD_TESTS)
-    # Catch2 for testing, if Catch2_ROOT is provided then look for the existing installation,
-    # if Catch2_ROOT is not given, download and build together with ASGarD
-    if (Catch2_ROOT OR DEFINED ENV{Catch2_ROOT})
-      find_package(Catch2 REQUIRED)
-    else()
-      register_project (Catch2
-                        CATCH2
-                        https://github.com/catchorg/Catch2.git
-                        v3.3.0
-      )
-    endif()
-endif()
-
-#Mark CATCH variables as advanced.
-get_cmake_property(_variableNames VARIABLES)
-foreach (_variableName ${_variableNames})
-    string(FIND "${_variableName}" "CATCH_" out)
-    if("${out}" EQUAL 0)
-        mark_as_advanced(${_variableName})
-    endif()
-endforeach()
-
-
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 find_package (LINALG REQUIRED)
 
@@ -404,11 +380,8 @@ if (ASGARD_BUILD_HDF5)
 endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
-set (components
-     asgard_tensors
-)
 
-# version 2 components, do not depend on catch2
+# version 2 components
 set(asgard_components
     blas
     block_matrix
@@ -436,20 +409,6 @@ set(asgard_components
 if (ASGARD_USE_HIGHFIVE)
     list (APPEND asgard_components io)
 endif ()
-
-foreach (component IN LISTS components)
-    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp)
-        # some components don't have .cpp files
-        target_sources (libasgard
-                        PRIVATE
-                        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.cpp>
-        )
-    endif()
-    target_precompile_headers (libasgard
-                               PUBLIC
-                               $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${component}.hpp>>
-    )
-endforeach ()
 
 foreach (component IN LISTS asgard_components)
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.cpp)
@@ -557,7 +516,7 @@ if (ASGARD_BUILD_TESTS)
   # contain all the appropriate link flags and dependencies, but does nothing
   # other than play with some code
   add_executable(sandbox ./testing/sandbox.cpp)
-  target_link_libraries (sandbox PUBLIC libasgard Catch2::Catch2)
+  target_link_libraries (sandbox PUBLIC libasgard)
 
   if (${ASGARD_USE_PCH})
     target_precompile_headers (sandbox REUSE_FROM libasgard)
