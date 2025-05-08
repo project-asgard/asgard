@@ -244,8 +244,7 @@ void self_test();
 
 int main(int argc, char** argv)
 {
-  // using P = asgard::default_precision;
-  using P = float;
+  using P = asgard::default_precision;
 
   // parse the command-line inputs
   asgard::prog_opts options(argc, argv);

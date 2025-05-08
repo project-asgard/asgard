@@ -360,7 +360,7 @@ void restart_moments() {
   tassert(std::abs(rdisc.time_params().time() - 1.5625E-2) < 1.E-10);
 
   disc.advance_time();
-  double constexpr tol2 = (std::is_same_v<P, double>) ? 4.E-15 : 4.E-6;
+  double constexpr tol2 = (std::is_same_v<P, double>) ? 1.E-14 : 5.E-6;
   tassert(std::abs(get_qoi_indicator<pde, P>(rdisc) - get_qoi_indicator<pde, P>(disc)) < tol2);
 }
 

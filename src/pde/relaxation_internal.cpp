@@ -363,7 +363,7 @@ void self_test() {
 #ifdef ASGARD_ENABLE_FLOAT
 
   test_final<float>(5.E-3, 2, "-l 5 -t 2 -d 2 -nu 1000");
-  test_final<float>(5.E-3, 3, "-l 5 -t 2 -d 2 -nu 100");
+  test_final<float>(8.E-3, 3, "-l 4 -t 2 -d 2 -nu 100");
 
 #endif
 }

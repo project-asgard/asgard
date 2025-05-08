@@ -12,26 +12,6 @@
   #endif
 #endif
 
-extern "C" {
-  // double precision
-  double dnrm2_(int const *, double const[], int const *);
-  void dscal_(int const *, double const *, double[], int const *);
-  void drot_(int const *, double[], int const *, double[], int const *, double const *, double const *);
-  void drotg_(double *, double *, double *, double *);
-  void dtpsv_(char const *, char const *, char const *, int const *, double const[], double[], int const *);
-  void dgemv_(char const *, int const *, int const *, double const *, double const[], int const*,
-              double const[], int const *, double const *, double[], int const *);
-
-  // single precision
-  float snrm2_(int const *, float const[], int const *);
-  void sscal_(int const *n, float const *, float[], int const *);
-  void srot_(int const *, float[], int const *, float[], int const *, float const *, float const *);
-  void srotg_(float *, float *, float *, float *);
-  void stpsv_(char const *, char const *, char const *, int const *, float const[], float[], int const *);
-  void sgemv_(char const *, int const *, int const *, float const *, float const[], int const*,
-              float const[], int const *, float const *, float[], int const *);
-}
-
 namespace asgard {
 
 // fast math
