@@ -81,7 +81,7 @@ void test_quad() {
   }{
     current_test<double> name_("legendre quadrature - exp(x)");
     double const ex = std::exp(3.0) - 1.0;
-    auto [p, w] = legendre_weights(5, 0, 3);
+    auto [p, w] = legendre_weights(7, 0, 3);
 
     double q = 0;
     for (size_t i = 0; i < p.size(); i++)

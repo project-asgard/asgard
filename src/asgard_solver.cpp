@@ -334,8 +334,8 @@ int gmres<P>::solve(
   int inner_iterations = 0;
 
   P inner_res = 0.;
-  P outer_res = tolerance_ + 1.;
-  while ((outer_res > tolerance_) && (outer_iterations < max_outer_))
+  P outer_res = tolerance_ + 1.0;
+  while (outer_res > tolerance_ and outer_iterations < max_outer_)
   {
     std::copy(rhs.begin(), rhs.end(), basis.begin());
     apply_lhs(-1, x.data(), 1, basis.data());
@@ -343,6 +343,7 @@ int gmres<P>::solve(
     ++num_appy;
 
     inner_res = fm::nrm2(n, basis.data());
+
     fm::scal(n, P{1} / inner_res, basis.data());
     krylov_sol[0] = inner_res;
 
@@ -369,8 +370,7 @@ int gmres<P>::solve(
       P beta = nrm;
       fm::rotg(coeff + inner_iterations, &beta, cosines + inner_iterations, sines + inner_iterations);
 
-      inner_res =
-          std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
+      inner_res = std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
 
       if (inner_res > tolerance_ and inner_iterations < max_inner_)
       {
