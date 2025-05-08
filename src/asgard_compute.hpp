@@ -9,6 +9,11 @@
 #include <cusolverDn.h>
 #endif
 
+#ifdef ASGARD_USE_ROCM
+#include <hip/hip_runtime.h>
+#include <rocsolver/rocsolver.h>
+#endif
+
 namespace asgard
 {
 
@@ -24,10 +29,14 @@ using default_precision = float;
 template<typename T>
 constexpr bool is_double = std::is_same_v<double, T>;
 
-#ifdef ASGARD_USE_CUDA
+#ifdef ASGARD_USE_GPU
 
 namespace gpu
 {
+
+#ifdef ASGARD_USE_CUDA
+//! cuSolver uses 32-bit int
+using direct_int = int;
 
 //! converts CUDA error to a human readable string
 std::string error_message(cudaError_t err);
@@ -51,6 +60,34 @@ std::string error_message(cusolverStatus_t err);
     } \
   } \
 
+#else
+
+using direct_int = rocblas_int;
+
+//! converts ROCM error to a human readable string
+std::string error_message(hipError_t err);
+std::string error_message(rocblas_status err);
+
+#define rocm_check_error(_call_) \
+  { hipError_t __asgard_intcudaerr__ = (_call_); \
+    if (__asgard_intcudaerr__ != hipSuccess) {\
+      throw std::runtime_error(::asgard::gpu::error_message(__asgard_intcudaerr__) \
+                               + "\n        in file: " + __FILE__    \
+                               + "\n           line: " + std::to_string(__LINE__) );  \
+    } \
+  } \
+
+#define rocblas_check_error(_call_) \
+  { rocblas_status __asgard_intcudaerr__ = (_call_); \
+    if (__asgard_intcudaerr__ != rocblas_status_success) {\
+      throw std::runtime_error(::asgard::gpu::error_message(__asgard_intcudaerr__) \
+                               + "\n        in file: " + __FILE__    \
+                               + "\n           line: " + std::to_string(__LINE__) );  \
+    } \
+  } \
+
+#endif
+
 /*!
  * \brief Simple container for GPU data, interoperable with std::vector
  *
@@ -68,7 +105,11 @@ public:
   //! \brief Free all resouces.
   ~vector() {
     if (data_ != nullptr)
+      #ifdef ASGARD_USE_CUDA
       cudaFree(data_);
+      #else
+      (void) hipFree(data_);
+      #endif
   }
   //! \brief Construct a vector with given size.
   vector(int64_t size)
@@ -97,7 +138,11 @@ public:
   vector<T> &operator=(vector<T> const &other)
   {
     this->resize(other.size());
+    #ifdef ASGARD_USE_CUDA
     cuda_check_error( cudaMemcpy(data_, other.data_, size_ * sizeof(T), cudaMemcpyDeviceToDevice) );
+    #else
+    rocm_check_error( hipMemcpy(data_, other.data_, size_ * sizeof(T), hipMemcpyDeviceToDevice) );
+    #endif
     return *this;
   }
   //! \brief Constructor that copies from an existing std::vector
@@ -109,7 +154,11 @@ public:
   vector<T> &operator=(std::vector<T> const &other)
   {
     this->resize(other.size());
+    #ifdef ASGARD_USE_CUDA
     cuda_check_error( cudaMemcpy(data_, other.data(), size_ * sizeof(T), cudaMemcpyHostToDevice) );
+    #else
+    rocm_check_error( hipMemcpy(data_, other.data(), size_ * sizeof(T), hipMemcpyHostToDevice) );
+    #endif
     return *this;
   }
   //! \brief Does not rellocate the data, i.e., if size changes all old data is lost.
@@ -118,9 +167,15 @@ public:
     expect(new_size >= 0);
     if (new_size != size_)
     {
+      #ifdef ASGARD_USE_CUDA
       if (data_ != nullptr)
         cuda_check_error( cudaFree(data_) );
       cuda_check_error( cudaMalloc((void**)&data_, new_size * sizeof(T)) );
+      #else
+      if (data_ != nullptr)
+        rocm_check_error( hipFree(data_) );
+      rocm_check_error( hipMalloc((void**)&data_, new_size * sizeof(T)) );
+      #endif
       size_ = new_size;
     }
   }
@@ -137,12 +192,20 @@ public:
   //! \brief Copy to a device array, the destination must be large enough
   void copy_to_device(T *destination) const
   {
+    #ifdef ASGARD_USE_CUDA
     cuda_check_error( cudaMemcpy(destination, data_, size_ * sizeof(T), cudaMemcpyDeviceToDevice) );
+    #else
+    rocm_check_error( hipMemcpy(destination, data_, size_ * sizeof(T), hipMemcpyDeviceToDevice) );
+    #endif
   }
   //! \brief Copy to a host array, the destination must be large enough
   void copy_to_host(T *destination) const
   {
+    #ifdef ASGARD_USE_CUDA
     cuda_check_error( cudaMemcpy(destination, data_, size_ * sizeof(T), cudaMemcpyDeviceToHost) );
+    #else
+    rocm_check_error( hipMemcpy(destination, data_, size_ * sizeof(T), hipMemcpyDeviceToHost) );
+    #endif
   }
   //! \brief Copy to a std::vector on the host.
   void copy_to_host(std::vector<T> &destination) const
@@ -202,10 +265,12 @@ public:
   void getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) const;
   //! PLU solve of an M x M matrix
   template<typename P>
-  void getrs(int M, gpu::vector<P> const &A, gpu::vector<int> const &ipiv, gpu::vector<P> &b) const;
+  void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv,
+             gpu::vector<P> &b) const;
   //! PLU solve of an M x M matrix
   template<typename P>
-  void getrs(int M, gpu::vector<P> const &A, gpu::vector<int> const &ipiv, std::vector<P> &b) const {
+  void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv,
+             std::vector<P> &b) const {
     gpu::vector<P> gpu_b = b;
     getrs(M, A, ipiv, gpu_b);
     gpu_b.copy_to_host(b);
@@ -224,6 +289,10 @@ private:
   #ifdef ASGARD_USE_CUDA
   // std::array<cusolverDnHandle_t, max_num_gpus>
   cusolverDnHandle_t cusolverdn;
+  #endif
+  #ifdef ASGARD_USE_ROCM
+  // std::array<cusolverDnHandle_t, max_num_gpus>
+  rocblas_handle rocblas;
   #endif
 };
 

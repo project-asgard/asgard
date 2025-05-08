@@ -79,7 +79,7 @@ private:
   std::vector<int> ipiv;
   #ifdef ASGARD_USE_GPU
   gpu::vector<P> gpu_factor;
-  gpu::vector<int> gpu_ipiv;
+  gpu::vector<gpu::direct_int> gpu_ipiv;
   #endif
 };
 
