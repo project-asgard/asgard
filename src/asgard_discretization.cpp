@@ -81,7 +81,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
     // if no method is set, defaulting to explicit time-stepping
     time_method sm = options_.step_method.value_or(time_method::rk3);
 
-    time_data<precision> dtime; // initialize below
+    time_data dtime; // initialize below
 
     precision stop = options_.stop_time.value_or(-1);
     precision dt   = options_.dt.value_or(-1);
@@ -89,7 +89,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
     if (sm == time_method::steady) {
       stop  = options_.stop_time.value_or(options_.default_stop_time.value_or(0));
-      dtime = time_data<precision>(stop);
+      dtime = time_data(stop);
     } else {
       if (stop >= 0 and dt >= 0 and n >= 0)
         throw std::runtime_error("Must provide exactly two of the three time-stepping parameters: "
@@ -123,14 +123,12 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
       }
 
       if (n >= 0 and stop >= 0 and dt < 0)
-        dtime = time_data<precision>(
-            sm, n, typename time_data<precision>::input_stop_time{stop});
+        dtime = time_data(sm, n, typename time_data::input_stop_time{stop});
       else if (dt >= 0 and stop >= 0 and n < 0)
-        dtime = time_data<precision>(sm,
-                                    typename time_data<precision>::input_dt{dt},
-                                    typename time_data<precision>::input_stop_time{stop});
+        dtime = time_data(sm, typename time_data::input_dt{dt},
+                          typename time_data::input_stop_time{stop});
       else if (dt >= 0 and n >= 0 and stop < 0)
-        dtime = time_data<precision>(sm, typename time_data<precision>::input_dt{dt}, n);
+        dtime = time_data(sm, typename time_data::input_dt{dt}, n);
       else
         throw std::runtime_error("how did this happen?");
     }
@@ -180,7 +178,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 #ifdef ASGARD_USE_HIGHFIVE
   tools::time_event timing_("restart from file");
 
-  time_data<precision> dtime;
+  time_data dtime;
   h5manager<precision>::read(options_.restart_file, high_verbosity(),
                              options_, domain_, grid,
                              dtime, aux_fields, state);

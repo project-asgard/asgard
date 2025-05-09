@@ -12,11 +12,11 @@ void steady_state<P>::next_step(
 {
   tools::time_event performance_("solve steady state");
 
-  P const time = disc.time_params().stop_time();
+  P const time = disc.stop_time();
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
-  if (solver.grid_gen != disc.get_grid().generation())
+  if (solver.grid_gen != disc.grid_generation())
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), 0);
 
   if (solver.opt == solver_method::direct) {
@@ -83,8 +83,8 @@ void rungekutta<P>::next_step(
 
   tools::time_event performance_(name);
 
-  P const time = disc.time_params().time();
-  P const dt   = disc.time_params().dt();
+  P const time = disc.time();
+  P const dt   = disc.dt();
 
   if (disc.has_moments() and not disc.has_poisson())
     disc.compute_moments(current);
@@ -192,8 +192,8 @@ void crank_nicolson<P>::next_step(
   tools::time_event performance_(
       (method == time_method::cn) ? "crank-nicolson" : "back-euler");
 
-  P const time = disc.time_params().time();
-  P const dt   = disc.time_params().dt();
+  P const time = disc.time();
+  P const dt   = disc.dt();
 
   P const substep = (method == time_method::cn) ? 0.5 : 1;
 
@@ -203,7 +203,7 @@ void crank_nicolson<P>::next_step(
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
-  if (solver.grid_gen != disc.get_grid().generation())
+  if (solver.grid_gen != disc.grid_generation())
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt);
 
   if (solver.opt == solver_method::direct) {
@@ -297,7 +297,7 @@ void imex_stepper<P>::implicit_solve(
 {
   disc.compute_moments(imex_implicit.gid, current);
 
-  P const dt = disc.time_params().dt();
+  P const dt = disc.dt();
 
   solver.update_grid(imex_implicit.gid, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt);
@@ -355,8 +355,8 @@ void imex_stepper<P>::next_step(
 {
   tools::time_event performance_("stepper-imex");
 
-  P const time = disc.time_params().time();
-  P const dt   = disc.time_params().dt();
+  P const time = disc.time();
+  P const dt   = disc.dt();
 
   explicit_ode_rhs(disc, time, current, fs);
 
@@ -383,7 +383,7 @@ namespace asgard
 {
 
 template<typename P>
-time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_opts const &options)
+time_advance_manager<P>::time_advance_manager(time_data const &tdata, prog_opts const &options)
   : data(tdata)
 {
   expect(static_cast<int>(data.step_method()) <= 6); // the new modes that have been implemented
@@ -411,7 +411,7 @@ time_advance_manager<P>::time_advance_manager(time_data<P> const &tdata, prog_op
 
 template<typename P>
 time_advance_manager<P>::time_advance_manager(
-    time_data<P> const &tdata, prog_opts const &options,
+    time_data const &tdata, prog_opts const &options,
     imex_implicit_group im, imex_explicit_group ex)
     : data(tdata)
 {
@@ -451,7 +451,7 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
   time_advance_manager<P> const &stepper = manager.stepper;
 
-  time_data<P> &params = manager.stepper.data;
+  time_data &params = manager.stepper.data;
 
   // is num_steps is negative, run to the end of num_remain()
   // otherwise, run num_steps but no more than num_remain()

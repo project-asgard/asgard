@@ -319,7 +319,7 @@ void test_pde(double const tol, std::string const &opts)
 
   std::vector<P> eref = disc.project_function(disc.initial_cond_sep());
 
-  double const tval  = ft(disc.time_params().time());
+  double const tval  = ft(disc.time());
   double const enorm = 3.914569110545039e-02 * 0.642699081698724 * tval * tval;
 
   double nself = 0;

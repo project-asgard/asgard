@@ -298,14 +298,14 @@ int main(int argc, char** argv)
 
   // save snapshots for every interval of time equal to 0.1
   // the stride is approximately the number of time-steps that make up 0.1
-  int const stride = static_cast<int>(0.1 / disc.time_params().dt());
+  int const stride = static_cast<int>(0.1 / disc.dt());
 
   // look over the entries and save multiple snapshots
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(stride);
     disc.progress_report();
-    disc.add_aux_field({"smapshot time = " + std::to_string(disc.time_params().time()),
+    disc.add_aux_field({"smapshot time = " + std::to_string(disc.time()),
                         disc.current_state()});
   }
 

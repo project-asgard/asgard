@@ -221,7 +221,7 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
 
   auto [space1d, timev] = [&]() -> std::array<double, 2> {
     if constexpr (std::is_same_v<pde_type, pde_contcos>) {
-      return {1.5 * PI, std::cos(disc.time_params().time())};
+      return {1.5 * PI, std::cos(disc.time())};
     } else { // no analytic solution, code will be intercepted above
       return {0, 0};
     }

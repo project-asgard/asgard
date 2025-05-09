@@ -262,9 +262,9 @@ struct time_advance_manager
   //! default constructor, makes an empty manager
   time_advance_manager() = default;
   //! creates a new time-stepping manager for the given method
-  time_advance_manager(time_data<P> const &tdata, prog_opts const &options);
+  time_advance_manager(time_data const &tdata, prog_opts const &options);
   //! creates a new time-stepping manager for the given imex method
-  time_advance_manager(time_data<P> const &tdata, prog_opts const &options,
+  time_advance_manager(time_data const &tdata, prog_opts const &options,
                        imex_implicit_group im, imex_explicit_group ex);
   //! advance to the next time-step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
@@ -337,7 +337,7 @@ struct time_advance_manager
   bool is_steady_state() const { return (method.index() == 0); }
 
   //! holds the common time-stepping parameters
-  time_data<P> data;
+  time_data data;
   //! wrapper around the specific method being used
   std::variant<time_advance::steady_state<P>, time_advance::rungekutta<P>,
                time_advance::crank_nicolson<P>, time_advance::imex_stepper<P>> method;

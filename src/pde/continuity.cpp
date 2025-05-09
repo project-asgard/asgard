@@ -221,7 +221,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   double constexpr space1d = 2 * PI; // integral of sin(x)^2 over (-2 * PI, 2 * PI)
-  double const time_val    = std::cos(disc.time_params().time());
+  double const time_val    = std::cos(disc.time());
 
   // this is the L^2 norm-squared of the exact solution
   // powi works the same as std::pow but the second input is an integer
@@ -368,13 +368,13 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
                                  verbosity_level::quiet);
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
     double const err = get_error_l2(disc);
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 
@@ -391,7 +391,7 @@ void dolongtest(double tol, int num_dims, std::string const &opts) {
 
   double const err = get_error_l2(disc);
 
-  tcheckless(disc.time_params().step(), err, tol);
+  tcheckless(disc.current_step(), err, tol);
 }
 
 template<typename P>
@@ -423,11 +423,11 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
   std::vector<double> ref(mesh.num_strips());
   std::vector<double> com(mesh.num_strips());
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
-    double const time = disc.time_params().time();
+    double const time = disc.time();
 #pragma omp parallel for
     for (int64_t i = 0; i < mesh.num_strips(); i++)
       ref[i] = exact.eval(mesh[i], time);
@@ -440,7 +440,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
     for (size_t i = 0; i < ref.size(); i++)
       err = std::max(err, std::abs(com[i] - ref[i]));
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 

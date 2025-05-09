@@ -57,10 +57,19 @@ public:
   int max_level() const { return terms.max_level; }
   //! returns the user provided program options
   prog_opts const &options() const { return options_; }
+  //! returns the discretization domain
   pde_domain<precision> const &domain() const { return domain_; }
 
-  //! returns the time discretization parameters
-  time_data<precision> const &time_params() const { return stepper.data; }
+  //! returns the current simulation time
+  double time() const { return stepper.data.time(); }
+  //! returns the stop time that, the end of the simulation
+  double stop_time() const { return stepper.data.stop_time(); }
+  //! returns the time step
+  double dt() const { return stepper.data.dt(); }
+  //! returns the number of remaining time-steps
+  int64_t remaining_steps() const { return stepper.data.num_remain(); }
+  //! returns the current time step
+  int64_t current_step() const { return stepper.data.step(); }
 
   //! returns the non-separable initial conditions
   md_func<precision> const &initial_cond_md() const { return initial_md_; }
@@ -316,11 +325,11 @@ public:
   void clear_aux_fields() { aux_fields.clear(); }
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
-
-  // pde_scheme<precision> const &get_pde2() const { return pde2; }
-  time_data<precision> const &time_props() const { return stepper.data; }
+  //! returns a ref to the sparse grid
   sparse_grid const &get_grid() const { return grid; }
-
+  //! returns the current grid generation
+  int grid_generation() const { return grid.generation(); }
+  //! returns the term manager
   term_manager<precision> const & get_terms() const { return terms; }
 
   //! return the hierarchy_manipulator

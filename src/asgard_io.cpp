@@ -9,7 +9,7 @@ namespace asgard
 template<typename P>
 void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
                          int degree, sparse_grid const &grid,
-                         time_data<P> const &dtime, std::vector<P> const &state,
+                         time_data const &dtime, std::vector<P> const &state,
                          std::vector<aux_field_entry<P>> const &aux_fields,
                          std::string const &filename)
 {
@@ -112,7 +112,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
 template<typename P>
 void h5manager<P>::read(std::string const &filename, bool silent,
                         prog_opts &options, pde_domain<P> &domain,
-                        sparse_grid &grid, time_data<P> &dtime,
+                        sparse_grid &grid, time_data &dtime,
                         std::vector<aux_field_entry<P>> &aux_fields, std::vector<P> &state)
 {
   HighFive::File file(filename, HighFive::File::ReadOnly);
@@ -221,34 +221,34 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     // the basic logic is to prioritize stop-time and dt and infer the remaining number of steps
     if (dt >= 0) { // overriding dt
       if (stop >= 0) { // and the stop time
-        dtime = time_data<P>(sm,
-                             typename time_data<P>::input_dt{dt},
-                             typename time_data<P>::input_stop_time{stop - curr_time});
+        dtime = time_data(sm,
+                          typename time_data::input_dt{dt},
+                          typename time_data::input_stop_time{stop - curr_time});
       } else if (n >= 0) {
-        dtime = time_data<P>(sm, typename time_data<P>::input_dt{dt}, n);
+        dtime = time_data(sm, typename time_data::input_dt{dt}, n);
         fstop += dtime.stop_time_;
       } else {
-        dtime = time_data<P>(sm,
-                             typename time_data<P>::input_dt{dt},
-                             typename time_data<P>::input_stop_time{fstop - curr_time});
+        dtime = time_data(sm,
+                          typename time_data::input_dt{dt},
+                          typename time_data::input_stop_time{fstop - curr_time});
       }
     } else if (stop >= 0) { // overriding the stop time, dt is not set
       if (n >= 0) {
-        dtime = time_data<P>(sm, n, typename time_data<P>::input_stop_time{stop - curr_time});
+        dtime = time_data(sm, n, typename time_data::input_stop_time{stop - curr_time});
       } else {
         P const fdt = H5Easy::load<P>(file, "dtime_dt");
-        dtime = time_data<P>(sm,
-                             typename time_data<P>::input_dt{fdt},
-                             typename time_data<P>::input_stop_time{stop - curr_time});
+        dtime = time_data(sm,
+                          typename time_data::input_dt{fdt},
+                          typename time_data::input_stop_time{stop - curr_time});
       }
     } else if (n >= 0) { // only n is specified
-      dtime = time_data<P>(
-            sm, n, typename time_data<P>::input_stop_time{fstop - curr_time});
+      dtime = time_data(
+            sm, n, typename time_data::input_stop_time{fstop - curr_time});
     } else {
       P const fdt   = H5Easy::load<P>(file, "dtime_dt");
-      dtime = time_data<P>(sm,
-                           typename time_data<P>::input_dt{fdt},
-                           typename time_data<P>::input_stop_time{fstop - curr_time});
+      dtime = time_data(sm,
+                        typename time_data::input_dt{fdt},
+                        typename time_data::input_stop_time{fstop - curr_time});
     }
 
     // the setup above mostly focuses on the number of steps and the final time used

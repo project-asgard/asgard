@@ -69,7 +69,7 @@ double get_error_l2(discretization_manager<P> const &disc)
   std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   double const space = (disc.num_dims() == 1) ? 1 : 1;
-  double const time_val  = std::cos(disc.time_params().time());
+  double const time_val  = std::cos(disc.time());
 
   double const enorm = space * time_val * time_val;
 
@@ -151,13 +151,13 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   discretization_manager<P> disc(make_var_pde<P>(num_dims, options),
                                  verbosity_level::quiet);
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
     double const err = get_error_l2(disc);
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 

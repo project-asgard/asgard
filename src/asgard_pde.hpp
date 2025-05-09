@@ -1137,28 +1137,27 @@ private:
  * When remaining steps hits 0, current_time is equal to final_time,
  * give or take some machine precision.
  */
-template<typename P = default_precision>
 class time_data
 {
 public:
   //! type-tag for specifying  dt
   struct input_dt {
     //! explicit constructor, temporarily stores dt
-    explicit input_dt(P v) : value(v) {}
+    explicit input_dt(double v) : value(v) {}
     //! stored value
-    P value;
+    double value;
   };
   //! type-tag for specifying stop-time
   struct input_stop_time {
     //! explicit constructor, temporarily stores the stop-time
-    explicit input_stop_time(P v) : value(v) {}
+    explicit input_stop_time(double v) : value(v) {}
     //! stored value
-    P value;
+    double value;
   };
   //! unset time-data, all entries are negative, must be set later
   time_data() = default;
   //! steady state case, sets only the end time and num-steps to 1
-  time_data(P endt)
+  time_data(double endt)
       : smethod_(time_method::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)
   {}
   //! specify time-step and final time
@@ -1173,14 +1172,14 @@ public:
     // readjust dt to minimize rounding error
     if (dt_ * num_remain_ < stop_time_)
       num_remain_ += 1;
-    dt_ = stop_time_ / static_cast<P>(num_remain_);
+    dt_ = stop_time_ / static_cast<double>(num_remain_);
   }
   //! specify number of steps and final time
   time_data(time_method smethod, int64_t num_steps, input_stop_time stop_time)
     : smethod_(smethod), stop_time_(stop_time.value), time_(0), step_(0),
       num_remain_(num_steps)
   {
-    dt_ = (num_remain_ == 0) ? 0 : (stop_time_ / static_cast<P>(num_remain_));
+    dt_ = (num_remain_ == 0) ? 0 : (stop_time_ / static_cast<double>(num_remain_));
   }
   //! specify time-step and number of steps
   time_data(time_method smethod, input_dt dt, int64_t num_steps)
@@ -1194,13 +1193,13 @@ public:
   time_method step_method() const { return smethod_; }
 
   //! returns the time-step
-  P dt() const { return dt_; }
+  double dt() const { return dt_; }
   //! returns the stop-time
-  P stop_time() const { return stop_time_; }
+  double stop_time() const { return stop_time_; }
   //! returns the current time
-  P time() const { return time_; }
+  double time() const { return time_; }
   //! returns the current time, non-const ref that can reset the time
-  P &time() { return time_; }
+  double &time() { return time_; }
   //! returns the current step number
   int64_t step() const { return step_; }
   //! returns the number of remaining time-steps
@@ -1227,18 +1226,20 @@ public:
   }
 
   //! allows writer to save/load the time data
-  friend class h5manager<P>;
+  friend class h5manager<double>;
+  //! allows writer to save/load the time data
+  friend class h5manager<float>;
 
 private:
   time_method smethod_ = time_method::rk2;
   // the following entries cannot be negative, negative means "not-set"
 
   //! current time-step
-  P dt_ = -1;
+  double dt_ = -1;
   //! currently set final time
-  P stop_time_ = -1;
+  double stop_time_ = -1;
   //! current time for the simulation
-  P time_ = -1;
+  double time_ = -1;
   //! current number of steps taken
   int64_t step_ = -1;
   //! remaining steps
@@ -1249,8 +1250,7 @@ private:
  * \ingroup asgard_discretization
  * \brief Allows writing time-data to a stream
  */
-template<typename P>
-inline std::ostream &operator<<(std::ostream &os, time_data<P> const &dtime)
+inline std::ostream &operator<<(std::ostream &os, time_data const &dtime)
 {
   dtime.print_time(os);
   return os;

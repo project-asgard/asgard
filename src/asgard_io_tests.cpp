@@ -125,10 +125,10 @@ void simple_restart() {
 
   tassert(disc.degree() == 3);
 
-  tassert(std::abs(ref.time_props().dt() - disc.time_props().dt()) < tol);
-  tassert(std::abs(ref.time_props().time() - disc.time_props().time()) < tol);
-  tassert(std::abs(ref.time_props().stop_time() - disc.time_props().stop_time()) < tol);
-  tassert(std::abs(ref.time_props().num_remain() - disc.time_props().num_remain()) < tol);
+  tassert(std::abs(ref.dt() - disc.dt()) < tol);
+  tassert(std::abs(ref.time() - disc.time()) < tol);
+  tassert(std::abs(ref.stop_time() - disc.stop_time()) < tol);
+  tassert(ref.remaining_steps() == disc.remaining_steps());
 
   tassert(ref.get_grid().num_indexes() == disc.get_grid().num_indexes());
   tassert(ref.get_grid().num_dims() == disc.get_grid().num_dims());
@@ -164,31 +164,31 @@ void reset_time_params() {
   pde_domain<TestType> domain(num_dims);
   discretization_manager<TestType> ref(pde_scheme<TestType>(options, domain));
   ref.set_time(TestType{2});
-  tassert(ref.time_props().time() == 2);
-  tassert(ref.time_props().stop_time() == 3);
-  tassert(ref.time_props().num_remain() == 6);
+  tassert(ref.time() == 2);
+  tassert(ref.stop_time() == 3);
+  tassert(ref.remaining_steps() == 6);
 
   ref.save_snapshot(filename);
 
   prog_opts opts2 = make_opts("-restart " + filename + " -time 4");
   discretization_manager<TestType> d1(pde_scheme<TestType>(opts2, domain));
-  tassert(d1.time_params().time() == 2);
-  tassert(d1.time_params().stop_time() == 4);
+  tassert(d1.time() == 2);
+  tassert(d1.stop_time() == 4);
   tassert(d1.options().adapt_threshold);
   tassert(d1.options().adapt_threshold.value() == 0.0625);
 
   opts2 = make_opts("-restart " + filename + " -dt 0.25 -a 0.125");
   discretization_manager<TestType> d2(pde_scheme<TestType>(opts2, domain));
-  tassert(d2.time_params().dt() == TestType{0.25});
+  tassert(d2.dt() == TestType{0.25});
   // stop time minus current time is 1, with dt = 0.25 we have 4 steps
-  tassert(d2.time_params().num_remain() == 4);
+  tassert(d2.remaining_steps() == 4);
   tassert(d2.options().adapt_threshold.value() == 0.125);
 
   opts2 = make_opts("-restart " + filename + " -n 8 -noa");
   discretization_manager<TestType> d3(pde_scheme<TestType>(opts2, domain));
-  tassert(d3.time_params().num_remain() == 8);
+  tassert(d3.remaining_steps() == 8);
   // stop time minus current time is 1, with 8 streps, we have dt = 0.25
-  tassert(d3.time_params().dt() == TestType{0.125});
+  tassert(d3.dt() == TestType{0.125});
   tassert(not d3.options().adapt_threshold);
 }
 
@@ -260,16 +260,16 @@ void restart_longer() {
 
   tassert(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
 
-  tassert(std::abs(rdisc.time_params().stop_time() - 0.08) < 2.E-9); // updated the stop time
+  tassert(std::abs(rdisc.stop_time() - 0.08) < 2.E-9); // updated the stop time
   rdisc.advance_time();
 
-  tassert(std::abs(rdisc.time_params().time() - 0.08) < 1.E-8);
+  tassert(std::abs(rdisc.time() - 0.08) < 1.E-8);
 
   options = make_opts("-l 5 -d 2 -dt 0.01 -n 8");
   discretization_manager<P> reff(make_testpde<pde, P>(2, options));
   reff.advance_time();
 
-  tassert(std::abs(reff.time_params().time() - 0.08) < 1.E-8);
+  tassert(std::abs(reff.time() - 0.08) < 1.E-8);
 
   tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
 }
@@ -315,10 +315,10 @@ void restart_adapt() {
   rdisc.clear_aux_fields();
   tassert(rdisc.get_aux_fields().empty());
 
-  tassert(std::abs(rdisc.time_params().stop_time() - 0.08) < 2.E-9); // updated the stop time
+  tassert(std::abs(rdisc.stop_time() - 0.08) < 2.E-9); // updated the stop time
   rdisc.advance_time();
 
-  tassert(std::abs(rdisc.time_params().time() - 0.08) < 1.E-8);
+  tassert(std::abs(rdisc.time() - 0.08) < 1.E-8);
 
   options = make_opts("-l 8 -d 2 -dt 0.01 -n 8 -a 1.E-2");
   discretization_manager<P> reff(make_testpde<pde, P>(2, options));
@@ -326,7 +326,7 @@ void restart_adapt() {
 
   tassert(rdisc.get_grid().num_indexes() == reff.get_grid().num_indexes());
 
-  tassert(std::abs(reff.time_params().time() - 0.08) < 1.E-8);
+  tassert(std::abs(reff.time() - 0.08) < 1.E-8);
 
   tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
 }
@@ -355,10 +355,10 @@ void restart_moments() {
   tassert(rdisc.get_grid().num_indexes() == disc.get_grid().num_indexes());
   tassert(std::abs(get_qoi_indicator<pde, P>(disc) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
 
-  tassert(std::abs(rdisc.time_params().stop_time() - 1.5625E-2) < 1.E-10); // updated the stop time
+  tassert(std::abs(rdisc.stop_time() - 1.5625E-2) < 1.E-10); // updated the stop time
   rdisc.advance_time();
 
-  tassert(std::abs(rdisc.time_params().time() - 1.5625E-2) < 1.E-10);
+  tassert(std::abs(rdisc.time() - 1.5625E-2) < 1.E-10);
 
   disc.advance_time();
   double constexpr tol2 = (std::is_same_v<P, double>) ? 1.E-14 : 5.E-6;

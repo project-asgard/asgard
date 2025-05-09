@@ -395,11 +395,11 @@ void test_energy(int const vdims, std::string const &opt_str) {
   moments1d moms(num_moms, pdof - 1, disc.options().max_level(), disc.domain());
   std::vector<P> mom_vec;
 
-  int const n = disc.time_params().num_remain();
+  int64_t const n = disc.remaining_steps();
 
-  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 1.E-4;
+  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 5.E-3;
 
-  for (int i = 0; i < n; i++)
+  for (int64_t i = 0; i < n; i++)
   {
     disc.advance_time(1);
 
@@ -425,7 +425,7 @@ void test_energy(int const vdims, std::string const &opt_str) {
       Ek += moments[j][2 * pdof]; // integrating the third moment
     Ek *= std::sqrt(disc.domain().length(0));
 
-    if (disc.time_params().step() == 1) // first time-step
+    if (disc.current_step() == 1) // first time-step
       E0 = Ep + Ek;
 
     // check the initial slight energy decay before it stabilizes

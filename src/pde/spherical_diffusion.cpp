@@ -281,7 +281,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
   // this is the L^2 norm-squared of the exact solution
   double constexpr space = 0.245458116975280;
-  double const enorm = space * std::exp(-disc.time_params().time());
+  double const enorm = space * std::exp(-disc.time());
 
   // this is the currently computed solution
   std::vector<P> const &state = disc.current_state();
@@ -402,13 +402,13 @@ void dotest(double tol, std::string const &opts) {
   discretization_manager<P> disc(make_spherical<P>(options),
                                  verbosity_level::quiet);
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
     double const err = get_error_l2(disc);
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 
