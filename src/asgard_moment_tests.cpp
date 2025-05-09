@@ -54,7 +54,7 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
   }
 
   std::vector<P> raw_moments;
-  moms.project_moments(disc.get_sgrid(), disc.current_state(), raw_moments);
+  moms.project_moments(disc.get_grid(), disc.current_state(), raw_moments);
 
   // the raw_moments are stored interlaces, e.g., cell0-mom0, cell0-mom1, cell1-mom0 ...
   // splitting into separate vectors, for easier comparison against the reference states
@@ -84,7 +84,7 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
 
     // also include comparison with the solution of a single moment
     std::vector<P> single_mom;
-    moms.project_moment(m, disc.get_sgrid(), disc.current_state(), single_mom);
+    moms.project_moment(m, disc.get_grid(), disc.current_state(), single_mom);
     err = std::max(err, fm::diff_inf(single_mom, ref));
   }
 

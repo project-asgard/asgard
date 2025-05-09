@@ -1,8 +1,37 @@
 #include "asgard_indexset.hpp"
-#include "asgard_permutations.hpp"
 
 namespace asgard
 {
+
+// the signature of callable is
+// std::function<bool(std::array<int, max_num_dimensions> const &index)>
+template<typename callable>
+inline std::vector<int> generate_lower_index_set(
+    size_t num_dims, callable inside)
+{
+  size_t c   = 0;
+  bool is_in = true;
+  std::array<int, max_num_dimensions> root;
+  std::fill_n(root.begin(), num_dims, 0);
+  std::vector<int> indexes;
+  while (is_in || (c > 0))
+  {
+    if (is_in)
+    {
+      indexes.insert(indexes.end(), root.begin(), root.begin() + num_dims);
+      c = num_dims - 1;
+      root[c]++;
+    }
+    else
+    {
+      std::fill(root.begin() + c, root.begin() + num_dims, 0);
+      root[--c]++;
+    }
+    is_in = inside(root);
+  }
+  return indexes;
+}
+
 template<typename data_container>
 indexset make_index_set(organize2d<int, data_container> const &indexes)
 {
@@ -473,7 +502,7 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
 
   if constexpr (gtype == grid_type::dense)
   {
-    std::vector<int> idx = asgard::permutations::generate_lower_index_set(
+    std::vector<int> idx = asgard::generate_lower_index_set(
       numd, [&](std::array<int, max_num_dimensions> const &index)
         -> bool {
           for (int d = 0; d < numd; d++)
@@ -491,7 +520,7 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
     std::array<int, max_num_dimensions> lidx;
     for (int d : iindexof(numd))
       lidx[d] = (levels[d] == 0) ? (m + 1) : (m / levels[d]);
-    std::vector<int> idx = asgard::permutations::generate_lower_index_set(
+    std::vector<int> idx = asgard::generate_lower_index_set(
       numd, [&](std::array<int, max_num_dimensions> const &index)
         -> bool {
           int l = 0;
@@ -509,7 +538,7 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
     std::array<int, max_num_dimensions> lidx;
     for (int i = 0; i < numd; i++)
       lidx[i] = m / levels[i];
-    std::vector<int> idx = asgard::permutations::generate_lower_index_set(
+    std::vector<int> idx = asgard::generate_lower_index_set(
       numd, [&](std::array<int, max_num_dimensions> const &index)
         -> bool {
           int l1 = 0, l2 = 0;

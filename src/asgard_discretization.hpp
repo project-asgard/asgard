@@ -36,61 +36,40 @@ public:
   discretization_manager(pde_scheme<precision> pde_in,
                          verbosity_level verbosity = verbosity_level::quiet);
 
-  /*!
-   * \brief Preventing relocation
-   *
-   * Different components of the manager can hold aliases (pointer and refs)
-   * to other components, e.g., components shared between multiple other components
-   * such as scratch workspaces or common pde options.
-   * Relocating the manager can break all of those references, thus we explicitly
-   * forbid such operations.
-   * If "move" operations are needed, wrap the manger in a unique_ptr.
-   */
-  discretization_manager(discretization_manager &&) = delete;
-
   //! returns the degree of the discretization
-  int degree() const { return degree_; }
+  int degree() const { return hier.degree(); }
 
   //! returns the number of dimensions
-  int num_dims() const { return pde2.num_dims(); }
+  int num_dims() const { return grid.num_dims(); }
   //! returns the max level of the grid
-  int max_level() const { return pde2.max_level(); }
+  int max_level() const { return terms.max_level; }
+  //! returns the user provided program options
+  prog_opts const &options() const { return options_; }
+  //! returns the discretization domain
+  pde_domain<precision> const &domain() const { return domain_; }
 
-  //! returns the time discretization parameters
-  time_data<precision> const &time_params() const { return stepper.data; }
+  //! returns the current simulation time
+  double time() const { return stepper.data.time(); }
+  //! returns the stop time that, the end of the simulation
+  double stop_time() const { return stepper.data.stop_time(); }
+  //! returns the time step
+  double dt() const { return stepper.data.dt(); }
+  //! returns the number of remaining time-steps
+  int64_t remaining_steps() const { return stepper.data.num_remain(); }
+  //! returns the current time step
+  int64_t current_step() const { return stepper.data.step(); }
 
-  //! get the current time-step number
-  int64_t time_step() const { return time_step_; }
+  //! returns the non-separable initial conditions
+  md_func<precision> const &initial_cond_md() const { return initial_md_; }
+  //! returns the separable initial conditions
+  std::vector<separable_func<precision>> const &initial_cond_sep() const { return initial_sep_; }
 
-  //! set the time in the befinning of the simulation, time() must be zero to call this
+  //! set the time in the beginning of the simulation, time() must be zero to call this
   void set_time(precision t) {
     if (stepper.data.step() != 0)
       throw std::runtime_error("cannot reset the current time after the simulation start");
     stepper.data.time() = t;
   }
-  //! get the currently set final time step
-  int64_t final_time_step() const { return final_time_step_; }
-
-  //! set new final time step, must be no less than the current time_step()
-  void set_final_time_step(int64_t new_final_time_step)
-  {
-    rassert(new_final_time_step >= time_step_,
-            "cannot set the time-step to an easier point in time");
-    final_time_step_ = new_final_time_step;
-  }
-  /*!
-   * \brief add new time steps for simulation
-   *
-   * could add negative number (i.e., subtract time steps) but cannot move
-   * the time before the current time_step()
-   */
-  void add_time_steps(int64_t additional_time_steps)
-  {
-    rassert(final_time_step_ + additional_time_steps >= time_step_,
-            "cannot set the time-step to an easier point in time");
-    final_time_step_ += additional_time_steps;
-  }
-
   //! return the current state, in wavelet format, local to this mpi rank
   std::vector<precision> const &current_state() const { return state; }
   //! returns the size of the current state
@@ -100,12 +79,12 @@ public:
   reconstruct_solution get_snapshot() const
   {
     reconstruct_solution shot(
-        pde2.num_dims(), sgrid.num_indexes(), sgrid[0], degree_, state.data(), true);
+        num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
 
     std::array<double, max_num_dimensions> xmin, xmax;
-    for (int d : iindexof(pde2.num_dims())) {
-      xmin[d] = pde2.domain().xleft(d);
-      xmax[d] = pde2.domain().xright(d);
+    for (int d : iindexof(num_dims())) {
+      xmin[d] = domain_.xleft(d);
+      xmax[d] = domain_.xright(d);
     }
 
     shot.set_domain_bounds(xmin.data(), xmax.data());
@@ -125,58 +104,58 @@ public:
     if (poisson) { // if we have a Poisson dependence
       tools::time_event performance_("ode-rhs poisson");
       do_poisson_update(current);
-      terms.rebuild_poisson(sgrid, conn, hier);
+      terms.rebuild_poisson(grid, conn, hier);
     }
 
     {
       tools::time_event performance_("ode-rhs kronmult");
-      terms.apply_all(sgrid, conn, -1, current, 0, R);
+      terms.apply_all(grid, conn, -1, current, 0, R);
     }{
       tools::time_event performance_("ode-rhs sources");
-      terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, R);
+      terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
     }
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::replace>(domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_rep>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+    terms.template apply_sources<data_mode::scal_rep>(domain_, grid, conn, hier, time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(pde2.domain(), sgrid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(pde2.domain(), sgrid, conn, hier, time, alpha, src);
+    terms.template apply_sources<data_mode::scal_inc>(domain_, grid, conn, hier, time, alpha, src);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(gid, pde2.domain(), sgrid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::replace>(gid, domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(gid, pde2.domain(), sgrid, conn, hier, time, 1, src);
+    terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, precision alpha, std::vector<precision> &src) const {
     tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(gid, pde2.domain(), sgrid, conn, hier, time, alpha, src);
+    terms.template apply_sources<data_mode::scal_inc>(gid, domain_, grid, conn, hier, time, alpha, src);
   }
 
   //! computes the l-2 norm, taking the mass matrix into account
   precision normL2(std::vector<precision> const &x) const {
     expect(x.size() == state.size());
-    return terms.normL2(sgrid, conn, x);
+    return terms.normL2(grid, conn, x);
   }
 
   //! applies all terms
@@ -184,34 +163,34 @@ public:
                        std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
-    terms.apply_all(sgrid, conn, alpha, x, beta, y);
+    terms.apply_all(grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply_all(precision alpha, precision const x[], precision beta,
                        precision y[]) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
-    terms.apply_all(sgrid, conn, alpha, x, beta, y);
+    terms.apply_all(grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group
   void terms_apply(int gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid, sgrid, conn, alpha, x, beta, y);
+    terms.apply_group(gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(int gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid, sgrid, conn, alpha, x, beta, y);
+    terms.apply_group(gid, grid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(precision const x[], precision y[]) const
   {
     tools::time_event performance_("terms_apply_adi kronmult");
-    terms.apply_all_adi(sgrid, conn, x, y);
+    terms.apply_all_adi(grid, conn, x, y);
   }
 
   //! compute the electric field for the given state and update the coefficient matrices
@@ -224,14 +203,14 @@ public:
   //! calls save-snapshot for the final step, if requested with -outfile
   void save_final_snapshot() const
   {
-    if (not pde2.options().outfile.empty())
-      save_snapshot(pde2.options().outfile);
+    if (not options_.outfile.empty())
+      save_snapshot(options_.outfile);
   }
 
   //! returns the title of the PDE
-  std::string const &title() const { return pde2.options().title; }
+  std::string const &title() const { return options_.title; }
   //! returns the subtitle of the PDE
-  std::string const &subtitle() const { return pde2.options().subtitle; }
+  std::string const &subtitle() const { return options_.subtitle; }
   //! returns true if the title contains the given sub-string
   bool title_contains(std::string const &substring) const {
     return (title().find(substring) != std::string::npos);
@@ -271,7 +250,7 @@ public:
       else
         os << std::setw(10) << s;
     }
-    os << "  grid size: " << std::setw(12) << tools::split_style(sgrid.num_indexes())
+    os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes())
        << "  dof: " << std::setw(14) << tools::split_style(state.size());
     int64_t const num_appy = stepper.solver_iterations();
     if (num_appy > 0) { // using iterative solver
@@ -321,7 +300,7 @@ public:
   void add_aux_field(aux_field_entry<precision> f) {
     aux_fields.emplace_back(std::move(f));
     if (aux_fields.back().grid.empty()) // if grid provided
-      aux_fields.back().grid = sgrid.get_cells(); // assume the current grid
+      aux_fields.back().grid = grid.get_cells(); // assume the current grid
     rassert(aux_fields.back().data.size()
             == static_cast<size_t>(hier.block_size()
                                    * (aux_fields.back().grid.size() / num_dims())),
@@ -334,15 +313,15 @@ public:
   void clear_aux_fields() { aux_fields.clear(); }
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
-
-  pde_scheme<precision> const &get_pde2() const { return pde2; }
-  time_data<precision> const &time_props() const { return stepper.data; }
-  sparse_grid const &get_sgrid() const { return sgrid; }
-
+  //! returns a ref to the sparse grid
+  sparse_grid const &get_grid() const { return grid; }
+  //! returns the current grid generation
+  int grid_generation() const { return grid.generation(); }
+  //! returns the term manager
   term_manager<precision> const & get_terms() const { return terms; }
 
   //! return the hierarchy_manipulator
-  auto const &get_hiermanip() const { return hier; }
+  auto const &get_hier() const { return hier; }
   //! return the connection patterns
   auto const &get_conn() const { return conn; }
 
@@ -351,30 +330,30 @@ public:
     if (not moms1d)
       return;
 
-    int const level = sgrid.current_level(0);
-    moms1d->project_moments(sgrid, f, terms.cdata.moments);
+    int const level = grid.current_level(0);
+    moms1d->project_moments(grid, f, terms.cdata.moments);
     int const num_cells = fm::ipow2(level);
     int const num_outs  = moms1d->num_comp_mom();
     hier.reconstruct1d(
-        num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
+        num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
                                             terms.cdata.moments.data()));
     // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
-    terms.rebuild_moment_terms(sgrid, conn, hier);
+    terms.rebuild_moment_terms(grid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(int groupid, std::vector<precision> const &f) const {
     if (not moms1d or terms.deps(groupid).num_moments == 0)
       return;
 
-    int const level = sgrid.current_level(0);
-    moms1d->project_moments(sgrid, f, terms.cdata.moments);
+    int const level = grid.current_level(0);
+    moms1d->project_moments(grid, f, terms.cdata.moments);
     int const num_cells = fm::ipow2(level);
     int const num_outs  = moms1d->num_comp_mom();
     hier.reconstruct1d(
-        num_outs, level, span2d<precision>((degree_ + 1), num_outs * num_cells,
+        num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
                                             terms.cdata.moments.data()));
 
-    terms.rebuild_moment_terms(groupid, sgrid, conn, hier);
+    terms.rebuild_moment_terms(groupid, grid, conn, hier);
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(int groupid, std::vector<precision> const &f) const {
@@ -382,7 +361,7 @@ public:
       return;
 
     do_poisson_update(f);
-    terms.rebuild_poisson(sgrid, conn, hier);
+    terms.rebuild_poisson(grid, conn, hier);
   }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
@@ -392,15 +371,12 @@ public:
   //! (debugging) prints the term-matrices
   void print_mats() const;
 
-  /*!
-   * \ingroup asgard_discretization
-   * \brief Performs integration in time for a given number of steps
-   */
-  friend void advance_in_time<precision>(discretization_manager<precision> &disc,
-                                      int64_t num_steps);
-
+  // performs integration in time
+  friend void advance_in_time<precision>(
+      discretization_manager<precision> &disc, int64_t num_steps);
+  // this is the I/O manager
   friend class h5manager<precision>;
-
+  // handles the time-integration meta-data
   friend struct time_advance_manager<precision>;
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
@@ -410,9 +386,9 @@ protected:
   void set_initial_condition();
 
   //! start from time 0 and nothing has been set
-  void start_cold();
+  void start_cold(pde_scheme<precision> &pde);
   //! restart from a file
-  void restart_from_file();
+  void restart_from_file(pde_scheme<precision> &pde);
   //! common operations for the two start methods
   void start_moments();
 
@@ -420,22 +396,20 @@ protected:
 
 private:
   mutable verbosity_level verb;
-  pde_scheme<precision> pde2;
+  // user provided options
+  prog_opts options_;
+  // initial conditions, non-separable
+  md_func<precision> initial_md_;
+  // initial conditions, separable
+  std::vector<separable_func<precision>> initial_sep_;
+  // pde-domain
+  pde_domain<precision> domain_;
 
-  sparse_grid sgrid;
-
+  sparse_grid grid;
   connection_patterns conn;
+  hierarchy_manipulator<precision> hier;
 
-  hierarchy_manipulator<precision> hier; // new transformer
-
-  // easy access variables, avoids jumping into pde->options()
-  int degree_;
-
-  // extra parameters
-  int64_t time_step_;
-  int64_t final_time_step_;
-
-  // moments, new implementation
+  // moments
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
   mutable solvers::poisson<precision> poisson;

@@ -402,11 +402,15 @@ set(asgard_components
     block_matrix
     coefficients_mats
     compute
+    dimension
     discretization
+    grid_1d
     indexset
     interp
+    kronmult
+    kronmult_common
+    kronmult_cpu
     moment
-    permutations
     pde
     pde_functions
     program_options
@@ -415,6 +419,7 @@ set(asgard_components
     small_mats
     solver
     term_manager
+    test_macros
     time_advance
     transformations
     tools
@@ -439,15 +444,6 @@ foreach (component IN LISTS asgard_components)
     )
 endforeach ()
 
-target_sources (libasgard
-                PRIVATE
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_kronmult_cpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_spkronmult_cpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_glkronmult_bcpu.cpp>
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp>
-)
 target_precompile_headers (libasgard
                            PUBLIC
                            $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp>>
@@ -677,11 +673,15 @@ foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
   endif()
 endforeach()
 
-
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
-        DESTINATION include
-        FILES_MATCHING PATTERN "*.hpp"
-        )
+# installing the headers
+foreach (_asgcomp ${asgard_components})
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp"
+            DESTINATION include)
+  endif()
+endforeach()
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.hpp"
+        DESTINATION include)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)
 

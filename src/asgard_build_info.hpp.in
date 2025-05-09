@@ -31,10 +31,6 @@
 
 #define ASGARD_NUM_QUADRATURE @ASGARD_NUM_QUADRATURE@
 
-// #ifndef ASGARD_USE_MPI
-#define KRON_MODE_GLOBAL
-// #endif
-
 // enable arch agnostic GPU capabilities
 #ifdef ASGARD_USE_CUDA
 #define ASGARD_USE_GPU

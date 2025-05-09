@@ -204,7 +204,8 @@ struct term_manager
    * a separate manager class, but that would be used only in the initial
    * conditions and then repeatedly passed into every single call here.
    */
-  term_manager(pde_scheme<P> &pde, sparse_grid const &grid,
+  term_manager(pde_domain<P> const &domain, pde_scheme<P> &pde,
+               int max_level, sparse_grid const &grid,
                hierarchy_manipulator<P> const &hier,
                connection_patterns const &conn);
 
@@ -248,7 +249,7 @@ struct term_manager
   //! interpolation data
   interpolation_manager<P> interp;
 
-  mutable kronmult::block_global_workspace<P> kwork;
+  mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   mutable std::vector<P> it1, it2; // used for interpolation
 

@@ -18,14 +18,16 @@ template<typename P>
 class h5manager {
 public:
   //! write to file
-  static void write(pde_scheme<P> const &pde, int degree, sparse_grid const &grid,
-                    time_data<P> const &tdata, std::vector<P> const &state,
+  static void write(prog_opts const &options, pde_domain<P> const &domain, int degree,
+                    sparse_grid const &grid, time_data const &tdata,
+                    std::vector<P> const &state,
                     std::vector<aux_field_entry<P>> const &aux_fields,
                     std::string const &filename);
 
   //! read from file
-  static void read(std::string const &filename, bool silent, pde_scheme<P> &pde,
-                   sparse_grid &grid, time_data<P> &tdata,
+  static void read(std::string const &filename, bool silent,
+                   prog_opts &options, pde_domain<P> &domain,
+                   sparse_grid &grid, time_data &tdata,
                    std::vector<aux_field_entry<P>> &aux_fields,
                    std::vector<P> &state);
 

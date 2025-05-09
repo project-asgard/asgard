@@ -54,7 +54,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
   pde_scheme<P> pde(options, std::move(domain));
 
-  term_1d<P> div = term_div<P>(1, flux_type::upwind, boundary_type::bothsides);
+  term_1d<P> div = term_div<P>(1, boundary_type::bothsides);
 
   div.set_penalty(P{1} / pde.min_cell_size());
 
@@ -133,15 +133,15 @@ pde_scheme<P> make_quad_pde(int num_dims, prog_opts options) {
 
   pde_scheme<P> pde(options, std::move(domain));
 
-  term_1d<P> div  = term_div<P>(-1, flux_type::upwind, boundary_type::none);
-  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::bothsides);
+  term_1d<P> div  = term_div<P>(-1, boundary_type::none);
+  term_1d<P> grad = term_grad<P>(1, boundary_type::bothsides);
 
   term_1d<P> diffusion({div, grad});
 
   int const max_level = options.max_level();
   P const dx = domain.min_cell_size(max_level);
 
-  term_1d<P> penalty = term_penalty<P>(P{1} / dx, flux_type::upwind, boundary_type::bothsides);
+  term_1d<P> penalty = term_penalty<P>(P{1} / dx, boundary_type::bothsides);
 
   std::vector<term_1d<P>> ops(num_dims);
   for (int d = 0; d < num_dims; d++)
@@ -216,7 +216,7 @@ double get_error_l2(discretization_manager<P> const &disc)
     return std::sqrt(ndiff + std::abs(enorm - nself));
   }
 
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   bool const left    = disc.title_contains("(left)");
   double const enorm = (left) ? P{7} / P{3} : P{1} / P{3};
@@ -329,13 +329,13 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   // make sure there's something to solve
   disc.set_current_state(std::vector<P>(disc.current_state().size(), P{0}));
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
     double const err = get_error_l2(disc);
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 
@@ -355,7 +355,7 @@ void dotest_quad(double tol, int num_dims, std::string const &opts) {
 
   // std::cout << err << "\n";
 
-  tcheckless(disc.time_params().step(), err, tol);
+  tcheckless(disc.current_step(), err, tol);
 }
 
 void self_test() {

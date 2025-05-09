@@ -165,7 +165,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc)
 //! [sinwav get-err]
 #endif
 
-  double const t = disc.time_params().time();
+  double const t = disc.time();
 
   if (t < 1) {
     if (not disc.stop_verbosity())
@@ -286,7 +286,7 @@ R"help(<< additional options for this file >>
 
   disc.final_output();
 
-  if (not disc.stop_verbosity() and disc.time_params().time() >= 1) {
+  if (not disc.stop_verbosity() and disc.time() >= 1) {
     P const err = get_error_l2(disc);
     std::cout << " -- final error: " << err << '\n';
   }
@@ -326,16 +326,16 @@ void dotest(double tol, std::string const &opts) {
     disc.advance_time();
     double const err = get_error_l2(disc);
     // std::cout << err << '\n';
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   } else {
-    while (disc.time_params().num_remain() > 0)
+    while (disc.remaining_steps() > 0)
     {
       disc.advance_time(1);
 
       if (not final_only) {
         double const err = get_error_l2(disc);
         // std::cout << err << '\n';
-        tcheckless(disc.time_params().step(), err, tol);
+        tcheckless(disc.current_step(), err, tol);
       }
     }
   }

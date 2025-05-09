@@ -598,8 +598,8 @@ struct prog_opts
   double get_dt() const { return dt.value_or(dt.value_or(-1)); }
   //! returns the max-level based on the current set of options
   int max_level() const {
-    int ml = 0;
-    if (not default_start_levels.empty())
+    int ml = loaded_max_level_;
+    if (start_levels.empty() and not default_start_levels.empty())
       ml = *std::max_element(default_start_levels.begin(),default_start_levels.end());
     if (not start_levels.empty())
       ml = std::max(ml, *std::max_element(start_levels.begin(),start_levels.end()));
@@ -621,6 +621,9 @@ struct prog_opts
 
   //! provides a long string for the given time-stepping method
   static std::string get_name(time_method);
+
+  //! (internal use) max-level loaded from a file, used for I/O
+  int loaded_max_level_ = 0;
 
 private:
   //! mapping from cli options to variables and actions

@@ -115,8 +115,7 @@ asgard::pde_scheme<P> make_continuity_pde(int num_dims, asgard::prog_opts option
 
   // one dimensional divergence term using upwind flux
   // multiple terms can be chained to obtain higher order derivatives
-  asgard::term_1d<P> div = asgard::term_div<P>(1, asgard::flux_type::upwind,
-                                               asgard::boundary_type::periodic);
+  asgard::term_1d<P> div = asgard::term_div<P>(1, asgard::boundary_type::periodic);
 
   // the multi-dimensional divergence, initially set to identity in md
   std::vector<asgard::term_1d<P>> ops(num_dims);
@@ -218,10 +217,10 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // disc.get_pde2().ic_sep() returns the separable initial conditions
   // disc.project_function() projects a set of separable functions
   // onto the current sparse grid basis and returns the coefficients
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   double constexpr space1d = 2 * PI; // integral of sin(x)^2 over (-2 * PI, 2 * PI)
-  double const time_val    = std::cos(disc.time_params().time());
+  double const time_val    = std::cos(disc.time());
 
   // this is the L^2 norm-squared of the exact solution
   // powi works the same as std::pow but the second input is an integer
@@ -368,13 +367,13 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
                                  verbosity_level::quiet);
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
     double const err = get_error_l2(disc);
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 
@@ -391,7 +390,7 @@ void dolongtest(double tol, int num_dims, std::string const &opts) {
 
   double const err = get_error_l2(disc);
 
-  tcheckless(disc.time_params().step(), err, tol);
+  tcheckless(disc.current_step(), err, tol);
 }
 
 template<typename P>
@@ -404,7 +403,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
                                  verbosity_level::quiet);
 
   // makes a dense grid over the domain using np points each direction
-  vector2d<double> const mesh = make_grid<double>(disc.get_pde2().domain(), np);
+  vector2d<double> const mesh = make_grid<double>(disc.domain(), np);
 
   // the reconstruction is always done in double-precision even if the data
   // coming from the discretization_manager is in floats
@@ -423,11 +422,11 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
   std::vector<double> ref(mesh.num_strips());
   std::vector<double> com(mesh.num_strips());
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
-    double const time = disc.time_params().time();
+    double const time = disc.time();
 #pragma omp parallel for
     for (int64_t i = 0; i < mesh.num_strips(); i++)
       ref[i] = exact.eval(mesh[i], time);
@@ -440,7 +439,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
     for (size_t i = 0; i < ref.size(); i++)
       err = std::max(err, std::abs(com[i] - ref[i]));
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 

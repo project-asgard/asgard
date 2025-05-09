@@ -276,7 +276,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   std::vector<P> const eref = disc.project_function({exact, });
 
   double const xnorm    = asgard::fm::powi(2.719125363804229, num_dims);
-  double const time_val = nexp_t(disc.time_params().time());
+  double const time_val = nexp_t(disc.time());
 
   // this is the L^2 norm-squared of the exact solution
   double const enorm = xnorm * time_val * time_val;
@@ -419,14 +419,14 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   discretization_manager<P> disc(make_diffusion_pde<P, chain1d>(num_dims, options),
                                  verbosity_level::quiet);
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
     double const err = get_error_l2(disc);
     // std::cout << " err = " << err << "\n";
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 
@@ -443,7 +443,7 @@ void longtest(double tol, int num_dims, std::string const &opts) {
 
   double const err = get_error_l2(disc);
   // std::cout << " err = " << err << "\n";
-  tcheckless(disc.time_params().step(), err, tol);
+  tcheckless(disc.current_step(), err, tol);
 }
 
 void self_test() {

@@ -43,7 +43,7 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
   pde_scheme<P> pde(options, std::move(domain));
 
   if (num_dims == 1) {
-    term_1d<P> div = term_div<P>(builtin_v<P>::expneg, flux_type::upwind, boundary_type::left);
+    term_1d<P> div = term_div<P>(builtin_v<P>::expneg, boundary_type::left);
     pde += {div, };
 
     auto cospi2 = vectorize_t<P>([](P x)->P{ return std::cos(0.5 * PI * x); });
@@ -66,10 +66,10 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
 template<typename P>
 double get_error_l2(discretization_manager<P> const &disc)
 {
-  std::vector<P> const eref = disc.project_function(disc.get_pde2().ic_sep());
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
 
   double const space = (disc.num_dims() == 1) ? 1 : 1;
-  double const time_val  = std::cos(disc.time_params().time());
+  double const time_val  = std::cos(disc.time());
 
   double const enorm = space * time_val * time_val;
 
@@ -151,13 +151,13 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   discretization_manager<P> disc(make_var_pde<P>(num_dims, options),
                                  verbosity_level::quiet);
 
-  while (disc.time_params().num_remain() > 0)
+  while (disc.remaining_steps() > 0)
   {
     disc.advance_time(1);
 
     double const err = get_error_l2(disc);
 
-    tcheckless(disc.time_params().step(), err, tol);
+    tcheckless(disc.current_step(), err, tol);
   }
 }
 

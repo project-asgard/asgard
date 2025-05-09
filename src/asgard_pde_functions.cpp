@@ -1,6 +1,6 @@
 #include "asgard_pde_functions.hpp"
 
-#include "device/asgard_kronmult_common.hpp"
+#include "asgard_kronmult_common.hpp"
 
 namespace asgard
 {
@@ -32,7 +32,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     *this += term_md<P>({I, divv_nuv});
     *this += term_md<P>({term_moment_over_density{1}, div_nu});
 
-    term_1d<P> vol_theta(pterm_dependence::lenard_bernstein_coll_theta_1x1v);
+    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x1v);
     *this += term_md<P>({vol_theta, nu_div_grad});
 
   } else if (domain_.num_vel() == 2) {
@@ -42,7 +42,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     *this += term_md<P>({term_moment_over_density{1}, div_nu, I});
     *this += term_md<P>({term_moment_over_density{2}, I, div_nu});
 
-    term_1d<P> vol_theta(pterm_dependence::lenard_bernstein_coll_theta_1x2v);
+    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x2v);
     *this += term_md<P>({vol_theta, nu_div_grad, I});
     *this += term_md<P>({vol_theta, I, nu_div_grad});
 
@@ -55,7 +55,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     *this += term_md<P>({term_moment_over_density{2}, I, div_nu, I});
     *this += term_md<P>({term_moment_over_density{3}, I, I, div_nu});
 
-    term_1d<P> vol_theta(pterm_dependence::lenard_bernstein_coll_theta_1x3v);
+    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x3v);
     *this += term_md<P>({vol_theta, nu_div_grad, I, I});
     *this += term_md<P>({vol_theta, I, nu_div_grad, I});
     *this += term_md<P>({vol_theta, I, I, nu_div_grad});

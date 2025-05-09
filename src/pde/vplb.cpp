@@ -266,7 +266,7 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
 
   // The Maxwellian is the initial condition
   // but with constant value of 1.0 set in dimension 0 (the position dimension)
-  asgard::separable_func<P> maxw = disc.get_pde2().ic_sep().front();
+  asgard::separable_func<P> maxw = disc.initial_cond_sep().front();
 
   // set dimension 0 to be a constant function with value 1
   maxw.set_cdomain(0, P{1});
@@ -346,7 +346,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_vplb(vdims, options),
+  asgard::discretization_manager<P> disc(make_vplb<P>(vdims, options),
                                          asgard::verbosity_level::high);
 
   // save the perturbation as an auxiliary field, for plotting
@@ -386,47 +386,46 @@ void test_energy(int const vdims, std::string const &opt_str) {
 
   discretization_manager disc(make_vplb<P>(vdims, options), verbosity_level::quiet);
 
-  P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
+  double E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
 
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check conservation properties
   int const num_moms = 3;
   int const pdof     = disc.degree() + 1;
-  moments1d moms(num_moms, pdof - 1, disc.get_pde2().max_level(),
-                 disc.get_pde2().domain());
+  moments1d moms(num_moms, pdof - 1, disc.options().max_level(), disc.domain());
   std::vector<P> mom_vec;
 
-  int const n = disc.time_params().num_remain();
+  int64_t const n = disc.remaining_steps();
 
-  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 1.E-4;
+  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 5.E-3;
 
-  for (int i = 0; i < n; i++)
+  for (int64_t i = 0; i < n; i++)
   {
     disc.advance_time(1);
 
-    int const level0   = disc.get_sgrid().current_level(0);
+    int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
-    P const dx         = disc.get_pde2().domain().length(0) / num_cell;
+    P const dx         = disc.domain().length(0) / num_cell;
 
-    moms.project_moments(disc.get_sgrid(), disc.current_state(), mom_vec);
+    moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
 
     disc.do_poisson_update(disc.current_state()); // update the electric field
 
     auto const &efield = disc.get_terms().cdata.electric_field;
 
-    P Ep = 0;
+    double Ep = 0;
     for (auto e : efield)
       Ep += e * e;
     Ep *= dx;
 
     span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
 
-    P Ek = 0;
+    double Ek = 0;
     for (int j : iindexof(num_cell))
       Ek += moments[j][2 * pdof]; // integrating the third moment
-    Ek *= std::sqrt(disc.get_pde2().domain().length(0));
+    Ek *= std::sqrt(disc.domain().length(0));
 
-    if (disc.time_params().step() == 1) // first time-step
+    if (disc.current_step() == 1) // first time-step
       E0 = Ep + Ek;
 
     // check the initial slight energy decay before it stabilizes

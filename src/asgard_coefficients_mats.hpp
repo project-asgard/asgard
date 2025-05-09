@@ -322,7 +322,7 @@ void gen_diag_cmat_pwc(legendre_basis<P> const &basis, int level,
 }
 
 template<typename P, operation_type optype,
-         pterm_dependence depends = pterm_dependence::none>
+         term_dependence depends = term_dependence::none>
 void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                    sfixed_func1d<P> const &rhs, rhs_raw_data<P> &rhs_raw,
                    block_diag_matrix<P> &coeff)
@@ -337,7 +337,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   coeff.resize_and_zero(nblock, num_cells);
 
   span2d<P> rhs_vals;
-  if constexpr (depends == pterm_dependence::none) {
+  if constexpr (depends == term_dependence::none) {
     rhs_raw.pnts.resize(basis.num_quad * num_cells);
     rhs_raw.vals.resize(rhs_raw.pnts.size());
 #pragma omp parallel for
@@ -369,7 +369,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 }
 
 //! moment over moment zero
-template<typename P, int multsign, pterm_dependence dep>
+template<typename P, int multsign, term_dependence dep>
 void gen_diag_mom_cases(
     legendre_basis<P> const &basis, int level, int mindex,
     std::vector<P> const &moms, block_diag_matrix<P> &coefficients)
@@ -385,11 +385,11 @@ void gen_diag_mom_cases(
   coefficients.resize_and_zero(pdof * pdof, num_cells);
 
   size_t const wsize = [&]() -> size_t {
-    if constexpr (dep == pterm_dependence::moment_divided_by_density)
+    if constexpr (dep == term_dependence::moment_divided_by_density)
       return num_quad * pdof + 2 * num_quad;
-    else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v
-                       or dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v
-                       or dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v)
+    else if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x1v
+                       or dep == term_dependence::lenard_bernstein_coll_theta_1x2v
+                       or dep == term_dependence::lenard_bernstein_coll_theta_1x3v)
       return num_quad * pdof + 3 * num_quad;
   }();
 
@@ -402,14 +402,14 @@ void gen_diag_mom_cases(
     P *tmp   = workspace.data();
     P *gv    = tmp + num_quad * pdof;
     P *gdiv  = gv + num_quad;
-    P *gv2   = (dep == pterm_dependence::moment_divided_by_density) ? nullptr : gdiv + num_quad;
+    P *gv2   = (dep == term_dependence::moment_divided_by_density) ? nullptr : gdiv + num_quad;
 
     // workspace will be captured inside the lambda closure
     // no allocations will occur per call
 #pragma omp for
     for (int i = 0; i < num_cells; ++i)
     {
-      if constexpr (dep == pterm_dependence::moment_divided_by_density)
+      if constexpr (dep == term_dependence::moment_divided_by_density)
       {
         // make gv to be the values of rhs at the quad-nodes
         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + mindex * pdof, gv);
@@ -418,7 +418,7 @@ void gen_diag_mom_cases(
         for (int k : iindexof(num_quad))
           gv[k] /= gdiv[k];
       }
-      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x1v)
+      else if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x1v)
       {
         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + pdof, gv);
         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 2 * pdof, gv2);
@@ -427,7 +427,7 @@ void gen_diag_mom_cases(
         for (int k : iindexof(num_quad))
           gv[k] = (gv2[k] / gdiv[k]) - gv[k] * gv[k] / (gdiv[k] * gdiv[k]);
       }
-      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x2v)
+      else if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x2v)
       {
         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + pdof, gv2);
         for (int k : iindexof(num_quad))
@@ -444,7 +444,7 @@ void gen_diag_mom_cases(
         for (int k : iindexof(num_quad))
           gv[k] = 0.5 * ((gv2[k] / gdiv[k]) - gv[k] / (gdiv[k] * gdiv[k]));
       }
-      else if constexpr (dep == pterm_dependence::lenard_bernstein_coll_theta_1x3v)
+      else if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x3v)
       {
         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 1 * pdof, gv2);
         for (int k : iindexof(num_quad))

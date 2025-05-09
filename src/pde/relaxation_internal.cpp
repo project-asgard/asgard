@@ -312,7 +312,7 @@ void test_final(double tol, int num_dims, std::string const &opt_str) {
 
   // std::cout << " err = " << err << '\n';
 
-  tcheckless(disc.time_params().step(), err, tol);
+  tcheckless(disc.current_step(), err, tol);
 }
 
 template<typename P>
@@ -339,7 +339,7 @@ void test_aniso(double tol, int num_dims, std::vector<int> const &levels,
 
   // std::cout << " err = " << err << '\n';
 
-  tcheckless(disc.time_params().step(), err, tol);
+  tcheckless(disc.current_step(), err, tol);
 }
 
 void self_test() {
