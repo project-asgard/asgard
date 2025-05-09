@@ -43,7 +43,7 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
   pde_scheme<P> pde(options, std::move(domain));
 
   if (num_dims == 1) {
-    term_1d<P> div = term_div<P>(builtin_v<P>::expneg, flux_type::upwind, boundary_type::left);
+    term_1d<P> div = term_div<P>(builtin_v<P>::expneg, boundary_type::left);
     pde += {div, };
 
     auto cospi2 = vectorize_t<P>([](P x)->P{ return std::cos(0.5 * PI * x); });

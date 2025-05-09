@@ -54,7 +54,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
   pde_scheme<P> pde(options, std::move(domain));
 
-  term_1d<P> div = term_div<P>(1, flux_type::upwind, boundary_type::bothsides);
+  term_1d<P> div = term_div<P>(1, boundary_type::bothsides);
 
   div.set_penalty(P{1} / pde.min_cell_size());
 
@@ -133,15 +133,15 @@ pde_scheme<P> make_quad_pde(int num_dims, prog_opts options) {
 
   pde_scheme<P> pde(options, std::move(domain));
 
-  term_1d<P> div  = term_div<P>(-1, flux_type::upwind, boundary_type::none);
-  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::bothsides);
+  term_1d<P> div  = term_div<P>(-1, boundary_type::none);
+  term_1d<P> grad = term_grad<P>(1, boundary_type::bothsides);
 
   term_1d<P> diffusion({div, grad});
 
   int const max_level = options.max_level();
   P const dx = domain.min_cell_size(max_level);
 
-  term_1d<P> penalty = term_penalty<P>(P{1} / dx, flux_type::upwind, boundary_type::bothsides);
+  term_1d<P> penalty = term_penalty<P>(P{1} / dx, boundary_type::bothsides);
 
   std::vector<term_1d<P>> ops(num_dims);
   for (int d = 0; d < num_dims; d++)
