@@ -1574,7 +1574,6 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  // TODO: update this to have one non-sep source per group
   std::vector<md_func<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
 
