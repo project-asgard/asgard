@@ -42,17 +42,17 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
   auto process_dep = [](term_1d<P> const &single)
     -> mom_deps {
       switch (single.depends()) {
-        case pterm_dependence::electric_field:
-        case pterm_dependence::electric_field_only:
+        case term_dependence::electric_field:
+        case term_dependence::electric_field_only:
           // technically, el-field requires 1 moment, but it is a special case
           return {true, 0};
-        case pterm_dependence::moment_divided_by_density:
+        case term_dependence::moment_divided_by_density:
           return {false, std::abs(single.moment())};
-        case pterm_dependence::lenard_bernstein_coll_theta_1x1v:
+        case term_dependence::lenard_bernstein_coll_theta_1x1v:
           return {false, 3};
-        case pterm_dependence::lenard_bernstein_coll_theta_1x2v:
+        case term_dependence::lenard_bernstein_coll_theta_1x2v:
           return {false, 5};
-        case pterm_dependence::lenard_bernstein_coll_theta_1x3v:
+        case term_dependence::lenard_bernstein_coll_theta_1x3v:
           return {false, 7};
         default:
           return {};
@@ -681,7 +681,7 @@ void term_manager<P>::build_raw_mat(
   {
     case operation_type::volume:
       switch (t1d.depends()) {
-        case pterm_dependence::electric_field_only:
+        case term_dependence::electric_field_only:
           if (t1d.rhs()) {
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
@@ -692,28 +692,28 @@ void term_manager<P>::build_raw_mat(
             gen_diag_cmat_pwc<P>(legendre, level, cdata.electric_field, raw_diag);
           }
           break;
-        case pterm_dependence::electric_field:
+        case term_dependence::electric_field:
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;
-        case pterm_dependence::moment_divided_by_density:
+        case term_dependence::moment_divided_by_density:
           if (t1d.moment() > 0) {
-            gen_diag_mom_cases<P, +1, pterm_dependence::moment_divided_by_density>
+            gen_diag_mom_cases<P, +1, term_dependence::moment_divided_by_density>
               (legendre, level, t1d.moment(), cdata.moments, raw_diag);
           } else {
-            gen_diag_mom_cases<P, -1, pterm_dependence::moment_divided_by_density>
+            gen_diag_mom_cases<P, -1, term_dependence::moment_divided_by_density>
               (legendre, level, -t1d.moment(), cdata.moments, raw_diag);
           }
           break;
-        case pterm_dependence::lenard_bernstein_coll_theta_1x1v:
-          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x1v>
+        case term_dependence::lenard_bernstein_coll_theta_1x1v:
+          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x1v>
             (legendre, level, 0, cdata.moments, raw_diag);
           break;
-        case pterm_dependence::lenard_bernstein_coll_theta_1x2v:
-          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x2v>
+        case term_dependence::lenard_bernstein_coll_theta_1x2v:
+          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x2v>
             (legendre, level, 0, cdata.moments, raw_diag);
           break;
-        case pterm_dependence::lenard_bernstein_coll_theta_1x3v:
-          gen_diag_mom_cases<P, 1, pterm_dependence::lenard_bernstein_coll_theta_1x3v>
+        case term_dependence::lenard_bernstein_coll_theta_1x3v:
+          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x3v>
             (legendre, level, 0, cdata.moments, raw_diag);
           break;
         default:
@@ -870,7 +870,7 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                                      block_diag_matrix<P> &raw_diag)
 {
   expect(t1d.is_volume());
-  expect(t1d.depends() == pterm_dependence::none);
+  expect(t1d.depends() == term_dependence::none);
 
   if (t1d.rhs()) {
     gen_diag_cmat<P, operation_type::volume>

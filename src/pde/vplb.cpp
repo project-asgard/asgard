@@ -346,7 +346,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_vplb(vdims, options),
+  asgard::discretization_manager<P> disc(make_vplb<P>(vdims, options),
                                          asgard::verbosity_level::high);
 
   // save the perturbation as an auxiliary field, for plotting
@@ -429,7 +429,6 @@ void test_energy(int const vdims, std::string const &opt_str) {
       E0 = Ep + Ek;
 
     // check the initial slight energy decay before it stabilizes
-    std::cout << std::abs(Ep + Ek - E0) << "\n";
     tcheckless(i, std::abs(Ep + Ek - E0), tol);
   }
 }
@@ -439,8 +438,8 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  //test_energy<double>(1, "-l 5 -t 0.5");
-  //test_energy<double>(1, "-l 6 -t 0.25");
+  test_energy<double>(1, "-l 5 -t 0.5");
+  test_energy<double>(1, "-l 6 -t 0.25");
 
 #endif
 

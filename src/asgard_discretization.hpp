@@ -36,18 +36,6 @@ public:
   discretization_manager(pde_scheme<precision> pde_in,
                          verbosity_level verbosity = verbosity_level::quiet);
 
-  /*!
-   * \brief Preventing relocation
-   *
-   * Different components of the manager can hold aliases (pointer and refs)
-   * to other components, e.g., components shared between multiple other components
-   * such as scratch workspaces or common pde options.
-   * Relocating the manager can break all of those references, thus we explicitly
-   * forbid such operations.
-   * If "move" operations are needed, wrap the manger in a unique_ptr.
-   */
-  discretization_manager(discretization_manager &&) = delete;
-
   //! returns the degree of the discretization
   int degree() const { return hier.degree(); }
 
@@ -76,7 +64,7 @@ public:
   //! returns the separable initial conditions
   std::vector<separable_func<precision>> const &initial_cond_sep() const { return initial_sep_; }
 
-  //! set the time in the befinning of the simulation, time() must be zero to call this
+  //! set the time in the beginning of the simulation, time() must be zero to call this
   void set_time(precision t) {
     if (stepper.data.step() != 0)
       throw std::runtime_error("cannot reset the current time after the simulation start");
@@ -383,15 +371,12 @@ public:
   //! (debugging) prints the term-matrices
   void print_mats() const;
 
-  /*!
-   * \ingroup asgard_discretization
-   * \brief Performs integration in time for a given number of steps
-   */
+  // performs integration in time
   friend void advance_in_time<precision>(
       discretization_manager<precision> &disc, int64_t num_steps);
-
+  // this is the I/O manager
   friend class h5manager<precision>;
-
+  // handles the time-integration meta-data
   friend struct time_advance_manager<precision>;
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
@@ -422,7 +407,7 @@ private:
 
   sparse_grid grid;
   connection_patterns conn;
-  hierarchy_manipulator<precision> hier; // new transformer
+  hierarchy_manipulator<precision> hier;
 
   // moments
   mutable std::optional<moments1d<precision>> moms1d;

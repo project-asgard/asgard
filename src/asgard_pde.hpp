@@ -10,41 +10,72 @@ namespace asgard
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
 
-// ---------------------------------------------------------------------------
-//
-// Dimension: holds all information for a single dimension in the pde
-//
-// ---------------------------------------------------------------------------
-enum class coefficient_type
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Indicates special dependence in the terms
+ *
+ * Used to do coupling with moments.
+ */
+enum class term_dependence
 {
-  grad,
-  mass,
-  div,
-  penalty
-};
-
-enum class pterm_dependence
-{
-  none, // nothing special, uses generic g-func
-  electric_field, // depends on the electric field
-  electric_field_only, // depends only on the electric filed and not position
-  electric_field_infnrm, // depends on the max abs( electric_field )
-  moment_divided_by_density, // moment divided by moment 0
+  //! no coupling, just a regular term
+  none,
+  //! dependence on the electric field with a coefficient
+  electric_field,
+  //! dependence on the electric field only, coefficient is 1
+  electric_field_only,
+  //! moment divided by moment 0
+  moment_divided_by_density,
+  //! Lenard-Bernstein theta term, 1x1v term
   lenard_bernstein_coll_theta_1x1v,
+  //! Lenard-Bernstein theta term, 1x2v term
   lenard_bernstein_coll_theta_1x2v,
+  //! Lenard-Bernstein theta term, 1x3v term
   lenard_bernstein_coll_theta_1x3v,
 };
 
-
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Adjust the edge flux for the operator matrices
+ *
+ * The direction of the flux at the cell edges is determined by the sign
+ * of the operator coefficient, for separable terms that is the product
+ * of the one-dimensional coefficients.
+ *
+ * The default upwind flux will yield highest convergence rate, but it will take
+ * into account only the coefficient from this dimension, i.e., assuming
+ * the other dimensions have positive coefficients.
+ * If a term in another dimension has a negative sign, then the upwind has
+ * to manually swapped with a downwind flux.
+ * If the coefficient is unknown, e.g., depends on the moments, or the coefficient
+ * in another dimension can change sign, then the central flux should be used.
+ *
+ * Here are some examples, where the coefficients can always be variable,
+ * so long as the sign remain positive or negative or oscillates pos-neg.
+ *
+ * <table>
+ *  <tr><th> dim 1 </th><th> dim 2 </th><th> dim 3 </th><th> flux type </th></tr>
+ *  <tr><th> pos-neg </th><th> positive </th><th> N/A </th><th> upwind </th></tr>
+ *  <tr><th> pos-neg </th><th> negative </th><th> N/A </th><th> downwind </th></tr>
+ *  <tr><th> pos-neg </th><th> negative </th><th> negative </th><th> upwind </th></tr>
+ *  <tr><th> negative </th><th> positive </th><th> N/A </th><th> upwind </th></tr>
+ *  <tr><th> negative </th><th> positive </th><th> N/A </th><th> upwind </th></tr>
+ *  <tr><th> positive </th><th> pos-neg </th><th> N/A </th><th> central </th></tr>
+ * </table>
+ *
+ */
 enum class flux_type
 {
-  upwind        = -1,
-  central       = 0,
-  downwind      = 1,
-  // lax_friedrich = 0
+  //! default flux
+  upwind   = -1,
+  //! other dimensions have variable positive/negative coefficients
+  central  = 0,
+  //! other dimensions yield negative coefficient
+  downwind = 1,
 };
 
 /*!
+ * \ingroup asgard_pde_definition
  * \brief Indicates wither we need to recompute matrices based different conditions
  *
  * If a term has a fix coefficient, then there will not reason to update the matrices.
@@ -297,7 +328,7 @@ struct term_moment_over_density_neg {
 // forward declaration so it can be set as a friend
 template<typename P>
 struct term_manager;
-
+// forward declaration so it can be set as a friend
 template<typename P>
 class discretization_manager;
 
@@ -408,7 +439,7 @@ public:
     }
   }
   //! make a term that depends on coupled fields, e.g., moments or electric field
-  term_1d(pterm_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
+  term_1d(term_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
     : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
   {}
 
@@ -483,9 +514,7 @@ public:
       }
     }
 
-    if (not check_chain())
-      throw std::runtime_error("incompatible flux combination used in a term_1d chain, "
-                               "must split into a term_md chain");
+    check_chain();
   }
   //! make a chain term, add terms later with add_term() or +=
   term_1d(term_chain) : optype_(operation_type::chain) {}
@@ -494,19 +523,19 @@ public:
     : optype_(operation_type::volume), change_(changes_with::time),
       rhs_(std::move(elmass.right)), field_f_(std::move(elmass.right_f))
   {
-    depends_ = (field_f_) ? pterm_dependence::electric_field
-                          : pterm_dependence::electric_field_only;
+    depends_ = (field_f_) ? term_dependence::electric_field
+                          : term_dependence::electric_field_only;
   }
   //! make moment over density dependence term
   term_1d(term_moment_over_density moment)
     : optype_(operation_type::volume),
-      depends_(pterm_dependence::moment_divided_by_density),
+      depends_(term_dependence::moment_divided_by_density),
       change_(changes_with::time), mom(moment.moment)
   {}
   //! make moment over density dependence term, with negative sign
   term_1d(term_moment_over_density_neg moment)
     : optype_(operation_type::volume),
-      depends_(pterm_dependence::moment_divided_by_density),
+      depends_(term_dependence::moment_divided_by_density),
       change_(changes_with::time), mom(-moment.moment)
   {}
 
@@ -555,7 +584,7 @@ public:
   changes_with change() const { return change_; }
 
   //! returns the extra dependence
-  pterm_dependence depends() const { return depends_; }
+  term_dependence depends() const { return depends_; }
 
   //! (chain-mode only) number of chained terms
   int num_chain() const { return static_cast<int>(chain_.size()); }
@@ -566,9 +595,7 @@ public:
   //! (chain-mode only) add one more term to the chain
   void add_term(term_1d<P> tm) {
     chain_.emplace_back(std::move(tm));
-    if (not check_chain())
-      throw std::runtime_error("incompatible flux combination used in a term_1d chain, "
-                               "must split into a term_md chain");
+    check_chain();
   }
   //! (chain-mode only) add one more term to the chain
   term_1d<P> & operator += (term_1d<P> tm) {
@@ -605,47 +632,25 @@ private:
   //! (chain-mode only) access the i-th term in the chain, allows mods
   term_1d<P> &chain(int i) { return chain_[i]; }
 
-  bool check_chain() {
-    return true;
-    int fluxdir = 2; // no flux direction found, two available
+  void check_chain() {
+    int side = 0;
+    int central = 0;
     for (int i : iindexof(chain_)) {
-      term_1d<P> const &pt = chain_[i];
-      // get the int-value of the flux, flip for grad
-      int const fdir = static_cast<int>(pt.flux())
-                      * ((pt.optype() == operation_type::grad) ? -1 : 1);
-      switch (pt.optype())
-      {
-        case operation_type::penalty:
-          if (fluxdir == 2) // have two flux dirs available
-            fluxdir = 0; // take both dirs
-          else
-            return false; // conflict, no flux-dirs left
-          break;
-        case operation_type::div:
-        case operation_type::grad:
-          // if the fdir direction is already taken, bad setup
-          if (fluxdir == 0 or fluxdir == fdir)
-            return false;
-          else if (fdir == 0) { // requested central flux, takes two dirs
-            if (fluxdir != 2) // one flux dir already used, bad
-              return false;
-            else
-              fluxdir = 0; // take all flux dirs
-          } else { // requested up/down flux, take one dir
-            if (fluxdir != 2) // one flux already used
-              fluxdir = 0; // ok, but no flux available anymore
-            else
-              fluxdir = fdir; // two available, take one flux direction
-          }
-        default: // mass term has no flux, nothing to do
-          break;
-      }
+      if (chain_[i].is_volume())
+        continue;
+      if (chain_[i].flux() == flux_type::central)
+        central ++;
+      else
+        side ++;
     }
-    return true;
+    rassert(central <= 1, "cannot chain two central fluxes together");
+    rassert(not (central == 1 and side > 0),
+            "cannot chain a central flux with a side flux");
+    rassert(side <= 2, "cannot chain more than two non-central fluxes");
   }
 
   operation_type optype_ = operation_type::identity;
-  pterm_dependence depends_ = pterm_dependence::none;
+  term_dependence depends_ = term_dependence::none;
 
   flux_type flux_ = flux_type::central;
   boundary_type boundary_ = boundary_type::none;
@@ -686,7 +691,7 @@ public:
     for (int d : iindexof(num_dims_)) {
       rassert((list.begin() + d)->is_volume() or (list.begin() + d)->is_identity(),
               "mass_md terms must be volume or identity");
-      rassert((list.begin() + d)->depends() == pterm_dependence::none,
+      rassert((list.begin() + d)->depends() == term_dependence::none,
               "the mass_md terms cannot depend on moments or the electric field")
       terms_[d] = std::move(*((list.begin() + d)));
     }
@@ -1546,7 +1551,7 @@ public:
   //! allows the term_manager to access the terms
   friend struct term_manager<P>;
   //! allows the discretization_manager to access the options
-  friend struct discretization_manager<P>;
+  friend class discretization_manager<P>;
 
 private:
   void finalize_term_groups() {
@@ -1588,7 +1593,7 @@ private:
 /*!
  * \brief Alias for backwards computationally
  *
- * TODO: remove
+ * Will be removed in an upcoming release.
  */
 template<typename P>
 using PDEv2 = pde_scheme<P>;

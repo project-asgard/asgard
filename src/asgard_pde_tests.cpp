@@ -109,8 +109,14 @@ void test_bookkeeping() {
     tassert(term_1d<TestType>({ptD, ptG}).is_chain());
     tassert(term_1d<TestType>({ptD, ptG}).num_chain() == 2);
 
-    // terror_message(term_1d<TestType>({ptD, ptD}),
-    //                "incompatible flux combination used in a term_1d chain, must split into a term_md chain");
+    terror_message(term_1d<TestType>({ptD, ptD, ptD}),
+                   "cannot chain more than two non-central fluxes");
+
+    term_1d<TestType> ptC = term_div<TestType>{mhs, flux_type::central};
+    terror_message(term_1d<TestType>({ptC, ptC}),
+                   "cannot chain two central fluxes together");
+    terror_message(term_1d<TestType>({ptC, ptD}),
+                   "cannot chain a central flux with a side flux");
   }
   {
     current_test<TestType> name_("term 1d - extras");
@@ -123,9 +129,6 @@ void test_bookkeeping() {
     tassert(term_1d<TestType>({ptI, ptD, ptM}).num_chain() == 2);
     tassert(term_1d<TestType>({ptG, ptI, ptM, ptD, ptM}).num_chain() == 4);
     tassert(term_1d<TestType>({ptGc, ptM}).num_chain() == 2);
-
-    // terror_message(term_1d<TestType>({ptGc, ptD}),
-    //                "incompatible flux combination used in a term_1d chain, must split into a term_md chain");
 
     term_1d<TestType> chain({ptI, ptG, ptM, ptD, ptM});
     tassert(chain[0].optype() == operation_type::grad);
