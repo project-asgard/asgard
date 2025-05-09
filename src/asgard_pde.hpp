@@ -191,13 +191,25 @@ struct term_volume {
  */
 template<typename P = default_precision>
 struct term_grad {
-  //! make a grad term with constant coefficient
-  term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+  //! make a grad term with constant coefficient 1
+  term_grad(boundary_type bnd = boundary_type::none)
+    : boundary(bnd)
   {}
   //! make a grad term with constant coefficient 1
   term_grad(flux_type flx, boundary_type bnd = boundary_type::none)
     : flux(flx), boundary(bnd)
+  {}
+  //! make a grad term with constant coefficient and upwind flux
+  term_grad(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
+    : const_coeff(cc), boundary(bnd)
+  {}
+  //! make a grad term with constant coefficient
+  term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
+    : const_coeff(cc), flux(flx), boundary(bnd)
+  {}
+  //! make a grad term with given right hand side coefficient and upwind flux
+  term_grad(sfixed_func1d<P> frhs, boundary_type bnd = boundary_type::none)
+    : const_coeff(0), right(std::move(frhs)), boundary(bnd)
   {}
   //! make a grad term with given right hand side coefficient
   term_grad(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd = boundary_type::none)
@@ -210,9 +222,9 @@ struct term_grad {
   sfixed_func1d<P> right;
 
   //! flux type
-  flux_type flux;
+  flux_type flux = flux_type::upwind;
   //! boundary type
-  boundary_type boundary;
+  boundary_type boundary = boundary_type::none;
 };
 
 /*!
@@ -221,13 +233,25 @@ struct term_grad {
  */
 template<typename P = default_precision>
 struct term_div {
+  //! make a grad term with constant coefficient 1
+  term_div(boundary_type bnd = boundary_type::none)
+    : boundary(bnd)
+  {}
+  //! make a grad term with constant coefficient 1
+  term_div(flux_type flx, boundary_type bnd = boundary_type::none)
+    : flux(flx), boundary(bnd)
+  {}
+  //! make a grad term with constant coefficient
+  term_div(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
+    : const_coeff(cc), boundary(bnd)
+  {}
   //! make a grad term with constant coefficient
   term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
-  //! make a grad term with constant coefficient 1
-  term_div(flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(1), flux(flx), boundary(bnd)
+  //! make a grad term with given right hand side coefficient
+  term_div(sfixed_func1d<P> frhs, boundary_type bnd = boundary_type::none)
+    : right(std::move(frhs)), boundary(bnd)
   {}
   //! make a grad term with given right hand side coefficient
   term_div(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd = boundary_type::none)
@@ -235,12 +259,12 @@ struct term_div {
   {}
 
   //! constant coefficient, if left/right-hand-side functions are null
-  P const_coeff = 0;
+  P const_coeff = 1;
   //! right-hand-side function
   sfixed_func1d<P> right;
 
   //! flux type
-  flux_type flux;
+  flux_type flux = flux_type::upwind;
   //! boundary type
   boundary_type boundary;
 };
@@ -252,15 +276,19 @@ struct term_div {
 template<typename P = default_precision>
 struct term_penalty {
   //! make a penalty term with constant coefficient
+  term_penalty(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
+    : const_coeff(cc), boundary(bnd)
+  {}
+  //! make a penalty term with constant coefficient
   term_penalty(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
 
   //! constant coefficient, if left/right-hand-side functions are null
-  P const_coeff = 0;
+  P const_coeff = 1;
 
   //! flux type
-  flux_type flux;
+  flux_type flux = flux_type::upwind;
   //! boundary type
   boundary_type boundary;
 };
