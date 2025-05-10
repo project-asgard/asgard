@@ -54,14 +54,13 @@ struct velocity_dims {
  * \ingroup asgard_pde_definition
  * \brief Indicates the left/right end-points of a dimension
  */
-template<typename P = default_precision>
 struct domain_range {
   //! make a range
-  domain_range(P l, P r) : left(l), right(r) {}
+  domain_range(double l, double r) : left(l), right(r) {}
   //! left end-point
-  P left;
+  double left;
   //!  right end-point
-  P right;
+  double right;
 };
 
 /*!
@@ -95,7 +94,7 @@ public:
     check_init();
   }
   //! create a domain with given range in each dimension
-  pde_domain(std::vector<domain_range<P>> list)
+  pde_domain(std::vector<domain_range> list)
     : num_dims_(static_cast<int>(list.size()))
   {
     check_init();
@@ -103,7 +102,7 @@ public:
   }
   //! create a canonical domain for the given number of dimensions
   pde_domain(position_dims pos, velocity_dims vel,
-             std::vector<domain_range<P>> list = {})
+             std::vector<domain_range> list = {})
     : num_dims_(pos.num + vel.num), num_pos_(pos.num), num_vel_(vel.num)
   {
     check_init();
@@ -113,7 +112,7 @@ public:
   }
 
   //! defaults is (0, 1) in each direction, should probably be overwritten here
-  void set(std::initializer_list<domain_range<P>> list)
+  void set(std::initializer_list<domain_range> list)
   {
     if (static_cast<int>(list.size()) != num_dims_)
       throw std::runtime_error("provided number of domain_range entries does not match the "
@@ -129,7 +128,7 @@ public:
     }
   }
   //! defaults is (0, 1) in each direction, should probably be overwritten here
-  void set(std::vector<domain_range<P>> list)
+  void set(std::vector<domain_range> list)
   {
     if (static_cast<int>(list.size()) != num_dims_)
       throw std::runtime_error("provided number of domain_range entries does not match the "
@@ -190,6 +189,7 @@ public:
   friend class h5manager<P>;
 
 private:
+  //! verify the consistency of the provided conditions
   void check_init() {
     rassert(num_dims_ >= 1, "pde_domain created with zero or negative dimensions");
     rassert(num_dims_ <= max_num_dimensions,
@@ -397,6 +397,5 @@ struct aux_field_entry {
   //! multi-indexes
   std::vector<int> grid;
 };
-
 
 } // namespace asgard

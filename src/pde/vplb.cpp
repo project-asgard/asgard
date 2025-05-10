@@ -78,7 +78,7 @@ asgard::pde_scheme<P> make_vplb(int vdims, asgard::prog_opts options) {
   P const nu = options.extra_cli_value_group<P>({"-nu", "-collision_freq"}).value_or(1.0);
   options.subtitle = "collision frequency: " + std::to_string(nu);
 
-  std::vector<asgard::domain_range<P>> ranges;
+  std::vector<asgard::domain_range> ranges;
   ranges.reserve(vdims + 1);
   ranges.emplace_back(-2 * PI, 2 * PI);
   for (int v = 0; v < vdims; v++)

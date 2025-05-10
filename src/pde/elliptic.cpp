@@ -78,7 +78,7 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
 
   options.title = "Elliptic PDE " + std::to_string(num_dims) + "D";
 
-  asgard::pde_domain<P> domain(std::vector<asgard::domain_range<P>>(num_dims, {0, 1}));
+  asgard::pde_domain<P> domain(std::vector<asgard::domain_range>(num_dims, {0, 1}));
 
   options.default_degree = 1;
   options.default_start_levels = {4, };

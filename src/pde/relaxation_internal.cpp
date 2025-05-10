@@ -27,7 +27,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
 
   options.title = "Relaxation 1x" + std::to_string(vdims) + "v";
 
-  std::vector<domain_range<P>> ranges;
+  std::vector<domain_range> ranges;
   ranges.reserve(vdims + 1);
   ranges.emplace_back(-0.5, +0.5);
   for (int v = 0; v < vdims; v++)

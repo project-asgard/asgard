@@ -75,7 +75,7 @@ asgard::pde_scheme<P> make_continuity_pde(int num_dims, asgard::prog_opts option
   options.title = "Continuity " + std::to_string(num_dims) + "D";
 
   // the domain will have range -2 * PI to 2 * PI in each direction
-  std::vector<asgard::domain_range<P>> ranges(num_dims, {-2 * PI, 2 * PI});
+  std::vector<asgard::domain_range> ranges(num_dims, {-2 * PI, 2 * PI});
 
   asgard::pde_domain<P> domain(ranges); // can use move here, but copy is cheap enough
 

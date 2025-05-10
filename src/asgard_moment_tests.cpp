@@ -12,7 +12,7 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
   expect(drange.size() / 2 == base.size());
   expect(not base.empty());
 
-  std::vector<domain_range<P>> ranges;
+  std::vector<domain_range> ranges;
   for (size_t i = 0; i < drange.size(); i += 2)
     ranges.emplace_back(drange[i], drange[i + 1]);
 

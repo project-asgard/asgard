@@ -659,7 +659,7 @@ public:
 private:
   //! (chain-mode only) access the i-th term in the chain, allows mods
   term_1d<P> &chain(int i) { return chain_[i]; }
-
+  //! check if the chain has wrong set of fluxes
   void check_chain() {
     int side = 0;
     int central = 0;
