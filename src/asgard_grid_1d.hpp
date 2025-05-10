@@ -407,6 +407,8 @@ private:
  */
 struct connection_patterns
 {
+  //! no patterns set, must be reinitalized later
+  connection_patterns() = default;
   //! construct patterns up to the given level
   explicit connection_patterns(int max_level)
   {

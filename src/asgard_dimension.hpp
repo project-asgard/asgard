@@ -27,14 +27,6 @@ static constexpr double const PI = 3.141592653589793;
 template<typename P>
 using scalar_func = std::function<P(P const)>;
 
-// signature g_func(x, t), may ignore time
-template<typename P>
-using g_func_type = std::function<P(P const, P const)>;
-
-// uses field-feedback, e.g., g_func_f(x, t, E_field_at_x_t)
-template<typename P>
-using g_func_f_type = std::function<P(P const, P const, P const)>;
-
 //! usage, pde_domain<double> domain(position_dims{3}, velocity_dims{3});
 struct position_dims {
   position_dims() = delete;
@@ -367,7 +359,7 @@ public:
 private:
   bool ignores_time_ = false;
   std::array<svector_func1d<P>, max_num_dimensions> source_func_;
-  std::array<P, max_num_dimensions> consts_ = {{0}};
+  std::array<P, max_num_dimensions> consts_;
   scalar_func<P> time_func_;
 };
 

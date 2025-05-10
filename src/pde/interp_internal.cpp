@@ -334,7 +334,6 @@ void test_pde(double const tol, std::string const &opts)
 
   double err = std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 
-  // std::cout << " err = " << err << "\n";
   // for (auto i : indexof(state))
   //   eref[i] -= state[i];
   // disc.add_aux_field({"diff", eref});

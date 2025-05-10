@@ -214,9 +214,20 @@ void test_pde_class() {
 }
 
 template<typename P>
+void test_discretization_manager() {
+  {
+    current_test<P> name_("discretization test");
+    // this is a compile time test
+    discretization_manager<P> disc_null;
+    ignore(disc_null);
+  }
+}
+
+template<typename P>
 void pde_tests() {
   test_bookkeeping<P>();
   test_pde_class<P>();
+  test_discretization_manager<P>();
 }
 
 void pde_functions() {

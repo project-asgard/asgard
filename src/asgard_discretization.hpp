@@ -32,6 +32,8 @@ template<typename precision = default_precision>
 class discretization_manager
 {
 public:
+  //! allows the creation of a null manager, has to be reinitialized later
+  discretization_manager() = default;
   //! take ownership of the pde object and discretize the pde
   discretization_manager(pde_scheme<precision> pde_in,
                          verbosity_level verbosity = verbosity_level::quiet);

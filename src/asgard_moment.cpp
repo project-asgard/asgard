@@ -67,7 +67,7 @@ moments1d<P>::moments1d(int num_mom, int degree, int max_level, pde_domain<P> co
 
 template<typename P>
 void moments1d<P>::integrate(
-    basis::canonical_integrator const &quad, P a, P b, g_func_type<P> const &dv,
+    basis::canonical_integrator const &quad, P a, P b, scalar_func<P> const &dv,
     vector2d<P> const &basis, std::vector<P> &work, span2d<P> intg) const
 {
   expect(work.size() == 4 * quad.left_nodes().size());
@@ -97,7 +97,7 @@ void moments1d<P>::integrate(
   // setting the zeroth moment
   if (dv) // if using non-Cartesian coords
     for (int i : iindexof(2 * nquad))
-      ml[i] = dv(nl[i], 0);
+      ml[i] = dv(nl[i]);
   else
     std::fill_n(ml, 2 * nquad, 1.0);
 

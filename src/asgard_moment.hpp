@@ -61,7 +61,7 @@ protected:
    *
    * The input work vector should be equal to 4 * quad.left_nodes().size()
    */
-  void integrate(basis::canonical_integrator const &quad, P a, P b, g_func_type<P> const &dv,
+  void integrate(basis::canonical_integrator const &quad, P a, P b, scalar_func<P> const &dv,
                  vector2d<P> const &basis, std::vector<P> &work, span2d<P> integ) const;
 
   //! compute the projection of a 1d cell
