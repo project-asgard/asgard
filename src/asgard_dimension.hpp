@@ -249,7 +249,9 @@ public:
   static constexpr type_tag_ignore_time set_ignore_time = type_tag_ignore_time{};
 
   //! default constructor, no function is set, equivalent to constant 0
-  separable_func() = default;
+  separable_func() {
+    for (int d = 0; d < max_num_dimensions; d++) consts_[d] = 0;
+  }
 
   //! set a function non-separable in time or not depending on time
   separable_func(std::vector<svector_func1d<P>> fdomain)
@@ -260,6 +262,7 @@ public:
       consts_[dims]        = P{1};
       source_func_[dims++] = std::move(*ip);
     }
+    for (int d = dims; d < max_num_dimensions; d++) consts_[d] = 0;
   }
   //! set a function non-separable in time or not depending on time
   separable_func(std::vector<svector_func1d<P>> fdomain, type_tag_ignore_time)
@@ -271,6 +274,7 @@ public:
       consts_[dims]        = P{1};
       source_func_[dims++] = std::move(*ip);
     }
+    for (int d = dims; d < max_num_dimensions; d++) consts_[d] = 0;
   }
   //! set a function that is separable in both space and time
   separable_func(std::vector<svector_func1d<P>> fdomain, scalar_func<P> f_time)
@@ -283,6 +287,7 @@ public:
       consts_[dims]        = P{1};
       source_func_[dims++] = std::move(*ip);
     }
+    for (int d = dims; d < max_num_dimensions; d++) consts_[d] = 0;
   }
   //! set a function that is constant throughout the domain but has a time component
   separable_func(std::vector<P> cdomain, scalar_func<P> f_time)
@@ -290,6 +295,8 @@ public:
   {
     expect(static_cast<int>(cdomain.size()) <= max_num_dimensions);
     std::copy(cdomain.begin(), cdomain.end(), consts_.begin());
+    for (int d = static_cast<int>(cdomain.size()); d < max_num_dimensions; d++)
+      consts_[d] = 0;
   }
   //! set a function that is constant throughout the domain but has a time component
   separable_func(std::vector<P> const &fdomain)
@@ -297,6 +304,8 @@ public:
   {
     expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
     std::copy(fdomain.begin(), fdomain.end(), consts_.begin());
+    std::fill_n(consts_.begin(), fdomain.size(), 1);
+    std::fill(consts_.begin() + fdomain.size(), consts_.end(), 0);
   }
 
   //! check the number of dimensions, does not cache use primarily for verification

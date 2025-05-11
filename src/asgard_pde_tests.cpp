@@ -220,6 +220,22 @@ void test_discretization_manager() {
     // this is a compile time test
     discretization_manager<P> disc_null;
     ignore(disc_null);
+    static_assert(std::is_copy_constructible_v<discretization_manager<P>>);
+    static_assert(std::is_move_constructible_v<discretization_manager<P>>);
+    static_assert(std::is_copy_assignable_v<discretization_manager<P>>);
+    static_assert(std::is_move_assignable_v<discretization_manager<P>>);
+    static_assert(std::is_copy_constructible_v<pde_scheme<P>>);
+    static_assert(std::is_move_constructible_v<pde_scheme<P>>);
+    static_assert(std::is_copy_assignable_v<pde_scheme<P>>);
+    static_assert(std::is_move_assignable_v<pde_scheme<P>>);
+    static_assert(std::is_copy_constructible_v<term_1d<P>>);
+    static_assert(std::is_move_constructible_v<term_1d<P>>);
+    static_assert(std::is_copy_assignable_v<term_1d<P>>);
+    static_assert(std::is_move_assignable_v<term_1d<P>>);
+    static_assert(std::is_copy_constructible_v<term_md<P>>);
+    static_assert(std::is_move_constructible_v<term_md<P>>);
+    static_assert(std::is_copy_assignable_v<term_md<P>>);
+    static_assert(std::is_move_assignable_v<term_md<P>>);
   }
 }
 
