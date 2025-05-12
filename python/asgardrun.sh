@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -e # exit on first error
-#set -x # plot every command (debugging purposes)
+# set -x # plot every command (debugging purposes)
 
 if [[ "$1" == "help" || "$1" == "-help" || "$1" == "--help" ]]; then
 
@@ -33,5 +33,5 @@ shift
 
 ./$exename "$@" -of _asgardplt.h5
 
-@Python_EXECUTABLE@ -m asgard _asgardplt.h5 "$plt_opts"
+@Python_EXECUTABLE@ -m asgard _asgardplt.h5 $plt_opts
 

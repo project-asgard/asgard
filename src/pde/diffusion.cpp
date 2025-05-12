@@ -79,7 +79,7 @@ asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options
   options.title = "Diffusion " + std::to_string(num_dims) + "D";
 
   // the domain will have range (-1, 1) in each direction
-  std::vector<asgard::domain_range<P>> ranges(num_dims, {-1, 1});
+  std::vector<asgard::domain_range> ranges(num_dims, {-1, 1});
 
   asgard::pde_domain<P> domain(ranges); // can use move here, but copy is cheap enough
 

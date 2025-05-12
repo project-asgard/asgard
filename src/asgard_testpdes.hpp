@@ -50,7 +50,7 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
   {
     options.title = "Simplified Continuity " + std::to_string(num_dims) + "D";
 
-    std::vector<domain_range<P>> ranges(num_dims, {-P{3} * PI / P{2}, P{3} * PI / P{2}});
+    std::vector<domain_range> ranges(num_dims, {-1.5 * PI, 1.5 * PI});
 
     pde_domain<P> domain(ranges);
 

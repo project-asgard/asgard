@@ -157,4 +157,41 @@ auto vectorize_t(scalar_callable scal) {
   }
 }
 
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Function transformation utilities
+ */
+namespace functions
+{
+//! create a new function that calls f and negates the output
+sfixed_func1d<float> negate(sfixed_func1d<float> f);
+//! create a new function that calls f and negates the output
+sfixed_func1d<double> negate(sfixed_func1d<double> f);
+//! selects the positive values of x
+sfixed_func1d<float> take_positive_float();
+//! selects the positive values of x
+sfixed_func1d<double> take_positive_double();
+//! selects the negative values of x
+sfixed_func1d<float> take_negative_float();
+//! selects the negative values of x
+sfixed_func1d<double> take_negative_double();
+//! select the positive function for the right template parameter
+template<typename P>
+sfixed_func1d<P> take_positive() {
+  if constexpr (std::is_same_v<P, double>)
+    return take_positive_float();
+  else
+    return take_positive_double();
+}
+//! select the negative function for the right template parameter
+template<typename P>
+sfixed_func1d<P> take_negative() {
+  if constexpr (std::is_same_v<P, double>)
+    return take_negative_float();
+  else
+    return take_negative_double();
+}
+
+} // namespace functions
+
 } // namespace asgard

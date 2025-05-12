@@ -29,7 +29,7 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
 
   options.title = "PDE with Variable Coeffs " + std::to_string(num_dims) + "D";
 
-  asgard::pde_domain<P> domain(std::vector<domain_range<P>>(num_dims, {-1, 1}));
+  asgard::pde_domain<P> domain(std::vector<domain_range>(num_dims, {-1, 1}));
 
   options.default_degree = 2;
   options.default_start_levels = {4, };

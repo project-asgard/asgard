@@ -538,7 +538,7 @@ if __name__ == "__main__":
             asgplot.xlabel(shot.dimension_names[dims[0]], fontsize='large')
             asgplot.ylabel(shot.dimension_names[dims[1]], fontsize='large')
 
-        if savefig is not None:
+        if savefig is not None and savefig != "":
             asgplot.savefig(savefig)
         else:
             asgplot.show()

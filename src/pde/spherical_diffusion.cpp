@@ -161,7 +161,7 @@ asgard::pde_scheme<P> make_spherical(asgard::prog_opts options) {
     asgard::separable_func<P> boundary_func({std::cos(P{1}) - std::sin(P{1}), 1},
                                             [](P t)->P{ return std::exp(-t); });
     // setting the boundary condition for theta
-    boundary_func.set_fdomain(1,
+    boundary_func.set(1,
         [&](std::vector<P> const &th, P, std::vector<P> &fth)
               -> void {
               for (size_t i = 0; i < th.size(); i++)

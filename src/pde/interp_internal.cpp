@@ -174,7 +174,7 @@ void test_sources(double const tol, std::string const &opts)
   separable_func<P> s1({vectorize_t<P>(fdx), vectorize_t<P>(fy)}, ft);
 
   separable_func<P> bc = exact;
-  bc.set_cdomain(0, P{-1});
+  bc.set(0, P{-1});
 
   auto smd = [=](P t, vector2d<P> const &nodes, std::vector<P> &vals) ->
     void {
@@ -272,8 +272,8 @@ void test_pde(double const tol, std::string const &opts)
   separable_func<P> s0({vectorize_t<P>(fx), vectorize_t<P>(fy)}, fdt);
 
   separable_func<P> bcL = exact;
-  bcL.set_cdomain(1, P{1});
-  bcL.set_fdomain(0, vectorize_t<P>(flbc));
+  bcL.set(1, P{1});
+  bcL.set(0, vectorize_t<P>(flbc));
 
   // non-separable source
   auto smd = [=](P t, vector2d<P> const &nodes, std::vector<P> &vals) ->
@@ -334,7 +334,6 @@ void test_pde(double const tol, std::string const &opts)
 
   double err = std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
 
-  // std::cout << " err = " << err << "\n";
   // for (auto i : indexof(state))
   //   eref[i] -= state[i];
   // disc.add_aux_field({"diff", eref});

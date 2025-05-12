@@ -33,7 +33,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     options.title = "PDE with Fixed BC " + std::to_string(num_dims) + "D (right)";
   }
 
-  pde_domain<P> domain(std::vector<domain_range<P>>(num_dims, {0, 1}));
+  pde_domain<P> domain(std::vector<domain_range>(num_dims, {0, 1}));
 
   options.default_degree = 1;
   options.default_start_levels = {4, };
@@ -67,7 +67,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
     separable_func<P> lbc(std::vector<P>(num_dims, 1));
     separable_func<P> rbc(std::vector<P>(num_dims, 1));
-    rbc.set_cdomain(dim, 2);
+    rbc.set(dim, 2);
 
     div_md += left_boundary_flux{lbc};
     div_md += right_boundary_flux{rbc};
@@ -93,7 +93,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     };
 
   pde.add_source({std::vector<svector_func1d<P>>(num_dims, one),
-                  separable_func<P>::set_ignore_time});
+                  ignores_time});
 
   std::vector<svector_func1d<P>> one_md(num_dims, one);
   one_md[dim] = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
@@ -106,7 +106,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
       }
     };
 
-  pde.add_initial({one_md, separable_func<P>::set_ignore_time});
+  pde.add_initial({one_md, ignores_time});
 
   return pde;
 }
@@ -116,7 +116,7 @@ pde_scheme<P> make_quad_pde(int num_dims, prog_opts options) {
   // -u_xx = 1 u(0) = u(1) = 0 -> u = 0.5 * x * (1 - x)
   options.title = "PDE quadratic solution " + std::to_string(num_dims) + "D";
 
-  pde_domain<P> domain(std::vector<domain_range<P>>(num_dims, {0, 1}));
+  pde_domain<P> domain(std::vector<domain_range>(num_dims, {0, 1}));
 
   options.default_degree = 1;
   options.default_start_levels = {4, };
@@ -172,7 +172,7 @@ pde_scheme<P> make_quad_pde(int num_dims, prog_opts options) {
 
   for (int d : iindexof(num_dims)) {
     func[d] = one;
-    pde.add_source({func, separable_func<P>::set_ignore_time});
+    pde.add_source({func, ignores_time});
     func[d] = s1d;
   }
 
@@ -196,7 +196,7 @@ double get_error_l2(discretization_manager<P> const &disc)
     };
 
     std::vector<P> const eref = disc.project_function({std::vector<svector_func1d<P>>(num_dims, ex1d),
-                                                       separable_func<P>::set_ignore_time});
+                                                       ignores_time});
 
     std::vector<P> const &state = disc.current_state();
     assert(eref.size() == state.size());
