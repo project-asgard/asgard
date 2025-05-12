@@ -31,7 +31,7 @@ double test_moments(std::vector<P> const &drange, int level, int degree, int num
 
   separable_func<P> vbase(std::vector<P>(base.size(), 1));
   for (int d : iindexof(base))
-    vbase.set_fdomain(d, vectorize_t<P>(base[d]));
+    vbase.set(d, vectorize_t<P>(base[d]));
 
   pde.add_initial(vbase);
 

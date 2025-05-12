@@ -65,7 +65,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
   if (vdims == 1) {
     separable_func<P> ic({0.5, 0.5}); // separable initial conditions
 
-    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = -1.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -75,7 +75,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
       });
     pde.add_initial(ic);
 
-    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = 2.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -89,7 +89,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
   {
     separable_func<P> ic({0.5, 0.5, 0.5}); // separable initial conditions
 
-    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -97,7 +97,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    ic.set_fdomain(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 0.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -107,7 +107,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
       });
     pde.add_initial(ic);
 
-    ic.set_fdomain(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 0.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -115,7 +115,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    ic.set_fdomain(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -147,15 +147,15 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
       };
 
     separable_func<P> ic({nullptr, max3, max0, max0});
-    ic.set_cdomain(0, xc);
+    ic.set(0, xc);
     pde.add_initial(ic);
 
     ic = separable_func<P>({nullptr, max0, max3, max0});
-    ic.set_cdomain(0, xc);
+    ic.set(0, xc);
     pde.add_initial(ic);
 
     ic = separable_func<P>({nullptr, max0, max0, max3});
-    ic.set_cdomain(0, xc);
+    ic.set(0, xc);
     pde.add_initial(ic);
   }
 
@@ -175,7 +175,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
   if (num_dims == 2) { // 1x1v
     separable_func<P> exact({1.0, 1.0});
-    exact.set_fdomain(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+    exact.set(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
         P constexpr u     = 0.5;
@@ -190,7 +190,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   else if (num_dims == 3) // 1x2v
   {
     separable_func<P> exact({1.0, 1.0, 1.0});
-    exact.set_fdomain(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+    exact.set(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
         P constexpr u     = 1.5;
@@ -199,7 +199,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    exact.set_fdomain(2, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+    exact.set(2, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
         P constexpr u     = 1.5;
@@ -224,9 +224,9 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       };
 
-    exact.set_fdomain(1, max1);
-    exact.set_fdomain(2, max1);
-    exact.set_fdomain(3, max1);
+    exact.set(1, max1);
+    exact.set(2, max1);
+    exact.set(3, max1);
 
     eref = disc.project_function({exact, });
 

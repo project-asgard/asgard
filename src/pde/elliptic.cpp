@@ -169,7 +169,7 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
       // starting with the exact solution
       asgard::separable_func<P> bc = exact;
       // the 0-th dimension component is set to constant 1
-      bc.set_cdomain(0, P{1});
+      bc.set(0, P{1});
       // add the condition at the right point
       fxx_md += asgard::right_boundary_flux(bc);
 
@@ -208,12 +208,12 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
         // by default, the boundary condition is applied to the field
         // that is the input of the term, i.e., the input to the grad term
         asgard::separable_func<P> bc = exact;
-        bc.set_cdomain(d, P{1});
+        bc.set(d, P{1});
         fxx_md += asgard::right_boundary_flux(bc);
 
         // setting Neumann condition 2 on the left wall of dimension d
         bc = exact;
-        bc.set_cdomain(d, P{2});
+        bc.set(d, P{2});
         asgard::boundary_flux<P> lbf = asgard::left_boundary_flux(bc);
         // at this point we have the boundary flux
         // but we also need to apply it to the input of the div-term,
@@ -232,7 +232,7 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
     asgard::separable_func<P> src = exact;
     // differentiate in the d-th direction, i.e., replace the function
     // with a constant 2
-    src.set_cdomain(d, 2);
+    src.set(d, 2);
 
     pde.add_source(std::move(src));
   }

@@ -269,7 +269,7 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
   asgard::separable_func<P> maxw = disc.initial_cond_sep().front();
 
   // set dimension 0 to be a constant function with value 1
-  maxw.set_cdomain(0, P{1});
+  maxw.set(0, P{1});
 
   // project the Maxwellian onto the current grid
   std::vector<P> proj_max = disc.project_function(maxw);
