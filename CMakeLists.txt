@@ -479,7 +479,6 @@ if (ASGARD_USE_CUDA)
                            CUDA::cudart
                            CUDA::cublas
                            CUDA::cusolver
-                           CUDA::cusparse
     )
 endif ()
 
@@ -549,6 +548,7 @@ if (ASGARD_BUILD_TESTS)
   endforeach()
 
   foreach (component IN LISTS asgard_components)
+      # some components don't have unit-tests, only end-to-end and integration handled through PDEs and other components
       if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}_tests.cpp)
           continue()
       endif()
@@ -583,38 +583,6 @@ if (ASGARD_BUILD_TESTS)
 
   endforeach()
 
-  foreach (component IN LISTS components)
-    # TODO: while all components need testing, the transition period may leave some components hanging
-    # e.g., all tests depended on pdes that have been removed/transitioned to the new api
-    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/${component}_tests.cpp)
-      continue()
-    endif()
-
-    add_executable (${component}-tests)
-    target_sources (${component}-tests PRIVATE src/${component}_tests.cpp)
-    target_include_directories (${component}-tests PRIVATE ${CMAKE_SOURCE_DIR}/testing)
-    target_include_directories (${component}-tests PRIVATE ${CMAKE_BINARY_DIR})
-
-    if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
-      set_target_properties(${component}-tests PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
-    endif()
-
-    if (ASGARD_USE_MPI)
-    # TODO: RENABLE MPI TESTING
-    endif ()
-
-    add_test (NAME ${component}-test
-              COMMAND ${component}-tests
-              WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-
-    if (ASGARD_TEST_OMP_NUM_THREADS)
-      set_tests_properties (${component}-test PROPERTIES
-          PROCESSORS ${ASGARD_TEST_OMP_NUM_THREADS}
-          ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_OMP_NUM_THREADS})
-    endif()
-
-  endforeach()
-
   if (ASGARD_USE_PYTHON)
     add_test(NAME asgard-pyrecons-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
   endif()
@@ -638,11 +606,14 @@ if (ASGARD_BUILD_TESTS)
     message(STATUS "  ASGARD_USE_FLOPCOUNTER=${ASGARD_USE_FLOPCOUNTER}")
   endif()
   if (ASGARD_USE_CUDA)
-    foreach(_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS ASGARD_USE_GPU_MEM_LIMIT)
-      message(STATUS "  ${_opt}=${${_opt}}")
-    endforeach()
-  else()
-    message(STATUS "  ASGARD_USE_CUDA=${ASGARD_USE_CUDA}")
+      foreach(_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS CMAKE_CUDA_ARCHITECTURES)
+          message(STATUS "  ${_opt}=${${_opt}}")
+      endforeach()
+  endif()
+  if (ASGARD_USE_CUDA)
+      foreach(_opt CMAKE_HIP_COMPILER CMAKE_HIP_FLAGS CMAKE_HIP_ARCHITECTURES)
+          message(STATUS "  ${_opt}=${${_opt}}")
+      endforeach()
   endif()
   message(STATUS "")
 

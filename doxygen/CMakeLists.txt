@@ -52,7 +52,7 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard_program_options.hpp
                  src/asgard_reconstruct.hpp
                  src/asgard_dimension.hpp
-                 src/pde/asgard_pde_base.hpp
+                 src/asgard_pde.hpp
                  examples/continuity_2d.cpp
                  examples/inputs_1d.cpp
                  src/pde/continuity.cpp

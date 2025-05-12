@@ -6,10 +6,14 @@
 
 // the quadrature is needed by some of the pdes to perform internal operations
 
+/*!
+ * \defgroup asgard_pde_definition ASGarD PDE Definition
+ *
+ * Tools for defining a PDE description and discretization scheme.
+ */
+
 namespace asgard
 {
-#ifndef __ASGARD_DOXYGEN_SKIP
-
 /*!
  * \ingroup asgard_pde_definition
  * \brief Indicates special dependence in the terms
@@ -47,11 +51,13 @@ enum class term_dependence
  * the other dimensions have positive coefficients.
  * If a term in another dimension has a negative sign, then the upwind has
  * to manually swapped with a downwind flux.
- * If the coefficient is unknown, e.g., depends on the moments, or the coefficient
- * in another dimension can change sign, then the central flux should be used.
+ * If the coefficient is unknown or indeterminate, e.g., depends on the moments,
+ * or the coefficient in another dimension can change sign,
+ * then the central flux should be used.
  *
  * Here are some examples, where the coefficients can always be variable,
  * so long as the sign remain positive or negative or oscillates pos-neg.
+ * In the example, dim 1 is always the dimension with the flux.
  *
  * <table>
  *  <tr><th> dim 1 </th><th> dim 2 </th><th> dim 3 </th><th> flux type </th></tr>
@@ -59,7 +65,7 @@ enum class term_dependence
  *  <tr><th> pos-neg </th><th> negative </th><th> N/A </th><th> downwind </th></tr>
  *  <tr><th> pos-neg </th><th> negative </th><th> negative </th><th> upwind </th></tr>
  *  <tr><th> negative </th><th> positive </th><th> N/A </th><th> upwind </th></tr>
- *  <tr><th> negative </th><th> positive </th><th> N/A </th><th> upwind </th></tr>
+ *  <tr><th> negative </th><th> positive </th><th> negative </th><th> downwind </th></tr>
  *  <tr><th> positive </th><th> pos-neg </th><th> N/A </th><th> central </th></tr>
  * </table>
  *
@@ -105,14 +111,6 @@ using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
 template<typename P>
 using md_func_f = std::function<void(P t, vector2d<P> const &x,
                                      std::vector<P> const &f, std::vector<P> &vals)>;
-
-#endif // doxygen skip
-
-/*!
- * \defgroup asgard_pde_definition ASGarD PDE Definition
- *
- * Tools for defining a PDE description and discretization scheme.
- */
 
 /*!
  * \ingroup asgard_pde_definition
@@ -191,35 +189,35 @@ struct term_volume {
  */
 template<typename P = default_precision>
 struct term_grad {
-  //! make a grad term with constant coefficient 1
+  //! make a grad term with constant coefficient 1, upwind flux and given boundary_type
   term_grad(boundary_type bnd = boundary_type::none)
     : boundary(bnd)
   {}
-  //! make a grad term with constant coefficient 1
+  //! make a grad term with constant coefficient 1, and given flux and boundary_type
   term_grad(flux_type flx, boundary_type bnd = boundary_type::none)
     : flux(flx), boundary(bnd)
   {}
-  //! make a grad term with constant coefficient and upwind flux
+  //! make a grad term with given constant coefficient, upwind flux, and given boundary_type
   term_grad(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), boundary(bnd)
   {}
-  //! make a grad term with constant coefficient
+  //! make a grad term with given constant coefficient, flux_type and boundary_type
   term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
-  //! make a grad term with given right hand side coefficient and upwind flux
-  term_grad(sfixed_func1d<P> frhs, boundary_type bnd = boundary_type::none)
-    : const_coeff(0), right(std::move(frhs)), boundary(bnd)
+  //! make a grad term with given coefficient, upwind flux, and given boundary_type
+  term_grad(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
+    : const_coeff(0), var_coeff(std::move(cc)), boundary(bnd)
   {}
-  //! make a grad term with given right hand side coefficient
-  term_grad(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(0), right(std::move(frhs)), flux(flx), boundary(bnd)
+  //! make a grad term with given coefficient, flux_type and boundary_type
+  term_grad(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
+    : const_coeff(0), var_coeff(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
-  //! constant coefficient, if left/right-hand-side functions are null
+  //! constant coefficient, used if var_coeff is not set
   P const_coeff = 1;
-  //! right-hand-side function
-  sfixed_func1d<P> right;
+  //! non-constant coefficient function
+  sfixed_func1d<P> var_coeff;
 
   //! flux type
   flux_type flux = flux_type::upwind;
@@ -233,35 +231,35 @@ struct term_grad {
  */
 template<typename P = default_precision>
 struct term_div {
-  //! make a grad term with constant coefficient 1
+  //! make a div term with constant coefficient 1, upwind flux and given boundary_type
   term_div(boundary_type bnd = boundary_type::none)
     : boundary(bnd)
   {}
-  //! make a grad term with constant coefficient 1
+  //! make a div term with constant coefficient 1, and given flux and boundary_type
   term_div(flux_type flx, boundary_type bnd = boundary_type::none)
     : flux(flx), boundary(bnd)
   {}
-  //! make a grad term with constant coefficient
+  //! make a div term with given constant coefficient, upwind flux, and given boundary_type
   term_div(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), boundary(bnd)
   {}
-  //! make a grad term with constant coefficient
+  //! make a div term with given constant coefficient, flux_type and boundary_type
   term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
-  //! make a grad term with given right hand side coefficient
-  term_div(sfixed_func1d<P> frhs, boundary_type bnd = boundary_type::none)
-    : right(std::move(frhs)), boundary(bnd)
+  //! make a div term with given coefficient, upwind flux, and given boundary_type
+  term_div(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
+    : var_coeff(std::move(cc)), boundary(bnd)
   {}
-  //! make a grad term with given right hand side coefficient
-  term_div(sfixed_func1d<P> frhs, flux_type flx, boundary_type bnd = boundary_type::none)
-    : right(std::move(frhs)), flux(flx), boundary(bnd)
+  //! make a div term with given coefficient, flux_type and boundary_type
+  term_div(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
+    : var_coeff(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
-  //! constant coefficient, if left/right-hand-side functions are null
+  //! constant coefficient, used if var_coeff is not set
   P const_coeff = 1;
-  //! right-hand-side function
-  sfixed_func1d<P> right;
+  //! non-constant coefficient function
+  sfixed_func1d<P> var_coeff;
 
   //! flux type
   flux_type flux = flux_type::upwind;
@@ -275,16 +273,16 @@ struct term_div {
  */
 template<typename P = default_precision>
 struct term_penalty {
-  //! make a penalty term with constant coefficient
+  //! make a penalty term with upwind flux and given boundary type
   term_penalty(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), boundary(bnd)
   {}
-  //! make a penalty term with constant coefficient
+  //! make a penalty term with given flux_type and boundary_type
   term_penalty(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
 
-  //! constant coefficient, if left/right-hand-side functions are null
+  //! coefficient
   P const_coeff = 1;
 
   //! flux type
@@ -488,12 +486,12 @@ public:
   //! make a grad term
   term_1d(term_grad<P> grd)
     : term_1d(operation_type::grad, grd.flux, grd.boundary,
-              std::move(grd.right), grd.const_coeff)
+              std::move(grd.var_coeff), grd.const_coeff)
   {}
   //! make a div term
   term_1d(term_div<P> divt)
     : term_1d(operation_type::div, divt.flux, divt.boundary,
-              std::move(divt.right), divt.const_coeff)
+              std::move(divt.var_coeff), divt.const_coeff)
   {}
   //! make a penalty term
   term_1d(term_penalty<P> pent)

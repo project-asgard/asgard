@@ -47,7 +47,7 @@ struct velocity_dims {
  * \brief Indicates the left/right end-points of a dimension
  */
 struct domain_range {
-  //! make a range
+  //! make a range from l to r, i.e., [l, r]
   domain_range(double l, double r) : left(l), right(r) {}
   //! left end-point
   double left;
@@ -65,6 +65,9 @@ struct domain_range {
  * such as computing moments and using builtin operators that depend
  * on the moments.
  * If such operators are not used, then the split is meaningless.
+ *
+ * Second, we specify the side of the domain in each direction, the domain
+ * is a multidimensional hyper-box.
  */
 template<typename P = default_precision>
 class pde_domain
@@ -103,7 +106,7 @@ public:
       this->set(list);
   }
 
-  //! defaults is (0, 1) in each direction, should probably be overwritten here
+  //! overwrites the dimension lengths, defaults is (0, 1) in each direction
   void set(std::initializer_list<domain_range> list)
   {
     if (static_cast<int>(list.size()) != num_dims_)
@@ -119,7 +122,7 @@ public:
         throw std::runtime_error("domain_range specified with negative length");
     }
   }
-  //! defaults is (0, 1) in each direction, should probably be overwritten here
+  //! overwrites the dimension lengths, defaults is (0, 1) in each direction
   void set(std::vector<domain_range> list)
   {
     if (static_cast<int>(list.size()) != num_dims_)
@@ -135,7 +138,7 @@ public:
         throw std::runtime_error("domain_range specified with negative length");
     }
   }
-  //! (for plotting) default names are x1, x2, x3, v1, v2, v3, can be overwritten
+  //! (for plotting) overwrites the  default names, e.g., x1, x2, x3, v1, v2, v3
   void set_names(std::initializer_list<std::string> list)
   {
     if (static_cast<int>(list.size()) != num_dims_)
@@ -212,6 +215,17 @@ private:
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Type-tag that indicates that a separable_func function does not depend on time
+ */
+struct type_tag_ignores_time{};
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Easy shortcut to indicate that a separable_func ignores time
+ */
+inline constexpr type_tag_ignores_time ignores_time = type_tag_ignores_time{};
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief A function that is the product of 1d functions
  *
  * There are 3 modes of this function, depending on the way that the time
@@ -231,10 +245,10 @@ private:
  *
  * If the function does not depend on time:
  * \code
- *   separable_func<P> f({f1, f2, f3, ...}, separable_func<P>::set_ignore_time);
+ *   separable_func<P> f({f1, f2, f3, ...}, ignores_time);
  * \endcode
  *
- * If a time-independent function is not marked with "set_ignore_time" or if
+ * If a time-independent function is not marked with "ignores_time" or if
  * a separable time-component is built into the spacial components, the projection
  * of the function will be recomputed several times per-time step.
  * The result will be the same but there will be some performance penalty.
@@ -243,23 +257,18 @@ template<typename P = default_precision>
 class separable_func
 {
 public:
-  //! type-tag that indicates the function does not depend on time
-  struct type_tag_ignore_time{};
-  //! easy way to set the ignore time
-  static constexpr type_tag_ignore_time set_ignore_time = type_tag_ignore_time{};
-
-  //! default constructor, no function is set, equivalent to constant 0
+  //! default constructor, no function is set
   separable_func() = default;
 
-  //! set a function non-separable in time or not depending on time
+  //! set a function that depends on time and is not separable in time
   separable_func(std::vector<svector_func1d<P>> fdomain)
   {
     expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
     for (auto i : indexof(fdomain))
       funcs_[i] = std::move(fdomain[i]);
   }
-  //! set a function non-separable in time or not depending on time
-  separable_func(std::vector<svector_func1d<P>> fdomain, type_tag_ignore_time)
+  //! set a function that is constant in time
+  separable_func(std::vector<svector_func1d<P>> fdomain, type_tag_ignores_time)
     : ignores_time_(true)
   {
     expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
@@ -275,23 +284,23 @@ public:
       funcs_[i] = std::move(fdomain[i]);
   }
   //! set a function that is constant throughout the domain but has a time component
-  separable_func(std::vector<P> cdomain, scalar_func<P> f_time)
+  separable_func(std::vector<P> cosnts, scalar_func<P> f_time)
     : time_func_(std::move(f_time))
   {
-    expect(static_cast<int>(cdomain.size()) <= max_num_dimensions);
-    for (auto i : indexof(cdomain))
-      funcs_[i] = cdomain[i];
+    expect(static_cast<int>(cosnts.size()) <= max_num_dimensions);
+    for (auto i : indexof(cosnts))
+      funcs_[i] = cosnts[i];
   }
-  //! set a function that is constant throughout the domain but has a time component
-  separable_func(std::vector<P> const &cdomain)
+  //! set a function that is constant throughout space and time
+  separable_func(std::vector<P> const &cosnts)
     : ignores_time_(true)
   {
-    expect(static_cast<int>(cdomain.size()) <= max_num_dimensions);
-    for (auto i : indexof(cdomain))
-      funcs_[i] = cdomain[i];
+    expect(static_cast<int>(cosnts.size()) <= max_num_dimensions);
+    for (auto i : indexof(cosnts))
+      funcs_[i] = cosnts[i];
   }
 
-  //! check the number of dimensions, does not cache use primarily for verification
+  //! check the number of dimensions, does not cache so the cost is not-trivial
   int num_dims() const {
     int dims = 0;
     for (auto const &f : funcs_) if (f.index() != 0) dims++;

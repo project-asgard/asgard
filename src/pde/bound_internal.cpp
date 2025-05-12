@@ -93,7 +93,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     };
 
   pde.add_source({std::vector<svector_func1d<P>>(num_dims, one),
-                  separable_func<P>::set_ignore_time});
+                  ignores_time});
 
   std::vector<svector_func1d<P>> one_md(num_dims, one);
   one_md[dim] = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
@@ -106,7 +106,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
       }
     };
 
-  pde.add_initial({one_md, separable_func<P>::set_ignore_time});
+  pde.add_initial({one_md, ignores_time});
 
   return pde;
 }
@@ -172,7 +172,7 @@ pde_scheme<P> make_quad_pde(int num_dims, prog_opts options) {
 
   for (int d : iindexof(num_dims)) {
     func[d] = one;
-    pde.add_source({func, separable_func<P>::set_ignore_time});
+    pde.add_source({func, ignores_time});
     func[d] = s1d;
   }
 
@@ -196,7 +196,7 @@ double get_error_l2(discretization_manager<P> const &disc)
     };
 
     std::vector<P> const eref = disc.project_function({std::vector<svector_func1d<P>>(num_dims, ex1d),
-                                                       separable_func<P>::set_ignore_time});
+                                                       ignores_time});
 
     std::vector<P> const &state = disc.current_state();
     assert(eref.size() == state.size());

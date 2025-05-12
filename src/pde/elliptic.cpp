@@ -108,7 +108,7 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
 
   // "exact" is the solution in multiple dimensions
   asgard::separable_func<P> exact(std::vector<asgard::svector_func1d<P>>(num_dims, s1d),
-                                  asgard::separable_func<P>::set_ignore_time);
+                                  asgard::ignores_time);
 
   if constexpr (boundary == boundary_enum::homogeneous)
   {
