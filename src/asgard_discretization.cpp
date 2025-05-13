@@ -91,12 +91,15 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
       stop  = options_.stop_time.value_or(options_.default_stop_time.value_or(0));
       dtime = time_data(stop);
     } else {
-      if (stop >= 0 and dt >= 0 and n >= 0)
-        throw std::runtime_error("Must provide exactly two of the three time-stepping parameters: "
-                                "-dt, -num-steps, -time");
+      rassert(not (stop >= 0 and dt >= 0 and n >= 0),
+        "Must provide exactly two of the three time-stepping parameters: -dt, -num-steps, -time");
 
       // replace options with defaults, when appropriate
-      if (n >= 0) {
+      if (n == 0 or stop == 0) { // initial conditions only, no time stepping
+        n = 0;
+        dt = 0;
+        stop = -1; // ignore stop below
+      } else if (n > 0) {
         if (stop < 0 and dt < 0) {
           dt = options_.default_dt.value_or(-1);
           if (dt < 0) {
@@ -123,12 +126,12 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
       }
 
       if (n >= 0 and stop >= 0 and dt < 0)
-        dtime = time_data(sm, n, typename time_data::input_stop_time{stop});
+        dtime = time_data(sm, n, time_data::input_stop_time{stop});
       else if (dt >= 0 and stop >= 0 and n < 0)
-        dtime = time_data(sm, typename time_data::input_dt{dt},
-                          typename time_data::input_stop_time{stop});
+        dtime = time_data(sm, time_data::input_dt{dt},
+                          time_data::input_stop_time{stop});
       else if (dt >= 0 and n >= 0 and stop < 0)
-        dtime = time_data(sm, typename time_data::input_dt{dt}, n);
+        dtime = time_data(sm, time_data::input_dt{dt}, n);
       else
         throw std::runtime_error("how did this happen?");
     }

@@ -48,6 +48,10 @@ public:
   };
   //! unset time-data, all entries are negative, must be set later
   time_data() = default;
+  //! no time-stepping, set the method but the steps are set to zero
+  time_data(time_method smethod)
+      : smethod_(smethod), stop_time_(0), time_(0), step_(0), num_remain_(0)
+  {}
   //! steady state case, sets only the end time and num-steps to 1
   time_data(double endt)
       : smethod_(time_method::steady), stop_time_(endt), time_(0), step_(0), num_remain_(1)

@@ -211,15 +211,20 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     P const curr_time       = H5Easy::load<P>(file, "dtime_time");
     int64_t const curr_step = H5Easy::load<int64_t>(file, "dtime_step");
 
-    if (stop >= 0 and dt >= 0 and n >= 0)
-      throw std::runtime_error("cannot simultaneously specify -dt, -num-steps, and -time");
+    rassert(not (stop >= 0 and dt >= 0 and n >= 0),
+            "cannot simultaneously specify -dt, -num-steps, and -time");
 
-    if (stop >= 0 and stop <= curr_time)
-      throw std::runtime_error("cannot reset the final time to an instance before the current time");
+    rassert(not (stop >= 0 and stop <= curr_time),
+            "cannot reset the final time to an instance before the current time");
 
     // replacing defaults ... whenever it makes sense
     // the basic logic is to prioritize stop-time and dt and infer the remaining number of steps
-    if (dt >= 0) { // overriding dt
+    if (n == 0) { // special case, read data but stop time stepping
+      rassert(stop < 0 or stop <= curr_time,
+              "cannot jump to a new stop time with zero time steps");
+      dtime = time_data(sm);
+      fstop = curr_time;
+    } else if (dt >= 0) { // overriding dt
       if (stop >= 0) { // and the stop time
         dtime = time_data(sm,
                           typename time_data::input_dt{dt},
