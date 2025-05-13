@@ -16,97 +16,101 @@
 
 using namespace asgard;
 
-struct type_left {};
-struct type_right {};
+template<typename P = default_precision>
+double run_chain_test(prog_opts options) {
 
-template<typename P = default_precision, typename btype = type_right>
-pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
-  // df / dt + df / dx_i = 1, exact solution is f = x_i, i = dim
-  static_assert(std::is_same_v<btype, type_left> or std::is_same_v<btype, type_right>);
+  options.title = "Deep Chains 1D";
 
-  rassert(dim < num_dims, "cannot set boundary conditions for pde");
-  if constexpr (std::is_same_v<btype, type_left>) {
-    options.title = "PDE with Fixed BC " + std::to_string(num_dims) + "D (left)";
-  } else {
-    options.title = "PDE with Fixed BC " + std::to_string(num_dims) + "D (right)";
-  }
-
-  pde_domain<P> domain(std::vector<domain_range>(num_dims, {0, 1}));
+  pde_domain<P> domain({{0, 2}, {1, 4}});
 
   options.default_degree = 1;
   options.default_start_levels = {4, };
 
-  int const max_level = options.max_level();
-  P const dx = domain.min_cell_size(max_level);
-
   options.default_step_method = time_method::steady;
   options.default_solver = solver_method::direct;
 
-  options.default_dt = 0.5 * 0.1 * dx;
+  options.default_dt = 0.01;
   options.default_stop_time = 1.0;
 
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 2000;
-
   options.default_isolver_inner_iterations = 200;
 
-  pde_scheme<P> pde(options, std::move(domain));
+  pde_scheme<P> pde(options, domain);
 
-  term_1d<P> div = term_div<P>(1, boundary_type::bothsides);
+  separable_func<P> exact1({
+      vectorize_t([](P x) -> P { return std::exp(x); }),
+      vectorize_t([](P y) -> P { return std::cos(y); }),
+  }, ignores_time);
+  separable_func<P> exact2({
+      vectorize_t([](P x) -> P { return std::exp(-x); }),
+      vectorize_t([](P y) -> P { return std::sin(y); }),
+  }, ignores_time);
 
-  div.set_penalty(P{1} / pde.min_cell_size());
+  {
+    auto c1 = vectorize<P>([](P x) -> P { return std::sin(x); });
+    term_1d<P> dxx1 = {term_div<P>{-1}, term_volume{c1},
+                       term_grad{1, boundary_type::bothsides}};
 
-  if constexpr (std::is_same_v<btype, type_left>) {
-    // the multi-dimensional divergence, initially set to identity in md
-    std::vector<term_1d<P>> ops(num_dims);
-    ops[dim] = div;
-
-    term_md<P> div_md(ops);
-
-    separable_func<P> lbc(std::vector<P>(num_dims, 1));
-    separable_func<P> rbc(std::vector<P>(num_dims, 1));
-    rbc.set(dim, 2);
-
-    div_md += left_boundary_flux{lbc};
-    div_md += right_boundary_flux{rbc};
-
-    pde += div_md;
-
-  } else {
-    std::vector<term_1d<P>> ops(num_dims);
-    ops[dim] = div;
-
-    term_md<P> div_md(ops);
-
-    separable_func<P> bc(std::vector<P>(num_dims, 1));
-
-    div_md += right_boundary_flux{bc};
-
-    pde += div_md;
+    term_md<P> dxx({dxx1, term_identity{}});
   }
 
-  auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
-    void {
-      std::fill(fx.begin(), fx.end(), P{1});
-    };
-
-  pde.add_source({std::vector<svector_func1d<P>>(num_dims, one),
-                  ignores_time});
-
-  std::vector<svector_func1d<P>> one_md(num_dims, one);
-  one_md[dim] = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-    void {
-      if constexpr (std::is_same_v<btype, type_left>) {
-        for (size_t i = 0; i < x.size(); i++)
-          fx[i] = x[i] + P{1};
-      } else {
-        std::copy(x.begin(), x.end(), fx.begin());
-      }
-    };
-
-  pde.add_initial({one_md, ignores_time});
-
-  return pde;
+  // term_1d<P> div = term_div<P>(1, boundary_type::bothsides);
+  //
+  // div.set_penalty(P{1} / pde.min_cell_size());
+  //
+  // if constexpr (std::is_same_v<btype, type_left>) {
+  //   // the multi-dimensional divergence, initially set to identity in md
+  //   std::vector<term_1d<P>> ops(num_dims);
+  //   ops[dim] = div;
+  //
+  //   term_md<P> div_md(ops);
+  //
+  //   separable_func<P> lbc(std::vector<P>(num_dims, 1));
+  //   separable_func<P> rbc(std::vector<P>(num_dims, 1));
+  //   rbc.set(dim, 2);
+  //
+  //   div_md += left_boundary_flux{lbc};
+  //   div_md += right_boundary_flux{rbc};
+  //
+  //   pde += div_md;
+  //
+  // } else {
+  //   std::vector<term_1d<P>> ops(num_dims);
+  //   ops[dim] = div;
+  //
+  //   term_md<P> div_md(ops);
+  //
+  //   separable_func<P> bc(std::vector<P>(num_dims, 1));
+  //
+  //   div_md += right_boundary_flux{bc};
+  //
+  //   pde += div_md;
+  // }
+  //
+  // auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
+  //   void {
+  //     std::fill(fx.begin(), fx.end(), P{1});
+  //   };
+  //
+  // pde.add_source({std::vector<svector_func1d<P>>(num_dims, one),
+  //                 ignores_time});
+  //
+  // std::vector<svector_func1d<P>> one_md(num_dims, one);
+  // one_md[dim] = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  //   void {
+  //     if constexpr (std::is_same_v<btype, type_left>) {
+  //       for (size_t i = 0; i < x.size(); i++)
+  //         fx[i] = x[i] + P{1};
+  //     } else {
+  //       std::copy(x.begin(), x.end(), fx.begin());
+  //     }
+  //   };
+  //
+  // pde.add_initial({one_md, ignores_time});
+  //
+  // return pde;
+  return 0;
 }
 
 template<typename P>
