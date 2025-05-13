@@ -38,79 +38,148 @@ double run_chain_test(prog_opts options) {
 
   pde_scheme<P> pde(options, domain);
 
+  P const cellx = pde.min_cell_size(0);
+  P const celly = pde.min_cell_size(1);
+
   separable_func<P> exact1({
-      vectorize_t([](P x) -> P { return std::exp(x); }),
-      vectorize_t([](P y) -> P { return std::cos(y); }),
+      vectorize_t<P>([](P x) -> P { return std::exp(x); }),
+      vectorize_t<P>([](P y) -> P { return std::cos(y); }),
   }, ignores_time);
   separable_func<P> exact2({
-      vectorize_t([](P x) -> P { return std::exp(-x); }),
-      vectorize_t([](P y) -> P { return std::sin(y); }),
+      vectorize_t<P>([](P x) -> P { return std::exp(-x); }),
+      vectorize_t<P>([](P y) -> P { return std::sin(y); }),
   }, ignores_time);
 
   {
     auto c1 = vectorize<P>([](P x) -> P { return std::sin(x); });
-    term_1d<P> dxx1 = {term_div<P>{-1}, term_volume{c1},
-                       term_grad{1, boundary_type::bothsides}};
+    term_1d<P> dxx1 = std::vector<term_1d<P>>{
+                        term_div<P>{-1, boundary_type::left},
+                        term_volume{c1},
+                        term_grad{1, boundary_type::right}};
 
+    dxx1.set_penalty(P{1} / cellx);
     term_md<P> dxx({dxx1, term_identity{}});
+
+    separable_func<P> bc1 = exact1;
+    separable_func<P> bc2 = exact2;
+
+    bc1.set(0, std::exp(P{2}));
+    bc2.set(0, std::exp(-P{2}));
+
+    dxx += right_boundary_flux<P>{bc1};
+    dxx += right_boundary_flux<P>{bc2};
+
+    bc2.set(0, std::exp(0));
+    bc2.set(0, -std::exp(0));
+    boundary_flux<P> f_bc1 = left_boundary_flux<P>{bc1};
+    boundary_flux<P> f_bc2 = left_boundary_flux<P>{bc2};
+
+    f_bc1.chain_level(0) = 0;
+    f_bc2.chain_level(0) = 0;
+
+    dxx += f_bc1;
+    dxx += f_bc2;
+
+    pde += dxx;
   }
 
-  // term_1d<P> div = term_div<P>(1, boundary_type::bothsides);
-  //
-  // div.set_penalty(P{1} / pde.min_cell_size());
-  //
-  // if constexpr (std::is_same_v<btype, type_left>) {
-  //   // the multi-dimensional divergence, initially set to identity in md
-  //   std::vector<term_1d<P>> ops(num_dims);
-  //   ops[dim] = div;
-  //
-  //   term_md<P> div_md(ops);
-  //
-  //   separable_func<P> lbc(std::vector<P>(num_dims, 1));
-  //   separable_func<P> rbc(std::vector<P>(num_dims, 1));
-  //   rbc.set(dim, 2);
-  //
-  //   div_md += left_boundary_flux{lbc};
-  //   div_md += right_boundary_flux{rbc};
-  //
-  //   pde += div_md;
-  //
-  // } else {
-  //   std::vector<term_1d<P>> ops(num_dims);
-  //   ops[dim] = div;
-  //
-  //   term_md<P> div_md(ops);
-  //
-  //   separable_func<P> bc(std::vector<P>(num_dims, 1));
-  //
-  //   div_md += right_boundary_flux{bc};
-  //
-  //   pde += div_md;
-  // }
-  //
-  // auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
-  //   void {
-  //     std::fill(fx.begin(), fx.end(), P{1});
-  //   };
-  //
-  // pde.add_source({std::vector<svector_func1d<P>>(num_dims, one),
-  //                 ignores_time});
-  //
-  // std::vector<svector_func1d<P>> one_md(num_dims, one);
-  // one_md[dim] = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-  //   void {
-  //     if constexpr (std::is_same_v<btype, type_left>) {
-  //       for (size_t i = 0; i < x.size(); i++)
-  //         fx[i] = x[i] + P{1};
-  //     } else {
-  //       std::copy(x.begin(), x.end(), fx.begin());
-  //     }
-  //   };
-  //
-  // pde.add_initial({one_md, ignores_time});
-  //
-  // return pde;
-  return 0;
+  {
+    auto c2 = vectorize<P>([](P y) -> P { return y; });
+    term_1d<P> dyy1 = std::vector<term_1d<P>>{
+                        term_volume{2},
+                        term_div<P>{-1, boundary_type::left},
+                        term_volume{c2},
+                        term_grad{1, boundary_type::right}};
+
+    dyy1.set_penalty(P{1} / celly);
+    term_md<P> dyy({term_identity{}, dyy1});
+
+    separable_func<P> bc1 = exact1;
+    separable_func<P> bc2 = exact2;
+
+    bc1.set(1, std::cos(P{4}));
+    bc2.set(1, std::sin(P{4}));
+
+    dyy += right_boundary_flux<P>{bc1};
+    dyy += right_boundary_flux<P>{bc2};
+
+    bc1.set(1, -std::sin(P{1}));
+    bc2.set(1, std::cos(P{1}));
+    boundary_flux<P> f_bc1 = left_boundary_flux<P>{bc1};
+    boundary_flux<P> f_bc2 = left_boundary_flux<P>{bc2};
+
+    f_bc1.chain_level(1) = 1;
+    f_bc2.chain_level(1) = 1;
+
+    dyy += f_bc1;
+    dyy += f_bc2;
+
+    pde += dyy;
+  }
+
+  // derivatives in x
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return -std::cos(x) * std::exp(x); }),
+      vectorize_t<P>([](P y) -> P { return std::cos(y); }),
+  }, ignores_time));
+
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return std::cos(x) * std::exp(-x); }),
+      vectorize_t<P>([](P y) -> P { return std::sin(y); }),
+  }, ignores_time));
+
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return -std::sin(x) * std::exp(x); }),
+      vectorize_t<P>([](P y) -> P { return std::cos(y); }),
+  }, ignores_time));
+
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return -std::sin(x) * std::exp(-x); }),
+      vectorize_t<P>([](P y) -> P { return std::sin(y); }),
+  }, ignores_time));
+
+  // derivatives in y
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return std::exp(x); }),
+      vectorize_t<P>([](P y) -> P { return 2 * std::sin(y); }),
+  }, ignores_time));
+
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return std::exp(-x); }),
+      vectorize_t<P>([](P y) -> P { return -2 * std::cos(y); }),
+  }, ignores_time));
+
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return std::exp(x); }),
+      vectorize_t<P>([](P y) -> P { return 2 * y * std::cos(y); }),
+  }, ignores_time));
+
+  pde.add_source(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return std::exp(-x); }),
+      vectorize_t<P>([](P y) -> P { return 2 * y * std::sin(y); }),
+  }, ignores_time));
+
+  discretization_manager<P> disc(std::move(pde), verbosity_level::high);
+
+  disc.advance_time();
+
+  disc.save_final_snapshot();
+
+  std::vector<P> const eref   = disc.project_function({exact1, exact2});
+  std::vector<P> const &state = disc.current_state();
+
+  double const enorm = 41.19079366502316;
+
+  double nself = 0, ndiff = 0;
+  for (size_t i = 0; i < state.size(); i++)
+  {
+    double const e = eref[i] - state[i];
+    ndiff += e * e;
+    double const r = eref[i];
+    nself += r * r;
+  }
+
+  return std::sqrt(ndiff + std::abs(enorm - nself));
 }
 
 template<typename P>
@@ -182,76 +251,30 @@ R"help(<< additional options for this file >>
     return 0;
   }
 
-  discretization_manager<P> disc; // delay initialization
-
   if (options.has_cli_entry("-chains")) {
-
-    disc = discretization_manager<P>(make_quad_pde<P>(num_dims, options), verbosity_level::low);
-
+    double const err = run_chain_test<P>(options);
+    std::cout << " L^2 error = " << err << '\n';
   }
-
-  disc.advance_time();
-
-  disc.final_output();
-
-  if (not disc.stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
 
   return 0;
 }
 
 template<typename P>
-void dotest(double tol, int num_dims, std::string const &opts) {
-  current_test<P> test_(opts, num_dims);
+void test_chains(double tol, std::string const &opts) {
+  current_test<P> test_(opts);
 
   auto options = make_opts(opts);
 
-  int const dv = options.extra_cli_value<int>("-dv").value();
+  double const err = run_chain_test(options);
 
-  bool const left = options.has_cli_entry("-left");
-
-  auto pde = (left) ? make_side_pde<P, type_left>(num_dims, dv, options)
-                    : make_side_pde<P, type_right>(num_dims, dv, options);
-
-  discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
-
-  // make sure there's something to solve
-  disc.set_current_state(std::vector<P>(disc.current_state().size(), P{0}));
-
-  while (disc.remaining_steps() > 0)
-  {
-    disc.advance_time(1);
-
-    double const err = get_error_l2(disc);
-
-    tcheckless(disc.current_step(), err, tol);
-  }
-}
-
-template<typename P>
-void test_chains(double tol, int num_dims, std::string const &opts) {
-  current_test<P> test_(opts, num_dims);
-
-  auto options = make_opts(opts);
-
-  auto pde = make_quad_pde<P>(num_dims, options);
-
-  discretization_manager<P> disc(std::move(pde), verbosity_level::quiet);
-
-  disc.advance_time();
-
-  double const err = get_error_l2(disc);
-
-  // std::cout << err << "\n";
-
-  tcheckless(disc.current_step(), err, tol);
+  tcheckless(1, err, tol);
 }
 
 void self_test() {
   all_tests testing_("boundary conditions");
 
 #ifdef ASGARD_ENABLE_DOUBLE
-  test_chains<double>(1.E-7,  1, "");
+  test_chains<double>(1.E-7, "-v 0");
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
