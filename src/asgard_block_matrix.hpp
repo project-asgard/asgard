@@ -508,6 +508,9 @@ public:
       resize_and_zero(other.nblock(), other.nrows());
   }
 
+  //! add another matrix to this one
+  block_tri_matrix<P> &operator += (block_tri_matrix<P> const &other);
+
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full() const
   {

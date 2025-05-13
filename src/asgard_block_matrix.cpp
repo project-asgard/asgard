@@ -186,7 +186,7 @@ void block_diag_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<
   span2d<P> y(n, nrows_, vec.data());
 
 #pragma omp parallel for
-  for (int64_t r = 1; r < nrows_ - 1; r++) {
+  for (int64_t r = 0; r < nrows_; r++) {
     smmat::gemv(n, n, data_[r], x[r], y[r]);
   }
 }
@@ -225,6 +225,23 @@ void block_tri_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<P
   smmat::gemv(n, n, diag(s), x[s], y[s]);
   smmat::gemv1(n, n, lower(s), x[s - 1], y[s]);
   smmat::gemv1(n, n, upper(s), x[0], y[s]);
+}
+
+template<typename P>
+block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_tri_matrix<P> const &other) {
+  expect(nrows_ == other.nrows_);
+  expect(data_.stride() == other.data_.stride());
+
+  int64_t const num_entries = data_.total_size();
+
+  P *dest = data_[0];
+  P const *src = other.data_[0];
+
+  ASGARD_OMP_PARFOR_SIMD
+  for(int64_t i = 0; i < num_entries; i++)
+    dest[i] += src[i];
+
+  return *this;
 }
 
 template<typename P>

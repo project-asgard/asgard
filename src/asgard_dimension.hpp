@@ -225,6 +225,20 @@ struct type_tag_ignores_time{};
 inline constexpr type_tag_ignores_time ignores_time = type_tag_ignores_time{};
 
 /*!
+ * \ingroup asgard_discretization
+ * \brief Indicates a separable function with ones in the given number of dimensions
+ */
+struct ones_for_dimensions {
+  //! sets the number of dimensions
+  ones_for_dimensions(int d = 0) : dims(d) {
+    rassert(0 < dims and dims < max_num_dimensions,
+            "incorrect number of dimensions for ones_for_dimensions()");
+  }
+  //! number of dimensions
+  int dims = 0;
+};
+
+/*!
  * \ingroup asgard_pde_definition
  * \brief A function that is the product of 1d functions
  *
@@ -298,6 +312,18 @@ public:
     expect(static_cast<int>(cosnts.size()) <= max_num_dimensions);
     for (auto i : indexof(cosnts))
       funcs_[i] = cosnts[i];
+  }
+  //! sets ones in the given number of dimensions
+  separable_func(ones_for_dimensions const &ones) {
+    for (auto i : indexof(ones.dims))
+      funcs_[i] = 1;
+  }
+  //! sets ones in the given number of dimensions
+  separable_func(ones_for_dimensions const &ones, type_tag_ignores_time)
+    : ignores_time_(true)
+  {
+    for (auto i : indexof(ones.dims))
+      funcs_[i] = 1;
   }
 
   //! check the number of dimensions, does not cache so the cost is not-trivial

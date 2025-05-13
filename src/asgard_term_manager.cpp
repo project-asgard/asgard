@@ -840,8 +840,9 @@ void term_manager<P>::build_raw_mat(
             bentry.consts[d] = legendre.project(t1d.is_volume(), level, dsqr,
                                                 bentry.flux.func().cdomain(d), raw_rhs.vals);
           } else { // constant times a constant
+            P const rconst = (t1d.is_identity()) ? 1 : t1d.rhs_const();
             bentry.consts[d] = legendre.project(level, dsqr,
-                                                bentry.flux.func().cdomain(d) * t1d.rhs_const());
+                                                bentry.flux.func().cdomain(d) * rconst);
           }
         } else {
           if (t1d.rhs()) { // product of non-consts
@@ -936,7 +937,7 @@ void term_manager<P>::rebuld_chain(
   // and at each stage we multiply by diag/tri-matrix
   // if we start with a diagonal, we will switch to tri at some point
 
-  fill current = (t1d.is_volume()) ? fill::diag : fill::tri;
+  fill current = (t1d.chain_.back().is_volume()) ? fill::diag : fill::tri;
   build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
@@ -944,7 +945,7 @@ void term_manager<P>::rebuld_chain(
     build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
-    if (t1d.is_volume()) { // computed a diagonal fill
+    if (t1d[i].is_volume()) { // computed a diagonal fill
       if (current == fill::diag) { // diag-to-diag
         diag1->check_resize(raw_diag);
         gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
@@ -991,10 +992,20 @@ void term_manager<P>::rebuld_chain(
   if (t1d.penalty() == 0)
     return;
 
-  gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-    (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
-      t1d.chain_.back().boundary(), raw_rhs, raw_tri);
-
+  if (bmass) {
+    gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
+      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
+        t1d.chain_.back().boundary(), raw_rhs, *tri0);
+    bmass->solve(legendre.pdof, *tri0);
+    raw_tri += *tri0;
+  } else {
+    // no need to worry about the mass, just add the penalty to the raw-tri
+    gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
+      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
+        t1d.chain_.back().boundary(), raw_rhs, raw_tri);
+  }
+  // handle the penalty component of the boundary conditions
+  std::vector<P> penwork; // extra allocation, should be rare, when having mass + builtin penalty
   for (int b : indexrange(tentry.bc)) {
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
@@ -1008,6 +1019,12 @@ void term_manager<P>::rebuld_chain(
     int64_t const num_cells = fm::ipow2(level);
     int64_t const num_entries = pdof * num_cells;
 
+    if (bmass)
+      penwork.reserve(num_entries);
+
+    // for no mass, write directly into consts, else must use scratch space to invert the matrix
+    P *dest = (bmass) ? penwork.data() : bentry.consts[d].data();
+
     expect(bentry.consts[d].size() == static_cast<size_t>(num_entries));
 
     P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
@@ -1015,21 +1032,26 @@ void term_manager<P>::rebuld_chain(
     if (bentry.flux.is_left()) {
       P const fc = bentry.flux.func().cdomain(d);
       if (fc == 0) { // non-separable in time
-        smmat::axpy(pdof, -scale, legendre.leg_left, bentry.consts[d].data());
+        smmat::axpy(pdof, -scale, legendre.leg_left, dest);
       } else {
-        smmat::axpy(pdof, -scale * fc, legendre.leg_left, bentry.consts[d].data());
+        smmat::axpy(pdof, -scale * fc, legendre.leg_left, dest);
       }
     }
 
     if (bentry.flux.is_right()) {
       P const fc = bentry.flux.func().cdomain(d);
       if (fc == 0) { // non-separable in time
-        smmat::axpy(pdof, scale, legendre.leg_right,
-                    bentry.consts[d].data() + num_entries - pdof);
+        smmat::axpy(pdof, scale, legendre.leg_right, dest + num_entries - pdof);
       } else {
-        smmat::axpy(pdof, scale * fc, legendre.leg_right,
-                    bentry.consts[d].data() + num_entries - pdof);
+        smmat::axpy(pdof, scale * fc, legendre.leg_right, dest + num_entries - pdof);
       }
+    }
+
+    if (bmass) {
+      bmass->solve(pdof, dest);
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_entries; i++)
+        bentry.consts[d][i] += dest[i];
     }
   }
 }
