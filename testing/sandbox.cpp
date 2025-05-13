@@ -57,7 +57,9 @@ asgard::pde_scheme<P> make_pde(asgard::prog_opts options) {
                 func[i] = 1;
         };
 
-        separable_func src({source_vec}, asgard::ignores_time);
+        separable_func src({source_vec, }, asgard::ignores_time);
+        // if the source will be a constant, it is better to set it as such
+        // for example, src.set(0, P{1}); where 0 is the dimension
 
         pde.add_source(src);
     }
@@ -122,7 +124,7 @@ asgard::pde_scheme<P> make_pde(asgard::prog_opts options) {
 
         separable_func bc(asgard::ones_for_dimensions{1}, asgard::ignores_time);
 
-        bc.set(0, 1.0);
+        bc.set(0, 1.0); // ones_for_dimensions{1} already set this to 1
 
         asgard::boundary_flux<P> rbf = asgard::right_boundary_flux(bc);
 

@@ -16,12 +16,14 @@
 
 using namespace asgard;
 
-template<typename P = default_precision>
+template<typename P>
 double run_chain_test(prog_opts options) {
+  // the test here uses an exact solution that is the sum of two separable functions
+  // and the terms are build from chains of volume and derivative terms
 
-  options.title = "Deep Chains 1D";
+  options.title = "Deep Chains - 2D diffusion";
 
-  pde_domain<P> domain({{0, 2}, {1, 4}});
+  pde_domain<P> domain({{0.25, 2}, {1, 4}});
 
   options.default_degree = 1;
   options.default_start_levels = {4, };
@@ -41,6 +43,7 @@ double run_chain_test(prog_opts options) {
   P const cellx = pde.min_cell_size(0);
   P const celly = pde.min_cell_size(1);
 
+  // exact solution is the sum of two separable functions
   separable_func<P> exact1({
       vectorize_t<P>([](P x) -> P { return std::exp(x); }),
       vectorize_t<P>([](P y) -> P { return std::cos(y); }),
@@ -51,11 +54,12 @@ double run_chain_test(prog_opts options) {
   }, ignores_time);
 
   {
+    // first operator, mix of volume and derivative terms
     auto c1 = vectorize<P>([](P x) -> P { return std::sin(x); });
     term_1d<P> dxx1 = std::vector<term_1d<P>>{
                         term_div<P>{-1, boundary_type::left},
-                        term_volume{c1},
-                        term_grad{1, boundary_type::right}};
+                        term_volume<P>{c1},
+                        term_grad<P>{1, boundary_type::right}};
 
     dxx1.set_penalty(P{1} / cellx);
     term_md<P> dxx({dxx1, term_identity{}});
@@ -69,8 +73,10 @@ double run_chain_test(prog_opts options) {
     dxx += right_boundary_flux<P>{bc1};
     dxx += right_boundary_flux<P>{bc2};
 
-    bc2.set(0, std::exp(0));
-    bc2.set(0, -std::exp(0));
+    // the Neumann boundary condition is applied to c1 * f (f is the solution)
+    // this would not be necessary if c1 was included in the div term
+    bc1.set(0, std::exp(0.25) * std::sin(P{0.25}));
+    bc2.set(0, -std::exp(-0.25) * std::sin(P{0.25}));
     boundary_flux<P> f_bc1 = left_boundary_flux<P>{bc1};
     boundary_flux<P> f_bc2 = left_boundary_flux<P>{bc2};
 
@@ -86,10 +92,10 @@ double run_chain_test(prog_opts options) {
   {
     auto c2 = vectorize<P>([](P y) -> P { return y; });
     term_1d<P> dyy1 = std::vector<term_1d<P>>{
-                        term_volume{2},
+                        term_volume<P>{2},
                         term_div<P>{-1, boundary_type::left},
-                        term_volume{c2},
-                        term_grad{1, boundary_type::right}};
+                        term_volume<P>{c2},
+                        term_grad<P>{1, boundary_type::right}};
 
     dyy1.set_penalty(P{1} / celly);
     term_md<P> dyy({term_identity{}, dyy1});
@@ -159,7 +165,7 @@ double run_chain_test(prog_opts options) {
       vectorize_t<P>([](P y) -> P { return 2 * y * std::sin(y); }),
   }, ignores_time));
 
-  discretization_manager<P> disc(std::move(pde), verbosity_level::high);
+  discretization_manager<P> disc(std::move(pde), verbosity_level::low);
 
   disc.advance_time();
 
@@ -168,7 +174,8 @@ double run_chain_test(prog_opts options) {
   std::vector<P> const eref   = disc.project_function({exact1, exact2});
   std::vector<P> const &state = disc.current_state();
 
-  double const enorm = 41.19079366502316;
+  // L^2 norm squared of the exact solution for the given domain
+  double const enorm = 40.44042709727439;
 
   double nself = 0, ndiff = 0;
   for (size_t i = 0; i < state.size(); i++)
@@ -179,47 +186,70 @@ double run_chain_test(prog_opts options) {
     nself += r * r;
   }
 
-  return std::sqrt(ndiff + std::abs(enorm - nself));
+  return std::sqrt(ndiff + std::abs(enorm - nself)) / std::sqrt(enorm);
 }
 
 template<typename P>
-double get_error_l2(discretization_manager<P> const &disc)
-{
-  if (disc.title_contains("quadratic")) {
-    // int const num_dims = disc.num_dims();
-    //
-    // double constexpr n1d = 25.0 / 3000.0;
-    // double const enorm   = fm::ipow(n1d, disc.num_dims());
-    //
-    // auto ex1d = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-    // void {
-    //   for (size_t i = 0; i < x.size(); i++)
-    //     fx[i] = 0.5 * x[i] * (1 - x[i]);
-    // };
+double run_volume_test(prog_opts options) {
+  // the test here uses a chain of only volume terms
+  // the problem has no spatial derivatives
 
-    // std::vector<P> const eref = disc.project_function({std::vector<svector_func1d<P>>(num_dims, ex1d),
-    //                                                    ignores_time});
-    //
-    // std::vector<P> const &state = disc.current_state();
-    // assert(eref.size() == state.size());
-    //
-    // double nself = 0;
-    // double ndiff = 0;
-    // double nnn = 0;
-    // for (size_t i = 0; i < state.size(); i++)
-    // {
-    //   double const e = eref[i] - state[i];
-    //   ndiff += e * e;
-    //   double const r = eref[i];
-    //   nself += r * r;
-    //   nnn += state[i] * state[i];
-    // }
-    //
-    // return std::sqrt(ndiff + std::abs(enorm - nself));
-    return 0;
+  options.title = "Volume Chains - 1D ode";
+
+  pde_domain<P> domain({{0.5, 1}, });
+
+  options.default_degree = 1;
+  options.default_start_levels = {4, };
+
+  options.default_step_method = time_method::rk2;
+
+  options.default_dt = 0.005;
+  options.default_stop_time = 1.0;
+
+  pde_scheme<P> pde(options, domain);
+
+  pde.add_initial(separable_func<P>({
+      vectorize_t<P>([](P x) -> P { return std::cos(x); }),
+  }, ignores_time));
+
+  {
+    // first operator, mix of volume and derivative terms
+    auto c1 = vectorize<P>([](P x) -> P { return std::sin(x); });
+    auto c2 = vectorize<P>([](P x) -> P { return (1 + x); });
+    term_1d<P> dv = std::vector<term_1d<P>>{
+                        term_volume<P>{3},
+                        term_volume<P>{c1},
+                        term_volume<P>{c2}};
+
+    pde += {dv, };
   }
 
-  return 0;
+  discretization_manager<P> disc(std::move(pde), verbosity_level::low);
+
+  disc.advance_time();
+
+  disc.save_final_snapshot();
+
+  P const t = disc.time();
+
+  separable_func<P> exact({
+      vectorize_t<P>(
+          [=](P x) -> P { return std::exp(- P{3} * (1 + x) * std::sin(x) * t) * std::cos(x); }),
+  }, ignores_time);
+
+  std::vector<P> const eref   = disc.project_function(exact);
+  std::vector<P> const &state = disc.current_state();
+
+  double nself = 0, ndiff = 0;
+  for (size_t i = 0; i < state.size(); i++)
+  {
+    double const e = eref[i] - state[i];
+    ndiff += e * e;
+    double const r = eref[i];
+    nself += r * r;
+  }
+
+  return std::sqrt(ndiff) / std::sqrt(nself);
 }
 
 void self_test();
@@ -239,12 +269,13 @@ int main(int argc, char** argv)
     options.print_help(std::cout);
     std::cout <<
 R"help(<< additional options for this file >>
--chains                             test messy chains example
+-chains                             test messy chains example in 2D
+-volumes                            test chain of volume terms in 1D
 )help";
     return 0;
   }
 
-  options.throw_if_argv_not_in({"-test", "-chains"}, {});
+  options.throw_if_argv_not_in({"-test", "-chains", "-volumes"}, {});
 
   if (options.has_cli_entry("-test")) {
     self_test();
@@ -254,6 +285,11 @@ R"help(<< additional options for this file >>
   if (options.has_cli_entry("-chains")) {
     double const err = run_chain_test<P>(options);
     std::cout << " L^2 error = " << err << '\n';
+  } else if (options.has_cli_entry("-volumes")) {
+    double const err = run_volume_test<P>(options);
+    std::cout << " L^2 error = " << err << '\n';
+  } else {
+    std::cout << " missing PDE selection, e.g., -chains, -volumes\n";
   }
 
   return 0;
@@ -261,23 +297,61 @@ R"help(<< additional options for this file >>
 
 template<typename P>
 void test_chains(double tol, std::string const &opts) {
-  current_test<P> test_(opts);
+  std::string const name = ((is_double<P>) ? "(chains 2d) " : " (chains 2d) ") + opts;
+  current_test<P> test_(name);
 
   auto options = make_opts(opts);
+  options.verbosity = verbosity_level::quiet;
 
-  double const err = run_chain_test(options);
+  double const err = run_chain_test<P>(options);
 
+  // std::cout << opts << "   " << err << "   " << tol << '\n';
+  tcheckless(1, err, tol);
+}
+
+template<typename P>
+void test_volumes(double tol, std::string const &opts) {
+  std::string const name = ((is_double<P>) ? "(volumes 1d) " : " (volumes 1d) ") + opts;
+  current_test<P> test_(name);
+
+  auto options = make_opts(opts);
+  options.verbosity = verbosity_level::quiet;
+
+  double const err = run_volume_test<P>(options);
+
+  // std::cout << opts << "   " << err << "   " << tol << '\n';
   tcheckless(1, err, tol);
 }
 
 void self_test() {
-  all_tests testing_("boundary conditions");
+  all_tests testing_("misc edge cases");
 
 #ifdef ASGARD_ENABLE_DOUBLE
-  test_chains<double>(1.E-7, "-v 0");
+  test_chains<double>(5.E-3, "");
+  test_chains<double>(1.E-3, "-l 5");
+  test_chains<double>(5.E-4, "-l 6");
+  test_chains<double>(1.E-3, "-d 2 -l 3");
+  test_chains<double>(1.E-4, "-d 2 -l 4");
+
+  #ifdef ASGARD_USE_GPU
+  // large test for the direct solver
+  test_chains<double>(5.E-5, "-l 8 -sv direct");
+  #endif
+
+  test_volumes<double>(5.E-4, "");
+  test_volumes<double>(5.E-6, "-dt 0.001 -d 2 -l 5");
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-  //
+  test_chains<float>(5.E-3, "");
+  test_chains<float>(2.E-3, "-l 5");
+  test_chains<float>(1.E-3, "-d 2 -l 3");
+
+  #ifdef ASGARD_USE_GPU
+  // large test for the direct solver
+  test_chains<float>(5.E-3, "-l 8 -sv direct");
+  #endif
+
+  test_volumes<float>(5.E-4, "");
 #endif
 }
