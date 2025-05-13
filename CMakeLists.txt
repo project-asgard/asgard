@@ -396,7 +396,7 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 
-# version 2 components
+#  components
 set(asgard_components
     blas
     block_matrix
@@ -421,6 +421,7 @@ set(asgard_components
     term_manager
     test_macros
     time_advance
+    time_data
     transformations
     tools
     wavelet_basis

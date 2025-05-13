@@ -1,6 +1,5 @@
 #pragma once
-#include "asgard_moment.hpp"
-#include "asgard_solver.hpp"
+#include "asgard_time_data.hpp"
 
 namespace asgard
 {
