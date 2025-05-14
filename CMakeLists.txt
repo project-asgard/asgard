@@ -77,16 +77,8 @@ option (ASGARD_BUILD_DOCS "(incomplete) Build the documentation." OFF)
 
 option (ASGARD_USE_GITINFO "Optional read git properties and build them into the library" ON)
 
-if (ASGARD_USE_MPI)
-  message(FATAL_ERROR "Distributed MPI capabilities are temporarily disabled during the transition to the new API")
-endif()
-
 if (ASGARD_USE_TIMER)
-  if (ASGARD_USE_MPI)
-    option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" ON)
-  else()
-    option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" OFF)
-  endif()
+  option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" OFF)
 endif()
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
@@ -370,6 +362,10 @@ if (ASGARD_BUILD_HDF5)
   add_dependencies (libasgard hdf5_external)
 endif()
 
+if (ASGARD_USE_MPI)
+  target_link_libraries(libasgard PUBLIC MPI::MPI_CXX)
+endif()
+
 target_compile_features (libasgard PUBLIC cxx_std_17)
 
 #  components
@@ -392,6 +388,7 @@ set(asgard_components
     program_options
     quadrature
     reconstruct
+    resource_groups
     small_mats
     solver
     term_manager
