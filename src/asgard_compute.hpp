@@ -26,9 +26,6 @@ using default_precision = double;
 using default_precision = float;
 #endif
 
-template<typename T>
-constexpr bool is_double = std::is_same_v<double, T>;
-
 #ifdef ASGARD_USE_GPU
 
 namespace gpu

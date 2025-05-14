@@ -30,7 +30,7 @@ public:
                    std::vector<aux_field_entry<P>> &aux_fields,
                    std::vector<P> &state);
 
-  //! indicator for the asgard "safe-file" version (mostly a future feature)
+  //! indicator for the asgard "save-file" version (mostly a future feature)
   static int constexpr asgard_file_version = 1;
 };
 

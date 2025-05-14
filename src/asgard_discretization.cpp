@@ -4,50 +4,31 @@ namespace asgard
 {
 
 template<typename precision>
-discretization_manager<precision>::discretization_manager(
-    pde_scheme<precision> pde, verbosity_level verbosity)
-  : verb(pde.options().verbosity.value_or(verbosity)),
-    // pde2(std::move(pde_in)),
-    conn(pde.max_level())
-{
-  rassert(pde.num_dims() > 0, "cannot discretize an empty pde");
-
-  options_ = std::move(pde.options_);
-  domain_  = std::move(pde.domain_);
-
-  initial_md_  = std::move(pde.initial_md_);
-  initial_sep_ = std::move(pde.initial_sep_);
-
-  init_compute(); // compute engine, detect GPUs, etc.
-
-  if (options_.restarting())
-    restart_from_file(pde);
-  else
-    start_cold(pde);
-}
-
-template<typename precision>
 void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 {
   int const degree_ = options_.degree.value();
 
   if (high_verbosity()) {
-    std::cout << "Branch: " << GIT_BRANCH << '\n';
-    std::cout << "Commit Summary: " << GIT_COMMIT_HASH
-                    << GIT_COMMIT_SUMMARY << '\n';
-    std::cout << "The library was built on " << BUILD_TIME << '\n';
+    std::cout << '\n';
+    #ifdef ASGARD_HAS_GITINFO
+    std::cout << "ASGarD: git-branch '" << ASGARD_GIT_BRANCH << "'\n";
+    std::cout << "  " << ASGARD_GIT_COMMIT_HASH << ASGARD_GIT_COMMIT_SUMMARY << '\n';
+    std::cout << " -- discretization options --\n";
+    #else
+    std::cout << " -- ASGarD release " << ASGARD_RELEASE_INFO << '\n';
+    #endif
+  } else {
+    if (not stop_verbosity())
+      std::cout << "\n -- ASGarD discretization options --\n";
   }
-
-  if (not stop_verbosity())
-    std::cout << "\n -- ASGarD discretization options --\n";
 
   grid = sparse_grid(options_);
 
   if (not stop_verbosity()) {
     if (not options_.title.empty())
-      std::cout << "       title: " << options_.title << '\n';
+      std::cout << "    title: " << options_.title << '\n';
     if (not options_.subtitle.empty())
-      std::cout << "    subtitle: " << options_.subtitle << '\n';
+      std::cout << "           " << options_.subtitle << '\n';
 
     std::cout << "basis degree: " << degree_;
     switch (degree_) {

@@ -40,6 +40,25 @@ discretization_manager<P> disc_testpde(int num_dims, prog_opts const &opts) {
 }
 
 template<typename P>
+void compile_tests()
+{
+  {
+    current_test<P> name_("discretization manager compile tests");
+    discretization_manager<P> disc_null;
+    tassert(disc_null.num_dims() == 0);
+    tassert(not disc_null.has_moments());
+    tassert(not disc_null.high_verbosity());
+    tassert(not disc_null.low_verbosity());
+    tassert(disc_null.stop_verbosity());
+    static_assert(std::is_copy_constructible_v<discretization_manager<P>>);
+    static_assert(std::is_move_constructible_v<discretization_manager<P>>);
+    static_assert(std::is_copy_assignable_v<discretization_manager<P>>);
+    static_assert(std::is_move_assignable_v<discretization_manager<P>>);
+    static_assert(std::is_same_v<typename discretization_manager<P>::precision_type, P>);
+  }
+}
+
+template<typename P>
 void init_tests()
 {
   {
@@ -75,6 +94,7 @@ void init_tests()
 template<typename P>
 void do_all_tests() {
   test_domain<P>();
+  compile_tests<P>();
   init_tests<P>();
 }
 

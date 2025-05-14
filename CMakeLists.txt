@@ -1,38 +1,10 @@
 cmake_minimum_required (VERSION 3.19)
 
-project (asgard VERSION 0.7.0 LANGUAGES CXX)
+project (asgard VERSION 0.7.1 LANGUAGES CXX)
 
-#-------------------------------------------------------------------------------
-#  Setup the kromult external project.
-#-------------------------------------------------------------------------------
-include (FetchContent)
-find_package (Git)
+set(ASGARD_RELEASE_INFO "(alpha) 0.7.1a1") # sync with pip-installer setup.py
 
-#  Define a macro to register new projects.
-function (register_project name dir url default_tag)
-    message (STATUS "Registering project ${name}")
-
-    set (BUILD_TAG_${dir} ${default_tag} CACHE STRING "Name of the tag to checkout.")
-    set (BUILD_REPO_${dir} ${url} CACHE STRING "URL of the repo to clone.")
-
-    #Check for optional patch file.
-    set(PATCH_COMMAND "")
-    if(${ARGC} EQUAL 5)
-        find_package(Git)
-        set(_apply_flags --ignore-space-change --whitespace=fix)
-        set(PATCH_COMMAND "${GIT_EXECUTABLE}" reset --hard ${BUILD_TAG_${dir}} COMMAND "${GIT_EXECUTABLE}" apply ${_apply_flags} "${ARGV4}")
-    endif()
-    #  Set up the sub project repository.
-    FetchContent_Declare(
-        ${name}
-        GIT_REPOSITORY ${BUILD_REPO_${dir}}
-        GIT_TAG ${BUILD_TAG_${dir}}
-        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
-        PATCH_COMMAND ${PATCH_COMMAND}
-    )
-    FetchContent_MakeAvailable(${name})
-endfunction ()
-
+include (FetchContent) # getting external dependencies
 
 ###############################################################################
 ## Set up the compiler and general global build options
@@ -103,6 +75,8 @@ option (ASGARD_USE_TIMER "Enable the builtin profiling tool" ON)
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
 option (ASGARD_BUILD_DOCS "(incomplete) Build the documentation." OFF)
 
+option (ASGARD_USE_GITINFO "Optional read git properties and build them into the library" ON)
+
 if (ASGARD_USE_MPI)
   message(FATAL_ERROR "Distributed MPI capabilities are temporarily disabled during the transition to the new API")
 endif()
@@ -134,10 +108,6 @@ else()
     set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
 endif()
 
-
-# add scripts directory location
-set(ASGARD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/")
-
 #Enable HighFive IO if any of the following variables are defined
 if(NOT ASGARD_USE_HIGHFIVE)
   if(ASGARD_BUILD_HDF5 OR ASGARD_USE_PYTHON)
@@ -165,6 +135,14 @@ list(APPEND _asgard_pdes ${_asgard_int_pdes})
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 find_package (LINALG REQUIRED)
+
+# enable the git properties
+if (ASGARD_USE_GITINFO)
+  find_package (Git)
+  if (Git_FOUND)
+    set(ASGARD_HAS_GITINFO ON)
+  endif()
+endif()
 
 # sets OpenBLAS_PATH and LINALG_LIBS
 include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
@@ -378,8 +356,6 @@ set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Number of quadrature points to be 
 #-------------------------------------------------------------------------------
 #  Define the asgard library.
 #-------------------------------------------------------------------------------
-set(ASGARD_GOLD_BASE_DIR "${PROJECT_SOURCE_DIR}/testing/generated-inputs")
-
 configure_file(
   src/asgard_build_info.hpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp
@@ -521,7 +497,6 @@ endif()
 
 ###############################################################################
 ## Testing asgard
-#
 ###############################################################################
 if (ASGARD_BUILD_TESTS)
   enable_testing ()

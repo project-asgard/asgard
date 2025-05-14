@@ -32,11 +32,52 @@ template<typename precision = default_precision>
 class discretization_manager
 {
 public:
+  //! sets the precision type
+  using precision_type = precision;
   //! allows the creation of a null manager, has to be reinitialized later
-  discretization_manager() = default;
+  discretization_manager() {
+    #ifdef ASGARD_ENABLE_DOUBLE
+    #ifdef ASGARD_ENABLE_FLOAT
+    static_assert(is_double<precision> or is_float<precision>,
+                  "invalid precision type, must use 'double' or 'float'");
+    #else
+    static_assert(is_double<precision>, "invalid precision type, must use 'double'");
+    #endif
+    #else
+    static_assert(is_float<precision>, "invalid precision type, must use 'float'");
+    #endif
+  }
   //! take ownership of the pde object and discretize the pde
-  discretization_manager(pde_scheme<precision> pde_in,
-                         verbosity_level verbosity = verbosity_level::quiet);
+  discretization_manager(pde_scheme<precision> pde,
+                         verbosity_level verbosity = verbosity_level::quiet)
+    : verb(pde.options().verbosity.value_or(verbosity)),
+      conn(pde.max_level())
+  {
+    #ifdef ASGARD_ENABLE_DOUBLE
+    #ifdef ASGARD_ENABLE_FLOAT
+    static_assert(is_double<precision> or is_float<precision>);
+    #else
+    static_assert(is_double<precision>);
+    #endif
+    #else
+    static_assert(is_float<precision>);
+    #endif
+
+    rassert(pde.num_dims() > 0, "cannot discretize an empty pde");
+
+    options_ = std::move(pde.options_);
+    domain_  = std::move(pde.domain_);
+
+    initial_md_  = std::move(pde.initial_md_);
+    initial_sep_ = std::move(pde.initial_sep_);
+
+    init_compute(); // compute engine, detect GPUs, etc.
+
+    if (options_.restarting())
+      restart_from_file(pde);
+    else
+      start_cold(pde);
+  }
 
   //! returns the degree of the discretization
   int degree() const { return hier.degree(); }
@@ -320,12 +361,12 @@ public:
   //! returns the current grid generation
   int grid_generation() const { return grid.generation(); }
   //! returns the term manager
-  term_manager<precision> const & get_terms() const { return terms; }
+  term_manager<precision> const &get_terms() const { return terms; }
 
   //! return the hierarchy_manipulator
-  auto const &get_hier() const { return hier; }
+  hierarchy_manipulator<precision> const &get_hier() const { return hier; }
   //! return the connection patterns
-  auto const &get_conn() const { return conn; }
+  connection_patterns const &get_conn() const { return conn; }
 
   //! recomputes the moments given the state of interest
   void compute_moments(std::vector<precision> const &f) const {
@@ -397,7 +438,7 @@ protected:
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 private:
-  mutable verbosity_level verb;
+  mutable verbosity_level verb = verbosity_level::quiet;
   // user provided options
   prog_opts options_;
   // initial conditions, non-separable
