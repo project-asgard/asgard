@@ -102,6 +102,10 @@ public:
   {
     check_init();
 
+    std::fill(xleft_.begin(), xleft_.end(), 0);
+    std::fill(xright_.begin(), xright_.end(), 1);
+    std::fill(length_.begin(), length_.end(), 1);
+
     if (list.size() > 0)
       this->set(list);
   }
@@ -186,11 +190,11 @@ public:
 private:
   //! verify the consistency of the provided conditions
   void check_init() {
+    rassert(num_pos_ >= 0, "pde_domain created with negative position dimensions");
+    rassert(num_vel_ >= 0, "pde_domain created with negative velocity dimensions");
     rassert(num_dims_ >= 1, "pde_domain created with zero or negative dimensions");
     rassert(num_dims_ <= max_num_dimensions,
             "pde_domain created with too many dimensions, max is 6D");
-    rassert(num_pos_ >= 0, "pde_domain created with negative position dimensions");
-    rassert(num_vel_ >= 0, "pde_domain created with negative velocity dimensions");
 
     if (num_pos_ == 0 and num_vel_ == 0) {
       for (int d : iindexof(num_dims_))
