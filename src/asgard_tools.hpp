@@ -483,12 +483,75 @@ private:
   int end_   = 0;
 };
 
+//! helper struct that add layer of indirection to the type
 template<typename T>
 struct no_deduce_struct {
+  //! defines the type it's given
   using type = T;
 };
 
+/*!
+ * \brief Helper method that guides template type deduction
+ *
+ * Example, consider the operation of multiplying a vector by a scalar and look
+ * at the template signature:
+ * \code
+ *   template<typename P> scal(P alpha, std::vector<P> &x) { ... }
+ * \endcode
+ * Clearly, the vector type is more important than the scalar, since the precision
+ * of the output is determined by the bits in x and not alpha.
+ * However, consider the usage:
+ * \code
+ *   std::vector<double> x64 = ....;
+ *   std::vector<double> x32 = ....;
+ *
+ *   scal(0.5, x64);  // OK, works fine since both x and 0.5 use 64-bits, P = double
+ *   scal(0.5f, x32); // OK, both use 32-bits, P = float
+ *
+ *   scal(0.5, x32); // Error, P is deduced different for alpha and x
+ *   scal(2, x64);   // Error, for alpha P is int but x uses doubles
+ * \endcode
+ *
+ * Using the no_deduce tag will stop the compiler form inferring the type from alpha,
+ * the type will be inferred from x and alpha will be converted.
+ * \code
+ *   template<typename P> scal(no_deduce<P> alpha, std::vector<P> &x) { ... }
+ *
+ *   scal(0.5, x32); // works fine, alpha = 0.5 is converted to 32-bits
+ *   scal(2, x64);  // works fine, alpha = 2 is converted to 64-bits
+ * \endcode
+ */
 template<typename T>
 using no_deduce = typename no_deduce_struct<T>::type;
+
+/*!
+ * \brief Easy syntax check is a type is double
+ *
+ * Usage:
+ * \code
+ *   if constexpr (is_double<P>) {
+ *     std::cout << " using 64-bit double precision\n";
+ *     dgetrf(...); // call BLAS double precision
+ *     cusolverDnDgetrf(...); // call cuSolver double
+ *   }
+ * \endcode
+ */
+template<typename T>
+constexpr bool is_double = std::is_same_v<double, T>;
+
+/*!
+ * \brief Easy syntax check is a type is float
+ *
+ * Usage:
+ * \code
+ *   if constexpr (is_float<P>) {
+ *     std::cout << " using 32-bit single precision\n";
+ *     sgetrf(...); // call BLAS single precision
+ *     cusolverDnSgetrf(...); // call cuSolver single
+ *   }
+ * \endcode
+ */
+template<typename T>
+constexpr bool is_float = std::is_same_v<float, T>;
 
 } // namespace asgard

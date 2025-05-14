@@ -695,8 +695,8 @@ void prog_opts::print_options(std::ostream &os) const
 
 void prog_opts::print_version_help(std::ostream &os)
 {
-  os << "\nASGarD v" << ASGARD_VERSION << "  git-hash: " << GIT_COMMIT_HASH << "\n";
-  os << "git-branch (" << GIT_BRANCH << ")\n";
+  os << "\nASGarD v" << ASGARD_VERSION << "  git-hash: " << ASGARD_GIT_COMMIT_HASH << "\n";
+  os << "git-branch (" << ASGARD_GIT_BRANCH << ")\n";
 #ifdef ASGARD_USE_MPI
   os << "Kronmult method          Local\n";
 #else

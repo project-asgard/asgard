@@ -10,8 +10,10 @@
 ###############################################################################
 # Get the latest abbreviated commit hash of the working branch
 # and force a cmake reconfigure
-include(contrib/GetGitRevisionDescription.cmake)
-get_git_head_revision(GIT_REFSPEC GIT_COMMIT_HASH)
+if (ASGARD_USE_GITINFO)
+  include(contrib/GetGitRevisionDescription.cmake)
+  get_git_head_revision(GIT_REFSPEC GIT_COMMIT_HASH)
+endif()
 # Get the current working branch
 execute_process(
   COMMAND git rev-parse --abbrev-ref HEAD
@@ -35,11 +37,4 @@ string(REGEX REPLACE "(\r?\n)+"
 string(REGEX REPLACE "\""
        "" GIT_COMMIT_SUMMARY
        "${GIT_COMMIT_SUMMARY}"
-)
-# Get the current date and time of build
-execute_process(
-  COMMAND date "+%A, %B %d %Y at %l:%M %P"
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE BUILD_TIME
-  OUTPUT_STRIP_TRAILING_WHITESPACE
 )
