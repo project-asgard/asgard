@@ -44,14 +44,18 @@ namespace asgard {
 
 struct all_tests {
   all_tests(std::string cname, std::string longer = "") : name(std::move(cname)) {
-    std::cout << "\n ------------------------------------------------------------------------------ \n";
-    std::cout << "    " << name << longer << "\n";
-    std::cout << " ------------------------------------------------------------------------------ \n\n";
+    if (mpi::is_world_rank(0)) {
+      std::cout << "\n ------------------------------------------------------------------------------ \n";
+      std::cout << "    " << name << longer << "\n";
+      std::cout << " ------------------------------------------------------------------------------ \n\n";
+    }
   }
   ~all_tests(){
-    std::cout << "\n ------------------------------------------------------------------------------ \n";
-    std::cout << "    " << name << " " << ((asgard_all_tests) ? "pass" : "FAIL") << "\n";
-    std::cout << " ------------------------------------------------------------------------------ \n\n";
+    if (mpi::is_world_rank(0)) {
+      std::cout << "\n ------------------------------------------------------------------------------ \n";
+      std::cout << "    " << name << " " << ((asgard_all_tests) ? "pass" : "FAIL") << "\n";
+      std::cout << " ------------------------------------------------------------------------------ \n\n";
+    }
   }
   std::string name;
 };
@@ -87,12 +91,14 @@ struct current_test{
     asgard_test_pass = true;
   }
   ~current_test(){
-    std::string s = "    " + asgard_test_name;
+    if (mpi::is_world_rank(0)) {
+      std::string s = "    " + asgard_test_name;
 
-    if (s.size() < 60)
-      std::cout << s << std::setw(70 - s.size()) << ((asgard_test_pass) ? "pass" : "FAIL") << '\n';
-    else
-      std::cout << s << "  " << ((asgard_test_pass) ? "pass" : "FAIL") << '\n';
+      if (s.size() < 60)
+        std::cout << s << std::setw(70 - s.size()) << ((asgard_test_pass) ? "pass" : "FAIL") << '\n';
+      else
+        std::cout << s << "  " << ((asgard_test_pass) ? "pass" : "FAIL") << '\n';
+    }
   };
 };
 

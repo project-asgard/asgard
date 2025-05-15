@@ -271,6 +271,9 @@ int main(int argc, char** argv)
 //! [continuity_md main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // if double precision is available the P is double
   // otherwise P is float
   using P = asgard::default_precision;
@@ -340,6 +343,9 @@ int main(int argc, char** argv)
 
   if (asgard::tools::timer.enabled() and not disc.stop_verbosity())
     std::cout << asgard::tools::timer.report() << '\n';
+
+  // if MPI is enabled, finalize MPI, otherwise do nothing
+  asgard::libasgard_finish();
 
   return 0;
 
@@ -443,8 +449,15 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
   }
 }
 
+void mpi_self_test();
+
 void self_test() {
   all_tests testing_("continuity equation:", " f_t + div f = sources");
+
+  if (mpi::world_size() > 1) {
+    mpi_self_test();
+    return;
+  }
 
   // continuity is a simple pde and tests are cheap
   // thus, we can use to indirectly test multiple aspects of ASGarD
@@ -529,6 +542,13 @@ void self_test() {
 
   dotest<float>(0.02, 1, "-l 7 -n 20 -sv direct -s cn -dt 0.06");
   dotest<float>(0.005, 1, "-l 7 -n 20 -sv direct -s cn -dt 0.03");
+#endif
+}
+
+void mpi_self_test() {
+#ifdef ASGARD_USE_MPI
+  // tests specific to MPI functionality
+  current_test test_("nothing yet, coming soon");
 #endif
 }
 
