@@ -85,9 +85,19 @@ public:
   bool is_leader() const { return (rank_ == 0); }
   //! check if the resource is owned by this set, checks the group/rank
   bool owns(resource const &rec) const { return (rank_ == rec.group); }
-
+  //! broadcasts the data to all sets in the communicator
   template<typename T>
   void bcast(int count, T *data) {
+    MPI_Bcast(data, count, mpi::datatype<T>(), 0, comm);
+  }
+  //! broadcasts the data to all sets in the communicator
+  template<typename T>
+  void bcast(std::vector<T> &data) {
+    bcast(static_cast<int>(data.size()), data.data());
+  }
+  //! adds the data across communicator
+  template<typename T>
+  void reduce_add(int count, T *data) {
     MPI_Bcast(data, count, mpi::datatype<T>(), 0, comm);
   }
 
