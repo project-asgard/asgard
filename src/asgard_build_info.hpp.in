@@ -36,6 +36,10 @@
 #define ASGARD_USE_GPU
 #endif
 
+#if defined(ASGARD_USE_MPI) || defined(ASGARD_USE_GPU)
+#define ASGARD_MANAGED_RESOURCES
+#endif
+
 // fixed variables, maybe adjust later using CMake
 // for now, we can keep project-wide constants here
 namespace asgard

@@ -345,7 +345,9 @@ void input_files() {
   }
 }
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("asgard-prog-opts", " command-line args and input-files");
 

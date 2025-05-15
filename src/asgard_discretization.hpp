@@ -73,6 +73,12 @@ public:
 
     init_compute(); // compute engine, detect GPUs, etc.
 
+    #ifdef ASGARD_USE_MPI
+    // only rank 0 will do regular I/O, others will default to silent mode
+    if (mpi::comm_rank(options_.mpicomm) != 0)
+      verb = verbosity_level::quiet;
+    #endif
+
     if (options_.restarting())
       restart_from_file(pde);
     else

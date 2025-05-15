@@ -96,6 +96,11 @@ void self_test();
 
 int main(int argc, char** argv)
 {
+  #ifdef ASGARD_USE_MPI
+  // if MPI is not enabled, make sure the PDE works fine without this line
+  libasgard_runtime running_(argc, argv);
+  #endif
+
   using P = asgard::default_precision;
 
   // parse the command-line inputs

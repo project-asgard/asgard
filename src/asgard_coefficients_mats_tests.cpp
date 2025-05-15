@@ -98,8 +98,10 @@ void all_templated_tests()
   test_volume_matrix<P>();
 }
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   all_tests global_("coefficient-tests", " construction of coefficient matrices");
 
   #ifdef ASGARD_ENABLE_DOUBLE

@@ -118,7 +118,9 @@ void poisson_tests()
   }
 }
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("solver tests", " builtin solver functionality");
 

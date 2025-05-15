@@ -256,6 +256,8 @@ void self_test();
 
 int main(int argc, char** argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   using P = asgard::default_precision;
 
   // parse the command-line inputs

@@ -315,10 +315,13 @@ int main(int argc, char** argv)
 
   int const num_dims = opt_dims.value_or(2);
 
-  if (not opt_dims)
-    std::cout << "no -dims provided, setting a default 2D problem\n";
-  else
-    std::cout << "setting a " << num_dims << "D problem\n";
+  if (options.is_mpi_rank_zero())
+  {
+    if (not opt_dims)
+      std::cout << "no -dims provided, setting a default 2D problem\n";
+    else
+      std::cout << "setting a " << num_dims << "D problem\n";
+  }
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
@@ -334,18 +337,15 @@ int main(int argc, char** argv)
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
-  disc.progress_report();
-
-  if (not disc.stop_verbosity())
+  if (not disc.stop_verbosity()) {
+    disc.progress_report();
     std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+  }
 
   disc.save_final_snapshot(); // only if output filename is provided
 
   if (asgard::tools::timer.enabled() and not disc.stop_verbosity())
     std::cout << asgard::tools::timer.report() << '\n';
-
-  // if MPI is enabled, finalize MPI, otherwise do nothing
-  asgard::libasgard_finish();
 
   return 0;
 

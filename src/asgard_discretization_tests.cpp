@@ -98,7 +98,9 @@ void do_all_tests() {
   init_tests<P>();
 }
 
-int main(int, char**) {
+int main(int argc, char **argv)
+{
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("discretization-manager", " discretization details");
 

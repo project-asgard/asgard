@@ -201,8 +201,10 @@ void test_compute_moments()
   }
 }
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   all_tests global_("computing moments", " field integrals in velocity domain");
 
   test_compute_moments();

@@ -355,8 +355,10 @@ void test_pde() {
 #endif
 }
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   all_tests global_("interpolation operators");
 
   test_ode1d();

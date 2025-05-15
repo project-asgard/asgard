@@ -374,7 +374,9 @@ void do_all_tests() {
   interp_identity<P>();
 }
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("interpolation framework", " handles non-separable operators");
 

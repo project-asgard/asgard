@@ -37,9 +37,21 @@
 
 #include "asgard_build_info.hpp"
 
+// optional includes
 #ifdef ASGARD_USE_CUDA
-#include <cuda.h>
 #include <cuda_runtime.h>
+#include <cuda.h>
+#include <cublas_v2.h>
+#include <cusolverDn.h>
+#endif
+
+#ifdef ASGARD_USE_ROCM
+#include <hip/hip_runtime.h>
+#include <rocsolver/rocsolver.h>
+#endif
+
+#ifdef ASGARD_USE_MPI
+#include "mpi.h"
 #endif
 
 #ifndef NDEBUG
@@ -278,6 +290,51 @@ inline std::string split_style(int64_t num) {
 };
 
 } // namespace asgard::tools
+
+//! shortcuts for mpi commands
+namespace asgard::mpi
+{
+#ifdef ASGARD_USE_MPI
+//! returns the rank in the current comm
+inline int comm_rank(MPI_Comm const comm) {
+    int me;
+    MPI_Comm_rank(comm, &me);
+    return me;
+}
+//! (debug) returns the rank the world rank
+inline int world_rank() { return comm_rank(MPI_COMM_WORLD); }
+//! (debug) returns true if the world rank matches
+inline bool is_world_rank(int rank) { return (world_rank() == rank); }
+
+//! returns the size of the comm
+inline int comm_size(MPI_Comm const comm){
+  int nprocs;
+  MPI_Comm_size(comm, &nprocs);
+  return nprocs;
+}
+//! return the size of the world comm
+inline int world_size() { return comm_size(MPI_COMM_WORLD); }
+
+//! given a C++ type T, return the corresponding MPI data type
+template<typename T>
+inline constexpr MPI_Datatype datatype() {
+  if constexpr (std::is_same_v<double, T>)
+    return MPI_DOUBLE;
+  else if constexpr (std::is_same_v<float, T>)
+    return MPI_FLOAT;
+  else if constexpr (std::is_same_v<int, T>)
+    return MPI_INT;
+  else
+    static_assert(std::is_same_v<double, T>, "unknown MPI data-type");
+}
+
+#else
+inline constexpr bool is_world_rank(int) { return true; }
+inline constexpr int world_rank() { return 0; }
+inline constexpr int world_size() { return 1; }
+#endif
+
+} // namespace asgard::mpi
 
 namespace asgard
 {

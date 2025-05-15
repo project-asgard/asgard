@@ -326,6 +326,9 @@ int main(int argc, char** argv)
 //! [diffusion_md main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // if double precision is available the P is double
   // otherwise P is float
   using P = asgard::default_precision;
@@ -358,9 +361,12 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  // indicates whether to use 1D or multi-d chains, see make_diffusion_pde
+  bool constexpr chain1d = false;
+
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde<P, false>(2, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde<P, chain1d>(2, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method

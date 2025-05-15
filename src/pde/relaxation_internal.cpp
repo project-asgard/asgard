@@ -251,6 +251,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
 int main(int argc, char** argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   using P = default_precision;
 
   prog_opts options(argc, argv);

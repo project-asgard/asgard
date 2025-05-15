@@ -72,6 +72,8 @@ struct term_entry {
   term_entry() = default;
   //! initialize the entry with the given term
   term_entry(term_md<P> tin);
+  //! resource (mpi-rank/gpu) that will own this term
+  resource rec;
   //! the term, moved from the pde definition
   term_md<P> tmd;
   //! coefficient matrices for the term
@@ -91,7 +93,7 @@ struct term_entry {
   //! left/right boundary conditions source index, if positive
   int bc_source_id = -1;
   //! returns true if the term is separable
-  bool is_separable() {
+  bool is_separable() const {
     return perm; // check if kronmult permutations have been set
   }
 
@@ -124,6 +126,8 @@ struct source_entry
 
   //! when should we recompute the sources and when can we reuse existing data
   time_mode tmode = time_mode::constant;
+  //! resource (GPU/MPI-rank) assigned to this source
+  resource rec;
 
   bool is_constant() const { return tmode == time_mode::constant; }
   bool is_separable() const { return tmode == time_mode::separable; }
@@ -204,8 +208,8 @@ struct term_manager
    * a separate manager class, but that would be used only in the initial
    * conditions and then repeatedly passed into every single call here.
    */
-  term_manager(pde_domain<P> const &domain, pde_scheme<P> &pde,
-               int max_level, sparse_grid const &grid,
+  term_manager(prog_opts const &opts, pde_domain<P> const &domain,
+               pde_scheme<P> &pde, sparse_grid const &grid,
                hierarchy_manipulator<P> const &hier,
                connection_patterns const &conn);
 
@@ -258,8 +262,11 @@ struct term_manager
   //! source groups, same as the PDE
   std::vector<irange> source_groups;
 
-  //! deps for each term group, last entry is for all terms
+  //! dependencies for each term group, last entry is for all terms
   std::vector<mom_deps> deps_;
+
+  //! resource set to use for the computations
+  resource_set resources;
 
   //! get the moment dependencies for all terms
   mom_deps const &deps() const { return deps_.back(); }
@@ -509,6 +516,8 @@ protected:
   //! helper method, converts the data on quad
   template<data_mode mode>
   void raw2cells(bool is_diag, int level, std::vector<P> &out);
+  //! assign compute resources to the terms
+  void assign_compute_resources();
 
 private:
   // workspace and workspace matrices

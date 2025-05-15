@@ -377,7 +377,9 @@ void all_templated_tests() {
   restart_moments<P>();
 }
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("asgard-io-tests", " consistency between HDF5/HighFive/ASGarD");
 

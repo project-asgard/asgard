@@ -135,7 +135,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   // first we must initialize the terms, which will also initialize the kron
   // operations and the interpolation engine
-  terms = term_manager<precision>(domain_, pde, options_.max_level(), grid, hier, conn);
+  terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
 
   start_moments();
 
@@ -179,7 +179,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
   stepper = time_advance_manager<precision>(dtime, options_);
 
-  terms = term_manager<precision>(domain_, pde, options_.max_level(), grid, hier, conn);
+  terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
 
   start_moments();
 

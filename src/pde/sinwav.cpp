@@ -235,6 +235,9 @@ int main(int argc, char** argv)
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [sinwav main]
 #endif
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   using P = asgard::default_precision;
 
   // parse the command-line inputs
