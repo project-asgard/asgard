@@ -57,12 +57,18 @@ public:
     if (num_ranks_ >= mpi::bcast_threshold) {
       MPI_Bcast(data, count, mpi::datatype<T>(), root, comm);
     } else {
-      MPI_Recv(data, count, mpi::datatype<T>(), root, bcast_tag, comm, MPI_STATUS_IGNORE);
+      if (is_leader()) {
+        for (int r = 1; r < num_ranks_; r++)
+          MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, comm);
+      } else {
+        MPI_Recv(data, count, mpi::datatype<T>(), root, bcast_tag, comm, MPI_STATUS_IGNORE);
+      }
     }
   }
   //! broadcasts the data to all sets in the communicator, sender-only
   template<typename T>
   void bcast(int count, T const *data) const {
+    expect(rank_ == root); // otherwise we will violate const-correctness
     if (num_ranks_ >= mpi::bcast_threshold) {
       MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, comm);
     } else {
@@ -146,12 +152,11 @@ private:
 };
 
 // Things todo:
-// 1. sync the sparse grid, added to the discretization manager in 2-steps (number of idx and the idx)
-// 2. add worker mode for the iterative solvers
+// 1. add worker mode for the iterative solvers
 //    - distribute-add the direct solver matrices, but solve only on 0
-// 3. distribute the moments, detect who needs moments
+// 2. distribute the moments, detect who needs moments
 //    - only rank 0 does the Poisson solver, others have to wait
-// 4. find a way to disable idle mpi ranks (reduce the comm)
+// 3. find a way to disable idle mpi ranks (reduce the comm)
 
 #ifdef ASGARD_USE_MPI
 /*!

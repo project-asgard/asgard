@@ -511,11 +511,13 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
     if (atol > 0 or rtol > 0) {
       int const gen = grid.generation();
-      grid.refine(atol, rtol, manager.hier.block_size(),
-                  manager.conn[connect_1d::hierarchy::volume], grid_strategy, next);
+      if (manager.is_leader())
+        grid.refine(atol, rtol, manager.hier.block_size(),
+                    manager.conn[connect_1d::hierarchy::volume], grid_strategy, next);
+      manager.grid_sync(); // no-op, unless MPI is enabled
       if (grid.generation() != gen) {
-        grid.remap(manager.hier.block_size(), next);
-        manager.grid_sync(); // no-op, unless MPI is enabled
+        if (manager.is_leader())
+          grid.remap(manager.hier.block_size(), next);
         manager.terms.prapare_workspace(grid);
         if (stepper.is_steady_state()) {
           num_steps = 1;

@@ -255,9 +255,10 @@ void discretization_manager<precision>::set_initial_condition()
   precision const rtol = options_.adapt_ralative.value_or(0);
 
   #ifdef ASGARD_USE_MPI
-  if (not is_leader() and (atol > 0 or rtol > 0)) {
+  if (not is_leader()) {
     this->grid_sync();
     state.resize(grid.num_indexes() * hier.block_size());
+    terms.prapare_workspace(grid);
     return;
   }
   #endif
@@ -308,8 +309,7 @@ void discretization_manager<precision>::set_initial_condition()
     iterations++;
   }
 
-  if (atol > 0 or rtol > 0)
-    this->grid_sync();
+  this->grid_sync();
 }
 
 template<typename precision> void

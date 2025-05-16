@@ -404,7 +404,8 @@ public:
   //! synchronizes the grid across MPI ranks
   void grid_sync() {
     #ifdef ASGARD_USE_MPI
-    grid.mpi_sync(terms.resources);
+    grid.mpi_sync(terms.resources, grid_synced_gen_);
+    grid_synced_gen_ = grid.generation();
     #endif
   }
   //! returns the term manager
@@ -501,6 +502,9 @@ private:
   sparse_grid grid;
   connection_patterns conn;
   hierarchy_manipulator<precision> hier;
+  #ifdef ASGARD_USE_MPI
+  int grid_synced_gen_ = -1;
+  #endif
 
   // moments
   mutable std::optional<moments1d<precision>> moms1d;

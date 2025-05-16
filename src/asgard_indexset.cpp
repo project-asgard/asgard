@@ -782,37 +782,36 @@ void sparse_grid::print_stats(std::ostream &os) const {
 }
 
 #ifdef ASGARD_USE_MPI
-void sparse_grid::mpi_sync(resource_set const &rcs) {
+void sparse_grid::mpi_sync(resource_set const &rcs, int last_gen) {
   mpimeta.resize(2 * max_num_dimensions + 2);
   // sync meta-data
   if (rcs.is_leader()) {
-    std::cout << " grid sync\n";
     auto im = mpimeta.begin();
     im = std::copy_n(level_.begin(), max_num_dimensions, im);
     im = std::copy_n(max_index_.begin(), max_num_dimensions, im);
-    for (auto m : mpimeta)
-      std::cout << m << "\n";
     *im++ = generation_;
     *im++ = static_cast<int>(iset_.num_indexes_); // TODO: figure out the narrowing
-    for (auto m : mpimeta)
-      std::cout << m << "\n";
     rcs.bcast(mpimeta);
   } else {
     rcs.bcast(mpimeta);
     std::copy_n(mpimeta.begin(), max_num_dimensions, level_.begin());
     std::copy_n(mpimeta.begin() + max_num_dimensions,
                 max_num_dimensions, max_index_.begin());
-
-    generation_        = mpimeta[2 * max_num_dimensions];
-    iset_.num_indexes_ = mpimeta[2 * max_num_dimensions + 1];
   }
   // stage 2, send/recv indexes
   if (rcs.is_leader()) {
-    rcs.bcast(iset_.indexes_);
-    std::cout << " grid sync out\n";
-  } else {
+    if (generation_ != last_gen)
+      rcs.bcast(iset_.indexes_);
+  }
+  else if (generation_ != mpimeta[2 * max_num_dimensions])
+  {
+    generation_        = mpimeta[2 * max_num_dimensions];
+    iset_.num_indexes_ = mpimeta[2 * max_num_dimensions + 1];
+
     iset_.indexes_.resize(iset_.num_indexes_ * iset_.num_dimensions_);
     rcs.bcast(iset_.indexes_);
+
+    dsort_ = dimension_sort(iset_);
   }
 }
 #endif

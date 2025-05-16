@@ -560,7 +560,7 @@ public:
 
   #ifdef ASGARD_USE_MPI
   //! send the grid from the leader to all the sub-grids
-  void mpi_sync(resource_set const &rcs);
+  void mpi_sync(resource_set const &rcs, int last_gen);
   #endif
 
   //! allows writer to save/load the grid
