@@ -156,38 +156,40 @@ public:
       terms.rebuild_poisson(grid, conn, hier);
     }
 
-    #ifdef ASGARD_USE_MPI
-    terms.mpiwork.resize(current.size());
-    if (is_leader()) {
-      terms.resources.bcast(current);
-      {
-        tools::time_event performance_("ode-rhs kronmult");
-        terms.apply_all(grid, conn, -1, current, 0, terms.mpiwork);
-      }{
-        tools::time_event performance_("ode-rhs sources");
-        terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, terms.mpiwork);
+    if (terms.resources.num_ranks() > 1) {
+      #ifdef ASGARD_USE_MPI
+      terms.mpiwork.resize(current.size());
+      if (is_leader()) {
+        terms.resources.bcast(current);
+        {
+          tools::time_event performance_("ode-rhs kronmult");
+          terms.apply_all(grid, conn, -1, current, 0, terms.mpiwork);
+        }{
+          tools::time_event performance_("ode-rhs sources");
+          terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, terms.mpiwork);
+        }
+        terms.resources.reduce_add(terms.mpiwork, R);
+      } else {
+        terms.resources.bcast(terms.mpiwork);
+        {
+          tools::time_event performance_("ode-rhs kronmult");
+          terms.apply_all(grid, conn, -1, terms.mpiwork, 0, R);
+        }{
+          tools::time_event performance_("ode-rhs sources");
+          terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
+        }
+        terms.resources.reduce_add(R, terms.mpiwork);
       }
-      terms.resources.reduce_add(terms.mpiwork, R);
+      #endif
     } else {
-      terms.resources.bcast(terms.mpiwork);
       {
         tools::time_event performance_("ode-rhs kronmult");
-        terms.apply_all(grid, conn, -1, terms.mpiwork, 0, R);
+        terms.apply_all(grid, conn, -1, current, 0, R);
       }{
         tools::time_event performance_("ode-rhs sources");
         terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
       }
-      terms.resources.reduce_add(R, terms.mpiwork);
     }
-    #else
-    {
-      tools::time_event performance_("ode-rhs kronmult");
-      terms.apply_all(grid, conn, -1, current, 0, R);
-    }{
-      tools::time_event performance_("ode-rhs sources");
-      terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
-    }
-    #endif
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {

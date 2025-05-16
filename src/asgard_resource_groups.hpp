@@ -102,6 +102,13 @@ private:
   #endif
 };
 
+// Things todo:
+// 1. sync the sparse grid, added to the discretization manager in 2-steps (number of idx and the idx)
+// 2. switch to MPI_Send/Recv when using < 4 ranks
+// 3. add worker mode for the iterative solvers
+// 4. distribute the moments, detect who needs moments
+// 5. find a way to disable idle mpi ranks (reduce the comm)
+
 #ifdef ASGARD_USE_MPI
 /*!
  * \brief Optional call to library initialization

@@ -404,18 +404,24 @@ struct term_manager
            std::vector<P> const &x) const;
   //! y = sum(terms * x), applies all terms
   void apply_all(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+                 P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+    apply_tmpl<std::vector<P> const &, std::vector<P> &>(-1, grid, conn, alpha, x, beta, y);
+  }
   //! y = sum(terms * x), applies all terms
-  void apply_all(sparse_grid const &grid, connection_patterns const &conns,
-                 P alpha, P const x[], P beta, P y[]) const;
-
+  void apply_all(sparse_grid const &grid, connection_patterns const &conn,
+                 P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl<double const[], double[]>(-1, grid, conn, alpha, x, beta, y);
+  }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conns,
-                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
+                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+    apply_tmpl<std::vector<P> const &, std::vector<P> &>(gid, grid, conn, alpha, x, beta, y);
+  }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conns,
-                   P alpha, P const x[], P beta, P y[]) const;
-
+  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
+                   P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl<double const[], double[]>(gid, grid, conn, alpha, x, beta, y);
+  }
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
   void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
                      P const x[], P y[]) const;
@@ -523,6 +529,12 @@ protected:
   //! helper method, build a mass matrix with no dependencies
   void build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                       block_diag_matrix<P> &raw_diag);
+
+  template<typename vector_type_x, typename vector_type_y>
+  void apply_tmpl(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, vector_type_x x, P beta, vector_type_y y) const;
+
   //! helper method, converts the data on quad
   template<data_mode mode>
   void raw2cells(bool is_diag, int level, std::vector<P> &out);

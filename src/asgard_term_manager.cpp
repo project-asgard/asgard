@@ -1128,99 +1128,34 @@ P term_manager<P>::normL2(
 }
 
 template<typename P>
-void term_manager<P>::apply_all(
-    sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const
+template<typename vector_type_x, typename vector_type_y>
+void term_manager<P>::apply_tmpl(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, vector_type_x x, P beta, vector_type_y y) const
 {
-  expect(x.size() == y.size());
-  expect(x.size() == kwork.w1.size());
+  bool constexpr using_vectors = std::is_same_v<vector_type_x, std::vector<P> const &>;
+
+  if constexpr (using_vectors)
+  {
+    expect(x.size() == y.size());
+    expect(x.size() == kwork.w1.size());
+  }
+  expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
   P b = beta; // on first iteration, overwrite y
 
-  auto it = terms.begin();
-  while (it < terms.end())
+  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
+  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+  while (icurrent < iend)
   {
+    auto it = terms.begin() + icurrent;
+
     #ifdef ASGARD_USE_MPI
     if (not resources.owns(it->rec)) {
-      it += it->num_chain;
+      icurrent += it->num_chain;
       continue;
     }
     #endif
-
-    if (it->num_chain == 1) {
-      kron_term(grid, conns, *it, alpha, x, b, y);
-      ++it;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
-
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
-      for (int i = num_chain - 2; i > 0; --i) {
-        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
-        std::swap(t1, t2);
-      }
-      kron_term(grid, conns, *it, alpha, t1, b, y);
-
-      it += num_chain;
-    }
-
-    b = 1; // next iteration appends on y
-  }
-}
-template<typename P>
-void term_manager<P>::apply_all(
-    sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, P const x[], P beta, P y[]) const
-{
-  P b = beta; // on first iteration, overwrite y
-
-  auto it = terms.begin();
-  while (it < terms.end())
-  {
-        #ifdef ASGARD_USE_MPI
-    if (not resources.owns(it->rec)) {
-      it += it->num_chain;
-      continue;
-    }
-    #endif
-
-    if (it->num_chain == 1) {
-      kron_term(grid, conns, *it, alpha, x, b, y);
-      ++it;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
-
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
-      for (int i = num_chain - 2; i > 0; --i) {
-        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
-        std::swap(t1, t2);
-      }
-      kron_term(grid, conns, *it, alpha, t1.data(), b, y);
-
-      it += num_chain;
-    }
-
-    b = 1; // next iteration appends on y
-  }
-}
-
-template<typename P>
-void term_manager<P>::apply_group(
-    int gid, sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const
-{
-  expect(x.size() == y.size());
-  expect(x.size() == kwork.w1.size());
-
-  expect(gid < static_cast<int>(term_groups.size()));
-
-  P b = beta; // on first iteration, overwrite y
-
-  int icurrent = term_groups[gid].begin();
-  while (icurrent < term_groups[gid].end())
-  {
-    auto it = terms.begin() + icurrent;
 
     if (it->num_chain == 1) {
       kron_term(grid, conns, *it, alpha, x, b, y);
@@ -1229,46 +1164,18 @@ void term_manager<P>::apply_group(
       // dealing with a chain
       int const num_chain = it->num_chain;
 
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+      if constexpr (using_vectors)
+        kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+      else
+        kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
       for (int i = num_chain - 2; i > 0; --i) {
         kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
         std::swap(t1, t2);
       }
-      kron_term(grid, conns, *it, alpha, t1, b, y);
-
-      icurrent += num_chain;
-    }
-
-    b = 1; // next iteration appends on y
-  }
-}
-template<typename P>
-void term_manager<P>::apply_group(
-    int gid, sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, P const x[], P beta, P y[]) const
-{
-  expect(gid < static_cast<int>(term_groups.size()));
-
-  P b = beta; // on first iteration, overwrite y
-
-  int icurrent = term_groups[gid].begin();
-  while (icurrent < term_groups[gid].end())
-  {
-    auto it = terms.begin() + icurrent;
-
-    if (it->num_chain == 1) {
-      kron_term(grid, conns, *it, alpha, x, b, y);
-      ++icurrent;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
-
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
-      for (int i = num_chain - 2; i > 0; --i) {
-        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
-        std::swap(t1, t2);
-      }
-      kron_term(grid, conns, *it, alpha, t1.data(), b, y);
+      if constexpr (using_vectors)
+        kron_term(grid, conns, *it, alpha, t1, b, y);
+      else
+        kron_term(grid, conns, *it, alpha, t1.data(), b, y);
 
       icurrent += num_chain;
     }
@@ -1626,6 +1533,20 @@ template void term_manager<double>::kron_diag<data_mode::increment>(
 template void term_manager<double>::kron_diag<data_mode::multiply>(
     sparse_grid const &, connection_patterns const &,
     term_entry<double> const &, int const, std::vector<double> &) const;
+
+
+// template<typename P>
+// template<typename vector_type_x, typename vector_type_y>
+// void term_manager<P>::apply_tmpl(
+//     int gid, sparse_grid const &grid, connection_patterns const &conns,
+//     P alpha, vector_type_x x, P beta, vector_type_y y) const
+template void term_manager<double>::apply_tmpl<std::vector<double> const &, std::vector<double> &>(
+    int, sparse_grid const &, connection_patterns const &, double,
+    std::vector<double> const &, double, std::vector<double> &) const;
+template void term_manager<double>::apply_tmpl<double const[], double[]>(
+    int, sparse_grid const &, connection_patterns const &, double,
+    double const[], double, double[]) const;
+
 
 template void term_manager<double>::apply_sources<data_mode::replace>(
     int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
