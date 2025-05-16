@@ -301,8 +301,8 @@ struct term_penalty {
  *   term_1d t1d(term_chain{});
  *
  *   // add the 1d terms later
- *   t1d += term_div{-2, flux_type::upwind, boundary_type::free};
- *   t1d += term_grad{2, flux_type::upwind, boundary_type::dirichlet};
+ *   t1d += term_div{-2, flux_type::upwind, boundary_type::none};
+ *   t1d += term_grad{2, flux_type::upwind, boundary_type::bothsides};
  * \endcode
  */
 struct term_chain {};

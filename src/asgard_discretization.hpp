@@ -159,11 +159,15 @@ public:
     if (terms.resources.num_ranks() > 1) {
       #ifdef ASGARD_USE_MPI
       terms.mpiwork.resize(current.size());
+      // if this rank has terms, then apply_all() will zero out mpiwork/R
+      // else an explicit zero-out is needed
       if (is_leader()) {
         terms.resources.bcast(current);
         {
           tools::time_event performance_("ode-rhs kronmult");
           terms.apply_all(grid, conn, -1, current, 0, terms.mpiwork);
+          if (not terms.has_terms()) // mpiwork must be zeroed out explicitly
+            std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
         }{
           tools::time_event performance_("ode-rhs sources");
           terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, terms.mpiwork);
@@ -174,6 +178,8 @@ public:
         {
           tools::time_event performance_("ode-rhs kronmult");
           terms.apply_all(grid, conn, -1, terms.mpiwork, 0, R);
+          if (not terms.has_terms()) // R must be zeroed out explicitly
+            std::fill(R.begin(), R.end(), 0);
         }{
           tools::time_event performance_("ode-rhs sources");
           terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
@@ -185,6 +191,8 @@ public:
       {
         tools::time_event performance_("ode-rhs kronmult");
         terms.apply_all(grid, conn, -1, current, 0, R);
+        if (not terms.has_terms()) // R wasn't zeroes out above
+            std::fill(R.begin(), R.end(), 0);
       }{
         tools::time_event performance_("ode-rhs sources");
         terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);

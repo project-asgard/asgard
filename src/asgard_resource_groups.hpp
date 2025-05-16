@@ -31,18 +31,20 @@ public:
 #ifdef ASGARD_USE_MPI
   //! sets the resource set as a member of this communicator
   resource_set(MPI_Comm cm)
-      : num_gpus_(compute->num_gpus()), rank_(mpi::comm_rank(cm)), comm(cm)
+      : num_gpus_(compute->num_gpus()), rank_(mpi::comm_rank(cm)),
+        num_ranks_(mpi::comm_size(cm)), comm(cm)
   {}
   //! returns the mpi rank
   MPI_Comm mpicomm() const { return comm; }
   //! returns the number of mpi-ranks
-  int num_ranks() const { return mpi::comm_size(comm); }
-#else
-  static constexpr int num_ranks() const { return 1; }
-#endif
-
+  int num_ranks() const { return num_ranks_; }
   //! returns the mpi rank
   int rank() const { return rank_; }
+#else
+  static constexpr int num_ranks() const { return 1; }
+  static constexpr int rank() const { return 0; }
+#endif
+
   //! rank 0 is the leader for the mpi communicator
   bool is_leader() const { return (rank_ == root); }
   //! check if the resource is owned by this set, checks the group/rank
@@ -52,13 +54,22 @@ public:
   //! broadcasts the data to all sets in the communicator, can send or receive
   template<typename T>
   void bcast(int count, T *data) const {
-    MPI_Bcast(data, count, mpi::datatype<T>(), root, comm);
+    if (num_ranks_ >= 4) {
+      MPI_Bcast(data, count, mpi::datatype<T>(), root, comm);
+    } else {
+      MPI_Recv(data, count, mpi::datatype<T>(), root, bcast_tag, comm, MPI_STATUS_IGNORE);
+    }
   }
   //! broadcasts the data to all sets in the communicator, sender-only
   template<typename T>
   void bcast(int count, T const *data) const {
     expect(rank_ == root);
-    MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, comm);
+    if (num_ranks_ >= 4) {
+      MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, comm);
+    } else {
+      for (int r = 1; r < num_ranks_; r++)
+        MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, comm);
+    }
   }
   //! broadcasts the data to all sets in the communicator, can send or receive
   template<typename T>
@@ -95,8 +106,11 @@ private:
   // expressive way to address the mpi-comm root
   static int constexpr root = 0;
 
+  static int constexpr bcast_tag = 11;
+
   // external resources, e.g., MPI rank and communicator
   int rank_ = 0;
+  int num_ranks_ = 1;
   #ifdef ASGARD_USE_MPI
   MPI_Comm comm;
   #endif

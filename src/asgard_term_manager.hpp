@@ -396,6 +396,9 @@ struct term_manager
     workspace_grid_gen = grid.generation();
   }
 
+  //! returns whether the manager has any terms
+  bool has_terms() const { return has_terms_; }
+
   //! apply the mass matrix
   void mass_apply(sparse_grid const &grid, connection_patterns const &conns,
                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
@@ -543,6 +546,7 @@ protected:
 
 private:
   // workspace and workspace matrices
+  bool has_terms_ = false;
   rhs_raw_data<P> raw_rhs;
 
   block_diag_matrix<P> raw_mass;

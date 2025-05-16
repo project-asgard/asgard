@@ -270,6 +270,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   prapare_workspace(grid); // setup kronmult workspace
 
+  has_terms_ = not terms.empty();
   assign_compute_resources();
 }
 
@@ -1500,9 +1501,14 @@ void term_manager<P>::assign_compute_resources()
   }
 
   // mark all chains to make sure they go together
+  // check whether there are any terms
+  has_terms_ = false;
   {
     auto it = terms.begin();
     while (it < terms.end()) {
+      if (resources.owns(it->rec))
+        has_terms_ = true;
+
       if (it->num_chain > 1) {
         for (int i = 0; i < it->num_chain; i++)
           (it + i)->rec = it->rec;
