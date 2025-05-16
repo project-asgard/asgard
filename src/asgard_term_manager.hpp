@@ -268,6 +268,11 @@ struct term_manager
   //! resource set to use for the computations
   resource_set resources;
 
+  #ifdef ASGARD_USE_MPI
+  //! workspace for MPI
+  std::vector<P> mpiwork;
+  #endif
+
   //! get the moment dependencies for all terms
   mom_deps const &deps() const { return deps_.back(); }
   //! get the moment dependencies for the given group
@@ -288,8 +293,13 @@ struct term_manager
                       precon_method precon = precon_method::none,
                       P alpha = 0) {
     tools::time_event timing_("initial coefficients");
-    for (int t : iindexof(terms))
+    for (int t : iindexof(terms)) {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[t].rec))
+        continue;
+      #endif
       buld_term(t, grid, conn, hier, precon, alpha);
+    }
   }
   //! build the large matrices to the max level
   void build_mass_matrices(hierarchy_manipulator<P> const &hier,

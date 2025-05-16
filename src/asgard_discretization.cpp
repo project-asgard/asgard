@@ -236,6 +236,10 @@ void discretization_manager<precision>::start_moments() {
 template<typename precision>
 void discretization_manager<precision>::save_snapshot(std::filesystem::path const &filename) const {
 #ifdef ASGARD_USE_HIGHFIVE
+  #ifdef ASGARD_USE_MPI
+  if (not is_leader())
+    return;
+  #endif
   h5manager<precision>::write(options_, domain_, degree(), grid, stepper.data,
                               state, aux_fields, filename);
 #else

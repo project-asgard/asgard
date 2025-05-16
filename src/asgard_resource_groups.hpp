@@ -78,10 +78,10 @@ public:
   }
   //! adds the data across communicator
   template<typename T>
-  void reduce_add(int count, std::vector<T> const &input, std::vector<T> &output) {
+  void reduce_add(std::vector<T> const &input, std::vector<T> &output) {
     if (rank_ == root)
       output.resize(input.size());
-    reduce_add(count, input.data(), output.data());
+    reduce_add(static_cast<int>(input.size()), input.data(), output.data());
   }
 #endif
 

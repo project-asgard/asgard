@@ -292,6 +292,11 @@ void term_manager<P>::update_const_sources(
   for (int is : irng) {
     auto &src = sources[is];
 
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(src.rec))
+      continue;
+    #endif
+
     if (src.is_time_dependent())
       continue;
 
@@ -349,6 +354,12 @@ void term_manager<P>::apply_sources(
 
   for (int is : irng) {
     auto const &src = sources[is];
+
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(src.rec))
+      continue;
+    #endif
+
     switch (src.tmode) {
       case source_entry<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -425,6 +436,11 @@ void term_manager<P>::update_bc(
     if (bc.is_time_dependent())
       continue;
 
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(terms[bc.term_index].rec))
+      continue;
+    #endif
+
     if (groupid >= 0 and irnage.contains(bc.term_index))
       continue;
 
@@ -486,6 +502,12 @@ void term_manager<P>::apply_bc(
 
   if (groupid == -1) {
     for (auto const &bc : bcs) {
+
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[bc.term_index].rec))
+        continue;
+      #endif
+
       switch (bc.tmode) {
         case boundary_entry<P>::time_mode::constant:
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -523,7 +545,13 @@ void term_manager<P>::apply_bc(
       }
     }
   } else {
-    for (int it : indexrange(term_groups[groupid])) {
+    for (int it : indexrange(term_groups[groupid]))
+    {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[it].rec))
+        continue;
+      #endif
+
       for (int ib : terms[it].bc) {
         auto const &bc = bcs[ib];
         switch (bc.tmode) {
@@ -1112,6 +1140,13 @@ void term_manager<P>::apply_all(
   auto it = terms.begin();
   while (it < terms.end())
   {
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(it->rec)) {
+      it += it->num_chain;
+      continue;
+    }
+    #endif
+
     if (it->num_chain == 1) {
       kron_term(grid, conns, *it, alpha, x, b, y);
       ++it;
@@ -1142,6 +1177,13 @@ void term_manager<P>::apply_all(
   auto it = terms.begin();
   while (it < terms.end())
   {
+        #ifdef ASGARD_USE_MPI
+    if (not resources.owns(it->rec)) {
+      it += it->num_chain;
+      continue;
+    }
+    #endif
+
     if (it->num_chain == 1) {
       kron_term(grid, conns, *it, alpha, x, b, y);
       ++it;

@@ -89,6 +89,37 @@ void rungekutta<P>::next_step(
   if (disc.has_moments() and not disc.has_poisson())
     disc.compute_moments(current);
 
+  #ifdef ASGARD_USE_MPI
+  if (not disc.is_leader()) {
+    // if working in MPI mode and this is a worker
+    k1.resize(current.size());
+    switch (rktype) {
+      case time_method::forward_euler:
+        disc.ode_rhs(time, current, k1);
+        break;
+      case time_method::rk2:
+        disc.ode_rhs(time, current, k1);
+        disc.ode_rhs(time + 0.5 * dt, current, k1);
+        break;
+      case time_method::rk3:
+        disc.ode_rhs(time, current, k1);
+        disc.ode_rhs(time + 0.5 * dt, current, k1);
+        disc.ode_rhs(time + dt, current, k1);
+        break;
+      case time_method::rk4:
+        disc.ode_rhs(time, current, k1);
+        disc.ode_rhs(time + 0.5 * dt, current, k1);
+        disc.ode_rhs(time + 0.5 * dt, current, k1);
+        disc.ode_rhs(time + dt, current, k1);
+        break;
+      default: // unreachable
+        expect(false); // should never get here
+        break;
+    }
+    return;
+  }
+  #endif
+
   switch (rktype) {
     case time_method::forward_euler:
       k1.resize(current.size());
@@ -492,7 +523,12 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       }
     }
 
+    #ifdef ASGARD_USE_MPI
+    if (manager.is_leader())
+      std::swap(manager.state, next);
+    #else
     std::swap(manager.state, next);
+    #endif
 
     params.take_step();
 
