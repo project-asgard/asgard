@@ -401,6 +401,12 @@ public:
   sparse_grid const &get_grid() const { return grid; }
   //! returns the current grid generation
   int grid_generation() const { return grid.generation(); }
+  //! synchronizes the grid across MPI ranks
+  void grid_sync() {
+    #ifdef ASGARD_USE_MPI
+    grid.mpi_sync(terms.resources);
+    #endif
+  }
   //! returns the term manager
   term_manager<precision> const &get_terms() const { return terms; }
 

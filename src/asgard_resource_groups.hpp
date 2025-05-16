@@ -54,7 +54,7 @@ public:
   //! broadcasts the data to all sets in the communicator, can send or receive
   template<typename T>
   void bcast(int count, T *data) const {
-    if (num_ranks_ >= 4) {
+    if (num_ranks_ >= mpi::bcast_threshold) {
       MPI_Bcast(data, count, mpi::datatype<T>(), root, comm);
     } else {
       MPI_Recv(data, count, mpi::datatype<T>(), root, bcast_tag, comm, MPI_STATUS_IGNORE);
@@ -63,7 +63,6 @@ public:
   //! broadcasts the data to all sets in the communicator, sender-only
   template<typename T>
   void bcast(int count, T const *data) const {
-    expect(rank_ == root);
     if (num_ranks_ >= mpi::bcast_threshold) {
       MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, comm);
     } else {
@@ -73,17 +72,17 @@ public:
   }
   //! broadcasts the data to all sets in the communicator, can send or receive
   template<typename T>
-  void bcast(std::vector<T> &data) {
+  void bcast(std::vector<T> &data) const {
     bcast(static_cast<int>(data.size()), data.data());
   }
   //! broadcasts the data to all sets in the communicator, sender-only
   template<typename T>
-  void bcast(std::vector<T> const &data) {
+  void bcast(std::vector<T> const &data) const {
     bcast(static_cast<int>(data.size()), data.data());
   }
   //! adds the data across communicator
   template<typename T>
-  void reduce_add(int count, T const *input, T *output = nullptr) {
+  void reduce_add(int count, T const *input, T *output = nullptr) const {
     expect(not (rank_ == root and output == nullptr));
     if (num_ranks_ >= mpi::reduce_threshold) {
       MPI_Reduce(input, output, count, mpi::datatype<T>(), MPI_SUM, root, comm);
@@ -117,7 +116,7 @@ public:
   }
   //! adds the data across communicator
   template<typename T>
-  void reduce_add(std::vector<T> const &input, std::vector<T> &output) {
+  void reduce_add(std::vector<T> const &input, std::vector<T> &output) const {
     if (rank_ == root)
       output.resize(input.size());
     reduce_add(static_cast<int>(input.size()), input.data(), output.data());
@@ -142,7 +141,7 @@ private:
   int num_ranks_ = 1;
   #ifdef ASGARD_USE_MPI
   MPI_Comm comm;
-  std::vector<std::byte> work;
+  mutable std::vector<std::byte> work;
   #endif
 };
 

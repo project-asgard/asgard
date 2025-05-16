@@ -515,6 +515,7 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
                   manager.conn[connect_1d::hierarchy::volume], grid_strategy, next);
       if (grid.generation() != gen) {
         grid.remap(manager.hier.block_size(), next);
+        manager.grid_sync(); // no-op, unless MPI is enabled
         manager.terms.prapare_workspace(grid);
         if (stepper.is_steady_state()) {
           num_steps = 1;
@@ -526,6 +527,8 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     #ifdef ASGARD_USE_MPI
     if (manager.is_leader())
       std::swap(manager.state, next);
+    else
+      manager.state.resize(grid.num_indexes() * manager.get_hier().block_size());
     #else
     std::swap(manager.state, next);
     #endif

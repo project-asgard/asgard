@@ -174,6 +174,9 @@ inline vector2d<int> asg2tsg_convert(int num_dimensions, int64_t num_indexes,
   return tsg;
 }
 
+// forward declare so the indexes_ can be friends with the sparse grid
+class sparse_grid;
+
 /*!
  * \brief Contains a set of sorted multi-indexes
  *
@@ -325,6 +328,8 @@ public:
   // writer utilities
   template<typename P>
   friend class h5manager;
+
+  friend class sparse_grid;
 
 protected:
   //! \brief Result of a comparison
@@ -553,6 +558,11 @@ public:
   //! print summary of the grid
   void print_stats(std::ostream &os) const;
 
+  #ifdef ASGARD_USE_MPI
+  //! send the grid from the leader to all the sub-grids
+  void mpi_sync(resource_set const &rcs);
+  #endif
+
   //! allows writer to save/load the grid
   template<typename P>
   friend class h5manager;
@@ -583,6 +593,9 @@ private:
   std::array<int, max_num_dimensions> max_index_ = {{0}};
 
   std::vector<int64_t> map_;
+  #ifdef ASGARD_USE_MPI
+  std::vector<int> mpimeta;
+  #endif
 };
 
 //! overload for writing grid stats
