@@ -41,8 +41,8 @@ public:
   //! returns the mpi rank
   int rank() const { return rank_; }
 #else
-  static constexpr int num_ranks() const { return 1; }
-  static constexpr int rank() const { return 0; }
+  static constexpr int num_ranks() { return 1; }
+  static constexpr int rank() { return 0; }
 #endif
 
   //! rank 0 is the leader for the mpi communicator
@@ -64,7 +64,7 @@ public:
   template<typename T>
   void bcast(int count, T const *data) const {
     expect(rank_ == root);
-    if (num_ranks_ >= 4) {
+    if (num_ranks_ >= mpi::bcast_threshold) {
       MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, comm);
     } else {
       for (int r = 1; r < num_ranks_; r++)
@@ -85,7 +85,35 @@ public:
   template<typename T>
   void reduce_add(int count, T const *input, T *output = nullptr) {
     expect(not (rank_ == root and output == nullptr));
-    MPI_Reduce(input, output, count, mpi::datatype<T>(), MPI_SUM, root, comm);
+    if (num_ranks_ >= mpi::reduce_threshold) {
+      MPI_Reduce(input, output, count, mpi::datatype<T>(), MPI_SUM, root, comm);
+    } else {
+      if (is_leader()) {
+        size_t const stride = static_cast<size_t>(count) * sizeof(T);
+        work.resize((num_ranks_ - 1) * stride);
+        if (num_ranks_ == 2) {
+          MPI_Recv(work.data(), count, mpi::datatype<T>(), 1, reduce_tag, comm, MPI_STATUS_IGNORE);
+          T const *data = reinterpret_cast<T const *>(work.data());
+          for (int i = 0; i < count; i++)
+            output[i] = data[i] + input[i];
+        } else {
+          // overlap addition and communication
+          std::array<MPI_Request, 3> requests;
+          for (int r = 0; r < num_ranks_ - 1; r++)
+            MPI_Irecv(work.data() + r * stride, count, mpi::datatype<T>(), r + 1, reduce_tag, comm, requests.data() + r);
+          std::copy_n(input, count, output);
+          for (int r = 0; r < num_ranks_ - 1; r++) {
+            int gotten = 0;
+            MPI_Waitany(num_ranks_ - 1, requests.data(), &gotten, MPI_STATUS_IGNORE);
+            T const *data = reinterpret_cast<T const *>(work.data() + gotten * stride);
+            for (int i = 0; i < count; i++)
+              output[i] += data[i];
+          }
+        }
+      } else {
+        MPI_Send(input, count, mpi::datatype<T>(), root, reduce_tag, comm);
+      }
+    }
   }
   //! adds the data across communicator
   template<typename T>
@@ -107,21 +135,24 @@ private:
   static int constexpr root = 0;
 
   static int constexpr bcast_tag = 11;
+  static int constexpr reduce_tag = 12;
 
   // external resources, e.g., MPI rank and communicator
   int rank_ = 0;
   int num_ranks_ = 1;
   #ifdef ASGARD_USE_MPI
   MPI_Comm comm;
+  std::vector<std::byte> work;
   #endif
 };
 
 // Things todo:
 // 1. sync the sparse grid, added to the discretization manager in 2-steps (number of idx and the idx)
-// 2. switch to MPI_Send/Recv when using < 4 ranks
-// 3. add worker mode for the iterative solvers
-// 4. distribute the moments, detect who needs moments
-// 5. find a way to disable idle mpi ranks (reduce the comm)
+// 2. add worker mode for the iterative solvers
+//    - distribute-add the direct solver matrices, but solve only on 0
+// 3. distribute the moments, detect who needs moments
+//    - only rank 0 does the Poisson solver, others have to wait
+// 4. find a way to disable idle mpi ranks (reduce the comm)
 
 #ifdef ASGARD_USE_MPI
 /*!

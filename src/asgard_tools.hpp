@@ -7,6 +7,7 @@
 #include <climits>
 #include <cmath>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>

@@ -620,7 +620,7 @@ struct prog_opts
   //! MPI communicator to be used, it defaults to MPI_COMM_WORLD
   MPI_Comm mpicomm = MPI_COMM_WORLD;
   //! returns true if this rank is rank 0 on the current mpicomm
-  bool is_mpi_rank_zero() const { return mpi::comm_rank(mpicomm); }
+  bool is_mpi_rank_zero() const { return (mpi::comm_rank(mpicomm) == 0); }
   #else
   bool constexpr is_mpi_rank_zero() const { return true; } // always "zero rank"
   #endif
