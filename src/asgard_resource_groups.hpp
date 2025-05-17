@@ -127,6 +127,11 @@ public:
       output.resize(input.size());
     reduce_add(static_cast<int>(input.size()), input.data(), output.data());
   }
+  //! adds the data across communicator
+  template<typename T>
+  void reduce_add(std::vector<T> const &input) const {
+    reduce_add(static_cast<int>(input.size()), input.data(), nullptr);
+  }
 #endif
 
   //! returns the number of GPU devices

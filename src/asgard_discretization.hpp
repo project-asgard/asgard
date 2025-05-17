@@ -199,41 +199,81 @@ public:
       }
     }
   }
+  //! template version of ode right-hand-side sources
+  template<data_mode mode, bool use_groups>
+  void ode_rhs_sources(int gid, precision time, precision alpha, std::vector<precision> &src) const {
+    tools::time_event performance_("ode sources");
+    if (terms.resources.num_ranks() > 1) {
+      #ifdef ASGARD_USE_MPI
+      terms.mpiwork.resize(state.size());
+      if (is_leader()) {
+        if constexpr (use_groups) {
+          terms.template apply_sources<mode>(gid, domain_, grid, conn, hier, time, alpha, terms.mpiwork);
+        } else {
+          terms.template apply_sources<mode>(domain_, grid, conn, hier, time, alpha, terms.mpiwork);
+        }
+        terms.resources.reduce_add(terms.mpiwork, src);
+      } else {
+        data_mode constexpr mm = [=]()-> data_mode {
+            if constexpr (mode == data_mode::increment)
+              return data_mode::replace;
+            else if constexpr (mode == data_mode::scal_inc)
+              return data_mode::scal_rep;
+            else
+              return mode;
+          }();
+        if constexpr (use_groups) {
+          terms.template apply_sources<mm>(gid, domain_, grid, conn, hier, time, alpha, src);
+        } else {
+          terms.template apply_sources<mm>(domain_, grid, conn, hier, time, alpha, src);
+        }
+        terms.resources.reduce_add(src, src);
+      }
+      #endif
+    } else {
+      if constexpr (use_groups) {
+        terms.template apply_sources<mode>(gid, domain_, grid, conn, hier, time, alpha, src);
+      } else {
+        terms.template apply_sources<mode>(domain_, grid, conn, hier, time, alpha, src);
+      }
+    }
+  }
+
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(domain_, grid, conn, hier, time, 1, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::replace, use_groups>(-1, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_rep>(domain_, grid, conn, hier, time, alpha, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::scal_rep, use_groups>(-1, time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::increment, use_groups>(-1, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(domain_, grid, conn, hier, time, alpha, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::scal_inc, use_groups>(-1, time, alpha, src);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(gid, domain_, grid, conn, hier, time, 1, src);
+    bool constexpr use_groups = true;
+    ode_rhs_sources<data_mode::replace, use_groups>(gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, src);
+    bool constexpr use_groups = true;
+    ode_rhs_sources<data_mode::increment, use_groups>(gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(int gid, precision time, precision alpha, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(gid, domain_, grid, conn, hier, time, alpha, src);
+    bool constexpr use_groups = true;
+    ode_rhs_sources<data_mode::scal_inc, use_groups>(gid, time, alpha, src);
   }
 
   //! computes the l-2 norm, taking the mass matrix into account

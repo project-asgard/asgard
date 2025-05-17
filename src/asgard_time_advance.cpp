@@ -24,7 +24,8 @@ void steady_state<P>::next_step(
     endstep.resize(current.size());
     disc.set_ode_rhs_sources(time, 1, endstep);
 
-    solver.direct_solve(endstep);
+    if (disc.is_leader())
+      solver.direct_solve(endstep);
 
   } else { // iterative solver
     // form the right-hand-side inside work

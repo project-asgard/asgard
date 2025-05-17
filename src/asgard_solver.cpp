@@ -168,8 +168,10 @@ direct<P>::direct(
     auto it = terms.terms.begin() + tid;
 
     #ifdef ASGARD_USE_MPI
-    if (not terms.resources.owns(it->rec))
+    if (not terms.resources.owns(it->rec)) {
+      tid += it->num_chain;
       continue;
+    }
     #endif
 
     if (it->num_chain == 1) {
@@ -214,10 +216,15 @@ direct<P>::direct(
 
   #ifdef ASGARD_USE_MPI
   if (terms.resources.num_ranks() > 1) {
-    terms.resources.reduce_add(static_cast<int>(dense_mat.nrows() * dense_mat.ncols()),
-                               dense_mat.data());
-    if (not terms.resources.is_leader())
+    if (terms.resources.is_leader()) {
+      dense_matrix<P> mat = dense_mat;
+      terms.resources.reduce_add(static_cast<int>(dense_mat.nrows() * dense_mat.ncols()),
+                                 mat.data(), dense_mat.data());
+    } else {
+      terms.resources.reduce_add(static_cast<int>(dense_mat.nrows() * dense_mat.ncols()),
+                                 dense_mat.data());
       return;
+    }
   }
   #endif
 
