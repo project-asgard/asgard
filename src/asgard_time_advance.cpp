@@ -5,6 +5,61 @@
 namespace asgard::time_advance
 {
 
+template<typename P, bool use_groups>
+void mpi_apply_terms(
+    discretization_manager<P> const &disc, int gid,
+    P alpha, P const x[], P beta, P y[])
+{
+#ifdef ASGARD_USE_MPI
+  term_manager<P> const &terms = disc.get_terms();
+  std::vector<P> &work = disc.get_mpiwork();
+
+  if (terms.resources.num_ranks() > 1) {
+    int const n = static_cast<int>(disc.state_size().size());
+    terms.mpiwork.resize(n);
+    // if this rank has terms, then apply_all() will zero out mpiwork/R
+    // else an explicit zero-out is needed
+    if (disc.is_leader()) {
+      terms.resources.bcast(n, x);
+      {
+        tools::time_event performance_("ode-rhs kronmult");
+        disc.terms_apply_all(alpha, x, beta, terms.mpiwork.data());
+        if (not terms.has_terms()) { // mpiwork must be zeroed out explicitly
+          if (beta == 0)
+            std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
+          else {
+            ASGARD_OMP_PARFOR_SIMD
+            for (int i = 0; i < n; i++)
+              y[i] *= beta;
+          }
+
+        }
+      }
+      terms.resources.reduce_add(n, terms.mpiwork.data(), y);
+    } else {
+      terms.resources.bcast(terms.mpiwork);
+      {
+        tools::time_event performance_("ode-rhs kronmult");
+        terms.terms_apply_all(1, terms.mpiwork.data(), 0, y); // handle the alpha case,
+        if (not terms.has_terms()) // R must be zeroed out explicitly
+          std::fill_n(y, n, 0);
+      }
+      terms.resources.reduce_add(n, y, terms.mpiwork);
+    }
+  } else {
+    tools::time_event performance_("ode-rhs kronmult");
+    terms.apply_all(grid, conn, -1, current, 0, R);
+    if (not terms.has_terms()) // R wasn't zeroes out above
+      std::fill(R.begin(), R.end(), 0);
+  }
+#else
+  if constexpr (use_groups)
+    disc.terms_apply(gid, alpha, x, beta, y);
+  else
+    disc.terms_apply_all(alpha, x, beta, y);
+#endif
+}
+
 template<typename P>
 void steady_state<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,

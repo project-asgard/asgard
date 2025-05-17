@@ -505,6 +505,9 @@ public:
   //! returns true if this is mpi rank 0
   bool is_leader() const { return terms.resources.is_leader(); }
 
+  //! returns persistent vector for mpi operations
+  std::vector<precision> &get_mpiwork() const { return terms.mpiwork; }
+
   // performs integration in time
   friend void advance_in_time<precision>(
       discretization_manager<precision> &disc, int64_t num_steps);

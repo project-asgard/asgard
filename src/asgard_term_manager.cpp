@@ -1183,6 +1183,27 @@ void term_manager<P>::apply_tmpl(
 
     b = 1; // next iteration appends on y
   }
+
+  if (not has_terms_) {
+    if constexpr (using_vectors) {
+      if (beta == 0) {
+        std::fill(y.begin(), y.end(), 0);
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < y.size(); i++)
+          y[i] *= beta;
+      }
+    } else {
+      int64_t const num = grid.num_indexes() * fm::ipow(legendre.pdof, num_dims);
+      if (beta == 0) {
+        std::fill_n(y, num, 0);
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t i = 0; i < num; i++)
+          y[i] *= beta;
+      }
+    }
+  }
 }
 
 template<typename P>
@@ -1540,19 +1561,12 @@ template void term_manager<double>::kron_diag<data_mode::multiply>(
     sparse_grid const &, connection_patterns const &,
     term_entry<double> const &, int const, std::vector<double> &) const;
 
-
-// template<typename P>
-// template<typename vector_type_x, typename vector_type_y>
-// void term_manager<P>::apply_tmpl(
-//     int gid, sparse_grid const &grid, connection_patterns const &conns,
-//     P alpha, vector_type_x x, P beta, vector_type_y y) const
 template void term_manager<double>::apply_tmpl<std::vector<double> const &, std::vector<double> &>(
     int, sparse_grid const &, connection_patterns const &, double,
     std::vector<double> const &, double, std::vector<double> &) const;
 template void term_manager<double>::apply_tmpl<double const[], double[]>(
     int, sparse_grid const &, connection_patterns const &, double,
     double const[], double, double[]) const;
-
 
 template void term_manager<double>::apply_sources<data_mode::replace>(
     int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
