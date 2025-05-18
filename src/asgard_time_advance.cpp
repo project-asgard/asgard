@@ -47,16 +47,16 @@ void mpi_apply_terms(
       terms.resources.reduce_add(n, y, terms.mpiwork);
     }
   } else {
-    tools::time_event performance_("ode-rhs kronmult");
-    terms.apply_all(grid, conn, -1, current, 0, R);
-    if (not terms.has_terms()) // R wasn't zeroes out above
-      std::fill(R.begin(), R.end(), 0);
+    //tools::time_event performance_("ode-rhs kronmult");
+    //disc.terms_apply_all(-1, current, 0, R);
+    //if (not terms.has_terms()) // R wasn't zeroes out above
+    //  std::fill(R.begin(), R.end(), 0);
   }
 #else
-  if constexpr (use_groups)
-    disc.terms_apply(gid, alpha, x, beta, y);
-  else
-    disc.terms_apply_all(alpha, x, beta, y);
+  // if constexpr (use_groups)
+  //   disc.terms_apply(gid, alpha, x, beta, y);
+  // else
+  //   disc.terms_apply_all(alpha, x, beta, y);
 #endif
 }
 

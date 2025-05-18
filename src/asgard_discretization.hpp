@@ -505,8 +505,10 @@ public:
   //! returns true if this is mpi rank 0
   bool is_leader() const { return terms.resources.is_leader(); }
 
+  #ifdef ASGARD_USE_MPI
   //! returns persistent vector for mpi operations
   std::vector<precision> &get_mpiwork() const { return terms.mpiwork; }
+  #endif
 
   // performs integration in time
   friend void advance_in_time<precision>(

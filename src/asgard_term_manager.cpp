@@ -1600,6 +1600,13 @@ template void term_manager<float>::kron_diag<data_mode::multiply>(
     sparse_grid const &, connection_patterns const &,
     term_entry<float> const &, int const, std::vector<float> &) const;
 
+template void term_manager<float>::apply_tmpl<std::vector<float> const &, std::vector<float> &>(
+    int, sparse_grid const &, connection_patterns const &, float,
+    std::vector<float> const &, float, std::vector<float> &) const;
+template void term_manager<float>::apply_tmpl<float const[], float[]>(
+    int, sparse_grid const &, connection_patterns const &, float,
+    float const[], float, float[]) const;
+
 template void term_manager<float>::apply_sources<data_mode::replace>(
     int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
