@@ -89,11 +89,11 @@ public:
   //! adds the data across communicator
   template<typename T>
   void reduce_add(int count, T const *input, T *output = nullptr) const {
-    expect(not (rank_ == root and output == nullptr));
     if (num_ranks_ >= mpi::reduce_threshold) {
       MPI_Reduce(input, output, count, mpi::datatype<T>(), MPI_SUM, root, comm);
     } else {
       if (is_leader()) {
+        expect(output != nullptr);
         size_t const stride = static_cast<size_t>(count) * sizeof(T);
         work.resize((num_ranks_ - 1) * stride);
         if (num_ranks_ == 2) {
@@ -103,7 +103,7 @@ public:
             output[i] = data[i] + input[i];
         } else {
           // overlap addition and communication
-          std::array<MPI_Request, 3> requests;
+          std::array<MPI_Request, mpi::reduce_threshold - 1> requests;
           for (int r = 0; r < num_ranks_ - 1; r++)
             MPI_Irecv(work.data() + r * stride, count, mpi::datatype<T>(), r + 1, reduce_tag, comm, requests.data() + r);
           std::copy_n(input, count, output);

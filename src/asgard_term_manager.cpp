@@ -396,6 +396,9 @@ void term_manager<P>::apply_sources(
   }
 
   if (groupid == -1) {
+    #ifdef ASGARD_USE_MPI
+    if (resources.is_leader())
+    #endif
     for (auto const &s : sources_md)
       if (s) {
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -404,7 +407,11 @@ void term_manager<P>::apply_sources(
           interp(grid, conns, time, alpha, s, 1, y, kwork, it1);
       }
   } else {
+    #ifdef ASGARD_USE_MPI
+    if (sources_md[groupid] and resources.is_leader()) {
+    #else
     if (sources_md[groupid]) {
+    #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1);
       else

@@ -185,7 +185,7 @@ void mpi_apply_terms_iter_worker(
       std::fill_n(w, n, 0);
 
     //std::cout << " worker reduce begin " << std::endl;
-    resources.reduce_add(n, w, work.data());
+    resources.reduce_add(n, w);
     //std::cout << " worker reduce end " << std::endl;
   }
 }

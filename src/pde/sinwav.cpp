@@ -198,6 +198,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc)
 
   double constexpr enorm = 0.5;
 
+  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
   std::vector<P> const &state = disc.current_state();
 
   double nself = 0;
@@ -289,9 +290,10 @@ R"help(<< additional options for this file >>
 
   disc.final_output();
 
-  if (not disc.stop_verbosity() and disc.time() >= 1) {
+  if (disc.time() >= 1) {
     P const err = get_error_l2(disc);
-    std::cout << " -- final error: " << err << '\n';
+    if (not disc.stop_verbosity())
+      std::cout << " -- final error: " << err << '\n';
   }
 
   return 0;
@@ -345,6 +347,8 @@ void dotest(double tol, std::string const &opts) {
 }
 
 void self_test() {
+  all_tests testing_("moving sine wave", " (tests boundary conditions)");
+
   #ifdef ASGARD_ENABLE_DOUBLE
   // the solution starts as constant zero and turns into sine wave
   // this creates a kink (discontinuity in the first derivative)
