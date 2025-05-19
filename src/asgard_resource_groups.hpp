@@ -130,7 +130,7 @@ public:
   //! adds the data across communicator
   template<typename T>
   void reduce_add(std::vector<T> const &input) const {
-    reduce_add(static_cast<int>(input.size()), input.data(), nullptr);
+    reduce_add<T>(static_cast<int>(input.size()), input.data(), nullptr);
   }
 #endif
 

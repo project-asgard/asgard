@@ -803,7 +803,7 @@ void sparse_grid::mpi_sync(resource_set const &rcs, int last_gen) {
     if (generation_ != last_gen)
       rcs.bcast(iset_.indexes_);
   }
-  else if (generation_ != mpimeta[2 * max_num_dimensions])
+  else if (last_gen < 0 or generation_ != mpimeta[2 * max_num_dimensions])
   {
     generation_        = mpimeta[2 * max_num_dimensions];
     iset_.num_indexes_ = mpimeta[2 * max_num_dimensions + 1];

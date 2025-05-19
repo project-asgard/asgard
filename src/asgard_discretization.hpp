@@ -184,7 +184,7 @@ public:
           tools::time_event performance_("ode-rhs sources");
           terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
         }
-        terms.resources.reduce_add(R, terms.mpiwork);
+        terms.resources.reduce_add(R);
       }
       #endif
     } else {
@@ -548,7 +548,7 @@ private:
   connection_patterns conn;
   hierarchy_manipulator<precision> hier;
   #ifdef ASGARD_USE_MPI
-  int grid_synced_gen_ = -1;
+  int grid_synced_gen_ = -2;
   #endif
 
   // moments

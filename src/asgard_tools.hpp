@@ -319,14 +319,15 @@ inline int world_size() { return comm_size(MPI_COMM_WORLD); }
 //! given a C++ type T, return the corresponding MPI data type
 template<typename T>
 inline constexpr MPI_Datatype datatype() {
-  if constexpr (std::is_same_v<double, T>)
+  using Q = std::remove_cv_t<T>;
+  if constexpr (std::is_same_v<double, Q>)
     return MPI_DOUBLE;
-  else if constexpr (std::is_same_v<float, T>)
+  else if constexpr (std::is_same_v<float, Q>)
     return MPI_FLOAT;
-  else if constexpr (std::is_same_v<int, T>)
+  else if constexpr (std::is_same_v<int, Q>)
     return MPI_INT;
   else
-    static_assert(std::is_same_v<double, T>, "unknown MPI data-type");
+    static_assert(std::is_same_v<double, Q>, "unknown MPI data-type");
 }
 
 #else
