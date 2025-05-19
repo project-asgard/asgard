@@ -450,6 +450,8 @@ public:
   }
   //! returns the term manager
   term_manager<precision> const &get_terms() const { return terms; }
+  //! returns the compute resources meta structure
+  resource_set const &get_resources() const { return terms.resources; }
 
   //! return the hierarchy_manipulator
   hierarchy_manipulator<precision> const &get_hier() const { return hier; }
@@ -508,6 +510,21 @@ public:
   #ifdef ASGARD_USE_MPI
   //! returns persistent vector for mpi operations
   std::vector<precision> &get_mpiwork() const { return terms.mpiwork; }
+  //! sync the state across the mpi communicator
+  void sync_mpi_state() const {
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.bcast(state);
+  }
+  //! sync the state across the mpi communicator, then return
+  std::vector<precision> const &current_state_mpi() const {
+    sync_mpi_state();
+    return state;
+  }
+  #else
+  void sync_mpi_state() const {}
+  std::vector<precision> const &current_state_mpi() {
+    return state;
+  }
   #endif
 
   // performs integration in time
@@ -562,6 +579,10 @@ private:
   time_advance_manager<precision> stepper;
 
   // constantly changing
+  #ifdef ASGARD_USE_MPI
+  // MPI processes may affect the state, e.g., sync state across the communicator
+  mutable
+  #endif
   std::vector<precision> state;
 
   //! fields to store and save for plotting

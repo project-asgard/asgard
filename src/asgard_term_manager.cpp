@@ -1232,9 +1232,54 @@ void term_manager<P>::apply_all_adi(
   std::copy_n(t1.data(), n, y);
 }
 
+// template<typename P>
+// void term_manager<P>::make_jacobi(
+//     sparse_grid const &grid, connection_patterns const &conns,
+//     std::vector<P> &y) const
+// {
+//   int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
+//   int64_t const num_entries = block_size * grid.num_indexes();
+//
+//   if (y.size() == 0)
+//     y.resize(num_entries);
+//   else {
+//     y.resize(num_entries);
+//     std::fill(y.begin(), y.end(), P{0});
+//   }
+//
+//   kwork.w1.resize(num_entries);
+//
+//   auto it = terms.begin();
+//   while (it < terms.end())
+//   {
+//     if (it->num_chain == 1) {
+//       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
+//       ++it;
+//     } else {
+//       // dealing with a chain
+//       int const num_chain = it->num_chain;
+//
+//       std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
+//
+//       kron_diag<data_mode::increment>(grid, conns, *(it + num_chain - 1),
+//                                       block_size, kwork.w1);
+//
+//       for (int i = num_chain - 2; i >= 0; --i) {
+//         kron_diag<data_mode::multiply>(grid, conns, *(it + i),
+//                                        block_size, kwork.w1);
+//       }
+// ASGARD_OMP_PARFOR_SIMD
+//       for (int64_t i = 0; i < num_entries; i++)
+//         y[i] += kwork.w1[i];
+//
+//       it += it->num_chain;
+//     }
+//   }
+// }
+
 template<typename P>
 void term_manager<P>::make_jacobi(
-    sparse_grid const &grid, connection_patterns const &conns,
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
     std::vector<P> &y) const
 {
   int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
@@ -1249,59 +1294,22 @@ void term_manager<P>::make_jacobi(
 
   kwork.w1.resize(num_entries);
 
-  auto it = terms.begin();
-  while (it < terms.end())
+  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
+  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+  while (icurrent < iend)
   {
-    if (it->num_chain == 1) {
-      kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
-      ++it;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
+    auto it = terms.begin() + icurrent;
 
-      std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
-
-      kron_diag<data_mode::increment>(grid, conns, *(it + num_chain - 1),
-                                      block_size, kwork.w1);
-
-      for (int i = num_chain - 2; i >= 0; --i) {
-        kron_diag<data_mode::multiply>(grid, conns, *(it + i),
-                                       block_size, kwork.w1);
-      }
-ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_entries; i++)
-        y[i] += kwork.w1[i];
-
-      it += it->num_chain;
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(it->rec)) {
+      icurrent += it->num_chain;
+      continue;
     }
-  }
-}
-
-template<typename P>
-void term_manager<P>::make_jacobi(
-    int groupid, sparse_grid const &grid, connection_patterns const &conns,
-    std::vector<P> &y) const
-{
-  int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
-  int64_t const num_entries = block_size * grid.num_indexes();
-
-  if (y.size() == 0)
-    y.resize(num_entries);
-  else {
-    y.resize(num_entries);
-    std::fill(y.begin(), y.end(), P{0});
-  }
-
-  kwork.w1.resize(num_entries);
-
-  int c = term_groups[groupid].begin();
-  while (c < term_groups[groupid].end())
-  {
-    auto it = terms.begin() + c;
+    #endif
 
     if (it->num_chain == 1) {
       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
-      ++c;
+      icurrent++;
     } else {
       // dealing with a chain
       int const num_chain = it->num_chain;
@@ -1319,7 +1327,7 @@ ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++)
         y[i] += kwork.w1[i];
 
-      c += num_chain;
+      icurrent += num_chain;
     }
   }
 }

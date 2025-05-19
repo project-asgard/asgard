@@ -6,7 +6,6 @@ std::string asgard_test_name;   // the name of the currently running test
 bool asgard_test_pass  = true;  // helps in reporting whether the last test passed
 bool asgard_all_tests  = true;  // reports total result of all tests
 
-
 // test assert macro
 #define tassert(_result_)      \
   if (!(_result_)){            \

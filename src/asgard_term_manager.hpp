@@ -270,7 +270,7 @@ struct term_manager
 
   #ifdef ASGARD_USE_MPI
   //! workspace for MPI
-  std::vector<P> mpiwork;
+  mutable std::vector<P> mpiwork;
   #endif
 
   //! get the moment dependencies for all terms
@@ -430,11 +430,13 @@ struct term_manager
                      P const x[], P y[]) const;
 
   //! construct term diagonal
-  void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
-                   std::vector<P> &y) const;
-  //! construct term diagonal
   void make_jacobi(int groupid, sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const;
+  //! construct term diagonal
+  void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
+                   std::vector<P> &y) const {
+    make_jacobi(-1, grid, conns, y);
+  }
 
   //! y = alpha * tme * x + beta * y, assumes workspace has been set
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
@@ -532,7 +534,7 @@ protected:
   //! helper method, build a mass matrix with no dependencies
   void build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                       block_diag_matrix<P> &raw_diag);
-
+  //! single point implementation for all variations of apply
   template<typename vector_type_x, typename vector_type_y>
   void apply_tmpl(
     int gid, sparse_grid const &grid, connection_patterns const &conns,

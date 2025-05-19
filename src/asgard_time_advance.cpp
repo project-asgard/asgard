@@ -11,54 +11,197 @@ void mpi_apply_terms(
     P alpha, P const x[], P beta, P y[])
 {
 #ifdef ASGARD_USE_MPI
-  term_manager<P> const &terms = disc.get_terms();
+  tools::time_event performance_("mpi kronmult one");
+
+  resource_set const &resources = disc.get_resources();
+  bool const has_terms = disc.get_terms().has_terms;
   std::vector<P> &work = disc.get_mpiwork();
 
-  if (terms.resources.num_ranks() > 1) {
+  if (resources.num_ranks() > 1) {
     int const n = static_cast<int>(disc.state_size().size());
-    terms.mpiwork.resize(n);
-    // if this rank has terms, then apply_all() will zero out mpiwork/R
-    // else an explicit zero-out is needed
+    // each rank computes w = terms * x, if alpha = 1 and beta = 0, then that's the answer
+    // using different alpha/beta means obtaining w first, then computing alpha * w + beta * y
     if (disc.is_leader()) {
-      terms.resources.bcast(n, x);
-      {
-        tools::time_event performance_("ode-rhs kronmult");
-        disc.terms_apply_all(alpha, x, beta, terms.mpiwork.data());
-        if (not terms.has_terms()) { // mpiwork must be zeroed out explicitly
-          if (beta == 0)
-            std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
-          else {
-            ASGARD_OMP_PARFOR_SIMD
-            for (int i = 0; i < n; i++)
-              y[i] *= beta;
-          }
+      if (alpha == 1 and beta == 0)
+        work.resize(n);
+      else
+        work.resize(2 * n);
+      resources.bcast(n, x);
 
-        }
+      if constexpr (use_groups)
+        disc.terms_apply(gid, 1, x, 0, work.data());
+      else
+        disc.terms_apply_all(1, x, 0, work.data());
+
+      if (not has_terms) { // mpiwork must be zeroed out explicitly
+        if (beta == 0)
+          std::fill_n(work.begin(), n, 0);
       }
-      terms.resources.reduce_add(n, terms.mpiwork.data(), y);
+      if (work.size() == static_cast<size_t>(n)) // alpha == 1 and beta == 0
+        resources.reduce_add(n, work.data(), y);
+      else {
+        resources.reduce_add(n, work.data(), work.data() + n);
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < static_cast<size_t>(n); i++)
+          y[i] = alpha * work[i + n] + beta * y[i];
+      }
+
+      resources.reduce_add(n, work.data(), y);
     } else {
-      terms.resources.bcast(terms.mpiwork);
-      {
-        tools::time_event performance_("ode-rhs kronmult");
-        terms.terms_apply_all(1, terms.mpiwork.data(), 0, y); // handle the alpha case,
-        if (not terms.has_terms()) // R must be zeroed out explicitly
-          std::fill_n(y, n, 0);
-      }
-      terms.resources.reduce_add(n, y, terms.mpiwork);
+      work.resize(n);
+      resources.bcast(work);
+
+      if constexpr (use_groups)
+        disc.terms_apply(gid, 1, work.data(), 0, y);
+      else
+        disc.terms_apply_all(1, work.data(), 0, y);
+      if (not has_terms) // R must be zeroed out explicitly
+        std::fill_n(y, n, 0);
+
+      resources.reduce_add(n, y);
     }
   } else {
-    //tools::time_event performance_("ode-rhs kronmult");
-    //disc.terms_apply_all(-1, current, 0, R);
-    //if (not terms.has_terms()) // R wasn't zeroes out above
-    //  std::fill(R.begin(), R.end(), 0);
+    if constexpr (use_groups)
+      disc.terms_apply(gid, alpha, x, beta, y);
+    else
+      disc.terms_apply_all(alpha, x, beta, y);
   }
 #else
-  // if constexpr (use_groups)
-  //   disc.terms_apply(gid, alpha, x, beta, y);
-  // else
-  //   disc.terms_apply_all(alpha, x, beta, y);
+  tools::time_event performance_("kronmult one");
+  if constexpr (use_groups)
+    disc.terms_apply(gid, alpha, x, beta, y);
+  else
+    disc.terms_apply_all(alpha, x, beta, y);
 #endif
 }
+
+template<typename P>
+void mpi_apply_terms(
+    discretization_manager<P> const &disc, P alpha, P const x[], P beta, P y[])
+{
+  bool constexpr use_groups = false;
+  mpi_apply_terms<P, use_groups>(disc, -1, alpha, x, beta, y);
+}
+
+template<typename P, bool use_groups>
+void mpi_apply_terms_iter_leader(
+    discretization_manager<P> const &disc, int gid,
+    P alpha, P const x[], P beta, P y[])
+{
+#ifdef ASGARD_USE_MPI
+  tools::time_event performance_("mpi kronmult iter");
+
+  resource_set const &resources = disc.get_resources();
+  bool const has_terms = disc.get_terms().has_terms();
+  std::vector<P> &work = disc.get_mpiwork();
+
+  if (resources.num_ranks() > 1) {
+    int const n = static_cast<int>(disc.state_size());
+    // each rank computes w = terms * x, if alpha = 1 and beta = 0, then that's the answer
+    // using different alpha/beta means obtaining w first, then computing alpha * w + beta * y
+    expect(disc.is_leader());
+    if (alpha == 1 and beta == 0)
+      work.resize(n);
+    else
+      work.resize(2 * n);
+    // std::cout << " leader bcast begin " << std::endl;
+    resources.bcast(n, x);
+
+    if constexpr (use_groups)
+      disc.terms_apply(gid, 1, x, 0, work.data());
+    else
+      disc.terms_apply_all(1, x, 0, work.data());
+
+    if (not has_terms) { // mpiwork must be zeroed out explicitly
+      if (beta == 0)
+        std::fill_n(work.begin(), n, 0);
+    }
+
+    if (work.size() == static_cast<size_t>(n)) { // alpha == 1 and beta == 0
+      // std::cout << " leader reduce begin (case n) " << std::endl;
+      resources.reduce_add(n, work.data(), y);
+    } else {
+      // std::cout << " leader reduce begin (case 2n) " << std::endl;
+      resources.reduce_add(n, work.data(), work.data() + n);
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < static_cast<size_t>(n); i++)
+        y[i] = alpha * work[i + n] + beta * y[i];
+    }
+    // std::cout << " leader reduce end " << std::endl;
+  } else {
+    if constexpr (use_groups)
+      disc.terms_apply(gid, alpha, x, beta, y);
+    else
+      disc.terms_apply_all(alpha, x, beta, y);
+  }
+#else
+  tools::time_event performance_("kronmult iter");
+  if constexpr (use_groups)
+    disc.terms_apply(gid, alpha, x, beta, y);
+  else
+    disc.terms_apply_all(alpha, x, beta, y);
+#endif
+}
+
+template<typename P>
+void mpi_apply_terms_iter_leader(
+    discretization_manager<P> const &disc, P alpha, P const x[], P beta, P y[])
+{
+  bool constexpr use_groups = false;
+  mpi_apply_terms_iter_leader<P, use_groups>(disc, -1, alpha, x, beta, y);
+}
+
+#ifdef ASGARD_USE_MPI
+template<typename P, bool use_groups>
+void mpi_apply_terms_iter_worker(
+    discretization_manager<P> const &disc, int gid, P w[])
+{
+  expect(not disc.is_leader());
+  tools::time_event performance_("mpi kronmult iter");
+  int const n = static_cast<int>(disc.state_size());
+  resource_set const &resources = disc.get_resources();
+  bool const has_terms = disc.get_terms().has_terms();
+  std::vector<P> &work = disc.get_mpiwork();
+  work.resize(n);
+
+  while (true)
+  {
+    // std::cout << " worker bcast begin " << std::endl;
+    resources.bcast(work);
+    if (work.back() == std::numeric_limits<P>::max())
+      break;
+
+    if constexpr (use_groups)
+      disc.terms_apply(gid, 1, work.data(), 0, w);
+    else
+      disc.terms_apply_all(1, work.data(), 0, w);
+
+    if (not has_terms) // R must be zeroed out explicitly
+      std::fill_n(w, n, 0);
+
+    //std::cout << " worker reduce begin " << std::endl;
+    resources.reduce_add(n, w);
+    //std::cout << " worker reduce end " << std::endl;
+  }
+}
+template<typename P>
+void mpi_apply_terms_iter_worker(
+    discretization_manager<P> const &disc, P w[])
+{
+  bool constexpr use_groups = false;
+  mpi_apply_terms_iter_worker<P, use_groups>(disc, -1, w);
+}
+template<typename P>
+void mpi_terms_iter_stop_workers(discretization_manager<P> const &disc)
+{
+  expect(disc.is_leader());
+  std::vector<P> &work = disc.get_mpiwork();
+  work.resize(disc.state_size());
+  work.back() = std::numeric_limits<P>::max();
+  disc.get_terms().resources.bcast(work);
+}
+#endif
+
 
 template<typename P>
 void steady_state<P>::next_step(
@@ -91,12 +234,22 @@ void steady_state<P>::next_step(
     work.resize(n);
     disc.set_ode_rhs_sources(time, 1, work); // right-hand-side
 
+    #ifdef ASGARD_USE_MPI
+    if (not disc.is_leader()) {
+      mpi_apply_terms_iter_worker<P>(disc, work.data());
+      return;
+    }
+    #endif
+
     switch (solver.precon) {
     case precon_method::none:
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          disc.terms_apply_all(alpha, x, beta, y);
+          // disc.terms_apply_all(alpha, x, beta, y);
+          //std::cout << " leader step begin" << std::endl;
+          mpi_apply_terms_iter_leader<P>(disc, alpha, x, beta, y);
+          //std::cout << " leader step end" << std::endl;
         }, work, endstep);
     break;
     case precon_method::jacobi:
@@ -110,12 +263,18 @@ void steady_state<P>::next_step(
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          disc.terms_apply_all(alpha, x, beta, y);
+          // disc.terms_apply_all(alpha, x, beta, y);
+          mpi_apply_terms_iter_leader<P>(disc, alpha, x, beta, y);
         }, work, endstep);
     break;
     default:
       throw std::runtime_error("steady state solver cannot use the adi preconditioner");
     }
+
+    #ifdef ASGARD_USE_MPI
+    if (disc.get_terms().resources.num_ranks() > 1)
+      mpi_terms_iter_stop_workers(disc);
+    #endif
   }
 }
 
