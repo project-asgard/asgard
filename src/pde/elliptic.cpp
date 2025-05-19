@@ -449,7 +449,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 }
 
 void self_test() {
-  all_tests testing_("elliptic steady state problem", " div . grad f = sources");
+  all_tests testing_("elliptic steady state problem", " div.grad f = sources");
 
   #ifdef ASGARD_ENABLE_DOUBLE
   dotest<double>(5.E-3, 1, "-d 1 -l 3");

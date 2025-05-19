@@ -205,7 +205,12 @@ public:
     tools::time_event performance_("ode sources");
     if (terms.resources.num_ranks() > 1) {
       #ifdef ASGARD_USE_MPI
-      terms.mpiwork.resize(state.size());
+      if constexpr (mode == data_mode::replace or mode == data_mode::scal_rep) {
+        terms.mpiwork.resize(src.size());
+        std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
+      } else {
+        terms.mpiwork = src;
+      }
       if (is_leader()) {
         if constexpr (use_groups) {
           terms.template apply_sources<mode>(gid, domain_, grid, conn, hier, time, alpha, terms.mpiwork);

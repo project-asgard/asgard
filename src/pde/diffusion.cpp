@@ -281,6 +281,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // this is the L^2 norm-squared of the exact solution
   double const enorm = xnorm * time_val * time_val;
 
+  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
+
   std::vector<P> const &state = disc.current_state();
   assert(eref.size() == state.size());
 
@@ -373,8 +375,9 @@ int main(int argc, char** argv)
   // advance_time(disc, n); will integrate for n time-steps
   // skipping n (or using a negative) will integrate until the end
 
+  double const err_init = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
+    std::cout << " -- error in the initial conditions: " << err_init << "\n";
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
@@ -391,8 +394,9 @@ int main(int argc, char** argv)
 
   disc.progress_report();
 
+  double const err_final = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+    std::cout << " -- final error: " << err_final << "\n";
 
   disc.save_final_snapshot(); // only if output filename is provided
 
