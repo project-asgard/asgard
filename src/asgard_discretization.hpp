@@ -150,11 +150,8 @@ public:
   void ode_rhs(precision time, std::vector<precision> const &current,
                std::vector<precision> &R) const
   {
-    if (poisson) { // if we have a Poisson dependence
-      tools::time_event performance_("ode-rhs poisson");
-      do_poisson_update(current);
-      terms.rebuild_poisson(grid, conn, hier);
-    }
+    compute_poisson(current);
+    compute_moments(current);
 
     if (terms.resources.num_ranks() > 1) {
       #ifdef ASGARD_USE_MPI
@@ -499,7 +496,14 @@ public:
       return;
 
     do_poisson_update(f);
-    terms.rebuild_poisson(grid, conn, hier);
+    if (groupid == -1)
+      terms.rebuild_poisson(grid, conn, hier);
+    else
+      terms.rebuild_poisson(groupid, grid, conn, hier);
+  }
+  //! recomputes the poisson term for the given group
+  void compute_poisson(std::vector<precision> const &f) const {
+    compute_poisson(-1, f);
   }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {

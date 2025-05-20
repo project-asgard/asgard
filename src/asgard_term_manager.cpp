@@ -1553,6 +1553,12 @@ void term_manager<P>::assign_compute_resources()
     }
   }
 
+  if (deps().poisson) {
+    //
+  }
+
+  std::vector<int> moment;
+
   // if (mpi::is_world_rank(0)) {
   //   std::cout << term_groups.size() << "\n";
   //

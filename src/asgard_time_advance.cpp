@@ -445,6 +445,7 @@ void crank_nicolson<P>::next_step(
   P const substep = (method == time_method::cn) ? 0.5 : 1;
 
   if (disc.has_moments() and not disc.has_poisson()) {
+    // TODO: figure out the Poisson part here
     disc.compute_moments(current);
   }
 
