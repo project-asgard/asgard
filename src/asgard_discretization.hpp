@@ -460,25 +460,15 @@ public:
   //! return the connection patterns
   connection_patterns const &get_conn() const { return conn; }
 
-  //! recomputes the moments given the state of interest
-  void compute_moments(std::vector<precision> const &f) const {
-    if (not moms1d)
-      return;
-
-    int const level = grid.current_level(0);
-    moms1d->project_moments(grid, f, terms.cdata.moments);
-    int const num_cells = fm::ipow2(level);
-    int const num_outs  = moms1d->num_comp_mom();
-    hier.reconstruct1d(
-        num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
-                                            terms.cdata.moments.data()));
-    // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
-    terms.rebuild_moment_terms(grid, conn, hier);
-  }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(int groupid, std::vector<precision> const &f) const {
-    if (not moms1d or terms.deps(groupid).num_moments == 0)
+    if (not moms1d or (groupid >= 0 and terms.deps(groupid).num_moments == 0))
       return;
+
+    #ifdef ASGARD_USE_MPI
+    if (not is_leader() and not terms.resources.has_moments())
+      return;
+    #endif
 
     int const level = grid.current_level(0);
     moms1d->project_moments(grid, f, terms.cdata.moments);
@@ -488,18 +478,38 @@ public:
         num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
                                             terms.cdata.moments.data()));
 
-    terms.rebuild_moment_terms(groupid, grid, conn, hier);
+    #ifdef ASGARD_USE_MPI
+    terms.resources.template bcast
+        <precision, resource_comm::moments>(terms.cdata.moments);
+    #endif
+
+    if (groupid == -1)
+      terms.rebuild_moment_terms(grid, conn, hier);
+    else
+      terms.rebuild_moment_terms(groupid, grid, conn, hier);
+  }
+  //! recomputes the moments given the state of interest
+  void compute_moments(std::vector<precision> const &f) const {
+    compute_moments(-1, f);
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(int groupid, std::vector<precision> const &f) const {
-    if (not poisson or not terms.deps(groupid).poisson)
+    if (not poisson or not (groupid >= 0 and terms.deps(groupid).poisson))
       return;
 
+    #ifdef ASGARD_USE_MPI
+    if (not is_leader() and not terms.resources.has_poisson())
+      return;
+    #endif
+
     do_poisson_update(f);
-    if (groupid == -1)
-      terms.rebuild_poisson(grid, conn, hier);
-    else
-      terms.rebuild_poisson(groupid, grid, conn, hier);
+
+    #ifdef ASGARD_USE_MPI
+    terms.resources.template bcast
+        <precision, resource_comm::poisson>(terms.cdata.electric_field);
+    #endif
+
+    terms.rebuild_poisson(grid, conn, hier);
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(std::vector<precision> const &f) const {

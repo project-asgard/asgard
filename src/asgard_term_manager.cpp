@@ -1553,11 +1553,44 @@ void term_manager<P>::assign_compute_resources()
     }
   }
 
+  std::vector<int> ranks;
+  if (deps().poisson or deps().num_moments > 0)
+    ranks.reserve(terms.size() + 1);
+
   if (deps().poisson) {
-    //
+    for (auto const &t : terms) {
+      for (auto const &d : t.deps)
+        if (d.poisson)
+          ranks.push_back(t.rec.group);
+    }
+    expect(ranks.size() > 0);
+    if (ranks.size() > 1) {
+      ranks.push_back(0);
+      std::sort(ranks.begin(), ranks.end());
+      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
+      MPI_Comm cm = resources.new_comm_from_group(ranks);
+      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
+        resources.set_poisson_ranks(cm);
+    }
   }
 
-  std::vector<int> moment;
+  if (deps().num_moments > 0) {
+    ranks.resize(0);
+    for (auto const &t : terms) {
+      for (auto const &d : t.deps)
+        if (d.num_moments > 0)
+          ranks.push_back(t.rec.group);
+    }
+    expect(ranks.size() > 0);
+    if (ranks.size() > 1) {
+      ranks.push_back(0);
+      std::sort(ranks.begin(), ranks.end());
+      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
+      MPI_Comm cm = resources.new_comm_from_group(ranks);
+      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
+        resources.set_moments_ranks(cm);
+    }
+  }
 
   // if (mpi::is_world_rank(0)) {
   //   std::cout << term_groups.size() << "\n";

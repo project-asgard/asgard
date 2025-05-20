@@ -342,7 +342,7 @@ struct term_manager
     tools::time_event timing_("rebuild - poisson");
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
-        if (te.deps[d].poisson)
+        if (te.deps[d].poisson and resources.owns(te.rec))
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
@@ -353,7 +353,7 @@ struct term_manager
     tools::time_event timing_("rebuild - moments (all)");
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0)
+        if (te.deps[d].num_moments > 0 and resources.owns(te.rec))
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }

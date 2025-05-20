@@ -337,9 +337,6 @@ discretization_manager<precision>::project_function(
 
 template<typename precision> void
 discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
-  if (not poisson)
-    return; // nothing to update, no term has Poisson dependence
-
   expect(field.size() == static_cast<size_t>(grid.num_indexes() * fm::ipow(degree() + 1, grid.num_dims())));
 
   std::vector<precision> moment0;
