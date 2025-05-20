@@ -457,7 +457,7 @@ void longtest(double tol, int num_dims, std::string const &opts) {
 }
 
 void self_test() {
-  all_tests testing_("diffusion equation:", " f_t + laplacian f = sources");
+  all_tests testing_("diffusion equation:", " f_t - laplacian f = sources");
 
   // the diffusion equation is a relatively simple PDE but the condition number
   // of the matrices grows very fast with the level

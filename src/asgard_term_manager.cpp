@@ -1568,9 +1568,10 @@ void term_manager<P>::assign_compute_resources()
       ranks.push_back(0);
       std::sort(ranks.begin(), ranks.end());
       ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
+
       MPI_Comm cm = resources.new_comm_from_group(ranks);
       if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
-        resources.set_poisson_ranks(cm);
+        resources.set_poisson_comm(cm);
     }
   }
 
@@ -1588,7 +1589,7 @@ void term_manager<P>::assign_compute_resources()
       ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
       MPI_Comm cm = resources.new_comm_from_group(ranks);
       if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
-        resources.set_moments_ranks(cm);
+        resources.set_moments_comm(cm);
     }
   }
 

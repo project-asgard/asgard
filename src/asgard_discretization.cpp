@@ -137,9 +137,9 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   // operations and the interpolation engine
   terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
 
-  start_moments();
-
   set_initial_condition();
+
+  start_moments(); // grid may have changes above, wait to start the moments
 
   if (not stop_verbosity()) {
     int64_t const dof = grid.num_indexes() * hier.block_size();
@@ -220,14 +220,16 @@ void discretization_manager<precision>::start_moments() {
   if (terms.deps().poisson or terms.deps().num_moments > 0) {
     // the poisson solver needs 1 moment
     int const num      = std::max(terms.deps().num_moments, 1);
-    int const mom_size = fm::ipow2(grid.current_level(0)) * (degree() + 1);
+    int const pos_size = fm::ipow2(grid.current_level(0));
+    int const mom_size = pos_size * (degree() + 1);
     moms1d = moments1d(num, degree(), options_.max_level(), domain_);
     if (terms.deps().poisson) {
       poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
                                  grid.current_level(0));
 
       // skip the first solve, putting in dummy data for the term construction
-      terms.cdata.electric_field.resize(mom_size);
+      // the electric_field is pw-constant, does not have degrees + 1 entries
+      terms.cdata.electric_field.resize(pos_size);
     }
     terms.cdata.moments.resize(num * mom_size);
   }
@@ -290,7 +292,7 @@ void discretization_manager<precision>::set_initial_condition()
 
     if (atol > 0 or rtol > 0) {
       // on the first iteration, do both refine and coarsen with a full-adapt
-      // on followon iteration, only add more nodes for stability and to avoid stagnation
+      // on follow-on iteration, only add more nodes for stability and to avoid stagnation
       sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
                                                      : sparse_grid::strategy::refine;
       int const gid = grid.generation();

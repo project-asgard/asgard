@@ -462,7 +462,8 @@ public:
 
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(int groupid, std::vector<precision> const &f) const {
-    if (not moms1d or (groupid >= 0 and terms.deps(groupid).num_moments == 0))
+    if ((groupid == -1 and terms.deps().num_moments == 0)
+        or (groupid >= 0 and terms.deps(groupid).num_moments == 0)) // no moments needed
       return;
 
     #ifdef ASGARD_USE_MPI
@@ -470,17 +471,22 @@ public:
       return;
     #endif
 
-    int const level = grid.current_level(0);
-    moms1d->project_moments(grid, f, terms.cdata.moments);
-    int const num_cells = fm::ipow2(level);
-    int const num_outs  = moms1d->num_comp_mom();
-    hier.reconstruct1d(
-        num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
-                                            terms.cdata.moments.data()));
+    if (is_leader()) {
+      int const level = grid.current_level(0);
+      moms1d->project_moments(grid, f, terms.cdata.moments);
+      int const num_cells = fm::ipow2(level);
+      int const num_outs  = moms1d->num_comp_mom();
+      hier.reconstruct1d(
+          num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
+                                              terms.cdata.moments.data()));
+    } else {
+      moms1d->resize_moments(grid, terms.cdata.moments);
+    }
 
     #ifdef ASGARD_USE_MPI
-    terms.resources.template bcast
-        <precision, resource_comm::moments>(terms.cdata.moments);
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.template bcast
+          <precision, resource_comm::moments>(terms.cdata.moments);
     #endif
 
     if (groupid == -1)
@@ -494,19 +500,25 @@ public:
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(int groupid, std::vector<precision> const &f) const {
-    if (not poisson or not (groupid >= 0 and terms.deps(groupid).poisson))
+    //std::cout << " compute poisson " << groupid << "\n";
+    if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
       return;
 
     #ifdef ASGARD_USE_MPI
+    // leader must always communicate, the rest only if they have a poisson term
     if (not is_leader() and not terms.resources.has_poisson())
       return;
     #endif
 
-    do_poisson_update(f);
+    if (is_leader())
+      do_poisson_update(f);
+    else
+      poisson.resize_vector(terms.cdata.electric_field);
 
     #ifdef ASGARD_USE_MPI
-    terms.resources.template bcast
-        <precision, resource_comm::poisson>(terms.cdata.electric_field);
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.template bcast
+          <precision, resource_comm::poisson>(terms.cdata.electric_field);
     #endif
 
     terms.rebuild_poisson(grid, conn, hier);
@@ -541,9 +553,7 @@ public:
   }
   #else
   void sync_mpi_state() const {}
-  std::vector<precision> const &current_state_mpi() {
-    return state;
-  }
+  std::vector<precision> const &current_state_mpi() { return state; }
   #endif
 
   // performs integration in time

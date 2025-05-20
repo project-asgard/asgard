@@ -49,7 +49,15 @@ public:
   //! returns the mpi rank
   MPI_Comm mpicomm() const { return comm; }
   //! returns the number of mpi-ranks
-  int num_ranks() const { return num_ranks_; }
+  template<resource_comm cm = resource_comm::regular>
+  int num_ranks() const {
+    if constexpr (cm == resource_comm::regular)
+      return num_ranks_;
+    else if constexpr (cm == resource_comm::poisson)
+      return num_poisson_;
+    else // if constexpr (cm == resource_comm::moments)
+      return num_moments_;
+  }
   //! returns the mpi rank
   int rank() const { return rank_; }
 #else
@@ -66,11 +74,11 @@ public:
   //! broadcasts the data to all sets in the communicator, can send or receive
   template<typename T, resource_comm cm = resource_comm::regular>
   void bcast(int count, T *data) const {
-    if (true or num_ranks_ >= mpi::bcast_threshold) {
+    if (true or num_ranks<cm>() >= mpi::bcast_threshold) {
       MPI_Bcast(data, count, mpi::datatype<T>(), root, get_comm<cm>());
     } else {
       if (is_leader()) {
-        for (int r = 1; r < num_ranks_; r++)
+        for (int r = 1; r < num_ranks<cm>(); r++)
           MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, get_comm<cm>());
       } else {
         MPI_Recv(data, count, mpi::datatype<T>(), root, bcast_tag, get_comm<cm>(), MPI_STATUS_IGNORE);
@@ -81,10 +89,10 @@ public:
   template<typename T, resource_comm cm = resource_comm::regular>
   void bcast(int count, T const *data) const {
     expect(rank_ == root); // otherwise we will violate const-correctness
-    if (true or num_ranks_ >= mpi::bcast_threshold) {
+    if (true or num_ranks<cm>() >= mpi::bcast_threshold) {
       MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, get_comm<cm>());
     } else {
-      for (int r = 1; r < num_ranks_; r++)
+      for (int r = 1; r < num_ranks<cm>(); r++)
         MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, get_comm<cm>());
     }
   }
@@ -145,13 +153,19 @@ public:
     reduce_add<T, cm>(static_cast<int>(input.size()), input.data(), nullptr);
   }
   //! set poisson sub-communicator
-  void set_poisson_ranks(MPI_Comm cm) { poisson = cm; }
+  void set_poisson_comm(MPI_Comm cm) {
+    poisson = cm;
+    num_poisson_ = mpi::comm_size(poisson);
+  }
   //! set moments sub-communicator
-  void set_moments_ranks(MPI_Comm cm) { moments = cm; }
+  void set_moments_comm(MPI_Comm cm) {
+    moments = cm;
+    num_moments_ = mpi::comm_size(moments);
+  }
   //! returns true if the poisson communicator has been set
-  bool has_poisson() const { return (poisson != MPI_COMM_NULL); }
+  bool has_poisson() const { return (num_poisson_ != 0); }
   //! returns true if the moments communicator has been set
-  bool has_moments() const { return (moments != MPI_COMM_NULL); }
+  bool has_moments() const { return (num_moments_ != 0); }
   //! create sub-communicator from the given set of tanks
   MPI_Comm new_comm_from_group(std::vector<int> const &ranks) const {
     MPI_Group orig_group, new_group;
@@ -169,6 +183,7 @@ public:
   int num_gpus() const { return num_gpus_; }
 
 private:
+  #ifdef ASGARD_USE_MPI
   template<resource_comm cmm>
   MPI_Comm get_comm() const {
     if constexpr (cmm == resource_comm::poisson)
@@ -178,6 +193,7 @@ private:
     else
       return comm;
   }
+  #endif
 
   // local resources, e.g., GPU devices
   int num_gpus_ = 0;
@@ -197,6 +213,8 @@ private:
 
   MPI_Comm poisson = MPI_COMM_NULL;
   MPI_Comm moments = MPI_COMM_NULL;
+  int num_poisson_ = 0;
+  int num_moments_ = 0;
   #endif
 };
 

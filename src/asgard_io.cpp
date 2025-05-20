@@ -323,8 +323,6 @@ void h5manager<P>::read(std::string const &filename, bool silent,
           options.adapt_ralative = adapt_rel;
       }
     }
-
-    // pde.max_level_ = max_level;
   }
 
   { // solver data section

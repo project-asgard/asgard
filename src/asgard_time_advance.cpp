@@ -88,6 +88,21 @@ void mpi_apply_terms(
   mpi_apply_terms<P, use_groups>(disc, -1, alpha, x.data(), beta, y.data());
 }
 
+template<typename P>
+void mpi_apply_terms(
+    discretization_manager<P> const &disc, int gid, P alpha, P const x[], P beta, P y[])
+{
+  bool constexpr use_groups = true;
+  mpi_apply_terms<P, use_groups>(disc, gid, alpha, x, beta, y);
+}
+template<typename P>
+void mpi_apply_terms(
+    discretization_manager<P> const &disc, int gid, P alpha, std::vector<P> const &x, P beta, std::vector<P> &y)
+{
+  bool constexpr use_groups = true;
+  mpi_apply_terms<P, use_groups>(disc, gid, alpha, x.data(), beta, y.data());
+}
+
 template<typename P, bool use_groups>
 void mpi_apply_terms_iter_leader(
     discretization_manager<P> const &disc, int gid,
@@ -156,6 +171,14 @@ void mpi_apply_terms_iter_leader(
   mpi_apply_terms_iter_leader<P, use_groups>(disc, -1, alpha, x, beta, y);
 }
 
+template<typename P>
+void mpi_apply_terms_iter_leader(
+    discretization_manager<P> const &disc, int gid, P alpha, P const x[], P beta, P y[])
+{
+  bool constexpr use_groups = true;
+  mpi_apply_terms_iter_leader<P, use_groups>(disc, gid, alpha, x, beta, y);
+}
+
 #ifdef ASGARD_USE_MPI
 template<typename P, bool use_groups>
 void mpi_apply_terms_iter_worker(
@@ -171,7 +194,6 @@ void mpi_apply_terms_iter_worker(
 
   while (true)
   {
-    // std::cout << " worker bcast begin " << std::endl;
     resources.bcast(work);
     if (work.back() == std::numeric_limits<P>::max())
       break;
@@ -184,11 +206,10 @@ void mpi_apply_terms_iter_worker(
     if (not has_terms) // R must be zeroed out explicitly
       std::fill_n(w, n, 0);
 
-    //std::cout << " worker reduce begin " << std::endl;
     resources.reduce_add(n, w);
-    //std::cout << " worker reduce end " << std::endl;
   }
 }
+
 template<typename P>
 void mpi_apply_terms_iter_worker(
     discretization_manager<P> const &disc, P w[])
@@ -196,6 +217,15 @@ void mpi_apply_terms_iter_worker(
   bool constexpr use_groups = false;
   mpi_apply_terms_iter_worker<P, use_groups>(disc, -1, w);
 }
+
+template<typename P>
+void mpi_apply_terms_iter_worker(
+    discretization_manager<P> const &disc, int gid, P w[])
+{
+  bool constexpr use_groups = true;
+  mpi_apply_terms_iter_worker<P, use_groups>(disc, gid, w);
+}
+
 template<typename P>
 void mpi_terms_iter_stop_workers(discretization_manager<P> const &disc)
 {
@@ -301,9 +331,6 @@ void rungekutta<P>::next_step(
 
   P const time = disc.time();
   P const dt   = disc.dt();
-
-  if (disc.has_moments() and not disc.has_poisson())
-    disc.compute_moments(current);
 
   #ifdef ASGARD_USE_MPI
   if (not disc.is_leader()) {
@@ -552,7 +579,8 @@ void imex_stepper<P>::explicit_ode_rhs(
   if (R.size() != current.size())
     R.resize(current.size());
 
-  disc.terms_apply(imex_explicit.gid, -1, current, 0, R);
+  // disc.terms_apply(imex_explicit.gid, -1, current, 0, R);
+  mpi_apply_terms<P>(disc, imex_explicit.gid, -1, current, 0, R);
   disc.add_ode_rhs_sources_group(imex_explicit.gid, time, R);
 }
 template<typename P>
@@ -578,6 +606,13 @@ void imex_stepper<P>::implicit_solve(
 
     int64_t const n = static_cast<int64_t>(R.size());
 
+    #ifdef ASGARD_USE_MPI
+    if (not disc.is_leader()) {
+      mpi_apply_terms_iter_worker<P>(disc, imex_implicit.gid, current.data());
+      return;
+    }
+    #endif
+
     switch (solver.precon) {
     case precon_method::none:
       solver.iterate_solve(
@@ -586,7 +621,7 @@ void imex_stepper<P>::implicit_solve(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply(imex_implicit.gid, alpha * dt, x, 1, y);
+          mpi_apply_terms_iter_leader<P>(disc, imex_implicit.gid, alpha * dt, x, 1, y);
         }, current, R);
     break;
     case precon_method::jacobi:
@@ -603,7 +638,8 @@ void imex_stepper<P>::implicit_solve(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
-          disc.terms_apply(imex_implicit.gid, alpha * dt, x, 1, y);
+          //disc.terms_apply(imex_implicit.gid, alpha * dt, x, 1, y);
+          mpi_apply_terms_iter_leader<P>(disc, imex_implicit.gid, alpha * dt, x, 1, y);
         }, current, R);
     break;
     default:
@@ -611,6 +647,10 @@ void imex_stepper<P>::implicit_solve(
     break;
     }
   }
+  #ifdef ASGARD_USE_MPI
+  if (disc.get_terms().resources.num_ranks() > 1)
+    mpi_terms_iter_stop_workers(disc);
+  #endif
 }
 
 template<typename P>
@@ -627,17 +667,21 @@ void imex_stepper<P>::next_step(
 
   f.resize(fs.size());
 
-  ASGARD_OMP_PARFOR_SIMD
-  for (size_t i = 0; i < current.size(); i++)
-    f[i] = current[i] + dt * fs[i];
+  if (disc.is_leader()) {
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < current.size(); i++)
+      f[i] = current[i] + dt * fs[i];
+  }
 
   implicit_solve(disc, time + dt, f, fs);
 
   explicit_ode_rhs(disc, time + dt, fs, f);
 
-  ASGARD_OMP_PARFOR_SIMD
-  for (size_t i = 0; i < f.size(); i++)
-    f[i] = 0.5 * current[i] + 0.5 * (fs[i] + dt * f[i]);
+  if (disc.is_leader()) {
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < f.size(); i++)
+      f[i] = 0.5 * current[i] + 0.5 * (fs[i] + dt * f[i]);
+  }
 
   implicit_solve(disc, time + dt, f, next);
 }
@@ -753,6 +797,8 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         if (manager.is_leader())
           grid.remap(manager.hier.block_size(), next);
         manager.terms.prapare_workspace(grid);
+        if (manager.poisson)
+          manager.poisson.update_level(grid.current_level(0));
         if (stepper.is_steady_state()) {
           num_steps = 1;
           grid_strategy = sparse_grid::strategy::adapt;

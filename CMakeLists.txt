@@ -587,6 +587,8 @@ if (ASGARD_BUILD_TESTS)
     set(asgard_pde_ranks_elliptic 2 3 4)
     set(asgard_pde_ranks_sinwav 2 4)
     set(asgard_pde_ranks_bound_internal 2 3 4)
+    set(asgard_pde_ranks_relaxation_internal 2)
+    set(asgard_pde_ranks_two_stream 2)
   endif()
 
   # add the pdes and set the MPI tests

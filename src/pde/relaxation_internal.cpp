@@ -233,7 +233,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
     enorm = 5.679043443503443e-03;
   }
 
-  std::vector<P> const &state = disc.current_state();
+  std::vector<P> const &state = disc.current_state_mpi();
   expect(eref.size() == state.size());
 
   double nself = 0;

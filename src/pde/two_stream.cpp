@@ -256,6 +256,9 @@ void test_energy(std::string const &opt_str) {
   {
     disc.advance_time(1);
 
+    if (not disc.is_leader()) // in MPI context, do error checking only on rank 0
+      continue;
+
     int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
     P const dx         = disc.domain().length(0) / num_cell;
