@@ -459,6 +459,74 @@ void rungekutta<P>::next_step(
 }
 
 template<typename P>
+void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P time, P substep, P dt,
+                                std::vector<P> const &current, std::vector<P> &rhs) const
+{
+#ifdef ASGARD_USE_MPI
+  resource_set const &resources = disc.get_resources();
+  bool const has_terms = disc.get_terms().has_terms();
+  std::vector<P> &work = disc.get_mpiwork();
+
+  int const n = static_cast<int>(disc.state_size());
+  work.resize(n);
+
+  if (resources.num_ranks() > 1) {
+    tools::time_event performance_("mpi kronmult rhs");
+
+    if (disc.is_leader()) {
+      work = current;
+
+      resources.bcast(work);
+
+      if (substep < 1) {
+        disc.terms_apply_all(-substep * dt, current, 1, work);
+        if (not has_terms) // mpiwork must be zeroed out explicitly
+          std::fill_n(work.begin(), n, 0);
+        disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
+            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
+      } else {
+        disc.get_terms_m().template apply_sources<data_mode::scal_rep>(
+            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
+      }
+
+      resources.reduce_add(work, rhs);
+
+    } else {
+
+      resources.bcast(work);
+
+      if (substep < 1) {
+        disc.terms_apply_all(-substep * dt, current, 0, work);
+        if (not has_terms) // mpiwork must be zeroed out explicitly
+          std::fill_n(work.begin(), n, 0);
+        disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
+            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
+      } else {
+        disc.get_terms_m().template apply_sources<data_mode::scal_rep>(
+            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
+      }
+
+      resources.reduce_add(work);
+    }
+  } else {
+#endif
+    tools::time_event performance_("kronmult rhs");
+    if (substep < 1) {
+      disc.terms_apply_all(-substep * dt, current, 1, work);
+      if (not has_terms) // mpiwork must be zeroed out explicitly
+        std::fill(work.begin(), work.end(), 0);
+      disc.get_terms_m().template apply_sources<data_mode::increment>(
+          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, 1, work);
+    } else {
+      disc.get_terms_m().template apply_sources<data_mode::replace>(
+          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, 1, work);
+    }
+#ifdef ASGARD_USE_MPI
+  }
+#endif
+}
+
+template<typename P>
 void crank_nicolson<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
@@ -486,7 +554,6 @@ void crank_nicolson<P>::next_step(
 
     if (substep < 1)
       mpi_apply_terms<P>(disc, -substep * dt, current, 1, next);
-      // disc.terms_apply_all(-substep * dt, current, 1, next);
     disc.add_ode_rhs_sources(time + substep * dt, dt, next);
 
     if (disc.is_leader())
@@ -494,10 +561,15 @@ void crank_nicolson<P>::next_step(
   } else { // iterative solver
     // form the right-hand-side inside work
     work = current;
-    if (substep < 1)
-      mpi_apply_terms<P>(disc, -substep * dt, current, 1, work);
-      // disc.terms_apply_all(-substep * dt, current, 1, work);
-    disc.add_ode_rhs_sources(time + substep * dt, dt, work);
+    // if (substep < 1)
+    //   mpi_apply_terms<P>(disc, -substep * dt, current, 1, work);
+    // disc.add_ode_rhs_sources(time + substep * dt, dt, work);
+
+    mpi_rhs(disc, time, substep, dt, current, work);
+// template<typename P>
+// void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P time, P substep, P dt,
+//                                 std::vector<P> const &current, std::vector<P> &rhs) const
+
 
     next = current; // use the current step as the initial guess
 

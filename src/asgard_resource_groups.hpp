@@ -74,7 +74,7 @@ public:
   //! broadcasts the data to all sets in the communicator, can send or receive
   template<typename T, resource_comm cm = resource_comm::regular>
   void bcast(int count, T *data) const {
-    if (true or num_ranks<cm>() >= mpi::bcast_threshold) {
+    if (num_ranks<cm>() >= mpi::bcast_threshold) {
       MPI_Bcast(data, count, mpi::datatype<T>(), root, get_comm<cm>());
     } else {
       if (is_leader()) {
@@ -89,7 +89,7 @@ public:
   template<typename T, resource_comm cm = resource_comm::regular>
   void bcast(int count, T const *data) const {
     expect(rank_ == root); // otherwise we will violate const-correctness
-    if (true or num_ranks<cm>() >= mpi::bcast_threshold) {
+    if (num_ranks<cm>() >= mpi::bcast_threshold) {
       MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, get_comm<cm>());
     } else {
       for (int r = 1; r < num_ranks<cm>(); r++)
@@ -219,11 +219,8 @@ private:
 };
 
 // Things todo:
-// 1. add worker mode for the iterative solvers
-//    - distribute-add the direct solver matrices, but solve only on 0
-// 2. distribute the moments, detect who needs moments
-//    - only rank 0 does the Poisson solver, others have to wait
-// 3. find a way to disable idle mpi ranks (reduce the comm)
+// 1. lump some term + sources operations
+// 2. find a way to disable idle mpi ranks (reduce the comm), maybe print a warning
 
 #ifdef ASGARD_USE_MPI
 /*!

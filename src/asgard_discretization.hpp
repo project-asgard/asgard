@@ -452,6 +452,8 @@ public:
   }
   //! returns the term manager
   term_manager<precision> const &get_terms() const { return terms; }
+  //! returns the term manager, non-const ref
+  term_manager<precision> &get_terms_m() const { return terms; }
   //! returns the compute resources meta structure
   resource_set const &get_resources() const { return terms.resources; }
 
