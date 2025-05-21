@@ -47,6 +47,7 @@ jobs:
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
+        run: apt-get install libopenblas-dev
         run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DASGARD_PRECISIONS="float;double"
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
