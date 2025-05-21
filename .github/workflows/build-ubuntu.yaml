@@ -4,9 +4,9 @@ on:
   push:
   workflow_dispatch:
 jobs:
-  asgard-core:
-# no MPI/CUDA but on CPU with OpenBlas and HDF5
+# test core capabilities, no MPI/CUDA but on CPU with OpenBlas and HDF5
 # some BALS is required, makes little sense to skip HDF5 (can't output anything)
+  asgard-core:
     strategy:
       matrix:
         prec: [float, double]
@@ -36,8 +36,8 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-  asgard-allprec:
 # g++-13 using both precisions
+  asgard-allprec:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
@@ -64,8 +64,8 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-  asgard-mpi:
 # basic MPI build using default settings
+  asgard-mpi:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
@@ -80,6 +80,7 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DASGARD_USE_MPI=ON
+                   -DASGARD_TEST_MPI_OMP_NUM_THREADS=1
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
                    ../
       - name: Build
@@ -92,8 +93,8 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-  asgard-mkl:
 # maybe an overkill but there are some differences between MKL and OpenBlas
+  asgard-mkl:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
