@@ -37,8 +37,8 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
   asgard-allprec:
-# g++-11 using both precisions
-    runs-on: ubuntu-22.04
+# g++-13 using both precisions
+    runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -63,33 +63,33 @@ jobs:
         run: cat LastTest.log
   asgard-mpi:
 # basic MPI build using default settings
-#    runs-on: ubuntu-22.04
-#    steps:
-#      - name: Git checkout
-#        uses: actions/checkout@v4
-#      - name: install
-#        working-directory: ${{runner.workspace}}/asgard
-#        run: sudo apt install -y libopenmpi-dev
-#      - name: Makedir
-#        working-directory: ${{runner.workspace}}/asgard
-#        run: cmake -E make_directory build
-#      - name: Configure
-#        working-directory: ${{runner.workspace}}/asgard/build
-#        run: cmake -DCMAKE_BUILD_TYPE=Release
-#                   -DASGARD_USE_MPI=ON
-#                   -DASGARD_RECOMMENDED_DEFAULTS=ON
-#                   ../
-#      - name: Build
-#        working-directory: ${{runner.workspace}}/asgard/build
-#        run: make -j VERBOSE=1
-#      - name: Test
-#        working-directory: ${{runner.workspace}}/asgard/build
-#        run: make test
-#      - name: Show Log
-#        if: failure()
-#        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
-#        run: cat LastTest.log
-#  asgard-mkl:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+      - name: install
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt install -y libopenmpi-dev
+      - name: Makedir
+        working-directory: ${{runner.workspace}}/asgard
+        run: cmake -E make_directory build
+      - name: Configure
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_USE_MPI=ON
+                   -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   ../
+      - name: Build
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make -j VERBOSE=1
+      - name: Test
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make test
+      - name: Show Log
+        if: failure()
+        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
+        run: cat LastTest.log
+  asgard-mkl:
 # maybe an overkill but there are some differences between MKL and OpenBlas
     runs-on: ubuntu-22.04
     steps:
