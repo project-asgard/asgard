@@ -6,104 +6,6 @@ namespace asgard::time_advance
 {
 
 template<typename P, bool use_groups>
-void mpi_apply_terms(
-    discretization_manager<P> const &disc, int gid,
-    P alpha, P const x[], P beta, P y[])
-{
-#ifdef ASGARD_USE_MPI
-  tools::time_event performance_("mpi kronmult one");
-
-  resource_set const &resources = disc.get_resources();
-  bool const has_terms = disc.get_terms().has_terms();
-  std::vector<P> &work = disc.get_mpiwork();
-
-  if (resources.num_ranks() > 1) {
-    int const n = static_cast<int>(disc.state_size());
-    // each rank computes w = terms * x, if alpha = 1 and beta = 0, then that's the answer
-    // using different alpha/beta means obtaining w first, then computing alpha * w + beta * y
-    if (disc.is_leader()) {
-      if (alpha == 1 and beta == 0)
-        work.resize(n);
-      else
-        work.resize(2 * n);
-      resources.bcast(n, x);
-
-      if constexpr (use_groups)
-        disc.terms_apply(gid, 1, x, 0, work.data());
-      else
-        disc.terms_apply_all(1, x, 0, work.data());
-
-      if (not has_terms) // mpiwork must be zeroed out explicitly
-        std::fill_n(work.begin(), n, 0);
-
-      if (work.size() == static_cast<size_t>(n)) // alpha == 1 and beta == 0
-        resources.reduce_add(n, work.data(), y);
-      else {
-        resources.reduce_add(n, work.data(), work.data() + n);
-        ASGARD_OMP_PARFOR_SIMD
-        for (size_t i = 0; i < static_cast<size_t>(n); i++)
-          y[i] = alpha * work[i + n] + beta * y[i];
-      }
-
-    } else {
-      work.resize(n);
-      resources.bcast(work);
-
-      if constexpr (use_groups)
-        disc.terms_apply(gid, 1, work.data(), 0, y);
-      else
-        disc.terms_apply_all(1, work.data(), 0, y);
-      if (not has_terms) // R must be zeroed out explicitly
-        std::fill_n(y, n, 0);
-
-      resources.reduce_add(n, y);
-    }
-  } else {
-    if constexpr (use_groups)
-      disc.terms_apply(gid, alpha, x, beta, y);
-    else
-      disc.terms_apply_all(alpha, x, beta, y);
-  }
-#else
-  tools::time_event performance_("kronmult one");
-  if constexpr (use_groups)
-    disc.terms_apply(gid, alpha, x, beta, y);
-  else
-    disc.terms_apply_all(alpha, x, beta, y);
-#endif
-}
-
-template<typename P>
-void mpi_apply_terms(
-    discretization_manager<P> const &disc, P alpha, P const x[], P beta, P y[])
-{
-  bool constexpr use_groups = false;
-  mpi_apply_terms<P, use_groups>(disc, -1, alpha, x, beta, y);
-}
-template<typename P>
-void mpi_apply_terms(
-    discretization_manager<P> const &disc, P alpha, std::vector<P> const &x, P beta, std::vector<P> &y)
-{
-  bool constexpr use_groups = false;
-  mpi_apply_terms<P, use_groups>(disc, -1, alpha, x.data(), beta, y.data());
-}
-
-template<typename P>
-void mpi_apply_terms(
-    discretization_manager<P> const &disc, int gid, P alpha, P const x[], P beta, P y[])
-{
-  bool constexpr use_groups = true;
-  mpi_apply_terms<P, use_groups>(disc, gid, alpha, x, beta, y);
-}
-template<typename P>
-void mpi_apply_terms(
-    discretization_manager<P> const &disc, int gid, P alpha, std::vector<P> const &x, P beta, std::vector<P> &y)
-{
-  bool constexpr use_groups = true;
-  mpi_apply_terms<P, use_groups>(disc, gid, alpha, x.data(), beta, y.data());
-}
-
-template<typename P, bool use_groups>
 void mpi_apply_terms_iter_leader(
     discretization_manager<P> const &disc, int gid,
     P alpha, P const x[], P beta, P y[])
@@ -124,7 +26,7 @@ void mpi_apply_terms_iter_leader(
       work.resize(n);
     else
       work.resize(2 * n);
-    // std::cout << " leader bcast begin " << std::endl;
+
     resources.bcast(n, x);
 
     if constexpr (use_groups)
@@ -138,16 +40,13 @@ void mpi_apply_terms_iter_leader(
     }
 
     if (work.size() == static_cast<size_t>(n)) { // alpha == 1 and beta == 0
-      // std::cout << " leader reduce begin (case n) " << std::endl;
       resources.reduce_add(n, work.data(), y);
     } else {
-      // std::cout << " leader reduce begin (case 2n) " << std::endl;
       resources.reduce_add(n, work.data(), work.data() + n);
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < static_cast<size_t>(n); i++)
         y[i] = alpha * work[i + n] + beta * y[i];
     }
-    // std::cout << " leader reduce end " << std::endl;
   } else {
     if constexpr (use_groups)
       disc.terms_apply(gid, alpha, x, beta, y);
@@ -459,7 +358,7 @@ void rungekutta<P>::next_step(
 }
 
 template<typename P>
-void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P time, P substep, P dt,
+void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep, P time, P dt,
                                 std::vector<P> const &current, std::vector<P> &rhs) const
 {
 #ifdef ASGARD_USE_MPI
@@ -467,60 +366,50 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P time, P
   bool const has_terms = disc.get_terms().has_terms();
   std::vector<P> &work = disc.get_mpiwork();
 
-  int const n = static_cast<int>(disc.state_size());
-  work.resize(n);
-
   if (resources.num_ranks() > 1) {
     tools::time_event performance_("mpi kronmult rhs");
 
     if (disc.is_leader()) {
       work = current;
 
-      resources.bcast(work);
+      resources.bcast(current);
 
-      if (substep < 1) {
+      if (substep < 1)
         disc.terms_apply_all(-substep * dt, current, 1, work);
-        if (not has_terms) // mpiwork must be zeroed out explicitly
-          std::fill_n(work.begin(), n, 0);
-        disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
-      } else {
-        disc.get_terms_m().template apply_sources<data_mode::scal_rep>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
-      }
+
+      disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
+          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
 
       resources.reduce_add(work, rhs);
 
     } else {
+      work.resize(disc.state_size());
 
       resources.bcast(work);
 
-      if (substep < 1) {
-        disc.terms_apply_all(-substep * dt, current, 0, work);
-        if (not has_terms) // mpiwork must be zeroed out explicitly
-          std::fill_n(work.begin(), n, 0);
+      if (has_terms) {
+        if (substep < 1)
+          disc.terms_apply_all(-substep * dt, work, 0, rhs);
+
         disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
+            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
       } else {
         disc.get_terms_m().template apply_sources<data_mode::scal_rep>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
+            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
       }
 
-      resources.reduce_add(work);
+      resources.reduce_add(rhs);
     }
   } else {
 #endif
     tools::time_event performance_("kronmult rhs");
-    if (substep < 1) {
-      disc.terms_apply_all(-substep * dt, current, 1, work);
-      if (not has_terms) // mpiwork must be zeroed out explicitly
-        std::fill(work.begin(), work.end(), 0);
-      disc.get_terms_m().template apply_sources<data_mode::increment>(
-          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, 1, work);
-    } else {
-      disc.get_terms_m().template apply_sources<data_mode::replace>(
-          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, 1, work);
-    }
+
+    rhs = current;
+    if (substep < 1)
+      disc.terms_apply_all(-substep * dt, current, 1, rhs);
+
+    disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
+        disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
 #ifdef ASGARD_USE_MPI
   }
 #endif
@@ -550,26 +439,22 @@ void crank_nicolson<P>::next_step(
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt);
 
   if (solver.opt == solver_method::direct) {
-    next = current; // copy
+    // next = current; // copy
 
-    if (substep < 1)
-      mpi_apply_terms<P>(disc, -substep * dt, current, 1, next);
-    disc.add_ode_rhs_sources(time + substep * dt, dt, next);
+    // if (substep < 1)
+    //   mpi_apply_terms<P>(disc, -substep * dt, current, 1, next);
+    // disc.add_ode_rhs_sources(time + substep * dt, dt, next);
+
+    next.resize(current.size());
+    mpi_rhs(disc, substep, time, dt, current, next);
 
     if (disc.is_leader())
       solver.direct_solve(next);
   } else { // iterative solver
     // form the right-hand-side inside work
     work = current;
-    // if (substep < 1)
-    //   mpi_apply_terms<P>(disc, -substep * dt, current, 1, work);
-    // disc.add_ode_rhs_sources(time + substep * dt, dt, work);
 
-    mpi_rhs(disc, time, substep, dt, current, work);
-// template<typename P>
-// void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P time, P substep, P dt,
-//                                 std::vector<P> const &current, std::vector<P> &rhs) const
-
+    mpi_rhs(disc, substep, time, dt, current, work);
 
     next = current; // use the current step as the initial guess
 
@@ -591,7 +476,6 @@ void crank_nicolson<P>::next_step(
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
           mpi_apply_terms_iter_leader<P>(disc, substep * alpha * dt, x, 1, y);
-          // disc.terms_apply_all(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
     case precon_method::jacobi:
@@ -608,8 +492,8 @@ void crank_nicolson<P>::next_step(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
+
           mpi_apply_terms_iter_leader<P>(disc, substep * alpha * dt, x, 1, y);
-          // disc.terms_apply_all(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
     default: {
@@ -627,6 +511,7 @@ void crank_nicolson<P>::next_step(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
+
           mpi_apply_terms_iter_leader<P>(disc, substep * alpha * dt, x, 1, y);
         }, work, next);
     }
@@ -645,15 +530,10 @@ void imex_stepper<P>::explicit_ode_rhs(
     discretization_manager<P> const &disc, P time, std::vector<P> const &current,
     std::vector<P> &R) const
 {
-  disc.compute_poisson(imex_explicit.gid, current);
-  disc.compute_moments(imex_explicit.gid, current);
-
   if (R.size() != current.size())
     R.resize(current.size());
 
-  // disc.terms_apply(imex_explicit.gid, -1, current, 0, R);
-  mpi_apply_terms<P>(disc, imex_explicit.gid, -1, current, 0, R);
-  disc.add_ode_rhs_sources_group(imex_explicit.gid, time, R);
+  disc.ode_rhs(imex_explicit.gid, time, current, R);
 }
 template<typename P>
 void imex_stepper<P>::implicit_solve(
@@ -693,6 +573,7 @@ void imex_stepper<P>::implicit_solve(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
+
           mpi_apply_terms_iter_leader<P>(disc, imex_implicit.gid, alpha * dt, x, 1, y);
         }, current, R);
     break;
@@ -710,7 +591,7 @@ void imex_stepper<P>::implicit_solve(
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < n; i++)
             y[i] = alpha * x[i] + beta * y[i];
-          //disc.terms_apply(imex_implicit.gid, alpha * dt, x, 1, y);
+
           mpi_apply_terms_iter_leader<P>(disc, imex_implicit.gid, alpha * dt, x, 1, y);
         }, current, R);
     break;

@@ -219,7 +219,6 @@ private:
 };
 
 // Things todo:
-// 1. lump some term + sources operations
 // 2. find a way to disable idle mpi ranks (reduce the comm), maybe print a warning
 
 #ifdef ASGARD_USE_MPI
