@@ -42,12 +42,14 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+      - name: prep
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt install -y libopenmpi-dev && apt install libopenblas-dev
       - name: Makedir
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
-        run: apt-get install libopenblas-dev
         run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DASGARD_PRECISIONS="float;double"
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
@@ -68,9 +70,9 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
-      - name: install
+      - name: prep
         working-directory: ${{runner.workspace}}/asgard
-        run: sudo apt install -y libopenmpi-dev
+        run: sudo apt install -y libopenmpi-dev && apt install libopenblas-dev
       - name: Makedir
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build

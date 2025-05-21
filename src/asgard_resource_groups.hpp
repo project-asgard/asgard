@@ -206,8 +206,8 @@ private:
 
   // external resources, e.g., MPI rank and communicator
   int rank_ = 0;
-  int num_ranks_ = 1;
   #ifdef ASGARD_USE_MPI
+  int num_ranks_ = 1;
   MPI_Comm comm;
   mutable std::vector<std::byte> work;
 
