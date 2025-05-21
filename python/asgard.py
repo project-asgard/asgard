@@ -18,14 +18,8 @@ libasgard = CDLL(__pyasgard_libasgard_path__, mode = RTLD_GLOBAL)
 libasgard.asgard_make_dreconstruct_solution.restype = c_void_p
 libasgard.asgard_make_freconstruct_solution.restype = c_void_p
 
-libasgard.asgard_make_dreconstruct_solution_v2.restype = c_void_p
-libasgard.asgard_make_freconstruct_solution_v2.restype = c_void_p
-
 libasgard.asgard_make_dreconstruct_solution.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_double)]
 libasgard.asgard_make_freconstruct_solution.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_float)]
-
-libasgard.asgard_make_dreconstruct_solution_v2.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_double)]
-libasgard.asgard_make_freconstruct_solution_v2.argtypes = [c_int, c_int64, POINTER(c_int), c_int, POINTER(c_float)]
 
 libasgard.asgard_pydelete_reconstruct_solution.argtypes = [c_void_p, ]
 
@@ -63,7 +57,6 @@ class pde_snapshot:
 
         with h5py.File(filename, "r") as fdata:
             # keep this for reference of the keys that we may need
-            # print(fdata.keys())
 
             self.title    = fdata['title'][()].decode("utf-8")
             self.subtitle = fdata['subtitle'][()].decode("utf-8")
@@ -74,64 +67,40 @@ class pde_snapshot:
 
             self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
-            if 'ndims' in fdata: # using version 1
-                self.using_version_2 = False
+            assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
+            self.using_version_2 = True
 
-                self.default_view = ""
+            self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
 
-                self.num_dimensions = fdata['ndims'][()]
+            self.num_dimensions = fdata['num_dims'][()]
 
-                self.cells = fdata['elements'][()]
-                self.time  = fdata['time'][()] # numeric time
+            self.num_position = fdata['num_pos'][()]
+            self.num_velocity = fdata['num_vel'][()]
 
-                self.num_cells = int(len(self.cells) / (2 * self.num_dimensions))
+            self.cells = fdata['grid_indexes'][()]
+            self.time  = fdata['dtime_time'][()] # numeric time
 
-                self.num_position = 0
-                self.num_velocity = 0
+            self.num_cells = fdata['grid_num_indexes'][()]
+            assert self.num_cells == int(len(self.cells) / self.num_dimensions), "file corruption detected: wront number of cells"
 
-                self.dimension_names = [None for i in range(self.num_dimensions)]
-                self.dimension_min = np.zeros((self.num_dimensions,))
-                self.dimension_max = np.zeros((self.num_dimensions,))
-                for i in range(self.num_dimensions):
-                    self.dimension_names[i] = fdata['dim{0}_name'.format(i)][()].decode("utf-8")
-                    self.dimension_min[i] = fdata['dim{0}_min'.format(i)][()]
-                    self.dimension_max[i] = fdata['dim{0}_max'.format(i)][()]
+            drange = fdata['domain_range'][()] # domain ranges
 
-            else:
-                assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
-                self.using_version_2 = True
+            self.dimension_names = [None for i in range(self.num_dimensions)]
+            self.dimension_min = np.zeros((self.num_dimensions,))
+            self.dimension_max = np.zeros((self.num_dimensions,))
+            for i in range(self.num_dimensions):
+                self.dimension_names[i] = fdata['dim{0}_name'.format(i)][()].decode("utf-8")
+                self.dimension_min[i] = drange[2 * i]
+                self.dimension_max[i] = drange[2 * i + 1]
 
-                self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
-
-                self.num_dimensions = fdata['num_dims'][()]
-
-                self.num_position = fdata['num_pos'][()]
-                self.num_velocity = fdata['num_vel'][()]
-
-                self.cells = fdata['grid_indexes'][()]
-                self.time  = fdata['dtime_time'][()] # numeric time
-
-                self.num_cells = fdata['grid_num_indexes'][()]
-                assert self.num_cells == int(len(self.cells) / self.num_dimensions), "file corruption detected: wront number of cells"
-
-                drange = fdata['domain_range'][()] # domain ranges
-
-                self.dimension_names = [None for i in range(self.num_dimensions)]
-                self.dimension_min = np.zeros((self.num_dimensions,))
-                self.dimension_max = np.zeros((self.num_dimensions,))
-                for i in range(self.num_dimensions):
-                    self.dimension_names[i] = fdata['dim{0}_name'.format(i)][()].decode("utf-8")
-                    self.dimension_min[i] = drange[2 * i]
-                    self.dimension_max[i] = drange[2 * i + 1]
-
-                num_aux = fdata['num_aux_fields'][()]
-                self.aux_fields = [None for i in range(num_aux)]
-                for i in range(num_aux):
-                    self.aux_fields[i] = {
-                        'name' : fdata[f"aux_field_{i}_name"][()].decode("utf-8"),
-                        'data' : fdata[f"aux_field_{i}_data"][()],
-                        'grid' : fdata[f"aux_field_{i}_grid"][()]
-                        }
+            num_aux = fdata['num_aux_fields'][()]
+            self.aux_fields = [None for i in range(num_aux)]
+            for i in range(num_aux):
+                self.aux_fields[i] = {
+                    'name' : fdata[f"aux_field_{i}_name"][()].decode("utf-8"),
+                    'data' : fdata[f"aux_field_{i}_data"][()],
+                    'grid' : fdata[f"aux_field_{i}_grid"][()]
+                    }
 
         # for plotting purposes, say aways from the domain edges
         # rounding error at the edge may skew the plots
@@ -154,30 +123,29 @@ class pde_snapshot:
         self.recsol = None
         if self.state.dtype == np.float64:
             self.double_precision = True
-            if self.using_version_2:
-                self.recsol = libasgard.asgard_make_dreconstruct_solution_v2(
-                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
-            else:
-                self.recsol = libasgard.asgard_make_dreconstruct_solution(
-                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+            self.recsol = libasgard.asgard_make_dreconstruct_solution(
+                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
         else:
             self.double_precision = False
-            if self.using_version_2:
-                self.recsol = libasgard.asgard_make_freconstruct_solution_v2(
-                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
-            else:
-                self.recsol = libasgard.asgard_make_freconstruct_solution(
-                    self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
-                    self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+            self.recsol = libasgard.asgard_make_freconstruct_solution_v2(
+                self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
+                self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
 
         libasgard.asgard_reconstruct_solution_setbounds(self.recsol,
                                                         np.ctypeslib.as_ctypes(self.dimension_min.reshape(-1,)),
                                                         np.ctypeslib.as_ctypes(self.dimension_max.reshape(-1,)))
 
     def get_aux_field(self, auxid):
+        '''
+        If the snapshot data in the HDF5 file contains auxiliary fields,
+        this method can create a new snapshot object this time holding
+        the field as the state.
+        auxid is the auxiliary field id, it can be either a string, which will
+              be matched to the id name used in the C++ code,
+              or the auxid can be a number indicating the index (0-base)
+              that is the index according to the order in which the field was loaded
+        '''
         assert isinstance(auxid, int) or isinstance(auxid, string), "auxid must be in int or a string"
         if isinstance(auxid, int):
             assert 0 <= auxid and auxid < len(self.aux_fields), f"the auxid {auxid} must point to a valid entry in the list with size {len(self.aux_fields)}"
@@ -220,7 +188,7 @@ class pde_snapshot:
         if self.state.dtype == np.float64:
             aux.double_precision = True
 
-            aux.recsol = libasgard.asgard_make_dreconstruct_solution_v2(
+            aux.recsol = libasgard.asgard_make_dreconstruct_solution(
                 self.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
@@ -376,7 +344,6 @@ class pde_snapshot:
 
         return presult
 
-
     def __str__(self):
         s = "title: %s\n" % self.title
         if self.subtitle != "":
@@ -390,6 +357,7 @@ class pde_snapshot:
         s += "  state size:     %d\n" % self.state.size
         s += "  time:           %f\n" % self.time
         return s
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] in ("-v", "-version", "--version"):
