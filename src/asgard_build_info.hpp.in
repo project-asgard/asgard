@@ -60,13 +60,13 @@ inline constexpr int max_num_gpus = ASGARD_MAX_NUM_GPUS;
  * Tuning parameters for the MPI algorithms, number of MPI ranks
  * that determines whether to use point-to-point (Send/Recv/Irecv)
  * or collective algorithms (Bcast, Reduce).
- * Those are system dependent, keep low to easier testing, i.e.,
+ * Those are system dependent, keep at 2 or 4 for easier testing, i.e.,
  * must use at least that many ranks to test the algorithms,
- * but modify during production.
+ * but modify during production. Can be set in CMake.
  */
 namespace mpi {
-inline constexpr int bcast_threshold  = 4;
-inline constexpr int reduce_threshold = 4;
+inline constexpr int bcast_threshold  = @ASGARD_MPI_BCAST_THRESHOLD@;
+inline constexpr int reduce_threshold = @ASGARD_MPI_REDUCE_THRESHOLD@;
 }
 #endif
 }
