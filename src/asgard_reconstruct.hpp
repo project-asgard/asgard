@@ -46,6 +46,9 @@ namespace asgard
 class reconstruct_solution
 {
 public:
+  //! \brief Empty snapshot, must be reinitialized before use
+  reconstruct_solution() = default;
+
   /*!
    * \brief Constructor, prepares the data-structures for reconstruction
    *
@@ -97,6 +100,9 @@ public:
    * \brief Returns the centers of the sparse grid cells
    */
   void cell_centers(double x[]) const;
+
+  //! \brief Indicates whether the snapshot has been initialized
+  operator bool () const { return (pterms_ == 0); }
 
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
@@ -167,15 +173,15 @@ protected:
 #endif
 
 private:
-  int pterms_;
-  int64_t block_size_;
+  int pterms_ = 0;
+  int64_t block_size_ = 0;
 
   indexset cells_;
   std::vector<double> coeff_;
 
   std::array<double, max_num_dimensions> inv_slope = {{1}};
   std::array<double, max_num_dimensions> shift = {{0}};
-  double domain_scale;
+  double domain_scale = 0;
 
   // tree for evaluation
   std::vector<int> roots;

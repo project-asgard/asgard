@@ -30,9 +30,9 @@ void mpi_apply_terms_iter_leader(
     resources.bcast(n, x);
 
     if constexpr (use_groups)
-      disc.terms_apply(gid, 1, x, 0, work.data());
+      disc.terms_apply(group_id{gid}, 1, x, 0, work.data());
     else
-      disc.terms_apply_all(1, x, 0, work.data());
+      disc.terms_apply(1, x, 0, work.data());
 
     if (not has_terms) { // mpiwork must be zeroed out explicitly
       if (beta == 0)
@@ -49,16 +49,16 @@ void mpi_apply_terms_iter_leader(
     }
   } else {
     if constexpr (use_groups)
-      disc.terms_apply(gid, alpha, x, beta, y);
+      disc.terms_apply(group_id{gid}, alpha, x, beta, y);
     else
-      disc.terms_apply_all(alpha, x, beta, y);
+      disc.terms_apply(alpha, x, beta, y);
   }
 #else
   tools::time_event performance_("kronmult iter");
   if constexpr (use_groups)
-    disc.terms_apply(gid, alpha, x, beta, y);
+    disc.terms_apply(group_id{gid}, alpha, x, beta, y);
   else
-    disc.terms_apply_all(alpha, x, beta, y);
+    disc.terms_apply(alpha, x, beta, y);
 #endif
 }
 
@@ -98,9 +98,9 @@ void mpi_apply_terms_iter_worker(
       break;
 
     if constexpr (use_groups)
-      disc.terms_apply(gid, 1, work.data(), 0, w);
+      disc.terms_apply(group_id{gid}, 1, work.data(), 0, w);
     else
-      disc.terms_apply_all(1, work.data(), 0, w);
+      disc.terms_apply(1, work.data(), 0, w);
 
     if (not has_terms) // R must be zeroed out explicitly
       std::fill_n(w, n, 0);
@@ -135,7 +135,6 @@ void mpi_terms_iter_stop_workers(discretization_manager<P> const &disc)
   disc.get_terms().resources.bcast(work);
 }
 #endif
-
 
 template<typename P>
 void steady_state<P>::next_step(
@@ -364,32 +363,32 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep
 #ifdef ASGARD_USE_MPI
   resource_set const &resources = disc.get_resources();
   bool const has_terms = disc.get_terms().has_terms();
-  std::vector<P> &work = disc.get_mpiwork();
+  std::vector<P> &w = disc.get_mpiwork();
 
   if (resources.num_ranks() > 1) {
     tools::time_event performance_("mpi kronmult rhs");
 
     if (disc.is_leader()) {
-      work = current;
+      w = current;
 
       resources.bcast(current);
 
       if (substep < 1)
-        disc.terms_apply_all(-substep * dt, current, 1, work);
+        disc.terms_apply(-substep * dt, current, 1, w);
 
       disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, work);
+          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, w);
 
-      resources.reduce_add(work, rhs);
+      resources.reduce_add(w, rhs);
 
     } else {
-      work.resize(disc.state_size());
+      w.resize(disc.state_size());
 
-      resources.bcast(work);
+      resources.bcast(w);
 
       if (has_terms) {
         if (substep < 1)
-          disc.terms_apply_all(-substep * dt, work, 0, rhs);
+          disc.terms_apply(-substep * dt, w, 0, rhs);
 
         disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
             disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
@@ -406,7 +405,7 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep
 
     rhs = current;
     if (substep < 1)
-      disc.terms_apply_all(-substep * dt, current, 1, rhs);
+      disc.terms_apply(-substep * dt, current, 1, rhs);
 
     disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
         disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
@@ -439,17 +438,13 @@ void crank_nicolson<P>::next_step(
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt);
 
   if (solver.opt == solver_method::direct) {
-    // next = current; // copy
-
-    // if (substep < 1)
-    //   mpi_apply_terms<P>(disc, -substep * dt, current, 1, next);
-    // disc.add_ode_rhs_sources(time + substep * dt, dt, next);
 
     next.resize(current.size());
     mpi_rhs(disc, substep, time, dt, current, next);
 
     if (disc.is_leader())
       solver.direct_solve(next);
+
   } else { // iterative solver
     // form the right-hand-side inside work
     work = current;
@@ -533,7 +528,7 @@ void imex_stepper<P>::explicit_ode_rhs(
   if (R.size() != current.size())
     R.resize(current.size());
 
-  disc.ode_rhs(imex_explicit.gid, time, current, R);
+  disc.ode_rhs(group_id{imex_explicit}, time, current, R);
 }
 template<typename P>
 void imex_stepper<P>::implicit_solve(
@@ -547,7 +542,7 @@ void imex_stepper<P>::implicit_solve(
   solver.update_grid(imex_implicit.gid, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt);
 
-  disc.add_ode_rhs_sources_group(imex_implicit.gid, time, dt, current);
+  disc.add_ode_rhs_sources_group(group_id{imex_implicit}, time, dt, current);
 
   if (solver.opt == solver_method::direct) {
     R = current; // copy

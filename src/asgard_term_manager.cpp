@@ -1239,51 +1239,6 @@ void term_manager<P>::apply_all_adi(
   std::copy_n(t1.data(), n, y);
 }
 
-// template<typename P>
-// void term_manager<P>::make_jacobi(
-//     sparse_grid const &grid, connection_patterns const &conns,
-//     std::vector<P> &y) const
-// {
-//   int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
-//   int64_t const num_entries = block_size * grid.num_indexes();
-//
-//   if (y.size() == 0)
-//     y.resize(num_entries);
-//   else {
-//     y.resize(num_entries);
-//     std::fill(y.begin(), y.end(), P{0});
-//   }
-//
-//   kwork.w1.resize(num_entries);
-//
-//   auto it = terms.begin();
-//   while (it < terms.end())
-//   {
-//     if (it->num_chain == 1) {
-//       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
-//       ++it;
-//     } else {
-//       // dealing with a chain
-//       int const num_chain = it->num_chain;
-//
-//       std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
-//
-//       kron_diag<data_mode::increment>(grid, conns, *(it + num_chain - 1),
-//                                       block_size, kwork.w1);
-//
-//       for (int i = num_chain - 2; i >= 0; --i) {
-//         kron_diag<data_mode::multiply>(grid, conns, *(it + i),
-//                                        block_size, kwork.w1);
-//       }
-// ASGARD_OMP_PARFOR_SIMD
-//       for (int64_t i = 0; i < num_entries; i++)
-//         y[i] += kwork.w1[i];
-//
-//       it += it->num_chain;
-//     }
-//   }
-// }
-
 template<typename P>
 void term_manager<P>::make_jacobi(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
@@ -1390,6 +1345,8 @@ void term_manager<P>::assign_compute_resources()
   //    - the extra comes from the function evaluation
   // source term has lower weight, say 0.5
   // interpolatory source has weight 2 * num_dims + 1
+
+  // (TODO) there is an optimization problem here ...
 
   float constexpr source_weight = 0.5f;
   float const iterm_weight   = 3.0f * num_dims + 1.0f;
@@ -1552,11 +1509,22 @@ void term_manager<P>::assign_compute_resources()
       it += it->num_chain;
     }
   }
+  if (not has_terms_) {
+    bool has_sources = false;
+    for (auto const &s : sources)
+      if (resources.owns(s.rec))
+        has_sources = true;
+    if (not has_sources) {
+      std::cerr << " -- warning: the number of MPI ranks exceeds the number of terms and sources,"
+                << " the likely outcome is performance degradation" << std::endl;
+    }
+  }
 
   std::vector<int> ranks;
   if (deps().poisson or deps().num_moments > 0)
     ranks.reserve(terms.size() + 1);
 
+  #ifdef ASGARD_USE_MPI
   if (deps().poisson) {
     for (auto const &t : terms) {
       for (auto const &d : t.deps)
@@ -1592,6 +1560,7 @@ void term_manager<P>::assign_compute_resources()
         resources.set_moments_comm(cm);
     }
   }
+  #endif // ASGARD_USE_MPI
 
   // if (mpi::is_world_rank(0)) {
   //   std::cout << term_groups.size() << "\n";

@@ -1221,6 +1221,20 @@ struct imex_explicit_group {
   //! the group id
   int gid = -1;
 };
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Strong type for a group-id, implicit, explicit, custom, etc.
+ */
+struct group_id {
+  //! make a generic id from an explicit group
+  explicit group_id(imex_explicit_group ie) : gid(ie.gid) {}
+  //! make a generic id from an implicit group
+  explicit group_id(imex_implicit_group ii) : gid(ii.gid) {}
+  //! sets the implicit group
+  explicit group_id(int g = -1) : gid(g) {}
+  //! the group id
+  int gid = -1;
+};
 
 /*!
  * \ingroup asgard_pde_definition

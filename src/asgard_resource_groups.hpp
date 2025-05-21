@@ -218,9 +218,6 @@ private:
   #endif
 };
 
-// Things todo:
-// 2. find a way to disable idle mpi ranks (reduce the comm), maybe print a warning
-
 #ifdef ASGARD_USE_MPI
 /*!
  * \brief Optional call to library initialization

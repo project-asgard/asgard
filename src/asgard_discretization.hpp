@@ -124,21 +124,25 @@ public:
   //! returns the size of the current state
   int64_t state_size() const { return static_cast<int64_t>(state.size()); }
 
-  //! return a snapshot of the current solution
+  //! return a snapshot of the current solution (in MPI context, only rank 0 gets a valid snapshot)
   reconstruct_solution get_snapshot() const
   {
-    reconstruct_solution shot(
-        num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
+    #ifdef ASGARD_USE_MPI
+    if (not is_leader())
+      return reconstruct_solution();
+    #endif
 
-    std::array<double, max_num_dimensions> xmin, xmax;
-    for (int d : iindexof(num_dims())) {
-      xmin[d] = domain_.xleft(d);
-      xmax[d] = domain_.xright(d);
-    }
+    return get_local_snapshot();
+  }
+  //! return a snapshot of the current solution across all mpi ranks
+  reconstruct_solution get_snapshot_mpi() const
+  {
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.bcast(state);
+    #endif
 
-    shot.set_domain_bounds(xmin.data(), xmax.data());
-
-    return shot;
+    return get_local_snapshot();
   }
 
   //! check if the terms have poisson dependence
@@ -147,11 +151,11 @@ public:
   bool has_moments() const { return moms1d.has_value(); }
 
   //! computes the right-hand-side of the ode
-  void ode_rhs(int gid, precision time, std::vector<precision> const &current,
+  void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
                std::vector<precision> &R) const
   {
     bool constexpr use_groups = true;
-    ode_rhs_templ<use_groups>(gid, time, current, R);
+    ode_rhs_templ<use_groups>(gid.gid, time, current, R);
   }
   //! computes the right-hand-side of the ode
   void ode_rhs(precision time, std::vector<precision> const &current,
@@ -160,7 +164,6 @@ public:
     bool constexpr use_groups = false;
     ode_rhs_templ<use_groups>(-1, time, current, R);
   }
-
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
@@ -184,19 +187,19 @@ public:
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
-  void set_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
+  void set_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
     bool constexpr use_groups = true;
-    ode_rhs_sources<data_mode::replace, use_groups>(gid, time, 1, src);
+    ode_rhs_sources<data_mode::replace, use_groups>(gid.gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
-  void add_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
+  void add_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
     bool constexpr use_groups = true;
-    ode_rhs_sources<data_mode::increment, use_groups>(gid, time, 1, src);
+    ode_rhs_sources<data_mode::increment, use_groups>(gid.gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
-  void add_ode_rhs_sources_group(int gid, precision time, precision alpha, std::vector<precision> &src) const {
+  void add_ode_rhs_sources_group(group_id gid, precision time, precision alpha, std::vector<precision> &src) const {
     bool constexpr use_groups = true;
-    ode_rhs_sources<data_mode::scal_inc, use_groups>(gid, time, alpha, src);
+    ode_rhs_sources<data_mode::scal_inc, use_groups>(gid.gid, time, alpha, src);
   }
 
   //! computes the l-2 norm, taking the mass matrix into account
@@ -206,32 +209,32 @@ public:
   }
 
   //! applies all terms
-  void terms_apply_all(precision alpha, std::vector<precision> const &x, precision beta,
-                       std::vector<precision> &y) const
+  void terms_apply(precision alpha, std::vector<precision> const &x, precision beta,
+                   std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
     terms.apply_all(grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
-  void terms_apply_all(precision alpha, precision const x[], precision beta,
-                       precision y[]) const
+  void terms_apply(precision alpha, precision const x[], precision beta,
+                   precision y[]) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
     terms.apply_all(grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group
-  void terms_apply(int gid, precision alpha, std::vector<precision> const &x, precision beta,
+  void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid, grid, conn, alpha, x, beta, y);
+    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
-  void terms_apply(int gid, precision alpha, precision const x[], precision beta,
+  void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid, grid, conn, alpha, x, beta, y);
+    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(precision const x[], precision y[]) const
@@ -475,7 +478,7 @@ public:
   }
   #else
   void sync_mpi_state() const {}
-  std::vector<precision> const &current_state_mpi() { return state; }
+  std::vector<precision> const &current_state_mpi() const { return state; }
   #endif
 
   // performs integration in time
@@ -619,6 +622,21 @@ protected:
     #ifdef ASGARD_USE_MPI
     }
     #endif
+  }
+  reconstruct_solution get_local_snapshot() const
+  {
+    reconstruct_solution shot(
+        num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
+
+    std::array<double, max_num_dimensions> xmin, xmax;
+    for (int d : iindexof(num_dims())) {
+      xmin[d] = domain_.xleft(d);
+      xmax[d] = domain_.xright(d);
+    }
+
+    shot.set_domain_bounds(xmin.data(), xmax.data());
+
+    return shot;
   }
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 

@@ -441,9 +441,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
     for (int64_t i = 0; i < mesh.num_strips(); i++)
       ref[i] = exact.eval(mesh[i], time);
 
-    disc.sync_mpi_state();
-
-    auto shot = disc.get_snapshot();
+    auto shot = disc.get_snapshot_mpi();
 
     shot.reconstruct(mesh[0], mesh.num_strips(), com.data());
 
