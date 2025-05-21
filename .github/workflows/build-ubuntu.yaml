@@ -82,6 +82,7 @@ jobs:
                    -DASGARD_USE_MPI=ON
                    -DASGARD_TEST_MPI_OMP_NUM_THREADS=1
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   -DMPIEXEC_PREFLAGS="--oversubscribe"
                    ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
