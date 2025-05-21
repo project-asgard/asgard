@@ -291,6 +291,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc)
   // this is the L^2 norm-squared of the exact solution
   double const enorm = asgard::fm::powi(space1d, num_dims);
 
+  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
   std::vector<P> const &state = disc.current_state();
   assert(eref.size() == state.size());
 
@@ -330,6 +331,9 @@ int main(int argc, char** argv)
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [elliptic main]
 #endif
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   using P = asgard::default_precision;
 
   // parse the command-line inputs
@@ -366,25 +370,29 @@ R"help(<< additional options for this file >>
   std::optional<int> cli_btype = options.extra_cli_value_group<int>({"-bound", "-bc"});
   int const btype = cli_btype.value_or(0);
 
-  if (not cli_btype) {
-    std::cout << "using default homogeneous boundary\n";
-  } else if (btype == 0) {
-    std::cout << "using homogeneous boundary\n";
-  } else if (btype == 1) {
-    std::cout << "using inhomogeneous boundary\n";
-  } else {
-    std::cerr << "incorrect value for -bound, must use 0 or 1\n";
-    return 1;
+  if (options.is_mpi_rank_zero()) {
+    if (not cli_btype) {
+      std::cout << "using default homogeneous boundary\n";
+    } else if (btype == 0) {
+      std::cout << "using homogeneous boundary\n";
+    } else if (btype == 1) {
+      std::cout << "using inhomogeneous boundary\n";
+    } else {
+      std::cerr << "incorrect value for -bound, must use 0 or 1\n";
+      return 1;
+    }
   }
 
   // setting the dimensions
   std::optional<int> cli_dims = options.extra_cli_value_group<int>({"-dims", "-dm"});
   int const num_dims = cli_dims.value_or(2);
 
-  if (not cli_dims) {
-    std::cout << "setting default 2D problem\n";
-  } else {
-    std::cout << "setting " << num_dims << "D problem\n";
+  if (options.is_mpi_rank_zero()) {
+    if (not cli_dims) {
+      std::cout << "setting default 2D problem\n";
+    } else {
+      std::cout << "setting " << num_dims << "D problem\n";
+    }
   }
 
   auto pde = (btype == 0)
@@ -397,10 +405,9 @@ R"help(<< additional options for this file >>
 
   disc.final_output();
 
-  if (not disc.stop_verbosity()) {
-    P const err = get_error_l2(disc);
+  P const err = get_error_l2(disc);
+  if (not disc.stop_verbosity())
     std::cout << " -- steady state error: " << err << '\n';
-  }
 
   return 0;
 #ifndef __ASGARD_DOXYGEN_SKIP
@@ -437,11 +444,13 @@ void dotest(double tol, int num_dims, std::string const &opts) {
   disc.advance_time();
 
   double const err = get_error_l2(disc);
-  //std::cout << err << '\n';
+  // std::cout << err << '\n';
   tcheckless(1, err, tol);
 }
 
 void self_test() {
+  all_tests testing_("elliptic steady state problem", " div.grad f = sources");
+
   #ifdef ASGARD_ENABLE_DOUBLE
   dotest<double>(5.E-3, 1, "-d 1 -l 3");
   dotest<double>(1.E-3, 1, "-d 1 -l 4");

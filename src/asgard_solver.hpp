@@ -37,6 +37,7 @@ public:
   void update_level(int new_level) {
     if (current_level == new_level)
       return;
+    std::cout << " updating poisson level\n";
     current_level = new_level;
     remake_factors();
   }
@@ -59,6 +60,11 @@ public:
   }
   //! indicates whether the solver has been initialized
   operator bool() const { return (current_level >= 0); }
+
+  //! resize the vector the current efield size
+  void resize_vector(std::vector<P> &eflield) {
+    eflield.resize(fm::ipow2(current_level));
+  }
 
 private:
   //! set the solver for the current level

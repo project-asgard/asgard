@@ -281,6 +281,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // this is the L^2 norm-squared of the exact solution
   double const enorm = xnorm * time_val * time_val;
 
+  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
+
   std::vector<P> const &state = disc.current_state();
   assert(eref.size() == state.size());
 
@@ -326,6 +328,9 @@ int main(int argc, char** argv)
 //! [diffusion_md main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // if double precision is available the P is double
   // otherwise P is float
   using P = asgard::default_precision;
@@ -358,17 +363,21 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  // indicates whether to use 1D or multi-d chains, see make_diffusion_pde
+  bool constexpr chain1d = false;
+
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_diffusion_pde<P, false>(2, options),
+  asgard::discretization_manager<P> disc(make_diffusion_pde<P, chain1d>(2, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method
   // advance_time(disc, n); will integrate for n time-steps
   // skipping n (or using a negative) will integrate until the end
 
+  double const err_init = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
+    std::cout << " -- error in the initial conditions: " << err_init << "\n";
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
@@ -385,8 +394,9 @@ int main(int argc, char** argv)
 
   disc.progress_report();
 
+  double const err_final = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+    std::cout << " -- final error: " << err_final << "\n";
 
   disc.save_final_snapshot(); // only if output filename is provided
 
@@ -447,7 +457,7 @@ void longtest(double tol, int num_dims, std::string const &opts) {
 }
 
 void self_test() {
-  all_tests testing_("diffusion equation:", " f_t + laplacian f = sources");
+  all_tests testing_("diffusion equation:", " f_t - laplacian f = sources");
 
   // the diffusion equation is a relatively simple PDE but the condition number
   // of the matrices grows very fast with the level

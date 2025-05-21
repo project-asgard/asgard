@@ -158,12 +158,14 @@ struct crank_nicolson
     expect(method == time_method::cn or
            method == time_method::back_euler);
   }
+    //! computes the rhs of the implicit solver using single MPI operation
+  void mpi_rhs(discretization_manager<P> const &dist, P time, P substep, P dt,
+               std::vector<P> const &current, std::vector<P> &next) const;
+
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
 
-  //! rebuilds the operator matrix
-  //void rebuild_matrix(discretization_manager<P> const &dist) const;
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver

@@ -172,6 +172,9 @@ int main(int argc, char** argv)
 //! [two_stream main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // if double precision is available the P is double
   // otherwise P is float
   using P = asgard::default_precision;
@@ -252,6 +255,9 @@ void test_energy(std::string const &opt_str) {
   for (int64_t i = 0; i < n; i++)
   {
     disc.advance_time(1);
+
+    if (not disc.is_leader()) // in MPI context, do error checking only on rank 0
+      continue;
 
     int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);

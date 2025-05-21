@@ -250,7 +250,9 @@ void pde_functions() {
   svector_func1d<float> ffxtt = vectorize_t<float>([](float x, double t)->float { return t * std::sin(x); });
 }
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("asgard-pde-tests", " setting up the pde");
 

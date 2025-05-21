@@ -73,6 +73,12 @@ public:
 
     init_compute(); // compute engine, detect GPUs, etc.
 
+    #ifdef ASGARD_USE_MPI
+    // only rank 0 will do regular I/O, others will default to silent mode
+    if (mpi::comm_rank(options_.mpicomm) != 0)
+      verb = verbosity_level::quiet;
+    #endif
+
     if (options_.restarting())
       restart_from_file(pde);
     else
@@ -118,21 +124,25 @@ public:
   //! returns the size of the current state
   int64_t state_size() const { return static_cast<int64_t>(state.size()); }
 
-  //! return a snapshot of the current solution
+  //! return a snapshot of the current solution (in MPI context, only rank 0 gets a valid snapshot)
   reconstruct_solution get_snapshot() const
   {
-    reconstruct_solution shot(
-        num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
+    #ifdef ASGARD_USE_MPI
+    if (not is_leader())
+      return reconstruct_solution();
+    #endif
 
-    std::array<double, max_num_dimensions> xmin, xmax;
-    for (int d : iindexof(num_dims())) {
-      xmin[d] = domain_.xleft(d);
-      xmax[d] = domain_.xright(d);
-    }
+    return get_local_snapshot();
+  }
+  //! return a snapshot of the current solution across all mpi ranks
+  reconstruct_solution get_snapshot_mpi() const
+  {
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.bcast(state);
+    #endif
 
-    shot.set_domain_bounds(xmin.data(), xmax.data());
-
-    return shot;
+    return get_local_snapshot();
   }
 
   //! check if the terms have poisson dependence
@@ -141,58 +151,55 @@ public:
   bool has_moments() const { return moms1d.has_value(); }
 
   //! computes the right-hand-side of the ode
+  void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
+               std::vector<precision> &R) const
+  {
+    bool constexpr use_groups = true;
+    ode_rhs_templ<use_groups>(gid.gid, time, current, R);
+  }
+  //! computes the right-hand-side of the ode
   void ode_rhs(precision time, std::vector<precision> const &current,
                std::vector<precision> &R) const
   {
-    if (poisson) { // if we have a Poisson dependence
-      tools::time_event performance_("ode-rhs poisson");
-      do_poisson_update(current);
-      terms.rebuild_poisson(grid, conn, hier);
-    }
-
-    {
-      tools::time_event performance_("ode-rhs kronmult");
-      terms.apply_all(grid, conn, -1, current, 0, R);
-    }{
-      tools::time_event performance_("ode-rhs sources");
-      terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
-    }
+    bool constexpr use_groups = false;
+    ode_rhs_templ<use_groups>(-1, time, current, R);
   }
+
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(domain_, grid, conn, hier, time, 1, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::replace, use_groups>(-1, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_rep>(domain_, grid, conn, hier, time, alpha, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::scal_rep, use_groups>(-1, time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::increment, use_groups>(-1, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(domain_, grid, conn, hier, time, alpha, src);
+    bool constexpr use_groups = false;
+    ode_rhs_sources<data_mode::scal_inc, use_groups>(-1, time, alpha, src);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
-  void set_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::replace>(gid, domain_, grid, conn, hier, time, 1, src);
+  void set_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
+    bool constexpr use_groups = true;
+    ode_rhs_sources<data_mode::replace, use_groups>(gid.gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
-  void add_ode_rhs_sources_group(int gid, precision time, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, src);
+  void add_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
+    bool constexpr use_groups = true;
+    ode_rhs_sources<data_mode::increment, use_groups>(gid.gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
-  void add_ode_rhs_sources_group(int gid, precision time, precision alpha, std::vector<precision> &src) const {
-    tools::time_event performance_("set ode sources");
-    terms.template apply_sources<data_mode::scal_inc>(gid, domain_, grid, conn, hier, time, alpha, src);
+  void add_ode_rhs_sources_group(group_id gid, precision time, precision alpha, std::vector<precision> &src) const {
+    bool constexpr use_groups = true;
+    ode_rhs_sources<data_mode::scal_inc, use_groups>(gid.gid, time, alpha, src);
   }
 
   //! computes the l-2 norm, taking the mass matrix into account
@@ -202,32 +209,32 @@ public:
   }
 
   //! applies all terms
-  void terms_apply_all(precision alpha, std::vector<precision> const &x, precision beta,
-                       std::vector<precision> &y) const
+  void terms_apply(precision alpha, std::vector<precision> const &x, precision beta,
+                   std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
     terms.apply_all(grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
-  void terms_apply_all(precision alpha, precision const x[], precision beta,
-                       precision y[]) const
+  void terms_apply(precision alpha, precision const x[], precision beta,
+                   precision y[]) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
     terms.apply_all(grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group
-  void terms_apply(int gid, precision alpha, std::vector<precision> const &x, precision beta,
+  void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid, grid, conn, alpha, x, beta, y);
+    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
-  void terms_apply(int gid, precision alpha, precision const x[], precision beta,
+  void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid, grid, conn, alpha, x, beta, y);
+    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(precision const x[], precision y[]) const
@@ -360,51 +367,90 @@ public:
   sparse_grid const &get_grid() const { return grid; }
   //! returns the current grid generation
   int grid_generation() const { return grid.generation(); }
+  //! synchronizes the grid across MPI ranks
+  void grid_sync() {
+    #ifdef ASGARD_USE_MPI
+    grid.mpi_sync(terms.resources, grid_synced_gen_);
+    grid_synced_gen_ = grid.generation();
+    #endif
+  }
   //! returns the term manager
   term_manager<precision> const &get_terms() const { return terms; }
+  //! returns the term manager, non-const ref
+  term_manager<precision> &get_terms_m() const { return terms; }
+  //! returns the compute resources meta structure
+  resource_set const &get_resources() const { return terms.resources; }
 
   //! return the hierarchy_manipulator
   hierarchy_manipulator<precision> const &get_hier() const { return hier; }
   //! return the connection patterns
   connection_patterns const &get_conn() const { return conn; }
 
-  //! recomputes the moments given the state of interest
-  void compute_moments(std::vector<precision> const &f) const {
-    if (not moms1d)
-      return;
-
-    int const level = grid.current_level(0);
-    moms1d->project_moments(grid, f, terms.cdata.moments);
-    int const num_cells = fm::ipow2(level);
-    int const num_outs  = moms1d->num_comp_mom();
-    hier.reconstruct1d(
-        num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
-                                            terms.cdata.moments.data()));
-    // TODO: when we add term-groups, this should be removed in favor of term-group based rebuild
-    terms.rebuild_moment_terms(grid, conn, hier);
-  }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(int groupid, std::vector<precision> const &f) const {
-    if (not moms1d or terms.deps(groupid).num_moments == 0)
+    if ((groupid == -1 and terms.deps().num_moments == 0)
+        or (groupid >= 0 and terms.deps(groupid).num_moments == 0)) // no moments needed
       return;
 
-    int const level = grid.current_level(0);
-    moms1d->project_moments(grid, f, terms.cdata.moments);
-    int const num_cells = fm::ipow2(level);
-    int const num_outs  = moms1d->num_comp_mom();
-    hier.reconstruct1d(
-        num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
-                                            terms.cdata.moments.data()));
+    #ifdef ASGARD_USE_MPI
+    if (not is_leader() and not terms.resources.has_moments())
+      return;
+    #endif
 
-    terms.rebuild_moment_terms(groupid, grid, conn, hier);
+    if (is_leader()) {
+      int const level = grid.current_level(0);
+      moms1d->project_moments(grid, f, terms.cdata.moments);
+      int const num_cells = fm::ipow2(level);
+      int const num_outs  = moms1d->num_comp_mom();
+      hier.reconstruct1d(
+          num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
+                                              terms.cdata.moments.data()));
+    } else {
+      moms1d->resize_moments(grid, terms.cdata.moments);
+    }
+
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.template bcast
+          <precision, resource_comm::moments>(terms.cdata.moments);
+    #endif
+
+    if (groupid == -1)
+      terms.rebuild_moment_terms(grid, conn, hier);
+    else
+      terms.rebuild_moment_terms(groupid, grid, conn, hier);
+  }
+  //! recomputes the moments given the state of interest
+  void compute_moments(std::vector<precision> const &f) const {
+    compute_moments(-1, f);
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(int groupid, std::vector<precision> const &f) const {
-    if (not poisson or not terms.deps(groupid).poisson)
+    if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
       return;
 
-    do_poisson_update(f);
+    #ifdef ASGARD_USE_MPI
+    // leader must always communicate, the rest only if they have a poisson term
+    if (not is_leader() and not terms.resources.has_poisson())
+      return;
+    #endif
+
+    if (is_leader())
+      do_poisson_update(f);
+    else
+      poisson.resize_vector(terms.cdata.electric_field);
+
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.template bcast
+          <precision, resource_comm::poisson>(terms.cdata.electric_field);
+    #endif
+
     terms.rebuild_poisson(grid, conn, hier);
+  }
+  //! recomputes the poisson term for the given group
+  void compute_poisson(std::vector<precision> const &f) const {
+    compute_poisson(-1, f);
   }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
@@ -413,6 +459,27 @@ public:
   }
   //! (debugging) prints the term-matrices
   void print_mats() const;
+
+  //! returns true if this is mpi rank 0
+  bool is_leader() const { return terms.resources.is_leader(); }
+
+  #ifdef ASGARD_USE_MPI
+  //! returns persistent vector for mpi operations
+  std::vector<precision> &get_mpiwork() const { return terms.mpiwork; }
+  //! sync the state across the mpi communicator
+  void sync_mpi_state() const {
+    if (terms.resources.num_ranks() > 1)
+      terms.resources.bcast(state);
+  }
+  //! sync the state across the mpi communicator, then return
+  std::vector<precision> const &current_state_mpi() const {
+    sync_mpi_state();
+    return state;
+  }
+  #else
+  void sync_mpi_state() const {}
+  std::vector<precision> const &current_state_mpi() const { return state; }
+  #endif
 
   // performs integration in time
   friend void advance_in_time<precision>(
@@ -434,7 +501,143 @@ protected:
   void restart_from_file(pde_scheme<precision> &pde);
   //! common operations for the two start methods
   void start_moments();
+  //! computes the right-hand-side of the ode, templated version
+  template<bool use_groups>
+  void ode_rhs_templ(int gid, precision time, std::vector<precision> const &current,
+                     std::vector<precision> &R) const
+  {
+    if constexpr (use_groups) {
+      compute_poisson(gid, current);
+      compute_moments(gid, current);
+    } else {
+      compute_poisson(current);
+      compute_moments(current);
+    }
 
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1) {
+      terms.mpiwork.resize(current.size());
+      // if this rank has terms, then apply_all() will zero out mpiwork/R
+      // else an explicit zero-out is needed
+      if (is_leader()) {
+        terms.resources.bcast(current);
+        {
+          tools::time_event performance_("ode-rhs kronmult");
+          if constexpr (use_groups)
+            terms.apply_group(gid, grid, conn, -1, current, 0, terms.mpiwork);
+          else
+            terms.apply_all(grid, conn, -1, current, 0, terms.mpiwork);
+          if (not terms.has_terms()) // mpiwork must be zeroed out explicitly
+            std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
+        }{
+          tools::time_event performance_("ode-rhs sources");
+          if constexpr (use_groups)
+            terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, terms.mpiwork);
+          else
+            terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, terms.mpiwork);
+        }
+        terms.resources.reduce_add(terms.mpiwork, R);
+      } else {
+        terms.resources.bcast(terms.mpiwork);
+        {
+          tools::time_event performance_("ode-rhs kronmult");
+          if constexpr (use_groups)
+            terms.apply_group(gid, grid, conn, -1, terms.mpiwork, 0, R);
+          else
+            terms.apply_all(grid, conn, -1, terms.mpiwork, 0, R);
+          if (not terms.has_terms()) // R must be zeroed out explicitly
+            std::fill(R.begin(), R.end(), 0);
+        }{
+          tools::time_event performance_("ode-rhs sources");
+          if constexpr (use_groups)
+            terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, R);
+          else
+            terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
+        }
+        terms.resources.reduce_add(R);
+      }
+    } else {
+    #endif
+      {
+        tools::time_event performance_("ode-rhs kronmult");
+        if constexpr (use_groups)
+          terms.apply_group(gid, grid, conn, -1, current, 0, R);
+        else
+          terms.apply_all(grid, conn, -1, current, 0, R);
+        if (not terms.has_terms()) // R wasn't zeroes out above
+            std::fill(R.begin(), R.end(), 0);
+      }{
+        tools::time_event performance_("ode-rhs sources");
+        if constexpr (use_groups)
+          terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, R);
+        else
+          terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
+      }
+    #ifdef ASGARD_USE_MPI
+    }
+    #endif
+  }
+  //! template version of ode right-hand-side sources
+  template<data_mode mode, bool use_groups>
+  void ode_rhs_sources(int gid, precision time, precision alpha, std::vector<precision> &src) const {
+    tools::time_event performance_("ode sources");
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1) {
+      if constexpr (mode == data_mode::replace or mode == data_mode::scal_rep) {
+        terms.mpiwork.resize(src.size());
+        std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
+      } else {
+        terms.mpiwork = src;
+      }
+      if (is_leader()) {
+        if constexpr (use_groups) {
+          terms.template apply_sources<mode>(gid, domain_, grid, conn, hier, time, alpha, terms.mpiwork);
+        } else {
+          terms.template apply_sources<mode>(domain_, grid, conn, hier, time, alpha, terms.mpiwork);
+        }
+        terms.resources.reduce_add(terms.mpiwork, src);
+      } else {
+        data_mode constexpr mm = [=]()-> data_mode {
+            if constexpr (mode == data_mode::increment)
+              return data_mode::replace;
+            else if constexpr (mode == data_mode::scal_inc)
+              return data_mode::scal_rep;
+            else
+              return mode;
+          }();
+        if constexpr (use_groups) {
+          terms.template apply_sources<mm>(gid, domain_, grid, conn, hier, time, alpha, src);
+        } else {
+          terms.template apply_sources<mm>(domain_, grid, conn, hier, time, alpha, src);
+        }
+        terms.resources.reduce_add(src, src);
+      }
+    } else {
+    #endif
+      if constexpr (use_groups) {
+        terms.template apply_sources<mode>(gid, domain_, grid, conn, hier, time, alpha, src);
+      } else {
+        terms.template apply_sources<mode>(domain_, grid, conn, hier, time, alpha, src);
+      }
+    #ifdef ASGARD_USE_MPI
+    }
+    #endif
+  }
+  reconstruct_solution get_local_snapshot() const
+  {
+    reconstruct_solution shot(
+        num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
+
+    std::array<double, max_num_dimensions> xmin, xmax;
+    for (int d : iindexof(num_dims())) {
+      xmin[d] = domain_.xleft(d);
+      xmax[d] = domain_.xright(d);
+    }
+
+    shot.set_domain_bounds(xmin.data(), xmax.data());
+
+    return shot;
+  }
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 private:
@@ -451,6 +654,9 @@ private:
   sparse_grid grid;
   connection_patterns conn;
   hierarchy_manipulator<precision> hier;
+  #ifdef ASGARD_USE_MPI
+  int grid_synced_gen_ = -2;
+  #endif
 
   // moments
   mutable std::optional<moments1d<precision>> moms1d;
@@ -463,6 +669,10 @@ private:
   time_advance_manager<precision> stepper;
 
   // constantly changing
+  #ifdef ASGARD_USE_MPI
+  // MPI processes may affect the state, e.g., sync state across the communicator
+  mutable
+  #endif
   std::vector<precision> state;
 
   //! fields to store and save for plotting

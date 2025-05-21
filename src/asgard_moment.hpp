@@ -43,6 +43,15 @@ public:
   void project_moment(int const mom, sparse_grid const &grid, std::vector<P> const &state,
                       std::vector<P> &moment) const;
 
+  /*!
+   * \brief Given the current grid, just resize the moment vector
+   */
+  void resize_moments(sparse_grid const &grid, std::vector<P> &moments) const {
+    int const mom_outs = 1 + (num_dims_ - 1) * (num_mom_ - 1);
+    int const nout = fm::ipow2(grid.current_level(0));
+    moments.resize(nout * mom_outs * (degree_ + 1));
+  }
+
   //! \brief Returns the number of loaded moments, based on the power of v
   int num_mom() const { return num_mom_; }
 

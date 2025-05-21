@@ -68,6 +68,9 @@ int main(int argc, char **argv)
 //! [inputs_1d main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // process the command-line arguments and all ASGarD options
   asgard::prog_opts options(argc, argv);
 

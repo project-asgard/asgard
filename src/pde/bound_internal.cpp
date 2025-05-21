@@ -190,15 +190,15 @@ double get_error_l2(discretization_manager<P> const &disc)
     double const enorm   = fm::ipow(n1d, disc.num_dims());
 
     auto ex1d = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-    void {
-      for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 0.5 * x[i] * (1 - x[i]);
-    };
+      void {
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = 0.5 * x[i] * (1 - x[i]);
+      };
 
     std::vector<P> const eref = disc.project_function({std::vector<svector_func1d<P>>(num_dims, ex1d),
                                                        ignores_time});
 
-    std::vector<P> const &state = disc.current_state();
+    std::vector<P> const &state = disc.current_state_mpi();
     assert(eref.size() == state.size());
 
     double nself = 0;
@@ -221,7 +221,7 @@ double get_error_l2(discretization_manager<P> const &disc)
   bool const left    = disc.title_contains("(left)");
   double const enorm = (left) ? P{7} / P{3} : P{1} / P{3};
 
-  std::vector<P> const &state = disc.current_state();
+  std::vector<P> const &state = disc.current_state_mpi();
   assert(eref.size() == state.size());
 
   double nself = 0;
@@ -244,6 +244,11 @@ void self_test();
 
 int main(int argc, char** argv)
 {
+  #ifdef ASGARD_USE_MPI
+  // if MPI is not enabled, make sure the PDE works fine without this line
+  libasgard_runtime running_(argc, argv);
+  #endif
+
   using P = asgard::default_precision;
 
   // parse the command-line inputs
@@ -279,13 +284,13 @@ R"help(<< additional options for this file >>
     return 0;
   }
 
-  std::optional<discretization_manager<P>> disc; // delay initialization
+  discretization_manager<P> disc; // delay initialization
 
   int const num_dims = options.extra_cli_value_group<int>({"-dims", "-dm"}).value_or(1);
 
   if (options.has_cli_entry("-quad")) {
 
-    disc.emplace(make_quad_pde<P>(num_dims, options), verbosity_level::low);
+    disc = discretization_manager<P>(make_quad_pde<P>(num_dims, options), verbosity_level::low);
 
   } else {
 
@@ -296,17 +301,18 @@ R"help(<< additional options for this file >>
     auto pde = (left) ? make_side_pde<P, type_left>(num_dims, num_div, options)
                       : make_side_pde<P, type_right>(num_dims, num_div, options);
 
-    disc.emplace(std::move(pde), verbosity_level::low);
+    disc = discretization_manager<P>(std::move(pde), verbosity_level::low);
 
-    disc->set_current_state(std::vector<P>(disc->current_state().size(), P{0}));
+    disc.set_current_state(std::vector<P>(disc.current_state().size(), P{0}));
   }
 
-  disc->advance_time();
+  disc.advance_time();
 
-  disc->final_output();
+  disc.final_output();
 
-  if (not disc->stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(*disc) << "\n";
+  P const err = get_error_l2(disc);
+  if (not disc.stop_verbosity())
+    std::cout << " -- final error: " << err << "\n";
 
   return 0;
 }

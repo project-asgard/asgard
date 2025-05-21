@@ -4,9 +4,9 @@ on:
   push:
   workflow_dispatch:
 jobs:
-  asgard-core:
-# no MPI/CUDA but on CPU with OpenBlas and HDF5
+# test core capabilities, no MPI/CUDA but on CPU with OpenBlas and HDF5
 # some BALS is required, makes little sense to skip HDF5 (can't output anything)
+  asgard-core:
     strategy:
       matrix:
         prec: [float, double]
@@ -36,12 +36,15 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
+# g++-13 using both precisions
   asgard-allprec:
-# g++-11 using both precisions
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+      - name: prep
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt-get update && sudo apt-get upgrade && sudo apt-get install libopenblas-dev
       - name: Makedir
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build
@@ -61,36 +64,38 @@ jobs:
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
         run: cat LastTest.log
-  asgard-mpi:
 # basic MPI build using default settings
-#    runs-on: ubuntu-22.04
-#    steps:
-#      - name: Git checkout
-#        uses: actions/checkout@v4
-#      - name: install
-#        working-directory: ${{runner.workspace}}/asgard
-#        run: sudo apt install -y libopenmpi-dev
-#      - name: Makedir
-#        working-directory: ${{runner.workspace}}/asgard
-#        run: cmake -E make_directory build
-#      - name: Configure
-#        working-directory: ${{runner.workspace}}/asgard/build
-#        run: cmake -DCMAKE_BUILD_TYPE=Release
-#                   -DASGARD_USE_MPI=ON
-#                   -DASGARD_RECOMMENDED_DEFAULTS=ON
-#                   ../
-#      - name: Build
-#        working-directory: ${{runner.workspace}}/asgard/build
-#        run: make -j VERBOSE=1
-#      - name: Test
-#        working-directory: ${{runner.workspace}}/asgard/build
-#        run: make test
-#      - name: Show Log
-#        if: failure()
-#        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
-#        run: cat LastTest.log
-#  asgard-mkl:
+  asgard-mpi:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+      - name: prep
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt update && sudo apt upgrade && sudo apt install -y libopenmpi-dev && sudo apt-get install libopenblas-dev
+      - name: Makedir
+        working-directory: ${{runner.workspace}}/asgard
+        run: cmake -E make_directory build
+      - name: Configure
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_USE_MPI=ON
+                   -DASGARD_TEST_MPI_OMP_NUM_THREADS=1
+                   -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   -DMPIEXEC_PREFLAGS="--oversubscribe"
+                   ../
+      - name: Build
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: make -j VERBOSE=1
+      - name: Test
+        working-directory: ${{runner.workspace}}/asgard/build
+        run: ctest -V --output-on-failure
+      - name: Show Log
+        if: failure()
+        working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
+        run: cat LastTest.log
 # maybe an overkill but there are some differences between MKL and OpenBlas
+  asgard-mkl:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout

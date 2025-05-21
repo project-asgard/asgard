@@ -36,6 +36,10 @@
 #define ASGARD_USE_GPU
 #endif
 
+#if defined(ASGARD_USE_MPI) || defined(ASGARD_USE_GPU)
+#define ASGARD_MANAGED_RESOURCES
+#endif
+
 // fixed variables, maybe adjust later using CMake
 // for now, we can keep project-wide constants here
 namespace asgard
@@ -50,4 +54,19 @@ namespace asgard
 inline constexpr int max_num_dimensions = 6;
 
 inline constexpr int max_num_gpus = ASGARD_MAX_NUM_GPUS;
+
+#ifdef ASGARD_USE_MPI
+/*!
+ * Tuning parameters for the MPI algorithms, number of MPI ranks
+ * that determines whether to use point-to-point (Send/Recv/Irecv)
+ * or collective algorithms (Bcast, Reduce).
+ * Those are system dependent, keep low to easier testing, i.e.,
+ * must use at least that many ranks to test the algorithms,
+ * but modify during production.
+ */
+namespace mpi {
+inline constexpr int bcast_threshold  = 4;
+inline constexpr int reduce_threshold = 4;
+}
+#endif
 }

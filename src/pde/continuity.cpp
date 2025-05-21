@@ -226,6 +226,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // powi works the same as std::pow but the second input is an integer
   double const enorm = asgard::fm::powi(space1d, num_dims) * time_val * time_val;
 
+  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
+
   std::vector<P> const &state = disc.current_state();
   assert(eref.size() == state.size());
 
@@ -271,6 +273,9 @@ int main(int argc, char** argv)
 //! [continuity_md main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // if double precision is available the P is double
   // otherwise P is float
   using P = asgard::default_precision;
@@ -312,10 +317,13 @@ int main(int argc, char** argv)
 
   int const num_dims = opt_dims.value_or(2);
 
-  if (not opt_dims)
-    std::cout << "no -dims provided, setting a default 2D problem\n";
-  else
-    std::cout << "setting a " << num_dims << "D problem\n";
+  if (options.is_mpi_rank_zero())
+  {
+    if (not opt_dims)
+      std::cout << "no -dims provided, setting a default 2D problem\n";
+    else
+      std::cout << "setting a " << num_dims << "D problem\n";
+  }
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
@@ -326,15 +334,17 @@ int main(int argc, char** argv)
   // advance_time(disc, n); will integrate for n time-steps
   // skipping n (or using a negative) will integrate until the end
 
+  P const err_init = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
+    std::cout << " -- error in the initial conditions: " << err_init << "\n";
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
-  disc.progress_report();
-
-  if (not disc.stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+  P const err_final = get_error_l2(disc);
+  if (not disc.stop_verbosity()) {
+    disc.progress_report();
+    std::cout << " -- final error: " << err_final << "\n";
+  }
 
   disc.save_final_snapshot(); // only if output filename is provided
 
@@ -431,7 +441,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
     for (int64_t i = 0; i < mesh.num_strips(); i++)
       ref[i] = exact.eval(mesh[i], time);
 
-    auto shot = disc.get_snapshot();
+    auto shot = disc.get_snapshot_mpi();
 
     shot.reconstruct(mesh[0], mesh.num_strips(), com.data());
 

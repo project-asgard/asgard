@@ -40,8 +40,8 @@ void test_ode1d(double const tol, std::string const &opts)
   sdisc.advance_time();
   idisc.advance_time();
 
-  auto const &sstate = sdisc.current_state();
-  auto const &istate = idisc.current_state();
+  auto const &sstate = sdisc.current_state_mpi();
+  auto const &istate = idisc.current_state_mpi();
 
   double err = 0;
   for (auto i : indexof(sstate)) {
@@ -111,8 +111,8 @@ void test_ic(double const tol, std::string const &opts)
   discretization_manager<P> sdisc(sode, verbosity_level::quiet);
   discretization_manager<P> idisc(iode, verbosity_level::quiet);
 
-  auto const &sstate = sdisc.current_state();
-  auto const &istate = idisc.current_state();
+  auto const &sstate = sdisc.current_state_mpi();
+  auto const &istate = idisc.current_state_mpi();
 
   double err = 0;
   double total = 0;
@@ -208,8 +208,8 @@ void test_sources(double const tol, std::string const &opts)
   sdisc.advance_time();
   idisc.advance_time();
 
-  auto const &sstate = sdisc.current_state();
-  auto const &istate = idisc.current_state();
+  auto const &sstate = sdisc.current_state_mpi();
+  auto const &istate = idisc.current_state_mpi();
 
   double err = 0;
   double total = 0;
@@ -315,7 +315,7 @@ void test_pde(double const tol, std::string const &opts)
 
   disc.advance_time();
 
-  auto const &state = disc.current_state();
+  auto const &state = disc.current_state_mpi();
 
   std::vector<P> eref = disc.project_function(disc.initial_cond_sep());
 
@@ -355,8 +355,10 @@ void test_pde() {
 #endif
 }
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   all_tests global_("interpolation operators");
 
   test_ode1d();

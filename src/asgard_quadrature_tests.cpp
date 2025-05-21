@@ -92,7 +92,9 @@ void test_quad() {
   }
 }
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("quadrature", " Gauss-Legendre operations");
 

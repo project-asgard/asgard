@@ -74,7 +74,9 @@ void gpu_vector_tests() {
 }
 #endif
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("accelerated compute", " CPU and GPU capabilities");
 

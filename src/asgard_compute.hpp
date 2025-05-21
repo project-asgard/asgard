@@ -2,18 +2,6 @@
 
 #include "asgard_tools.hpp"
 
-#ifdef ASGARD_USE_CUDA
-#include <cuda_runtime.h>
-#include <cuda.h>
-#include <cublas_v2.h>
-#include <cusolverDn.h>
-#endif
-
-#ifdef ASGARD_USE_ROCM
-#include <hip/hip_runtime.h>
-#include <rocsolver/rocsolver.h>
-#endif
-
 namespace asgard
 {
 

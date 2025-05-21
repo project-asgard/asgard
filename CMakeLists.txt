@@ -52,6 +52,10 @@ option (ASGARD_USE_CUDA "Optional Nvidia/CUDA support" OFF)
 option (ASGARD_USE_ROCM "Optional AMD/ROCm support" OFF)
 option (ASGARD_USE_MPI "Optional distributed computing support" OFF)
 
+if (ASGARD_USE_MPI)
+  set (ASGARD_TEST_MPI_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in MPI testing (only in testing)")
+endif()
+
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
 option (ASGARD_USE_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 
@@ -77,16 +81,8 @@ option (ASGARD_BUILD_DOCS "(incomplete) Build the documentation." OFF)
 
 option (ASGARD_USE_GITINFO "Optional read git properties and build them into the library" ON)
 
-if (ASGARD_USE_MPI)
-  message(FATAL_ERROR "Distributed MPI capabilities are temporarily disabled during the transition to the new API")
-endif()
-
 if (ASGARD_USE_TIMER)
-  if (ASGARD_USE_MPI)
-    option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" ON)
-  else()
-    option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" OFF)
-  endif()
+  option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" OFF)
 endif()
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
@@ -370,6 +366,10 @@ if (ASGARD_BUILD_HDF5)
   add_dependencies (libasgard hdf5_external)
 endif()
 
+if (ASGARD_USE_MPI)
+  target_link_libraries(libasgard PUBLIC MPI::MPI_CXX)
+endif()
+
 target_compile_features (libasgard PUBLIC cxx_std_17)
 
 #  components
@@ -392,6 +392,7 @@ set(asgard_components
     program_options
     quadrature
     reconstruct
+    resource_groups
     small_mats
     solver
     term_manager
@@ -498,6 +499,29 @@ endif()
 ###############################################################################
 ## Testing asgard
 ###############################################################################
+macro(asgard_add_mpi_test)
+  cmake_parse_arguments(_asgard "" "NAME;COMMAND;RANKS" "" ${ARGN} )
+  add_test(${_asgard_NAME} ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_asgard_RANKS} ${MPIEXEC_PREFLAGS} ${CMAKE_CURRENT_BINARY_DIR}/${_asgard_COMMAND} -test ${MPIEXEC_POSTFLAGS})
+  set_tests_properties(${_asgard_NAME} PROPERTIES PROCESSORS ${_asgard_RANKS} RUN_SERIAL TRUE)
+  unset(_asgard_NAME)
+  unset(_asgard_RANKS)
+  unset(_asgard_COMMAND)
+
+  set(ASGARD_TEST_MPI_OMP_THREADS 2)
+  if (ASGARD_TEST_OMP_NUM_THREADS)
+    math(EXPR _asg_mult " ${ASGARD_TEST_MPI_OMP_THREADS} * 5")
+    if (_asg_mult GREATER ASGARD_TEST_OMP_NUM_THREADS)
+      set(ASGARD_TEST_MPI_OMP_THREADS 1)
+    endif()
+  endif()
+
+  if (ASGARD_USE_OPENMP)
+    # mpi + openmp can yield too many heavy threads and cause a huge bottleneck in testing
+    set_tests_properties (${_asgard_NAME} PROPERTIES
+                          ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_MPI_OMP_THREADS})
+  endif()
+endmacro()
+
 if (ASGARD_BUILD_TESTS)
   enable_testing ()
 
@@ -511,20 +535,10 @@ if (ASGARD_BUILD_TESTS)
     target_precompile_headers (sandbox REUSE_FROM libasgard)
   endif ()
 
-  foreach( _asg_pde ${_asgard_pdes})
-      add_test (NAME asgard-pde-${_asg_pde}-test
-                COMMAND ${_asg_pde} -test
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-
-      if (ASGARD_TEST_OMP_NUM_THREADS)
-          set_tests_properties (asgard-pde-${_asg_pde}-test PROPERTIES
-                                PROCESSORS ${ASGARD_TEST_OMP_NUM_THREADS}
-                                ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_OMP_NUM_THREADS})
-      endif()
-  endforeach()
-
+  # first, add the unit and integration tests from the components
   foreach (component IN LISTS asgard_components)
-      # some components don't have unit-tests, only end-to-end and integration handled through PDEs and other components
+      # some components don't have unit-tests, only end-to-end and integration
+      # those are handled through PDEs and other components, can be skipped here
       if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}_tests.cpp)
           continue()
       endif()
@@ -559,9 +573,53 @@ if (ASGARD_BUILD_TESTS)
 
   endforeach()
 
+  # the python test is on the border, uses full pde definitions
+  # but focuses on the reconstruction capabilities rather than the pde
   if (ASGARD_USE_PYTHON)
-    add_test(NAME asgard-pyrecons-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
+    add_test(NAME asgard-pyreconstruct-test COMMAND Python::Interpreter "${CMAKE_CURRENT_BINARY_DIR}/pyasgard_test.py")
   endif()
+
+  # if MPI is enabled, do not test all possible combinations of pdes and mpi ranks
+  # some tests are naturally slower than others and since the MPI code is little
+  # full MPI coverage can be achieved with a limited number of tests
+  if (ASGARD_USE_MPI)
+    # at least some of the test must use ranks equal or more than mpi::bcast_threshold and mpi::reduce_threshold
+    # that will switch between the two algorithms, currently using 4 and 4
+    set(asgard_pde_ranks_continuity 2 3 4)
+    set(asgard_pde_ranks_diffusion 2)
+    set(asgard_pde_ranks_spherical_diffusion 2)
+    set(asgard_pde_ranks_elliptic 2 3 4)
+    set(asgard_pde_ranks_sinwav 2 4)
+    set(asgard_pde_ranks_bound_internal 2 3 4)
+    set(asgard_pde_ranks_relaxation_internal 2)
+    set(asgard_pde_ranks_two_stream 2 3 4)
+  endif()
+
+  # add the pdes and set the MPI tests
+  foreach( _asg_pde ${_asgard_pdes})
+      add_test (NAME asgard-pde-${_asg_pde}-test
+                COMMAND ${_asg_pde} -test
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+      if (ASGARD_TEST_OMP_NUM_THREADS)
+          set_tests_properties (asgard-pde-${_asg_pde}-test PROPERTIES
+                                PROCESSORS ${ASGARD_TEST_OMP_NUM_THREADS}
+                                ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_OMP_NUM_THREADS})
+      endif()
+
+      # MPI ranks are defined only if using MPI
+      if (asgard_pde_ranks_${_asg_pde})
+        foreach (_asgnumranks ${asgard_pde_ranks_${_asg_pde}})
+          asgard_add_mpi_test(NAME asgard-pde-${_asg_pde}-mpin${_asgnumranks}  COMMAND ${_asg_pde} RANKS ${_asgnumranks})
+          if (ASGARD_TEST_MPI_OMP_NUM_THREADS)
+            set_tests_properties (asgard-pde-${_asg_pde}-mpin${_asgnumranks} PROPERTIES
+                                  PROCESSORS ${ASGARD_TEST_MPI_OMP_NUM_THREADS}
+                                  ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_MPI_OMP_NUM_THREADS})
+          endif()
+        endforeach()
+      endif()
+
+  endforeach()
 
 # assuming testing makes us into a stand-alone project, so be more verbose
 # helps keep track of flags and options and whether things we enabled correctly

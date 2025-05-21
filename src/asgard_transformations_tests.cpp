@@ -55,8 +55,10 @@ void all_templated_tests()
   test_transform<P>();
 }
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   all_tests global_("transformation-tests", " hierarchical<->cell-by-cell basis");
 
   #ifdef ASGARD_ENABLE_DOUBLE

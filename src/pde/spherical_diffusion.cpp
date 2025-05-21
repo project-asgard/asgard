@@ -283,6 +283,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   double constexpr space = 0.245458116975280;
   double const enorm = space * std::exp(-disc.time());
 
+  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
+
   // this is the currently computed solution
   std::vector<P> const &state = disc.current_state();
 
@@ -325,6 +327,9 @@ int main(int argc, char** argv)
 //! [asgard_spherical_diffusion main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // if double precision is available the P is double
   // otherwise P is float
   using P = asgard::default_precision;
@@ -361,15 +366,17 @@ int main(int argc, char** argv)
   asgard::discretization_manager<P> disc(make_spherical(options),
                                          asgard::verbosity_level::high);
 
+  P const err_init = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- error in the initial conditions: " << get_error_l2(disc) << "\n";
+    std::cout << " -- error in the initial conditions: " << err_init << "\n";
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
   disc.progress_report();
 
+  P const err_final = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+    std::cout << " -- final error: " << err_final << "\n";
 
   disc.save_final_snapshot(); // only if output filename is provided
 

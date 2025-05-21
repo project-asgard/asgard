@@ -616,6 +616,15 @@ struct prog_opts
   //! allows overriding the verbosity level
   std::optional<verbosity_level> verbosity;
 
+  #ifdef ASGARD_USE_MPI
+  //! MPI communicator to be used, it defaults to MPI_COMM_WORLD
+  MPI_Comm mpicomm = MPI_COMM_WORLD;
+  //! returns true if this rank is rank 0 on the current mpicomm
+  bool is_mpi_rank_zero() const { return (mpi::comm_rank(mpicomm) == 0); }
+  #else
+  bool constexpr is_mpi_rank_zero() const { return true; } // always "zero rank"
+  #endif
+
   //! (internal use) if we encounter a "no-adapt" option, must skip adaptivity during restart
   bool set_no_adapt = false;
 

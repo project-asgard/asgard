@@ -277,7 +277,9 @@ void sparse_grid_test()
   }
 }
 
-int main(int, char**) {
+int main(int argc, char **argv) {
+
+  libasgard_runtime running_(argc, argv);
 
   all_tests global_("asgard-indexset", " multi-index manipulation logic");
 

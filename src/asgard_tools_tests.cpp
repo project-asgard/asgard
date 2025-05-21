@@ -79,8 +79,10 @@ void test_timer()
 #endif
 }
 
-int main(int, char**)
+int main(int argc, char **argv)
 {
+  libasgard_runtime running_(argc, argv);
+
   all_tests global_("misc tools");
 
   test_indexof();

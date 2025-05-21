@@ -72,6 +72,8 @@ struct term_entry {
   term_entry() = default;
   //! initialize the entry with the given term
   term_entry(term_md<P> tin);
+  //! resource (mpi-rank/gpu) that will own this term
+  resource rec;
   //! the term, moved from the pde definition
   term_md<P> tmd;
   //! coefficient matrices for the term
@@ -91,7 +93,7 @@ struct term_entry {
   //! left/right boundary conditions source index, if positive
   int bc_source_id = -1;
   //! returns true if the term is separable
-  bool is_separable() {
+  bool is_separable() const {
     return perm; // check if kronmult permutations have been set
   }
 
@@ -124,6 +126,8 @@ struct source_entry
 
   //! when should we recompute the sources and when can we reuse existing data
   time_mode tmode = time_mode::constant;
+  //! resource (GPU/MPI-rank) assigned to this source
+  resource rec;
 
   bool is_constant() const { return tmode == time_mode::constant; }
   bool is_separable() const { return tmode == time_mode::separable; }
@@ -204,8 +208,8 @@ struct term_manager
    * a separate manager class, but that would be used only in the initial
    * conditions and then repeatedly passed into every single call here.
    */
-  term_manager(pde_domain<P> const &domain, pde_scheme<P> &pde,
-               int max_level, sparse_grid const &grid,
+  term_manager(prog_opts const &opts, pde_domain<P> const &domain,
+               pde_scheme<P> &pde, sparse_grid const &grid,
                hierarchy_manipulator<P> const &hier,
                connection_patterns const &conn);
 
@@ -258,8 +262,16 @@ struct term_manager
   //! source groups, same as the PDE
   std::vector<irange> source_groups;
 
-  //! deps for each term group, last entry is for all terms
+  //! dependencies for each term group, last entry is for all terms
   std::vector<mom_deps> deps_;
+
+  //! resource set to use for the computations
+  resource_set resources;
+
+  #ifdef ASGARD_USE_MPI
+  //! workspace for MPI
+  mutable std::vector<P> mpiwork;
+  #endif
 
   //! get the moment dependencies for all terms
   mom_deps const &deps() const { return deps_.back(); }
@@ -281,8 +293,13 @@ struct term_manager
                       precon_method precon = precon_method::none,
                       P alpha = 0) {
     tools::time_event timing_("initial coefficients");
-    for (int t : iindexof(terms))
+    for (int t : iindexof(terms)) {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[t].rec))
+        continue;
+      #endif
       buld_term(t, grid, conn, hier, precon, alpha);
+    }
   }
   //! build the large matrices to the max level
   void build_mass_matrices(hierarchy_manipulator<P> const &hier,
@@ -325,7 +342,7 @@ struct term_manager
     tools::time_event timing_("rebuild - poisson");
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
-        if (te.deps[d].poisson)
+        if (te.deps[d].poisson and resources.owns(te.rec))
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
@@ -336,7 +353,7 @@ struct term_manager
     tools::time_event timing_("rebuild - moments (all)");
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0)
+        if (te.deps[d].num_moments > 0 and resources.owns(te.rec))
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
@@ -379,6 +396,9 @@ struct term_manager
     workspace_grid_gen = grid.generation();
   }
 
+  //! returns whether the manager has any terms
+  bool has_terms() const { return has_terms_; }
+
   //! apply the mass matrix
   void mass_apply(sparse_grid const &grid, connection_patterns const &conns,
                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
@@ -387,28 +407,36 @@ struct term_manager
            std::vector<P> const &x) const;
   //! y = sum(terms * x), applies all terms
   void apply_all(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+                 P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+    apply_tmpl<std::vector<P> const &, std::vector<P> &>(-1, grid, conn, alpha, x, beta, y);
+  }
   //! y = sum(terms * x), applies all terms
-  void apply_all(sparse_grid const &grid, connection_patterns const &conns,
-                 P alpha, P const x[], P beta, P y[]) const;
-
+  void apply_all(sparse_grid const &grid, connection_patterns const &conn,
+                 P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl<P const[], P[]>(-1, grid, conn, alpha, x, beta, y);
+  }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conns,
-                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
+                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+    apply_tmpl<std::vector<P> const &, std::vector<P> &>(gid, grid, conn, alpha, x, beta, y);
+  }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conns,
-                   P alpha, P const x[], P beta, P y[]) const;
-
+  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
+                   P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl<P const[], P[]>(gid, grid, conn, alpha, x, beta, y);
+  }
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
   void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
                      P const x[], P y[]) const;
 
   //! construct term diagonal
-  void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
-                   std::vector<P> &y) const;
-  //! construct term diagonal
   void make_jacobi(int groupid, sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const;
+  //! construct term diagonal
+  void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
+                   std::vector<P> &y) const {
+    make_jacobi(-1, grid, conns, y);
+  }
 
   //! y = alpha * tme * x + beta * y, assumes workspace has been set
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
@@ -506,12 +534,21 @@ protected:
   //! helper method, build a mass matrix with no dependencies
   void build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                       block_diag_matrix<P> &raw_diag);
+  //! single point implementation for all variations of apply
+  template<typename vector_type_x, typename vector_type_y>
+  void apply_tmpl(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, vector_type_x x, P beta, vector_type_y y) const;
+
   //! helper method, converts the data on quad
   template<data_mode mode>
   void raw2cells(bool is_diag, int level, std::vector<P> &out);
+  //! assign compute resources to the terms
+  void assign_compute_resources();
 
 private:
   // workspace and workspace matrices
+  bool has_terms_ = false;
   rhs_raw_data<P> raw_rhs;
 
   block_diag_matrix<P> raw_mass;

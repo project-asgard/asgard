@@ -135,11 +135,11 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   // first we must initialize the terms, which will also initialize the kron
   // operations and the interpolation engine
-  terms = term_manager<precision>(domain_, pde, options_.max_level(), grid, hier, conn);
-
-  start_moments();
+  terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
 
   set_initial_condition();
+
+  start_moments(); // grid may have changes above, wait to start the moments
 
   if (not stop_verbosity()) {
     int64_t const dof = grid.num_indexes() * hier.block_size();
@@ -179,7 +179,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
   stepper = time_advance_manager<precision>(dtime, options_);
 
-  terms = term_manager<precision>(domain_, pde, options_.max_level(), grid, hier, conn);
+  terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
 
   start_moments();
 
@@ -220,14 +220,16 @@ void discretization_manager<precision>::start_moments() {
   if (terms.deps().poisson or terms.deps().num_moments > 0) {
     // the poisson solver needs 1 moment
     int const num      = std::max(terms.deps().num_moments, 1);
-    int const mom_size = fm::ipow2(grid.current_level(0)) * (degree() + 1);
+    int const pos_size = fm::ipow2(grid.current_level(0));
+    int const mom_size = pos_size * (degree() + 1);
     moms1d = moments1d(num, degree(), options_.max_level(), domain_);
     if (terms.deps().poisson) {
       poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
                                  grid.current_level(0));
 
       // skip the first solve, putting in dummy data for the term construction
-      terms.cdata.electric_field.resize(mom_size);
+      // the electric_field is pw-constant, does not have degrees + 1 entries
+      terms.cdata.electric_field.resize(pos_size);
     }
     terms.cdata.moments.resize(num * mom_size);
   }
@@ -236,6 +238,10 @@ void discretization_manager<precision>::start_moments() {
 template<typename precision>
 void discretization_manager<precision>::save_snapshot(std::filesystem::path const &filename) const {
 #ifdef ASGARD_USE_HIGHFIVE
+  #ifdef ASGARD_USE_MPI
+  if (not is_leader())
+    return;
+  #endif
   h5manager<precision>::write(options_, domain_, degree(), grid, stepper.data,
                               state, aux_fields, filename);
 #else
@@ -249,6 +255,15 @@ void discretization_manager<precision>::set_initial_condition()
 {
   precision const atol = options_.adapt_threshold.value_or(0);
   precision const rtol = options_.adapt_ralative.value_or(0);
+
+  #ifdef ASGARD_USE_MPI
+  if (not is_leader()) {
+    this->grid_sync();
+    state.resize(grid.num_indexes() * hier.block_size());
+    terms.prapare_workspace(grid);
+    return;
+  }
+  #endif
 
   bool keep_refining = true;
 
@@ -277,7 +292,7 @@ void discretization_manager<precision>::set_initial_condition()
 
     if (atol > 0 or rtol > 0) {
       // on the first iteration, do both refine and coarsen with a full-adapt
-      // on followon iteration, only add more nodes for stability and to avoid stagnation
+      // on follow-on iteration, only add more nodes for stability and to avoid stagnation
       sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
                                                      : sparse_grid::strategy::refine;
       int const gid = grid.generation();
@@ -295,6 +310,8 @@ void discretization_manager<precision>::set_initial_condition()
 
     iterations++;
   }
+
+  this->grid_sync();
 }
 
 template<typename precision> void
@@ -322,9 +339,6 @@ discretization_manager<precision>::project_function(
 
 template<typename precision> void
 discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
-  if (not poisson)
-    return; // nothing to update, no term has Poisson dependence
-
   expect(field.size() == static_cast<size_t>(grid.num_indexes() * fm::ipow(degree() + 1, grid.num_dims())));
 
   std::vector<precision> moment0;

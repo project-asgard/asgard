@@ -250,6 +250,9 @@ int main(int argc, char** argv)
 //! [asgard_examples_sodshock main]
 #endif
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
+
   // if double precision is available the P is double
   // otherwise P is float
   using P = asgard::default_precision;

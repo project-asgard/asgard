@@ -70,11 +70,14 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
 }
 
 template<typename P>
-term_manager<P>::term_manager(pde_domain<P> const &domain, pde_scheme<P> &pde,
-                              int max_level_in, sparse_grid const &grid,
+term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &domain,
+                              pde_scheme<P> &pde, sparse_grid const &grid,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
-  : num_dims(domain.num_dims()), max_level(max_level_in), legendre(hier.degree())
+  : num_dims(domain.num_dims()), max_level(options.max_level()), legendre(hier.degree())
+#ifdef ASGARD_USE_MPI
+    , resources(options.mpicomm)
+#endif
 {
   if (num_dims == 0)
     return;
@@ -266,6 +269,9 @@ term_manager<P>::term_manager(pde_domain<P> const &domain, pde_scheme<P> &pde,
   }
 
   prapare_workspace(grid); // setup kronmult workspace
+
+  has_terms_ = not terms.empty();
+  assign_compute_resources();
 }
 
 template<typename P>
@@ -286,6 +292,11 @@ void term_manager<P>::update_const_sources(
   // update the constant components
   for (int is : irng) {
     auto &src = sources[is];
+
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(src.rec))
+      continue;
+    #endif
 
     if (src.is_time_dependent())
       continue;
@@ -344,6 +355,12 @@ void term_manager<P>::apply_sources(
 
   for (int is : irng) {
     auto const &src = sources[is];
+
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(src.rec))
+      continue;
+    #endif
+
     switch (src.tmode) {
       case source_entry<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -379,6 +396,9 @@ void term_manager<P>::apply_sources(
   }
 
   if (groupid == -1) {
+    #ifdef ASGARD_USE_MPI
+    if (resources.is_leader())
+    #endif
     for (auto const &s : sources_md)
       if (s) {
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -387,7 +407,11 @@ void term_manager<P>::apply_sources(
           interp(grid, conns, time, alpha, s, 1, y, kwork, it1);
       }
   } else {
+    #ifdef ASGARD_USE_MPI
+    if (sources_md[groupid] and resources.is_leader()) {
+    #else
     if (sources_md[groupid]) {
+    #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1);
       else
@@ -419,6 +443,11 @@ void term_manager<P>::update_bc(
   for (auto &bc : bcs) {
     if (bc.is_time_dependent())
       continue;
+
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(terms[bc.term_index].rec))
+      continue;
+    #endif
 
     if (groupid >= 0 and irnage.contains(bc.term_index))
       continue;
@@ -481,6 +510,12 @@ void term_manager<P>::apply_bc(
 
   if (groupid == -1) {
     for (auto const &bc : bcs) {
+
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[bc.term_index].rec))
+        continue;
+      #endif
+
       switch (bc.tmode) {
         case boundary_entry<P>::time_mode::constant:
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -518,7 +553,13 @@ void term_manager<P>::apply_bc(
       }
     }
   } else {
-    for (int it : indexrange(term_groups[groupid])) {
+    for (int it : indexrange(term_groups[groupid]))
+    {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[it].rec))
+        continue;
+      #endif
+
       for (int ib : terms[it].bc) {
         auto const &bc = bcs[ib];
         switch (bc.tmode) {
@@ -1095,85 +1136,34 @@ P term_manager<P>::normL2(
 }
 
 template<typename P>
-void term_manager<P>::apply_all(
-    sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const
-{
-  expect(x.size() == y.size());
-  expect(x.size() == kwork.w1.size());
-
-  P b = beta; // on first iteration, overwrite y
-
-  auto it = terms.begin();
-  while (it < terms.end())
-  {
-    if (it->num_chain == 1) {
-      kron_term(grid, conns, *it, alpha, x, b, y);
-      ++it;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
-
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
-      for (int i = num_chain - 2; i > 0; --i) {
-        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
-        std::swap(t1, t2);
-      }
-      kron_term(grid, conns, *it, alpha, t1, b, y);
-
-      it += num_chain;
-    }
-
-    b = 1; // next iteration appends on y
-  }
-}
-template<typename P>
-void term_manager<P>::apply_all(
-    sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, P const x[], P beta, P y[]) const
-{
-  P b = beta; // on first iteration, overwrite y
-
-  auto it = terms.begin();
-  while (it < terms.end())
-  {
-    if (it->num_chain == 1) {
-      kron_term(grid, conns, *it, alpha, x, b, y);
-      ++it;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
-
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
-      for (int i = num_chain - 2; i > 0; --i) {
-        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
-        std::swap(t1, t2);
-      }
-      kron_term(grid, conns, *it, alpha, t1.data(), b, y);
-
-      it += num_chain;
-    }
-
-    b = 1; // next iteration appends on y
-  }
-}
-
-template<typename P>
-void term_manager<P>::apply_group(
+template<typename vector_type_x, typename vector_type_y>
+void term_manager<P>::apply_tmpl(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const
+    P alpha, vector_type_x x, P beta, vector_type_y y) const
 {
-  expect(x.size() == y.size());
-  expect(x.size() == kwork.w1.size());
+  bool constexpr using_vectors = std::is_same_v<vector_type_x, std::vector<P> const &>;
 
-  expect(gid < static_cast<int>(term_groups.size()));
+  if constexpr (using_vectors)
+  {
+    expect(x.size() == y.size());
+    expect(x.size() == kwork.w1.size());
+  }
+  expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
   P b = beta; // on first iteration, overwrite y
 
-  int icurrent = term_groups[gid].begin();
-  while (icurrent < term_groups[gid].end())
+  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
+  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+  while (icurrent < iend)
   {
     auto it = terms.begin() + icurrent;
+
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(it->rec)) {
+      icurrent += it->num_chain;
+      continue;
+    }
+    #endif
 
     if (it->num_chain == 1) {
       kron_term(grid, conns, *it, alpha, x, b, y);
@@ -1182,51 +1172,44 @@ void term_manager<P>::apply_group(
       // dealing with a chain
       int const num_chain = it->num_chain;
 
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+      if constexpr (using_vectors)
+        kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+      else
+        kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
       for (int i = num_chain - 2; i > 0; --i) {
         kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
         std::swap(t1, t2);
       }
-      kron_term(grid, conns, *it, alpha, t1, b, y);
+      if constexpr (using_vectors)
+        kron_term(grid, conns, *it, alpha, t1, b, y);
+      else
+        kron_term(grid, conns, *it, alpha, t1.data(), b, y);
 
       icurrent += num_chain;
     }
 
     b = 1; // next iteration appends on y
   }
-}
-template<typename P>
-void term_manager<P>::apply_group(
-    int gid, sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, P const x[], P beta, P y[]) const
-{
-  expect(gid < static_cast<int>(term_groups.size()));
 
-  P b = beta; // on first iteration, overwrite y
-
-  int icurrent = term_groups[gid].begin();
-  while (icurrent < term_groups[gid].end())
-  {
-    auto it = terms.begin() + icurrent;
-
-    if (it->num_chain == 1) {
-      kron_term(grid, conns, *it, alpha, x, b, y);
-      ++icurrent;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
-
-      kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
-      for (int i = num_chain - 2; i > 0; --i) {
-        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
-        std::swap(t1, t2);
+  if (not has_terms_) {
+    if constexpr (using_vectors) {
+      if (beta == 0) {
+        std::fill(y.begin(), y.end(), 0);
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < y.size(); i++)
+          y[i] *= beta;
       }
-      kron_term(grid, conns, *it, alpha, t1.data(), b, y);
-
-      icurrent += num_chain;
+    } else {
+      int64_t const num = grid.num_indexes() * fm::ipow(legendre.pdof, num_dims);
+      if (beta == 0) {
+        std::fill_n(y, num, 0);
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t i = 0; i < num; i++)
+          y[i] *= beta;
+      }
     }
-
-    b = 1; // next iteration appends on y
   }
 }
 
@@ -1258,7 +1241,7 @@ void term_manager<P>::apply_all_adi(
 
 template<typename P>
 void term_manager<P>::make_jacobi(
-    sparse_grid const &grid, connection_patterns const &conns,
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
     std::vector<P> &y) const
 {
   int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
@@ -1273,59 +1256,22 @@ void term_manager<P>::make_jacobi(
 
   kwork.w1.resize(num_entries);
 
-  auto it = terms.begin();
-  while (it < terms.end())
+  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
+  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+  while (icurrent < iend)
   {
-    if (it->num_chain == 1) {
-      kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
-      ++it;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
+    auto it = terms.begin() + icurrent;
 
-      std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
-
-      kron_diag<data_mode::increment>(grid, conns, *(it + num_chain - 1),
-                                      block_size, kwork.w1);
-
-      for (int i = num_chain - 2; i >= 0; --i) {
-        kron_diag<data_mode::multiply>(grid, conns, *(it + i),
-                                       block_size, kwork.w1);
-      }
-ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_entries; i++)
-        y[i] += kwork.w1[i];
-
-      it += it->num_chain;
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(it->rec)) {
+      icurrent += it->num_chain;
+      continue;
     }
-  }
-}
-
-template<typename P>
-void term_manager<P>::make_jacobi(
-    int groupid, sparse_grid const &grid, connection_patterns const &conns,
-    std::vector<P> &y) const
-{
-  int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
-  int64_t const num_entries = block_size * grid.num_indexes();
-
-  if (y.size() == 0)
-    y.resize(num_entries);
-  else {
-    y.resize(num_entries);
-    std::fill(y.begin(), y.end(), P{0});
-  }
-
-  kwork.w1.resize(num_entries);
-
-  int c = term_groups[groupid].begin();
-  while (c < term_groups[groupid].end())
-  {
-    auto it = terms.begin() + c;
+    #endif
 
     if (it->num_chain == 1) {
       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
-      ++c;
+      icurrent++;
     } else {
       // dealing with a chain
       int const num_chain = it->num_chain;
@@ -1343,7 +1289,7 @@ ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++)
         y[i] += kwork.w1[i];
 
-      c += num_chain;
+      icurrent += num_chain;
     }
   }
 }
@@ -1388,6 +1334,246 @@ void term_manager<P>::kron_diag(
   }
 }
 
+template<typename P>
+void term_manager<P>::assign_compute_resources()
+{
+// if there's no MPI or GPU, then there's nothing to do
+#ifdef ASGARD_MANAGED_RESOURCES
+  // measuring work in units of 1D kron operations
+  // a 3d term with 1 identity has weight 2, 2 identities is weight 1
+  // interpolation term has weight 3 * num_dims + 1
+  //    - the extra comes from the function evaluation
+  // source term has lower weight, say 0.5
+  // interpolatory source has weight 2 * num_dims + 1
+
+  // (TODO) there is an optimization problem here ...
+
+  float constexpr source_weight = 0.5f;
+  float const iterm_weight   = 3.0f * num_dims + 1.0f;
+  float const isource_weight = 2.0f * num_dims + 1.0f;
+
+  struct work_amount {
+    explicit work_amount(float v) : value(v) {}
+    float value = 0;
+  };
+
+  struct balance_manager {
+    std::vector<float> workload;
+    void add(int id, work_amount work) {
+      workload[id] += work.value;
+    }
+    int lowest() { // get the id with lowest load
+      int im = 0, l = workload[0];
+      for (size_t i = 1; i < workload.size(); i++) {
+        if (workload[i] < l) {
+          im = static_cast<int>(i);
+          l = workload[i];
+        }
+      }
+      return im;
+    }
+  };
+
+  std::vector<int> ids;
+  ids.reserve(std::max(terms.size(), sources.size()));
+  std::vector<float> weights;
+  weights.reserve(ids.capacity());
+
+  auto get_weight = [&](term_entry<P> const &t)
+    -> float {
+      // count the number of 1D Kronecker operations
+      return (t.is_separable()) ? t.perm.num_dimensions() : iterm_weight;
+    };
+
+  auto get_heaviest = [&]()
+    -> int {
+      // get the id of the heaviest unassigned term
+      auto iw = std::max_element(weights.begin(), weights.end());
+      if (*iw < 0) // all assigned
+        return -1;
+      else
+        return static_cast<int>(std::distance(weights.begin(), iw));
+    };
+
+  enum class balance_mode {
+    mpi_ranks, gpus
+  };
+
+  auto load_balance = [&](int gid, int num_workers, balance_mode mode)
+    -> void {
+      // case of 0 GPUs, all goes to the CPU
+      // MPI always has at least 1 rank
+      // consider cases: num_workers == 1 or num_workers > 1
+      if (num_workers == 1) {
+        // if using only one GPU, then assign all terms to that device
+        // the mpi-ranks default to 0 anyway
+        if (mode == balance_mode::gpus) {
+          for (auto &t : terms)
+            t.rec.device = 0;
+        }
+      } else if (num_workers > 1) {
+        balance_manager balance;
+        balance.workload.resize(num_workers);
+
+        // device 0 handles the interpolation sources
+        if (gid < 0 and sources_md[0])
+          balance.add(0, work_amount{isource_weight});
+        if (gid >= 0 and sources_md[gid])
+          balance.add(0, work_amount{isource_weight});
+
+        ids.resize(0);
+        weights.resize(0);
+
+        int id   = (gid < 0) ? 0 : term_groups[gid].begin();
+        int iend = (gid < 0) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+        while(id < iend)
+        {
+          // skip terms assigned to other mpi ranks
+          if (mode == balance_mode::gpus and not resources.owns(terms[id].rec)) {
+            id += terms[id].num_chain;
+            continue;
+          }
+
+          ids.push_back(id);
+
+          int w = 0;
+          for (int j = id; j < id + terms[id].num_chain; j++)
+            w += get_weight(terms[j]);
+          weights.push_back(w);
+
+          id += terms[id].num_chain;
+        }
+
+        id = (weights.empty()) ? -1 : get_heaviest();
+        while (id >= 0) {
+          // get the heaviest term, add it to the lowest weigh group
+          // then mark the term as "done" (remove the weight), move to next
+          int const low = balance.lowest();
+          if (mode == balance_mode::mpi_ranks)
+            terms[ids[id]].rec.group = low;
+          else
+            terms[ids[id]].rec.device = low;
+          balance.add(low, work_amount{weights[id]});
+          weights[id] = -1;
+
+          id = get_heaviest();
+        }
+
+        ids.resize(0);
+        weights.resize(0);
+
+        int ibegin = (gid < 0) ? 0                                : source_groups[gid].begin();
+        iend       = (gid < 0) ? static_cast<int>(sources.size()) : source_groups[gid].end();
+        for (int i = ibegin; i < iend; i++)
+        {
+          // skip terms assigned to other mpi ranks
+          if (mode == balance_mode::gpus and not resources.owns(sources[i].rec))
+            continue;
+          ids.push_back(i);
+        }
+
+        for (auto i : ids) {
+          int const low = balance.lowest();
+          if (mode == balance_mode::mpi_ranks)
+            sources[i].rec.group = low;
+          else
+            sources[i].rec.device = low;
+          balance.add(low, work_amount{source_weight});
+        }
+      }
+    };
+
+  if (term_groups.empty()) {
+    load_balance(-1, resources.num_ranks(), balance_mode::mpi_ranks);
+    load_balance(-1, resources.num_gpus(), balance_mode::gpus);
+  } else {
+    for (int gid = 0; gid < static_cast<int>(term_groups.size()); gid++) {
+      load_balance(gid, resources.num_ranks(), balance_mode::mpi_ranks);
+      load_balance(gid, resources.num_gpus(), balance_mode::gpus);
+    }
+  }
+
+  // mark all chains to make sure they go together
+  // check whether there are any terms
+  has_terms_ = false;
+  {
+    auto it = terms.begin();
+    while (it < terms.end()) {
+      if (resources.owns(it->rec))
+        has_terms_ = true;
+
+      if (it->num_chain > 1) {
+        for (int i = 0; i < it->num_chain; i++)
+          (it + i)->rec = it->rec;
+      }
+      it += it->num_chain;
+    }
+  }
+  if (not has_terms_) {
+    bool has_sources = false;
+    for (auto const &s : sources)
+      if (resources.owns(s.rec))
+        has_sources = true;
+    if (not has_sources) {
+      std::cerr << " -- warning: the number of MPI ranks exceeds the number of terms and sources,"
+                << " the likely outcome is performance degradation" << std::endl;
+    }
+  }
+
+  std::vector<int> ranks;
+  if (deps().poisson or deps().num_moments > 0)
+    ranks.reserve(terms.size() + 1);
+
+  #ifdef ASGARD_USE_MPI
+  if (deps().poisson) {
+    for (auto const &t : terms) {
+      for (auto const &d : t.deps)
+        if (d.poisson)
+          ranks.push_back(t.rec.group);
+    }
+    expect(ranks.size() > 0);
+    if (ranks.size() > 1) {
+      ranks.push_back(0);
+      std::sort(ranks.begin(), ranks.end());
+      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
+
+      MPI_Comm cm = resources.new_comm_from_group(ranks);
+      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
+        resources.set_poisson_comm(cm);
+    }
+  }
+
+  if (deps().num_moments > 0) {
+    ranks.resize(0);
+    for (auto const &t : terms) {
+      for (auto const &d : t.deps)
+        if (d.num_moments > 0)
+          ranks.push_back(t.rec.group);
+    }
+    expect(ranks.size() > 0);
+    if (ranks.size() > 1) {
+      ranks.push_back(0);
+      std::sort(ranks.begin(), ranks.end());
+      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
+      MPI_Comm cm = resources.new_comm_from_group(ranks);
+      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
+        resources.set_moments_comm(cm);
+    }
+  }
+  #endif // ASGARD_USE_MPI
+
+  // if (mpi::is_world_rank(0)) {
+  //   std::cout << term_groups.size() << "\n";
+  //
+  //   for (auto const &t : terms)
+  //     std::cout << " assigned to: " << t.rec.group << "  gpu: " << t.rec.device << " chain num = " << t.num_chain << '\n';
+  //
+  //   for (auto const &s : sources)
+  //     std::cout << " source to: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+  // }
+#endif
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct term_entry<double>;
 template struct term_manager<double>;
@@ -1398,6 +1584,13 @@ template void term_manager<double>::kron_diag<data_mode::increment>(
 template void term_manager<double>::kron_diag<data_mode::multiply>(
     sparse_grid const &, connection_patterns const &,
     term_entry<double> const &, int const, std::vector<double> &) const;
+
+template void term_manager<double>::apply_tmpl<std::vector<double> const &, std::vector<double> &>(
+    int, sparse_grid const &, connection_patterns const &, double,
+    std::vector<double> const &, double, std::vector<double> &) const;
+template void term_manager<double>::apply_tmpl<double const[], double[]>(
+    int, sparse_grid const &, connection_patterns const &, double,
+    double const[], double, double[]) const;
 
 template void term_manager<double>::apply_sources<data_mode::replace>(
     int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
@@ -1431,6 +1624,13 @@ template void term_manager<float>::kron_diag<data_mode::multiply>(
     sparse_grid const &, connection_patterns const &,
     term_entry<float> const &, int const, std::vector<float> &) const;
 
+template void term_manager<float>::apply_tmpl<std::vector<float> const &, std::vector<float> &>(
+    int, sparse_grid const &, connection_patterns const &, float,
+    std::vector<float> const &, float, std::vector<float> &) const;
+template void term_manager<float>::apply_tmpl<float const[], float[]>(
+    int, sparse_grid const &, connection_patterns const &, float,
+    float const[], float, float[]) const;
+
 template void term_manager<float>::apply_sources<data_mode::replace>(
     int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
@@ -1453,3 +1653,4 @@ template void term_manager<float>::apply_bc<data_mode::scal_inc>(
 #endif
 
 }
+

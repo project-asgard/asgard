@@ -301,8 +301,8 @@ struct term_penalty {
  *   term_1d t1d(term_chain{});
  *
  *   // add the 1d terms later
- *   t1d += term_div{-2, flux_type::upwind, boundary_type::free};
- *   t1d += term_grad{2, flux_type::upwind, boundary_type::dirichlet};
+ *   t1d += term_div{-2, flux_type::upwind, boundary_type::none};
+ *   t1d += term_grad{2, flux_type::upwind, boundary_type::bothsides};
  * \endcode
  */
 struct term_chain {};
@@ -1218,6 +1218,20 @@ struct imex_explicit_group {
  struct imex_implicit_group {
   //! sets the implicit group
   explicit imex_implicit_group(int g = -1) : gid(g) {}
+  //! the group id
+  int gid = -1;
+};
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Strong type for a group-id, implicit, explicit, custom, etc.
+ */
+struct group_id {
+  //! make a generic id from an explicit group
+  explicit group_id(imex_explicit_group ie) : gid(ie.gid) {}
+  //! make a generic id from an implicit group
+  explicit group_id(imex_implicit_group ii) : gid(ii.gid) {}
+  //! sets the implicit group
+  explicit group_id(int g = -1) : gid(g) {}
   //! the group id
   int gid = -1;
 };
