@@ -70,11 +70,30 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   options.default_degree = 2;
   options.default_start_levels = {4, };
 
+  // the inviscit equation can be done with an explicit time stepper
   if (nu == 0)
     options.default_step_method = asgard::time_method::rk2;
   else
-    options.default_step_method = asgard::time_method::imex2;
+    options.default_step_method = asgard::time_method::imex1;
 
+  // non-separable coefficient
+  auto f2 = [=](P, asgard::vector2d<P> const &,
+                std::vector<P> const &f, std::vector<P> &vals) ->
+    void {
+      // ignore the first input, it is time but it is not implemented yet
+      // the coefficient function must return values at specific points
+      // the number of points is f.size() and f contains the values
+      // of the current solution at the corresponding points
+      // in the case Burger's equation, the coefficient values depend only
+      // on f, but in a general case the nodes can be needed too
+      // asgard::vector2d<P> const &nodes provides a 2D organization of data,
+      // so that the nodes of i-th point are
+      // nodes[i][0], ..., nodes[i][num_dims - 1] corresponding to x1, x2, ..., xd
+      // e.g., x1 = nodes[i][0], x2 = nodes[i][1] ...
+      for (auto i : indexof(vals)) {
+        vals[i] = f[i] * f[i];
+      }
+    };
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;
