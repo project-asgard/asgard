@@ -133,6 +133,8 @@ enum class time_method
   back_euler,
   //! Implicit Crank-Nicolson, second order
   cn,
+  //! Implicit-explicit, first order
+  imex1,
   //! Implicit-explicit, second order
   imex2,
 };
@@ -535,12 +537,13 @@ struct prog_opts
 
   //! throw an exception if the user attempts to select a non-imex stepping method
   void throw_if_not_imex_stepper() const {
-    switch (step_method.value_or(time_method::imex2)) {
-      case time_method::imex2:
+    // if either default or specific step_method has been set, check if it is imex
+    // if not set or not imex, then throw
+    if ((step_method or default_step_method) and
+         is_imex(step_method.value_or(default_step_method.value())))
         return;
-      default:
-        throw std::runtime_error("invalid time-stepping method, only imex methods are allowed");
-    }
+
+    throw std::runtime_error("invalid time-stepping method, only imex methods are allowed");
   }
 
   //! sets the step-method but issues a warning if a method is already provided

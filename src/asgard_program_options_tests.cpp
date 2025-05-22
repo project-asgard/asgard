@@ -40,6 +40,10 @@ void new_prog_opts() {
     tassert(prog_opts(vecstrview({"exe", "-s", "be"})).step_method);
     tassert(prog_opts(vecstrview({"exe", "-s", "be"})).step_method.value() == time_method::back_euler);
     tassert(prog_opts(vecstrview({"exe", "-s", "backward-euler"})).step_method.value() == time_method::back_euler);
+    tassert(prog_opts(vecstrview({"exe", "-s", "imex1"})).step_method);
+    tassert(prog_opts(vecstrview({"exe", "-s", "imex1"})).step_method.value() == time_method::imex1);
+    tassert(prog_opts(vecstrview({"exe", "-s", "imex2"})).step_method);
+    tassert(prog_opts(vecstrview({"exe", "-s", "imex2"})).step_method.value() == time_method::imex2);
   }{
     current_test name_("-grid");
     tassert(prog_opts(vecstrview({"exe", "-grid", "sparse"})).grid);

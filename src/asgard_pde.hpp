@@ -1449,7 +1449,7 @@ public:
 
   //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
   void set(imex_implicit_group im, imex_explicit_group ex) {
-    expect(options_.step_method.value() == time_method::imex2);
+    expect(is_imex(options_.step_method.value()));
     im_ = im;
     ex_ = ex;
   }

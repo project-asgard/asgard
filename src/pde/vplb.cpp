@@ -441,8 +441,10 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>(1, "-l 5 -t 0.5");
-  test_energy<double>(1, "-l 6 -t 0.25");
+  test_energy<double>(1, "-l 5 -t 0.5 -s imex1");
+
+  test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
+  test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
 
 #endif
 
