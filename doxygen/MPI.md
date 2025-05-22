@@ -31,41 +31,41 @@ in conjunction with MPI
   #endif
 ```
 The default communicator is `MPI_COMM_WORLD`.
+All options must be the same across all MPI ranks, same holds for the terms, sources and initial
+conditions of the asgard::pde_scheme.
 
-All MPI ranks (on the selected communicator) must simultaneously called together by all the ranks.
-Same holds for `advance_time()` and the number of steps must be the same too.
+There is a number of calls that must be done simultaneously across all MPI ranks on the selected communicator
+and must have the same inputs, e.g., number of time-steps, options, etc.
+Those include:
+* the constructor of the `asgard::discretization_manager`
+* `asgard::discretization_manager::advance_time()`
+* `asgard::discretization_manager::sync_mpi_state()`
+* `asgard::discretization_manager::current_state_mpi()`
+All fo the `_mpi()` methods can also be called without an MPI context and they will act as expected,
+e.g., `sync` is a no-op and `current_state` is just the current state.`
 
-Calling `current_state()` is valid only on the zero rank,
-if the state is needed across all ranks, use `current_state_mpi()`.
-The `_mpi()` method can be used even without MPI, it will simply yield to the no-MPI option.
+Calling `current_state()` is normally valid only on the zero rank, as it is not normally needed by all ranks.
+The `sync_mpi_state()` synchronizes the data across the ranks, `current_state_mpi()` combines calls
+to sync and current-state.
 
+The I/O methods, such save state and print stats have effect only on the leader rank,
+which is rank zero on the provided MPI communicator.
 
 ### Scalability
 
 The operator terms defined in the asgard::pde_scheme are discretized into sparse-Kronecker matrices and,
 in the code, the applications of the matrix-vector operations are called kronmult operations.
 Even the non-linear (interpolatory) terms are implemented with 3 separate kronmults.
-The efficient distribution of the workload of a single kronmult operation is an open question;
-however, multiple kronmult operations can be assigned to different MPI-ranks,
-increasing the performance compared to a single node implementation.
-This is advantageous, since the terms cannot be otherwise lumped together,
-e.g., we cannot simply add the matrices as in other common finite element methods.
-Unfortunately, this limits the scalability of ASGarD and
-the current MPI strategy cannot scale to more MPI ranks
-than the number of terms and will see diminishing returns long before that.
-
-Nevertheless, the overall performance of the library is sufficient to address real
-applications of high-dimensional PDEs, even using a single high end workstation.
+The efficient distribution of the workload of a single kronmult operation is an open question,
+but scalability to a few supercomputer nodes is sufficient to address real
+applications of high-dimensional PDEs.
 
 
 ### MPI vs. OpenMP for multiple CPU threads
 
-The OpenMP CPU muti-threading that uses shared-memory paradigm is much better way
-to utilize multiple CPU cores, compared to the distributed memory framework of MPI.
-A single workstation should always use OpenMP, which can also distribute the workload
-of a single kronmult operation.
-Two workstations should use two MPI ranks and multiple OpenMP threads.
+The OpenMP CPU muti-threading is the preferred way to use multiple threads on the same CPU.
+MPI should be used in a distributed memory environment, e.g., multiple CPUs connected
+through a interconnect/network.
 
-The exception to this rule is MacOSX, which has notoriously bad OpenMP support.
-Using MPI on a single OSX device will likely yield better performance,
-despite the limitations of MPI scalability.
+The exception is MacOSX, which has notoriously bad support for OpenMP.
+MPI is often times a better way to get performance from multiple CPU cores on an OSX machine.
