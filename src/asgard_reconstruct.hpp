@@ -63,14 +63,10 @@ public:
    * \param degree is the polynomial order
    * \param solution is the current set of coefficients representing
    *                 the PDE solution, size is (degree + 1)^dims * num_cells
-   *
-   * \param use_v2 indicates the use of pde-version-2, allows us to keep
-   *               the old and new codes together (for now)
    */
   template<typename precision>
   reconstruct_solution(int dims, int64_t num_cells, int const asg_cells[],
-                       int degree, precision const solution[],
-                       bool use_v2 = false);
+                       int degree, precision const solution[]);
 
   /*!
    * \brief Sets the min/max bound of the domain

@@ -626,7 +626,7 @@ protected:
   reconstruct_solution get_local_snapshot() const
   {
     reconstruct_solution shot(
-        num_dims(), grid.num_indexes(), grid[0], degree(), state.data(), true);
+        num_dims(), grid.num_indexes(), grid[0], degree(), state.data());
 
     std::array<double, max_num_dimensions> xmin, xmax;
     for (int d : iindexof(num_dims())) {

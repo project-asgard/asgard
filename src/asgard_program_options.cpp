@@ -64,7 +64,7 @@ Options          Short   Value      Description
 -help/--help     -h/-?   -          Show help information (this text).
 --version        -v      -          Show version, git info and build options.
 
--title             -     string     Human redable string focused on organizing i/o files,
+-title             -     string     Human readable string focused on organizing i/o files,
                                     will be saved, reloaded and printed to the screen.
                                     If omitted, the string will assume the name of the PDE.
 -subtitle          -     string     An addition to the title, optional use.
@@ -75,7 +75,7 @@ Options          Short   Value      Description
                                     holding up to two "*" entreis indicating the dimensions that
                                     will vary and numbers for the other dimensions
 -verbosity       -vv     int/string accepts: 0/1/2 or quiet/low/high
-                                    Asjusts the amount and frequency of cout logging.
+                                    Adjusts the amount and frequency of cout logging.
 
 <<< discretization of the domain options >>>
 -grid            -g      string     accepts: sparse/dense/full/mixed/mix
@@ -112,10 +112,8 @@ Options          Short   Value      Description
                                       backwar-euler/be/crank-nicolson/cn
                                       imex2
                                     (fe, be and cn are shorthand acronyms for the longer names)
+                                    (rk1 is the same as forward-euler)
                                     steady computes the steady state, not a time-stepping method
-                                    indicates explicit (rk3), implicit (backward-Euler) or
-                                    imex (implicit-explicit) time-stepping scheme
-                                    implicit crank-nicolson (cn) or backwar-euler (be)
 -time            -t      double     accepts: positive number (zero for no stepping)
                                     Final time for integration (v2 pdes only)
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
@@ -130,30 +128,15 @@ Options          Short   Value      Description
                                     Direct: use LAPACK, expensive but stable.
                                     GMRES: general but sensitive to restart selection.
                                     bicgstab: cheaper (per-iteration) alternative to GMRES
--precon          -pc     string     accepts: none/jacobi/adi (iterative solvers only)
+-precon          -pc     string     accepts: none/jacobi (iterative solvers only)
                                     specifies the preconditioner for the iterative method
                                     none - is not advisable as it takes too long
                                     jacobi - preconditioner that applies basic rescaling
-                                    adi - very experimental, not very stable (yet)
 -isolve-tol      -ist    double     Iterative solver tolerance, applies to GMRES and BICG.
 -isolve-iter     -isi    int        Iterative solver maximum number of iterations,
                                     for GMRES this is the number of outer iterations.
 -isolve-inner    -isn    int        (GMRES only) The maximum number of inner GMRES iterations,
                                     this is ignored by BiCGSTAB.
-
-)help";
-}
-
-void prog_opts::print_pde_help(std::ostream &os)
-{
-// keep the padding to 100 characters                                                      100 -> //
-// ---------------------------------------------------------------------------------------------- //
-  os << R"help(
-Option          Description
-custom          (default) user provided pde, can be omitted for the custom projects
-
-fokkerplanck_2d_complete_case1    Full PDE from the 2D runaway electron paper:
-                                  d/dt f(p,z) = -div(flux_C + flux_E + flux_R), case 1
 
 )help";
 }
@@ -697,25 +680,25 @@ void prog_opts::print_version_help(std::ostream &os)
 {
   os << "\nASGarD v" << ASGARD_VERSION << "  git-hash: " << ASGARD_GIT_COMMIT_HASH << "\n";
   os << "git-branch (" << ASGARD_GIT_BRANCH << ")\n";
-#ifdef ASGARD_USE_MPI
-  os << "Kronmult method          Local\n";
-#else
-  os << "Kronmult method          Block-Global\n";
-#endif
-#ifdef ASGARD_USE_CUDA
-  os << "GPU Acceleration         CUDA\n";
-#else
-  os << "GPU Acceleration         Disabled\n";
-#endif
+
 #ifdef ASGARD_USE_OPENMP
   os << "OpenMP multithreading    Enablded\n";
 #else
   os << "OpenMP multithreading    Disabled\n";
 #endif
-#ifdef ASGARD_USE_MPI
-  os << "MPI distributed grid     Enabled\n";
+#ifdef ASGARD_USE_GPU
+  #ifdef ASGARD_USE_CUDA
+    os << "GPU Acceleration         CUDA\n";
+  #else
+    os << "GPU Acceleration         ROCm\n";
+  #endif
 #else
-  os << "MPI distributed grid     Disabled\n";
+  os << "GPU Acceleration         Disabled\n";
+#endif
+#ifdef ASGARD_USE_MPI
+  os << "MPI distributed terms    Enabled\n";
+#else
+  os << "MPI distributed terms    Disabled\n";
 #endif
 #ifdef ASGARD_USE_HIGHFIVE
   os << "HDF5 - HighFive I/O      Enabled\n";

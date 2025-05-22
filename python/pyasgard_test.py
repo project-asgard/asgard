@@ -54,7 +54,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
         num_cells = 4
         dmin = np.array((0.0,))
         dmax = np.array((1.0,))
-        cells = np.array((0, 0, 1, 0, 2, 0, 2, 1), np.int32)
+        cells = np.array((0, 1, 2, 3), np.int32)
         state = np.zeros((2 * num_cells,), np.float64)
         state[ibasis] = 1.0
         libasgard = asgard.libasgard
@@ -95,7 +95,7 @@ class asgard_reconstruction_tests(unittest.TestCase):
         num_cells = 6
         dmin = np.array((0.0, 0.0))
         dmax = np.array((1.0, 1.0))
-        cells = np.array((0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0), np.int32)
+        cells = np.array((0, 0, 0, 1, 0, 2, 0, 3, 1, 0, 1, 1), np.int32)
         state = np.zeros((4 * num_cells,), np.float64)
         state[ibasis] = 1.0
         libasgard = asgard.libasgard

@@ -1,5 +1,5 @@
 
-import sys, site
+import os, sys, site
 
 # do standard skbuild setup
 from packaging import version
@@ -78,6 +78,9 @@ if isosxframework:
     cmake_args.append('-DASGARD_osx_framework:BOOL=ON')
 if sys.platform == 'darwin':
     cmake_args.append('-DCMAKE_CXX_FLAGS=-DACCELERATE_NEW_LAPACK')
+
+if os.environ.get("ASGARD_USE_MPI") == "ON":
+    cmake_args.append('-DASGARD_USE_MPI=ON')
 
 # call the actual package setup command
 setup(

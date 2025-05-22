@@ -31,7 +31,12 @@ exename=$1
 
 shift
 
-./$exename "$@" -of _asgardplt.h5
+# check if using absolute or relative path
+if [[ "$exename" == /* ]]; then
+    $exename "$@" -of _asgardplt.h5
+else
+    ./$exename "$@" -of _asgardplt.h5
+fi
 
 @Python_EXECUTABLE@ -m asgard _asgardplt.h5 $plt_opts
 

@@ -23,6 +23,7 @@ Recommended but optional
 * If you have Nvidia GPU ASGarD can take advantage of the [linear algebra libraries](https://developer.nvidia.com/cublas) and custom [CUDA kernels](https://developer.nvidia.com/cuda-zone)
 * [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format) and [HighFive](https://bluebrain.github.io/HighFive/) libraries to output the solution state
 * Python bindings using [h5py](https://www.h5py.org/) and [numpy](https://numpy.org/) for easier visualization and HDF5 post-processing
+* [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface) capabilities for spreading the workload across multiple computing nodes, uses option
 
 Other CMake options
 * dynamic/shared libraries are used by default, static build is possible with `-DBUILD_SHARED_LIBS=OFF`
@@ -110,6 +111,15 @@ check the PyPIP project page and please report potential issues.
 
 OSX and other systems often come with different versions of python,
 be consistent between the version used for install and runtime.
+
+MPI can be enabled using the pip-installer by setting an environment variable
+```
+export ASGARD_USE_MPI=ON
+python3 -m pip install ornl-asgard
+```
+However, in this mode, CMake must be able to automatically find all necessary components for MPI,
+i.e., it is not possible to pass fine-grained details about the path to MPI using PyPIP,
+use CMake instead.
 
 ### Basic usage
 

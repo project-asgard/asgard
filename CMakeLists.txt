@@ -53,6 +53,8 @@ option (ASGARD_USE_ROCM "Optional AMD/ROCm support" OFF)
 option (ASGARD_USE_MPI "Optional distributed computing support" OFF)
 
 if (ASGARD_USE_MPI)
+  set (ASGARD_MPI_BCAST_THRESHOLD "4" CACHE STRING "Number of ranks to switch from Send/Recv to collective Bcast")
+  set (ASGARD_MPI_REDUCE_THRESHOLD "4" CACHE STRING "Number of ranks to switch from Send/Recv to collective Reduce")
   set (ASGARD_TEST_MPI_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in MPI testing (only in testing)")
 endif()
 

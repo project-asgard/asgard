@@ -5,42 +5,60 @@
 
 namespace asgard
 {
-#ifndef __ASGARD_DOXYGEN_SKIP
 
-//! vector function using std::vector signature, computes fx(x, t) in 1d
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Vector function, computing fx = F(t, x)
+ */
 template<typename P>
 using svector_func1d = std::function<void(std::vector<P> const &x, P t, std::vector<P> &fx)>;
 
-//! vector function using std::vector signature, computes fx(x) in 1d
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Vector function, computing fx = F(x), no time-dependence
+ */
 template<typename P>
 using sfixed_func1d = std::function<void(std::vector<P> const &x, std::vector<P> &fx)>;
 
-//! vector function using std::vector signature and a field, computes fx(x) in 1d
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Vector function, computing fx = F(x, f), where f is a field, e.g., moment of the solution
+ */
 template<typename P>
 using sfixed_func1d_f = std::function<void(std::vector<P> const &x, std::vector<P> const &f,
                                            std::vector<P> &fx)>;
 
-// same pi used by matlab
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Ratio of the circumference to the diameter of a circle
+ */
 static constexpr double const PI = 3.141592653589793;
 
-// for passing around vector/scalar-valued functions used by the PDE
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Scalar function, returning f(x)
+ */
 template<typename P>
 using scalar_func = std::function<P(P const)>;
 
-//! usage, pde_domain<double> domain(position_dims{3}, velocity_dims{3});
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Strong-type, usage: pde_domain<double> domain(position_dims{3}, velocity_dims{3});
+ */
 struct position_dims {
   position_dims() = delete;
   explicit position_dims(int n) : num(n) {}
   int const num;
 };
-//! usage, pde_domain<double> domain(position_dims{3}, velocity_dims{3});
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Strong-type, usage: pde_domain<double> domain(position_dims{3}, velocity_dims{3});
+ */
 struct velocity_dims {
   velocity_dims() = delete;
   explicit velocity_dims(int n) : num(n) {}
   int const num;
 };
-
-#endif
 
 /*!
  * \ingroup asgard_pde_definition

@@ -152,18 +152,6 @@ bool is_implicit(time_method method);
  */
 bool is_imex(time_method method);
 
-/*!
- * \ingroup asgard_common_options
- * norm to use for adaptivity, experiments show little difference
- */
-enum adapt_norm
-{
-  //! L-2 norm
-  l2,
-  //! L-inf norm, a.k.a., max or sup norm
-  linf
-};
-
 namespace solvers
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
@@ -393,8 +381,6 @@ struct prog_opts
   static void print_help(std::ostream &os = std::cout);
   //! print version and build (cmake) options
   static void print_version_help(std::ostream &os = std::cout);
-  //! print information about the builtin PDEs
-  static void print_pde_help(std::ostream &os = std::cout);
   //! print the current set of options
   void print_options(std::ostream &os = std::cout) const;
 
