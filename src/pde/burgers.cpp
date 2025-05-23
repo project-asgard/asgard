@@ -70,7 +70,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
   asgard::pde_domain<P> domain(std::vector<asgard::domain_range>(num_dims, {-8.0, 8.0}));
 
-  options.default_degree = 2;
+  options.default_degree = 3;
   options.default_start_levels = {4, };
 
   // the inviscit equation can be done with an explicit time stepper
@@ -138,21 +138,34 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       };
 
 
-    P val = ic(pde.domain().xleft(0));
-    asgard::separable_func<P> fl(std::vector<P>{val * val, });
-    div += asgard::left_boundary_flux{fl};
+    {
+      P const val = ic(pde.domain().xleft(0));
+      asgard::separable_func<P> fl(std::vector<P>{val * val, });
+      div += asgard::left_boundary_flux{fl};
+    }{
+      P const val = ic(pde.domain().xright(0));
+      asgard::separable_func<P> fr(std::vector<P>{val * val, });
+      div += asgard::right_boundary_flux{fr};
+    }
 
-    val = ic(pde.domain().xright(0));
-    asgard::separable_func<P> fr(std::vector<P>{val * val, });
-    div += asgard::right_boundary_flux{fr};
+    int const non_linear_group_id = pde.new_term_group();
 
     pde += asgard::term_md<P>{div, term_f2};
 
     if (nu > 0) {
       asgard::term_md<P> dg = {div_grad, };
 
+      asgard::separable_func<P> fl(std::vector<P>{ic(pde.domain().xleft(0)), });
+      asgard::separable_func<P> fr(std::vector<P>{ic(pde.domain().xright(0)), });
+
       dg += asgard::left_boundary_flux{fl};
       dg += asgard::right_boundary_flux{fr};
+
+      int const laplacian_group_id = pde.new_term_group();
+      pde += dg;
+
+      pde.set(asgard::imex_implicit_group{laplacian_group_id},
+              asgard::imex_explicit_group{non_linear_group_id});
     }
 
     auto ic_vec = [=](std::vector<P> const &x, P, std::vector<P> &fx)
