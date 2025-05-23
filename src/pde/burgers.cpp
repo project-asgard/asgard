@@ -65,6 +65,9 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
   P const nu = cli_nu.value_or(0);
 
+  if (nu < 0)
+    throw std::runtime_error("the viscosity coefficient '-nu' should be non-negative");
+
   asgard::pde_domain<P> domain(std::vector<asgard::domain_range>(num_dims, {-8.0, 8.0}));
 
   options.default_degree = 2;
@@ -75,6 +78,21 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     options.default_step_method = asgard::time_method::rk2;
   else
     options.default_step_method = asgard::time_method::imex1;
+
+  P const dx = domain.min_cell_size(options.max_level());
+  options.default_dt = 0.1 * dx;
+  options.default_stop_time = 0.5;
+
+  if (options.max_level() > 5)
+    options.default_solver = asgard::solver_method::bicgstab;
+  else
+    options.default_solver = asgard::solver_method::direct;
+
+  // defaults for iterative solvers, not necessarily optimal
+  options.default_isolver_tolerance  = 1.E-8;
+  options.default_isolver_iterations = 1000;
+
+  asgard::pde_scheme<P> pde(options, std::move(domain));
 
   // non-separable coefficient
   auto f2 = [=](P, asgard::vector2d<P> const &,
@@ -90,16 +108,63 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       // so that the nodes of i-th point are
       // nodes[i][0], ..., nodes[i][num_dims - 1] corresponding to x1, x2, ..., xd
       // e.g., x1 = nodes[i][0], x2 = nodes[i][1] ...
-      for (auto i : indexof(vals)) {
+      for (size_t i = 0; i < f.size(); i++) {
         vals[i] = f[i] * f[i];
       }
     };
 
-  // defaults for iterative solvers, not necessarily optimal
-  options.default_isolver_tolerance  = 1.E-8;
-  options.default_isolver_iterations = 1000;
+  asgard::term_1d<P> div_grad;
 
-  asgard::pde_scheme<P> pde(options, std::move(domain));
+  if (nu > 0) {
+    div_grad = std::vector<asgard::term_1d<P>>{
+        asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
+        asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
+      };
+
+    div_grad.set_penalty(1 / dx);
+  }
+
+  asgard::term_md<P> term_f2 = asgard::term_interp<P>{f2};
+
+  if (num_dims == 1)
+  {
+    // example from Wikipedia https://en.wikipedia.org/wiki/Burgers%27_equation
+
+    asgard::term_md<P> div = {asgard::term_div{1, asgard::boundary_type::bothsides}, };
+
+    auto ic = [](P x)
+        -> P {
+        return std::exp(-P{0.5} * (x - 1) * (x - 1)) - std::exp(-P{0.5} * (x + 1) * (x + 1));
+      };
+
+
+    P val = ic(pde.domain().xleft(0));
+    asgard::separable_func<P> fl(std::vector<P>{val * val, });
+    div += asgard::left_boundary_flux{fl};
+
+    val = ic(pde.domain().xright(0));
+    asgard::separable_func<P> fr(std::vector<P>{val * val, });
+    div += asgard::right_boundary_flux{fr};
+
+    pde += asgard::term_md<P>{div, term_f2};
+
+    if (nu > 0) {
+      asgard::term_md<P> dg = {div_grad, };
+
+      dg += asgard::left_boundary_flux{fl};
+      dg += asgard::right_boundary_flux{fr};
+    }
+
+    auto ic_vec = [=](std::vector<P> const &x, P, std::vector<P> &fx)
+      -> void {
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = ic(x[i]);
+      };
+
+    pde.add_initial(asgard::separable_func({ic_vec, }));
+
+    return pde;
+  }
 
   // // s1d is the exact solution in 1d
   // auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
@@ -250,12 +315,57 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 #endif
 }
 
+void self_test() {}
 
 int main(int argc, char **argv) {
 
+  // if MPI is enabled, call MPI_Init(), otherwise do nothing
+  asgard::libasgard_runtime running_(argc, argv);
 
+  // if double precision is available the P is double
+  // otherwise P is float
+  using P = asgard::default_precision;
 
+  // parse the command-line inputs
+  asgard::prog_opts options(argc, argv);
 
+  // if help was selected in the command line, show general information about
+  // this file and the two additional options accepted for this problem
+  if (options.show_help) {
+    std::cout << "\n solves the continuity equation:\n";
+    std::cout << "    f_t + div f^2 = f_xx + s(t, x)\n\n";
+    std::cout << "    -- standard ASGarD options --";
+    options.print_help(std::cout);
+    std::cout << "<< additional options for this file >>\n";
+    std::cout << "-dims            -dm     int        accepts: 1 - 3\n";
+    std::cout << "                                    the number of dimensions\n\n";
+    std::cout << "-test                               perform self-testing\n\n";
+    return 0;
+  }
+
+  options.throw_if_argv_not_in({"-test", }, {"-dims", "-dm", "-nu"});
+
+  if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
+    // perform series of internal tests, not part of the example/tutorial
+    self_test();
+    return 0;
+  }
+
+  int const num_dims = options.extra_cli_value_group<int>({"-dims", "-dm"}).value_or(1);
+
+  // creating a discretization manager
+  asgard::discretization_manager<P> disc(make_burgers_pde<P>(num_dims, options),
+                                         asgard::verbosity_level::high);
+
+  disc.advance_time();
+
+  if (not disc.stop_verbosity())
+    disc.progress_report();
+
+  disc.save_final_snapshot();
+
+  if (asgard::tools::timer.enabled() and not disc.stop_verbosity())
+    std::cout << asgard::tools::timer.report() << '\n';
 
   return 0;
 }
