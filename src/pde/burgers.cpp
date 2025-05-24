@@ -80,7 +80,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     options.default_step_method = asgard::time_method::imex1;
 
   P const dx = domain.min_cell_size(options.max_level());
-  options.default_dt = 0.1 * dx;
+  options.default_dt = 0.001 * dx;
   options.default_stop_time = 0.5;
 
   if (options.max_level() > 5)
@@ -129,15 +129,23 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   if (num_dims == 1)
   {
     // example from Wikipedia https://en.wikipedia.org/wiki/Burgers%27_equation
+    // the 1D inviscit case uses initial condition std::exp(- 0.5 * x * x)
+    // the viscous case uses two exponentials
 
+    // the derivative term for d/dx f^2
     asgard::term_md<P> div = {asgard::term_div{1, asgard::boundary_type::bothsides}, };
 
-    auto ic = [](P x)
+    // set the initial conditions, will be used to set the boundary conditions too
+    auto ic = (nu > 0) ? [](P x)
         -> P {
         return std::exp(-P{0.5} * (x - 1) * (x - 1)) - std::exp(-P{0.5} * (x + 1) * (x + 1));
+      }
+      : [](P x)
+        -> P {
+        return std::exp(-P{0.5} * x * x);
       };
 
-
+    // the boundary conditions for d/dx are set on f^2, thus the value is square that of f
     {
       P const val = ic(pde.domain().xleft(0));
       asgard::separable_func<P> fl(std::vector<P>{val * val, });
@@ -148,11 +156,13 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       div += asgard::right_boundary_flux{fr};
     }
 
+    // the group ids are needed for IMEX scheme in the viscous way
     int const non_linear_group_id = pde.new_term_group();
 
     pde += asgard::term_md<P>{div, term_f2};
 
     if (nu > 0) {
+      // the viscous mode for the right-hand-side second derivative
       asgard::term_md<P> dg = {div_grad, };
 
       asgard::separable_func<P> fl(std::vector<P>{ic(pde.domain().xleft(0)), });
@@ -168,6 +178,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
               asgard::imex_explicit_group{non_linear_group_id});
     }
 
+    // the vector version of the initial conditions
     auto ic_vec = [=](std::vector<P> const &x, P, std::vector<P> &fx)
       -> void {
         for (size_t i = 0; i < x.size(); i++)
@@ -179,149 +190,10 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     return pde;
   }
 
-  // // s1d is the exact solution in 1d
-  // auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-  //   void {
-  //     for (size_t i = 0; i < x.size(); i++)
-  //       fx[i] = x[i] * (P{2} - x[i]);
-  //   };
-  //
-  // // "exact" is the solution in multiple dimensions
-  // asgard::separable_func<P> exact(std::vector<asgard::svector_func1d<P>>(num_dims, s1d),
-  //                                 asgard::ignores_time);
-  //
-  // if constexpr (boundary == boundary_enum::homogeneous)
-  // {
-  //   // fixed boundary set to the div term corresponds to Neumann boundary
-  //   asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-  //                                                asgard::boundary_type::right);
-  //   // fixed boundary set to the grad term corresponds to Dirichlet boundary
-  //   asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-  //                                                  asgard::boundary_type::left);
-  //
-  //   // the multi-dimensional operator, initially set to identity in md
-  //   std::vector<asgard::term_1d<P>> ops(num_dims);
-  //   for (int d = 0; d < num_dims; d++)
-  //   {
-  //     // combine the div and grad into a single chain term
-  //     asgard::term_1d<P> fxx({div, grad});
-  //
-  //     // based on the domain and max-level, get the cell-size in direction d
-  //     P const dx = pde.cell_size(d);
-  //
-  //     // adding penalty to stabilize the steady state equation
-  //     // the penalty is applied only to discontinuities, if the solution is continuous
-  //     // then the penalty will not alter the result, this only improves the conditioning
-  //     fxx.set_penalty(P{1} / dx);
-  //
-  //     // add the second order operator in dimension dim
-  //     ops[d] = fxx;
-  //     pde += asgard::term_md<P>(ops);
-  //     ops[d] = asgard::term_identity{};
-  //   }
-  //
-  // } else { // inhomogeneous case
-  //
-  //   // allowing for inhomogeneous boundary, we can use many combinations of
-  //   // Dirichlet and Neumann data
-  //   // the 1D case is set for Dirichlet boundary
-  //   // the mD case is set for mix Dirichlet and Neumann conditions
-  //
-  //   if (num_dims == 1)
-  //   {
-  //     // fixed boundary set to the div term corresponds to Neumann boundary
-  //     asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind);
-  //
-  //     // fixed boundary set to the grad term corresponds to Dirichlet boundary
-  //     asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-  //                                                    asgard::boundary_type::bothsides);
-  //     // merge the div and grad terms
-  //     asgard::term_1d<P> fxx({div, grad});
-  //
-  //     // penalize discontinuities
-  //     P const dx = pde.min_cell_size();
-  //     fxx.set_penalty(P{1} / dx);
-  //
-  //     // merge into a multi-dimensional term with one dimension
-  //     asgard::term_md<P> fxx_md({fxx, });
-  //
-  //     // adding inhomogeneous term to the right of the domain
-  //     // starting with the exact solution
-  //     asgard::separable_func<P> bc = exact;
-  //     // the 0-th dimension component is set to constant 1
-  //     bc.set(0, P{1});
-  //     // add the condition at the right point
-  //     fxx_md += asgard::right_boundary_flux(bc);
-  //
-  //     // add the term with inhomogeneous boundary to the pde
-  //     pde += fxx_md;
-  //   }
-  //   else
-  //   {
-  //     // setting fixed boundary for the div term in the chain
-  //     // results in Neumann conditions imposed on the field
-  //     // think of this as imposing Dirichlet condition on the output of the grad term
-  //     // and the output of the grad term is the derivative of the field
-  //     asgard::term_1d<P> div = asgard::term_div<P>(-1, asgard::flux_type::upwind,
-  //                                                  asgard::boundary_type::left);
-  //
-  //     // Dirichlet boundary set to the grad term corresponds to Dirichlet boundary
-  //     asgard::term_1d<P> grad = asgard::term_grad<P>(1, asgard::flux_type::upwind,
-  //                                                    asgard::boundary_type::right);
-  //     // merge the div and grad terms
-  //     asgard::term_1d<P> fxx({div, grad});
-  //
-  //     // penalize discontinuities
-  //     P const dx = pde.min_cell_size();
-  //     fxx.set_penalty(P{1} / dx);
-  //
-  //     for (int d = 0; d < num_dims; d++)
-  //     {
-  //       // make vector of terms_1d for each dimension
-  //       std::vector<asgard::term_1d<P>> terms(num_dims);
-  //       terms[d] = fxx;
-  //
-  //       // merge into a multi-dimensional term with one dimension
-  //       asgard::term_md<P> fxx_md(terms);
-  //
-  //       // setting Dirichlet condition 1 on the right wall of dimension d
-  //       // by default, the boundary condition is applied to the field
-  //       // that is the input of the term, i.e., the input to the grad term
-  //       asgard::separable_func<P> bc = exact;
-  //       bc.set(d, P{1});
-  //       fxx_md += asgard::right_boundary_flux(bc);
-  //
-  //       // setting Neumann condition 2 on the left wall of dimension d
-  //       bc = exact;
-  //       bc.set(d, P{2});
-  //       asgard::boundary_flux<P> lbf = asgard::left_boundary_flux(bc);
-  //       // at this point we have the boundary flux
-  //       // but we also need to apply it to the input of the div-term,
-  //       // i.e., set the level of the chain to the index of the div term
-  //       lbf.chain_level(d) = 0;
-  //       fxx_md += lbf;
-  //
-  //       // add the term with boundary conditions to the pde
-  //       pde += fxx_md;
-  //     }
-  //   }
-  // }
-  //
-  // for (int d = 0; d < num_dims; d++) {
-  //   // using separability properties, copy over the exact solution
-  //   asgard::separable_func<P> src = exact;
-  //   // differentiate in the d-th direction, i.e., replace the function
-  //   // with a constant 2
-  //   src.set(d, 2);
-  //
-  //   pde.add_source(std::move(src));
-  // }
-  //
-  // // if an initial condition is specified, it will be used as the initial guess
-  // // of an iterative solver, other zeros is used as the initial guess
-  // // the direct solver does not use an initial guess
-  //
-  // return pde;
+  if (num_dims == 2) {
+    //
+  }
+
   return asgard::pde_scheme<P>();
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [elliptic make]
