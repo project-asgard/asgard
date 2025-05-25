@@ -68,7 +68,10 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   if (nu < 0)
     throw std::runtime_error("the viscosity coefficient '-nu' should be non-negative");
 
-  asgard::pde_domain<P> domain(std::vector<asgard::domain_range>(num_dims, {-8.0, 8.0}));
+  // the 1D case is set on (-8, 8), the higher dimensions use (-1, 1)^d
+  asgard::pde_domain<P> domain = (num_dims == 1)
+    ? asgard::pde_domain<P>(std::vector<asgard::domain_range>(1, {-8.0, 8.0}))
+    : asgard::pde_domain<P>(std::vector<asgard::domain_range>(num_dims, {-1.0, 1.0}));
 
   options.default_degree = 3;
   options.default_start_levels = {4, };
@@ -191,7 +194,15 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   }
 
   if (num_dims == 2) {
-    //
+    // derivative terms
+    asgard::term_md<P> divx = {asgard::term_div{1, asgard::boundary_type::left}, };
+    asgard::term_md<P> divy = {asgard::term_div{1, asgard::boundary_type::bothsides}, };
+
+    auto icx = [](P x) -> P { return std::exp(-x); };
+    auto icy = [](P y) -> P { return (P{1} - y * y); };
+
+
+    // exp(-x) * (1 - y^2)
   }
 
   return asgard::pde_scheme<P>();
