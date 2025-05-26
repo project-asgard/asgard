@@ -195,12 +195,25 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
   if (num_dims == 2) {
     // derivative terms
-    asgard::term_md<P> divx = {asgard::term_div{1, asgard::boundary_type::left}, };
-    asgard::term_md<P> divy = {asgard::term_div{1, asgard::boundary_type::bothsides}, };
+    auto icx  = [](P x) -> P { return P{1} + P{0.75} * x - P{0.25} * x * x; };
+    auto icdx = [](P x) -> P { return P{0.75} - P{0.5} * x; };
+    auto icy  = [](P y) -> P { return (P{1} - y * y); };
+    auto icdy = [](P y) -> P { return -2 * y; };
 
-    auto icx = [](P x) -> P { return std::exp(-x); };
-    auto icy = [](P y) -> P { return (P{1} - y * y); };
+    asgard::term_md<P> divx = {asgard::term_div{1, asgard::boundary_type::left},
+                               asgard::term_identity{}};
+    asgard::term_md<P> divy = {asgard::term_identity{},
+                               asgard::term_div{1, asgard::boundary_type::bothsides}, };
 
+    // the group ids are needed for IMEX scheme in the viscous way
+    int const non_linear_group_id = pde.new_term_group();
+
+    pde += asgard::term_md<P>{divx, term_f2};
+    pde += asgard::term_md<P>{divy, term_f2};
+
+    if (nu > 0) {
+      pde += {div_grad, asgard::term_identity{}};
+    }
 
     // exp(-x) * (1 - y^2)
   }
