@@ -344,6 +344,7 @@ struct term_moment_over_density {
  * \brief Volume term that depends on the negative of a moment divided by the density (moment 0)
  */
 struct term_moment_over_density_neg {
+  //! set the negative moment over density
   explicit term_moment_over_density_neg(int mom) : moment(mom) {
     rassert(moment > 0, "The moment over density must be at least 1");
   }

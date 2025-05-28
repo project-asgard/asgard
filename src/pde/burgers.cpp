@@ -14,13 +14,13 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_elliptic Example: Burgers' non-linear equation
+ * \addtogroup asgard_examples_burgers Example: Burgers' non-linear equation
  *
  * \par Burgers' equation
  * The Burger's equation is generally defined as
  * \f[ \frac{d}{d t} f + f \cdot \nabla f = \nu \Delta f \f]
  * the formulation used here is the equivalent
- * \f[ \frac{d}{d t} f + \nabla \cdot f^2 - \nu \nabla \cdot \nabla f = 0 \f]
+ * \f[ \frac{d}{d t} f + \frac{1}{2} \nabla \cdot f^2 - \nu \nabla \cdot \nabla f = 0 \f]
  * This file implements several different versions of this equation.
  *
  * \par
@@ -119,6 +119,8 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       // so that the nodes of i-th point are
       // nodes[i][0], ..., nodes[i][num_dims - 1] corresponding to x1, x2, ..., xd
       // e.g., x1 = nodes[i][0], x2 = nodes[i][1] ...
+      // see also the source term of the 2D case
+
       for (size_t i = 0; i < f.size(); i++) {
         vals[i] = f[i] * f[i];
       }
@@ -333,11 +335,11 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 }
 
 /*!
- * \ingroup asgard_examples_continuity_md
+ * \ingroup asgard_examples_burgers
  * \brief Computes the L^2 error for the given example
  *
  * The provided discretization_manager should hold a PDE made with
- * make_continuity_pde(). This will compute the L^2 error.
+ * make_burgers_pde(). This will compute the L^2 error.
  *
  * \tparam P is double or float, the precision of the manager
  *
@@ -388,9 +390,24 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 #endif
 }
 
+#ifndef __ASGARD_DOXYGEN_SKIP
+// internal testing, not part of the example
 void self_test();
+#endif
 
+/*!
+ * \ingroup asgard_examples_burgers
+ * \brief main() for the continuity example
+ *
+ * The main() processes the command line arguments and calls both
+ * make_burgers_pde() and get_error_l2().
+ *
+ * \snippet burgers.cpp burgers main
+ */
 int main(int argc, char **argv) {
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [burgers main]
+#endif
 
   // if MPI is enabled, call MPI_Init(), otherwise do nothing
   asgard::libasgard_runtime running_(argc, argv);
@@ -451,6 +468,9 @@ int main(int argc, char **argv) {
     std::cout << asgard::tools::timer.report() << '\n';
 
   return 0;
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [burgers main]
+#endif
 }
 
 #ifndef __ASGARD_DOXYGEN_SKIP
@@ -475,7 +495,6 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 
     double const err = get_error_l2(disc);
 
-    std::cout << " step = " << disc.current_step() << "  err = " << err << '\n';
     tcheckless(disc.current_step(), err, tol);
   }
 }
