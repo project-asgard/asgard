@@ -21,7 +21,19 @@
  * \f[ \frac{d}{d t} f + f \cdot \nabla f = \nu \Delta f \f]
  * the formulation used here is the equivalent
  * \f[ \frac{d}{d t} f + \nabla \cdot f^2 - \nu \nabla \cdot \nabla f = 0 \f]
- * the domain is arbitrarily chosen as [-8, 8] in all directions.
+ * This file implements several different versions of this equation.
+ *
+ * \par
+ * - 1D inviscit (nu == 0) case, with bell shaped curve as initial conditions
+ * - 1D viscous case (nu > 0) borrowed from the [Wikipedia page](https://en.wikipedia.org/wiki/Burgers%27_equation)
+ * - 2D viscous and inviscit cases with known exact solution
+ *
+ * \par
+ * Adding viscosity leads to a more stable problem,
+ * but the higher condition number of the second order derivative
+ * requires an implicit solver.
+ * Thus, the viscous case uses an IMEX stepping scheme while the inviscit case
+ * is done explicitly.
  *
  * \par
  * This examples shows how to set a PDE with non-linear and non-separable coefficients.
@@ -34,28 +46,22 @@
  * Constructs the pde description for the given umber of dimensions
  * and options.
  *
- * \tparam boudnary indicates the type of boundary to use
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
  * \param num_dims number of dimensions
  * \param options is the set of options
  *
- * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
- *          removed in the near future
+ * \returns a pde_scheme<P> set for the Burgers equation
  *
- * \b Note: The asgard namespace includes the name \b boundary_type,
- * it a natural name but it is possible to create a conflict if the entire namespace
- * is included.
- *
- * \snippet elliptic.cpp elliptic make
+ * \snippet burgers.cpp burgers make
  */
 template<typename P = asgard::default_precision>
 asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [elliptic make]
+//! [burgers make]
 #endif
-  rassert(1 <= num_dims and num_dims <= 3, "invalid number of dimensions, use 1 - 3");
+  rassert(1 <= num_dims and num_dims <= 2, "invalid number of dimensions, use 1 or 2");
 
   options.title = "Burgers PDE " + std::to_string(num_dims) + "D";
 
@@ -68,13 +74,18 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   if (nu < 0)
     throw std::runtime_error("the viscosity coefficient '-nu' should be non-negative");
 
+  if (nu == 0)
+    options.title += " (inviscit)";
+  else
+    options.title += " (viscosity nu = " + std::to_string(nu) + ")";
+
   // the 1D case is set on (-8, 8), the higher dimensions use (-1, 1)^d
   asgard::pde_domain<P> domain = (num_dims == 1)
     ? asgard::pde_domain<P>(std::vector<asgard::domain_range>(1, {-8.0, 8.0}))
     : asgard::pde_domain<P>(std::vector<asgard::domain_range>(num_dims, {-1.0, 1.0}));
 
   options.default_degree = 3;
-  options.default_start_levels = {4, };
+  options.default_start_levels = {6, };
 
   // the inviscit equation can be done with an explicit time stepper
   if (nu == 0)
@@ -83,13 +94,10 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     options.default_step_method = asgard::time_method::imex1;
 
   P const dx = domain.min_cell_size(options.max_level());
-  options.default_dt = 0.1 * dx;
+  options.default_dt = 0.05 * dx;
   options.default_stop_time = 0.5;
 
-  if (options.max_level() > 5)
-    options.default_solver = asgard::solver_method::bicgstab;
-  else
-    options.default_solver = asgard::solver_method::direct;
+  options.default_solver = asgard::solver_method::bicgstab;
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;
@@ -116,17 +124,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       }
     };
 
-  asgard::term_1d<P> div_grad;
-
-  if (nu > 0) {
-    div_grad = std::vector<asgard::term_1d<P>>{
-        asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
-        asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
-      };
-
-    div_grad.set_penalty(1 / dx);
-  }
-
+  // setting up multidimensional volume term that uses interpolated coefficient
   asgard::term_md<P> term_f2 = asgard::term_interp<P>{f2};
 
   if (num_dims == 1)
@@ -165,6 +163,13 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     pde += asgard::term_md<P>{div, term_f2};
 
     if (nu > 0) {
+      asgard::term_1d<P> div_grad = std::vector<asgard::term_1d<P>>{
+          asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
+          asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
+        };
+
+      div_grad.set_penalty(1 / dx);
+
       // the viscous mode for the right-hand-side second derivative
       asgard::term_md<P> dg = {div_grad, };
 
@@ -194,69 +199,192 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   }
 
   if (num_dims == 2) {
-    std::cout << " num_dims = " << num_dims << '\n';
-    // derivative terms
+    // initial conditions and derivatives in x and y, also the exact solution in time
     auto icx   = [](P x) -> P { return P{1} + P{0.75} * x - P{0.25} * x * x; };
     auto icdx  = [](P x) -> P { return P{0.75} - P{0.5} * x; };
-    auto icdxx = [](P x) -> P { return - P{0.5} * x; };
+    auto icdxx = [](P) -> P { return - P{0.5}; };
+
     auto icy   = [](P y) -> P { return (P{1} - y * y); };
     auto icdy  = [](P y) -> P { return -2 * y; };
     auto icdyy = [](P) -> P { return -2; };
 
-    asgard::term_md<P> divx = {asgard::term_div{0.5, asgard::boundary_type::left},
-                               asgard::term_identity{}};
-    asgard::term_md<P> divy = {asgard::term_identity{},
-                               asgard::term_div{0.5, asgard::boundary_type::bothsides}, };
+    auto exact_t = [](P t) -> P { return std::exp(-t); };
 
-    // the group ids are needed for IMEX scheme in the viscous way
-    int const non_linear_group_id = pde.new_term_group();
+    if (nu == 0) {
+      // inviscit mode, using explicit time-stepping and no second order terms
+      asgard::term_md<P> divx = {asgard::term_div{0.5, asgard::boundary_type::left},
+                                 asgard::term_identity{}};
+      asgard::term_md<P> divy = {asgard::term_identity{},
+                                 asgard::term_div{0.5, asgard::boundary_type::bothsides}};
 
-    pde += asgard::term_md<P>{divx, term_f2};
-    pde += asgard::term_md<P>{divy, term_f2};
+      pde += asgard::term_md<P>{divx, term_f2};
+      pde += asgard::term_md<P>{divy, term_f2};
 
-    if (nu > 0) {
-
+      // setting up the non-separable source
+      // the term can be split into separable and non-separable components
+      // splitting may improve stability but will increase the overall cost
       auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
         void {
           for (int64_t i = 0; i < nodes.num_strips(); i++) {
             P const x = nodes[i][0];
             P const y = nodes[i][1];
-            vals[i] = std::exp(-t) * (-icx(x) * icy(y) + icx(x) * icdx(x) * icy(y) * icy(y)
-                                      + icx(x) * icx(x) * icy(y) * icdy(y)
-                                      - nu * icdxx(x) * icy(y) - nu * icx(x) * icdyy(y));
+            // linear contribution
+            vals[i] = -std::exp(-t) * icx(x) * icy(y);
+            // non-linear contribution
+            vals[i] += std::exp(-t) * std::exp(-t)
+                      * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
           }
         };
 
+      // a term-group can have at most one non-separable source
+      // thus we use the "set" method, as opposed to "add"
       pde.set_source(smd);
 
+    } else {
+      // boundary conditions in y are homogeneous and simple to impose to all terms
+      // boundary conditions in x are imposed only on the second order term
+      asgard::term_md<P> divx = {asgard::term_div{0.5, asgard::boundary_type::none},
+                                asgard::term_identity{}};
+      asgard::term_md<P> divy = {asgard::term_identity{},
+                                asgard::term_div{0.5, asgard::boundary_type::bothsides}, };
+
+      // the group ids are needed for IMEX scheme in the viscous way
+      int const non_linear_group_id = pde.new_term_group();
+
+      pde += asgard::term_md<P>{divx, term_f2};
+      pde += asgard::term_md<P>{divy, term_f2};
+
+      // setting up the non-separable source
+      auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
+        void {
+          for (int64_t i = 0; i < nodes.num_strips(); i++) {
+            P const x = nodes[i][0];
+            P const y = nodes[i][1];
+            // linear contribution
+            vals[i] = std::exp(-t)
+                     * (-icx(x) * icy(y) - nu * icdxx(x) * icy(y) - nu * icx(x) * icdyy(y));
+            // non-linear contribution
+            vals[i] += std::exp(-t) * std::exp(-t)
+                      * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
+          }
+        };
+
+      // setting the non-separable source into the pde_scheme
+      pde.set_source(smd);
+
+      // second order term in x
+      asgard::term_1d<P> div_grad_x = std::vector<asgard::term_1d<P>>{
+          asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
+          asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
+        };
+
+      div_grad_x.set_penalty(1 / dx);
+
+      asgard::term_md<P> dgx = {div_grad_x, asgard::term_identity{}};
+
+      // adding inhomogeneous boundary condition on the right
+      asgard::separable_func<P> fr(std::vector<P>{icx(pde.domain().xright(0)), 1}, exact_t);
+      fr.set(1, [=](std::vector<P> const &y, P, std::vector<P> &fy)
+                  -> void {
+                  for (size_t i = 0; i < y.size(); i++)
+                    fy[i] = icy(y[i]);
+                });
+      dgx += asgard::right_boundary_flux{fr};
+
+      asgard::term_1d<P> div_grad_y = std::vector<asgard::term_1d<P>>{
+          asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
+          asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
+        };
+
+      div_grad_y.set_penalty(1 / dx);
+
+      asgard::term_md<P> dgy = {asgard::term_identity{}, div_grad_y};
+
+      // adding the second order terms to a new term-group
       int const laplacian_group_id = pde.new_term_group();
-      pde += {div_grad, asgard::term_identity{}};
-      pde += {asgard::term_identity{}, div_grad};
+      pde += dgx;
+      pde += dgy;
 
       pde.set(asgard::imex_implicit_group{laplacian_group_id},
               asgard::imex_explicit_group{non_linear_group_id});
-
-    } else {
-
-      auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
-        void {
-          for (int64_t i = 0; i < nodes.num_strips(); i++) {
-            P const x = nodes[i][0];
-            P const y = nodes[i][1];
-            vals[i] = std::exp(-t) * (-icx(x) * icy(y) + icx(x) * icdx(x) * icy(y) * icy(y)
-                                      + icx(x) * icx(x) * icy(y) * icdy(y));
-          }
-        };
-
-      pde.set_source(smd);
     }
+
+    // the vector version of the initial conditions
+    auto icx_vec = [=](std::vector<P> const &x, P, std::vector<P> &fx)
+      -> void {
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = icx(x[i]);
+      };
+    auto icy_vec = [=](std::vector<P> const &y, P, std::vector<P> &fy)
+      -> void {
+        for (size_t i = 0; i < y.size(); i++)
+          fy[i] = icy(y[i]);
+      };
+
+    pde.add_initial(asgard::separable_func<P>({icx_vec, icy_vec}, exact_t));
 
     return pde;
   }
 
   return asgard::pde_scheme<P>();
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [elliptic make]
+//! [burgers make]
+#endif
+}
+
+/*!
+ * \ingroup asgard_examples_continuity_md
+ * \brief Computes the L^2 error for the given example
+ *
+ * The provided discretization_manager should hold a PDE made with
+ * make_continuity_pde(). This will compute the L^2 error.
+ *
+ * \tparam P is double or float, the precision of the manager
+ *
+ * \param disc is the discretization of a PDE
+ *
+ * \returns the L^2 error between the known exact solution and
+ *          the current state in the \b disc manager
+ *
+ * \snippet burgers.cpp burgers get-err
+ */
+template<typename P>
+double get_error_l2(asgard::discretization_manager<P> const &disc) {
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [burgers get-err]
+#endif
+
+  int const num_dims = disc.num_dims();
+
+  // l-2 error checking is set for 2D problem only
+  if (num_dims != 2)
+    return 0;
+
+  // using the fact that the initial condition is the exact solution
+  std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
+
+  double constexpr space = 1984.0 / 900.0;
+  double const time_val  = std::exp(-disc.time());
+
+  // this is the L^2 norm-squared of the exact solution
+  double const enorm = space * time_val * time_val;
+
+  std::vector<P> const &state = disc.current_state_mpi();
+  assert(eref.size() == state.size());
+
+  double nself = 0;
+  double ndiff = 0;
+  for (size_t i = 0; i < state.size(); i++)
+  {
+    double const e = eref[i] - state[i];
+    ndiff += e * e;
+    double const r = eref[i];
+    nself += r * r;
+  }
+
+  return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! [burgers get-err]
 #endif
 }
 
@@ -278,11 +406,11 @@ int main(int argc, char **argv) {
   // this file and the two additional options accepted for this problem
   if (options.show_help) {
     std::cout << "\n solves the continuity equation:\n";
-    std::cout << "    f_t + div f^2 = f_xx + s(t, x)\n\n";
+    std::cout << "    f_t + div f^2 = nu * f_xx + s(t, x)\n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << "<< additional options for this file >>\n";
-    std::cout << "-dims            -dm     int        accepts: 1 - 3\n";
+    std::cout << "-dims            -dm     int        accepts: 1 - 2\n";
     std::cout << "                                    the number of dimensions\n\n";
     std::cout << "-test                               perform self-testing\n\n";
     return 0;
@@ -302,12 +430,22 @@ int main(int argc, char **argv) {
   asgard::discretization_manager<P> disc(make_burgers_pde<P>(num_dims, options),
                                          asgard::verbosity_level::high);
 
+  P const err_init = get_error_l2(disc);
+  if (num_dims > 1 and not disc.stop_verbosity())
+    std::cout << " -- error in the initial conditions: " << err_init << "\n";
+
   disc.advance_time();
 
   if (not disc.stop_verbosity())
     disc.progress_report();
 
   disc.save_final_snapshot();
+
+  P const err_final = get_error_l2(disc);
+  if (num_dims > 1 and not disc.stop_verbosity()) {
+    disc.progress_report();
+    std::cout << " -- final error: " << err_final << "\n";
+  }
 
   if (asgard::tools::timer.enabled() and not disc.stop_verbosity())
     std::cout << asgard::tools::timer.report() << '\n';
