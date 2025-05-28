@@ -134,7 +134,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     // the viscous case uses two exponentials
 
     // the derivative term for d/dx f^2
-    asgard::term_md<P> div = {asgard::term_div{0.5, asgard::boundary_type::bothsides}, };
+    asgard::term_md<P> div = {asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}, };
 
     // set the initial conditions, will be used to set the boundary conditions too
     auto ic = (nu > 0) ? [](P x)
@@ -164,8 +164,8 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
     if (nu > 0) {
       asgard::term_1d<P> div_grad = std::vector<asgard::term_1d<P>>{
-          asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
-          asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
+          asgard::term_div<P>{-std::sqrt(nu), asgard::boundary_type::none},
+          asgard::term_grad<P>{std::sqrt(nu), asgard::boundary_type::bothsides},
         };
 
       div_grad.set_penalty(1 / dx);
@@ -193,7 +193,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
           fx[i] = ic(x[i]);
       };
 
-    pde.add_initial(asgard::separable_func({ic_vec, }));
+    pde.add_initial(asgard::separable_func<P>({ic_vec, }));
 
     return pde;
   }
@@ -212,10 +212,10 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
     if (nu == 0) {
       // inviscit mode, using explicit time-stepping and no second order terms
-      asgard::term_md<P> divx = {asgard::term_div{0.5, asgard::boundary_type::left},
+      asgard::term_md<P> divx = {asgard::term_div<P>{0.5, asgard::boundary_type::left},
                                  asgard::term_identity{}};
       asgard::term_md<P> divy = {asgard::term_identity{},
-                                 asgard::term_div{0.5, asgard::boundary_type::bothsides}};
+                                 asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}};
 
       pde += asgard::term_md<P>{divx, term_f2};
       pde += asgard::term_md<P>{divy, term_f2};
@@ -243,10 +243,10 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     } else {
       // boundary conditions in y are homogeneous and simple to impose to all terms
       // boundary conditions in x are imposed only on the second order term
-      asgard::term_md<P> divx = {asgard::term_div{0.5, asgard::boundary_type::none},
+      asgard::term_md<P> divx = {asgard::term_div<P>{0.5, asgard::boundary_type::none},
                                 asgard::term_identity{}};
       asgard::term_md<P> divy = {asgard::term_identity{},
-                                asgard::term_div{0.5, asgard::boundary_type::bothsides}, };
+                                asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}, };
 
       // the group ids are needed for IMEX scheme in the viscous way
       int const non_linear_group_id = pde.new_term_group();
@@ -274,8 +274,8 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
       // second order term in x
       asgard::term_1d<P> div_grad_x = std::vector<asgard::term_1d<P>>{
-          asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
-          asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
+          asgard::term_div<P>{-std::sqrt(nu), asgard::boundary_type::none},
+          asgard::term_grad<P>{std::sqrt(nu), asgard::boundary_type::bothsides},
         };
 
       div_grad_x.set_penalty(1 / dx);
@@ -284,16 +284,16 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
       // adding inhomogeneous boundary condition on the right
       asgard::separable_func<P> fr(std::vector<P>{icx(pde.domain().xright(0)), 1}, exact_t);
-      fr.set(1, [=](std::vector<P> const &y, P, std::vector<P> &fy)
-                  -> void {
+      fr.set(1, [=](std::vector<P> const &y, P, std::vector<P> &fy) ->
+                void {
                   for (size_t i = 0; i < y.size(); i++)
                     fy[i] = icy(y[i]);
                 });
       dgx += asgard::right_boundary_flux{fr};
 
       asgard::term_1d<P> div_grad_y = std::vector<asgard::term_1d<P>>{
-          asgard::term_div{-std::sqrt(nu), asgard::boundary_type::none},
-          asgard::term_grad{std::sqrt(nu), asgard::boundary_type::bothsides},
+          asgard::term_div<P>{-std::sqrt(nu), asgard::boundary_type::none},
+          asgard::term_grad<P>{std::sqrt(nu), asgard::boundary_type::bothsides},
         };
 
       div_grad_y.set_penalty(1 / dx);
@@ -453,6 +453,44 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-void self_test() {
-  //
+#ifndef __ASGARD_DOXYGEN_SKIP
+///////////////////////////////////////////////////////////////////////////////
+// The code below is not part of the example, rather it is intended
+// for correctness checking and verification against the known solution
+///////////////////////////////////////////////////////////////////////////////
+using namespace asgard;
+
+template<typename P>
+void dotest(double tol, int num_dims, std::string const &opts) {
+  current_test<P> test_(opts, num_dims);
+
+  auto options = make_opts(opts);
+
+  discretization_manager<P> disc(make_burgers_pde<P>(num_dims, options),
+                                 verbosity_level::quiet);
+
+  while (disc.remaining_steps() > 0)
+  {
+    disc.advance_time(1);
+
+    double const err = get_error_l2(disc);
+
+    std::cout << " step = " << disc.current_step() << "  err = " << err << '\n';
+    tcheckless(disc.current_step(), err, tol);
+  }
 }
+
+void self_test() {
+  all_tests testing_("Burgers' equation:", " f_t + div f^2 = nu * Laplacian * f + sources");
+
+#ifdef ASGARD_ENABLE_DOUBLE
+  dotest<double>(4.E-4, 2, "-l 6 -nu 0.1");
+  dotest<double>(8.E-4, 2, "-l 6 -t 0.25 -nu 1");
+#endif
+
+#ifndef ASGARD_ENABLE_DOUBLE
+  std::cout << "no tests for single precision due to conditioning\n";
+#endif
+}
+
+#endif //__ASGARD_DOXYGEN_SKIP
