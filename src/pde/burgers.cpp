@@ -83,7 +83,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     options.default_step_method = asgard::time_method::imex1;
 
   P const dx = domain.min_cell_size(options.max_level());
-  options.default_dt = 0.001 * dx;
+  options.default_dt = 0.1 * dx;
   options.default_stop_time = 0.5;
 
   if (options.max_level() > 5)
@@ -136,7 +136,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     // the viscous case uses two exponentials
 
     // the derivative term for d/dx f^2
-    asgard::term_md<P> div = {asgard::term_div{1, asgard::boundary_type::bothsides}, };
+    asgard::term_md<P> div = {asgard::term_div{0.5, asgard::boundary_type::bothsides}, };
 
     // set the initial conditions, will be used to set the boundary conditions too
     auto ic = (nu > 0) ? [](P x)
@@ -194,16 +194,19 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   }
 
   if (num_dims == 2) {
+    std::cout << " num_dims = " << num_dims << '\n';
     // derivative terms
-    auto icx  = [](P x) -> P { return P{1} + P{0.75} * x - P{0.25} * x * x; };
-    auto icdx = [](P x) -> P { return P{0.75} - P{0.5} * x; };
-    auto icy  = [](P y) -> P { return (P{1} - y * y); };
-    auto icdy = [](P y) -> P { return -2 * y; };
+    auto icx   = [](P x) -> P { return P{1} + P{0.75} * x - P{0.25} * x * x; };
+    auto icdx  = [](P x) -> P { return P{0.75} - P{0.5} * x; };
+    auto icdxx = [](P x) -> P { return - P{0.5} * x; };
+    auto icy   = [](P y) -> P { return (P{1} - y * y); };
+    auto icdy  = [](P y) -> P { return -2 * y; };
+    auto icdyy = [](P) -> P { return -2; };
 
-    asgard::term_md<P> divx = {asgard::term_div{1, asgard::boundary_type::left},
+    asgard::term_md<P> divx = {asgard::term_div{0.5, asgard::boundary_type::left},
                                asgard::term_identity{}};
     asgard::term_md<P> divy = {asgard::term_identity{},
-                               asgard::term_div{1, asgard::boundary_type::bothsides}, };
+                               asgard::term_div{0.5, asgard::boundary_type::bothsides}, };
 
     // the group ids are needed for IMEX scheme in the viscous way
     int const non_linear_group_id = pde.new_term_group();
@@ -212,10 +215,43 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     pde += asgard::term_md<P>{divy, term_f2};
 
     if (nu > 0) {
+
+      auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
+        void {
+          for (int64_t i = 0; i < nodes.num_strips(); i++) {
+            P const x = nodes[i][0];
+            P const y = nodes[i][1];
+            vals[i] = std::exp(-t) * (-icx(x) * icy(y) + icx(x) * icdx(x) * icy(y) * icy(y)
+                                      + icx(x) * icx(x) * icy(y) * icdy(y)
+                                      - nu * icdxx(x) * icy(y) - nu * icx(x) * icdyy(y));
+          }
+        };
+
+      pde.set_source(smd);
+
+      int const laplacian_group_id = pde.new_term_group();
       pde += {div_grad, asgard::term_identity{}};
+      pde += {asgard::term_identity{}, div_grad};
+
+      pde.set(asgard::imex_implicit_group{laplacian_group_id},
+              asgard::imex_explicit_group{non_linear_group_id});
+
+    } else {
+
+      auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
+        void {
+          for (int64_t i = 0; i < nodes.num_strips(); i++) {
+            P const x = nodes[i][0];
+            P const y = nodes[i][1];
+            vals[i] = std::exp(-t) * (-icx(x) * icy(y) + icx(x) * icdx(x) * icy(y) * icy(y)
+                                      + icx(x) * icx(x) * icy(y) * icdy(y));
+          }
+        };
+
+      pde.set_source(smd);
     }
 
-    // exp(-x) * (1 - y^2)
+    return pde;
   }
 
   return asgard::pde_scheme<P>();
@@ -224,7 +260,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 #endif
 }
 
-void self_test() {}
+void self_test();
 
 int main(int argc, char **argv) {
 
@@ -277,4 +313,8 @@ int main(int argc, char **argv) {
     std::cout << asgard::tools::timer.report() << '\n';
 
   return 0;
+}
+
+void self_test() {
+  //
 }
