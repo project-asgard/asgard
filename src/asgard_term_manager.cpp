@@ -276,7 +276,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
 template<typename P>
 void term_manager<P>::update_const_sources(
-    int groupid, sparse_grid const &grid, connection_patterns const &conns,
+    sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier)
 {
   if (grid.generation() == sources_grid_gen)
@@ -287,12 +287,9 @@ void term_manager<P>::update_const_sources(
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
 
-  indexrange const irng = (groupid == -1) ? indexrange(sources) : source_groups[groupid];
-
   // update the constant components
-  for (int is : irng) {
-    auto &src = sources[is];
-
+  for (auto &src : sources)
+  {
     #ifdef ASGARD_USE_MPI
     if (not resources.owns(src.rec))
       continue;
@@ -332,7 +329,7 @@ void term_manager<P>::update_const_sources(
     rebuild_mass_matrices(grid);
 
   // make sure to handle the boundary conditions too
-  update_bc(groupid, grid, conns, hier);
+  update_bc(grid, conns, hier);
 
   sources_grid_gen = grid.generation();
 }
@@ -343,7 +340,7 @@ void term_manager<P>::apply_sources(
     int groupid, pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
-  update_const_sources(groupid, grid, conns, hier);
+  update_const_sources(grid, conns, hier);
 
   int64_t const num_entries = grid.num_indexes() * hier.block_size();
   if constexpr (dmode == data_mode::replace or dmode == data_mode::scal_rep)
@@ -429,15 +426,13 @@ void term_manager<P>::apply_sources(
 
 template<typename P>
 void term_manager<P>::update_bc(
-    int groupid, sparse_grid const &grid, connection_patterns const &conns,
+    sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier)
 {
   int const pdof = hier.degree() + 1;
 
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
-
-  indexrange irnage = (groupid == -1) ? indexrange(0) : term_groups[groupid];
 
   // update the constant components
   for (auto &bc : bcs) {
@@ -448,9 +443,6 @@ void term_manager<P>::update_bc(
     if (not resources.owns(terms[bc.term_index].rec))
       continue;
     #endif
-
-    if (groupid >= 0 and irnage.contains(bc.term_index))
-      continue;
 
     bc.val.resize(num_entries);
 

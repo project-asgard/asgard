@@ -621,14 +621,17 @@ void imex_stepper<P>::next_step(
       f[i] = current[i] + dt * fs[i];
   }
 
-  implicit_solve(disc, time + dt, f, fs);
+  implicit_solve(disc, time + dt, f, next);
 
-  explicit_ode_rhs(disc, time + dt, fs, f);
+  if (method == time_method::imex1)
+    return;
+
+  explicit_ode_rhs(disc, time + dt, next, f);
 
   if (disc.is_leader()) {
     ASGARD_OMP_PARFOR_SIMD
     for (size_t i = 0; i < f.size(); i++)
-      f[i] = 0.5 * current[i] + 0.5 * (fs[i] + dt * f[i]);
+      f[i] = 0.5 * current[i] + 0.5 * (next[i] + dt * f[i]);
   }
 
   implicit_solve(disc, time + dt, f, next);

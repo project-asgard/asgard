@@ -46,8 +46,11 @@ using scalar_func = std::function<P(P const)>;
  * \brief Strong-type, usage: pde_domain<double> domain(position_dims{3}, velocity_dims{3});
  */
 struct position_dims {
+  //! do not create an empty position dimension number
   position_dims() = delete;
+  //! sets the position dimensions
   explicit position_dims(int n) : num(n) {}
+  //! holds the number of position dimensions
   int const num;
 };
 /*!
@@ -55,8 +58,11 @@ struct position_dims {
  * \brief Strong-type, usage: pde_domain<double> domain(position_dims{3}, velocity_dims{3});
  */
 struct velocity_dims {
+  //! do not create an empty velocity dimension number
   velocity_dims() = delete;
+  //! sets the velocity dimensions
   explicit velocity_dims(int n) : num(n) {}
+  //! holds the number of position dimensions
   int const num;
 };
 

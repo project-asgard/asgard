@@ -118,7 +118,7 @@ endif()
 # e.g., _asgard_doc_pdes_str is used in the example file
 ###############################################################################
 
-set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic sinwav two_stream vplb sod_shock")
+set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic sinwav two_stream vplb sod_shock burgers")
 set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal misc_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}")
@@ -688,6 +688,7 @@ foreach (_asgcomp ${asgard_components})
   endif()
 endforeach()
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.hpp"
+              "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.h"
         DESTINATION include)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)

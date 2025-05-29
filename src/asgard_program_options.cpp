@@ -25,6 +25,7 @@ bool is_implicit(time_method method) {
 }
 bool is_imex(time_method method) {
   switch (method) {
+    case time_method::imex1:
     case time_method::imex2:
       return true;
     default:
@@ -110,7 +111,7 @@ Options          Short   Value      Description
                                       steady
                                       forward-euler/fe/rk1/rk2/rk3/rk4
                                       backwar-euler/be/crank-nicolson/cn
-                                      imex2
+                                      imex1/imex2
                                     (fe, be and cn are shorthand acronyms for the longer names)
                                     (rk1 is the same as forward-euler)
                                     steady computes the steady state, not a time-stepping method
@@ -285,25 +286,23 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       auto selected = move_process_next();
       if (not selected)
         throw std::runtime_error(report_no_value());
-      if (*selected == "steady")
-        step_method = time_method::steady;
-      else if (*selected == "forward-euler" or *selected == "fe" or *selected == "rk1")
-        step_method = time_method::forward_euler;
-      else if (*selected == "rk2")
-        step_method = time_method::rk2;
-      else if (*selected == "rk3")
-        step_method = time_method::rk3;
-      else if (*selected == "rk4")
-        step_method = time_method::rk4;
-      else if (*selected == "cn" or *selected == "crank-nicolson")
-        step_method = time_method::cn;
-      else if (*selected == "be" or *selected == "backward-euler")
-        step_method = time_method::back_euler;
-      else if (*selected == "imex2")
-        step_method = time_method::imex2;
-      else {
+
+      std::map<std::string_view, time_method> vals = {
+        {"steady", time_method::steady},
+        {"forward-euler", time_method::forward_euler}, {"fe", time_method::forward_euler}, {"rk1", time_method::forward_euler},
+        {"rk2", time_method::rk2},
+        {"rk3", time_method::rk3},
+        {"rk4", time_method::rk4},
+        {"backward-euler", time_method::back_euler}, {"be", time_method::back_euler},
+        {"crank-nicolson", time_method::cn}, {"cn", time_method::cn},
+        {"imex1", time_method::imex1},
+        {"imex2", time_method::imex2},
+      };
+
+      auto it = vals.find(*selected);
+      if (it == vals.end())
         throw std::runtime_error(report_wrong_value());
-      }
+      step_method = it->second;
     }
     break;
     case optentry::start_levels: {
@@ -725,8 +724,9 @@ std::string prog_opts::get_name(time_method t)
     {time_method::rk2, "Runge-Kutta 2-step (explicit)"},
     {time_method::rk3, "Runge-Kutta 3-step (explicit)"},
     {time_method::rk4, "Runge-Kutta 4-step (explicit)"},
-    {time_method::cn, "Crank-Nicolson 1-step (implicit)"},
     {time_method::back_euler, "Backward-Euler 1-step (implicit)"},
+    {time_method::cn, "Crank-Nicolson 1-step (implicit)"},
+    {time_method::imex1, "Implicit-Explicit 1-step (imex)"},
     {time_method::imex2, "Implicit-Explicit 2-step (imex)"},
   };
 

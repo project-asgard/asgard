@@ -279,12 +279,11 @@ struct term_manager
   mom_deps const &deps(int groupid) const { return deps_[groupid]; }
 
   //! update constant components of the sources
-  void update_const_sources(int groupid, sparse_grid const &grid,
-                            connection_patterns const &conn,
+  void update_const_sources(sparse_grid const &grid, connection_patterns const &conn,
                             hierarchy_manipulator<P> const &hier);
 
   //! update constant components of the sources
-  void update_bc(int groupid, sparse_grid const &grid, connection_patterns const &conn,
+  void update_bc(sparse_grid const &grid, connection_patterns const &conn,
                  hierarchy_manipulator<P> const &hier);
 
   //! rebuild all matrices

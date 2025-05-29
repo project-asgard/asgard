@@ -344,6 +344,7 @@ struct term_moment_over_density {
  * \brief Volume term that depends on the negative of a moment divided by the density (moment 0)
  */
 struct term_moment_over_density_neg {
+  //! set the negative moment over density
   explicit term_moment_over_density_neg(int mom) : moment(mom) {
     rassert(moment > 0, "The moment over density must be at least 1");
   }
@@ -1449,7 +1450,7 @@ public:
 
   //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
   void set(imex_implicit_group im, imex_explicit_group ex) {
-    expect(options_.step_method.value() == time_method::imex2);
+    expect(is_imex(options_.step_method.value()));
     im_ = im;
     ex_ = ex;
   }
