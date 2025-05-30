@@ -91,12 +91,14 @@ make_index_set(organize2d<int, int *> const &indexes);
 template indexset
 make_index_set(organize2d<int, int const *> const &indexes);
 
-dimension_sort::dimension_sort(indexset const &iset) : iorder_(iset.num_dimensions())
+dimension_sort::dimension_sort(indexset const &iset) // : iorder_(iset.num_dimensions())
 {
   int num_dimensions = iset.num_dimensions();
   int num_indexes    = iset.num_indexes();
 
-  iorder_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
+  // iorder_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
+  for (int d : iindexof(num_dimensions))
+    iorder_[d] = std::vector<int>(num_indexes);
 
 #pragma omp parallel for
   for (int d = 0; d < num_dimensions - 1; d++)
@@ -138,9 +140,6 @@ dimension_sort::dimension_sort(indexset const &iset) : iorder_(iset.num_dimensio
     return true;
   };
 
-  // offsets of sorted "vectors" in each dimension
-  pntr_ = std::vector<std::vector<int>>(num_dimensions);
-
   // split the map into vectors of identical coefficients in all but 1d
   if (num_dimensions == 1)
   {
@@ -160,80 +159,6 @@ dimension_sort::dimension_sort(indexset const &iset) : iorder_(iset.num_dimensio
         {
           pntr_[d].push_back(i);
           c_index = iset[iorder_[d][i]];
-        }
-      }
-      pntr_[d].push_back(num_indexes);
-    }
-  }
-}
-
-dimension_sort::dimension_sort(vector2d<int> const &list) : iorder_(list.stride())
-{
-  int num_dimensions = list.stride();
-  int num_indexes    = list.num_strips();
-
-  iorder_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
-
-#pragma omp parallel for
-  for (int d = 0; d < num_dimensions; d++)
-  {
-    // for each dimension, use the map to group points together
-    std::iota(iorder_[d].begin(), iorder_[d].end(), 0);
-    std::sort(iorder_[d].begin(), iorder_[d].end(), [&](int a, int b) -> bool {
-      const int *idxa = list[a];
-      const int *idxb = list[b];
-      for (int j = 0; j < num_dimensions; j++)
-      {
-        if (j != d)
-        {
-          if (idxa[j] < idxb[j])
-            return true;
-          if (idxa[j] > idxb[j])
-            return false;
-        }
-      }
-      // lexigographical order, dimension d is the fastest moving one
-      if (idxa[d] < idxb[d])
-        return true;
-      if (idxa[d] > idxb[d])
-        return false;
-      return false;
-    });
-  }
-
-  // check if multi-indexes match in all but one dimension
-  auto match_outside_dim = [&](int d, int const *a, int const *b) -> bool {
-    for (int j = 0; j < d; j++)
-      if (a[j] != b[j])
-        return false;
-    for (int j = d + 1; j < num_dimensions; j++)
-      if (a[j] != b[j])
-        return false;
-    return true;
-  };
-
-  // offsets of sorted "sparse vectors" in each dimension
-  pntr_ = std::vector<std::vector<int>>(num_dimensions);
-
-  // split the map into vectors of identical coefficients in all but 1d
-  if (num_dimensions == 1)
-  {
-    pntr_[0].push_back(0);
-    pntr_[0].push_back(num_indexes);
-  }
-  else
-  {
-#pragma omp parallel for
-    for (int d = 0; d < num_dimensions; d++)
-    {
-      int const *c_index = list[iorder_[d][0]];
-      pntr_[d].push_back(0);
-      for (int i = 1; i < num_indexes; i++)
-      {
-        if (not match_outside_dim(d, c_index, list[iorder_[d][i]]))
-        {
-          pntr_[d].push_back(i);
-          c_index = list[iorder_[d][i]];
         }
       }
       pntr_[d].push_back(num_indexes);
@@ -430,6 +355,9 @@ sparse_grid::sparse_grid(prog_opts const &options)
 
   grid_type gtype = options.grid.value_or(grid_type::sparse); // defaults to sparse
   std::vector<int> const &levels = options.start_levels;
+
+  std::fill(level_.begin(), level_.end(), 0);
+  std::fill(max_index_.begin(), max_index_.end(), 0);
 
   indexset iset = [&]() -> indexset {
     switch (gtype)

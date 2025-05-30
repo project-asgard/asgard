@@ -264,7 +264,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
   }
 }
 
-int64_t asgars_kronmult_nblocks_ = 0;
+int64_t asgard_kronmult_nblocks_ = 0;
 
 template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim, int n>
 void block_cpu(sparse_grid const &grid, connect_1d const &conn,
@@ -348,7 +348,7 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
 
     if constexpr (n == -1)
 #pragma omp atomic
-      asgars_kronmult_nblocks_ += my_block_count;
+      asgard_kronmult_nblocks_ += my_block_count;
   } // pragma parallel
 }
 
@@ -430,7 +430,7 @@ void globalsv_cpu(
 
     if constexpr (n == -1)
 #pragma omp atomic
-      asgars_kronmult_nblocks_ += my_block_count;
+      asgard_kronmult_nblocks_ += my_block_count;
 
   } // omp pragma parallel
 }

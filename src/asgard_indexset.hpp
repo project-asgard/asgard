@@ -398,8 +398,6 @@ public:
   dimension_sort() {}
   //! \brief Sort the indexes dimension by dimension.
   dimension_sort(indexset const &iset);
-  //! \brief Sort the unsorted list, dimension by dimension.
-  dimension_sort(vector2d<int> const &list);
 
   //! \brief Number of 1d vectors in dimensions dim
   int num_vecs(int dimension) const { return static_cast<int>(pntr_[dimension].size() - 1); }
@@ -412,12 +410,10 @@ public:
   int map(int dimension, int j) const { return iorder_[dimension][j]; }
   //! \brief Get the 1d index of the j-th entry
   int operator()(indexset const &iset, int dimension, int j) const { return iset[iorder_[dimension][j]][dimension]; }
-  //! \brief Get the 1d index of the j-th entry
-  int operator()(vector2d<int> const &list, int dimension, int j) const { return list[iorder_[dimension][j]][dimension]; }
 
 private:
-  std::vector<std::vector<int>> iorder_;
-  std::vector<std::vector<int>> pntr_;
+  std::array<std::vector<int>, max_num_dimensions> iorder_;
+  std::array<std::vector<int>, max_num_dimensions> pntr_;
 };
 
 /*!
