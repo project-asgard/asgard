@@ -435,6 +435,9 @@ target_link_libraries (libasgard
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
                        $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_highfive>
                        $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_hdf5>
+                       $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cudart>
+                       $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cublas>
+                       $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cusolver>
 )
 target_include_directories (libasgard
                             PUBLIC
@@ -449,17 +452,8 @@ if (ASGARD_USE_CUDA)
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/device/asgard_preconditioner_gpu.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
-    target_compile_features (libasgard PUBLIC cuda_std_14)
-    target_link_options (libasgard
-                         PUBLIC
-                         $<$<COMPILE_LANGUAGE:CUDA>:-Wl,-rpath,${CMAKE_BINARY_DIR}>
-    )
-    target_link_libraries (libasgard
-                           PUBLIC
-                           CUDA::cudart
-                           CUDA::cublas
-                           CUDA::cusolver
-    )
+    target_compile_features (libasgard PUBLIC cuda_std_17)
+
 endif ()
 
 if (ASGARD_USE_ROCM)
