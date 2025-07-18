@@ -367,11 +367,14 @@ public:
   sparse_grid const &get_grid() const { return grid; }
   //! returns the current grid generation
   int grid_generation() const { return grid.generation(); }
-  //! synchronizes the grid across MPI ranks
+  //! synchronizes the grid across MPI ranks and GPU devices
   void grid_sync() {
     #ifdef ASGARD_USE_MPI
     grid.mpi_sync(terms.resources, grid_synced_gen_);
     grid_synced_gen_ = grid.generation();
+    #endif
+    #ifdef ASGARD_USE_GPU
+    grid.gpu_sync();
     #endif
   }
   //! returns the term manager

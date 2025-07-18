@@ -23,6 +23,9 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   }
 
   grid = sparse_grid(options_);
+  #ifdef ASGARD_USE_GPU
+  grid.gpu_sync();
+  #endif
 
   if (not stop_verbosity()) {
     if (not options_.title.empty())
@@ -168,6 +171,10 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
                              dtime, aux_fields, state);
 
   conn = connection_patterns(options_.max_level());
+
+  #ifdef ASGARD_USE_GPU
+  grid.gpu_sync();
+  #endif
 
   hier = hierarchy_manipulator(options_.degree.value(), domain_);
 

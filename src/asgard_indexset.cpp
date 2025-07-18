@@ -744,6 +744,29 @@ void sparse_grid::mpi_sync(resource_set const &rcs, int last_gen) {
 }
 #endif
 
+#ifdef ASGARD_USE_GPU
+void sparse_grid::gpu_load() {
+  int const num_gpus = compute->num_gpus();
+  static std::vector<int> sorted;
+
+  for (int dim : iindexof(iset_.num_dimensions())) {
+
+    sorted.resize(dsort_.vec_end(dim, dsort_.num_vecs(dim) - 1));
+
+    for (int j = 0; j < static_cast<int>(sorted.size()); j++)
+      sorted[j] = dsorted(dim, j);
+
+    #pragma omp parallel for schedule(static, 1)
+    for (int g = 0; g < num_gpus; g++) {
+      compute->set_device(gpu::device{g});
+      gpu_sorted_[g][dim] = sorted;
+      gpu_map_[g][dim] = dsort_.iorder_[dim];
+      gpu_map_pntr_[g][dim] = dsort_.pntr_[dim];
+    }
+  }
+}
+#endif
+
 template indexset sparse_grid::make_level_set<grid_type::dense>(std::vector<int> const &);
 template indexset sparse_grid::make_level_set<grid_type::sparse>(std::vector<int> const &);
 template indexset sparse_grid::make_level_set<grid_type::mixed>(std::vector<int> const &);

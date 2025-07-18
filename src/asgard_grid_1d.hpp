@@ -227,6 +227,15 @@ public:
     os << '\n';
   }
 
+  #ifdef ASGARD_USE_GPU
+  //! allows pushing the pntr data to GPU memory
+  std::vector<int> const &get_pntr() const { return pntr; }
+  //! allows pushing the indx data to GPU memory
+  std::vector<int> const &get_indx() const { return indx; }
+  //! allows pushing the diag data to GPU memory
+  std::vector<int> const &get_diag() const { return diag; }
+  #endif
+
 protected:
   //! \brief Allows for different hierarchy modes with if-constexpr
   template<hierarchy mode>
@@ -402,6 +411,26 @@ private:
   std::vector<int> diag;
 };
 
+#ifdef ASGARD_USE_GPU
+/*!
+ * \brief Holds a copy of a connect_1d data onto the GPU
+ */
+struct gpu_connect_1d {
+  //! default constructor, must be reinitalized to be used
+  gpu_connect_1d() = default;
+  //! load the pattern from the cpu data
+  gpu_connect_1d(connect_1d const &conn)
+      : pntr(conn.get_pntr()), indx(conn.get_indx()), diag(conn.get_diag())
+  {}
+  //! sparse matrix pntr data
+  gpu::vector<int> pntr;
+  //! sparse matrix indx data
+  gpu::vector<int> indx;
+  //! sparse matrix diag data
+  gpu::vector<int> diag;
+};
+#endif
+
 /*!
  * \brief Combines together a volume and an edge flux pattern
  */
@@ -418,6 +447,10 @@ struct connection_patterns
     // make the column transform patterns
     for (int i = 2; i < 4; i++)
       conns[i] = connect_1d(conns[i - 2], connect_1d::col_extend_hierarchy);
+
+    #ifdef ASGARD_USE_GPU
+    load_to_gpu();
+    #endif
   }
   //! return the corresponding connectivity pattern
   connect_1d const &operator() (connect_1d::hierarchy h) const
@@ -429,11 +462,15 @@ struct connection_patterns
   {
     return conns[static_cast<int>(h)];
   }
-  connect_1d const *get(connect_1d::hierarchy h) const
-  {
-      return &conns[static_cast<int>(h)];
-  }
+  //! holds the array of connection patterns
   std::array<connect_1d, 4> conns;
+
+  #ifdef ASGARD_USE_GPU
+  //! loads the connection data to the GPUs, skips the extended column patterns
+  void load_to_gpu();
+  //! GPU data for the connectivity
+  std::array<std::array<gpu_connect_1d, 2>, max_num_gpus> gpu_conns;
+  #endif
 };
 
 } // namespace asgard

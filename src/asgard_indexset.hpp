@@ -390,10 +390,11 @@ indexset make_index_set(organize2d<int, data_container> const &indexes);
  * \endcode
  * Note: if the polynomial order is linear or above, each x[] contains
  * (p+1)^num_dimensions entries.
+ *
+ * The iorder_ and pntr_ should be treated as "private" unless being copied to GPU memory.
  */
-class dimension_sort
+struct dimension_sort
 {
-public:
   //! \brief Empty sort, used for an empty matrix.
   dimension_sort() {}
   //! \brief Sort the indexes dimension by dimension.
@@ -411,8 +412,9 @@ public:
   //! \brief Get the 1d index of the j-th entry
   int operator()(indexset const &iset, int dimension, int j) const { return iset[iorder_[dimension][j]][dimension]; }
 
-private:
+  //! \brief Holds the order of the indexes re-sorted for each dimension
   std::array<std::vector<int>, max_num_dimensions> iorder_;
+  //! \brief Holds the offsets of each group of indexes that belong to a single "line" of the grid
   std::array<std::vector<int>, max_num_dimensions> pntr_;
 };
 
@@ -559,6 +561,20 @@ public:
   void mpi_sync(resource_set const &rcs, int last_gen);
   #endif
 
+  #ifdef ASGARD_USE_GPU
+  //! send the grid to all of the managed GPUs, check if needed
+  void gpu_sync() {
+    if (gpu_generation_ == generation_)
+      return; // nothing to sync
+    // this is split into two methods, so that the if statement can be inlined
+    // while the load process uses OpenMP and more complex code
+    gpu_generation_ = generation_;
+    gpu_load();
+  }
+  //! send the grid to all of the managed GPUs, regardless if already loaded
+  void gpu_load();
+  #endif
+
   //! allows writer to save/load the grid
   template<typename P>
   friend class h5manager;
@@ -578,6 +594,18 @@ protected:
   template<grid_type gtype>
   indexset make_level_set(std::vector<int> const &levels);
 
+  #ifdef ASGARD_USE_GPU
+  int const *gpu_sorted(gpu::device device, int dimension) const {
+    return gpu_sorted_[device.id][dimension].data();
+  }
+  int const *gpu_map_pntr(gpu::device device, int dimension) const {
+    return gpu_map_pntr_[device.id][dimension].data();
+  }
+  int const *gpu_map(gpu::device device, int dimension) const {
+    return gpu_map_[device.id][dimension].data();
+  }
+  #endif
+
 private:
   int generation_ = 0;
 
@@ -591,6 +619,12 @@ private:
   std::vector<int64_t> map_;
   #ifdef ASGARD_USE_MPI
   std::vector<int> mpimeta;
+  #endif
+  #ifdef ASGARD_USE_GPU
+  int gpu_generation_ = -2; // which is the last synced generation
+  std::array<std::array<gpu::vector<int>, max_num_dimensions>, max_num_gpus> gpu_sorted_;
+  std::array<std::array<gpu::vector<int>, max_num_dimensions>, max_num_gpus> gpu_map_pntr_;
+  std::array<std::array<gpu::vector<int>, max_num_dimensions>, max_num_gpus> gpu_map_;
   #endif
 };
 

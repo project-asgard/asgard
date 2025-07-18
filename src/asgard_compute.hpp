@@ -213,6 +213,18 @@ private:
   int64_t size_ = 0;
 };
 
+/*!
+ * \brief Strong type to identify the GPU device ID.
+ */
+struct device {
+  //! Make a new device identifier
+  explicit device(int gpuid) : id(gpuid) {}
+  //! Compare two devices and if they match
+  bool operator == (device const &other) const { return (id == other.id); }
+  //! The device ID, e.g., 0, 1, 2, 3, ..
+  int id = -1; // default to an invalid ID, forces an error if used uninitialized
+};
+
 } // namespace gpu
 #endif
 
@@ -236,6 +248,17 @@ public:
   int num_gpus() const { return num_gpus_; }
   //! returns true if there is an available GPU
   bool has_gpu() const { return (num_gpus_ > 0); }
+
+  #ifdef ASGARD_USE_GPU
+  void set_device(gpu::device device) const {
+    #ifdef ASGARD_USE_CUDA
+    cuda_check_error( cudaSetDevice(device.id) );
+    #endif
+    #ifdef ASGARD_USE_ROCM
+    rocm_check_error( hipSetDevice(device.id) );
+    #endif
+  }
+  #endif
 
   //! PLU factorization of an M x M matrix
   template<typename P>
