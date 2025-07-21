@@ -1145,6 +1145,25 @@ void term_manager<P>::apply_tmpl(
   }
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
+  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, vector_type_x in, P be, vector_type_y out)
+    -> void {
+      if constexpr (using_vectors) {
+        if (tme.tmd.is_interpolatory()) {
+          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+        } else {
+          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                    al, in.data(), be, out.data(), kwork);
+        }
+      } else {
+        if (tme.tmd.is_interpolatory()) {
+          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+        } else {
+          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                    al, in, be, out, kwork);
+        }
+      }
+    };
+
   P b = beta; // on first iteration, overwrite y
 
   int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
@@ -1161,24 +1180,152 @@ void term_manager<P>::apply_tmpl(
     #endif
 
     if (it->num_chain == 1) {
-      kron_term(grid, conns, *it, alpha, x, b, y);
+      kterm(*it, alpha, x, b, y);
       ++icurrent;
     } else {
       // dealing with a chain
       int const num_chain = it->num_chain;
 
       if constexpr (using_vectors)
-        kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1);
+        kterm(*(it + num_chain - 1), 1, x, 0, t1);
       else
-        kron_term(grid, conns, *(it + num_chain - 1), 1, x, 0, t1.data());
+        kterm(*(it + num_chain - 1), 1, x, 0, t1.data());
       for (int i = num_chain - 2; i > 0; --i) {
-        kron_term(grid, conns, *(it + i), 1, t1, 0, t2);
+        if constexpr (using_vectors)
+          kterm(*(it + i), 1, t1, 0, t2);
+        else
+          kterm(*(it + i), 1, t1.data(), 0, t2.data());
         std::swap(t1, t2);
       }
       if constexpr (using_vectors)
-        kron_term(grid, conns, *it, alpha, t1, b, y);
+        kterm(*it, alpha, t1, b, y);
       else
-        kron_term(grid, conns, *it, alpha, t1.data(), b, y);
+        kterm(*it, alpha, t1.data(), b, y);
+
+      icurrent += num_chain;
+    }
+
+    b = 1; // next iteration appends on y
+  }
+
+  if (not has_terms_) {
+    if constexpr (using_vectors) {
+      if (beta == 0) {
+        std::fill(y.begin(), y.end(), 0);
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < y.size(); i++)
+          y[i] *= beta;
+      }
+    } else {
+      int64_t const num = grid.num_indexes() * fm::ipow(legendre.pdof, num_dims);
+      if (beta == 0) {
+        std::fill_n(y, num, 0);
+      } else {
+        ASGARD_OMP_PARFOR_SIMD
+        for (int64_t i = 0; i < num; i++)
+          y[i] *= beta;
+      }
+    }
+  }
+}
+
+template<typename P>
+template<typename vector_type_x, typename vector_type_y, compute_mode mode>
+void term_manager<P>::apply_mode_tmpl(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, vector_type_x x, P beta, vector_type_y y) const
+{
+  bool constexpr using_cpu_vectors = std::is_same_v<vector_type_x, std::vector<P> const &>;
+  bool constexpr using_gpu_vectors = std::is_same_v<vector_type_x, gpu::vector<P> const &>;
+
+  bool constexpr using_vectors = using_cpu_vectors or using_gpu_vectors;
+
+  #ifndef ASGARD_USE_GPU
+  static_assert(mode == compute_mode::cpu, "compute_mode::gpu requires ASGARD_USE_GPU");
+  #endif
+
+  // general idea
+  // - right now, assume GPU-enabled means using the GPU
+  // 1. If CPU -> mode data to GPU 0
+  // 2. If GPU 0 (moved or provided there), distribute to all GPUs
+  //    --- have multi-GPU scratch space, data for x and y on each device
+  // 3. !!!! Fix the load of the coefficient matrices, currently doesn't respect the device
+  // 4. Loop over all devices and perform kron only for the local terms
+  //    --- respect the has-term per device
+  // 5. Bring all data back to device 0 and add it up
+  //    --- apply alpha on every device, do beta at the end
+  //
+  //  -- maybe have 2 versions, 1 GPU and multi-GPUs
+
+  if constexpr (using_cpu_vectors)
+    static_assert(mode == compute_mode::cpu, "std::vector requires compute_mode::cpu");
+  if constexpr (using_gpu_vectors)
+    static_assert(mode == compute_mode::gpu, "gpu::vector requires compute_mode::gpu");
+
+  if constexpr (using_vectors)
+  {
+    expect(x.size() == y.size());
+    expect(x.size() == kwork.w1.size());
+  }
+  expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
+
+  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, vector_type_x in, P be, vector_type_y out)
+    -> void {
+      if constexpr (using_vectors) {
+        if (tme.tmd.is_interpolatory()) {
+          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+        } else {
+          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                    al, in.data(), be, out.data(), kwork);
+        }
+      } else {
+        if (tme.tmd.is_interpolatory()) {
+          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+        } else {
+          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                    al, in, be, out, kwork);
+        }
+      }
+    };
+
+  P b = beta; // on first iteration, overwrite y
+
+  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
+  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+  while (icurrent < iend)
+  {
+    auto it = terms.begin() + icurrent;
+
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(it->rec)) {
+      icurrent += it->num_chain;
+      continue;
+    }
+    #endif
+
+    if (it->num_chain == 1) {
+      kterm(*it, alpha, x, b, y);
+      ++icurrent;
+    } else {
+      // dealing with a chain
+      int const num_chain = it->num_chain;
+
+      if constexpr (using_vectors)
+        kterm(*(it + num_chain - 1), 1, x, 0, t1);
+      else
+        kterm(*(it + num_chain - 1), 1, x, 0, t1.data());
+      for (int i = num_chain - 2; i > 0; --i) {
+        if constexpr (using_vectors)
+          kterm(*(it + i), 1, t1, 0, t2);
+        else
+          kterm(*(it + i), 1, t1.data(), 0, t2.data());
+        std::swap(t1, t2);
+      }
+      if constexpr (using_vectors)
+        kterm(*it, alpha, t1, b, y);
+      else
+        kterm(*it, alpha, t1.data(), b, y);
 
       icurrent += num_chain;
     }

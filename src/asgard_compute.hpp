@@ -14,6 +14,16 @@ using default_precision = double;
 using default_precision = float;
 #endif
 
+/*!
+ * \brief Indicated if computing should be done suing the CPU or GPU
+ */
+enum class compute_mode {
+  //! Using the CPU device
+  cpu,
+  //! Using the GPU device
+  gpu
+};
+
 #ifdef ASGARD_USE_GPU
 
 namespace gpu

@@ -259,6 +259,9 @@ struct term_manager
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> gpu_t1, gpu_t2;
+  #endif
   mutable std::vector<P> it1, it2; // used for interpolation
 
   //! term groups, chains are flattened
@@ -386,10 +389,20 @@ struct term_manager
     kwork.w1.resize(num_entries);
     kwork.w2.resize(num_entries);
 
-    if (not t1.empty())
+    if (not t1.empty()) {
       t1.resize(num_entries);
-    if (not t2.empty())
+      #ifdef ASGARD_USE_GPU
+      if (gpu_t1.size() < num_entries)
+        gpu_t1.resize(num_entries);
+      #endif
+    }
+    if (not t2.empty()) {
       t2.resize(num_entries);
+      #ifdef ASGARD_USE_GPU
+      if (gpu_t2.size() < num_entries)
+        gpu_t2.resize(num_entries);
+      #endif
+    }
 
     if (interp) {
       it1.resize(num_entries);
@@ -409,23 +422,23 @@ struct term_manager
   P normL2(sparse_grid const &grid, connection_patterns const &conns,
            std::vector<P> const &x) const;
   //! y = sum(terms * x), applies all terms
-  void apply_all(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+  void apply(sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
     apply_tmpl<std::vector<P> const &, std::vector<P> &>(-1, grid, conn, alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms
-  void apply_all(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, P const x[], P beta, P y[]) const {
+  void apply(sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, P const x[], P beta, P y[]) const {
     apply_tmpl<P const[], P[]>(-1, grid, conn, alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
-                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+  void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
     apply_tmpl<std::vector<P> const &, std::vector<P> &>(gid, grid, conn, alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
-                   P alpha, P const x[], P beta, P y[]) const {
+  void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, P const x[], P beta, P y[]) const {
     apply_tmpl<P const[], P[]>(gid, grid, conn, alpha, x, beta, y);
   }
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
@@ -441,7 +454,7 @@ struct term_manager
     make_jacobi(-1, grid, conns, y);
   }
 
-  //! y = alpha * tme * x + beta * y, assumes workspace has been set
+  //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
@@ -453,17 +466,7 @@ struct term_manager
                 alpha, x.data(), beta, y.data(), kwork);
     }
   }
-  //! y = alpha * tme * x + beta * y, assumes workspace has been set and x/y have proper size
-  void kron_term(sparse_grid const &grid, connection_patterns const &conns,
-                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
-  {
-    if (tme.tmd.is_interpolatory()) {
-      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
-    } else {
-      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                alpha, x, beta, y, kwork);
-    }
-  }
+
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
                      term_entry<P> const &tme, P alpha, P const x[], P beta,
                      P y[]) const
@@ -537,9 +540,15 @@ protected:
   //! helper method, build a mass matrix with no dependencies
   void build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                       block_diag_matrix<P> &raw_diag);
+
   //! single point implementation for all variations of apply
   template<typename vector_type_x, typename vector_type_y>
   void apply_tmpl(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, vector_type_x x, P beta, vector_type_y y) const;
+  //! single point implementation for all variations of apply, including cpu/gpu
+  template<typename vector_type_x, typename vector_type_y, compute_mode mode>
+  void apply_mode_tmpl(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const;
 

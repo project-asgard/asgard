@@ -213,28 +213,28 @@ public:
                    std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
-    terms.apply_all(grid, conn, alpha, x, beta, y);
+    terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
-    terms.apply_all(grid, conn, alpha, x, beta, y);
+    terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(precision const x[], precision y[]) const
@@ -564,9 +564,9 @@ protected:
       {
         tools::time_event performance_("ode-rhs kronmult");
         if constexpr (use_groups)
-          terms.apply_group(gid, grid, conn, -1, current, 0, R);
+          terms.apply(gid, grid, conn, -1, current, 0, R);
         else
-          terms.apply_all(grid, conn, -1, current, 0, R);
+          terms.apply(grid, conn, -1, current, 0, R);
         if (not terms.has_terms()) // R wasn't zeroes out above
             std::fill(R.begin(), R.end(), 0);
       }{
