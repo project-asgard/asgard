@@ -604,6 +604,8 @@ public:
   {
     data_.copy_out(out);
   }
+  //! returns the internal raw-data so it can be loaded to the GPU
+  std::vector<P> const &data_vector() const { return data_.data_vector(); }
   //! (testing) fill the matrix with a value
   void fill(P v) { data_.fill(v); }
 

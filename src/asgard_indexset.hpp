@@ -124,9 +124,12 @@ public:
       std::cout << '\n';
     }
   }
+  //! \brief Used to push data to the GPU
+  std::vector<T> const &data_vector() const { return this->data_; }
   //! \brief (testing) fill the vector with a value
   void fill(T v) { std::fill(this->data_.begin(), this->data_.end(), v); }
 };
+
 //! \brief Non-owning version of vector2d.
 template<typename T>
 class span2d : public organize2d<T, T *>

@@ -676,6 +676,9 @@ void term_manager<P>::rebuld_term1d(
     } else {
       tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
     }
+    #ifdef ASGARD_USE_GPU
+    tentry.gpu_coeffs[dim] = tentry.coeffs[dim].data_vector();
+    #endif
   }
 
   // apply the mass matrices and convert to hierarchical form

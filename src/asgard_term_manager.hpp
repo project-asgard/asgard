@@ -78,6 +78,10 @@ struct term_entry {
   term_md<P> tmd;
   //! coefficient matrices for the term
   std::array<block_sparse_matrix<P>, max_num_dimensions> coeffs;
+  #ifdef ASGARD_USE_GPU
+  //! gpu coefficient matrices
+  std::array<gpu::vector<P>, max_num_dimensions> gpu_coeffs;
+  #endif
   //! ADI pseudoinverses of the coefficients
   std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
   //! if the term has additional mass terms, term 0 will contain the mass-up-to current level
