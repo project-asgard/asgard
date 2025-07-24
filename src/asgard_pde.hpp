@@ -1382,15 +1382,14 @@ public:
 
   //! adding a term to the pde
   pde_scheme<P> &operator += (term_md<P> tmd) {
-    rassert(not tmd.mass(), "only terms in a chain can have a mass_md");
-    if (tmd.is_chain())
-      rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
-    tmd.set_num_dimensions(domain_.num_dims());
-    terms_.emplace_back(std::move(tmd));
+    this->add_term(std::move(tmd));
     return *this;
   }
   //! adding a term to the pde
   void add_term(term_md<P> tmd) {
+    rassert(not tmd.mass(), "only terms in a chain can have a mass_md");
+    if (tmd.is_chain())
+      rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
     tmd.set_num_dimensions(domain_.num_dims());
     terms_.emplace_back(std::move(tmd));
   }

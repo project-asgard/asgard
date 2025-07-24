@@ -1230,9 +1230,25 @@ void term_manager<P>::apply_tmpl(
   }
 }
 
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void term_manager<P>::prapare_workspace_gpu(int64_t num_entries)
+{
+  int const num_gpus = compute->num_gpus();
+
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++) {
+    compute->set_device(gpu::device{g});
+    if (not t1.empty() and gpu_t1[g].size() < num_entries)
+      gpu_t1[g].resize(num_entries);
+    if (not t2.empty() and gpu_t2[g].size() < num_entries)
+      gpu_t2[g].resize(num_entries);
+  }
+}
+
 template<typename P>
 template<typename vector_type_x, typename vector_type_y, compute_mode mode>
-void term_manager<P>::apply_mode_tmpl(
+void term_manager<P>::apply_tmpl_gpu(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const
 {
@@ -1241,12 +1257,9 @@ void term_manager<P>::apply_mode_tmpl(
 
   bool constexpr using_vectors = using_cpu_vectors or using_gpu_vectors;
 
-  #ifndef ASGARD_USE_GPU
   static_assert(mode == compute_mode::cpu, "compute_mode::gpu requires ASGARD_USE_GPU");
-  #endif
 
   // general idea
-  // - right now, assume GPU-enabled means using the GPU
   // 1. If CPU -> mode data to GPU 0
   // 2. If GPU 0 (moved or provided there), distribute to all GPUs
   //    --- have multi-GPU scratch space, data for x and y on each device
@@ -1262,75 +1275,101 @@ void term_manager<P>::apply_mode_tmpl(
     static_assert(mode == compute_mode::cpu, "std::vector requires compute_mode::cpu");
   if constexpr (using_gpu_vectors)
     static_assert(mode == compute_mode::gpu, "gpu::vector requires compute_mode::gpu");
+  // no reasonable way to check if pointers are on the CPU or GPU, assume "mode" is set correctly
 
   if constexpr (using_vectors)
-  {
     expect(x.size() == y.size());
-    expect(x.size() == kwork.w1.size());
-  }
+
+  int64_t const num_entries  = fm::ipow(legendre.pdof, grid.num_dims()) * grid.num_indexes();
+
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
-  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, vector_type_x in, P be, vector_type_y out)
+  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
-      if constexpr (using_vectors) {
-        if (tme.tmd.is_interpolatory()) {
-          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-        } else {
-          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                    al, in.data(), be, out.data(), kwork);
-        }
+      if (tme.tmd.is_interpolatory()) {
+        // TODO: GPU interpolation goes here
+        // interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
       } else {
-        if (tme.tmd.is_interpolatory()) {
-          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-        } else {
-          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                    al, in, be, out, kwork);
-        }
+        block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                  al, in, be, out, kwork);
       }
     };
 
-  P b = beta; // on first iteration, overwrite y
-
-  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
-  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
-  while (icurrent < iend)
-  {
-    auto it = terms.begin() + icurrent;
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(it->rec)) {
-      icurrent += it->num_chain;
-      continue;
+  // if doing out-of-core, load data onto the device and sync across devices, device 0 is always the "root"
+  if constexpr (mode == compute_mode::cpu) {
+    compute->set_device(gpu::device{0});
+    if constexpr (using_cpu_vectors) {
+      gpu_x[0] = x;
+      if (beta != 0) gpu_y[0] = y;
     }
-    #endif
+  }
 
-    if (it->num_chain == 1) {
-      kterm(*it, alpha, x, b, y);
-      ++icurrent;
-    } else {
-      // dealing with a chain
-      int const num_chain = it->num_chain;
+  int const num_gpus = compute->num_gpus();
 
-      if constexpr (using_vectors)
-        kterm(*(it + num_chain - 1), 1, x, 0, t1);
-      else
-        kterm(*(it + num_chain - 1), 1, x, 0, t1.data());
-      for (int i = num_chain - 2; i > 0; --i) {
-        if constexpr (using_vectors)
-          kterm(*(it + i), 1, t1, 0, t2);
-        else
-          kterm(*(it + i), 1, t1.data(), 0, t2.data());
-        std::swap(t1, t2);
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++) {
+    compute->set_device(gpu::device{g});
+
+    if (g != 0) {
+      //
+    }
+
+    // P const *xdata = x;
+    // P *ydata = 0;
+    // if constexpr (mode == compute_mode::cpu) {
+    //
+    // }
+
+
+    P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
+
+    int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
+    int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+    while (icurrent < iend)
+    {
+      auto it = terms.begin() + icurrent;
+
+      // skip the terms associated with other MPI ranks or devices
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(it->rec) or it->rec.device != g) {
+        icurrent += it->num_chain;
+        continue;
       }
-      if constexpr (using_vectors)
-        kterm(*it, alpha, t1, b, y);
-      else
-        kterm(*it, alpha, t1.data(), b, y);
+      #else
+      if (it->rec.device != g) {
+        icurrent += it->num_chain;
+        continue;
+      }
+      #endif
 
-      icurrent += num_chain;
+      if (it->num_chain == 1) {
+        kterm(*it, alpha, x, b, y);
+        ++icurrent;
+      } else {
+        // dealing with a chain
+        int const num_chain = it->num_chain;
+
+        if constexpr (using_vectors)
+          kterm(*(it + num_chain - 1), 1, x, 0, t1);
+        else
+          kterm(*(it + num_chain - 1), 1, x, 0, t1.data());
+        for (int i = num_chain - 2; i > 0; --i) {
+          if constexpr (using_vectors)
+            kterm(*(it + i), 1, t1, 0, t2);
+          else
+            kterm(*(it + i), 1, t1.data(), 0, t2.data());
+          std::swap(t1, t2);
+        }
+        if constexpr (using_vectors)
+          kterm(*it, alpha, t1, b, y);
+        else
+          kterm(*it, alpha, t1.data(), b, y);
+
+        icurrent += num_chain;
+      }
+
+      b = 1; // next iteration appends on y
     }
-
-    b = 1; // next iteration appends on y
   }
 
   if (not has_terms_) {
@@ -1354,6 +1393,7 @@ void term_manager<P>::apply_mode_tmpl(
     }
   }
 }
+#endif
 
 template<typename P>
 void term_manager<P>::apply_all_adi(

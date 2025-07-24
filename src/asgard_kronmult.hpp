@@ -23,6 +23,9 @@ struct workspace
 {
   std::vector<precision> w1, w2;
   std::vector<std::vector<int64_t>> row_map;
+  #ifdef ASGARD_USE_GPU
+  std::array<gpu::vector<precision>, max_num_gpus> gpu_w1, gpu_w2;
+  #endif
 };
 
 /*!

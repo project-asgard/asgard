@@ -260,7 +260,8 @@ struct term_manager
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> gpu_t1, gpu_t2;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
   #endif
   mutable std::vector<P> it1, it2; // used for interpolation
 
@@ -389,20 +390,14 @@ struct term_manager
     kwork.w1.resize(num_entries);
     kwork.w2.resize(num_entries);
 
-    if (not t1.empty()) {
+    if (not t1.empty())
       t1.resize(num_entries);
-      #ifdef ASGARD_USE_GPU
-      if (gpu_t1.size() < num_entries)
-        gpu_t1.resize(num_entries);
-      #endif
-    }
-    if (not t2.empty()) {
+    if (not t2.empty())
       t2.resize(num_entries);
-      #ifdef ASGARD_USE_GPU
-      if (gpu_t2.size() < num_entries)
-        gpu_t2.resize(num_entries);
-      #endif
-    }
+
+    #ifdef ASGARD_USE_GPU
+    prapare_workspace_gpu(num_entries);
+    #endif
 
     if (interp) {
       it1.resize(num_entries);
@@ -411,6 +406,9 @@ struct term_manager
 
     workspace_grid_gen = grid.generation();
   }
+  #ifdef ASGARD_USE_GPU
+  void prapare_workspace_gpu(int64_t num_entries);
+  #endif
 
   //! returns whether the manager has any terms
   bool has_terms() const { return has_terms_; }
@@ -546,11 +544,13 @@ protected:
   void apply_tmpl(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const;
-  //! single point implementation for all variations of apply, including cpu/gpu
+  #ifdef ASGARD_USE_GPU
+  //! single point implementation for all variations of apply, uses the GPU the data can come from the CPU or GPU
   template<typename vector_type_x, typename vector_type_y, compute_mode mode>
-  void apply_mode_tmpl(
+  void apply_tmpl_gpu(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const;
+  #endif
 
   //! helper method, converts the data on quad
   template<data_mode mode>
