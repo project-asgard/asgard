@@ -28,6 +28,9 @@ namespace gpu
 std::string error_message(cudaError_t err) {
   return std::string("CUDA reported an error: '") + cudaGetErrorString(err) + std::string("'");
 }
+std::string error_message(cublasStatus_t err) {
+  return std::string("cuBLAS reported an error: '") + cublasGetStatusString(err) + std::string("'");
+}
 
 std::string error_message(cusolverStatus_t err) {
   std::string message = "cuSolver reported an error: '";
@@ -89,20 +92,28 @@ std::string error_message(rocblas_status err) {
 #endif
 
 compute_resources::compute_resources() {
+  set_device(gpu::device{0}); // the default thread works on GPU device 0
   #ifdef ASGARD_USE_CUDA
   cudaGetDeviceCount(&num_gpus_);
   rassert(has_gpu(), "CUDA is enabled but there are no visible CUDA devices, maybe a driver problem");
+  cublas_check_error( cublasCreate(&cublas) );
   cusolver_check_error( cusolverDnCreate(&cusolverdn) );
+  // TODO: give GPU direct access to one-another's resources
   #endif
   #ifdef ASGARD_USE_ROCM
   rocm_check_error( hipGetDeviceCount(&num_gpus_) );
   rassert(has_gpu(), "ROCM is enabled but there are no visible ROCM devices, maybe a driver problem");
   rocblas_check_error( rocblas_create_handle(&rocblas) );
   #endif
+  #ifdef ASGARD_USE_GPU
+  fone = std::vector<float>(1, 1);
+  done = std::vector<double>(1, 1);
+  #endif
 }
 
 compute_resources::~compute_resources() {
   #ifdef ASGARD_USE_CUDA
+  cublasDestroy(cublas);
   cusolverDnDestroy(cusolverdn);
   #endif
   #ifdef ASGARD_USE_ROCM

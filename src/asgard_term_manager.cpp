@@ -1239,7 +1239,8 @@ void term_manager<P>::prapare_workspace_gpu(int64_t num_entries)
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
     compute->set_device(gpu::device{g});
-    if (not t1.empty() and gpu_t1[g].size() < num_entries)
+    // GPU 0 always uses gpu_t1[0] for scratch-space when collecting local data
+    if ((not t1.empty() or g == 0) and gpu_t1[g].size() < num_entries)
       gpu_t1[g].resize(num_entries);
     if (not t2.empty() and gpu_t2[g].size() < num_entries)
       gpu_t2[g].resize(num_entries);
@@ -1256,8 +1257,6 @@ void term_manager<P>::apply_tmpl_gpu(
   bool constexpr using_gpu_vectors = std::is_same_v<vector_type_x, gpu::vector<P> const &>;
 
   bool constexpr using_vectors = using_cpu_vectors or using_gpu_vectors;
-
-  static_assert(mode == compute_mode::cpu, "compute_mode::gpu requires ASGARD_USE_GPU");
 
   // general idea
   // 1. If CPU -> mode data to GPU 0
@@ -1284,14 +1283,20 @@ void term_manager<P>::apply_tmpl_gpu(
 
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
-  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
+  auto kterm = [&grid, &conns, this, num_entries](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.tmd.is_interpolatory()) {
         // TODO: GPU interpolation goes here
         // interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
       } else {
+        static std::vector<P> cpu_x, cpu_y;
+        gpu::copy_to_host(num_entries, in, cpu_x);
+        gpu::copy_to_host(num_entries, out, cpu_y);
+
         block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                  al, in, be, out, kwork);
+                  al, cpu_x.data(), be,cpu_y.data(), kwork);
+
+        gpu::copy_to_device(cpu_y, out);
       }
     };
 
@@ -1301,6 +1306,11 @@ void term_manager<P>::apply_tmpl_gpu(
     if constexpr (using_cpu_vectors) {
       gpu_x[0] = x;
       if (beta != 0) gpu_y[0] = y;
+    } else {
+      gpu_x[0].resize(num_entries);
+      gpu_x[0].copy_from_host(num_entries, x);
+      gpu_y[0].resize(num_entries);
+      gpu_y[0].copy_from_host(num_entries, x);
     }
   }
 
@@ -1310,16 +1320,33 @@ void term_manager<P>::apply_tmpl_gpu(
   for (int g = 0; g < num_gpus; g++) {
     compute->set_device(gpu::device{g});
 
-    if (g != 0) {
-      //
+    // effective x/y, either x or gpu_x[id]
+    P const *xpntr = nullptr;
+    P *ypntr = nullptr;
+
+    if (g == 0) {
+      if constexpr (mode == compute_mode::cpu) {
+        xpntr = gpu_x[0].data();
+        ypntr = gpu_y[0].data();
+      } else {
+        if constexpr (using_vectors) {
+          xpntr = x.data();
+          ypntr = y.data();
+        }
+      }
+    } else {
+      gpu_x[g].resize(num_entries);
+      gpu_y[g].resize(num_entries);
+      if constexpr (mode == compute_mode::cpu) {
+        gpu::mcopy(gpu::device{0}, gpu_x[0], gpu::device{g}, gpu_x[g]);
+        gpu::mcopy(gpu::device{0}, gpu_y[0], gpu::device{g}, gpu_y[g]);
+      } else {
+        gpu::mcopy(gpu::device{0}, x, gpu::device{g}, gpu_x[g]);
+        gpu::mcopy(gpu::device{0}, y, gpu::device{g}, gpu_y[g]);
+      }
+      xpntr = gpu_x[g].data();
+      ypntr = gpu_y[g].data();
     }
-
-    // P const *xdata = x;
-    // P *ydata = 0;
-    // if constexpr (mode == compute_mode::cpu) {
-    //
-    // }
-
 
     P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
 
@@ -1343,54 +1370,52 @@ void term_manager<P>::apply_tmpl_gpu(
       #endif
 
       if (it->num_chain == 1) {
-        kterm(*it, alpha, x, b, y);
+        kterm(*it, alpha, xpntr, b, ypntr);
         ++icurrent;
       } else {
         // dealing with a chain
         int const num_chain = it->num_chain;
 
-        if constexpr (using_vectors)
-          kterm(*(it + num_chain - 1), 1, x, 0, t1);
-        else
-          kterm(*(it + num_chain - 1), 1, x, 0, t1.data());
+        kterm(*(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g].data());
         for (int i = num_chain - 2; i > 0; --i) {
-          if constexpr (using_vectors)
-            kterm(*(it + i), 1, t1, 0, t2);
-          else
-            kterm(*(it + i), 1, t1.data(), 0, t2.data());
+          kterm(*(it + i), 1, gpu_t1[g].data(), 0, gpu_t2[g].data());
           std::swap(t1, t2);
         }
-        if constexpr (using_vectors)
-          kterm(*it, alpha, t1, b, y);
-        else
-          kterm(*it, alpha, t1.data(), b, y);
+        kterm(*it, alpha, gpu_t1[g].data(), b, ypntr);
 
         icurrent += num_chain;
       }
 
       b = 1; // next iteration appends on y
     }
-  }
 
-  if (not has_terms_) {
-    if constexpr (using_vectors) {
-      if (beta == 0) {
-        std::fill(y.begin(), y.end(), 0);
+    // handle the case when a GPU has no terms
+    if (b == 0) {
+      if (g == 0 and beta != 0) { // main GPU is expected to scale y
+        compute->scal(num_entries, beta, ypntr);
       } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (size_t i = 0; i < y.size(); i++)
-          y[i] *= beta;
-      }
-    } else {
-      int64_t const num = grid.num_indexes() * fm::ipow(legendre.pdof, num_dims);
-      if (beta == 0) {
-        std::fill_n(y, num, 0);
-      } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t i = 0; i < num; i++)
-          y[i] *= beta;
+        // either scale by zero or no terms, so set to zero
+        compute->fill_zeros(num_entries, ypntr);
       }
     }
+    compute->device_synchronize();
+  }
+
+  // collect the data across the GPUs
+  for (int g = 1; g < num_gpus; g++) {
+    gpu::mcopy(num_entries, gpu::device{g}, gpu_y[g].data(), gpu::device{0}, gpu_t1[0].data());
+    if constexpr (mode == compute_mode::cpu) {
+      compute->axpy(num_entries, gpu_t1[0].data(), gpu_y[0].data());
+    } else {
+      if constexpr (using_gpu_vectors)
+        compute->axpy(num_entries, gpu_t1[0].data(), y.data());
+      else
+        compute->axpy(num_entries, gpu_t1[0].data(), y);
+    }
+  }
+
+  if constexpr (mode == compute_mode::cpu) { // send back to the CPU
+    gpu_y[0].copy_to_host(y);
   }
 }
 #endif
@@ -1774,6 +1799,21 @@ template void term_manager<double>::apply_tmpl<double const[], double[]>(
     int, sparse_grid const &, connection_patterns const &, double,
     double const[], double, double[]) const;
 
+#ifdef ASGARD_USE_GPU
+template void term_manager<double>::apply_tmpl_gpu<std::vector<double> const &, std::vector<double> &, compute_mode::cpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    double alpha, std::vector<double> const &x, double beta, std::vector<double> &y) const;
+template void term_manager<double>::apply_tmpl_gpu<double const[], double[], compute_mode::cpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    double alpha, double const x[], double beta, double y[]) const;
+template void term_manager<double>::apply_tmpl_gpu<gpu::vector<double> const &, gpu::vector<double> &, compute_mode::gpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    double alpha, gpu::vector<double> const &x, double beta, gpu::vector<double> &y) const;
+template void term_manager<double>::apply_tmpl_gpu<double const[], double[], compute_mode::gpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    double alpha, double const x[], double beta, double y[]) const;
+#endif
+
 template void term_manager<double>::apply_sources<data_mode::replace>(
     int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
@@ -1812,6 +1852,21 @@ template void term_manager<float>::apply_tmpl<std::vector<float> const &, std::v
 template void term_manager<float>::apply_tmpl<float const[], float[]>(
     int, sparse_grid const &, connection_patterns const &, float,
     float const[], float, float[]) const;
+
+#ifdef ASGARD_USE_GPU
+template void term_manager<float>::apply_tmpl_gpu<std::vector<float> const &, std::vector<float> &, compute_mode::cpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    float alpha, std::vector<float> const &x, float beta, std::vector<float> &y) const;
+template void term_manager<float>::apply_tmpl_gpu<float const[], float[], compute_mode::cpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    float alpha, float const x[], float beta, float y[]) const;
+template void term_manager<float>::apply_tmpl_gpu<gpu::vector<float> const &, gpu::vector<float> &, compute_mode::gpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    float alpha, gpu::vector<float> const &x, float beta, gpu::vector<float> &y) const;
+template void term_manager<float>::apply_tmpl_gpu<float const[], float[], compute_mode::gpu>(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    float alpha, float const x[], float beta, float y[]) const;
+#endif
 
 template void term_manager<float>::apply_sources<data_mode::replace>(
     int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,

@@ -427,7 +427,8 @@ struct term_manager
   //! y = sum(terms * x), applies all terms
   void apply(sparse_grid const &grid, connection_patterns const &conn,
              P alpha, P const x[], P beta, P y[]) const {
-    apply_tmpl<P const[], P[]>(-1, grid, conn, alpha, x, beta, y);
+    //apply_tmpl<P const[], P[]>(-1, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(-1, grid, conn, alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms
   void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
