@@ -527,9 +527,9 @@ protected:
         {
           tools::time_event performance_("ode-rhs kronmult");
           if constexpr (use_groups)
-            terms.apply_group(gid, grid, conn, -1, current, 0, terms.mpiwork);
+            terms.apply(gid, grid, conn, -1, current, 0, terms.mpiwork);
           else
-            terms.apply_all(grid, conn, -1, current, 0, terms.mpiwork);
+            terms.apply(grid, conn, -1, current, 0, terms.mpiwork);
           if (not terms.has_terms()) // mpiwork must be zeroed out explicitly
             std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
         }{
@@ -545,9 +545,9 @@ protected:
         {
           tools::time_event performance_("ode-rhs kronmult");
           if constexpr (use_groups)
-            terms.apply_group(gid, grid, conn, -1, terms.mpiwork, 0, R);
+            terms.apply(gid, grid, conn, -1, terms.mpiwork, 0, R);
           else
-            terms.apply_all(grid, conn, -1, terms.mpiwork, 0, R);
+            terms.apply(grid, conn, -1, terms.mpiwork, 0, R);
           if (not terms.has_terms()) // R must be zeroed out explicitly
             std::fill(R.begin(), R.end(), 0);
         }{

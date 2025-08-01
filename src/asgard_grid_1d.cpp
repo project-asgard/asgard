@@ -2,7 +2,7 @@
 
 namespace asgard
 {
-
+#ifdef ASGARD_USE_GPU
 void connection_patterns::load_to_gpu()
 {
   int const num_gpus = compute->num_gpus();
@@ -14,5 +14,6 @@ void connection_patterns::load_to_gpu()
     gpu_conns[g][1] = gpu_connect_1d(conns[1]);
   }
 }
+#endif
 
 } // namespace asgard

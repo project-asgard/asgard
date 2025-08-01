@@ -92,9 +92,11 @@ std::string error_message(rocblas_status err) {
 #endif
 
 compute_resources::compute_resources() {
+  #ifdef ASGARD_USE_GPU
   set_device(gpu::device{0}); // the default thread works on GPU device 0
+  #endif
   #ifdef ASGARD_USE_CUDA
-  cudaGetDeviceCount(&num_gpus_);
+  cuda_check_error( cudaGetDeviceCount(&num_gpus_) );
   rassert(has_gpu(), "CUDA is enabled but there are no visible CUDA devices, maybe a driver problem");
   cublas_check_error( cublasCreate(&cublas) );
   cusolver_check_error( cusolverDnCreate(&cusolverdn) );

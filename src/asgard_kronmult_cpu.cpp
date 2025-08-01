@@ -816,14 +816,26 @@ void block_cpu(
     int64_t num_entries = static_cast<int64_t>(work.w1.size());
 
     if (i == 0) {
-      if (alpha == 1) {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + w1[j];
+      if (beta == 0) {
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = alpha * w1[j];
+        }
       } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + alpha * w1[j];
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + alpha * w1[j];
+        }
       }
     } else {
       if (alpha == 1) {
@@ -888,14 +900,26 @@ void block_cpu(
     int64_t num_entries = static_cast<int64_t>(work.w1.size());
 
     if (i == 0) {
-      if (alpha == 1) {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + w1[j];
+      if (beta == 0) {
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = alpha * w1[j];
+        }
       } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + alpha * w1[j];
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + alpha * w1[j];
+        }
       }
     } else {
       if (alpha == 1) {

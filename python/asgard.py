@@ -61,9 +61,8 @@ class pde_snapshot:
             self.title    = fdata['title'][()].decode("utf-8")
             self.subtitle = fdata['subtitle'][()].decode("utf-8")
 
-            self.degree         = fdata['degree'][()]
-
-            self.state = fdata['state'][()]
+            self.degree = fdata['degree'][()]
+            self.state  = fdata['state'][()]
 
             self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
@@ -128,7 +127,7 @@ class pde_snapshot:
                 self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
         else:
             self.double_precision = False
-            self.recsol = libasgard.asgard_make_freconstruct_solution_v2(
+            self.recsol = libasgard.asgard_make_freconstruct_solution(
                 self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
 

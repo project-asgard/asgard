@@ -1285,19 +1285,17 @@ void term_manager<P>::apply_tmpl_gpu(
 
   auto kterm = [&grid, &conns, this, num_entries](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
+      static std::vector<P> cpu_x, cpu_y;
+      gpu::copy_to_host(num_entries, in, cpu_x);
+      gpu::copy_to_host(num_entries, out, cpu_y);
+
       if (tme.tmd.is_interpolatory()) {
-        // TODO: GPU interpolation goes here
-        // interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+        interp(grid, conns, 0, cpu_x.data(), al, tme.tmd.interp(), be, cpu_y.data(), kwork, it1, it2);
       } else {
-        static std::vector<P> cpu_x, cpu_y;
-        gpu::copy_to_host(num_entries, in, cpu_x);
-        gpu::copy_to_host(num_entries, out, cpu_y);
-
         block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                  al, cpu_x.data(), be,cpu_y.data(), kwork);
-
-        gpu::copy_to_device(cpu_y, out);
+                  al, cpu_x.data(), be, cpu_y.data(), kwork);
       }
+      gpu::copy_to_device(cpu_y, out);
     };
 
   // if doing out-of-core, load data onto the device and sync across devices, device 0 is always the "root"
@@ -1305,12 +1303,15 @@ void term_manager<P>::apply_tmpl_gpu(
     compute->set_device(gpu::device{0});
     if constexpr (using_cpu_vectors) {
       gpu_x[0] = x;
-      if (beta != 0) gpu_y[0] = y;
+      if (beta == 0) // allocate memory, no need to copy
+        gpu_y[0].resize(num_entries);
+      else
+        gpu_y[0] = y;
     } else {
       gpu_x[0].resize(num_entries);
       gpu_x[0].copy_from_host(num_entries, x);
       gpu_y[0].resize(num_entries);
-      gpu_y[0].copy_from_host(num_entries, x);
+      gpu_y[0].copy_from_host(num_entries, y);
     }
   }
 
@@ -1332,6 +1333,9 @@ void term_manager<P>::apply_tmpl_gpu(
         if constexpr (using_vectors) {
           xpntr = x.data();
           ypntr = y.data();
+        } else {
+          xpntr = x;
+          ypntr = y;
         }
       }
     } else {
@@ -1349,6 +1353,8 @@ void term_manager<P>::apply_tmpl_gpu(
     }
 
     P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
+
+    bool term_found = false; // does this GPU have at least 1 term
 
     int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
     int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
@@ -1371,7 +1377,6 @@ void term_manager<P>::apply_tmpl_gpu(
 
       if (it->num_chain == 1) {
         kterm(*it, alpha, xpntr, b, ypntr);
-        ++icurrent;
       } else {
         // dealing with a chain
         int const num_chain = it->num_chain;
@@ -1379,18 +1384,19 @@ void term_manager<P>::apply_tmpl_gpu(
         kterm(*(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g].data());
         for (int i = num_chain - 2; i > 0; --i) {
           kterm(*(it + i), 1, gpu_t1[g].data(), 0, gpu_t2[g].data());
-          std::swap(t1, t2);
+          std::swap(gpu_t1[g], gpu_t2[g]);
         }
         kterm(*it, alpha, gpu_t1[g].data(), b, ypntr);
-
-        icurrent += num_chain;
       }
 
+      icurrent += it->num_chain;
+
+      term_found = true; // something got computed above
       b = 1; // next iteration appends on y
     }
 
     // handle the case when a GPU has no terms
-    if (b == 0) {
+    if (not term_found) {
       if (g == 0 and beta != 0) { // main GPU is expected to scale y
         compute->scal(num_entries, beta, ypntr);
       } else {
@@ -1414,9 +1420,8 @@ void term_manager<P>::apply_tmpl_gpu(
     }
   }
 
-  if constexpr (mode == compute_mode::cpu) { // send back to the CPU
+  if constexpr (mode == compute_mode::cpu)// send back to the CPU
     gpu_y[0].copy_to_host(y);
-  }
 }
 #endif
 

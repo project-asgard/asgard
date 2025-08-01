@@ -387,10 +387,10 @@ public:
   // few BLAS and BLAS-like methods used as helpers in multi-GPU setup
   #ifdef ASGARD_USE_CUDA
   //! synchronize the device
-  void device_synchronize() { cudaDeviceSynchronize();  }
+  void device_synchronize() const { cudaDeviceSynchronize();  }
   //! fill a gpu array with zeros
   template<typename P>
-  void fill_zeros(int64_t num, P x[]) const { cudaMemset(x, 0, num * sizeof(P)); }
+  void fill_zeros(int64_t num, P x[]) const { cuda_check_error( cudaMemset(x, 0, num * sizeof(P)) ); }
   //! increment add, assuming contiguous gpu arrays
   template<typename P>
   void axpy(int num, no_deduce<P> alpha, P const x[], P y[]) const {
@@ -427,7 +427,7 @@ public:
   #endif
   #ifdef ASGARD_USE_ROCM
   //! synchronize the device
-  void device_synchronize() { rocm_check_error( hipDeviceSynchronize() ); }
+  void device_synchronize() const { rocm_check_error( hipDeviceSynchronize() ); }
   //! fill a gpu array with zeros
   template<typename P>
   void fill_zeros(int64_t num, P x[]) const { rocm_check_error( hipMemset(x, 0, num * sizeof(P)) ); }
@@ -457,7 +457,7 @@ public:
   template<typename P>
   void scal(int num, no_deduce<P> alpha, P x[]) const {
     static_assert(is_float<P> or is_double<P>,
-                  "axpy can be called only with floats and doubles");
+                  "scal can be called only with floats and doubles");
     if constexpr (is_float<P>) {
       rocblas_check_error( rocblas_sscal(rocblas, num, &alpha, x, 1) );
     } else {
@@ -473,7 +473,7 @@ private:
   cusolverDnHandle_t cusolverdn = nullptr;
   #endif
   #ifdef ASGARD_USE_ROCM
-  rocblas_handle rocblas;
+  rocblas_handle rocblas = nullptr;
   #endif
   #ifdef ASGARD_USE_GPU
   gpu::vector<float> fone;
