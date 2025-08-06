@@ -1365,6 +1365,8 @@ public:
   }
   //! add separable initial condition, can have multiple
   void add_initial(separable_func<P> ic_md) {
+    rassert(ic_md.num_dims() == domain_.num_dims(),
+            "incorrect dimension for separable function added as initial condition");
     initial_sep_.emplace_back(std::move(ic_md));
   }
   //! returns the separable initial conditions
