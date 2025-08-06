@@ -747,7 +747,7 @@ void sparse_grid::mpi_sync(resource_set const &rcs, int last_gen) {
 #ifdef ASGARD_USE_GPU
 void sparse_grid::gpu_load() {
   int const num_gpus = compute->num_gpus();
-  static std::vector<int> sorted;
+  static std::vector<int> sorted, vec_levels;
 
   for (int dim : iindexof(iset_.num_dimensions())) {
 
@@ -756,12 +756,23 @@ void sparse_grid::gpu_load() {
     for (int j = 0; j < static_cast<int>(sorted.size()); j++)
       sorted[j] = dsorted(dim, j);
 
+    vec_levels.resize(dsort_.num_vecs(dim));
+    for (int j = 0; j < dsort_.num_vecs(dim); j++) {
+      // compute the level for the largest index, should be the last index in the vector group
+      int const idx = dsorted(dim, dsort_.vec_end(dim, j) - 1);
+      vec_levels[j] = (idx == 0) ? 0 : fm::intlog2(idx) + 1;
+    }
+
     #pragma omp parallel for schedule(static, 1)
     for (int g = 0; g < num_gpus; g++) {
       compute->set_device(gpu::device{g});
-      gpu_sorted_[g][dim] = sorted;
-      gpu_map_[g][dim] = dsort_.iorder_[dim];
-      gpu_map_pntr_[g][dim] = dsort_.pntr_[dim];
+      gpu_grid_[g].num_vecs[dim] = dsort_.num_vecs(dim);
+
+      gpu_grid_[g].sorted[dim] = sorted;
+      gpu_grid_[g].pntr[dim]   = dsort_.pntr_[dim];
+      gpu_grid_[g].order[dim]  = dsort_.iorder_[dim];
+
+      gpu_grid_[g].vec_levels[dim] = vec_levels;
     }
   }
 }

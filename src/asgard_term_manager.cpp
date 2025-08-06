@@ -677,7 +677,19 @@ void term_manager<P>::rebuld_term1d(
       tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
     }
     #ifdef ASGARD_USE_GPU
-    tentry.gpu_coeffs[dim] = tentry.coeffs[dim].data_vector();
+    compute->set_device(gpu::device{tentry.rec.device});
+    tentry.gpu_lcoeffs[dim].resize(level + 1);
+    std::vector<P*> coeff_pntrs(level + 1, nullptr);
+    for (int l = 0; l < level; l++) {
+      tentry.gpu_lcoeffs[dim][l] = tentry.coeffs[dim].get_subpattern(l, conn).data_vector();
+      coeff_pntrs[l] = tentry.gpu_lcoeffs[dim][l].data();
+    }
+    tentry.gpu_lcoeffs[dim][level] = tentry.coeffs[dim].data_vector();
+    coeff_pntrs[level]             = tentry.gpu_lcoeffs[dim][level].data();
+
+    tentry.gpu_coeffs[dim] = coeff_pntrs;
+
+    compute->set_device(gpu::device{0});
     #endif
   }
 

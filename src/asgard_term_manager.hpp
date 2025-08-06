@@ -79,8 +79,10 @@ struct term_entry {
   //! coefficient matrices for the term
   std::array<block_sparse_matrix<P>, max_num_dimensions> coeffs;
   #ifdef ASGARD_USE_GPU
-  //! gpu coefficient matrices
-  std::array<gpu::vector<P>, max_num_dimensions> gpu_coeffs;
+  //! gpu coefficient matrices for different levels
+  std::array<std::vector<gpu::vector<P>>, max_num_dimensions> gpu_lcoeffs;
+  //! pointers to gpu matrices
+  std::array<gpu::vector<P*>, max_num_dimensions> gpu_coeffs;
   #endif
   //! ADI pseudoinverses of the coefficients
   std::array<block_sparse_matrix<P>, max_num_dimensions> adi;

@@ -466,6 +466,21 @@ vector2d<int> complete_poly_order(vector2d<int> const &cells, int degree);
 vector2d<int> complete_poly_order(vector2d<int> const &cells,
                                   indexset const &padded, int degree);
 
+#ifdef ASGARD_USE_GPU
+struct gpu_grid_data {
+  //! number of 1d strips in each dimension
+  std::array<int, max_num_dimensions> num_vecs;
+  //! dsort pntr stored on the gpu
+  std::array<gpu::vector<int>, max_num_dimensions> pntr;
+  //! dsort order stored on the gpu
+  std::array<gpu::vector<int>, max_num_dimensions> order;
+  //! dsort sorted indexes stored on the gpu
+  std::array<gpu::vector<int>, max_num_dimensions> sorted;
+  //! level for each group of vecs
+  std::array<gpu::vector<int>, max_num_dimensions> vec_levels;
+};
+#endif
+
 /*!
  * \brief Manger for a sparse grid multi-index set
  *
@@ -576,6 +591,10 @@ public:
   }
   //! send the grid to all of the managed GPUs, regardless if already loaded
   void gpu_load();
+  //! return the data stored on the given gpu device
+  gpu_grid_data const &gpu_grid(gpu::device device) const {
+    return gpu_grid_[device.id];
+  }
   #endif
 
   //! allows writer to save/load the grid
@@ -597,18 +616,6 @@ protected:
   template<grid_type gtype>
   indexset make_level_set(std::vector<int> const &levels);
 
-  #ifdef ASGARD_USE_GPU
-  int const *gpu_sorted(gpu::device device, int dimension) const {
-    return gpu_sorted_[device.id][dimension].data();
-  }
-  int const *gpu_map_pntr(gpu::device device, int dimension) const {
-    return gpu_map_pntr_[device.id][dimension].data();
-  }
-  int const *gpu_map(gpu::device device, int dimension) const {
-    return gpu_map_[device.id][dimension].data();
-  }
-  #endif
-
 private:
   int generation_ = 0;
 
@@ -625,9 +632,7 @@ private:
   #endif
   #ifdef ASGARD_USE_GPU
   int gpu_generation_ = -2; // which is the last synced generation
-  std::array<std::array<gpu::vector<int>, max_num_dimensions>, max_num_gpus> gpu_sorted_;
-  std::array<std::array<gpu::vector<int>, max_num_dimensions>, max_num_gpus> gpu_map_pntr_;
-  std::array<std::array<gpu::vector<int>, max_num_dimensions>, max_num_gpus> gpu_map_;
+  std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
   #endif
 };
 

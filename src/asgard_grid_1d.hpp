@@ -419,15 +419,67 @@ struct gpu_connect_1d {
   //! default constructor, must be reinitalized to be used
   gpu_connect_1d() = default;
   //! load the pattern from the cpu data
-  gpu_connect_1d(connect_1d const &conn)
-      : pntr(conn.get_pntr()), indx(conn.get_indx()), diag(conn.get_diag())
+  gpu_connect_1d(int max_level, connect_1d::hierarchy hier)
+      // : pntr(conn.get_pntr()), indx(conn.get_indx()), diag(conn.get_diag())
+  {
+    expect(hier == connect_1d::hierarchy::volume or hier == connect_1d::hierarchy::full);
+
+    int const end_level = max_level + 1;
+    lpntr.reserve(end_level);
+    lindx.reserve(end_level);
+    ldiag.reserve(end_level);
+
+    std::vector<int *> cpu_pntr;
+    std::vector<int *> cpu_indx;
+    std::vector<int *> cpu_diag;
+    cpu_pntr.reserve(end_level);
+    cpu_indx.reserve(end_level);
+    cpu_diag.reserve(end_level);
+
+    for (int l = 0; l <= end_level; l++) {
+      connect_1d conn(l, hier);
+      lpntr.emplace_back(conn.get_pntr());
+      lindx.emplace_back(conn.get_indx());
+      ldiag.emplace_back(conn.get_diag());
+
+      cpu_pntr.emplace_back(lpntr.back().data());
+      cpu_indx.emplace_back(lindx.back().data());
+      cpu_diag.emplace_back(ldiag.back().data());
+    }
+
+    pntr = cpu_pntr;
+    indx = cpu_indx;
+    diag = cpu_diag;
+  }
+  //! sparse matrix pntr data, for each level
+  std::vector<gpu::vector<int>> lpntr;
+  //! sparse matrix indx data, for each level
+  std::vector<gpu::vector<int>> lindx;
+  //! sparse matrix diag data, for each level
+  std::vector<gpu::vector<int>> ldiag;
+  //! pointers to the pntr data
+  gpu::vector<int*> pntr;
+  //! pointers to the pntr data
+  gpu::vector<int*> indx;
+  //! pointers to the pntr data
+  gpu::vector<int*> diag;
+};
+/*!
+ * \brief Holds two connection patterns on the GPU
+ */
+struct gpu_connect {
+  gpu_connect() = default;
+  gpu_connect(int max_level)
+      : data_{gpu_connect_1d(max_level, connect_1d::hierarchy::volume),
+              gpu_connect_1d(max_level, connect_1d::hierarchy::full)}
   {}
-  //! sparse matrix pntr data
-  gpu::vector<int> pntr;
-  //! sparse matrix indx data
-  gpu::vector<int> indx;
-  //! sparse matrix diag data
-  gpu::vector<int> diag;
+  std::array<gpu_connect_1d, 2> data_;
+  //! return the corresponding connectivity pattern, does not support the extened patterns
+  gpu_connect_1d const &operator[] (connect_1d::hierarchy h) const
+  {
+    expect(h == connect_1d::hierarchy::volume or h == connect_1d::hierarchy::full);
+    return data_[static_cast<int>(h)];
+  }
 };
 #endif
 
@@ -469,7 +521,14 @@ struct connection_patterns
   //! loads the connection data to the GPUs, skips the extended column patterns
   void load_to_gpu();
   //! GPU data for the connectivity
-  std::array<std::array<gpu_connect_1d, 2>, max_num_gpus> gpu_conns;
+  std::array<gpu_connect, max_num_gpus> gpu_conns;
+  //! connection patterns for different levels
+  std::array<std::vector<connect_1d>, 2> lconns;
+  //! returns the connection pattern for a given level
+  connect_1d const &get(int level, connect_1d::hierarchy h) const {
+    expect(h == connect_1d::hierarchy::volume or h == connect_1d::hierarchy::full);
+    return lconns[static_cast<int>(h)][level];
+  }
   #endif
 };
 
