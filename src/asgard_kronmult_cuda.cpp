@@ -35,11 +35,14 @@ __device__ constexpr int ipow()
   return 0;
 }
 
-int constexpr max_threads = 1024;
-
-inline int blocks(int64_t work_size, int work_per_block) {
+inline constexpr int blocks(int64_t work_size, int work_per_block) {
   int constexpr max_blocks = 300;
   return std::min(max_blocks, static_cast<int>((work_size + work_per_block - 1) / work_per_block));
+}
+
+inline constexpr int num_teams(int team_size) {
+  int constexpr max_threads = 1024;
+  return max_threads / team_size;
 }
 
 }
@@ -48,14 +51,56 @@ namespace asgard::kronmult
 {
 
 template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim, int n>
-__global__ void kernel_block_gpu(
+__global__ void kernel_block_gpu_cycle1(
     int const grid_vecs, int const grid_pntr[], int const grid_order[], int const grid_sorted[],
+    int const grid_vec_levels[],
     int const **conn_pntr, int const **conn_indx, int const **conn_diag,
     precision const **vals, precision const x[], precision y[])
 {
+  // cycle1 case, the team size is n^dim, i.e., one thread per tensor entry
+  // ID of member in the team is threadIdx.x
+  // ID of the team in the block is threadIdx.y
+  // ID of the team in the global workforce is threadIdx.y + blockIdx.x * blockDim.y
   constexpr int n2 = ::asgard::gpu::ipow<n, 2>();
 
   constexpr int64_t block_size = ::asgard::gpu::ipow<n, num_dimensions>();
+
+  int teamID = threadIdx.y + blockIdx.x * blockDim.y;
+
+  int vec_id = 0;
+  int cumulative_nnz = 0;
+
+  // process all the vectors, i.e., 1D vector of multi-indexes that match in all but one index
+  while (vec_id < grid_vecs) {
+    // finding the vec_id for this team
+    // each vec needs a number of teams equal to the number of non-zeros in the pattern
+    //    that is conn_pntr[grid_vec_levels[vec_id]][num-rows-per-level]
+
+    int level = grid_vec_levels[vec_id];
+    int num_rows = (1 << level);
+    int nnz = conn_pntr[level][num_rows];
+
+    // find an entry to process
+    // assumption here is that teamID >= cumulative_nnz, so we are looking for vec_id
+    // so that teamID < cumulative_nnz + nnz
+    while (vec_id < grid_vecs and teamID > cumulative_nnz + nnz) {
+      vec_id++;
+      cumulative_nnz += nnz;
+
+      level = grid_vec_levels[vec_id];
+      num_rows = (1 << level);
+      nnz = conn_pntr[level][num_rows];
+    }
+
+    if (vec_id >= grid_vecs) //
+      break;
+
+    // from this point, vec_id is a valid vector of 1D multi-indexes
+    // now we have to find the x/y index of the specific entry in the product
+
+
+  }
+
 
 //   dimension_sort const &dsort = grid.dsort();
 //
@@ -153,15 +198,17 @@ void launch_block_gpu(
   permutes::matrix_fill constexpr fill = permutes::matrix_fill::lower;
 
   constexpr int team_size = nn;
-  constexpr int num_teams = ::asgard::gpu::max_threads / team_size;
+  constexpr int num_teams = ::asgard::gpu::num_teams(team_size);
 
   int const nvecs = grid.num_vecs[dim];
 
   dim3 const launch_grid(team_size, num_teams);
   int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
 
-  kernel_block_gpu<precision, fill, dims, dim, nn><<<launch_blocks, launch_grid>>>
+  kernel_block_gpu_cycle1<precision, fill, dims, dim, nn>
+    <<<launch_blocks, launch_grid>>>
     (nvecs, grid.pntr[dim].data(), grid.order[dim].data(), grid.sorted[dim].data(),
+     grid.vec_levels[dim].data(),
      conns.pntr.data(), conns.indx.data(), conns.diag.data(),
      coeffs[dim].data(), x, y);
 }
