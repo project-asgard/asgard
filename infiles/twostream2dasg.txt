@@ -19,6 +19,6 @@
 #     = 1/320 
 # dt  = 3/4*CFL
 # T   = dt*19200 = 45.0
--step-method : imex
+-step-method : rk2
 -dt          : 2.34375E-3
 -num-steps   : 19200

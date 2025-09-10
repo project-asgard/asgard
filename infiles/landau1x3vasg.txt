@@ -23,7 +23,7 @@
 #     = 0.013089969
 # dt  = 0.75*CFL
 # T   = dt*250 = 0.05
--step-method : imex
+-step-method : imex2
 -dt          : 1.308997e-3
 -num-steps   : 38200
 
