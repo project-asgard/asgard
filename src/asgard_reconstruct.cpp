@@ -159,7 +159,7 @@ vector2d<int> reconstruct_solution::compute_dag_down() const
     for (int j = 0; j < num_dimensions; j++)
     {
       int const current = kid[j];
-      if (current > 0)
+      if (current == 0)
       {
         kid[j]    = 1;
         *family++ = cells_.find(kid.data());
