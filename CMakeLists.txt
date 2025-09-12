@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.19)
 
 project (asgard VERSION 0.7.1 LANGUAGES CXX)
 
-set(ASGARD_RELEASE_INFO "(alpha) 0.7.1a1") # sync with pip-installer setup.py
+set(ASGARD_RELEASE_INFO "(alpha) 0.7.1a2") # sync with pip-installer setup.py
 
 include (FetchContent) # getting external dependencies
 
@@ -95,7 +95,7 @@ if (ASGARD_RECOMMENDED_DEFAULTS)
 endif ()
 
 if (ASGARD_USE_CUDA AND ASGARD_USE_ROCM)
-    message(FATAL_ERROR "Cannot simultaneously use ")
+    message(FATAL_ERROR "Cannot simultaneously use CUDA and ROCm, pick one only")
 endif()
 if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
     set (ASGARD_MAX_NUM_GPUS "4" CACHE STRING "Maximum number of GPU devices to use simultaneously")
@@ -103,6 +103,7 @@ if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
         message(FATAL_ERROR "ASGARD_MAX_NUM_GPUS must be at least 1, but it is set to '${ASGARD_MAX_NUM_GPUS}'")
     endif()
 else()
+    # if neither CUDA nor ROCm are present, then never use GPUs
     set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
 endif()
 
@@ -118,11 +119,14 @@ endif()
 # e.g., _asgard_doc_pdes_str is used in the example file
 ###############################################################################
 
+# the documentation PDEs are going to be installed and the string will be used
+# to configure the examples cmake file, so it needs to be a single string as opposed to a list
+# on the other hand, the additional internal (testing) PDEs are just a normal list
 set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic sinwav two_stream vplb sod_shock burgers")
 set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal misc_internal)
 
-set (_asgard_doc_pdes_str "${_asgard_doc_pdes}")
-separate_arguments(_asgard_doc_pdes)
+set (_asgard_doc_pdes_str "${_asgard_doc_pdes}") # save for examples configuration
+separate_arguments(_asgard_doc_pdes) # switch to list format for the documentation PDEs
 
 list(APPEND _asgard_pdes ${_asgard_doc_pdes})
 list(APPEND _asgard_pdes ${_asgard_int_pdes})
@@ -292,7 +296,6 @@ endif ()
 
 if (ASGARD_USE_CUDA)
     # CUDA has to be enabled before libasgard is created
-    cmake_policy(SET CMP0104 NEW)
 
     if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
         if ("$ENV{CUDAARCHS}" STREQUAL "")
@@ -327,7 +330,7 @@ if (ASGARD_USE_ROCM)
     if (ROCM_PATH)
         set(ASGARD_ROCM_PATH "${ROCM_PATH}")
     elseif (DEFINED ENV{ROCM_PATH})
-        set(ASGARD_ROCM_PATH "ENV{ROCM_PATH}")
+        set(ASGARD_ROCM_PATH "$ENV{ROCM_PATH}")
     elseif (IS_DIRECTORY /opt/rocm)
         set(ASGARD_ROCM_PATH "/opt/rocm")
     endif()
@@ -349,7 +352,7 @@ foreach(_prec ${ASGARD_PRECISIONS})
     endif()
 endforeach()
 
-set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Number of quadrature points to be used in realspace transformations.")
+set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature points to be used transformations.")
 
 #-------------------------------------------------------------------------------
 #  Define the asgard library.
@@ -621,7 +624,7 @@ if (ASGARD_BUILD_TESTS)
 # assuming testing makes us into a stand-alone project, so be more verbose
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
-  message(STATUS "ASGarD build options (summary):")
+  message(STATUS "ASGarD version: ${ASGARD_RELEASE_INFO}")
   foreach(_opt CMAKE_CXX_FLAGS
                ASGARD_PRECISIONS
                ASGARD_USE_OPENMP
