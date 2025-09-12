@@ -604,8 +604,32 @@ public:
   {
     data_.copy_out(out);
   }
+  //! returns the internal raw-data so it can be loaded to the GPU
+  std::vector<P> const &data_vector() const { return data_.data_vector(); }
   //! (testing) fill the matrix with a value
   void fill(P v) { data_.fill(v); }
+
+  #ifdef ASGARD_USE_GPU
+  block_sparse_matrix get_subpattern(int level, connection_patterns const &conns) const {
+    expect(htype_ == connect_1d::hierarchy::volume or htype_ == connect_1d::hierarchy::full);
+
+    connect_1d const &conn = conns(htype_);
+    connect_1d const &low  = conns.get(level, htype_);
+    expect(level < conn.max_loaded_level()); // special case, either just copy or avoid this
+
+    int const n = nblock();
+
+    block_sparse_matrix res(n, conn.num_connections(), htype_);
+    for (int row = 0; row < low.num_rows(); row++) {
+      for (int j = low.row_begin(row); j < low.row_end(row); j++) {
+        int const fullj = conn.row_begin(row) + j;
+        std::copy_n(data_[fullj], n, res[j]);
+      }
+    }
+
+    return res;
+  }
+  #endif
 
 private:
   connect_1d::hierarchy htype_ = connect_1d::hierarchy::volume;

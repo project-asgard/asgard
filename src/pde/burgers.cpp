@@ -182,7 +182,8 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       dg += asgard::right_boundary_flux{fr};
 
       int const laplacian_group_id = pde.new_term_group();
-      pde += dg;
+      // pde += dg;
+      pde.add_term(dg);
 
       pde.set(asgard::imex_implicit_group{laplacian_group_id},
               asgard::imex_explicit_group{non_linear_group_id});

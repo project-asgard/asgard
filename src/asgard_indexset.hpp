@@ -124,9 +124,12 @@ public:
       std::cout << '\n';
     }
   }
+  //! \brief Used to push data to the GPU
+  std::vector<T> const &data_vector() const { return this->data_; }
   //! \brief (testing) fill the vector with a value
   void fill(T v) { std::fill(this->data_.begin(), this->data_.end(), v); }
 };
+
 //! \brief Non-owning version of vector2d.
 template<typename T>
 class span2d : public organize2d<T, T *>
@@ -390,16 +393,15 @@ indexset make_index_set(organize2d<int, data_container> const &indexes);
  * \endcode
  * Note: if the polynomial order is linear or above, each x[] contains
  * (p+1)^num_dimensions entries.
+ *
+ * The iorder_ and pntr_ should be treated as "private" unless being copied to GPU memory.
  */
-class dimension_sort
+struct dimension_sort
 {
-public:
   //! \brief Empty sort, used for an empty matrix.
   dimension_sort() {}
   //! \brief Sort the indexes dimension by dimension.
   dimension_sort(indexset const &iset);
-  //! \brief Sort the unsorted list, dimension by dimension.
-  dimension_sort(vector2d<int> const &list);
 
   //! \brief Number of 1d vectors in dimensions dim
   int num_vecs(int dimension) const { return static_cast<int>(pntr_[dimension].size() - 1); }
@@ -412,12 +414,11 @@ public:
   int map(int dimension, int j) const { return iorder_[dimension][j]; }
   //! \brief Get the 1d index of the j-th entry
   int operator()(indexset const &iset, int dimension, int j) const { return iset[iorder_[dimension][j]][dimension]; }
-  //! \brief Get the 1d index of the j-th entry
-  int operator()(vector2d<int> const &list, int dimension, int j) const { return list[iorder_[dimension][j]][dimension]; }
 
-private:
-  std::vector<std::vector<int>> iorder_;
-  std::vector<std::vector<int>> pntr_;
+  //! \brief Holds the order of the indexes re-sorted for each dimension
+  std::array<std::vector<int>, max_num_dimensions> iorder_;
+  //! \brief Holds the offsets of each group of indexes that belong to a single "line" of the grid
+  std::array<std::vector<int>, max_num_dimensions> pntr_;
 };
 
 /*!
@@ -464,6 +465,21 @@ vector2d<int> complete_poly_order(vector2d<int> const &cells, int degree);
  */
 vector2d<int> complete_poly_order(vector2d<int> const &cells,
                                   indexset const &padded, int degree);
+
+#ifdef ASGARD_USE_GPU
+struct gpu_grid_data {
+  //! number of 1d strips in each dimension
+  std::array<int, max_num_dimensions> num_vecs;
+  //! dsort pntr stored on the gpu
+  std::array<gpu::vector<int>, max_num_dimensions> pntr;
+  //! dsort order stored on the gpu
+  std::array<gpu::vector<int>, max_num_dimensions> order;
+  //! dsort sorted indexes stored on the gpu
+  std::array<gpu::vector<int>, max_num_dimensions> sorted;
+  //! level for each group of vecs
+  std::array<gpu::vector<int>, max_num_dimensions> vec_levels;
+};
+#endif
 
 /*!
  * \brief Manger for a sparse grid multi-index set
@@ -563,6 +579,24 @@ public:
   void mpi_sync(resource_set const &rcs, int last_gen);
   #endif
 
+  #ifdef ASGARD_USE_GPU
+  //! send the grid to all of the managed GPUs, check if needed
+  void gpu_sync() {
+    if (gpu_generation_ == generation_)
+      return; // nothing to sync
+    // this is split into two methods, so that the if statement can be inlined
+    // while the load process uses OpenMP and more complex code
+    gpu_generation_ = generation_;
+    gpu_load();
+  }
+  //! send the grid to all of the managed GPUs, regardless if already loaded
+  void gpu_load();
+  //! return the data stored on the given gpu device
+  gpu_grid_data const &gpu_grid(gpu::device device) const {
+    return gpu_grid_[device.id];
+  }
+  #endif
+
   //! allows writer to save/load the grid
   template<typename P>
   friend class h5manager;
@@ -595,6 +629,10 @@ private:
   std::vector<int64_t> map_;
   #ifdef ASGARD_USE_MPI
   std::vector<int> mpimeta;
+  #endif
+  #ifdef ASGARD_USE_GPU
+  int gpu_generation_ = -2; // which is the last synced generation
+  std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
   #endif
 };
 

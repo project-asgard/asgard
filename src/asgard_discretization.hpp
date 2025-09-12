@@ -213,28 +213,28 @@ public:
                    std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
-    terms.apply_all(grid, conn, alpha, x, beta, y);
+    terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     tools::time_event performance_("terms_apply_all kronmult");
-    terms.apply_all(grid, conn, alpha, x, beta, y);
+    terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     tools::time_event performance_("terms_apply kronmult");
-    terms.apply_group(gid.gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(precision const x[], precision y[]) const
@@ -367,11 +367,14 @@ public:
   sparse_grid const &get_grid() const { return grid; }
   //! returns the current grid generation
   int grid_generation() const { return grid.generation(); }
-  //! synchronizes the grid across MPI ranks
+  //! synchronizes the grid across MPI ranks and GPU devices
   void grid_sync() {
     #ifdef ASGARD_USE_MPI
     grid.mpi_sync(terms.resources, grid_synced_gen_);
     grid_synced_gen_ = grid.generation();
+    #endif
+    #ifdef ASGARD_USE_GPU
+    grid.gpu_sync();
     #endif
   }
   //! returns the term manager
@@ -524,9 +527,9 @@ protected:
         {
           tools::time_event performance_("ode-rhs kronmult");
           if constexpr (use_groups)
-            terms.apply_group(gid, grid, conn, -1, current, 0, terms.mpiwork);
+            terms.apply(gid, grid, conn, -1, current, 0, terms.mpiwork);
           else
-            terms.apply_all(grid, conn, -1, current, 0, terms.mpiwork);
+            terms.apply(grid, conn, -1, current, 0, terms.mpiwork);
           if (not terms.has_terms()) // mpiwork must be zeroed out explicitly
             std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
         }{
@@ -542,9 +545,9 @@ protected:
         {
           tools::time_event performance_("ode-rhs kronmult");
           if constexpr (use_groups)
-            terms.apply_group(gid, grid, conn, -1, terms.mpiwork, 0, R);
+            terms.apply(gid, grid, conn, -1, terms.mpiwork, 0, R);
           else
-            terms.apply_all(grid, conn, -1, terms.mpiwork, 0, R);
+            terms.apply(grid, conn, -1, terms.mpiwork, 0, R);
           if (not terms.has_terms()) // R must be zeroed out explicitly
             std::fill(R.begin(), R.end(), 0);
         }{
@@ -561,9 +564,9 @@ protected:
       {
         tools::time_event performance_("ode-rhs kronmult");
         if constexpr (use_groups)
-          terms.apply_group(gid, grid, conn, -1, current, 0, R);
+          terms.apply(gid, grid, conn, -1, current, 0, R);
         else
-          terms.apply_all(grid, conn, -1, current, 0, R);
+          terms.apply(grid, conn, -1, current, 0, R);
         if (not terms.has_terms()) // R wasn't zeroes out above
             std::fill(R.begin(), R.end(), 0);
       }{

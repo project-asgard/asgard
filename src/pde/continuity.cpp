@@ -327,7 +327,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_continuity_pde(num_dims, options),
+  asgard::discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
                                          asgard::verbosity_level::high);
 
   // time-integration is performed using the advance_time() method

@@ -14,6 +14,16 @@ using default_precision = double;
 using default_precision = float;
 #endif
 
+/*!
+ * \brief Indicated if computing should be done suing the CPU or GPU
+ */
+enum class compute_mode {
+  //! Using the CPU device
+  cpu,
+  //! Using the GPU device
+  gpu
+};
+
 #ifdef ASGARD_USE_GPU
 
 namespace gpu
@@ -25,11 +35,21 @@ using direct_int = int;
 
 //! converts CUDA error to a human readable string
 std::string error_message(cudaError_t err);
+std::string error_message(cublasStatus_t err);
 std::string error_message(cusolverStatus_t err);
 
 #define cuda_check_error(_call_) \
   { cudaError_t __asgard_intcudaerr__ = (_call_); \
     if (__asgard_intcudaerr__ != cudaSuccess) {\
+      throw std::runtime_error(::asgard::gpu::error_message(__asgard_intcudaerr__) \
+                               + "\n        in file: " + __FILE__    \
+                               + "\n           line: " + std::to_string(__LINE__) );  \
+    } \
+  } \
+
+#define cublas_check_error(_call_) \
+  { cublasStatus_t __asgard_intcudaerr__ = (_call_); \
+    if (__asgard_intcudaerr__ != CUBLAS_STATUS_SUCCESS) {\
       throw std::runtime_error(::asgard::gpu::error_message(__asgard_intcudaerr__) \
                                + "\n        in file: " + __FILE__    \
                                + "\n           line: " + std::to_string(__LINE__) );  \
@@ -205,6 +225,14 @@ public:
     this->copy_to_host(result.data());
     return result;
   }
+  //! \brief Copy from a host array, the source must contain enough data
+  void copy_from_host(int64_t num, T const source[]) {
+    #ifdef ASGARD_USE_CUDA
+    cuda_check_error( cudaMemcpy(data_, source, num * sizeof(T), cudaMemcpyHostToDevice) );
+    #else
+    rocm_check_error( hipMemcpy(data_, source, num * sizeof(T), hipMemcpyHostToDevice) );
+    #endif
+  }
   //! \brief Custom conversion, so we can assign to std::vector.
   operator std::vector<T>() const { return this->copy_to_host(); }
 
@@ -212,6 +240,82 @@ private:
   T *data_ = nullptr;
   int64_t size_ = 0;
 };
+
+/*!
+ * \brief Strong type to identify the GPU device ID.
+ */
+struct device {
+  //! Make a new device identifier
+  explicit device(int gpuid) : id(gpuid) {}
+  //! Compare two devices and if they match
+  bool operator == (device const &other) const { return (id == other.id); }
+  //! The device ID, e.g., 0, 1, 2, 3, ...
+  int id = -1; // default to an invalid ID, forces an error if used uninitialized
+};
+
+//! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
+template<typename T>
+void mcopy(device src_dev, vector<T> const &src, device dest_dev, vector<T> &dest) {
+  expect(src.size() == dest.size());
+  #ifdef ASGARD_USE_CUDA
+  cuda_check_error( cudaMemcpyPeer(dest.data(), dest_dev.id, src.data(), src_dev.id,
+                                   dest.size() * sizeof(T)) );
+  #else
+  ignore(src_dev); // ROCm automatically identifies the device for each pointer
+  ignore(dest_dev);
+  rocm_check_error( hipSetDevice(src_dev.id) );
+  rocm_check_error( hipMemcpy(dest.data(), src.data(), dest.size() * sizeof(T), hipMemcpyDeviceToDevice) );
+  rocm_check_error( hipSetDevice(dest_dev.id) );
+  #endif
+}
+//! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
+template<typename T>
+void mcopy(device src_dev, T const src[], device dest_dev, vector<T> &dest) {
+  #ifdef ASGARD_USE_CUDA
+  cuda_check_error( cudaMemcpyPeer(dest.data(), dest_dev.id, src, src_dev.id,
+                                   dest.size() * sizeof(T)) );
+  #else
+  ignore(src_dev); // ROCm automatically identifies the device for each pointer
+  ignore(dest_dev);
+  rocm_check_error( hipSetDevice(src_dev.id) );
+  rocm_check_error( hipMemcpy(dest.data(), src, dest.size() * sizeof(T), hipMemcpyDeviceToDevice) );
+  rocm_check_error( hipSetDevice(dest_dev.id) );
+  #endif
+}
+//! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
+template<typename T>
+void mcopy(int64_t num_entries, device src_dev, T const src[], device dest_dev, T dest[]) {
+  #ifdef ASGARD_USE_CUDA
+  cuda_check_error( cudaMemcpyPeer(dest, dest_dev.id, src, src_dev.id,
+                                   num_entries * sizeof(T)) );
+  #else
+  ignore(src_dev); // ROCm automatically identifies the device for each pointer
+  ignore(dest_dev);
+  rocm_check_error( hipSetDevice(src_dev.id) );
+  rocm_check_error( hipMemcpy(dest, src, num_entries * sizeof(T), hipMemcpyDeviceToDevice) );
+  rocm_check_error( hipSetDevice(dest_dev.id) );
+  #endif
+}
+//! \brief Copy an array to the CPU vector
+template<typename T>
+void copy_to_host(int64_t num_entries, T const x[], std::vector<T> &y) {
+  y.resize(num_entries);
+  #ifdef ASGARD_USE_CUDA
+  cuda_check_error( cudaMemcpy(y.data(), x, num_entries * sizeof(T), cudaMemcpyDeviceToHost) );
+  #else
+  rocm_check_error( hipMemcpy(y.data(), x, num_entries * sizeof(T), hipMemcpyDeviceToHost) );
+  #endif
+}
+//! \brief Copy an CPU vector to a device array
+template<typename T>
+void copy_to_device(std::vector<T> const &x, T y[]) {
+  size_t const num_entries = x.size();
+  #ifdef ASGARD_USE_CUDA
+  cuda_check_error( cudaMemcpy(y, x.data(), num_entries * sizeof(T), cudaMemcpyHostToDevice) );
+  #else
+  rocm_check_error( hipMemcpy(y, x.data(), num_entries * sizeof(T), hipMemcpyHostToDevice) );
+  #endif
+}
 
 } // namespace gpu
 #endif
@@ -236,6 +340,17 @@ public:
   int num_gpus() const { return num_gpus_; }
   //! returns true if there is an available GPU
   bool has_gpu() const { return (num_gpus_ > 0); }
+
+  #ifdef ASGARD_USE_GPU
+  void set_device(gpu::device device) const {
+    #ifdef ASGARD_USE_CUDA
+    cuda_check_error( cudaSetDevice(device.id) );
+    #endif
+    #ifdef ASGARD_USE_ROCM
+    rocm_check_error( hipSetDevice(device.id) );
+    #endif
+  }
+  #endif
 
   //! PLU factorization of an M x M matrix
   template<typename P>
@@ -269,15 +384,100 @@ public:
   template<typename P>
   void pttrs(std::vector<P> const &diag, std::vector<P> const &subdiag, std::vector<P> &b) const;
 
+  // few BLAS and BLAS-like methods used as helpers in multi-GPU setup
+  #ifdef ASGARD_USE_CUDA
+  //! synchronize the device
+  void device_synchronize() const { cudaDeviceSynchronize();  }
+  //! fill a gpu array with zeros
+  template<typename P>
+  void fill_zeros(int64_t num, P x[]) const { cuda_check_error( cudaMemset(x, 0, num * sizeof(P)) ); }
+  //! increment add, assuming contiguous gpu arrays
+  template<typename P>
+  void axpy(int num, no_deduce<P> alpha, P const x[], P y[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "axpy can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      cublas_check_error( cublasSaxpy(cublas, num, &alpha, x, 1, y, 1) );
+    } else {
+      cublas_check_error( cublasDaxpy(cublas, num, &alpha, x, 1, y, 1) );
+    }
+  }
+  //! increment add using alpha = 1, assuming contiguous gpu arrays
+  template<typename P>
+  void axpy(int num, P const x[], P y[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "axpy can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      cublas_check_error( cublasSaxpy(cublas, num, fone.data(), x, 1, y, 1) );
+    } else {
+      cublas_check_error( cublasDaxpy(cublas, num, done.data(), x, 1, y, 1) );
+    }
+  }
+  //! sale an array, assuming contiguous gpu arrays
+  template<typename P>
+  void scal(int num, no_deduce<P> alpha, P x[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "axpy can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      cublas_check_error( cublasSscal(cublas, num, &alpha, x, 1) );
+    } else {
+      cublas_check_error( cublasDscal(cublas, num, &alpha, x, 1) );
+    }
+  }
+  #endif
+  #ifdef ASGARD_USE_ROCM
+  //! synchronize the device
+  void device_synchronize() const { rocm_check_error( hipDeviceSynchronize() ); }
+  //! fill a gpu array with zeros
+  template<typename P>
+  void fill_zeros(int64_t num, P x[]) const { rocm_check_error( hipMemset(x, 0, num * sizeof(P)) ); }
+  //! increment add, assuming contiguous gpu arrays
+  template<typename P>
+  void axpy(int num, no_deduce<P> alpha, P const x[], P y[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "axpy can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_saxpy(rocblas, num, &alpha, x, 1, y, 1) );
+    } else {
+      rocblas_check_error( rocblas_daxpy(rocblas, num, &alpha, x, 1, y, 1) );
+    }
+  }
+  //! increment add using alpha = 1, assuming contiguous gpu arrays
+  template<typename P>
+  void axpy(int num, P const x[], P y[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "axpy can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_saxpy(rocblas, num, fone.data(), x, 1, y, 1) );
+    } else {
+      rocblas_check_error( rocblas_daxpy(rocblas, num, done.data(), x, 1, y, 1) );
+    }
+  }
+  //! sale an array, assuming contiguous gpu arrays
+  template<typename P>
+  void scal(int num, no_deduce<P> alpha, P x[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "scal can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_sscal(rocblas, num, &alpha, x, 1) );
+    } else {
+      rocblas_check_error( rocblas_dscal(rocblas, num, &alpha, x, 1) );
+    }
+  }
+  #endif
+
 private:
   int num_gpus_ = 0;
   #ifdef ASGARD_USE_CUDA
-  // std::array<cusolverDnHandle_t, max_num_gpus>
-  cusolverDnHandle_t cusolverdn;
+  cublasHandle_t cublas = nullptr;
+  cusolverDnHandle_t cusolverdn = nullptr;
   #endif
   #ifdef ASGARD_USE_ROCM
-  // std::array<cusolverDnHandle_t, max_num_gpus>
-  rocblas_handle rocblas;
+  rocblas_handle rocblas = nullptr;
+  #endif
+  #ifdef ASGARD_USE_GPU
+  gpu::vector<float> fone;
+  gpu::vector<double> done;
   #endif
 };
 

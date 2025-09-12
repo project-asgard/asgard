@@ -264,7 +264,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
   }
 }
 
-int64_t asgars_kronmult_nblocks_ = 0;
+inline int64_t asgard_kronmult_nblocks_ = 0;
 
 template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim, int n>
 void block_cpu(sparse_grid const &grid, connect_1d const &conn,
@@ -348,7 +348,7 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
 
     if constexpr (n == -1)
 #pragma omp atomic
-      asgars_kronmult_nblocks_ += my_block_count;
+      asgard_kronmult_nblocks_ += my_block_count;
   } // pragma parallel
 }
 
@@ -430,7 +430,7 @@ void globalsv_cpu(
 
     if constexpr (n == -1)
 #pragma omp atomic
-      asgars_kronmult_nblocks_ += my_block_count;
+      asgard_kronmult_nblocks_ += my_block_count;
 
   } // omp pragma parallel
 }
@@ -816,14 +816,26 @@ void block_cpu(
     int64_t num_entries = static_cast<int64_t>(work.w1.size());
 
     if (i == 0) {
-      if (alpha == 1) {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + w1[j];
+      if (beta == 0) {
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = alpha * w1[j];
+        }
       } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + alpha * w1[j];
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + alpha * w1[j];
+        }
       }
     } else {
       if (alpha == 1) {
@@ -888,14 +900,26 @@ void block_cpu(
     int64_t num_entries = static_cast<int64_t>(work.w1.size());
 
     if (i == 0) {
-      if (alpha == 1) {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + w1[j];
+      if (beta == 0) {
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = alpha * w1[j];
+        }
       } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t j = 0; j < num_entries; j++)
-          y[j] = beta * y[j] + alpha * w1[j];
+        if (alpha == 1) {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + w1[j];
+        } else {
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t j = 0; j < num_entries; j++)
+            y[j] = beta * y[j] + alpha * w1[j];
+        }
       }
     } else {
       if (alpha == 1) {

@@ -486,6 +486,7 @@ public:
                  P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
+    tools::time_event performance_("wavelet-to-nodal");
     block_cpu(n, grid, conn, perm, wav2nodal1d(), P{wav_scale}, f, P{0}, vals, work);
   }
   //! compute nodal values for the field
@@ -502,6 +503,7 @@ public:
   void nodal2hier(sparse_grid const &grid, connection_patterns const &conn,
                   P vals[], kronmult::workspace<P> &work) const
   {
+    tools::time_event performance_("nodal-to-hier");
     blocksv_cpu(n, grid, conn[connect_1d::hierarchy::volume],
                 nodal2hier1d(), vals, work);
   }
@@ -518,6 +520,7 @@ public:
                 P const f[], P vals[],
                 kronmult::workspace<P> &work) const
   {
+    tools::time_event performance_("hier-to-wavelet");
     block_cpu(n, grid, conn, perm, hier2wav1d(), P{iwav_scale}, f, P{0}, vals, work);
   }
   //! compute nodal values for the field
@@ -534,6 +537,7 @@ public:
                 P alpha, P const f[], P beta, P vals[],
                 kronmult::workspace<P> &work) const
   {
+    tools::time_event performance_("hier-to-wavelet");
     block_cpu(n, grid, conn, perm, hier2wav1d(), alpha * iwav_scale, f, beta, vals, work);
   }
   //! compute nodal values for the field
@@ -570,8 +574,12 @@ public:
        kronmult::workspace<P> &work,
        std::vector<P> &t1, std::vector<P> &t2) const
   {
+    tools::time_event performance_("interpolation operation");
     wav2nodal(grid, conn, state, t1.data(), work);
-    func(time, nodes(grid), t1, t2);
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), t1, t2);
+    }
     nodal2hier(grid, conn, t2, work);
     hier2wav(grid, conn, alpha, t2.data(), beta, y, work);
   }

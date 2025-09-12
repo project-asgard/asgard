@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_tools.hpp"
+#include "asgard_compute.hpp"
 
 #ifdef ASGARD_USE_CUDA
 

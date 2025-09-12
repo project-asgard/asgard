@@ -14,7 +14,7 @@
 -degree       : 2
 
 # explicit time-step, 100 steps
--step-method : expl
+-step-method : rk3
 -dt          : 1.E-4
 -num-steps   : 100
 

@@ -78,6 +78,12 @@ struct term_entry {
   term_md<P> tmd;
   //! coefficient matrices for the term
   std::array<block_sparse_matrix<P>, max_num_dimensions> coeffs;
+  #ifdef ASGARD_USE_GPU
+  //! gpu coefficient matrices for different levels
+  std::array<std::vector<gpu::vector<P>>, max_num_dimensions> gpu_lcoeffs;
+  //! pointers to gpu matrices
+  std::array<gpu::vector<P*>, max_num_dimensions> gpu_coeffs;
+  #endif
   //! ADI pseudoinverses of the coefficients
   std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
   //! if the term has additional mass terms, term 0 will contain the mass-up-to current level
@@ -255,6 +261,10 @@ struct term_manager
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
+  #ifdef ASGARD_USE_GPU
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
+  #endif
   mutable std::vector<P> it1, it2; // used for interpolation
 
   //! term groups, chains are flattened
@@ -387,6 +397,10 @@ struct term_manager
     if (not t2.empty())
       t2.resize(num_entries);
 
+    #ifdef ASGARD_USE_GPU
+    prapare_workspace_gpu(num_entries);
+    #endif
+
     if (interp) {
       it1.resize(num_entries);
       it2.resize(num_entries);
@@ -394,6 +408,9 @@ struct term_manager
 
     workspace_grid_gen = grid.generation();
   }
+  #ifdef ASGARD_USE_GPU
+  void prapare_workspace_gpu(int64_t num_entries);
+  #endif
 
   //! returns whether the manager has any terms
   bool has_terms() const { return has_terms_; }
@@ -405,23 +422,31 @@ struct term_manager
   P normL2(sparse_grid const &grid, connection_patterns const &conns,
            std::vector<P> const &x) const;
   //! y = sum(terms * x), applies all terms
-  void apply_all(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+  void apply(sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+    #ifdef ASGARD_USE_GPU
+    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(-1, grid, conn, alpha, x, beta, y);
+    #else
     apply_tmpl<std::vector<P> const &, std::vector<P> &>(-1, grid, conn, alpha, x, beta, y);
+    #endif
   }
   //! y = sum(terms * x), applies all terms
-  void apply_all(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, P const x[], P beta, P y[]) const {
+  void apply(sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, P const x[], P beta, P y[]) const {
+    #ifdef ASGARD_USE_GPU
+    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(-1, grid, conn, alpha, x, beta, y);
+    #else
     apply_tmpl<P const[], P[]>(-1, grid, conn, alpha, x, beta, y);
+    #endif
   }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
-                   P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+  void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
     apply_tmpl<std::vector<P> const &, std::vector<P> &>(gid, grid, conn, alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms
-  void apply_group(int gid, sparse_grid const &grid, connection_patterns const &conn,
-                   P alpha, P const x[], P beta, P y[]) const {
+  void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
+             P alpha, P const x[], P beta, P y[]) const {
     apply_tmpl<P const[], P[]>(gid, grid, conn, alpha, x, beta, y);
   }
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
@@ -437,7 +462,7 @@ struct term_manager
     make_jacobi(-1, grid, conns, y);
   }
 
-  //! y = alpha * tme * x + beta * y, assumes workspace has been set
+  //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
@@ -449,17 +474,7 @@ struct term_manager
                 alpha, x.data(), beta, y.data(), kwork);
     }
   }
-  //! y = alpha * tme * x + beta * y, assumes workspace has been set and x/y have proper size
-  void kron_term(sparse_grid const &grid, connection_patterns const &conns,
-                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
-  {
-    if (tme.tmd.is_interpolatory()) {
-      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
-    } else {
-      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                alpha, x, beta, y, kwork);
-    }
-  }
+
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
                      term_entry<P> const &tme, P alpha, P const x[], P beta,
                      P y[]) const
@@ -533,11 +548,19 @@ protected:
   //! helper method, build a mass matrix with no dependencies
   void build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                       block_diag_matrix<P> &raw_diag);
+
   //! single point implementation for all variations of apply
   template<typename vector_type_x, typename vector_type_y>
   void apply_tmpl(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const;
+  #ifdef ASGARD_USE_GPU
+  //! single point implementation for all variations of apply, uses the GPU the data can come from the CPU or GPU
+  template<typename vector_type_x, typename vector_type_y, compute_mode mode>
+  void apply_tmpl_gpu(
+    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    P alpha, vector_type_x x, P beta, vector_type_y y) const;
+  #endif
 
   //! helper method, converts the data on quad
   template<data_mode mode>
