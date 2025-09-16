@@ -252,15 +252,11 @@ public:
     return -1;
   }
   //! \brief Overload for std::vector
-  int find(std::vector<int> const &idx) const
-  {
-    expect(num_dimensions_ == static_cast<int>(idx.size()));
-    return find(idx.data());
-  }
+  int find(std::array<int, max_num_dimensions> const &idx) const { return find(idx.data()); }
   //! \brief Boolean check if an entry is there or not.
   bool missing(const int *idx) const { return (find(idx) == -1); }
-  //! \brief Boolean check if an entry is there or not.
-  bool missing(std::vector<int> const &idx) const { return missing(idx.data()); }
+  //! returns true if the index is not included in the set
+  bool missing(std::array<int, max_num_dimensions> const &idx) const { return missing(idx.data()); }
 
   //! \brief Union this set with another
   indexset &operator+=(indexset const &iset)
@@ -328,10 +324,9 @@ public:
   //! \brief Returns the vector of indexes
   std::vector<int> const &indexes() const { return indexes_; }
 
-  // writer utilities
-  template<typename P>
-  friend class h5manager;
-
+  // I/O utilities
+  template<typename P> friend class h5manager;
+  // needed for MPI sync through the sparse-grid class
   friend class sparse_grid;
 
 protected:
@@ -448,23 +443,6 @@ struct dimension_sort
  */
 indexset compute_ancestry_completion(indexset const &iset,
                                      connect_1d const &hierarchy);
-
-/*!
- * \brief Completes the cells to indexes of degrees of freedom
- *
- * Given the cells, the returned list of indexes
- * will hold all indexes of the corresponding degrees of freedom.
- */
-vector2d<int> complete_poly_order(vector2d<int> const &cells, int degree);
-
-/*!
- * \brief Completes the cells to indexes of degrees of freedom
- *
- * Given the active cells and padded cells, the returned list of indexes
- * will hold all indexes of the corresponding degrees of freedom.
- */
-vector2d<int> complete_poly_order(vector2d<int> const &cells,
-                                  indexset const &padded, int degree);
 
 #ifdef ASGARD_USE_GPU
 struct gpu_grid_data {

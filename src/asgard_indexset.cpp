@@ -14,7 +14,9 @@ inline std::vector<int> generate_lower_index_set(
   std::array<int, max_num_dimensions> root;
   std::fill_n(root.begin(), num_dims, 0);
   std::vector<int> indexes;
-  while (is_in || (c > 0))
+  // reserve 1-4 pages to save on the first few relocations
+  indexes.reserve( (16 * 1024) / (num_dims * sizeof(int)) );
+  while (is_in or c > 0)
   {
     if (is_in)
     {
@@ -91,12 +93,11 @@ make_index_set(organize2d<int, int *> const &indexes);
 template indexset
 make_index_set(organize2d<int, int const *> const &indexes);
 
-dimension_sort::dimension_sort(indexset const &iset) // : iorder_(iset.num_dimensions())
+dimension_sort::dimension_sort(indexset const &iset)
 {
   int num_dimensions = iset.num_dimensions();
   int num_indexes    = iset.num_indexes();
 
-  // iorder_ = std::vector<std::vector<int>>(num_dimensions, std::vector<int>(num_indexes));
   for (int d : iindexof(num_dimensions))
     iorder_[d] = std::vector<int>(num_indexes);
 
@@ -263,88 +264,6 @@ indexset compute_ancestry_completion(indexset const &iset,
   }
 
   return pad_indexes;
-}
-
-/*!
- * \brief Helper method, fills the indexes with the polynomial degree of freedom
- *
- * The cells are the current set of cells to process,
- * pdof is the number of polynomial terms,
- * e.g., 2 for linear and 3 for quadratic.
- * tsize is the size of the tensor within a cell,
- * i.e., tsize = pdof to power num_dimensions
- */
-template<typename itype>
-void complete_poly_order(span2d<itype> const &cells, int64_t pdof,
-                         int64_t tsize, span2d<int> indexes)
-{
-  int num_dimensions = cells.stride();
-  int64_t num_cells  = cells.num_strips();
-
-#pragma omp parallel for
-  for (int64_t i = 0; i < num_cells; i++)
-  {
-    int const *cell = cells[i];
-
-    for (int64_t ipoly = 0; ipoly < tsize; ipoly++)
-    {
-      int64_t t = ipoly;
-      int *idx  = indexes[i * tsize + ipoly];
-
-      for (int d = num_dimensions - 1; d >= 0; d--)
-      {
-        idx[d] = cell[d] * pdof + static_cast<int>(t % pdof);
-        t /= pdof;
-      }
-    }
-  }
-}
-
-vector2d<int> complete_poly_order(vector2d<int> const &cells, int degree)
-{
-  int const num_dimensions = cells.stride();
-
-  int64_t const num_cells = cells.num_strips();
-
-  int64_t const pdof = degree + 1;
-
-  int64_t const tsize = fm::ipow(pdof, num_dimensions);
-
-  vector2d<int> indexes(num_dimensions, tsize * num_cells);
-
-  complete_poly_order(
-      span2d(num_dimensions, num_cells, cells[0]), pdof, tsize,
-      span2d(num_dimensions, tsize * num_cells, indexes[0]));
-
-  return indexes;
-}
-
-vector2d<int> complete_poly_order(vector2d<int> const &cells,
-                                  indexset const &padded, int degree)
-{
-  expect(padded.num_indexes() == 0 or padded.num_dimensions() == cells.stride());
-
-  int num_dimensions = cells.stride();
-
-  int64_t const num_cells  = cells.num_strips();
-  int64_t const num_padded = padded.num_indexes();
-
-  int64_t const pdof = degree + 1;
-
-  int64_t const tsize = fm::ipow(pdof, num_dimensions);
-
-  vector2d<int> indexes(num_dimensions, tsize * (num_cells + num_padded));
-
-  complete_poly_order(
-      span2d(num_dimensions, num_cells, cells[0]), pdof, tsize,
-      span2d(num_dimensions, tsize * num_cells, indexes[0]));
-
-  if (num_padded > 0)
-    complete_poly_order(
-        span2d(num_dimensions, num_padded, padded[0]), pdof, tsize,
-        span2d(num_dimensions, tsize * num_padded, indexes[tsize * num_cells]));
-
-  return indexes;
 }
 
 sparse_grid::sparse_grid(prog_opts const &options)
@@ -528,12 +447,12 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
       // large weight, must refine but only if kids are missing
       for (int d : iindexof(num_dims)) {
         idx[d] *= 2;
-        if (iset_.find(idx.data()) == -1)
+        if (iset_.missing(idx))
           stat[i] = istatus::refine;
 
         idx[d] += 1;
         // dont' search for the second kid if the first is missing
-        if (stat[i] != istatus::refine and iset_.find(idx.data()) == -1)
+        if (stat[i] != istatus::refine and iset_.missing(idx))
           stat[i] = istatus::refine;
 
         idx[d] = iset_[i][d];
@@ -599,12 +518,10 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
 
     switch (stat[i]) {
       case istatus::keep:
-        //std::cout << i << " keep\n";
         update.insert(update.end(), iset_[i], iset_[i] + num_dims);
         break;
       case istatus::refine:
         {
-          //std::cout << i << " refine\n";
           update.insert(update.end(), iset_[i], iset_[i] + num_dims);
           std::copy_n(iset_[i], num_dims, idx.data());
           for (int d : iindexof(num_dims)) {
