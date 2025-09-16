@@ -328,10 +328,9 @@ public:
   //! \brief Returns the vector of indexes
   std::vector<int> const &indexes() const { return indexes_; }
 
-  // writer utilities
-  template<typename P>
-  friend class h5manager;
-
+  // I/O utilities
+  template<typename P> friend class h5manager;
+  // needed for MPI sync through the sparse-grid class
   friend class sparse_grid;
 
 protected:

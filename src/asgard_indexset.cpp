@@ -14,6 +14,8 @@ inline std::vector<int> generate_lower_index_set(
   std::array<int, max_num_dimensions> root;
   std::fill_n(root.begin(), num_dims, 0);
   std::vector<int> indexes;
+  // reserve 1-4 pages to save on the first few relocations
+  indexes.reserve( (16 * 1024) / (num_dims * sizeof(int)) );
   while (is_in || (c > 0))
   {
     if (is_in)
