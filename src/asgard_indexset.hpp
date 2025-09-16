@@ -448,23 +448,6 @@ struct dimension_sort
 indexset compute_ancestry_completion(indexset const &iset,
                                      connect_1d const &hierarchy);
 
-/*!
- * \brief Completes the cells to indexes of degrees of freedom
- *
- * Given the cells, the returned list of indexes
- * will hold all indexes of the corresponding degrees of freedom.
- */
-vector2d<int> complete_poly_order(vector2d<int> const &cells, int degree);
-
-/*!
- * \brief Completes the cells to indexes of degrees of freedom
- *
- * Given the active cells and padded cells, the returned list of indexes
- * will hold all indexes of the corresponding degrees of freedom.
- */
-vector2d<int> complete_poly_order(vector2d<int> const &cells,
-                                  indexset const &padded, int degree);
-
 #ifdef ASGARD_USE_GPU
 struct gpu_grid_data {
   //! number of 1d strips in each dimension
