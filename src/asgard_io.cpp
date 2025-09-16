@@ -203,12 +203,12 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     time_method sm = options.step_method.value_or(
         static_cast<time_method>(H5Easy::load<int>(file, std::string("dtime_smethod"))));
 
-    P const stop    = options.stop_time.value_or(-1);
-    P const dt      = options.dt.value_or(-1);
-    int64_t const n = options.num_time_steps.value_or(-1);
+    double const stop = options.stop_time.value_or(-1);
+    double const dt   = options.dt.value_or(-1);
+    int64_t const n   = options.num_time_steps.value_or(-1);
 
-    P fstop                 = H5Easy::load<P>(file, "dtime_stop");
-    P const curr_time       = H5Easy::load<P>(file, "dtime_time");
+    double fstop            = H5Easy::load<double>(file, "dtime_stop");
+    double const curr_time  = H5Easy::load<double>(file, "dtime_time");
     int64_t const curr_step = H5Easy::load<int64_t>(file, "dtime_step");
 
     rassert(not (stop >= 0 and dt >= 0 and n >= 0),
@@ -241,7 +241,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       if (n >= 0) {
         dtime = time_data(sm, n, typename time_data::input_stop_time{stop - curr_time});
       } else {
-        P const fdt = H5Easy::load<P>(file, "dtime_dt");
+        P const fdt = H5Easy::load<double>(file, "dtime_dt");
         dtime = time_data(sm,
                           typename time_data::input_dt{fdt},
                           typename time_data::input_stop_time{stop - curr_time});
@@ -250,7 +250,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       dtime = time_data(
             sm, n, typename time_data::input_stop_time{fstop - curr_time});
     } else {
-      P const fdt   = H5Easy::load<P>(file, "dtime_dt");
+      P const fdt   = H5Easy::load<double>(file, "dtime_dt");
       dtime = time_data(sm,
                         typename time_data::input_dt{fdt},
                         typename time_data::input_stop_time{fstop - curr_time});
