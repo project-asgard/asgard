@@ -276,6 +276,20 @@ void restart_longer() {
     mm = std::max(mm, static_cast<double>(std::abs(reff.current_state()[i] - rdisc.current_state()[i])));
 
   tassert(mm < 1.E-10);
+
+  options = make_opts("-l 5 -d 2 -dt 0.01 -n 12");
+  reff = discretization_manager<P>(make_testpde<pde, P>(2, options));
+  reff.advance_time();
+
+  tassert(std::abs(reff.time() - 0.12) < 1.E-8);
+
+  ropts = make_opts("-restart _asg_testfile.h5"); // use the included time-params
+  rdisc = discretization_manager<P>(make_testpde<pde, P>(2, ropts)); // restart again
+  rdisc.extend_steps(8);
+  rdisc.advance_time();
+  tassert(std::abs(rdisc.time() - 0.12) < 1.E-8);
+
+  tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
 }
 
 template<typename P>
