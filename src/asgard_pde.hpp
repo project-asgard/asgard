@@ -189,14 +189,6 @@ struct term_volume {
  */
 template<typename P = default_precision>
 struct term_grad {
-  //! make a grad term with constant coefficient 1, upwind flux and given boundary_type
-  term_grad(boundary_type bnd = boundary_type::none)
-    : boundary(bnd)
-  {}
-  //! make a grad term with constant coefficient 1, and given flux and boundary_type
-  term_grad(flux_type flx, boundary_type bnd = boundary_type::none)
-    : flux(flx), boundary(bnd)
-  {}
   //! make a grad term with given constant coefficient, upwind flux, and given boundary_type
   term_grad(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), boundary(bnd)
@@ -205,12 +197,20 @@ struct term_grad {
   term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
+  //! make a grad term with given constant coefficient, boundary_type and flux_type
+  term_grad(no_deduce<P> cc, boundary_type bnd, flux_type flx)
+    : const_coeff(cc), flux(flx), boundary(bnd)
+  {}
   //! make a grad term with given coefficient, upwind flux, and given boundary_type
   term_grad(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
     : const_coeff(0), var_coeff(std::move(cc)), boundary(bnd)
   {}
   //! make a grad term with given coefficient, flux_type and boundary_type
   term_grad(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
+    : const_coeff(0), var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+  {}
+  //! make a grad term with given coefficient, boundary_type and flux_type
+  term_grad(sfixed_func1d<P> cc, boundary_type bnd, flux_type flx)
     : const_coeff(0), var_coeff(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
@@ -231,14 +231,6 @@ struct term_grad {
  */
 template<typename P = default_precision>
 struct term_div {
-  //! make a div term with constant coefficient 1, upwind flux and given boundary_type
-  term_div(boundary_type bnd = boundary_type::none)
-    : boundary(bnd)
-  {}
-  //! make a div term with constant coefficient 1, and given flux and boundary_type
-  term_div(flux_type flx, boundary_type bnd = boundary_type::none)
-    : flux(flx), boundary(bnd)
-  {}
   //! make a div term with given constant coefficient, upwind flux, and given boundary_type
   term_div(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), boundary(bnd)
@@ -247,12 +239,20 @@ struct term_div {
   term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
+  //! make a div term with given constant coefficient, boundary_type and flux_type
+  term_div(no_deduce<P> cc, boundary_type bnd, flux_type flx)
+    : const_coeff(cc), flux(flx), boundary(bnd)
+  {}
   //! make a div term with given coefficient, upwind flux, and given boundary_type
   term_div(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
     : var_coeff(std::move(cc)), boundary(bnd)
   {}
   //! make a div term with given coefficient, flux_type and boundary_type
   term_div(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
+    : var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+  {}
+  //! make a div term with given coefficient, boundary_type and flux_type
+  term_div(sfixed_func1d<P> cc, boundary_type bnd, flux_type flx)
     : var_coeff(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
@@ -264,7 +264,7 @@ struct term_div {
   //! flux type
   flux_type flux = flux_type::upwind;
   //! boundary type
-  boundary_type boundary;
+  boundary_type boundary = boundary_type::none;
 };
 
 /*!
@@ -281,6 +281,10 @@ struct term_penalty {
   term_penalty(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
     : const_coeff(cc), flux(flx), boundary(bnd)
   {}
+  //! make a penalty term with given the boundary_type and flux_type
+  term_penalty(no_deduce<P> cc, boundary_type bnd, flux_type flx)
+    : const_coeff(cc), flux(flx), boundary(bnd)
+  {}
 
   //! coefficient
   P const_coeff = 1;
@@ -288,7 +292,7 @@ struct term_penalty {
   //! flux type
   flux_type flux = flux_type::upwind;
   //! boundary type
-  boundary_type boundary;
+  boundary_type boundary = boundary_type::none;
 };
 
 /*!
