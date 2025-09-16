@@ -447,12 +447,12 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
       // large weight, must refine but only if kids are missing
       for (int d : iindexof(num_dims)) {
         idx[d] *= 2;
-        if (iset_.find(idx.data()) == -1)
+        if (iset_.missing(idx))
           stat[i] = istatus::refine;
 
         idx[d] += 1;
         // dont' search for the second kid if the first is missing
-        if (stat[i] != istatus::refine and iset_.find(idx.data()) == -1)
+        if (stat[i] != istatus::refine and iset_.missing(idx))
           stat[i] = istatus::refine;
 
         idx[d] = iset_[i][d];
@@ -518,12 +518,10 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
 
     switch (stat[i]) {
       case istatus::keep:
-        //std::cout << i << " keep\n";
         update.insert(update.end(), iset_[i], iset_[i] + num_dims);
         break;
       case istatus::refine:
         {
-          //std::cout << i << " refine\n";
           update.insert(update.end(), iset_[i], iset_[i] + num_dims);
           std::copy_n(iset_[i], num_dims, idx.data());
           for (int d : iindexof(num_dims)) {
