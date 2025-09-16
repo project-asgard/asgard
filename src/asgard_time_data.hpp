@@ -84,6 +84,11 @@ public:
   {
     stop_time_ = num_remain_ * dt_;
   }
+    //! specify time-step, final time and num-steps when doing a restart
+  time_data(time_method smethod, int64_t num_remain, input_dt dt, input_stop_time stop_time)
+      : smethod_(smethod), dt_(dt.value), stop_time_(stop_time.value),
+        time_(0), step_(0), num_remain_(num_remain)
+  {}
 
   //! return the time-advance method
   time_method step_method() const { return smethod_; }
@@ -111,6 +116,12 @@ public:
     ++step_;
     --num_remain_;
     time_ += dt_;
+  }
+
+  //! adds more steps
+  void extend_steps(int64_t num_more) {
+    num_remain_ += num_more;
+    stop_time_  += num_more * dt_;
   }
 
   //! prints the stepping data to a stream (human readable format)

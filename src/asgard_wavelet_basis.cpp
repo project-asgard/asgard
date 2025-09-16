@@ -6,8 +6,7 @@ namespace asgard::basis
 // then uses these to generate the two-scale coefficients which can be
 // used (outside of this routine) to construct the forward multi-wavelet
 // transform
-template<typename P>
-std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree)
+std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
 {
   expect(degree >= 0);
 
@@ -23,38 +22,38 @@ std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree)
   // hard-cording degree 0, 1, 2 (mostly for less rounding)
   if (degree <= 2)
   {
-    constexpr P s2 = 1.41421356237309505;
+    constexpr double s2 = 1.41421356237309505;
 
     switch (degree)
     {
     case 0: {
-      P const is2 = 1 / s2;
-      std::vector<P> h0 = {is2,};
-      std::vector<P> h1 = {is2,};
-      std::vector<P> g0 = {-is2,};
-      std::vector<P> g1 = {is2,};
+      double const is2 = 1 / s2;
+      std::vector<double> h0 = {is2,};
+      std::vector<double> h1 = {is2,};
+      std::vector<double> g0 = {-is2,};
+      std::vector<double> g1 = {is2,};
       return {h0, h1, g0, g1};
     }
     case 1: {
-      P const is2  = 1 / s2;
-      P const is22 = 1 / (2 * s2);
-      P const is6  = std::sqrt(P{6}) / 4;
-      std::vector<P> h0 = {is2, -is6, 0, is22};
-      std::vector<P> h1 = {is2,  is6, 0, is22};
-      std::vector<P> g0 = {0,  is22, -is2, is6};
-      std::vector<P> g1 = {0, -is22,  is2, is6};
+      double const is2  = 1 / s2;
+      double const is22 = 1 / (2 * s2);
+      double const is6  = std::sqrt(6.0) / 4;
+      std::vector<double> h0 = {is2, -is6, 0, is22};
+      std::vector<double> h1 = {is2,  is6, 0, is22};
+      std::vector<double> g0 = {0,  is22, -is2, is6};
+      std::vector<double> g1 = {0, -is22,  is2, is6};
       return {h0, h1, g0, g1};
     }
     case 2: {
-      P const is2  = 1 / s2;
-      P const is22 = 1 / (2 * s2);
-      P const is24 = 1 / (4 * s2);
-      P const is6  = std::sqrt(P{6}) / 4;
-      P const is30 = 15 / (P{4} * std::sqrt(P{30}));
-      std::vector<P> h0 = {is2, -is6, 0, 0, is22, -is30, 0, 0, is24};
-      std::vector<P> h1 = {is2,  is6, 0, 0, is22,  is30, 0, 0, is24};
-      std::vector<P> g0 = {0, 0, -is22, 0,  is24, -is6, -is2, is30, 0};
-      std::vector<P> g1 = {0, 0,  is22, 0, -is24, -is6,  is2, is30, 0};
+      double const is2  = 1 / s2;
+      double const is22 = 1 / (2 * s2);
+      double const is24 = 1 / (4 * s2);
+      double const is6  = std::sqrt(6.0) / 4;
+      double const is30 = 15 / (4.0 * std::sqrt(30.0));
+      std::vector<double> h0 = {is2, -is6, 0, 0, is22, -is30, 0, 0, is24};
+      std::vector<double> h1 = {is2,  is6, 0, 0, is22,  is30, 0, 0, is24};
+      std::vector<double> g0 = {0, 0, -is22, 0,  is24, -is6, -is2, is30, 0};
+      std::vector<double> g1 = {0, 0,  is22, 0, -is24, -is6,  is2, is30, 0};
       return {h0, h1, g0, g1};
     }
     default:
@@ -62,26 +61,26 @@ std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree)
     };
   }
 
-  std::vector<P> g0(pdof * pdof);
-  std::vector<P> g1(pdof * pdof);
-  std::vector<P> h0(pdof * pdof);
-  std::vector<P> h1(pdof * pdof);
+  std::vector<double> g0(pdof * pdof);
+  std::vector<double> g1(pdof * pdof);
+  std::vector<double> h0(pdof * pdof);
+  std::vector<double> h1(pdof * pdof);
 
   basis::canonical_integrator quad(degree);
 
   // those are the transposes compared to the matrices used in the rest of the code
-  auto leg = basis::legendre_poly<P>(degree);
+  auto leg = basis::legendre_poly<double>(degree);
   auto wav = basis::wavelet_poly(leg, quad);
 
-  P const  s2 = std::sqrt(P{2});
-  P const is2 = P{1} / s2;
+  double const  s2 = std::sqrt(2.0);
+  double const is2 = 1.0 / s2;
 
-  vector2d<P> scalets(pdof, pdof);
+  vector2d<double> scalets(pdof, pdof);
   for (auto i : indexof<int>(pdof))
     for (auto j : indexof<int>(pdof))
       scalets[j][i] = s2 * leg[i][degree - j];
 
-  vector2d<P> phi_co(pdof * 2, pdof);
+  vector2d<double> phi_co(pdof * 2, pdof);
   for (auto i : indexof<int>(pdof))
     for (auto j : indexof<int>(pdof))
       phi_co[j][i] = wav[i][degree - j];
@@ -121,14 +120,14 @@ std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree)
   // no we have the wavelets at level n and the corresponding remainder going up
   // on level 0, there will be just a remainders
 
-  auto leg2 = basis::legendre_poly<P, basis::integ_range::right>(degree);
-  P s = 1.0;
+  auto leg2 = basis::legendre_poly<double, basis::integ_range::right>(degree);
+  double s = 1.0;
 
   for (int row = 0; row < pdof; ++row)
   {
     for (int col = 0; col < row; ++col)
     {
-      P const it = quad.integrate_right(leg2[col], leg[row]);
+      double const it = quad.integrate_right(leg2[col], leg[row]);
 
       h1[row + col * pdof] = it;
       h0[row + col * pdof] = ((row - col) % 2 == 0) ? it : -it;
@@ -144,16 +143,16 @@ std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree)
   {
     for (int col = degree - row; col < pdof; ++col)
     {
-      P const it = is2 * quad.integrate_right(leg2[col], wav[row] + pdof);
+      double const it = is2 * quad.integrate_right(leg2[col], wav[row] + pdof);
 
       g1[row + col * pdof] = it;
       g0[row + col * pdof] = ((col - row + degree) % 2 == 0) ? -it : it;
     }
   }
 
-  P constexpr tol = (std::is_same_v<P, double>) ? 1.e-12 : 1.e-4;
+  double constexpr tol = 1.e-12;
 
-  auto const normalize = [&](std::vector<P> &mat) -> void {
+  auto const normalize = [&](std::vector<double> &mat) -> void {
     for (auto &m : mat)
       if (std::abs(m) < tol)
         m = 0;
@@ -165,15 +164,5 @@ std::array<std::vector<P>, 4> generate_multi_wavelets(int const degree)
 
   return {h0, h1, g0, g1};
 }
-
-#ifdef ASGARD_ENABLE_DOUBLE
-template std::array<std::vector<double>, 4>
-generate_multi_wavelets(int const degree);
-#endif
-
-#ifdef ASGARD_ENABLE_FLOAT
-template std::array<std::vector<float>, 4>
-generate_multi_wavelets(int const degree);
-#endif
 
 } // namespace asgard::basis

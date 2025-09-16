@@ -241,7 +241,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       if (n >= 0) {
         dtime = time_data(sm, n, typename time_data::input_stop_time{stop - curr_time});
       } else {
-        P const fdt = H5Easy::load<double>(file, "dtime_dt");
+        double const fdt = H5Easy::load<double>(file, "dtime_dt");
         dtime = time_data(sm,
                           typename time_data::input_dt{fdt},
                           typename time_data::input_stop_time{stop - curr_time});
@@ -250,8 +250,9 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       dtime = time_data(
             sm, n, typename time_data::input_stop_time{fstop - curr_time});
     } else {
-      P const fdt   = H5Easy::load<double>(file, "dtime_dt");
-      dtime = time_data(sm,
+      double const fdt = H5Easy::load<double>(file, "dtime_dt");
+      int64_t const rem_step = H5Easy::load<int64_t>(file, "dtime_remaining");
+      dtime = time_data(sm, rem_step,
                         typename time_data::input_dt{fdt},
                         typename time_data::input_stop_time{fstop - curr_time});
     }

@@ -271,7 +271,11 @@ void restart_longer() {
 
   tassert(std::abs(reff.time() - 0.08) < 1.E-8);
 
-  tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+  double mm = 0.0;
+  for (size_t i = 0; i < reff.current_state().size(); i++)
+    mm = std::max(mm, static_cast<double>(std::abs(reff.current_state()[i] - rdisc.current_state()[i])));
+
+  tassert(mm < 1.E-10);
 }
 
 template<typename P>
