@@ -4,8 +4,7 @@ namespace asgard
 {
 
 std::array<std::vector<double>, 2>
-legendre_vals(std::vector<double> const &points, int const degree,
-              legendre_normalization const norm)
+legendre_vals(std::vector<double> const &points, int const degree)
 {
   expect(degree >= 0);
   expect(points.size() > 0);
@@ -57,27 +56,13 @@ legendre_vals(std::vector<double> const &points, int const degree,
 
   if (degree > 0) // rescaling applies only to linears and above
   {
-    switch (norm) {
-      case legendre_normalization::lin:
-        for (int k = 0; k <= degree; k++) {
-          double const dscale = std::sqrt(2.0 * k + 1.0);
-          for (int j = 0; j < nump; j++)
-            leg[k][j] *= dscale;
-          for (int j = 0; j < nump; j++)
-            leg_prime[k][j] *= dscale;
-        }
-        break;
-      case legendre_normalization::matlab:
-        break;
-      default: { // case legendre_normalization::unnormalized
-          double const dscale = std::sqrt(2.0);
-          for (size_t i = 0; i < vec_leg.size(); i++)
-            vec_leg[i] *= dscale;
-          for (size_t i = 0; i < vec_leg_prime.size(); i++)
-            vec_leg_prime[i] *= dscale;
-        }
-        break;
-    };
+    for (int k = 0; k <= degree; k++) {
+      double const dscale = std::sqrt(2.0 * k + 1.0);
+      for (int j = 0; j < nump; j++)
+        leg[k][j] *= dscale;
+      for (int j = 0; j < nump; j++)
+        leg_prime[k][j] *= dscale;
+    }
   }
 
   return {vec_leg, vec_leg_prime};
