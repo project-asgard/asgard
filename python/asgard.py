@@ -67,7 +67,6 @@ class pde_snapshot:
             self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
             assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
-            self.using_version_2 = True
 
             self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
 
@@ -380,6 +379,7 @@ if __name__ == "__main__":
         print(" -h, -help, --help           : shows this help text")
         print(" -v, -version, --version     : shows the library version info")
         print(" -s, -stat, -stats, -summary : shows the summary of a snapshot")
+        print(" -ss, -vv                    : super-summary or very-verbose info")
         print(" -g, -grid                   : plot the grid")
         print(" -view                       : adjust the view plane")
         print("")
@@ -390,6 +390,13 @@ if __name__ == "__main__":
             print("stats summary option requires a filename")
         else:
             shot = pde_snapshot(sys.argv[2])
+            print("\n", shot, shot.timer_report)
+    elif sys.argv[1] in ("-ss", "-vv"):
+        if len(sys.argv) < 3:
+            print("-ss/-vv summary option requires a filename")
+        else:
+            shot = pde_snapshot(sys.argv[2])
+            # TODO: show the super-option
             print("\n", shot, shot.timer_report)
     elif not _matplotlib_found_:
         print("could not 'import matplotlib'")
