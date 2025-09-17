@@ -317,20 +317,6 @@ protected:
   static constexpr P is2 = P{1} / s2;          // 1.0 / std::sqrt(2.0)
   static constexpr P s6 = 2.4494897427831781;  //std::sqrt(6.0)
 
-  //! \brief Applies dv to the current fvals
-  void apply_dv_dvals(int dim, function_1d<P> const &dv) const
-  {
-    if (quad_points[dim].size() != quad_dv[dim].size())
-    {
-      quad_dv[dim].resize(quad_points[dim].size());
-      dv(quad_points[dim], quad_dv[dim]);
-      for (auto i : indexof(quad_points[dim]))
-        fvals[i] *= quad_dv[dim][i];
-    }
-  }
-  //! \brief Constructs the mass matrix, if not set for the given level/dim (uses already set quad_dv)
-  mass_matrix<P> make_mass(int dim, int level) const;
-
   /*!
    * \brief prepares the quad_points vector with the appropriate shifted quadrature points
    *

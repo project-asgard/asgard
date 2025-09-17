@@ -178,44 +178,6 @@ std::vector<P> legendre_basis<P>::project(
 }
 
 template<typename P>
-mass_matrix<P> hierarchy_manipulator<P>::make_mass(int dim, int level) const
-{
-  int const num_cells = fm::ipow2(level);
-  int const num_quad  = leg_unscal.stride();
-  int const pdof      = degree_ + 1;
-
-  mass_matrix<P> mat(pdof * pdof, num_cells);
-
-#pragma omp parallel for
-  for (int i = 0; i < num_cells; i++)
-  {
-    smmat::gemm3(pdof, num_quad, leg_vals[0], quad_dv[dim].data() + i * num_quad,
-                 leg_unscal[0], mat[i]);
-  }
-
-  switch (degree_)
-  {
-  case 0:
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++)
-      mat[i][0] = P{1} / mat[i][0];
-    break;
-  case 1:
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++)
-      smmat::inv2by2(mat[i]);
-    break;
-  default:
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++)
-      smmat::potrf(pdof, mat[i]);
-    break;
-  }
-
-  return mat;
-}
-
-template<typename P>
 void hierarchy_manipulator<P>::reconstruct1d(
     int const nbatch, int const level, span2d<P> data) const
 {
