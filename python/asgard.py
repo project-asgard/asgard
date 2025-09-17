@@ -29,6 +29,12 @@ libasgard.asgard_reconstruct_solution_setbounds.argtypes = [c_void_p, POINTER(c_
 libasgard.asgard_reconstruct_solution.argtypes = [c_void_p, POINTER(c_double), c_int, POINTER(c_double)]
 libasgard.asgard_reconstruct_cell_centers.argtypes = [c_void_p, POINTER(c_double)]
 
+step_method_map = ("Steady state solver",
+                   "Forward-Euler 1-step (explicit)",  "Runge-Kutta 2-step (explicit)",
+                   "Runge-Kutta 3-step (explicit)",    "Runge-Kutta 4-step (explicit)",
+                   "Backward-Euler 1-step (implicit)", "Crank-Nicolson 1-step (implicit)",
+                   "Implicit-Explicit 1-step (imex)",  "Implicit-Explicit 2-step (imex)")
+
 class pde_snapshot:
     '''
     Reads an ASGarD HDF5 file with wavelet information and reconstrcts data
@@ -57,6 +63,7 @@ class pde_snapshot:
 
         with h5py.File(filename, "r") as fdata:
             # keep this for reference of the keys that we may need
+            self.params = {} # extra parameters
 
             self.title    = fdata['title'][()].decode("utf-8")
             self.subtitle = fdata['subtitle'][()].decode("utf-8")
@@ -67,20 +74,14 @@ class pde_snapshot:
             self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
             assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
-            self.using_version_2 = True
 
             self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
 
+            # problem dimensions
             self.num_dimensions = fdata['num_dims'][()]
 
             self.num_position = fdata['num_pos'][()]
             self.num_velocity = fdata['num_vel'][()]
-
-            self.cells = fdata['grid_indexes'][()]
-            self.time  = fdata['dtime_time'][()] # numeric time
-
-            self.num_cells = fdata['grid_num_indexes'][()]
-            assert self.num_cells == int(len(self.cells) / self.num_dimensions), "file corruption detected: wront number of cells"
 
             drange = fdata['domain_range'][()] # domain ranges
 
@@ -92,6 +93,28 @@ class pde_snapshot:
                 self.dimension_min[i] = drange[2 * i]
                 self.dimension_max[i] = drange[2 * i + 1]
 
+            # grid data and adaptive parameters
+            self.cells = fdata['grid_indexes'][()]
+
+            self.num_cells = fdata['grid_num_indexes'][()]
+            assert self.num_cells == int(len(self.cells) / self.num_dimensions), "file corruption detected: wront number of cells"
+
+            val = fdata['grid_adapt_threshold'][()]
+            if val > -1:
+                self.params['grid_adapt_threshold'] = val
+            val = fdata['grid_adapt_relative'][()]
+            if val > -1:
+                self.params['grid_adapt_relative'] = val
+
+            # numeric time-data
+            self.time  = fdata['dtime_time'][()]
+            self.params['dtime_smethod'] = fdata['dtime_smethod'][()]
+            self.params['dtime_dt'] = fdata['dtime_dt'][()]
+            self.params['dtime_stop'] = fdata['dtime_stop'][()]
+            self.params['dtime_step'] = fdata['dtime_step'][()]
+            self.params['dtime_remaining'] = fdata['dtime_remaining'][()]
+
+            # aux fields
             num_aux = fdata['num_aux_fields'][()]
             self.aux_fields = [None for i in range(num_aux)]
             for i in range(num_aux):
@@ -357,6 +380,26 @@ class pde_snapshot:
         s += "  time:           %f\n" % self.time
         return s
 
+    def long_str(self):
+        s = str(self) + '\n'
+        if 'grid_adapt_threshold' not in self.params and 'grid_adapt_relative' not in self.params:
+            s += '  non-adaptive grid\n'
+        else:
+            if 'grid_adapt_relative' in self.params:
+                s += f"  relative adaptive tolerance: {self.params['grid_adapt_relative']:1.10e}\n"
+            if 'grid_adapt_threshold' in self.params:
+                s += f"  absolute adaptive tolerance: {self.params['grid_adapt_threshold']:1.10e}\n"
+
+        s += '\ntime stepping:'
+        s += "\n  method          " + step_method_map[ self.params['dtime_smethod'] ]
+        s += "\n  time (t)        %f" % self.time
+        s += "\n  stop-time (T)   %f" % self.params['dtime_stop']
+        s += "\n  num-steps       %d" % self.params['dtime_step']
+        s += "\n  remaining steps %d" % self.params['dtime_remaining']
+        s += f"\n  time-step (dt)  {self.params['dtime_dt']:1.10e}\n"
+
+        return '\n' + s
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] in ("-v", "-version", "--version"):
@@ -380,6 +423,7 @@ if __name__ == "__main__":
         print(" -h, -help, --help           : shows this help text")
         print(" -v, -version, --version     : shows the library version info")
         print(" -s, -stat, -stats, -summary : shows the summary of a snapshot")
+        print(" -ss, -vv                    : super-summary or very-verbose info")
         print(" -g, -grid                   : plot the grid")
         print(" -view                       : adjust the view plane")
         print("")
@@ -391,6 +435,13 @@ if __name__ == "__main__":
         else:
             shot = pde_snapshot(sys.argv[2])
             print("\n", shot, shot.timer_report)
+    elif sys.argv[1] in ("-ss", "-vv"):
+        if len(sys.argv) < 3:
+            print("-ss/-vv summary option requires a filename")
+        else:
+            shot = pde_snapshot(sys.argv[2])
+            # TODO: show the super-option
+            print("\n", shot.long_str(), shot.timer_report)
     elif not _matplotlib_found_:
         print("could not 'import matplotlib'")
         print("can only print stats-summary, use")

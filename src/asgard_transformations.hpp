@@ -16,6 +16,10 @@ namespace asgard
 template<typename P>
 using mass_diag = std::array<block_diag_matrix<P>, max_num_dimensions>;
 
+//! function format for 1d function, allows evaluations for large batches of funcitons
+template<typename P>
+using function_1d = std::function<void(std::vector<P> const &, std::vector<P> &)>;
+
 /*!
  * \internal
  * \brief Legendre basis, quadrature, polynomial and derivative values
@@ -99,9 +103,6 @@ template<typename P>
 class hierarchy_manipulator
 {
 public:
-  //! list of mass matrices, array with one unique_ptr per dimension
-  using mass_list = std::array<level_mass_matrces<P>, max_num_dimensions>;
-
   //! empty hierarchy manipulator
   hierarchy_manipulator()
       : degree_(0), block_size_(0), dmin({{0}}), dmax({{0}})
@@ -206,26 +207,6 @@ public:
   }
 
   //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
-  void project1d_f(function_1d<P> const &f, function_1d<P> const &dv,
-                   level_mass_matrces<P> &mass, int dim, int level) const
-  {
-    int const num_cells = fm::ipow2(level);
-    prepare_quadrature(dim, num_cells);
-    fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
-    f(quad_points[dim], fvals);
-
-    if (dv) // if using non-Cartesian coordinates
-    {
-      apply_dv_dvals(dim, dv);
-      mass.set_non_identity();
-      if (not mass.has_level(level))
-        mass[level] = make_mass(dim, level); // uses quad_dv computed above
-    }
-
-    // project onto the basis
-    project1d(dim, level, dmax[dim] - dmin[dim], mass);
-  }
-  //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
   void project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
   {
     int const num_cells = fm::ipow2(level);
@@ -264,43 +245,20 @@ public:
   }
 
   //! (testing purposes, skips hierarchy) computes the 1d projection of f onto the cells of a given level
-  std::vector<P> cell_project(function_1d<P> const &f, function_1d<P> const &dv, int level) const
+  std::vector<P> cell_project(function_1d<P> const &f, int level) const
   {
     int constexpr dim = 0;
-    level_mass_matrces<P> mass;
 
     int const num_cells = fm::ipow2(level);
     prepare_quadrature(dim, num_cells);
     fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
     f(quad_points[dim], fvals);
 
-    if (dv) // if using non-Cartesian coordinates
-    {
-      apply_dv_dvals(dim, dv);
-      mass.set_non_identity();
-      if (not mass.has_level(level))
-        mass[level] = make_mass(dim, level); // uses quad_dv computed above
-    }
-
     // project onto the basis
     bool constexpr skip_hier = true;
-    project1d<skip_hier>(dim, level, dmax[dim] - dmin[dim], mass);
+    project1d<skip_hier>(dim, level, dmax[dim] - dmin[dim], block_diag_matrix<P>{});
 
     return stage0;
-  }
-
-  //! create the mass matrix for the given dim and level
-  void make_mass(int dim, int level, function_1d<P> const &dv,
-                 level_mass_matrces<P> &mass) const
-  {
-    if (not dv or mass.has_level(level))
-      return;
-    mass.set_non_identity();
-    int const num_cells = fm::ipow2(level);
-    prepare_quadrature(dim, num_cells);
-    quad_dv[dim].resize(quad_points[dim].size());
-    dv(quad_points[dim], quad_dv[dim]);
-    mass[level] = make_mass(dim, level); // uses quad_dv computed above
   }
 
   //! return the 1d projection in the given direction
@@ -353,27 +311,11 @@ protected:
    * to hierarchical representation stored in pf.
    */
   template<bool skip_hierarchy = false>
-  void project1d(int dim, int level, P const dsize, level_mass_matrces<P> const &mass) const;
-  //! project onto the basis
   void project1d(int dim, int level, P const dsize, block_diag_matrix<P> const &mass) const;
 
   static constexpr P s2 = 1.41421356237309505; // std::sqrt(2.0)
   static constexpr P is2 = P{1} / s2;          // 1.0 / std::sqrt(2.0)
   static constexpr P s6 = 2.4494897427831781;  //std::sqrt(6.0)
-
-  //! \brief Applies dv to the current fvals
-  void apply_dv_dvals(int dim, function_1d<P> const &dv) const
-  {
-    if (quad_points[dim].size() != quad_dv[dim].size())
-    {
-      quad_dv[dim].resize(quad_points[dim].size());
-      dv(quad_points[dim], quad_dv[dim]);
-      for (auto i : indexof(quad_points[dim]))
-        fvals[i] *= quad_dv[dim][i];
-    }
-  }
-  //! \brief Constructs the mass matrix, if not set for the given level/dim (uses already set quad_dv)
-  mass_matrix<P> make_mass(int dim, int level) const;
 
   /*!
    * \brief prepares the quad_points vector with the appropriate shifted quadrature points

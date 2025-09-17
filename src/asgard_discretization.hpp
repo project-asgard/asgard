@@ -107,6 +107,8 @@ public:
   int64_t remaining_steps() const { return stepper.data.num_remain(); }
   //! returns the current time step
   int64_t current_step() const { return stepper.data.step(); }
+  //! extend the number of steps
+  void extend_steps(int64_t num_more) { stepper.data.extend_steps(num_more); }
 
   //! returns the non-separable initial conditions
   md_func<precision> const &initial_cond_md() const { return initial_md_; }

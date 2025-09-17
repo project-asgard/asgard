@@ -1,9 +1,5 @@
 #pragma once
 
-#include <algorithm>
-#include <iostream>
-#include <set>
-
 #include "asgard_block_matrix.hpp"
 #include "asgard_indexset.hpp"
 #include "asgard_kronmult_common.hpp"

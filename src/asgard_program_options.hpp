@@ -154,38 +154,26 @@ bool is_implicit(time_method method);
  */
 bool is_imex(time_method method);
 
-namespace solvers
-{
-#ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \internal
- * indicates the values is unspecified
- */
-int constexpr novalue = -1;
-/*!
- * \internal
- * indicates the values is unspecified
- */
-double constexpr notolerance = -1.0;
-#endif
-} // namespace solver
-
-/*!
- * \internal
- * \brief Internal use (mostly)
+ * \brief Internal use and testing
  *
  * Allows constructing prog_opts directly from a vector of string_view.
  * Works around the ambiguity in the constructor between using a filename
  * and a list of views.
+ *
+ * This takes non-owning reference to a vector of string_view objects,
+ * useful for testing and making intermediate calls, but do not use for long term
+ * storage, due to broken references during relocation.s
  * \endinternal
  */
 struct vecstrview
 {
-  explicit vecstrview(std::vector<std::string_view> const &s) : s_(s)
-  {}
-
+  //! create a non-owning wrapper around string views
+  explicit vecstrview(std::vector<std::string_view> const &s) : s_(s) {}
+  //! returns the indexes, simplier
   operator std::vector<std::string_view> const &() const { return s_; }
-
+  //! keep a reference to the list of views
   std::vector<std::string_view> const &s_;
 };
 
@@ -702,7 +690,18 @@ private:
 
     return result;
   }
-
+  /*!
+   * \brief Find the value (with specified type) for the given parameter "s"
+   *
+   * \tparam out_type is the type of the value, supported types are int, bool, float/double, and string
+   *
+   * \param strs list of strings representing parameters, may come from a file or a testing string
+   * \param s is the string representing the parameter, e.g., '-dims'
+   *
+   * \returns empty optional if the parameter is missing or (if found) the value
+   *
+   * \throws runtime error is there is a problem with the conversion
+   */
   template<typename out_type>
   std::optional<out_type> get_val(std::vector<std::string> const &strs,
                                   std::string_view const &s) const
@@ -736,7 +735,7 @@ private:
                     or val == "false" or val == "0")
               return false;
             else
-              return {};
+              throw std::invalid_argument("bad value for bool");
           }
         } catch (std::invalid_argument &) {
           std::string msg = std::string("invalid value for '") + std::string(s)

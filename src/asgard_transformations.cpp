@@ -178,44 +178,6 @@ std::vector<P> legendre_basis<P>::project(
 }
 
 template<typename P>
-mass_matrix<P> hierarchy_manipulator<P>::make_mass(int dim, int level) const
-{
-  int const num_cells = fm::ipow2(level);
-  int const num_quad  = leg_unscal.stride();
-  int const pdof      = degree_ + 1;
-
-  mass_matrix<P> mat(pdof * pdof, num_cells);
-
-#pragma omp parallel for
-  for (int i = 0; i < num_cells; i++)
-  {
-    smmat::gemm3(pdof, num_quad, leg_vals[0], quad_dv[dim].data() + i * num_quad,
-                 leg_unscal[0], mat[i]);
-  }
-
-  switch (degree_)
-  {
-  case 0:
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++)
-      mat[i][0] = P{1} / mat[i][0];
-    break;
-  case 1:
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++)
-      smmat::inv2by2(mat[i]);
-    break;
-  default:
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++)
-      smmat::potrf(pdof, mat[i]);
-    break;
-  }
-
-  return mat;
-}
-
-template<typename P>
 void hierarchy_manipulator<P>::reconstruct1d(
     int const nbatch, int const level, span2d<P> data) const
 {
@@ -303,52 +265,6 @@ void hierarchy_manipulator<P>::reconstruct1d(
 
 template<typename P>
 template<bool skip_hierarchy>
-void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, level_mass_matrces<P> const &mass) const
-{
-  int const num_cells = fm::ipow2(level);
-
-  int const num_quad = quad.stride();
-  int const pdof     = degree_ + 1;
-
-  expect(fvals.size() == static_cast<size_t>(num_cells * num_quad));
-
-  stage0.resize(pdof * num_cells);
-
-  // doing the hierarchical projection, we must normalize the Legendre polynomial to unit l-2 norm
-  P const scale = std::pow(is2, level + 1) * std::sqrt(dsize);
-
-#pragma omp parallel for
-  for (int i = 0; i < num_cells; i++)
-  {
-    smmat::gemv(pdof, num_quad, leg_vals[0], &fvals[i * num_quad],
-                &stage0[i * pdof]);
-    smmat::scal(pdof, scale, &stage0[i * pdof]);
-  }
-
-  if (mass.has_level(level))
-    invert_mass(pdof, mass[level], stage0.data());
-
-  if constexpr (skip_hierarchy)
-    return;
-
-  pf[d].resize(pdof * num_cells);
-
-  // stage0 contains the projection data per-cell
-  // pf has the correct size to take the data, so project all levels up
-  switch (degree_)
-  { // hardcoded degrees first, the default uses the projection matrices
-  case 0:
-    projectlevels<0>(d, level);
-    break;
-  case 1:
-    projectlevels<1>(d, level);
-    break;
-  default:
-    projectlevels<-1>(d, level);
-  };
-}
-
-template<typename P>
 void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, block_diag_matrix<P> const &mass) const
 {
   int const num_cells = fm::ipow2(level);
@@ -373,6 +289,9 @@ void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, block_
 
   if (mass)
     mass.solve(pdof, stage0);
+
+  if constexpr (skip_hierarchy)
+    return;
 
   pf[d].resize(pdof * num_cells);
 
@@ -1103,7 +1022,7 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 
   if (degree_ >= 2) // need projection matrices, degree_ <= 1 are hard-coded
   {
-    auto rawmats = basis::generate_multi_wavelets<P>(degree_);
+    auto rawmats = basis::generate_multi_wavelets(degree_);
     int const pdof = degree_ + 1;
     // copy the matrices twice, once for level 1->0 and once for generic levels
     pmats.resize(8 * pdof * pdof);
@@ -1131,9 +1050,9 @@ template struct legendre_basis<double>;
 template class hierarchy_manipulator<double>;
 
 template void hierarchy_manipulator<double>::project1d<true>(
-    int, int, double, level_mass_matrces<double> const &) const;
+    int, int, double, block_diag_matrix<double> const &) const;
 template void hierarchy_manipulator<double>::project1d<false>(
-    int, int, double, level_mass_matrces<double> const &) const;
+    int, int, double, block_diag_matrix<double> const &) const;
 
 template void hierarchy_manipulator<double>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<1>(int, int) const;
@@ -1145,9 +1064,9 @@ template struct legendre_basis<float>;
 template class hierarchy_manipulator<float>;
 
 template void hierarchy_manipulator<float>::project1d<true>(
-    int, int, float, level_mass_matrces<float> const &) const;
+    int, int, float, block_diag_matrix<float> const &) const;
 template void hierarchy_manipulator<float>::project1d<false>(
-    int, int, float, level_mass_matrces<float> const &) const;
+    int, int, float, block_diag_matrix<float> const &) const;
 
 template void hierarchy_manipulator<float>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<float>::projectlevels<1>(int, int) const;

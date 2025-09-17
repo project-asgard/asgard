@@ -706,8 +706,9 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
 template<typename P> // implemented in time-advance
 void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 {
-  // periodically reports time
+  // periodically reports time, first initialization is not important
   static tools::simple_timer::time_point wctime = tools::simple_timer::current_time();
+  wctime = tools::simple_timer::current_time(); // initialization for this call to advance_in_time()
 
   time_advance_manager<P> const &stepper = manager.stepper;
 

@@ -3,10 +3,6 @@
 
 namespace asgard
 {
-//! function format for 1d function, allows evaluations for large batches of funcitons
-template<typename P>
-using function_1d = std::function<void(std::vector<P> const &, std::vector<P> &)>;
-
 /*!
  * \internal
  * \brief Stores a matrix in regular (non-block) column major format
@@ -207,7 +203,7 @@ public:
     expect(nrows_ == other.nrows_);
     expect(ncols_ == other.ncols_);
     expect(nblock() == other.nblock());
-    int64_t size = nrows_ * ncols_ * nblock();
+    int64_t const size = nrows_ * ncols_ * nblock();
     P const *v1 = data_[0];
     P const *v2 = other.data_[0];
     P err = 0;
@@ -253,8 +249,7 @@ public:
   //! create an empty matrix
   mass_matrix() {}
   //! get the mass matrix for the given level
-  mass_matrix(int const nblock, int const num_rows)
-    : data_(nblock, num_rows)
+  mass_matrix(int const nblock, int const num_rows) : data_(nblock, num_rows)
   {
     expect(nblock > 0);
     expect(num_rows > 0);
@@ -294,41 +289,6 @@ public:
 
 private:
   vector2d<P> data_;
-};
-
-/*!
- * \internal
- * \brief Stores mass-matrices per level
- *
- * The assumption is that all mass matrices do not change in time,
- * therefore, once we have computed the mass for a given level,
- * then we can sore and reuse it without the need to recompute.
- * \endinternal
- */
-template<typename P>
-struct level_mass_matrces
-{
-  //! allocate memory for the blocks
-  void set_non_identity()
-  {
-    // 31 levels will overflow the int-index for the multi-index set
-    // the supported delta-t is 1 / 2^31 ~ 4.6E-10
-    if (mats_.size() != 31)
-      mats_.resize(31);
-  }
-  //! return the matrix at the given level
-  mass_matrix<P> &operator[] (int level) { return mats_[level]; }
-  //! return the matrix at the given level (const)
-  mass_matrix<P> const &operator[] (int level) const { return mats_[level]; }
-  //! return the matrix at the given level
-  mass_matrix<P> &at(int level) { return mats_[level]; }
-  //! return the matrix at the given level (const)
-  mass_matrix<P> const &at(int level) const { return mats_[level]; }
-
-  //! return true if the matrix has been set for this level
-  bool has_level(int l) const { return (not mats_.empty() and not mats_[l].empty()); }
-  //! matrices
-  std::vector<mass_matrix<P>> mats_;
 };
 
 // forward declaration so we can do the inverse in the diag-matrix
