@@ -158,6 +158,7 @@ public:
     }
   }
 
+  //! \brief Uses binary search to find the current row/column
   int get_offset(int row, int col) const
   {
     // there is a potential for optimization here, look into it later
@@ -192,20 +193,20 @@ public:
 
   //! \brief Total number of connections (non-zeros).
   int num_connections() const { return static_cast<int>(indx.size()); }
-
+  //! \brief The number of rows
   int num_rows() const { return rows; }
-
+  //! \brief The first offset of the given row
   int row_begin(int row) const { return pntr[row]; }
-
+  //! \brief The diagonal entry for the given row
   int row_diag(int row) const { return diag[row]; }
-
+  //! \brief The entry right after the last for the given row, e.g., similar to an end() iterator
   int row_end(int row) const { return pntr[row + 1]; }
 
   //! \brief Index at offset j.
   int operator[](int j) const { return indx[j]; }
-
+  //! \brief The maximum loaded level, i.e., the maximuma level that we can access
   int max_loaded_level() const { return levels; }
-
+  //! \brief (testing and debugging) Prints the sparse matrix corresponding to the connectivity
   void print(std::ostream &os = std::cout) const // for debugging
   {
     for (int r = 0; r < rows; r++)
@@ -468,11 +469,14 @@ struct gpu_connect_1d {
  * \brief Holds two connection patterns on the GPU
  */
 struct gpu_connect {
+  //! \brief creates a default empty connection
   gpu_connect() = default;
+  //! \brief creates the volume and full-edge connectivity for the current level and loads to the gpu
   gpu_connect(int max_level)
       : data_{gpu_connect_1d(max_level, connect_1d::hierarchy::volume),
               gpu_connect_1d(max_level, connect_1d::hierarchy::full)}
   {}
+  //! \brief the data of the connections
   std::array<gpu_connect_1d, 2> data_;
   //! return the corresponding connectivity pattern, does not support the extened patterns
   gpu_connect_1d const &operator[] (connect_1d::hierarchy h) const
