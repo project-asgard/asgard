@@ -1155,7 +1155,7 @@ private:
   int num_dims_ = 0;
   std::array<term_1d<P>, max_num_dimensions> sep;
   mass_md<P> mass_;
-  // non-separable/interpolation case
+  // non-separable/interpolation case (may also use the mass_)
   md_func_f<P> interp_;
   // chain of other terms
   std::vector<term_md<P>> chain_;
@@ -1274,8 +1274,7 @@ public:
       mass_(domain_.num_dims()), sources_md_(1)
   {
     int const numd = domain_.num_dims();
-    if (domain_.num_dims() == 0)
-      throw std::runtime_error("the pde cannot be initialized with an empty domain");
+    rassert(numd > 0, "the pde cannot be initialized with an empty domain");
 
     if (options_.restarting()) {
       // more error checking is done during the file reading process
