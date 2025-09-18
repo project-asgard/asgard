@@ -73,11 +73,11 @@ enum class term_dependence
 enum class flux_type
 {
   //! default flux
-  upwind   = -1,
+  upwind   = 1,
   //! other dimensions have variable positive/negative coefficients
   central  = 0,
   //! other dimensions yield negative coefficient
-  downwind = 1,
+  downwind = -1,
 };
 
 /*!

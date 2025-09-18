@@ -62,7 +62,7 @@ public:
   //! (testing) writes the the matric to the scream
   void print(std::ostream &os = std::cout) {
     for (int64_t r = 0; r < nrows_; r++) {
-      for (int64_t c = 0; c < nrows_; c++)
+      for (int64_t c = 0; c < ncols_; c++)
         os << std::setw(16) << data_[c * nrows_ + r];
       os << '\n';
     }
@@ -87,7 +87,7 @@ private:
  * organized into an matrix with column major format.
  *
  * This is for testing and cross-reference purposes, i.e., the sparse block types
- * can be converted to this full-block format for earier introspection.
+ * can be converted to this full-block format for easier introspection.
  * \endinternal
  */
 template<typename P>
@@ -468,7 +468,7 @@ public:
       resize_and_zero(other.nblock(), other.nrows());
   }
 
-  //! add another matrix to this one
+  //! add another matrix to this one, used to merge with the penalty term
   block_tri_matrix<P> &operator += (block_tri_matrix<P> const &other);
 
   //! converts the matrix to a full one, mostly for testing/plotting

@@ -42,8 +42,8 @@ inline CBLAS_DIAG cblas_diag_enum(char trans)
 }
 template<typename P>
 P nrm2(int n, P const x[]) {
-  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
-  if constexpr (std::is_same_v<P, double>)
+  static_assert(is_double<P> or is_float<P>);
+  if constexpr (is_double<P>)
     return cblas_dnrm2(n, x, 1);
   else
     return cblas_snrm2(n, x, 1);
@@ -51,8 +51,8 @@ P nrm2(int n, P const x[]) {
 
 template<typename P>
 void scal(int n, P alpha, P x[]) {
-  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
-  if constexpr (std::is_same_v<P, double>)
+  static_assert(is_double<P> or is_float<P>);
+  if constexpr (is_double<P>)
     cblas_dscal(n, alpha, x, 1);
   else
     cblas_sscal(n, alpha, x, 1);
@@ -60,8 +60,8 @@ void scal(int n, P alpha, P x[]) {
 
 template<typename P>
 void gemv(char trans, int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) {
-  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
-  if constexpr (std::is_same_v<P, double>)
+  static_assert(is_double<P> or is_float<P>);
+  if constexpr (is_double<P>)
     cblas_dgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
   else
     cblas_sgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
@@ -69,8 +69,8 @@ void gemv(char trans, int m, int n, P alpha, P const A[], P const x[], P beta, P
 
 template<typename P>
 void rot(int n, P x[], P y[], P c, P s) {
-  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
-  if constexpr (std::is_same_v<P, double>)
+  static_assert(is_double<P> or is_float<P>);
+  if constexpr (is_double<P>)
     cblas_drot(n, x, 1, y, 1, c, s);
   else
     cblas_srot(n, x, 1, y, 1, c, s);
@@ -78,8 +78,8 @@ void rot(int n, P x[], P y[], P c, P s) {
 
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s) {
-  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
-  if constexpr (std::is_same_v<P, double>)
+  static_assert(is_double<P> or is_float<P>);
+  if constexpr (is_double<P>)
     cblas_drotg(a, b, c, s);
   else
     cblas_srotg(a, b, c, s);
@@ -89,8 +89,8 @@ template<typename P>
 void tpsv(const char uplo, const char trans, const char diag, const int n,
           const P A[], P x[])
 {
-  static_assert(std::is_same_v<P, double> or std::is_same_v<P, float>);
-  if constexpr (std::is_same_v<P, double>)
+  static_assert(is_double<P> or is_float<P>);
+  if constexpr (is_double<P>)
     cblas_dtpsv(CblasColMajor, cblas_uplo_enum(uplo), cblas_transpose_enum(trans),
                 cblas_diag_enum(diag), n, A, x, 1);
   else

@@ -87,7 +87,7 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
     rhs_vals = span2d<P>(stride, num_cells, rhs_raw.vals.data());
   }
 
-  P const fscale = -static_cast<int>(flux); // scale +/- 1
+  P const fscale = static_cast<int>(flux); // scale +/- 1
 
   P const escale = P{1} / dx; // edge scale
   P const vscale = P{2} / dx; // volume scale
