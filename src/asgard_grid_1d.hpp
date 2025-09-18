@@ -137,8 +137,7 @@ public:
     {
       for (int j = 0; j < block_rows; j++)
       {
-        for (int col = elem_connect.row_begin(row); col < elem_connect.row_diag(row);
-             col++)
+        for (int col = elem_connect.row_begin(row); col < elem_connect.row_diag(row); col++)
           for (int k = 0; k < block_rows; k++)
             indx.push_back(block_rows * elem_connect[col] + k);
 
@@ -421,7 +420,6 @@ struct gpu_connect_1d {
   gpu_connect_1d() = default;
   //! load the pattern from the cpu data
   gpu_connect_1d(int max_level, connect_1d::hierarchy hier)
-      // : pntr(conn.get_pntr()), indx(conn.get_indx()), diag(conn.get_diag())
   {
     expect(hier == connect_1d::hierarchy::volume or hier == connect_1d::hierarchy::full);
 
