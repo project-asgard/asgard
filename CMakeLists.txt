@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.19)
 
 project (asgard VERSION 0.7.1 LANGUAGES CXX)
 
-set(ASGARD_RELEASE_INFO "(alpha) 0.7.1a2") # sync with pip-installer setup.py
+set(ASGARD_RELEASE_INFO "(alpha) ${asgard_VERSION}a2") # sync with pip-installer setup.py
 
 include (FetchContent) # getting external dependencies
 
@@ -12,20 +12,11 @@ include (FetchContent) # getting external dependencies
 
 # Set a default build type if none was specified
 # https://blog.kitware.com/cmake-and-the-default-build-type/
-set (default_build_type "Release")
-if (EXISTS "${CMAKE_SOURCE_DIR}/.git")
-  set (default_build_type "RelWithDebInfo")
-endif ()
-
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message (STATUS "Setting build type to '${default_build_type}' as none was specified.")
-  set (CMAKE_BUILD_TYPE "${default_build_type}" CACHE
-       STRING "Choose the type of build." FORCE)
+  message (STATUS "Setting build type to 'Release' as none was specified.")
+  set (CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
   # Set the possible values of build type for cmake-gui
-  set_property (CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-    "Debug" "Release" "RelWithDebInfo")
-else ()
-  message (STATUS "CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
+  set_property (CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo")
 endif ()
 
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -73,7 +64,6 @@ option (ASGARD_HDF5_PATH "Optional location of lib/ containing HDF5" "")
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
-
 set (ASGARD_PRECISIONS "float;double" CACHE STRING "Select floating point precision, supported values are 'float', 'double' or 'float;double'")
 set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;double")
 
@@ -88,23 +78,22 @@ if (ASGARD_USE_TIMER)
 endif()
 
 if (ASGARD_RECOMMENDED_DEFAULTS)
-  # add compiler flags we always want to use
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow")
-  # Improves CPU knonmult performance but adds additional compilation time.
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
+  # add compiler flags we always want to use, mostly for CI purposes
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native -Wall -Wextra -Wpedantic -Wshadow")
 endif ()
 
 if (ASGARD_USE_CUDA AND ASGARD_USE_ROCM)
-    message(FATAL_ERROR "Cannot simultaneously use CUDA and ROCm, pick one only")
+  message(FATAL_ERROR "Cannot simultaneously use CUDA and ROCm, pick one only")
 endif()
+
 if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
-    set (ASGARD_MAX_NUM_GPUS "4" CACHE STRING "Maximum number of GPU devices to use simultaneously")
-    if (ASGARD_MAX_NUM_GPUS LESS 1)
-        message(FATAL_ERROR "ASGARD_MAX_NUM_GPUS must be at least 1, but it is set to '${ASGARD_MAX_NUM_GPUS}'")
-    endif()
+  set (ASGARD_MAX_NUM_GPUS "4" CACHE STRING "Maximum number of GPU devices to use simultaneously")
+  if (ASGARD_MAX_NUM_GPUS LESS 1)
+    message(FATAL_ERROR "ASGARD_MAX_NUM_GPUS must be at least 1, but it is set to '${ASGARD_MAX_NUM_GPUS}'")
+  endif()
 else()
-    # if neither CUDA nor ROCm are present, then never use GPUs
-    set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
+  # if neither CUDA nor ROCm are present, then never use GPUs
+  set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
 endif()
 
 #Enable HighFive IO if any of the following variables are defined
@@ -165,8 +154,7 @@ if(ASGARD_USE_OPENMP OR ASGARD_RECOMMENDED_DEFAULTS)
     if(ASGARD_USE_MKL)
       if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
         message(FATAL_ERROR
-          "MKL and apple clang++ require conflicting
-           openmp flags - build configuration not supported")
+          "MKL and apple clang++ require conflicting OpenMP flags - build configuration not supported")
       endif()
     endif()
   else()
@@ -197,8 +185,8 @@ if (ASGARD_USE_PYTHON)
         set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     endif()
 
-    # CMake accepts YES, ON or 1 in either upper or lower case
-    # some configured scripts use only ON as a valid value
+    # this value should be set to "ON", CMake accepts YES, ON or 1 in either upper or lower case
+    # however, some of the ASGarD python configured scripts use only "ON" as a valid value
     set(ASGARD_USE_PYTHON ON)
 
     # the python module should be available and working from both the build and install folders
@@ -357,10 +345,7 @@ set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature point
 #-------------------------------------------------------------------------------
 #  Define the asgard library.
 #-------------------------------------------------------------------------------
-configure_file(
-  src/asgard_build_info.hpp.in
-  ${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp
-)
+configure_file(src/asgard_build_info.hpp.in  ${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp)
 
 add_library (libasgard)
 set_target_properties(libasgard PROPERTIES OUTPUT_NAME "asgard"
@@ -369,10 +354,6 @@ set_target_properties(libasgard PROPERTIES OUTPUT_NAME "asgard"
 
 if (ASGARD_BUILD_HDF5)
   add_dependencies (libasgard hdf5_external)
-endif()
-
-if (ASGARD_USE_MPI)
-  target_link_libraries(libasgard PUBLIC MPI::MPI_CXX)
 endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
@@ -436,11 +417,16 @@ target_link_libraries (libasgard
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
                        $<$<BOOL:${LINALG_FOUND}>:asgard::LINALG>
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
-                       $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_highfive>
                        $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_hdf5>
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cudart>
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cublas>
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cusolver>
+                       $<$<BOOL:${ASGARD_USE_ROCM}>:roc::rocsolver>
+                       $<$<BOOL:${ASGARD_USE_ROCM}>:hip::host>
+)
+target_link_libraries (libasgard
+                       PRIVATE
+                       $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_highfive>
 )
 target_include_directories (libasgard
                             PUBLIC
@@ -460,10 +446,6 @@ if (ASGARD_USE_CUDA)
 
 endif ()
 
-if (ASGARD_USE_ROCM)
-    target_link_libraries (libasgard PUBLIC roc::rocsolver hip::host)
-endif()
-
 
 #-------------------------------------------------------------------------------
 #  Define a asgard executables targets.
@@ -475,9 +457,6 @@ target_sources (asgard_exe
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp>
 )
 target_link_libraries (asgard_exe PRIVATE libasgard)
-if (${ASGARD_USE_PCH})
-    target_precompile_headers (asgard_exe REUSE_FROM libasgard)
-endif ()
 
 foreach (_asgexe IN LISTS _asgard_pdes)
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp")
@@ -551,7 +530,7 @@ if (ASGARD_BUILD_TESTS)
       target_include_directories (${_asgname} PRIVATE ${CMAKE_SOURCE_DIR}/testing)
       target_include_directories (${_asgname} PRIVATE ${CMAKE_BINARY_DIR})
 
-      target_link_libraries(${_asgname} libasgard)
+      target_link_libraries(${_asgname} PUBLIC libasgard)
 
       if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
           set_target_properties(${_asgname} PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
@@ -572,6 +551,10 @@ if (ASGARD_BUILD_TESTS)
       endif()
 
   endforeach()
+
+  if (TARGET asgard-io-tests)
+    target_link_libraries (asgard-io-tests PUBLIC $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_highfive>)
+  endif()
 
   # the python test is on the border, uses full pde definitions
   # but focuses on the reconstruction capabilities rather than the pde
@@ -625,7 +608,8 @@ if (ASGARD_BUILD_TESTS)
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
   message(STATUS "ASGarD version: ${ASGARD_RELEASE_INFO}")
-  foreach(_opt CMAKE_CXX_FLAGS
+  foreach(_opt CMAKE_BUILD_TYPE
+               CMAKE_CXX_FLAGS
                ASGARD_PRECISIONS
                ASGARD_USE_OPENMP
                ASGARD_USE_MPI
@@ -640,14 +624,14 @@ if (ASGARD_BUILD_TESTS)
     message(STATUS "  ASGARD_USE_FLOPCOUNTER=${ASGARD_USE_FLOPCOUNTER}")
   endif()
   if (ASGARD_USE_CUDA)
-      foreach(_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS CMAKE_CUDA_ARCHITECTURES)
-          message(STATUS "  ${_opt}=${${_opt}}")
-      endforeach()
+    foreach(_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS CMAKE_CUDA_ARCHITECTURES)
+      message(STATUS "  ${_opt}=${${_opt}}")
+    endforeach()
   endif()
   if (ASGARD_USE_ROCM)
-      foreach(_opt CMAKE_HIP_COMPILER CMAKE_HIP_FLAGS CMAKE_HIP_ARCHITECTURES)
-          message(STATUS "  ${_opt}=${${_opt}}")
-      endforeach()
+    foreach(_opt CMAKE_HIP_COMPILER CMAKE_HIP_FLAGS CMAKE_HIP_ARCHITECTURES)
+      message(STATUS "  ${_opt}=${${_opt}}")
+    endforeach()
   endif()
   message(STATUS "")
 
@@ -668,7 +652,7 @@ include(CMakePackageConfigHelpers)
 
 target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${__asgard_install_prefix}/include>)
 
-foreach (_asg_target asgard_highfive asgard_hdf5 libasgard asgard_exe)
+foreach (_asg_target asgard_hdf5 libasgard asgard_exe)
   if (TARGET ${_asg_target})
     install(TARGETS ${_asg_target}
             EXPORT  "asgard-export"
