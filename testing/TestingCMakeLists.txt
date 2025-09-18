@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.19)
 
-project(asgard_testing VERSION @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ LANGUAGES CXX)
+project(asgard_testing VERSION @asgard_VERSION@ LANGUAGES CXX)
 enable_testing()
 
 message(STATUS "Testing the ASGarD installation ...")
 
-find_package(asgard @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ PATHS "@__asgard_install_prefix@")
+find_package(asgard @asgard_VERSION@ PATHS "@__asgard_install_prefix@")
 
 add_subdirectory("@__asgard_install_prefix@/share/asgard/examples" examples_cxx)
 
