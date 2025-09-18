@@ -15,7 +15,8 @@ fi
 mkdir asgard_test_install
 
 cd asgard_test_install
-@CMAKE_COMMAND@ -DCMAKE_CXX_COMPILER=@CMAKE_CXX_COMPILER@ \
+@CMAKE_COMMAND@ -DCMAKE_BUILD_TYPE=@CMAKE_BUILD_TYPE@ \
+                -DCMAKE_CXX_COMPILER=@CMAKE_CXX_COMPILER@ \
                 -DCMAKE_BUILD_TYPE=@CMAKE_BUILD_TYPE@ \
                 "@CMAKE_INSTALL_PREFIX@/share/asgard/testing"
 
