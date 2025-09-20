@@ -21,30 +21,52 @@ if (ASGARD_USE_HIGHFIVE)
 
     set(__asgard_h5_install_prefix "${CMAKE_INSTALL_PREFIX}")
     include (ExternalProject)
-    if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR AND CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
-      # Get HDF5 to build on Apple silicon
-      ExternalProject_Add (hdf5_external
-        UPDATE_COMMAND ""
-        PREFIX "contrib/hdf5"
-        URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
-        DOWNLOAD_NO_PROGRESS 1
-        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/autogen.sh
-        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
-        BUILD_COMMAND make
-        BUILD_IN_SOURCE 1
-        INSTALL_COMMAND make install
-      )
+    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
+      if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR AND CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
+        # Get HDF5 to build on Apple silicon
+        ExternalProject_Add (hdf5_external
+          UPDATE_COMMAND ""
+          PREFIX "contrib/hdf5"
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+          CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/autogen.sh
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
+          BUILD_IN_SOURCE 1
+          DOWNLOAD_EXTRACT_TIMESTAMP 0
+        )
+      else()
+        ExternalProject_Add (hdf5_external
+          UPDATE_COMMAND ""
+          PREFIX "contrib/hdf5"
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+          CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
+          BUILD_IN_SOURCE 1
+          DOWNLOAD_EXTRACT_TIMESTAMP 0
+        )
+      endif()
     else()
-      ExternalProject_Add (hdf5_external
-        UPDATE_COMMAND ""
-        PREFIX "contrib/hdf5"
-        URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
-        DOWNLOAD_NO_PROGRESS 1
-        CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
-        BUILD_COMMAND make
-        BUILD_IN_SOURCE 1
-        INSTALL_COMMAND make install
-      )
+      if (DEFINED CMAKE_APPLE_SILICON_PROCESSOR AND CMAKE_APPLE_SILICON_PROCESSOR STREQUAL "arm64")
+        # Get HDF5 to build on Apple silicon
+        ExternalProject_Add (hdf5_external
+          UPDATE_COMMAND ""
+          PREFIX "contrib/hdf5"
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+          CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/autogen.sh
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
+          BUILD_IN_SOURCE 1
+        )
+      else()
+        ExternalProject_Add (hdf5_external
+          UPDATE_COMMAND ""
+          PREFIX "contrib/hdf5"
+          URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.11/src/hdf5-1.10.11.tar.bz2
+          DOWNLOAD_NO_PROGRESS 1
+          CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/contrib/hdf5/src/hdf5_external/configure --prefix=${__asgard_h5_install_prefix}
+          BUILD_IN_SOURCE 1
+        )
+      endif()
     endif()
 
     # either it was already here, or we just built it here

@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.19)
 
-project(asgard_examples VERSION @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ LANGUAGES CXX)
+project(asgard_examples VERSION @asgard_VERSION@ LANGUAGES CXX)
 
-find_package(asgard @asgard_VERSION_MAJOR@.@asgard_VERSION_MINOR@.@asgard_VERSION_PATCH@ REQUIRED
-             PATHS "@__asgard_install_prefix@")
+find_package(asgard @asgard_VERSION@ REQUIRED PATHS "@__asgard_install_prefix@")
 
 add_executable(continuity_2d  continuity_2d.cpp)
 add_executable(inputs_1d      inputs_1d.cpp)

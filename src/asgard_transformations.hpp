@@ -156,55 +156,7 @@ public:
   template<data_mode action = data_mode::replace>
   void project_separable(separable_func<P> const &sep, pde_domain<P> const &domain,
                          sparse_grid const &grid, mass_diag<P> const &mass,
-                         P time, P alpha, P f[]) const
-  {
-    int const num_dims = domain.num_dims();
-    for (int d : iindexof(num_dims))
-    {
-      if (sep.is_const(d)) {
-        project1d_c(sep.cdomain(d), mass[d], d, grid.current_level(d));
-      } else {
-        project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
-            -> void {
-          sep.fdomain(d, x, time, fx);
-        }, mass[d], d, grid.current_level(d));
-      }
-    }
-
-    P const tmult = (sep.ftime()) ? sep.ftime()(time) : P{1};
-
-    int const pdof = degree_ + 1;
-    std::array<P const *, max_num_dimensions> data1d;
-
-    P *proj = f;
-
-    for (auto c : indexof(grid.num_indexes()))
-    {
-      int const *idx = grid[c];
-      for (int d : iindexof(num_dims))
-        data1d[d] = pf[d].data() + idx[d] * pdof;
-
-      for (int64_t i : indexof(block_size_))
-      {
-        int64_t t = i;
-        P val     = tmult;
-        for (int d = num_dims - 1; d >= 0; d--) {
-          val *= data1d[d][t % pdof];
-          t /= pdof;
-        }
-        if constexpr (action == data_mode::replace)
-          proj[i] = val;
-        else if constexpr (action == data_mode::scal_rep)
-          proj[i] = alpha * val;
-        else if constexpr (action == data_mode::increment)
-          proj[i] += val;
-        else if constexpr (action == data_mode::scal_inc)
-          proj[i] += alpha * val;
-      }
-
-      proj += block_size_;
-    }
-  }
+                         P time, P alpha, P f[]) const;
 
   //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
   void project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
@@ -228,7 +180,7 @@ public:
     int const num_cells = fm::ipow2(level);
     if (mass) {
       fvals.resize(num_cells * quad.stride());
-      std::fill(fvals.begin(), fvals.end(), c); // TODO: skip the projection below
+      std::fill(fvals.begin(), fvals.end(), c);
       project1d(dim, level, dmax[dim] - dmin[dim], mass);
     } else {
       // the projection is trivial, exploiting orthogonality of the basis

@@ -327,14 +327,29 @@ sparse_grid::sparse_grid(prog_opts const &options)
       offsets[d] = (p[d] < 2) ? 1 : fm::ipow2(p[d] - 1);
       n *= offsets[d];
     }
-    for (auto j : indexof(n))
+
+    std::array<int, max_num_dimensions> vec;
+    std::fill(vec.begin(), vec.end(), 0);
+
+    bool is_in = true;
+    int c = 0;
+    while (is_in or c > 0)
     {
-      int t = j;
-      int *v = idx[ii++];
-      for (int d = numd - 1; d >= 0; d--) {
-        v[d] = (p[d] == 0) ? 0 : (offsets[d] + t % offsets[d]);
-        t /= offsets[d];
+      if (is_in)
+      {
+        int *v = idx[ii++];
+        for (int d = 0; d < numd; d++)
+          v[d] = (p[d] == 0) ? 0 : (offsets[d] + vec[d]);
+        c = numd - 1;
+        vec[c]++;
       }
+      else
+      {
+        std::fill(vec.begin() + c, vec.begin() + numd, 0);
+        vec[--c]++;
+      }
+
+      is_in = (vec[c] < offsets[c]);
     }
   }
 
@@ -578,13 +593,25 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
     map_[i] = iset_.find(inew[i]);
   }
 
-  // TODO: optimize this, it's slow
-  for (int d : iindexof(num_dims))
-    level_[d] = 0;
-  for (int64_t i = 0; i < num_new; i++) {
-    for (int d : iindexof(num_dims)) {
-      int const l = (inew[i][d] == 0) ? 0 : (1 + fm::intlog2(inew[i][d]));
-      level_[d] = std::max(level_[d], l);
+  std::fill_n(level_.begin(), num_dims, 0);
+
+  #pragma omp parallel
+  {
+    std::array<int, max_num_dimensions> mylvl;
+    std::fill_n(mylvl.begin(), num_dims, 0);
+
+    #pragma omp for
+    for (int64_t i = 0; i < num_new; i++) {
+      for (int d = 0; d < num_dims; d++) {
+        int const l = (inew[i][d] == 0) ? 0 : (1 + fm::intlog2(inew[i][d]));
+        mylvl[d] = std::max(mylvl[d], l);
+      }
+    }
+
+    #pragma omp critical
+    {
+      for (int d = 0; d < num_dims; d++)
+        level_[d] = std::max(level_[d], mylvl[d]);
     }
   }
 

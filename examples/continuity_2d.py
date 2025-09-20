@@ -81,14 +81,14 @@ if __name__ == '__main__':
     # add the title
     ax.set_title("computed", fontsize = 18)
     # plot the image of the computed values
-    comp = ax.imshow(z, cmap='jet', extent=[xmin, xmax, ymin, ymax])
+    comp = ax.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
     # set the colorbar
     fig.colorbar(comp, orientation='vertical')
 
     # plot on the cell at (0, 1) and plot the exact (analytic) solution
     ax = plt.subplot2grid((1, 2), (0, 1))
     ax.set_title("exact", fontsize = 18)
-    exac = ax.imshow(h, cmap='jet', extent=[xmin, xmax, ymin, ymax])
+    exac = ax.imshow(np.flipud(h), cmap='jet', extent=[xmin, xmax, ymin, ymax])
     fig.colorbar(exac, orientation='vertical')
 
     print("creating 1d plot")

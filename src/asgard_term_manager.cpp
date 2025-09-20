@@ -305,21 +305,41 @@ void term_manager<P>::update_const_sources(
       std::array<P const *, max_num_dimensions> data1d;
 
       #pragma omp for
-      for (int64_t c = 0; c < grid.num_indexes(); c++) {
-        P *proj = src.val.data() + c * block_size;
+      for (int64_t j = 0; j < grid.num_indexes(); j++)
+      {
+        P *proj = src.val.data() + j * block_size;
 
-        int const *idx = grid[c];
+        int const *idx = grid[j];
         for (int d : iindexof(num_dims))
           data1d[d] = src.consts[d].data() + idx[d] * pdof;
 
-        for (int i : iindexof(block_size))
+        std::array<int, max_num_dimensions> v;
+        std::fill_n(v.begin(), num_dims, 0);
+
+        int i = 0;
+
+        bool is_in = true;
+        int c = 0;
+        while (is_in or c > 0)
         {
-          int t   = i;
-          proj[i] = 1;
-          for (int d = num_dims - 1; d >= 0; d--) {
-            proj[i] *= data1d[d][t % pdof];
-            t /= pdof;
+          if (is_in)
+          {
+            P val = 1;
+            for (int d = 0; d < num_dims; d++)
+              val *= data1d[d][ v[d] ];
+
+            c = num_dims - 1;
+            v[c]++;
+
+            proj[i++] = val;
           }
+          else
+          {
+            std::fill(v.begin() + c, v.begin() + num_dims, 0);
+            v[--c]++;
+          }
+
+          is_in = (v[c] < pdof);
         }
       }
     }
@@ -451,21 +471,40 @@ void term_manager<P>::update_bc(
       std::array<P const *, max_num_dimensions> data1d;
 
       #pragma omp for
-      for (int64_t c = 0; c < grid.num_indexes(); c++) {
-        P *proj = bc.val.data() + c * block_size;
+      for (int64_t j = 0; j < grid.num_indexes(); j++) {
+        P *proj = bc.val.data() + j * block_size;
 
-        int const *idx = grid[c];
+        int const *idx = grid[j];
         for (int d : iindexof(num_dims))
           data1d[d] = bc.consts[d].data() + idx[d] * pdof;
 
-        for (int i : iindexof(block_size))
+        std::array<int, max_num_dimensions> v;
+        std::fill_n(v.begin(), num_dims, 0);
+
+        int i = 0;
+
+        bool is_in = true;
+        int c = 0;
+        while (is_in or c > 0)
         {
-          int t   = i;
-          proj[i] = 1;
-          for (int d = num_dims - 1; d >= 0; d--) {
-            proj[i] *= data1d[d][t % pdof];
-            t /= pdof;
+          if (is_in)
+          {
+            P val = 1;
+            for (int d = 0; d < num_dims; d++)
+              val *= data1d[d][ v[d] ];
+
+            c = num_dims - 1;
+            v[c]++;
+
+            proj[i++] = val;
           }
+          else
+          {
+            std::fill(v.begin() + c, v.begin() + num_dims, 0);
+            v[--c]++;
+          }
+
+          is_in = (v[c] < pdof);
         }
       }
     }
