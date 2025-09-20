@@ -178,28 +178,46 @@ public:
 
     P *proj = f;
 
-    for (auto c : indexof(grid.num_indexes()))
+    for (auto j : indexof(grid.num_indexes()))
     {
-      int const *idx = grid[c];
+      int const *idx = grid[j];
       for (int d : iindexof(num_dims))
         data1d[d] = pf[d].data() + idx[d] * pdof;
 
-      for (int64_t i : indexof(block_size_))
+      std::array<int, max_num_dimensions> v;
+      std::fill_n(v.begin(), num_dims, 0);
+
+      int i = 0;
+
+      bool is_in = true;
+      int c = 0;
+      while (is_in or c > 0)
       {
-        int64_t t = i;
-        P val     = tmult;
-        for (int d = num_dims - 1; d >= 0; d--) {
-          val *= data1d[d][t % pdof];
-          t /= pdof;
+        if (is_in)
+        {
+          P val = tmult;
+          for (int d = 0; d < num_dims; d++)
+            val *= data1d[d][ v[d] ];
+
+          c = num_dims - 1;
+          v[c]++;
+
+          if constexpr (action == data_mode::replace)
+            proj[i++] = val;
+          else if constexpr (action == data_mode::scal_rep)
+            proj[i++] = alpha * val;
+          else if constexpr (action == data_mode::increment)
+            proj[i++] += val;
+          else if constexpr (action == data_mode::scal_inc)
+            proj[i++] += alpha * val;
         }
-        if constexpr (action == data_mode::replace)
-          proj[i] = val;
-        else if constexpr (action == data_mode::scal_rep)
-          proj[i] = alpha * val;
-        else if constexpr (action == data_mode::increment)
-          proj[i] += val;
-        else if constexpr (action == data_mode::scal_inc)
-          proj[i] += alpha * val;
+        else
+        {
+          std::fill(v.begin() + c, v.begin() + num_dims, 0);
+          v[--c]++;
+        }
+
+        is_in = (v[c] < pdof);
       }
 
       proj += block_size_;

@@ -348,9 +348,8 @@ sparse_grid::sparse_grid(prog_opts const &options)
         std::fill(vec.begin() + c, vec.begin() + numd, 0);
         vec[--c]++;
       }
-      is_in = true;
-      for (int d = 0; d < numd; d++)
-        is_in = is_in and vec[d] < offsets[d];
+
+      is_in = (vec[c] < offsets[c]);
     }
   }
 
