@@ -601,8 +601,8 @@ private:
   indexset iset_;
   dimension_sort dsort_;
 
-  std::array<int, max_num_dimensions> level_ = {{0}};
-  std::array<int, max_num_dimensions> max_index_ = {{0}};
+  std::array<int, max_num_dimensions> level_;
+  std::array<int, max_num_dimensions> max_index_;
 
   std::vector<int64_t> map_;
   #ifdef ASGARD_USE_MPI

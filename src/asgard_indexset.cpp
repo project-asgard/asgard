@@ -594,13 +594,25 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
     map_[i] = iset_.find(inew[i]);
   }
 
-  // TODO: optimize this, it's slow
-  for (int d : iindexof(num_dims))
-    level_[d] = 0;
-  for (int64_t i = 0; i < num_new; i++) {
-    for (int d : iindexof(num_dims)) {
-      int const l = (inew[i][d] == 0) ? 0 : (1 + fm::intlog2(inew[i][d]));
-      level_[d] = std::max(level_[d], l);
+  std::fill_n(level_.begin(), num_dims, 0);
+
+  #pragma omp parallel
+  {
+    std::array<int, max_num_dimensions> mylvl;
+    std::fill_n(mylvl.begin(), num_dims, 0);
+
+    #pragma omp for
+    for (int64_t i = 0; i < num_new; i++) {
+      for (int d = 0; d < num_dims; d++) {
+        int const l = (inew[i][d] == 0) ? 0 : (1 + fm::intlog2(inew[i][d]));
+        mylvl[d] = std::max(mylvl[d], l);
+      }
+    }
+
+    #pragma omp critical
+    {
+      for (int d = 0; d < num_dims; d++)
+        level_[d] = std::max(level_[d], mylvl[d]);
     }
   }
 
