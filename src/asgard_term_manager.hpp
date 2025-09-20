@@ -474,24 +474,24 @@ struct term_manager
                 alpha, x.data(), beta, y.data(), kwork);
     }
   }
-
+  //! apply the ADI preconditioner
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
                      term_entry<P> const &tme, P alpha, P const x[], P beta,
                      P y[]) const
   {
     block_cpu(legendre.pdof, grid, conns, tme.perm, tme.adi, alpha, x, beta, y, kwork);
   }
-
+  //! build the diagonal preconditioner
   template<data_mode mode>
   void kron_diag(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, int const block_size, std::vector<P> &y) const;
 
-  //! process the sources and store the result into pre-allocated vector
+  //! process the source group and store the result into pre-allocated vector
   template<data_mode dmode>
   void apply_sources(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]);
-
+  //! process all the sources and store the result into pre-allocated vector
   template<data_mode dmode>
   void apply_sources(pde_domain<P> const &domain, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,

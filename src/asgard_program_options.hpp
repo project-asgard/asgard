@@ -189,6 +189,7 @@ struct vecstrview
  */
 struct split_views
 {
+  //! the ownership of a set of vectors
   split_views(std::vector<std::string> &&own)
       : own_(std::move(own)), strview(views_)
   {
@@ -197,16 +198,21 @@ struct split_views
     for (auto &s : own_)
       views_.emplace_back(s);
   }
+  //! pass the string_view vector to a method
   operator std::vector<std::string_view> const &()
   {
     return views_;
   }
+  //! pass the vecstrview vector to a method
   operator vecstrview const &()
   {
     return strview;
   }
+  //! the now owned vector of strings
   std::vector<std::string> own_;
+  //! the corresponding vector of views
   std::vector<std::string_view> views_;
+  //! wrapper around the views
   vecstrview strview;
 };
 
@@ -642,6 +648,7 @@ private:
     view,
     set_verbosity
   };
+  //! indicate how the reading is done
   enum class handle_mode
   {
     from_file, // reading from file
