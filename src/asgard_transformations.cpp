@@ -178,6 +178,79 @@ std::vector<P> legendre_basis<P>::project(
 }
 
 template<typename P>
+template<data_mode action>
+void hierarchy_manipulator<P>::project_separable(
+    separable_func<P> const &sep, pde_domain<P> const &domain,
+    sparse_grid const &grid, mass_diag<P> const &mass,
+    P time, P alpha, P f[]) const
+{
+  int const num_dims = domain.num_dims();
+  for (int d : iindexof(num_dims))
+  {
+    if (sep.is_const(d)) {
+      project1d_c(sep.cdomain(d), mass[d], d, grid.current_level(d));
+    } else {
+      project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
+          -> void {
+        sep.fdomain(d, x, time, fx);
+      }, mass[d], d, grid.current_level(d));
+    }
+  }
+
+  P const tmult = (sep.ftime()) ? sep.ftime()(time) : P{1};
+
+  int const pdof = degree_ + 1;
+
+  #pragma omp parallel for
+  for (int64_t j = 0; j < grid.num_indexes(); j++)
+  {
+    P *proj = f + j * block_size_;
+
+    std::array<P const *, max_num_dimensions> data1d;
+
+    int const *idx = grid[j];
+    for (int d : iindexof(num_dims))
+      data1d[d] = pf[d].data() + idx[d] * pdof;
+
+    std::array<int, max_num_dimensions> v;
+    std::fill_n(v.begin(), num_dims, 0);
+
+    int i = 0;
+
+    bool is_in = true;
+    int c = 0;
+    while (is_in or c > 0)
+    {
+      if (is_in)
+      {
+        P val = tmult;
+        for (int d = 0; d < num_dims; d++)
+          val *= data1d[d][ v[d] ];
+
+        c = num_dims - 1;
+        v[c]++;
+
+        if constexpr (action == data_mode::replace)
+          proj[i++] = val;
+        else if constexpr (action == data_mode::scal_rep)
+          proj[i++] = alpha * val;
+        else if constexpr (action == data_mode::increment)
+          proj[i++] += val;
+        else if constexpr (action == data_mode::scal_inc)
+          proj[i++] += alpha * val;
+      }
+      else
+      {
+        std::fill(v.begin() + c, v.begin() + num_dims, 0);
+        v[--c]++;
+      }
+
+      is_in = (v[c] < pdof);
+    }
+  }
+}
+
+template<typename P>
 void hierarchy_manipulator<P>::reconstruct1d(
     int const nbatch, int const level, span2d<P> data) const
 {
@@ -1049,6 +1122,23 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 template struct legendre_basis<double>;
 template class hierarchy_manipulator<double>;
 
+template void hierarchy_manipulator<double>::project_separable<data_mode::replace>(
+    separable_func<double> const &sep, pde_domain<double> const &domain,
+    sparse_grid const &grid, mass_diag<double> const &mass,
+    double time, double alpha, double f[]) const;
+template void hierarchy_manipulator<double>::project_separable<data_mode::scal_rep>(
+    separable_func<double> const &sep, pde_domain<double> const &domain,
+    sparse_grid const &grid, mass_diag<double> const &mass,
+    double time, double alpha, double f[]) const;
+template void hierarchy_manipulator<double>::project_separable<data_mode::increment>(
+    separable_func<double> const &sep, pde_domain<double> const &domain,
+    sparse_grid const &grid, mass_diag<double> const &mass,
+    double time, double alpha, double f[]) const;
+template void hierarchy_manipulator<double>::project_separable<data_mode::scal_inc>(
+    separable_func<double> const &sep, pde_domain<double> const &domain,
+    sparse_grid const &grid, mass_diag<double> const &mass,
+    double time, double alpha, double f[]) const;
+
 template void hierarchy_manipulator<double>::project1d<true>(
     int, int, double, block_diag_matrix<double> const &) const;
 template void hierarchy_manipulator<double>::project1d<false>(
@@ -1062,6 +1152,23 @@ template void hierarchy_manipulator<double>::projectlevels<-1>(int, int) const;
 #ifdef ASGARD_ENABLE_FLOAT
 template struct legendre_basis<float>;
 template class hierarchy_manipulator<float>;
+
+template void hierarchy_manipulator<float>::project_separable<data_mode::replace>(
+    separable_func<float> const &sep, pde_domain<float> const &domain,
+    sparse_grid const &grid, mass_diag<float> const &mass,
+    float time, float alpha, float f[]) const;
+template void hierarchy_manipulator<float>::project_separable<data_mode::scal_rep>(
+    separable_func<float> const &sep, pde_domain<float> const &domain,
+    sparse_grid const &grid, mass_diag<float> const &mass,
+    float time, float alpha, float f[]) const;
+template void hierarchy_manipulator<float>::project_separable<data_mode::increment>(
+    separable_func<float> const &sep, pde_domain<float> const &domain,
+    sparse_grid const &grid, mass_diag<float> const &mass,
+    float time, float alpha, float f[]) const;
+template void hierarchy_manipulator<float>::project_separable<data_mode::scal_inc>(
+    separable_func<float> const &sep, pde_domain<float> const &domain,
+    sparse_grid const &grid, mass_diag<float> const &mass,
+    float time, float alpha, float f[]) const;
 
 template void hierarchy_manipulator<float>::project1d<true>(
     int, int, float, block_diag_matrix<float> const &) const;
