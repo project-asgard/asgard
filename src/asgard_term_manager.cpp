@@ -268,7 +268,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
-  prapare_workspace(grid); // setup kronmult workspace
+  prapare_kron_workspace(grid); // setup kronmult workspace
 
   has_terms_ = not terms.empty();
   assign_compute_resources();
@@ -1283,7 +1283,7 @@ void term_manager<P>::apply_tmpl(
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void term_manager<P>::prapare_workspace_gpu(int64_t num_entries)
+void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
 {
   int const num_gpus = compute->num_gpus();
 

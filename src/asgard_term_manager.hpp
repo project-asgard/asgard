@@ -218,11 +218,13 @@ struct term_manager
                pde_scheme<P> &pde, sparse_grid const &grid,
                hierarchy_manipulator<P> const &hier,
                connection_patterns const &conn);
-
+  //! number of dimensions, quick access
   int num_dims = 0;
+  //! the max level, determines the highest level for operators
   int max_level = 0;
-
+  //! indicates if there are time dependent sources, build extra data-structures
   bool sources_have_time_dep = false;
+  //! indicates if there are time dependent boundary conditions, build extra data-structures
   bool bcs_have_time_dep     = false;
 
   //! definition of the mass matrix, usually used in inverse
@@ -381,8 +383,8 @@ struct term_manager
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
-
-  void prapare_workspace(sparse_grid const &grid) {
+  //! prepares the kronmult workspace
+  void prapare_kron_workspace(sparse_grid const &grid) {
     if (workspace_grid_gen == grid.generation())
       return;
 
@@ -409,7 +411,8 @@ struct term_manager
     workspace_grid_gen = grid.generation();
   }
   #ifdef ASGARD_USE_GPU
-  void prapare_workspace_gpu(int64_t num_entries);
+  //! prepares the kronmult workspace for the GPU
+  void prapare_kron_workspace_gpu(int64_t num_entries);
   #endif
 
   //! returns whether the manager has any terms
@@ -498,7 +501,7 @@ struct term_manager
                      P time, P alpha, P y[]) {
     apply_sources<dmode>(-1, domain, grid, conns, hier, time, alpha, y);
   }
-
+  //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
   void apply_sources(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
@@ -507,6 +510,7 @@ struct term_manager
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
     apply_sources<dmode>(groupid, domain, grid, conns, hier, time, alpha, y.data());
   }
+  //! process all sources and apply the dmode operation to y
   template<data_mode dmode>
   void apply_sources(pde_domain<P> const &domain, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,

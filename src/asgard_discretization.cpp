@@ -267,7 +267,7 @@ void discretization_manager<precision>::set_initial_condition()
   if (not is_leader()) {
     this->grid_sync();
     state.resize(grid.num_indexes() * hier.block_size());
-    terms.prapare_workspace(grid);
+    terms.prapare_kron_workspace(grid);
     return;
   }
   #endif
@@ -309,7 +309,7 @@ void discretization_manager<precision>::set_initial_condition()
       keep_refining = (gid != grid.generation());
 
       if (keep_refining) // should only do this if using interpolation, otherwise just do at the end
-        terms.prapare_workspace(grid);
+        terms.prapare_kron_workspace(grid);
 
     } else { // no refinement set, use the grid as-is
       keep_refining = false;
