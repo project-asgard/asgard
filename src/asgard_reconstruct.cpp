@@ -1,5 +1,6 @@
 #include "asgard_reconstruct.hpp"
 
+#include "asgard_kronmult_common.hpp"
 #include "asgard_wavelet_basis.hpp"
 
 namespace asgard
@@ -81,10 +82,12 @@ void reconstruct_solution::cell_centers(double x[]) const
   int const &num_dimensions = cells_.num_dimensions();
   std::array<double, max_num_dimensions> slope;
 
-  for (int d : indexof<int>(num_dimensions))
+  ASGARD_OMP_SIMD
+  for (int d = 0; d < num_dimensions; d++)
     slope[d] = 1.0 / inv_slope[d];
 
-  for (auto i : indexof(num_cells()))
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells(); i++)
   {
     for (auto d : indexof<int>(num_dimensions))
     {

@@ -322,11 +322,8 @@ sparse_grid::sparse_grid(prog_opts const &options)
   {
     std::array<int, max_num_dimensions> offsets;
     int const *p = iset[i];
-    int64_t n = 1;
-    for (int d = 0; d < numd; d++) {
+    for (int d = 0; d < numd; d++)
       offsets[d] = (p[d] < 2) ? 1 : fm::ipow2(p[d] - 1);
-      n *= offsets[d];
-    }
 
     std::array<int, max_num_dimensions> vec;
     std::fill(vec.begin(), vec.end(), 0);
