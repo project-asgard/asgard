@@ -555,7 +555,7 @@ if (ASGARD_BUILD_TESTS)
   endforeach()
 
   if (TARGET asgard-io-tests)
-    target_link_libraries (asgard-io-tests PUBLIC $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_highfive>)
+    target_link_libraries (asgard-io-tests PUBLIC asgard_highfive)
   endif()
 
   # the python test is on the border, uses full pde definitions

@@ -677,7 +677,7 @@ void prog_opts::print_options(std::ostream &os) const
 
 void prog_opts::print_version_help(std::ostream &os)
 {
-#ifdef ASGARD_USE_OPENMP
+#ifdef ASGARD_HAS_GITINFO
   os << "\nASGarD version: " << ASGARD_RELEASE_INFO << '\n';
   os << "  git-branch: (" << ASGARD_GIT_BRANCH << ")\n";
   os << "  git-hash: " << ASGARD_GIT_COMMIT_HASH << '\n';
