@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.19)
 
 project (asgard VERSION 0.7.1 LANGUAGES CXX)
 
-set(ASGARD_RELEASE_INFO "(alpha) ${asgard_VERSION}a2") # sync with pip-installer setup.py
+set(ASGARD_RELEASE_INFO "(alpha) ${asgard_VERSION}a3") # sync with pip-installer setup.py
 
 include (FetchContent) # getting external dependencies
 
@@ -140,29 +140,15 @@ include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
 
-string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
-set(ASGARD_USE_MKL FALSE)
-if(FOUND_MKL GREATER_EQUAL 0)
-  set(ASGARD_USE_MKL TRUE)
-endif()
-
-if(ASGARD_USE_OPENMP OR ASGARD_RECOMMENDED_DEFAULTS)
+if (ASGARD_USE_OPENMP)
+  find_package(OpenMP REQUIRED)
+elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+  # OpenMP has poor support on OSX platforms, do not recommend as a default
+  # ASGARD_USE_OPENMP will still explicitly enable OpenMP regardless of the platform
   find_package(OpenMP)
-
   if (OpenMP_FOUND)
     set (ASGARD_USE_OPENMP ON CACHE BOOL "OpenMP found and enabled" FORCE)
-    if(ASGARD_USE_MKL)
-      if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-        message(FATAL_ERROR
-          "MKL and apple clang++ require conflicting OpenMP flags - build configuration not supported")
-      endif()
-    endif()
-  else()
-    if(ASGARD_USE_OPENMP)
-      message(FATAL_ERROR "CMake could not find OpenMP flags")
-    endif()
   endif()
-
 endif()
 
 if (ASGARD_USE_PYTHON)
@@ -186,7 +172,7 @@ if (ASGARD_USE_PYTHON)
     endif()
 
     # this value should be set to "ON", CMake accepts YES, ON or 1 in either upper or lower case
-    # however, some of the ASGarD python configured scripts use only "ON" as a valid value
+    # however, some of the ASGarD configured scripts (e.g., asgard-env.sh) use only "ON" as a valid value
     set(ASGARD_USE_PYTHON ON)
 
     # the python module should be available and working from both the build and install folders
