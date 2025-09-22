@@ -129,17 +129,27 @@ find_package (LINALG REQUIRED)
 
 # enable the git properties
 if (ASGARD_USE_GITINFO)
+  message("Looking for GIT")
   find_package (Git)
   if (Git_FOUND)
-    set(ASGARD_HAS_GITINFO ON)
+    message("found GIT")
+    execute_process(COMMAND ${GIT_EXECUTABLE} log --pretty=format:%H -n 1
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                    OUTPUT_VARIABLE   ASGARD_GIT_COMMIT_HASH)
+    execute_process(COMMAND ${GIT_EXECUTABLE} branch --show-current
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    OUTPUT_VARIABLE   ASGARD_GIT_BRANCH)
+    execute_process(COMMAND ${GIT_EXECUTABLE} log --pretty=format:%aD -n 1
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                    OUTPUT_VARIABLE   ASGARD_GIT_COMMIT_SUMMARY)
   endif()
 endif()
 
-# sets OpenBLAS_PATH and LINALG_LIBS
-include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
 
+# handle OpenMP dependence
 if (ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)
 elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
@@ -147,10 +157,32 @@ elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Appl
   # ASGARD_USE_OPENMP will still explicitly enable OpenMP regardless of the platform
   find_package(OpenMP)
   if (OpenMP_FOUND)
+    message(WARNING "ASGarD recommends OpenMP for multi-threading but CMake could not find the OpenMP flags")
+  else()
     set (ASGARD_USE_OPENMP ON CACHE BOOL "OpenMP found and enabled" FORCE)
   endif()
 endif()
 
+# handle the MPI dependence
+if (ASGARD_USE_MPI)
+    find_package(MPI REQUIRED)
+endif ()
+
+# handle the precisions, must be done before Python so python_config.py can be properly set
+if (NOT ASGARD_PRECISIONS OR "${ASGARD_PRECISIONS}" STREQUAL "")
+    message(FATAL_ERROR "ASGARD_PRECISIONS must be defined to either 'float', 'double' or 'float;double'")
+endif()
+foreach(_prec ${ASGARD_PRECISIONS})
+    if ("${_prec}" STREQUAL "float")
+        set(ASGARD_ENABLE_FLOAT ON)
+    elseif ("${_prec}" STREQUAL "double")
+        set(ASGARD_ENABLE_DOUBLE ON)
+    else()
+        message(FATAL_ERROR "invalid precision ${_prec}, supported types are 'float' and 'double'")
+    endif()
+endforeach()
+
+# handle the python module
 if (ASGARD_USE_PYTHON)
     if (NOT BUILD_SHARED_LIBS)
         message(FATAL_ERROR "The ASGarD python module requires shared libraries, set -DBUILD_SHARED_LIBS=ON")
@@ -251,22 +283,19 @@ if (ASGARD_BUILD_TESTS)
                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}")
         list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
     endforeach()
+
+    foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
+        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
+                           COMMAND "${CMAKE_COMMAND}"
+                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
+                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
+                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
+        list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
+
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput} DESTINATION share/asgard/examples)
+    endforeach()
+    add_custom_target(asgard_test_inputs ALL DEPENDS "${_asg_testinputfiles}")
 endif()
-foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
-                       COMMAND "${CMAKE_COMMAND}"
-                       ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
-                       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
-                       COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
-    list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
-
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput} DESTINATION share/asgard/examples)
-endforeach()
-add_custom_target(asgard_test_inputs ALL DEPENDS "${_asg_testinputfiles}")
-
-if (ASGARD_USE_MPI)
-    find_package(MPI REQUIRED)
-endif ()
 
 if (ASGARD_USE_CUDA)
     # CUDA has to be enabled before libasgard is created
@@ -312,19 +341,6 @@ if (ASGARD_USE_ROCM)
     enable_language(HIP)
     find_package(rocsolver REQUIRED)
 endif()
-
-if (NOT ASGARD_PRECISIONS OR "${ASGARD_PRECISIONS}" STREQUAL "")
-    message(FATAL_ERROR "ASGARD_PRECISIONS must be defined to either 'float', 'double' or 'float;double'")
-endif()
-foreach(_prec ${ASGARD_PRECISIONS})
-    if ("${_prec}" STREQUAL "float")
-        set(ASGARD_ENABLE_FLOAT ON)
-    elseif ("${_prec}" STREQUAL "double")
-        set(ASGARD_ENABLE_DOUBLE ON)
-    else()
-        message(FATAL_ERROR "invalid precision ${_prec}, supported types are 'float' and 'double'")
-    endif()
-endforeach()
 
 set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature points to be used transformations.")
 
