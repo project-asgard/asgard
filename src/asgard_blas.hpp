@@ -5,7 +5,7 @@
 #if defined(ASGARD_ACCELERATE)
   #include <Accelerate/Accelerate.h>
 #else
-  #ifdef ASGARD_MKL
+  #ifdef ASGARD_USING_MKL
     #include <mkl_cblas.h>
   #else
     #include "cblas.h"

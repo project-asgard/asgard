@@ -11,19 +11,9 @@ Provides the following variables:
 
 include (FindPackageHandleStandardArgs)
 
-#  Check for platform provided BLAS and LAPACK libaries. If these were not found
-#  then build the openblas library.
-if (NOT ASGARD_BUILD_OPENBLAS)
-    find_package (BLAS)
-    find_package (LAPACK)
-
-    if (NOT ${BLAS_FOUND} OR NOT ${LAPACK_FOUND})
-        message(FATAL_ERROR "Could not find system BLAS or LAPACK, use -DASGARD_BUILD_OPENBLAS=ON to download/compile OpenBLAS, or load/install the appropriate package and set BLA_VENDOR (see cmake documentation)")
-    endif ()
-endif ()
-
 #-------------------------------------------------------------------------------
 #  Setup and build OpenBLAS if ASGARD_BUILD_OPENBLAS is ON
+#  otherwise use the CMake native find_package(BLAS)
 #-------------------------------------------------------------------------------
 if (ASGARD_BUILD_OPENBLAS)
     #  Define a macro to register new projects.
@@ -109,14 +99,9 @@ if (ASGARD_BUILD_OPENBLAS)
 
     set (BLAS_FOUND 1)
     set (LAPACK_FOUND 1)
-    find_package_handle_standard_args (LINALG
-                                       REQUIRED_VARS BLAS_FOUND LAPACK_FOUND)
 
     add_library (asgard::LINALG INTERFACE IMPORTED)
-    target_link_libraries (asgard::LINALG
-                           INTERFACE
-                           openblas
-    )
+    target_link_libraries (asgard::LINALG INTERFACE openblas)
 
 #  Manually set the openblas include directory since openblas only sets the
 #  include directory for the install.
@@ -125,25 +110,19 @@ if (ASGARD_BUILD_OPENBLAS)
                                 ${FETCHCONTENT_BASE_DIR}/openblas-build
     )
 
-    target_compile_definitions (asgard::LINALG
-                                INTERFACE
-                                ASGARD_OPENBLAS
-    )
 else ()
-    find_package_handle_standard_args (LINALG
-                                       REQUIRED_VARS BLAS_FOUND LAPACK_FOUND)
+
+    find_package (BLAS REQUIRED)
+    find_package (LAPACK REQUIRED)
 
     add_library (asgard::LINALG INTERFACE IMPORTED)
-    target_link_libraries (asgard::LINALG
-                           INTERFACE
-                           $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS>
-                           $<$<BOOL:${LAPACK_FOUND}>:LAPACK::LAPACK>
-    )
+    target_link_libraries (asgard::LINALG INTERFACE BLAS::BLAS LAPACK::LAPACK)
 
-    target_compile_definitions (asgard::LINALG
-                                INTERFACE
-                                $<$<OR:$<AND:$<PLATFORM_ID:Darwin>,$<STREQUAL:${BLA_VENDOR},All>>,$<STREQUAL:${BLA_VENDOR},Apple>,$<STREQUAL:${BLA_VENDOR},NAS>>:ASGARD_ACCELERATE>
-                                $<$<STREQUAL:${BLA_VENDOR},OpenBLAS>:ASGARD_OPENBLAS>
-                                $<$<OR:$<STREQUAL:${BLA_VENDOR},Intel10_32>,$<STREQUAL:${BLA_VENDOR},Intel10_64lp>,$<STREQUAL:${BLA_VENDOR},Intel10_64lp_seq>,$<STREQUAL:${BLA_VENDOR},Intel10_64ilp>,$<STREQUAL:${BLA_VENDOR},Intel10_64ilp_seq>,$<STREQUAL:${BLA_VENDOR},Intel10_64_dyn>>:ASGARD_MKL>
-    )
+    string(FIND "${BLA_VENDOR}" "Intel" __asgard_intel_pos)
+
+    if (__asgard_intel_pos GREATER_EQUAL 0)
+        set(ASGARD_USING_MKL ON)
+    endif()
+    unset(__asgard_intel_pos)
+
 endif ()

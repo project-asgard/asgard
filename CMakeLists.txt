@@ -416,8 +416,8 @@ target_precompile_headers (libasgard
 )
 target_link_libraries (libasgard
                        PUBLIC
+                       asgard::LINALG
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
-                       $<$<BOOL:${LINALG_FOUND}>:asgard::LINALG>
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
                        $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_hdf5>
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cudart>
