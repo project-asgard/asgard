@@ -1,12 +1,16 @@
 #[==[
-Find package that wraps functionality to find the BLAS/LAPACK libraries. By
-default, it looks for the platform default. If that is not found, it will build
-as openblas from source.
+Find package that wraps functionality to find the BLAS/LAPACK libraries.
 
-Provides the following variables:
+if (ASGARD_BUILD_OPENBLAS) then it will download and build OpenBLAS
 
-  * `LINALG_FOUND`: Whether NetCDF was found or not.
-  * `LINALG::LINALG`: A target to use with `target_link_libraries`.
+Otherwise, it will use the native CMake find_package.
+
+If find_package() finds MKL then this defined variable set(ASGARD_USING_MKL ON)
+
+The module defines the target
+
+    asgard::LINALG
+
 #]==]
 
 include (FindPackageHandleStandardArgs)
@@ -16,41 +20,28 @@ include (FindPackageHandleStandardArgs)
 #  otherwise use the CMake native find_package(BLAS)
 #-------------------------------------------------------------------------------
 if (ASGARD_BUILD_OPENBLAS)
-    #  Define a macro to register new projects.
-    function (register_project name dir url default_tag)
-        message (STATUS "Registering project ${name}")
 
-        set (BUILD_TAG_${dir} ${default_tag} CACHE STRING "Name of the tag to checkout.")
-        set (BUILD_REPO_${dir} ${url} CACHE STRING "URL of the repo to clone.")
+    set (__asg_openblas_url https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.30.tar.gz)
 
-        #Check for optional patch file.
-        set(PATCH_COMMAND "")
-        if(${ARGC} EQUAL 5)
-            find_package(Git)
-            set(_apply_flags --ignore-space-change --whitespace=fix)
-            set(PATCH_COMMAND "${GIT_EXECUTABLE}" reset --hard ${BUILD_TAG_${dir}} COMMAND "${GIT_EXECUTABLE}" apply ${_apply_flags} "${ARGV4}")
-        endif()
-        #  Set up the sub project repository.
-        FetchContent_Declare(
-            ${name}
-            GIT_REPOSITORY ${BUILD_REPO_${dir}}
-            GIT_TAG ${BUILD_TAG_${dir}}
-            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/${dir}
-            PATCH_COMMAND ${PATCH_COMMAND}
-        )
-        FetchContent_MakeAvailable(${name})
-    endfunction ()
-
-    register_project (openblas
-                      OPENBLAS
-                      https://github.com/xianyi/OpenBLAS.git
-                      v0.3.24
-    )
+    message(STATUS "Fetching content: ${__asg_openblas_url}")
+    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
+      FetchContent_Declare(openblas
+                           URL ${__asg_openblas_url}
+                           SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS
+                           DOWNLOAD_EXTRACT_TIMESTAMP 0
+                           )
+    else()
+      FetchContent_Declare(openblas
+                           URL ${__asg_openblas_url}
+                           SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS
+                           )
+    endif()
+    FetchContent_MakeAvailable(openblas)
 
 #  Fetch content does not run the install phase so the headers for openblas are
 #  not geting copied to the openblas-build directory. We will do this manually
 #  instead.
-    set (openblas_headers
+    set (asgard_openblas_headers
          cblas.h
          common.h
          common_zarch.h
@@ -86,11 +77,11 @@ if (ASGARD_BUILD_OPENBLAS)
          param.h
     )
 
-    foreach (header IN LISTS openblas_headers)
-        configure_file (${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS/${header}
-                        ${FETCHCONTENT_BASE_DIR}/openblas-build/${header}
+    foreach (__asg_header IN LISTS asgard_openblas_headers)
+        configure_file (${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS/${__asg_header}
+                        ${FETCHCONTENT_BASE_DIR}/openblas-build/${__asg_header}
                         COPYONLY)
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS/${header}
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/contrib/OPENBLAS/${__asg_header}
                 DESTINATION include/)
     endforeach ()
 
