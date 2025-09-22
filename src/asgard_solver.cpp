@@ -69,7 +69,7 @@ void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
     rhs.back()  += dright / dx;
   }
 
-  // // Linear Solve //
+  // Linear Solve //
   compute->pttrs(diag, subdiag, rhs);
 
   // Set Potential and Electric Field in DG Nodes //
