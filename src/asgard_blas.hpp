@@ -2,10 +2,10 @@
 
 // wrappers for BLAS methods, use as internal header
 
-#if defined(ASGARD_ACCELERATE)
+#ifdef ASGARD_USING_APPLEBLAS
   #include <Accelerate/Accelerate.h>
 #else
-  #ifdef ASGARD_MKL
+  #ifdef ASGARD_USING_MKL
     #include <mkl_cblas.h>
   #else
     #include "cblas.h"
@@ -17,6 +17,7 @@ namespace asgard {
 // fast math
 namespace fm {
 
+//! converts N/n/T/t/C/c to a CBLAS_TRANSPOSE type, keeps this header private
 inline CBLAS_TRANSPOSE cblas_transpose_enum(char trans)
 {
   switch (trans) {
@@ -31,15 +32,17 @@ inline CBLAS_TRANSPOSE cblas_transpose_enum(char trans)
   };
 }
 
+//! converts U/u/L/l to a CBLAS_UPLO type, keeps this header private
 inline CBLAS_UPLO cblas_uplo_enum(char trans)
 {
   return (trans == 'U' or trans == 'u') ? CblasUpper : CblasLower;
 }
-
+//! converts U/u/N/n to a CBLAS_DIAG type, keeps this header private
 inline CBLAS_DIAG cblas_diag_enum(char trans)
 {
   return (trans == 'U' or trans == 'u') ? CblasUnit : CblasNonUnit;
 }
+//! computes norm L-2, BLAS snrm2()/dnrm2()
 template<typename P>
 P nrm2(int n, P const x[]) {
   static_assert(is_double<P> or is_float<P>);
@@ -48,7 +51,7 @@ P nrm2(int n, P const x[]) {
   else
     return cblas_snrm2(n, x, 1);
 }
-
+//! scales vector by number, BLAS sscal()/dscal()
 template<typename P>
 void scal(int n, P alpha, P x[]) {
   static_assert(is_double<P> or is_float<P>);
@@ -57,7 +60,7 @@ void scal(int n, P alpha, P x[]) {
   else
     cblas_sscal(n, alpha, x, 1);
 }
-
+//! matrix vector product, BLAS sgemv()/dgemv()
 template<typename P>
 void gemv(char trans, int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) {
   static_assert(is_double<P> or is_float<P>);
@@ -66,7 +69,7 @@ void gemv(char trans, int m, int n, P alpha, P const A[], P const x[], P beta, P
   else
     cblas_sgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
 }
-
+//! apply the Givens rotation, BLAS srot()/drot()
 template<typename P>
 void rot(int n, P x[], P y[], P c, P s) {
   static_assert(is_double<P> or is_float<P>);
@@ -75,7 +78,7 @@ void rot(int n, P x[], P y[], P c, P s) {
   else
     cblas_srot(n, x, 1, y, 1, c, s);
 }
-
+//! generate the parameters of a Givens rotation, BLAS srotg()/drotg()
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s) {
   static_assert(is_double<P> or is_float<P>);
@@ -84,7 +87,7 @@ void rotg(P *a, P *b, P *c, P *s) {
   else
     cblas_srotg(a, b, c, s);
 }
-
+//! triangular matrix-vector solve using packed format, BLAS stpsv()/dtpsv()
 template<typename P>
 void tpsv(const char uplo, const char trans, const char diag, const int n,
           const P A[], P x[])

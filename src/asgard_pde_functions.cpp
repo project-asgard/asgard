@@ -2,6 +2,13 @@
 
 #include "asgard_kronmult_common.hpp"
 
+#define ASGARD_PRAGMA(x) _Pragma(#x)
+#if defined(__clang__)
+#define ASGARD_CLANG_OMP ASGARD_PRAGMA(omp parallel for)
+#else
+#define ASGARD_CLANG_OMP ASGARD_OMP_PARFOR_SIMD
+#endif
+
 namespace asgard
 {
 

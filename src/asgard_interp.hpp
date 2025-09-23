@@ -381,6 +381,9 @@ private:
   basis::canonical_integrator const &quad;
 };
 
+/*!
+ * \brief Handles the 1d data-structure for the interpolation
+ */
 template<typename P, int degree>
 class interpolation_manager1d {
 public:
@@ -421,10 +424,14 @@ protected:
   //! number of polynomial degrees of freedom
   static constexpr int n = degree + 1;
 
+  //! initialize the interpolation nodes
   void initialize_nodes(int const max_level);
+  //! make the matrix for wavelet-to-nodal transformation
   void make_wav2nodal(vector2d<P> const &w0, vector2d<P> const &w1,
                       connect_1d const &conn);
+  //! make the matrix for nodal to hierarchical transformation
   void make_nodal2hier(connect_1d const &conn, interp_basis<P, degree> const &basis);
+  //! make the matrix hierarchical basis to wavelet transformation
   void make_hier2wav(connect_1d const &conn, interp_wavelet_integrator<P, degree> const &integ);
 
 private:

@@ -33,19 +33,26 @@ if ("@ASGARD_USE_OPENMP@")
   find_package(OpenMP REQUIRED)
 endif()
 
-if (@BLA_VENDOR@)
-  set(BLA_VENDOR "@BLA_VENDOR@")
-endif()
-find_package (BLAS)
-find_package (LAPACK)
 add_library (asgard::LINALG INTERFACE IMPORTED)
-target_link_libraries (asgard::LINALG
-                       INTERFACE
-                       $<$<BOOL:${BLAS_FOUND}>:BLAS::BLAS>
-                       $<$<BOOL:${LAPACK_FOUND}>:LAPACK::LAPACK>
-)
+if ("@ASGARD_BUILD_OPENBLAS@")
+  # in Debug mode, openblas will install openblas_d library
+  find_library(__asg_libname NAMES openblas_d openblas
+               NO_DEFAULT_PATH PATHS "@__asgard_install_prefix@/lib")
 
-if (@ASGARD_USE_HIGHFIVE@)
+  target_link_libraries(asgard::LINALG INTERFACE "${__asg_libname}")
+  target_include_directories(asgard::LINALG INTERFACE
+                             "@__asgard_install_prefix@/include")
+else()
+  if ("@BLA_VENDOR@")
+    set(BLA_VENDOR "@BLA_VENDOR@")
+  endif()
+
+  find_package (BLAS REQUIRED)
+  find_package (LAPACK REQUIRED)
+  target_link_libraries (asgard::LINALG INTERFACE BLAS::BLAS LAPACK::LAPACK)
+endif()
+
+if ("@ASGARD_USE_HIGHFIVE@")
   enable_language (C)
   if (@__asgard_find_hdf5@)
     find_package (HDF5 REQUIRED)

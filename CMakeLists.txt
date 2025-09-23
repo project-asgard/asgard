@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.19)
 
 project (asgard VERSION 0.7.1 LANGUAGES CXX)
 
-set(ASGARD_RELEASE_INFO "(alpha) ${asgard_VERSION}a2") # sync with pip-installer setup.py
+set(ASGARD_RELEASE_INFO "(alpha) ${asgard_VERSION}a3") # sync with pip-installer setup.py
 
 include (FetchContent) # getting external dependencies
 
@@ -125,46 +125,62 @@ list(APPEND _asgard_pdes ${_asgard_int_pdes})
 ###############################################################################
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
-find_package (LINALG REQUIRED)
+find_package (ASGARDLINALG REQUIRED)
 
 # enable the git properties
 if (ASGARD_USE_GITINFO)
   find_package (Git)
   if (Git_FOUND)
-    set(ASGARD_HAS_GITINFO ON)
+    execute_process(COMMAND ${GIT_EXECUTABLE} log --pretty=format:%H -n 1
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                    OUTPUT_VARIABLE   ASGARD_GIT_COMMIT_HASH)
+    execute_process(COMMAND ${GIT_EXECUTABLE} branch --show-current
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    OUTPUT_VARIABLE   ASGARD_GIT_BRANCH)
+    execute_process(COMMAND ${GIT_EXECUTABLE} log --pretty=format:%aD -n 1
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                    OUTPUT_VARIABLE   ASGARD_GIT_COMMIT_SUMMARY)
   endif()
 endif()
 
-# sets OpenBLAS_PATH and LINALG_LIBS
-include (${CMAKE_SOURCE_DIR}/contrib/contrib.cmake)
 # sets HighFive_FOUND
 include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
 
-string(FIND "${BLAS_LIBRARIES}" "mkl" FOUND_MKL)
-set(ASGARD_USE_MKL FALSE)
-if(FOUND_MKL GREATER_EQUAL 0)
-  set(ASGARD_USE_MKL TRUE)
-endif()
-
-if(ASGARD_USE_OPENMP OR ASGARD_RECOMMENDED_DEFAULTS)
+# handle OpenMP dependence
+if (ASGARD_USE_OPENMP)
+  find_package(OpenMP REQUIRED)
+elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+  # OpenMP has poor support on OSX platforms, do not recommend as a default
+  # ASGARD_USE_OPENMP will still explicitly enable OpenMP regardless of the platform
   find_package(OpenMP)
-
   if (OpenMP_FOUND)
-    set (ASGARD_USE_OPENMP ON CACHE BOOL "OpenMP found and enabled" FORCE)
-    if(ASGARD_USE_MKL)
-      if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-        message(FATAL_ERROR
-          "MKL and apple clang++ require conflicting OpenMP flags - build configuration not supported")
-      endif()
-    endif()
+    message(WARNING "ASGarD recommends OpenMP for multi-threading but CMake could not find the OpenMP flags")
   else()
-    if(ASGARD_USE_OPENMP)
-      message(FATAL_ERROR "CMake could not find OpenMP flags")
-    endif()
+    set (ASGARD_USE_OPENMP ON CACHE BOOL "OpenMP found and enabled" FORCE)
   endif()
-
 endif()
 
+# handle the MPI dependence
+if (ASGARD_USE_MPI)
+    find_package(MPI REQUIRED)
+endif ()
+
+# handle the precisions, must be done before Python so python_config.py can be properly set
+if (NOT ASGARD_PRECISIONS OR "${ASGARD_PRECISIONS}" STREQUAL "")
+    message(FATAL_ERROR "ASGARD_PRECISIONS must be defined to either 'float', 'double' or 'float;double'")
+endif()
+foreach(_prec ${ASGARD_PRECISIONS})
+    if ("${_prec}" STREQUAL "float")
+        set(ASGARD_ENABLE_FLOAT ON)
+    elseif ("${_prec}" STREQUAL "double")
+        set(ASGARD_ENABLE_DOUBLE ON)
+    else()
+        message(FATAL_ERROR "invalid precision ${_prec}, supported types are 'float' and 'double'")
+    endif()
+endforeach()
+
+# handle the python module
 if (ASGARD_USE_PYTHON)
     if (NOT BUILD_SHARED_LIBS)
         message(FATAL_ERROR "The ASGarD python module requires shared libraries, set -DBUILD_SHARED_LIBS=ON")
@@ -177,7 +193,7 @@ if (ASGARD_USE_PYTHON)
         if (ASGARD_osx_framework)
             set(__asgard_pysubpath "lib/python/site-packages")
         endif()
-        set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgardLINALG${CMAKE_SHARED_LIBRARY_SUFFIX}")
         set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     else()
         # regular build, all those folders are the same
@@ -186,7 +202,7 @@ if (ASGARD_USE_PYTHON)
     endif()
 
     # this value should be set to "ON", CMake accepts YES, ON or 1 in either upper or lower case
-    # however, some of the ASGarD python configured scripts use only "ON" as a valid value
+    # however, some of the ASGarD configured scripts (e.g., asgard-env.sh) use only "ON" as a valid value
     set(ASGARD_USE_PYTHON ON)
 
     # the python module should be available and working from both the build and install folders
@@ -265,22 +281,19 @@ if (ASGARD_BUILD_TESTS)
                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}")
         list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
     endforeach()
+
+    foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
+        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
+                           COMMAND "${CMAKE_COMMAND}"
+                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
+                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
+                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
+        list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
+
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput} DESTINATION share/asgard/examples)
+    endforeach()
+    add_custom_target(asgard_test_inputs ALL DEPENDS "${_asg_testinputfiles}")
 endif()
-foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
-                       COMMAND "${CMAKE_COMMAND}"
-                       ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
-                       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
-                       COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
-    list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
-
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput} DESTINATION share/asgard/examples)
-endforeach()
-add_custom_target(asgard_test_inputs ALL DEPENDS "${_asg_testinputfiles}")
-
-if (ASGARD_USE_MPI)
-    find_package(MPI REQUIRED)
-endif ()
 
 if (ASGARD_USE_CUDA)
     # CUDA has to be enabled before libasgard is created
@@ -326,19 +339,6 @@ if (ASGARD_USE_ROCM)
     enable_language(HIP)
     find_package(rocsolver REQUIRED)
 endif()
-
-if (NOT ASGARD_PRECISIONS OR "${ASGARD_PRECISIONS}" STREQUAL "")
-    message(FATAL_ERROR "ASGARD_PRECISIONS must be defined to either 'float', 'double' or 'float;double'")
-endif()
-foreach(_prec ${ASGARD_PRECISIONS})
-    if ("${_prec}" STREQUAL "float")
-        set(ASGARD_ENABLE_FLOAT ON)
-    elseif ("${_prec}" STREQUAL "double")
-        set(ASGARD_ENABLE_DOUBLE ON)
-    else()
-        message(FATAL_ERROR "invalid precision ${_prec}, supported types are 'float' and 'double'")
-    endif()
-endforeach()
 
 set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature points to be used transformations.")
 
@@ -414,8 +414,8 @@ target_precompile_headers (libasgard
 )
 target_link_libraries (libasgard
                        PUBLIC
+                       asgard::LINALG
                        $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>
-                       $<$<BOOL:${LINALG_FOUND}>:asgard::LINALG>
                        $<$<BOOL:${OpenMP_CXX_FOUND}>:OpenMP::OpenMP_CXX>
                        $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_hdf5>
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cudart>
@@ -553,7 +553,7 @@ if (ASGARD_BUILD_TESTS)
   endforeach()
 
   if (TARGET asgard-io-tests)
-    target_link_libraries (asgard-io-tests PUBLIC $<$<BOOL:${ASGARD_USE_HIGHFIVE}>:asgard_highfive>)
+    target_link_libraries (asgard-io-tests PUBLIC asgard_highfive)
   endif()
 
   # the python test is on the border, uses full pde definitions

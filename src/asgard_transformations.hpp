@@ -3,7 +3,6 @@
 #include "asgard_pde.hpp"
 #include "asgard_pde_functions.hpp"
 #include "asgard_wavelet_basis.hpp"
-#include "asgard_block_matrix.hpp"
 
 namespace asgard
 {
@@ -264,10 +263,12 @@ protected:
    */
   template<bool skip_hierarchy = false>
   void project1d(int dim, int level, P const dsize, block_diag_matrix<P> const &mass) const;
-
-  static constexpr P s2 = 1.41421356237309505; // std::sqrt(2.0)
-  static constexpr P is2 = P{1} / s2;          // 1.0 / std::sqrt(2.0)
-  static constexpr P s6 = 2.4494897427831781;  //std::sqrt(6.0)
+  //! reusable constants std::sqrt(2.0)
+  static constexpr P s2 = 1.41421356237309505;
+  //! reusable constants 1.0 / std::sqrt(2.0)
+  static constexpr P is2 = P{1} / s2;
+  //! reusable constants std::sqrt(6.0)
+  static constexpr P s6 = 2.4494897427831781;
 
   /*!
    * \brief prepares the quad_points vector with the appropriate shifted quadrature points
