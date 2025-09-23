@@ -218,8 +218,22 @@ void block_gpu(int n, sparse_grid const &grid, gpu_connect const &conns,
                permutes const &perm,
                std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               gpu::vector<precision> &gpu_w1, gpu::vector<precision> &gpu_w2)
+               gpu::vector<precision> &gpu_w1, gpu::vector<precision> &gpu_w2,
+               connection_patterns const &cpu_conns,
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats,
+               workspace<precision> &work)
 {
+  {
+    int64_t num_entries = gpu_w1.size();
+    static std::vector<precision> cpu_x, cpu_y;
+    gpu::copy_to_host(num_entries, x, cpu_x);
+    gpu::copy_to_host(num_entries, y, cpu_y);
+    block_cpu(n, grid, cpu_conns, perm, cmats,
+              alpha, cpu_x.data(), beta, cpu_y.data(), work);
+    gpu::copy_to_device(cpu_y, y);
+    return;
+  }
+
   precision *w1 = gpu_w1.data();
   precision *w2 = gpu_w2.data();
 
@@ -275,7 +289,10 @@ void block_gpu(int n, sparse_grid const &grid, gpu_connect const &conns,
 template void block_gpu<double>(
     int, sparse_grid const &, gpu_connect const &, permutes const &,
     std::array<gpu::vector<double *>, max_num_dimensions> const &,
-    double, double const[], double, double[], gpu::vector<double> &, gpu::vector<double> &);
+    double, double const[], double, double[], gpu::vector<double> &, gpu::vector<double> &,
+    connection_patterns const &,
+    std::array<block_sparse_matrix<double>, max_num_dimensions> const &,
+    workspace<double> &);
 
 #endif
 
@@ -284,7 +301,10 @@ template void block_gpu<double>(
 template void block_gpu<float>(
     int, sparse_grid const &, gpu_connect const &, permutes const &,
     std::array<gpu::vector<float *>, max_num_dimensions> const &,
-    float, float const[], float, float[], gpu::vector<float> &, gpu::vector<float> &);
+    float, float const[], float, float[], gpu::vector<float> &, gpu::vector<float> &,
+    connection_patterns const &,
+    std::array<block_sparse_matrix<precision>, max_num_dimensions> const &,
+    workspace<float> &);
 
 #endif
 

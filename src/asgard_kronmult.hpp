@@ -97,7 +97,10 @@ void block_gpu(int n, sparse_grid const &grid,
                gpu_connect const &conns, permutes const &perm,
                std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               gpu::vector<precision> &gpu_w1, gpu::vector<precision> &gpu_w2);
+               gpu::vector<precision> &gpu_w1, gpu::vector<precision> &gpu_w2,
+               connection_patterns const &cpu_conns,
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats,
+               workspace<precision> &work);
 #endif
 
 } // namespace asgard::kronmult

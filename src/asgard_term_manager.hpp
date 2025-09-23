@@ -400,7 +400,7 @@ struct term_manager
       t2.resize(num_entries);
 
     #ifdef ASGARD_USE_GPU
-    prapare_workspace_gpu(num_entries);
+    prapare_kron_workspace_gpu(num_entries);
     #endif
 
     if (interp) {
