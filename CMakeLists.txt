@@ -129,10 +129,8 @@ find_package (ASGARDLINALG REQUIRED)
 
 # enable the git properties
 if (ASGARD_USE_GITINFO)
-  message("Looking for GIT")
   find_package (Git)
   if (Git_FOUND)
-    message("found GIT")
     execute_process(COMMAND ${GIT_EXECUTABLE} log --pretty=format:%H -n 1
                     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                     OUTPUT_VARIABLE   ASGARD_GIT_COMMIT_HASH)
