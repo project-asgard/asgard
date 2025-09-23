@@ -214,39 +214,37 @@ void launch_block_gpu(
 }
 
 template<typename precision>
-void block_gpu(int n, sparse_grid const &grid, gpu_connect const &conns,
-               permutes const &perm,
+void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm,
                std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               gpu::vector<precision> &gpu_w1, gpu::vector<precision> &gpu_w2,
-               connection_patterns const &cpu_conns,
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats,
-               workspace<precision> &work)
+               workspace<precision> &work,
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats)
 {
   {
-    int64_t num_entries = gpu_w1.size();
+    int64_t const num_entries = work.gpu_w1[dev.id].size();
     static std::vector<precision> cpu_x, cpu_y;
     gpu::copy_to_host(num_entries, x, cpu_x);
     gpu::copy_to_host(num_entries, y, cpu_y);
-    block_cpu(n, grid, cpu_conns, perm, cmats,
+    block_cpu(n, grid, conns, perm, cmats,
               alpha, cpu_x.data(), beta, cpu_y.data(), work);
     gpu::copy_to_device(cpu_y, y);
     return;
   }
 
-  precision *w1 = gpu_w1.data();
-  precision *w2 = gpu_w2.data();
+  precision *w1 = work.gpu_w1[dev.id].data();
+  precision *w2 = work.gpu_w2[dev.id].data();
 
-  auto get_connect_1d = [&](permutes::matrix_fill const fill)
-      -> gpu_connect_1d const & {
-    // if the term has flux, i.e., fdir != -1
-    // then the direction using fill::both will use the flux+volume connectivity
-    // otherwise we will use only the volume connectivity
-    if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
-      return conns[connect_1d::hierarchy::full];
-    else
-      return conns[connect_1d::hierarchy::volume];
-  };
+  // auto get_connect_1d = [&](permutes::matrix_fill const fill)
+  //     -> gpu_connect_1d const & {
+  //   // if the term has flux, i.e., fdir != -1
+  //   // then the direction using fill::both will use the flux+volume connectivity
+  //   // otherwise we will use only the volume connectivity
+  //   if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
+  //     return conns[connect_1d::hierarchy::full];
+  //   else
+  //     return conns[connect_1d::hierarchy::volume];
+  // };
 
   int const num_dims    = grid.num_dims();
   int const active_dims = perm.num_dimensions();
@@ -272,7 +270,7 @@ void block_gpu(int n, sparse_grid const &grid, gpu_connect const &conns,
       std::swap(w1, w2);
     }
 
-    int64_t num_entries = gpu_w1.size();
+    int64_t num_entries = work.gpu_w1[dev.id].size();
 
     if (i == 0) { // on iteration zero, scale y
       if (beta == 0)
@@ -284,27 +282,87 @@ void block_gpu(int n, sparse_grid const &grid, gpu_connect const &conns,
   }
 }
 
+template<typename precision>
+void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm,
+               gpu::vector<precision *> const &coeffs,
+               precision alpha, precision const x[], precision beta, precision y[],
+               workspace<precision> &work,
+               // the parameters below are used only for fallback
+               block_sparse_matrix<precision> const &cmat)
+{
+  {
+    int64_t const num_entries = work.gpu_w1[dev.id].size();
+    static std::vector<precision> cpu_x, cpu_y;
+    gpu::copy_to_host(num_entries, x, cpu_x);
+    gpu::copy_to_host(num_entries, y, cpu_y);
+    block_cpu(n, grid, conns, perm, cmat,
+              alpha, cpu_x.data(), beta, cpu_y.data(), work);
+    gpu::copy_to_device(cpu_y, y);
+    return;
+  }
+  ignore(coeffs);
+}
+
+template<typename precision>
+void blocksv_gpu(gpu::device dev, int n, sparse_grid const &grid,
+                 connection_patterns const &conns,
+                 gpu::vector<precision *> const &gpu_vals,
+                 precision y[], workspace<precision> &work,
+                 // the parameters below are used only for fallback
+                 block_sparse_matrix<precision> const &gvals)
+{
+  {
+    int64_t const num_entries = work.gpu_w1[dev.id].size();
+    static std::vector<precision> cpu_y;
+    gpu::copy_to_host(num_entries, y, cpu_y);
+    blocksv_cpu(n, grid, conns[connect_1d::hierarchy::volume], gvals,
+                cpu_y.data(), work);
+    gpu::copy_to_device(cpu_y, y);
+    return;
+  }
+  ignore(gpu_vals);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 
 template void block_gpu<double>(
-    int, sparse_grid const &, gpu_connect const &, permutes const &,
+    gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
     std::array<gpu::vector<double *>, max_num_dimensions> const &,
-    double, double const[], double, double[], gpu::vector<double> &, gpu::vector<double> &,
-    connection_patterns const &,
-    std::array<block_sparse_matrix<double>, max_num_dimensions> const &,
-    workspace<double> &);
+    double, double const[], double, double[], workspace<double> &,
+    std::array<block_sparse_matrix<double>, max_num_dimensions> const &);
+
+template void block_gpu<double>(
+    gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
+    gpu::vector<double *> const &,
+    double, double const[], double, double[],
+    workspace<double> &, block_sparse_matrix<double> const &);
+
+template void blocksv_gpu(
+    gpu::device, int, sparse_grid const &, connection_patterns const &,
+    gpu::vector<double *> const &, double[], workspace<double> &,
+    block_sparse_matrix<double> const &);
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
 template void block_gpu<float>(
-    int, sparse_grid const &, gpu_connect const &, permutes const &,
+    gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
     std::array<gpu::vector<float *>, max_num_dimensions> const &,
-    float, float const[], float, float[], gpu::vector<float> &, gpu::vector<float> &,
-    connection_patterns const &,
-    std::array<block_sparse_matrix<precision>, max_num_dimensions> const &,
-    workspace<float> &);
+    float, float const[], float, float[], workspace<float> &,
+    std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
+
+template void block_gpu<float>(
+    gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
+    gpu::vector<float *> const &,
+    float, float const[], float, float[],
+    workspace<float> &, block_sparse_matrix<float> const &);
+
+template void blocksv_gpu(
+    gpu::device, int, sparse_grid const &, connection_patterns const &,
+    gpu::vector<float *> const &, float[], workspace<float> &,
+    block_sparse_matrix<float> const &);
 
 #endif
 

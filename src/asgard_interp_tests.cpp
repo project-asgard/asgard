@@ -13,7 +13,7 @@ void interp_nodes() {
     int const max_level = 2;
     interpolation_manager1d<P, 0> interp;
     tassert(not interp); // default constructor
-    interp = interpolation_manager1d<P, 0>(max_level);
+    interp = interpolation_manager1d<P, 0>(connection_patterns(max_level));
     tassert(!!interp);
 
     tassert(interp.nodes().num_strips() == 4);
@@ -30,7 +30,7 @@ void interp_nodes() {
     int const max_level = 1;
     interpolation_manager1d<P, 1> interp;
     tassert(not interp); // default constructor
-    interp = interpolation_manager1d<P, 1>(max_level);
+    interp = interpolation_manager1d<P, 1>(connection_patterns(max_level));
     tassert(!!interp);
 
     tassert(interp.nodes().num_strips() == 2);
@@ -41,7 +41,7 @@ void interp_nodes() {
     for (auto i : indexof(ref))
       tassert(std::abs(r[i] - ref[i]) < tol);
 
-    interp = interpolation_manager1d<P, 1>(max_level + 1);
+    interp = interpolation_manager1d<P, 1>(connection_patterns(max_level + 1));
     tassert(!!interp);
 
     tassert(interp.nodes().num_strips() == 4);
@@ -56,7 +56,7 @@ void interp_nodes() {
     current_test<P> name_("nodes quadratic");
 
     int const max_level = 1;
-    interpolation_manager1d<P, 2> interp(max_level);
+    interpolation_manager1d<P, 2> interp{connection_patterns(max_level)};
 
     tassert(interp.nodes().num_strips() == 2);
     tassert(interp.nodes().stride() == 3);
@@ -66,7 +66,7 @@ void interp_nodes() {
     for (auto i : indexof(ref))
       tassert(std::abs(r[i] - ref[i]) < tol);
 
-    interp = interpolation_manager1d<P, 2>(max_level + 1);
+    interp = interpolation_manager1d<P, 2>(connection_patterns(max_level + 1));
     tassert(!!interp);
 
     tassert(interp.nodes().num_strips() == 4);
@@ -82,7 +82,7 @@ void interp_nodes() {
     current_test<P> name_("nodes cubic");
 
     int const max_level = 2;
-    interpolation_manager1d<P, 3> interp(max_level);
+    interpolation_manager1d<P, 3> interp{connection_patterns(max_level)};
 
     tassert(interp.nodes().num_strips() == 4);
     tassert(interp.nodes().stride() == 4);

@@ -97,6 +97,7 @@ compute_resources::compute_resources() {
   #endif
   #ifdef ASGARD_USE_CUDA
   cuda_check_error( cudaGetDeviceCount(&num_gpus_) );
+  num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "CUDA is enabled but there are no visible CUDA devices, maybe a driver problem");
   cublas_check_error( cublasCreate(&cublas) );
   cusolver_check_error( cusolverDnCreate(&cusolverdn) );
@@ -104,6 +105,7 @@ compute_resources::compute_resources() {
   #endif
   #ifdef ASGARD_USE_ROCM
   rocm_check_error( hipGetDeviceCount(&num_gpus_) );
+  num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "ROCM is enabled but there are no visible ROCM devices, maybe a driver problem");
   rocblas_check_error( rocblas_create_handle(&rocblas) );
   #endif

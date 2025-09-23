@@ -91,16 +91,45 @@ void blocksv_cpu(int n, sparse_grid const &grid,
  * The input and output arrays are located on the GPU device and compute->set_device()
  * has been correctly set for the current thread, i.e., this method uses only one thread
  * but launches multiple kernel on the set GPU device.
+ *
+ * The device gpu::device is used to identify the workspace and the correctly cached
+ * sparse_grid and connection_patterns values.
  */
 template<typename precision>
-void block_gpu(int n, sparse_grid const &grid,
-               gpu_connect const &conns, permutes const &perm,
+void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm,
                std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               gpu::vector<precision> &gpu_w1, gpu::vector<precision> &gpu_w2,
-               connection_patterns const &cpu_conns,
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats,
-               workspace<precision> &work);
+               workspace<precision> &work,
+               // the parameters below are used only for fallback
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats);
+
+/*!
+ * \brief GPU implementation for the block-cpu evaluate
+ *
+ * Uses the same matrix across all dimensions
+ */
+template<typename precision>
+void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm,
+               gpu::vector<precision *> const &coeffs,
+               precision alpha, precision const x[], precision beta, precision y[],
+               workspace<precision> &work,
+               // the parameters below are used only for fallback
+               block_sparse_matrix<precision> const &cmat);
+
+/*!
+ * \brief GPU implementation for the blocksv-cpu evaluate
+ *
+ * Uses the same matrix across all dimensions
+ */
+template<typename precision>
+void blocksv_gpu(gpu::device dev, int n, sparse_grid const &grid,
+                 connection_patterns const &conns,
+                 gpu::vector<precision *> const &gpu_vals,
+                 precision y[], workspace<precision> &work,
+                 // the parameters below are used only for fallback
+                 block_sparse_matrix<precision> const &gvals);
 #endif
 
 } // namespace asgard::kronmult

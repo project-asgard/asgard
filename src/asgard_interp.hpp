@@ -390,7 +390,8 @@ public:
   //! create an empty interpolation manager
   interpolation_manager1d() = default;
   //! initialize the manager using the connection pattern
-  interpolation_manager1d(connect_1d const &conn) {
+  interpolation_manager1d(connection_patterns const &conns) {
+    connect_1d const &conn = conns[connect_1d::hierarchy::volume];
     static_assert(0 <= degree and degree <= 3);
     initialize_nodes(std::max(1, conn.max_loaded_level()));
 
@@ -405,6 +406,10 @@ public:
 
     interp_wavelet_integrator<P, degree> integ(w0, w1, basis, quad);
     make_hier2wav(conn, integ);
+
+    #ifdef ASGARD_USE_GPU
+    load_to_gpu(conns);
+    #endif
   }
   //! converts to true if the manager has been initialized
   operator bool () const { return (nodes_.num_strips() > 0); }
@@ -417,6 +422,21 @@ public:
   block_sparse_matrix<P> const &nodal2hier() const { return nodal2hier_; }
   //! return the hierarchical to wavelet matrix
   block_sparse_matrix<P> const &hier2wav() const { return hier2wav_; }
+
+  #ifdef ASGARD_USE_GPU
+  //! return the wavelet to nodal matrix
+  gpu::vector<P*> const &wav2nodal(gpu::device dev) const {
+    return gpu_wav2nodal_[dev.id];
+  }
+  //! return the nodal to hierarchical matrix
+  gpu::vector<P*> const &nodal2hier(gpu::device dev) const {
+    return gpu_nodal2hier_[dev.id];
+  }
+  //! return the hierarchical to wavelet matrix
+  gpu::vector<P*> const &hier2wav(gpu::device dev) const {
+    return gpu_hier2wav_[dev.id];
+  }
+  #endif
 
 protected:
   //! pre-computed constant, std::sqrt(2.0)
@@ -434,11 +454,31 @@ protected:
   //! make the matrix hierarchical basis to wavelet transformation
   void make_hier2wav(connect_1d const &conn, interp_wavelet_integrator<P, degree> const &integ);
 
+  #ifdef ASGARD_USE_GPU
+  //! load the matrices to the GPU devices
+  void load_to_gpu(connection_patterns const &conns);
+  #endif
+
 private:
   vector2d<P> nodes_;
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
   block_sparse_matrix<P> hier2wav_;
+
+  #ifdef ASGARD_USE_GPU
+  //! gpu coefficient matrices for different levels wavelet to nodal
+  std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lwav2nodal_;
+  //! gpu coefficient matrices for different levels nodal to hierarchical
+  std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lnodal2hier_;
+  //! gpu coefficient matrices for different levels hierarchical to wavelet
+  std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lhier2wav_;
+  //! pointers to gpu matrices for different levels
+  std::array<gpu::vector<P*>, max_num_gpus> gpu_wav2nodal_;
+  //! pointers to gpu matrices for different levels
+  std::array<gpu::vector<P*>, max_num_gpus> gpu_nodal2hier_;
+  //! pointers to gpu matrices for different levels
+  std::array<gpu::vector<P*>, max_num_gpus> gpu_hier2wav_;
+  #endif
 };
 
 /*!
@@ -465,19 +505,18 @@ public:
     iwav_scale = std::sqrt(wav_scale);
     wav_scale = P{1} / iwav_scale;
 
-    connect_1d const &conn = conns[connect_1d::hierarchy::volume];
     switch (degree) {
       case 0:
-        interp = interpolation_manager1d<P, 0>(conn);
+        interp = interpolation_manager1d<P, 0>(conns);
         break;
       case 1:
-        interp = interpolation_manager1d<P, 1>(conn);
+        interp = interpolation_manager1d<P, 1>(conns);
         break;
       case 2:
-        interp = interpolation_manager1d<P, 2>(conn);
+        interp = interpolation_manager1d<P, 2>(conns);
         break;
       case 3:
-        interp = interpolation_manager1d<P, 3>(conn);
+        interp = interpolation_manager1d<P, 3>(conns);
         break;
       default:
         throw std::runtime_error("invalid degree used for interpolaton_manager");
@@ -691,6 +730,39 @@ protected:
         return std::get<3>(interp).hier2wav();
     }
   }
+
+  #ifdef ASGARD_USE_GPU
+  //! return the 1d wav2noal matrix
+  gpu::vector<P *> const &wav2nodal1d(gpu::device dev) const {
+    switch(interp.index()) {
+      case 0: return std::get<0>(interp).wav2nodal(dev);
+      case 1: return std::get<1>(interp).wav2nodal(dev);
+      case 2: return std::get<2>(interp).wav2nodal(dev);
+      default: // case 3
+        return std::get<3>(interp).wav2nodal(dev);
+    }
+  }
+  //! return the 1d nodal2hier matrix
+  gpu::vector<P *> const &nodal2hier1d(gpu::device dev) const {
+    switch(interp.index()) {
+      case 0: return std::get<0>(interp).nodal2hier(dev);
+      case 1: return std::get<1>(interp).nodal2hier(dev);
+      case 2: return std::get<2>(interp).nodal2hier(dev);
+      default: // case 3
+        return std::get<3>(interp).nodal2hier(dev);
+    }
+  }
+  //! return the 1d hier2wav matrix
+  gpu::vector<P *> const &hier2wav1d(gpu::device dev) const {
+    switch(interp.index()) {
+      case 0: return std::get<0>(interp).hier2wav(dev);
+      case 1: return std::get<1>(interp).hier2wav(dev);
+      case 2: return std::get<2>(interp).hier2wav(dev);
+      default: // case 3
+        return std::get<3>(interp).hier2wav(dev);
+    }
+  }
+  #endif
 
 private:
   int num_dims = 0;

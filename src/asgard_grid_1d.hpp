@@ -516,6 +516,8 @@ struct connection_patterns
   {
     return conns[static_cast<int>(h)];
   }
+  //! maximum loaded level for the loaded patterns
+  int max_loaded_level() const { return conns[0].max_loaded_level(); }
   //! holds the array of connection patterns
   std::array<connect_1d, 4> conns;
 

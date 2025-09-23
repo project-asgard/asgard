@@ -1346,9 +1346,8 @@ void term_manager<P>::apply_tmpl_gpu(
         interp(grid, conns, 0, cpu_x.data(), al, tme.tmd.interp(), be, cpu_y.data(), kwork, it1, it2);
         gpu::copy_to_device(cpu_y, out);
       } else {
-        block_gpu(legendre.pdof, grid, conns.gpu_conns[dev.id], tme.perm, tme.gpu_coeffs,
-                  al, in, be, out, kwork.gpu_w1[dev.id], kwork.gpu_w2[dev.id],
-                  conns, tme.coeffs, kwork);
+        block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
+                  al, in, be, out, kwork, tme.coeffs);
       }
     };
 
