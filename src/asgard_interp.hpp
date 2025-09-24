@@ -689,6 +689,26 @@ public:
     (*this)(grid, conn, time, alpha, func, beta, y.data(), work, t1);
   }
 
+  #ifdef ASGARD_USE_GPU
+  //! compute nodal values for the field
+  void wav2nodal(gpu::device dev, sparse_grid const &grid,
+                 connection_patterns const &conn, P const f[], P vals[],
+                 kronmult::workspace<P> &work) const
+  {
+    tools::time_event performance_("wavelet-to-nodal");
+    block_cpu(dev, n, grid, conn, perm, wav2nodal1d(dev), P{wav_scale}, f,
+              P{0}, vals, work, wav2nodal1d());
+  }
+  //! compute hierarchical representation from the nodal values
+  void nodal2hier(gpu::device dev, sparse_grid const &grid,
+                  connection_patterns const &conn, P vals[],
+                  kronmult::workspace<P> &work) const
+  {
+    tools::time_event performance_("nodal-to-hier");
+    blocksv_cpu(n, grid, conn, nodal2hier1d(dev), vals, work, nodal2hier1d());
+  }
+  #endif
+
 protected:
   //! returns the 1d nodes
   vector2d<P> const &nodes1d() const {
