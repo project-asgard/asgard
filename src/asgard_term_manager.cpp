@@ -1297,6 +1297,12 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
       gpu_t2[g].resize(num_entries);
     kwork.gpu_w1[g].resize(num_entries);
     kwork.gpu_w2[g].resize(num_entries);
+
+    if (interp) {
+      cpu_it1[g].resize(num_entries);
+      cpu_it2[g].resize(num_entries);
+      gpu_it1[g].resize(num_entries);
+    }
   }
 }
 
@@ -1340,11 +1346,8 @@ void term_manager<P>::apply_tmpl_gpu(
                (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.tmd.is_interpolatory()) {
-        static std::vector<P> cpu_x, cpu_y;
-        gpu::copy_to_host(num_entries, in, cpu_x);
-        gpu::copy_to_host(num_entries, out, cpu_y);
-        interp(grid, conns, 0, cpu_x.data(), al, tme.tmd.interp(), be, cpu_y.data(), kwork, it1, it2);
-        gpu::copy_to_device(cpu_y, out);
+        interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
+               cpu_it1[dev.id], cpu_it2[dev.id], gpu_t1[dev.id]);
       } else {
         block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                   al, in, be, out, kwork, tme.coeffs);
@@ -1779,7 +1782,7 @@ void term_manager<P>::assign_compute_resources()
     for (auto const &s : sources)
       if (resources.owns(s.rec))
         has_sources = true;
-    if (not has_sources) {
+    if (not has_sources and resources.num_ranks() > 1) {
       std::cerr << " -- warning: the number of MPI ranks exceeds the number of terms and sources,"
                 << " the likely outcome is performance degradation" << std::endl;
     }

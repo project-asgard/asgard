@@ -696,7 +696,7 @@ public:
                  kronmult::workspace<P> &work) const
   {
     tools::time_event performance_("wavelet-to-nodal");
-    block_cpu(dev, n, grid, conn, perm, wav2nodal1d(dev), P{wav_scale}, f,
+    block_gpu(dev, n, grid, conn, perm, wav2nodal1d(dev), P{wav_scale}, f,
               P{0}, vals, work, wav2nodal1d());
   }
   //! compute hierarchical representation from the nodal values
@@ -705,7 +705,55 @@ public:
                   kronmult::workspace<P> &work) const
   {
     tools::time_event performance_("nodal-to-hier");
-    blocksv_cpu(n, grid, conn, nodal2hier1d(dev), vals, work, nodal2hier1d());
+    blocksv_gpu(dev, n, grid, conn, nodal2hier1d(dev), vals, work, nodal2hier1d());
+  }
+  //! compute nodal values for the field
+  void hier2wav(gpu::device dev, sparse_grid const &grid,
+                connection_patterns const &conn,
+                P alpha, P const f[], P beta, P vals[],
+                kronmult::workspace<P> &work) const
+  {
+    tools::time_event performance_("hier-to-wavelet");
+    block_gpu(dev, n, grid, conn, perm, hier2wav1d(dev), alpha * iwav_scale, f, beta, vals, work, hier2wav1d());
+  }
+  /*!
+   * \brief Performs the interpolation of the function func
+   */
+  void operator ()
+      (gpu::device dev, sparse_grid const &grid,
+       connection_patterns const &conn, P time, P const state[],
+       P alpha, md_func_f<P> const &func, P beta, P y[],
+       kronmult::workspace<P> &work,
+       std::vector<P> &t1, std::vector<P> &t2, gpu::vector<P> &gpu_t1) const
+  {
+    tools::time_event performance_("interpolation operation");
+    wav2nodal(dev, grid, conn, state, gpu_t1.data(), work);
+    gpu_t1.copy_to_host(t1);
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), t1, t2);
+    }
+    gpu_t1 = t2;
+    nodal2hier(dev, grid, conn, gpu_t1.data(), work);
+    hier2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work);
+  }
+  /*!
+   * \brief Computes the interpolation function on the CPU and moves the data to the GPU
+   *
+   * In this context, the kronmult work is done on the GPU
+   * but the function evaluation is done on the CPU side.
+   */
+  void operator ()
+      (gpu::device dev, sparse_grid const &grid,
+       connection_patterns const &conn, P time,
+       P alpha, md_func<P> const &func, P beta, P y[],
+       kronmult::workspace<P> &work,
+       std::vector<P> &t1, gpu::vector<P> &gpu_t1) const
+  {
+    func(time, nodes(grid), t1);
+    gpu_t1 = t1;
+    nodal2hier(dev, grid, conn, gpu_t1.data(), work);
+    hier2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work);
   }
   #endif
 

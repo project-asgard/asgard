@@ -263,11 +263,15 @@ struct term_manager
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
+  mutable std::vector<P> it1, it2; // used for interpolation
   #ifdef ASGARD_USE_GPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
+  // for both multi-gpu support and interpolation evals on the CPU
+  mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1;
   #endif
-  mutable std::vector<P> it1, it2; // used for interpolation
+
 
   //! term groups, chains are flattened
   std::vector<irange> term_groups;
@@ -399,14 +403,14 @@ struct term_manager
     if (not t2.empty())
       t2.resize(num_entries);
 
-    #ifdef ASGARD_USE_GPU
-    prapare_kron_workspace_gpu(num_entries);
-    #endif
-
     if (interp) {
       it1.resize(num_entries);
       it2.resize(num_entries);
     }
+
+    #ifdef ASGARD_USE_GPU
+    prapare_kron_workspace_gpu(num_entries);
+    #endif
 
     workspace_grid_gen = grid.generation();
   }
