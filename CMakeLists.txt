@@ -443,8 +443,18 @@ if (ASGARD_USE_CUDA)
                                  PROPERTIES LANGUAGE CUDA)
 
     target_compile_features (libasgard PUBLIC cuda_std_17)
+endif()
 
-endif ()
+if (ASGARD_USE_ROCM)
+    target_sources(libasgard PRIVATE
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp>
+                   )
+
+    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp
+                                 PROPERTIES LANGUAGE HIP)
+
+    target_compile_features (libasgard PUBLIC hip_std_17)
+endif()
 
 
 #-------------------------------------------------------------------------------
