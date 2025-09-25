@@ -241,6 +241,14 @@ protected:
   template<hierarchy mode>
   void build_connections()
   {
+    if (levels == 0) {
+      rows = 1;
+      pntr = {0, 1};
+      indx = {0, };
+      diag = {0, };
+      return;
+    }
+
     rows = fm::ipow2(levels);
     pntr.resize(rows + 1, 0);
     indx.resize(2 * rows);
@@ -516,6 +524,8 @@ struct connection_patterns
   {
     return conns[static_cast<int>(h)];
   }
+  //! maximum loaded level for the loaded patterns
+  int max_loaded_level() const { return conns[0].max_loaded_level(); }
   //! holds the array of connection patterns
   std::array<connect_1d, 4> conns;
 

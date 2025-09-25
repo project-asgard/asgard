@@ -1295,6 +1295,14 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
       gpu_t1[g].resize(num_entries);
     if (not t2.empty() and gpu_t2[g].size() < num_entries)
       gpu_t2[g].resize(num_entries);
+    kwork.gpu_w1[g].resize(num_entries);
+    kwork.gpu_w2[g].resize(num_entries);
+
+    if (interp) {
+      cpu_it1[g].resize(num_entries);
+      cpu_it2[g].resize(num_entries);
+      gpu_it1[g].resize(num_entries);
+    }
   }
 }
 
@@ -1334,19 +1342,16 @@ void term_manager<P>::apply_tmpl_gpu(
 
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
-  auto kterm = [&grid, &conns, this, num_entries](term_entry<P> const &tme, P al, P const in[], P be, P out[])
+  auto kterm = [&grid, &conns, this, num_entries]
+               (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
-      static std::vector<P> cpu_x, cpu_y;
-      gpu::copy_to_host(num_entries, in, cpu_x);
-      gpu::copy_to_host(num_entries, out, cpu_y);
-
       if (tme.tmd.is_interpolatory()) {
-        interp(grid, conns, 0, cpu_x.data(), al, tme.tmd.interp(), be, cpu_y.data(), kwork, it1, it2);
+        interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
+               cpu_it1[dev.id], cpu_it2[dev.id], gpu_t1[dev.id]);
       } else {
-        block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                  al, cpu_x.data(), be, cpu_y.data(), kwork);
+        block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
+                  al, in, be, out, kwork, tme.coeffs);
       }
-      gpu::copy_to_device(cpu_y, out);
     };
 
   // if doing out-of-core, load data onto the device and sync across devices, device 0 is always the "root"
@@ -1427,17 +1432,17 @@ void term_manager<P>::apply_tmpl_gpu(
       #endif
 
       if (it->num_chain == 1) {
-        kterm(*it, alpha, xpntr, b, ypntr);
+        kterm(gpu::device{g}, *it, alpha, xpntr, b, ypntr);
       } else {
         // dealing with a chain
         int const num_chain = it->num_chain;
 
-        kterm(*(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g].data());
+        kterm(gpu::device{g}, *(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g].data());
         for (int i = num_chain - 2; i > 0; --i) {
-          kterm(*(it + i), 1, gpu_t1[g].data(), 0, gpu_t2[g].data());
+          kterm(gpu::device{g}, *(it + i), 1, gpu_t1[g].data(), 0, gpu_t2[g].data());
           std::swap(gpu_t1[g], gpu_t2[g]);
         }
-        kterm(*it, alpha, gpu_t1[g].data(), b, ypntr);
+        kterm(gpu::device{g}, *it, alpha, gpu_t1[g].data(), b, ypntr);
       }
 
       icurrent += it->num_chain;
@@ -1777,7 +1782,10 @@ void term_manager<P>::assign_compute_resources()
     for (auto const &s : sources)
       if (resources.owns(s.rec))
         has_sources = true;
-    if (not has_sources) {
+    if (not terms.empty() and resources.num_ranks() > 1 and not has_sources) {
+      // if the PDE has some terms, e.g., some testing PDEs don't,
+      // and if there are multiple MPI ranks, yet some ranks have no terms
+      // that means there are more ranks then terms and we should print a warning
       std::cerr << " -- warning: the number of MPI ranks exceeds the number of terms and sources,"
                 << " the likely outcome is performance degradation" << std::endl;
     }

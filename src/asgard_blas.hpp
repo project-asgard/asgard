@@ -2,6 +2,8 @@
 
 // wrappers for BLAS methods, use as internal header
 
+#include "asgard_tools.hpp"
+
 #ifdef ASGARD_USING_APPLEBLAS
   #include <Accelerate/Accelerate.h>
 #else

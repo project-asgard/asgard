@@ -443,8 +443,18 @@ if (ASGARD_USE_CUDA)
                                  PROPERTIES LANGUAGE CUDA)
 
     target_compile_features (libasgard PUBLIC cuda_std_17)
+endif()
 
-endif ()
+if (ASGARD_USE_ROCM)
+    target_sources(libasgard PRIVATE
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp>
+                   )
+
+    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp
+                                 PROPERTIES LANGUAGE HIP)
+
+    target_compile_features (libasgard PUBLIC hip_std_17)
+endif()
 
 
 #-------------------------------------------------------------------------------
@@ -676,7 +686,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
         DESTINATION include)
 
 configure_file(examples/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt @ONLY)
-configure_file(testing/TestingCMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt @ONLY)
+configure_file(testing/TestingCMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/test/CMakeLists.txt @ONLY)
 configure_file(testing/test_post_install.sh ${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh @ONLY)
 if (ASGARD_BUILD_TESTS)
     add_custom_target(test_install COMMAND "${CMAKE_CURRENT_BINARY_DIR}/test_post_install.sh")
@@ -691,7 +701,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/examples/"
         FILES_MATCHING PATTERN "*.cpp")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt"
         DESTINATION share/asgard/examples)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/testing/CMakeLists.txt"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/test/CMakeLists.txt"
         DESTINATION share/asgard/testing)
 
 install(EXPORT "asgard-export" DESTINATION "lib/${CMAKE_PROJECT_NAME}" FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
