@@ -1782,7 +1782,10 @@ void term_manager<P>::assign_compute_resources()
     for (auto const &s : sources)
       if (resources.owns(s.rec))
         has_sources = true;
-    if (not has_sources and resources.num_ranks() > 1) {
+    if (not terms.empty() and resources.num_ranks() > 1 and not has_sources) {
+      // if the PDE has some terms, e.g., some testing PDEs don't,
+      // and if there are multiple MPI ranks, yet some ranks have no terms
+      // that means there are more ranks then terms and we should print a warning
       std::cerr << " -- warning: the number of MPI ranks exceeds the number of terms and sources,"
                 << " the likely outcome is performance degradation" << std::endl;
     }
