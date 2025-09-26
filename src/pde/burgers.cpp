@@ -126,8 +126,26 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       }
     };
 
+  auto f2p = [=](P, asgard::vector2d<P> const &,
+                std::vector<P> const &f, std::vector<P> &vals) ->
+    void {
+      for (size_t i = 0; i < f.size(); i++) {
+        vals[i] = (f[i] > 0) ? f[i] * f[i] : 0;
+      }
+    };
+  auto f2m = [=](P, asgard::vector2d<P> const &,
+                std::vector<P> const &f, std::vector<P> &vals) ->
+    void {
+      for (size_t i = 0; i < f.size(); i++) {
+        vals[i] = (f[i] < 0) ? f[i] * f[i] : 0;
+      }
+    };
+
   // setting up multidimensional volume term that uses interpolated coefficient
   asgard::term_md<P> term_f2 = asgard::term_interp<P>{f2};
+
+  asgard::term_md<P> term_f2p = asgard::term_interp<P>{f2p};
+  asgard::term_md<P> term_f2m = asgard::term_interp<P>{f2m};
 
   if (num_dims == 1)
   {
@@ -137,6 +155,11 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
     // the derivative term for d/dx f^2
     asgard::term_md<P> div = {asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}, };
+
+    asgard::term_md<P> divp = {asgard::term_div<P>{0.5, asgard::boundary_type::left,
+                                                   asgard::flux_type::upwind}, };
+    asgard::term_md<P> divm = {asgard::term_div<P>{0.5, asgard::boundary_type::right,
+                                                   asgard::flux_type::downwind}, };
 
     // set the initial conditions, will be used to set the boundary conditions too
     auto ic = (nu > 0) ? [](P x)
@@ -153,16 +176,23 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       P const val = ic(pde.domain().xleft(0));
       asgard::separable_func<P> fl(std::vector<P>{val * val, });
       div += asgard::left_boundary_flux{fl};
+
+      divp += asgard::left_boundary_flux{fl};
     }{
       P const val = ic(pde.domain().xright(0));
       asgard::separable_func<P> fr(std::vector<P>{val * val, });
       div += asgard::right_boundary_flux{fr};
+
+      divm += asgard::right_boundary_flux{fr};
     }
 
     // the group ids are needed for IMEX scheme in the viscous way
     int const non_linear_group_id = pde.new_term_group();
 
-    pde += asgard::term_md<P>{div, term_f2};
+    // pde += asgard::term_md<P>{div, term_f2};
+
+    pde += asgard::term_md<P>{divp, term_f2p};
+    pde += asgard::term_md<P>{divm, term_f2m};
 
     if (nu > 0) {
       asgard::term_1d<P> div_grad = std::vector<asgard::term_1d<P>>{
@@ -220,8 +250,23 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       asgard::term_md<P> divy = {asgard::term_identity{},
                                  asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}};
 
-      pde += asgard::term_md<P>{divx, term_f2};
-      pde += asgard::term_md<P>{divy, term_f2};
+      // using the default flux_type::upwind and boundary_type::none
+      asgard::term_md<P> divx_pos = {asgard::term_div<P>{0.5, asgard::boundary_type::left},
+                                     asgard::term_identity{}};
+      asgard::term_md<P> divx_neg = {asgard::term_div<P>{0.5, asgard::flux_type::downwind},
+                                     asgard::term_identity{}};
+      asgard::term_md<P> divy_pos = {asgard::term_identity{},
+                                     asgard::term_div<P>{0.5, asgard::boundary_type::left}};
+      asgard::term_md<P> divy_neg = {asgard::term_identity{},
+                                     asgard::term_div<P>{0.5, asgard::boundary_type::right,
+                                                         asgard::flux_type::downwind}};
+
+      pde += asgard::term_md<P>{divx_pos, term_f2p};
+      pde += asgard::term_md<P>{divx_neg, term_f2m};
+      pde += asgard::term_md<P>{divy_pos, term_f2p};
+      pde += asgard::term_md<P>{divy_neg, term_f2m};
+      // pde += asgard::term_md<P>{divx, term_f2};
+      // pde += asgard::term_md<P>{divy, term_f2};
 
       // setting up the non-separable source
       // the term can be split into separable and non-separable components
