@@ -268,8 +268,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     grid.mgroup      = H5Easy::load<int>(file, "grid_mgroup");
 
     std::vector<int> lvl = H5Easy::load<std::vector<int>>(file, "grid_level");
-    for (int d : iindexof(num_dims))
-      grid.level_[d] = lvl[d];
+    std::copy_n(lvl.begin(), num_dims, grid.level_.begin());
 
     if (options.max_levels.empty()) {
       // reusing the existing max-level/max-index
@@ -286,7 +285,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       }
       for (int d : iindexof(num_dims)) {
         options.max_levels[d] = std::max(options.max_levels[d], grid.level_[d]);
-        grid.max_index_[d] = fm::ipow2(options.max_levels[d]);
+        grid.max_index_[d]    = fm::ipow2(options.max_levels[d]);
       }
     }
 

@@ -10,14 +10,13 @@
 ###############################################################################
 if (ASGARD_USE_HIGHFIVE)
 
-  # -- first we need HDF5
-  enable_language (C)
-
   add_library (asgard_hdf5 INTERFACE)
 
   # if used asked us to build HDF5
   if (ASGARD_BUILD_HDF5)
     message (STATUS "building hdf5 from source")
+
+    enable_language (C) # HDF5 needs C
 
     set(__asgard_h5_install_prefix "${CMAKE_INSTALL_PREFIX}")
     include (ExternalProject)
