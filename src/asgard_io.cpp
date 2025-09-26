@@ -189,8 +189,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       std::cout << "  expected:      " << options.title << '\n';
       std::cout << "  found in file: " << title << '\n';
     }
-
-  }
+  } // end of sanity check
 
   std::string subtitle = H5Easy::load<std::string>(file, "subtitle");
   if (options.subtitle.empty()) // if user has new subtitle, keep it, else set from file
@@ -273,9 +272,24 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     for (int d : iindexof(num_dims))
       grid.level_[d] = lvl[d];
 
-    lvl = H5Easy::load<std::vector<int>>(file, "grid_max_index");
-    for (int d : iindexof(num_dims))
-      grid.max_index_[d] = lvl[d];
+    if (options.max_levels.empty()) {
+      // reusing the existing max-level/max-index
+      lvl = H5Easy::load<std::vector<int>>(file, "grid_max_index");
+      std::copy_n(lvl.begin(), num_dims, grid.max_index_.begin());
+      options.max_levels.resize(num_dims, 0);
+      for (int d : iindexof(num_dims))
+        options.max_levels[d] = fm::intlog2(lvl[d]);
+    } else {
+      // updating the max, ignore the old and make sure the new is not less than the current
+      if (num_dims > 1) {
+        int const l = options.max_levels.front(); // uniform max
+        options.max_levels.resize(num_dims, l);
+      }
+      for (int d : iindexof(num_dims)) {
+        options.max_levels[d] = std::max(options.max_levels[d], grid.level_[d]);
+        grid.max_index_[d] = fm::ipow2(options.max_levels[d]);
+      }
+    }
 
     grid.iset_.num_dimensions_ = num_dims;
     grid.iset_.num_indexes_    = num_indexes;
