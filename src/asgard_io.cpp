@@ -40,7 +40,6 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
   H5Easy::dump(file, "default_plotter_view", options.default_plotter_view);
 
   H5Easy::dump(file, "num_dims", domain.num_dims_);
-  H5Easy::dump(file, "max_level", options.max_level());
   H5Easy::dump(file, "degree", degree);
 
   { // domain section
@@ -306,8 +305,6 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     // first we follow the same logic for specifying either all dims or a single int
     // then we do not allow the max level to be reduced below the current level
     // to do this, we will have to delete indexes, which is complicated (maybe do later)
-    options.loaded_max_level_ = H5Easy::load<int>(file, "max_level");
-    // TODO: figure out the max-level logic
     if (not options.max_levels.empty()) { // reusing the max levels
       std::vector<int> &max_levels = options.max_levels;
       if (max_levels.size() == 1 and num_dims > 1)
