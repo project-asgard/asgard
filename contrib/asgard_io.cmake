@@ -14,7 +14,7 @@ if (ASGARD_USE_HIGHFIVE)
 
   # if used asked us to build HDF5
   if (ASGARD_BUILD_HDF5)
-    message (STATUS "building hdf5 from source")
+    message (STATUS "ASGarD will build HDF5 from source")
 
     enable_language (C) # HDF5 needs C
 
