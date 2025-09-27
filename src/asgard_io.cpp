@@ -40,7 +40,6 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
   H5Easy::dump(file, "default_plotter_view", options.default_plotter_view);
 
   H5Easy::dump(file, "num_dims", domain.num_dims_);
-  H5Easy::dump(file, "max_level", options.max_level());
   H5Easy::dump(file, "degree", degree);
 
   { // domain section
@@ -189,8 +188,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       std::cout << "  expected:      " << options.title << '\n';
       std::cout << "  found in file: " << title << '\n';
     }
-
-  }
+  } // end of sanity check
 
   std::string subtitle = H5Easy::load<std::string>(file, "subtitle");
   if (options.subtitle.empty()) // if user has new subtitle, keep it, else set from file
@@ -270,12 +268,26 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     grid.mgroup      = H5Easy::load<int>(file, "grid_mgroup");
 
     std::vector<int> lvl = H5Easy::load<std::vector<int>>(file, "grid_level");
-    for (int d : iindexof(num_dims))
-      grid.level_[d] = lvl[d];
+    std::copy_n(lvl.begin(), num_dims, grid.level_.begin());
 
-    lvl = H5Easy::load<std::vector<int>>(file, "grid_max_index");
-    for (int d : iindexof(num_dims))
-      grid.max_index_[d] = lvl[d];
+    if (options.max_levels.empty()) {
+      // reusing the existing max-level/max-index
+      lvl = H5Easy::load<std::vector<int>>(file, "grid_max_index");
+      std::copy_n(lvl.begin(), num_dims, grid.max_index_.begin());
+      options.max_levels.resize(num_dims, 0);
+      for (int d : iindexof(num_dims))
+        options.max_levels[d] = fm::intlog2(lvl[d]);
+    } else {
+      // updating the max, ignore the old and make sure the new is not less than the current
+      if (num_dims > 1) {
+        int const l = options.max_levels.front(); // uniform max
+        options.max_levels.resize(num_dims, l);
+      }
+      for (int d : iindexof(num_dims)) {
+        options.max_levels[d] = std::max(options.max_levels[d], grid.level_[d]);
+        grid.max_index_[d]    = fm::ipow2(options.max_levels[d]);
+      }
+    }
 
     grid.iset_.num_dimensions_ = num_dims;
     grid.iset_.num_indexes_    = num_indexes;
@@ -292,8 +304,6 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     // first we follow the same logic for specifying either all dims or a single int
     // then we do not allow the max level to be reduced below the current level
     // to do this, we will have to delete indexes, which is complicated (maybe do later)
-    options.loaded_max_level_ = H5Easy::load<int>(file, "max_level");
-    // TODO: figure out the max-level logic
     if (not options.max_levels.empty()) { // reusing the max levels
       std::vector<int> &max_levels = options.max_levels;
       if (max_levels.size() == 1 and num_dims > 1)

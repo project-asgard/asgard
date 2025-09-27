@@ -440,7 +440,6 @@ if __name__ == "__main__":
             print("-ss/-vv summary option requires a filename")
         else:
             shot = pde_snapshot(sys.argv[2])
-            # TODO: show the super-option
             print("\n", shot.long_str(), shot.timer_report)
     elif not _matplotlib_found_:
         print("could not 'import matplotlib'")
