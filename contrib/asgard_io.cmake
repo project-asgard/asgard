@@ -93,6 +93,7 @@ if (ASGARD_USE_HIGHFIVE)
       ExternalProject_Add(
         asgard_highfive_down
         URL ${__asg_highfive_url}
+        URL_HASH SHA256=60d66ba1315730494470afaf402bb40300a39eb6ef3b9d67263335a236069cce
         SOURCE_DIR ${__asg_highfive_path}
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ""
@@ -104,6 +105,7 @@ if (ASGARD_USE_HIGHFIVE)
       ExternalProject_Add(
         asgard_highfive_down
         URL ${__asg_highfive_url}
+        URL_HASH SHA256=60d66ba1315730494470afaf402bb40300a39eb6ef3b9d67263335a236069cce
         SOURCE_DIR ${__asg_highfive_path}
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ""
