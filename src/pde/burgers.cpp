@@ -105,8 +105,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
-  // non-separable coefficient
-  auto f2 = [=](P, asgard::vector2d<P> const &,
+  auto f2p = [=](P, asgard::vector2d<P> const &,
                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       // ignore the first input, it is time but it is not implemented yet
@@ -121,19 +120,14 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       // e.g., x1 = nodes[i][0], x2 = nodes[i][1] ...
       // see also the source term of the 2D case
 
-      for (size_t i = 0; i < f.size(); i++) {
-        vals[i] = f[i] * f[i];
-      }
-    };
-
-  auto f2p = [=](P, asgard::vector2d<P> const &,
-                std::vector<P> const &f, std::vector<P> &vals) ->
-    void {
+      // the function f^2 is split into f < 0 and f > 0 section
+      // since in the term f_x f the direction of the flux is based sing(f)
+      // the positive-negative will be paired with upwind/downwind fluxes
       for (size_t i = 0; i < f.size(); i++) {
         vals[i] = (f[i] > 0) ? f[i] * f[i] : 0;
       }
     };
-  auto f2m = [=](P, asgard::vector2d<P> const &,
+  auto f2n = [=](P, asgard::vector2d<P> const &,
                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       for (size_t i = 0; i < f.size(); i++) {
@@ -142,10 +136,8 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     };
 
   // setting up multidimensional volume term that uses interpolated coefficient
-  asgard::term_md<P> term_f2 = asgard::term_interp<P>{f2};
-
-  asgard::term_md<P> term_f2p = asgard::term_interp<P>{f2p};
-  asgard::term_md<P> term_f2m = asgard::term_interp<P>{f2m};
+  asgard::term_md<P> term_f2_pos = asgard::term_interp<P>{f2p};
+  asgard::term_md<P> term_f2_neg = asgard::term_interp<P>{f2n};
 
   if (num_dims == 1)
   {
@@ -154,12 +146,10 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     // the viscous case uses two exponentials
 
     // the derivative term for d/dx f^2
-    asgard::term_md<P> div = {asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}, };
-
-    asgard::term_md<P> divp = {asgard::term_div<P>{0.5, asgard::boundary_type::left,
-                                                   asgard::flux_type::upwind}, };
-    asgard::term_md<P> divm = {asgard::term_div<P>{0.5, asgard::boundary_type::right,
-                                                   asgard::flux_type::downwind}, };
+    asgard::term_md<P> div_pos = {asgard::term_div<P>{0.5, asgard::boundary_type::left,
+                                                      asgard::flux_type::upwind}, };
+    asgard::term_md<P> div_neg = {asgard::term_div<P>{0.5, asgard::boundary_type::right,
+                                                      asgard::flux_type::downwind}, };
 
     // set the initial conditions, will be used to set the boundary conditions too
     auto ic = (nu > 0) ? [](P x)
@@ -175,24 +165,18 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     {
       P const val = ic(pde.domain().xleft(0));
       asgard::separable_func<P> fl(std::vector<P>{val * val, });
-      div += asgard::left_boundary_flux{fl};
-
-      divp += asgard::left_boundary_flux{fl};
+      div_pos += asgard::left_boundary_flux{fl};
     }{
       P const val = ic(pde.domain().xright(0));
       asgard::separable_func<P> fr(std::vector<P>{val * val, });
-      div += asgard::right_boundary_flux{fr};
-
-      divm += asgard::right_boundary_flux{fr};
+      div_neg += asgard::right_boundary_flux{fr};
     }
 
     // the group ids are needed for IMEX scheme in the viscous way
     int const non_linear_group_id = pde.new_term_group();
 
-    // pde += asgard::term_md<P>{div, term_f2};
-
-    pde += asgard::term_md<P>{divp, term_f2p};
-    pde += asgard::term_md<P>{divm, term_f2m};
+    pde += asgard::term_md<P>{div_pos, term_f2_pos};
+    pde += asgard::term_md<P>{div_neg, term_f2_neg};
 
     if (nu > 0) {
       asgard::term_1d<P> div_grad = std::vector<asgard::term_1d<P>>{
@@ -212,7 +196,6 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       dg += asgard::right_boundary_flux{fr};
 
       int const laplacian_group_id = pde.new_term_group();
-      // pde += dg;
       pde.add_term(dg);
 
       pde.set(asgard::imex_implicit_group{laplacian_group_id},
@@ -245,11 +228,6 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
     if (nu == 0) {
       // inviscit mode, using explicit time-stepping and no second order terms
-      asgard::term_md<P> divx = {asgard::term_div<P>{0.5, asgard::boundary_type::left},
-                                 asgard::term_identity{}};
-      asgard::term_md<P> divy = {asgard::term_identity{},
-                                 asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}};
-
       // using the default flux_type::upwind and boundary_type::none
       asgard::term_md<P> divx_pos = {asgard::term_div<P>{0.5, asgard::boundary_type::left},
                                      asgard::term_identity{}};
@@ -261,12 +239,10 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
                                      asgard::term_div<P>{0.5, asgard::boundary_type::right,
                                                          asgard::flux_type::downwind}};
 
-      pde += asgard::term_md<P>{divx_pos, term_f2p};
-      pde += asgard::term_md<P>{divx_neg, term_f2m};
-      pde += asgard::term_md<P>{divy_pos, term_f2p};
-      pde += asgard::term_md<P>{divy_neg, term_f2m};
-      // pde += asgard::term_md<P>{divx, term_f2};
-      // pde += asgard::term_md<P>{divy, term_f2};
+      pde += asgard::term_md<P>{divx_pos, term_f2_pos};
+      pde += asgard::term_md<P>{divx_neg, term_f2_neg};
+      pde += asgard::term_md<P>{divy_pos, term_f2_pos};
+      pde += asgard::term_md<P>{divy_neg, term_f2_neg};
 
       // setting up the non-separable source
       // the term can be split into separable and non-separable components
@@ -291,16 +267,24 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     } else {
       // boundary conditions in y are homogeneous and simple to impose to all terms
       // boundary conditions in x are imposed only on the second order term
-      asgard::term_md<P> divx = {asgard::term_div<P>{0.5, asgard::boundary_type::none},
-                                asgard::term_identity{}};
-      asgard::term_md<P> divy = {asgard::term_identity{},
-                                asgard::term_div<P>{0.5, asgard::boundary_type::bothsides}, };
+      asgard::term_md<P> divx_pos = {asgard::term_div<P>{0.5, asgard::flux_type::upwind},
+                                     asgard::term_identity{}};
+      asgard::term_md<P> divx_neg = {asgard::term_div<P>{0.5, asgard::flux_type::downwind},
+                                     asgard::term_identity{}};
+      asgard::term_md<P> divy_pos = {asgard::term_identity{},
+                                     asgard::term_div<P>{0.5, asgard::boundary_type::left,
+                                                         asgard::flux_type::upwind}, };
+      asgard::term_md<P> divy_neg = {asgard::term_identity{},
+                                     asgard::term_div<P>{0.5, asgard::boundary_type::right,
+                                                         asgard::flux_type::downwind}, };
 
       // the group ids are needed for IMEX scheme in the viscous way
       int const non_linear_group_id = pde.new_term_group();
 
-      pde += asgard::term_md<P>{divx, term_f2};
-      pde += asgard::term_md<P>{divy, term_f2};
+      pde += asgard::term_md<P>{divx_pos, term_f2_pos};
+      pde += asgard::term_md<P>{divx_neg, term_f2_neg};
+      pde += asgard::term_md<P>{divy_pos, term_f2_pos};
+      pde += asgard::term_md<P>{divy_neg, term_f2_neg};
 
       // setting up the non-separable source
       auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
