@@ -144,7 +144,7 @@ if (ASGARD_USE_GITINFO)
   endif()
 endif()
 
-# sets HighFive_FOUND
+# sets HighFive_FOUND, must be included after ASGARDLINALG
 include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
 
 # handle OpenMP dependence

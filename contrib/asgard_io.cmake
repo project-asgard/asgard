@@ -82,36 +82,42 @@ if (ASGARD_USE_HIGHFIVE)
 
   endif ()
 
-  # -- second, we get HighFive itself
-  set (highfive_PATH ${CMAKE_SOURCE_DIR}/contrib/highfive)
-  if (NOT EXISTS ${highfive_PATH}/include/highfive/H5Easy.hpp)
-    execute_process (COMMAND rm -rf ${highfive_PATH})
-    execute_process (COMMAND mkdir ${highfive_PATH})
+  include(ExternalProject)
 
-    message (STATUS "downloading HighFive from github")
-    execute_process (
-      COMMAND git clone --depth 1 --branch v2.9.0 https://github.com/BlueBrain/HighFive .
-      WORKING_DIRECTORY ${highfive_PATH}
-      RESULT_VARIABLE download
-      OUTPUT_QUIET
-      ERROR_QUIET
+  set (__asg_highfive_url https://github.com/BlueBrain/HighFive/archive/refs/tags/v2.10.1.tar.gz)
+  set (__asg_highfive_path ${CMAKE_SOURCE_DIR}/contrib/highfive)
+
+  if (NOT EXISTS ${__asg_highfive_path}/include/highfive/H5Easy.hpp)
+    message(STATUS "Fetching content: ${__asg_highfive_url}")
+    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
+      ExternalProject_Add(
+        asgard_highfive_down
+        URL ${__asg_highfive_url}
+        SOURCE_DIR ${__asg_highfive_path}
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND ""
+        INSTALL_COMMAND ""
+        UPDATE_COMMAND ""
+        DOWNLOAD_EXTRACT_TIMESTAMP 0
       )
-    if (download)
-      message (FATAL_ERROR "could not download highfive")
-    endif ()
-  else ()
-    message (STATUS "using contrib HighFive at ${highfive_PATH}")
-    execute_process (
-      COMMAND git fetch -t COMMAND git reset --hard v2.9.0
-      WORKING_DIRECTORY ${highfive_PATH}
-      RESULT_VARIABLE download
-      OUTPUT_QUIET
-      ERROR_QUIET
+    else()
+      ExternalProject_Add(
+        asgard_highfive_down
+        URL ${__asg_highfive_url}
+        SOURCE_DIR ${__asg_highfive_path}
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND ""
+        INSTALL_COMMAND ""
+        UPDATE_COMMAND ""
       )
-  endif ()
+    endif()
+
+    ExternalProject_Add_StepTargets(asgard_highfive_down configure)
+    add_dependencies(asgard::LINALG asgard_highfive_down-configure)
+  endif()
 
   add_library (asgard_highfive INTERFACE)
-  target_include_directories (asgard_highfive INTERFACE $<BUILD_INTERFACE:${highfive_PATH}/include>)
+  target_include_directories (asgard_highfive INTERFACE $<BUILD_INTERFACE:${__asg_highfive_path}/include>)
   target_link_libraries (asgard_highfive INTERFACE asgard_hdf5)
 
 endif()
