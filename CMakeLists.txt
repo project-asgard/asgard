@@ -707,15 +707,6 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/test/CMakeLists.txt"
 install(EXPORT "asgard-export" DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}"
         FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
 
-if (TARGET asgard_highfive)
-    set(__asgard_custom_hdf5 ON)
-    if (TARGET hdf5::hdf5)
-        set(__asgard_find_hdf5 ON)
-    else()
-        set(__asgard_find_hdf5 OFF)
-    endif()
-endif()
-
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/asgard-config.cmake"
                               "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake"
                               INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}/")
