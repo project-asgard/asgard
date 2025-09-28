@@ -661,17 +661,14 @@ endforeach()
 #-------------------------------------------------------------------------------
 # Installing the library as stand-alone
 #-------------------------------------------------------------------------------
+include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${__asgard_install_prefix}/include>)
+target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${__asgard_install_prefix}/${CMAKE_INSTALL_INCLUDEDIR}>)
 
 foreach (_asg_target asgard_hdf5 libasgard asgard_exe)
   if (TARGET ${_asg_target})
-    install(TARGETS ${_asg_target}
-            EXPORT  "asgard-export"
-            RUNTIME DESTINATION "bin"
-            LIBRARY DESTINATION "lib"
-            ARCHIVE DESTINATION "lib")
+    install(TARGETS ${_asg_target} EXPORT  "asgard-export")
   endif()
 endforeach()
 
@@ -679,7 +676,7 @@ endforeach()
 foreach (_asgcomp ${asgard_components})
   if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp"
-            DESTINATION include)
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
   endif()
 endforeach()
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.hpp"
@@ -707,7 +704,8 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt"
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/test/CMakeLists.txt"
         DESTINATION share/asgard/testing)
 
-install(EXPORT "asgard-export" DESTINATION "lib/${CMAKE_PROJECT_NAME}" FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
+install(EXPORT "asgard-export" DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}"
+        FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
 
 if (TARGET asgard_highfive)
     set(__asgard_custom_hdf5 ON)
@@ -720,9 +718,9 @@ endif()
 
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/asgard-config.cmake"
                               "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake"
-                              INSTALL_DESTINATION "lib/asgard/")
+                              INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}/")
 write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
                                  COMPATIBILITY AnyNewerVersion)
 # INSTALL_DESTINATION above seems to refer to something else, asgard-config.cmake must be installed explicitly
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake" "${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
-        DESTINATION "lib/asgard/")
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}")

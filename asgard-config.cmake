@@ -6,7 +6,7 @@ endif()
 
 @PACKAGE_INIT@
 
-include("@__asgard_install_prefix@/lib/@CMAKE_PROJECT_NAME@/@CMAKE_PROJECT_NAME@-targets.cmake")
+include("@__asgard_install_prefix@/@CMAKE_INSTALL_LIBDIR@/cmake/@CMAKE_PROJECT_NAME@/@CMAKE_PROJECT_NAME@-targets.cmake")
 
 if ("@ASGARD_USE_MPI@" AND NOT TARGET MPI::MPI_CXX)
   if (NOT MPI_HOME AND NOT DEFINED ENV{MPI_HOME})
@@ -53,8 +53,12 @@ else()
 endif()
 
 if ("@ASGARD_USE_HIGHFIVE@")
-  enable_language (C)
-  if (@__asgard_find_hdf5@)
+  # if ASGarD build HDF5, then the C programming language is needed
+  # the targets will be loaded automatically since HDF5 is part of ASGarD exports
+  if ("@ASGARD_BUILD_HDF5@")
+    enable_language (C)
+  else()
+    # if using system HDF5, then just pull it through the regular channel
     find_package (HDF5 REQUIRED)
   endif()
 endif()
