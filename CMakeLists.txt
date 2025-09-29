@@ -29,8 +29,8 @@ if (SKBUILD)
     set(__asgard_install_prefix ${ASGARD_python_pip_path})
 endif()
 
-list(APPEND CMAKE_INSTALL_RPATH "${__asgard_install_prefix}/lib")
-list(APPEND CMAKE_BUILD_RPATH "${__asgard_install_prefix}/lib")
+list(APPEND CMAKE_INSTALL_RPATH "${__asgard_install_prefix}/${CMAKE_INSTALL_LIBDIR}")
+list(APPEND CMAKE_BUILD_RPATH "${__asgard_install_prefix}/${CMAKE_INSTALL_LIBDIR}")
 
 # set up possible commandline input variable defaults (override with -D)
 include(CMakeDependentOption)
@@ -233,11 +233,17 @@ if (ASGARD_USE_PYTHON)
     endforeach()
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
 
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardplot.sh" "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" @ONLY)
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" DESTINATION bin PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardplot.sh"
+                   "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh"
+            DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardrun.sh" "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" @ONLY)
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" DESTINATION bin PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardrun.sh"
+                   "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh"
+            DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 
     # install the module without the testing files
     set(__pyasgard_libasgard_path__ "${__asgard_final_path}")
@@ -279,7 +285,7 @@ if (ASGARD_BUILD_TESTS)
     foreach(_asg_testinput test_input1.txt test_input2.txt)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
                           COMMAND "${CMAKE_COMMAND}"
-                          ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
+                          ARGS -E copy "${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}" "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}"
                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}")
         list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
@@ -288,7 +294,7 @@ if (ASGARD_BUILD_TESTS)
     foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
                            COMMAND "${CMAKE_COMMAND}"
-                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}
+                           ARGS -E copy "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}" "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
                            DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
         list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
@@ -542,7 +548,7 @@ if (ASGARD_BUILD_TESTS)
       target_link_libraries(${_asgname} PUBLIC libasgard)
 
       if (ASGARD_BUILD_HDF5 OR ASGARD_BUILD_OPENBLAS)
-          set_target_properties(${_asgname} PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/lib/")
+          set_target_properties(${_asgname} PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/")
       endif()
 
       if (${ASGARD_USE_PCH})
@@ -685,9 +691,9 @@ foreach (_asgcomp ${asgard_components})
 endforeach()
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.hpp"
               "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard.h"
-        DESTINATION include)
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp"
-        DESTINATION include)
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 configure_file(examples/CMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt @ONLY)
 configure_file(testing/TestingCMakeLists.txt ${CMAKE_CURRENT_BINARY_DIR}/test/CMakeLists.txt @ONLY)
@@ -708,7 +714,8 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/examples/CMakeLists.txt"
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/test/CMakeLists.txt"
         DESTINATION share/asgard/testing)
 
-install(EXPORT "asgard-export" DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}"
+install(EXPORT "asgard-export"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}"
         FILE "${CMAKE_PROJECT_NAME}-targets.cmake")
 
 configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/asgard-config.cmake"
@@ -717,5 +724,6 @@ configure_package_config_file("${CMAKE_CURRENT_SOURCE_DIR}/asgard-config.cmake"
 write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
                                  COMPATIBILITY AnyNewerVersion)
 # INSTALL_DESTINATION above seems to refer to something else, asgard-config.cmake must be installed explicitly
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake" "${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgard-config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/asgard-config-version.cmake"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}")
