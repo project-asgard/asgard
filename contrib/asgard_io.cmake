@@ -8,7 +8,6 @@
 # header-only library for a c++ interface into libhdf5
 # included in the asgard repo at contrib/HighFive
 ###############################################################################
-if (ASGARD_USE_HIGHFIVE)
 
   add_library (asgard_hdf5 INTERFACE)
 
@@ -121,5 +120,3 @@ if (ASGARD_USE_HIGHFIVE)
   add_library (asgard_highfive INTERFACE)
   target_include_directories (asgard_highfive INTERFACE $<BUILD_INTERFACE:${__asg_highfive_path}/include>)
   target_link_libraries (asgard_highfive INTERFACE asgard_hdf5)
-
-endif()

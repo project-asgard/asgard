@@ -64,7 +64,8 @@ if ("@ASGARD_USE_HIGHFIVE@")
 endif()
 
 add_executable(asgard::exe IMPORTED)
-set_property(TARGET asgard::exe PROPERTY IMPORTED_LOCATION "@__asgard_install_prefix@/bin/asgard${CMAKE_EXECUTABLE_SUFFIX_CXX}")
+set_property(TARGET asgard::exe PROPERTY IMPORTED_LOCATION
+             "@__asgard_install_prefix@/@CMAKE_INSTALL_BINDIR@/asgard${CMAKE_EXECUTABLE_SUFFIX_CXX}")
 
 add_library(asgard::asgard INTERFACE IMPORTED GLOBAL)
 target_link_libraries(asgard::asgard INTERFACE libasgard)

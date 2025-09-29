@@ -123,6 +123,7 @@ list(APPEND _asgard_pdes ${_asgard_int_pdes})
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
+include(GNUInstallDirs)
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 find_package (ASGARDLINALG REQUIRED)
@@ -144,13 +145,15 @@ if (ASGARD_USE_GITINFO)
   endif()
 endif()
 
-# sets HighFive_FOUND, must be included after ASGARDLINALG
-include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
+# handles the I/O logic, must be included after ASGARDLINALG
+if (ASGARD_USE_HIGHFIVE)
+  include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
+endif()
 
 # handle OpenMP dependence
 if (ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)
-elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT APPLE)
   # OpenMP has poor support on OSX platforms, do not recommend as a default
   # ASGARD_USE_OPENMP will still explicitly enable OpenMP regardless of the platform
   find_package(OpenMP)
@@ -187,17 +190,17 @@ if (ASGARD_USE_PYTHON)
     endif()
     find_package(Python 3.0 REQUIRED COMPONENTS Interpreter)
 
-    set(__asgard_pysubpath "lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages")
+    set(__asgard_pysubpath "${CMAKE_INSTALL_LIBDIR}/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages")
     if (SKBUILD)
     # scikit build compiles and install in one place, then moves the files to a different location
         if (ASGARD_osx_framework)
-            set(__asgard_pysubpath "lib/python/site-packages")
+            set(__asgard_pysubpath "${CMAKE_INSTALL_LIBDIR}/python/site-packages")
         endif()
         set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgardLINALG${CMAKE_SHARED_LIBRARY_SUFFIX}")
         set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     else()
         # regular build, all those folders are the same
-        set(__asgard_final_path "${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        set(__asgard_final_path "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
         set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     endif()
 
@@ -402,10 +405,12 @@ foreach (component IN LISTS asgard_components)
                         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.cpp>
         )
     endif()
-    target_precompile_headers (libasgard
-                               PUBLIC
-                               $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.hpp>>
-    )
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.hpp)
+        target_precompile_headers (libasgard
+                                   PUBLIC
+                                   $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.hpp>>
+        )
+    endif()
 endforeach ()
 
 target_precompile_headers (libasgard
@@ -661,7 +666,6 @@ endforeach()
 #-------------------------------------------------------------------------------
 # Installing the library as stand-alone
 #-------------------------------------------------------------------------------
-include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${__asgard_install_prefix}/${CMAKE_INSTALL_INCLUDEDIR}>)

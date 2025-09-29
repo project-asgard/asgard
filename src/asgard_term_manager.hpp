@@ -7,23 +7,6 @@ namespace asgard
 
 /*!
  * \internal
- * \brief holds the points and values of a variable rhs function
- *
- * Used a both workspace/scratch-space and a way to avoid double-evals
- * of the rhs, e.g., once for the operator matrix and once for
- * the separable boundary condition.
- * \endinternal
- */
-template<typename P>
-struct rhs_raw_data {
-  //! points in the domain, where rhs was evaluated
-  std::vector<P> pnts;
-  //! the values of the rhs
-  std::vector<P> vals;
-};
-
-/*!
- * \internal
  * \brief Additional data for term coupling, e.g., Poisson electric field
  *
  * This just holds a bunch of vectors with data needed for the term coefficients,

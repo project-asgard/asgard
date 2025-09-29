@@ -2,9 +2,9 @@
 
 #include "asgard.hpp"
 
-std::string asgard_test_name;   // the name of the currently running test
-bool asgard_test_pass  = true;  // helps in reporting whether the last test passed
-bool asgard_all_tests  = true;  // reports total result of all tests
+inline std::string asgard_test_name;   // the name of the currently running test
+inline bool asgard_test_pass  = true;  // helps in reporting whether the last test passed
+inline bool asgard_all_tests  = true;  // reports total result of all tests
 
 // test assert macro
 #define tassert(_result_)      \
