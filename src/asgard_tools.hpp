@@ -152,6 +152,7 @@ public:
 
     if (flops != -1) {
       expect(flops >= 0);
+      max_flops_ = std::max(max_flops_, flops);
       // flops -> Gflops has factor 1.E-9, ms -> seconds has factor 1.E-3
       // flops / ms -> Gflops / second has factor 1.E-9 / 1.E-3 = 1.E-6
       event.gflops.push_back(1.E-6 * static_cast<double>(flops) / event.intervals.back());
@@ -181,12 +182,16 @@ public:
   static double duration_since(std::optional<time_point> const &start) {
     return duration_since(start.value());
   }
+  //! return the max reported flops
+  int64_t max_flops() const { return max_flops_; }
 
 private:
   //! kepps track of the start of the simulation
   time_point start_;
   //! for each event key, stores a list of durations
   std::map<std::string, events_list> events_;
+  //! keep track of the max flops
+  int64_t max_flops_ = 0;
 };
 
 /*!

@@ -324,6 +324,13 @@ public:
     }
     os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes())
        << "  dof: " << std::setw(14) << tools::split_style(state.size());
+
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = tools::timer.max_flops();
+    if (flops > 0)
+      os << "  maxGflops: " << std::to_string(1.E-9 * static_cast<double>(flops));
+    #endif
+
     int64_t const num_appy = stepper.solver_iterations();
     if (num_appy > 0) { // using iterative solver
       os << "  av-iter: " << std::setw(14) << tools::split_style(num_appy / stepper.data.step())
