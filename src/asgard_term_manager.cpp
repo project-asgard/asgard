@@ -1281,6 +1281,76 @@ void term_manager<P>::apply_tmpl(
   }
 }
 
+#ifdef ASGARD_USE_FLOPCOUNTER
+template<typename P>
+int64_t term_manager<P>::flop_count(
+    int gid, sparse_grid const &grid, connection_patterns const &conns, P alpha, P beta) const
+{
+  expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
+
+  int const gidx = gid + 1;
+  if (flop_info.size() <= static_cast<size_t>(gidx))
+    flop_info.resize(gidx + 1);
+
+  if (flop_info[gidx].grid_gen == grid.generation())
+    return flop_info[gidx].flops;
+
+  int64_t flops = 0;
+
+  auto kterm = [&grid, &conns, &flops, this](term_entry<P> const &tme, P al, P be)
+    -> void {
+      if (tme.tmd.is_interpolatory()) {
+        // interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+      } else {
+        flops += block_cpu(legendre.pdof, grid, conns, tme.perm, al, be, kwork);
+      }
+    };
+
+  P b = beta; // on first iteration, overwrite y
+
+  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
+  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+  while (icurrent < iend)
+  {
+    auto it = terms.begin() + icurrent;
+
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(it->rec)) {
+      icurrent += it->num_chain;
+      continue;
+    }
+    #endif
+
+    if (it->num_chain == 1) {
+      kterm(*it, alpha, b);
+      ++icurrent;
+    } else {
+      // dealing with a chain
+      int const num_chain = it->num_chain;
+
+      kterm(*(it + num_chain - 1), 1, 0);
+
+      for (int i = num_chain - 2; i > 0; --i)
+        kterm(*(it + i), 1, 0);
+
+      kterm(*it, alpha, b);
+
+      icurrent += num_chain;
+    }
+
+    b = 1; // next iteration appends on y
+  }
+
+  if (not has_terms_)
+    flops += static_cast<int64_t>(kwork.w1.size());
+
+  flop_info[gidx].grid_gen = grid.generation();
+  flop_info[gidx].flops    = flops;
+
+  return flops;
+}
+#endif
+
 #ifdef ASGARD_USE_GPU
 template<typename P>
 void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)

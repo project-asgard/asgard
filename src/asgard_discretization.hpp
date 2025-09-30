@@ -214,28 +214,48 @@ public:
   void terms_apply(precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    double const flops = static_cast<double>(terms.flop_count(-1, grid, conn, alpha, beta));
+    tools::time_event performance_("terms_apply_all kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply_all kronmult");
+    #endif
     terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    double const flops = static_cast<double>(terms.flop_count(-1, grid, conn, alpha, beta));
+    tools::time_event performance_("terms_apply_all kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply_all kronmult");
+    #endif
     terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    double const flops = static_cast<double>(terms.flop_count(gid.gid, grid, conn, alpha, beta));
+    tools::time_event performance_("terms_apply kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply kronmult");
+    #endif
     terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    double const flops = static_cast<double>(terms.flop_count(gid.gid, grid, conn, alpha, beta));
+    tools::time_event performance_("terms_apply kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply kronmult");
+    #endif
     terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
@@ -564,7 +584,12 @@ protected:
     } else {
     #endif
       {
+        #ifdef ASGARD_USE_FLOPCOUNTER
+        double const flops = static_cast<double>(terms.flop_count(gid, grid, conn, -1, 0));
+        tools::time_event performance_("ode-rhs kronmult", flops);
+        #else
         tools::time_event performance_("ode-rhs kronmult");
+        #endif
         if constexpr (use_groups)
           terms.apply(gid, grid, conn, -1, current, 0, R);
         else

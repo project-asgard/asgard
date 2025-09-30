@@ -439,6 +439,12 @@ struct term_manager
              P alpha, P const x[], P beta, P y[]) const {
     apply_tmpl<P const[], P[]>(gid, grid, conn, alpha, x, beta, y);
   }
+  #ifdef ASGARD_USE_FLOPCOUNTER
+  //! count flops for the application of the specified group
+  int64_t flop_count(
+    int gid, sparse_grid const &grid, connection_patterns const &conns, P alpha, P beta) const;
+  #endif
+
   //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
   void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
                      P const x[], P y[]) const;
@@ -545,6 +551,7 @@ protected:
   void apply_tmpl(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const;
+
   #ifdef ASGARD_USE_GPU
   //! single point implementation for all variations of apply, uses the GPU the data can come from the CPU or GPU
   template<typename vector_type_x, typename vector_type_y, compute_mode mode>
@@ -571,6 +578,14 @@ private:
 
   block_diag_matrix<P> raw_diag0, raw_diag1;
   block_tri_matrix<P> raw_tri0, raw_tri1;
+
+  #ifdef ASGARD_USE_FLOPCOUNTER
+  struct flop_info_entry {
+    int grid_gen = -1;
+    int64_t flops = 0;
+  };
+  mutable std::vector<flop_info_entry> flop_info;
+  #endif
 };
 
 } // namespace asgard

@@ -532,7 +532,19 @@ public:
                  P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 0;
+    double const flops = [&, this]()->double {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, P{wav_scale}, P{0}, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return static_cast<double>(flop_info[id].flops);
+      }();
+    tools::time_event performance_("wavelet-to-nodal", flops);
+    #else
     tools::time_event performance_("wavelet-to-nodal");
+    #endif
     block_cpu(n, grid, conn, perm, wav2nodal1d(), P{wav_scale}, f, P{0}, vals, work);
   }
   //! compute nodal values for the field
@@ -549,7 +561,19 @@ public:
   void nodal2hier(sparse_grid const &grid, connection_patterns const &conn,
                   P vals[], kronmult::workspace<P> &work) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 1;
+    double const flops = [&, this]()->double {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::blocksv_cpu(n, grid, conn[connect_1d::hierarchy::volume], work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return static_cast<double>(flop_info[id].flops);
+      }();
+    tools::time_event performance_("nodal-to-hier", flops);
+    #else
     tools::time_event performance_("nodal-to-hier");
+    #endif
     blocksv_cpu(n, grid, conn[connect_1d::hierarchy::volume],
                 nodal2hier1d(), vals, work);
   }
@@ -566,7 +590,19 @@ public:
                 P const f[], P vals[],
                 kronmult::workspace<P> &work) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 2;
+    double const flops = [&, this]()->double {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, P{iwav_scale}, P{0}, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return static_cast<double>(flop_info[id].flops);
+      }();
+    tools::time_event performance_("hier-to-wavelet", flops);
+    #else
     tools::time_event performance_("hier-to-wavelet");
+    #endif
     block_cpu(n, grid, conn, perm, hier2wav1d(), P{iwav_scale}, f, P{0}, vals, work);
   }
   //! compute nodal values for the field
@@ -583,7 +619,19 @@ public:
                 P alpha, P const f[], P beta, P vals[],
                 kronmult::workspace<P> &work) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 2;
+    double const flops = [&, this]()->double {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, alpha * iwav_scale, beta, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return static_cast<double>(flop_info[id].flops);
+      }();
+    tools::time_event performance_("hier-to-wavelet", flops);
+    #else
     tools::time_event performance_("hier-to-wavelet");
+    #endif
     block_cpu(n, grid, conn, perm, hier2wav1d(), alpha * iwav_scale, f, beta, vals, work);
   }
   //! compute nodal values for the field
@@ -850,6 +898,15 @@ private:
   mutable vector2d<P> nodes_;
 
   kronmult::permutes perm;
+
+  #ifdef ASGARD_USE_FLOPCOUNTER
+  struct flop_info_entry {
+    int grid_gen = -1;
+    int64_t flops = 0;
+  };
+  // indexes are wav2nodal (0), nodal2hier (1), hier2wav(2)
+  mutable std::array<flop_info_entry, 3> flop_info;
+  #endif
 };
 
 } // namespace asgard
