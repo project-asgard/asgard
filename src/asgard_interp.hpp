@@ -743,7 +743,19 @@ public:
                  connection_patterns const &conn, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 0;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, P{wav_scale}, P{0}, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("wavelet-to-nodal", flops);
+    #else
     tools::time_event performance_("wavelet-to-nodal");
+    #endif
     block_gpu(dev, n, grid, conn, perm, wav2nodal1d(dev), P{wav_scale}, f,
               P{0}, vals, work, wav2nodal1d());
   }
@@ -752,7 +764,19 @@ public:
                   connection_patterns const &conn, P vals[],
                   kronmult::workspace<P> &work) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 1;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::blocksv_cpu(n, grid, conn[connect_1d::hierarchy::volume], work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("nodal-to-hier", flops);
+    #else
     tools::time_event performance_("nodal-to-hier");
+    #endif
     blocksv_gpu(dev, n, grid, conn, nodal2hier1d(dev), vals, work, nodal2hier1d());
   }
   //! compute nodal values for the field
@@ -761,7 +785,19 @@ public:
                 P alpha, P const f[], P beta, P vals[],
                 kronmult::workspace<P> &work) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 2;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, alpha * iwav_scale, beta, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("hier-to-wavelet", flops);
+    #else
     tools::time_event performance_("hier-to-wavelet");
+    #endif
     block_gpu(dev, n, grid, conn, perm, hier2wav1d(dev), alpha * iwav_scale, f, beta, vals, work, hier2wav1d());
   }
   /*!
