@@ -82,6 +82,18 @@ void blocksv_cpu(int n, sparse_grid const &grid,
                  block_sparse_matrix<precision> const &gvals,
                  precision y[], workspace<precision> &work);
 
+#ifdef ASGARD_USE_FLOPCOUNTER
+//! counts the flops for the specific kronmult operation
+template<typename precision>
+int64_t block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
+                  permutes const &perm, precision alpha, precision beta, workspace<precision> &work);
+
+//! counts the flops for the specific kronmult operation
+template<typename precision>
+int64_t blocksv_cpu(int n, sparse_grid const &grid, connect_1d const &volume_conn,
+                    workspace<precision> &work);
+#endif
+
 #ifdef ASGARD_USE_GPU
 /*!
  * \brief GPU implementation for the block-cpu evaluate
