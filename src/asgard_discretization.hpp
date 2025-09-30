@@ -215,7 +215,7 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    double const flops = static_cast<double>(terms.flop_count(-1, grid, conn, alpha, beta));
+    int64_t const flops = terms.flop_count(-1, grid, conn, alpha, beta);
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
@@ -227,7 +227,7 @@ public:
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    double const flops = static_cast<double>(terms.flop_count(-1, grid, conn, alpha, beta));
+    int64_t const flops = terms.flop_count(-1, grid, conn, alpha, beta);
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
@@ -239,7 +239,7 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    double const flops = static_cast<double>(terms.flop_count(gid.gid, grid, conn, alpha, beta));
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
@@ -251,7 +251,7 @@ public:
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    double const flops = static_cast<double>(terms.flop_count(gid.gid, grid, conn, alpha, beta));
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
@@ -585,7 +585,7 @@ protected:
     #endif
       {
         #ifdef ASGARD_USE_FLOPCOUNTER
-        double const flops = static_cast<double>(terms.flop_count(gid, grid, conn, -1, 0));
+        int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);
         tools::time_event performance_("ode-rhs kronmult", flops);
         #else
         tools::time_event performance_("ode-rhs kronmult");

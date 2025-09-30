@@ -534,12 +534,12 @@ public:
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = 0;
-    double const flops = [&, this]()->double {
+    int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, P{wav_scale}, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
-        return static_cast<double>(flop_info[id].flops);
+        return flop_info[id].flops;
       }();
     tools::time_event performance_("wavelet-to-nodal", flops);
     #else
@@ -563,12 +563,12 @@ public:
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = 1;
-    double const flops = [&, this]()->double {
+    int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::blocksv_cpu(n, grid, conn[connect_1d::hierarchy::volume], work);
           flop_info[id].grid_gen = grid.generation();
         }
-        return static_cast<double>(flop_info[id].flops);
+        return flop_info[id].flops;
       }();
     tools::time_event performance_("nodal-to-hier", flops);
     #else
@@ -592,12 +592,12 @@ public:
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = 2;
-    double const flops = [&, this]()->double {
+    int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, P{iwav_scale}, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
-        return static_cast<double>(flop_info[id].flops);
+        return flop_info[id].flops;
       }();
     tools::time_event performance_("hier-to-wavelet", flops);
     #else
@@ -621,12 +621,12 @@ public:
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = 2;
-    double const flops = [&, this]()->double {
+    int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, alpha * iwav_scale, beta, work);
           flop_info[id].grid_gen = grid.generation();
         }
-        return static_cast<double>(flop_info[id].flops);
+        return flop_info[id].flops;
       }();
     tools::time_event performance_("hier-to-wavelet", flops);
     #else

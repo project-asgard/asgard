@@ -135,7 +135,7 @@ public:
   }
 
   //! stop the event and record the duration and flops (if present)
-  double stop(std::string const &id, double const flops = -1)
+  double stop(std::string const &id, int64_t const flops = -1)
   {
 #ifdef ASGARD_USE_CUDA
 #ifndef NDEBUG
@@ -154,7 +154,7 @@ public:
       expect(flops >= 0);
       // flops -> Gflops has factor 1.E-9, ms -> seconds has factor 1.E-3
       // flops / ms -> Gflops / second has factor 1.E-9 / 1.E-3 = 1.E-6
-      event.gflops.push_back(1.E-6 * flops / event.intervals.back());
+      event.gflops.push_back(1.E-6 * static_cast<double>(flops) / event.intervals.back());
     }
 
     return event.intervals.back();
@@ -231,7 +231,7 @@ struct time_event
       : event_name_(timer.start(event_name)), flops(-1)
   {}
   //! \brief Constructor, start timing for flop count.
-  time_event(std::string const &event_name, double op_flops)
+  time_event(std::string const &event_name, int64_t op_flops)
       : event_name_(timer.start(event_name)), flops(op_flops)
   {}
   //! \brief Destructor, stop timing.
@@ -240,7 +240,7 @@ struct time_event
   //! \brief Name of the event being timed.
   std::string const event_name_;
   //! \brief FLOPs, for the case when we are timing linear algebra.
-  double flops;
+  int64_t flops;
 };
 
 //! null time event
