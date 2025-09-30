@@ -1286,6 +1286,11 @@ template<typename P>
 int64_t term_manager<P>::flop_count(
     int gid, sparse_grid const &grid, connection_patterns const &conns, P alpha, P beta) const
 {
+  #ifdef ASGARD_USE_MPI
+  if (not is_leader())
+    return -1;
+  #endif
+
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
   int const gidx = gid + 1;
@@ -1299,11 +1304,8 @@ int64_t term_manager<P>::flop_count(
 
   auto kterm = [&grid, &conns, &flops, this](term_entry<P> const &tme, P al, P be)
     -> void {
-      if (tme.tmd.is_interpolatory()) {
-        // interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-      } else {
+      if (not tme.tmd.is_interpolatory())
         flops += block_cpu(legendre.pdof, grid, conns, tme.perm, al, be, kwork);
-      }
     };
 
   P b = beta; // on first iteration, overwrite y
@@ -1313,13 +1315,6 @@ int64_t term_manager<P>::flop_count(
   while (icurrent < iend)
   {
     auto it = terms.begin() + icurrent;
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(it->rec)) {
-      icurrent += it->num_chain;
-      continue;
-    }
-    #endif
 
     if (it->num_chain == 1) {
       kterm(*it, alpha, b);
