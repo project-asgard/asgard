@@ -214,28 +214,48 @@ public:
   void terms_apply(precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(-1, grid, conn, alpha, beta);
+    tools::time_event performance_("terms_apply_all kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply_all kronmult");
+    #endif
     terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(-1, grid, conn, alpha, beta);
+    tools::time_event performance_("terms_apply_all kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply_all kronmult");
+    #endif
     terms.apply(grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
+    tools::time_event performance_("terms_apply kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply kronmult");
+    #endif
     terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
+    tools::time_event performance_("terms_apply kronmult", flops);
+    #else
     tools::time_event performance_("terms_apply kronmult");
+    #endif
     terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
   //! applies ADI preconditioner for all terms
@@ -304,6 +324,13 @@ public:
     }
     os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes())
        << "  dof: " << std::setw(14) << tools::split_style(state.size());
+
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = tools::timer.max_flops();
+    if (flops > 0)
+      os << "  maxGflops: " << std::to_string(1.E-9 * static_cast<double>(flops));
+    #endif
+
     int64_t const num_appy = stepper.solver_iterations();
     if (num_appy > 0) { // using iterative solver
       os << "  av-iter: " << std::setw(14) << tools::split_style(num_appy / stepper.data.step())
@@ -564,7 +591,12 @@ protected:
     } else {
     #endif
       {
+        #ifdef ASGARD_USE_FLOPCOUNTER
+        int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);
+        tools::time_event performance_("ode-rhs kronmult", flops);
+        #else
         tools::time_event performance_("ode-rhs kronmult");
+        #endif
         if constexpr (use_groups)
           terms.apply(gid, grid, conn, -1, current, 0, R);
         else

@@ -950,6 +950,79 @@ void blocksv_cpu(int n, sparse_grid const &grid,
     globalsv_cpu(num_dimensions, n, grid, d, vconn, gvals.data(), y, work.row_map);
 }
 
+#ifdef ASGARD_USE_FLOPCOUNTER
+
+template<typename precision>
+int64_t block_cpu(
+    int n, sparse_grid const &grid, connection_patterns const &conns,
+    permutes const &perm,  precision alpha, precision beta, workspace<precision> &work)
+{
+  auto get_connect_1d = [&](permutes::matrix_fill const fill)
+      -> connect_1d const & {
+    if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
+      return conns[connect_1d::hierarchy::full];
+    else
+      return conns[connect_1d::hierarchy::volume];
+  };
+
+  int const num_dims    = grid.num_dims();
+  int const active_dims = perm.num_dimensions();
+  expect(active_dims > 0);
+
+  int64_t const num_entries = static_cast<int64_t>(work.w1.size());
+
+  asgard_kronmult_nblocks_ = 0;
+
+  int64_t num_scal = 0;
+
+  for (size_t i = 0; i < perm.fill.size(); i++)
+  {
+    int dir = perm.direction[i][0];
+
+    block_cpu<precision>(num_dims, -1, grid, dir, perm.fill[i][0],
+                         get_connect_1d(perm.fill[i][0]),
+                         nullptr, nullptr, nullptr, work.row_map);
+
+    for (int d = 1; d < active_dims; d++)
+    {
+      dir = perm.direction[i][d];
+      block_cpu<precision>(num_dims, -1, grid, dir, perm.fill[i][d],
+                           get_connect_1d(perm.fill[i][d]),
+                           nullptr, nullptr, nullptr, work.row_map);
+    }
+
+    if (i == 0) {
+      if (beta == 0) {
+        num_scal += num_entries;
+      } else {
+        num_scal += 2 * num_entries;
+      }
+    } else {
+      if (alpha == 1 or alpha == -1) {
+        num_scal += num_entries;
+      } else {
+        num_scal += 2 * num_entries;
+      }
+    }
+  }
+
+  return 2 * asgard_kronmult_nblocks_ * fm::ipow(n, num_dims + 1) + num_scal;
+}
+
+template<typename precision>
+int64_t blocksv_cpu(int n, sparse_grid const &grid, connect_1d const &vconn,
+                    workspace<precision> &work)
+{
+  asgard_kronmult_nblocks_ = 0;
+  int const num_dims = grid.num_dims();
+  for (int d = 0; d < num_dims; d++)
+    globalsv_cpu<precision>(num_dims, -1, grid, d, vconn, nullptr, nullptr, work.row_map);
+
+  return 2 * asgard_kronmult_nblocks_ * fm::ipow(n, num_dims + 1);
+}
+
+#endif
+
 #ifdef ASGARD_ENABLE_DOUBLE
 
 template void block_cpu<double>(
@@ -966,6 +1039,15 @@ template void blocksv_cpu<double>(
     int, sparse_grid const &, connect_1d const &,
     block_sparse_matrix<double> const &,
     double[], workspace<double> &);
+
+#ifdef ASGARD_USE_FLOPCOUNTER
+template int64_t block_cpu<double>(
+    int, sparse_grid const &, connection_patterns const &,
+    permutes const &, double, double, workspace<double> &);
+
+template int64_t blocksv_cpu<double>(
+    int, sparse_grid const &, connect_1d const &, workspace<double> &work);
+#endif
 
 #endif
 
@@ -985,6 +1067,15 @@ template void blocksv_cpu<float>(
       int, sparse_grid const &, connect_1d const &,
       block_sparse_matrix<float> const &,
       float y[], workspace<float> &workspace);
+
+#ifdef ASGARD_USE_FLOPCOUNTER
+template int64_t block_cpu<float>(
+    int, sparse_grid const &, connection_patterns const &,
+    permutes const &, float, float, workspace<float> &);
+
+template int64_t blocksv_cpu<float>(
+    int, sparse_grid const &, connect_1d const &, workspace<float> &work);
+#endif
 
 #endif
 
