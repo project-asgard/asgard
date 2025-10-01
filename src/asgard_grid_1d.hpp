@@ -42,7 +42,7 @@ public:
    *  \brief Constructor, makes the connectivity up to and including the given
    *         max-level.
    */
-  connect_1d(int const max_level, hierarchy mode = hierarchy::full)
+  connect_1d(int const max_level, hierarchy mode)
       : levels(max_level)
   {
     expect(mode == hierarchy::full or mode == hierarchy::volume);
