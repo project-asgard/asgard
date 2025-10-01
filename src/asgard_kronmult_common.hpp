@@ -140,15 +140,8 @@ void set_buffer_to_zero(gpu::vector<T> &x)
  */
 struct permutes
 {
-  //! \brief Indicates the fill of the matrix.
-  enum class matrix_fill
-  {
-    upper,
-    both,
-    lower
-  };
   //! \brief Matrix fill for each operation.
-  std::vector<std::vector<matrix_fill>> fill;
+  std::vector<std::vector<conn_fill>> fill;
   //! \brief Direction for each matrix operation.
   std::vector<std::vector<int>> direction;
   //! \brief Direction of the flux, if any
@@ -182,7 +175,7 @@ struct permutes
       std::sort(direction[perm].begin(), direction[perm].end());
       for (int d = 0; d < num_dimensions; d++)
       {
-        fill[perm][d] = (direction[perm][d] < 0) ? matrix_fill::upper : ((direction[perm][d] > 0) ? matrix_fill::lower : matrix_fill::both);
+        fill[perm][d] = (direction[perm][d] < 0) ? conn_fill::upper : ((direction[perm][d] > 0) ? conn_fill::lower : conn_fill::both);
 
         direction[perm][d] = std::abs(direction[perm][d]);
       }
@@ -199,9 +192,9 @@ struct permutes
   {
     switch (fill[perm][stage])
     {
-    case matrix_fill::upper:
+    case conn_fill::upper:
       return "upper";
-    case matrix_fill::lower:
+    case conn_fill::lower:
       return "lower";
     default:
       return "full";

@@ -50,7 +50,7 @@ inline constexpr int num_teams(int team_size) {
 namespace asgard::kronmult
 {
 
-template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim, int n>
+template<typename precision, int num_dimensions, int dim, int n>
 __global__ void kernel_block_gpu_cycle1(
     int const grid_vecs, int const grid_pntr[], int const grid_order[], int const grid_sorted[],
     int const grid_vec_levels[],
@@ -81,24 +81,28 @@ __global__ void kernel_block_gpu_cycle1(
     int nnz = conn_pntr[level][num_rows];
 
     // find an entry to process
-    // assumption here is that teamID >= cumulative_nnz, so we are looking for vec_id
-    // so that teamID < cumulative_nnz + nnz
-    while (vec_id < grid_vecs and teamID > cumulative_nnz + nnz) {
-      vec_id++;
-      cumulative_nnz += nnz;
+    // look for vec_id such that cumulative_nnz <= teamID < cumulative_nnz + nnz
+    // at the start of the loop, we are assuming that cumulative_nnz <= teamID
+    while (vec_id < grid_vecs and cumulative_nnz + nnz <= teamID) {
+      vec_id++; // skip one vector
+      cumulative_nnz += nnz; // update the running total
 
-      level = grid_vec_levels[vec_id];
+      level = grid_vec_levels[vec_id];  // update the level and num-rows
       num_rows = (1 << level);
       nnz = conn_pntr[level][num_rows];
     }
 
-    if (vec_id >= grid_vecs) //
+    if (vec_id >= grid_vecs) // we overran the number of 1D-vectors
       break;
 
     // from this point, vec_id is a valid vector of 1D multi-indexes
     // now we have to find the x/y index of the specific entry in the product
 
+    int const j = teamID - cumulative_nnz;
 
+    int const ix = conn_indx[level][j]; // this is the x-index
+
+    teamID += gridDim.x * blockDim.y;
   }
 
 
@@ -195,7 +199,7 @@ void launch_block_gpu(
   int constexpr dim  = 0;
   int constexpr dims = 2;
 
-  permutes::matrix_fill constexpr fill = permutes::matrix_fill::lower;
+//  permutes::matrix_fill constexpr fill = permutes::matrix_fill::lower;
 
   constexpr int team_size = nn;
   constexpr int num_teams = ::asgard::gpu::num_teams(team_size);
@@ -205,7 +209,7 @@ void launch_block_gpu(
   dim3 const launch_grid(team_size, num_teams);
   int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
 
-  kernel_block_gpu_cycle1<precision, fill, dims, dim, nn>
+  kernel_block_gpu_cycle1<precision, dims, dim, nn>
     <<<launch_blocks, launch_grid>>>
     (nvecs, grid.pntr[dim].data(), grid.order[dim].data(), grid.sorted[dim].data(),
      grid.vec_levels[dim].data(),
