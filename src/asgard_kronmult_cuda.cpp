@@ -50,12 +50,35 @@ inline constexpr int num_teams(int team_size) {
 namespace asgard::kronmult
 {
 
+__device__ inline int binary_search(int first, int last, int const val, int const list[]) {
+  while (first <= last) {
+    int c = (first + last) / 2;
+    if (list[c] < val) {
+      first = c + 1;
+    } else if (list[c] > val) {
+      last = c - 1;
+    } else {
+      return c;
+    }
+  }
+  return -1;
+}
+
+template<typename precision, int num_dimensions, int dim, int n>
+__device__ inline void vec_mult_add(precision const A[], precision const x[], precision y[]) {
+  if constexpr (n == 1) {
+    atomicAdd(y, A[0] * x[0]);
+  }
+
+  // static_assert(num_dimensions >= 1 and num_dimensions <= 6);
+}
+
 template<typename precision, int num_dimensions, int dim, int n>
 __global__ void kernel_block_gpu_cycle1(
     int const grid_vecs, int const grid_pntr[], int const grid_order[], int const grid_sorted[],
     int const grid_vec_levels[],
-    int const **conn_pntr, int const **conn_indx, int const **conn_diag,
-    precision const **vals, precision const x[], precision y[])
+    int const *const *conn_rowcol, int const *conn_nnz,
+    precision const *const *vals, precision const x[], precision y[])
 {
   // cycle1 case, the team size is n^dim, i.e., one thread per tensor entry
   // ID of member in the team is threadIdx.x
@@ -77,8 +100,7 @@ __global__ void kernel_block_gpu_cycle1(
     //    that is conn_pntr[grid_vec_levels[vec_id]][num-rows-per-level]
 
     int level = grid_vec_levels[vec_id];
-    int num_rows = (1 << level);
-    int nnz = conn_pntr[level][num_rows];
+    int nnz   = conn_nnz[level];
 
     // find an entry to process
     // look for vec_id such that cumulative_nnz <= teamID < cumulative_nnz + nnz
@@ -88,8 +110,7 @@ __global__ void kernel_block_gpu_cycle1(
       cumulative_nnz += nnz; // update the running total
 
       level = grid_vec_levels[vec_id];  // update the level and num-rows
-      num_rows = (1 << level);
-      nnz = conn_pntr[level][num_rows];
+      nnz   = conn_nnz[level];
     }
 
     if (vec_id >= grid_vecs) // we overran the number of 1D-vectors
@@ -100,108 +121,46 @@ __global__ void kernel_block_gpu_cycle1(
 
     int const j = teamID - cumulative_nnz;
 
-    int const ix = conn_indx[level][j]; // this is the x-index
+    // here the ir/ic are the row/column indexes of the 1D block
+    int const ir = conn_rowcol[level][2 * j];
+    int const ic = conn_rowcol[level][2 * j + 1];
+
+    precision const *A = vals[level] + j * n2; // this is the matrix-block
+
+    // need to convert ir/ic to a global ix/iy
+    // with the added challenge that the sparse grid may not hold one or both indexes
+    int const vec_begin = grid_pntr[vec_id];
+    int const vec_end   = grid_pntr[vec_id + 1];
+    int ix = vec_begin + ic;
+    if (ix >= vec_end or grid_sorted[ix] != ic) {
+      // using an adapted grid and we have missing nodes
+      int iend = (ix < vec_end) ? ix : vec_end - 1;
+      ix = binary_search(vec_begin, iend, ic, grid_sorted);
+    }
+    int iy = vec_begin + ir;
+    if (iy >= vec_end or grid_sorted[iy] != ir) {
+      // using an adapted grid and we have missing nodes
+      int iend = (iy < vec_end) ? iy : vec_end - 1;
+      iy = binary_search(vec_begin, iend, ir, grid_sorted);
+    }
+
+    if (ix > -1 and iy > -1) {
+      // we found an x/y pair
+
+      // multiply ( y + sorted[iy] * block_size ) += A * ( x + sorted[ix] * block_size )
+      vec_mult_add<precision, num_dimensions, dim, n>(A, x + grid_sorted[ix] * block_size, y + grid_sorted[iy] * block_size);
+    }
 
     teamID += gridDim.x * blockDim.y;
   }
-
-
-//   dimension_sort const &dsort = grid.dsort();
-//
-//   int const num_vecs = dsort.num_vecs(dim);
-//
-// #ifdef _OPENMP
-//   int const max_threads = omp_get_max_threads();
-// #else
-//   int const max_threads = 1;
-// #endif
-//
-//   if (static_cast<int>(row_wspace.size()) < max_threads)
-//     row_wspace.resize(max_threads);
-//
-//   int threadid = 0;
-// #pragma omp parallel
-//   {
-//     int64_t my_block_count = 0;
-//
-//     int tid;
-// #pragma omp critical
-//     tid = threadid++;
-//
-//     // xidx holds indexes for the entries of the current
-//     // sparse row that are present in the current ilist
-//     std::vector<int64_t> &xidx = row_wspace[tid];
-//     if (static_cast<int>(xidx.size()) < conn.num_rows())
-//       xidx.resize(conn.num_rows(), -1);
-//
-// #pragma omp for schedule(dynamic)
-//     for (int vec_id = 0; vec_id < num_vecs; vec_id++)
-//     {
-//       int const vec_begin = dsort.vec_begin(dim, vec_id);
-//       int const vec_end   = dsort.vec_end(dim, vec_id);
-//       // map the indexes of present entries
-//       for (int j = vec_begin; j < vec_end; j++)
-//         xidx[grid.dsorted(dim, j)] = dsort.map(dim, j) * block_size;
-//
-//       // matrix-vector product using xidx as a row
-//       for (int rj = vec_begin; rj < vec_end; rj++)
-//       {
-//         // row in the 1d pattern
-//         int const row = grid.dsorted(dim, rj);
-//
-//         precision *const local_y = y + xidx[row];
-//
-//         // columns for the 1d pattern
-//         int col_begin = (fill == permutes::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
-//         int col_end   = (fill == permutes::matrix_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
-//
-//         if constexpr (n != -1)
-//           for (int j = 0; j < block_size; j++)
-//             local_y[j] = precision{0};
-//
-//         for (int c = col_begin; c < col_end; c++)
-//         {
-//           int64_t const xj = xidx[conn[c]];
-//           if (xj != -1)
-//           {
-//             if constexpr (n == -1)
-//               my_block_count += 1;
-//             else
-//               gbkron_mult_add<precision, num_dimensions, dim, n>(vals + n2 * c, x + xj, local_y);
-//           }
-//         }
-//       }
-//
-//       // restore the entries
-//       for (int j = vec_begin; j < vec_end; j++)
-//         xidx[grid.dsorted(dim, j)] = -1;
-//     }
-//
-//     if constexpr (n == -1)
-// #pragma omp atomic
-//       asgard_kronmult_nblocks_ += my_block_count;
-//   } // pragma parallel
 }
 
-// void block_cpu(int n, sparse_grid const &grid,
-//                connect_1d const &conn, precision const vals[],
-//                precision const x[], precision y[],
-//                std::vector<std::vector<int64_t>> &row_wspace
-
-template<typename precision>
+template<typename precision, int num_dimensions, int dim, int n>
 void launch_block_gpu(
-    int n, gpu_grid_data const &grid, gpu_connect_1d const &conns,
-    std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
-    precision const x[], precision y[])
+    gpu_grid_data const &grid, gpu_connect_1d const &conns,
+    precision const *const *vals, precision const x[], precision y[])
 {
-  ignore(n);
-  int constexpr nn   = 2;
-  int constexpr dim  = 0;
-  int constexpr dims = 2;
-
-//  permutes::matrix_fill constexpr fill = permutes::matrix_fill::lower;
-
-  constexpr int team_size = nn;
+  constexpr int team_size = n;
   constexpr int num_teams = ::asgard::gpu::num_teams(team_size);
 
   int const nvecs = grid.num_vecs[dim];
@@ -209,12 +168,62 @@ void launch_block_gpu(
   dim3 const launch_grid(team_size, num_teams);
   int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
 
-  kernel_block_gpu_cycle1<precision, dims, dim, nn>
+  kernel_block_gpu_cycle1<precision, num_dimensions, dim, n>
     <<<launch_blocks, launch_grid>>>
     (nvecs, grid.pntr[dim].data(), grid.order[dim].data(), grid.sorted[dim].data(),
      grid.vec_levels[dim].data(),
-     conns.pntr.data(), conns.indx.data(), conns.diag.data(),
-     coeffs[dim].data(), x, y);
+     conns.rowcol(), conns.nnz(), vals, x, y);
+}
+
+template<typename precision, int num_dimensions, int dim>
+void launch_block_gpu(
+    int n, gpu_grid_data const &grid, gpu_connect_1d const &conns,
+    precision const *const *vals, precision const x[], precision y[])
+{
+  static_assert(dim < num_dimensions);
+  switch (n)
+  {
+  case 1:
+    launch_block_gpu<precision, num_dimensions, dim, 1>(grid, conns, vals, x, y);
+    break;
+  default:
+    throw std::runtime_error("(kronmult-gpu) unimplemented n for given -degree");
+  };
+}
+
+template<typename precision, int num_dimensions>
+void launch_block_gpu(
+    int n, gpu_grid_data const &grid, int dim, gpu_connect_1d const &conns,
+    precision const *const *vals, precision const x[], precision y[])
+{
+  if constexpr (num_dimensions == 1)
+  {
+    launch_block_gpu<precision, num_dimensions, 0>(n, grid, conns, vals, x, y);
+  }
+  else if constexpr (num_dimensions == 2)
+  {
+    if (dim == 0)
+      launch_block_gpu<precision, num_dimensions, 0>(n, grid, conns, vals, x, y);
+    else
+      launch_block_gpu<precision, num_dimensions, 1>(n, grid, conns, vals, x, y);
+  }
+  static_assert(1 <= num_dimensions and num_dimensions <= 2);
+}
+
+template<typename precision>
+void launch_block_gpu(
+    int num_dimensions, int n, gpu_grid_data const &grid, int dim,
+    gpu_connect_1d const &conns,
+    precision const *const *vals, precision const x[], precision y[])
+{
+  switch (num_dimensions)
+  {
+  case 1:
+    launch_block_gpu<precision, 1>(n, grid, dim, conns, vals, x, y);
+    break;
+  default:
+    throw std::runtime_error("(kronmult-gpu) works with only up to 6 dimensions");
+  }
 }
 
 template<typename precision>
@@ -239,16 +248,15 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   precision *w1 = work.gpu_w1[dev.id].data();
   precision *w2 = work.gpu_w2[dev.id].data();
 
-  // auto get_connect_1d = [&](permutes::matrix_fill const fill)
-  //     -> gpu_connect_1d const & {
-  //   // if the term has flux, i.e., fdir != -1
-  //   // then the direction using fill::both will use the flux+volume connectivity
-  //   // otherwise we will use only the volume connectivity
-  //   if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
-  //     return conns[connect_1d::hierarchy::full];
-  //   else
-  //     return conns[connect_1d::hierarchy::volume];
-  // };
+  gpu_connect const &gpu_conn = conns.gpu_conns[dev.id];
+
+  auto get_connect_1d = [&](conn_fill const fill)
+      -> gpu_connect_1d const & {
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
+      return gpu_conn.full();
+    else
+      return gpu_conn.patts[static_cast<int>(fill)];
+  };
 
   int const num_dims    = grid.num_dims();
   int const active_dims = perm.num_dimensions();
@@ -258,12 +266,12 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   {
     int dir = perm.direction[i][0];
 
+    launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir, get_connect_1d(perm.fill[i][0]),
+                     coeffs[dir].data(), x, w1);
+
     // block_cpu(num_dims, n, grid, dir, perm.fill[i][0],
     //             get_connect_1d(perm.fill[i][0]),
     //             cmats[dir].data(), x, w1, work.row_map);
-
-
-    //launch_block_gpu(n, grid)
 
     for (int d = 1; d < active_dims; d++)
     {

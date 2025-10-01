@@ -10,7 +10,8 @@ namespace asgard
  *
  * In CPU mode, this is used only by the Kronmult module; however, the GPU algorithms
  * explicitly require the upper and lower connectivity patterns.
- * In GPU mode, this is used by the grid_1d module and asgard::gpu_connect_1d
+ * In GPU mode, this is used by the grid_1d module and asgard::gpu_connect_1d,
+ * thus it is here in a common header.
  */
 enum class conn_fill : int
 {

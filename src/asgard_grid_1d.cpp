@@ -3,6 +3,53 @@
 namespace asgard
 {
 #ifdef ASGARD_USE_GPU
+void gpu_connect_1d::add_level(connect_1d const &conn, conn_fill fill)
+{
+  int nnz = conn.num_connections();
+  if (fill != conn_fill::both) {
+    // must count the true number of non-zeros
+    nnz = 0;
+    if (fill == conn_fill::upper) {
+      for (int r = 0; r < conn.num_rows(); r++)
+        nnz += conn.row_end(r) - conn.row_diag(r);
+    } else {
+      for (int r = 0; r < conn.num_rows(); r++)
+        nnz += conn.row_diag(r) - conn.row_begin(r);
+    }
+  }
+
+  std::vector<int> rc;
+  rc.reserve(2 * nnz);
+
+  for (int r = 0; r < conn.num_rows(); r++) {
+    int const rbegin = (fill == conn_fill::upper) ? conn.row_diag(r) : conn.row_begin(r);
+    int const rend   = (fill == conn_fill::lower) ? conn.row_diag(r) : conn.row_end(r);
+    for (int j = rbegin; j < rend; j++) {
+      rc.push_back(r);
+      rc.push_back(conn[j]);
+    }
+  }
+
+  lrowcol.emplace_back(rc);
+}
+
+void gpu_connect_1d::done_adding()
+{
+  std::vector<int> nnz;
+  nnz.reserve(lrowcol.size());
+
+  std::vector<int *> rc;
+  rc.reserve(lrowcol.size());
+
+  for (auto &v : lrowcol) {
+    nnz.push_back(static_cast<int>(v.size()));
+    rc.push_back(v.data());
+  }
+
+  nnz_    = nnz;
+  rowcol_ = rc;
+}
+
 void connection_patterns::load_to_gpu()
 {
   int const num_gpus  = compute->num_gpus();
