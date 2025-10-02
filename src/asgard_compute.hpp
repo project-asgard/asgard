@@ -393,6 +393,9 @@ public:
     getrs(M, A, ipiv, gpu_b);
     gpu_b.copy_to_host(b);
   }
+  //! fill the vector with zeros
+  template<typename P>
+  void fill_zeros(gpu::vector<P> &x) const { fill_zeros(x.size(), x.data()); }
   #endif
 
   //! tri-diagonal solver, factorization stage

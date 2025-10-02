@@ -719,7 +719,13 @@ void term_manager<P>::rebuld_term1d(
     compute->set_device(gpu::device{tentry.rec.device});
     tentry.gpu_lcoeffs[dim].resize(level + 1);
     std::vector<P*> coeff_pntrs(level + 1, nullptr);
+    // std::cout << " full matrix dim = " << dim << "\n";
+    // tentry.coeffs[dim].to_full(conn).print(); // TODO:: remove
     for (int l = 0; l < level; l++) {
+      // std::cout << " subpattern for l = " << l << "\n";
+      // auto patt = tentry.coeffs[dim].get_subpattern(l, conn);
+      // patt.to_full(connection_patterns(l)).print();
+
       tentry.gpu_lcoeffs[dim][l] = tentry.coeffs[dim].get_subpattern(l, conn).data_vector();
       coeff_pntrs[l] = tentry.gpu_lcoeffs[dim][l].data();
     }

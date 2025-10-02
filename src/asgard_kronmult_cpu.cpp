@@ -333,6 +333,10 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
           int64_t const xj = xidx[conn[c]];
           if (xj != -1)
           {
+            // std::cout << " (iy, ix) = (" << xidx[row] / block_size << ", " << xidx[conn[c]] / block_size
+            //           << ")   (ir, ic) = " << row << ", " << conn[c] << ")  "
+            //           << "  " << (vals + n2 * c)[0] << "    " << (x + xj)[0] << "    " << local_y[0] << "\n";
+
             if constexpr (n == -1)
               my_block_count += 1;
             else
@@ -497,95 +501,40 @@ void block_cpu(int n, sparse_grid const &grid, int dim, connect_1d const &conn,
                std::vector<std::vector<int64_t>> &row_wspace)
 {
   expect(dim < num_dimensions);
-  if constexpr (num_dimensions == 1)
+  switch (dim)
   {
+  case 0:
     block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-  }
-  else if constexpr (num_dimensions == 2)
-  {
-    if (dim == 0)
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-    else
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-  }
-  else if constexpr (num_dimensions == 3)
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
+    break;
+  case 1:
+    if constexpr (num_dimensions >= 2) {
       block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
       break;
-    default: // case 2:
+    }
+  case 2:
+    if constexpr (num_dimensions >= 3) {
       block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
-  }
-  else if constexpr (num_dimensions == 4)
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 2:
-      block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    default: // case 3:
+  case 3:
+    if constexpr (num_dimensions >= 4) {
       block_cpu<precision, fill, num_dimensions, 3>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
-  }
-  else if constexpr (num_dimensions == 5)
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 2:
-      block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 3:
-      block_cpu<precision, fill, num_dimensions, 3>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    default: // case 4:
+  case 4:
+    if constexpr (num_dimensions >= 5) {
       block_cpu<precision, fill, num_dimensions, 4>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
-  }
-  else // num_dimensions == 6
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 2:
-      block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 3:
-      block_cpu<precision, fill, num_dimensions, 3>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 4:
-      block_cpu<precision, fill, num_dimensions, 4>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    default: // case 5:
+  case 5:
+    if constexpr (num_dimensions >= 6) {
       block_cpu<precision, fill, num_dimensions, 5>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
+  default:
+    throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
   }
+  static_assert(1 <= num_dimensions and num_dimensions <= max_num_dimensions);
 }
 
 template<typename precision, int num_dimensions>

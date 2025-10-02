@@ -36,7 +36,7 @@ __device__ constexpr int ipow()
 }
 
 inline constexpr int blocks(int64_t work_size, int work_per_block) {
-  int constexpr max_blocks = 300;
+  int constexpr max_blocks = 320;
   return std::min(max_blocks, static_cast<int>((work_size + work_per_block - 1) / work_per_block));
 }
 
@@ -95,6 +95,8 @@ __global__ void kernel_block_gpu_cycle1(
   int vec_id = 0;
   int cumulative_nnz = 0;
 
+  // printf(" kernel start: vec_id = %d  cumulative_nnz = %d \n", vec_id, cumulative_nnz);
+
   // process all the vectors, i.e., 1D vector of multi-indexes that match in all but one index
   while (vec_id < grid_vecs) {
     // finding the vec_id for this team
@@ -102,18 +104,24 @@ __global__ void kernel_block_gpu_cycle1(
     //    that is conn_pntr[grid_vec_levels[vec_id]][num-rows-per-level]
 
     int level = grid_vec_levels[vec_id];
+    // printf(" level = %d   \n", level);
     int nnz   = conn_nnz[level];
+
+    // printf(" vec_id = %d   level = %d   nnz = %d \n", vec_id, level, nnz);
 
     // find an entry to process
     // look for vec_id such that cumulative_nnz <= teamID < cumulative_nnz + nnz
     // at the start of the loop, we are assuming that cumulative_nnz <= teamID
     while (vec_id < grid_vecs and cumulative_nnz + nnz <= teamID) {
       vec_id++; // skip one vector
+      //printf(" new vec_id = %d \n", vec_id);
       cumulative_nnz += nnz; // update the running total
 
       level = grid_vec_levels[vec_id];  // update the level and num-rows
       nnz   = conn_nnz[level];
     }
+
+    // printf(" vec_id = %d   level = %d   nnz = %d \n", vec_id, level, nnz);
 
     if (vec_id >= grid_vecs) // we overran the number of 1D-vectors
       break;
@@ -121,11 +129,15 @@ __global__ void kernel_block_gpu_cycle1(
     // from this point, vec_id is a valid vector of 1D multi-indexes
     // now we have to find the x/y index of the specific entry in the product
 
+    // printf(" vec_id = %d   level = %d   cumulative_nnz = %d \n", vec_id, level, cumulative_nnz);
+
     int const j = teamID - cumulative_nnz;
 
     // here the ir/ic are the row/column indexes of the 1D block
     int const ir = conn_rowcol[level][2 * j];
     int const ic = conn_rowcol[level][2 * j + 1];
+
+    // printf("(ir, ic) = (%d, %d)\n", ir, ic);
 
     // need to convert ir/ic to a global ix/iy
     // with the added challenge that the sparse grid may not hold one or both indexes
@@ -144,15 +156,19 @@ __global__ void kernel_block_gpu_cycle1(
       iy = binary_search(vec_begin, iend, ir, grid_sorted);
     }
 
+    // printf("ix = %d  iy = %d \n", ix, iy);
+    // printf("(iy, ix) = (%d, %d)  (ir, ic) = (%d, %d)   %e    %e    %e \n", grid_order[iy], grid_order[ix], ir, ic,
+    //         (vals[level] + j * n2)[0], (x + grid_order[ix] * block_size)[0], (y + grid_order[iy] * block_size)[0]);
     if (ix > -1 and iy > -1) {
       // we found an x/y pair
       vec_mult_add<precision, num_dimensions, dim, n>(
             vals[level] + j * n2,
-            x + grid_sorted[ix] * block_size,
-            y + grid_sorted[iy] * block_size);
+            x + grid_order[ix] * block_size,
+            y + grid_order[iy] * block_size);
     }
 
     teamID += gridDim.x * blockDim.y;
+    // printf(" teamID = %d\n", teamID);
   }
 }
 
@@ -162,17 +178,32 @@ void launch_block_gpu(
     precision const *const *vals, precision const x[], precision y[])
 {
   constexpr int team_size = n;
-  constexpr int num_teams = ::asgard::gpu::num_teams(team_size);
+  constexpr int num_teams = ::asgard::gpu::num_teams(team_size) / 32;
+  // constexpr int num_teams = 1;
 
   int const nvecs = grid.num_vecs[dim];
 
   dim3 const launch_grid(team_size, num_teams);
   int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
+  // int const launch_blocks = 1;
+
+  auto nz = conns.nnz_.copy_to_host();
+  // std::cout << " nnz entries = " << nz.size() << "  " << conns.nnz_.size() << "\n";
+  // for (auto &x : nz)
+  //   std::cout << " nz = " << x << '\n';
+
+  // std::cout << " team_size = " << team_size
+  //           << " num_teams = " << num_teams
+  //           << " launch_grid.x = " << launch_grid.x
+  //           << " launch_grid.y = " << launch_grid.y
+  //           << " launch_grid.z = " << launch_grid.z
+  //           << " launch_blocks = " << launch_blocks
+  //           << '\n';
 
   kernel_block_gpu_cycle1<precision, num_dimensions, dim, n>
     <<<launch_blocks, launch_grid>>>
-    (nvecs, grid.pntr[dim].data(), grid.order[dim].data(), grid.sorted[dim].data(),
-     grid.vec_levels[dim].data(),
+    (nvecs, grid.pntr[dim].data(), grid.order[dim].data(),
+     grid.sorted[dim].data(), grid.vec_levels[dim].data(),
      conns.rowcol(), conns.nnz(), vals, x, y);
 }
 
@@ -197,18 +228,41 @@ void launch_block_gpu(
     int n, gpu_grid_data const &grid, int dim, gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  if constexpr (num_dimensions == 1)
+  expect(dim < num_dimensions);
+  switch (dim)
   {
+  case 0:
     launch_block_gpu<precision, num_dimensions, 0>(n, grid, conns, vals, x, y);
-  }
-  else if constexpr (num_dimensions == 2)
-  {
-    if (dim == 0)
-      launch_block_gpu<precision, num_dimensions, 0>(n, grid, conns, vals, x, y);
-    else
+    break;
+  case 1:
+    if constexpr (num_dimensions >= 2) {
       launch_block_gpu<precision, num_dimensions, 1>(n, grid, conns, vals, x, y);
+      break;
+    }
+  case 2:
+    if constexpr (num_dimensions >= 3) {
+      launch_block_gpu<precision, num_dimensions, 2>(n, grid, conns, vals, x, y);
+      break;
+    }
+  case 3:
+    if constexpr (num_dimensions >= 4) {
+      launch_block_gpu<precision, num_dimensions, 3>(n, grid, conns, vals, x, y);
+      break;
+    }
+  case 4:
+    if constexpr (num_dimensions >= 5) {
+      launch_block_gpu<precision, num_dimensions, 4>(n, grid, conns, vals, x, y);
+      break;
+    }
+  case 5:
+    if constexpr (num_dimensions >= 6) {
+      launch_block_gpu<precision, num_dimensions, 5>(n, grid, conns, vals, x, y);
+      break;
+    }
+  default:
+    throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
   }
-  static_assert(1 <= num_dimensions and num_dimensions <= 2);
+  static_assert(1 <= num_dimensions and num_dimensions <= max_num_dimensions);
 }
 
 template<typename precision>
@@ -221,6 +275,21 @@ void launch_block_gpu(
   {
   case 1:
     launch_block_gpu<precision, 1>(n, grid, dim, conns, vals, x, y);
+    break;
+  case 2:
+    launch_block_gpu<precision, 2>(n, grid, dim, conns, vals, x, y);
+    break;
+  case 3:
+    launch_block_gpu<precision, 3>(n, grid, dim, conns, vals, x, y);
+    break;
+  case 4:
+    launch_block_gpu<precision, 4>(n, grid, dim, conns, vals, x, y);
+    break;
+  case 5:
+    launch_block_gpu<precision, 5>(n, grid, dim, conns, vals, x, y);
+    break;
+  case 6:
+    launch_block_gpu<precision, 6>(n, grid, dim, conns, vals, x, y);
     break;
   default:
     throw std::runtime_error("(kronmult-gpu) works with only up to 6 dimensions");
@@ -246,8 +315,11 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   //  return;
   //}
 
+  int64_t const num_entries = work.gpu_w1[dev.id].size();
+
   precision *w1 = work.gpu_w1[dev.id].data();
   precision *w2 = work.gpu_w2[dev.id].data();
+
 
   gpu_connect const &gpu_conn = conns.gpu_conns[dev.id];
 
@@ -267,6 +339,9 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   {
     int dir = perm.direction[i][0];
 
+    // std::cout << " working on dir = " << dir << '\n';
+
+    compute->fill_zeros(num_entries, w1);
     launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
                      get_connect_1d(perm.fill[i][0]),
                      coeffs[dir].data(), x, w1);
@@ -282,6 +357,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       //           get_connect_1d(perm.fill[i][d]),
       //           cmats[dir].data(), w1, w2, work.row_map);
 
+      compute->fill_zeros(num_entries, w2);
       launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
                        get_connect_1d(perm.fill[i][d]),
                        coeffs[dir].data(), w1, w2);
@@ -289,7 +365,8 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       std::swap(w1, w2);
     }
 
-    int64_t num_entries = work.gpu_w1[dev.id].size();
+    compute->device_synchronize();
+    cuda_check_error( cudaGetLastError() );
 
     if (i == 0) { // on iteration zero, scale y
       if (beta == 0)

@@ -483,6 +483,7 @@ struct gpu_connect {
   //! \brief creates the volume and full-edge connectivity for the current level and loads to the gpu
   gpu_connect(int max_level)
   {
+    // std::cout << " building gpu_connect for max_level = " << max_level << '\n';
     for (int l = 0; l <= max_level; l++)
     {
       {
