@@ -67,8 +67,61 @@ int binary_search(int first, int last, int const val, int const list[]) {
 
 template<typename precision, int num_dimensions, int dim, int n>
 __device__ inline void vec_mult_add(precision const A[], precision const x[], precision y[]) {
+  static_assert(n >= 0);
   if constexpr (n == 1) {
     atomicAdd(y, A[0] * x[0]);
+    return;
+  }
+
+  if constexpr (num_dimensions == 1) {
+    if constexpr (n == 2) {
+      precision const a0 = A[threadIdx.x];
+      precision const a1 = A[threadIdx.x + n];
+      atomicAdd(&y[threadIdx.x], a0 * x[0] + a1 * x[1]);
+    } else {
+      precision yinc = 0;
+      for (int i = 0; i < n; i++)
+        yinc += A[threadIdx.x + i * n] * x[i];
+      atomicAdd(&y[threadIdx.x], yinc);
+    }
+  } else if constexpr (num_dimensions == 2) {
+    if constexpr (dim == 1) {
+      if constexpr (n == 2) {
+        int const ix0 = n * (threadIdx.x / n);
+        int const ia0 = threadIdx.x % n;
+
+        precision const a0 = A[ia0];
+        precision const a1 = A[ia0 + n];
+
+        atomicAdd(&y[threadIdx.x], a0 * x[ix0] + a1 * x[ix0 + 1]);
+      } else {
+        int const ix0 = n * (threadIdx.x / n);
+        int const ia0 = threadIdx.x % n;
+
+        precision yinc = 0;
+        for (int i = 0; i < n; i++)
+          yinc += A[ia0 + i * n] * x[ix0 + i];
+        atomicAdd(&y[threadIdx.x], yinc);
+      }
+    } else { // dim == 1
+      if constexpr (n == 2) {
+        int const ix0 = threadIdx.x % n;
+        int const ia0 = threadIdx.x / n;
+
+        precision const a0 = A[ia0];
+        precision const a1 = A[ia0 + n];
+
+        atomicAdd(&y[threadIdx.x], a0 * x[ix0] + a1 * x[ix0 + n]);
+      } else {
+        int const ix0 = threadIdx.x % n;
+        int const ia0 = threadIdx.x / n;
+
+        precision yinc = 0;
+        for (int i = 0; i < n; i++)
+          yinc += A[ia0 + i * n] * x[ix0 + i * n];
+        atomicAdd(&y[threadIdx.x], yinc);
+      }
+    }
   }
 
   // static_assert(num_dimensions >= 1 and num_dimensions <= 6);
@@ -86,14 +139,19 @@ __global__ void kernel_block_gpu_cycle1(
   // ID of member in the team is threadIdx.x
   // ID of the team in the block is threadIdx.y
   // ID of the team in the global workforce is threadIdx.y + blockIdx.x * blockDim.y
-  constexpr int n2 = ::asgard::gpu::ipow<n, 2>();
+  constexpr int n2 = n * n;
 
-  constexpr int64_t block_size = ::asgard::gpu::ipow<n, num_dimensions>();
+  constexpr int block_size = ::asgard::gpu::ipow<n, num_dimensions>();
+  // printf(" block_size = %d\n", block_size);
 
   int teamID = threadIdx.y + blockIdx.x * blockDim.y;
 
   int vec_id = 0;
   int cumulative_nnz = 0;
+
+  int level = grid_vec_levels[vec_id];
+  // printf(" level = %d   \n", level);
+  int nnz   = conn_nnz[level];
 
   // printf(" kernel start: vec_id = %d  cumulative_nnz = %d \n", vec_id, cumulative_nnz);
 
@@ -102,10 +160,6 @@ __global__ void kernel_block_gpu_cycle1(
     // finding the vec_id for this team
     // each vec needs a number of teams equal to the number of non-zeros in the pattern
     //    that is conn_pntr[grid_vec_levels[vec_id]][num-rows-per-level]
-
-    int level = grid_vec_levels[vec_id];
-    // printf(" level = %d   \n", level);
-    int nnz   = conn_nnz[level];
 
     // printf(" vec_id = %d   level = %d   nnz = %d \n", vec_id, level, nnz);
 
@@ -177,15 +231,15 @@ void launch_block_gpu(
     gpu_grid_data const &grid, gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  constexpr int team_size = n;
+  constexpr int team_size = ipow<n, num_dimensions>();
   constexpr int num_teams = ::asgard::gpu::num_teams(team_size) / 32;
   // constexpr int num_teams = 1;
 
   int const nvecs = grid.num_vecs[dim];
 
   dim3 const launch_grid(team_size, num_teams);
-  int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
-  // int const launch_blocks = 1;
+  // int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
+  int const launch_blocks = 1640; // Test to figure out this number
 
   auto nz = conns.nnz_.copy_to_host();
   // std::cout << " nnz entries = " << nz.size() << "  " << conns.nnz_.size() << "\n";
@@ -217,6 +271,18 @@ void launch_block_gpu(
   {
   case 1:
     launch_block_gpu<precision, num_dimensions, dim, 1>(grid, conns, vals, x, y);
+    break;
+  case 2:
+    launch_block_gpu<precision, num_dimensions, dim, 2>(grid, conns, vals, x, y);
+    break;
+  case 3:
+    launch_block_gpu<precision, num_dimensions, dim, 3>(grid, conns, vals, x, y);
+    break;
+  case 4:
+    launch_block_gpu<precision, num_dimensions, dim, 4>(grid, conns, vals, x, y);
+    break;
+  case 5:
+    launch_block_gpu<precision, num_dimensions, dim, 5>(grid, conns, vals, x, y);
     break;
   default:
     throw std::runtime_error("(kronmult-gpu) unimplemented n for given -degree");
@@ -304,6 +370,8 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                workspace<precision> &work,
                std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats)
 {
+  tools::time_event performance_("block_gpu");
+
   //{
   //  int64_t const num_entries = work.gpu_w1[dev.id].size();
   //  static std::vector<precision> cpu_x, cpu_y;
