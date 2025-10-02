@@ -130,8 +130,10 @@ std::string simple_timer::report()
   max_key = std::max(max_key, gf.size());
 
   report << pad_left(max_key, gf) << pad_left<double_block>("-- average")
-         << pad_left<double_block>("-- min") << pad_left<double_block>("-- max") << "\n";
+         << pad_left<double_block>("-- min") << pad_left<double_block>("-- max")
+         << "    " << pad_left<double_block>("-- total") << '\n';
 
+  double total = 0;
   for (auto [id, event] : events_) {
     if (not event.gflops.empty()) {
       auto const &gflops = event.gflops;
@@ -139,11 +141,20 @@ std::string simple_timer::report()
       double const min = *std::min_element(gflops.begin(), gflops.end());
       double const max = *std::max_element(gflops.begin(), gflops.end());
 
+      total += fsum;
+
       report << pad_left(max_key, id);
 
-      report << pad_string(fsum / gflops.size()) << pad_string(min) << pad_string(max) << '\n';
+      report << pad_string(fsum / gflops.size()) << pad_string(min)
+             << pad_string(max)
+             << pad_left<double_block>(split_style(static_cast<int64_t>(fsum + 0.5)))
+             << " Gflops\n";
     }
   }
+
+  report << pad_left(max_key, "total") << "    "
+         << pad_left<double_block>(split_style(static_cast<int64_t>(total + 0.5)))
+         << " Gflops\n";
 #endif
 
   return report.str();

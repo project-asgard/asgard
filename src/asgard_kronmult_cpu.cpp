@@ -957,9 +957,9 @@ int64_t block_cpu(
     int n, sparse_grid const &grid, connection_patterns const &conns,
     permutes const &perm,  precision alpha, precision beta, workspace<precision> &work)
 {
-  auto get_connect_1d = [&](permutes::matrix_fill const fill)
+  auto get_connect_1d = [&](conn_fill const fill)
       -> connect_1d const & {
-    if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
       return conns[connect_1d::hierarchy::full];
     else
       return conns[connect_1d::hierarchy::volume];

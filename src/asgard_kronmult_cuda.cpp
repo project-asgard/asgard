@@ -50,7 +50,8 @@ inline constexpr int num_teams(int team_size) {
 namespace asgard::kronmult
 {
 
-__device__ inline int binary_search(int first, int last, int const val, int const list[]) {
+__device__ inline
+int binary_search(int first, int last, int const val, int const list[]) {
   while (first <= last) {
     int c = (first + last) / 2;
     if (list[c] < val) {
@@ -75,7 +76,8 @@ __device__ inline void vec_mult_add(precision const A[], precision const x[], pr
 
 template<typename precision, int num_dimensions, int dim, int n>
 __global__ void kernel_block_gpu_cycle1(
-    int const grid_vecs, int const grid_pntr[], int const grid_order[], int const grid_sorted[],
+    int const grid_vecs, int const grid_pntr[],
+    int const grid_order[], int const grid_sorted[],
     int const grid_vec_levels[],
     int const *const *conn_rowcol, int const *conn_nnz,
     precision const *const *vals, precision const x[], precision y[])
@@ -125,8 +127,6 @@ __global__ void kernel_block_gpu_cycle1(
     int const ir = conn_rowcol[level][2 * j];
     int const ic = conn_rowcol[level][2 * j + 1];
 
-    precision const *A = vals[level] + j * n2; // this is the matrix-block
-
     // need to convert ir/ic to a global ix/iy
     // with the added challenge that the sparse grid may not hold one or both indexes
     int const vec_begin = grid_pntr[vec_id];
@@ -138,7 +138,7 @@ __global__ void kernel_block_gpu_cycle1(
       ix = binary_search(vec_begin, iend, ic, grid_sorted);
     }
     int iy = vec_begin + ir;
-    if (iy >= vec_end or grid_sorted[iy] != ir) {
+    if (ix > -1 and (iy >= vec_end or grid_sorted[iy] != ir)) {
       // using an adapted grid and we have missing nodes
       int iend = (iy < vec_end) ? iy : vec_end - 1;
       iy = binary_search(vec_begin, iend, ir, grid_sorted);
@@ -146,9 +146,10 @@ __global__ void kernel_block_gpu_cycle1(
 
     if (ix > -1 and iy > -1) {
       // we found an x/y pair
-
-      // multiply ( y + sorted[iy] * block_size ) += A * ( x + sorted[ix] * block_size )
-      vec_mult_add<precision, num_dimensions, dim, n>(A, x + grid_sorted[ix] * block_size, y + grid_sorted[iy] * block_size);
+      vec_mult_add<precision, num_dimensions, dim, n>(
+            vals[level] + j * n2,
+            x + grid_sorted[ix] * block_size,
+            y + grid_sorted[iy] * block_size);
     }
 
     teamID += gridDim.x * blockDim.y;
@@ -234,16 +235,16 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                workspace<precision> &work,
                std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats)
 {
-  {
-    int64_t const num_entries = work.gpu_w1[dev.id].size();
-    static std::vector<precision> cpu_x, cpu_y;
-    gpu::copy_to_host(num_entries, x, cpu_x);
-    gpu::copy_to_host(num_entries, y, cpu_y);
-    block_cpu(n, grid, conns, perm, cmats,
-              alpha, cpu_x.data(), beta, cpu_y.data(), work);
-    gpu::copy_to_device(cpu_y, y);
-    return;
-  }
+  //{
+  //  int64_t const num_entries = work.gpu_w1[dev.id].size();
+  //  static std::vector<precision> cpu_x, cpu_y;
+  //  gpu::copy_to_host(num_entries, x, cpu_x);
+  //  gpu::copy_to_host(num_entries, y, cpu_y);
+  //  block_cpu(n, grid, conns, perm, cmats,
+  //            alpha, cpu_x.data(), beta, cpu_y.data(), work);
+  //  gpu::copy_to_device(cpu_y, y);
+  //  return;
+  //}
 
   precision *w1 = work.gpu_w1[dev.id].data();
   precision *w2 = work.gpu_w2[dev.id].data();
@@ -266,7 +267,8 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   {
     int dir = perm.direction[i][0];
 
-    launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir, get_connect_1d(perm.fill[i][0]),
+    launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
+                     get_connect_1d(perm.fill[i][0]),
                      coeffs[dir].data(), x, w1);
 
     // block_cpu(num_dims, n, grid, dir, perm.fill[i][0],
@@ -279,6 +281,11 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       // block_cpu(num_dims, n, grid, dir, perm.fill[i][d],
       //           get_connect_1d(perm.fill[i][d]),
       //           cmats[dir].data(), w1, w2, work.row_map);
+
+      launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
+                       get_connect_1d(perm.fill[i][d]),
+                       coeffs[dir].data(), w1, w2);
+
       std::swap(w1, w2);
     }
 
