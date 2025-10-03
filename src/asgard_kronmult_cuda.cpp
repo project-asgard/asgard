@@ -59,6 +59,24 @@ int binary_search(int first, int last, int const val, int const list[]) {
   return -1;
 }
 
+template<int n, int num_dims, int relative_dir>
+__device__ int offset_ix(int base) {
+  if constexpr (relative_dir == 1) {
+    return n * (base / n);
+  } else if constexpr (relative_dir == 2) {
+    return base % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (base / gpu::ipow<n, 2>()));
+  }
+}
+
+template<int n, int num_dims, int relative_dir>
+__device__ int offset_ia(int base) {
+  if constexpr (relative_dir == 1) {
+    return base % n;
+  } else if constexpr (relative_dir == 2) {
+    return base / n - ((num_dims == 2) ? 0 : n * (base / gpu::ipow<n, 2>()));
+  }
+}
+
 template<typename precision, int num_dims, int dim, int n, int team_size, int num_teams>
 __device__ inline void vec_mult_add_cycle4(
         precision const A[], precision const x[], precision y[]) {
@@ -460,13 +478,17 @@ __device__ inline void vec_mult_add_cycle1(
 
     if constexpr (num_dims - dim == 1)
     {
-      ix = n * (threadIdx.x / n);
-      ia = threadIdx.x % n;
+      ix = offset_ix<n, num_dims, 1>(threadIdx.x);
+      ia = offset_ia<n, num_dims, 1>(threadIdx.x);
+      // ix = n * (threadIdx.x / n);
+      // ia = threadIdx.x % n;
     }
     else if constexpr (num_dims - dim == 2)
     {
-      ix = threadIdx.x % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
-      ia = threadIdx.x / n - ((num_dims == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
+      ix = offset_ix<n, num_dims, 2>(threadIdx.x);
+      ia = offset_ia<n, num_dims, 2>(threadIdx.x);
+      //ix = threadIdx.x % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
+      //ia = threadIdx.x / n - ((num_dims == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
     }
     else if constexpr (num_dims - dim == 3)
     {
