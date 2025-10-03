@@ -6,9 +6,13 @@ namespace asgard::gpu
 template<int n, int power>
 __device__ constexpr int ipow()
 {
-  static_assert(power >= 1 and power <= 6,
+  static_assert(power >= 0 and power <= 6,
                 "gpu::ipow() does not works with specified power");
-  if constexpr (power == 1)
+  if constexpr (power == 0)
+  {
+    return 1;
+  }
+  else if constexpr (power == 1)
   {
     return n;
   }
@@ -84,45 +88,128 @@ __device__ inline void vec_mult_add(precision const A[], precision const x[], pr
         yinc += A[threadIdx.x + i * n] * x[i];
       atomicAdd(&y[threadIdx.x], yinc);
     }
-  } else if constexpr (num_dimensions == 2) {
-    if constexpr (dim == 1) {
-      if constexpr (n == 2) {
-        int const ix0 = n * (threadIdx.x / n);
-        int const ia0 = threadIdx.x % n;
+    return;
+  }
 
-        precision const a0 = A[ia0];
-        precision const a1 = A[ia0 + n];
+  int const ix5 =
+      threadIdx.x % gpu::ipow<n, 5>() +
+      ((num_dimensions == 6) ? 0 : gpu::ipow<n, 6>() * (threadIdx.x / gpu::ipow<n, 6>()));
+  int const ia5 = threadIdx.x / gpu::ipow<n, 5>() -
+                  ((num_dimensions == 6) ? 0 : n * (threadIdx.x / gpu::ipow<n, 6>()));
 
-        atomicAdd(&y[threadIdx.x], a0 * x[ix0] + a1 * x[ix0 + 1]);
-      } else {
-        int const ix0 = n * (threadIdx.x / n);
-        int const ia0 = threadIdx.x % n;
+  int const ix4 =
+      threadIdx.x % gpu::ipow<n, 4>() +
+      ((num_dimensions == 5) ? 0 : gpu::ipow<n, 5>() * (threadIdx.x / gpu::ipow<n, 5>()));
+  int const ia4 = threadIdx.x / gpu::ipow<n, 4>() -
+                  ((num_dimensions == 5) ? 0 : n * (threadIdx.x / gpu::ipow<n, 5>()));
 
-        precision yinc = 0;
-        for (int i = 0; i < n; i++)
-          yinc += A[ia0 + i * n] * x[ix0 + i];
-        atomicAdd(&y[threadIdx.x], yinc);
-      }
-    } else { // dim == 1
-      if constexpr (n == 2) {
-        int const ix0 = threadIdx.x % n;
-        int const ia0 = threadIdx.x / n;
+  int const ix3 =
+      threadIdx.x % gpu::ipow<n, 3>() +
+      ((num_dimensions == 4) ? 0 : gpu::ipow<n, 4>() * (threadIdx.x / gpu::ipow<n, 4>()));
+  int const ia3 = threadIdx.x / gpu::ipow<n, 3>() -
+                  ((num_dimensions == 4) ? 0 : n * (threadIdx.x / gpu::ipow<n, 4>()));
 
-        precision const a0 = A[ia0];
-        precision const a1 = A[ia0 + n];
+  int const ix2 =
+      threadIdx.x % gpu::ipow<n, 2>() +
+      ((num_dimensions == 3) ? 0 : gpu::ipow<n, 3>() * (threadIdx.x / gpu::ipow<n, 3>()));
+  int const ia2 = threadIdx.x / gpu::ipow<n, 2>() -
+                  ((num_dimensions == 3) ? 0 : n * (threadIdx.x / gpu::ipow<n, 3>()));
 
-        atomicAdd(&y[threadIdx.x], a0 * x[ix0] + a1 * x[ix0 + n]);
-      } else {
-        int const ix0 = threadIdx.x % n;
-        int const ia0 = threadIdx.x / n;
+  int const ix1 =
+      threadIdx.x % n +
+      ((num_dimensions == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
+  int const ia1 =
+      threadIdx.x / n - ((num_dimensions == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
 
-        precision yinc = 0;
-        for (int i = 0; i < n; i++)
-          yinc += A[ia0 + i * n] * x[ix0 + i * n];
-        atomicAdd(&y[threadIdx.x], yinc);
-      }
+  int const ix0 = n * (threadIdx.x / n);
+  int const ia0 = threadIdx.x % n;
+
+#if (CUDART_VERSION < 11070)
+  (void)ix5;
+  (void)ix4;
+  (void)ix3;
+  (void)ix2;
+  (void)ia5;
+  (void)ia4;
+  (void)ia3;
+  (void)ia2;
+#endif
+
+  int ia = 0;
+  int ix = 0;
+
+
+  if constexpr (num_dimensions == 2) {
+    ia = (dim == 1) ? ia0 : ia1;
+    ix = (dim == 1) ? ix0 : ix1;
+  } else if constexpr (num_dimensions == 3) {
+    if constexpr (dim == 2) {
+      ia = ia0;
+      ix = ix0;
+    } else if constexpr (dim == 1) {
+      ia = ia1;
+      ix = ix1;
+    } else {
+      ia = ia2;
+      ix = ix2;
+    }
+  } else if constexpr (num_dimensions == 4) {
+    if constexpr (dim == 3) {
+      ia = ia0;
+      ix = ix0;
+    } else if constexpr (dim == 2) {
+      ia = ia1;
+      ix = ix1;
+    } else if constexpr (dim == 1) {
+      ia = ia2;
+      ix = ix2;
+    } else {
+      ia = ia3;
+      ix = ix3;
+    }
+  } else if constexpr (num_dimensions == 5) {
+    if constexpr (dim == 4) {
+      ia = ia0;
+      ix = ix0;
+    } else if constexpr (dim == 3) {
+      ia = ia1;
+      ix = ix1;
+    } else if constexpr (dim == 2) {
+      ia = ia2;
+      ix = ix2;
+    } else if constexpr (dim == 1) {
+      ia = ia3;
+      ix = ix3;
+    } else {
+      ia = ia4;
+      ix = ix4;
+    }
+  } else if constexpr (num_dimensions == 6) {
+    if constexpr (dim == 5) {
+      ia = ia0;
+      ix = ix0;
+    } else if constexpr (dim == 4) {
+      ia = ia1;
+      ix = ix1;
+    } else if constexpr (dim == 3) {
+      ia = ia2;
+      ix = ix2;
+    } else if constexpr (dim == 2) {
+      ia = ia3;
+      ix = ix3;
+    } else if constexpr (dim == 1) {
+      ia = ia4;
+      ix = ix4;
+    } else {
+      ia = ia5;
+      ix = ix5;
     }
   }
+
+  precision yinc = 0;
+  for (int i = 0; i < n; i++)
+    yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, num_dimensions - dim - 1>()];
+  atomicAdd(&y[threadIdx.x], yinc);
 
   // static_assert(num_dimensions >= 1 and num_dimensions <= 6);
 }
@@ -143,17 +230,18 @@ __global__ void kernel_block_gpu_cycle1(
 
   constexpr int block_size = ::asgard::gpu::ipow<n, num_dimensions>();
   // printf(" block_size = %d\n", block_size);
+  // printf(" kernel enter\n");
 
   int teamID = threadIdx.y + blockIdx.x * blockDim.y;
 
   int vec_id = 0;
-  int cumulative_nnz = 0;
+  int cnnz   = 0;
 
   int level = grid_vec_levels[vec_id];
-  // printf(" level = %d   \n", level);
   int nnz   = conn_nnz[level];
+  // printf(" level = %d   \n", level);
 
-  // printf(" kernel start: vec_id = %d  cumulative_nnz = %d \n", vec_id, cumulative_nnz);
+  // printf(" kernel start: vec_id = %d  nnz = %d \n", vec_id, nnz);
 
   // process all the vectors, i.e., 1D vector of multi-indexes that match in all but one index
   while (vec_id < grid_vecs) {
@@ -166,26 +254,30 @@ __global__ void kernel_block_gpu_cycle1(
     // find an entry to process
     // look for vec_id such that cumulative_nnz <= teamID < cumulative_nnz + nnz
     // at the start of the loop, we are assuming that cumulative_nnz <= teamID
-    while (vec_id < grid_vecs and cumulative_nnz + nnz <= teamID) {
+    while (cnnz + nnz <= teamID) {
       vec_id++; // skip one vector
-      //printf(" new vec_id = %d \n", vec_id);
-      cumulative_nnz += nnz; // update the running total
+      // printf(" new vec_id = %d \n", vec_id);
+      cnnz += nnz; // update the running total
 
-      level = grid_vec_levels[vec_id];  // update the level and num-rows
-      nnz   = conn_nnz[level];
+      if (vec_id < grid_vecs) {
+        level = grid_vec_levels[vec_id];  // update the level and num-rows
+        nnz   = conn_nnz[level];
+      } else
+        return;
+      // printf(" level = %d    nnz = %d\n", level, nnz);
     }
 
     // printf(" vec_id = %d   level = %d   nnz = %d \n", vec_id, level, nnz);
 
-    if (vec_id >= grid_vecs) // we overran the number of 1D-vectors
-      break;
+    // if (vec_id >= grid_vecs) // we overran the number of 1D-vectors
+    //   break;
 
     // from this point, vec_id is a valid vector of 1D multi-indexes
     // now we have to find the x/y index of the specific entry in the product
 
     // printf(" vec_id = %d   level = %d   cumulative_nnz = %d \n", vec_id, level, cumulative_nnz);
 
-    int const j = teamID - cumulative_nnz;
+    int const j = teamID - cnnz;
 
     // here the ir/ic are the row/column indexes of the 1D block
     int const ir = conn_rowcol[level][2 * j];
@@ -213,17 +305,21 @@ __global__ void kernel_block_gpu_cycle1(
     // printf("ix = %d  iy = %d \n", ix, iy);
     // printf("(iy, ix) = (%d, %d)  (ir, ic) = (%d, %d)   %e    %e    %e \n", grid_order[iy], grid_order[ix], ir, ic,
     //         (vals[level] + j * n2)[0], (x + grid_order[ix] * block_size)[0], (y + grid_order[iy] * block_size)[0]);
+    // printf("(iy, ix) = (%d, %d)  (ir, ic) = (%d, %d)\n", grid_order[iy], grid_order[ix], ir, ic);
     if (ix > -1 and iy > -1) {
       // we found an x/y pair
       vec_mult_add<precision, num_dimensions, dim, n>(
             vals[level] + j * n2,
             x + grid_order[ix] * block_size,
             y + grid_order[iy] * block_size);
+
+      // printf("done mult\n");
     }
 
     teamID += gridDim.x * blockDim.y;
     // printf(" teamID = %d\n", teamID);
   }
+  // printf("kernel end\n");
 }
 
 template<typename precision, int num_dimensions, int dim, int n>
@@ -232,7 +328,8 @@ void launch_block_gpu(
     precision const *const *vals, precision const x[], precision y[])
 {
   constexpr int team_size = ipow<n, num_dimensions>();
-  constexpr int num_teams = ::asgard::gpu::num_teams(team_size) / 32;
+  int num_teams = ::asgard::gpu::num_teams(team_size) / 32;
+  if (num_teams == 0) num_teams = 1;
   // constexpr int num_teams = 1;
 
   int const nvecs = grid.num_vecs[dim];
@@ -240,6 +337,7 @@ void launch_block_gpu(
   dim3 const launch_grid(team_size, num_teams);
   // int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
   int const launch_blocks = 1640; // Test to figure out this number
+  // int const launch_blocks = 1;
 
   auto nz = conns.nnz_.copy_to_host();
   // std::cout << " nnz entries = " << nz.size() << "  " << conns.nnz_.size() << "\n";
