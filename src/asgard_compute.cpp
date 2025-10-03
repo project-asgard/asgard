@@ -104,8 +104,10 @@ compute_resources::compute_resources() {
   // TODO: give GPU direct access to one-another's resources
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus_; g++) {
-    compute->set_device(gpu::device{g});
-    cuda_check_error( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) );
+    // if using shared memory, this leads to bad performance,
+    // if a kernel is not using shared memory, then this has no effect
+    // compute->set_device(gpu::device{g});
+    // cuda_check_error( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) );
   }
   #endif
   #ifdef ASGARD_USE_ROCM

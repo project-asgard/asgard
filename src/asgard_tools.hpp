@@ -138,9 +138,9 @@ public:
   double stop(std::string const &id, int64_t const flops = -1)
   {
 #ifdef ASGARD_USE_CUDA
-// #ifndef NDEBUG
+#ifndef NDEBUG
     cudaDeviceSynchronize(); // needed for accurate kronmult timing
-// #endif
+#endif
 #endif
 
     events_list &event = events_[id];
