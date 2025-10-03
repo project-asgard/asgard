@@ -426,39 +426,6 @@ private:
 struct gpu_connect_1d {
   //! default constructor, must be reinitalized to be used
   gpu_connect_1d() = default;
-  //! load the pattern from the cpu data, use only the upper/lower fill
-  // gpu_connect_1d( connect_1d const &conn, conn_fill fill);
-  // gpu_connect_1d(int max_level, connect_1d::hierarchy hier)
-  // {
-  //   expect(hier == connect_1d::hierarchy::volume or hier == connect_1d::hierarchy::full);
-  //
-  //   int const end_level = max_level + 1;
-  //   lpntr.reserve(end_level);
-  //   lindx.reserve(end_level);
-  //   ldiag.reserve(end_level);
-  //
-  //   std::vector<int *> cpu_pntr;
-  //   std::vector<int *> cpu_indx;
-  //   std::vector<int *> cpu_diag;
-  //   cpu_pntr.reserve(end_level);
-  //   cpu_indx.reserve(end_level);
-  //   cpu_diag.reserve(end_level);
-  //
-  //   for (int l = 0; l <= end_level; l++) {
-  //     connect_1d conn(l, hier);
-  //     lpntr.emplace_back(conn.get_pntr());
-  //     lindx.emplace_back(conn.get_indx());
-  //     ldiag.emplace_back(conn.get_diag());
-  //
-  //     cpu_pntr.emplace_back(lpntr.back().data());
-  //     cpu_indx.emplace_back(lindx.back().data());
-  //     cpu_diag.emplace_back(ldiag.back().data());
-  //   }
-  //
-  //   pntr = cpu_pntr;
-  //   indx = cpu_indx;
-  //   diag = cpu_diag;
-  // }
   //! add the next level by taking a sub-pattern
   void add_level(connect_1d const &conn, conn_fill fill);
   //! compute the nnz and finalize construction of the object
@@ -483,7 +450,6 @@ struct gpu_connect {
   //! \brief creates the volume and full-edge connectivity for the current level and loads to the gpu
   gpu_connect(int max_level)
   {
-    // std::cout << " building gpu_connect for max_level = " << max_level << '\n';
     for (int l = 0; l <= max_level; l++)
     {
       {
@@ -491,9 +457,6 @@ struct gpu_connect {
 
         for (int p = 0; p < 3; p++)
           patts[p].add_level(conn, static_cast<conn_fill>(p));
-        // upper.add_level(conn, conn_fill::upper);
-        // both.add_level(conn, conn_fill::both);
-        // lower.add_level(conn, conn_fill::lower);
       }{
         connect_1d const conn(l, connect_1d::hierarchy::full);
         full().add_level(conn, conn_fill::both);
@@ -502,11 +465,6 @@ struct gpu_connect {
 
     for (auto &p : patts)
       p.done_adding();
-
-    // upper.done_adding();
-    // both.done_adding();
-    // lower.done_adding();
-    // full.done_adding();
   }
   //! access the full pattern
   gpu_connect_1d &full() { return patts.back(); }
@@ -514,14 +472,6 @@ struct gpu_connect {
   gpu_connect_1d const &full() const { return patts.back(); }
   //! patterns volume (upper, both, lower), and full
   std::array<gpu_connect_1d, 4> patts;
-  // //! upper patterns stored on the GPU
-  // gpu_connect_1d upper;
-  // //! full volume patterns stored on the GPU
-  // gpu_connect_1d both;
-  // //! lower patterns stored on the GPU
-  // gpu_connect_1d lower;
-  // //! full volume and edge patterns stored on the GPU
-  // gpu_connect_1d full;
 };
 #endif
 

@@ -69,7 +69,7 @@ int binary_search(int first, int last, int const val, int const list[]) {
   return -1;
 }
 
-template<typename precision, int num_dimensions, int dim, int n>
+template<typename precision, int num_dims, int dim, int n>
 __device__ inline void vec_mult_add(precision const A[], precision const x[], precision y[]) {
   static_assert(n >= 0);
   if constexpr (n == 1) {
@@ -77,7 +77,7 @@ __device__ inline void vec_mult_add(precision const A[], precision const x[], pr
     return;
   }
 
-  if constexpr (num_dimensions == 1) {
+  if constexpr (num_dims == 1) {
     if constexpr (n == 2) {
       precision const a0 = A[threadIdx.x];
       precision const a1 = A[threadIdx.x + n];
@@ -91,127 +91,44 @@ __device__ inline void vec_mult_add(precision const A[], precision const x[], pr
     return;
   }
 
-  int const ix5 =
-      threadIdx.x % gpu::ipow<n, 5>() +
-      ((num_dimensions == 6) ? 0 : gpu::ipow<n, 6>() * (threadIdx.x / gpu::ipow<n, 6>()));
-  int const ia5 = threadIdx.x / gpu::ipow<n, 5>() -
-                  ((num_dimensions == 6) ? 0 : n * (threadIdx.x / gpu::ipow<n, 6>()));
-
-  int const ix4 =
-      threadIdx.x % gpu::ipow<n, 4>() +
-      ((num_dimensions == 5) ? 0 : gpu::ipow<n, 5>() * (threadIdx.x / gpu::ipow<n, 5>()));
-  int const ia4 = threadIdx.x / gpu::ipow<n, 4>() -
-                  ((num_dimensions == 5) ? 0 : n * (threadIdx.x / gpu::ipow<n, 5>()));
-
-  int const ix3 =
-      threadIdx.x % gpu::ipow<n, 3>() +
-      ((num_dimensions == 4) ? 0 : gpu::ipow<n, 4>() * (threadIdx.x / gpu::ipow<n, 4>()));
-  int const ia3 = threadIdx.x / gpu::ipow<n, 3>() -
-                  ((num_dimensions == 4) ? 0 : n * (threadIdx.x / gpu::ipow<n, 4>()));
-
-  int const ix2 =
-      threadIdx.x % gpu::ipow<n, 2>() +
-      ((num_dimensions == 3) ? 0 : gpu::ipow<n, 3>() * (threadIdx.x / gpu::ipow<n, 3>()));
-  int const ia2 = threadIdx.x / gpu::ipow<n, 2>() -
-                  ((num_dimensions == 3) ? 0 : n * (threadIdx.x / gpu::ipow<n, 3>()));
-
-  int const ix1 =
-      threadIdx.x % n +
-      ((num_dimensions == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
-  int const ia1 =
-      threadIdx.x / n - ((num_dimensions == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
-
-  int const ix0 = n * (threadIdx.x / n);
-  int const ia0 = threadIdx.x % n;
-
-#if (CUDART_VERSION < 11070)
-  (void)ix5;
-  (void)ix4;
-  (void)ix3;
-  (void)ix2;
-  (void)ia5;
-  (void)ia4;
-  (void)ia3;
-  (void)ia2;
-#endif
-
   int ia = 0;
   int ix = 0;
 
-
-  if constexpr (num_dimensions == 2) {
-    ia = (dim == 1) ? ia0 : ia1;
-    ix = (dim == 1) ? ix0 : ix1;
-  } else if constexpr (num_dimensions == 3) {
-    if constexpr (dim == 2) {
-      ia = ia0;
-      ix = ix0;
-    } else if constexpr (dim == 1) {
-      ia = ia1;
-      ix = ix1;
-    } else {
-      ia = ia2;
-      ix = ix2;
-    }
-  } else if constexpr (num_dimensions == 4) {
-    if constexpr (dim == 3) {
-      ia = ia0;
-      ix = ix0;
-    } else if constexpr (dim == 2) {
-      ia = ia1;
-      ix = ix1;
-    } else if constexpr (dim == 1) {
-      ia = ia2;
-      ix = ix2;
-    } else {
-      ia = ia3;
-      ix = ix3;
-    }
-  } else if constexpr (num_dimensions == 5) {
-    if constexpr (dim == 4) {
-      ia = ia0;
-      ix = ix0;
-    } else if constexpr (dim == 3) {
-      ia = ia1;
-      ix = ix1;
-    } else if constexpr (dim == 2) {
-      ia = ia2;
-      ix = ix2;
-    } else if constexpr (dim == 1) {
-      ia = ia3;
-      ix = ix3;
-    } else {
-      ia = ia4;
-      ix = ix4;
-    }
-  } else if constexpr (num_dimensions == 6) {
-    if constexpr (dim == 5) {
-      ia = ia0;
-      ix = ix0;
-    } else if constexpr (dim == 4) {
-      ia = ia1;
-      ix = ix1;
-    } else if constexpr (dim == 3) {
-      ia = ia2;
-      ix = ix2;
-    } else if constexpr (dim == 2) {
-      ia = ia3;
-      ix = ix3;
-    } else if constexpr (dim == 1) {
-      ia = ia4;
-      ix = ix4;
-    } else {
-      ia = ia5;
-      ix = ix5;
-    }
+  if constexpr (num_dims - dim == 1)
+  {
+    ix = n * (threadIdx.x / n);
+    ia = threadIdx.x % n;
+  }
+  else if constexpr (num_dims - dim == 2)
+  {
+    ix = threadIdx.x % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
+    ia = threadIdx.x / n - ((num_dims == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
+  }
+  else if constexpr (num_dims - dim == 3)
+  {
+    ix = threadIdx.x % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (threadIdx.x / gpu::ipow<n, 3>()));
+    ia = threadIdx.x / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (threadIdx.x / gpu::ipow<n, 3>()));
+  }
+  else if constexpr (num_dims - dim == 4)
+  {
+    ix = threadIdx.x % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (threadIdx.x / gpu::ipow<n, 4>()));
+    ia = threadIdx.x / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (threadIdx.x / gpu::ipow<n, 4>()));
+  }
+  else if constexpr (num_dims - dim == 5)
+  {
+    ix = threadIdx.x % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (threadIdx.x / gpu::ipow<n, 5>()));
+    ia = threadIdx.x / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (threadIdx.x / gpu::ipow<n, 5>()));
+  }
+  else if constexpr (num_dims - dim == 6)
+  {
+    ix = threadIdx.x % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (threadIdx.x / gpu::ipow<n, 6>()));
+    ia = threadIdx.x / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (threadIdx.x / gpu::ipow<n, 6>()));
   }
 
   precision yinc = 0;
   for (int i = 0; i < n; i++)
-    yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, num_dimensions - dim - 1>()];
+    yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, num_dims - dim - 1>()];
   atomicAdd(&y[threadIdx.x], yinc);
-
-  // static_assert(num_dimensions >= 1 and num_dimensions <= 6);
 }
 
 template<typename precision, int num_dimensions, int dim, int n>
@@ -280,8 +197,9 @@ __global__ void kernel_block_gpu_cycle1(
     int const j = teamID - cnnz;
 
     // here the ir/ic are the row/column indexes of the 1D block
-    int const ir = conn_rowcol[level][2 * j];
-    int const ic = conn_rowcol[level][2 * j + 1];
+    int const ir = conn_rowcol[level][3 * j];
+    int const ic = conn_rowcol[level][3 * j + 1];
+    int const ij = conn_rowcol[level][3 * j + 2];
 
     // printf("(ir, ic) = (%d, %d)\n", ir, ic);
 
@@ -309,7 +227,7 @@ __global__ void kernel_block_gpu_cycle1(
     if (ix > -1 and iy > -1) {
       // we found an x/y pair
       vec_mult_add<precision, num_dimensions, dim, n>(
-            vals[level] + j * n2,
+            vals[level] + ij * n2, // <- if using lower/upper this may be a different j, j from the global pattern, needs a conn_map
             x + grid_order[ix] * block_size,
             y + grid_order[iy] * block_size);
 
@@ -322,12 +240,12 @@ __global__ void kernel_block_gpu_cycle1(
   // printf("kernel end\n");
 }
 
-template<typename precision, int num_dimensions, int dim, int n>
+template<typename precision, int num_dims, int dim, int n>
 void launch_block_gpu(
     gpu_grid_data const &grid, gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  constexpr int team_size = ipow<n, num_dimensions>();
+  constexpr int team_size = ipow<n, num_dims>();
   int num_teams = ::asgard::gpu::num_teams(team_size) / 32;
   if (num_teams == 0) num_teams = 1;
   // constexpr int num_teams = 1;
@@ -352,90 +270,92 @@ void launch_block_gpu(
   //           << " launch_blocks = " << launch_blocks
   //           << '\n';
 
-  kernel_block_gpu_cycle1<precision, num_dimensions, dim, n>
+  // std::cout << " kernel launch\n";
+
+  kernel_block_gpu_cycle1<precision, num_dims, dim, n>
     <<<launch_blocks, launch_grid>>>
     (nvecs, grid.pntr[dim].data(), grid.order[dim].data(),
      grid.sorted[dim].data(), grid.vec_levels[dim].data(),
      conns.rowcol(), conns.nnz(), vals, x, y);
 }
 
-template<typename precision, int num_dimensions, int dim>
+template<typename precision, int num_dims, int dim>
 void launch_block_gpu(
     int n, gpu_grid_data const &grid, gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  static_assert(dim < num_dimensions);
+  static_assert(dim < num_dims);
   switch (n)
   {
   case 1:
-    launch_block_gpu<precision, num_dimensions, dim, 1>(grid, conns, vals, x, y);
+    launch_block_gpu<precision, num_dims, dim, 1>(grid, conns, vals, x, y);
     break;
   case 2:
-    launch_block_gpu<precision, num_dimensions, dim, 2>(grid, conns, vals, x, y);
+    launch_block_gpu<precision, num_dims, dim, 2>(grid, conns, vals, x, y);
     break;
   case 3:
-    launch_block_gpu<precision, num_dimensions, dim, 3>(grid, conns, vals, x, y);
+    launch_block_gpu<precision, num_dims, dim, 3>(grid, conns, vals, x, y);
     break;
   case 4:
-    launch_block_gpu<precision, num_dimensions, dim, 4>(grid, conns, vals, x, y);
+    launch_block_gpu<precision, num_dims, dim, 4>(grid, conns, vals, x, y);
     break;
   case 5:
-    launch_block_gpu<precision, num_dimensions, dim, 5>(grid, conns, vals, x, y);
+    launch_block_gpu<precision, num_dims, dim, 5>(grid, conns, vals, x, y);
     break;
   default:
     throw std::runtime_error("(kronmult-gpu) unimplemented n for given -degree");
   };
 }
 
-template<typename precision, int num_dimensions>
+template<typename precision, int num_dims>
 void launch_block_gpu(
     int n, gpu_grid_data const &grid, int dim, gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  expect(dim < num_dimensions);
+  expect(dim < num_dims);
   switch (dim)
   {
   case 0:
-    launch_block_gpu<precision, num_dimensions, 0>(n, grid, conns, vals, x, y);
+    launch_block_gpu<precision, num_dims, 0>(n, grid, conns, vals, x, y);
     break;
   case 1:
-    if constexpr (num_dimensions >= 2) {
-      launch_block_gpu<precision, num_dimensions, 1>(n, grid, conns, vals, x, y);
+    if constexpr (num_dims >= 2) {
+      launch_block_gpu<precision, num_dims, 1>(n, grid, conns, vals, x, y);
       break;
     }
   case 2:
-    if constexpr (num_dimensions >= 3) {
-      launch_block_gpu<precision, num_dimensions, 2>(n, grid, conns, vals, x, y);
+    if constexpr (num_dims >= 3) {
+      launch_block_gpu<precision, num_dims, 2>(n, grid, conns, vals, x, y);
       break;
     }
   case 3:
-    if constexpr (num_dimensions >= 4) {
-      launch_block_gpu<precision, num_dimensions, 3>(n, grid, conns, vals, x, y);
+    if constexpr (num_dims >= 4) {
+      launch_block_gpu<precision, num_dims, 3>(n, grid, conns, vals, x, y);
       break;
     }
   case 4:
-    if constexpr (num_dimensions >= 5) {
-      launch_block_gpu<precision, num_dimensions, 4>(n, grid, conns, vals, x, y);
+    if constexpr (num_dims >= 5) {
+      launch_block_gpu<precision, num_dims, 4>(n, grid, conns, vals, x, y);
       break;
     }
   case 5:
-    if constexpr (num_dimensions >= 6) {
-      launch_block_gpu<precision, num_dimensions, 5>(n, grid, conns, vals, x, y);
+    if constexpr (num_dims >= 6) {
+      launch_block_gpu<precision, num_dims, 5>(n, grid, conns, vals, x, y);
       break;
     }
   default:
     throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
   }
-  static_assert(1 <= num_dimensions and num_dimensions <= max_num_dimensions);
+  static_assert(1 <= num_dims and num_dims <= max_num_dimensions);
 }
 
 template<typename precision>
 void launch_block_gpu(
-    int num_dimensions, int n, gpu_grid_data const &grid, int dim,
+    int num_dims, int n, gpu_grid_data const &grid, int dim,
     gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  switch (num_dimensions)
+  switch (num_dims)
   {
   case 1:
     launch_block_gpu<precision, 1>(n, grid, dim, conns, vals, x, y);
@@ -485,7 +405,6 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
   precision *w1 = work.gpu_w1[dev.id].data();
   precision *w2 = work.gpu_w2[dev.id].data();
-
 
   gpu_connect const &gpu_conn = conns.gpu_conns[dev.id];
 

@@ -5,8 +5,6 @@ namespace asgard
 #ifdef ASGARD_USE_GPU
 void gpu_connect_1d::add_level(connect_1d const &conn, conn_fill fill)
 {
-  // std::cout << " adding level for " << static_cast<int>(fill) << "\n";
-
   int nnz = conn.num_connections();
   if (fill != conn_fill::both) {
     // must count the true number of non-zeros
@@ -21,7 +19,7 @@ void gpu_connect_1d::add_level(connect_1d const &conn, conn_fill fill)
   }
 
   std::vector<int> rc;
-  rc.reserve(2 * nnz);
+  rc.reserve(3 * nnz);
 
   for (int r = 0; r < conn.num_rows(); r++) {
     int const rbegin = (fill == conn_fill::upper) ? conn.row_diag(r) : conn.row_begin(r);
@@ -29,6 +27,7 @@ void gpu_connect_1d::add_level(connect_1d const &conn, conn_fill fill)
     for (int j = rbegin; j < rend; j++) {
       rc.push_back(r);
       rc.push_back(conn[j]);
+      rc.push_back(j);
     }
   }
 
@@ -44,11 +43,9 @@ void gpu_connect_1d::done_adding()
   rc.reserve(lrowcol.size());
 
   for (auto &v : lrowcol) {
-    nz.push_back(static_cast<int>(v.size()) / 2);
+    nz.push_back(static_cast<int>(v.size()) / 3);
     rc.push_back(v.data());
   }
-
-  // std::cout << " done-adding, have levels = " << lrowcol.size() << "\n";
 
   nnz_    = nz;
   rowcol_ = rc;
@@ -68,11 +65,8 @@ void connection_patterns::load_to_gpu()
       = connect_1d(l/ 2, (l % 2 == 0) ? connect_1d::hierarchy::volume : connect_1d::hierarchy::full);
   }
 
-  // std::cout << " loading connections to the GPU, num_gpus = " << num_gpus << "\n";
-
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
-    // std::cout << "loading g = " << g << "\n";
     compute->set_device(gpu::device{g});
     gpu_conns[g] = gpu_connect(max_level);
   }
