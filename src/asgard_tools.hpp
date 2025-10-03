@@ -138,9 +138,9 @@ public:
   double stop(std::string const &id, int64_t const flops = -1)
   {
 #ifdef ASGARD_USE_CUDA
-#ifndef NDEBUG
+// #ifndef NDEBUG
     cudaDeviceSynchronize(); // needed for accurate kronmult timing
-#endif
+// #endif
 #endif
 
     events_list &event = events_[id];
@@ -152,6 +152,7 @@ public:
 
     if (flops != -1) {
       expect(flops >= 0);
+      total_flops_ += flops;
       max_flops_ = std::max(max_flops_, flops);
       // flops -> Gflops has factor 1.E-9, ms -> seconds has factor 1.E-3
       // flops / ms -> Gflops / second has factor 1.E-9 / 1.E-3 = 1.E-6
@@ -192,6 +193,8 @@ private:
   std::map<std::string, events_list> events_;
   //! keep track of the max flops
   int64_t max_flops_ = 0;
+  //! keep track of the total number of flops
+  int64_t total_flops_ = 0;
 };
 
 /*!

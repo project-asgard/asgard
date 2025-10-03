@@ -37,7 +37,6 @@ public:
   void update_level(int new_level) {
     if (current_level == new_level)
       return;
-    std::cout << " updating poisson level\n";
     current_level = new_level;
     remake_factors();
   }

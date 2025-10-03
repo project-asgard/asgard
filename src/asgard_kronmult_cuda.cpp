@@ -245,19 +245,46 @@ void launch_block_gpu(
     gpu_grid_data const &grid, gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  constexpr int team_size = ipow<n, num_dims>();
-  int num_teams = ::asgard::gpu::num_teams(team_size) / 32;
-  if (num_teams == 0) num_teams = 1;
-  // constexpr int num_teams = 1;
+  constexpr int max_threads = 1024;
 
-  int const nvecs = grid.num_vecs[dim];
+  constexpr int block_size = ipow<n, num_dims>();
 
-  dim3 const launch_grid(team_size, num_teams);
-  // int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
-  int const launch_blocks = 1640; // Test to figure out this number
-  // int const launch_blocks = 1;
+  if constexpr (block_size <= max_threads) {
+    // using cycle 1 kernel, i.e., one thread per tensor entry
 
-  auto nz = conns.nnz_.copy_to_host();
+    constexpr int team_size = block_size;
+    constexpr int max_num_teams = max_threads / team_size;
+    constexpr int opt_num_teams = std::max(32 / block_size, 1);
+
+    // Given the maximum number of threads, using 1 thread per block, we have
+    // the theoretical maximum number of teams due to hardware limitations.
+    // This is not necessarily the optimum, the formula for opt num-teams
+    // was derived empirically on a GV100 (need to recheck a newer device).
+    int const num_teams = std::clamp(max_num_teams, 1, opt_num_teams);
+    dim3 const launch_grid(team_size, num_teams);
+
+    constexpr int launch_blocks = 2048;
+
+    kernel_block_gpu_cycle1<precision, num_dims, dim, n>
+        <<<launch_blocks, launch_grid>>>
+        (grid.num_vecs[dim], grid.pntr[dim].data(), grid.order[dim].data(),
+         grid.sorted[dim].data(), grid.vec_levels[dim].data(),
+         conns.rowcol(), conns.nnz(), vals, x, y);
+  }
+
+  // constexpr int team_size = ipow<n, num_dims>();
+  // int num_teams = ::asgard::gpu::num_teams(team_size) / 32;
+  // if (num_teams == 0) num_teams = 1;
+  // // constexpr int num_teams = 1;
+  //
+  // int const nvecs = grid.num_vecs[dim];
+  //
+  // dim3 const launch_grid(team_size, num_teams);
+  // // int const launch_blocks = ::asgard::gpu::blocks(nvecs, num_teams);
+  // int const launch_blocks = 1640; // Test to figure out this number
+  // // int const launch_blocks = 1;
+  //
+  // auto nz = conns.nnz_.copy_to_host();
   // std::cout << " nnz entries = " << nz.size() << "  " << conns.nnz_.size() << "\n";
   // for (auto &x : nz)
   //   std::cout << " nz = " << x << '\n';
@@ -271,12 +298,6 @@ void launch_block_gpu(
   //           << '\n';
 
   // std::cout << " kernel launch\n";
-
-  kernel_block_gpu_cycle1<precision, num_dims, dim, n>
-    <<<launch_blocks, launch_grid>>>
-    (nvecs, grid.pntr[dim].data(), grid.order[dim].data(),
-     grid.sorted[dim].data(), grid.vec_levels[dim].data(),
-     conns.rowcol(), conns.nnz(), vals, x, y);
 }
 
 template<typename precision, int num_dims, int dim>

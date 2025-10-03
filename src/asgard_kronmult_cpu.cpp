@@ -271,7 +271,6 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
                precision const vals[], precision const x[], precision y[],
                std::vector<std::vector<int64_t>> &row_wspace)
 {
-  std::cout << " kernel launch\n";
   constexpr int n2 = n * n;
 
   constexpr int64_t block_size = ipow<n, num_dimensions>();
