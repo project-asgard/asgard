@@ -906,7 +906,7 @@ void blocksv_cpu(int n, sparse_grid const &grid,
 template<typename precision>
 int64_t block_cpu(
     int n, sparse_grid const &grid, connection_patterns const &conns,
-    permutes const &perm,  precision alpha, precision beta, workspace<precision> &work)
+    permutes const &perm, precision alpha, precision beta, workspace<precision> &work)
 {
   auto get_connect_1d = [&](conn_fill const fill)
       -> connect_1d const & {

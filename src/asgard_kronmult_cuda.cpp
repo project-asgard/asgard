@@ -758,20 +758,9 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work,
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats)
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &)
 {
   tools::time_event performance_("block_gpu");
-
-  //{
-  //  int64_t const num_entries = work.gpu_w1[dev.id].size();
-  //  static std::vector<precision> cpu_x, cpu_y;
-  //  gpu::copy_to_host(num_entries, x, cpu_x);
-  //  gpu::copy_to_host(num_entries, y, cpu_y);
-  //  block_cpu(n, grid, conns, perm, cmats,
-  //            alpha, cpu_x.data(), beta, cpu_y.data(), work);
-  //  gpu::copy_to_device(cpu_y, y);
-  //  return;
-  //}
 
   int64_t const num_entries = work.gpu_w1[dev.id].size();
 
@@ -796,23 +785,14 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   {
     int dir = perm.direction[i][0];
 
-    // std::cout << " working on dir = " << dir << '\n';
-
     compute->fill_zeros(num_entries, w1);
     launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
                      get_connect_1d(perm.fill[i][0]),
                      coeffs[dir].data(), x, w1);
 
-    // block_cpu(num_dims, n, grid, dir, perm.fill[i][0],
-    //             get_connect_1d(perm.fill[i][0]),
-    //             cmats[dir].data(), x, w1, work.row_map);
-
     for (int d = 1; d < active_dims; d++)
     {
       dir = perm.direction[i][d];
-      // block_cpu(num_dims, n, grid, dir, perm.fill[i][d],
-      //           get_connect_1d(perm.fill[i][d]),
-      //           cmats[dir].data(), w1, w2, work.row_map);
 
       compute->fill_zeros(num_entries, w2);
       launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
@@ -841,20 +821,62 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                gpu::vector<precision *> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work,
-               // the parameters below are used only for fallback
-               block_sparse_matrix<precision> const &cmat)
+               block_sparse_matrix<precision> const &)
 {
+  tools::time_event performance_("block_gpu");
+
+  int64_t const num_entries = work.gpu_w1[dev.id].size();
+
+  precision *w1 = work.gpu_w1[dev.id].data();
+  precision *w2 = work.gpu_w2[dev.id].data();
+
+  gpu_connect const &gpu_conn = conns.gpu_conns[dev.id];
+
+  auto get_connect_1d = [&](conn_fill const fill)
+      -> gpu_connect_1d const & {
+    // cannot happen until we connect interpolation to fux
+    // if (perm.flux_dir != -1 and fill == conn_fill::both) {
+    //   return gpu_conn.full();
+    // } else
+      return gpu_conn.patts[static_cast<int>(fill)];
+  };
+
+  int const num_dims    = grid.num_dims();
+  int const active_dims = perm.num_dimensions();
+  expect(active_dims > 0);
+
+  for (size_t i = 0; i < perm.fill.size(); i++)
   {
-    int64_t const num_entries = work.gpu_w1[dev.id].size();
-    static std::vector<precision> cpu_x, cpu_y;
-    gpu::copy_to_host(num_entries, x, cpu_x);
-    gpu::copy_to_host(num_entries, y, cpu_y);
-    block_cpu(n, grid, conns, perm, cmat,
-              alpha, cpu_x.data(), beta, cpu_y.data(), work);
-    gpu::copy_to_device(cpu_y, y);
-    return;
+    int dir = perm.direction[i][0];
+
+    compute->fill_zeros(num_entries, w1);
+    launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
+                     get_connect_1d(perm.fill[i][0]),
+                     coeffs.data(), x, w1);
+
+    for (int d = 1; d < active_dims; d++)
+    {
+      dir = perm.direction[i][d];
+
+      compute->fill_zeros(num_entries, w2);
+      launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
+                       get_connect_1d(perm.fill[i][d]),
+                       coeffs.data(), w1, w2);
+
+      std::swap(w1, w2);
+    }
+
+    compute->device_synchronize();
+    cuda_check_error( cudaGetLastError() );
+
+    if (i == 0) { // on iteration zero, scale y
+      if (beta == 0)
+        compute->fill_zeros(num_entries, y);
+      else
+        compute->scal(num_entries, beta, y);
+    }
+    compute->axpy(num_entries, alpha, w1, y);
   }
-  ignore(coeffs);
 }
 
 template<typename precision>
@@ -888,8 +910,8 @@ template void block_gpu<double>(
 template void block_gpu<double>(
     gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
     gpu::vector<double *> const &,
-    double, double const[], double, double[],
-    workspace<double> &, block_sparse_matrix<double> const &);
+    double, double const[], double, double[], workspace<double> &,
+    block_sparse_matrix<double> const &);
 
 template void blocksv_gpu(
     gpu::device, int, sparse_grid const &, connection_patterns const &,
@@ -904,13 +926,13 @@ template void block_gpu<float>(
     gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
     std::array<gpu::vector<float *>, max_num_dimensions> const &,
     float, float const[], float, float[], workspace<float> &,
-    std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
+    std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
 
 template void block_gpu<float>(
     gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
     gpu::vector<float *> const &,
-    float, float const[], float, float[],
-    workspace<float> &, block_sparse_matrix<float> const &);
+    float, float const[], float, float[], workspace<float> &,
+    block_sparse_matrix<float> const &);
 
 template void blocksv_gpu(
     gpu::device, int, sparse_grid const &, connection_patterns const &,

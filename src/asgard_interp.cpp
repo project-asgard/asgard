@@ -407,7 +407,7 @@ void interpolation_manager1d<P, degree>::load_to_gpu(connection_patterns const &
     gpu_lhier2wav_[g].resize(level + 1);
     for (int l = 0; l < level; l++) {
       gpu_lhier2wav_[g][l] = hier2wav_.get_subpattern(l, conns).data_vector();
-      coeff_pntrs[l]       = gpu_lnodal2hier_[g][l].data();
+      coeff_pntrs[l]       = gpu_lhier2wav_[g][l].data();
     }
     gpu_lhier2wav_[g][level] = hier2wav_.data_vector();
     coeff_pntrs[level]       = gpu_lhier2wav_[g][level].data();

@@ -113,8 +113,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work,
-               // the parameters below are used only for fallback
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats);
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
 
 /*!
  * \brief GPU implementation for the block-cpu evaluate
@@ -126,9 +125,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                connection_patterns const &conns, permutes const &perm,
                gpu::vector<precision *> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               workspace<precision> &work,
-               // the parameters below are used only for fallback
-               block_sparse_matrix<precision> const &cmat);
+               workspace<precision> &work, block_sparse_matrix<precision> const &cmat);
 
 /*!
  * \brief GPU implementation for the blocksv-cpu evaluate
