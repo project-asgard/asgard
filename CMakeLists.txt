@@ -510,7 +510,7 @@ macro(asgard_add_mpi_test)
   if (ASGARD_USE_OPENMP)
     # mpi + openmp can yield too many heavy threads and cause a huge bottleneck in testing
     set_tests_properties (${_asgard_NAME} PROPERTIES ENVIRONMENT
-                          "OMP_NUM_THREADS=${ASGARD_TEST_MPI_OMP_THREADS}")
+                          "OMP_NUM_THREADS=1")
   endif()
 
   unset(_asgard_NAME)
