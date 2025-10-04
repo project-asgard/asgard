@@ -26,7 +26,7 @@ __device__ constexpr int ipow()
   return 0;
 }
 
-}
+}  // namespace asgard::gpu
 
 namespace asgard::kronmult
 {
