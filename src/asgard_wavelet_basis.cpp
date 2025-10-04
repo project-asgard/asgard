@@ -72,21 +72,8 @@ std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
   auto leg = basis::legendre_poly<double>(degree);
   auto wav = basis::wavelet_poly(leg, quad);
 
-  double const  s2 = std::sqrt(2.0);
-  double const is2 = 1.0 / s2;
-
-  vector2d<double> scalets(pdof, pdof);
-  for (auto i : indexof<int>(pdof))
-    for (auto j : indexof<int>(pdof))
-      scalets[j][i] = s2 * leg[i][degree - j];
-
-  vector2d<double> phi_co(pdof * 2, pdof);
-  for (auto i : indexof<int>(pdof))
-    for (auto j : indexof<int>(pdof))
-      phi_co[j][i] = wav[i][degree - j];
-  for (auto i : indexof<int>(pdof))
-    for (auto j : indexof<int>(pdof))
-      phi_co[j][i + pdof] = wav[i][pdof + degree - j];
+  double constexpr  s2 = 1.41421356237309505;
+  double constexpr is2 = 1.0 / s2;
 
   // Calculate Two-Scale Coefficients
 

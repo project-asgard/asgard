@@ -50,8 +50,7 @@ public:
   //! take ownership of the pde object and discretize the pde
   discretization_manager(pde_scheme<precision> pde,
                          verbosity_level verbosity = verbosity_level::quiet)
-    : verb(pde.options().verbosity.value_or(verbosity)),
-      conn(pde.max_level())
+    : verb(pde.options().verbosity.value_or(verbosity))
   {
     #ifdef ASGARD_ENABLE_DOUBLE
     #ifdef ASGARD_ENABLE_FLOAT
@@ -72,6 +71,9 @@ public:
     initial_sep_ = std::move(pde.initial_sep_);
 
     init_compute(); // compute engine, detect GPUs, etc.
+
+    // needs to come after compute, in case we are using the GPU
+    conn = connection_patterns(pde.max_level());
 
     #ifdef ASGARD_USE_MPI
     // only rank 0 will do regular I/O, others will default to silent mode

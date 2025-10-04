@@ -4,7 +4,9 @@ project (asgard VERSION 0.7.1 LANGUAGES CXX)
 
 set(ASGARD_RELEASE_INFO "(alpha) ${asgard_VERSION}a3") # sync with pip-installer setup.py
 
-include (FetchContent) # getting external dependencies
+include(FetchContent)   # getting external dependencies
+include(GNUInstallDirs) # allows management of install paths
+include(CMakePackageConfigHelpers) # export project dependencies
 
 ###############################################################################
 ## Set up the compiler and general global build options
@@ -33,7 +35,6 @@ list(APPEND CMAKE_INSTALL_RPATH "${__asgard_install_prefix}/${CMAKE_INSTALL_LIBD
 list(APPEND CMAKE_BUILD_RPATH "${__asgard_install_prefix}/${CMAKE_INSTALL_LIBDIR}")
 
 # set up possible commandline input variable defaults (override with -D)
-include(CMakeDependentOption)
 option (BUILD_SHARED_LIBS "Build the ASGarD library with dynamic or static linking" ON)
 
 option (ASGARD_BUILD_TESTS "Build tests for ASGarD" ON)
@@ -123,8 +124,6 @@ list(APPEND _asgard_pdes ${_asgard_int_pdes})
 ###############################################################################
 ## Pull in external support as needed
 ###############################################################################
-include(GNUInstallDirs)
-
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 find_package (ASGARDLINALG REQUIRED)
 
@@ -330,7 +329,7 @@ but then the appropriate CMAKE_CUDA_FLAGS must be set manually.")
 
     # number of blocks must be set before "asgard_build_info.hpp" is configured
     set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
-    set (ASGARD_NUM_GPU_BLOCKS "300" CACHE STRING "Number of blocks for GPU launch kernels")
+    set (ASGARD_NUM_GPU_BLOCKS "2000" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
 
 if (ASGARD_USE_ROCM)
@@ -347,6 +346,10 @@ if (ASGARD_USE_ROCM)
     list (APPEND CMAKE_PREFIX_PATH ${ASGARD_ROCM_PATH}/hip ${ASGARD_ROCM_PATH})
     enable_language(HIP)
     find_package(rocsolver REQUIRED)
+
+    # number of blocks must be set before "asgard_build_info.hpp" is configured
+    set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
+    set (ASGARD_NUM_GPU_BLOCKS "2000" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
 
 set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature points to be used transformations.")
@@ -506,8 +509,7 @@ macro(asgard_add_mpi_test)
 
   if (ASGARD_USE_OPENMP)
     # mpi + openmp can yield too many heavy threads and cause a huge bottleneck in testing
-    set_tests_properties (${_asgard_NAME} PROPERTIES ENVIRONMENT
-                          "OMP_NUM_THREADS=${ASGARD_TEST_MPI_OMP_THREADS}")
+    set_tests_properties (${_asgard_NAME} PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1")
   endif()
 
   unset(_asgard_NAME)
@@ -580,15 +582,6 @@ if (ASGARD_BUILD_TESTS)
   # some tests are naturally slower than others and since the MPI code is little
   # full MPI coverage can be achieved with a limited number of tests
   if (ASGARD_USE_MPI)
-    # the total number of threads to use for the MPI ranks
-    set(ASGARD_TEST_MPI_OMP_THREADS 2)
-    if (ASGARD_TEST_OMP_NUM_THREADS)
-      math(EXPR _asg_mult " ${ASGARD_TEST_MPI_OMP_THREADS} * 5")
-      if (_asg_mult GREATER ASGARD_TEST_OMP_NUM_THREADS)
-        set(ASGARD_TEST_MPI_OMP_THREADS 1)
-      endif()
-    endif()
-
     # at least some of the test must use ranks equal or more than mpi::bcast_threshold and mpi::reduce_threshold
     # that will switch between the two algorithms, currently using 4 and 4
     set(asgard_pde_ranks_continuity 2 3 4)
@@ -671,8 +664,6 @@ endforeach()
 #-------------------------------------------------------------------------------
 # Installing the library as stand-alone
 #-------------------------------------------------------------------------------
-include(CMakePackageConfigHelpers)
-
 target_include_directories(libasgard PUBLIC $<INSTALL_INTERFACE:${__asgard_install_prefix}/${CMAKE_INSTALL_INCLUDEDIR}>)
 
 foreach (_asg_target asgard_hdf5 libasgard asgard_exe)

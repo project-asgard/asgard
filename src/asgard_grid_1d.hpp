@@ -42,7 +42,7 @@ public:
    *  \brief Constructor, makes the connectivity up to and including the given
    *         max-level.
    */
-  connect_1d(int const max_level, hierarchy mode = hierarchy::full)
+  connect_1d(int const max_level, hierarchy mode)
       : levels(max_level)
   {
     expect(mode == hierarchy::full or mode == hierarchy::volume);
@@ -426,50 +426,20 @@ private:
 struct gpu_connect_1d {
   //! default constructor, must be reinitalized to be used
   gpu_connect_1d() = default;
-  //! load the pattern from the cpu data
-  gpu_connect_1d(int max_level, connect_1d::hierarchy hier)
-  {
-    expect(hier == connect_1d::hierarchy::volume or hier == connect_1d::hierarchy::full);
+  //! add the next level by taking a sub-pattern
+  void add_level(connect_1d const &conn, conn_fill fill);
+  //! compute the nnz and finalize construction of the object
+  void done_adding();
 
-    int const end_level = max_level + 1;
-    lpntr.reserve(end_level);
-    lindx.reserve(end_level);
-    ldiag.reserve(end_level);
+  int const *const *rowcol() const { return rowcol_.data(); }
+  int const *nnz() const { return nnz_.data(); }
 
-    std::vector<int *> cpu_pntr;
-    std::vector<int *> cpu_indx;
-    std::vector<int *> cpu_diag;
-    cpu_pntr.reserve(end_level);
-    cpu_indx.reserve(end_level);
-    cpu_diag.reserve(end_level);
-
-    for (int l = 0; l <= end_level; l++) {
-      connect_1d conn(l, hier);
-      lpntr.emplace_back(conn.get_pntr());
-      lindx.emplace_back(conn.get_indx());
-      ldiag.emplace_back(conn.get_diag());
-
-      cpu_pntr.emplace_back(lpntr.back().data());
-      cpu_indx.emplace_back(lindx.back().data());
-      cpu_diag.emplace_back(ldiag.back().data());
-    }
-
-    pntr = cpu_pntr;
-    indx = cpu_indx;
-    diag = cpu_diag;
-  }
-  //! sparse matrix pntr data, for each level
-  std::vector<gpu::vector<int>> lpntr;
-  //! sparse matrix indx data, for each level
-  std::vector<gpu::vector<int>> lindx;
+  //! row-column entries, for each level
+  std::vector<gpu::vector<int>> lrowcol;
   //! sparse matrix diag data, for each level
-  std::vector<gpu::vector<int>> ldiag;
+  gpu::vector<int> nnz_;
   //! pointers to the pntr data
-  gpu::vector<int*> pntr;
-  //! pointers to the pntr data
-  gpu::vector<int*> indx;
-  //! pointers to the pntr data
-  gpu::vector<int*> diag;
+  gpu::vector<int*> rowcol_;
 };
 /*!
  * \brief Holds two connection patterns on the GPU
@@ -479,17 +449,29 @@ struct gpu_connect {
   gpu_connect() = default;
   //! \brief creates the volume and full-edge connectivity for the current level and loads to the gpu
   gpu_connect(int max_level)
-      : data_{gpu_connect_1d(max_level, connect_1d::hierarchy::volume),
-              gpu_connect_1d(max_level, connect_1d::hierarchy::full)}
-  {}
-  //! \brief the data of the connections
-  std::array<gpu_connect_1d, 2> data_;
-  //! return the corresponding connectivity pattern, does not support the extened patterns
-  gpu_connect_1d const &operator[] (connect_1d::hierarchy h) const
   {
-    expect(h == connect_1d::hierarchy::volume or h == connect_1d::hierarchy::full);
-    return data_[static_cast<int>(h)];
+    for (int l = 0; l <= max_level; l++)
+    {
+      {
+        connect_1d const conn(l, connect_1d::hierarchy::volume);
+
+        for (int p = 0; p < 3; p++)
+          patts[p].add_level(conn, static_cast<conn_fill>(p));
+      }{
+        connect_1d const conn(l, connect_1d::hierarchy::full);
+        full().add_level(conn, conn_fill::both);
+      }
+    }
+
+    for (auto &p : patts)
+      p.done_adding();
   }
+  //! access the full pattern
+  gpu_connect_1d &full() { return patts.back(); }
+  //! access the full pattern, const-ref
+  gpu_connect_1d const &full() const { return patts.back(); }
+  //! patterns volume (upper, both, lower), and full
+  std::array<gpu_connect_1d, 4> patts;
 };
 #endif
 

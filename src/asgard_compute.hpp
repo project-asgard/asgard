@@ -6,6 +6,24 @@ namespace asgard
 {
 
 /*!
+ * \brief Indicates the upper/lower connectivity fill of a sparsity pattern
+ *
+ * In CPU mode, this is used only by the Kronmult module; however, the GPU algorithms
+ * explicitly require the upper and lower connectivity patterns.
+ * In GPU mode, this is used by the grid_1d module and asgard::gpu_connect_1d,
+ * thus it is here in a common header.
+ */
+enum class conn_fill : int
+{
+  //! \brief Row r is connected only to self and the children of index r
+  upper = 0,
+  //! \brief All overlapping volume or edge support, regardless of child-parent relation
+  both,
+  //! \brief Row r is connected only to the parents of index r (no self-connection)
+  lower
+};
+
+/*!
  * \brief Default precision to use, double if enabled and float otherwise.
  */
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -375,6 +393,9 @@ public:
     getrs(M, A, ipiv, gpu_b);
     gpu_b.copy_to_host(b);
   }
+  //! fill the vector with zeros
+  template<typename P>
+  void fill_zeros(gpu::vector<P> &x) const { fill_zeros(x.size(), x.data()); }
   #endif
 
   //! tri-diagonal solver, factorization stage

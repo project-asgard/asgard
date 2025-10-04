@@ -70,10 +70,16 @@ std::string simple_timer::report()
 
   report << "\nperformance report, total time: ";
   if (total_time > 1000)
-    report << pad_left<double_block>(split_style(static_cast<int64_t>(total_time + 0.5))) << "ms\n";
+    report << pad_left<double_block>(split_style(static_cast<int64_t>(total_time + 0.5))) << "ms";
   else
-    report << pad_string( total_time) << "ms\n";
-  report << "  - all times are in ms, 1000ms = 1 second\n\n";
+    report << pad_string( total_time) << "ms";
+  #ifdef ASGARD_USE_FLOPCOUNTER
+  report << "    total work: "
+         << pad_left<double_block>(split_style(total_flops_ / int64_t{1000000000}))
+         << " Gflops";
+  #endif
+
+  report << "\n  - all times are in ms, 1000ms = 1 second\n\n";
 
   std::string const ev =  "-- events --  ";
   std::string::size_type max_key = ev.size();
@@ -130,7 +136,8 @@ std::string simple_timer::report()
   max_key = std::max(max_key, gf.size());
 
   report << pad_left(max_key, gf) << pad_left<double_block>("-- average")
-         << pad_left<double_block>("-- min") << pad_left<double_block>("-- max") << "\n";
+         << pad_left<double_block>("-- min") << pad_left<double_block>("-- max")
+         << '\n';
 
   for (auto [id, event] : events_) {
     if (not event.gflops.empty()) {
@@ -141,7 +148,8 @@ std::string simple_timer::report()
 
       report << pad_left(max_key, id);
 
-      report << pad_string(fsum / gflops.size()) << pad_string(min) << pad_string(max) << '\n';
+      report << pad_string(fsum / gflops.size()) << pad_string(min)
+             << pad_string(max) << '\n';
     }
   }
 #endif

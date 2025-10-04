@@ -266,7 +266,7 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
 
 inline int64_t asgard_kronmult_nblocks_ = 0;
 
-template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim, int n>
+template<typename precision, conn_fill fill, int num_dimensions, int dim, int n>
 void block_cpu(sparse_grid const &grid, connect_1d const &conn,
                precision const vals[], precision const x[], precision y[],
                std::vector<std::vector<int64_t>> &row_wspace)
@@ -321,8 +321,8 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
         precision *const local_y = y + xidx[row];
 
         // columns for the 1d pattern
-        int col_begin = (fill == permutes::matrix_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
-        int col_end   = (fill == permutes::matrix_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
+        int col_begin = (fill == conn_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
+        int col_end   = (fill == conn_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
 
         if constexpr (n != -1)
           for (int j = 0; j < block_size; j++)
@@ -333,6 +333,10 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
           int64_t const xj = xidx[conn[c]];
           if (xj != -1)
           {
+            // std::cout << " (iy, ix) = (" << xidx[row] / block_size << ", " << xidx[conn[c]] / block_size
+            //           << ")   (ir, ic) = " << row << ", " << conn[c] << ")  "
+            //           << "  " << (vals + n2 * c)[0] << "    " << (x + xj)[0] << "    " << local_y[0] << "\n";
+
             if constexpr (n == -1)
               my_block_count += 1;
             else
@@ -435,7 +439,7 @@ void globalsv_cpu(
   } // omp pragma parallel
 }
 
-template<typename precision, permutes::matrix_fill fill, int num_dimensions, int dim>
+template<typename precision, conn_fill fill, int num_dimensions, int dim>
 void block_cpu(int n, sparse_grid const &grid,
                connect_1d const &conn, precision const vals[],
                precision const x[], precision y[],
@@ -491,101 +495,46 @@ void globalsv_cpu(int n, sparse_grid const &grid,
   };
 }
 
-template<typename precision, permutes::matrix_fill fill, int num_dimensions>
+template<typename precision, conn_fill fill, int num_dimensions>
 void block_cpu(int n, sparse_grid const &grid, int dim, connect_1d const &conn,
                precision const vals[], precision const x[], precision y[],
                std::vector<std::vector<int64_t>> &row_wspace)
 {
   expect(dim < num_dimensions);
-  if constexpr (num_dimensions == 1)
+  switch (dim)
   {
+  case 0:
     block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-  }
-  else if constexpr (num_dimensions == 2)
-  {
-    if (dim == 0)
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-    else
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-  }
-  else if constexpr (num_dimensions == 3)
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
+    break;
+  case 1:
+    if constexpr (num_dimensions >= 2) {
       block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
       break;
-    default: // case 2:
+    }
+  case 2:
+    if constexpr (num_dimensions >= 3) {
       block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
-  }
-  else if constexpr (num_dimensions == 4)
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 2:
-      block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    default: // case 3:
+  case 3:
+    if constexpr (num_dimensions >= 4) {
       block_cpu<precision, fill, num_dimensions, 3>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
-  }
-  else if constexpr (num_dimensions == 5)
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 2:
-      block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 3:
-      block_cpu<precision, fill, num_dimensions, 3>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    default: // case 4:
+  case 4:
+    if constexpr (num_dimensions >= 5) {
       block_cpu<precision, fill, num_dimensions, 4>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
-  }
-  else // num_dimensions == 6
-  {
-    switch (dim)
-    {
-    case 0:
-      block_cpu<precision, fill, num_dimensions, 0>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 1:
-      block_cpu<precision, fill, num_dimensions, 1>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 2:
-      block_cpu<precision, fill, num_dimensions, 2>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 3:
-      block_cpu<precision, fill, num_dimensions, 3>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    case 4:
-      block_cpu<precision, fill, num_dimensions, 4>(n, grid, conn, vals, x, y, row_wspace);
-      break;
-    default: // case 5:
+  case 5:
+    if constexpr (num_dimensions >= 6) {
       block_cpu<precision, fill, num_dimensions, 5>(n, grid, conn, vals, x, y, row_wspace);
       break;
     }
+  default:
+    throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
   }
+  static_assert(1 <= num_dimensions and num_dimensions <= max_num_dimensions);
 }
 
 template<typename precision, int num_dimensions>
@@ -685,7 +634,7 @@ void globalsv_cpu(int n, sparse_grid const &grid,
   }
 }
 
-template<typename precision, permutes::matrix_fill fill>
+template<typename precision, conn_fill fill>
 void block_cpu(int num_dimensions, int n, sparse_grid const &grid,
                int dim, connect_1d const &conn,
                precision const vals[], precision const x[], precision y[],
@@ -749,22 +698,22 @@ void globalsv_cpu(int num_dimensions, int n, sparse_grid const &grid,
 
 template<typename precision>
 void block_cpu(int num_dimensions, int n, sparse_grid const &grid,
-               int dim, permutes::matrix_fill fill,
-               connect_1d const &conn, precision const vals[], precision const x[],
+               int dim, conn_fill fill, connect_1d const &conn,
+               precision const vals[], precision const x[],
                precision y[], std::vector<std::vector<int64_t>> &row_wspace)
 {
   switch (fill)
   {
-  case permutes::matrix_fill::lower:
-    block_cpu<precision, permutes::matrix_fill::lower>(
+  case conn_fill::lower:
+    block_cpu<precision, conn_fill::lower>(
         num_dimensions, n, grid, dim, conn, vals, x, y, row_wspace);
     break;
-  case permutes::matrix_fill::upper:
-    block_cpu<precision, permutes::matrix_fill::upper>(
+  case conn_fill::upper:
+    block_cpu<precision, conn_fill::upper>(
         num_dimensions, n, grid, dim, conn, vals, x, y, row_wspace);
     break;
   default: // case permutes::matrix_fill::both:
-    block_cpu<precision, permutes::matrix_fill::both>(
+    block_cpu<precision, conn_fill::both>(
         num_dimensions, n, grid, dim, conn, vals, x, y, row_wspace);
     break;
   }
@@ -778,15 +727,17 @@ void block_cpu(
     precision alpha, precision const x[], precision beta, precision y[],
     workspace<precision> &work)
 {
+  tools::time_event performance_("block_cpu");
+
   precision *w1 = work.w1.data();
   precision *w2 = work.w2.data();
 
-  auto get_connect_1d = [&](permutes::matrix_fill const fill)
+  auto get_connect_1d = [&](conn_fill const fill)
       -> connect_1d const & {
     // if the term has flux, i.e., fdir != -1
     // then the direction using fill::both will use the flux+volume connectivity
     // otherwise we will use only the volume connectivity
-    if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
       return conns[connect_1d::hierarchy::full];
     else
       return conns[connect_1d::hierarchy::volume];
@@ -865,12 +816,12 @@ void block_cpu(
   precision *w1 = work.w1.data();
   precision *w2 = work.w2.data();
 
-  auto get_connect_1d = [&](permutes::matrix_fill const fill)
+  auto get_connect_1d = [&](conn_fill const fill)
       -> connect_1d const & {
     // if the term has flux, i.e., fdir != -1
     // then the direction using fill::both will use the flux+volume connectivity
     // otherwise we will use only the volume connectivity
-    if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
       return conns[connect_1d::hierarchy::full];
     else
       return conns[connect_1d::hierarchy::volume];
@@ -885,8 +836,8 @@ void block_cpu(
     int dir = perm.direction[i][0];
 
     block_cpu(num_dims, n, grid, dir, perm.fill[i][0],
-                get_connect_1d(perm.fill[i][0]),
-                cmat.data(), x, w1, work.row_map);
+              get_connect_1d(perm.fill[i][0]),
+              cmat.data(), x, w1, work.row_map);
 
     for (int d = 1; d < active_dims; d++)
     {
@@ -955,11 +906,11 @@ void blocksv_cpu(int n, sparse_grid const &grid,
 template<typename precision>
 int64_t block_cpu(
     int n, sparse_grid const &grid, connection_patterns const &conns,
-    permutes const &perm,  precision alpha, precision beta, workspace<precision> &work)
+    permutes const &perm, precision alpha, precision beta, workspace<precision> &work)
 {
-  auto get_connect_1d = [&](permutes::matrix_fill const fill)
+  auto get_connect_1d = [&](conn_fill const fill)
       -> connect_1d const & {
-    if (perm.flux_dir != -1 and fill == permutes::matrix_fill::both)
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
       return conns[connect_1d::hierarchy::full];
     else
       return conns[connect_1d::hierarchy::volume];

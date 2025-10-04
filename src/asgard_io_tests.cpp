@@ -275,7 +275,7 @@ void restart_longer() {
   for (size_t i = 0; i < reff.current_state().size(); i++)
     mm = std::max(mm, static_cast<double>(std::abs(reff.current_state()[i] - rdisc.current_state()[i])));
 
-  tassert(mm < 1.E-10);
+  tassert(mm < ((is_double<P>) ? 1.E-10 : 1.E-7));
 
   options = make_opts("-l 5 -d 2 -dt 0.01 -n 12");
   reff = discretization_manager<P>(make_testpde<pde, P>(2, options));

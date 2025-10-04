@@ -596,12 +596,10 @@ public:
 
     int const n = nblock();
 
-    block_sparse_matrix res(n, conn.num_connections(), htype_);
+    block_sparse_matrix res(n, low.num_connections(), htype_);
     for (int row = 0; row < low.num_rows(); row++) {
-      for (int j = low.row_begin(row); j < low.row_end(row); j++) {
-        int const fullj = conn.row_begin(row) + j;
-        std::copy_n(data_[fullj], n, res[j]);
-      }
+      int const nz = low.row_end(row) - low.row_begin(row);
+      std::copy_n(data_[conn.row_begin(row)], nz * n, res[low.row_begin(row)]);
     }
 
     return res;
