@@ -329,7 +329,7 @@ but then the appropriate CMAKE_CUDA_FLAGS must be set manually.")
 
     # number of blocks must be set before "asgard_build_info.hpp" is configured
     set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
-    set (ASGARD_NUM_GPU_BLOCKS "300" CACHE STRING "Number of blocks for GPU launch kernels")
+    set (ASGARD_NUM_GPU_BLOCKS "2000" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
 
 if (ASGARD_USE_ROCM)

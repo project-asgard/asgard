@@ -9,33 +9,20 @@ __device__ constexpr int ipow()
   static_assert(power >= 0 and power <= 6,
                 "gpu::ipow() does not works with specified power");
   if constexpr (power == 0)
-  {
     return 1;
-  }
   else if constexpr (power == 1)
-  {
     return n;
-  }
   else if constexpr (power == 2)
-  {
     return n * n;
-  }
   else if constexpr (power == 3)
-  {
     return n * n * n;
-  }
   else if constexpr (power == 4)
-  {
     return n * n * n * n;
-  }
   else if constexpr (power == 5)
-  {
     return n * n * n * n * n;
-  }
   else if constexpr (power == 6)
-  {
     return n * n * n * n * n * n;
-  }
+
   return 0;
 }
 
@@ -65,6 +52,14 @@ __device__ int offset_ix(int base) {
     return n * (base / n);
   } else if constexpr (relative_dir == 2) {
     return base % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (base / gpu::ipow<n, 2>()));
+  } else if constexpr (relative_dir == 3) {
+    return base % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (base / gpu::ipow<n, 3>()));
+  } else if constexpr (relative_dir == 4) {
+    return base % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (base / gpu::ipow<n, 4>()));
+  } else if constexpr (relative_dir == 5) {
+    return base % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (base / gpu::ipow<n, 5>()));
+  } else if constexpr (relative_dir == 6) {
+    return base % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (base / gpu::ipow<n, 6>()));
   }
 }
 
@@ -74,384 +69,19 @@ __device__ int offset_ia(int base) {
     return base % n;
   } else if constexpr (relative_dir == 2) {
     return base / n - ((num_dims == 2) ? 0 : n * (base / gpu::ipow<n, 2>()));
+  } else if constexpr (relative_dir == 3) {
+    return base / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (base / gpu::ipow<n, 3>()));
+  } else if constexpr (relative_dir == 4) {
+    return base / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (base / gpu::ipow<n, 4>()));
+  } else if constexpr (relative_dir == 5) {
+    return base / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (base / gpu::ipow<n, 5>()));
+  } else if constexpr (relative_dir == 6) {
+    return base / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (base / gpu::ipow<n, 6>()));
   }
 }
 
-template<typename precision, int num_dims, int dim, int n, int team_size, int num_teams>
-__device__ inline void vec_mult_add_cycle4(
-        precision const A[], precision const x[], precision y[]) {
-  static_assert(n >= 2, "degree 0 basis cannot be proceeded in 2 cycles");
-  static_assert(num_dims >= 2, "1D is a special case, use 1 cycle only");
-
-  int constexpr block_size = gpu::ipow<n, num_dims>();
-  int constexpr num_last = block_size - 3 * team_size;
-
-  int ia1 = 0;
-  int ix1 = 0;
-  int ia2 = 0;
-  int ix2 = 0;
-  int ia3 = 0;
-  int ix3 = 0;
-  int ia4 = 0;
-  int ix4 = 0;
-
-  int const TID2 = threadIdx.x + team_size;
-  int const TID3 = threadIdx.x + 2 * team_size;
-  int const TID4 = threadIdx.x + 3 * team_size;
-
-  if constexpr (num_dims - dim == 1)
-  {
-    ix1 = n * (threadIdx.x / n);
-    ia1 = threadIdx.x % n;
-    ix2 = n * (TID2 / n);
-    ia2 = TID2 % n;
-    ix3 = n * (TID3 / n);
-    ia3 = TID3 % n;
-    ix4 = n * (TID4 / n);
-    ia4 = TID4 % n;
-  }
-  else if constexpr (num_dims - dim == 2)
-  {
-    ix1 = threadIdx.x % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
-    ia1 = threadIdx.x / n - ((num_dims == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
-    ix2 = TID2 % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (TID2 / gpu::ipow<n, 2>()));
-    ia2 = TID2 / n - ((num_dims == 2) ? 0 : n * (TID2 / gpu::ipow<n, 2>()));
-    ix3 = TID3 % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (TID3 / gpu::ipow<n, 2>()));
-    ia3 = TID3 / n - ((num_dims == 2) ? 0 : n * (TID3 / gpu::ipow<n, 2>()));
-    ix4 = TID4 % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (TID4 / gpu::ipow<n, 2>()));
-    ia4 = TID4 / n - ((num_dims == 2) ? 0 : n * (TID4 / gpu::ipow<n, 2>()));
-  }
-  else if constexpr (num_dims - dim == 3)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (threadIdx.x / gpu::ipow<n, 3>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (threadIdx.x / gpu::ipow<n, 3>()));
-    ix2 = TID2 % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (TID2 / gpu::ipow<n, 3>()));
-    ia2 = TID2 / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (TID2 / gpu::ipow<n, 3>()));
-    ix3 = TID3 % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (TID3 / gpu::ipow<n, 3>()));
-    ia3 = TID3 / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (TID3 / gpu::ipow<n, 3>()));
-    ix4 = TID4 % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (TID4 / gpu::ipow<n, 3>()));
-    ia4 = TID4 / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (TID4 / gpu::ipow<n, 3>()));
-  }
-  else if constexpr (num_dims - dim == 4)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (threadIdx.x / gpu::ipow<n, 4>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (threadIdx.x / gpu::ipow<n, 4>()));
-    ix2 = TID2 % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (TID2 / gpu::ipow<n, 4>()));
-    ia2 = TID2 / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (TID2 / gpu::ipow<n, 4>()));
-    ix3 = TID3 % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (TID3 / gpu::ipow<n, 4>()));
-    ia3 = TID3 / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (TID3 / gpu::ipow<n, 4>()));
-    ix4 = TID4 % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (TID4 / gpu::ipow<n, 4>()));
-    ia4 = TID4 / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (TID4 / gpu::ipow<n, 4>()));
-  }
-  else if constexpr (num_dims - dim == 5)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (threadIdx.x / gpu::ipow<n, 5>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (threadIdx.x / gpu::ipow<n, 5>()));
-    ix2 = TID2 % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (TID2 / gpu::ipow<n, 5>()));
-    ia2 = TID2 / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (TID2 / gpu::ipow<n, 5>()));
-    ix3 = TID3 % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (TID3 / gpu::ipow<n, 5>()));
-    ia3 = TID3 / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (TID3 / gpu::ipow<n, 5>()));
-    ix4 = TID4 % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (TID4 / gpu::ipow<n, 5>()));
-    ia4 = TID4 / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (TID4 / gpu::ipow<n, 5>()));
-  }
-  else if constexpr (num_dims - dim == 6)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (threadIdx.x / gpu::ipow<n, 6>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (threadIdx.x / gpu::ipow<n, 6>()));
-    ix2 = TID2 % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (TID2 / gpu::ipow<n, 6>()));
-    ia2 = TID2 / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (TID2 / gpu::ipow<n, 6>()));
-    ix3 = TID3 % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (TID3 / gpu::ipow<n, 6>()));
-    ia3 = TID3 / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (TID3 / gpu::ipow<n, 6>()));
-    ix4 = TID4 % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (TID4 / gpu::ipow<n, 6>()));
-    ia4 = TID4 / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (TID4 / gpu::ipow<n, 6>()));
-  }
-
-  bool constexpr use_shared_memory = false;
-  if constexpr (use_shared_memory) {
-
-    __shared__ precision XX[num_teams][2 * team_size];
-    __shared__ precision AA[num_teams][n * n];
-
-    XX[threadIdx.y][threadIdx.x] = x[threadIdx.x];
-    XX[threadIdx.y][TID2] = x[TID2];
-    if (threadIdx.x < n * n)
-      AA[threadIdx.y][threadIdx.x] = A[threadIdx.x];
-    __syncthreads();
-
-    precision yinc1 = 0;
-    for (int i = 0; i < n; i++)
-      yinc1 += AA[threadIdx.y][ia1 + i * n] * XX[threadIdx.y][ix1 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-    atomicAdd(&y[threadIdx.x], yinc1);
-
-    if (threadIdx.x < num_last) {
-      precision yinc2 = 0;
-      for (int i = 0; i < n; i++)
-        yinc2 += AA[threadIdx.y][ia2 + i * n] * XX[threadIdx.y][ix2 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-      atomicAdd(&y[TID2], yinc2);
-    }
-
-  } else {
-
-    precision yinc1 = 0;
-    for (int i = 0; i < n; i++)
-      yinc1 += A[ia1 + i * n] * x[ix1 + i * gpu::ipow<n, num_dims - dim - 1>()];
-    atomicAdd(&y[threadIdx.x], yinc1);
-
-    precision yinc2 = 0;
-    for (int i = 0; i < n; i++)
-      yinc2 += A[ia2 + i * n] * x[ix2 + i * gpu::ipow<n, num_dims - dim - 1>()];
-    atomicAdd(&y[TID2], yinc2);
-
-    precision yinc3 = 0;
-    for (int i = 0; i < n; i++)
-      yinc3 += A[ia3 + i * n] * x[ix3 + i * gpu::ipow<n, num_dims - dim - 1>()];
-    atomicAdd(&y[TID3], yinc3);
-
-    if (threadIdx.x < num_last) {
-      precision yinc4 = 0;
-      for (int i = 0; i < n; i++)
-      yinc4 += A[ia4 + i * n] * x[ix4 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-      atomicAdd(&y[TID4], yinc4);
-    }
-  }
-}
-
-template<typename precision, int num_dims, int dim, int n, int team_size, int num_teams>
-__device__ inline void vec_mult_add_cycle3(
-        precision const A[], precision const x[], precision y[]) {
-  static_assert(n >= 2, "degree 0 basis cannot be proceeded in 2 cycles");
-  static_assert(num_dims >= 2, "1D is a special case, use 1 cycle only");
-
-  int constexpr block_size = gpu::ipow<n, num_dims>();
-  int constexpr num_last = block_size - 2 * team_size;
-
-  int ia1 = 0;
-  int ix1 = 0;
-  int ia2 = 0;
-  int ix2 = 0;
-  int ia3 = 0;
-  int ix3 = 0;
-
-  int const TID2 = threadIdx.x + team_size;
-  int const TID3 = threadIdx.x + 2 * team_size;
-
-  if constexpr (num_dims - dim == 1)
-  {
-    ix1 = n * (threadIdx.x / n);
-    ia1 = threadIdx.x % n;
-    ix2 = n * (TID2 / n);
-    ia2 = TID2 % n;
-    ix3 = n * (TID3 / n);
-    ia3 = TID3 % n;
-  }
-  else if constexpr (num_dims - dim == 2)
-  {
-    ix1 = threadIdx.x % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
-    ia1 = threadIdx.x / n - ((num_dims == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
-    ix2 = TID2 % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (TID2 / gpu::ipow<n, 2>()));
-    ia2 = TID2 / n - ((num_dims == 2) ? 0 : n * (TID2 / gpu::ipow<n, 2>()));
-    ix3 = TID3 % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (TID3 / gpu::ipow<n, 2>()));
-    ia3 = TID3 / n - ((num_dims == 2) ? 0 : n * (TID3 / gpu::ipow<n, 2>()));
-  }
-  else if constexpr (num_dims - dim == 3)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (threadIdx.x / gpu::ipow<n, 3>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (threadIdx.x / gpu::ipow<n, 3>()));
-    ix2 = TID2 % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (TID2 / gpu::ipow<n, 3>()));
-    ia2 = TID2 / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (TID2 / gpu::ipow<n, 3>()));
-    ix3 = TID3 % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (TID3 / gpu::ipow<n, 3>()));
-    ia3 = TID3 / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (TID3 / gpu::ipow<n, 3>()));
-  }
-  else if constexpr (num_dims - dim == 4)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (threadIdx.x / gpu::ipow<n, 4>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (threadIdx.x / gpu::ipow<n, 4>()));
-    ix2 = TID2 % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (TID2 / gpu::ipow<n, 4>()));
-    ia2 = TID2 / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (TID2 / gpu::ipow<n, 4>()));
-    ix3 = TID3 % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (TID3 / gpu::ipow<n, 4>()));
-    ia3 = TID3 / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (TID3 / gpu::ipow<n, 4>()));
-  }
-  else if constexpr (num_dims - dim == 5)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (threadIdx.x / gpu::ipow<n, 5>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (threadIdx.x / gpu::ipow<n, 5>()));
-    ix2 = TID2 % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (TID2 / gpu::ipow<n, 5>()));
-    ia2 = TID2 / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (TID2 / gpu::ipow<n, 5>()));
-    ix3 = TID3 % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (TID3 / gpu::ipow<n, 5>()));
-    ia3 = TID3 / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (TID3 / gpu::ipow<n, 5>()));
-  }
-  else if constexpr (num_dims - dim == 6)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (threadIdx.x / gpu::ipow<n, 6>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (threadIdx.x / gpu::ipow<n, 6>()));
-    ix2 = TID2 % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (TID2 / gpu::ipow<n, 6>()));
-    ia2 = TID2 / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (TID2 / gpu::ipow<n, 6>()));
-    ix3 = TID3 % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (TID3 / gpu::ipow<n, 6>()));
-    ia3 = TID3 / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (TID3 / gpu::ipow<n, 6>()));
-  }
-
-  bool constexpr use_shared_memory = false;
-  if constexpr (use_shared_memory) {
-
-    __shared__ precision XX[num_teams][3 * team_size];
-    __shared__ precision AA[num_teams][n * n];
-
-    XX[threadIdx.y][threadIdx.x] = x[threadIdx.x];
-    XX[threadIdx.y][TID2] = x[TID2];
-    XX[threadIdx.y][TID3] = x[TID3];
-    if (threadIdx.x < n * n)
-      AA[threadIdx.y][threadIdx.x] = A[threadIdx.x];
-    __syncthreads();
-
-    precision yinc1 = 0;
-    for (int i = 0; i < n; i++)
-      yinc1 += AA[threadIdx.y][ia1 + i * n] * XX[threadIdx.y][ix1 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-    atomicAdd(&y[threadIdx.x], yinc1);
-
-    precision yinc2 = 0;
-    for (int i = 0; i < n; i++)
-      yinc2 += AA[threadIdx.y][ia2 + i * n] * XX[threadIdx.y][ix2 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-    atomicAdd(&y[TID2], yinc2);
-
-    if (threadIdx.x < num_last) {
-      precision yinc3 = 0;
-      for (int i = 0; i < n; i++)
-        yinc3 += AA[threadIdx.y][ia3 + i * n] * XX[threadIdx.y][ix3 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-      atomicAdd(&y[TID3], yinc3);
-    }
-
-  } else {
-
-    precision yinc1 = 0;
-    for (int i = 0; i < n; i++)
-      yinc1 += A[ia1 + i * n] * x[ix1 + i * gpu::ipow<n, num_dims - dim - 1>()];
-    atomicAdd(&y[threadIdx.x], yinc1);
-
-    precision yinc2 = 0;
-    for (int i = 0; i < n; i++)
-      yinc2 += A[ia2 + i * n] * x[ix2 + i * gpu::ipow<n, num_dims - dim - 1>()];
-    atomicAdd(&y[TID2], yinc2);
-
-    if (threadIdx.x < num_last) {
-      precision yinc3 = 0;
-      for (int i = 0; i < n; i++)
-        yinc3 += A[ia3 + i * n] * x[ix3 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-      atomicAdd(&y[TID3], yinc3);
-    }
-  }
-}
-
-template<typename precision, int num_dims, int dim, int n, int team_size, int num_teams>
-__device__ inline void vec_mult_add_cycle2(
-        precision const A[], precision const x[], precision y[]) {
-  static_assert(n >= 2, "degree 0 basis cannot be proceeded in 2 cycles");
-  static_assert(num_dims >= 2, "1D is a special case, use 1 cycle only");
-
-  int constexpr block_size = gpu::ipow<n, num_dims>();
-  int constexpr num_seconds = block_size - team_size;
-
-  int ia1 = 0;
-  int ix1 = 0;
-  int ia2 = 0;
-  int ix2 = 0;
-
-  int const TID2 = threadIdx.x + team_size;
-
-  if constexpr (num_dims - dim == 1)
-  {
-    ix1 = n * (threadIdx.x / n);
-    ia1 = threadIdx.x % n;
-    ix2 = n * (TID2 / n);
-    ia2 = TID2 % n;
-  }
-  else if constexpr (num_dims - dim == 2)
-  {
-    ix1 = threadIdx.x % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
-    ia1 = threadIdx.x / n - ((num_dims == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
-    ix2 = TID2 % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (TID2 / gpu::ipow<n, 2>()));
-    ia2 = TID2 / n - ((num_dims == 2) ? 0 : n * (TID2 / gpu::ipow<n, 2>()));
-  }
-  else if constexpr (num_dims - dim == 3)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (threadIdx.x / gpu::ipow<n, 3>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (threadIdx.x / gpu::ipow<n, 3>()));
-    ix2 = TID2 % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (TID2 / gpu::ipow<n, 3>()));
-    ia2 = TID2 / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (TID2 / gpu::ipow<n, 3>()));
-  }
-  else if constexpr (num_dims - dim == 4)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (threadIdx.x / gpu::ipow<n, 4>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (threadIdx.x / gpu::ipow<n, 4>()));
-    ix2 = TID2 % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (TID2 / gpu::ipow<n, 4>()));
-    ia2 = TID2 / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (TID2 / gpu::ipow<n, 4>()));
-  }
-  else if constexpr (num_dims - dim == 5)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (threadIdx.x / gpu::ipow<n, 5>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (threadIdx.x / gpu::ipow<n, 5>()));
-    ix2 = TID2 % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (TID2 / gpu::ipow<n, 5>()));
-    ia2 = TID2 / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (TID2 / gpu::ipow<n, 5>()));
-  }
-  else if constexpr (num_dims - dim == 6)
-  {
-    ix1 = threadIdx.x % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (threadIdx.x / gpu::ipow<n, 6>()));
-    ia1 = threadIdx.x / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (threadIdx.x / gpu::ipow<n, 6>()));
-    ix2 = TID2 % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (TID2 / gpu::ipow<n, 6>()));
-    ia2 = TID2 / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (TID2 / gpu::ipow<n, 6>()));
-  }
-
-  bool constexpr use_shared_memory = false;
-  if constexpr (use_shared_memory) {
-
-    __shared__ precision XX[num_teams][2 * team_size];
-    __shared__ precision AA[num_teams][n * n];
-
-    XX[threadIdx.y][threadIdx.x] = x[threadIdx.x];
-    XX[threadIdx.y][TID2] = x[TID2];
-    if (threadIdx.x < n * n)
-      AA[threadIdx.y][threadIdx.x] = A[threadIdx.x];
-    __syncthreads();
-
-    precision yinc1 = 0;
-    for (int i = 0; i < n; i++)
-      yinc1 += AA[threadIdx.y][ia1 + i * n] * XX[threadIdx.y][ix1 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-    atomicAdd(&y[threadIdx.x], yinc1);
-
-    if (threadIdx.x < num_seconds) {
-      precision yinc2 = 0;
-      for (int i = 0; i < n; i++)
-        yinc2 += AA[threadIdx.y][ia2 + i * n] * XX[threadIdx.y][ix2 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-      atomicAdd(&y[TID2], yinc2);
-    }
-
-  } else {
-
-    precision yinc1 = 0;
-    for (int i = 0; i < n; i++)
-      yinc1 += A[ia1 + i * n] * x[ix1 + i * gpu::ipow<n, num_dims - dim - 1>()];
-    atomicAdd(&y[threadIdx.x], yinc1);
-
-    if (threadIdx.x < num_seconds) {
-      precision yinc2 = 0;
-      for (int i = 0; i < n; i++)
-      yinc2 += A[ia2 + i * n] * x[ix2 + i * gpu::ipow<n, num_dims - dim - 1>()];
-
-      atomicAdd(&y[TID2], yinc2);
-    }
-  }
-}
-
-template<typename precision, int num_dims, int dim, int n, int team_size, int num_teams>
-__device__ inline void vec_mult_add_cycle1(
+template<typename precision, int num_dims, int dim, int n, int block_size, int num_teams, int num_cycles>
+__device__ inline void vec_mult_add(
         precision const A[], precision const x[], precision y[]) {
   static_assert(n >= 0);
   if constexpr (n == 1) {
@@ -472,49 +102,57 @@ __device__ inline void vec_mult_add_cycle1(
     }
     return;
   } else {
+    // flip the dimension index, the fastest index is the last,
+    // so we flip the index here
+    constexpr int dflip = num_dims - dim;
 
-    int ia = 0;
-    int ix = 0;
-
-    if constexpr (num_dims - dim == 1)
-    {
-      ix = offset_ix<n, num_dims, 1>(threadIdx.x);
-      ia = offset_ia<n, num_dims, 1>(threadIdx.x);
-      // ix = n * (threadIdx.x / n);
-      // ia = threadIdx.x % n;
-    }
-    else if constexpr (num_dims - dim == 2)
-    {
-      ix = offset_ix<n, num_dims, 2>(threadIdx.x);
-      ia = offset_ia<n, num_dims, 2>(threadIdx.x);
-      //ix = threadIdx.x % n + ((num_dims == 2) ? 0 : gpu::ipow<n, 2>() * (threadIdx.x / gpu::ipow<n, 2>()));
-      //ia = threadIdx.x / n - ((num_dims == 2) ? 0 : n * (threadIdx.x / gpu::ipow<n, 2>()));
-    }
-    else if constexpr (num_dims - dim == 3)
-    {
-      ix = threadIdx.x % gpu::ipow<n, 2>() + ((num_dims == 3) ? 0 : gpu::ipow<n, 3>() * (threadIdx.x / gpu::ipow<n, 3>()));
-      ia = threadIdx.x / gpu::ipow<n, 2>() - ((num_dims == 3) ? 0 : n * (threadIdx.x / gpu::ipow<n, 3>()));
-    }
-    else if constexpr (num_dims - dim == 4)
-    {
-      ix = threadIdx.x % gpu::ipow<n, 3>() + ((num_dims == 4) ? 0 : gpu::ipow<n, 4>() * (threadIdx.x / gpu::ipow<n, 4>()));
-      ia = threadIdx.x / gpu::ipow<n, 3>() - ((num_dims == 4) ? 0 : n * (threadIdx.x / gpu::ipow<n, 4>()));
-    }
-    else if constexpr (num_dims - dim == 5)
-    {
-      ix = threadIdx.x % gpu::ipow<n, 4>() + ((num_dims == 5) ? 0 : gpu::ipow<n, 5>() * (threadIdx.x / gpu::ipow<n, 5>()));
-      ia = threadIdx.x / gpu::ipow<n, 4>() - ((num_dims == 5) ? 0 : n * (threadIdx.x / gpu::ipow<n, 5>()));
-    }
-    else if constexpr (num_dims - dim == 6)
-    {
-      ix = threadIdx.x % gpu::ipow<n, 5>() + ((num_dims == 6) ? 0 : gpu::ipow<n, 6>() * (threadIdx.x / gpu::ipow<n, 6>()));
-      ia = threadIdx.x / gpu::ipow<n, 5>() - ((num_dims == 6) ? 0 : n * (threadIdx.x / gpu::ipow<n, 6>()));
-    }
+    int ix = offset_ix<n, num_dims, dflip>(threadIdx.x);
+    int ia = offset_ia<n, num_dims, dflip>(threadIdx.x);
 
     precision yinc = 0;
     for (int i = 0; i < n; i++)
-      yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, num_dims - dim - 1>()];
+      yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, dflip - 1>()];
     atomicAdd(&y[threadIdx.x], yinc);
+
+    // constexpr int block_size = gpu::ipow<n, num_dims>();
+    int constexpr team_size = block_size / num_cycles + (block_size % num_cycles == 0 ? 0 : 1);
+    int constexpr last_size = block_size - (num_cycles - 1) * team_size;
+
+    if constexpr (num_cycles >= 2) {
+      ix = offset_ix<n, num_dims, dflip>(threadIdx.x + team_size);
+      ia = offset_ia<n, num_dims, dflip>(threadIdx.x + team_size);
+
+      if (num_cycles != 2 or threadIdx.x < last_size) {
+        yinc = 0;
+        for (int i = 0; i < n; i++)
+          yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, dflip - 1>()];
+        atomicAdd(&y[threadIdx.x + team_size], yinc);
+      }
+    }
+
+    if constexpr (num_cycles >= 3) {
+      ix = offset_ix<n, num_dims, dflip>(threadIdx.x + 2 * team_size);
+      ia = offset_ia<n, num_dims, dflip>(threadIdx.x + 2 * team_size);
+
+      if (num_cycles != 3 or threadIdx.x < last_size) {
+        yinc = 0;
+        for (int i = 0; i < n; i++)
+          yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, dflip - 1>()];
+        atomicAdd(&y[threadIdx.x + 2 * team_size], yinc);
+      }
+    }
+
+    if constexpr (num_cycles >= 4) {
+      ix = offset_ix<n, num_dims, dflip>(threadIdx.x + 3 * team_size);
+      ia = offset_ia<n, num_dims, dflip>(threadIdx.x + 3 * team_size);
+
+      if (num_cycles != 4 or threadIdx.x < last_size) {
+        yinc = 0;
+        for (int i = 0; i < n; i++)
+          yinc += A[ia + i * n] * x[ix + i * gpu::ipow<n, dflip - 1>()];
+        atomicAdd(&y[threadIdx.x + 3 * team_size], yinc);
+      }
+    }
   }
 }
 
@@ -591,30 +229,10 @@ __global__ void kernel_block_gpu_driver(
 
     if (ix > -1 and iy > -1) {
       // we found an x/y pair
-      if constexpr (num_cycles == 1) {
-        vec_mult_add_cycle1<precision, num_dimensions, dim, n, block_size, num_teams>(
+      vec_mult_add<precision, num_dimensions, dim, n, block_size, num_teams, num_cycles>(
               vals[level] + ij * n2,
               x + grid_order[ix] * block_size,
               y + grid_order[iy] * block_size);
-      } else if constexpr (num_cycles == 2) {
-        int constexpr team_size = block_size / 2 + block_size % 2;
-        vec_mult_add_cycle2<precision, num_dimensions, dim, n, team_size, num_teams>(
-              vals[level] + ij * n2,
-              x + grid_order[ix] * block_size,
-              y + grid_order[iy] * block_size);
-      } else if constexpr (num_cycles == 3) {
-        int constexpr team_size = block_size / 3 + (block_size % 3 == 0 ? 0 : 1);
-        vec_mult_add_cycle3<precision, num_dimensions, dim, n, team_size, num_teams>(
-              vals[level] + ij * n2,
-              x + grid_order[ix] * block_size,
-              y + grid_order[iy] * block_size);
-      } else if constexpr (num_cycles == 4) {
-        int constexpr team_size = block_size / 4 + (block_size % 4 == 0 ? 0 : 1);
-        vec_mult_add_cycle4<precision, num_dimensions, dim, n, team_size, num_teams>(
-              vals[level] + ij * n2,
-              x + grid_order[ix] * block_size,
-              y + grid_order[iy] * block_size);
-      }
     }
 
     teamID += gridDim.x * blockDim.y;
@@ -664,7 +282,7 @@ void launch_block_gpu(
   int constexpr num_teams = std::clamp(max_num_teams, 1, opt_num_teams);
   dim3 const launch_grid(team_size, num_teams);
 
-  constexpr int launch_blocks = 2048;
+  constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
 
   kernel_block_gpu_driver<precision, num_dims, dim, n, num_teams, num_cycles>
       <<<launch_blocks, launch_grid>>>
@@ -824,8 +442,8 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       std::swap(w1, w2);
     }
 
-    compute->device_synchronize();
-    cuda_check_error( cudaGetLastError() );
+    // compute->device_synchronize();
+    // cuda_check_error( cudaGetLastError() );
 
     if (i == 0) { // on iteration zero, scale y
       if (beta == 0)
@@ -888,8 +506,8 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       std::swap(w1, w2);
     }
 
-    compute->device_synchronize();
-    cuda_check_error( cudaGetLastError() );
+    // compute->device_synchronize();
+    // cuda_check_error( cudaGetLastError() );
 
     if (i == 0) { // on iteration zero, scale y
       if (beta == 0)
