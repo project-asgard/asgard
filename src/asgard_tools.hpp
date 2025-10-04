@@ -142,6 +142,11 @@ public:
     cudaDeviceSynchronize(); // needed for accurate kronmult timing
 #endif
 #endif
+#ifdef ASGARD_USE_ROCM
+#ifndef NDEBUG
+    std::ignore = hipDeviceSynchronize();
+#endif
+#endif
 
     events_list &event = events_[id];
     expect(event.started.has_value());

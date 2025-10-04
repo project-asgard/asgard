@@ -346,6 +346,10 @@ if (ASGARD_USE_ROCM)
     list (APPEND CMAKE_PREFIX_PATH ${ASGARD_ROCM_PATH}/hip ${ASGARD_ROCM_PATH})
     enable_language(HIP)
     find_package(rocsolver REQUIRED)
+
+    # number of blocks must be set before "asgard_build_info.hpp" is configured
+    set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
+    set (ASGARD_NUM_GPU_BLOCKS "2000" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
 
 set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature points to be used transformations.")
