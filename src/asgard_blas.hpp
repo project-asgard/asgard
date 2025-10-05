@@ -53,6 +53,15 @@ P nrm2(int n, P const x[]) {
   else
     return cblas_snrm2(n, x, 1);
 }
+//! computes y += alpha * x, BLAS saxpy()/daxpy()
+template<typename P>
+void axpy(int n, P alpha, P const x[], P y[]) {
+  static_assert(is_double<P> or is_float<P>);
+  if constexpr (is_double<P>)
+    cblas_daxpy(n, alpha, x, 1, y, 1);
+  else
+    cblas_daxpy(n, alpha, x, 1, y, 1);
+}
 //! scales vector by number, BLAS sscal()/dscal()
 template<typename P>
 void scal(int n, P alpha, P x[]) {

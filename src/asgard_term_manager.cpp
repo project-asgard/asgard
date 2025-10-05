@@ -2,6 +2,8 @@
 
 #include "asgard_coefficients_mats.hpp" // also brings in small-mats module
 
+#include "asgard_blas.hpp"
+
 namespace asgard
 {
 
@@ -390,9 +392,11 @@ void term_manager<P>::apply_sources(
             y[i] += alpha * src.val[i];
         break;
       case source_entry<P>::time_mode::separable: {
+          tools::time_event perf_("separable source");
           P t = std::get<scalar_func<P>>(src.func)(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             t *= alpha;
+          // do not handle sources 1-by-1, if may use gemv
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < num_entries; i++)
             y[i] += t * src.val[i];
