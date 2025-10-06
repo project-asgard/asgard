@@ -203,14 +203,6 @@ struct term_manager
   //! get the moment dependencies for the given group
   mom_deps const &deps(int groupid) const { return deps_[groupid]; }
 
-  //! update constant components of the sources
-  void update_const_sources(sparse_grid const &grid, connection_patterns const &conn,
-                            hierarchy_manipulator<P> const &hier);
-
-  //! update constant components of the sources
-  void update_bc(sparse_grid const &grid, connection_patterns const &conn,
-                 hierarchy_manipulator<P> const &hier);
-
   //! rebuild all matrices
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
                       hierarchy_manipulator<P> const &hier,
@@ -440,12 +432,6 @@ struct term_manager
   }
 
 protected:
-  //! process the boundary conditions and store the result into pre-allocated vector
-  template<data_mode dmode>
-  void apply_bc(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
-                connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
-                P time, P alpha, P y[]);
-
   //! remember which grid was cached for the workspace
   int workspace_grid_gen = -1;
   //! remember which grid was cached for the sources

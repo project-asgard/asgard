@@ -7,92 +7,127 @@ namespace asgard
 {
 
 template<typename P>
-void term_manager<P>::update_const_sources(
-    sparse_grid const &grid, connection_patterns const &conns,
-    hierarchy_manipulator<P> const &hier)
-{
-  if (grid.generation() == sources_grid_gen)
-    return;
-
-  int const pdof = hier.degree() + 1;
-
-  int64_t const block_size  = hier.block_size();
-  int64_t const num_entries = grid.num_indexes() * block_size;
-
-  // update the constant components
-  for (auto &src : sources)
-  {
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(src.rec))
-      continue;
-    #endif
-
-    if (src.is_time_dependent())
-      continue;
-
-    src.val.resize(num_entries);
-
-    #pragma omp parallel
-    {
-      std::array<P const *, max_num_dimensions> data1d;
-
-      #pragma omp for
-      for (int64_t j = 0; j < grid.num_indexes(); j++)
-      {
-        P *proj = src.val.data() + j * block_size;
-
-        int const *idx = grid[j];
-        for (int d : iindexof(num_dims))
-          data1d[d] = src.consts[d].data() + idx[d] * pdof;
-
-        std::array<int, max_num_dimensions> v;
-        std::fill_n(v.begin(), num_dims, 0);
-
-        int i = 0;
-
-        bool is_in = true;
-        int c = 0;
-        while (is_in or c > 0)
-        {
-          if (is_in)
-          {
-            P val = 1;
-            for (int d = 0; d < num_dims; d++)
-              val *= data1d[d][ v[d] ];
-
-            c = num_dims - 1;
-            v[c]++;
-
-            proj[i++] = val;
-          }
-          else
-          {
-            std::fill(v.begin() + c, v.begin() + num_dims, 0);
-            v[--c]++;
-          }
-
-          is_in = (v[c] < pdof);
-        }
-      }
-    }
-  } // done with all sources
-
-  if (sources_have_time_dep)
-    rebuild_mass_matrices(grid);
-
-  // make sure to handle the boundary conditions too
-  update_bc(grid, conns, hier);
-
-  sources_grid_gen = grid.generation();
-}
-
-template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_sources(
     int groupid, pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
-  update_const_sources(grid, conns, hier);
+  // update the const-components of the sources, if the grid has updated
+  if (grid.generation() != sources_grid_gen)
+  {
+    int const pdof = hier.degree() + 1;
+
+    int64_t const block_size  = hier.block_size();
+    int64_t const num_entries = grid.num_indexes() * block_size;
+
+    auto tensor_consts = [&](auto &entry) -> void
+      {
+        entry.val.resize(num_entries);
+
+        #pragma omp parallel
+        {
+          std::array<P const *, max_num_dimensions> data1d;
+
+          #pragma omp for
+          for (int64_t j = 0; j < grid.num_indexes(); j++)
+          {
+            P *proj = entry.val.data() + j * block_size;
+
+            int const *idx = grid[j];
+            for (int d = 0; d < num_dims; d++)
+              data1d[d] = entry.consts[d].data() + idx[d] * pdof;
+
+            std::array<int, max_num_dimensions> v;
+            std::fill_n(v.begin(), num_dims, 0);
+
+            int i = 0;
+
+            bool is_in = true;
+            int c = 0;
+            while (is_in or c > 0)
+            {
+              if (is_in)
+              {
+                P val = 1;
+                for (int d = 0; d < num_dims; d++)
+                  val *= data1d[d][ v[d] ];
+
+                c = num_dims - 1;
+                v[c]++;
+
+                proj[i++] = val;
+              }
+              else
+              {
+                std::fill(v.begin() + c, v.begin() + num_dims, 0);
+                v[--c]++;
+              }
+
+              is_in = (v[c] < pdof);
+            }
+          }
+        }
+      };
+
+    // update the constant components
+    for (auto &src : sources)
+    {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(src.rec))
+        continue;
+      #endif
+
+      // the time-dependent case will construct both the 1D can mD vector for each t
+      // the rest of the cases will have constant components in space and a time variable
+      // this handles the space vector 1D -> mD tensoring
+
+      if (src.is_time_dependent())
+        continue;
+
+      tensor_consts(src);
+    }
+
+    if (sources_have_time_dep)
+      rebuild_mass_matrices(grid);
+
+    // update the constant components
+    for (auto &bc : bcs) {
+      if (bc.is_time_dependent())
+        continue;
+
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[bc.term_index].rec))
+        continue;
+      #endif
+
+      // In addition to the tensoring, the boundary condition case
+      // may require application of the chain operators
+
+      tensor_consts(bc);
+
+      // not in a chain or last link, then nothing more to do
+      if (terms[bc.term_index].num_chain > 0)
+        continue;
+
+      // otherwise we have to push the vectors through the term_md chain
+
+      t1.resize(num_entries); // workspace
+
+      bool keep_working = true;
+      int tid = bc.term_index;
+      while (keep_working) {
+        --tid;
+
+        // TODO: move this to the GPU with the rest of the sources/bc terms
+        kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
+        std::swap(bc.val, t1);
+
+        keep_working = (terms[tid].num_chain < 0);
+      }
+    } // done with all sources
+
+    sources_grid_gen = grid.generation();
+  }
 
   int64_t const num_entries = grid.num_indexes() * hier.block_size();
   if constexpr (dmode == data_mode::replace or dmode == data_mode::scal_rep)
@@ -169,109 +204,6 @@ void term_manager<P>::apply_sources(
         interp(grid, conns, time, alpha, sources_md[groupid], 1, y, kwork, it1);
     }
   }
-
-  if constexpr (dmode == data_mode::replace)
-    apply_bc<data_mode::increment>(groupid, domain, grid, conns, hier, time, alpha, y);
-  else if constexpr (dmode == data_mode::scal_rep)
-    apply_bc<data_mode::scal_inc>(groupid, domain, grid, conns, hier, time, alpha, y);
-  else
-    apply_bc<dmode>(groupid, domain, grid, conns, hier, time, alpha, y);
-}
-
-template<typename P>
-void term_manager<P>::update_bc(
-    sparse_grid const &grid, connection_patterns const &conns,
-    hierarchy_manipulator<P> const &hier)
-{
-  int const pdof = hier.degree() + 1;
-
-  int64_t const block_size  = hier.block_size();
-  int64_t const num_entries = grid.num_indexes() * block_size;
-
-  // update the constant components
-  for (auto &bc : bcs) {
-    if (bc.is_time_dependent())
-      continue;
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(terms[bc.term_index].rec))
-      continue;
-    #endif
-
-    bc.val.resize(num_entries);
-
-    #pragma omp parallel
-    {
-      std::array<P const *, max_num_dimensions> data1d;
-
-      #pragma omp for
-      for (int64_t j = 0; j < grid.num_indexes(); j++) {
-        P *proj = bc.val.data() + j * block_size;
-
-        int const *idx = grid[j];
-        for (int d : iindexof(num_dims))
-          data1d[d] = bc.consts[d].data() + idx[d] * pdof;
-
-        std::array<int, max_num_dimensions> v;
-        std::fill_n(v.begin(), num_dims, 0);
-
-        int i = 0;
-
-        bool is_in = true;
-        int c = 0;
-        while (is_in or c > 0)
-        {
-          if (is_in)
-          {
-            P val = 1;
-            for (int d = 0; d < num_dims; d++)
-              val *= data1d[d][ v[d] ];
-
-            c = num_dims - 1;
-            v[c]++;
-
-            proj[i++] = val;
-          }
-          else
-          {
-            std::fill(v.begin() + c, v.begin() + num_dims, 0);
-            v[--c]++;
-          }
-
-          is_in = (v[c] < pdof);
-        }
-      }
-    }
-
-    // not in a chain or last link, then nothing more to do
-    if (terms[bc.term_index].num_chain > 0)
-      continue;
-
-    // otherwise we have to push the vectors through the term_md chain
-
-    t1.resize(num_entries); // workspace
-
-    bool keep_working = true;
-    int tid = bc.term_index;
-    while (keep_working) {
-      --tid;
-
-      kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
-      std::swap(bc.val, t1);
-
-      keep_working = (terms[tid].num_chain < 0);
-    }
-  } // done with all sources
-}
-
-template<typename P>
-template<data_mode dmode>
-void term_manager<P>::apply_bc(
-    int groupid, pde_domain<P> const &, sparse_grid const &grid,
-    connection_patterns const &, hierarchy_manipulator<P> const &hier,
-    P time, P alpha, P y[])
-{
-  int64_t const num_entries = grid.num_indexes() * hier.block_size();
 
   if (groupid == -1) {
     for (auto const &bc : bcs) {
@@ -380,13 +312,6 @@ template void term_manager<double>::apply_sources<data_mode::scal_inc>(
 template void term_manager<double>::apply_sources<data_mode::scal_rep>(
     int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
-
-template void term_manager<double>::apply_bc<data_mode::increment>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
-template void term_manager<double>::apply_bc<data_mode::scal_inc>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -400,13 +325,6 @@ template void term_manager<float>::apply_sources<data_mode::scal_inc>(
     int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_rep>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
-
-template void term_manager<float>::apply_bc<data_mode::increment>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
-template void term_manager<float>::apply_bc<data_mode::scal_inc>(
     int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
