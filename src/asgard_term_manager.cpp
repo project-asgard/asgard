@@ -108,7 +108,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       term_groups.emplace_back(ibegin, ibegin + n);
       ibegin += n;
     }
-    source_groups = std::move(pde.source_groups);
+    source_groups.resize(pde.source_groups.size());
+    for (int i : iindexof(pde.source_groups))
+      source_groups[i].source_range = pde.source_groups[i];
   }
 
   terms.resize(num_terms);
@@ -181,12 +183,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   // form groups for the boundary conditions
   if (not term_groups.empty()) {
-    bc_groups.reserve(term_groups.size());
-    int bc_begin = 0, bc_end = 0; // index for the boundary conditions
+    int j = 0, bc_begin = 0, bc_end = 0; // index for the boundary conditions
     for (int groupid : iindexof(term_groups)) {
       for (int it : indexrange(term_groups[groupid]))
         bc_end += terms[it].bc.size();
-      bc_groups.emplace_back(bc_begin, bc_end);
+      source_groups[j++].bc_range = irange(bc_begin, bc_end);
       bc_begin = bc_end;
     }
   }
@@ -1449,8 +1450,8 @@ void term_manager<P>::assign_compute_resources()
         ids.resize(0);
         weights.resize(0);
 
-        int ibegin = (gid < 0) ? 0                                : source_groups[gid].begin();
-        iend       = (gid < 0) ? static_cast<int>(sources.size()) : source_groups[gid].end();
+        int ibegin = (gid < 0) ? 0                                : source_groups[gid].source_range.begin();
+        iend       = (gid < 0) ? static_cast<int>(sources.size()) : source_groups[gid].source_range.end();
         for (int i = ibegin; i < iend; i++)
         {
           // skip terms assigned to other mpi ranks

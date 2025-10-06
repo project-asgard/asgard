@@ -159,12 +159,8 @@ struct term_manager
 
   //! term groups, chains are flattened
   std::vector<irange> term_groups;
-  //! source groups, same as the PDE
-  std::vector<irange> source_groups;
-  //! boundary source groups, correspond to the term_groups
-  std::vector<irange> bc_groups;
-  //! in case of many separable sources, those are limped into a matrix to allow the use of BLAS gemv
-  int lumped_sources = 0;
+  //! source groups for boundary and regular sources
+  std::vector<group_combo> source_groups;
 
   //! left end-point of the domain
   std::array<P, max_num_dimensions> xleft;

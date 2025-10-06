@@ -140,7 +140,8 @@ void term_manager<P>::apply_sources(
 
   // NOTE: when adding the "boundary" and "edge" sources, the sign is flipped
 
-  indexrange irng = (groupid == -1) ? indexrange(sources) : source_groups[groupid];
+  indexrange irng = (groupid == -1) ? indexrange(sources)
+                                    : source_groups[groupid].source_range;
 
   for (int is : irng) {
     auto const &src = sources[is];
@@ -210,7 +211,7 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  irng = (groupid == -1) ? indexrange(bcs) : bc_groups[groupid];
+  irng = (groupid == -1) ? indexrange(bcs) : source_groups[groupid].bc_range;
 
   for (int ib : irng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case

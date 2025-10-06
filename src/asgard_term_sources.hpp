@@ -79,4 +79,16 @@ struct boundary_entry {
   std::array<std::vector<P>, max_num_dimensions> consts;
 };
 
+/*!
+ * \brief Combines information about regular and boundary source groups
+ */
+struct group_combo {
+  //! range for the regular sources
+  irange source_range;
+  //! boundary sources range
+  irange bc_range;
+  //! number of sources lumped into a gemv
+  int num_lumped = 0;
+};
+
 }

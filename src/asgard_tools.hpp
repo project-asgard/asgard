@@ -527,6 +527,8 @@ struct indexrange
  */
 class irange {
 public:
+  //! default empty range
+  irange() = default;
   //! create a new range with the given begin and end
   irange(int b, int e)
     : begin_(b), end_(e)
