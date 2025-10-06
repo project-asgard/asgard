@@ -164,7 +164,7 @@ struct term_manager
   //! boundary source groups, correspond to the term_groups
   std::vector<irange> bc_groups;
   //! in case of many separable sources, those are limped into a matrix to allow the use of BLAS gemv
-  int limped_sources = 0;
+  int lumped_sources = 0;
 
   //! left end-point of the domain
   std::array<P, max_num_dimensions> xleft;
