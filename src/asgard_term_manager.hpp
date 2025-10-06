@@ -157,6 +157,15 @@ struct term_manager
   //! interpolatory sources
   std::vector<md_func<P>> sources_md;
 
+  //! term groups, chains are flattened
+  std::vector<irange> term_groups;
+  //! source groups, same as the PDE
+  std::vector<irange> source_groups;
+  //! boundary source groups, correspond to the term_groups
+  std::vector<irange> bc_groups;
+  //! in case of many separable sources, those are limped into a matrix to allow the use of BLAS gemv
+  int limped_sources = 0;
+
   //! left end-point of the domain
   std::array<P, max_num_dimensions> xleft;
   //! right end-point of the domain
@@ -180,12 +189,6 @@ struct term_manager
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1;
   #endif
-
-
-  //! term groups, chains are flattened
-  std::vector<irange> term_groups;
-  //! source groups, same as the PDE
-  std::vector<irange> source_groups;
 
   //! dependencies for each term group, last entry is for all terms
   std::vector<mom_deps> deps_;

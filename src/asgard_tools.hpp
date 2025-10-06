@@ -511,6 +511,7 @@ struct indexrange
   idx_type iend() const { return end_; }
 
   bool empty() const { return (beg_ == end_); }
+  idx_type size() const { return (end_ - beg_); }
   bool contains(idx_type a) const { return (beg_ <= a and a < end_); }
 
   idx_type beg_;

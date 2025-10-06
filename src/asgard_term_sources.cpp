@@ -67,6 +67,29 @@ void term_manager<P>::apply_sources(
             }
           }
         }
+      }; // end of tensor_consts lambda
+
+    auto rechain = [&, this](boundary_entry<P> &bc) -> void
+      {
+        // not in a chain or last link, then nothing to do
+        if (terms[bc.term_index].num_chain > 0)
+          return;
+
+        // otherwise we have to push the vectors through the term_md chain
+
+        t1.resize(num_entries); // workspace
+
+        bool keep_working = true;
+        int tid = bc.term_index;
+        while (keep_working) {
+          --tid;
+
+          // TODO: move this to the GPU with the rest of the sources/bc terms
+          kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
+          std::swap(bc.val, t1);
+
+          keep_working = (terms[tid].num_chain < 0);
+        }
       };
 
     // update the constant components
@@ -105,25 +128,8 @@ void term_manager<P>::apply_sources(
 
       tensor_consts(bc);
 
-      // not in a chain or last link, then nothing more to do
-      if (terms[bc.term_index].num_chain > 0)
-        continue;
+      rechain(bc);
 
-      // otherwise we have to push the vectors through the term_md chain
-
-      t1.resize(num_entries); // workspace
-
-      bool keep_working = true;
-      int tid = bc.term_index;
-      while (keep_working) {
-        --tid;
-
-        // TODO: move this to the GPU with the rest of the sources/bc terms
-        kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
-        std::swap(bc.val, t1);
-
-        keep_working = (terms[tid].num_chain < 0);
-      }
     } // done with all sources
 
     sources_grid_gen = grid.generation();
@@ -205,96 +211,50 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  if (groupid == -1) {
-    for (auto const &bc : bcs) {
+  irng = (groupid == -1) ? indexrange(bcs) : bc_groups[groupid];
 
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(terms[bc.term_index].rec))
-        continue;
-      #endif
+  for (int ib : irng) {
+    auto const &bc = bcs[ib];
 
-      switch (bc.tmode) {
-        case boundary_entry<P>::time_mode::constant:
-          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= bc.val[i];
-          else
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= alpha * bc.val[i];
-          break;
-        case boundary_entry<P>::time_mode::separable: {
-            P t = bc.flux.func().ftime(time);
-            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-              t *= alpha;
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= t * bc.val[i];
-          }
-          break;
-        case boundary_entry<P>::time_mode::time_dependent:
-          rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
-                  "separable in space, non-separable bc not yet implemented");
-          // TIME DEPENDANT mess
-          // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          //   hier.template project_separable<data_mode::increment>
-          //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-          // else
-          //   hier.template project_separable<data_mode::scal_inc>
-          //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-          break;
-        default:
-          // unreachable here
-          break;
-      }
-    }
-  } else {
-    for (int it : indexrange(term_groups[groupid]))
-    {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(terms[it].rec))
-        continue;
-      #endif
+    #ifdef ASGARD_USE_MPI
+    if (not resources.owns(terms[bc.term_index].rec))
+      continue;
+    #endif
 
-      for (int ib : terms[it].bc) {
-        auto const &bc = bcs[ib];
-        switch (bc.tmode) {
-          case boundary_entry<P>::time_mode::constant:
-            if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-              ASGARD_OMP_PARFOR_SIMD
-              for (int64_t i = 0; i < num_entries; i++)
-                y[i] -= bc.val[i];
-            else
-              ASGARD_OMP_PARFOR_SIMD
-              for (int64_t i = 0; i < num_entries; i++)
-                y[i] -= alpha * bc.val[i];
-            break;
-          case boundary_entry<P>::time_mode::separable: {
-              P t = bc.flux.func().ftime(time);
-              if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-                t *= alpha;
-              ASGARD_OMP_PARFOR_SIMD
-              for (int64_t i = 0; i < num_entries; i++)
-                y[i] -= t * bc.val[i];
-            }
-            break;
-          case boundary_entry<P>::time_mode::time_dependent:
-            rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
-                    "separable in space, non-separable bc not yet implemented");
-            // TIME DEPENDANT mess
-            // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            //   hier.template project_separable<data_mode::increment>
-            //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-            // else
-            //   hier.template project_separable<data_mode::scal_inc>
-            //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-            break;
-          default:
-            // unreachable here
-            break;
+    switch (bc.tmode) {
+      case boundary_entry<P>::time_mode::constant:
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] -= bc.val[i];
+        else
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] -= alpha * bc.val[i];
+        break;
+      case boundary_entry<P>::time_mode::separable: {
+          P t = bc.flux.func().ftime(time);
+          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+            t *= alpha;
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < num_entries; i++)
+            y[i] -= t * bc.val[i];
         }
-      }
+        break;
+      case boundary_entry<P>::time_mode::time_dependent:
+        rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
+                "separable in space, non-separable bc not yet implemented");
+        // TIME DEPENDANT mess
+        // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        //   hier.template project_separable<data_mode::increment>
+        //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+        // else
+        //   hier.template project_separable<data_mode::scal_inc>
+        //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+        break;
+      default:
+        // unreachable here
+        break;
     }
   }
 }
