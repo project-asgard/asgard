@@ -284,6 +284,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
+  prapare_kron_workspace(grid); // setup kronmult workspace
+
+  has_terms_ = not terms.empty();
+  assign_compute_resources();
+
   // prepare the workspaces for the sources
   // consider only sources that are associated with this MPI rank and not time-dependant
   // the time sources cannot use workspace to accelerate computations
@@ -325,16 +330,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   } else { // no groups, lump everything together
     int j = 0;
     for (auto &src : sources)
-      src.ilump = j++;
+      if (is_active_src(src)) src.ilump = j++;
     for (auto &bc : bcs)
-      bc.ilump = j++;
+      if (is_active_bc(bc)) bc.ilump = j++;
   }
   sweights.reserve(num_lumped); // one weight per lumped source
-
-  prapare_kron_workspace(grid); // setup kronmult workspace
-
-  has_terms_ = not terms.empty();
-  assign_compute_resources();
 }
 
 template<typename P>

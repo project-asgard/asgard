@@ -347,15 +347,17 @@ void term_manager<P>::apply_sources(
 
   // using BLAS level 2 gemv operation is more efficient when we are dealing
   // with a sufficiently large number of sources
-  // the threshold was manually tested on several AMD CPUs and OpenBLAS
-  int constexpr gemv_threshold = 100;
+  // however, using gemv here results in much slower cpu-kronmult operations
+  //   suspected aggressive use of CPU cache by gemv leading to cache misses in gemv
+  //   the problem happens even when OpenMP is off, but does not appear with CUDA
+  #ifdef ASGARD_USE_GPU
+  int constexpr gemv_threshold = 2;
   if (irng.size() >= gemv_threshold) {
-    // std::cout << " using gemv\n";
     fm::gemv('N', num_entries, irng.size(), 1,
              swork.data() + num_entries * irng.ibegin(),
              sweights.data(), 1, y);
-  } else {
-    // std::cout << " using parfor\n";
+  } else
+  #endif
     for (int i = 0; i < irng.size(); i++) {
       P const w = sweights[i];
       P const *s = swork.data() + (i + irng.ibegin()) * num_entries;
@@ -363,7 +365,6 @@ void term_manager<P>::apply_sources(
       for (int64_t j = 0; j < num_entries; j++)
         y[j] += w * s[j];
     }
-  }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
