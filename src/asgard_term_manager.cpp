@@ -230,60 +230,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
-  // lump multiple sources together to be able to use gemv
-  auto is_active_src = [&, this](source_entry<P> const &src) -> bool
-    {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(src.rec))
-        return false;
-      #endif
-      return (not src.is_time_dependent());
-    };
-  auto is_active_bc = [&, this](boundary_entry<P> const &bc) -> bool
-    {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(terms[bc.term_index].rec))
-        return false;
-      #endif
-      return (not bc.is_time_dependent());
-    };
-
-  // try to lump the terms together
-  for (auto const &src : sources)
-    if (is_active_src(src)) num_lumped++;
-
-  std::cout << " active sources " << num_lumped << "\n";
-
-  for (auto const &bc : bcs)
-    if (is_active_bc(bc)) num_lumped++;
-
-  if (num_lumped < 4 or (source_groups.size() >= 1
-                         and (num_lumped / source_groups.size()) < 3)) {
-    // not enough sources to lump, keep them separate
-    num_lumped = 0;
-  } else {
-    if (not source_groups.empty()) { // set them group by group
-      int ibegin = 0, iend = 0;
-      for (size_t i = 0; i < source_groups.size(); i++) {
-        for (int is : indexrange(source_groups[i].source_range))
-          if (is_active_src(sources[is]))
-            sources[is].ilump = iend++;
-        for (int ib : indexrange(source_groups[i].bc_range))
-          if (is_active_bc(bcs[ib]))
-            bcs[ib].ilump = iend++;
-        source_groups[i].lump_range = irange(ibegin, iend);
-        ibegin = iend;
-      }
-    } else { // no groups, lump everything together
-      std::cout << " num lumped = " << num_lumped << '\n';
-      int j = 0;
-      for (auto &src : sources)
-        src.ilump = j++;
-      for (auto &bc : bcs)
-        bc.ilump = j++;
-    }
-  }
-
   // domain left/right bounds
   for (int d : iindexof(num_dims)) {
     xleft[d]  = pde.domain().xleft(d);
@@ -337,6 +283,53 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       sources.back().func = std::move(s);
     }
   }
+
+  // prepare the workspaces for the sources
+  // consider only sources that are associated with this MPI rank and not time-dependant
+  // the time sources cannot use workspace to accelerate computations
+  auto is_active_src = [&, this](source_entry<P> const &src) -> bool
+    {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(src.rec))
+        return false;
+      #endif
+      return (not src.is_time_dependent());
+    };
+  auto is_active_bc = [&, this](boundary_entry<P> const &bc) -> bool
+    {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(terms[bc.term_index].rec))
+        return false;
+      #endif
+      return (not bc.is_time_dependent());
+    };
+
+  for (auto const &src : sources)
+    if (is_active_src(src)) num_lumped++;
+
+  for (auto const &bc : bcs)
+    if (is_active_bc(bc)) num_lumped++;
+
+  if (not source_groups.empty()) { // set sources group by group
+    int ibegin = 0, iend = 0;
+    for (size_t i = 0; i < source_groups.size(); i++) {
+      for (int is : indexrange(source_groups[i].source_range))
+        if (is_active_src(sources[is]))
+          sources[is].ilump = iend++;
+      for (int ib : indexrange(source_groups[i].bc_range))
+        if (is_active_bc(bcs[ib]))
+          bcs[ib].ilump = iend++;
+      source_groups[i].lump_range = irange(ibegin, iend);
+      ibegin = iend;
+    }
+  } else { // no groups, lump everything together
+    int j = 0;
+    for (auto &src : sources)
+      src.ilump = j++;
+    for (auto &bc : bcs)
+      bc.ilump = j++;
+  }
+  sweights.reserve(num_lumped); // one weight per lumped source
 
   prapare_kron_workspace(grid); // setup kronmult workspace
 

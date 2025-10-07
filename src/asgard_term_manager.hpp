@@ -93,6 +93,9 @@ struct term_entry {
   indexrange<int> bc;
   //! dimension holding a flux, -1 if no flux
   int flux_dim = -1;
+
+  //! returns true if this is a link in a chain, false if stand-alone or first link
+  bool is_chain_link() const { return (num_chain < 0); }
 };
 
 /*!
@@ -180,6 +183,7 @@ struct term_manager
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   mutable std::vector<P> it1, it2; // used for interpolation
+  mutable std::vector<P> swork, sweights; // source workspace and time weights
   #ifdef ASGARD_USE_GPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals

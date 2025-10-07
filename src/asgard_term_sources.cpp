@@ -16,55 +16,46 @@ void term_manager<P>::apply_sources(
   // if lumped size is small, use the addition for-loop
   // move the lumped workspace (sources/weights) into the terms class
 
+  tools::time_event perf_("inside apply sources");
+
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
 
-  static std::vector<P> lumped_sources(num_lumped * num_entries);
-  static std::vector<P> lumped_weights(num_lumped);
-  lumped_weights.resize(0);
-
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
-  auto rechain = [&, this](boundary_entry<P> &bc, P data[]) -> void
+  auto rechain = [&, this](boundary_entry<P> &bc, P al, P data[]) -> void
     {
-      // not in a chain or last link, then nothing to do
-      if (terms[bc.term_index].num_chain > 0)
-        return;
-
-      // otherwise we have to push the vectors through the term_md chain
+      // push the vectors through the term_md chain
       // assuming the current data is in t1, using t1/t2 as workspace
 
-      // bool keep_working = true;
-      int tid = bc.term_index;
-      while (true) {
-        --tid;
-        if (tid == 0 or terms[tid - 1].num_chain >= 0)
-          break;
-
+      // rechain until the top link
+      int tid = bc.term_index - 1;
+      while (tid > 0 and terms[tid - 1].is_chain_link()) {
         // TODO: move this to the GPU with the rest of the sources/bc terms
         kron_term(grid, conns, terms[tid], 1, t1, 0, t2);
         std::swap(t1, t2);
 
-        // keep_working = (terms[tid].num_chain < 0);
+        --tid;
       }
-
-      kron_term(grid, conns, terms[tid - 1], 1, t1.data(), 0, data);
+      // apply the top chain and put the result in the final place
+      kron_term(grid, conns, terms[tid - 1], al, t1.data(), 0, data);
     };
 
   // update the const-components of the sources, if the grid has updated
   if (grid.generation() != sources_grid_gen)
   {
-    lumped_sources.resize(num_lumped * num_entries);
+    tools::time_event perf2_("updating grid");
+    swork.resize(num_lumped * num_entries);
 
     int const pdof = hier.degree() + 1;
 
-    auto tensor_consts = [&](auto &entry, P *data = nullptr) -> void
+    auto tensor_consts = [&, this](auto &entry, P *data = nullptr) -> void
       {
         if (data == nullptr) {
           if (entry.ilump == -1) {
             entry.val.resize(num_entries);
             data = entry.val.data();
           } else {
-            data = lumped_sources.data() + entry.ilump * num_entries;
+            data = swork.data() + entry.ilump * num_entries;
           }
         }
 
@@ -145,17 +136,12 @@ void term_manager<P>::apply_sources(
       // In addition to the tensoring, the boundary condition case
       // may require application of the chain operators
 
-      if (terms[bc.term_index].num_chain > 0) // if no-chain
-        tensor_consts(bc);
-      else {
+      if (terms[bc.term_index].is_chain_link()) { // if chain (not top link)
+        // tensor into a temp, rechain and put the final result into swork
         tensor_consts(bc, t1.data());
-        if (bc.ilump == -1) {
-          bc.val.resize(num_entries);
-          rechain(bc, bc.val.data());
-        } else {
-          rechain(bc, lumped_sources.data() + bc.ilump * num_entries);
-        }
-      }
+        rechain(bc, P{1}, swork.data() + bc.ilump * num_entries);
+      } else
+        tensor_consts(bc);
     }
 
     if (sources_have_time_dep or bcs_have_time_dep)
@@ -168,6 +154,8 @@ void term_manager<P>::apply_sources(
     std::fill_n(y, num_entries, P{0});
 
   // NOTE: when adding the "boundary" and "edge" sources, the sign is flipped
+
+  sweights.resize(0);
 
   indexrange isrng = (groupid == -1) ? indexrange(sources)
                                      : source_groups[groupid].source_range;
@@ -182,39 +170,44 @@ void term_manager<P>::apply_sources(
 
     switch (src.tmode) {
       case source_entry<P>::time_mode::constant:
-        if (num_lumped > 0) {
-          std::cout << "lumping const\n";
-          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            lumped_weights.push_back(P{1});
-          else
-            lumped_weights.push_back(alpha);
-        } else {
-          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] += src.val[i];
-          else
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] += alpha * src.val[i];
-        }
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          sweights.push_back(P{1});
+        else
+          sweights.push_back(alpha);
+//         if (num_lumped > 0) {
+//           std::cout << "lumping const\n";
+//
+//         } else {
+//           // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+//           //   ASGARD_OMP_PARFOR_SIMD
+//           //   for (int64_t i = 0; i < num_entries; i++)
+//           //     y[i] += src.val[i];
+//           // else
+//           //   ASGARD_OMP_PARFOR_SIMD
+//           //   for (int64_t i = 0; i < num_entries; i++)
+//           //     y[i] += alpha * src.val[i];
+//         }
         break;
       case source_entry<P>::time_mode::separable: {
           P t = std::get<scalar_func<P>>(src.func)(time);
-          if (num_lumped > 0) {
-            std::cout << "lumping sep\n";
-            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-              lumped_weights.push_back(alpha * t);
-            else
-              lumped_weights.push_back(t);
-          } else {
-            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-              t *= alpha;
-            // do not handle sources 1-by-1, if may use gemv
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] += t * src.val[i];
-          }
+          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+            sweights.push_back(alpha * t);
+          else
+            sweights.push_back(t);
+          // if (num_lumped > 0) {
+          //   std::cout << "lumping sep\n";
+          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+          //     lumped_weights.push_back(alpha * t);
+          //   else
+          //     lumped_weights.push_back(t);
+          // } else {
+          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+          //     t *= alpha;
+          //   // do not handle sources 1-by-1, if may use gemv
+          //   ASGARD_OMP_PARFOR_SIMD
+          //   for (int64_t i = 0; i < num_entries; i++)
+          //     y[i] += t * src.val[i];
+          // }
         }
         break;
       case source_entry<P>::time_mode::time_dependent:
@@ -268,56 +261,80 @@ void term_manager<P>::apply_sources(
 
     switch (bc.tmode) {
       case boundary_entry<P>::time_mode::constant:
-        if (num_lumped > 0) {
-          std::cout << "lumping bc const\n";
-          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            lumped_weights.push_back(-P{1});
-          else
-            lumped_weights.push_back(-alpha);
-        } else {
-          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= bc.val[i];
-          else
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= alpha * bc.val[i];
-        }
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          sweights.push_back(-P{1});
+        else
+          sweights.push_back(-alpha);
+        // if (num_lumped > 0) {
+        //   std::cout << "lumping bc const\n";
+        //   if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        //     lumped_weights.push_back(-P{1});
+        //   else
+        //     lumped_weights.push_back(-alpha);
+        // } else {
+        //   if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        //     ASGARD_OMP_PARFOR_SIMD
+        //     for (int64_t i = 0; i < num_entries; i++)
+        //       y[i] -= bc.val[i];
+        //   else
+        //     ASGARD_OMP_PARFOR_SIMD
+        //     for (int64_t i = 0; i < num_entries; i++)
+        //       y[i] -= alpha * bc.val[i];
+        // }
         break;
       case boundary_entry<P>::time_mode::separable: {
           P t = bc.flux.func().ftime(time);
-          if (num_lumped > 0) {
-            std::cout << "lumping bc sep\n";
-            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-              lumped_weights.push_back(-alpha * t);
-            else
-              lumped_weights.push_back(-t);
-          } else {
-            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-              t *= alpha;
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= t * bc.val[i];
-          }
+          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+            sweights.push_back(-alpha * t);
+          else
+            sweights.push_back(-t);
+          // if (num_lumped > 0) {
+          //   std::cout << "lumping bc sep\n";
+          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+          //     lumped_weights.push_back(-alpha * t);
+          //   else
+          //     lumped_weights.push_back(-t);
+          // } else {
+          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+          //     t *= alpha;
+          //   ASGARD_OMP_PARFOR_SIMD
+          //   for (int64_t i = 0; i < num_entries; i++)
+          //     y[i] -= t * bc.val[i];
+          // }
         }
         break;
       case boundary_entry<P>::time_mode::time_dependent:
-        bc.val.resize(num_entries);
-        hier.template project_separable<data_mode::replace>
-            (bc.flux.func(), domain, grid, lmass, time, alpha, bc.val.data());
+        if (terms[bc.term_index].is_chain_link()) {
+          hier.template project_separable<data_mode::replace>
+              (bc.flux.func(), domain, grid, lmass, time, 1, t1.data());
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            rechain(bc, P{-1}, y);
+          else
+            rechain(bc, -alpha, y);
+        } else {
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            hier.template project_separable<data_mode::increment>
+                (bc.flux.func(), domain, grid, lmass, time, P{-1}, y);
+          else
+            hier.template project_separable<data_mode::scal_inc>
+                (bc.flux.func(), domain, grid, lmass, time, -alpha, y);
+        }
 
-        bc.val.resize(num_entries);
-        rechain(bc, bc.val.data());
-
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= bc.val[i];
-        else
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= alpha * bc.val[i];
+        // bc.val.resize(num_entries);
+        // hier.template project_separable<data_mode::replace>
+        //     (bc.flux.func(), domain, grid, lmass, time, alpha, bc.val.data());
+        //
+        // bc.val.resize(num_entries);
+        // rechain(bc, bc.val.data());
+        //
+        // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        //   ASGARD_OMP_PARFOR_SIMD
+        //   for (int64_t i = 0; i < num_entries; i++)
+        //     y[i] -= bc.val[i];
+        // else
+        //   ASGARD_OMP_PARFOR_SIMD
+        //   for (int64_t i = 0; i < num_entries; i++)
+        //     y[i] -= alpha * bc.val[i];
         break;
       default:
         // unreachable here
@@ -325,14 +342,27 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  if (num_lumped > 0) {
-    indexrange irng = (groupid == -1) ? indexrange(0, num_lumped)
-                                      : source_groups[groupid].lump_range;
+  indexrange irng = (groupid == -1) ? indexrange(0, num_lumped)
+                                    : source_groups[groupid].lump_range;
 
-    std::cout << " sizes = " << irng.size() << "   " << lumped_weights.size() << '\n';
+  // using BLAS level 2 gemv operation is more efficient when we are dealing
+  // with a sufficiently large number of sources
+  // the threshold was manually tested on several AMD CPUs and OpenBLAS
+  int constexpr gemv_threshold = 100;
+  if (irng.size() >= gemv_threshold) {
+    // std::cout << " using gemv\n";
     fm::gemv('N', num_entries, irng.size(), 1,
-             lumped_sources.data() + num_entries * irng.ibegin(),
-             lumped_weights.data(), 1, y);
+             swork.data() + num_entries * irng.ibegin(),
+             sweights.data(), 1, y);
+  } else {
+    // std::cout << " using parfor\n";
+    for (int i = 0; i < irng.size(); i++) {
+      P const w = sweights[i];
+      P const *s = swork.data() + (i + irng.ibegin()) * num_entries;
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t j = 0; j < num_entries; j++)
+        y[j] += w * s[j];
+    }
   }
 }
 
