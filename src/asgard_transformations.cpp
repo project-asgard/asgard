@@ -499,16 +499,16 @@ hierarchy_manipulator<P>::diag2hierarchical(block_diag_matrix<P> const &diag,
   switch (degree_)
   {
   case 0:
-    col_project_full<0>(diag, level, conns, col);
-    row_project_full<0>(col, level, conns, res);
+    col_project_vol<0>(diag, level, conns, col);
+    row_project_any<0>(col, level, conns, res);
     break;
   case 1:
-    col_project_full<1>(diag, level, conns, col);
-    row_project_full<1>(col, level, conns, res);
+    col_project_vol<1>(diag, level, conns, col);
+    row_project_any<1>(col, level, conns, res);
     break;
   default:
-    col_project_full<-1>(diag, level, conns, col);
-    row_project_full<-1>(col, level, conns, res);
+    col_project_vol<-1>(diag, level, conns, col);
+    row_project_any<-1>(col, level, conns, res);
     break;
   };
 
@@ -528,15 +528,15 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
   {
   case 0:
     col_project_full<0>(tri, level, conns, col);
-    row_project_full<0>(col, level, conns, res);
+    row_project_any<0>(col, level, conns, res);
     break;
   case 1:
     col_project_full<1>(tri, level, conns, col);
-    row_project_full<1>(col, level, conns, res);
+    row_project_any<1>(col, level, conns, res);
     break;
   default:
     col_project_full<-1>(tri, level, conns, col);
-    row_project_full<-1>(col, level, conns, res);
+    row_project_any<-1>(col, level, conns, res);
     break;
   };
 
@@ -786,10 +786,10 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
 
 template<typename P>
 template<int tdegree>
-void hierarchy_manipulator<P>::col_project_full(block_diag_matrix<P> const &diag,
-                                                int const level,
-                                                connection_patterns const &conns,
-                                                block_sparse_matrix<P> &sp) const
+void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
+                                               int const level,
+                                               connection_patterns const &conns,
+                                               block_sparse_matrix<P> &sp) const
 {
   expect(connect_1d::hierarchy::col_volume == sp);
 #ifdef _OPENMP
@@ -921,7 +921,7 @@ void hierarchy_manipulator<P>::col_project_full(block_diag_matrix<P> const &diag
 
 template<typename P>
 template<int tdegree>
-void hierarchy_manipulator<P>::row_project_full(
+void hierarchy_manipulator<P>::row_project_any(
     block_sparse_matrix<P> &col,
     int const level,
     connection_patterns const &conn,

@@ -313,17 +313,17 @@ protected:
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
   template<int tdegree>
-  void col_project_full(block_diag_matrix<P> const &diag,
-                        int const level,
-                        connection_patterns const &conn,
-                        block_sparse_matrix<P> &sp) const;
+  void col_project_vol(block_diag_matrix<P> const &diag,
+                       int const level,
+                       connection_patterns const &conn,
+                       block_sparse_matrix<P> &sp) const;
 
   //! apply row transform on sparse col-full pattern
   template<int tdegree>
-  void row_project_full(block_sparse_matrix<P> &col,
-                        int const level,
-                        connection_patterns const &conn,
-                        block_sparse_matrix<P> &sp) const;
+  void row_project_any(block_sparse_matrix<P> &col,
+                       int const level,
+                       connection_patterns const &conn,
+                       block_sparse_matrix<P> &sp) const;
 
   //! call from the constructor, makes it easy to have variety of constructor options
   void setup_projection_matrices();
