@@ -174,19 +174,6 @@ void term_manager<P>::apply_sources(
           sweights.push_back(P{1});
         else
           sweights.push_back(alpha);
-//         if (num_lumped > 0) {
-//           std::cout << "lumping const\n";
-//
-//         } else {
-//           // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-//           //   ASGARD_OMP_PARFOR_SIMD
-//           //   for (int64_t i = 0; i < num_entries; i++)
-//           //     y[i] += src.val[i];
-//           // else
-//           //   ASGARD_OMP_PARFOR_SIMD
-//           //   for (int64_t i = 0; i < num_entries; i++)
-//           //     y[i] += alpha * src.val[i];
-//         }
         break;
       case source_entry<P>::time_mode::separable: {
           P t = std::get<scalar_func<P>>(src.func)(time);
@@ -194,20 +181,6 @@ void term_manager<P>::apply_sources(
             sweights.push_back(alpha * t);
           else
             sweights.push_back(t);
-          // if (num_lumped > 0) {
-          //   std::cout << "lumping sep\n";
-          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-          //     lumped_weights.push_back(alpha * t);
-          //   else
-          //     lumped_weights.push_back(t);
-          // } else {
-          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-          //     t *= alpha;
-          //   // do not handle sources 1-by-1, if may use gemv
-          //   ASGARD_OMP_PARFOR_SIMD
-          //   for (int64_t i = 0; i < num_entries; i++)
-          //     y[i] += t * src.val[i];
-          // }
         }
         break;
       case source_entry<P>::time_mode::time_dependent:
@@ -265,22 +238,6 @@ void term_manager<P>::apply_sources(
           sweights.push_back(-P{1});
         else
           sweights.push_back(-alpha);
-        // if (num_lumped > 0) {
-        //   std::cout << "lumping bc const\n";
-        //   if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        //     lumped_weights.push_back(-P{1});
-        //   else
-        //     lumped_weights.push_back(-alpha);
-        // } else {
-        //   if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        //     ASGARD_OMP_PARFOR_SIMD
-        //     for (int64_t i = 0; i < num_entries; i++)
-        //       y[i] -= bc.val[i];
-        //   else
-        //     ASGARD_OMP_PARFOR_SIMD
-        //     for (int64_t i = 0; i < num_entries; i++)
-        //       y[i] -= alpha * bc.val[i];
-        // }
         break;
       case boundary_entry<P>::time_mode::separable: {
           P t = bc.flux.func().ftime(time);
@@ -288,19 +245,6 @@ void term_manager<P>::apply_sources(
             sweights.push_back(-alpha * t);
           else
             sweights.push_back(-t);
-          // if (num_lumped > 0) {
-          //   std::cout << "lumping bc sep\n";
-          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-          //     lumped_weights.push_back(-alpha * t);
-          //   else
-          //     lumped_weights.push_back(-t);
-          // } else {
-          //   if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-          //     t *= alpha;
-          //   ASGARD_OMP_PARFOR_SIMD
-          //   for (int64_t i = 0; i < num_entries; i++)
-          //     y[i] -= t * bc.val[i];
-          // }
         }
         break;
       case boundary_entry<P>::time_mode::time_dependent:
@@ -319,22 +263,6 @@ void term_manager<P>::apply_sources(
             hier.template project_separable<data_mode::scal_inc>
                 (bc.flux.func(), domain, grid, lmass, time, -alpha, y);
         }
-
-        // bc.val.resize(num_entries);
-        // hier.template project_separable<data_mode::replace>
-        //     (bc.flux.func(), domain, grid, lmass, time, alpha, bc.val.data());
-        //
-        // bc.val.resize(num_entries);
-        // rechain(bc, bc.val.data());
-        //
-        // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        //   ASGARD_OMP_PARFOR_SIMD
-        //   for (int64_t i = 0; i < num_entries; i++)
-        //     y[i] -= bc.val[i];
-        // else
-        //   ASGARD_OMP_PARFOR_SIMD
-        //   for (int64_t i = 0; i < num_entries; i++)
-        //     y[i] -= alpha * bc.val[i];
         break;
       default:
         // unreachable here
