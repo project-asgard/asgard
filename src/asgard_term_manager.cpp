@@ -252,6 +252,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   for (auto const &src : sources)
     if (is_active_src(src)) num_lumped++;
 
+  std::cout << " active sources " << num_lumped << "\n";
+
   for (auto const &bc : bcs)
     if (is_active_bc(bc)) num_lumped++;
 
@@ -273,6 +275,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         ibegin = iend;
       }
     } else { // no groups, lump everything together
+      std::cout << " num lumped = " << num_lumped << '\n';
       int j = 0;
       for (auto &src : sources)
         src.ilump = j++;

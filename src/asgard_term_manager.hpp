@@ -300,10 +300,8 @@ struct term_manager
     kwork.w1.resize(num_entries);
     kwork.w2.resize(num_entries);
 
-    if (not t1.empty())
-      t1.resize(num_entries);
-    if (not t2.empty())
-      t2.resize(num_entries);
+    t1.resize(num_entries);
+    t2.resize(num_entries);
 
     if (interp) {
       it1.resize(num_entries);
@@ -387,6 +385,17 @@ struct term_manager
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
+    }
+  }
+  //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
+  void kron_term(sparse_grid const &grid, connection_patterns const &conns,
+                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
+  {
+    if (tme.tmd.is_interpolatory()) {
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+    } else {
+      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                alpha, x, beta, y, kwork);
     }
   }
   //! apply the ADI preconditioner

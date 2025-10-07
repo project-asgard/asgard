@@ -12,49 +12,60 @@ void term_manager<P>::apply_sources(
     int groupid, pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
+  // make all sources/bc lumped, except the time-dependent ones
+  // if lumped size is small, use the addition for-loop
+  // move the lumped workspace (sources/weights) into the terms class
+
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
 
   static std::vector<P> lumped_sources(num_lumped * num_entries);
-  lumped_sources.resize(num_lumped * num_entries);
+  static std::vector<P> lumped_weights(num_lumped);
+  lumped_weights.resize(0);
 
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
-  auto rechain = [&, this](boundary_entry<P> &bc) -> void
+  auto rechain = [&, this](boundary_entry<P> &bc, P data[]) -> void
     {
       // not in a chain or last link, then nothing to do
       if (terms[bc.term_index].num_chain > 0)
         return;
 
       // otherwise we have to push the vectors through the term_md chain
+      // assuming the current data is in t1, using t1/t2 as workspace
 
-      t1.resize(num_entries); // workspace
-
-      bool keep_working = true;
+      // bool keep_working = true;
       int tid = bc.term_index;
-      while (keep_working) {
+      while (true) {
         --tid;
+        if (tid == 0 or terms[tid - 1].num_chain >= 0)
+          break;
 
         // TODO: move this to the GPU with the rest of the sources/bc terms
-        kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
-        std::swap(bc.val, t1);
+        kron_term(grid, conns, terms[tid], 1, t1, 0, t2);
+        std::swap(t1, t2);
 
-        keep_working = (terms[tid].num_chain < 0);
+        // keep_working = (terms[tid].num_chain < 0);
       }
+
+      kron_term(grid, conns, terms[tid - 1], 1, t1.data(), 0, data);
     };
 
   // update the const-components of the sources, if the grid has updated
   if (grid.generation() != sources_grid_gen)
   {
+    lumped_sources.resize(num_lumped * num_entries);
+
     int const pdof = hier.degree() + 1;
 
-    auto tensor_consts = [&](auto &entry) -> void
+    auto tensor_consts = [&](auto &entry, P *data = nullptr) -> void
       {
-        P *data = nullptr;
-        if (entry.ilump == -1) {
-          entry.val.resize(num_entries);
-          data = entry.val.data();
-        } else {
-          data = lumped_sources.data() + entry.ilump * num_entries;
+        if (data == nullptr) {
+          if (entry.ilump == -1) {
+            entry.val.resize(num_entries);
+            data = entry.val.data();
+          } else {
+            data = lumped_sources.data() + entry.ilump * num_entries;
+          }
         }
 
         #pragma omp parallel
@@ -134,9 +145,17 @@ void term_manager<P>::apply_sources(
       // In addition to the tensoring, the boundary condition case
       // may require application of the chain operators
 
-      tensor_consts(bc);
-
-      rechain(bc);
+      if (terms[bc.term_index].num_chain > 0) // if no-chain
+        tensor_consts(bc);
+      else {
+        tensor_consts(bc, t1.data());
+        if (bc.ilump == -1) {
+          bc.val.resize(num_entries);
+          rechain(bc, bc.val.data());
+        } else {
+          rechain(bc, lumped_sources.data() + bc.ilump * num_entries);
+        }
+      }
     }
 
     if (sources_have_time_dep or bcs_have_time_dep)
@@ -150,10 +169,10 @@ void term_manager<P>::apply_sources(
 
   // NOTE: when adding the "boundary" and "edge" sources, the sign is flipped
 
-  indexrange irng = (groupid == -1) ? indexrange(sources)
-                                    : source_groups[groupid].source_range;
+  indexrange isrng = (groupid == -1) ? indexrange(sources)
+                                     : source_groups[groupid].source_range;
 
-  for (int is : irng) {
+  for (int is : isrng) {
     auto const &src = sources[is];
 
     #ifdef ASGARD_USE_MPI
@@ -163,24 +182,39 @@ void term_manager<P>::apply_sources(
 
     switch (src.tmode) {
       case source_entry<P>::time_mode::constant:
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] += src.val[i];
-        else
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] += alpha * src.val[i];
+        if (num_lumped > 0) {
+          std::cout << "lumping const\n";
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            lumped_weights.push_back(P{1});
+          else
+            lumped_weights.push_back(alpha);
+        } else {
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] += src.val[i];
+          else
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] += alpha * src.val[i];
+        }
         break;
       case source_entry<P>::time_mode::separable: {
-          tools::time_event perf_("separable source");
           P t = std::get<scalar_func<P>>(src.func)(time);
-          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-            t *= alpha;
-          // do not handle sources 1-by-1, if may use gemv
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] += t * src.val[i];
+          if (num_lumped > 0) {
+            std::cout << "lumping sep\n";
+            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+              lumped_weights.push_back(alpha * t);
+            else
+              lumped_weights.push_back(t);
+          } else {
+            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+              t *= alpha;
+            // do not handle sources 1-by-1, if may use gemv
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] += t * src.val[i];
+          }
         }
         break;
       case source_entry<P>::time_mode::time_dependent:
@@ -221,9 +255,10 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  irng = (groupid == -1) ? indexrange(bcs) : source_groups[groupid].bc_range;
+  indexrange ibrng = (groupid == -1) ? indexrange(bcs)
+                                     : source_groups[groupid].bc_range;
 
-  for (int ib : irng) {
+  for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
 
     #ifdef ASGARD_USE_MPI
@@ -233,22 +268,38 @@ void term_manager<P>::apply_sources(
 
     switch (bc.tmode) {
       case boundary_entry<P>::time_mode::constant:
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= bc.val[i];
-        else
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= alpha * bc.val[i];
+        if (num_lumped > 0) {
+          std::cout << "lumping bc const\n";
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            lumped_weights.push_back(-P{1});
+          else
+            lumped_weights.push_back(-alpha);
+        } else {
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] -= bc.val[i];
+          else
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] -= alpha * bc.val[i];
+        }
         break;
       case boundary_entry<P>::time_mode::separable: {
           P t = bc.flux.func().ftime(time);
-          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-            t *= alpha;
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] -= t * bc.val[i];
+          if (num_lumped > 0) {
+            std::cout << "lumping bc sep\n";
+            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+              lumped_weights.push_back(-alpha * t);
+            else
+              lumped_weights.push_back(-t);
+          } else {
+            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
+              t *= alpha;
+            ASGARD_OMP_PARFOR_SIMD
+            for (int64_t i = 0; i < num_entries; i++)
+              y[i] -= t * bc.val[i];
+          }
         }
         break;
       case boundary_entry<P>::time_mode::time_dependent:
@@ -256,7 +307,8 @@ void term_manager<P>::apply_sources(
         hier.template project_separable<data_mode::replace>
             (bc.flux.func(), domain, grid, lmass, time, alpha, bc.val.data());
 
-        rechain(bc);
+        bc.val.resize(num_entries);
+        rechain(bc, bc.val.data());
 
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           ASGARD_OMP_PARFOR_SIMD
@@ -271,6 +323,16 @@ void term_manager<P>::apply_sources(
         // unreachable here
         break;
     }
+  }
+
+  if (num_lumped > 0) {
+    indexrange irng = (groupid == -1) ? indexrange(0, num_lumped)
+                                      : source_groups[groupid].lump_range;
+
+    std::cout << " sizes = " << irng.size() << "   " << lumped_weights.size() << '\n';
+    fm::gemv('N', num_entries, irng.size(), 1,
+             lumped_sources.data() + num_entries * irng.ibegin(),
+             lumped_weights.data(), 1, y);
   }
 }
 
