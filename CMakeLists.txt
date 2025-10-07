@@ -394,6 +394,7 @@ set(asgard_components
     small_mats
     solver
     term_manager
+    term_sources
     test_macros
     time_advance
     time_data

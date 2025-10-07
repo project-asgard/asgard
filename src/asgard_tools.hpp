@@ -511,6 +511,7 @@ struct indexrange
   idx_type iend() const { return end_; }
 
   bool empty() const { return (beg_ == end_); }
+  idx_type size() const { return (end_ - beg_); }
   bool contains(idx_type a) const { return (beg_ <= a and a < end_); }
 
   idx_type beg_;
@@ -526,6 +527,8 @@ struct indexrange
  */
 class irange {
 public:
+  //! default empty range
+  irange() = default;
   //! create a new range with the given begin and end
   irange(int b, int e)
     : begin_(b), end_(e)

@@ -2,6 +2,8 @@
 
 #include "asgard_coefficients_mats.hpp" // also brings in small-mats module
 
+#include "asgard_blas.hpp"
+
 namespace asgard
 {
 
@@ -106,7 +108,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       term_groups.emplace_back(ibegin, ibegin + n);
       ibegin += n;
     }
-    source_groups = std::move(pde.source_groups);
+    source_groups.resize(pde.source_groups.size());
+    for (int i : iindexof(pde.source_groups))
+      source_groups[i].source_range = pde.source_groups[i];
   }
 
   terms.resize(num_terms);
@@ -177,6 +181,17 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     num_bc += n;
   }
 
+  // form groups for the boundary conditions
+  if (not term_groups.empty()) {
+    int j = 0, bc_begin = 0, bc_end = 0; // index for the boundary conditions
+    for (int groupid : iindexof(term_groups)) {
+      for (int it : indexrange(term_groups[groupid]))
+        bc_end += terms[it].bc.size();
+      source_groups[j++].bc_range = irange(bc_begin, bc_end);
+      bc_begin = bc_end;
+    }
+  }
+
   bcs.reserve(num_bc);
   for (int tid : iindexof(terms)) {
     term_entry<P> &tt = terms[tid];
@@ -215,6 +230,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
+  // domain left/right bounds
   for (int d : iindexof(num_dims)) {
     xleft[d]  = pde.domain().xleft(d);
     xright[d] = pde.domain().xright(d);
@@ -272,366 +288,53 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   has_terms_ = not terms.empty();
   assign_compute_resources();
-}
 
-template<typename P>
-void term_manager<P>::update_const_sources(
-    sparse_grid const &grid, connection_patterns const &conns,
-    hierarchy_manipulator<P> const &hier)
-{
-  if (grid.generation() == sources_grid_gen)
-    return;
-
-  int const pdof = hier.degree() + 1;
-
-  int64_t const block_size  = hier.block_size();
-  int64_t const num_entries = grid.num_indexes() * block_size;
-
-  // update the constant components
-  for (auto &src : sources)
-  {
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(src.rec))
-      continue;
-    #endif
-
-    if (src.is_time_dependent())
-      continue;
-
-    src.val.resize(num_entries);
-
-    #pragma omp parallel
+  // prepare the workspaces for the sources
+  // consider only sources that are associated with this MPI rank and not time-dependant
+  // the time sources cannot use workspace to accelerate computations
+  auto is_active_src = [&, this](source_entry<P> const &src) -> bool
     {
-      std::array<P const *, max_num_dimensions> data1d;
-
-      #pragma omp for
-      for (int64_t j = 0; j < grid.num_indexes(); j++)
-      {
-        P *proj = src.val.data() + j * block_size;
-
-        int const *idx = grid[j];
-        for (int d : iindexof(num_dims))
-          data1d[d] = src.consts[d].data() + idx[d] * pdof;
-
-        std::array<int, max_num_dimensions> v;
-        std::fill_n(v.begin(), num_dims, 0);
-
-        int i = 0;
-
-        bool is_in = true;
-        int c = 0;
-        while (is_in or c > 0)
-        {
-          if (is_in)
-          {
-            P val = 1;
-            for (int d = 0; d < num_dims; d++)
-              val *= data1d[d][ v[d] ];
-
-            c = num_dims - 1;
-            v[c]++;
-
-            proj[i++] = val;
-          }
-          else
-          {
-            std::fill(v.begin() + c, v.begin() + num_dims, 0);
-            v[--c]++;
-          }
-
-          is_in = (v[c] < pdof);
-        }
-      }
-    }
-  } // done with all sources
-
-  if (sources_have_time_dep)
-    rebuild_mass_matrices(grid);
-
-  // make sure to handle the boundary conditions too
-  update_bc(grid, conns, hier);
-
-  sources_grid_gen = grid.generation();
-}
-
-template<typename P>
-template<data_mode dmode>
-void term_manager<P>::apply_sources(
-    int groupid, pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
-    hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
-{
-  update_const_sources(grid, conns, hier);
-
-  int64_t const num_entries = grid.num_indexes() * hier.block_size();
-  if constexpr (dmode == data_mode::replace or dmode == data_mode::scal_rep)
-    std::fill_n(y, num_entries, P{0});
-
-  // NOTE: when adding the "boundary" and "edge" sources, the sign is flipped
-
-  indexrange irng = (groupid == -1) ? indexrange(sources) : source_groups[groupid];
-
-  for (int is : irng) {
-    auto const &src = sources[is];
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(src.rec))
-      continue;
-    #endif
-
-    switch (src.tmode) {
-      case source_entry<P>::time_mode::constant:
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] += src.val[i];
-        else
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] += alpha * src.val[i];
-        break;
-      case source_entry<P>::time_mode::separable: {
-          P t = std::get<scalar_func<P>>(src.func)(time);
-          if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-            t *= alpha;
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < num_entries; i++)
-            y[i] += t * src.val[i];
-        }
-        break;
-      case source_entry<P>::time_mode::time_dependent:
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          hier.template project_separable<data_mode::increment>
-              (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-        else
-          hier.template project_separable<data_mode::scal_inc>
-              (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-        break;
-      default:
-        // unreachable here
-        break;
-    }
-  }
-
-  if (groupid == -1) {
-    #ifdef ASGARD_USE_MPI
-    if (resources.is_leader())
-    #endif
-    for (auto const &s : sources_md)
-      if (s) {
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(grid, conns, time, 1, s, 1, y, kwork, it1);
-        else
-          interp(grid, conns, time, alpha, s, 1, y, kwork, it1);
-      }
-  } else {
-    #ifdef ASGARD_USE_MPI
-    if (sources_md[groupid] and resources.is_leader()) {
-    #else
-    if (sources_md[groupid]) {
-    #endif
-      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1);
-      else
-        interp(grid, conns, time, alpha, sources_md[groupid], 1, y, kwork, it1);
-    }
-  }
-
-  if constexpr (dmode == data_mode::replace)
-    apply_bc<data_mode::increment>(groupid, domain, grid, conns, hier, time, alpha, y);
-  else if constexpr (dmode == data_mode::scal_rep)
-    apply_bc<data_mode::scal_inc>(groupid, domain, grid, conns, hier, time, alpha, y);
-  else
-    apply_bc<dmode>(groupid, domain, grid, conns, hier, time, alpha, y);
-}
-
-template<typename P>
-void term_manager<P>::update_bc(
-    sparse_grid const &grid, connection_patterns const &conns,
-    hierarchy_manipulator<P> const &hier)
-{
-  int const pdof = hier.degree() + 1;
-
-  int64_t const block_size  = hier.block_size();
-  int64_t const num_entries = grid.num_indexes() * block_size;
-
-  // update the constant components
-  for (auto &bc : bcs) {
-    if (bc.is_time_dependent())
-      continue;
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(terms[bc.term_index].rec))
-      continue;
-    #endif
-
-    bc.val.resize(num_entries);
-
-    #pragma omp parallel
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(src.rec))
+        return false;
+      #endif
+      return (not src.is_time_dependent());
+    };
+  auto is_active_bc = [&, this](boundary_entry<P> const &bc) -> bool
     {
-      std::array<P const *, max_num_dimensions> data1d;
-
-      #pragma omp for
-      for (int64_t j = 0; j < grid.num_indexes(); j++) {
-        P *proj = bc.val.data() + j * block_size;
-
-        int const *idx = grid[j];
-        for (int d : iindexof(num_dims))
-          data1d[d] = bc.consts[d].data() + idx[d] * pdof;
-
-        std::array<int, max_num_dimensions> v;
-        std::fill_n(v.begin(), num_dims, 0);
-
-        int i = 0;
-
-        bool is_in = true;
-        int c = 0;
-        while (is_in or c > 0)
-        {
-          if (is_in)
-          {
-            P val = 1;
-            for (int d = 0; d < num_dims; d++)
-              val *= data1d[d][ v[d] ];
-
-            c = num_dims - 1;
-            v[c]++;
-
-            proj[i++] = val;
-          }
-          else
-          {
-            std::fill(v.begin() + c, v.begin() + num_dims, 0);
-            v[--c]++;
-          }
-
-          is_in = (v[c] < pdof);
-        }
-      }
-    }
-
-    // not in a chain or last link, then nothing more to do
-    if (terms[bc.term_index].num_chain > 0)
-      continue;
-
-    // otherwise we have to push the vectors through the term_md chain
-
-    t1.resize(num_entries); // workspace
-
-    bool keep_working = true;
-    int tid = bc.term_index;
-    while (keep_working) {
-      --tid;
-
-      kron_term(grid, conns, terms[tid], 1, bc.val, 0, t1);
-      std::swap(bc.val, t1);
-
-      keep_working = (terms[tid].num_chain < 0);
-    }
-  } // done with all sources
-}
-
-template<typename P>
-template<data_mode dmode>
-void term_manager<P>::apply_bc(
-    int groupid, pde_domain<P> const &, sparse_grid const &grid,
-    connection_patterns const &, hierarchy_manipulator<P> const &hier,
-    P time, P alpha, P y[])
-{
-  int64_t const num_entries = grid.num_indexes() * hier.block_size();
-
-  if (groupid == -1) {
-    for (auto const &bc : bcs) {
-
       #ifdef ASGARD_USE_MPI
       if (not resources.owns(terms[bc.term_index].rec))
-        continue;
+        return false;
       #endif
+      return (not bc.is_time_dependent());
+    };
 
-      switch (bc.tmode) {
-        case boundary_entry<P>::time_mode::constant:
-          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= bc.val[i];
-          else
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= alpha * bc.val[i];
-          break;
-        case boundary_entry<P>::time_mode::separable: {
-            P t = bc.flux.func().ftime(time);
-            if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-              t *= alpha;
-            ASGARD_OMP_PARFOR_SIMD
-            for (int64_t i = 0; i < num_entries; i++)
-              y[i] -= t * bc.val[i];
-          }
-          break;
-        case boundary_entry<P>::time_mode::time_dependent:
-          rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
-                  "separable in space, non-separable bc not yet implemented");
-          // TIME DEPENDANT mess
-          // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          //   hier.template project_separable<data_mode::increment>
-          //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-          // else
-          //   hier.template project_separable<data_mode::scal_inc>
-          //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-          break;
-        default:
-          // unreachable here
-          break;
-      }
-    }
-  } else {
-    for (int it : indexrange(term_groups[groupid]))
-    {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(terms[it].rec))
-        continue;
-      #endif
+  for (auto const &src : sources)
+    if (is_active_src(src)) num_lumped++;
 
-      for (int ib : terms[it].bc) {
-        auto const &bc = bcs[ib];
-        switch (bc.tmode) {
-          case boundary_entry<P>::time_mode::constant:
-            if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-              ASGARD_OMP_PARFOR_SIMD
-              for (int64_t i = 0; i < num_entries; i++)
-                y[i] -= bc.val[i];
-            else
-              ASGARD_OMP_PARFOR_SIMD
-              for (int64_t i = 0; i < num_entries; i++)
-                y[i] -= alpha * bc.val[i];
-            break;
-          case boundary_entry<P>::time_mode::separable: {
-              P t = bc.flux.func().ftime(time);
-              if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
-                t *= alpha;
-              ASGARD_OMP_PARFOR_SIMD
-              for (int64_t i = 0; i < num_entries; i++)
-                y[i] -= t * bc.val[i];
-            }
-            break;
-          case boundary_entry<P>::time_mode::time_dependent:
-            rassert(bc.tmode != boundary_entry<P>::time_mode::time_dependent,
-                    "separable in space, non-separable bc not yet implemented");
-            // TIME DEPENDANT mess
-            // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            //   hier.template project_separable<data_mode::increment>
-            //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-            // else
-            //   hier.template project_separable<data_mode::scal_inc>
-            //       (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
-            break;
-          default:
-            // unreachable here
-            break;
-        }
-      }
+  for (auto const &bc : bcs)
+    if (is_active_bc(bc)) num_lumped++;
+
+  if (not source_groups.empty()) { // set sources group by group
+    int ibegin = 0, iend = 0;
+    for (size_t i = 0; i < source_groups.size(); i++) {
+      for (int is : indexrange(source_groups[i].source_range))
+        if (is_active_src(sources[is]))
+          sources[is].ilump = iend++;
+      for (int ib : indexrange(source_groups[i].bc_range))
+        if (is_active_bc(bcs[ib]))
+          bcs[ib].ilump = iend++;
+      source_groups[i].lump_range = irange(ibegin, iend);
+      ibegin = iend;
     }
+  } else { // no groups, lump everything together
+    int j = 0;
+    for (auto &src : sources)
+      if (is_active_src(src)) src.ilump = j++;
+    for (auto &bc : bcs)
+      if (is_active_bc(bc)) bc.ilump = j++;
   }
-
+  sweights.reserve(num_lumped); // one weight per lumped source
 }
 
 template<typename P>
@@ -1795,8 +1498,8 @@ void term_manager<P>::assign_compute_resources()
         ids.resize(0);
         weights.resize(0);
 
-        int ibegin = (gid < 0) ? 0                                : source_groups[gid].begin();
-        iend       = (gid < 0) ? static_cast<int>(sources.size()) : source_groups[gid].end();
+        int ibegin = (gid < 0) ? 0                                : source_groups[gid].source_range.begin();
+        iend       = (gid < 0) ? static_cast<int>(sources.size()) : source_groups[gid].source_range.end();
         for (int i = ibegin; i < iend; i++)
         {
           // skip terms assigned to other mpi ranks
@@ -1943,25 +1646,6 @@ template void term_manager<double>::apply_tmpl_gpu<double const[], double[], com
     double alpha, double const x[], double beta, double y[]) const;
 #endif
 
-template void term_manager<double>::apply_sources<data_mode::replace>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
-template void term_manager<double>::apply_sources<data_mode::increment>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
-template void term_manager<double>::apply_sources<data_mode::scal_inc>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
-template void term_manager<double>::apply_sources<data_mode::scal_rep>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
-
-template void term_manager<double>::apply_bc<data_mode::increment>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
-template void term_manager<double>::apply_bc<data_mode::scal_inc>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<double> const &, double, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1997,25 +1681,6 @@ template void term_manager<float>::apply_tmpl_gpu<float const[], float[], comput
     float alpha, float const x[], float beta, float y[]) const;
 #endif
 
-template void term_manager<float>::apply_sources<data_mode::replace>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
-template void term_manager<float>::apply_sources<data_mode::increment>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
-template void term_manager<float>::apply_sources<data_mode::scal_inc>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
-template void term_manager<float>::apply_sources<data_mode::scal_rep>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
-
-template void term_manager<float>::apply_bc<data_mode::increment>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
-template void term_manager<float>::apply_bc<data_mode::scal_inc>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
-    hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
 
 }

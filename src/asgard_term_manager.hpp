@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_interp.hpp"
+#include "asgard_term_sources.hpp"
 
 namespace asgard
 {
@@ -93,80 +93,9 @@ struct term_entry {
   indexrange<int> bc;
   //! dimension holding a flux, -1 if no flux
   int flux_dim = -1;
-};
 
-//! holds data associated with with either a source term of boundary condition
-template<typename P>
-struct source_entry
-{
-  //! mode indicating when to recompute the coefficients
-  enum class time_mode {
-    //! interior source that is constant in time
-    constant = 0,
-    //! interior source that is separable in time, i.e., constant in space with time multiplier
-    separable,
-    //! interior source that is non-separable in time, still separable in space for fixed time
-    time_dependent
-  };
-  //! default source entry, must be reinitialized before use
-  source_entry() = default;
-  //! create a new source entry
-  source_entry(time_mode mode_in) : tmode(mode_in) {}
-
-  //! when should we recompute the sources and when can we reuse existing data
-  time_mode tmode = time_mode::constant;
-  //! resource (GPU/MPI-rank) assigned to this source
-  resource rec;
-
-  bool is_constant() const { return tmode == time_mode::constant; }
-  bool is_separable() const { return tmode == time_mode::separable; }
-  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
-
-  //! if the function is separable or time-dependent, handle the extra data
-  std::variant<int, scalar_func<P>, separable_func<P>> func;
-
-  //! vector for the current grid
-  std::vector<P> val;
-  //! constant components of the source vector
-  std::array<std::vector<P>, max_num_dimensions> consts;
-};
-
-/*!
- * \brief Manages the terms and matrices, also holds the mass-matrices and kronmult-workspace
- *
- * This is the core of the spatial discretization of the terms.
- */
-template<typename P>
-struct boundary_entry {
-  //! mode indicating when to recompute the coefficients
-  enum class time_mode {
-    //! boundary condition that is constant in time
-    constant = 0,
-    //! boundary condition that is separable in time, i.e., constant in space with time multiplier
-    separable,
-    //! boundary condition that is non-separable in time, still separable in space for fixed time
-    time_dependent
-  };
-  //! default source entry, must be reinitialized before use
-  boundary_entry() = default;
-  //! create a new source entry
-  boundary_entry(boundary_flux<P> f) : flux(std::move(f)) {}
-  //! defines the flux, moved out of the term
-  boundary_flux<P> flux;
-
-  //! when should we recompute the sources and when can we reuse existing data
-  time_mode tmode = time_mode::constant;
-
-  bool is_constant() const { return tmode == time_mode::constant; }
-  bool is_separable() const { return tmode == time_mode::separable; }
-  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
-
-  //! the term associated with this boundary entry
-  int term_index = -1;
-  //! vector for the current grid
-  std::vector<P> val;
-  //! constant components of the source vector
-  std::array<std::vector<P>, max_num_dimensions> consts;
+  //! returns true if this is a link in a chain, false if stand-alone or first link
+  bool is_chain_link() const { return (num_chain < 0); }
 };
 
 /*!
@@ -231,6 +160,13 @@ struct term_manager
   //! interpolatory sources
   std::vector<md_func<P>> sources_md;
 
+  //! term groups, chains are flattened
+  std::vector<irange> term_groups;
+  //! source groups for boundary and regular sources
+  std::vector<group_combo> source_groups;
+  //! number of all sources lumped into a gemv
+  int num_lumped = 0;
+
   //! left end-point of the domain
   std::array<P, max_num_dimensions> xleft;
   //! right end-point of the domain
@@ -247,6 +183,7 @@ struct term_manager
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   mutable std::vector<P> it1, it2; // used for interpolation
+  mutable std::vector<P> swork, sweights; // source workspace and time weights
   #ifdef ASGARD_USE_GPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
@@ -254,12 +191,6 @@ struct term_manager
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1;
   #endif
-
-
-  //! term groups, chains are flattened
-  std::vector<irange> term_groups;
-  //! source groups, same as the PDE
-  std::vector<irange> source_groups;
 
   //! dependencies for each term group, last entry is for all terms
   std::vector<mom_deps> deps_;
@@ -276,14 +207,6 @@ struct term_manager
   mom_deps const &deps() const { return deps_.back(); }
   //! get the moment dependencies for the given group
   mom_deps const &deps(int groupid) const { return deps_[groupid]; }
-
-  //! update constant components of the sources
-  void update_const_sources(sparse_grid const &grid, connection_patterns const &conn,
-                            hierarchy_manipulator<P> const &hier);
-
-  //! update constant components of the sources
-  void update_bc(sparse_grid const &grid, connection_patterns const &conn,
-                 hierarchy_manipulator<P> const &hier);
 
   //! rebuild all matrices
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
@@ -381,10 +304,8 @@ struct term_manager
     kwork.w1.resize(num_entries);
     kwork.w2.resize(num_entries);
 
-    if (not t1.empty())
-      t1.resize(num_entries);
-    if (not t2.empty())
-      t2.resize(num_entries);
+    t1.resize(num_entries);
+    t2.resize(num_entries);
 
     if (interp) {
       it1.resize(num_entries);
@@ -470,6 +391,17 @@ struct term_manager
                 alpha, x.data(), beta, y.data(), kwork);
     }
   }
+  //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
+  void kron_term(sparse_grid const &grid, connection_patterns const &conns,
+                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
+  {
+    if (tme.tmd.is_interpolatory()) {
+      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+    } else {
+      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                alpha, x, beta, y, kwork);
+    }
+  }
   //! apply the ADI preconditioner
   void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
                      term_entry<P> const &tme, P alpha, P const x[], P beta,
@@ -514,12 +446,6 @@ struct term_manager
   }
 
 protected:
-  //! process the boundary conditions and store the result into pre-allocated vector
-  template<data_mode dmode>
-  void apply_bc(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
-                connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
-                P time, P alpha, P y[]);
-
   //! remember which grid was cached for the workspace
   int workspace_grid_gen = -1;
   //! remember which grid was cached for the sources
