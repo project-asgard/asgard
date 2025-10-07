@@ -39,6 +39,8 @@ struct source_entry
   std::vector<P> val;
   //! constant components of the source vector
   std::array<std::vector<P>, max_num_dimensions> consts;
+  //! index if lumped with other sources
+  int ilump = -1;
 };
 
 /*!
@@ -77,6 +79,8 @@ struct boundary_entry {
   std::vector<P> val;
   //! constant components of the source vector
   std::array<std::vector<P>, max_num_dimensions> consts;
+  //! index if lumped with other sources
+  int ilump = -1;
 };
 
 /*!
@@ -88,7 +92,7 @@ struct group_combo {
   //! boundary sources range
   irange bc_range;
   //! number of sources lumped into a gemv
-  int num_lumped = 0;
+  irange lump_range;
 };
 
 }

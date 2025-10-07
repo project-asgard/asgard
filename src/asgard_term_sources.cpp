@@ -15,6 +15,9 @@ void term_manager<P>::apply_sources(
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
 
+  static std::vector<P> lumped_sources(num_lumped * num_entries);
+  lumped_sources.resize(num_lumped * num_entries);
+
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
   auto rechain = [&, this](boundary_entry<P> &bc) -> void
     {
@@ -46,7 +49,13 @@ void term_manager<P>::apply_sources(
 
     auto tensor_consts = [&](auto &entry) -> void
       {
-        entry.val.resize(num_entries);
+        P *data = nullptr;
+        if (entry.ilump == -1) {
+          entry.val.resize(num_entries);
+          data = entry.val.data();
+        } else {
+          data = lumped_sources.data() + entry.ilump * num_entries;
+        }
 
         #pragma omp parallel
         {
@@ -55,7 +64,7 @@ void term_manager<P>::apply_sources(
           #pragma omp for
           for (int64_t j = 0; j < grid.num_indexes(); j++)
           {
-            P *proj = entry.val.data() + j * block_size;
+            P *proj = data + j * block_size;
 
             int const *idx = grid[j];
             for (int d = 0; d < num_dims; d++)
@@ -112,14 +121,15 @@ void term_manager<P>::apply_sources(
     }
 
     // update the constant components
-    for (auto &bc : bcs) {
-      if (bc.is_time_dependent())
-        continue;
-
+    for (auto &bc : bcs)
+    {
       #ifdef ASGARD_USE_MPI
       if (not resources.owns(terms[bc.term_index].rec))
         continue;
       #endif
+
+      if (bc.is_time_dependent())
+        continue;
 
       // In addition to the tensoring, the boundary condition case
       // may require application of the chain operators

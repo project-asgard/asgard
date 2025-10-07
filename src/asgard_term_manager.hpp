@@ -161,6 +161,8 @@ struct term_manager
   std::vector<irange> term_groups;
   //! source groups for boundary and regular sources
   std::vector<group_combo> source_groups;
+  //! number of all sources lumped into a gemv
+  int num_lumped = 0;
 
   //! left end-point of the domain
   std::array<P, max_num_dimensions> xleft;
