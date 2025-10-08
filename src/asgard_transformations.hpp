@@ -255,6 +255,18 @@ public:
 
 protected:
   /*!
+   * \brief Perform the transformation on the given data
+   *
+   * \tparam tdegree is the the degree, allows hardcoding simple matrices
+   *
+   * \param level is the level for the transformation
+   * \param src is the source with size 2^level, this operation will destroy the source
+   * \param dest is the destination with same size as src
+   */
+  template<int tdegree>
+  void transform(int level, P src[], P dest[]) const;
+
+  /*!
    * \brief Converts function values to the final hierarchical coefficients
    *
    * Assumes that fvals already contains the function values at the quadrature

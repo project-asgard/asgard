@@ -487,6 +487,59 @@ void hierarchy_manipulator<P>::projectlevels(int d, int level) const
   }
 }
 
+// work on arrays, have a workspace for the transform and workspace for projection
+// use lambdas with constexpr to apply the transform variants, with new matrix
+// still hard-code degrees 0 and 1, using higher degree with small matrices
+
+template<typename P>
+template<int tdegree>
+void hierarchy_manipulator<P>::transform(int level, P src[], P dest[]) const
+{
+  int const pdof = degree_ + 1;
+
+  auto last2block = [&](P const raw[], P fin[]) -> void
+    {
+      if constexpr (tdegree == 0)
+      {
+        P constexpr s22 = 0.5 * s2;
+        fin[0] = s22 * raw[0] + s22 * raw[1];
+        fin[1] = -s22 * raw[0] + s22 * raw[1];
+      }
+      else if constexpr (tdegree == 1)
+      {
+        P constexpr is2h = 0.5 * is2;
+        P constexpr is64 = s6 / 4.0;
+
+        fin[0] = is2 * raw[0]                   + is2 * raw[2];
+        fin[1] = -is64 * raw[0] + is2h * raw[1] + is64 * raw[2] + is2h * raw[3];
+        fin[2] = -is2 * raw[1] + is2 * raw[3];
+        fin[3] = is2h * raw[0] + is64 * raw[1] - is2h * raw[2] + is64 * raw[3];
+      }
+      else
+      {
+        int const n = 2 * pdof;
+        smmat::gemv(n, n, pmats.data(), raw, fin);
+      }
+    };
+
+  auto merge2blocks = [&](P const raw[], P upper[], P fin[]) -> void
+    {
+    };
+
+  switch (level)
+  {
+  case 0:
+    std::copy_n(src, pdof, dest);
+    return;
+  case 1:
+    last2block(src, dest);
+    return;
+  default:
+    break;
+  }
+
+}
+
 template<typename P>
 block_sparse_matrix<P>
 hierarchy_manipulator<P>::diag2hierarchical(block_diag_matrix<P> const &diag,
@@ -1147,6 +1200,10 @@ template void hierarchy_manipulator<double>::project1d<false>(
 template void hierarchy_manipulator<double>::projectlevels<0>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<1>(int, int) const;
 template void hierarchy_manipulator<double>::projectlevels<-1>(int, int) const;
+
+template void hierarchy_manipulator<double>::transform<0>(int, double[], double[]) const;
+template void hierarchy_manipulator<double>::transform<1>(int, double[], double[]) const;
+template void hierarchy_manipulator<double>::transform<-1>(int, double[], double[]) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
