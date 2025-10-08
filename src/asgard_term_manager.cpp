@@ -440,7 +440,7 @@ void term_manager<P>::rebuld_term1d(
     boundary_entry<P> &bentry = bcs[b];
     if (not bentry.consts[dim].empty()) {
       // will be empty if non-flux direction and non-separable in time
-      hier.project1d(level, bentry.consts[dim]);
+      hier.transform(level, bentry.consts[dim]);
     }
   }
 

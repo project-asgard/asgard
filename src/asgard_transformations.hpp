@@ -165,7 +165,9 @@ public:
     fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
     f(quad_points[dim], fvals);
 
-    project1d(dim, level, dmax[dim] - dmin[dim], mass);
+    // project1d(dim, level, dmax[dim] - dmin[dim], mass);
+    project1d(dim, level, fvals, mass, pwork);
+    transform(level, pwork, pf[dim]);
   }
   //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
   std::vector<P> get_project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
@@ -180,7 +182,9 @@ public:
     if (mass) {
       fvals.resize(num_cells * quad.stride());
       std::fill(fvals.begin(), fvals.end(), c);
-      project1d(dim, level, dmax[dim] - dmin[dim], mass);
+      // project1d(dim, level, dmax[dim] - dmin[dim], mass);
+      project1d(dim, level, fvals, mass, pwork);
+      transform(level, pwork, pf[dim]);
     } else {
       // the projection is trivial, exploiting orthogonality of the basis
       pf[dim].resize(num_cells * (degree_ + 1));
@@ -192,52 +196,26 @@ public:
   std::vector<P> get_project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
   {
     project1d_c(c, mass, dim, level);
-    return get_projected1d(dim);
+    return pf[dim];
   }
 
   //! (testing purposes, skips hierarchy) computes the 1d projection of f onto the cells of a given level
-  std::vector<P> cell_project(function_1d<P> const &f, int level) const
+  std::vector<P> cell_project(int dim, function_1d<P> const &f, int level) const
   {
-    int constexpr dim = 0;
-
     int const num_cells = fm::ipow2(level);
     prepare_quadrature(dim, num_cells);
     fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
     f(quad_points[dim], fvals);
 
     // project onto the basis
-    bool constexpr skip_hier = true;
-    project1d<skip_hier>(dim, level, dmax[dim] - dmin[dim], block_diag_matrix<P>{});
-
-    return stage0;
+    std::vector<P> result;
+    project1d(dim, level, fvals, block_diag_matrix<P>{}, result);
+    return result;
   }
 
   //! return the 1d projection in the given direction
   std::vector<P> const &get_projected1d(int dim) const { return pf[dim]; }
 
-  //! transforms the vector to a hierarchical representation
-  void project1d(int const level, std::vector<P> &x) const
-  {
-    if (level == 0) // nothing to project at level 0
-      return;
-    int64_t const size = fm::ipow2(level) * (degree_ + 1);
-    expect(size == static_cast<int64_t>(x.size()));
-    stage0.resize(size);
-    pf[0].resize(size);
-    std::copy_n(x.begin(), size, stage0.begin());
-    switch (degree_)
-    { // hardcoded degrees first, the default uses the projection matrices
-    case 0:
-      projectlevels<0>(0, level);
-      break;
-    case 1:
-      projectlevels<1>(0, level);
-      break;
-    default:
-      projectlevels<-1>(0, level);
-    };
-    std::copy_n(pf[0].begin(), size, x.begin());
-  }
   //! transform the batch of vectors to nodal representation
   void reconstruct1d(int const nbatch, int const level, span2d<P> hdata) const;
 
@@ -253,6 +231,41 @@ public:
   block_sparse_matrix<P> diag2hierarchical(
       block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
 
+  //! transform cell-by-cell Legendre coefficients into hierarchical wavelet coefficients
+  void transform(int level, P src[], P dest[]) const
+  {
+    switch (degree_) {
+      case 0:
+        apply_transform<0>(level, src, dest);
+        break;
+      case 1:
+        apply_transform<1>(level, src, dest);
+        break;
+      default:
+        apply_transform<-1>(level, src, dest);
+        break;
+    };
+  }
+  //! transform with vector overload
+  void transform(int level, std::vector<P> &src, std::vector<P> &dest) const
+  {
+    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
+    dest.resize(src.size());
+    transform(level, src.data(), dest.data());
+  }
+  //! transforms the vector to a hierarchical representation
+  void transform(int const level, std::vector<P> &x) const
+  {
+    if (level == 0) // nothing to project at level 0
+      return;
+    int64_t const size = fm::ipow2(level) * (degree_ + 1);
+    expect(size == static_cast<int64_t>(x.size()));
+
+    pwork.resize(size);
+    std::copy_n(x.begin(), size, pwork.begin());
+    transform(level, pwork.data(), x.data());
+  }
+
 protected:
   /*!
    * \brief Perform the transformation on the given data
@@ -264,7 +277,7 @@ protected:
    * \param dest is the destination with same size as src
    */
   template<int tdegree>
-  void transform(int level, P src[], P dest[]) const;
+  void apply_transform(int level, P src[], P dest[]) const;
 
   /*!
    * \brief Converts function values to the final hierarchical coefficients
@@ -275,6 +288,9 @@ protected:
    */
   template<bool skip_hierarchy = false>
   void project1d(int dim, int level, P const dsize, block_diag_matrix<P> const &mass) const;
+  //! Given values of a function, project on the cell-by-cell basis
+  void project1d(int dim, int level, std::vector<P> const &vals,
+                 block_diag_matrix<P> const &mass, std::vector<P> &cells) const;
   //! reusable constants std::sqrt(2.0)
   static constexpr P s2 = 1.41421356237309505;
   //! reusable constants 1.0 / std::sqrt(2.0)
@@ -289,21 +305,6 @@ protected:
    * function.
    */
   void prepare_quadrature(int dim, int num_cells) const;
-
-  //! project 2 * num_final raw cells up the hierarchy into upper raw and final cells
-  template<int tdegree>
-  void projectup(int num_final, P const *raw, P *upper, P *fin) const;
-  //! project the last two cells for level 0 and level 1
-  template<int tdegree>
-  void projectup2(P const *raw, P *fin) const;
-  /*!
-   * \brief Computes the local-coefficients to hierarchical representation
-   *
-   * The local coefficients must be already stored in stage0.
-   * Both stage0 and stage1 will be used as scratch space here.
-   */
-  template<int tdegree>
-  void projectlevels(int dim, int levels) const;
 
   //! tempalted version for reduction of runtime if-statements
   template<int tdegree>
@@ -346,7 +347,7 @@ private:
 
   std::array<P, max_num_dimensions> dmin, dmax;
 
-  static int constexpr points  = 0;
+  static int constexpr points  = 0; // tags for the entries in the quadrature structure
   static int constexpr weights = 1;
   vector2d<P> quad; // single cell quadrature
   vector2d<P> leg_vals; // values of Legendre polynomials at the quad points
@@ -362,9 +363,9 @@ private:
 
   mutable std::array<std::vector<P>, max_num_dimensions> pf;
   mutable std::array<std::vector<P>, max_num_dimensions> quad_points;
-  mutable std::array<std::vector<P>, max_num_dimensions> quad_dv;
   mutable std::vector<P> fvals;
   mutable std::vector<P> stage0, stage1;
+  mutable std::vector<P> pwork, twork;
 
   mutable std::array<block_matrix<P>, 2> matstage;
 

@@ -27,7 +27,8 @@ P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P x
   // the hierarchy manipulatro can do the projection
   hierarchy_manipulator<P> hier(degree, 1, {xleft, }, {xright, });
 
-  std::vector<P> vrhs = hier.cell_project(lrhs, level);
+  int constexpr dim0 = 0;
+  std::vector<P> vrhs = hier.cell_project(dim0, lrhs, level);
   std::vector<P> sv; // will hold the output
 
   solver.solve(vrhs, dleft, dright, bc, sv);
@@ -36,7 +37,7 @@ P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P x
   // comput reference expansion of the provided reference gradient
   hierarchy_manipulator<P> hier0(0, 1, {xleft, }, {xright, });
 
-  std::vector<P> vref = hier0.cell_project(rref, level);
+  std::vector<P> vref = hier0.cell_project(dim0, rref, level);
 
   // vref is the pw-constant expansion of rref over the non-hierarchical cells
   // the Legenre polynomials are scaled to unit norm, to get the point-wise values

@@ -31,7 +31,7 @@ void test_transform()
           for (int i : indexof(num))
             std::copy_n(r + i * nbatch * pdof, pdof, fp.data() + i * pdof);
 
-          hier.project1d(level, fp); // to hierarchical
+          hier.transform(level, fp); // to hierarchical
 
           TestType *h = hp.data() + b * pdof; // write out in hp
           for (int i : indexof(num))
