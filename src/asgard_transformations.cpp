@@ -180,11 +180,11 @@ std::vector<P> legendre_basis<P>::project(
 template<typename P>
 template<data_mode action>
 void hierarchy_manipulator<P>::project_separable(
-    separable_func<P> const &sep, pde_domain<P> const &domain,
+    separable_func<P> const &sep,
     sparse_grid const &grid, mass_diag<P> const &mass,
     P time, P alpha, P f[]) const
 {
-  int const num_dims = domain.num_dims();
+  int const num_dims = grid.num_dims();
   for (int d : iindexof(num_dims))
   {
     if (sep.is_const(d)) {
@@ -1132,19 +1132,19 @@ template struct legendre_basis<double>;
 template class hierarchy_manipulator<double>;
 
 template void hierarchy_manipulator<double>::project_separable<data_mode::replace>(
-    separable_func<double> const &sep, pde_domain<double> const &domain,
+    separable_func<double> const &sep,
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
 template void hierarchy_manipulator<double>::project_separable<data_mode::scal_rep>(
-    separable_func<double> const &sep, pde_domain<double> const &domain,
+    separable_func<double> const &sep,
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
 template void hierarchy_manipulator<double>::project_separable<data_mode::increment>(
-    separable_func<double> const &sep, pde_domain<double> const &domain,
+    separable_func<double> const &sep,
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
 template void hierarchy_manipulator<double>::project_separable<data_mode::scal_inc>(
-    separable_func<double> const &sep, pde_domain<double> const &domain,
+    separable_func<double> const &sep,
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
 
@@ -1163,19 +1163,19 @@ template struct legendre_basis<float>;
 template class hierarchy_manipulator<float>;
 
 template void hierarchy_manipulator<float>::project_separable<data_mode::replace>(
-    separable_func<float> const &sep, pde_domain<float> const &domain,
+    separable_func<float> const &sep,
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
 template void hierarchy_manipulator<float>::project_separable<data_mode::scal_rep>(
-    separable_func<float> const &sep, pde_domain<float> const &domain,
+    separable_func<float> const &sep,
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
 template void hierarchy_manipulator<float>::project_separable<data_mode::increment>(
-    separable_func<float> const &sep, pde_domain<float> const &domain,
+    separable_func<float> const &sep,
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
 template void hierarchy_manipulator<float>::project_separable<data_mode::scal_inc>(
-    separable_func<float> const &sep, pde_domain<float> const &domain,
+    separable_func<float> const &sep,
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
 

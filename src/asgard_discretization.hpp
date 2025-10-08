@@ -608,9 +608,9 @@ protected:
       }{
         tools::time_event performance_("ode-rhs sources");
         if constexpr (use_groups)
-          terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, R);
+          terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, R);
         else
-          terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
+          terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, R);
       }
     #ifdef ASGARD_USE_MPI
     }
@@ -654,9 +654,9 @@ protected:
     } else {
     #endif
       if constexpr (use_groups) {
-        terms.template apply_sources<mode>(gid, domain_, grid, conn, hier, time, alpha, src);
+        terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, src);
       } else {
-        terms.template apply_sources<mode>(domain_, grid, conn, hier, time, alpha, src);
+        terms.template apply_sources<mode>(grid, conn, hier, time, alpha, src);
       }
     #ifdef ASGARD_USE_MPI
     }

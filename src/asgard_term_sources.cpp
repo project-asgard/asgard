@@ -9,7 +9,7 @@ namespace asgard
 template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_sources(
-    int groupid, pde_domain<P> const &domain, sparse_grid const &grid, connection_patterns const &conns,
+    int groupid, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
   // make all sources/bc lumped, except the time-dependent ones
@@ -186,10 +186,10 @@ void term_manager<P>::apply_sources(
       case source_entry<P>::time_mode::time_dependent:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           hier.template project_separable<data_mode::increment>
-              (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, y);
         else
           hier.template project_separable<data_mode::scal_inc>
-              (std::get<separable_func<P>>(src.func), domain, grid, lmass, time, alpha, y);
+              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, y);
         break;
       default:
         // unreachable here
@@ -250,7 +250,7 @@ void term_manager<P>::apply_sources(
       case boundary_entry<P>::time_mode::time_dependent:
         if (terms[bc.term_index].is_chain_link()) {
           hier.template project_separable<data_mode::replace>
-              (bc.flux.func(), domain, grid, lmass, time, 1, t1.data());
+              (bc.flux.func(), grid, lmass, time, 1, t1.data());
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
             rechain(bc, P{-1}, y);
           else
@@ -258,10 +258,10 @@ void term_manager<P>::apply_sources(
         } else {
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
             hier.template project_separable<data_mode::increment>
-                (bc.flux.func(), domain, grid, lmass, time, P{-1}, y);
+                (bc.flux.func(), grid, lmass, time, P{-1}, y);
           else
             hier.template project_separable<data_mode::scal_inc>
-                (bc.flux.func(), domain, grid, lmass, time, -alpha, y);
+                (bc.flux.func(), grid, lmass, time, -alpha, y);
         }
         break;
       default:
@@ -297,31 +297,31 @@ void term_manager<P>::apply_sources(
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template void term_manager<double>::apply_sources<data_mode::replace>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::increment>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_inc>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_rep>(
-    int, pde_domain<double> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template void term_manager<float>::apply_sources<data_mode::replace>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::increment>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_inc>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_rep>(
-    int, pde_domain<float> const &, sparse_grid const &, connection_patterns const &,
+    int, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
 

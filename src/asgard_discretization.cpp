@@ -295,7 +295,7 @@ void discretization_manager<precision>::set_initial_condition()
       std::array<block_diag_matrix<precision>, max_num_dimensions> mock;
 
       hier.template project_separable<data_mode::increment>
-            (initial_sep_[i], domain_, grid, terms.lmass, time, 1, state.data());
+            (initial_sep_[i], grid, terms.lmass, time, 1, state.data());
     }
 
     if (atol > 0 or rtol > 0) {
@@ -341,7 +341,7 @@ discretization_manager<precision>::project_function(
   terms.rebuild_mass_matrices(grid);
   for (int i : iindexof(sep)) {
     hier.template project_separable<data_mode::increment>
-          (sep[i], domain_, grid, terms.lmass, time, 1, out.data());
+          (sep[i], grid, terms.lmass, time, 1, out.data());
   }
 }
 

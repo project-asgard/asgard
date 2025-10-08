@@ -153,7 +153,7 @@ public:
 
   //! project separable function on the basis level
   template<data_mode action = data_mode::replace>
-  void project_separable(separable_func<P> const &sep, pde_domain<P> const &domain,
+  void project_separable(separable_func<P> const &sep,
                          sparse_grid const &grid, mass_diag<P> const &mass,
                          P time, P alpha, P f[]) const;
 
