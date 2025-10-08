@@ -962,11 +962,139 @@ public:
   //! returns the nodes corresponding to the grid
   vector2d<P> const &nodes(sparse_grid const &grid) const;
 
+  //! compute nodal values for the field
+  void wav2nodal(sparse_grid const &grid, connection_patterns const &conn,
+                 P const f[], P vals[],
+                 kronmult::workspace<P> &work) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 0;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm, P{1}, P{0}, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("wavelet-to-nodal", flops);
+    #else
+    tools::time_event performance_("wavelet-to-nodal");
+    #endif
+    block_cpu(pdof, grid, conn, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
+  }
+
+  //! compute nodal values for the field
+  void nodal2wav(sparse_grid const &grid, connection_patterns const &conn,
+                 P alpha, P const f[], P beta, P vals[],
+                 kronmult::workspace<P> &work) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 1;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm, alpha, beta, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("nodal-to-wavelet", flops);
+    #else
+    tools::time_event performance_("nodal-to-wavelet");
+    #endif
+    block_cpu(pdof, grid, conn, perm, nodal2wav_, alpha, f, beta, vals, work);
+  }
+
+  /*!
+   * \brief Performs the interpolation of the function func
+   *
+   * Given the grid, connection patterns, and current time:
+   * 1. recomputes the nodes
+   * 2. computes the values of the state at the nodes
+   * 3. call func() with the time, nodes, state values as "f", and computes vals
+   * 4. projects the result back in the basis and y = alpha * vals + beta * y
+   *
+   * The workspace is needed to call kronmult, the t1 and t2 are additional
+   * workspace with size equal to the state.
+   * The names t1/t2 come because this uses term_manager scratch space for working with chains
+   */
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn, P time, P const state[],
+       P alpha, md_func_f<P> const &func, P beta, P y[],
+       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+  {
+    tools::time_event performance_("interpolation operation");
+    wav2nodal(grid, conn, state, t1.data(), work);
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), t1, t2);
+    }
+    nodal2wav(grid, conn, alpha, t2.data(), beta, y, work);
+  }
+  /*!
+   * \brief Performs the interpolation of the function func
+   *
+   * Vector variant
+   */
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn, P time,
+       std::vector<P> const &state,
+       P alpha, md_func_f<P> const &func, P beta, std::vector<P> &y,
+       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+  {
+    expect(state.size() == t1.size() and t1.size() == t2.size());
+    if (beta == 0)
+      y.resize(state.size());
+    else
+      expect(y.size() == state.size());
+    (*this)(grid, conn, time, state.data(), alpha, func, beta, y.data(),
+            work, t1, t2);
+  }
+  /*!
+   * \brief Performs the interpolation of the function func
+   *
+   * Given the grid, connection patterns, and current time:
+   * 1. recomputes the nodes
+   * 2. call func() with the time, nodes, and computes vals
+   * 3. projects the result back in the basis and y = alpha * vals + beta * y
+   *
+   * The workspace is needed to call kronmult, the t1 and t2 are additional
+   * workspace with size equal to the state.
+   * The names t1/t2 come because this sues term_manager scratch space for working with chains
+   */
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn, P time,
+       P alpha, md_func<P> const &func, P beta, P y[],
+       kronmult::workspace<P> &work, std::vector<P> &t1) const
+  {
+    func(time, nodes(grid), t1);
+    nodal2wav(grid, conn, alpha, t1.data(), beta, y, work);
+  }
+  /*!
+   * \brief Performs the interpolation of the function func
+   *
+   * Vector variant
+   */
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn, P time,
+       P alpha, md_func<P> const &func, P beta, std::vector<P> &y,
+       kronmult::workspace<P> &work, std::vector<P> &t1) const
+  {
+    if (beta == 0)
+      y.resize(t1.size());
+    else
+      expect(y.size() == t1.size());
+    (*this)(grid, conn, time, alpha, func, beta, y.data(), work, t1);
+  }
+
+  //! indicates whether the manager has been initialized
+  operator bool () const { return (num_dims > 0); }
+
 private:
   int num_dims = 0;
   int pdof = 0;
   int block_size = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
+  P wav_scale = 0, iwav_scale = 0;
 
   int grid_gen = -1;
 
@@ -976,6 +1104,16 @@ private:
   kronmult::permutes perm;
 
   block_sparse_matrix<P> wav2nodal_;
+  block_sparse_matrix<P> nodal2wav_;
+
+  #ifdef ASGARD_USE_FLOPCOUNTER
+  struct flop_info_entry {
+    int grid_gen = -1;
+    int64_t flops = 0;
+  };
+  // indexes are wav2nodal (0), nodal2wav (1)
+  mutable std::array<flop_info_entry, 2> flop_info;
+  #endif
 };
 
 } // namespace asgard

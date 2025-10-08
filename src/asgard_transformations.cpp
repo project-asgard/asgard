@@ -892,8 +892,9 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
   P const w1[4] = {0, -is2h, is2, is64};
 
   P const p0[4] = {0, 0, 1, 0};
-  P const p1[4] = {1, 0, 0, 0};
-  P const pe[4] = {0, 0, 0, 1};
+  P const p1[4] = {0, 1, 0, 0};
+  P const p2[4] = {1, 0, 0, 0};
+  P const p3[4] = {0, 0, 0, 1};
 
   int const pdof  = degree_ + 1;
   int const pdof2 = pdof * pdof;
@@ -921,7 +922,7 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
       if constexpr (tdegree == 0)
         *out = (*right);
       else if constexpr (tdegree == 1)
-        smmat::gemm_pairt(2, left, p1, right, pe, out);
+        smmat::gemm_pairt(2, left, p2, right, p3, out);
       else
         smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
 
@@ -1044,8 +1045,9 @@ void hierarchy_manipulator<P>::row_project_any(
   P const w1[4] = {0, -is2h, is2, is64};
 
   P const p0[4] = {0, 0, 1, 0};
-  P const p1[4] = {1, 0, 0, 0};
-  P const pe[4] = {0, 0, 0, 1};
+  P const p1[4] = {0, 1, 0, 0};
+  P const p2[4] = {1, 0, 0, 0};
+  P const p3[4] = {0, 0, 0, 1};
 
   int const pdof  = degree_ + 1;
   int const pdof2 = pdof * pdof;
@@ -1073,7 +1075,7 @@ void hierarchy_manipulator<P>::row_project_any(
       if constexpr (tdegree == 0)
         *out = (*right);
       else if constexpr (tdegree == 1)
-        smmat::gemm_pair(2, p1, left, pe, right, out);
+        smmat::gemm_pair(2, p2, left, p3, right, out);
       else
         smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
 

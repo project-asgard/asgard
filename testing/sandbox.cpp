@@ -23,10 +23,18 @@ int main(int argc, char **argv)
   quadmd_manager<double> quadmd(domain, hier, conn);
 
 
-  interpolation_manager1d<prec, 1> interp(conn);
+  interpolation_manager1d<prec, degree> interp(conn);
 
-  std::cout << "  --------  \n";
-  interp.wav2nodal().to_full(conn).print();
+  // std::cout << "  --------  \n";
+  // prec const *p = interp.nodes()[0];
+  // for (int i = 0; i < 16; i++)
+  //   std::cout << p[i] << "\n";
+  // for (auto x : quadmd.nodes1d())
+  //   std::cout << x << "\n";
+
+
+  // std::cout << "  --------  \n";
+  // interp.wav2nodal().to_full(conn).print();
 
 
   return 0;

@@ -1,5 +1,7 @@
 #include "asgard_interp.hpp"
 
+#include "asgard_small_mats.hpp"
+
 namespace asgard
 {
 
@@ -462,19 +464,43 @@ template<typename P>
 quadmd_manager<P>::quadmd_manager(
     pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
     connection_patterns const &conn)
-    : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size())
+    : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size()),
+      perm(num_dims)
 {
+  wav_scale  = 1;
   for (int d : iindexof(num_dims)) {
     xmin[d]   = domain.xleft(d);
     xscale[d] = (domain.xright(d) - domain.xleft(d));
+    wav_scale *= xscale[d];
   }
+  iwav_scale = std::sqrt(wav_scale);
+  wav_scale = P{1} / iwav_scale;
 
   // here we get the canonical points over two cells
   std::vector<P> base_points = [&, this]() -> std::vector<P>
     {
       // eventually this will return a quadrature
-      if (pdof == 2) {
-        return {-1.0/3.0, 1.0/3.0};
+      if (pdof == 1) {
+        return {0.0, };
+      } else if (pdof == 2) {
+        // return {-1.0/3.0, 1.0/3.0};
+        return {-1.0/std::sqrt(3.0), 1.0/std::sqrt(3.0)};
+      } else if (pdof == 4) {
+        return {-3.0/5.0, -1.0/5.0, 1.0/5.0, 3.0/5.0};
+      } else {
+        return {};
+      }
+    }();
+
+  std::vector<P> base_weights = [&, this]() -> std::vector<P>
+    {
+      // eventually this will return a quadrature
+      if (pdof == 1) {
+        return {1.0, };
+      } else if (pdof == 2) {
+        return {0.5, 0.5};
+      } else if (pdof == 4) {
+        return {-3.0/5.0, -1.0/5.0, 1.0/5.0, 3.0/5.0};
       } else {
         return {};
       }
@@ -485,6 +511,7 @@ quadmd_manager<P>::quadmd_manager(
   int const level     = conn.max_loaded_level();
   int const num_cells = conn.conns[0].num_rows();
   P const cell_size = P{1} / static_cast<P>(num_cells);
+  P const sqrt_size = std::sqrt(cell_size);
 
   std::vector<P> cell_nodes(num_cells * pdof);
   #pragma omp parallel for
@@ -494,31 +521,51 @@ quadmd_manager<P>::quadmd_manager(
       cell_nodes[i * pdof + j] = cell_size * (i + P{0.5} + P{0.5} * base_points[j]);
   }
 
+  hier.permute(level, cell_nodes, nodes1d_);
+
   auto [lP, lPP] = legendre_vals(base_points, pdof - 1);
   ignore(lPP);
 
-  for(auto c : lP)
-    std::cout << c << "\n";
-  std::cout << " ---------------- \n";
+  // the 2 in the scaling comes form (-1, 1) -> (0, 1)
+  std::vector<P> lPs = lP;
+  for(auto &l : lPs) l *= 2 * sqrt_size;
+
+  // for(auto c : lP)
+  //   std::cout << c << "\n";
+  // for(auto c : base_points)
+  //   std::cout << c << "\n";
+  // std::cout << " ---------------- \n";
 
   block_diag_matrix<P> mat(pdof * pdof, num_cells);
   #pragma omp parallel for
   for (int i = 0; i < num_cells; i++)
-    std::copy_n(lP.data(), pdof * pdof, mat[i]);
+    std::copy_n(lPs.data(), pdof * pdof, mat[i]);
 
   wav2nodal_ = hier.diag2perm_trans(mat, level, conn);
 
-  wav2nodal_.to_full(conn).print();
+  // wav2nodal_.to_full(conn).print();
+  // std::cout << " cell-size = " << cell_size << "\n";
 
-  for (auto c : cell_nodes)
-    std::cout << c << '\n';
-  std::cout << " ---- \n";
+  for(auto &l : lP) l *= 2; // scale the Legendre values due to (-1, 1) -> (0, 1)
 
-  hier.permute(level, cell_nodes, nodes1d_);
+  for(auto &w : base_weights) w *= cell_size;
 
-  for (auto c : nodes1d_)
-    std::cout << c << '\n';
-  std::cout << " ---- \n";
+  std::vector<P> lscal(lP.size());
+  smmat::col_scal(pdof, pdof, base_weights.data(), lP.data(), lscal.data());
+
+  // transpose the scaled matrix
+  for (int i = 0; i < pdof; i++)
+    for (int j = 0; j < pdof; j++)
+      lP[i * pdof + j] = lscal[j * pdof + i];
+
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+    std::copy_n(lP.data(), pdof * pdof, mat[i]);
+
+  nodal2wav_ = hier.diag2trans_perm(mat, level, conn);
+
+  // std::cout << "  ----------------- \n";
+  // nodal2wav_.to_full(conn).print();
 }
 
 template<typename P>
