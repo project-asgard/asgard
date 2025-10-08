@@ -975,6 +975,7 @@ private:
 
   kronmult::permutes perm;
 
+  block_sparse_matrix<P> wav2nodal_;
 };
 
 } // namespace asgard

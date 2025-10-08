@@ -23,5 +23,11 @@ int main(int argc, char **argv)
   quadmd_manager<double> quadmd(domain, hier, conn);
 
 
+  interpolation_manager1d<prec, 1> interp(conn);
+
+  std::cout << "  --------  \n";
+  interp.wav2nodal().to_full(conn).print();
+
+
   return 0;
 }

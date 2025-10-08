@@ -517,19 +517,20 @@ hierarchy_manipulator<P>::diag2hierarchical(block_diag_matrix<P> const &diag,
   block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
   block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
 
+  constexpr operation op = operation::transform;
   switch (degree_)
   {
   case 0:
-    col_project_vol<0>(diag, level, conns, col);
-    row_project_any<0>(col, level, conns, res);
+    col_project_vol<0, op>(diag, level, conns, col);
+    row_project_any<0, op>(col, level, conns, res);
     break;
   case 1:
-    col_project_vol<1>(diag, level, conns, col);
-    row_project_any<1>(col, level, conns, res);
+    col_project_vol<1, op>(diag, level, conns, col);
+    row_project_any<1, op>(col, level, conns, res);
     break;
   default:
-    col_project_vol<-1>(diag, level, conns, col);
-    row_project_any<-1>(col, level, conns, res);
+    col_project_vol<-1, op>(diag, level, conns, col);
+    row_project_any<-1, op>(col, level, conns, res);
     break;
   };
 
@@ -545,19 +546,80 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
   block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_full);
   block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::full);
 
+  constexpr operation op = operation::transform;
   switch (degree_)
   {
   case 0:
     col_project_full<0>(tri, level, conns, col);
-    row_project_any<0>(col, level, conns, res);
+    row_project_any<0, op>(col, level, conns, res);
     break;
   case 1:
     col_project_full<1>(tri, level, conns, col);
-    row_project_any<1>(col, level, conns, res);
+    row_project_any<1, op>(col, level, conns, res);
     break;
   default:
     col_project_full<-1>(tri, level, conns, col);
-    row_project_any<-1>(col, level, conns, res);
+    row_project_any<-1, op>(col, level, conns, res);
+    break;
+  };
+
+  return res;
+}
+
+template<typename P>
+block_sparse_matrix<P>
+hierarchy_manipulator<P>::diag2trans_perm(block_diag_matrix<P> const &diag,
+                                          int const level,
+                                          connection_patterns const &conns) const
+{
+  block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
+  block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
+
+  constexpr operation lop = operation::transform;
+  constexpr operation rop = operation::permute;
+  switch (degree_)
+  {
+  case 0:
+    col_project_vol<0, rop>(diag, level, conns, col);
+    row_project_any<0, lop>(col, level, conns, res);
+    break;
+  case 1:
+    col_project_vol<1, rop>(diag, level, conns, col);
+    row_project_any<1, lop>(col, level, conns, res);
+    break;
+  default:
+    col_project_vol<-1, rop>(diag, level, conns, col);
+    row_project_any<-1, lop>(col, level, conns, res);
+    break;
+  };
+
+  return res;
+}
+
+template<typename P>
+block_sparse_matrix<P>
+hierarchy_manipulator<P>::diag2perm_trans(block_diag_matrix<P> const &diag,
+                                          int const level,
+                                          connection_patterns const &conns) const
+{
+  block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
+  block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
+
+  constexpr operation lop = operation::permute;
+  constexpr operation rop = operation::transform;
+  switch (degree_)
+  {
+  case 0:
+    col_project_vol<0, rop>(diag, level, conns, col);
+    row_project_any<0, lop>(col, level, conns, res);
+    break;
+  case 1:
+    col_project_vol<1, rop>(diag, level, conns, col);
+    row_project_any<1, lop>(col, level, conns, res);
+    break;
+  default:
+    col_project_vol<-1, rop>(diag, level, conns, col);
+    row_project_any<-1, lop>(col, level, conns, res);
     break;
   };
 
@@ -806,7 +868,7 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
 }
 
 template<typename P>
-template<int tdegree>
+template<int tdegree, typename hierarchy_manipulator<P>::operation op>
 void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
                                                int const level,
                                                connection_patterns const &conns,
@@ -829,6 +891,10 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
   P const w0[4] = {0, is2h, -is2, is64};
   P const w1[4] = {0, -is2h, is2, is64};
 
+  P const p0[4] = {0, 0, 1, 0};
+  P const p1[4] = {1, 0, 0, 0};
+  P const pe[4] = {0, 0, 0, 1};
+
   int const pdof  = degree_ + 1;
   int const pdof2 = pdof * pdof;
 
@@ -837,19 +903,35 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
   // the cell index of left/right should be 2n and 2n+1, while out and upper have index n
   auto apply = [&](P const *left, P const *right, P *out, P *upper)
   {
-    if constexpr (tdegree == 0)
-      *out = -s22 * (*left) + s22 * (*right);
-    else if constexpr (tdegree == 1)
-      smmat::gemm_pairt(2, left, w0, right, w1, out);
-    else
-      smmat::gemm_pairt(pdof, left, tmatlev, right, tmatlev + pdof2, out);
+    if constexpr (op == operation::transform) {
+      if constexpr (tdegree == 0)
+        *out = -s22 * (*left) + s22 * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, w0, right, w1, out);
+      else
+        smmat::gemm_pairt(pdof, left, tmatlev, right, tmatlev + pdof2, out);
 
-    if constexpr (tdegree == 0)
-      *upper = s22 * (*left) + s22 * (*right);
-    else if constexpr (tdegree == 1)
-      smmat::gemm_pairt(2, left, h0, right, h1, upper);
-    else
-      smmat::gemm_pairt(pdof, left, tmatup, right, tmatup + pdof2, upper);
+      if constexpr (tdegree == 0)
+        *upper = s22 * (*left) + s22 * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, h0, right, h1, upper);
+      else
+        smmat::gemm_pairt(pdof, left, tmatup, right, tmatup + pdof2, upper);
+    } else {
+      if constexpr (tdegree == 0)
+        *out = (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, p1, right, pe, out);
+      else
+        smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
+
+      if constexpr (tdegree == 0)
+        *upper = (*left);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, p0, right, p1, upper);
+      else
+        smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
+    }
   };
 
   connect_1d const &conn = conns(sp);
@@ -941,7 +1023,7 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
 }
 
 template<typename P>
-template<int tdegree>
+template<int tdegree, typename hierarchy_manipulator<P>::operation op>
 void hierarchy_manipulator<P>::row_project_any(
     block_sparse_matrix<P> &col,
     int const level,
@@ -961,6 +1043,10 @@ void hierarchy_manipulator<P>::row_project_any(
   P const w0[4] = {0, is2h, -is2, is64};
   P const w1[4] = {0, -is2h, is2, is64};
 
+  P const p0[4] = {0, 0, 1, 0};
+  P const p1[4] = {1, 0, 0, 0};
+  P const pe[4] = {0, 0, 0, 1};
+
   int const pdof  = degree_ + 1;
   int const pdof2 = pdof * pdof;
 
@@ -969,19 +1055,35 @@ void hierarchy_manipulator<P>::row_project_any(
   // the cell index of left/right should be 2n and 2n+1, while out and upper have index n
   auto apply = [&](P const *left, P const *right, P *out, P *upper)
   {
-    if constexpr (tdegree == 0)
-      *out = -s22 * (*left) + s22 * (*right);
-    else if constexpr (tdegree == 1)
-      smmat::gemm_pair(2, w0, left, w1, right, out);
-    else
-      smmat::gemm_pair(pdof, tmatlev, left, tmatlev + pdof2, right, out);
+    if constexpr (op == operation::transform) {
+      if constexpr (tdegree == 0)
+        *out = -s22 * (*left) + s22 * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, w0, left, w1, right, out);
+      else
+        smmat::gemm_pair(pdof, tmatlev, left, tmatlev + pdof2, right, out);
 
-    if constexpr (tdegree == 0)
-      *upper = s22 * (*left) + s22 * (*right);
-    else if constexpr (tdegree == 1)
-      smmat::gemm_pair(2, h0, left, h1, right, upper);
-    else
-      smmat::gemm_pair(pdof, tmatup, left, tmatup + pdof2, right, upper);
+      if constexpr (tdegree == 0)
+        *upper = s22 * (*left) + s22 * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, h0, left, h1, right, upper);
+      else
+        smmat::gemm_pair(pdof, tmatup, left, tmatup + pdof2, right, upper);
+    } else {
+      if constexpr (tdegree == 0)
+        *out = (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, p1, left, pe, right, out);
+      else
+        smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
+
+      if constexpr (tdegree == 0)
+        *upper = (*left);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, p0, left, p1, right, upper);
+      else
+        smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);
+    }
   };
 
   connect_1d const &fconn = conn(sp);

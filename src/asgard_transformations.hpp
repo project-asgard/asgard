@@ -236,6 +236,14 @@ public:
   block_sparse_matrix<P> diag2hierarchical(
       block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
 
+  //! converts matrix from diagonal to transformed (hierarchical) on the left and permuted on the right
+  block_sparse_matrix<P> diag2trans_perm(
+      block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
+
+  //! converts matrix from diagonal to permuted on the left and transformed (hierarchical) on the right
+  block_sparse_matrix<P> diag2perm_trans(
+      block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
+
   //! transform cell-by-cell Legendre coefficients into hierarchical wavelet coefficients
   void transform(int level, P src[], P dest[]) const
   {
@@ -361,14 +369,14 @@ protected:
                         block_sparse_matrix<P> &sp) const;
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
-  template<int tdegree>
+  template<int tdegree, operation op>
   void col_project_vol(block_diag_matrix<P> const &diag,
                        int const level,
                        connection_patterns const &conn,
                        block_sparse_matrix<P> &sp) const;
 
   //! apply row transform on sparse col-full pattern
-  template<int tdegree>
+  template<int tdegree, operation op>
   void row_project_any(block_sparse_matrix<P> &col,
                        int const level,
                        connection_patterns const &conn,

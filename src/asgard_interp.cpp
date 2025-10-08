@@ -474,13 +474,13 @@ quadmd_manager<P>::quadmd_manager(
     {
       // eventually this will return a quadrature
       if (pdof == 2) {
-        return {1.0/6.0, 1.0/3.0, 2.0/3.0, 5.0/6.0};
+        return {-1.0/3.0, 1.0/3.0};
       } else {
         return {};
       }
     }();
 
-  expect(base_points.size() == static_cast<size_t>(2 * pdof));
+  expect(base_points.size() == static_cast<size_t>(pdof));
 
   int const level     = conn.max_loaded_level();
   int const num_cells = conn.conns[0].num_rows();
@@ -488,11 +488,27 @@ quadmd_manager<P>::quadmd_manager(
 
   std::vector<P> cell_nodes(num_cells * pdof);
   #pragma omp parallel for
-  for (int i = 0; i < num_cells / 2; i++)
+  for (int i = 0; i < num_cells; i++)
   {
-    for (int j = 0; j < 2 * pdof; j++)
-      cell_nodes[2 * i * pdof + j] = 2 * cell_size * (i + base_points[j]);
+    for (int j = 0; j < pdof; j++)
+      cell_nodes[i * pdof + j] = cell_size * (i + P{0.5} + P{0.5} * base_points[j]);
   }
+
+  auto [lP, lPP] = legendre_vals(base_points, pdof - 1);
+  ignore(lPP);
+
+  for(auto c : lP)
+    std::cout << c << "\n";
+  std::cout << " ---------------- \n";
+
+  block_diag_matrix<P> mat(pdof * pdof, num_cells);
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells; i++)
+    std::copy_n(lP.data(), pdof * pdof, mat[i]);
+
+  wav2nodal_ = hier.diag2perm_trans(mat, level, conn);
+
+  wav2nodal_.to_full(conn).print();
 
   for (auto c : cell_nodes)
     std::cout << c << '\n';
