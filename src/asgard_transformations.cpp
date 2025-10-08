@@ -302,10 +302,10 @@ void hierarchy_manipulator<P>::reconstruct1d(
           out_right[2*b+1] =                 + is2h * left[2*b+1] + is2 * right[2*b] + is64 * right[2*b+1];
           break;
         default:
-          smmat::gemtv(ssize, pmatup, left + b * ssize, out_left + b * ssize);
-          smmat::gemtv1(ssize, pmatlev, right + b * ssize, out_left + b * ssize);
-          smmat::gemtv(ssize, pmatup + ssize * ssize, left + b * ssize, out_right + b * ssize);
-          smmat::gemtv1(ssize, pmatlev + ssize * ssize, right + b * ssize, out_right + b * ssize);
+          smmat::gemtv(ssize, tmatup, left + b * ssize, out_left + b * ssize);
+          smmat::gemtv1(ssize, tmatlev, right + b * ssize, out_left + b * ssize);
+          smmat::gemtv(ssize, tmatup + ssize * ssize, left + b * ssize, out_right + b * ssize);
+          smmat::gemtv1(ssize, tmatlev + ssize * ssize, right + b * ssize, out_right + b * ssize);
           break;
       };
     }
@@ -366,63 +366,109 @@ void hierarchy_manipulator<P>::project1d(
 }
 
 template<typename P>
-template<int tdegree>
+template<int tdegree, typename hierarchy_manipulator<P>::operation op>
 void hierarchy_manipulator<P>::apply_transform(int level, P src[], P dest[]) const
 {
   int const pdof = degree_ + 1;
 
   auto last2block = [&](P const raw[], P fin[]) -> void
     {
-      if constexpr (tdegree == 0)
-      {
-        P constexpr s22 = 0.5 * s2;
-        fin[0] = s22 * raw[0] + s22 * raw[1];
-        fin[1] = -s22 * raw[0] + s22 * raw[1];
-      }
-      else if constexpr (tdegree == 1)
-      {
-        P constexpr is2h = 0.5 * is2;
-        P constexpr is64 = s6 / 4.0;
+      if constexpr (op == operation::transform) {
+        if constexpr (tdegree == 0)
+        {
+          P constexpr s22 = 0.5 * s2;
+          fin[0] = s22 * raw[0] + s22 * raw[1];
+          fin[1] = -s22 * raw[0] + s22 * raw[1];
+        }
+        else if constexpr (tdegree == 1)
+        {
+          P constexpr is2h = 0.5 * is2;
+          P constexpr is64 = s6 / 4.0;
 
-        fin[0] =  is2  * raw[0]                 + is2  * raw[2];
-        fin[1] = -is64 * raw[0] + is2h * raw[1] + is64 * raw[2] + is2h * raw[3];
-        fin[2] =                - is2  * raw[1]                 + is2  * raw[3];
-        fin[3] =  is2h * raw[0] + is64 * raw[1] - is2h * raw[2] + is64 * raw[3];
-      }
-      else
-      {
-        int const n = 2 * pdof;
-        smmat::gemv(n, n, pmats.data(), raw, fin);
+          fin[0] =  is2  * raw[0]                 + is2  * raw[2];
+          fin[1] = -is64 * raw[0] + is2h * raw[1] + is64 * raw[2] + is2h * raw[3];
+          fin[2] =                - is2  * raw[1]                 + is2  * raw[3];
+          fin[3] =  is2h * raw[0] + is64 * raw[1] - is2h * raw[2] + is64 * raw[3];
+        }
+        else
+        {
+          int const n = 2 * pdof;
+          smmat::gemv(n, n, tmats.data(), raw, fin);
+        }
+      } else { // operation permute
+        if constexpr (tdegree == 0)
+        {
+          fin[0] = raw[0];
+          fin[1] = raw[1];
+        }
+        else if constexpr (tdegree == 1)
+        {
+          fin[0] = raw[1];
+          fin[1] = raw[2];
+          fin[2] = raw[0];
+          fin[3] = raw[3];
+        }
+        else
+        {
+          int const n = 2 * pdof;
+          smmat::gemv(n, n, pmats.data(), raw, fin);
+        }
       }
     };
 
   auto merge2blocks = [&](P const raw[], P upper[], P fin[]) -> void
     {
-      if constexpr (tdegree == 0)
-      {
-        P constexpr s22 = 0.5 * s2;
-        P const r0 = raw[0];
-        P const r1 = raw[1];
-        upper[0] =  s22 * r0 + s22 * r1;
-        fin[0]   = -s22 * r0 + s22 * r1;
-      }
-      else if constexpr (tdegree == 1)
-      {
-        P constexpr is2h = 0.5 * is2;
-        P constexpr is64  = s6 / 4.0;
-        P const r0 = raw[0];
-        P const r1 = raw[1];
-        P const r2 = raw[2];
-        P const r3 = raw[3];
-        upper[0] =  is2  * r0             + is2  * r2;
-        upper[1] = -is64 * r0 + is2h * r1 + is64 * r2 + is2h * r3;
-        fin[0]   =            - is2  * r1             + is2  * r3;
-        fin[1]   =  is2h * r0 + is64 * r1 - is2h * r2 + is64 * r3;
-      }
-      else
-      {
-        smmat::gemv(pdof, 2 * pdof, pmatup,  raw, upper);
-        smmat::gemv(pdof, 2 * pdof, pmatlev, raw, fin);
+      if constexpr (op == operation::transform) {
+        if constexpr (tdegree == 0)
+        {
+          P constexpr s22 = 0.5 * s2;
+          P const r0 = raw[0];
+          P const r1 = raw[1];
+          upper[0] =  s22 * r0 + s22 * r1;
+          fin[0]   = -s22 * r0 + s22 * r1;
+        }
+        else if constexpr (tdegree == 1)
+        {
+          P constexpr is2h = 0.5 * is2;
+          P constexpr is64  = s6 / 4.0;
+          P const r0 = raw[0];
+          P const r1 = raw[1];
+          P const r2 = raw[2];
+          P const r3 = raw[3];
+          upper[0] =  is2  * r0             + is2  * r2;
+          upper[1] = -is64 * r0 + is2h * r1 + is64 * r2 + is2h * r3;
+          fin[0]   =            - is2  * r1             + is2  * r3;
+          fin[1]   =  is2h * r0 + is64 * r1 - is2h * r2 + is64 * r3;
+        }
+        else
+        {
+          smmat::gemv(pdof, 2 * pdof, tmatup,  raw, upper);
+          smmat::gemv(pdof, 2 * pdof, tmatlev, raw, fin);
+        }
+      } else {  // operation permute
+        if constexpr (tdegree == 0)
+        {
+          P const r0 = raw[0];
+          P const r1 = raw[1];
+          upper[0] = r0;
+          fin[0]   = r1;
+        }
+        else if constexpr (tdegree == 1)
+        {
+          P const r0 = raw[0];
+          P const r1 = raw[1];
+          P const r2 = raw[2];
+          P const r3 = raw[3];
+          upper[0] = r1;
+          upper[1] = r2;
+          fin[0]   = r0;
+          fin[1]   = r3;
+        }
+        else
+        {
+          smmat::gemv(pdof, 2 * pdof, pmatup,  raw, upper);
+          smmat::gemv(pdof, 2 * pdof, pmatlev, raw, fin);
+        }
       }
     };
 
@@ -556,14 +602,14 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
     else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, w0, right, w1, out);
     else
-      smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
+      smmat::gemm_pairt(pdof, left, tmatlev, right, tmatlev + pdof2, out);
 
     if constexpr (tdegree == 0)
       *upper = s22 * (*left) + s22 * (*right);
     else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, h0, right, h1, upper);
     else
-      smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
+      smmat::gemm_pairt(pdof, left, tmatup, right, tmatup + pdof2, upper);
   };
 
   connect_1d const &conn = conns(sp);
@@ -796,14 +842,14 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
     else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, w0, right, w1, out);
     else
-      smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
+      smmat::gemm_pairt(pdof, left, tmatlev, right, tmatlev + pdof2, out);
 
     if constexpr (tdegree == 0)
       *upper = s22 * (*left) + s22 * (*right);
     else if constexpr (tdegree == 1)
       smmat::gemm_pairt(2, left, h0, right, h1, upper);
     else
-      smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
+      smmat::gemm_pairt(pdof, left, tmatup, right, tmatup + pdof2, upper);
   };
 
   connect_1d const &conn = conns(sp);
@@ -928,14 +974,14 @@ void hierarchy_manipulator<P>::row_project_any(
     else if constexpr (tdegree == 1)
       smmat::gemm_pair(2, w0, left, w1, right, out);
     else
-      smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
+      smmat::gemm_pair(pdof, tmatlev, left, tmatlev + pdof2, right, out);
 
     if constexpr (tdegree == 0)
       *upper = s22 * (*left) + s22 * (*right);
     else if constexpr (tdegree == 1)
       smmat::gemm_pair(2, h0, left, h1, right, upper);
     else
-      smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);
+      smmat::gemm_pair(pdof, tmatup, left, tmatup + pdof2, right, upper);
   };
 
   connect_1d const &fconn = conn(sp);
@@ -1068,13 +1114,14 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       leg_vals[i][j] *= scale * quad[weights][i];
   }
 
-  if (degree_ >= 2) // need projection matrices, degree_ <= 1 are hard-coded
+  if (degree_ >= 2) // need transformation matrices, degree_ <= 1 is hard-coded
   {
+    // work on the transformation matrices
     auto rawmats = basis::generate_multi_wavelets(degree_);
     int const pdof = degree_ + 1;
     // copy the matrices twice, once for level 1->0 and once for generic levels
-    pmats.resize(8 * pdof * pdof);
-    auto ip = pmats.data();
+    tmats.resize(8 * pdof * pdof);
+    auto ip = tmats.data();
     for (int i : indexof<int>(pdof)) {
       ip = std::copy_n(rawmats[0].data() + pdof * i, pdof, ip);
       ip = std::copy_n(rawmats[2].data() + pdof * i, pdof, ip);
@@ -1084,12 +1131,56 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       ip = std::copy_n(rawmats[3].data() + pdof * i, pdof, ip);
     }
 
-    pmatup = ip;
-    pmatlev = pmatup + 2 * pdof * pdof;
+    tmatup = ip;
+    tmatlev = tmatup + 2 * pdof * pdof;
 
     for (int j : indexof<int>(4))
       for (int i : indexof<int>(pdof))
         ip = std::copy_n(rawmats[j].data() + i * pdof, pdof, ip);
+
+    // work on the permutation matrices
+    pmats.resize(8 * pdof * pdof);
+    pmatup  = pmats.data() + 4 * pdof * pdof;
+    pmatlev = pmatup + 2 * pdof * pdof;
+
+    if (pdof % 2 == 0) {
+      // i-th (row) h-point takes the j-th (col) nodal-point
+      // upper on left, take every other point starting from 0
+      for (int i = 0; i < pdof / 2; i++)
+        pmats[(2 * i) * (2 * pdof) + i] = 1;
+      // upper on right, take every other point starting from the very end
+      for (int i = pdof / 2; i < pdof; i++)
+        pmats[(2 * i + 1) * (2 * pdof) + i] = 1;
+      // lower on left, take every other point starting from 1
+      for (int i = 0; i < pdof / 2; i++)
+        pmats[(2 * i + 1) * (2 * pdof) + i + pdof] = 1;
+      // lower on right, take every other point starting from the very end
+      for (int i = pdof / 2; i < pdof; i++)
+        pmats[(2 * i) * (2 * pdof) + i + pdof] = 1;
+
+      // same logic as above, but the leading dimension is pdof
+      for (int i = 0; i < pdof / 2; i++)
+        pmatup[(2 * i) * pdof + i] = 1;
+      for (int i = pdof / 2; i < pdof; i++)
+        pmatup[(2 * i + 1) * pdof + i] = 1;
+      for (int i = 0; i < pdof / 2; i++)
+        pmatlev[(2 * i + 1) * pdof + i] = 1;
+      for (int i = pdof / 2; i < pdof; i++)
+        pmatlev[(2 * i) * pdof + i] = 1;
+    } else {
+      // upper block, take every other point starting from 0
+      for (int i = 0; i < pdof; i++)
+        pmats[(2 * i) * (2 * pdof) + i] = 1;
+      // lower block, take every other point starting from 1
+      for (int i = 0; i < pdof; i++)
+        pmats[(2 * i + 1) * (2 * pdof) + i + pdof] = 1;
+
+      for (int i = 0; i < pdof; i++)
+        pmatup[(2 * i) * pdof + i] = 1;
+      // lower block, take every other point starting from 1
+      for (int i = 0; i < pdof; i++)
+        pmatlev[(2 * i + 1) * pdof + i] = 1;
+    }
   }
 }
 
@@ -1114,9 +1205,25 @@ template void hierarchy_manipulator<double>::project_separable<data_mode::scal_i
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
 
-template void hierarchy_manipulator<double>::apply_transform<0>(int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform<1>(int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform<-1>(int, double[], double[]) const;
+template void hierarchy_manipulator<double>::apply_transform
+    <0, hierarchy_manipulator<double>::operation::transform>
+    (int, double[], double[]) const;
+template void hierarchy_manipulator<double>::apply_transform
+    <1, hierarchy_manipulator<double>::operation::transform>
+    (int, double[], double[]) const;
+template void hierarchy_manipulator<double>::apply_transform
+    <-1, hierarchy_manipulator<double>::operation::transform>
+    (int, double[], double[]) const;
+
+template void hierarchy_manipulator<double>::apply_transform
+    <0, hierarchy_manipulator<double>::operation::permute>
+    (int, double[], double[]) const;
+template void hierarchy_manipulator<double>::apply_transform
+    <1, hierarchy_manipulator<double>::operation::permute>
+    (int, double[], double[]) const;
+template void hierarchy_manipulator<double>::apply_transform
+    <-1, hierarchy_manipulator<double>::operation::permute>
+    (int, double[], double[]) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1140,9 +1247,25 @@ template void hierarchy_manipulator<float>::project_separable<data_mode::scal_in
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
 
-template void hierarchy_manipulator<float>::transform<0>(int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform<1>(int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform<-1>(int, float[], float[]) const;
+template void hierarchy_manipulator<float>::transform
+    <0, hierarchy_manipulator<double>::operation::transform>
+    (int, float[], float[]) const;
+template void hierarchy_manipulator<float>::transform
+    <1, hierarchy_manipulator<double>::operation::transform>
+    (int, float[], float[]) const;
+template void hierarchy_manipulator<float>::transform
+    <-1, hierarchy_manipulator<double>::operation::transform>
+    (int, float[], float[]) const;
+
+template void hierarchy_manipulator<float>::transform
+    <0, hierarchy_manipulator<double>::operation::permute>
+    (int, float[], float[]) const;
+template void hierarchy_manipulator<float>::transform
+    <1, hierarchy_manipulator<double>::operation::permute>
+    (int, float[], float[]) const;
+template void hierarchy_manipulator<float>::transform
+    <-1, hierarchy_manipulator<double>::operation::permute>
+    (int, float[], float[]) const;
 #endif
 
 } // namespace asgard

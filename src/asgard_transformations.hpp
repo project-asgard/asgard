@@ -239,15 +239,16 @@ public:
   //! transform cell-by-cell Legendre coefficients into hierarchical wavelet coefficients
   void transform(int level, P src[], P dest[]) const
   {
+    constexpr operation op = operation::transform;
     switch (degree_) {
       case 0:
-        apply_transform<0>(level, src, dest);
+        apply_transform<0, op>(level, src, dest);
         break;
       case 1:
-        apply_transform<1>(level, src, dest);
+        apply_transform<1, op>(level, src, dest);
         break;
       default:
-        apply_transform<-1>(level, src, dest);
+        apply_transform<-1, op>(level, src, dest);
         break;
     };
   }
@@ -271,7 +272,46 @@ public:
     transform(level, pwork.data(), x.data());
   }
 
+  //! permute cell-by-cell points into hierarchical order
+  void permute(int level, P src[], P dest[]) const
+  {
+    constexpr operation op = operation::permute;
+    switch (degree_) {
+      case 0:
+        apply_transform<0, op>(level, src, dest);
+        break;
+      case 1:
+        apply_transform<1, op>(level, src, dest);
+        break;
+      default:
+        apply_transform<-1, op>(level, src, dest);
+        break;
+    };
+  }
+  //! permute with vector overload
+  void permute(int level, std::vector<P> &src, std::vector<P> &dest) const
+  {
+    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
+    dest.resize(src.size());
+    permute(level, src.data(), dest.data());
+  }
+
 protected:
+  /*!
+   * \brief Indicated whether to use standard wavelet transform or permutation
+   *
+   * The algorithms for both operations are identical, the difference
+   * is in the matrices being used.
+   * The enum are used in conjunction with if-constexpr to select
+   * the proper matrices to apply.
+   */
+  enum class operation {
+    //! transform cell-by-cell legendre basis to hierarchical wavelets
+    transform,
+    //! permutation of cell-by-cell nodes to hierarchical ordering
+    permute
+  };
+
   /*!
    * \brief Perform the transformation on the given data
    *
@@ -281,7 +321,7 @@ protected:
    * \param src is the source with size 2^level, this operation will destroy the source
    * \param dest is the destination with same size as src
    */
-  template<int tdegree>
+  template<int tdegree, operation op>
   void apply_transform(int level, P src[], P dest[]) const;
 
   //! Given values of a function, project on the cell-by-cell basis
@@ -349,7 +389,11 @@ private:
   vector2d<P> leg_vals; // values of Legendre polynomials at the quad points
   vector2d<P> leg_unscal; // Legendre polynomials not-scaled by the quadrature w.
 
-  std::vector<P> pmats; // projection matrices
+  std::vector<P> tmats; // transformation matrices
+  P *tmatup  = nullptr; // this to upper level (alias to tmats)
+  P *tmatlev = nullptr; // this to same level (alias to tmats)
+
+  std::vector<P> pmats; // permutation matrices
   P *pmatup  = nullptr; // this to upper level (alias to pmats)
   P *pmatlev = nullptr; // this to same level (alias to pmats)
 

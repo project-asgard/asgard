@@ -458,6 +458,95 @@ vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) cons
   return nodes_;
 }
 
+template<typename P>
+quadmd_manager<P>::quadmd_manager(
+    pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
+    connection_patterns const &conn)
+    : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size())
+{
+  for (int d : iindexof(num_dims)) {
+    xmin[d]   = domain.xleft(d);
+    xscale[d] = (domain.xright(d) - domain.xleft(d));
+  }
+
+  // here we get the canonical points over two cells
+  std::vector<P> base_points = [&, this]() -> std::vector<P>
+    {
+      // eventually this will return a quadrature
+      if (pdof == 2) {
+        return {1.0/6.0, 1.0/3.0, 2.0/3.0, 5.0/6.0};
+      } else {
+        return {};
+      }
+    }();
+
+  expect(base_points.size() == static_cast<size_t>(2 * pdof));
+
+  int const level     = conn.max_loaded_level();
+  int const num_cells = conn.conns[0].num_rows();
+  P const cell_size = P{1} / static_cast<P>(num_cells);
+
+  std::vector<P> cell_nodes(num_cells * pdof);
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells / 2; i++)
+  {
+    for (int j = 0; j < 2 * pdof; j++)
+      cell_nodes[2 * i * pdof + j] = 2 * cell_size * (i + base_points[j]);
+  }
+
+  for (auto c : cell_nodes)
+    std::cout << c << '\n';
+  std::cout << " ---- \n";
+
+  hier.permute(level, cell_nodes, nodes1d_);
+
+  for (auto c : nodes1d_)
+    std::cout << c << '\n';
+  std::cout << " ---- \n";
+}
+
+template<typename P>
+vector2d<P> const &quadmd_manager<P>::nodes(sparse_grid const &grid) const
+{
+  if (grid.generation() == grid_gen)
+    return nodes_;
+
+  int64_t const num_points = grid.num_indexes() * block_size;
+
+  nodes_.resize(num_dims, num_points);
+
+  span2d<P const> const nd1d(pdof, -1, nodes1d_.data());
+  // vector2d<P> const &nd1d = nodes1d();
+
+  #pragma omp parallel
+  {
+    std::array<P const *, max_num_dimensions> offs;
+
+    #pragma omp for
+    for (int64_t i = 0; i < grid.num_indexes(); i++)
+    {
+      for (int d = 0; d < num_dims; d++)
+        offs[d] = nd1d[grid[i][d]];
+
+      for (int j : iindexof(block_size))
+      {
+        int64_t t = j;
+        for (int d = num_dims - 1; d >= 0; d--) {
+          nodes_[i * block_size + j][d] = offs[d][t % pdof];
+          t /= pdof;
+        }
+      }
+
+      ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+      for (int j = 0; j < block_size; j++)
+        for (int d = 0; d < num_dims; d++)
+          nodes_[i * block_size + j][d] = xmin[d] + nodes_[i * block_size + j][d] * xscale[d];
+    }
+  }
+
+  return nodes_;
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class interp_basis<double, 0>;
 template class interp_basis<double, 1>;
@@ -470,6 +559,8 @@ template class interpolation_manager1d<double, 2>;
 template class interpolation_manager1d<double, 3>;
 
 template class interpolation_manager<double>;
+
+template class quadmd_manager<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -484,6 +575,8 @@ template class interpolation_manager1d<float, 2>;
 template class interpolation_manager1d<float, 3>;
 
 template class interpolation_manager<float>;
+
+template class quadmd_manager<float>;
 #endif
 
 } // namespace asgard

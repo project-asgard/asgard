@@ -945,4 +945,36 @@ private:
   #endif
 };
 
+/*!
+ * \brief Manages the data-structures for the non-separable operations
+ */
+template<typename P>
+class quadmd_manager {
+public:
+  //! default empty constructor, must reinitialize to use the class
+  quadmd_manager() = default;
+  //! initialize the manager
+  quadmd_manager(pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
+                 connection_patterns const &conn);
+
+  //! (mostly testing) returns the hierarchical form of the 1d nodes
+  std::vector<P> const &nodes1d() const { return nodes1d_; }
+  //! returns the nodes corresponding to the grid
+  vector2d<P> const &nodes(sparse_grid const &grid) const;
+
+private:
+  int num_dims = 0;
+  int pdof = 0;
+  int block_size = 0;
+  std::array<P, max_num_dimensions> xmin, xscale;
+
+  int grid_gen = -1;
+
+  std::vector<P> nodes1d_;
+  mutable vector2d<P> nodes_;
+
+  kronmult::permutes perm;
+
+};
+
 } // namespace asgard
