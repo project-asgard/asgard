@@ -188,12 +188,12 @@ void hierarchy_manipulator<P>::project_separable(
   for (int d : iindexof(num_dims))
   {
     if (sep.is_const(d)) {
-      project1d_c(sep.cdomain(d), mass[d], d, grid.current_level(d));
+      project1d_c(sep.cdomain(d), mass[d], d, grid.current_level(d), pf[d]);
     } else {
       project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
           -> void {
         sep.fdomain(d, x, time, fx);
-      }, mass[d], d, grid.current_level(d));
+      }, mass[d], d, grid.current_level(d), pf[d]);
     }
   }
 
@@ -260,9 +260,6 @@ void hierarchy_manipulator<P>::reconstruct1d(
   if (level == 0)
     return; // the hierarchical form is just scaled/normalized
 
-  stage0.resize(data.stride() * data.num_strips());
-  stage1.resize(stage0.size());
-
   switch (degree_)
   {
     case 0:
@@ -314,8 +311,11 @@ void hierarchy_manipulator<P>::reconstruct1d(
     }
   };
 
-  span2d<P> work0(data.stride(), data.num_strips(), stage0.data());
-  span2d<P> work1(data.stride(), data.num_strips(), stage1.data());
+  twork.resize(data.stride() * data.num_strips());
+  pwork.resize(twork.size());
+
+  span2d<P> work0(data.stride(), data.num_strips(), twork.data());
+  span2d<P> work1(data.stride(), data.num_strips(), pwork.data());
 
   prj1(data[0], data[nbatch], work0[0], work0[nbatch]);
   --level;
@@ -336,40 +336,6 @@ void hierarchy_manipulator<P>::reconstruct1d(
   std::copy_n(work0[0], data.num_strips() * ssize, data[0]);
 }
 
-template<typename P>
-template<bool skip_hierarchy>
-void hierarchy_manipulator<P>::project1d(int d, int level, P const dsize, block_diag_matrix<P> const &mass) const
-{
-  int const num_cells = fm::ipow2(level);
-
-  int const num_quad = quad.stride();
-  int const pdof     = degree_ + 1;
-
-  expect(fvals.size() == static_cast<size_t>(num_cells * num_quad));
-
-  pwork.resize(pdof * num_cells);
-
-  // doing the hierarchical projection, we must normalize the Legendre polynomial to unit l-2 norm
-  P const scale = std::pow(is2, level + 1) * std::sqrt(dsize);
-
-#pragma omp parallel for
-  for (int i = 0; i < num_cells; i++)
-  {
-    smmat::gemv(pdof, num_quad, leg_vals[0], &fvals[i * num_quad],
-                pwork.data() + i * pdof);
-    smmat::scal(pdof, scale, pwork.data() + i * pdof);
-  }
-
-  if (mass)
-    mass.solve(pdof, pwork);
-
-  if constexpr (skip_hierarchy)
-    return;
-
-  pf[d].resize(pdof * num_cells);
-
-  transform(level, pwork.data(), pf[d].data());
-}
 template<typename P>
 void hierarchy_manipulator<P>::project1d(
     int dim, int level, std::vector<P> const &vals,
@@ -1148,11 +1114,6 @@ template void hierarchy_manipulator<double>::project_separable<data_mode::scal_i
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
 
-template void hierarchy_manipulator<double>::project1d<true>(
-    int, int, double, block_diag_matrix<double> const &) const;
-template void hierarchy_manipulator<double>::project1d<false>(
-    int, int, double, block_diag_matrix<double> const &) const;
-
 template void hierarchy_manipulator<double>::apply_transform<0>(int, double[], double[]) const;
 template void hierarchy_manipulator<double>::apply_transform<1>(int, double[], double[]) const;
 template void hierarchy_manipulator<double>::apply_transform<-1>(int, double[], double[]) const;
@@ -1178,11 +1139,6 @@ template void hierarchy_manipulator<float>::project_separable<data_mode::scal_in
     separable_func<float> const &sep,
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
-
-template void hierarchy_manipulator<float>::project1d<true>(
-    int, int, float, block_diag_matrix<float> const &) const;
-template void hierarchy_manipulator<float>::project1d<false>(
-    int, int, float, block_diag_matrix<float> const &) const;
 
 template void hierarchy_manipulator<float>::transform<0>(int, float[], float[]) const;
 template void hierarchy_manipulator<float>::transform<1>(int, float[], float[]) const;

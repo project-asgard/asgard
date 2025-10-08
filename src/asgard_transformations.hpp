@@ -104,14 +104,18 @@ class hierarchy_manipulator
 public:
   //! empty hierarchy manipulator
   hierarchy_manipulator()
-      : degree_(0), block_size_(0), dmin({{0}}), dmax({{0}})
-  {}
+      : degree_(0), block_size_(0)
+  {
+    std::fill(dmin.begin(), dmin.end(), 0);
+    std::fill(dmax.begin(), dmax.end(), 0);
+  }
   //! set the degree and number of dimensions
   hierarchy_manipulator(int degree, int num_dimensions)
       : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
-        dmin({{0}}), dmax({{1}}),
         quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
+    std::fill(dmin.begin(), dmin.end(), 0);
+    std::fill(dmax.begin(), dmax.end(), 1);
     setup_projection_matrices();
   }
   //! initialize with the given domain
@@ -158,45 +162,49 @@ public:
                          P time, P alpha, P f[]) const;
 
   //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
-  void project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
+  void project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level,
+                   std::vector<P> &proj_f) const
   {
     int const num_cells = fm::ipow2(level);
     prepare_quadrature(dim, num_cells);
     fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
     f(quad_points[dim], fvals);
 
-    // project1d(dim, level, dmax[dim] - dmin[dim], mass);
     project1d(dim, level, fvals, mass, pwork);
-    transform(level, pwork, pf[dim]);
+    transform(level, pwork, proj_f);
   }
   //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
-  std::vector<P> get_project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
+  std::vector<P> get_project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass,
+                                 int dim, int level) const
   {
-    project1d_f(f, mass, dim, level);
-    return get_projected1d(dim);
+    std::vector<P> result;
+    project1d_f(f, mass, dim, level, result);
+    return result;
   }
   //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
-  void project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
+  void project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level,
+                   std::vector<P> &proj_f) const
   {
     int const num_cells = fm::ipow2(level);
     if (mass) {
       fvals.resize(num_cells * quad.stride());
       std::fill(fvals.begin(), fvals.end(), c);
-      // project1d(dim, level, dmax[dim] - dmin[dim], mass);
+
       project1d(dim, level, fvals, mass, pwork);
-      transform(level, pwork, pf[dim]);
+      transform(level, pwork, proj_f);
     } else {
       // the projection is trivial, exploiting orthogonality of the basis
-      pf[dim].resize(num_cells * (degree_ + 1));
-      pf[dim].front() = c * std::sqrt(dmax[dim] - dmin[dim]);
-      std::fill(pf[dim].begin() + 1, pf[dim].end(), 0);
+      proj_f.resize(num_cells * (degree_ + 1));
+      proj_f.front() = c * std::sqrt(dmax[dim] - dmin[dim]);
+      std::fill(proj_f.begin() + 1, proj_f.end(), 0);
     }
   }
   //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
   std::vector<P> get_project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
   {
-    project1d_c(c, mass, dim, level);
-    return pf[dim];
+    std::vector<P> result;
+    project1d_c(c, mass, dim, level, result);
+    return result;
   }
 
   //! (testing purposes, skips hierarchy) computes the 1d projection of f onto the cells of a given level
@@ -212,9 +220,6 @@ public:
     project1d(dim, level, fvals, block_diag_matrix<P>{}, result);
     return result;
   }
-
-  //! return the 1d projection in the given direction
-  std::vector<P> const &get_projected1d(int dim) const { return pf[dim]; }
 
   //! transform the batch of vectors to nodal representation
   void reconstruct1d(int const nbatch, int const level, span2d<P> hdata) const;
@@ -279,15 +284,6 @@ protected:
   template<int tdegree>
   void apply_transform(int level, P src[], P dest[]) const;
 
-  /*!
-   * \brief Converts function values to the final hierarchical coefficients
-   *
-   * Assumes that fvals already contains the function values at the quadrature
-   * points. The method will convert to local basis coefficients and then convert
-   * to hierarchical representation stored in pf.
-   */
-  template<bool skip_hierarchy = false>
-  void project1d(int dim, int level, P const dsize, block_diag_matrix<P> const &mass) const;
   //! Given values of a function, project on the cell-by-cell basis
   void project1d(int dim, int level, std::vector<P> const &vals,
                  block_diag_matrix<P> const &mass, std::vector<P> &cells) const;
@@ -361,13 +357,14 @@ private:
   // the projection of f onto the Legendre basis is leg_vals * f
   // i.e., small matrix times a small vector
 
+  // projected function values for each dimension
   mutable std::array<std::vector<P>, max_num_dimensions> pf;
+  // quadrature points workspace for each direction
   mutable std::array<std::vector<P>, max_num_dimensions> quad_points;
+  // workspace for function values at quadrature nodes
   mutable std::vector<P> fvals;
-  mutable std::vector<P> stage0, stage1;
+  // workspaces for projection and transformation
   mutable std::vector<P> pwork, twork;
-
-  mutable std::array<block_matrix<P>, 2> matstage;
 
   mutable std::vector<std::vector<P>> colblocks;
   mutable std::array<block_sparse_matrix<P>, 4> rowstage;
