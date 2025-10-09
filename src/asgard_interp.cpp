@@ -476,63 +476,39 @@ quadmd_manager<P>::quadmd_manager(
   iwav_scale = std::sqrt(wav_scale);
   wav_scale = P{1} / iwav_scale;
 
-  // here we get the canonical points over two cells
-  std::vector<P> base_points = [&, this]() -> std::vector<P>
-    {
-      // eventually this will return a quadrature
-      if (pdof == 1) {
-        return {0.0, };
-      } else if (pdof == 2) {
-        // return {-1.0/3.0, 1.0/3.0};
-        return {-1.0/std::sqrt(3.0), 1.0/std::sqrt(3.0)};
-      } else if (pdof == 4) {
-        return {-3.0/5.0, -1.0/5.0, 1.0/5.0, 3.0/5.0};
-      } else {
-        return {};
-      }
-    }();
+  auto [points, weights] =
+    legendre_weights(pdof - 1, -1, 1, quadrature_mode::use_degree);
 
-  std::vector<P> base_weights = [&, this]() -> std::vector<P>
-    {
-      // eventually this will return a quadrature
-      if (pdof == 1) {
-        return {1.0, };
-      } else if (pdof == 2) {
-        return {0.5, 0.5};
-      } else if (pdof == 4) {
-        return {-3.0/5.0, -1.0/5.0, 1.0/5.0, 3.0/5.0};
-      } else {
-        return {};
-      }
-    }();
+  for (size_t i = 0; i < points.size(); i++)
+    std::cout << points[i] << "    " << weights[i] << "\n";
 
-  expect(base_points.size() == static_cast<size_t>(pdof));
+  expect(points.size() == static_cast<size_t>(pdof));
 
   int const level     = conn.max_loaded_level();
   int const num_cells = conn.conns[0].num_rows();
   P const cell_size = P{1} / static_cast<P>(num_cells);
-  P const sqrt_size = std::sqrt(cell_size);
+  P const sqrt_size = std::sqrt(static_cast<P>(num_cells));
 
   std::vector<P> cell_nodes(num_cells * pdof);
   #pragma omp parallel for
   for (int i = 0; i < num_cells; i++)
   {
     for (int j = 0; j < pdof; j++)
-      cell_nodes[i * pdof + j] = cell_size * (i + P{0.5} + P{0.5} * base_points[j]);
+      cell_nodes[i * pdof + j] = cell_size * (i + P{0.5} + P{0.5} * points[j]);
   }
 
   hier.permute(level, cell_nodes, nodes1d_);
 
-  auto [lP, lPP] = legendre_vals(base_points, pdof - 1);
+  auto [lP, lPP] = legendre_vals(points, pdof - 1);
   ignore(lPP);
 
   // the 2 in the scaling comes form (-1, 1) -> (0, 1)
   std::vector<P> lPs = lP;
-  for(auto &l : lPs) l *= 2 * sqrt_size;
+  for(auto &l : lPs) l *= sqrt_size;
 
   // for(auto c : lP)
   //   std::cout << c << "\n";
-  // for(auto c : base_points)
+  // for(auto c : points)
   //   std::cout << c << "\n";
   // std::cout << " ---------------- \n";
 
@@ -546,12 +522,15 @@ quadmd_manager<P>::quadmd_manager(
   // wav2nodal_.to_full(conn).print();
   // std::cout << " cell-size = " << cell_size << "\n";
 
-  for(auto &l : lP) l *= 2; // scale the Legendre values due to (-1, 1) -> (0, 1)
+  // for(auto &l : lP) l *= 2; // scale the Legendre values due to (-1, 1) -> (0, 1)
 
-  for(auto &w : base_weights) w *= cell_size;
+  // for(auto &w : weights) w *= std::sqrt(cell_size) / 2;
+
+  for(auto &w : weights) w *= 0.5 * cell_size;
+  for(auto &l : lP) l *= sqrt_size;
 
   std::vector<P> lscal(lP.size());
-  smmat::col_scal(pdof, pdof, base_weights.data(), lP.data(), lscal.data());
+  smmat::col_scal(pdof, pdof, weights.data(), lP.data(), lscal.data());
 
   // transpose the scaled matrix
   for (int i = 0; i < pdof; i++)
@@ -564,6 +543,8 @@ quadmd_manager<P>::quadmd_manager(
 
   nodal2wav_ = hier.diag2trans_perm(mat, level, conn);
 
+  // std::cout << "  ----------------- \n";
+  // wav2nodal_.to_full(conn).print();
   // std::cout << "  ----------------- \n";
   // nodal2wav_.to_full(conn).print();
 }

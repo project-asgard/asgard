@@ -971,7 +971,8 @@ public:
     int constexpr id = 0;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm, P{1}, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(
+                  pdof, grid, conn, perm, P{wav_scale}, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -980,7 +981,8 @@ public:
     #else
     tools::time_event performance_("wavelet-to-nodal");
     #endif
-    block_cpu(pdof, grid, conn, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
+    block_cpu(pdof, grid, conn, perm, wav2nodal_,
+              P{wav_scale}, f, P{0}, vals, work);
   }
 
   //! compute nodal values for the field
@@ -992,7 +994,8 @@ public:
     int constexpr id = 1;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm, alpha, beta, work);
+          flop_info[id].flops = kronmult::block_cpu(
+                  pdof, grid, conn, perm, alpha * P{iwav_scale}, beta, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -1001,7 +1004,8 @@ public:
     #else
     tools::time_event performance_("nodal-to-wavelet");
     #endif
-    block_cpu(pdof, grid, conn, perm, nodal2wav_, alpha, f, beta, vals, work);
+    block_cpu(pdof, grid, conn, perm, nodal2wav_,
+              alpha * P{iwav_scale}, f, beta, vals, work);
   }
 
   /*!

@@ -474,46 +474,48 @@ void interp_wav2nodal_v2() {
       tcheckless(i, std::abs(vals[i] - ref[i]), tol);
   }
 
-  // std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"}, {2, "quadratic"}, {3, "cubic"}};
-  //
-  // domain = pde_domain<P>(2);
-  // for (int degree = 0; degree <= 3; degree++)
-  // {
-  //   current_test<P> name_("wav2nodal l = 5, " + mode[degree]);
-  //
-  //   int const max_level = 5;
-  //
-  //   connection_patterns conn(max_level);
-  //
-  //   interpolation_manager<P> interp(domain, conn, degree);
-  //
-  //   prog_opts options = make_opts("-l 5 -dt 0 -n 0");
-  //   options.degree = degree;
-  //   pde_scheme<P> pde(options, domain);
-  //   pde.add_initial(ic);
-  //
-  //   discretization_manager<P> disc(pde, verbosity_level::quiet);
-  //
-  //   // check the loaded nodes
-  //   sparse_grid const &grid = disc.get_grid();
-  //
-  //   vector2d<P> const &nodes = interp.nodes(grid);
-  //   tassert(nodes.stride() == 2);
-  //   tassert(nodes.num_strips() == 112 * (degree + 1) * (degree + 1));
-  //
-  //   // using the reconstructor to compute reference data
-  //   reconstruct_solution rec = disc.get_snapshot();
-  //   vector2d<double> dnodes = vec2d(nodes);
-  //   std::vector<double> ref(nodes.num_strips());
-  //   rec.reconstruct(dnodes[0], nodes.num_strips(), ref.data());
-  //
-  //   std::vector<P> vals;
-  //   interp.wav2nodal(grid, disc.get_conn(), disc.current_state(), vals, disc.get_terms().kwork);
-  //
-  //   tassert(vals.size() == ref.size());
-  //   for (auto i : indexof(ref))
-  //     tcheckless(i, std::abs(vals[i] - ref[i]), tol);
-  // }
+  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"}, {2, "quadratic"}, {3, "cubic"}};
+
+  domain = pde_domain<P>(2);
+  for (int degree = 0; degree <= 3; degree++)
+  {
+    current_test<P> name_("wav2nodal l = 5, " + mode[degree]);
+
+    int const max_level = 5;
+
+    connection_patterns conn(max_level);
+    hierarchy_manipulator<P> hier(degree, domain);
+
+    quadmd_manager<P> quad(domain, hier, conn);
+
+    prog_opts options = make_opts("-l 5 -dt 0 -n 0");
+    options.degree = degree;
+    pde_scheme<P> pde(options, domain);
+    pde.add_initial(ic);
+
+    discretization_manager<P> disc(pde, verbosity_level::quiet);
+
+    // check the loaded nodes
+    sparse_grid const &grid = disc.get_grid();
+
+    vector2d<P> const &nodes = quad.nodes(grid);
+    tassert(nodes.stride() == 2);
+    tassert(nodes.num_strips() == 112 * (degree + 1) * (degree + 1));
+
+    // using the reconstructor to compute reference data
+    reconstruct_solution rec = disc.get_snapshot();
+    vector2d<double> dnodes = vec2d(nodes);
+    std::vector<double> ref(nodes.num_strips());
+    rec.reconstruct(dnodes[0], nodes.num_strips(), ref.data());
+
+    std::vector<P> vals(ref.size());
+    quad.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
+                   vals.data(), disc.get_terms().kwork);
+
+    tassert(vals.size() == ref.size());
+    for (auto i : indexof(ref))
+      tcheckless(i, std::abs(vals[i] - ref[i]), tol);
+  }
 }
 
 template<typename P>
@@ -607,6 +609,108 @@ void interp_identity_domain(P tol, int degree, int max_level)
 }
 
 template<typename P>
+void interp_identity_v2(P tol, int degree, int max_level)
+{
+  pde_domain<P> domain(2); // work in 2d
+  separable_func<P> ic;
+  ic.set(0, vectorize_t<P>([](P x)->P { return std::sin(x); }));
+  ic.set(1, vectorize_t<P>([](P x)->P { return std::exp(x); }));
+
+  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
+                                     {2, "quadratic"}, {3, "cubic"}};
+
+  current_test<P> name_("interp l = " + std::to_string(max_level) + ", " + mode[degree]);
+
+  connection_patterns conn(max_level);
+  hierarchy_manipulator<P> hier(degree, domain);
+
+  quadmd_manager<P> quad(domain, hier, conn);
+
+  prog_opts options = make_opts("-dt 0 -n 0");
+  options.degree = degree;
+  options.start_levels = {max_level, };
+  pde_scheme<P> pde(options, domain);
+  pde.add_initial(ic);
+
+  discretization_manager<P> disc(pde, verbosity_level::quiet);
+
+  // check the loaded nodes
+  sparse_grid const &grid = disc.get_grid();
+
+  vector2d<P> const &nodes = quad.nodes(grid);
+  tassert(nodes.stride() == 2);
+
+  std::vector<P> vals(nodes.num_strips());
+  for (int64_t i = 0; i < nodes.num_strips(); i++)
+    vals[i] = ic.eval(nodes[i], 0);
+
+  std::vector<P> wav(disc.current_state().size());
+  quad.nodal2wav(grid, disc.get_conn(), P{1}, vals.data(), P{0}, wav.data(),
+                 disc.get_terms().kwork);
+
+  std::cout << std::scientific;
+  std::cout.precision(18);
+  for (size_t i = 0; i < wav.size(); i++)
+    std::cout << wav[i] << "    " << disc.current_state()[i] << "\n";
+  std::cout << "   diff = " << fm::diff_inf(wav, disc.current_state()) << "\n";
+
+  // std::cout << " degree = " << degree << " level = " << max_level
+  //           << "  err = " << fm::diff_inf(wav, disc.current_state()) << "\n";
+  // tcheckless(degree, fm::diff_inf(wav, disc.current_state()), tol);
+}
+
+template<typename P>
+void interp_identity_v2_1d(P tol, int degree, int max_level)
+{
+  pde_domain<P> domain(1); // work in 2d
+  separable_func<P> ic;
+  ic.set(0, vectorize_t<P>([](P x)->P { return std::sin(x); }));
+  // ic.set(1, vectorize_t<P>([](P x)->P { return std::exp(x); }));
+
+  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
+                                     {2, "quadratic"}, {3, "cubic"}};
+
+  current_test<P> name_("interp l = " + std::to_string(max_level) + ", " + mode[degree]);
+
+  connection_patterns conn(max_level);
+  hierarchy_manipulator<P> hier(degree, domain);
+
+  quadmd_manager<P> quad(domain, hier, conn);
+
+  prog_opts options = make_opts("-dt 0 -n 0");
+  options.degree = degree;
+  options.start_levels = {max_level, };
+  pde_scheme<P> pde(options, domain);
+  pde.add_initial(ic);
+
+  discretization_manager<P> disc(pde, verbosity_level::quiet);
+
+  // check the loaded nodes
+  sparse_grid const &grid = disc.get_grid();
+
+  vector2d<P> const &nodes = quad.nodes(grid);
+  // tassert(nodes.stride() == 2);
+
+  std::vector<P> vals(nodes.num_strips());
+  for (int64_t i = 0; i < nodes.num_strips(); i++)
+    vals[i] = ic.eval(nodes[i], 0);
+
+  std::vector<P> wav(disc.current_state().size());
+  quad.nodal2wav(grid, disc.get_conn(), P{1}, vals.data(), P{0}, wav.data(),
+                 disc.get_terms().kwork);
+
+  std::cout << std::scientific;
+  std::cout.precision(18);
+  for (size_t i = 0; i < wav.size(); i++)
+    std::cout << wav[i] << "    " << disc.current_state()[i] << "\n";
+  std::cout << "   diff = " << fm::diff_inf(wav, disc.current_state()) << "\n";
+
+  // std::cout << " degree = " << degree << " level = " << max_level
+  //           << "  err = " << fm::diff_inf(wav, disc.current_state()) << "\n";
+  // tcheckless(degree, fm::diff_inf(wav, disc.current_state()), tol);
+}
+
+template<typename P>
 void interp_identity()
 {
   if constexpr (std::is_same_v<P, double>) {
@@ -625,6 +729,25 @@ void interp_identity()
 
     interp_identity_domain<float>(1.E-3, 1, 6);
     interp_identity_domain<float>(3.E-4, 3, 6);
+  }
+  if constexpr (std::is_same_v<P, double>) {
+    interp_identity_v2_1d<double>(1.E-1, 3, 2);
+    // interp_identity_v2<double>(1.E-1, 1, 1);
+    // interp_identity_v2<double>(1.E-1, 0, 6);
+    // interp_identity_v2<double>(1.E-5, 1, 6);
+    // interp_identity_v2<double>(5.E-5, 2, 8);
+    // interp_identity_v2<double>(5.E-9, 3, 6);
+
+    // interp_identity_domain_v2<double>(1.E-3, 1, 6);
+    // interp_identity_domain_v2<double>(5.E-3, 2, 8);
+    // interp_identity_domain_v2<double>(1.E-7, 3, 6);
+  } else {
+    // interp_identity_v2<float>(1.E-5, 1, 6);
+    // interp_identity_v2<float>(5.E-5, 2, 8);
+    // interp_identity_v2<float>(1.E-5, 3, 6);
+
+    // interp_identity_domain_v2<float>(1.E-3, 1, 6);
+    // interp_identity_domain_v2<float>(3.E-4, 3, 6);
   }
 }
 
