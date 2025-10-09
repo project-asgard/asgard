@@ -467,17 +467,24 @@ quadmd_manager<P>::quadmd_manager(
     : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size()),
       perm(num_dims)
 {
+  std::cout << " num_dims = " << num_dims << "\n";
   wav_scale  = 1;
   for (int d : iindexof(num_dims)) {
     xmin[d]   = domain.xleft(d);
     xscale[d] = (domain.xright(d) - domain.xleft(d));
     wav_scale *= xscale[d];
+    std::cout << " domain = " << xmin[d] << "   " << xscale[d] << "\n";
   }
   iwav_scale = std::sqrt(wav_scale);
   wav_scale = P{1} / iwav_scale;
 
   auto [points, weights] =
     legendre_weights(pdof - 1, -1, 1, quadrature_mode::use_degree);
+
+  if (pdof == 2) {
+      points  = {-1.0 / 3.0, +1.0 / 3.0};
+      weights = {1.0, 1.0};
+  }
 
   for (size_t i = 0; i < points.size(); i++)
     std::cout << points[i] << "    " << weights[i] << "\n";

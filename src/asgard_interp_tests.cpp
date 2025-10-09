@@ -626,6 +626,7 @@ void interp_identity_v2(P tol, int degree, int max_level)
 
   quadmd_manager<P> quad(domain, hier, conn);
 
+  // prog_opts options = make_opts("-dt 0 -n 0 -grid dense");
   prog_opts options = make_opts("-dt 0 -n 0");
   options.degree = degree;
   options.start_levels = {max_level, };
@@ -641,8 +642,10 @@ void interp_identity_v2(P tol, int degree, int max_level)
   tassert(nodes.stride() == 2);
 
   std::vector<P> vals(nodes.num_strips());
-  for (int64_t i = 0; i < nodes.num_strips(); i++)
+  for (int64_t i = 0; i < nodes.num_strips(); i++) {
     vals[i] = ic.eval(nodes[i], 0);
+    std::cout << nodes[i][0] << "    " << nodes[i][1] << "\n";
+  }
 
   std::vector<P> wav(disc.current_state().size());
   quad.nodal2wav(grid, disc.get_conn(), P{1}, vals.data(), P{0}, wav.data(),
@@ -731,7 +734,8 @@ void interp_identity()
     interp_identity_domain<float>(3.E-4, 3, 6);
   }
   if constexpr (std::is_same_v<P, double>) {
-    interp_identity_v2_1d<double>(1.E-1, 3, 2);
+    //interp_identity_v2_1d<double>(1.E-1, 3, 2);
+    interp_identity_v2<double>(1.E-1, 1, 1);
     // interp_identity_v2<double>(1.E-1, 1, 1);
     // interp_identity_v2<double>(1.E-1, 0, 6);
     // interp_identity_v2<double>(1.E-5, 1, 6);
