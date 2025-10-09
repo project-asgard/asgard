@@ -841,7 +841,7 @@ public:
   }
   #endif
 
-protected:
+// protected:
   //! returns the 1d nodes
   vector2d<P> const &nodes1d() const {
     switch(interp.index()) {
@@ -986,27 +986,59 @@ public:
   }
 
   //! compute nodal values for the field
-  void nodal2wav(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, P const f[], P beta, P vals[],
-                 kronmult::workspace<P> &work) const
-  {
-    #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
-    int64_t const flops = [&, this]()-> int64_t {
-        if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn, perm, alpha * P{iwav_scale}, beta, work);
-          flop_info[id].grid_gen = grid.generation();
-        }
-        return flop_info[id].flops;
-      }();
-    tools::time_event performance_("nodal-to-wavelet", flops);
-    #else
-    tools::time_event performance_("nodal-to-wavelet");
-    #endif
-    block_cpu(pdof, grid, conn, perm, nodal2wav_,
-              alpha * P{iwav_scale}, f, beta, vals, work);
-  }
+  // void nodal2wav(sparse_grid const &grid, connection_patterns const &conn,
+  //                //P alpha, P const f[], P beta, P vals[],
+  //                P alpha, P f[], P beta, P vals[],
+  //                kronmult::workspace<P> &work) const
+  // {
+  //   #ifdef ASGARD_USE_FLOPCOUNTER
+  //   int constexpr id = 1;
+  //   int64_t const flops = [&, this]()-> int64_t {
+  //       if (flop_info[id].grid_gen != grid.generation()) {
+  //         flop_info[id].flops = kronmult::block_cpu(
+  //                 pdof, grid, conn, perm, alpha * P{iwav_scale}, beta, work);
+  //         flop_info[id].grid_gen = grid.generation();
+  //       }
+  //       return flop_info[id].flops;
+  //     }();
+  //   tools::time_event performance_("nodal-to-wavelet", flops);
+  //   #else
+  //   tools::time_event performance_("nodal-to-wavelet");
+  //   #endif
+  //   std::cout << pdof << "  " << grid.num_dims() << "  " << grid.num_indexes() << "  " << perm.num_dimensions() << "\n";
+  //   std::cout << " grid-gen = " << grid_gen << "   " << alpha << "  " << iwav_scale << "  " << beta << '\n';
+  //   for (int i = 0; i < grid.num_indexes() * block_size; i++)
+  //     std::cout << f[i] << "   " << vals[i] << "\n";
+  //   std::cout << " ===== grid ===== \n";
+  //   for (int i = 0; i < grid.num_indexes(); i++)
+  //     std::cout << grid[i][0] << "    " << grid[i][1] << '\n';
+  //   std::cout << " ====  ====  ==== \n";
+  //   block_cpu(pdof, grid, conn, perm, nodal2wav_,
+  //             alpha * P{iwav_scale}, f, beta, vals, work);
+  //
+  //   // std::vector<P> tst(grid.num_indexes() * block_size);
+  //   // block_cpu(pdof, grid, conn, perm, test_mat,
+  //   //           P{1}, f, P{0}, tst.data(), work);
+  //   //
+  //   // // blocksv_cpu(pdof, grid, conn[connect_1d::hierarchy::volume], interp.nodal2hier1d(), f, work);
+  //   //
+  //   // std::cout << " inverted things\n";
+  //   // for (size_t i = 0; i < tst.size(); i++)
+  //   //   std::cout << f[i] << "    " << tst[i] << '\n';
+  //   // std::cout << " ================\n";
+  //   //
+  //   //
+  //   // block_cpu(pdof, grid, conn, perm, interp.hier2wav1d(),
+  //   //           alpha * P{iwav_scale}, tst.data(), beta, vals, work);
+  //   //
+  //   // std::cout << "after\n";
+  //   // for (int i = 0; i < grid.num_indexes() * block_size; i++)
+  //   //   std::cout << f[i] << "   " << vals[i] << "\n";
+  //   //
+  //   // std::cout << " ==================== \n";
+  //   // nodal2wav_.to_full(conn).print();
+  //   // std::cout << " ==================== \n";
+  // }
 
   /*!
    * \brief Performs the interpolation of the function func
@@ -1032,7 +1064,7 @@ public:
       tools::time_event perf_("interpolation function");
       func(time, nodes(grid), t1, t2);
     }
-    nodal2wav(grid, conn, alpha, t2.data(), beta, y, work);
+    //nodal2wav(grid, conn, alpha, t2.data(), beta, y, work);
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -1071,7 +1103,7 @@ public:
        kronmult::workspace<P> &work, std::vector<P> &t1) const
   {
     func(time, nodes(grid), t1);
-    nodal2wav(grid, conn, alpha, t1.data(), beta, y, work);
+    // nodal2wav(grid, conn, alpha, t1.data(), beta, y, work);
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -1093,14 +1125,16 @@ public:
   //! indicates whether the manager has been initialized
   operator bool () const { return (num_dims > 0); }
 
-private:
+  interpolation_manager<P> interp; //(domain, conn, degree);
+
+// private:
   int num_dims = 0;
   int pdof = 0;
   int block_size = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
   P wav_scale = 0, iwav_scale = 0;
 
-  int grid_gen = -1;
+  mutable int grid_gen = -1;
 
   std::vector<P> nodes1d_;
   mutable vector2d<P> nodes_;
@@ -1108,7 +1142,10 @@ private:
   kronmult::permutes perm;
 
   block_sparse_matrix<P> wav2nodal_;
-  block_sparse_matrix<P> nodal2wav_;
+  block_sparse_matrix<P> nodal2hier_;
+  block_sparse_matrix<P> hier2wav_;
+
+  block_sparse_matrix<P> test_mat; // test inv
 
   #ifdef ASGARD_USE_FLOPCOUNTER
   struct flop_info_entry {

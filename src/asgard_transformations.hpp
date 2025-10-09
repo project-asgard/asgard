@@ -102,6 +102,23 @@ template<typename P>
 class hierarchy_manipulator
 {
 public:
+  /*!
+   * \brief Indicated whether to use standard wavelet transform or permutation
+   *
+   * The algorithms for both operations are identical, the difference
+   * is in the matrices being used.
+   * The enum are used in conjunction with if-constexpr to select
+   * the proper matrices to apply.
+   */
+  enum class operation {
+    //! transform cell-by-cell Legendre basis to hierarchical wavelets
+    transform,
+    //! permutation of cell-by-cell nodes to hierarchical ordering
+    permute,
+    //! cell-by-cell Lagrange basis to hierarchical Lagrange (interp wavelets)
+    surpluses
+  };
+
   //! empty hierarchy manipulator
   hierarchy_manipulator()
       : degree_(0), block_size_(0)
@@ -236,13 +253,19 @@ public:
   block_sparse_matrix<P> diag2hierarchical(
       block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
 
-  //! converts matrix from diagonal to transformed (hierarchical) on the left and permuted on the right
-  block_sparse_matrix<P> diag2trans_perm(
-      block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
+  //! converts matrix from diagonal to transformed on left/right with the given operations
+  block_sparse_matrix<P> diag2block(
+      operation left, operation right, block_diag_matrix<P> const &diag,
+      int const level, connection_patterns const &conns) const
+  {
+    block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
+    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
 
-  //! converts matrix from diagonal to permuted on the left and transformed (hierarchical) on the right
-  block_sparse_matrix<P> diag2perm_trans(
-      block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
+    do_col_project_vol(right, diag, level, conns, col);
+    do_row_project_any(left, col, level, conns, res);
+
+    return res;
+  }
 
   //! transform cell-by-cell Legendre coefficients into hierarchical wavelet coefficients
   void transform(int level, P src[], P dest[]) const
@@ -306,21 +329,6 @@ public:
 
 protected:
   /*!
-   * \brief Indicated whether to use standard wavelet transform or permutation
-   *
-   * The algorithms for both operations are identical, the difference
-   * is in the matrices being used.
-   * The enum are used in conjunction with if-constexpr to select
-   * the proper matrices to apply.
-   */
-  enum class operation {
-    //! transform cell-by-cell legendre basis to hierarchical wavelets
-    transform,
-    //! permutation of cell-by-cell nodes to hierarchical ordering
-    permute
-  };
-
-  /*!
    * \brief Perform the transformation on the given data
    *
    * \tparam tdegree is the the degree, allows hardcoding simple matrices
@@ -381,6 +389,85 @@ protected:
                        int const level,
                        connection_patterns const &conn,
                        block_sparse_matrix<P> &sp) const;
+
+  //! maps the degree for the specified operation
+  template<operation op>
+  void do_col_project_vol_(block_diag_matrix<P> const &diag,
+                           int const level,
+                           connection_patterns const &conn,
+                           block_sparse_matrix<P> &sp) const
+  {
+    switch (degree_) {
+    case 0:
+      col_project_vol<0, op>(diag, level, conn, sp);
+      break;
+    case 1:
+      col_project_vol<1, op>(diag, level, conn, sp);
+      break;
+    default:
+      col_project_vol<-1, op>(diag, level, conn, sp);
+      break;
+    };
+  }
+  //! maps the operation to the correct template and degree
+  void do_col_project_vol(operation op,
+                          block_diag_matrix<P> const &diag,
+                          int const level,
+                          connection_patterns const &conn,
+                          block_sparse_matrix<P> &sp) const
+  {
+    switch (op) {
+    case operation::transform:
+      do_col_project_vol_<operation::transform>(diag, level, conn, sp);
+      break;
+    case operation::permute:
+      do_col_project_vol_<operation::permute>(diag, level, conn, sp);
+      break;
+    default:
+      do_col_project_vol_<operation::surpluses>(diag, level, conn, sp);
+      break;
+    };
+  }
+
+  //! maps the degree for the specified operation
+  template<operation op>
+  void do_row_project_any_(block_sparse_matrix<P> &col,
+                           int const level,
+                           connection_patterns const &conn,
+                           block_sparse_matrix<P> &sp) const
+  {
+    switch (degree_) {
+    case 0:
+      row_project_any<0, op>(col, level, conn, sp);
+      break;
+    case 1:
+      row_project_any<1, op>(col, level, conn, sp);
+      break;
+    default:
+      row_project_any<-1, op>(col, level, conn, sp);
+      break;
+    };
+  }
+  //! maps the operation to the correct template and degree
+  void do_row_project_any(operation op,
+                          block_sparse_matrix<P> &col,
+                          int const level,
+                          connection_patterns const &conn,
+                          block_sparse_matrix<P> &sp) const
+  {
+    switch (op) {
+    case operation::transform:
+      do_row_project_any_<operation::transform>(col, level, conn, sp);
+      break;
+    case operation::permute:
+      do_row_project_any_<operation::permute>(col, level, conn, sp);
+      break;
+    default:
+      do_row_project_any_<operation::surpluses>(col, level, conn, sp);
+      break;
+    };
+  }
+
 
   //! call from the constructor, makes it easy to have variety of constructor options
   void setup_projection_matrices();

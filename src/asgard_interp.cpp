@@ -467,16 +467,18 @@ quadmd_manager<P>::quadmd_manager(
     : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size()),
       perm(num_dims)
 {
-  std::cout << " num_dims = " << num_dims << "\n";
+  // std::cout << " num_dims = " << num_dims << "\n";
   wav_scale  = 1;
   for (int d : iindexof(num_dims)) {
     xmin[d]   = domain.xleft(d);
     xscale[d] = (domain.xright(d) - domain.xleft(d));
     wav_scale *= xscale[d];
-    std::cout << " domain = " << xmin[d] << "   " << xscale[d] << "\n";
+    // std::cout << " domain = " << xmin[d] << "   " << xscale[d] << "\n";
   }
   iwav_scale = std::sqrt(wav_scale);
-  wav_scale = P{1} / iwav_scale;
+  wav_scale  = P{1} / iwav_scale;
+
+  // std::cout << " scale factors: " << wav_scale << "    " << iwav_scale << '\n';
 
   auto [points, weights] =
     legendre_weights(pdof - 1, -1, 1, quadrature_mode::use_degree);
@@ -486,8 +488,10 @@ quadmd_manager<P>::quadmd_manager(
       weights = {1.0, 1.0};
   }
 
-  for (size_t i = 0; i < points.size(); i++)
-    std::cout << points[i] << "    " << weights[i] << "\n";
+  // std::cout << " base quad points and weights \n";
+  // for (size_t i = 0; i < points.size(); i++)
+  //   std::cout << points[i] << "    " << weights[i] << "\n";
+  // std::cout << " ---------------- \n";
 
   expect(points.size() == static_cast<size_t>(pdof));
 
@@ -506,25 +510,73 @@ quadmd_manager<P>::quadmd_manager(
 
   hier.permute(level, cell_nodes, nodes1d_);
 
+  block_diag_matrix<P> mat(pdof * pdof, num_cells);
+
   auto [lP, lPP] = legendre_vals(points, pdof - 1);
   ignore(lPP);
 
   // the 2 in the scaling comes form (-1, 1) -> (0, 1)
-  std::vector<P> lPs = lP;
-  for(auto &l : lPs) l *= sqrt_size;
+  {
+    std::vector<P> scaled = lP;
+    for(auto &s : scaled) s *= sqrt_size;
 
-  // for(auto c : lP)
-  //   std::cout << c << "\n";
-  // for(auto c : points)
-  //   std::cout << c << "\n";
-  // std::cout << " ---------------- \n";
+    #pragma omp parallel for
+    for (int i = 0; i < num_cells; i++)
+      std::copy_n(scaled.data(), pdof * pdof, mat[i]);
+  }
 
-  block_diag_matrix<P> mat(pdof * pdof, num_cells);
-  #pragma omp parallel for
-  for (int i = 0; i < num_cells; i++)
-    std::copy_n(lPs.data(), pdof * pdof, mat[i]);
+  wav2nodal_ = hier.diag2block(hierarchy_manipulator<P>::operation::permute,
+                               hierarchy_manipulator<P>::operation::transform,
+                               mat, level, conn);
 
-  wav2nodal_ = hier.diag2perm_trans(mat, level, conn);
+  {
+    std::vector<P> id(pdof * pdof);
+    for (int i = 0; i < pdof; i++) id[i * pdof + i] = 1;
+
+    #pragma omp parallel for
+    for (int i = 0; i < num_cells; i++)
+      std::copy_n(id.data(), pdof * pdof, mat[i]);
+  }
+
+  nodal2hier_ = hier.diag2block(hierarchy_manipulator<P>::operation::surpluses,
+                                hierarchy_manipulator<P>::operation::permute,
+                                mat, level, conn);
+
+  {
+    auto [pnts, wts]     = legendre_weights(pdof - 1, -1, 1);
+    auto [lvals, lprime] = legendre_vals(pnts, pdof - 1);
+    ignore(lprime);
+
+    int const num_quad = static_cast<int>(pnts.size());
+
+    std::vector<P> legw(lvals.size());
+    smmat::col_scal(num_quad, pdof, wts.data(), lvals.data(), legw.data());
+
+    std::vector<P> lag(legw.size());
+    for (int c = 0; c < pdof; c++) { // each Lagrange function
+      for (int r = 0; r < num_quad; r++) { // each quadrature point
+        P l = 1;
+        for (int k = 0; k < c; k++)
+          l *= (pnts[r] - points[k]) / (points[c] - points[k]);
+        for (int k = c+1; k < pdof; k++)
+          l *= (pnts[r] - points[k]) / (points[c] - points[k]);
+        lag[c * num_quad + r] = l;
+      }
+    }
+
+    std::vector<P> base(pdof * pdof);
+    smmat::gemm_tn<-1>(pdof, num_quad, legw.data(), lag.data(), base.data());
+
+    for(auto &s : base) s *= sqrt_size;
+
+    #pragma omp parallel for
+    for (int i = 0; i < num_cells; i++)
+      std::copy_n(base.data(), pdof * pdof, mat[i]);
+  }
+
+  hier2wav_ = hier.diag2block(hierarchy_manipulator<P>::operation::transform,
+                              hierarchy_manipulator<P>::operation::surpluses,
+                              mat, level, conn);
 
   // wav2nodal_.to_full(conn).print();
   // std::cout << " cell-size = " << cell_size << "\n";
@@ -533,27 +585,72 @@ quadmd_manager<P>::quadmd_manager(
 
   // for(auto &w : weights) w *= std::sqrt(cell_size) / 2;
 
-  for(auto &w : weights) w *= 0.5 * cell_size;
-  for(auto &l : lP) l *= sqrt_size;
+  // for(auto &w : weights) w *= 0.5 * cell_size;
+  // for(auto &l : lP) l *= sqrt_size;
 
-  std::vector<P> lscal(lP.size());
-  smmat::col_scal(pdof, pdof, weights.data(), lP.data(), lscal.data());
+  // std::cout << " befor scale \n";
+  // std::cout << lP[0] << "    " << lP[2] << '\n';
+  // std::cout << lP[1] << "    " << lP[3] << '\n';
+  // std::cout << weights[0] << "    " << weights[1] << '\n';
 
-  // transpose the scaled matrix
-  for (int i = 0; i < pdof; i++)
-    for (int j = 0; j < pdof; j++)
-      lP[i * pdof + j] = lscal[j * pdof + i];
+  // std::vector<P> lscal(lP.size());
+  // smmat::col_scal(pdof, pdof, weights.data(), lP.data(), lscal.data());
+  //
+  // // transpose the scaled matrix
+  // for (int i = 0; i < pdof; i++)
+  //   for (int j = 0; j < pdof; j++)
+  //     lP[i * pdof + j] = lscal[j * pdof + i];
 
-  #pragma omp parallel for
-  for (int i = 0; i < num_cells; i++)
-    std::copy_n(lP.data(), pdof * pdof, mat[i]);
+  // std::cout << " pattern \n";
+  // std::cout << lP[0] << "    " << lP[2] << '\n';
+  // std::cout << lP[1] << "    " << lP[3] << '\n';
 
-  nodal2wav_ = hier.diag2trans_perm(mat, level, conn);
+  // std::cout << " ------ \n";
+
+  // lP = { 1.0 / std::sqrt(2.0), - std::sqrt(3.0 / 2.0), 1.0 / std::sqrt(2.0), std::sqrt(3.0 / 2.0) };
+  // for(auto &l : lP) l *= std::pow(1.0 / std::sqrt(2), num_cells); // * std::sqrt(2.0);
+
+  // std::cout << " pattern updated \n";
+  // std::cout << lP[0] << "    " << lP[2] << '\n';
+  // std::cout << lP[1] << "    " << lP[3] << '\n';
+  //
+  // std::cout << " ------ \n";
+
+  // #pragma omp parallel for
+  // for (int i = 0; i < num_cells; i++)
+  //   std::copy_n(lP.data(), pdof * pdof, mat[i]);
+
+  // mat.to_full().print();
+
+  // nodal2wav_ = hier.diag2trans_perm(mat, level, conn);
 
   // std::cout << "  ----------------- \n";
   // wav2nodal_.to_full(conn).print();
   // std::cout << "  ----------------- \n";
   // nodal2wav_.to_full(conn).print();
+
+  // interp = interpolation_manager<P>(domain, conn, pdof - 1);
+  //
+  // test_mat = block_sparse_matrix<P>(4, 4, connect_1d::hierarchy::volume);
+  // {
+  //   std::vector<P> blk = {1, 0, 0, 1};
+  //   std::copy(blk.begin(), blk.end(), test_mat[0]);
+  //   std::copy(blk.begin(), blk.end(), test_mat[3]);
+  //   blk = {-1.5, 0.5, 0.5, -1.5};
+  //   std::copy(blk.begin(), blk.end(), test_mat[2]);
+  //
+  //   std::cout << " === test mat === \n";
+  //   test_mat.to_full(conn).print();
+  //   std::cout << " ================ \n";
+  // }
+
+  // std::cout << perm.num_dimensions() << '\n';
+  // for (auto const &v : perm.direction) {
+  //   for (auto d : v)
+  //     std::cout << d << "   ";
+  //   std::cout << '\n';
+  // }
+  // std::cout << perm.fill_name(0, 0) << "  " << perm.fill_name(0, 1) << "  " << perm.fill_name(1, 0) << "  " << perm.fill_name(1, 1) << "  " << "\n";
 }
 
 template<typename P>
@@ -594,6 +691,8 @@ vector2d<P> const &quadmd_manager<P>::nodes(sparse_grid const &grid) const
           nodes_[i * block_size + j][d] = xmin[d] + nodes_[i * block_size + j][d] * xscale[d];
     }
   }
+
+  grid_gen = grid.generation();
 
   return nodes_;
 }
