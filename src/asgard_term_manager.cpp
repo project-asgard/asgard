@@ -292,22 +292,29 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   // prepare the workspaces for the sources
   // consider only sources that are associated with this MPI rank and not time-dependant
   // the time sources cannot use workspace to accelerate computations
+  #ifdef ASGARD_USE_MPI
   auto is_active_src = [&, this](source_entry<P> const &src) -> bool
     {
-      #ifdef ASGARD_USE_MPI
       if (not resources.owns(src.rec))
         return false;
-      #endif
       return (not src.is_time_dependent());
     };
   auto is_active_bc = [&, this](boundary_entry<P> const &bc) -> bool
     {
-      #ifdef ASGARD_USE_MPI
       if (not resources.owns(terms[bc.term_index].rec))
         return false;
-      #endif
       return (not bc.is_time_dependent());
     };
+  #else
+  auto is_active_src = [&](source_entry<P> const &src) -> bool
+    {
+      return (not src.is_time_dependent());
+    };
+  auto is_active_bc = [&](boundary_entry<P> const &bc) -> bool
+    {
+      return (not bc.is_time_dependent());
+    };
+  #endif
 
   for (auto const &src : sources)
     if (is_active_src(src)) num_lumped++;

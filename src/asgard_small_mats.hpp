@@ -636,4 +636,16 @@ void par_axpy(P const alpha, std::vector<P> const &x, std::vector<P> &y)
     y[i] += alpha * x[i];
 }
 
+// find the value at x of k-th Lagrange polynomial over the given set of points
+template<typename P>
+P lagrange(std::vector<P> const &points, int k, P x) {
+  int const n = static_cast<int>(points.size());
+  P res = 1;
+  for (int i = 0; i < k; i++)
+    res *= (x - points[i]) / (points[k] - points[i]);
+  for (int i = k + 1; i < n; i++)
+    res *= (x - points[i]) / (points[k] - points[i]);
+  return res;
+}
+
 }

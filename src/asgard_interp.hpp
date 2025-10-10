@@ -1099,7 +1099,7 @@ public:
   //! indicates whether the manager has been initialized
   operator bool () const { return (num_dims > 0); }
 
-private:
+// private:
   int num_dims = 0;
   int pdof = 0;
   int block_size = 0;

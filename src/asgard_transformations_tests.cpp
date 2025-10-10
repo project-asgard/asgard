@@ -206,6 +206,47 @@ void test_custom_transform()
       // std::cout << " non-unit: " << identity_compare(pdof, conns, res) << "\n";
       tcheckless(level, identity_compare(pdof, conns, res), tol);
     }
+  }{ // third order
+    int constexpr order = 3;
+    int const pdof = order + 1;
+    for (int level = 0; level < 10; level++)
+    {
+      connection_patterns conns(level);
+      hierarchy_manipulator<P> hier(order, 1, {0,}, {1,});
+
+      std::array<P, 64> const h = {
+                  0,     0,     0,     0,   1.00000,         0,         0,         0,
+                1.0,     0,     0,     0,  -2.18750,  -0.31250,  -0.06250,   0.31250,
+                  0,     0,     0,     0,         0,   1.00000,         0,         0,
+                  0,   1.0,     0,     0,   2.18750,  -0.93750,   0.31250,  -1.31250,
+                  0,     0,   1.0,     0,  -1.31250,   0.31250,  -0.93750,   2.18750,
+                  0,     0,     0,     0,         0,         0,   1.00000,         0,
+                  0,     0,     0,   1.0,   0.31250,  -0.06250,  -0.31250,  -2.18750,
+                  0,     0,     0,     0,         0,         0,         0,   1.00000,
+          };
+
+      std::array<P, 64> const h_inv = {
+                2.1875,   1.0000,   0.3125,        0,        0,   0.0625,        0,  -0.3125,
+               -2.1875,        0,   0.9375,   1.0000,        0,  -0.3125,        0,   1.3125,
+                1.3125,        0,  -0.3125,        0,   1.0000,   0.9375,        0,  -2.1875,
+               -0.3125,        0,   0.0625,        0,        0,   0.3125,   1.0000,   2.1875,
+                1.0000,        0,        0,        0,        0,        0,        0,        0,
+                     0,        0,   1.0000,        0,        0,        0,        0,        0,
+                     0,        0,        0,        0,        0,   1.0000,        0,        0,
+                     0,        0,        0,        0,        0,        0,        0,   1.0000,
+
+          };
+
+      block_diag_matrix<P> mat(pdof * pdof, fm::ipow2(level));
+
+      fill_pattern(smmat::make_identity<P>(pdof).data(), mat);
+
+      auto res = hier.diag2block(op_non, h_inv.data(), op_non, h.data(),
+                                 mat, level, conns);
+
+      // std::cout << " non-unit: " << identity_compare(pdof, conns, res) << "\n";
+      tcheckless(level, identity_compare(pdof, conns, res), tol);
+    }
   }
 }
 

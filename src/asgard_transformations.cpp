@@ -861,8 +861,8 @@ void hierarchy_manipulator<P>::col_project_vol(
       for (int r = 0; r < pdof; r++) {
         for (int c = 0; c < pdof; c++) {
           pc0(r, c) = transf(r, c);
-          pc1(r, c) = transf(r + pdof, c);
-          pc2(r, c) = transf(r, c + pdof);
+          pc1(r, c) = transf(r, c + pdof);
+          pc2(r, c) = transf(r + pdof, c);
           pc3(r, c) = transf(r + pdof, c + pdof);
         }
       }
@@ -895,7 +895,6 @@ void hierarchy_manipulator<P>::col_project_vol(
       }
     }
   }
-
 
   // given a left/right cells at some level L, this computes out as the corresponding entry
   // at level L-1 and the upper which is the non-hierarchical cell at level L-1
@@ -1369,16 +1368,6 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       for (int i = pdof / 2; i < pdof; i++)
         pmats[(2 * i) * (2 * pdof) + i + pdof] = 1;
 
-      // std::cout << " ----------------- \n";
-      // for (int r = 0; r < 2 * pdof; r++) {
-      //   for (int c = 0; c < 2 * pdof; c++) {
-      //     std::cout << pmats[2 * pdof * c + r] << "  ";
-      //   }
-      //   std::cout << '\n';
-      // }
-      // std::cout << " ----------------- \n";
-
-
       // same logic as above, but the leading dimension is pdof
       for (int i = 0; i < pdof / 2; i++)
         pmatup[(2 * i) * pdof + i] = 1;
@@ -1395,15 +1384,6 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       // lower block, take every other point starting from 1
       for (int i = 0; i < pdof; i++)
         pmats[(2 * i + 1) * (2 * pdof) + i + pdof] = 1;
-
-      // std::cout << " ----------------- \n";
-      // for (int r = 0; r < 2 * pdof; r++) {
-      //   for (int c = 0; c < 2 * pdof; c++) {
-      //     std::cout << pmats[2 * pdof * c + r] << "  ";
-      //   }
-      //   std::cout << '\n';
-      // }
-      // std::cout << " ----------------- \n";
 
       for (int i = 0; i < pdof; i++)
         pmatup[(2 * i) * pdof + i] = 1;
@@ -1435,36 +1415,6 @@ template void hierarchy_manipulator<double>::project_separable<data_mode::scal_i
     separable_func<double> const &sep,
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
-
-// template void hierarchy_manipulator<double>::apply_transform
-//     <0, hierarchy_manipulator<double>::operation::transform>
-//     (int, double[], double[]) const;
-// template void hierarchy_manipulator<double>::apply_transform
-//     <1, hierarchy_manipulator<double>::operation::transform>
-//     (int, double[], double[]) const;
-// template void hierarchy_manipulator<double>::apply_transform
-//     <-1, hierarchy_manipulator<double>::operation::transform>
-//     (int, double[], double[]) const;
-//
-// template void hierarchy_manipulator<double>::apply_transform
-//     <0, hierarchy_manipulator<double>::operation::permute>
-//     (int, double[], double[]) const;
-// template void hierarchy_manipulator<double>::apply_transform
-//     <1, hierarchy_manipulator<double>::operation::permute>
-//     (int, double[], double[]) const;
-// template void hierarchy_manipulator<double>::apply_transform
-//     <-1, hierarchy_manipulator<double>::operation::permute>
-//     (int, double[], double[]) const;
-//
-// template void hierarchy_manipulator<double>::apply_transform
-//     <0, hierarchy_manipulator<double>::operation::surpluses>
-//     (int, double[], double[]) const;
-// template void hierarchy_manipulator<double>::apply_transform
-//     <1, hierarchy_manipulator<double>::operation::surpluses>
-//     (int, double[], double[]) const;
-// template void hierarchy_manipulator<double>::apply_transform
-//     <-1, hierarchy_manipulator<double>::operation::surpluses>
-//     (int, double[], double[]) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1487,36 +1437,6 @@ template void hierarchy_manipulator<float>::project_separable<data_mode::scal_in
     separable_func<float> const &sep,
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
-
-template void hierarchy_manipulator<float>::transform
-    <0, hierarchy_manipulator<double>::operation::transform>
-    (int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform
-    <1, hierarchy_manipulator<double>::operation::transform>
-    (int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform
-    <-1, hierarchy_manipulator<double>::operation::transform>
-    (int, float[], float[]) const;
-
-template void hierarchy_manipulator<float>::transform
-    <0, hierarchy_manipulator<double>::operation::permute>
-    (int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform
-    <1, hierarchy_manipulator<double>::operation::permute>
-    (int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform
-    <-1, hierarchy_manipulator<double>::operation::permute>
-    (int, float[], float[]) const;
-
-template void hierarchy_manipulator<float>::transform
-    <0, hierarchy_manipulator<double>::operation::surpluses>
-    (int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform
-    <1, hierarchy_manipulator<double>::operation::surpluses>
-    (int, float[], float[]) const;
-template void hierarchy_manipulator<float>::transform
-    <-1, hierarchy_manipulator<double>::operation::surpluses>
-    (int, float[], float[]) const;
 #endif
 
 } // namespace asgard
