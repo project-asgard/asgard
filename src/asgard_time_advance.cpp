@@ -386,7 +386,7 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep
         disc.terms_apply(-substep * dt, current, 1, w);
 
       disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, w);
+          disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, w);
 
       resources.reduce_add(w, rhs);
 
@@ -400,10 +400,10 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep
           disc.terms_apply(-substep * dt, w, 0, rhs);
 
         disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
+            disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
       } else {
         disc.get_terms_m().template apply_sources<data_mode::scal_rep>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
+            disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
       }
 
       resources.reduce_add(rhs);

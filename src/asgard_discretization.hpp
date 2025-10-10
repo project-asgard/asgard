@@ -566,9 +566,9 @@ protected:
         }{
           tools::time_event performance_("ode-rhs sources");
           if constexpr (use_groups)
-            terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, terms.mpiwork);
+            terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, terms.mpiwork);
           else
-            terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, terms.mpiwork);
+            terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, terms.mpiwork);
         }
         terms.resources.reduce_add(terms.mpiwork, R);
       } else {
@@ -584,9 +584,9 @@ protected:
         }{
           tools::time_event performance_("ode-rhs sources");
           if constexpr (use_groups)
-            terms.template apply_sources<data_mode::increment>(gid, domain_, grid, conn, hier, time, 1, R);
+            terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, R);
           else
-            terms.template apply_sources<data_mode::increment>(domain_, grid, conn, hier, time, 1, R);
+            terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, R);
         }
         terms.resources.reduce_add(R);
       }
@@ -630,9 +630,9 @@ protected:
       }
       if (is_leader()) {
         if constexpr (use_groups) {
-          terms.template apply_sources<mode>(gid, domain_, grid, conn, hier, time, alpha, terms.mpiwork);
+          terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, terms.mpiwork);
         } else {
-          terms.template apply_sources<mode>(domain_, grid, conn, hier, time, alpha, terms.mpiwork);
+          terms.template apply_sources<mode>(grid, conn, hier, time, alpha, terms.mpiwork);
         }
         terms.resources.reduce_add(terms.mpiwork, src);
       } else {
@@ -645,9 +645,9 @@ protected:
               return mode;
           }();
         if constexpr (use_groups) {
-          terms.template apply_sources<mm>(gid, domain_, grid, conn, hier, time, alpha, src);
+          terms.template apply_sources<mm>(gid, grid, conn, hier, time, alpha, src);
         } else {
-          terms.template apply_sources<mm>(domain_, grid, conn, hier, time, alpha, src);
+          terms.template apply_sources<mm>(grid, conn, hier, time, alpha, src);
         }
         terms.resources.reduce_add(src, src);
       }
