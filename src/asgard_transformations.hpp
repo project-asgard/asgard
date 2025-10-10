@@ -326,6 +326,13 @@ public:
         break;
     };
   }
+  //! transform with vector overload
+  void transform(P const *trans, int level, std::vector<P> &src, std::vector<P> &dest) const
+  {
+    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
+    dest.resize(src.size());
+    transform(trans, level, src.data(), dest.data());
+  }
 
   //! permute cell-by-cell points into hierarchical order
   void permute(int level, P src[], P dest[]) const

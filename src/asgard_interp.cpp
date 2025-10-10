@@ -489,7 +489,8 @@ quadmd_manager<P>::quadmd_manager(
   //         (h_3, h_4, h_5)
   //         h-order is the list of p indexes that will form (h_0, h_1, h_2)
 
-  std::vector<P> points, horder;
+  std::vector<P> points;
+  std::vector<int> horder;
   switch (pdof) {
   case 1: // constant
     points = {-1.0, };
@@ -524,14 +525,24 @@ quadmd_manager<P>::quadmd_manager(
   smmat::matrix<P> ihier_coeff(pdof2, trans_mats_.data() + 8 * pdof * pdof);
   P *lorder = trans_mats_.data() + 12 * pdof2;
 
+  { // find the set of lower node indexes, i.e., not included in horder
+    int idx = 0;
+    for (int i = 0; i < 2 * pdof; i++)
+      if (std::none_of(horder.begin(), horder.end(),
+                       [&](int m) -> bool { return (m == i); }))
+        lorder[idx++] = i;
+    expect(idx == pdof);
+  }
+
   {
     // construct the permutation transform
     // indicate the upper level nodes
     for (int r = 0; r < pdof; r++) {
       permute(r, horder[r]) = 1;
     }
-    // for the lower order nodes, find the ones with missing assignment
-    int miss = 0;
+    for (int r = 0; r < pdof; r++) {
+      permute(r + pdof, lorder[r]) = 1;
+    }
   }
   permute.print();
 

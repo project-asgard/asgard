@@ -510,15 +510,19 @@ void hierarchy_manipulator<P>::apply_transform(P const *trans, int level, P src[
   if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary)
   {
     int const pdof2 = pdof * pdof;
-    ctrans.resize(pdof * pdof);
+    ctrans.resize(4 * pdof2);
     cupper = ctrans.data();
     clower = ctrans.data() + 2 * pdof2;
 
-    for (int i = 0; i < pdof; i++) {
-      std::copy_n(trans                + i * pdof2, pdof, cupper + i * pdof);
-      std::copy_n(trans + pdof * pdof2 + i * pdof2, pdof, cupper + i * pdof + pdof2);
-      std::copy_n(trans + pdof                + i * pdof2, pdof, clower + i * pdof);
-      std::copy_n(trans + pdof + pdof * pdof2 + i * pdof2, pdof, clower + i * pdof + pdof2);
+    smmat::matrix<P const> const tansf(2 * pdof, trans);
+    smmat::matrix<P> to_upper(pdof, cupper);
+    smmat::matrix<P> to_lower(pdof, clower);
+
+    for (int r = 0; r < pdof; r++) {
+      for (int c = 0; c < 2 * pdof; c++) {
+        to_upper(r, c) = tansf(r, c);
+        to_lower(r, c) = tansf(r + pdof, c);
+      }
     }
   }
 

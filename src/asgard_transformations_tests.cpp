@@ -50,9 +50,52 @@ void test_transform()
 }
 
 template<typename P>
+void test_permute()
+{
+  current_test<P> name_("vector permutation");
+
+  { // zero order
+    hierarchy_manipulator<P> hier(0, 1, {0,}, {1,});
+
+    std::array<P, 4> const p = { 1, 0, 0, 1 }; // left bias in point selection
+
+    std::vector<P> x = {1, 2, };
+    std::vector<P> ref = {1, 2, };
+    std::vector<P> y;
+    hier.transform(p.data(), 1, x, y);
+    tassert(fm::diff_inf(y, ref) == 0);
+
+    x   = {1, 2, 3, 4};
+    ref = {1, 3, 2, 4};
+    hier.transform(p.data(), 2, x, y);
+    tassert(fm::diff_inf(y, ref) == 0);
+  }{ // first order
+    hierarchy_manipulator<P> hier(1, 1, {0,}, {1,});
+
+    // permutation for the (1/3, 2/3) points in 1d
+    std::array<P, 16> const p = { 0, 0, 1, 0,
+                                  1, 0, 0, 0,
+                                  0, 1, 0, 0,
+                                  0, 0, 0, 1};
+
+    std::vector<P> x   = {1, 2, 3, 4};
+    std::vector<P> y;
+    std::vector<P> ref = {2, 3, 1, 4};
+    hier.transform(p.data(), 1, x, y);
+    tassert(fm::diff_inf(y, ref) == 0);
+
+    x   = {1, 2, 3, 4, 5, 6, 7, 8};
+    ref = {3, 6, 2, 7, 1, 4, 5, 8};
+    hier.transform(p.data(), 2, x, y);
+    tassert(fm::diff_inf(y, ref) == 0);
+  }
+}
+
+template<typename P>
 void all_templated_tests()
 {
   test_transform<P>();
+  test_permute<P>();
 }
 
 int main(int argc, char **argv)
