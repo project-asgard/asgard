@@ -1275,6 +1275,26 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
   }
 }
 
+#define instantiate_multi(prec, deg) \
+  template void hierarchy_manipulator<prec>::col_project_full<deg>( \
+      block_tri_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::col_project_vol<deg, hierarchy_manipulator<prec>::operation::transform>( \
+      prec const *, block_diag_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::col_project_vol<deg, hierarchy_manipulator<prec>::operation::custom_unitary>( \
+      prec const *, block_diag_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::col_project_vol<deg, hierarchy_manipulator<prec>::operation::custom_non_unitary>( \
+      prec const *, block_diag_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::row_project_any<deg, hierarchy_manipulator<prec>::operation::transform>( \
+      prec const *, block_sparse_matrix<prec> &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::row_project_any<deg, hierarchy_manipulator<prec>::operation::custom_unitary>( \
+      prec const *, block_sparse_matrix<prec> &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct legendre_basis<double>;
 template class hierarchy_manipulator<double>;
@@ -1295,6 +1315,10 @@ template void hierarchy_manipulator<double>::project_separable<data_mode::scal_i
     separable_func<double> const &sep,
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
+
+instantiate_multi(double, 0);
+instantiate_multi(double, 1);
+instantiate_multi(double, -1);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -1317,6 +1341,10 @@ template void hierarchy_manipulator<float>::project_separable<data_mode::scal_in
     separable_func<float> const &sep,
     sparse_grid const &grid, mass_diag<float> const &mass,
     float time, float alpha, float f[]) const;
+
+instantiate_multi(float, 0);
+instantiate_multi(float, 1);
+instantiate_multi(float, -1);
 #endif
 
 } // namespace asgard

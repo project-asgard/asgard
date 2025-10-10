@@ -178,7 +178,8 @@ struct term_manager
   //! data for the coupling with moments and electric field
   coupled_term_data<P> cdata;
   //! interpolation data
-  interpolation_manager<P> interp;
+  // interpolation_manager<P> interp;
+  quadmd_manager<P> interp;
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains

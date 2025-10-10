@@ -204,9 +204,9 @@ void term_manager<P>::apply_sources(
     for (auto const &s : sources_md)
       if (s) {
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(grid, conns, time, 1, s, 1, y, kwork, it1);
+          interp(grid, conns, time, 1, s, 1, y, kwork, it1, it2);
         else
-          interp(grid, conns, time, alpha, s, 1, y, kwork, it1);
+          interp(grid, conns, time, alpha, s, 1, y, kwork, it1, it2);
       }
   } else {
     #ifdef ASGARD_USE_MPI
@@ -215,9 +215,9 @@ void term_manager<P>::apply_sources(
     if (sources_md[groupid]) {
     #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1);
+        interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1, it2);
       else
-        interp(grid, conns, time, alpha, sources_md[groupid], 1, y, kwork, it1);
+        interp(grid, conns, time, alpha, sources_md[groupid], 1, y, kwork, it1, it2);
     }
   }
 

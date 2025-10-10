@@ -283,7 +283,7 @@ void discretization_manager<precision>::set_initial_condition()
     state.resize(grid.num_indexes() * hier.block_size());
 
     if (initial_md_)
-      terms.interp(grid, conn, time, 1, initial_md_, 0, state, terms.kwork, terms.it1);
+      terms.interp(grid, conn, time, 1, initial_md_, 0, state, terms.kwork, terms.it1, terms.it2);
     else
       std::fill(state.begin(), state.end(), precision{0});
 
