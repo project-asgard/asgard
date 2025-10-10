@@ -836,26 +836,6 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
   P const p2[4] = {1, 0, 0, 0};
   P const p3[4] = {0, 0, 0, 1};
 
-  // P const sur0[4] = {0, 0, 1, 0}; // <- same as row matrix
-  // P const sur1[4] = {0, 1, 0, 0};
-  // P const sur2[4] = {1, 0, -1.5, 0.5};
-  // P const sur3[4] = {0.5, -1.5, 0, 1};
-
-  // P const sur0[4] = {1.5, 1, -0.5, 0}; // <- attempt at hier -> local interp (regular order)
-  // P const sur1[4] = {1, 0, 0, 0};
-  // P const sur2[4] = {0, -0.5, 1, 1.5};
-  // P const sur3[4] = {0, 0, 0, 1};
-
-  // P const sur0[4] = {-0.5, 1.5, 1, 0}; // <- inv-transpose of forward
-  // P const sur1[4] = {0, 1, 1.5, -0.5};
-  // P const sur2[4] = {1, 0, 0, 0};
-  // P const sur3[4] = {0, 0, 0, 1};
-
-  // P const sur0[4] = {-0.5, 1, 1.5, 0}; // inv of the forward
-  // P const sur1[4] = {1, 0, 0, 0};
-  // P const sur2[4] = {0, 1.5, 1, -0.5};
-  // P const sur3[4] = {0, 0, 0, 1};
-
   P const sur0[4] = {1.5, -0.5, 1, 0}; // transpose the blocks of the inverse
   P const sur1[4] = {0, 1, -0.5, 1.5};
   P const sur2[4] = {1, 0, 0, 0};
@@ -1072,14 +1052,14 @@ void hierarchy_manipulator<P>::row_project_any(
         smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);
     } else if constexpr (op == operation::surpluses) {
       if constexpr (tdegree == 0)
-        *out = (*right);
+        *out = -(*left) + (*right);
       else if constexpr (tdegree == 1)
         smmat::gemm_pair(2, sur2, left, sur3, right, out);
       // else
       //   smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
 
       if constexpr (tdegree == 0)
-        *upper = (*left) + (*right);
+        *upper = (*left);
       else if constexpr (tdegree == 1)
         smmat::gemm_pair(2, sur0, left, sur1, right, upper);
       // else
@@ -1261,6 +1241,16 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       for (int i = pdof / 2; i < pdof; i++)
         pmats[(2 * i) * (2 * pdof) + i + pdof] = 1;
 
+      // std::cout << " ----------------- \n";
+      // for (int r = 0; r < 2 * pdof; r++) {
+      //   for (int c = 0; c < 2 * pdof; c++) {
+      //     std::cout << pmats[2 * pdof * c + r] << "  ";
+      //   }
+      //   std::cout << '\n';
+      // }
+      // std::cout << " ----------------- \n";
+
+
       // same logic as above, but the leading dimension is pdof
       for (int i = 0; i < pdof / 2; i++)
         pmatup[(2 * i) * pdof + i] = 1;
@@ -1278,11 +1268,21 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       for (int i = 0; i < pdof; i++)
         pmats[(2 * i + 1) * (2 * pdof) + i + pdof] = 1;
 
+      std::cout << " ----------------- \n";
+      for (int r = 0; r < 2 * pdof; r++) {
+        for (int c = 0; c < 2 * pdof; c++) {
+          std::cout << pmats[2 * pdof * c + r] << "  ";
+        }
+        std::cout << '\n';
+      }
+      std::cout << " ----------------- \n";
+
       for (int i = 0; i < pdof; i++)
         pmatup[(2 * i) * pdof + i] = 1;
       // lower block, take every other point starting from 1
       for (int i = 0; i < pdof; i++)
         pmatlev[(2 * i + 1) * pdof + i] = 1;
+
     }
   }
 }

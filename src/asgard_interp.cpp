@@ -480,13 +480,23 @@ quadmd_manager<P>::quadmd_manager(
 
   // std::cout << " scale factors: " << wav_scale << "    " << iwav_scale << '\n';
 
-  auto [points, weights] =
-    legendre_weights(pdof - 1, -1, 1, quadrature_mode::use_degree);
-
-  if (pdof == 2) {
-      points  = {-1.0 / 3.0, +1.0 / 3.0};
-      weights = {1.0, 1.0};
-  }
+  std::vector<P> points;
+  switch (pdof) {
+  case 1: // constant
+    points = {-1.0, };
+    break;
+  case 2: // linear
+    points = {-1.0 / 3.0, +1.0 / 3.0};
+    break;
+  case 3: // quadratic
+    points = {-1.0, 0.0, 1.0};
+    break;
+  case 4: // cubic
+    points = {-1.0, -1.0/3.0, 1.0/3.0, 1.0};
+    break;
+  default:
+    break;
+  };
 
   // std::cout << " base quad points and weights \n";
   // for (size_t i = 0; i < points.size(); i++)
@@ -568,105 +578,31 @@ quadmd_manager<P>::quadmd_manager(
     std::vector<P> base(pdof * pdof);
     smmat::gemm_tn<1>(pdof, num_quad, legw.data(), lag.data(), base.data());
 
-    // for(auto &s : base) s *= sqrt_size * 0.25 * 0.5;
     P const scale = P{0.5} / sqrt_size;
     for(auto &s : base) s *= scale;
 
     #pragma omp parallel for
     for (int i = 0; i < num_cells; i++)
       std::copy_n(base.data(), pdof * pdof, mat[i]);
-
-
-    // testing purposes, start with identity
-    // std::vector<P> id(pdof * pdof);
-    // for (int i = 0; i < pdof; i++) id[i * pdof + i] = 1;
-    //
-    // #pragma omp parallel for
-    // for (int i = 0; i < num_cells; i++)
-    //   std::copy_n(id.data(), pdof * pdof, mat[i]);
   }
 
   hier2wav_ = hier.diag2block(hierarchy_manipulator<P>::operation::transform,
                               hierarchy_manipulator<P>::operation::surpluses,
                               mat, level, conn);
 
+  // for (int i = 0; i < num_cells; i++) {
+  //     P *p = mat[i][0];
+  //     *p++ = 1;
+  //     for (int i = 0; i < pdof -1; i++) {
+  //     p = std::fill_n(p, pdof, 0);
+  //     *p++ = 1;
+  //     }
+  // }
+
   // hier2wav_ = hier.diag2block(hierarchy_manipulator<P>::operation::surpluses,
   //                             hierarchy_manipulator<P>::operation::surpluses,
   //                             mat, level, conn);
-
-  // wav2nodal_.to_full(conn).print();
-  // std::cout << " cell-size = " << cell_size << "\n";
-
-  // for(auto &l : lP) l *= 2; // scale the Legendre values due to (-1, 1) -> (0, 1)
-
-  // for(auto &w : weights) w *= std::sqrt(cell_size) / 2;
-
-  // for(auto &w : weights) w *= 0.5 * cell_size;
-  // for(auto &l : lP) l *= sqrt_size;
-
-  // std::cout << " befor scale \n";
-  // std::cout << lP[0] << "    " << lP[2] << '\n';
-  // std::cout << lP[1] << "    " << lP[3] << '\n';
-  // std::cout << weights[0] << "    " << weights[1] << '\n';
-
-  // std::vector<P> lscal(lP.size());
-  // smmat::col_scal(pdof, pdof, weights.data(), lP.data(), lscal.data());
-  //
-  // // transpose the scaled matrix
-  // for (int i = 0; i < pdof; i++)
-  //   for (int j = 0; j < pdof; j++)
-  //     lP[i * pdof + j] = lscal[j * pdof + i];
-
-  // std::cout << " pattern \n";
-  // std::cout << lP[0] << "    " << lP[2] << '\n';
-  // std::cout << lP[1] << "    " << lP[3] << '\n';
-
-  // std::cout << " ------ \n";
-
-  // lP = { 1.0 / std::sqrt(2.0), - std::sqrt(3.0 / 2.0), 1.0 / std::sqrt(2.0), std::sqrt(3.0 / 2.0) };
-  // for(auto &l : lP) l *= std::pow(1.0 / std::sqrt(2), num_cells); // * std::sqrt(2.0);
-
-  // std::cout << " pattern updated \n";
-  // std::cout << lP[0] << "    " << lP[2] << '\n';
-  // std::cout << lP[1] << "    " << lP[3] << '\n';
-  //
-  // std::cout << " ------ \n";
-
-  // #pragma omp parallel for
-  // for (int i = 0; i < num_cells; i++)
-  //   std::copy_n(lP.data(), pdof * pdof, mat[i]);
-
-  // mat.to_full().print();
-
-  // nodal2wav_ = hier.diag2trans_perm(mat, level, conn);
-
-  // std::cout << "  ----------------- \n";
-  // wav2nodal_.to_full(conn).print();
-  // std::cout << "  ----------------- \n";
-  // nodal2wav_.to_full(conn).print();
-
-  // interp = interpolation_manager<P>(domain, conn, pdof - 1);
-  //
-  // test_mat = block_sparse_matrix<P>(4, 4, connect_1d::hierarchy::volume);
-  // {
-  //   std::vector<P> blk = {1, 0, 0, 1};
-  //   std::copy(blk.begin(), blk.end(), test_mat[0]);
-  //   std::copy(blk.begin(), blk.end(), test_mat[3]);
-  //   blk = {-1.5, 0.5, 0.5, -1.5};
-  //   std::copy(blk.begin(), blk.end(), test_mat[2]);
-  //
-  //   std::cout << " === test mat === \n";
-  //   test_mat.to_full(conn).print();
-  //   std::cout << " ================ \n";
-  // }
-
-  // std::cout << perm.num_dimensions() << '\n';
-  // for (auto const &v : perm.direction) {
-  //   for (auto d : v)
-  //     std::cout << d << "   ";
-  //   std::cout << '\n';
-  // }
-  // std::cout << perm.fill_name(0, 0) << "  " << perm.fill_name(0, 1) << "  " << perm.fill_name(1, 0) << "  " << perm.fill_name(1, 1) << "  " << "\n";
+  // hier2wav_.to_full(conn).print();
 }
 
 template<typename P>
