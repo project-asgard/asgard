@@ -512,17 +512,17 @@ quadmd_manager<P>::quadmd_manager(
 
   block_diag_matrix<P> mat(pdof * pdof, num_cells);
 
-  auto [lP, lPP] = legendre_vals(points, pdof - 1);
-  ignore(lPP);
-
-  // the 2 in the scaling comes form (-1, 1) -> (0, 1)
   {
-    std::vector<P> scaled = lP;
-    for(auto &s : scaled) s *= sqrt_size;
+    // values of Legendre polynomials at the interpolation points
+    // functions are scaled by 1/sqrt(dx), i.e., sqrt(num-points)
+    auto legendre = legendre_vals(points, pdof - 1);
+    auto &leg_vals = legendre[0];
+
+    for(auto &l : leg_vals) l *= sqrt_size;
 
     #pragma omp parallel for
     for (int i = 0; i < num_cells; i++)
-      std::copy_n(scaled.data(), pdof * pdof, mat[i]);
+      std::copy_n(leg_vals.data(), pdof * pdof, mat[i]);
   }
 
   wav2nodal_ = hier.diag2block(hierarchy_manipulator<P>::operation::permute,
@@ -530,6 +530,7 @@ quadmd_manager<P>::quadmd_manager(
                                mat, level, conn);
 
   {
+    // the hierarchical transformation starts from identity
     std::vector<P> id(pdof * pdof);
     for (int i = 0; i < pdof; i++) id[i * pdof + i] = 1;
 
@@ -565,18 +566,33 @@ quadmd_manager<P>::quadmd_manager(
     }
 
     std::vector<P> base(pdof * pdof);
-    smmat::gemm_tn<-1>(pdof, num_quad, legw.data(), lag.data(), base.data());
+    smmat::gemm_tn<1>(pdof, num_quad, legw.data(), lag.data(), base.data());
 
-    for(auto &s : base) s *= sqrt_size;
+    // for(auto &s : base) s *= sqrt_size * 0.25 * 0.5;
+    P const scale = P{0.5} / sqrt_size;
+    for(auto &s : base) s *= scale;
 
     #pragma omp parallel for
     for (int i = 0; i < num_cells; i++)
       std::copy_n(base.data(), pdof * pdof, mat[i]);
+
+
+    // testing purposes, start with identity
+    // std::vector<P> id(pdof * pdof);
+    // for (int i = 0; i < pdof; i++) id[i * pdof + i] = 1;
+    //
+    // #pragma omp parallel for
+    // for (int i = 0; i < num_cells; i++)
+    //   std::copy_n(id.data(), pdof * pdof, mat[i]);
   }
 
   hier2wav_ = hier.diag2block(hierarchy_manipulator<P>::operation::transform,
                               hierarchy_manipulator<P>::operation::surpluses,
                               mat, level, conn);
+
+  // hier2wav_ = hier.diag2block(hierarchy_manipulator<P>::operation::surpluses,
+  //                             hierarchy_manipulator<P>::operation::surpluses,
+  //                             mat, level, conn);
 
   // wav2nodal_.to_full(conn).print();
   // std::cout << " cell-size = " << cell_size << "\n";

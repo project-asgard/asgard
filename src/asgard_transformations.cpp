@@ -836,10 +836,10 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
   P const p2[4] = {1, 0, 0, 0};
   P const p3[4] = {0, 0, 0, 1};
 
-  P const sur0[4] = {0, 0, 1, 0}; // <- same as row matrix
-  P const sur1[4] = {0, 1, 0, 0};
-  P const sur2[4] = {1, 0, -1.5, 0.5};
-  P const sur3[4] = {0.5, -1.5, 0, 1};
+  // P const sur0[4] = {0, 0, 1, 0}; // <- same as row matrix
+  // P const sur1[4] = {0, 1, 0, 0};
+  // P const sur2[4] = {1, 0, -1.5, 0.5};
+  // P const sur3[4] = {0.5, -1.5, 0, 1};
 
   // P const sur0[4] = {1.5, 1, -0.5, 0}; // <- attempt at hier -> local interp (regular order)
   // P const sur1[4] = {1, 0, 0, 0};
@@ -855,6 +855,11 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
   // P const sur1[4] = {1, 0, 0, 0};
   // P const sur2[4] = {0, 1.5, 1, -0.5};
   // P const sur3[4] = {0, 0, 0, 1};
+
+  P const sur0[4] = {1.5, -0.5, 1, 0}; // transpose the blocks of the inverse
+  P const sur1[4] = {0, 1, -0.5, 1.5};
+  P const sur2[4] = {1, 0, 0, 0};
+  P const sur3[4] = {0, 0, 0, 1};
 
 
   int const pdof  = degree_ + 1;
@@ -891,15 +896,15 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
         *upper = (*left);
       else if constexpr (tdegree == 1)
         smmat::gemm_pairt(2, left, p0, right, p1, upper);
-      // else
-      //   smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
+      else
+        smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
     } else if constexpr (op == operation::surpluses) {
         if constexpr (tdegree == 0)
         *out = (*right);
       else if constexpr (tdegree == 1)
         smmat::gemm_pairt(2, left, sur2, right, sur3, out);
-      else
-        smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
+      // else
+      //   smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
 
       if constexpr (tdegree == 0)
         *upper = (*left) + (*right);

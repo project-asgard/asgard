@@ -613,6 +613,7 @@ void interp_identity_v2(P tol, int degree, int max_level)
 {
     // max_level += 10;
     // max_level += 1;
+    max_level = 3;
 
   pde_domain<P> domain(2); // work in 2d
   separable_func<P> ic;
