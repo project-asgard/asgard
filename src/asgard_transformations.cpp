@@ -367,9 +367,17 @@ void hierarchy_manipulator<P>::project1d(
 
 template<typename P>
 template<int tdegree, typename hierarchy_manipulator<P>::operation op>
-void hierarchy_manipulator<P>::apply_transform(int level, P src[], P dest[]) const
+void hierarchy_manipulator<P>::apply_transform(P const *trans, int level, P src[], P dest[]) const
 {
-  int const pdof = degree_ + 1;
+  if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
+    expect(trans != nullptr);
+  }
+
+  int const pdof = degree_ + 1; // polynomial degree of freedom
+
+  // only used by the custom transform for level > 1
+  std::vector<P> ctrans;
+  P *cupper = nullptr, *clower = nullptr;
 
   auto last2block = [&](P const raw[], P fin[]) -> void
     {
@@ -395,7 +403,7 @@ void hierarchy_manipulator<P>::apply_transform(int level, P src[], P dest[]) con
           int const n = 2 * pdof;
           smmat::gemv(n, n, tmats.data(), raw, fin);
         }
-      } else { // operation permute
+      } else if constexpr (op == operation::permute) { // operation permute
         if constexpr (tdegree == 0)
         {
           fin[0] = raw[0];
@@ -413,6 +421,9 @@ void hierarchy_manipulator<P>::apply_transform(int level, P src[], P dest[]) con
           int const n = 2 * pdof;
           smmat::gemv(n, n, pmats.data(), raw, fin);
         }
+      } else { // operation custom_unitary or custom_non_unitary
+        int const n = 2 * pdof;
+        smmat::gemv(n, n, trans, raw, fin);
       }
     };
 
@@ -445,7 +456,7 @@ void hierarchy_manipulator<P>::apply_transform(int level, P src[], P dest[]) con
           smmat::gemv(pdof, 2 * pdof, tmatup,  raw, upper);
           smmat::gemv(pdof, 2 * pdof, tmatlev, raw, fin);
         }
-      } else {  // operation permute
+      } else if constexpr (op == operation::permute) {  // operation permute
         if constexpr (tdegree == 0)
         {
           P const r0 = raw[0];
@@ -469,6 +480,9 @@ void hierarchy_manipulator<P>::apply_transform(int level, P src[], P dest[]) con
           smmat::gemv(pdof, 2 * pdof, pmatup,  raw, upper);
           smmat::gemv(pdof, 2 * pdof, pmatlev, raw, fin);
         }
+      } else { // custom transform
+        smmat::gemv(pdof, 2 * pdof, cupper, raw, upper);
+        smmat::gemv(pdof, 2 * pdof, clower, raw, fin);
       }
     };
 
@@ -489,6 +503,23 @@ void hierarchy_manipulator<P>::apply_transform(int level, P src[], P dest[]) con
     return;
   default:
     break;
+  }
+
+  // there is work to be done, if using a custom transform the blocks will be
+  // rearranged here to allow for better utilization of simd (hopefully)
+  if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary)
+  {
+    int const pdof2 = pdof * pdof;
+    ctrans.resize(pdof * pdof);
+    cupper = ctrans.data();
+    clower = ctrans.data() + 2 * pdof2;
+
+    for (int i = 0; i < pdof; i++) {
+      std::copy_n(trans                + i * pdof2, pdof, cupper + i * pdof);
+      std::copy_n(trans + pdof * pdof2 + i * pdof2, pdof, cupper + i * pdof + pdof2);
+      std::copy_n(trans + pdof                + i * pdof2, pdof, clower + i * pdof);
+      std::copy_n(trans + pdof + pdof * pdof2 + i * pdof2, pdof, clower + i * pdof + pdof2);
+    }
   }
 
   int num = fm::ipow2(level - 1); // number of cells on the current level
@@ -521,16 +552,16 @@ hierarchy_manipulator<P>::diag2hierarchical(block_diag_matrix<P> const &diag,
   switch (degree_)
   {
   case 0:
-    col_project_vol<0, op>(diag, level, conns, col);
-    row_project_any<0, op>(col, level, conns, res);
+    col_project_vol<0, op>(nullptr, diag, level, conns, col);
+    row_project_any<0, op>(nullptr, col, level, conns, res);
     break;
   case 1:
-    col_project_vol<1, op>(diag, level, conns, col);
-    row_project_any<1, op>(col, level, conns, res);
+    col_project_vol<1, op>(nullptr, diag, level, conns, col);
+    row_project_any<1, op>(nullptr, col, level, conns, res);
     break;
   default:
-    col_project_vol<-1, op>(diag, level, conns, col);
-    row_project_any<-1, op>(col, level, conns, res);
+    col_project_vol<-1, op>(nullptr, diag, level, conns, col);
+    row_project_any<-1, op>(nullptr, col, level, conns, res);
     break;
   };
 
@@ -551,15 +582,15 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
   {
   case 0:
     col_project_full<0>(tri, level, conns, col);
-    row_project_any<0, op>(col, level, conns, res);
+    row_project_any<0, op>(nullptr, col, level, conns, res);
     break;
   case 1:
     col_project_full<1>(tri, level, conns, col);
-    row_project_any<1, op>(col, level, conns, res);
+    row_project_any<1, op>(nullptr, col, level, conns, res);
     break;
   default:
     col_project_full<-1>(tri, level, conns, col);
-    row_project_any<-1, op>(col, level, conns, res);
+    row_project_any<-1, op>(nullptr, col, level, conns, res);
     break;
   };
 
@@ -809,10 +840,9 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
 
 template<typename P>
 template<int tdegree, typename hierarchy_manipulator<P>::operation op>
-void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
-                                               int const level,
-                                               connection_patterns const &conns,
-                                               block_sparse_matrix<P> &sp) const
+void hierarchy_manipulator<P>::col_project_vol(
+    P const *trans, block_diag_matrix<P> const &diag, int const level,
+    connection_patterns const &conns, block_sparse_matrix<P> &sp) const
 {
   expect(connect_1d::hierarchy::col_volume == sp);
 #ifdef _OPENMP
@@ -841,9 +871,60 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
   P const sur2[4] = {1, 0, 0, 0};
   P const sur3[4] = {0, 0, 0, 1};
 
+  P cc[4], c0[4], c1[4], c2[4], c3[4];
 
   int const pdof  = degree_ + 1;
   int const pdof2 = pdof * pdof;
+
+  std::vector<P> custom;
+  if constexpr (op == operation::custom_unitary) {
+    expect(trans != nullptr);
+    if constexpr (tdegree == 0) {
+      cc = {trans[0], trans[2], trans[1], trans[3]};
+    } else if constexpr (tdegree == 1) {
+      c0 = {trans[ 0], trans[ 1], trans[ 4], trans[ 5]};
+      c1 = {trans[ 8], trans[ 9], trans[12], trans[13]};
+      c2 = {trans[ 2], trans[ 3], trans[ 6], trans[ 7]};
+      c3 = {trans[10], trans[11], trans[14], trans[15]};
+    } else {
+      custom.resize(4 * pdof2);
+      P *pc0 = custom.data();
+      P *pc1 = custom.data() + pdof2;
+      P *pc2 = custom.data() + 2 * pdof2;
+      P *pc3 = custom.data() + 3 * pdof2;
+      for (int i = 0; i < pdof; i++) {
+        pc0 = std::copy_n(custom                       + i * pdof2, pdof, pc0);
+        pc1 = std::copy_n(custom        + pdof * pdof2 + i * pdof2, pdof, pc1);
+        pc2 = std::copy_n(custom + pdof                + i * pdof2, pdof, pc2);
+        pc3 = std::copy_n(custom + pdof + pdof * pdof2 + i * pdof2, pdof, pc3);
+      }
+    }
+  } else if constexpr (op == operation::custom_non_unitary) {
+    // in the non-unitary case, the forward and inverse transforms use different matrices
+    // and we do not transpose in the application of the blocks
+    expect(trans != nullptr);
+    if constexpr (tdegree == 0) {
+      cc = {trans[0], trans[1], trans[2], trans[3]};
+    } else if constexpr (tdegree == 1) {
+      c0 = {trans[ 0], trans[ 1], trans[ 4], trans[ 5]};
+      c1 = {trans[ 2], trans[ 3], trans[ 6], trans[ 7]};
+      c2 = {trans[ 8], trans[ 9], trans[12], trans[13]};
+      c3 = {trans[10], trans[11], trans[14], trans[15]};
+    } else {
+      custom.resize(4 * pdof2);
+      P *pc0 = custom.data();
+      P *pc1 = custom.data() + pdof2;
+      P *pc2 = custom.data() + 2 * pdof2;
+      P *pc3 = custom.data() + 3 * pdof2;
+      for (int i = 0; i < pdof; i++) {
+        pc0 = std::copy_n(custom                       + i * pdof2, pdof, pc0);
+        pc1 = std::copy_n(custom + pdof                + i * pdof2, pdof, pc1);
+        pc2 = std::copy_n(custom        + pdof * pdof2 + i * pdof2, pdof, pc2);
+        pc3 = std::copy_n(custom + pdof + pdof * pdof2 + i * pdof2, pdof, pc3);
+      }
+    }
+  }
+
 
   // given a left/right cells at some level L, this computes out as the corresponding entry
   // at level L-1 and the upper which is the non-hierarchical cell at level L-1
@@ -892,6 +973,38 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
         smmat::gemm_pairt(2, left, sur0, right, sur1, upper);
       // else
       //   smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
+    } else if constexpr (op == operation::custom_unitary) {
+      if constexpr (tdegree == 0)
+        *upper = (*left) * cc[0] + (*right) * cc[1];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, c0, right, c1, upper);
+      else
+        smmat::gemm_pairt(pdof, left, custom.data(),
+                          right, custom.data() + pdof2, upper);
+
+      if constexpr (tdegree == 0)
+        *out = (*left) * cc[2] + (*right) * cc[3];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, c2, right, c3, out);
+      else
+        smmat::gemm_pairt(pdof, left, custom.data() + 2 * pdof2,
+                          right, custom.data() + 3 * pdof2, out);
+    } else if constexpr (op == operation::custom_non_unitary) {
+      if constexpr (tdegree == 0)
+        *upper = (*left) * cc[0] + (*right) * cc[1];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, left, c0, right, c1, upper);
+      else
+        smmat::gemm_pair(pdof, left, custom.data(),
+                         right, custom.data() + pdof2, upper);
+
+      if constexpr (tdegree == 0)
+        *out = (*left) * cc[2] + (*right) * cc[3];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, left, c2, right, c3, out);
+      else
+        smmat::gemm_pair(pdof, left, custom.data() + 2 * pdof2,
+                         right, custom.data() + 3 * pdof2, out);
     }
   };
 
@@ -986,10 +1099,8 @@ void hierarchy_manipulator<P>::col_project_vol(block_diag_matrix<P> const &diag,
 template<typename P>
 template<int tdegree, typename hierarchy_manipulator<P>::operation op>
 void hierarchy_manipulator<P>::row_project_any(
-    block_sparse_matrix<P> &col,
-    int const level,
-    connection_patterns const &conn,
-    block_sparse_matrix<P> &sp) const
+    P const *trans, block_sparse_matrix<P> &col, int const level,
+    connection_patterns const &conn, block_sparse_matrix<P> &sp) const
 {
   expect(connect_1d::hierarchy::col_full == col or
          connect_1d::hierarchy::col_volume == col);
@@ -1014,8 +1125,35 @@ void hierarchy_manipulator<P>::row_project_any(
   P const sur2[4] = {1, 0, -1.5, 0.5};
   P const sur3[4] = {0.5, -1.5, 0, 1};
 
+  P cc[4], c0[4], c1[4], c2[4], c3[4];
+
   int const pdof  = degree_ + 1;
   int const pdof2 = pdof * pdof;
+
+  std::vector<P> custom;
+  if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
+    expect(trans != nullptr);
+    if constexpr (tdegree == 0) {
+      cc = {trans[0], trans[2], trans[1], trans[3]};
+    } else if constexpr (tdegree == 1) {
+      c0 = {trans[ 0], trans[ 1], trans[ 4], trans[ 5]};
+      c1 = {trans[ 8], trans[ 9], trans[12], trans[13]};
+      c2 = {trans[ 2], trans[ 3], trans[ 6], trans[ 7]};
+      c3 = {trans[10], trans[11], trans[14], trans[15]};
+    } else {
+      custom.resize(4 * pdof2);
+      P *pc0 = custom.data();
+      P *pc1 = custom.data() + pdof2;
+      P *pc2 = custom.data() + 2 * pdof2;
+      P *pc3 = custom.data() + 3 * pdof2;
+      for (int i = 0; i < pdof; i++) {
+        pc0 = std::copy_n(custom                       + i * pdof2, pdof, pc0);
+        pc1 = std::copy_n(custom        + pdof * pdof2 + i * pdof2, pdof, pc1);
+        pc2 = std::copy_n(custom + pdof                + i * pdof2, pdof, pc2);
+        pc3 = std::copy_n(custom + pdof + pdof * pdof2 + i * pdof2, pdof, pc3);
+      }
+    }
+  }
 
   // given a left/right cells at some level L, this computes out as the corresponding entry
   // at level L-1 and the upper which is the non-hierarchical cell at level L-1
@@ -1064,6 +1202,22 @@ void hierarchy_manipulator<P>::row_project_any(
         smmat::gemm_pair(2, sur0, left, sur1, right, upper);
       // else
       //   smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);
+    } else if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
+      if constexpr (tdegree == 0)
+        *upper = cc[0] * (*left) + cc[1] * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, c0, left, c1, right, upper);
+      else
+        smmat::gemm_pair(pdof, custom.data(), left,
+                         custom.data() + pdof2, right, upper);
+
+      if constexpr (tdegree == 0)
+        *out = cc[2] * (*left) + cc[3] * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, c2, left, c3, right, out);
+      else
+        smmat::gemm_pair(pdof, custom.data() + 2 * pdof2, left,
+                         custom.data() + 3 * pdof2, right, out);
     }
   };
 
@@ -1308,35 +1462,35 @@ template void hierarchy_manipulator<double>::project_separable<data_mode::scal_i
     sparse_grid const &grid, mass_diag<double> const &mass,
     double time, double alpha, double f[]) const;
 
-template void hierarchy_manipulator<double>::apply_transform
-    <0, hierarchy_manipulator<double>::operation::transform>
-    (int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform
-    <1, hierarchy_manipulator<double>::operation::transform>
-    (int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform
-    <-1, hierarchy_manipulator<double>::operation::transform>
-    (int, double[], double[]) const;
-
-template void hierarchy_manipulator<double>::apply_transform
-    <0, hierarchy_manipulator<double>::operation::permute>
-    (int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform
-    <1, hierarchy_manipulator<double>::operation::permute>
-    (int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform
-    <-1, hierarchy_manipulator<double>::operation::permute>
-    (int, double[], double[]) const;
-
-template void hierarchy_manipulator<double>::apply_transform
-    <0, hierarchy_manipulator<double>::operation::surpluses>
-    (int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform
-    <1, hierarchy_manipulator<double>::operation::surpluses>
-    (int, double[], double[]) const;
-template void hierarchy_manipulator<double>::apply_transform
-    <-1, hierarchy_manipulator<double>::operation::surpluses>
-    (int, double[], double[]) const;
+// template void hierarchy_manipulator<double>::apply_transform
+//     <0, hierarchy_manipulator<double>::operation::transform>
+//     (int, double[], double[]) const;
+// template void hierarchy_manipulator<double>::apply_transform
+//     <1, hierarchy_manipulator<double>::operation::transform>
+//     (int, double[], double[]) const;
+// template void hierarchy_manipulator<double>::apply_transform
+//     <-1, hierarchy_manipulator<double>::operation::transform>
+//     (int, double[], double[]) const;
+//
+// template void hierarchy_manipulator<double>::apply_transform
+//     <0, hierarchy_manipulator<double>::operation::permute>
+//     (int, double[], double[]) const;
+// template void hierarchy_manipulator<double>::apply_transform
+//     <1, hierarchy_manipulator<double>::operation::permute>
+//     (int, double[], double[]) const;
+// template void hierarchy_manipulator<double>::apply_transform
+//     <-1, hierarchy_manipulator<double>::operation::permute>
+//     (int, double[], double[]) const;
+//
+// template void hierarchy_manipulator<double>::apply_transform
+//     <0, hierarchy_manipulator<double>::operation::surpluses>
+//     (int, double[], double[]) const;
+// template void hierarchy_manipulator<double>::apply_transform
+//     <1, hierarchy_manipulator<double>::operation::surpluses>
+//     (int, double[], double[]) const;
+// template void hierarchy_manipulator<double>::apply_transform
+//     <-1, hierarchy_manipulator<double>::operation::surpluses>
+//     (int, double[], double[]) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT

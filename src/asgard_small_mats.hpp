@@ -74,6 +74,59 @@ void print(int const nr, int const nc, P const A[])
     std::cout << '\n';
   }
 }
+/*!
+ * \brief small matrix data-structure, use sporadically
+ *
+ * The main difference between this and span2d is that the matrix uses column major format.
+ * Some redundancy is kept in the matrix size, e.g., when using multiple matrices,
+ * but this simplifies the (i, j) indexing.
+ *
+ * Leading dimension is used for (r, c) -> c * lda + r, but there are no bounda
+ * and no array bounds will be checked.
+ *
+ * The fundamental assumption here is that the matrix is small.
+ */
+template<typename P>
+class matrix {
+public:
+  //! default constructor, matrix has to be reinitialized to be used
+  matrix() = default;
+  //! set the new leading dimension and data
+  matrix(int lda_in, P *data_in) : lda_(lda_in), data_(data_in) {}
+
+  //! indicates whether the matrix has been initialized
+  operator bool () const { return (data_ != nullptr); }
+  //! returns the raw-data, for use in the small matrix algorithms
+  P *data() { return data_; }
+  //! returns the raw-data, for use in the small matrix algorithms (const)
+  P const *data() const { return data_; }
+  //! access the row-column entry of the matrix
+  P &operator ()(int row, int column) { return data_[row + lda_ * column]; }
+  //! access the row-column entry of the matrix (const)
+  P const &operator ()(int row, int column) const { return data_[row + lda_ * column]; }
+
+  //! returns the leading dimension
+  int lda() const { return lda_; }
+  //! print the matrix to the stream
+  void print(int rows, int columns, std::ostream &os = std::cout) const {
+    os.precision(8);
+    os << std::scientific;
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < columns; c++)
+        os << std::setw(18) << (*this)(r, c);
+      os << '\n';
+    }
+  }
+  //! prints a square matrix with size n by n
+  void print(int n, std::ostream &os = std::cout) const { this->print(n, n, os); }
+  //! prints a square matrix with size lda by lda
+  void print(std::ostream &os = std::cout) const { this->print(lda_, lda_, os); }
+
+private:
+  int lda_ = 0;
+  P *data_ = nullptr;
+};
+
 //! scale x by alpha, n is the size of x
 template<typename P>
 void scal(int const n, P alpha, P x[])
@@ -420,7 +473,7 @@ void gemm_nt(int const &n, P const a0[], P const t0[], P R[])
 
 //! R = a0 * t0 + a1 * t1, all matrices are n by n (column major)
 template<typename P>
-void gemm_pair(int const &n, P const a0[], P const t0[], P const a1[], P const t1[], P R[])
+void gemm_pair(int const n, P const a0[], P const t0[], P const a1[], P const t1[], P R[])
 {
   ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int c = 0; c < n; c++)
@@ -462,7 +515,7 @@ void gemm_pair(P const a0[], P const t0[], P const a1[], P const t1[], P R[])
 }
 //! R = a0 * t0^T + a1 * t1^T, all matrices are n by n (column major)
 template<typename P>
-void gemm_pairt(int const &n, P const a0[], P const t0[], P const a1[], P const t1[], P R[])
+void gemm_pairt(int const n, P const a0[], P const t0[], P const a1[], P const t1[], P R[])
 {
   ASGARD_PRAGMA_OMP_SIMD(collapse(2))
   for (int c = 0; c < n; c++)

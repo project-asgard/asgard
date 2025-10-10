@@ -116,7 +116,11 @@ public:
     //! permutation of cell-by-cell nodes to hierarchical ordering
     permute,
     //! cell-by-cell Lagrange basis to hierarchical Lagrange (interp wavelets)
-    surpluses
+    surpluses,
+    //! perform custom unitary transformation using a custom matrix
+    custom_unitary,
+    //! perform custom non-unitary transformation using a custom matrix
+    custom_non_unitary,
   };
 
   //! empty hierarchy manipulator
@@ -303,6 +307,26 @@ public:
     transform(level, pwork.data(), x.data());
   }
 
+  //! apply a custom transform to the vectors (works for both unitary and non-unitary)
+  void transform(P const *trans, int level, P src[], P dest[]) const
+  {
+    // the unitary/non-unitary property of the map relates only to the inverse,
+    // i.e., when constructing the column transformation
+    expect(trans != nullptr);
+    constexpr operation op = operation::custom_unitary;
+    switch (degree_) {
+      case 0:
+        apply_transform<0, op>(trans, level, src, dest);
+        break;
+      case 1:
+        apply_transform<1, op>(trans, level, src, dest);
+        break;
+      default:
+        apply_transform<-1, op>(trans, level, src, dest);
+        break;
+    };
+  }
+
   //! permute cell-by-cell points into hierarchical order
   void permute(int level, P src[], P dest[]) const
   {
@@ -338,7 +362,12 @@ protected:
    * \param dest is the destination with same size as src
    */
   template<int tdegree, operation op>
-  void apply_transform(int level, P src[], P dest[]) const;
+  void apply_transform(int level, P src[], P dest[]) const {
+    apply_transform<tdegree, op>(nullptr, level, src, dest);
+  }
+
+  template<int tdegree, operation op>
+  void apply_transform(P const *trans, int level, P src[], P dest[]) const;
 
   //! Given values of a function, project on the cell-by-cell basis
   void project1d(int dim, int level, std::vector<P> const &vals,
@@ -378,14 +407,16 @@ protected:
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
   template<int tdegree, operation op>
-  void col_project_vol(block_diag_matrix<P> const &diag,
+  void col_project_vol(P const *trans,
+                       block_diag_matrix<P> const &diag,
                        int const level,
                        connection_patterns const &conn,
                        block_sparse_matrix<P> &sp) const;
 
   //! apply row transform on sparse col-full pattern
   template<int tdegree, operation op>
-  void row_project_any(block_sparse_matrix<P> &col,
+  void row_project_any(P const *trans,
+                       block_sparse_matrix<P> &col,
                        int const level,
                        connection_patterns const &conn,
                        block_sparse_matrix<P> &sp) const;
@@ -399,13 +430,13 @@ protected:
   {
     switch (degree_) {
     case 0:
-      col_project_vol<0, op>(diag, level, conn, sp);
+      col_project_vol<0, op>(nullptr, diag, level, conn, sp);
       break;
     case 1:
-      col_project_vol<1, op>(diag, level, conn, sp);
+      col_project_vol<1, op>(nullptr, diag, level, conn, sp);
       break;
     default:
-      col_project_vol<-1, op>(diag, level, conn, sp);
+      col_project_vol<-1, op>(nullptr, diag, level, conn, sp);
       break;
     };
   }
@@ -438,13 +469,13 @@ protected:
   {
     switch (degree_) {
     case 0:
-      row_project_any<0, op>(col, level, conn, sp);
+      row_project_any<0, op>(nullptr, col, level, conn, sp);
       break;
     case 1:
-      row_project_any<1, op>(col, level, conn, sp);
+      row_project_any<1, op>(nullptr, col, level, conn, sp);
       break;
     default:
-      row_project_any<-1, op>(col, level, conn, sp);
+      row_project_any<-1, op>(nullptr, col, level, conn, sp);
       break;
     };
   }

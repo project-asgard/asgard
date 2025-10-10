@@ -480,27 +480,62 @@ quadmd_manager<P>::quadmd_manager(
 
   // std::cout << " scale factors: " << wav_scale << "    " << iwav_scale << '\n';
 
-  std::vector<P> points;
+  // points represents the point locations in the canonical element (-1, 1)
+  // horder represents the hierarchical order
+  //   e.g., two adjacent non-hierarchical cells with pdof points each
+  //         (p_0, p_1, p_2) (p_3, p_4, p_5)
+  //         will merge into two hierarchical cells
+  //         (h_0, h_1, h_2)
+  //         (h_3, h_4, h_5)
+  //         h-order is the list of p indexes that will form (h_0, h_1, h_2)
+
+  std::vector<P> points, horder;
   switch (pdof) {
   case 1: // constant
     points = {-1.0, };
+    horder = {0, }; // take the left cell
     break;
   case 2: // linear
     points = {-1.0 / 3.0, +1.0 / 3.0};
+    horder = {1, 2}; // take the inner two nodes
     break;
   case 3: // quadratic
     points = {-1.0, -1.0/3.0, 1.0};
+    horder = {0, 2, 4};
     break;
   case 4: // cubic
     points = {-1.0, -1.0/3.0, 1.0/3.0, 1.0};
+    horder = {0, 2, 5, 7};
     break;
   default:
     break;
   };
 
-
-
   expect(points.size() == static_cast<size_t>(pdof));
+  expect(horder.size() == points.size());
+
+  int const pdof2 = pdof * pdof;
+
+  // transformation matrices for the permutation and hierarchical coefficients
+  // 4 matrices of size 2 * pdof X 2 * pdof, plus the lower order nodes
+  std::vector<P> trans_mats_(3 * 4 * pdof2 + pdof);
+  smmat::matrix<P> permute(pdof2, trans_mats_.data());
+  smmat::matrix<P> hier_coeff(pdof2, trans_mats_.data() + 4 * pdof * pdof);
+  smmat::matrix<P> ihier_coeff(pdof2, trans_mats_.data() + 8 * pdof * pdof);
+  P *lorder = trans_mats_.data() + 12 * pdof2;
+
+  {
+    // construct the permutation transform
+    // indicate the upper level nodes
+    for (int r = 0; r < pdof; r++) {
+      permute(r, horder[r]) = 1;
+    }
+    // for the lower order nodes, find the ones with missing assignment
+    int miss = 0;
+  }
+  permute.print();
+
+
 
   int const level     = conn.max_loaded_level();
   int const num_cells = conn.conns[0].num_rows();
