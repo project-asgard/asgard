@@ -127,6 +127,16 @@ private:
   P *data_ = nullptr;
 };
 
+//! returns a vector with the n by n identity
+template<typename P>
+std::vector<P> make_identity(int const n)
+{
+  std::vector<P> res(n * n);
+  matrix<P> mat(n, res.data());
+  for (int i = 0; i < n; i++) mat(i, i) = 1;
+  return res;
+}
+
 //! scale x by alpha, n is the size of x
 template<typename P>
 void scal(int const n, P alpha, P x[])

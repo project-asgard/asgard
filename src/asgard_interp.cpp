@@ -546,8 +546,7 @@ quadmd_manager<P>::quadmd_manager(
   }
   permute.print();
 
-
-
+  // construct the points and remap to hierarchical order
   int const level     = conn.max_loaded_level();
   int const num_cells = conn.conns[0].num_rows();
   P const cell_size = P{1} / static_cast<P>(num_cells);
@@ -561,7 +560,7 @@ quadmd_manager<P>::quadmd_manager(
       cell_nodes[i * pdof + j] = cell_size * (i + P{0.5} + P{0.5} * points[j]);
   }
 
-  hier.permute(level, cell_nodes, nodes1d_);
+  hier.transform(permute.data(), level, cell_nodes, nodes1d_);
 
   block_diag_matrix<P> mat(pdof * pdof, num_cells);
 

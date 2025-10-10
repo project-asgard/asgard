@@ -265,8 +265,23 @@ public:
     block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
     block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
 
-    do_col_project_vol(right, diag, level, conns, col);
-    do_row_project_any(left, col, level, conns, res);
+    do_col_project_vol(right, nullptr, diag, level, conns, col);
+    do_row_project_any(left, nullptr, col, level, conns, res);
+
+    return res;
+  }
+
+  //! converts matrix from diagonal to transformed on left/right with the given operations
+  block_sparse_matrix<P> diag2block(
+      operation left, P const tl[], operation right, P const tr[],
+      block_diag_matrix<P> const &diag,
+      int const level, connection_patterns const &conns) const
+  {
+    block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
+    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
+
+    do_col_project_vol(right, tr, diag, level, conns, col);
+    do_row_project_any(left, tl, col, level, conns, res);
 
     return res;
   }
@@ -332,30 +347,6 @@ public:
     expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
     dest.resize(src.size());
     transform(trans, level, src.data(), dest.data());
-  }
-
-  //! permute cell-by-cell points into hierarchical order
-  void permute(int level, P src[], P dest[]) const
-  {
-    constexpr operation op = operation::permute;
-    switch (degree_) {
-      case 0:
-        apply_transform<0, op>(level, src, dest);
-        break;
-      case 1:
-        apply_transform<1, op>(level, src, dest);
-        break;
-      default:
-        apply_transform<-1, op>(level, src, dest);
-        break;
-    };
-  }
-  //! permute with vector overload
-  void permute(int level, std::vector<P> &src, std::vector<P> &dest) const
-  {
-    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
-    dest.resize(src.size());
-    permute(level, src.data(), dest.data());
   }
 
 protected:
@@ -430,25 +421,26 @@ protected:
 
   //! maps the degree for the specified operation
   template<operation op>
-  void do_col_project_vol_(block_diag_matrix<P> const &diag,
+  void do_col_project_vol_(P const trans[],
+                           block_diag_matrix<P> const &diag,
                            int const level,
                            connection_patterns const &conn,
                            block_sparse_matrix<P> &sp) const
   {
     switch (degree_) {
     case 0:
-      col_project_vol<0, op>(nullptr, diag, level, conn, sp);
+      col_project_vol<0, op>(trans, diag, level, conn, sp);
       break;
     case 1:
-      col_project_vol<1, op>(nullptr, diag, level, conn, sp);
+      col_project_vol<1, op>(trans, diag, level, conn, sp);
       break;
     default:
-      col_project_vol<-1, op>(nullptr, diag, level, conn, sp);
+      col_project_vol<-1, op>(trans, diag, level, conn, sp);
       break;
     };
   }
   //! maps the operation to the correct template and degree
-  void do_col_project_vol(operation op,
+  void do_col_project_vol(operation op, P const trans[],
                           block_diag_matrix<P> const &diag,
                           int const level,
                           connection_patterns const &conn,
@@ -456,38 +448,45 @@ protected:
   {
     switch (op) {
     case operation::transform:
-      do_col_project_vol_<operation::transform>(diag, level, conn, sp);
+      do_col_project_vol_<operation::transform>(trans, diag, level, conn, sp);
+      break;
+    case operation::custom_unitary:
+      do_col_project_vol_<operation::custom_unitary>(trans, diag, level, conn, sp);
+      break;
+    case operation::custom_non_unitary:
+      do_col_project_vol_<operation::custom_non_unitary>(trans, diag, level, conn, sp);
       break;
     case operation::permute:
-      do_col_project_vol_<operation::permute>(diag, level, conn, sp);
+      do_col_project_vol_<operation::permute>(trans, diag, level, conn, sp);
       break;
     default:
-      do_col_project_vol_<operation::surpluses>(diag, level, conn, sp);
+      do_col_project_vol_<operation::surpluses>(trans, diag, level, conn, sp);
       break;
     };
   }
 
   //! maps the degree for the specified operation
   template<operation op>
-  void do_row_project_any_(block_sparse_matrix<P> &col,
+  void do_row_project_any_(P const trans[],
+                           block_sparse_matrix<P> &col,
                            int const level,
                            connection_patterns const &conn,
                            block_sparse_matrix<P> &sp) const
   {
     switch (degree_) {
     case 0:
-      row_project_any<0, op>(nullptr, col, level, conn, sp);
+      row_project_any<0, op>(trans, col, level, conn, sp);
       break;
     case 1:
-      row_project_any<1, op>(nullptr, col, level, conn, sp);
+      row_project_any<1, op>(trans, col, level, conn, sp);
       break;
     default:
-      row_project_any<-1, op>(nullptr, col, level, conn, sp);
+      row_project_any<-1, op>(trans, col, level, conn, sp);
       break;
     };
   }
   //! maps the operation to the correct template and degree
-  void do_row_project_any(operation op,
+  void do_row_project_any(operation op, P const trans[],
                           block_sparse_matrix<P> &col,
                           int const level,
                           connection_patterns const &conn,
@@ -495,13 +494,18 @@ protected:
   {
     switch (op) {
     case operation::transform:
-      do_row_project_any_<operation::transform>(col, level, conn, sp);
+      do_row_project_any_<operation::transform>(trans, col, level, conn, sp);
+      break;
+    case operation::custom_unitary:
+    case operation::custom_non_unitary:
+      // the unitary and the non-unitary transforms are equivalent here
+      do_row_project_any_<operation::custom_unitary>(trans, col, level, conn, sp);
       break;
     case operation::permute:
-      do_row_project_any_<operation::permute>(col, level, conn, sp);
+      do_row_project_any_<operation::permute>(trans, col, level, conn, sp);
       break;
     default:
-      do_row_project_any_<operation::surpluses>(col, level, conn, sp);
+      do_row_project_any_<operation::surpluses>(trans, col, level, conn, sp);
       break;
     };
   }

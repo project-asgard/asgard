@@ -598,6 +598,14 @@ auto diff_inf(vecx const &x, vecy const &y)
   return m;
 }
 
+//! \brief returns the max norm of an array
+template<typename P>
+P nrm_inf(int n, P const x[]) {
+  P r = 0;
+  for (int i = 0; i < n; i++) r = std::max(r, std::abs(x[i]));
+  return r;
+}
+
 /*!
  * \brief Computes the root-mean-square-error between two vectors
  *

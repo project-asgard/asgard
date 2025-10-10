@@ -403,25 +403,7 @@ void hierarchy_manipulator<P>::apply_transform(P const *trans, int level, P src[
           int const n = 2 * pdof;
           smmat::gemv(n, n, tmats.data(), raw, fin);
         }
-      } else if constexpr (op == operation::permute) { // operation permute
-        if constexpr (tdegree == 0)
-        {
-          fin[0] = raw[0];
-          fin[1] = raw[1];
-        }
-        else if constexpr (tdegree == 1)
-        {
-          fin[0] = raw[1];
-          fin[1] = raw[2];
-          fin[2] = raw[0];
-          fin[3] = raw[3];
-        }
-        else
-        {
-          int const n = 2 * pdof;
-          smmat::gemv(n, n, pmats.data(), raw, fin);
-        }
-      } else { // operation custom_unitary or custom_non_unitary
+      } else if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
         int const n = 2 * pdof;
         smmat::gemv(n, n, trans, raw, fin);
       }
@@ -456,31 +438,7 @@ void hierarchy_manipulator<P>::apply_transform(P const *trans, int level, P src[
           smmat::gemv(pdof, 2 * pdof, tmatup,  raw, upper);
           smmat::gemv(pdof, 2 * pdof, tmatlev, raw, fin);
         }
-      } else if constexpr (op == operation::permute) {  // operation permute
-        if constexpr (tdegree == 0)
-        {
-          P const r0 = raw[0];
-          P const r1 = raw[1];
-          upper[0] = r0;
-          fin[0]   = r1;
-        }
-        else if constexpr (tdegree == 1)
-        {
-          P const r0 = raw[0];
-          P const r1 = raw[1];
-          P const r2 = raw[2];
-          P const r3 = raw[3];
-          upper[0] = r1;
-          upper[1] = r2;
-          fin[0]   = r0;
-          fin[1]   = r3;
-        }
-        else
-        {
-          smmat::gemv(pdof, 2 * pdof, pmatup,  raw, upper);
-          smmat::gemv(pdof, 2 * pdof, pmatlev, raw, fin);
-        }
-      } else { // custom transform
+      } else if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
         smmat::gemv(pdof, 2 * pdof, cupper, raw, upper);
         smmat::gemv(pdof, 2 * pdof, clower, raw, fin);
       }
@@ -884,23 +842,29 @@ void hierarchy_manipulator<P>::col_project_vol(
   if constexpr (op == operation::custom_unitary) {
     expect(trans != nullptr);
     if constexpr (tdegree == 0) {
-      cc = {trans[0], trans[2], trans[1], trans[3]};
+      cc[0] = trans[0];
+      cc[1] = trans[2];
+      cc[2] = trans[1];
+      cc[3] = trans[3];
     } else if constexpr (tdegree == 1) {
-      c0 = {trans[ 0], trans[ 1], trans[ 4], trans[ 5]};
-      c1 = {trans[ 8], trans[ 9], trans[12], trans[13]};
-      c2 = {trans[ 2], trans[ 3], trans[ 6], trans[ 7]};
-      c3 = {trans[10], trans[11], trans[14], trans[15]};
+      c0[0] = trans[ 0]; c0[1] = trans[ 1]; c0[2] = trans[ 4]; c0[3] = trans[ 5];
+      c1[0] = trans[ 8]; c1[1] = trans[ 9]; c1[2] = trans[12]; c1[3] = trans[13];
+      c2[0] = trans[ 2]; c2[1] = trans[ 3]; c2[2] = trans[ 6]; c2[3] = trans[ 7];
+      c3[0] = trans[10]; c3[1] = trans[11]; c3[2] = trans[14]; c3[3] = trans[15];
     } else {
       custom.resize(4 * pdof2);
-      P *pc0 = custom.data();
-      P *pc1 = custom.data() + pdof2;
-      P *pc2 = custom.data() + 2 * pdof2;
-      P *pc3 = custom.data() + 3 * pdof2;
-      for (int i = 0; i < pdof; i++) {
-        pc0 = std::copy_n(custom                       + i * pdof2, pdof, pc0);
-        pc1 = std::copy_n(custom        + pdof * pdof2 + i * pdof2, pdof, pc1);
-        pc2 = std::copy_n(custom + pdof                + i * pdof2, pdof, pc2);
-        pc3 = std::copy_n(custom + pdof + pdof * pdof2 + i * pdof2, pdof, pc3);
+      smmat::matrix<P const> transf(2 * pdof, trans);
+      smmat::matrix<P> pc0(pdof, custom.data());
+      smmat::matrix<P> pc1(pdof, custom.data() + pdof2);
+      smmat::matrix<P> pc2(pdof, custom.data() + 2 * pdof2);
+      smmat::matrix<P> pc3(pdof, custom.data() + 3 * pdof2);
+      for (int r = 0; r < pdof; r++) {
+        for (int c = 0; c < pdof; c++) {
+          pc0(r, c) = transf(r, c);
+          pc1(r, c) = transf(r + pdof, c);
+          pc2(r, c) = transf(r, c + pdof);
+          pc3(r, c) = transf(r + pdof, c + pdof);
+        }
       }
     }
   } else if constexpr (op == operation::custom_non_unitary) {
@@ -908,23 +872,26 @@ void hierarchy_manipulator<P>::col_project_vol(
     // and we do not transpose in the application of the blocks
     expect(trans != nullptr);
     if constexpr (tdegree == 0) {
-      cc = {trans[0], trans[1], trans[2], trans[3]};
+      std::copy_n(trans, 4, cc);
     } else if constexpr (tdegree == 1) {
-      c0 = {trans[ 0], trans[ 1], trans[ 4], trans[ 5]};
-      c1 = {trans[ 2], trans[ 3], trans[ 6], trans[ 7]};
-      c2 = {trans[ 8], trans[ 9], trans[12], trans[13]};
-      c3 = {trans[10], trans[11], trans[14], trans[15]};
+      c0[0] = trans[ 0]; c0[1] = trans[ 1]; c0[2] = trans[ 4]; c0[3] = trans[ 5];
+      c1[0] = trans[ 2]; c1[1] = trans[ 3]; c1[2] = trans[ 6]; c1[3] = trans[ 7];
+      c2[0] = trans[ 8]; c2[1] = trans[ 9]; c2[2] = trans[12]; c2[3] = trans[13];
+      c3[0] = trans[10]; c3[1] = trans[11]; c3[2] = trans[14]; c3[3] = trans[15];
     } else {
       custom.resize(4 * pdof2);
-      P *pc0 = custom.data();
-      P *pc1 = custom.data() + pdof2;
-      P *pc2 = custom.data() + 2 * pdof2;
-      P *pc3 = custom.data() + 3 * pdof2;
-      for (int i = 0; i < pdof; i++) {
-        pc0 = std::copy_n(custom                       + i * pdof2, pdof, pc0);
-        pc1 = std::copy_n(custom + pdof                + i * pdof2, pdof, pc1);
-        pc2 = std::copy_n(custom        + pdof * pdof2 + i * pdof2, pdof, pc2);
-        pc3 = std::copy_n(custom + pdof + pdof * pdof2 + i * pdof2, pdof, pc3);
+      smmat::matrix<P const> transf(2 * pdof, trans);
+      smmat::matrix<P> pc0(pdof, custom.data());
+      smmat::matrix<P> pc1(pdof, custom.data() + pdof2);
+      smmat::matrix<P> pc2(pdof, custom.data() + 2 * pdof2);
+      smmat::matrix<P> pc3(pdof, custom.data() + 3 * pdof2);
+      for (int r = 0; r < pdof; r++) {
+        for (int c = 0; c < pdof; c++) {
+          pc0(r, c) = transf(r, c);
+          pc1(r, c) = transf(r + pdof, c);
+          pc2(r, c) = transf(r, c + pdof);
+          pc3(r, c) = transf(r + pdof, c + pdof);
+        }
       }
     }
   }
@@ -1138,23 +1105,26 @@ void hierarchy_manipulator<P>::row_project_any(
   if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
     expect(trans != nullptr);
     if constexpr (tdegree == 0) {
-      cc = {trans[0], trans[2], trans[1], trans[3]};
+      cc[0] = trans[0]; cc[1] = trans[2]; cc[2] = trans[1]; cc[3] = trans[3];
     } else if constexpr (tdegree == 1) {
-      c0 = {trans[ 0], trans[ 1], trans[ 4], trans[ 5]};
-      c1 = {trans[ 8], trans[ 9], trans[12], trans[13]};
-      c2 = {trans[ 2], trans[ 3], trans[ 6], trans[ 7]};
-      c3 = {trans[10], trans[11], trans[14], trans[15]};
+      c0[0] = trans[ 0]; c0[1] = trans[ 1]; c0[2] = trans[ 4]; c0[3] = trans[ 5];
+      c1[0] = trans[ 8]; c1[1] = trans[ 9]; c1[2] = trans[12]; c1[3] = trans[13];
+      c2[0] = trans[ 2]; c2[1] = trans[ 3]; c2[2] = trans[ 6]; c2[3] = trans[ 7];
+      c3[0] = trans[10]; c3[1] = trans[11]; c3[2] = trans[14]; c3[3] = trans[15];
     } else {
       custom.resize(4 * pdof2);
-      P *pc0 = custom.data();
-      P *pc1 = custom.data() + pdof2;
-      P *pc2 = custom.data() + 2 * pdof2;
-      P *pc3 = custom.data() + 3 * pdof2;
-      for (int i = 0; i < pdof; i++) {
-        pc0 = std::copy_n(custom                       + i * pdof2, pdof, pc0);
-        pc1 = std::copy_n(custom        + pdof * pdof2 + i * pdof2, pdof, pc1);
-        pc2 = std::copy_n(custom + pdof                + i * pdof2, pdof, pc2);
-        pc3 = std::copy_n(custom + pdof + pdof * pdof2 + i * pdof2, pdof, pc3);
+      smmat::matrix<P const> transf(2 * pdof, trans);
+      smmat::matrix<P> pc0(pdof, custom.data());
+      smmat::matrix<P> pc1(pdof, custom.data() + pdof2);
+      smmat::matrix<P> pc2(pdof, custom.data() + 2 * pdof2);
+      smmat::matrix<P> pc3(pdof, custom.data() + 3 * pdof2);
+      for (int r = 0; r < pdof; r++) {
+        for (int c = 0; c < pdof; c++) {
+          pc0(r, c) = transf(r, c);
+          pc1(r, c) = transf(r, c + pdof);
+          pc2(r, c) = transf(r + pdof, c);
+          pc3(r, c) = transf(r + pdof, c + pdof);
+        }
       }
     }
   }

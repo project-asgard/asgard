@@ -245,6 +245,17 @@ block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_tri_matrix<P> const
 }
 
 template<typename P>
+void fill_pattern(P const pattern[], block_diag_matrix<P> &A)
+{
+  int const rows   = A.nrows();
+  int const nblock = A.nblock();
+
+  #pragma omp parallel for
+  for (int r = 0; r < rows; r++)
+    std::copy_n(pattern, nblock, A[r]);
+}
+
+template<typename P>
 void gemm_block_tri_ul(
     int const n, block_tri_matrix<P> const &A, block_tri_matrix<P> const &B,
     block_tri_matrix<P> &C)
@@ -708,6 +719,8 @@ template class block_tri_matrix<double>;
 template void gemm1(int const n, block_matrix<double> const &A, block_matrix<double> const &B,
                     block_matrix<double> &C);
 
+template void fill_pattern<double>(double const pattern[], block_diag_matrix<double> &A);
+
 template void gemm_block_tri_ul<double>(
     int const n, block_tri_matrix<double> const &A, block_tri_matrix<double> const &B,
     block_tri_matrix<double> &C);
@@ -748,6 +761,8 @@ template class block_tri_matrix<float>;
 
 template void gemm1(int const n, block_matrix<float> const &A, block_matrix<float> const &B,
                     block_matrix<float> &C);
+
+template void fill_pattern<float>(float const pattern[], block_diag_matrix<float> &A);
 
 template void gemm_block_tri_ul<float>(
     int const n, block_tri_matrix<float> const &A, block_tri_matrix<float> const &B,
