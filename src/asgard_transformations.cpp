@@ -823,16 +823,7 @@ void hierarchy_manipulator<P>::col_project_vol(
   P const w0[4] = {0, is2h, -is2, is64};
   P const w1[4] = {0, -is2h, is2, is64};
 
-  P const p0[4] = {0, 0, 1, 0};
-  P const p1[4] = {0, 1, 0, 0};
-  P const p2[4] = {1, 0, 0, 0};
-  P const p3[4] = {0, 0, 0, 1};
-
-  P const sur0[4] = {1.5, -0.5, 1, 0}; // transpose the blocks of the inverse
-  P const sur1[4] = {0, 1, -0.5, 1.5};
-  P const sur2[4] = {1, 0, 0, 0};
-  P const sur3[4] = {0, 0, 0, 1};
-
+  // small matrices can be cached on the stack for faster access
   P cc[4], c0[4], c1[4], c2[4], c3[4];
 
   int const pdof  = degree_ + 1;
@@ -915,34 +906,6 @@ void hierarchy_manipulator<P>::col_project_vol(
         smmat::gemm_pairt(2, left, h0, right, h1, upper);
       else
         smmat::gemm_pairt(pdof, left, tmatup, right, tmatup + pdof2, upper);
-    } else if constexpr (op == operation::permute) {
-      if constexpr (tdegree == 0)
-        *out = (*right);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pairt(2, left, p2, right, p3, out);
-      else
-        smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
-
-      if constexpr (tdegree == 0)
-        *upper = (*left);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pairt(2, left, p0, right, p1, upper);
-      else
-        smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
-    } else if constexpr (op == operation::surpluses) {
-        if constexpr (tdegree == 0)
-        *out = (*right);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pairt(2, left, sur2, right, sur3, out);
-      // else
-      //   smmat::gemm_pairt(pdof, left, pmatlev, right, pmatlev + pdof2, out);
-
-      if constexpr (tdegree == 0)
-        *upper = (*left) + (*right);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pairt(2, left, sur0, right, sur1, upper);
-      // else
-      //   smmat::gemm_pairt(pdof, left, pmatup, right, pmatup + pdof2, upper);
     } else if constexpr (op == operation::custom_unitary) {
       if constexpr (tdegree == 0)
         *upper = (*left) * cc[0] + (*right) * cc[1];
@@ -1085,16 +1048,6 @@ void hierarchy_manipulator<P>::row_project_any(
   P const w0[4] = {0, is2h, -is2, is64};
   P const w1[4] = {0, -is2h, is2, is64};
 
-  P const p0[4] = {0, 0, 1, 0};
-  P const p1[4] = {0, 1, 0, 0};
-  P const p2[4] = {1, 0, 0, 0};
-  P const p3[4] = {0, 0, 0, 1};
-
-  P const sur0[4] = {0, 0, 1, 0};
-  P const sur1[4] = {0, 1, 0, 0};
-  P const sur2[4] = {1, 0, -1.5, 0.5};
-  P const sur3[4] = {0.5, -1.5, 0, 1};
-
   P cc[4], c0[4], c1[4], c2[4], c3[4];
 
   int const pdof  = degree_ + 1;
@@ -1147,34 +1100,6 @@ void hierarchy_manipulator<P>::row_project_any(
         smmat::gemm_pair(2, h0, left, h1, right, upper);
       else
         smmat::gemm_pair(pdof, tmatup, left, tmatup + pdof2, right, upper);
-    } else if constexpr (op == operation::permute) {
-      if constexpr (tdegree == 0)
-        *out = (*right);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pair(2, p2, left, p3, right, out);
-      else
-        smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
-
-      if constexpr (tdegree == 0)
-        *upper = (*left);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pair(2, p0, left, p1, right, upper);
-      else
-        smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);
-    } else if constexpr (op == operation::surpluses) {
-      if constexpr (tdegree == 0)
-        *out = -(*left) + (*right);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pair(2, sur2, left, sur3, right, out);
-      // else
-      //   smmat::gemm_pair(pdof, pmatlev, left, pmatlev + pdof2, right, out);
-
-      if constexpr (tdegree == 0)
-        *upper = (*left);
-      else if constexpr (tdegree == 1)
-        smmat::gemm_pair(2, sur0, left, sur1, right, upper);
-      // else
-      //   smmat::gemm_pair(pdof, pmatup, left, pmatup + pdof2, right, upper);
     } else if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
       if constexpr (tdegree == 0)
         *upper = cc[0] * (*left) + cc[1] * (*right);
@@ -1347,51 +1272,6 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
     for (int j : indexof<int>(4))
       for (int i : indexof<int>(pdof))
         ip = std::copy_n(rawmats[j].data() + i * pdof, pdof, ip);
-
-    // work on the permutation matrices
-    pmats.resize(8 * pdof * pdof);
-    pmatup  = pmats.data() + 4 * pdof * pdof;
-    pmatlev = pmatup + 2 * pdof * pdof;
-
-    if (pdof % 2 == 0) {
-      // i-th (row) h-point takes the j-th (col) nodal-point
-      // upper on left, take every other point starting from 0
-      for (int i = 0; i < pdof / 2; i++)
-        pmats[(2 * i) * (2 * pdof) + i] = 1;
-      // upper on right, take every other point starting from the very end
-      for (int i = pdof / 2; i < pdof; i++)
-        pmats[(2 * i + 1) * (2 * pdof) + i] = 1;
-      // lower on left, take every other point starting from 1
-      for (int i = 0; i < pdof / 2; i++)
-        pmats[(2 * i + 1) * (2 * pdof) + i + pdof] = 1;
-      // lower on right, take every other point starting from the very end
-      for (int i = pdof / 2; i < pdof; i++)
-        pmats[(2 * i) * (2 * pdof) + i + pdof] = 1;
-
-      // same logic as above, but the leading dimension is pdof
-      for (int i = 0; i < pdof / 2; i++)
-        pmatup[(2 * i) * pdof + i] = 1;
-      for (int i = pdof / 2; i < pdof; i++)
-        pmatup[(2 * i + 1) * pdof + i] = 1;
-      for (int i = 0; i < pdof / 2; i++)
-        pmatlev[(2 * i + 1) * pdof + i] = 1;
-      for (int i = pdof / 2; i < pdof; i++)
-        pmatlev[(2 * i) * pdof + i] = 1;
-    } else {
-      // upper block, take every other point starting from 0
-      for (int i = 0; i < pdof; i++)
-        pmats[(2 * i) * (2 * pdof) + i] = 1;
-      // lower block, take every other point starting from 1
-      for (int i = 0; i < pdof; i++)
-        pmats[(2 * i + 1) * (2 * pdof) + i + pdof] = 1;
-
-      for (int i = 0; i < pdof; i++)
-        pmatup[(2 * i) * pdof + i] = 1;
-      // lower block, take every other point starting from 1
-      for (int i = 0; i < pdof; i++)
-        pmatlev[(2 * i + 1) * pdof + i] = 1;
-
-    }
   }
 }
 

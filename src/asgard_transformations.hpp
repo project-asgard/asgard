@@ -113,10 +113,6 @@ public:
   enum class operation {
     //! transform cell-by-cell Legendre basis to hierarchical wavelets
     transform,
-    //! permutation of cell-by-cell nodes to hierarchical ordering
-    permute,
-    //! cell-by-cell Lagrange basis to hierarchical Lagrange (interp wavelets)
-    surpluses,
     //! perform custom unitary transformation using a custom matrix
     custom_unitary,
     //! perform custom non-unitary transformation using a custom matrix
@@ -447,20 +443,14 @@ protected:
                           block_sparse_matrix<P> &sp) const
   {
     switch (op) {
-    case operation::transform:
-      do_col_project_vol_<operation::transform>(trans, diag, level, conn, sp);
-      break;
     case operation::custom_unitary:
       do_col_project_vol_<operation::custom_unitary>(trans, diag, level, conn, sp);
       break;
     case operation::custom_non_unitary:
       do_col_project_vol_<operation::custom_non_unitary>(trans, diag, level, conn, sp);
       break;
-    case operation::permute:
-      do_col_project_vol_<operation::permute>(trans, diag, level, conn, sp);
-      break;
-    default:
-      do_col_project_vol_<operation::surpluses>(trans, diag, level, conn, sp);
+    default: // case operation::transform:
+      do_col_project_vol_<operation::transform>(trans, diag, level, conn, sp);
       break;
     };
   }
@@ -492,24 +482,13 @@ protected:
                           connection_patterns const &conn,
                           block_sparse_matrix<P> &sp) const
   {
-    switch (op) {
-    case operation::transform:
+    if (op == operation::transform) {
       do_row_project_any_<operation::transform>(trans, col, level, conn, sp);
-      break;
-    case operation::custom_unitary:
-    case operation::custom_non_unitary:
+    } else {
       // the unitary and the non-unitary transforms are equivalent here
       do_row_project_any_<operation::custom_unitary>(trans, col, level, conn, sp);
-      break;
-    case operation::permute:
-      do_row_project_any_<operation::permute>(trans, col, level, conn, sp);
-      break;
-    default:
-      do_row_project_any_<operation::surpluses>(trans, col, level, conn, sp);
-      break;
-    };
+    }
   }
-
 
   //! call from the constructor, makes it easy to have variety of constructor options
   void setup_projection_matrices();
@@ -530,10 +509,6 @@ private:
   P *tmatup  = nullptr; // this to upper level (alias to tmats)
   P *tmatlev = nullptr; // this to same level (alias to tmats)
 
-  std::vector<P> pmats; // permutation matrices
-  P *pmatup  = nullptr; // this to upper level (alias to pmats)
-  P *pmatlev = nullptr; // this to same level (alias to pmats)
-
   // given the values of f(x) at the quadrature points inside of a cell
   // the projection of f onto the Legendre basis is leg_vals * f
   // i.e., small matrix times a small vector
@@ -548,7 +523,8 @@ private:
   mutable std::vector<P> pwork, twork;
 
   mutable std::vector<std::vector<P>> colblocks;
-  mutable std::array<block_sparse_matrix<P>, 4> rowstage;
+  // TODO: make reusable cache matrixes
+  //mutable std::array<block_sparse_matrix<P>, 4> rowstage;
 };
 
 } // namespace asgard
