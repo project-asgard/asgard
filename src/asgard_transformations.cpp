@@ -1268,14 +1268,14 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       for (int i = 0; i < pdof; i++)
         pmats[(2 * i + 1) * (2 * pdof) + i + pdof] = 1;
 
-      std::cout << " ----------------- \n";
-      for (int r = 0; r < 2 * pdof; r++) {
-        for (int c = 0; c < 2 * pdof; c++) {
-          std::cout << pmats[2 * pdof * c + r] << "  ";
-        }
-        std::cout << '\n';
-      }
-      std::cout << " ----------------- \n";
+      // std::cout << " ----------------- \n";
+      // for (int r = 0; r < 2 * pdof; r++) {
+      //   for (int c = 0; c < 2 * pdof; c++) {
+      //     std::cout << pmats[2 * pdof * c + r] << "  ";
+      //   }
+      //   std::cout << '\n';
+      // }
+      // std::cout << " ----------------- \n";
 
       for (int i = 0; i < pdof; i++)
         pmatup[(2 * i) * pdof + i] = 1;

@@ -310,7 +310,8 @@ void interp_wav2nodal() {
       tcheckless(i, std::abs(vals[i] - ref[i]), tol);
   }
 
-  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"}, {2, "quadratic"}, {3, "cubic"}};
+  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
+                                     {2, "quadratic"}, {3, "cubic"}};
 
   domain = pde_domain<P>(2);
   for (int degree = 0; degree <= 3; degree++)
@@ -393,15 +394,6 @@ void interp_wav2nodal_v2() {
     tassert(nodes.stride() == 2);
     tassert(nodes.num_strips() == 12);
 
-    // check the generated nodes
-    // std::vector<P> const expected_nodes = {
-    //   1.0/3.0, 1.0/3.0, 1.0/3.0, 2.0/3.0, 2.0/3.0, 1.0/3.0, 2.0/3.0, 2.0/3.0,
-    //   1.0/3.0, 1.0/6.0, 1.0/3.0, 5.0/6.0, 2.0/3.0, 1.0/6.0, 2.0/3.0, 5.0/6.0,
-    //   1.0/6.0, 1.0/3.0, 1.0/6.0, 2.0/3.0, 5.0/6.0, 1.0/3.0, 5.0/6.0, 2.0/3.0,
-    // };
-    // for (size_t i = 0; i < expected_nodes.size(); i++)
-    //   tcheckless(i, std::abs(nodes[i/2][i%2] - expected_nodes[i]), tol);
-
     // using the reconstructor to compute reference data
     vector2d<double> dnodes = vec2d(nodes);
     reconstruct_solution rec = disc.get_snapshot();
@@ -414,7 +406,6 @@ void interp_wav2nodal_v2() {
 
     tassert(vals.size() == ref.size());
     for (auto i : indexof(ref)) {
-      //std::cout << vals[i] << "   " << ref[i] << "\n";
       tcheckless(i, std::abs(vals[i] - ref[i]), tol);
     }
   }
@@ -445,20 +436,6 @@ void interp_wav2nodal_v2() {
     tassert(nodes.stride() == 2);
     tassert(nodes.num_strips() == 12);
 
-    // check the generated nodes
-    // std::vector<P> const expected_nodes = {
-    //   1.0/3.0, 1.0/3.0, 1.0/3.0, 2.0/3.0, 2.0/3.0, 1.0/3.0, 2.0/3.0, 2.0/3.0,
-    //   1.0/3.0, 1.0/6.0, 1.0/3.0, 5.0/6.0, 2.0/3.0, 1.0/6.0, 2.0/3.0, 5.0/6.0,
-    //   1.0/6.0, 1.0/3.0, 1.0/6.0, 2.0/3.0, 5.0/6.0, 1.0/3.0, 5.0/6.0, 2.0/3.0,
-    // };
-    // for (size_t i = 0; i < expected_nodes.size(); i++) {
-    //   if (i % 2 == 0) {
-    //     tcheckless(i, std::abs(nodes[i/2][i%2] + 1 - 2 * expected_nodes[i]), tol);
-    //   } else {
-    //     tcheckless(i, std::abs(nodes[i/2][i%2] - 3 * expected_nodes[i]), tol);
-    //   }
-    // }
-
     // using the reconstructor to compute reference data
     vector2d<double> dnodes = vec2d(nodes);
     reconstruct_solution rec = disc.get_snapshot();
@@ -474,10 +451,11 @@ void interp_wav2nodal_v2() {
       tcheckless(i, std::abs(vals[i] - ref[i]), tol);
   }
 
-  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"}, {2, "quadratic"}, {3, "cubic"}};
+  std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
+                                     {2, "quadratic"}, {3, "cubic"}};
 
   domain = pde_domain<P>(2);
-  for (int degree = 0; degree <= 3; degree++)
+  for (int degree = 0; degree <= 1; degree++)
   {
     current_test<P> name_("wav2nodal l = 5, " + mode[degree]);
 
@@ -488,7 +466,7 @@ void interp_wav2nodal_v2() {
 
     quadmd_manager<P> quad(domain, hier, conn);
 
-    prog_opts options = make_opts("-l 5 -n 0");
+    prog_opts options = make_opts("-l " + std::to_string(max_level) + " -n 0");
     options.degree = degree;
     pde_scheme<P> pde(options, domain);
     pde.add_initial(ic);
@@ -503,17 +481,14 @@ void interp_wav2nodal_v2() {
     tassert(nodes.num_strips() == 112 * (degree + 1) * (degree + 1));
 
     if (degree == 0)
-      for (int i = 0; i < 112; i++) {
+      for (int i = 0; i < nodes.num_strips(); i++) {
         nodes[i][0] += 1.E-7;
         nodes[i][1] += 1.E-7;
-        //std::cout << nodes[i][0] << "    " << nodes[i][1] << "\n";
       }
-    if (degree == 2)
-      for (int i = 0; i < 112; i++) {
-        nodes[i][0] += (nodes[i][0] == 1) ? -1.E-7 : 1.E-7;
-        nodes[i][1] += (nodes[i][1] == 1) ? -1.E-7 : 1.E-7;
-        //std::cout << nodes[i][0] << "    " << nodes[i][1] << "\n";
-      }
+
+    std::vector<P> rref(nodes.num_strips());
+    for (int i = 0; i < nodes.num_strips(); i++)
+      rref[i] = ic.eval(nodes[i], 0);
 
     // using the reconstructor to compute reference data
     reconstruct_solution rec = disc.get_snapshot();
@@ -525,10 +500,49 @@ void interp_wav2nodal_v2() {
     quad.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
                    vals.data(), disc.get_terms().kwork);
 
+    // std::cout << "  err = " << fm::diff_inf(vals, ref) << '\n';
     tassert(vals.size() == ref.size());
-    // for (auto i : indexof(ref))
-    //   tcheckless(i, std::abs(vals[i] - ref[i]), tol);
-    std::cout << "  err = " << fm::diff_inf(vals, ref) << '\n';
+    for (auto i : indexof(ref))
+      tcheckless(i, std::abs(vals[i] - ref[i]), tol);
+  }
+
+  P const tols[4] = {0.0, 0.0, 2.E-6, 5.E-9};
+  for (int degree = 2; degree <= 3; degree++)
+  {
+    current_test<P> name_("wav2nodal l = 5, " + mode[degree]);
+
+    int const max_level = 5;
+
+    connection_patterns conn(max_level);
+    hierarchy_manipulator<P> hier(degree, domain);
+
+    quadmd_manager<P> quad(domain, hier, conn);
+
+    prog_opts options = make_opts("-l " + std::to_string(max_level) + " -n 0");
+    options.degree = degree;
+    pde_scheme<P> pde(options, domain);
+    pde.add_initial(ic);
+
+    discretization_manager<P> disc(pde, verbosity_level::quiet);
+
+    // check the loaded nodes
+    sparse_grid const &grid = disc.get_grid();
+
+    vector2d<P> nodes = quad.nodes(grid);
+    tassert(nodes.stride() == 2);
+    tassert(nodes.num_strips() == 112 * (degree + 1) * (degree + 1));
+
+    std::vector<P> ref(nodes.num_strips());
+    for (int i = 0; i < nodes.num_strips(); i++)
+      ref[i] = ic.eval(nodes[i], 0);
+
+    std::vector<P> vals(ref.size());
+    quad.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
+                   vals.data(), disc.get_terms().kwork);
+
+    // std::cout << "  err = " << fm::diff_inf(vals, ref) << '\n';
+    tassert(vals.size() == ref.size());
+    tcheckless(0, fm::diff_inf(vals, ref), tols[degree]);
   }
 }
 

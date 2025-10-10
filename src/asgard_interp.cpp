@@ -489,7 +489,7 @@ quadmd_manager<P>::quadmd_manager(
     points = {-1.0 / 3.0, +1.0 / 3.0};
     break;
   case 3: // quadratic
-    points = {-1.0, 0.0, 1.0};
+    points = {-1.0, -1.0/3.0, 1.0};
     break;
   case 4: // cubic
     points = {-1.0, -1.0/3.0, 1.0/3.0, 1.0};
@@ -498,10 +498,7 @@ quadmd_manager<P>::quadmd_manager(
     break;
   };
 
-  // std::cout << " base quad points and weights \n";
-  // for (size_t i = 0; i < points.size(); i++)
-  //   std::cout << points[i] << "    " << weights[i] << "\n";
-  // std::cout << " ---------------- \n";
+
 
   expect(points.size() == static_cast<size_t>(pdof));
 
