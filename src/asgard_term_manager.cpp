@@ -1077,6 +1077,7 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
       cpu_it1[g].resize(num_entries);
       cpu_it2[g].resize(num_entries);
       gpu_it1[g].resize(num_entries);
+      gpu_it2[g].resize(num_entries);
     }
   }
 }
@@ -1122,7 +1123,7 @@ void term_manager<P>::apply_tmpl_gpu(
     -> void {
       if (tme.tmd.is_interpolatory()) {
         interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
-               cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id]);
+               cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
       } else {
         block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                   al, in, be, out, kwork, tme.coeffs);

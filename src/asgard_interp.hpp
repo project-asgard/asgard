@@ -1099,6 +1099,95 @@ public:
   //! indicates whether the manager has been initialized
   operator bool () const { return (num_dims > 0); }
 
+  #ifdef ASGARD_USE_GPU
+  //! compute nodal values for the field
+  void wav2nodal(gpu::device dev, sparse_grid const &grid,
+                 connection_patterns const &conn, P const f[], P vals[],
+                 kronmult::workspace<P> &work) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 0;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, P{wav_scale}, P{0}, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("wavelet-to-nodal", flops);
+    #else
+    tools::time_event performance_("wavelet-to-nodal");
+    #endif
+    block_gpu(dev, pdof, grid, conn, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
+              P{0}, vals, work, wav2nodal_);
+  }
+  //! compute nodal values for the field
+  void nodal2wav(gpu::device dev, sparse_grid const &grid,
+                 connection_patterns const &conn,
+                 P alpha, P const f[], P beta, P vals[],
+                 kronmult::workspace<P> &work, gpu::vector<P> &t1) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 1;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = 2 * kronmult::block_cpu(
+                  pdof, grid, conn, perm, alpha * P{iwav_scale}, beta, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("nodal-to-wavelet", flops);
+    #else
+    tools::time_event performance_("nodal-to-wavelet");
+    #endif
+    block_gpu(dev, pdof, grid, conn, perm, gpu_nodal2hier_[dev.id],
+              P{1}, f, P{0}, t1.data(), work, nodal2hier_);
+    block_gpu(dev, pdof, grid, conn, perm, gpu_hier2wav_[dev.id],
+              alpha * P{iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
+  }
+
+  /*!
+   * \brief Performs the interpolation of the function func
+   */
+  void operator ()
+      (gpu::device dev, sparse_grid const &grid,
+       connection_patterns const &conn, P time, P const state[],
+       P alpha, md_func_f<P> const &func, P beta, P y[],
+       kronmult::workspace<P> &work,
+       std::vector<P> &t1, std::vector<P> &t2,
+       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+  {
+    tools::time_event performance_("interpolation operation");
+    wav2nodal(dev, grid, conn, state, gpu_t1.data(), work);
+    gpu_t1.copy_to_host(t1);
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), t1, t2);
+    }
+    gpu_t1 = t2;
+    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+  }
+  /*!
+   * \brief Computes the interpolation function on the CPU and moves the data to the GPU
+   *
+   * In this context, the kronmult work is done on the GPU
+   * but the function evaluation is done on the CPU side.
+   */
+  void operator ()
+      (gpu::device dev, sparse_grid const &grid,
+       connection_patterns const &conn, P time,
+       P alpha, md_func<P> const &func, P beta, P y[],
+       kronmult::workspace<P> &work,
+       std::vector<P> &t1,
+       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+  {
+    func(time, nodes(grid), t1);
+    gpu_t1 = t1;
+    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+  }
+  #endif
+
 private:
   int num_dims = 0;
   int pdof = 0;
@@ -1117,7 +1206,20 @@ private:
   block_sparse_matrix<P> nodal2hier_;
   block_sparse_matrix<P> hier2wav_;
 
-  block_sparse_matrix<P> test_mat; // test inv
+  #ifdef ASGARD_USE_GPU
+  //! gpu coefficient matrices for different levels wavelet to nodal
+  std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lwav2nodal_;
+  //! gpu coefficient matrices for different levels nodal to hierarchical
+  std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lnodal2hier_;
+  //! gpu coefficient matrices for different levels hierarchical to wavelet
+  std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lhier2wav_;
+  //! pointers to gpu matrices for different levels
+  std::array<gpu::vector<P*>, max_num_gpus> gpu_wav2nodal_;
+  //! pointers to gpu matrices for different levels
+  std::array<gpu::vector<P*>, max_num_gpus> gpu_nodal2hier_;
+  //! pointers to gpu matrices for different levels
+  std::array<gpu::vector<P*>, max_num_gpus> gpu_hier2wav_;
+  #endif
 
   #ifdef ASGARD_USE_FLOPCOUNTER
   struct flop_info_entry {

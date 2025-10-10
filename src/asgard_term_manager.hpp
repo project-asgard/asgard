@@ -190,7 +190,7 @@ struct term_manager
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
   // for both multi-gpu support and interpolation evals on the CPU
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
-  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
 
   //! dependencies for each term group, last entry is for all terms

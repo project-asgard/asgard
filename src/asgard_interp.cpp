@@ -678,6 +678,49 @@ quadmd_manager<P>::quadmd_manager(
   // wav2nodal_.to_full(conn).print();
   // nodal2hier_.to_full(conn).print();
   // hier2wav_.to_full(conn).print();
+
+#ifdef ASGARD_USE_GPU
+  int const num_gpus = compute->num_gpus();
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++) {
+    compute->set_device(gpu::device{g});
+
+    std::vector<P*> coeff_pntrs(level + 1, nullptr);
+
+    // loading wav2nodal_
+    gpu_lwav2nodal_[g].resize(level + 1);
+    for (int l = 0; l < level; l++) {
+      gpu_lwav2nodal_[g][l] = wav2nodal_.get_subpattern(l, conn).data_vector();
+      coeff_pntrs[l]        = gpu_lwav2nodal_[g][l].data();
+    }
+    gpu_lwav2nodal_[g][level] = wav2nodal_.data_vector();
+    coeff_pntrs[level]        = gpu_lwav2nodal_[g][level].data();
+
+    gpu_wav2nodal_[g] = coeff_pntrs;
+
+    // loading nodal2hier_
+    gpu_lnodal2hier_[g].resize(level + 1);
+    for (int l = 0; l < level; l++) {
+      gpu_lnodal2hier_[g][l] = nodal2hier_.get_subpattern(l, conn).data_vector();
+      coeff_pntrs[l]         = gpu_lnodal2hier_[g][l].data();
+    }
+    gpu_lnodal2hier_[g][level] = nodal2hier_.data_vector();
+    coeff_pntrs[level]         = gpu_lnodal2hier_[g][level].data();
+
+    gpu_nodal2hier_[g] = coeff_pntrs;
+
+    // loading hier2wav_
+    gpu_lhier2wav_[g].resize(level + 1);
+    for (int l = 0; l < level; l++) {
+      gpu_lhier2wav_[g][l] = hier2wav_.get_subpattern(l, conn).data_vector();
+      coeff_pntrs[l]       = gpu_lhier2wav_[g][l].data();
+    }
+    gpu_lhier2wav_[g][level] = hier2wav_.data_vector();
+    coeff_pntrs[level]       = gpu_lhier2wav_[g][level].data();
+
+    gpu_hier2wav_[g] = coeff_pntrs;
+  }
+#endif
 }
 
 template<typename P>
