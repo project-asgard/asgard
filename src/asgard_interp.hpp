@@ -185,6 +185,10 @@ public:
 
   //! indicates whether the manager has been initialized
   operator bool () const { return (num_dims > 0); }
+  //! indicates whether the mass matrix has been set
+  bool has_mass() const { return !!mass_; }
+  //! sets the mass matrix, used for the global mass
+  void set_mass(std::array<block_diag_matrix<P>, max_num_dimensions> const &global_mass);
 
   #ifdef ASGARD_USE_GPU
   //! compute nodal values for the field
@@ -297,6 +301,9 @@ private:
 
   mutable int grid_gen = -1;
 
+  std::vector<P> trans_mats_; // transform for the hierarchical basis
+  block_diag_matrix<P> diag_h2w;
+
   std::vector<P> nodes1d_;
   mutable vector2d<P> nodes_;
 
@@ -307,6 +314,8 @@ private:
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
   block_sparse_matrix<P> hier2wav_;
+
+  std::optional<std::array<block_sparse_matrix<P>, max_num_dimensions>> mass_;
 
   #ifdef ASGARD_USE_GPU
   //! gpu coefficient matrices for different levels wavelet to nodal

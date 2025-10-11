@@ -67,7 +67,7 @@ interpolation_manager<P>::interpolation_manager(
 
   // transformation matrices for the permutation and hierarchical coefficients
   // 4 matrices of size 2 * pdof X 2 * pdof, plus the lower order nodes
-  std::vector<P> trans_mats_(3 * 4 * pdof2 + pdof);
+  trans_mats_.resize(3 * 4 * pdof2 + pdof);
   smmat::matrix<P> permute(2 * pdof, trans_mats_.data());
   smmat::matrix<P> hier_coeff(2 * pdof, trans_mats_.data() + 4 * pdof * pdof);
   smmat::matrix<P> ihier_coeff(2 * pdof, trans_mats_.data() + 8 * pdof * pdof);
@@ -110,7 +110,7 @@ interpolation_manager<P>::interpolation_manager(
   // ------------------------------------------------------------
   // transforming hierarchical Legendre coefficients to nodal values
   // ------------------------------------------------------------
-  block_diag_matrix<P> mat(pdof * pdof, num_cells);
+  diag_h2w = block_diag_matrix<P>(pdof * pdof, num_cells);
 
   {
     // values of Legendre polynomials at the interpolation points
@@ -121,18 +121,18 @@ interpolation_manager<P>::interpolation_manager(
     for(auto &l : leg_vals) l *= sqrt_size;
 
     if constexpr (is_double<P>) {
-      fill_pattern(leg_vals.data(), mat);
+      fill_pattern(leg_vals.data(), diag_h2w);
     } else {
       std::vector<P> fleg(leg_vals.size());
       std::copy(leg_vals.begin(), leg_vals.end(), fleg.begin());
-      fill_pattern(fleg.data(), mat);
+      fill_pattern(fleg.data(), diag_h2w);
     }
   }
 
   wav2nodal_ = hier.diag2block(hierarchy_manipulator<P>::operation::custom_unitary,
                                permute.data(),
                                hierarchy_manipulator<P>::operation::transform,
-                               nullptr, mat, level, conn);
+                               nullptr, diag_h2w, level, conn);
 
   // ------------------------------------------------------------
   // transforming nodal coefficients to hierarchical coefficients
@@ -161,13 +161,13 @@ interpolation_manager<P>::interpolation_manager(
 
   // hier_coeff.print();
 
-  fill_pattern(smmat::make_identity<P>(pdof).data(), mat); // start with identity
+  fill_pattern(smmat::make_identity<P>(pdof).data(), diag_h2w); // start with identity
 
   nodal2hier_ = hier.diag2block(
                     hierarchy_manipulator<P>::operation::custom_non_unitary,
                     hier_coeff.data(),
                     hierarchy_manipulator<P>::operation::custom_unitary,
-                    permute.data(), mat, level, conn);
+                    permute.data(), diag_h2w, level, conn);
 
   // ------------------------------------------------------------
   // projecting hierarchical interpolation basis to hierarchical Legendre
@@ -207,18 +207,18 @@ interpolation_manager<P>::interpolation_manager(
     for(auto &s : base) s *= scale;
 
     if constexpr (is_double<P>) {
-      fill_pattern(base.data(), mat);
+      fill_pattern(base.data(), diag_h2w);
     } else {
       std::vector<P> fbase(base.size());
       std::copy(base.begin(), base.end(), fbase.begin());
-      fill_pattern(fbase.data(), mat);
+      fill_pattern(fbase.data(), diag_h2w);
     }
   }
 
   hier2wav_ = hier.diag2block(
                   hierarchy_manipulator<P>::operation::transform, nullptr,
                   hierarchy_manipulator<P>::operation::custom_non_unitary,
-                  ihier_coeff.data(), mat, level, conn);
+                  ihier_coeff.data(), diag_h2w, level, conn);
 
 
   // wav2nodal_.to_full(conn).print();
@@ -267,6 +267,14 @@ interpolation_manager<P>::interpolation_manager(
     gpu_hier2wav_[g] = coeff_pntrs;
   }
 #endif
+}
+
+template<typename P>
+void interpolation_manager<P>::set_mass(
+    std::array<block_diag_matrix<P>, max_num_dimensions> const &global_mass)
+{
+  mass_.emplace();
+  // TODO do the mass matrix here
 }
 
 template<typename P>
