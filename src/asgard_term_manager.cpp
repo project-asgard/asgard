@@ -1138,11 +1138,17 @@ void term_manager<P>::apply_tmpl_gpu(
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
   auto kterm = [&grid, &conns, this]
-               (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
+               (gpu::device dev, term_entry<P> const &tme,
+                P al, P const in[], P be, P out[], bool use_ifield = false)
     -> void {
       if (tme.tmd.is_interpolatory()) {
-        interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
-               cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
+        if (use_ifield) {
+          interp.field2wav(dev, grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork,
+                           cpu_it1[dev.id],gpu_it1[dev.id], gpu_it2[dev.id]);
+        } else {
+          interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
+                 cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
+        }
       } else {
         block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                   al, in, be, out, kwork, tme.coeffs);
@@ -1204,6 +1210,11 @@ void term_manager<P>::apply_tmpl_gpu(
     }
 
     P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
+
+    if (not ifield.empty()) {
+      interp.wav2nodal(gpu::device{0}, grid, conns, xpntr, gpu_it1[0].data(), kwork);
+      gpu_it1[0].copy_to_host(ifield);
+    }
 
     bool term_found = false; // does this GPU have at least 1 term
 

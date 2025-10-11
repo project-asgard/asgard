@@ -233,6 +233,19 @@ public:
     block_gpu(dev, pdof, grid, conn, perm_up, gpu_hier2wav_[dev.id],
               alpha * P{iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
   }
+  void field2wav(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
+                 P time, std::vector<P> const &field,
+                 P alpha, md_func_f<P> const &func, P beta, P y[],
+                 kronmult::workspace<P> &work, std::vector<P> &t1,
+                 gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+  {
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), field, t1);
+    }
+    gpu_t1 = t1;
+    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+  }
 
   /*!
    * \brief Performs the interpolation of the function func
