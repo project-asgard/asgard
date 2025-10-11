@@ -117,7 +117,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   {
     bool has_interp = pde.has_interp_funcs;
-    bool has_field_interp = false; // interpolating from a field
 
     auto ir = terms.begin();
     for (int i : iindexof(pde_terms.size()))
@@ -141,20 +140,14 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
           ir++->num_chain = -1;
         }
-        has_field_interp = has_field_interp or (ir - 1)->tmd.is_interpolatory();
       } else {
         has_interp = has_interp or pde_terms[i].is_interpolatory();
-
-        has_field_interp = has_field_interp or pde_terms[i].is_interpolatory();
 
         *ir++ = term_entry<P>(std::move(pde_terms[i]));
       }
     }
-    // TODO: adjust these for MPI
     if (has_interp)
       interp = interpolation_manager<P>(domain, hier, conn);
-    if (has_field_interp)
-      ifield.resize(1);
   }
 
   // compute the dependencies
@@ -349,6 +342,26 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       if (is_active_bc(bc)) bc.ilump = j++;
   }
   sweights.reserve(num_lumped); // one weight per lumped source
+
+  // second pass on the problem of assigning workspaces and preparing objects
+  // e.g., the needed resources change if this MPI rank has no terms with need
+  {
+    bool has_field_interp = false; // interpolating from a field
+    auto it = terms.begin();
+    while (it < terms.end()) {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(it->rec)) {
+        it += it->num_chain;
+        continue;
+      }
+      #endif
+      has_field_interp = has_field_interp or (not (it + it->num_chain - 1)->is_separable());
+      it += it->num_chain;
+    }
+
+    if (has_field_interp)
+      ifield.resize(1);
+  }
 }
 
 template<typename P>
