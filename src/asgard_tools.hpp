@@ -303,6 +303,29 @@ inline std::string split_style(int64_t num) {
   return s;
 };
 
+//! writes a vector-like to cout using range-based for-loop
+template<typename range_like>
+void dump(range_like const &x, std::string message = "") {
+  if (message.empty())
+    std::cout << " ------- dumping ------------ \n";
+  else
+    std::cout << " ------- dumping: " << message << '\n';
+  for (auto const &v : x)
+    std::cout << v << '\n';
+  std::cout << " ---------------------------- \n";
+}
+//! writes an array/pointer to cout using range-based for-loop
+template<typename P>
+void dump(int n, P const x[], std::string message = "") {
+  if (message.empty())
+    std::cout << " ------- dumping ------------ \n";
+  else
+    std::cout << " ------- dumping: " << message << '\n';
+  for (int i = 0; i < n; i++)
+    std::cout << x[i] << '\n';
+  std::cout << " ---------------------------- \n";
+}
+
 } // namespace asgard::tools
 
 //! shortcuts for mpi commands

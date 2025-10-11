@@ -1,5 +1,7 @@
 #include "asgard.hpp"
 
+#include "asgard_test_macros.hpp"
+
 using namespace asgard;
 
 using prec = asgard::default_precision;

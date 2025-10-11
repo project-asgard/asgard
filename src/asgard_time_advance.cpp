@@ -261,8 +261,6 @@ void rungekutta<P>::next_step(
   }
   #endif
 
-  // auto const &grid = disc.get_grid(); // TODO: remove later
-
   switch (rktype) {
     case time_method::forward_euler:
       k1.resize(current.size());
@@ -300,19 +298,12 @@ void rungekutta<P>::next_step(
       s1.resize(current.size());
 
       disc.ode_rhs(time, current, k1);
-      // std::cout << " k1 \n";
-      // for (size_t i = 0; i < current.size(); i++)
-      //   //std::cout << current[i] << "   " << k1[i] << "\n";
-      //   std::cout << current[i] << "   " << k1[i] << "   " << grid[i][0] << "   " << grid[i][1] << "\n";
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
         s1[i] = current[i] + 0.5 * dt * k1[i];
 
       disc.ode_rhs(time + 0.5 * dt, s1, k2);
-      // std::cout << " k2 \n";
-      // for (size_t i = 0; i < current.size(); i++)
-      //   std::cout << s1[i] << "   " << k2[i] << "\n";
 
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < current.size(); i++)
@@ -386,7 +377,7 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep
         disc.terms_apply(-substep * dt, current, 1, w);
 
       disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-          disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, w);
+          disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, w);
 
       resources.reduce_add(w, rhs);
 
@@ -400,10 +391,10 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep
           disc.terms_apply(-substep * dt, w, 0, rhs);
 
         disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
+            disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
       } else {
         disc.get_terms_m().template apply_sources<data_mode::scal_rep>(
-            disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
+            disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
       }
 
       resources.reduce_add(rhs);
@@ -417,7 +408,7 @@ void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep
       disc.terms_apply(-substep * dt, current, 1, rhs);
 
     disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-        disc.domain(), disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
+        disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
 #ifdef ASGARD_USE_MPI
   }
 #endif

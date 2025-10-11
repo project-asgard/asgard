@@ -413,6 +413,8 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       -> gpu_connect_1d const & {
     if (perm.flux_dir != -1 and fill == conn_fill::both)
       return gpu_conn.full();
+    else if (fill == conn_fill::lower_udiag)
+      return gpu_conn.patts[static_cast<int>(conn_fill::lower)];
     else
       return gpu_conn.patts[static_cast<int>(fill)];
   };
@@ -430,6 +432,9 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                      get_connect_1d(perm.fill[i][0]),
                      coeffs[dir].data(), x, w1);
 
+    if (perm.fill[i][0] == conn_fill::lower_udiag)
+      compute->axpy(num_entries, x, w1);
+
     for (int d = 1; d < active_dims; d++)
     {
       dir = perm.direction[i][d];
@@ -438,6 +443,9 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
                        get_connect_1d(perm.fill[i][d]),
                        coeffs[dir].data(), w1, w2);
+
+      if (perm.fill[i][d] == conn_fill::lower_udiag)
+        compute->axpy(num_entries, w1, w2);
 
       std::swap(w1, w2);
     }
@@ -476,7 +484,9 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
     // if (perm.flux_dir != -1 and fill == conn_fill::both) {
     //   return gpu_conn.full();
     // } else
-      return gpu_conn.patts[static_cast<int>(fill)];
+    if (fill == conn_fill::lower_udiag)
+      return gpu_conn.patts[static_cast<int>(conn_fill::lower)];
+    return gpu_conn.patts[static_cast<int>(fill)];
   };
 
   int const num_dims    = grid.num_dims();
@@ -492,6 +502,9 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                      get_connect_1d(perm.fill[i][0]),
                      coeffs.data(), x, w1);
 
+    if (perm.fill[i][0] == conn_fill::lower_udiag)
+      compute->axpy(num_entries, x, w1);
+
     for (int d = 1; d < active_dims; d++)
     {
       dir = perm.direction[i][d];
@@ -500,6 +513,9 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
                        get_connect_1d(perm.fill[i][d]),
                        coeffs.data(), w1, w2);
+
+      if (perm.fill[i][d] == conn_fill::lower_udiag)
+        compute->axpy(num_entries, w1, w2);
 
       std::swap(w1, w2);
     }
@@ -512,26 +528,6 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
     }
     compute->axpy(num_entries, alpha, w1, y);
   }
-}
-
-template<typename precision>
-void blocksv_gpu(gpu::device dev, int n, sparse_grid const &grid,
-                 connection_patterns const &conns,
-                 gpu::vector<precision *> const &gpu_vals,
-                 precision y[], workspace<precision> &work,
-                 // the parameters below are used only for fallback
-                 block_sparse_matrix<precision> const &gvals)
-{
-  {
-    int64_t const num_entries = work.gpu_w1[dev.id].size();
-    static std::vector<precision> cpu_y;
-    gpu::copy_to_host(num_entries, y, cpu_y);
-    blocksv_cpu(n, grid, conns[connect_1d::hierarchy::volume], gvals,
-                cpu_y.data(), work);
-    gpu::copy_to_device(cpu_y, y);
-    return;
-  }
-  ignore(gpu_vals);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -548,11 +544,6 @@ template void block_gpu<double>(
     double, double const[], double, double[],
     workspace<double> &, block_sparse_matrix<double> const &);
 
-template void blocksv_gpu(
-    gpu::device, int, sparse_grid const &, connection_patterns const &,
-    gpu::vector<double *> const &, double[], workspace<double> &,
-    block_sparse_matrix<double> const &);
-
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -568,11 +559,6 @@ template void block_gpu<float>(
     gpu::vector<float *> const &,
     float, float const[], float, float[],
     workspace<float> &, block_sparse_matrix<float> const &);
-
-template void blocksv_gpu(
-    gpu::device, int, sparse_grid const &, connection_patterns const &,
-    gpu::vector<float *> const &, float[], workspace<float> &,
-    block_sparse_matrix<float> const &);
 
 #endif
 

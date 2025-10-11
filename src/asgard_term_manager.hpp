@@ -189,7 +189,7 @@ struct term_manager
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
   // for both multi-gpu support and interpolation evals on the CPU
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
-  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
 
   //! dependencies for each term group, last entry is for all terms
@@ -416,33 +416,33 @@ struct term_manager
 
   //! process the source group and store the result into pre-allocated vector
   template<data_mode dmode>
-  void apply_sources(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
+  void apply_sources(int groupid, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]);
   //! process all the sources and store the result into pre-allocated vector
   template<data_mode dmode>
-  void apply_sources(pde_domain<P> const &domain, sparse_grid const &grid,
+  void apply_sources(sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]) {
-    apply_sources<dmode>(-1, domain, grid, conns, hier, time, alpha, y);
+    apply_sources<dmode>(-1, grid, conns, hier, time, alpha, y);
   }
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
-  void apply_sources(int groupid, pde_domain<P> const &domain, sparse_grid const &grid,
+  void apply_sources(int groupid, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, std::vector<P> &y)
   {
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(groupid, domain, grid, conns, hier, time, alpha, y.data());
+    apply_sources<dmode>(groupid, grid, conns, hier, time, alpha, y.data());
   }
   //! process all sources and apply the dmode operation to y
   template<data_mode dmode>
-  void apply_sources(pde_domain<P> const &domain, sparse_grid const &grid,
+  void apply_sources(sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, std::vector<P> &y)
   {
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(-1, domain, grid, conns, hier, time, alpha, y.data());
+    apply_sources<dmode>(-1, grid, conns, hier, time, alpha, y.data());
   }
 
 protected:

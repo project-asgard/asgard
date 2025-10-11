@@ -102,16 +102,37 @@ template<typename P>
 class hierarchy_manipulator
 {
 public:
+  /*!
+   * \brief Indicated whether to use standard wavelet transform or permutation
+   *
+   * The algorithms for both operations are identical, the difference
+   * is in the matrices being used.
+   * The enum are used in conjunction with if-constexpr to select
+   * the proper matrices to apply.
+   */
+  enum class operation {
+    //! transform cell-by-cell Legendre basis to hierarchical wavelets
+    transform,
+    //! perform custom unitary transformation using a custom matrix
+    custom_unitary,
+    //! perform custom non-unitary transformation using a custom matrix
+    custom_non_unitary,
+  };
+
   //! empty hierarchy manipulator
   hierarchy_manipulator()
-      : degree_(0), block_size_(0), dmin({{0}}), dmax({{0}})
-  {}
+      : degree_(0), block_size_(0)
+  {
+    std::fill(dmin.begin(), dmin.end(), 0);
+    std::fill(dmax.begin(), dmax.end(), 0);
+  }
   //! set the degree and number of dimensions
   hierarchy_manipulator(int degree, int num_dimensions)
       : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
-        dmin({{0}}), dmax({{1}}),
         quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
+    std::fill(dmin.begin(), dmin.end(), 0);
+    std::fill(dmax.begin(), dmax.end(), 1);
     setup_projection_matrices();
   }
   //! initialize with the given domain
@@ -153,91 +174,70 @@ public:
 
   //! project separable function on the basis level
   template<data_mode action = data_mode::replace>
-  void project_separable(separable_func<P> const &sep, pde_domain<P> const &domain,
+  void project_separable(separable_func<P> const &sep,
                          sparse_grid const &grid, mass_diag<P> const &mass,
                          P time, P alpha, P f[]) const;
 
   //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
-  void project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
+  void project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level,
+                   std::vector<P> &proj_f) const
   {
     int const num_cells = fm::ipow2(level);
     prepare_quadrature(dim, num_cells);
     fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
     f(quad_points[dim], fvals);
 
-    project1d(dim, level, dmax[dim] - dmin[dim], mass);
+    project1d(dim, level, fvals, mass, pwork);
+    transform(level, pwork, proj_f);
   }
   //! computes the 1d projection of f onto the given level, result is in get_projected1d(dim)
-  std::vector<P> get_project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass, int dim, int level) const
+  std::vector<P> get_project1d_f(function_1d<P> const &f, block_diag_matrix<P> const &mass,
+                                 int dim, int level) const
   {
-    project1d_f(f, mass, dim, level);
-    return get_projected1d(dim);
+    std::vector<P> result;
+    project1d_f(f, mass, dim, level, result);
+    return result;
   }
   //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
-  void project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
+  void project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level,
+                   std::vector<P> &proj_f) const
   {
     int const num_cells = fm::ipow2(level);
     if (mass) {
       fvals.resize(num_cells * quad.stride());
       std::fill(fvals.begin(), fvals.end(), c);
-      project1d(dim, level, dmax[dim] - dmin[dim], mass);
+
+      project1d(dim, level, fvals, mass, pwork);
+      transform(level, pwork, proj_f);
     } else {
       // the projection is trivial, exploiting orthogonality of the basis
-      pf[dim].resize(num_cells * (degree_ + 1));
-      pf[dim].front() = c * std::sqrt(dmax[dim] - dmin[dim]);
-      std::fill(pf[dim].begin() + 1, pf[dim].end(), 0);
+      proj_f.resize(num_cells * (degree_ + 1));
+      proj_f.front() = c * std::sqrt(dmax[dim] - dmin[dim]);
+      std::fill(proj_f.begin() + 1, proj_f.end(), 0);
     }
   }
   //! computes the 1d projection of constant onto the given level, result is in get_projected1d(dim)
   std::vector<P> get_project1d_c(P const c, block_diag_matrix<P> const &mass, int dim, int level) const
   {
-    project1d_c(c, mass, dim, level);
-    return get_projected1d(dim);
+    std::vector<P> result;
+    project1d_c(c, mass, dim, level, result);
+    return result;
   }
 
   //! (testing purposes, skips hierarchy) computes the 1d projection of f onto the cells of a given level
-  std::vector<P> cell_project(function_1d<P> const &f, int level) const
+  std::vector<P> cell_project(int dim, function_1d<P> const &f, int level) const
   {
-    int constexpr dim = 0;
-
     int const num_cells = fm::ipow2(level);
     prepare_quadrature(dim, num_cells);
     fvals.resize(quad_points[dim].size()); // quad_points are resized and loaded above
     f(quad_points[dim], fvals);
 
     // project onto the basis
-    bool constexpr skip_hier = true;
-    project1d<skip_hier>(dim, level, dmax[dim] - dmin[dim], block_diag_matrix<P>{});
-
-    return stage0;
+    std::vector<P> result;
+    project1d(dim, level, fvals, block_diag_matrix<P>{}, result);
+    return result;
   }
 
-  //! return the 1d projection in the given direction
-  std::vector<P> const &get_projected1d(int dim) const { return pf[dim]; }
-
-  //! transforms the vector to a hierarchical representation
-  void project1d(int const level, std::vector<P> &x) const
-  {
-    if (level == 0) // nothing to project at level 0
-      return;
-    int64_t const size = fm::ipow2(level) * (degree_ + 1);
-    expect(size == static_cast<int64_t>(x.size()));
-    stage0.resize(size);
-    pf[0].resize(size);
-    std::copy_n(x.begin(), size, stage0.begin());
-    switch (degree_)
-    { // hardcoded degrees first, the default uses the projection matrices
-    case 0:
-      projectlevels<0>(0, level);
-      break;
-    case 1:
-      projectlevels<1>(0, level);
-      break;
-    default:
-      projectlevels<-1>(0, level);
-    };
-    std::copy_n(pf[0].begin(), size, x.begin());
-  }
   //! transform the batch of vectors to nodal representation
   void reconstruct1d(int const nbatch, int const level, span2d<P> hdata) const;
 
@@ -253,16 +253,119 @@ public:
   block_sparse_matrix<P> diag2hierarchical(
       block_diag_matrix<P> const &diag, int const level, connection_patterns const &conns) const;
 
+  //! converts matrix from diagonal to transformed on left/right with the given operations
+  block_sparse_matrix<P> diag2block(
+      operation left, operation right, block_diag_matrix<P> const &diag,
+      int const level, connection_patterns const &conns) const
+  {
+    block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
+    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
+
+    do_col_project_vol(right, nullptr, diag, level, conns, col);
+    do_row_project_any(left, nullptr, col, level, conns, res);
+
+    return res;
+  }
+
+  //! converts matrix from diagonal to transformed on left/right with the given operations
+  block_sparse_matrix<P> diag2block(
+      operation left, P const tl[], operation right, P const tr[],
+      block_diag_matrix<P> const &diag,
+      int const level, connection_patterns const &conns) const
+  {
+    block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
+    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
+
+    do_col_project_vol(right, tr, diag, level, conns, col);
+    do_row_project_any(left, tl, col, level, conns, res);
+
+    return res;
+  }
+
+  //! transform cell-by-cell Legendre coefficients into hierarchical wavelet coefficients
+  void transform(int level, P src[], P dest[]) const
+  {
+    constexpr operation op = operation::transform;
+    switch (degree_) {
+      case 0:
+        apply_transform<0, op>(level, src, dest);
+        break;
+      case 1:
+        apply_transform<1, op>(level, src, dest);
+        break;
+      default:
+        apply_transform<-1, op>(level, src, dest);
+        break;
+    };
+  }
+  //! transform with vector overload
+  void transform(int level, std::vector<P> &src, std::vector<P> &dest) const
+  {
+    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
+    dest.resize(src.size());
+    transform(level, src.data(), dest.data());
+  }
+  //! transforms the vector to a hierarchical representation
+  void transform(int const level, std::vector<P> &x) const
+  {
+    if (level == 0) // nothing to project at level 0
+      return;
+    int64_t const size = fm::ipow2(level) * (degree_ + 1);
+    expect(size == static_cast<int64_t>(x.size()));
+
+    pwork.resize(size);
+    std::copy_n(x.begin(), size, pwork.begin());
+    transform(level, pwork.data(), x.data());
+  }
+
+  //! apply a custom transform to the vectors (works for both unitary and non-unitary)
+  void transform(P const *trans, int level, P src[], P dest[]) const
+  {
+    // the unitary/non-unitary property of the map relates only to the inverse,
+    // i.e., when constructing the column transformation
+    expect(trans != nullptr);
+    constexpr operation op = operation::custom_unitary;
+    switch (degree_) {
+      case 0:
+        apply_transform<0, op>(trans, level, src, dest);
+        break;
+      case 1:
+        apply_transform<1, op>(trans, level, src, dest);
+        break;
+      default:
+        apply_transform<-1, op>(trans, level, src, dest);
+        break;
+    };
+  }
+  //! transform with vector overload
+  void transform(P const *trans, int level, std::vector<P> &src, std::vector<P> &dest) const
+  {
+    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
+    dest.resize(src.size());
+    transform(trans, level, src.data(), dest.data());
+  }
+
 protected:
   /*!
-   * \brief Converts function values to the final hierarchical coefficients
+   * \brief Perform the transformation on the given data
    *
-   * Assumes that fvals already contains the function values at the quadrature
-   * points. The method will convert to local basis coefficients and then convert
-   * to hierarchical representation stored in pf.
+   * \tparam tdegree is the the degree, allows hardcoding simple matrices
+   *
+   * \param level is the level for the transformation
+   * \param src is the source with size 2^level, this operation will destroy the source
+   * \param dest is the destination with same size as src
    */
-  template<bool skip_hierarchy = false>
-  void project1d(int dim, int level, P const dsize, block_diag_matrix<P> const &mass) const;
+  template<int tdegree, operation op>
+  void apply_transform(int level, P src[], P dest[]) const {
+    apply_transform<tdegree, op>(nullptr, level, src, dest);
+  }
+
+  template<int tdegree, operation op>
+  void apply_transform(P const *trans, int level, P src[], P dest[]) const;
+
+  //! Given values of a function, project on the cell-by-cell basis
+  void project1d(int dim, int level, std::vector<P> const &vals,
+                 block_diag_matrix<P> const &mass, std::vector<P> &cells) const;
   //! reusable constants std::sqrt(2.0)
   static constexpr P s2 = 1.41421356237309505;
   //! reusable constants 1.0 / std::sqrt(2.0)
@@ -277,21 +380,6 @@ protected:
    * function.
    */
   void prepare_quadrature(int dim, int num_cells) const;
-
-  //! project 2 * num_final raw cells up the hierarchy into upper raw and final cells
-  template<int tdegree>
-  void projectup(int num_final, P const *raw, P *upper, P *fin) const;
-  //! project the last two cells for level 0 and level 1
-  template<int tdegree>
-  void projectup2(P const *raw, P *fin) const;
-  /*!
-   * \brief Computes the local-coefficients to hierarchical representation
-   *
-   * The local coefficients must be already stored in stage0.
-   * Both stage0 and stage1 will be used as scratch space here.
-   */
-  template<int tdegree>
-  void projectlevels(int dim, int levels) const;
 
   //! tempalted version for reduction of runtime if-statements
   template<int tdegree>
@@ -312,18 +400,95 @@ protected:
                         block_sparse_matrix<P> &sp) const;
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
-  template<int tdegree>
-  void col_project_full(block_diag_matrix<P> const &diag,
-                        int const level,
-                        connection_patterns const &conn,
-                        block_sparse_matrix<P> &sp) const;
+  template<int tdegree, operation op>
+  void col_project_vol(P const *trans,
+                       block_diag_matrix<P> const &diag,
+                       int const level,
+                       connection_patterns const &conn,
+                       block_sparse_matrix<P> &sp) const;
 
   //! apply row transform on sparse col-full pattern
-  template<int tdegree>
-  void row_project_full(block_sparse_matrix<P> &col,
-                        int const level,
-                        connection_patterns const &conn,
-                        block_sparse_matrix<P> &sp) const;
+  template<int tdegree, operation op>
+  void row_project_any(P const *trans,
+                       block_sparse_matrix<P> &col,
+                       int const level,
+                       connection_patterns const &conn,
+                       block_sparse_matrix<P> &sp) const;
+
+  //! maps the degree for the specified operation
+  template<operation op>
+  void do_col_project_vol_(P const trans[],
+                           block_diag_matrix<P> const &diag,
+                           int const level,
+                           connection_patterns const &conn,
+                           block_sparse_matrix<P> &sp) const
+  {
+    switch (degree_) {
+    case 0:
+      col_project_vol<0, op>(trans, diag, level, conn, sp);
+      break;
+    case 1:
+      col_project_vol<1, op>(trans, diag, level, conn, sp);
+      break;
+    default:
+      col_project_vol<-1, op>(trans, diag, level, conn, sp);
+      break;
+    };
+  }
+  //! maps the operation to the correct template and degree
+  void do_col_project_vol(operation op, P const trans[],
+                          block_diag_matrix<P> const &diag,
+                          int const level,
+                          connection_patterns const &conn,
+                          block_sparse_matrix<P> &sp) const
+  {
+    switch (op) {
+    case operation::custom_unitary:
+      do_col_project_vol_<operation::custom_unitary>(trans, diag, level, conn, sp);
+      break;
+    case operation::custom_non_unitary:
+      do_col_project_vol_<operation::custom_non_unitary>(trans, diag, level, conn, sp);
+      break;
+    default: // case operation::transform:
+      do_col_project_vol_<operation::transform>(trans, diag, level, conn, sp);
+      break;
+    };
+  }
+
+  //! maps the degree for the specified operation
+  template<operation op>
+  void do_row_project_any_(P const trans[],
+                           block_sparse_matrix<P> &col,
+                           int const level,
+                           connection_patterns const &conn,
+                           block_sparse_matrix<P> &sp) const
+  {
+    switch (degree_) {
+    case 0:
+      row_project_any<0, op>(trans, col, level, conn, sp);
+      break;
+    case 1:
+      row_project_any<1, op>(trans, col, level, conn, sp);
+      break;
+    default:
+      row_project_any<-1, op>(trans, col, level, conn, sp);
+      break;
+    };
+  }
+  //! maps the operation to the correct template and degree
+  void do_row_project_any(operation op, P const trans[],
+                          block_sparse_matrix<P> &col,
+                          int const level,
+                          connection_patterns const &conn,
+                          block_sparse_matrix<P> &sp) const
+  {
+    if (op == operation::transform) {
+      do_row_project_any_<operation::transform>(trans, col, level, conn, sp);
+    } else {
+      // the unitary and the non-unitary transforms are equivalent here
+      do_row_project_any_<operation::custom_unitary>(trans, col, level, conn, sp);
+    }
+  }
 
   //! call from the constructor, makes it easy to have variety of constructor options
   void setup_projection_matrices();
@@ -334,30 +499,32 @@ private:
 
   std::array<P, max_num_dimensions> dmin, dmax;
 
-  static int constexpr points  = 0;
+  static int constexpr points  = 0; // tags for the entries in the quadrature structure
   static int constexpr weights = 1;
   vector2d<P> quad; // single cell quadrature
   vector2d<P> leg_vals; // values of Legendre polynomials at the quad points
   vector2d<P> leg_unscal; // Legendre polynomials not-scaled by the quadrature w.
 
-  std::vector<P> pmats; // projection matrices
-  P *pmatup  = nullptr; // this to upper level (alias to pmats)
-  P *pmatlev = nullptr; // this to same level (alias to pmats)
+  std::vector<P> tmats; // transformation matrices
+  P *tmatup  = nullptr; // this to upper level (alias to tmats)
+  P *tmatlev = nullptr; // this to same level (alias to tmats)
 
   // given the values of f(x) at the quadrature points inside of a cell
   // the projection of f onto the Legendre basis is leg_vals * f
   // i.e., small matrix times a small vector
 
+  // projected function values for each dimension
   mutable std::array<std::vector<P>, max_num_dimensions> pf;
+  // quadrature points workspace for each direction
   mutable std::array<std::vector<P>, max_num_dimensions> quad_points;
-  mutable std::array<std::vector<P>, max_num_dimensions> quad_dv;
+  // workspace for function values at quadrature nodes
   mutable std::vector<P> fvals;
-  mutable std::vector<P> stage0, stage1;
-
-  mutable std::array<block_matrix<P>, 2> matstage;
+  // workspaces for projection and transformation
+  mutable std::vector<P> pwork, twork;
 
   mutable std::vector<std::vector<P>> colblocks;
-  mutable std::array<block_sparse_matrix<P>, 4> rowstage;
+  // TODO: make reusable cache matrixes
+  //mutable std::array<block_sparse_matrix<P>, 4> rowstage;
 };
 
 } // namespace asgard

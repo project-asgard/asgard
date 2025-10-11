@@ -147,7 +147,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       }
     }
     if (has_interp)
-      interp = interpolation_manager<P>(domain, conn, hier.degree());
+      interp = interpolation_manager<P>(domain, hier, conn);
   }
 
   // compute the dependencies
@@ -292,22 +292,29 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   // prepare the workspaces for the sources
   // consider only sources that are associated with this MPI rank and not time-dependant
   // the time sources cannot use workspace to accelerate computations
+  #ifdef ASGARD_USE_MPI
   auto is_active_src = [&, this](source_entry<P> const &src) -> bool
     {
-      #ifdef ASGARD_USE_MPI
       if (not resources.owns(src.rec))
         return false;
-      #endif
       return (not src.is_time_dependent());
     };
   auto is_active_bc = [&, this](boundary_entry<P> const &bc) -> bool
     {
-      #ifdef ASGARD_USE_MPI
       if (not resources.owns(terms[bc.term_index].rec))
         return false;
-      #endif
       return (not bc.is_time_dependent());
     };
+  #else
+  auto is_active_src = [&](source_entry<P> const &src) -> bool
+    {
+      return (not src.is_time_dependent());
+    };
+  auto is_active_bc = [&](boundary_entry<P> const &bc) -> bool
+    {
+      return (not bc.is_time_dependent());
+    };
+  #endif
 
   for (auto const &src : sources)
     if (is_active_src(src)) num_lumped++;
@@ -440,7 +447,7 @@ void term_manager<P>::rebuld_term1d(
     boundary_entry<P> &bentry = bcs[b];
     if (not bentry.consts[dim].empty()) {
       // will be empty if non-flux direction and non-separable in time
-      hier.project1d(level, bentry.consts[dim]);
+      hier.transform(level, bentry.consts[dim]);
     }
   }
 
@@ -1070,6 +1077,7 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
       cpu_it1[g].resize(num_entries);
       cpu_it2[g].resize(num_entries);
       gpu_it1[g].resize(num_entries);
+      gpu_it2[g].resize(num_entries);
     }
   }
 }
@@ -1115,7 +1123,7 @@ void term_manager<P>::apply_tmpl_gpu(
     -> void {
       if (tme.tmd.is_interpolatory()) {
         interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
-               cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id]);
+               cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
       } else {
         block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                   al, in, be, out, kwork, tme.coeffs);

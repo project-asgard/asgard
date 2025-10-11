@@ -20,7 +20,9 @@ enum class conn_fill : int
   //! \brief All overlapping volume or edge support, regardless of child-parent relation
   both,
   //! \brief Row r is connected only to the parents of index r (no self-connection)
-  lower
+  lower,
+  //! \brief Row r is connected only to the parents of index r, self-connection is identity
+  lower_udiag,
 };
 
 /*!
@@ -428,11 +430,13 @@ public:
   void axpy(int num, P const x[], P y[]) const {
     static_assert(is_float<P> or is_double<P>,
                   "axpy can be called only with floats and doubles");
+    cublas_check_error( cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_DEVICE) );
     if constexpr (is_float<P>) {
       cublas_check_error( cublasSaxpy(cublas, num, fone.data(), x, 1, y, 1) );
     } else {
       cublas_check_error( cublasDaxpy(cublas, num, done.data(), x, 1, y, 1) );
     }
+    cublas_check_error( cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_HOST) );
   }
   //! sale an array, assuming contiguous gpu arrays
   template<typename P>
@@ -468,11 +472,13 @@ public:
   void axpy(int num, P const x[], P y[]) const {
     static_assert(is_float<P> or is_double<P>,
                   "axpy can be called only with floats and doubles");
+    rocblas_check_error( rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_device) );
     if constexpr (is_float<P>) {
       rocblas_check_error( rocblas_saxpy(rocblas, num, fone.data(), x, 1, y, 1) );
     } else {
       rocblas_check_error( rocblas_daxpy(rocblas, num, done.data(), x, 1, y, 1) );
     }
+    rocblas_check_error( rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_host) );
   }
   //! sale an array, assuming contiguous gpu arrays
   template<typename P>
@@ -596,6 +602,14 @@ auto diff_inf(vecx const &x, vecy const &y)
   for (index i = index{0}; i < x.size(); i++)
     m = std::max(m, std::abs(x[i] - y[i]));
   return m;
+}
+
+//! \brief returns the max norm of an array
+template<typename P>
+P nrm_inf(int n, P const x[]) {
+  P r = 0;
+  for (int i = 0; i < n; i++) r = std::max(r, std::abs(x[i]));
+  return r;
 }
 
 /*!

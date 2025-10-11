@@ -613,6 +613,17 @@ private:
 
 /*!
  * \internal
+ * \brief Fill the blocks of A with identical pattern pattern
+ *
+ * The block size for A is n by n, and the pattern must have n * n entries.
+ *
+ * \endinternal
+ */
+template<typename P>
+void fill_pattern(P const pattern[], block_diag_matrix<P> &A);
+
+/*!
+ * \internal
  * \brief Multiply block-tri-diagonal matrices
  *
  * The product of general tri-diagonal matrices is penta-diagonal matrix

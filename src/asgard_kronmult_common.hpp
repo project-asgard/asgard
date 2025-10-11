@@ -181,6 +181,19 @@ struct permutes
       }
     }
   }
+  //! \brief Create uniform transformation, only lower or upper
+  permutes(int num_dimensions, conn_fill same_fill)
+  {
+    if (num_dimensions < 1)
+      return;
+    expect(same_fill != conn_fill::both);
+
+    fill.emplace_back(num_dimensions, same_fill);
+
+    direction.emplace_back(num_dimensions);
+    for (int d = 0; d < num_dimensions; d++)
+      direction.front()[d] = d;
+  }
   permutes(std::vector<int> const &active_dirs, int fdir = -1)
       : permutes(static_cast<int>(active_dirs.size()))
   {
