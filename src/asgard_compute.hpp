@@ -430,11 +430,13 @@ public:
   void axpy(int num, P const x[], P y[]) const {
     static_assert(is_float<P> or is_double<P>,
                   "axpy can be called only with floats and doubles");
+    cublas_check_error( cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_DEVICE) );
     if constexpr (is_float<P>) {
       cublas_check_error( cublasSaxpy(cublas, num, fone.data(), x, 1, y, 1) );
     } else {
       cublas_check_error( cublasDaxpy(cublas, num, done.data(), x, 1, y, 1) );
     }
+    cublas_check_error( cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_HOST) );
   }
   //! sale an array, assuming contiguous gpu arrays
   template<typename P>

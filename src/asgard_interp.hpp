@@ -63,9 +63,9 @@ public:
     #else
     tools::time_event performance_("nodal-to-wavelet");
     #endif
-    block_cpu(pdof, grid, conn, perm, nodal2hier_,
+    block_cpu(pdof, grid, conn, perm_low, nodal2hier_,
               P{1}, f, P{0}, t1.data(), work);
-    block_cpu(pdof, grid, conn, perm, hier2wav_,
+    block_cpu(pdof, grid, conn, perm_up, hier2wav_,
               alpha * P{iwav_scale}, t1.data(), beta, vals, work);
   }
 
@@ -200,9 +200,9 @@ public:
     #else
     tools::time_event performance_("nodal-to-wavelet");
     #endif
-    block_gpu(dev, pdof, grid, conn, perm, gpu_nodal2hier_[dev.id],
+    block_gpu(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, t1.data(), work, nodal2hier_);
-    block_gpu(dev, pdof, grid, conn, perm, gpu_hier2wav_[dev.id],
+    block_gpu(dev, pdof, grid, conn, perm_up, gpu_hier2wav_[dev.id],
               alpha * P{iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
   }
 
@@ -260,6 +260,8 @@ private:
   mutable vector2d<P> nodes_;
 
   kronmult::permutes perm;
+  kronmult::permutes perm_low; // only lower matrices
+  kronmult::permutes perm_up; // only upper matrices
 
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;

@@ -9,7 +9,9 @@ interpolation_manager<P>::interpolation_manager(
     pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
     connection_patterns const &conn)
     : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size()),
-      perm(num_dims)
+      perm(num_dims),
+      perm_low(num_dims, conn_fill::lower_udiag),
+      perm_up(num_dims, conn_fill::upper)
 {
   wav_scale  = 1;
   for (int d : iindexof(num_dims)) {

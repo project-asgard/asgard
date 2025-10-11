@@ -328,7 +328,7 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
 
         if constexpr (n != -1) {
           if constexpr (fill == conn_fill::lower_udiag) {
-            std::copy_n(x + conn[conn.row_diag(row)] * block_size, block_size, local_y);
+            std::copy_n(x + xidx[row], block_size, local_y);
           } else {
             for (int j = 0; j < block_size; j++)
               local_y[j] = precision{0};
