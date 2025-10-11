@@ -321,12 +321,19 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
         precision *const local_y = y + xidx[row];
 
         // columns for the 1d pattern
-        int col_begin = (fill == conn_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
-        int col_end   = (fill == conn_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
+        int col_begin = (fill == conn_fill::upper)
+                         ? conn.row_diag(row) : conn.row_begin(row);
+        int col_end   = (fill == conn_fill::lower or fill == conn_fill::lower_udiag)
+                         ? conn.row_diag(row) : conn.row_end(row);
 
-        if constexpr (n != -1)
-          for (int j = 0; j < block_size; j++)
-            local_y[j] = precision{0};
+        if constexpr (n != -1) {
+          if constexpr (fill == conn_fill::lower_udiag) {
+            std::copy_n(x + conn[conn.row_diag(row)] * block_size, block_size, local_y);
+          } else {
+            for (int j = 0; j < block_size; j++)
+              local_y[j] = precision{0};
+          }
+        }
 
         for (int c = col_begin; c < col_end; c++)
         {
@@ -356,89 +363,6 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
   } // pragma parallel
 }
 
-template<typename precision, int num_dimensions, int dim, int n>
-void globalsv_cpu(
-    sparse_grid const &grid, connect_1d const &conn, precision const vals[],
-    precision y[], std::vector<std::vector<int64_t>> &row_wspace)
-{
-  constexpr int n2 = n * n;
-
-  constexpr int64_t block_size = ipow<n, num_dimensions>();
-
-  dimension_sort const &dsort = grid.dsort();
-
-  int const num_vecs = dsort.num_vecs(dim);
-
-#ifdef _OPENMP
-  int const max_threads = omp_get_max_threads();
-#else
-  int const max_threads = 1;
-#endif
-
-  if (static_cast<int>(row_wspace.size()) < max_threads)
-    row_wspace.resize(max_threads);
-
-  int threadid = 0;
-#pragma omp parallel
-  {
-    int64_t my_block_count = 0;
-
-    int tid;
-#pragma omp critical
-    tid = threadid++;
-
-    // xidx holds indexes for the entries of the current
-    // sparse row that are present in the current ilist
-    std::vector<int64_t> &xidx = row_wspace[tid];
-    if (static_cast<int>(xidx.size()) < conn.num_rows())
-      xidx.resize(conn.num_rows(), -1);
-
-#pragma omp for schedule(dynamic)
-    for (int vec_id = 0; vec_id < num_vecs; vec_id++)
-    {
-      int const vec_begin = dsort.vec_begin(dim, vec_id);
-      int const vec_end   = dsort.vec_end(dim, vec_id);
-      // map the indexes of present entries
-      for (int j = vec_begin; j < vec_end; j++)
-        xidx[grid.dsorted(dim, j)] = dsort.map(dim, j) * block_size;
-
-      // matrix-vector product using xidx as a row
-      for (int rj = vec_begin; rj < vec_end; rj++)
-      {
-        // row in the 1d pattern
-        int const row = grid.dsorted(dim, rj);
-
-        precision *const local_y = y + xidx[row];
-
-        // columns for the 1d pattern, lower part only
-        int col_begin = conn.row_begin(row);
-        int col_end   = conn.row_diag(row);
-
-        for (int c = col_begin; c < col_end; c++)
-        {
-          int64_t const xj = xidx[conn[c]];
-          if (xj != -1)
-          {
-            if constexpr (n == -1)
-              ++my_block_count;
-            else
-              gbkron_mult_add<precision, num_dimensions, dim, n>(vals + n2 * c, y + xj, local_y);
-          }
-        }
-      }
-
-      // restore the entries
-      for (int j = vec_begin; j < vec_end; j++)
-        xidx[grid.dsorted(dim, j)] = -1;
-    }
-
-    if constexpr (n == -1)
-#pragma omp atomic
-      asgard_kronmult_nblocks_ += my_block_count;
-
-  } // omp pragma parallel
-}
-
 template<typename precision, conn_fill fill, int num_dimensions, int dim>
 void block_cpu(int n, sparse_grid const &grid,
                connect_1d const &conn, precision const vals[],
@@ -465,33 +389,6 @@ void block_cpu(int n, sparse_grid const &grid,
     break;
   default:
     throw std::runtime_error("(kronmult) unimplemented n for given -degree");
-  };
-}
-
-template<typename precision, int num_dimensions, int dim>
-void globalsv_cpu(int n, sparse_grid const &grid,
-                  connect_1d const &conn, precision const vals[],
-                  precision y[], std::vector<std::vector<int64_t>> &row_wspace)
-{
-  switch (n)
-  {
-  case -1: // special case: count the number of flops
-    globalsv_cpu<precision, num_dimensions, dim, -1>(grid, conn, vals, y, row_wspace);
-    break;
-  case 1: // pwconstant
-    globalsv_cpu<precision, num_dimensions, dim, 1>(grid, conn, vals, y, row_wspace);
-    break;
-  case 2: // linear
-    globalsv_cpu<precision, num_dimensions, dim, 2>(grid, conn, vals, y, row_wspace);
-    break;
-  case 3: // quadratic
-    globalsv_cpu<precision, num_dimensions, dim, 3>(grid, conn, vals, y, row_wspace);
-    break;
-  case 4: // cubic
-    globalsv_cpu<precision, num_dimensions, dim, 4>(grid, conn, vals, y, row_wspace);
-    break;
-  default:
-    throw std::runtime_error("(kronmult-sv) unimplemented n for given number of dims");
   };
 }
 
@@ -537,103 +434,6 @@ void block_cpu(int n, sparse_grid const &grid, int dim, connect_1d const &conn,
   static_assert(1 <= num_dimensions and num_dimensions <= max_num_dimensions);
 }
 
-template<typename precision, int num_dimensions>
-void globalsv_cpu(int n, sparse_grid const &grid,
-                  int dim, connect_1d const &conn, precision const vals[],
-                  precision y[], std::vector<std::vector<int64_t>> &row_wspace)
-{
-  expect(dim < num_dimensions);
-  if constexpr (num_dimensions == 1)
-  {
-    globalsv_cpu<precision, num_dimensions, 0>(n, grid, conn, vals, y, row_wspace);
-  }
-  else if constexpr (num_dimensions == 2)
-  {
-    if (dim == 0)
-      globalsv_cpu<precision, num_dimensions, 0>(n, grid, conn, vals, y, row_wspace);
-    else
-      globalsv_cpu<precision, num_dimensions, 1>(n, grid, conn, vals, y, row_wspace);
-  }
-  else if constexpr (num_dimensions == 3)
-  {
-    switch (dim)
-    {
-    case 0:
-      globalsv_cpu<precision, num_dimensions, 0>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 1:
-      globalsv_cpu<precision, num_dimensions, 1>(n, grid, conn, vals, y, row_wspace);
-      break;
-    default: // case 2:
-      globalsv_cpu<precision, num_dimensions, 2>(n, grid, conn, vals, y, row_wspace);
-      break;
-    }
-  }
-  else if constexpr (num_dimensions == 4)
-  {
-    switch (dim)
-    {
-    case 0:
-      globalsv_cpu<precision, num_dimensions, 0>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 1:
-      globalsv_cpu<precision, num_dimensions, 1>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 2:
-      globalsv_cpu<precision, num_dimensions, 2>(n, grid, conn, vals, y, row_wspace);
-      break;
-    default: // case 3:
-      globalsv_cpu<precision, num_dimensions, 3>(n, grid, conn, vals, y, row_wspace);
-      break;
-    }
-  }
-  else if constexpr (num_dimensions == 5)
-  {
-    switch (dim)
-    {
-    case 0:
-      globalsv_cpu<precision, num_dimensions, 0>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 1:
-      globalsv_cpu<precision, num_dimensions, 1>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 2:
-      globalsv_cpu<precision, num_dimensions, 2>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 3:
-      globalsv_cpu<precision, num_dimensions, 3>(n, grid, conn, vals, y, row_wspace);
-      break;
-    default: // case 4:
-      globalsv_cpu<precision, num_dimensions, 4>(n, grid, conn, vals, y, row_wspace);
-      break;
-    }
-  }
-  else // num_dimensions == 6
-  {
-    switch (dim)
-    {
-    case 0:
-      globalsv_cpu<precision, num_dimensions, 0>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 1:
-      globalsv_cpu<precision, num_dimensions, 1>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 2:
-      globalsv_cpu<precision, num_dimensions, 2>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 3:
-      globalsv_cpu<precision, num_dimensions, 3>(n, grid, conn, vals, y, row_wspace);
-      break;
-    case 4:
-      globalsv_cpu<precision, num_dimensions, 4>(n, grid, conn, vals, y, row_wspace);
-      break;
-    default: // case 5:
-      globalsv_cpu<precision, num_dimensions, 5>(n, grid, conn, vals, y, row_wspace);
-      break;
-    }
-  }
-}
-
 template<typename precision, conn_fill fill>
 void block_cpu(int num_dimensions, int n, sparse_grid const &grid,
                int dim, connect_1d const &conn,
@@ -666,37 +466,6 @@ void block_cpu(int num_dimensions, int n, sparse_grid const &grid,
 }
 
 template<typename precision>
-void globalsv_cpu(int num_dimensions, int n, sparse_grid const &grid,
-                  int dim, connect_1d const &conn,
-                  precision const vals[], precision y[],
-                  std::vector<std::vector<int64_t>> &row_wspace)
-{
-  switch (num_dimensions)
-  {
-  case 1:
-    globalsv_cpu<precision, 1>(n, grid, dim, conn, vals, y, row_wspace);
-    break;
-  case 2:
-    globalsv_cpu<precision, 2>(n, grid, dim, conn, vals, y, row_wspace);
-    break;
-  case 3:
-    globalsv_cpu<precision, 3>(n, grid, dim, conn, vals, y, row_wspace);
-    break;
-  case 4:
-    globalsv_cpu<precision, 4>(n, grid, dim, conn, vals, y, row_wspace);
-    break;
-  case 5:
-    globalsv_cpu<precision, 5>(n, grid, dim, conn, vals, y, row_wspace);
-    break;
-  case 6:
-    globalsv_cpu<precision, 6>(n, grid, dim, conn, vals, y, row_wspace);
-    break;
-  default:
-    throw std::runtime_error("(kronmult) works with only up to 6 dimensions");
-  };
-}
-
-template<typename precision>
 void block_cpu(int num_dimensions, int n, sparse_grid const &grid,
                int dim, conn_fill fill, connect_1d const &conn,
                precision const vals[], precision const x[],
@@ -706,6 +475,10 @@ void block_cpu(int num_dimensions, int n, sparse_grid const &grid,
   {
   case conn_fill::lower:
     block_cpu<precision, conn_fill::lower>(
+        num_dimensions, n, grid, dim, conn, vals, x, y, row_wspace);
+    break;
+  case conn_fill::lower_udiag:
+    block_cpu<precision, conn_fill::lower_udiag>(
         num_dimensions, n, grid, dim, conn, vals, x, y, row_wspace);
     break;
   case conn_fill::upper:
@@ -890,17 +663,6 @@ void block_cpu(
   }
 }
 
-template<typename precision>
-void blocksv_cpu(int n, sparse_grid const &grid,
-                 connect_1d const &vconn,
-                 block_sparse_matrix<precision> const &gvals,
-                 precision y[], workspace<precision> &work)
-{
-  int const num_dimensions = grid.num_dims();
-  for (int d = 0; d < num_dimensions; d++)
-    globalsv_cpu(num_dimensions, n, grid, d, vconn, gvals.data(), y, work.row_map);
-}
-
 #ifdef ASGARD_USE_FLOPCOUNTER
 
 template<typename precision>
@@ -960,18 +722,6 @@ int64_t block_cpu(
   return 2 * asgard_kronmult_nblocks_ * fm::ipow(n, num_dims + 1) + num_scal;
 }
 
-template<typename precision>
-int64_t blocksv_cpu(int n, sparse_grid const &grid, connect_1d const &vconn,
-                    workspace<precision> &work)
-{
-  asgard_kronmult_nblocks_ = 0;
-  int const num_dims = grid.num_dims();
-  for (int d = 0; d < num_dims; d++)
-    globalsv_cpu<precision>(num_dims, -1, grid, d, vconn, nullptr, nullptr, work.row_map);
-
-  return 2 * asgard_kronmult_nblocks_ * fm::ipow(n, num_dims + 1);
-}
-
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -986,18 +736,10 @@ template void block_cpu<double>(
       block_sparse_matrix<double> const &,
       double, double const[], double, double[], workspace<double> &);
 
-template void blocksv_cpu<double>(
-    int, sparse_grid const &, connect_1d const &,
-    block_sparse_matrix<double> const &,
-    double[], workspace<double> &);
-
 #ifdef ASGARD_USE_FLOPCOUNTER
 template int64_t block_cpu<double>(
     int, sparse_grid const &, connection_patterns const &,
     permutes const &, double, double, workspace<double> &);
-
-template int64_t blocksv_cpu<double>(
-    int, sparse_grid const &, connect_1d const &, workspace<double> &work);
 #endif
 
 #endif
@@ -1014,18 +756,10 @@ template void block_cpu<float>(
       block_sparse_matrix<float> const &,
       float, float const[], float, float[], workspace<float> &);
 
-template void blocksv_cpu<float>(
-      int, sparse_grid const &, connect_1d const &,
-      block_sparse_matrix<float> const &,
-      float y[], workspace<float> &workspace);
-
 #ifdef ASGARD_USE_FLOPCOUNTER
 template int64_t block_cpu<float>(
     int, sparse_grid const &, connection_patterns const &,
     permutes const &, float, float, workspace<float> &);
-
-template int64_t blocksv_cpu<float>(
-    int, sparse_grid const &, connect_1d const &, workspace<float> &work);
 #endif
 
 #endif

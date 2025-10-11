@@ -61,37 +61,11 @@ void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work);
 
-/*!
- * \brief Computes the inverse-action of a sparse Kronecker onto a vector
- *
- * Computes y = inv(A) * y, where A is a sparse Kronecker matrix.
- *
- * \tparam precision is float or double
- *
- * \param n is the size of the block, e.g., 1 for degree 0, 2 for linear basis and so on.
- * \param grid is the current sparse grid
- * \param volume_conn is the 1d volume connection pattern
- * \param gvlas defines the matrix to invert, gvlas is unit-block-lower-triangular
- *              and A is defined by the negative of gvlas
- * \param y is the vector to apply the inverse onto
- * \param work is initialized workspace
- */
-// template<typename precision>
-// void blocksv_cpu(int n, sparse_grid const &grid,
-//                  connect_1d const &volume_conn,
-//                  block_sparse_matrix<precision> const &gvals,
-//                  precision y[], workspace<precision> &work);
-
 #ifdef ASGARD_USE_FLOPCOUNTER
 //! counts the flops for the specific kronmult operation
 template<typename precision>
 int64_t block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
                   permutes const &perm, precision alpha, precision beta, workspace<precision> &work);
-
-//! counts the flops for the specific kronmult operation
-// template<typename precision>
-// int64_t blocksv_cpu(int n, sparse_grid const &grid, connect_1d const &volume_conn,
-//                     workspace<precision> &work);
 #endif
 
 #ifdef ASGARD_USE_GPU
@@ -126,19 +100,6 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                gpu::vector<precision *> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work, block_sparse_matrix<precision> const &cmat);
-
-/*!
- * \brief GPU implementation for the blocksv-cpu evaluate
- *
- * Uses the same matrix across all dimensions
- */
-template<typename precision>
-void blocksv_gpu(gpu::device dev, int n, sparse_grid const &grid,
-                 connection_patterns const &conns,
-                 gpu::vector<precision *> const &gpu_vals,
-                 precision y[], workspace<precision> &work,
-                 // the parameters below are used only for fallback
-                 block_sparse_matrix<precision> const &gvals);
 #endif
 
 } // namespace asgard::kronmult

@@ -20,7 +20,9 @@ enum class conn_fill : int
   //! \brief All overlapping volume or edge support, regardless of child-parent relation
   both,
   //! \brief Row r is connected only to the parents of index r (no self-connection)
-  lower
+  lower,
+  //! \brief Row r is connected only to the parents of index r, self-connection is identity
+  lower_udiag,
 };
 
 /*!
