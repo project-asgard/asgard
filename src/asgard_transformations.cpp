@@ -1294,6 +1294,12 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
   template void hierarchy_manipulator<prec>::row_project_any<deg, hierarchy_manipulator<prec>::operation::custom_unitary>( \
       prec const *, block_sparse_matrix<prec> &, int const, connection_patterns const &, \
       block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::apply_transform<deg, hierarchy_manipulator<prec>::operation::transform>( \
+      prec const *trans, int level, prec src[], prec dest[]) const; \
+  template void hierarchy_manipulator<prec>::apply_transform<deg, hierarchy_manipulator<prec>::operation::custom_unitary>( \
+      prec const *trans, int level, prec src[], prec dest[]) const; \
+  template void hierarchy_manipulator<prec>::apply_transform<deg, hierarchy_manipulator<prec>::operation::custom_non_unitary>( \
+      prec const *trans, int level, prec src[], prec dest[]) const; \
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct legendre_basis<double>;
