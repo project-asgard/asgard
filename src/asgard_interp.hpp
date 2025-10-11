@@ -43,6 +43,15 @@ public:
     block_cpu(pdof, grid, conn, perm, wav2nodal_,
               P{wav_scale}, f, P{0}, vals, work);
   }
+  //! compute values for the field, vector overload
+  void wav2nodal(sparse_grid const &grid, connection_patterns const &conn,
+                 P const f[], std::vector<P> &vals,
+                 kronmult::workspace<P> &work) const
+  {
+    size_t const num_entries = static_cast<size_t>(grid.num_indexes() * block_size);
+    vals.resize(num_entries);
+    wav2nodal(grid, conn, f, vals.data(), work);
+  }
 
   //! compute nodal values for the field
   void nodal2wav(sparse_grid const &grid, connection_patterns const &conn,
@@ -67,6 +76,25 @@ public:
               P{1}, f, P{0}, t1.data(), work);
     block_cpu(pdof, grid, conn, perm_up, hier2wav_,
               alpha * P{iwav_scale}, t1.data(), beta, vals, work);
+  }
+
+  /*!
+   * \brief given existing field values, perform the interpolation operation
+   *
+   * In essence this is the same operation as operator(), but the difference
+   * is that the first step (wav2nodal) is already done and only the application
+   * of the func and (nodal2wav) is needed.
+   */
+  void field2wav(sparse_grid const &grid, connection_patterns const &conn,
+                 P time, std::vector<P> const &field,
+                 P alpha, md_func_f<P> const &func, P beta, P y[],
+                 kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+  {
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), field, t2);
+    }
+    nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
   }
 
   /*!

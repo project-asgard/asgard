@@ -179,6 +179,8 @@ struct term_manager
   coupled_term_data<P> cdata;
   //! interpolation data
   interpolation_manager<P> interp;
+  //! values for the interpolation field, allows reuse for several interp ops
+  mutable std::vector<P> ifield;
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains

@@ -117,6 +117,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   {
     bool has_interp = pde.has_interp_funcs;
+    bool has_field_interp = false; // interpolating from a field
 
     auto ir = terms.begin();
     for (int i : iindexof(pde_terms.size()))
@@ -140,14 +141,20 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
           ir++->num_chain = -1;
         }
+        has_field_interp = has_field_interp or (ir - 1)->tmd.is_interpolatory();
       } else {
         has_interp = has_interp or pde_terms[i].is_interpolatory();
+
+        has_field_interp = has_field_interp or pde_terms[i].is_interpolatory();
 
         *ir++ = term_entry<P>(std::move(pde_terms[i]));
       }
     }
+    // TODO: adjust these for MPI
     if (has_interp)
       interp = interpolation_manager<P>(domain, hier, conn);
+    if (has_field_interp)
+      ifield.resize(1);
   }
 
   // compute the dependencies
@@ -906,26 +913,38 @@ void term_manager<P>::apply_tmpl(
   }
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
-  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, vector_type_x in, P be, vector_type_y out)
+  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, vector_type_x in,
+                                     P be, vector_type_y out, bool use_ifield = false)
     -> void {
-      if constexpr (using_vectors) {
-        if (tme.tmd.is_interpolatory()) {
-          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+      if (tme.tmd.is_interpolatory()) {
+        if (use_ifield) {
+          if constexpr (using_vectors)
+            interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out.data(), kwork, it1, it2);
+          else
+            interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork, it1, it2);
         } else {
-          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                    al, in.data(), be, out.data(), kwork);
+          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
         }
       } else {
-        if (tme.tmd.is_interpolatory()) {
-          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-        } else {
+        if constexpr (using_vectors)
+          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                    al, in.data(), be, out.data(), kwork);
+        else
           block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                     al, in, be, out, kwork);
-        }
       }
     };
 
+  constexpr bool use_ifield = true;
+
   P b = beta; // on first iteration, overwrite y
+
+  if (not ifield.empty()) { // using interpolation and will need the field
+    if constexpr (using_vectors)
+      interp.wav2nodal(grid, conns, x.data(), ifield, kwork);
+    else
+      interp.wav2nodal(grid, conns, x, ifield, kwork);
+  }
 
   int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
   int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
@@ -941,16 +960,16 @@ void term_manager<P>::apply_tmpl(
     #endif
 
     if (it->num_chain == 1) {
-      kterm(*it, alpha, x, b, y);
+      kterm(*it, alpha, x, b, y, use_ifield);
       ++icurrent;
     } else {
       // dealing with a chain
       int const num_chain = it->num_chain;
 
       if constexpr (using_vectors)
-        kterm(*(it + num_chain - 1), 1, x, 0, t1);
+        kterm(*(it + num_chain - 1), 1, x, 0, t1, use_ifield);
       else
-        kterm(*(it + num_chain - 1), 1, x, 0, t1.data());
+        kterm(*(it + num_chain - 1), 1, x, 0, t1.data(), use_ifield);
       for (int i = num_chain - 2; i > 0; --i) {
         if constexpr (using_vectors)
           kterm(*(it + i), 1, t1, 0, t2);
