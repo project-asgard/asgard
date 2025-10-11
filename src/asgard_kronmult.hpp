@@ -76,11 +76,11 @@ void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
  * \param y is the vector to apply the inverse onto
  * \param work is initialized workspace
  */
-template<typename precision>
-void blocksv_cpu(int n, sparse_grid const &grid,
-                 connect_1d const &volume_conn,
-                 block_sparse_matrix<precision> const &gvals,
-                 precision y[], workspace<precision> &work);
+// template<typename precision>
+// void blocksv_cpu(int n, sparse_grid const &grid,
+//                  connect_1d const &volume_conn,
+//                  block_sparse_matrix<precision> const &gvals,
+//                  precision y[], workspace<precision> &work);
 
 #ifdef ASGARD_USE_FLOPCOUNTER
 //! counts the flops for the specific kronmult operation
@@ -89,9 +89,9 @@ int64_t block_cpu(int n, sparse_grid const &grid, connection_patterns const &con
                   permutes const &perm, precision alpha, precision beta, workspace<precision> &work);
 
 //! counts the flops for the specific kronmult operation
-template<typename precision>
-int64_t blocksv_cpu(int n, sparse_grid const &grid, connect_1d const &volume_conn,
-                    workspace<precision> &work);
+// template<typename precision>
+// int64_t blocksv_cpu(int n, sparse_grid const &grid, connect_1d const &volume_conn,
+//                     workspace<precision> &work);
 #endif
 
 #ifdef ASGARD_USE_GPU

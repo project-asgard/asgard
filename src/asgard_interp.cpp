@@ -4,9 +4,8 @@
 
 namespace asgard
 {
-
 template<typename P>
-quadmd_manager<P>::quadmd_manager(
+interpolation_manager<P>::interpolation_manager(
     pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
     connection_patterns const &conn)
     : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size()),
@@ -269,7 +268,7 @@ quadmd_manager<P>::quadmd_manager(
 }
 
 template<typename P>
-vector2d<P> const &quadmd_manager<P>::nodes(sparse_grid const &grid) const
+vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) const
 {
   if (grid.generation() == grid_gen)
     return nodes_;
@@ -312,35 +311,11 @@ vector2d<P> const &quadmd_manager<P>::nodes(sparse_grid const &grid) const
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-// template class interp_basis<double, 0>;
-// template class interp_basis<double, 1>;
-// template class interp_basis<double, 2>;
-// template class interp_basis<double, 3>;
-
-// template class interpolation_manager1d<double, 0>;
-// template class interpolation_manager1d<double, 1>;
-// template class interpolation_manager1d<double, 2>;
-// template class interpolation_manager1d<double, 3>;
-
-// template class interpolation_manager<double>;
-
-template class quadmd_manager<double>;
+template class interpolation_manager<double>;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-// template class interp_basis<float, 0>;
-// template class interp_basis<float, 1>;
-// template class interp_basis<float, 2>;
-// template class interp_basis<float, 3>;
-
-// template class interpolation_manager1d<float, 0>;
-// template class interpolation_manager1d<float, 1>;
-// template class interpolation_manager1d<float, 2>;
-// template class interpolation_manager1d<float, 3>;
-
-// template class interpolation_manager<float>;
-
-template class quadmd_manager<float>;
+template class interpolation_manager<float>;
 #endif
 
 } // namespace asgard

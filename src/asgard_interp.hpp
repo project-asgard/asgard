@@ -8,13 +8,13 @@ namespace asgard
  * \brief Manages the data-structures for the non-separable operations
  */
 template<typename P>
-class quadmd_manager {
+class interpolation_manager {
 public:
   //! default empty constructor, must reinitialize to use the class
-  quadmd_manager() = default;
+  interpolation_manager() = default;
   //! initialize the manager
-  quadmd_manager(pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
-                 connection_patterns const &conn);
+  interpolation_manager(pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
+                        connection_patterns const &conn);
 
   //! (mostly testing) returns the hierarchical form of the 1d nodes
   std::vector<P> const &nodes1d() const { return nodes1d_; }

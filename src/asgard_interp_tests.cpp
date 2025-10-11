@@ -31,7 +31,7 @@ void interp_wav2nodal() {
     connection_patterns conn(max_level);
     hierarchy_manipulator<P> hier(degree, domain);
 
-    quadmd_manager<P> quad(domain, hier, conn);
+    interpolation_manager<P> interp(domain, hier, conn);
 
     prog_opts options = make_opts("-l " + std::to_string(max_level) + " -n 0");
     options.degree = degree;
@@ -43,7 +43,7 @@ void interp_wav2nodal() {
     // check the loaded nodes
     sparse_grid const &grid = disc.get_grid();
 
-    vector2d<P> nodes = quad.nodes(grid);
+    vector2d<P> nodes = interp.nodes(grid);
     tassert(nodes.stride() == 2);
     tassert(nodes.num_strips() == 112 * (degree + 1) * (degree + 1));
 
@@ -64,8 +64,8 @@ void interp_wav2nodal() {
     rec.reconstruct(dnodes[0], nodes.num_strips(), ref.data());
 
     std::vector<P> vals(ref.size());
-    quad.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
-                   vals.data(), disc.get_terms().kwork);
+    interp.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
+                     vals.data(), disc.get_terms().kwork);
 
     // std::cout << "  err = " << fm::diff_inf(vals, ref) << '\n';
     tassert(vals.size() == ref.size());
@@ -84,7 +84,7 @@ void interp_wav2nodal() {
     connection_patterns conn(max_level);
     hierarchy_manipulator<P> hier(degree, domain);
 
-    quadmd_manager<P> quad(domain, hier, conn);
+    interpolation_manager<P> interp(domain, hier, conn);
 
     prog_opts options = make_opts("-l " + std::to_string(max_level) + " -n 0");
     options.degree = degree;
@@ -96,7 +96,7 @@ void interp_wav2nodal() {
     // check the loaded nodes
     sparse_grid const &grid = disc.get_grid();
 
-    vector2d<P> nodes = quad.nodes(grid);
+    vector2d<P> const &nodes = interp.nodes(grid);
     tassert(nodes.stride() == 2);
     tassert(nodes.num_strips() == 112 * (degree + 1) * (degree + 1));
 
@@ -105,8 +105,8 @@ void interp_wav2nodal() {
       ref[i] = ic.eval(nodes[i], 0);
 
     std::vector<P> vals(ref.size());
-    quad.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
-                   vals.data(), disc.get_terms().kwork);
+    interp.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
+                     vals.data(), disc.get_terms().kwork);
 
     // std::cout << "  err = " << fm::diff_inf(vals, ref) << '\n';
     tassert(vals.size() == ref.size());
@@ -130,7 +130,7 @@ void interp_identity(P tol, int degree, int max_level)
   connection_patterns conn(max_level);
   hierarchy_manipulator<P> hier(degree, domain);
 
-  quadmd_manager<P> quad(domain, hier, conn);
+  interpolation_manager<P> interp(domain, hier, conn);
 
   prog_opts options = make_opts("-n 0");
   options.degree = degree;
@@ -143,7 +143,7 @@ void interp_identity(P tol, int degree, int max_level)
   // check the loaded nodes
   sparse_grid const &grid = disc.get_grid();
 
-  vector2d<P> const &nodes = quad.nodes(grid);
+  vector2d<P> const &nodes = interp.nodes(grid);
   tassert(nodes.stride() == 2);
 
   std::vector<P> vals(nodes.num_strips());
@@ -152,8 +152,8 @@ void interp_identity(P tol, int degree, int max_level)
 
   std::vector<P> wav(disc.current_state().size());
   std::vector<P> t1(wav.size());
-  quad.nodal2wav(grid, disc.get_conn(), P{1}, vals.data(), P{0}, wav.data(),
-                 disc.get_terms().kwork, t1);
+  interp.nodal2wav(grid, disc.get_conn(), P{1}, vals.data(), P{0}, wav.data(),
+                   disc.get_terms().kwork, t1);
 
   // std::cout << " degree = " << degree << " level = " << max_level
   //           << "  err = " << fm::diff_inf(wav, disc.current_state()) << "\n";
@@ -176,7 +176,7 @@ void interp_identity_domain(P tol, int degree, int max_level)
   connection_patterns conn(max_level);
   hierarchy_manipulator<P> hier(degree, domain);
 
-  quadmd_manager<P> quad(domain, hier, conn);
+  interpolation_manager<P> interp(domain, hier, conn);
 
   prog_opts options = make_opts("-dt 0 -n 0");
   options.degree = degree;
@@ -189,7 +189,7 @@ void interp_identity_domain(P tol, int degree, int max_level)
   // check the loaded nodes
   sparse_grid const &grid = disc.get_grid();
 
-  vector2d<P> const &nodes = quad.nodes(grid);
+  vector2d<P> const &nodes = interp.nodes(grid);
   tassert(nodes.stride() == 2);
 
   std::vector<P> vals(nodes.num_strips());
@@ -198,8 +198,8 @@ void interp_identity_domain(P tol, int degree, int max_level)
 
   std::vector<P> wav(disc.current_state().size());
   std::vector<P> t1(wav.size());
-  quad.nodal2wav(grid, disc.get_conn(), P{1}, vals.data(), P{0}, wav.data(),
-                 disc.get_terms().kwork, t1);
+  interp.nodal2wav(grid, disc.get_conn(), P{1}, vals.data(), P{0}, wav.data(),
+                   disc.get_terms().kwork, t1);
 
   // std::cout << " degree = " << degree << " level = " << max_level
   //           << "  err = " << fm::diff_inf(wav, disc.current_state()) << "\n";
