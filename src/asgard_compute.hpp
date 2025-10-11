@@ -472,11 +472,13 @@ public:
   void axpy(int num, P const x[], P y[]) const {
     static_assert(is_float<P> or is_double<P>,
                   "axpy can be called only with floats and doubles");
+    rocblas_check_error( rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_device) );
     if constexpr (is_float<P>) {
       rocblas_check_error( rocblas_saxpy(rocblas, num, fone.data(), x, 1, y, 1) );
     } else {
       rocblas_check_error( rocblas_daxpy(rocblas, num, done.data(), x, 1, y, 1) );
     }
+    rocblas_check_error( rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_host) );
   }
   //! sale an array, assuming contiguous gpu arrays
   template<typename P>
