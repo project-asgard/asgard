@@ -586,6 +586,7 @@ void block_cpu(
     precision alpha, precision const x[], precision beta, precision y[],
     workspace<precision> &work)
 {
+  tools::time_event performance_("block_cpu");
   precision *w1 = work.w1.data();
   precision *w2 = work.w2.data();
 

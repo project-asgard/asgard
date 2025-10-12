@@ -462,6 +462,7 @@ void test_interp_mass(double const tol, std::string const &opts)
     diff[i] -= idisc.current_state()[i];
 
   double err = sdisc.normL2(diff);
+  // std::cout << err << "\n";
   tcheckless(0, err, tol);
 }
 
@@ -476,7 +477,9 @@ void test_interp_mass() {
   test_interp_mass<double>(5.E-4, "-l 5 -d 3");
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
-
+  test_interp_mass<float>(5.E-2, "-l 4 -d 1");
+  test_interp_mass<float>(1.E-3, "-l 5 -d 2");
+  test_interp_mass<float>(5.E-4, "-l 5 -d 3");
 #endif
 }
 
