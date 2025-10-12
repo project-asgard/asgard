@@ -63,7 +63,7 @@ public:
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = 2 * kronmult::block_cpu(
-                  pdof, grid, conn, perm, alpha * P{iwav_scale}, beta, work);
+                  pdof, grid, conn, perm_up, alpha * P{iwav_scale}, beta, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -74,12 +74,8 @@ public:
     #endif
     block_cpu(pdof, grid, conn, perm_low, nodal2hier_,
               P{1}, f, P{0}, t1.data(), work);
-    if (massed_h2w)
-      block_cpu(pdof, grid, conn, perm_up, *massed_h2w,
-                alpha * P{iwav_scale}, t1.data(), beta, vals, work);
-    else
-      block_cpu(pdof, grid, conn, perm_up, hier2wav_,
-                alpha * P{iwav_scale}, t1.data(), beta, vals, work);
+    block_cpu(pdof, grid, conn, perm_up, hier2wav_,
+              alpha * P{iwav_scale}, t1.data(), beta, vals, work);
   }
 
   /*!
@@ -189,12 +185,7 @@ public:
 
   //! indicates whether the manager has been initialized
   operator bool () const { return (num_dims > 0); }
-  //! indicates whether the mass matrix has been set
-  bool has_mass() const { return !!massed_h2w; }
-  //! sets the mass matrix, used for the global mass
-  void set_mass(mass_md<P> const &mass_term,
-                std::array<block_diag_matrix<P>, max_num_dimensions> const &global_mass,
-                hierarchy_manipulator<P> const &hier, connection_patterns const &conns);
+
   //! apply the mass matrix to the last matrix of the interpolation operation
   void make_mass_h2w(mass_md<P> const &mass_term,
                      std::array<block_diag_matrix<P>, max_num_dimensions> const &some_mass,
@@ -328,8 +319,6 @@ private:
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
   block_sparse_matrix<P> hier2wav_;
-
-  std::optional<std::array<block_sparse_matrix<P>, max_num_dimensions>> massed_h2w;
 
   #ifdef ASGARD_USE_GPU
   //! gpu coefficient matrices for different levels wavelet to nodal

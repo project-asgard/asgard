@@ -239,9 +239,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   build_mass_matrices(hier, conn); // large, up to max-level
   rebuild_mass_matrices(grid); // small, up to the current level
 
-  if (mass_term and interp)
-    interp.set_mass(mass_term, mass, hier, conn);
-
   std::vector<separable_func<P>> &sep = pde.sources_sep_;
 
   int num_sources = 0;
