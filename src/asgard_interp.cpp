@@ -6,9 +6,11 @@ namespace asgard
 {
 template<typename P>
 interpolation_manager<P>::interpolation_manager(
+    prog_opts const &opts,
     pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
     connection_patterns const &conn)
-    : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size()),
+    : num_dims(domain.num_dims()), pdof(hier.degree() + 1),
+      block_size(hier.block_size()),
       perm(num_dims),
       perm_low(num_dims, conn_fill::lower_udiag),
       perm_up(num_dims, conn_fill::upper)
@@ -57,6 +59,15 @@ interpolation_manager<P>::interpolation_manager(
   default:
     break;
   };
+  // testing purposes, allow setting different points in the options
+  if (not opts.interp_points.empty()) {
+    rassert(opts.interp_points.size() == static_cast<size_t>(pdof),
+            "the size of interp_points must be degree + 1");
+    rassert(opts.interp_horder.size() == opts.interp_points.size(),
+            "the size of interp_horder must match interp_points");
+    points = opts.interp_points;
+    horder = opts.interp_horder;
+  }
 
   expect(points.size() == static_cast<size_t>(pdof));
   expect(horder.size() == points.size());

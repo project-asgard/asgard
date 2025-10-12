@@ -614,6 +614,11 @@ struct prog_opts
   //! provides a long string for the given time-stepping method
   static std::string get_name(time_method);
 
+  //! testing/development purposes, interpolation points in (-1, 1), must be degree + 1
+  std::vector<double> interp_points;
+  //! testing/development purposes, order on the higher level, see the comment in asgard_interp.cpp
+  std::vector<int> interp_horder;
+
 private:
   //! mapping from cli options to variables and actions
   enum class optentry

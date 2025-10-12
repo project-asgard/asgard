@@ -504,7 +504,7 @@ private:
   block_diag_matrix<P> wraw_diag;
   block_tri_matrix<P> wraw_tri;
 
-  block_diag_matrix<P> raw_diag0, raw_diag1;
+  block_diag_matrix<P> raw_diag0, raw_diag1; // workspace for 1D chains
   block_tri_matrix<P> raw_tri0, raw_tri1;
 
   #ifdef ASGARD_USE_FLOPCOUNTER

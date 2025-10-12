@@ -147,7 +147,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       }
     }
     if (has_interp)
-      interp = interpolation_manager<P>(domain, hier, conn);
+      interp = interpolation_manager<P>(options, domain, hier, conn);
   }
 
   // compute the dependencies

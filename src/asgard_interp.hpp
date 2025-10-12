@@ -13,8 +13,17 @@ public:
   //! default empty constructor, must reinitialize to use the class
   interpolation_manager() = default;
   //! initialize the manager
-  interpolation_manager(pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
+  interpolation_manager(prog_opts const &opts,
+                        pde_domain<P> const &domain,
+                        hierarchy_manipulator<P> const &hier,
                         connection_patterns const &conn);
+
+  //! the program options are needed only to potentially set new point
+  interpolation_manager(pde_domain<P> const &domain,
+                        hierarchy_manipulator<P> const &hier,
+                        connection_patterns const &conn)
+    : interpolation_manager(prog_opts{}, domain, hier, conn)
+  {}
 
   //! (mostly testing) returns the hierarchical form of the 1d nodes
   std::vector<P> const &nodes1d() const { return nodes1d_; }
@@ -51,6 +60,28 @@ public:
     size_t const num_entries = static_cast<size_t>(grid.num_indexes() * block_size);
     vals.resize(num_entries);
     wav2nodal(grid, conn, f, vals.data(), work);
+  }
+
+  //! converts interpolated nodal values to hierarchical coefficients
+  void nodal2hier(sparse_grid const &grid, connection_patterns const &conn,
+                  P const f[], P hier[], kronmult::workspace<P> &work) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 1;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(
+                  pdof, grid, conn, perm_low, alpha * P{iwav_scale}, beta, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("nodal-to-hier", flops);
+    #else
+    tools::time_event performance_("nodal-to-hier");
+    #endif
+    block_cpu(pdof, grid, conn, perm_low, nodal2hier_,
+              P{1}, f, P{0}, hier, work);
   }
 
   //! compute nodal values for the field
