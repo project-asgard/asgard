@@ -138,7 +138,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           has_interp = has_interp or pde_terms[i].chain_[c].is_interpolatory();
 
           *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
-          ir++->num_chain = -1;
+          ir++->mark_as_chain_link();
         }
       } else {
         has_interp = has_interp or pde_terms[i].is_interpolatory();
@@ -346,16 +346,36 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   // second pass on the problem of assigning workspaces and preparing objects
   // e.g., the needed resources change if this MPI rank has no terms with need
   {
+    // set interpolatory properties
+    for (int i : indexof(terms)) {
+      auto &t = terms[i];
+      t.is_interpolatory = t.tmd.is_interpolatory();
+      if (t.is_interpolatory) {
+        if (t.num_chain == 1) { // single entry
+          t.interp_uses_ifield = true;
+        } else if (t.is_chain_link() and
+                   (i+1 == static_cast<int>(terms.size())
+                    or not terms[i+1].is_chain_link())) {
+          // if part of a chain and the next term is not from the current chain
+          // i.e., this is the first link in the chain
+          t.interp_uses_ifield = true;
+        }
+      }
+    }
+
     bool has_field_interp = false; // interpolating from a field
     auto it = terms.begin();
-    while (it < terms.end()) {
+    while (it < terms.end())
+    {
       #ifdef ASGARD_USE_MPI
       if (not resources.owns(it->rec)) {
         it += it->num_chain;
         continue;
       }
       #endif
-      has_field_interp = has_field_interp or (not (it + it->num_chain - 1)->is_separable());
+      has_field_interp = has_field_interp or it->interp_uses_ifield;
+      if (it->is_chain_start())
+        has_field_interp = has_field_interp or (it + it->num_chain -1)->interp_uses_ifield;
       it += it->num_chain;
     }
 

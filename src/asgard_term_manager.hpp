@@ -71,8 +71,6 @@ struct term_entry {
   std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
   //! if the term has additional mass terms, term 0 will contain the mass-up-to current level
   std::array<block_diag_matrix<P>, max_num_dimensions> mass;
-  //! current level that has been constructed
-  std::array<int, max_num_dimensions> level = {{0}};
   //! kronmult operation permutations
   kronmult::permutes perm;
   //! dependencies on the moments
@@ -81,10 +79,6 @@ struct term_entry {
   int num_chain = 1;
   //! left/right boundary conditions source index, if positive
   int bc_source_id = -1;
-  //! returns true if the term is separable
-  bool is_separable() const {
-    return perm; // check if kronmult permutations have been set
-  }
 
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
@@ -94,8 +88,21 @@ struct term_entry {
   //! dimension holding a flux, -1 if no flux
   int flux_dim = -1;
 
+  //! returns true if this is the beginning of a chain with at least one more term
+  bool is_chain_start() const { return (num_chain > 1); }
   //! returns true if this is a link in a chain, false if stand-alone or first link
   bool is_chain_link() const { return (num_chain < 0); }
+  //! mark the entry as being part of a chain
+  void mark_as_chain_link() { num_chain = -1; }
+
+  //! indicates whether the term is interpolatory
+  bool is_interpolatory = false;
+  //! interpolation always uses ifield, e.g., first in the chain
+  bool interp_uses_ifield = false;
+  //! interpolation uses the moments or just the field
+  bool interp_uses_moments = false;
+  //! interpolation goes to hierarchical basis only or goes all the way to wavelets
+  bool interp_stop_at_hierarchy = false;
 };
 
 /*!
@@ -386,7 +393,7 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
   {
-    if (tme.tmd.is_interpolatory()) {
+    if (tme.is_interpolatory) {
       interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
@@ -397,7 +404,7 @@ struct term_manager
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
-    if (tme.tmd.is_interpolatory()) {
+    if (tme.is_interpolatory) {
       interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
