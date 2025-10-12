@@ -346,7 +346,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
       for (int k = 0; k < basis.num_quad; k++)
         rhs_raw.pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
     }
-    // right most cell
+
     rhs(rhs_raw.pnts, rhs_raw.vals);
 
     rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.vals.data());

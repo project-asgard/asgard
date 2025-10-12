@@ -416,6 +416,21 @@ void gemm_tn(int const &nrc, int const &nk, P const A[], P const B[], P C[])
         else
           C[c * nrc + r] -= A[r * nk + k] * B[c * nk + k];
 }
+//! C += (dir) A^T B, dir must be +/-1, C is nrc by nrc, uses mixed precision
+template<int dir = +1, typename P, typename T1, typename T2>
+void gemm_tn_mixedprec(int const &nrc, int const &nk, T1 const A[], T2 const B[], P C[])
+{
+  static_assert(dir == 1 or dir == -1);
+  // TODO figure out the simd logic here
+  ASGARD_PRAGMA_OMP_SIMD(collapse(3))
+  for (int c = 0; c < nrc; c++)
+    for (int r = 0; r < nrc; r++)
+      for (int k = 0; k < nk; k++)
+        if constexpr (dir == 1)
+          C[c * nrc + r] += static_cast<P>(A[r * nk + k] * B[c * nk + k]);
+        else
+          C[c * nrc + r] -= static_cast<P>(A[r * nk + k] * B[c * nk + k]);
+}
 template<typename P>
 void neg_transp(int const &n, P A[])
 {

@@ -31,8 +31,6 @@ interpolation_manager<P>::interpolation_manager(
   //         (h_3, h_4, h_5)
   //         h-order is the list of p indexes that will form (h_0, h_1, h_2)
 
-  std::vector<double> points;
-  std::vector<int> horder;
   switch (pdof) {
   case 1: // constant
     points = {-1.0, };
@@ -271,10 +269,85 @@ interpolation_manager<P>::interpolation_manager(
 
 template<typename P>
 void interpolation_manager<P>::set_mass(
-    std::array<block_diag_matrix<P>, max_num_dimensions> const &global_mass)
+    mass_md<P> const &mass_term,
+    std::array<block_diag_matrix<P>, max_num_dimensions> const &global_mass,
+    hierarchy_manipulator<P> const &hier, connection_patterns const &conns)
 {
-  mass_.emplace();
-  // TODO do the mass matrix here
+  massed_h2w.emplace();
+  make_mass_h2w(mass_term, global_mass, hier, conns, *massed_h2w);
+}
+
+template<typename P>
+void interpolation_manager<P>::make_mass_h2w(
+    mass_md<P> const &mass_term,
+    std::array<block_diag_matrix<P>, max_num_dimensions> const &some_mass,
+    hierarchy_manipulator<P> const &hier, connection_patterns const &conns,
+    std::array<block_sparse_matrix<P>, max_num_dimensions> &result) const
+{
+  int const level     = conns.max_loaded_level();
+  int const num_cells = fm::ipow2(level);
+
+  auto [pnts, wts]     = legendre_weights(pdof - 1, -1, 1);
+  auto [lvals, lprime] = legendre_vals(pnts, pdof - 1);
+  ignore(lprime);
+
+  int const num_quad = static_cast<int>(pnts.size());
+
+  std::vector<double> legw(lvals.size());
+  smmat::col_scal(num_quad, pdof, wts.data(), lvals.data(), legw.data());
+
+  std::vector<P> lag(legw.size());
+  for (int c = 0; c < pdof; c++) // each Lagrange function
+    for (int r = 0; r < num_quad; r++) // each quadrature point
+      lag[c * num_quad + r] = static_cast<P>(fm::lagrange(points, c, pnts[r]));
+
+  rhs_raw_data<P> rhs_raw;
+  rhs_raw.pnts.resize(num_quad * num_cells);
+  rhs_raw.vals.resize(rhs_raw.pnts.size());
+
+  block_diag_matrix<P> diag(pdof * pdof, num_cells);
+
+  for (int d : iindexof(num_dims))
+  {
+    if (mass_term[d].is_identity()) {
+      expect(not some_mass[d]);
+      result[d] = hier2wav_;
+      continue;
+    }
+
+    P const dx = xscale[d] / num_cells;
+
+    #pragma omp parallel for
+    for (int i = 0; i < num_cells; i++) {
+      P const l = xmin[d] + i * dx; // left edge of cell i
+      for (int k = 0; k < num_quad; k++)
+        rhs_raw.pnts[i * num_quad + k] = (0.5 * pnts[k] + 0.5) * dx + l;
+    }
+
+    mass_term[d].rhs(rhs_raw.pnts, rhs_raw.vals);
+
+    span2d<P> const rhs_vals(num_quad, num_cells, rhs_raw.vals.data());
+
+    #pragma omp parallel
+    {
+      std::vector<P> lagw(legw.size());
+
+      #pragma omp for
+      for (int i = 0; i < num_cells; i++)
+      {
+        smmat::col_scal(num_quad, pdof, rhs_vals[i], lag.data(), lagw.data());
+        std::fill_n(diag[i], pdof * pdof, P{0});
+        smmat::gemm_tn_mixedprec<1>(pdof, num_quad, legw.data(), lagw.data(), diag[i]);
+      }
+    }
+
+    some_mass[d].solve(pdof, diag);
+
+    result[d] = hier.diag2block(
+                    hierarchy_manipulator<P>::operation::transform, nullptr,
+                    hierarchy_manipulator<P>::operation::custom_non_unitary,
+                    trans_mats_.data() + 8 * pdof * pdof, diag, level, conns);
+  }
 }
 
 template<typename P>
