@@ -397,21 +397,35 @@ void term_manager<P>::buld_term(
 
   auto &tmd = terms[tid];
 
-  for (int d : iindexof(num_dims)) {
-    auto const &t1d = tmd.tmd.dim(d);
+  bool merging_with_interp = false;
+  if (tmd.is_chain_start() and terms[tid + 1].is_interpolatory) {
+    // there is a potential here to merge this separable term with hier2wav
+    merging_with_interp = true;
+    for (int d : iindexof(num_dims))
+      if (tmd.tmd.dim(d).change() != changes_with::none)
+        merging_with_interp = false;
+    // if the 1d terms are changing, then skip the merge
+    // if everything is constant, we can merge
+  }
+merging_with_interp = false;
+  if (merging_with_interp) {
+  } else {
+    for (int d : iindexof(num_dims)) {
+      auto const &t1d = tmd.tmd.dim(d);
 
-    int level = grid.current_level(d); // required level
+      int level = grid.current_level(d); // required level
 
-    // terms that don't change should be build only once
-    if (t1d.change() == changes_with::none) {
-      if (terms[tid].coeffs[d].empty())
-        level = max_level; // build up to the max
-      else
-        continue; // already build, we can skip
-    }
+      // terms that don't change should be build only once
+      if (t1d.change() == changes_with::none) {
+        if (tmd.coeffs[d].empty())
+          level = max_level; // build up to the max
+        else
+          continue; // already build, we can skip
+      }
 
-    rebuld_term1d(terms[tid], d, level, conn, hier, precon, alpha);
-  } // move to next dimension d
+      rebuld_term1d(terms[tid], d, level, conn, hier, precon, alpha);
+    } // move to next dimension d
+  }
 }
 
 template<typename P>
@@ -459,13 +473,19 @@ void term_manager<P>::rebuld_term1d(
   }
 
   // the build/rebuild put the result in raw_diag or raw_tri
-  if (not t1d.is_identity()) {
+  // if the term is identity, then there is no matrix, all the calls
+  // above are needed to handle the boundary conditions
+  if (t1d.is_identity()) {
+  } else {
     if (is_diag) {
       tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
     } else {
       tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
     }
-    #ifdef ASGARD_USE_GPU
+  }
+
+  #ifdef ASGARD_USE_GPU
+  if (not tentry.coeffs[dim].empty()) { // load to the GPU
     compute->set_device(gpu::device{tentry.rec.device});
     tentry.gpu_lcoeffs[dim].resize(level + 1);
     std::vector<P*> coeff_pntrs(level + 1, nullptr);
@@ -479,8 +499,9 @@ void term_manager<P>::rebuld_term1d(
     tentry.gpu_coeffs[dim] = coeff_pntrs;
 
     compute->set_device(gpu::device{0});
-    #endif
   }
+  #endif
+
 
   // apply the mass matrices and convert to hierarchical form
   for (int b : indexrange{tentry.bc}) {

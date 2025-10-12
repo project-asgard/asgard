@@ -217,11 +217,8 @@ public:
   //! indicates whether the manager has been initialized
   operator bool () const { return (num_dims > 0); }
 
-  //! apply the mass matrix to the last matrix of the interpolation operation
-  void make_mass_h2w(mass_md<P> const &mass_term,
-                     std::array<block_diag_matrix<P>, max_num_dimensions> const &some_mass,
-                     hierarchy_manipulator<P> const &hier, connection_patterns const &conns,
-                     std::array<block_sparse_matrix<P>, max_num_dimensions> &result) const;
+  //! returns the diagonal form of the hier2wav matrix
+  block_diag_matrix<P> const &get_raw_hier2wav() const { return diag_h2w; }
 
   #ifdef ASGARD_USE_GPU
   //! compute nodal values for the field
