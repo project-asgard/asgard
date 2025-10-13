@@ -494,18 +494,14 @@ void term_manager<P>::rebuld_term1d(
       tentry.coeffs[dim] = interp.get_hier2wav();
   } else {
     if (is_diag) {
-      if (merge_with_interp) {
-        raw_diag0.check_resize(wraw_diag);
-        gemm_block_diag(legendre.pdof, wraw_diag, interp.get_raw_hier2wav(), raw_diag0);
-        tentry.coeffs[dim] = hier.diag2hierarchical(raw_diag0, level, conn);
-      } else
+      if (merge_with_interp)
+        tentry.coeffs[dim] = interp.mult_transform_h2w(hier, conn, wraw_diag, raw_diag0);
+      else
         tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
     } else {
-      if (merge_with_interp) {
-        raw_tri0.check_resize(wraw_tri);
-        gemm_tri_diag(legendre.pdof, wraw_tri, interp.get_raw_hier2wav(), raw_tri0);
-        tentry.coeffs[dim] = hier.tri2hierarchical(raw_tri0, level, conn);
-      } else
+      if (merge_with_interp)
+        tentry.coeffs[dim] = interp.mult_transform_h2w(hier, conn, wraw_diag, raw_diag0);
+      else
         tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
     }
   }

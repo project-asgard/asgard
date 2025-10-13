@@ -172,7 +172,14 @@ public:
     }
     nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
   }
-
+  /*!
+   * \brief Perform the interpolation ending at the heirarchical coefficients
+   *
+   * First this computes the values of the state at the interpolation nodes,
+   * then f is called with those values and the resulting output is converted
+   * to hierarchical form. The assumption here is that the final step (hier2wav)
+   * has been merged with the next link in the chain.
+   */
   void wav2hier(sparse_grid const &grid, connection_patterns const &conn,
        P time, P const state[], md_func_f<P> const &func, P y[],
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
@@ -252,8 +259,20 @@ public:
   block_diag_matrix<P> const &get_raw_hier2wav() const { return diag_h2w; }
   //! returns the final form of the hier2wav matrix
   block_sparse_matrix<P> const &get_hier2wav() const { return hier2wav_; }
-  //! returns the inverse hierarchy matrix for transformations
-  P const[] get_ihier_matrix() const { return trans_mats_.data() + 8 * pdof * pdof; }
+
+  //! multiplies the diagonal matrix by diagonal hier2wav and transforms to hierarchical form
+  block_sparse_matrix<P> mult_transform_h2w(hierarchy_manipulator<P> const &hier,
+                                            connection_patterns const &conns,
+                                            block_diag_matrix<P> const &mat,
+                                            block_diag_matrix<P> &work) const;
+  //! multiplies the tri-diagonal matrix by diagonal hier2wav and transforms to hierarchical form
+  block_sparse_matrix<P> mult_transform_h2w(hierarchy_manipulator<P> const &hier,
+                                            connection_patterns const &conns,
+                                            block_tri_matrix<P> const &mat,
+                                            block_tri_matrix<P> &work) const;
+  //! returns the wavelet scale factor for hier2wav
+  P wav_scale_h2w() const { return iwav_scale; }
+
 
   #ifdef ASGARD_USE_GPU
   //! compute nodal values for the field

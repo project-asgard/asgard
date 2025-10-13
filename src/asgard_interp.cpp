@@ -321,6 +321,42 @@ vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) cons
   return nodes_;
 }
 
+template<typename P> block_sparse_matrix<P>
+interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hier,
+                                             connection_patterns const &conns,
+                                             block_diag_matrix<P> const &mat,
+                                             block_diag_matrix<P> &work) const
+{
+  expect(mat.nblock() == pdof * pdof);
+  expect(mat.nrows() == diag_h2w.nrows());
+
+  work.check_resize(mat);
+  gemm_block_diag(pdof, mat, diag_h2w, work);
+
+  return hier.diag2block(hierarchy_manipulator<P>::operation::transform, nullptr,
+                         hierarchy_manipulator<P>::operation::custom_non_unitary,
+                         trans_mats_.data() + 8 * pdof * pdof, work,
+                         fm::intlog2(mat.nrows()), conns);
+}
+
+template<typename P> block_sparse_matrix<P>
+interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hier,
+                                             connection_patterns const &conns,
+                                             block_tri_matrix<P> const &mat,
+                                             block_tri_matrix<P> &work) const
+{
+  expect(mat.nblock() == pdof * pdof);
+  expect(mat.nrows() == diag_h2w.nrows());
+
+  work.check_resize(mat);
+  gemm_tri_diag(pdof, mat, diag_h2w, work);
+
+  return hier.tri2block(hierarchy_manipulator<P>::operation::transform, nullptr,
+                        hierarchy_manipulator<P>::operation::custom_non_unitary,
+                        trans_mats_.data() + 8 * pdof * pdof, work,
+                        fm::intlog2(mat.nrows()), conns);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class interpolation_manager<double>;
 #endif
