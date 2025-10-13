@@ -2,11 +2,11 @@
 name = "ornl-asgard"
 license = {text = "MIT"}
 version = "0.7.1a3"
-classifiers = ["Programming Language :: Python :: 3", 
+classifiers = ["Programming Language :: Python :: 3",
                "Programming Language :: C++",
-               "Development Status :: 3 - Alpha", 
+               "Development Status :: 3 - Alpha",
                "Operating System :: OS Independent",
-               "Operating System :: MacOS", 
+               "Operating System :: MacOS",
                "Operating System :: POSIX :: Linux",
                "Topic :: Scientific/Engineering :: Mathematics" ]
 dynamic = ["authors", "description", "readme", "dependencies"]

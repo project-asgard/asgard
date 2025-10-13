@@ -386,6 +386,7 @@ set(asgard_components
     kronmult_common
     kronmult_cpu
     moment
+    momentset
     pde
     pde_functions
     program_options
