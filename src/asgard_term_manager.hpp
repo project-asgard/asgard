@@ -94,6 +94,8 @@ struct term_entry {
   bool is_chain_link() const { return (num_chain < 0); }
   //! mark the entry as being part of a chain
   void mark_as_chain_link() { num_chain = -1; }
+  //! retrun true if the term is separable
+  bool is_separable() const { return (not is_interpolatory); }
 
   //! indicates whether the term is interpolatory
   bool is_interpolatory = false;

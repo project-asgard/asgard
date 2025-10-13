@@ -255,20 +255,6 @@ public:
 
   //! converts matrix from diagonal to transformed on left/right with the given operations
   block_sparse_matrix<P> diag2block(
-      operation left, operation right, block_diag_matrix<P> const &diag,
-      int const level, connection_patterns const &conns) const
-  {
-    block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
-    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
-
-    do_col_project_vol(right, nullptr, diag, level, conns, col);
-    do_row_project_any(left, nullptr, col, level, conns, res);
-
-    return res;
-  }
-
-  //! converts matrix from diagonal to transformed on left/right with the given operations
-  block_sparse_matrix<P> diag2block(
       operation left, P const tl[], operation right, P const tr[],
       block_diag_matrix<P> const &diag,
       int const level, connection_patterns const &conns) const
@@ -289,7 +275,7 @@ public:
       int const level, connection_patterns const &conns) const
   {
     block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_full);
-    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
+    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::full);
 
     do_col_project_full(right, tr, tri, level, conns, col);
     do_row_project_any(left, tl, col, level, conns, res);

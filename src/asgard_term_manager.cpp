@@ -401,7 +401,8 @@ void term_manager<P>::buld_term(
   if ((tmd.is_chain_start() or tmd.is_chain_link())
        and (static_cast<size_t>(tid + 1) < terms.size())
         and terms[tid + 1].is_chain_link()
-         and terms[tid + 1].is_interpolatory) {
+         and terms[tid + 1].is_interpolatory)
+  {
     // there is a potential here to merge this separable term with hier2wav
     merging_with_interp = true;
     for (int d : iindexof(num_dims))
@@ -411,7 +412,8 @@ void term_manager<P>::buld_term(
     // if everything is constant, we can merge
   }
 
-  if (merging_with_interp) {
+  if (merging_with_interp)
+  {
     constexpr bool merge_with_interp = true;
     terms[tid + 1].interp_stop_at_hierarchy = true;
 
@@ -427,7 +429,9 @@ void term_manager<P>::buld_term(
     // were replaced by the hier2wav matrix, which is upper hierarchical
     if (not id_dirs.empty())
       terms[tid].perm.prepad_upper(id_dirs);
-  } else {
+  }
+  else
+  {
     for (int d : iindexof(num_dims)) {
       auto const &t1d = tmd.tmd.dim(d);
 
@@ -500,11 +504,16 @@ void term_manager<P>::rebuld_term1d(
         tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
     } else {
       if (merge_with_interp)
-        tentry.coeffs[dim] = interp.mult_transform_h2w(hier, conn, wraw_diag, raw_diag0);
+        tentry.coeffs[dim] = interp.mult_transform_h2w(hier, conn, wraw_tri, raw_tri0);
       else
         tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
     }
   }
+
+  // the last interpolation stage (2wav) comes with a scaling factor
+  // apply the scaling factor to the zeroth dimension
+  if (merge_with_interp and dim == 0)
+    tentry.coeffs[dim].scal(interp.wav_scale_h2w());
 
   #ifdef ASGARD_USE_GPU
   if (not tentry.coeffs[dim].empty()) { // load to the GPU
@@ -988,56 +997,45 @@ void term_manager<P>::apply_tmpl(
   }
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
-  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, vector_type_x in,
-                                     P be, vector_type_y out, bool use_ifield = false)
+  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.is_interpolatory) {
-        if (use_ifield) {
-          if constexpr (using_vectors) {
-            if (tme.interp_stop_at_hierarchy)
-              std::cout << " stop at hier form ifield (vector)\n";
-            if (tme.interp_stop_at_hierarchy)
-              interp.field2hier(grid, conns, 0, ifield, tme.tmd.interp(), out.data(), kwork, it1);
-            else
-              interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out.data(), kwork, it1, it2);
-          } else {
-            if (tme.interp_stop_at_hierarchy)
-              std::cout << " stop at hier form ifield (non-vector)\n";
-            if (tme.interp_stop_at_hierarchy)
-              interp.field2hier(grid, conns, 0, ifield, tme.tmd.interp(), out, kwork, it1);
-            else
-              interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-          }
-        } else {
-          if (tme.interp_stop_at_hierarchy) {
-            if constexpr (using_vectors)
-              interp.wav2hier(grid, conns, 0, in.data(), tme.tmd.interp(), out.data(), kwork, it1, it2);
-            else
-              interp.wav2hier(grid, conns, 0, in, tme.tmd.interp(), out, kwork, it1, it2);
-          } else {
+        if (tme.interp_uses_ifield) {
+          if (tme.interp_stop_at_hierarchy)
+            interp.field2hier(grid, conns, 0, ifield, tme.tmd.interp(), out, kwork, it1);
+          else
+            interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+        } else { // no field
+          if (tme.interp_stop_at_hierarchy)
+            interp.wav2hier(grid, conns, 0, in, tme.tmd.interp(), out, kwork, it1, it2);
+          else
             interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-          }
         }
       } else {
-        if constexpr (using_vectors)
-          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                    al, in.data(), be, out.data(), kwork);
-        else
-          block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
-                    al, in, be, out, kwork);
+        block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+                  al, in, be, out, kwork);
       }
     };
 
-  constexpr bool use_ifield = true;
-
   P b = beta; // on first iteration, overwrite y
 
-  if (not ifield.empty()) { // using interpolation and will need the field
-    if constexpr (using_vectors)
-      interp.wav2nodal(grid, conns, x.data(), ifield, kwork);
-    else
-      interp.wav2nodal(grid, conns, x, ifield, kwork);
-  }
+  P const *px = [&]()
+        -> P const * {
+      if constexpr (using_vectors)
+        return x.data();
+      else
+        return x;
+      }();
+  P *py = [&]()
+        -> P * {
+      if constexpr (using_vectors)
+        return y.data();
+      else
+        return y;
+      }();
+
+  if (not ifield.empty()) // using interpolation and will need the field
+    interp.wav2nodal(grid, conns, px, ifield, kwork);
 
   int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
   int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
@@ -1053,27 +1051,18 @@ void term_manager<P>::apply_tmpl(
     #endif
 
     if (it->num_chain == 1) {
-      kterm(*it, alpha, x, b, y, use_ifield);
+      kterm(*it, alpha, px, b, py);
       ++icurrent;
     } else {
       // dealing with a chain
       int const num_chain = it->num_chain;
 
-      if constexpr (using_vectors)
-        kterm(*(it + num_chain - 1), 1, x, 0, t1, use_ifield);
-      else
-        kterm(*(it + num_chain - 1), 1, x, 0, t1.data(), use_ifield);
+      kterm(*(it + num_chain - 1), 1, px, 0, t1.data());
       for (int i = num_chain - 2; i > 0; --i) {
-        if constexpr (using_vectors)
-          kterm(*(it + i), 1, t1, 0, t2);
-        else
-          kterm(*(it + i), 1, t1.data(), 0, t2.data());
+        kterm(*(it + i), 1, t1.data(), 0, t2.data());
         std::swap(t1, t2);
       }
-      if constexpr (using_vectors)
-        kterm(*it, alpha, t1, b, y);
-      else
-        kterm(*it, alpha, t1.data(), b, y);
+      kterm(*it, alpha, t1.data(), b, py);
 
       icurrent += num_chain;
     }
@@ -1082,23 +1071,13 @@ void term_manager<P>::apply_tmpl(
   }
 
   if (not has_terms_) {
-    if constexpr (using_vectors) {
-      if (beta == 0) {
-        std::fill(y.begin(), y.end(), 0);
-      } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (size_t i = 0; i < y.size(); i++)
-          y[i] *= beta;
-      }
+    int64_t const num = grid.num_indexes() * fm::ipow(legendre.pdof, num_dims);
+    if (beta == 0) {
+      std::fill_n(py, num, 0);
     } else {
-      int64_t const num = grid.num_indexes() * fm::ipow(legendre.pdof, num_dims);
-      if (beta == 0) {
-        std::fill_n(y, num, 0);
-      } else {
-        ASGARD_OMP_PARFOR_SIMD
-        for (int64_t i = 0; i < num; i++)
-          y[i] *= beta;
-      }
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num; i++)
+        py[i] *= beta;
     }
   }
 }
@@ -1231,16 +1210,23 @@ void term_manager<P>::apply_tmpl_gpu(
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
   auto kterm = [&grid, &conns, this]
-               (gpu::device dev, term_entry<P> const &tme,
-                P al, P const in[], P be, P out[], bool use_ifield = false)
+               (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
-      if (tme.tmd.is_interpolatory()) {
-        if (use_ifield) {
-          interp.field2wav(dev, grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork,
-                           cpu_it1[dev.id],gpu_it1[dev.id], gpu_it2[dev.id]);
+      if (tme.is_interpolatory) {
+        if (tme.interp_uses_ifield) {
+          if (tme.interp_stop_at_hierarchy)
+            interp.field2hier(dev, grid, conns, 0, ifield, tme.tmd.interp(), out, kwork,
+                              cpu_it1[dev.id], gpu_it1[dev.id]);
+          else
+            interp.field2wav(dev, grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork,
+                             cpu_it1[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
         } else {
-          interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
-                 cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
+          if (tme.interp_stop_at_hierarchy)
+            interp.wav2hier(dev, grid, conns, 0, in, tme.tmd.interp(), out, kwork,
+                            cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id]);
+          else
+            interp(dev, grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork,
+                   cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
         }
       } else {
         block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,

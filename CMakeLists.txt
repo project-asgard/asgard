@@ -227,7 +227,7 @@ if (ASGARD_USE_PYTHON)
                            ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
                            DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}"
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}")
-        list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/example_${_asg_pybuildfile}")
+        list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
         install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}" DESTINATION share/asgard/examples)
     endforeach()
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
