@@ -186,6 +186,8 @@ struct term_manager
 
   //! data for the coupling with moments and electric field
   coupled_term_data<P> cdata;
+  //! storage for the moments
+  momentset<P> momset;
   //! interpolation data
   interpolation_manager<P> interp;
   //! values for the interpolation field, allows reuse for several interp ops

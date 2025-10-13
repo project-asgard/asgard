@@ -99,9 +99,9 @@ public:
     throw std::runtime_error("cannot find the specified moment");
   }
   //! return the moment corresponding to the given ID
-  moment const & operator[] (moment_id mid) const { return moms_[mid()]; }
+  moment const &operator[] (moment_id mid) const { return moms_[mid()]; }
   //! return the moment with the given index
-  moment const & operator[] (int i) const { return moms_[i]; }
+  moment const &operator[] (int i) const { return moms_[i]; }
 
   //! returns true if all moments have the given dimension
   bool have_all_dimension(int const dims) const {
@@ -112,6 +112,31 @@ public:
   }
 private:
   std::vector<moment> moms_;
+};
+
+/*!
+ * \brief Holds the computed moments
+ *
+ * Stores the data for each moment after it has been computed
+ */
+template<typename P>
+class momentset {
+public:
+  //! create an empty moment list
+  momentset() = default;
+  //! create the new set with the given number of moments
+  momentset(int num_moments) : moms_(num_moments) {}
+
+  //! returns the number of stored moments
+  size_t size() const { return moms_.size(); }
+
+  //! return the provided moment, const variant
+  std::vector<P> const &operator[] (moment_id mid) const { return moms_[mid()]; }
+  //! return the provided moment
+  std::vector<P> &operator[] (moment_id mid) { return moms_[mid()]; }
+
+private:
+  std::vector<std::vector<P>> moms_;
 };
 
 }
