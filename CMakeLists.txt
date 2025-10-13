@@ -195,7 +195,7 @@ if (ASGARD_USE_PYTHON)
         if (ASGARD_osx_framework)
             set(__asgard_pysubpath "${CMAKE_INSTALL_LIBDIR}/python/site-packages")
         endif()
-        set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgardLINALG${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
         set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     else()
         # regular build, all those folders are the same

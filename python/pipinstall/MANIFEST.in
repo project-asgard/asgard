@@ -8,7 +8,7 @@ include asgard-env.sh
 
 include contrib/asgard_io.cmake
 include contrib/contrib.cmake
-include contrib/FindLINALG.cmake
+include contrib/FindASGARDLINALG.cmake
 include contrib/GetGitRevisionDescription.cmake
 include contrib/GetGitRevisionDescription.cmake.in
 

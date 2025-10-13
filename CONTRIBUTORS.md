@@ -11,10 +11,10 @@ Eirik Endeve (Oak Ridge National Lab)
 Cory Hauck (Oak Ridge National Lab)
 - Software and method developer
 
+## past developers
+
 Steven Hahn (Oak Ridge National Lab)
 - Software developer
-
-## past developers
 
 Coleman Kendrick (Oak Ridge National Lab)
 - Computer scientist
