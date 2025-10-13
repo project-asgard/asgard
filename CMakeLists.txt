@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.19)
 
 project (asgard VERSION 0.7.1 LANGUAGES CXX)
 
-set(ASGARD_RELEASE_INFO "(alpha) ${asgard_VERSION}a3") # sync with pip-installer setup.py
+set(ASGARD_RELEASE_INFO "(beta) ${asgard_VERSION}b1") # sync with pip-installer setup.py
 
 include(FetchContent)   # getting external dependencies
 include(GNUInstallDirs) # allows management of install paths
@@ -88,7 +88,7 @@ if (ASGARD_USE_CUDA AND ASGARD_USE_ROCM)
 endif()
 
 if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
-  set (ASGARD_MAX_NUM_GPUS "4" CACHE STRING "Maximum number of GPU devices to use simultaneously")
+  set (ASGARD_MAX_NUM_GPUS "1" CACHE STRING "Maximum number of GPU devices to use simultaneously")
   if (ASGARD_MAX_NUM_GPUS LESS 1)
     message(FATAL_ERROR "ASGARD_MAX_NUM_GPUS must be at least 1, but it is set to '${ASGARD_MAX_NUM_GPUS}'")
   endif()
@@ -195,7 +195,7 @@ if (ASGARD_USE_PYTHON)
         if (ASGARD_osx_framework)
             set(__asgard_pysubpath "${CMAKE_INSTALL_LIBDIR}/python/site-packages")
         endif()
-        set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgardLINALG${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
         set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     else()
         # regular build, all those folders are the same
@@ -527,7 +527,7 @@ if (ASGARD_BUILD_TESTS)
   add_executable(sandbox ./testing/sandbox.cpp)
   target_link_libraries (sandbox PUBLIC libasgard)
 
-  if (${ASGARD_USE_PCH})
+  if (ASGARD_USE_PCH)
     target_precompile_headers (sandbox REUSE_FROM libasgard)
   endif ()
 
@@ -553,7 +553,7 @@ if (ASGARD_BUILD_TESTS)
           set_target_properties(${_asgname} PROPERTIES BUILD_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/")
       endif()
 
-      if (${ASGARD_USE_PCH})
+      if (ASGARD_USE_PCH)
           target_precompile_headers (${_asgname} REUSE_FROM libasgard)
       endif ()
 
