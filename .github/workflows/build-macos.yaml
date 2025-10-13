@@ -7,10 +7,10 @@ jobs:
     asgard:
         strategy:
 # float-only build is a rare case, no need to support
-# osx-13 maybe overkill
+# some uses still use intel, remove soon
             matrix:
                 prec: [double, float\;double]
-                os: [macos-13, macos-14]
+                os: [macos-15, macos-15-intel]
         runs-on: ${{matrix.os}}
         steps:
             - name: CPU Info
