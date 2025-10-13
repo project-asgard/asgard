@@ -398,7 +398,10 @@ void term_manager<P>::buld_term(
   auto &tmd = terms[tid];
 
   bool merging_with_interp = false;
-  if (tmd.is_chain_start() and terms[tid + 1].is_interpolatory) {
+  if ((tmd.is_chain_start() or tmd.is_chain_link())
+       and (static_cast<size_t>(tid + 1) < terms.size())
+        and terms[tid + 1].is_chain_link()
+         and terms[tid + 1].is_interpolatory) {
     // there is a potential here to merge this separable term with hier2wav
     merging_with_interp = true;
     for (int d : iindexof(num_dims))

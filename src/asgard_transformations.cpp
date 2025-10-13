@@ -543,15 +543,15 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
   switch (degree_)
   {
   case 0:
-    col_project_full<0>(tri, level, conns, col);
+    col_project_full<0, op>(nullptr, tri, level, conns, col);
     row_project_any<0, op>(nullptr, col, level, conns, res);
     break;
   case 1:
-    col_project_full<1>(tri, level, conns, col);
+    col_project_full<1, op>(nullptr, tri, level, conns, col);
     row_project_any<1, op>(nullptr, col, level, conns, res);
     break;
   default:
-    col_project_full<-1>(tri, level, conns, col);
+    col_project_full<-1, op>(nullptr, tri, level, conns, col);
     row_project_any<-1, op>(nullptr, col, level, conns, res);
     break;
   };
@@ -560,8 +560,9 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
 }
 
 template<typename P>
-template<int tdegree>
-void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
+template<int tdegree, typename hierarchy_manipulator<P>::operation op>
+void hierarchy_manipulator<P>::col_project_full(P const *trans,
+                                                block_tri_matrix<P> const &tri,
                                                 int const level,
                                                 connection_patterns const &conns,
                                                 block_sparse_matrix<P> &sp) const
@@ -1276,8 +1277,14 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 }
 
 #define instantiate_multi(prec, deg) \
-  template void hierarchy_manipulator<prec>::col_project_full<deg>( \
-      block_tri_matrix<prec> const &, int const, connection_patterns const &, \
+  template void hierarchy_manipulator<prec>::col_project_full<deg, hierarchy_manipulator<prec>::operation::transform>( \
+      prec const *, block_tri_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::col_project_full<deg, hierarchy_manipulator<prec>::operation::custom_unitary>( \
+      prec const *, block_tri_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::col_project_full<deg, hierarchy_manipulator<prec>::operation::custom_non_unitary>( \
+      prec const *, block_tri_matrix<prec> const &, int const, connection_patterns const &, \
       block_sparse_matrix<prec> &) const; \
   template void hierarchy_manipulator<prec>::col_project_vol<deg, hierarchy_manipulator<prec>::operation::transform>( \
       prec const *, block_diag_matrix<prec> const &, int const, connection_patterns const &, \

@@ -393,8 +393,9 @@ protected:
   }
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
-  template<int tdegree>
-  void col_project_full(block_tri_matrix<P> const &tri,
+  template<int tdegree, operation op>
+  void col_project_full(P const *trans,
+                        block_tri_matrix<P> const &tri,
                         int const level,
                         connection_patterns const &conn,
                         block_sparse_matrix<P> &sp) const;

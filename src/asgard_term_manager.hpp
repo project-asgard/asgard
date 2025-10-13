@@ -221,7 +221,8 @@ struct term_manager
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
                       hierarchy_manipulator<P> const &hier,
                       precon_method precon = precon_method::none,
-                      P alpha = 0) {
+                      P alpha = 0)
+  {
     tools::time_event timing_("initial coefficients");
     for (int t : iindexof(terms)) {
       #ifdef ASGARD_USE_MPI
