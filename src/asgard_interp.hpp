@@ -252,6 +252,8 @@ public:
   block_diag_matrix<P> const &get_raw_hier2wav() const { return diag_h2w; }
   //! returns the final form of the hier2wav matrix
   block_sparse_matrix<P> const &get_hier2wav() const { return hier2wav_; }
+  //! returns the inverse hierarchy matrix for transformations
+  P const[] get_ihier_matrix() const { return trans_mats_.data() + 8 * pdof * pdof; }
 
   #ifdef ASGARD_USE_GPU
   //! compute nodal values for the field
