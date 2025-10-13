@@ -416,11 +416,14 @@ void gemm_tri_diag(
   expect(C.nrows() == M);
 
   smmat::gemm<0>(n, A.diag(0), B[0], C.diag(0));
+  if (M == 1)
+    return;
+
   smmat::gemm<0>(n, A.lower(1), B[0], C.lower(1));
   smmat::gemm<0>(n, A.upper(M-1), B[0], C.upper(M-1));
 
 #pragma omp parallel for
-  for (int64_t r = 1; r < M - 2; r++)
+  for (int64_t r = 1; r < M - 1; r++)
   {
     smmat::gemm<0>(n, A.upper(r-1), B[r], C.upper(r-1));
     smmat::gemm<0>(n, A.diag(r), B[r], C.diag(r));
@@ -536,6 +539,15 @@ void block_sparse_matrix<P>::gemv(int const n, int const level, connection_patte
       smmat::gemv1(n, n, data_[j], x + c * n, out);
     }
   }
+}
+template<typename P>
+void block_sparse_matrix<P>::scal(P v)
+{
+  P *x = data();
+  size_t const num = data_vector().size();
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < num; i++)
+    x[i] *= v;
 }
 
 template<typename P>
@@ -715,6 +727,7 @@ void psedoinvert(int const n, block_tri_matrix<P> &A,
 template class dense_matrix<double>;
 template class block_diag_matrix<double>;
 template class block_tri_matrix<double>;
+template class block_sparse_matrix<double>;
 
 template void gemm1(int const n, block_matrix<double> const &A, block_matrix<double> const &B,
                     block_matrix<double> &C);
@@ -749,15 +762,13 @@ template void to_euler<double>(int const n, double alpha, block_tri_matrix<doubl
 
 template void psedoinvert<double>(int const, block_diag_matrix<double> &, block_diag_matrix<double> &);
 template void psedoinvert<double>(int const, block_tri_matrix<double> &, block_tri_matrix<double> &);
-
-template void block_sparse_matrix<double>::gemv(
-    int const, int const, connection_patterns const &, double const[], double[]) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class dense_matrix<float>;
 template class block_diag_matrix<float>;
 template class block_tri_matrix<float>;
+template class block_sparse_matrix<float>;
 
 template void gemm1(int const n, block_matrix<float> const &A, block_matrix<float> const &B,
                     block_matrix<float> &C);
@@ -792,9 +803,6 @@ template void to_euler<float>(int const n, float alpha, block_tri_matrix<float> 
 
 template void psedoinvert<float>(int const, block_diag_matrix<float> &, block_diag_matrix<float> &);
 template void psedoinvert<float>(int const, block_tri_matrix<float> &, block_tri_matrix<float> &);
-
-template void block_sparse_matrix<float>::gemv(
-    int const, int const, connection_patterns const &, float const[], float[]) const;
 #endif
 
 } // namespace asgard

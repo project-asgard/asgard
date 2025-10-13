@@ -255,20 +255,6 @@ public:
 
   //! converts matrix from diagonal to transformed on left/right with the given operations
   block_sparse_matrix<P> diag2block(
-      operation left, operation right, block_diag_matrix<P> const &diag,
-      int const level, connection_patterns const &conns) const
-  {
-    block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_volume);
-    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
-
-    do_col_project_vol(right, nullptr, diag, level, conns, col);
-    do_row_project_any(left, nullptr, col, level, conns, res);
-
-    return res;
-  }
-
-  //! converts matrix from diagonal to transformed on left/right with the given operations
-  block_sparse_matrix<P> diag2block(
       operation left, P const tl[], operation right, P const tr[],
       block_diag_matrix<P> const &diag,
       int const level, connection_patterns const &conns) const
@@ -277,6 +263,21 @@ public:
     block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::volume);
 
     do_col_project_vol(right, tr, diag, level, conns, col);
+    do_row_project_any(left, tl, col, level, conns, res);
+
+    return res;
+  }
+
+  //! converts matrix from diagonal to transformed on left/right with the given operations
+  block_sparse_matrix<P> tri2block(
+      operation left, P const tl[], operation right, P const tr[],
+      block_tri_matrix<P> const &tri,
+      int const level, connection_patterns const &conns) const
+  {
+    block_sparse_matrix<P> col = make_block_sparse_matrix(conns, connect_1d::hierarchy::col_full);
+    block_sparse_matrix<P> res = make_block_sparse_matrix(conns, connect_1d::hierarchy::full);
+
+    do_col_project_full(right, tr, tri, level, conns, col);
     do_row_project_any(left, tl, col, level, conns, res);
 
     return res;
@@ -393,8 +394,9 @@ protected:
   }
 
   //! apply column transform on tri-diagonal matrix -> sparse in col-full pattern
-  template<int tdegree>
-  void col_project_full(block_tri_matrix<P> const &tri,
+  template<int tdegree, operation op>
+  void col_project_full(P const *trans,
+                        block_tri_matrix<P> const &tri,
                         int const level,
                         connection_patterns const &conn,
                         block_sparse_matrix<P> &sp) const;
@@ -414,6 +416,46 @@ protected:
                        int const level,
                        connection_patterns const &conn,
                        block_sparse_matrix<P> &sp) const;
+
+  //! maps the degree for the specified operation
+  template<operation op>
+  void do_col_project_full_(P const trans[],
+                            block_tri_matrix<P> const &tri,
+                            int const level,
+                            connection_patterns const &conn,
+                            block_sparse_matrix<P> &sp) const
+  {
+    switch (degree_) {
+    case 0:
+      col_project_full<0, op>(trans, tri, level, conn, sp);
+      break;
+    case 1:
+      col_project_full<1, op>(trans, tri, level, conn, sp);
+      break;
+    default:
+      col_project_full<-1, op>(trans, tri, level, conn, sp);
+      break;
+    };
+  }
+  //! maps the operation to the correct template and degree
+  void do_col_project_full(operation op, P const trans[],
+                           block_tri_matrix<P> const &tri,
+                           int const level,
+                           connection_patterns const &conn,
+                           block_sparse_matrix<P> &sp) const
+  {
+    switch (op) {
+    case operation::custom_unitary:
+      do_col_project_full_<operation::custom_unitary>(trans, tri, level, conn, sp);
+      break;
+    case operation::custom_non_unitary:
+      do_col_project_full_<operation::custom_non_unitary>(trans, tri, level, conn, sp);
+      break;
+    default: // case operation::transform:
+      do_col_project_full_<operation::transform>(trans, tri, level, conn, sp);
+      break;
+    };
+  }
 
   //! maps the degree for the specified operation
   template<operation op>

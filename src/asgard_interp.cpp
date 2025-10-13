@@ -6,9 +6,11 @@ namespace asgard
 {
 template<typename P>
 interpolation_manager<P>::interpolation_manager(
+    prog_opts const &opts,
     pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
     connection_patterns const &conn)
-    : num_dims(domain.num_dims()), pdof(hier.degree() + 1), block_size(hier.block_size()),
+    : num_dims(domain.num_dims()), pdof(hier.degree() + 1),
+      block_size(hier.block_size()),
       perm(num_dims),
       perm_low(num_dims, conn_fill::lower_udiag),
       perm_up(num_dims, conn_fill::upper)
@@ -31,8 +33,6 @@ interpolation_manager<P>::interpolation_manager(
   //         (h_3, h_4, h_5)
   //         h-order is the list of p indexes that will form (h_0, h_1, h_2)
 
-  std::vector<double> points;
-  std::vector<int> horder;
   switch (pdof) {
   case 1: // constant
     points = {-1.0, };
@@ -59,6 +59,15 @@ interpolation_manager<P>::interpolation_manager(
   default:
     break;
   };
+  // testing purposes, allow setting different points in the options
+  if (not opts.interp_points.empty()) {
+    rassert(opts.interp_points.size() == static_cast<size_t>(pdof),
+            "the size of interp_points must be degree + 1");
+    rassert(opts.interp_horder.size() == opts.interp_points.size(),
+            "the size of interp_horder must match interp_points");
+    points = opts.interp_points;
+    horder = opts.interp_horder;
+  }
 
   expect(points.size() == static_cast<size_t>(pdof));
   expect(horder.size() == points.size());
@@ -67,7 +76,7 @@ interpolation_manager<P>::interpolation_manager(
 
   // transformation matrices for the permutation and hierarchical coefficients
   // 4 matrices of size 2 * pdof X 2 * pdof, plus the lower order nodes
-  std::vector<P> trans_mats_(3 * 4 * pdof2 + pdof);
+  trans_mats_.resize(3 * 4 * pdof2 + pdof);
   smmat::matrix<P> permute(2 * pdof, trans_mats_.data());
   smmat::matrix<P> hier_coeff(2 * pdof, trans_mats_.data() + 4 * pdof * pdof);
   smmat::matrix<P> ihier_coeff(2 * pdof, trans_mats_.data() + 8 * pdof * pdof);
@@ -110,7 +119,7 @@ interpolation_manager<P>::interpolation_manager(
   // ------------------------------------------------------------
   // transforming hierarchical Legendre coefficients to nodal values
   // ------------------------------------------------------------
-  block_diag_matrix<P> mat(pdof * pdof, num_cells);
+  diag_h2w = block_diag_matrix<P>(pdof * pdof, num_cells);
 
   {
     // values of Legendre polynomials at the interpolation points
@@ -121,18 +130,18 @@ interpolation_manager<P>::interpolation_manager(
     for(auto &l : leg_vals) l *= sqrt_size;
 
     if constexpr (is_double<P>) {
-      fill_pattern(leg_vals.data(), mat);
+      fill_pattern(leg_vals.data(), diag_h2w);
     } else {
       std::vector<P> fleg(leg_vals.size());
       std::copy(leg_vals.begin(), leg_vals.end(), fleg.begin());
-      fill_pattern(fleg.data(), mat);
+      fill_pattern(fleg.data(), diag_h2w);
     }
   }
 
   wav2nodal_ = hier.diag2block(hierarchy_manipulator<P>::operation::custom_unitary,
                                permute.data(),
                                hierarchy_manipulator<P>::operation::transform,
-                               nullptr, mat, level, conn);
+                               nullptr, diag_h2w, level, conn);
 
   // ------------------------------------------------------------
   // transforming nodal coefficients to hierarchical coefficients
@@ -161,13 +170,13 @@ interpolation_manager<P>::interpolation_manager(
 
   // hier_coeff.print();
 
-  fill_pattern(smmat::make_identity<P>(pdof).data(), mat); // start with identity
+  fill_pattern(smmat::make_identity<P>(pdof).data(), diag_h2w); // start with identity
 
   nodal2hier_ = hier.diag2block(
                     hierarchy_manipulator<P>::operation::custom_non_unitary,
                     hier_coeff.data(),
                     hierarchy_manipulator<P>::operation::custom_unitary,
-                    permute.data(), mat, level, conn);
+                    permute.data(), diag_h2w, level, conn);
 
   // ------------------------------------------------------------
   // projecting hierarchical interpolation basis to hierarchical Legendre
@@ -207,18 +216,18 @@ interpolation_manager<P>::interpolation_manager(
     for(auto &s : base) s *= scale;
 
     if constexpr (is_double<P>) {
-      fill_pattern(base.data(), mat);
+      fill_pattern(base.data(), diag_h2w);
     } else {
       std::vector<P> fbase(base.size());
       std::copy(base.begin(), base.end(), fbase.begin());
-      fill_pattern(fbase.data(), mat);
+      fill_pattern(fbase.data(), diag_h2w);
     }
   }
 
   hier2wav_ = hier.diag2block(
                   hierarchy_manipulator<P>::operation::transform, nullptr,
                   hierarchy_manipulator<P>::operation::custom_non_unitary,
-                  ihier_coeff.data(), mat, level, conn);
+                  ihier_coeff.data(), diag_h2w, level, conn);
 
 
   // wav2nodal_.to_full(conn).print();
@@ -310,6 +319,42 @@ vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) cons
   grid_gen = grid.generation();
 
   return nodes_;
+}
+
+template<typename P> block_sparse_matrix<P>
+interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hier,
+                                             connection_patterns const &conns,
+                                             block_diag_matrix<P> const &mat,
+                                             block_diag_matrix<P> &work) const
+{
+  expect(mat.nblock() == pdof * pdof);
+  expect(mat.nrows() == diag_h2w.nrows());
+
+  work.check_resize(mat);
+  gemm_block_diag(pdof, mat, diag_h2w, work);
+
+  return hier.diag2block(hierarchy_manipulator<P>::operation::transform, nullptr,
+                         hierarchy_manipulator<P>::operation::custom_non_unitary,
+                         trans_mats_.data() + 8 * pdof * pdof, work,
+                         fm::intlog2(mat.nrows()), conns);
+}
+
+template<typename P> block_sparse_matrix<P>
+interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hier,
+                                             connection_patterns const &conns,
+                                             block_tri_matrix<P> const &mat,
+                                             block_tri_matrix<P> &work) const
+{
+  expect(mat.nblock() == pdof * pdof);
+  expect(mat.nrows() == diag_h2w.nrows());
+
+  work.check_resize(mat);
+  gemm_tri_diag(pdof, mat, diag_h2w, work);
+
+  return hier.tri2block(hierarchy_manipulator<P>::operation::transform, nullptr,
+                        hierarchy_manipulator<P>::operation::custom_non_unitary,
+                        trans_mats_.data() + 8 * pdof * pdof, work,
+                        fm::intlog2(mat.nrows()), conns);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

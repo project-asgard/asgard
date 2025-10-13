@@ -543,15 +543,15 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
   switch (degree_)
   {
   case 0:
-    col_project_full<0>(tri, level, conns, col);
+    col_project_full<0, op>(nullptr, tri, level, conns, col);
     row_project_any<0, op>(nullptr, col, level, conns, res);
     break;
   case 1:
-    col_project_full<1>(tri, level, conns, col);
+    col_project_full<1, op>(nullptr, tri, level, conns, col);
     row_project_any<1, op>(nullptr, col, level, conns, res);
     break;
   default:
-    col_project_full<-1>(tri, level, conns, col);
+    col_project_full<-1, op>(nullptr, tri, level, conns, col);
     row_project_any<-1, op>(nullptr, col, level, conns, res);
     break;
   };
@@ -560,8 +560,9 @@ hierarchy_manipulator<P>::tri2hierarchical(block_tri_matrix<P> const &tri,
 }
 
 template<typename P>
-template<int tdegree>
-void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
+template<int tdegree, typename hierarchy_manipulator<P>::operation op>
+void hierarchy_manipulator<P>::col_project_full(P const *trans,
+                                                block_tri_matrix<P> const &tri,
                                                 int const level,
                                                 connection_patterns const &conns,
                                                 block_sparse_matrix<P> &sp) const
@@ -583,8 +584,69 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
   P const w0[4] = {0, is2h, -is2, is64};
   P const w1[4] = {0, -is2h, is2, is64};
 
+  // small matrices can be cached on the stack for faster access
+  P cc[4], c0[4], c1[4], c2[4], c3[4];
+
   int const pdof  = degree_ + 1;
   int const pdof2 = pdof * pdof;
+
+  std::vector<P> custom;
+  if constexpr (op == operation::custom_unitary) {
+    expect(trans != nullptr);
+    if constexpr (tdegree == 0) {
+      cc[0] = trans[0];
+      cc[1] = trans[2];
+      cc[2] = trans[1];
+      cc[3] = trans[3];
+    } else if constexpr (tdegree == 1) {
+      c0[0] = trans[ 0]; c0[1] = trans[ 1]; c0[2] = trans[ 4]; c0[3] = trans[ 5];
+      c1[0] = trans[ 8]; c1[1] = trans[ 9]; c1[2] = trans[12]; c1[3] = trans[13];
+      c2[0] = trans[ 2]; c2[1] = trans[ 3]; c2[2] = trans[ 6]; c2[3] = trans[ 7];
+      c3[0] = trans[10]; c3[1] = trans[11]; c3[2] = trans[14]; c3[3] = trans[15];
+    } else {
+      custom.resize(4 * pdof2);
+      smmat::matrix<P const> transf(2 * pdof, trans);
+      smmat::matrix<P> pc0(pdof, custom.data());
+      smmat::matrix<P> pc1(pdof, custom.data() + pdof2);
+      smmat::matrix<P> pc2(pdof, custom.data() + 2 * pdof2);
+      smmat::matrix<P> pc3(pdof, custom.data() + 3 * pdof2);
+      for (int r = 0; r < pdof; r++) {
+        for (int c = 0; c < pdof; c++) {
+          pc0(r, c) = transf(r, c);
+          pc1(r, c) = transf(r, c + pdof);
+          pc2(r, c) = transf(r + pdof, c);
+          pc3(r, c) = transf(r + pdof, c + pdof);
+        }
+      }
+    }
+  } else if constexpr (op == operation::custom_non_unitary) {
+    // in the non-unitary case, the forward and inverse transforms use different matrices
+    // and we do not transpose in the application of the blocks
+    expect(trans != nullptr);
+    if constexpr (tdegree == 0) {
+      std::copy_n(trans, 4, cc);
+    } else if constexpr (tdegree == 1) {
+      c0[0] = trans[ 0]; c0[1] = trans[ 1]; c0[2] = trans[ 4]; c0[3] = trans[ 5];
+      c1[0] = trans[ 2]; c1[1] = trans[ 3]; c1[2] = trans[ 6]; c1[3] = trans[ 7];
+      c2[0] = trans[ 8]; c2[1] = trans[ 9]; c2[2] = trans[12]; c2[3] = trans[13];
+      c3[0] = trans[10]; c3[1] = trans[11]; c3[2] = trans[14]; c3[3] = trans[15];
+    } else {
+      custom.resize(4 * pdof2);
+      smmat::matrix<P const> transf(2 * pdof, trans);
+      smmat::matrix<P> pc0(pdof, custom.data());
+      smmat::matrix<P> pc1(pdof, custom.data() + pdof2);
+      smmat::matrix<P> pc2(pdof, custom.data() + 2 * pdof2);
+      smmat::matrix<P> pc3(pdof, custom.data() + 3 * pdof2);
+      for (int r = 0; r < pdof; r++) {
+        for (int c = 0; c < pdof; c++) {
+          pc0(r, c) = transf(r, c);
+          pc1(r, c) = transf(r + pdof, c);
+          pc2(r, c) = transf(r, c + pdof);
+          pc3(r, c) = transf(r + pdof, c + pdof);
+        }
+      }
+    }
+  }
 
   // project cells left/right with index 2n and 2n+1 at level L
   // to cells n at the hierarchical level L-1, stored in out
@@ -592,19 +654,53 @@ void hierarchy_manipulator<P>::col_project_full(block_tri_matrix<P> const &tri,
   // see the block-diagonal overload too
   auto apply = [&](P const *left, P const *right, P *out, P *upper)
   {
-    if constexpr (tdegree == 0)
-      *out = -s22 * (*left) + s22 * (*right);
-    else if constexpr (tdegree == 1)
-      smmat::gemm_pairt(2, left, w0, right, w1, out);
-    else
-      smmat::gemm_pairt(pdof, left, tmatlev, right, tmatlev + pdof2, out);
+    if constexpr (op == operation::transform) {
+      if constexpr (tdegree == 0)
+        *out = -s22 * (*left) + s22 * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, w0, right, w1, out);
+      else
+        smmat::gemm_pairt(pdof, left, tmatlev, right, tmatlev + pdof2, out);
 
-    if constexpr (tdegree == 0)
-      *upper = s22 * (*left) + s22 * (*right);
-    else if constexpr (tdegree == 1)
-      smmat::gemm_pairt(2, left, h0, right, h1, upper);
-    else
-      smmat::gemm_pairt(pdof, left, tmatup, right, tmatup + pdof2, upper);
+      if constexpr (tdegree == 0)
+        *upper = s22 * (*left) + s22 * (*right);
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, h0, right, h1, upper);
+      else
+        smmat::gemm_pairt(pdof, left, tmatup, right, tmatup + pdof2, upper);
+    } else if constexpr (op == operation::custom_unitary) {
+      if constexpr (tdegree == 0)
+        *upper = (*left) * cc[0] + (*right) * cc[1];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, c0, right, c1, upper);
+      else
+        smmat::gemm_pairt(pdof, left, custom.data(),
+                          right, custom.data() + pdof2, upper);
+
+      if constexpr (tdegree == 0)
+        *out = (*left) * cc[2] + (*right) * cc[3];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pairt(2, left, c2, right, c3, out);
+      else
+        smmat::gemm_pairt(pdof, left, custom.data() + 2 * pdof2,
+                          right, custom.data() + 3 * pdof2, out);
+    } else if constexpr (op == operation::custom_non_unitary) {
+      if constexpr (tdegree == 0)
+        *upper = (*left) * cc[0] + (*right) * cc[1];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, left, c0, right, c1, upper);
+      else
+        smmat::gemm_pair(pdof, left, custom.data(),
+                         right, custom.data() + pdof2, upper);
+
+      if constexpr (tdegree == 0)
+        *out = (*left) * cc[2] + (*right) * cc[3];
+      else if constexpr (tdegree == 1)
+        smmat::gemm_pair(2, left, c2, right, c3, out);
+      else
+        smmat::gemm_pair(pdof, left, custom.data() + 2 * pdof2,
+                         right, custom.data() + 3 * pdof2, out);
+    }
   };
 
   connect_1d const &conn = conns(sp);
@@ -1276,8 +1372,14 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 }
 
 #define instantiate_multi(prec, deg) \
-  template void hierarchy_manipulator<prec>::col_project_full<deg>( \
-      block_tri_matrix<prec> const &, int const, connection_patterns const &, \
+  template void hierarchy_manipulator<prec>::col_project_full<deg, hierarchy_manipulator<prec>::operation::transform>( \
+      prec const *, block_tri_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::col_project_full<deg, hierarchy_manipulator<prec>::operation::custom_unitary>( \
+      prec const *, block_tri_matrix<prec> const &, int const, connection_patterns const &, \
+      block_sparse_matrix<prec> &) const; \
+  template void hierarchy_manipulator<prec>::col_project_full<deg, hierarchy_manipulator<prec>::operation::custom_non_unitary>( \
+      prec const *, block_tri_matrix<prec> const &, int const, connection_patterns const &, \
       block_sparse_matrix<prec> &) const; \
   template void hierarchy_manipulator<prec>::col_project_vol<deg, hierarchy_manipulator<prec>::operation::transform>( \
       prec const *, block_diag_matrix<prec> const &, int const, connection_patterns const &, \
