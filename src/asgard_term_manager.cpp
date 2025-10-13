@@ -407,8 +407,23 @@ void term_manager<P>::buld_term(
     // if the 1d terms are changing, then skip the merge
     // if everything is constant, we can merge
   }
-merging_with_interp = false;
+
   if (merging_with_interp) {
+    constexpr bool merge_with_interp = true;
+    terms[tid + 1].interp_stop_at_hierarchy = true;
+
+    std::vector<int> id_dirs;
+    id_dirs.reserve(num_dims);
+    for (int d : iindexof(num_dims))
+    {
+      rebuld_term1d(terms[tid], d, max_level, conn, hier, precon, alpha, merge_with_interp);
+      if (terms[tid].tmd.dim(d).is_identity())
+        id_dirs.push_back(d);
+    }
+    // adjust the kronmult permutations using the fact that the identity directions
+    // were replaced by the hier2wav matrix, which is upper hierarchical
+    if (not id_dirs.empty())
+      terms[tid].perm.prepad_upper(id_dirs);
   } else {
     for (int d : iindexof(num_dims)) {
       auto const &t1d = tmd.tmd.dim(d);
@@ -416,12 +431,8 @@ merging_with_interp = false;
       int level = grid.current_level(d); // required level
 
       // terms that don't change should be build only once
-      if (t1d.change() == changes_with::none) {
-        if (tmd.coeffs[d].empty())
-          level = max_level; // build up to the max
-        else
-          continue; // already build, we can skip
-      }
+      if (t1d.change() == changes_with::none)
+        level = max_level; // build up to the max
 
       rebuld_term1d(terms[tid], d, level, conn, hier, precon, alpha);
     } // move to next dimension d
@@ -432,7 +443,7 @@ template<typename P>
 void term_manager<P>::rebuld_term1d(
     term_entry<P> &tentry, int const dim, int level,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    precon_method precon, P alpha)
+    precon_method precon, P alpha, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -476,11 +487,23 @@ void term_manager<P>::rebuld_term1d(
   // if the term is identity, then there is no matrix, all the calls
   // above are needed to handle the boundary conditions
   if (t1d.is_identity()) {
+    if (merge_with_interp)
+      tentry.coeffs[dim] = interp.get_hier2wav();
   } else {
     if (is_diag) {
-      tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
+      if (merge_with_interp) {
+        raw_diag0.check_resize(wraw_diag);
+        gemm_block_diag(legendre.pdof, wraw_diag, interp.get_raw_hier2wav(), raw_diag0);
+        tentry.coeffs[dim] = hier.diag2hierarchical(raw_diag0, level, conn);
+      } else
+        tentry.coeffs[dim] = hier.diag2hierarchical(wraw_diag, level, conn);
     } else {
-      tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
+      if (merge_with_interp) {
+        raw_tri0.check_resize(wraw_tri);
+        gemm_tri_diag(legendre.pdof, wraw_tri, interp.get_raw_hier2wav(), raw_tri0);
+        tentry.coeffs[dim] = hier.tri2hierarchical(raw_tri0, level, conn);
+      } else
+        tentry.coeffs[dim] = hier.tri2hierarchical(wraw_tri, level, conn);
     }
   }
 
@@ -501,7 +524,6 @@ void term_manager<P>::rebuld_term1d(
     compute->set_device(gpu::device{0});
   }
   #endif
-
 
   // apply the mass matrices and convert to hierarchical form
   for (int b : indexrange{tentry.bc}) {
@@ -970,14 +992,32 @@ void term_manager<P>::apply_tmpl(
   auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, vector_type_x in,
                                      P be, vector_type_y out, bool use_ifield = false)
     -> void {
-      if (tme.tmd.is_interpolatory()) {
+      if (tme.is_interpolatory) {
         if (use_ifield) {
-          if constexpr (using_vectors)
-            interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out.data(), kwork, it1, it2);
-          else
-            interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+          if constexpr (using_vectors) {
+            if (tme.interp_stop_at_hierarchy)
+              std::cout << " stop at hier form ifield (vector)\n";
+            if (tme.interp_stop_at_hierarchy)
+              interp.field2hier(grid, conns, 0, ifield, tme.tmd.interp(), out.data(), kwork, it1);
+            else
+              interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out.data(), kwork, it1, it2);
+          } else {
+            if (tme.interp_stop_at_hierarchy)
+              std::cout << " stop at hier form ifield (non-vector)\n";
+            if (tme.interp_stop_at_hierarchy)
+              interp.field2hier(grid, conns, 0, ifield, tme.tmd.interp(), out, kwork, it1);
+            else
+              interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+          }
         } else {
-          interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+          if (tme.interp_stop_at_hierarchy) {
+            if constexpr (using_vectors)
+              interp.wav2hier(grid, conns, 0, in.data(), tme.tmd.interp(), out.data(), kwork, it1, it2);
+            else
+              interp.wav2hier(grid, conns, 0, in, tme.tmd.interp(), out, kwork, it1, it2);
+          } else {
+            interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
+          }
         }
       } else {
         if constexpr (using_vectors)

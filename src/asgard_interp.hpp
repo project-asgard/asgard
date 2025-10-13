@@ -71,7 +71,7 @@ public:
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn, perm_low, alpha * P{iwav_scale}, beta, work);
+                  pdof, grid, conn, perm_low, P{1}, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -80,8 +80,7 @@ public:
     #else
     tools::time_event performance_("nodal-to-hier");
     #endif
-    block_cpu(pdof, grid, conn, perm_low, nodal2hier_,
-              P{1}, f, P{0}, hier, work);
+    block_cpu(pdof, grid, conn, perm_low, nodal2hier_, P{1}, f, P{0}, hier, work);
   }
 
   //! compute nodal values for the field
@@ -129,6 +128,25 @@ public:
   }
 
   /*!
+   * \brief given existing field values, construct the interpolation hierarchical coefficients
+   *
+   * In essence this is the same operation as operator(), but the difference
+   * is that the first step (wav2nodal) is already done and only the application
+   * of the func and (nodal2wav) is needed.
+   */
+  void field2hier(sparse_grid const &grid, connection_patterns const &conn,
+                  P time, std::vector<P> const &field,
+                  md_func_f<P> const &func, P y[],
+                  kronmult::workspace<P> &work, std::vector<P> &t1) const
+  {
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), field, t1);
+    }
+    nodal2hier(grid, conn, t1.data(), y, work);
+  }
+
+  /*!
    * \brief Performs the interpolation of the function func
    *
    * Given the grid, connection patterns, and current time:
@@ -153,6 +171,19 @@ public:
       func(time, nodes(grid), t1, t2);
     }
     nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
+  }
+
+  void wav2hier(sparse_grid const &grid, connection_patterns const &conn,
+       P time, P const state[], md_func_f<P> const &func, P y[],
+       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+  {
+    tools::time_event performance_("interpolation operation");
+    wav2nodal(grid, conn, state, t1.data(), work);
+    {
+      tools::time_event perf_("interpolation function");
+      func(time, nodes(grid), t1, t2);
+    }
+    nodal2hier(grid, conn, t2.data(), y, work);
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -219,6 +250,8 @@ public:
 
   //! returns the diagonal form of the hier2wav matrix
   block_diag_matrix<P> const &get_raw_hier2wav() const { return diag_h2w; }
+  //! returns the final form of the hier2wav matrix
+  block_sparse_matrix<P> const &get_hier2wav() const { return hier2wav_; }
 
   #ifdef ASGARD_USE_GPU
   //! compute nodal values for the field

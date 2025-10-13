@@ -394,7 +394,11 @@ struct term_manager
                  std::vector<P> &y) const
   {
     if (tme.is_interpolatory) {
-      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+      if (tme.interp_stop_at_hierarchy) {
+        expect(alpha == 1 and beta == 0); // should oly be called by the boudary condition chains
+        interp.nodal2hier(grid, conns, x.data(), y.data(), kwork);
+      } else
+        interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -405,7 +409,11 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory) {
-      interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+      if (tme.interp_stop_at_hierarchy) {
+        expect(alpha == 1 and beta == 0); // should oly be called by the boudary condition chains
+        interp.nodal2hier(grid, conns, x, y, kwork);
+      } else
+        interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
       block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);
@@ -467,7 +475,8 @@ protected:
   //! rebuild term[tmd][t1d], assumes non-identity
   void rebuld_term1d(term_entry<P> &tentry, int const dim, int level,
                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     precon_method precon = precon_method::none, P alpha = 0);
+                     precon_method precon = precon_method::none, P alpha = 0,
+                     bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
                     block_diag_matrix<P> const *bmass, bool &is_diag,
