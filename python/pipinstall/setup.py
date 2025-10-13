@@ -7,7 +7,7 @@ from skbuild.exceptions import SKBuildError
 from skbuild.cmaker import get_cmake_version
 from skbuild import setup  # This line replaces 'from setuptools import setup'
 
-asg_ver = '0.7.1a3'  # trying to keep this set to the "next" release
+asg_ver = '0.7.1b1'  # trying to keep this set to the "next" release
 
 # Add CMake as a build requirement if cmake is not installed or too old
 setup_requires = []
