@@ -95,4 +95,37 @@ private:
   std::array<vector2d<P>, max_num_dimensions> integ;
 };
 
+/*!
+ * \brief Manages the moment computations
+ *
+ * Handles groups, domain, etc.
+ */
+template<typename P>
+class moment_manager {
+public:
+  //! creates a default empty maanger, no moments
+  moment_manager() = default;
+  //! create the manager with the new groups
+  moment_manager(pde_domain<P> const &domain, int max_level,
+                 hierarchy_manipulator<P> const &hier,
+                 moments_list &&mlist,
+                 std::vector<moments_list> &&mom_groups);
+
+  //! returns the loaded dimensions
+  int num_dims() const { return num_dims_; }
+  //! returns true if the manager has been initialized
+  operator bool () const { return (num_dims_ > 0); }
+
+
+private:
+  int num_dims_ = 0;
+  int pdof = 0;
+
+  moments_list mlist;
+  std::vector<std::vector<moment_id>> groups_;
+
+  std::array<vector2d<P>, max_num_dimensions> integ;
+
+};
+
 } // namespace asgard

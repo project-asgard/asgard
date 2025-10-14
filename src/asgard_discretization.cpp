@@ -142,7 +142,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   set_initial_condition();
 
-  start_moments(); // grid may have changes above, wait to start the moments
+  start_moments(pde.mlist, pde.mom_groups); // grid may have changes above, wait to start the moments
 
   if (not stop_verbosity()) {
     int64_t const dof = grid.num_indexes() * hier.block_size();
@@ -188,7 +188,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
   terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
 
-  start_moments();
+  start_moments(pde.mlist, pde.mom_groups);
 
   if (stepper.needed_precon() == precon_method::adi) {
     precision const substep
@@ -223,7 +223,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 }
 
 template<typename precision>
-void discretization_manager<precision>::start_moments() {
+void discretization_manager<precision>::start_moments(moments_list &mlist, std::vector<moments_list> &mom_groups) {
   // process the moments, can compute moments based on the initial conditions
   if (terms.deps().poisson or terms.deps().num_moments > 0) {
     // the poisson solver needs 1 moment
@@ -241,6 +241,8 @@ void discretization_manager<precision>::start_moments() {
     }
     terms.cdata.moments.resize(num * mom_size);
   }
+  if (not mlist.empty())
+    moms = moment_manager(domain_, terms.max_level, hier, std::move(mlist), std::move(mom_groups));
 }
 
 template<typename precision>

@@ -59,6 +59,22 @@ void test_moment_list() {
     tassert(!clist.have_all_dimension(1));
     tassert(!clist.have_all_dimension(2));
     tassert(!clist.have_all_dimension(3));
+  }{
+    moments_list super;
+    super.get_id(0);
+    auto id1 = super.get_id(5);
+    auto id2 = super.get_id(3);
+    super.get_id(4);
+    moments_list list;
+    list.get_id(3);
+    list.get_id(5);
+    std::vector<moment_id> ref = {id1, id2};
+    std::vector<moment_id> val = list.find_as_subset_of(super);
+    tassert(ref.size() == val.size());
+    for (auto const &id : ref) {
+      tassert(std::any_of(val.begin(), val.end(),
+              [&](moment_id const &a) -> bool { return (a == id); }));
+    }
   }
 }
 

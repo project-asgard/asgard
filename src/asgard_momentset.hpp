@@ -104,12 +104,13 @@ public:
   moment const &operator[] (int i) const { return moms_[i]; }
 
   //! returns true if all moments have the given dimension
-  bool have_all_dimension(int const dims) const {
-    for (auto const &m : moms_)
-      if (m.num_dims() != dims)
-        return false;
-    return true;
-  }
+  bool have_all_dimension(int const dims) const;
+  //! returns moment_id of the members of this list within the main set
+   std::vector<moment_id> find_as_subset_of(moments_list const &superset) const;
+
+  //! returns the max powers in each dimension
+  moment max_moment() const;
+
 private:
   std::vector<moment> moms_;
 };

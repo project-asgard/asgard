@@ -1413,7 +1413,7 @@ public:
     sources_sep_.emplace_back(std::move(smd));
   }
   //! add separable right-hand-source, can have multiple
-  pde_scheme<P> & operator += (separable_func<P> tmd) {
+  pde_scheme<P> &operator += (separable_func<P> tmd) {
     this->add_source(std::move(tmd));
     return *this;
   }
@@ -1444,12 +1444,21 @@ public:
       rassert(terms_.empty() and sources_sep_.empty(),
               "if using term-groups, new_term_group() must be called before any terms/sources are added");
       current_term_group = 0;
+      mom_groups.push_back(mlist);
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
       sources_md_.push_back(nullptr); // add empty interpolatory source
+      mom_groups.emplace_back();
     }
     return current_term_group;
+  }
+  //! register
+  moment_id register_moment(moment const &mom) {
+    moment_id const id = mlist.get_id(mom);
+    if (current_term_group >= 0)
+      mom_groups[current_term_group].get_id(mom);
+    return id;
   }
 
   //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
@@ -1471,6 +1480,7 @@ public:
   friend class discretization_manager<P>;
 
 private:
+  //! internal use, finalize the group data-structures
   void finalize_term_groups() {
     if (current_term_group == -1) // no groups being used
       return;
@@ -1505,6 +1515,9 @@ private:
 
   imex_implicit_group im_;
   imex_explicit_group ex_;
+
+  std::vector<moments_list> mom_groups;
+  moments_list mlist;
 };
 
 /*!

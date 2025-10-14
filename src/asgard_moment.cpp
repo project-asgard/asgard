@@ -1,5 +1,5 @@
 #include "asgard_moment.hpp"
-#include "asgard_small_mats.hpp"
+#include "asgard_coefficients_mats.hpp"
 
 namespace asgard
 {
@@ -507,11 +507,27 @@ void moments1d<P>::project_cell(
   }
 }
 
+template<typename P>
+moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
+                                  hierarchy_manipulator<P> const &hier,
+                                  moments_list &&mlist_in,
+                                  std::vector<moments_list> &&mom_groups)
+    : mlist(std::move(mlist_in))
+{
+  if (not mom_groups.empty()) {
+    groups_.reserve(mom_groups.size());
+    for (auto const &mgroup : mom_groups)
+      groups_.push_back( mlist.find_as_subset_of(mgroup) );
+  }
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class moments1d<double>;
+template class moment_manager<double>;
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
 template class moments1d<float>;
+template class moment_manager<float>;
 #endif
 
 } // namespace asgard

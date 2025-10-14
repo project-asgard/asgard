@@ -534,7 +534,7 @@ protected:
   //! restart from a file
   void restart_from_file(pde_scheme<precision> &pde);
   //! common operations for the two start methods
-  void start_moments();
+  void start_moments(moments_list &mlist, std::vector<moments_list> &mom_groups);
   //! computes the right-hand-side of the ode, templated version
   template<bool use_groups>
   void ode_rhs_templ(int gid, precision time, std::vector<precision> const &current,
@@ -701,6 +701,8 @@ private:
   mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
   mutable solvers::poisson<precision> poisson;
+  // new moments
+  moment_manager<precision> moms;
 
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;
