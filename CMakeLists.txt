@@ -146,6 +146,7 @@ endif()
 
 # handles the I/O logic, must be included after ASGARDLINALG
 if (ASGARD_USE_HIGHFIVE)
+  enable_language(C) # needed by older versions of C
   include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
 endif()
 
