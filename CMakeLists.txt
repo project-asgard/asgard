@@ -146,6 +146,7 @@ endif()
 
 # handles the I/O logic, must be included after ASGARDLINALG
 if (ASGARD_USE_HIGHFIVE)
+  enable_language(C) # needed by older versions of C
   include (${CMAKE_SOURCE_DIR}/contrib/asgard_io.cmake)
 endif()
 
@@ -157,9 +158,9 @@ elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT APPLE)
   # ASGARD_USE_OPENMP will still explicitly enable OpenMP regardless of the platform
   find_package(OpenMP)
   if (OpenMP_FOUND)
-    message(WARNING "ASGarD recommends OpenMP for multi-threading but CMake could not find the OpenMP flags")
-  else()
     set (ASGARD_USE_OPENMP ON CACHE BOOL "OpenMP found and enabled" FORCE)
+  else()
+    message(WARNING "ASGarD recommends OpenMP for multi-threading but CMake could not find the OpenMP flags")
   endif()
 endif()
 

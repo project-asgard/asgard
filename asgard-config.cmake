@@ -58,6 +58,7 @@ if ("@ASGARD_USE_HIGHFIVE@")
   if ("@ASGARD_BUILD_HDF5@")
     enable_language (C)
   else()
+    enable_language(C) # needed by older versions of CMake
     # if using system HDF5, then just pull it through the regular channel
     find_package (HDF5 REQUIRED)
   endif()
