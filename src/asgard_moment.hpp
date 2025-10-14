@@ -108,6 +108,7 @@ public:
   //! create the manager with the new groups
   moment_manager(pde_domain<P> const &domain, int max_level,
                  hierarchy_manipulator<P> const &hier,
+                 legendre_basis<P> const &legendre,
                  moments_list &&mlist,
                  std::vector<moments_list> &&mom_groups);
 
@@ -119,12 +120,13 @@ public:
 
 private:
   int num_dims_ = 0;
+  int num_vel_ = 0;
   int pdof = 0;
 
   moments_list mlist;
   std::vector<std::vector<moment_id>> groups_;
 
-  std::array<vector2d<P>, max_num_dimensions> integ;
+  std::array<vector2d<P>, max_mom_dims> integ;
 
 };
 

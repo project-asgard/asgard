@@ -510,21 +510,35 @@ void moments1d<P>::project_cell(
 template<typename P>
 moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
                                   hierarchy_manipulator<P> const &hier,
+                                  legendre_basis<P> const &legendre,
                                   moments_list &&mlist_in,
                                   std::vector<moments_list> &&mom_groups)
-    : mlist(std::move(mlist_in))
+    : num_dims_(domain.num_dims()), num_vel_(domain.num_vel()),
+      pdof(hier.degree() + 1), mlist(std::move(mlist_in))
 {
   if (not mom_groups.empty()) {
     groups_.reserve(mom_groups.size());
     for (auto const &mgroup : mom_groups)
       groups_.push_back( mlist.find_as_subset_of(mgroup) );
   }
+
+  int const num_cells   = fm::ipow2(max_level);
+  moment const max_moms = mlist.max_moment();
+
+  for (int d = 0; d < num_vel_; d++) {
+    integ[d] = vector2d<P>(num_cells * pdof, max_moms.pows[d] + 1);
+
+
+
+  }
+
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class moments1d<double>;
 template class moment_manager<double>;
 #endif
+
 #ifdef ASGARD_ENABLE_FLOAT
 template class moments1d<float>;
 template class moment_manager<float>;

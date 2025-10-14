@@ -33,6 +33,11 @@ moments_list::find_as_subset_of(moments_list const &superset) const {
 }
 
 moment moments_list::max_moment() const {
+  moment result(-1, -1, -1);
+  for (auto const &m : moms_)
+    for (int i = 0; i < max_mom_dims; i++)
+      result.pows[i] = std::max(result.pows[i], m.pows[i]);
+  return result;
 }
 
 }

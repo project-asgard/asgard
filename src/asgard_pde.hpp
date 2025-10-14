@@ -1442,7 +1442,8 @@ public:
   int new_term_group() {
     if (current_term_group == -1) { // initialize group engine
       rassert(terms_.empty() and sources_sep_.empty(),
-              "if using term-groups, new_term_group() must be called before any terms/sources are added");
+              "if using term-groups, new_term_group() must be called "
+              "before any terms/sources are added");
       current_term_group = 0;
       mom_groups.push_back(mlist);
     } else { // new group
@@ -1453,12 +1454,33 @@ public:
     }
     return current_term_group;
   }
-  //! register
+  //! register a moment and obtain the moment id
   moment_id register_moment(moment const &mom) {
+    rassert(domain_.num_vel() == mom.num_dims(),
+            "mismatch between the velocity dimensions for the domain and "
+            "the dimensions of the moment");
     moment_id const id = mlist.get_id(mom);
     if (current_term_group >= 0)
       mom_groups[current_term_group].get_id(mom);
     return id;
+  }
+  //! returns a reference to all moments (mostly for testing)
+  moments_list const &moments() const { return mlist; }
+  //! returns a reference to all moments (mostly for testing)
+  moments_list const &moments(group_id gid) const { return mom_groups[gid.gid]; }
+  //! print the list of moments, useful for debugging
+  void print_moments(std::ostream &os = std::cout) const {
+    if (mom_groups.empty()) {
+      os << " moments:\n";
+      mlist.print(os);
+      os << '\n';
+    } else {
+      for (size_t i = 0; i < mom_groups.size(); i++) {
+        os << " moment group: " << i << '\n';
+        mom_groups[i].print(os);
+        os << '\n';
+      }
+    }
   }
 
   //! forces the use of IMEX time-stepping and sets the implicit and explicit modes

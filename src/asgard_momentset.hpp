@@ -110,6 +110,11 @@ public:
 
   //! returns the max powers in each dimension
   moment max_moment() const;
+  //! print the list
+  void print(std::ostream &os = std::cout) const {
+    for (auto const &m : moms_)
+      os << m << "  ";
+  }
 
 private:
   std::vector<moment> moms_;

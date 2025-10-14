@@ -242,7 +242,7 @@ void discretization_manager<precision>::start_moments(moments_list &mlist, std::
     terms.cdata.moments.resize(num * mom_size);
   }
   if (not mlist.empty())
-    moms = moment_manager(domain_, terms.max_level, hier, std::move(mlist), std::move(mom_groups));
+    moms = moment_manager(domain_, terms.max_level, hier, terms.legendre, std::move(mlist), std::move(mom_groups));
 }
 
 template<typename precision>
