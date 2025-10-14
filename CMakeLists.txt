@@ -158,9 +158,9 @@ elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT APPLE)
   # ASGARD_USE_OPENMP will still explicitly enable OpenMP regardless of the platform
   find_package(OpenMP)
   if (OpenMP_FOUND)
-    message(WARNING "ASGarD recommends OpenMP for multi-threading but CMake could not find the OpenMP flags")
-  else()
     set (ASGARD_USE_OPENMP ON CACHE BOOL "OpenMP found and enabled" FORCE)
+  else()
+    message(WARNING "ASGarD recommends OpenMP for multi-threading but CMake could not find the OpenMP flags")
   endif()
 endif()
 
