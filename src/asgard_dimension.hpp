@@ -207,6 +207,21 @@ public:
     int num_cells = fm::ipow2(level);
     return length_[dim] / num_cells;
   }
+  //! (mostly for moment testing) returns just the position dimensions
+  pde_domain<P> position_domain() const {
+    if (num_pos_ == 0) {
+      if (num_vel_ == 0) return *this; // everything is a position
+      else return pde_domain<P>{}; // nothing is a position dimension
+    }
+    std::vector<domain_range> rng;
+    rng.reserve(num_pos_);
+    for (int i = 0; i < num_pos_; i++)
+      rng.push_back({xleft_[i], xright_[i]});
+
+    pde_domain<P> result(position_dims{num_pos_}, velocity_dims{0});
+    result.set(rng);
+    return result;
+  }
 
   //! used for i/o purposes
   friend class h5manager<P>;

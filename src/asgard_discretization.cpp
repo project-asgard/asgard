@@ -203,6 +203,26 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
       std::cout << "  title: " << options_.title << '\n';
     if (not options_.subtitle.empty())
       std::cout << "subtitle: " << options_.subtitle << '\n';
+
+    std::cout << "basis degree: " << hier.degree();
+    switch (hier.degree()) {
+      case 0:
+        std::cout << " (constant)";
+        break;
+      case 1:
+        std::cout << " (linear)";
+        break;
+      case 2:
+        std::cout << " (quadratic)";
+        break;
+      case 3:
+        std::cout << " (cubic)";
+        break;
+      default:
+        break;
+    };
+    std::cout << '\n';
+
     std::cout << grid;
     if (options_.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';

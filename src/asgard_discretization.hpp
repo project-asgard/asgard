@@ -376,6 +376,12 @@ public:
     project_function({sep, }, fmd, result);
     return result;
   }
+  //! computes a specific moment
+  std::vector<precision> get_moment(moment_id id) const {
+    std::vector<precision> result;
+    terms.moms.compute(grid, id, state, result);
+    return result;
+  }
 
   //! allows an auxiliary field to be saved for post-processing
   void add_aux_field(aux_field_entry<precision> f) {

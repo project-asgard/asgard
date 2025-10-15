@@ -168,7 +168,7 @@ class pde_snapshot:
               or the auxid can be a number indicating the index (0-base)
               that is the index according to the order in which the field was loaded
         '''
-        assert isinstance(auxid, int) or isinstance(auxid, string), "auxid must be in int or a string"
+        assert isinstance(auxid, int) or isinstance(auxid, string), "auxid must be an int or a string"
         if isinstance(auxid, int):
             assert 0 <= auxid and auxid < len(self.aux_fields), f"the auxid {auxid} must point to a valid entry in the list with size {len(self.aux_fields)}"
 

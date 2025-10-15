@@ -529,6 +529,8 @@ moment_manager<P>::moment_manager(moments_list &&mlist_in, std::vector<moments_l
     for (auto const &mgroup : mom_groups)
       groups_.push_back( mlist.find_as_subset_of(mgroup) );
   }
+
+  pos_grid.generation_ = -1;
 }
 
 template<typename P>
@@ -677,6 +679,8 @@ void moment_manager<P>::set_mass(
     int dim, P xleft, P xright, int max_level,
     hierarchy_manipulator<P> const &hier, rhs_raw_data<P> &coeff)
 {
+  dim_level[dim] = moment_level::all;
+
   int const num_cells  = fm::ipow2(max_level);
   int const max_moment = mlist.max_moment(dim);
 
@@ -768,7 +772,8 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   std::vector<int> &pos_indexes = pos_grid.iset_.indexes_;
   pos_indexes.resize(npos, 0); // zero index
   pos_indexes.reserve(grid.num_indexes() * npos);
-  pntr.resize(grid.num_indexes() + 1);
+  pntr.resize(1);
+  pntr.reserve(grid.num_indexes() + 1);
 
   auto position_mismatch = [&](int const idx1[], int const idx2[])
         -> bool {
@@ -787,7 +792,9 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   // this loop is sequential (do not use parallel for)
   for (int i = 0; i < grid.num_indexes(); i++)
   {
+    // std::cout << " i = " << i << "    " << pos_grid[ipos][0] << "    " << grid[i][0] << '\n';
     if (position_mismatch(pos_grid[ipos], grid[i])) { // found new entry
+      // std::cout << " new group at " << ipos << "  " << i << "  " << pntr.back() << "\n";
       pos_indexes.insert(pos_indexes.end(), grid[i], grid[i] + npos);
       pntr.push_back(i);
       ipos++;
@@ -795,8 +802,10 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   }
 
   pos_grid.iset_.num_indexes_ = ipos + 1;
-  pntr.push_back(pos_grid.num_indexes());
+  pntr.push_back(grid.num_indexes());
   pos_grid.generation_ = grid.generation();
+
+  // std::cout << " pos idx = " << pos_grid.num_indexes() << "    " << pntr.size() << '\n';
 }
 
 template<typename P>
@@ -805,7 +814,7 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
                                 std::vector<P> const &state, std::vector<P> &vals) const
 {
   int const num = pos_grid.num_indexes();
-  vals.resize(pos_block * pos_grid.num_indexes());
+  vals.resize(pos_block * num);
 
   moment const mom = mlist[id]; // using this to get the necessary powers
 
@@ -861,29 +870,34 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
   int const npos = pos_grid.num_dims();
 
   for (int i = 0; i < num; i++) {
+    // std::cout << " handling index " << i << " nvel =  " << nvel << '\n';
 
     P *out = vals.data() + pos_block * i;
     std::fill_n(out, pos_block, P{0});
 
+    // std::cout << " looping over main grid: " << pntr[i] << "    " << pntr[i + 1] << '\n';
     for (int j = pntr[i]; j < pntr[i + 1]; j++)
     {
       // some directions may have only level zero entries, then if the index is non-zero
       // the moment contribution is zero and the index can be skipped
-      if constexpr (nvel == 1) {
+      if constexpr (nvel == 2) {
         if ((grid[j][npos] != 0 and dim_level[0] == moment_level::zero)
             or (grid[j][npos + 1] != 0 and dim_level[1] == moment_level::zero))
         continue;
-      } else if constexpr (nvel == 2) {
+      } else if constexpr (nvel == 3) {
         if ((grid[j][npos] != 0 and dim_level[0] == moment_level::zero)
             or (grid[j][npos + 1] != 0 and dim_level[1] == moment_level::zero)
               or (grid[j][npos + 2] != 0 and dim_level[2] == moment_level::zero))
         continue;
       }
+      // std::cout << " did not skip, linking to: " << j << "\n";
 
       // if we got here, the j-th index has a contribution to the i-th block
       P const *v1 = integ[0][mom.pows[0]];
-      if (dim_level[0] == moment_level::all)
+      if (dim_level[0] == moment_level::all) {
+        // std::cout << " offsetting to " << grid[j][npos] << '\n';
         v1 += grid[j][npos] * tpdof;
+      }
       P const *v2, *v3;
       if constexpr (nvel >= 2) {
         v2 = integ[1][mom.pows[1]];
@@ -898,12 +912,18 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
       P const *in  = state.data() + full_block * j;
 
+      // std::cout << " coeffs = " << v1[0] << "    " << v1[1] << '\n';
+      // std::cout << " vals = " << in[0] << "    " << in[1] << "    " << in[2] << "    " << in[3] << '\n';
+
       if constexpr (nvel == 1) {
         for (int k = 0; k < pos_block; k++) {
           P sum = 0;
-          for (int k1 = 0; k1 < tpdof; k1++)
+          for (int k1 = 0; k1 < tpdof; k1++) {
+            //std::cout << " to sum = " << sum << "  adding " << v1[k1] << " * " << *in << '\n';
             sum += v1[k1] * (*in++);
+          }
           out[k] += sum;
+          //std::cout << " end sum = " << sum << "   final " << out[k] << '\n';
         }
       } else if constexpr (nvel == 2) {
         for (int k = 0; k < pos_block; k++) {
