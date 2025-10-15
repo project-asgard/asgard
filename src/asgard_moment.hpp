@@ -127,8 +127,13 @@ public:
 
   //! returns the loaded dimensions
   int num_dims() const { return num_dims_; }
+  //! returns the total number of moments
+  int num_moments() const { return mlist.size(); }
   //! returns true if the manager has been initialized
   operator bool () const { return (num_dims_ > 0); }
+
+  //! return the specified moment
+  moment const &get_by_id(moment_id id) const { return mlist[id]; }
 
   //! returns a grid defined over the position dimensions ready for kronmult
   sparse_grid const &get_kronmult_grid() const {
@@ -138,6 +143,8 @@ public:
     }
     return pos_grid;
   }
+  //! returns a grid indexes, used for I/O
+  std::vector<int> const &get_grid_indexes() const { return pos_grid.iset_.indexes_; }
   //! computes the specified moment
   void compute(sparse_grid const &grid, moment_id id,
                std::vector<P> const &state, std::vector<P> &vals) const;

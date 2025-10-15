@@ -388,6 +388,8 @@ public:
     aux_fields.emplace_back(std::move(f));
     if (aux_fields.back().grid.empty()) // if grid provided
       aux_fields.back().grid = grid.get_cells(); // assume the current grid
+    if (aux_fields.back().num_dimensions == -1) // default num-dims is the current
+      aux_fields.back().num_dimensions = grid.num_dims();
     rassert(aux_fields.back().data.size()
             == static_cast<size_t>(hier.block_size()
                                    * (aux_fields.back().grid.size() / num_dims())),

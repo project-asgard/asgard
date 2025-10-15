@@ -39,6 +39,13 @@ struct moment
   bool operator != (moment const &other) const {
     return not (*this == other);
   }
+  //! convert the moment to a string containing the powers (consistent with python)
+  std::string to_string() const {
+    std::string m = (pows[0] == -1) ? "x" : std::to_string(pows[0]);
+    m += (pows[1] == -1) ? "x" : std::to_string(pows[1]);
+    m += (pows[2] == -1) ? "x" : std::to_string(pows[2]);
+    return m;
+  }
   //! holds the powers
   std::array<int, max_mom_dims> pows;
 };

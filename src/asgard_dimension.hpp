@@ -452,6 +452,8 @@ struct aux_field_entry {
   {}
   //! reference name for the field, should be unique
   std::string name;
+  //! the field can potentially have a different number of dimensions
+  int num_dimensions = -1;
   //! vector data
   std::vector<P> data;
   //! multi-indexes

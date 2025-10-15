@@ -10,6 +10,7 @@ template<typename P>
 void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
                          int degree, sparse_grid const &grid,
                          time_data const &dtime, std::vector<P> const &state,
+                         moment_manager<P> const &moms,
                          std::vector<aux_field_entry<P>> const &aux_fields,
                          std::string const &filename)
 {
@@ -95,7 +96,9 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
   H5Easy::dump(file, "timer_report", tools::timer.report());
 
   { // aux fields section
-    H5Easy::dump(file, "num_aux_fields", static_cast<int>(aux_fields.size()));
+    int const num_aux = static_cast<int>(aux_fields.size()) + ((!!moms) ? moms.num_moments() : 0);
+    std::cout << " num_aux = " << num_aux << '\n';
+    H5Easy::dump(file, "num_aux_fields", num_aux);
     for (int i : iindexof(aux_fields)) {
       H5Easy::dump(file, "aux_field_" + std::to_string(i) + "_name", aux_fields[i].name);
       file.createDataSet<P>(
@@ -104,6 +107,24 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
       file.createDataSet<int>(
           "aux_field_" + std::to_string(i) + "_grid",
           HighFive::DataSpace(aux_fields[i].grid.size()), vopts).write_raw(aux_fields[i].grid.data());
+      H5Easy::dump(file, "aux_field_" + std::to_string(i) + "_dims", aux_fields[i].num_dimensions);
+    }
+  }
+
+  if (moms) { // saving moments as additional aux-fields
+    std::vector<P> vals;
+    for (int i : iindexof(moms.num_moments())) {
+      int const auxid = static_cast<int>(aux_fields.size()) + i;
+      moms.compute(grid, moment_id{i}, state, vals);
+      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_name",
+                   std::string("__moment_") + moms.get_by_id(moment_id{i}).to_string());
+      file.createDataSet<P>(
+          "aux_field_" + std::to_string(auxid) + "_data",
+          HighFive::DataSpace(vals.size()), vopts).write_raw(vals.data());
+      auto const &pgrid = moms.get_grid_indexes();
+      file.createDataSet<int>(
+          "aux_field_" + std::to_string(auxid) + "_grid",
+          HighFive::DataSpace(pgrid.size()), vopts).write_raw(pgrid.data());
     }
   }
 }
@@ -366,11 +387,20 @@ void h5manager<P>::read(std::string const &filename, bool silent,
 
   { // reading aux fields
     int const num_aux = H5Easy::load<int>(file, "num_aux_fields");
-    aux_fields.resize(num_aux);
+    std::cout << " num_aux = " << num_aux << '\n';
+    aux_fields.resize(0);
+    aux_fields.reserve(num_aux);
     for (int i : iindexof(num_aux)) {
-      aux_fields[i].name = H5Easy::load<std::string>(file, "aux_field_" + std::to_string(i) + "_name");
-      aux_fields[i].data = H5Easy::load<std::vector<P>>(file, "aux_field_" + std::to_string(i) + "_data");
-      aux_fields[i].grid = H5Easy::load<std::vector<int>>(file, "aux_field_" + std::to_string(i) + "_grid");
+      std::string const name = H5Easy::load<std::string>(file, "aux_field_" + std::to_string(i) + "_name");
+      std::cout << " reading = " << name << "\n";
+      std::cout << " pos = " << name.rfind("__moment_", 0) << '\n';
+      if (name.rfind("__moment_", 0) == 0)
+        continue;
+      aux_fields.emplace_back();
+      aux_fields.back().name = name;
+      aux_fields.back().num_dimensions = H5Easy::load<int>(file, "aux_field_" + std::to_string(i) + "_dims");
+      aux_fields.back().data = H5Easy::load<std::vector<P>>(file, "aux_field_" + std::to_string(i) + "_data");
+      aux_fields.back().grid = H5Easy::load<std::vector<int>>(file, "aux_field_" + std::to_string(i) + "_grid");
     }
   }
 }
