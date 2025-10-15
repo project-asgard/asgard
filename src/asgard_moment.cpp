@@ -792,9 +792,7 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   // this loop is sequential (do not use parallel for)
   for (int i = 0; i < grid.num_indexes(); i++)
   {
-    // std::cout << " i = " << i << "    " << pos_grid[ipos][0] << "    " << grid[i][0] << '\n';
     if (position_mismatch(pos_grid[ipos], grid[i])) { // found new entry
-      // std::cout << " new group at " << ipos << "  " << i << "  " << pntr.back() << "\n";
       pos_indexes.insert(pos_indexes.end(), grid[i], grid[i] + npos);
       pntr.push_back(i);
       ipos++;
@@ -804,8 +802,6 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   pos_grid.iset_.num_indexes_ = ipos + 1;
   pntr.push_back(grid.num_indexes());
   pos_grid.generation_ = grid.generation();
-
-  // std::cout << " pos idx = " << pos_grid.num_indexes() << "    " << pntr.size() << '\n';
 }
 
 template<typename P>
@@ -818,7 +814,15 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
   moment const mom = mlist[id]; // using this to get the necessary powers
 
-  if (all_levels_zero) { // simple case, consider only zero-th indexes
+  bool allzero = all_levels_zero;
+  std::array<bool, max_mom_dims> lzero;
+  if (not allzero) {
+    for (int d = 0; d < max_mom_dims; d++)
+      lzero[d] = (pdof > mom[d]);
+    allzero = lzero[0] and lzero[1] and lzero[2]; // assuming only 3 entries
+  }
+
+  if (allzero) { // simple case, consider only zero-th indexes
     for (int i = 0; i < num; i++) {
       P const *v1 = integ[0][mom.pows[0]];
       P const *v2 = (nvel >= 1) ? integ[1][mom.pows[1]] : nullptr;
@@ -869,33 +873,29 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
   int const npos = pos_grid.num_dims();
 
-  for (int i = 0; i < num; i++) {
-    // std::cout << " handling index " << i << " nvel =  " << nvel << '\n';
-
+  for (int i = 0; i < num; i++)
+  {
     P *out = vals.data() + pos_block * i;
     std::fill_n(out, pos_block, P{0});
 
-    // std::cout << " looping over main grid: " << pntr[i] << "    " << pntr[i + 1] << '\n';
     for (int j = pntr[i]; j < pntr[i + 1]; j++)
     {
       // some directions may have only level zero entries, then if the index is non-zero
       // the moment contribution is zero and the index can be skipped
       if constexpr (nvel == 2) {
-        if ((grid[j][npos] != 0 and dim_level[0] == moment_level::zero)
-            or (grid[j][npos + 1] != 0 and dim_level[1] == moment_level::zero))
+        if ((lzero[0] and grid[j][npos] != 0)
+            or (lzero[1] and grid[j][npos + 1] != 0))
         continue;
       } else if constexpr (nvel == 3) {
-        if ((grid[j][npos] != 0 and dim_level[0] == moment_level::zero)
-            or (grid[j][npos + 1] != 0 and dim_level[1] == moment_level::zero)
-              or (grid[j][npos + 2] != 0 and dim_level[2] == moment_level::zero))
+        if ((lzero[0] and grid[j][npos] != 0)
+            or (lzero[1] and grid[j][npos + 1] != 0)
+              or (lzero[2] and grid[j][npos + 2] != 0))
         continue;
       }
-      // std::cout << " did not skip, linking to: " << j << "\n";
 
       // if we got here, the j-th index has a contribution to the i-th block
       P const *v1 = integ[0][mom.pows[0]];
       if (dim_level[0] == moment_level::all) {
-        // std::cout << " offsetting to " << grid[j][npos] << '\n';
         v1 += grid[j][npos] * tpdof;
       }
       P const *v2, *v3;
@@ -912,18 +912,13 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
       P const *in  = state.data() + full_block * j;
 
-      // std::cout << " coeffs = " << v1[0] << "    " << v1[1] << '\n';
-      // std::cout << " vals = " << in[0] << "    " << in[1] << "    " << in[2] << "    " << in[3] << '\n';
-
       if constexpr (nvel == 1) {
         for (int k = 0; k < pos_block; k++) {
           P sum = 0;
           for (int k1 = 0; k1 < tpdof; k1++) {
-            //std::cout << " to sum = " << sum << "  adding " << v1[k1] << " * " << *in << '\n';
             sum += v1[k1] * (*in++);
           }
           out[k] += sum;
-          //std::cout << " end sum = " << sum << "   final " << out[k] << '\n';
         }
       } else if constexpr (nvel == 2) {
         for (int k = 0; k < pos_block; k++) {

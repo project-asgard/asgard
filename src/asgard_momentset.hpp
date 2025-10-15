@@ -29,6 +29,8 @@ struct moment
       if (pows[i] < 0) return i;
     return max_mom_dims;
   }
+  //! return the d-th power
+  int operator [] (int d) const { return pows[d]; }
   //! check whether two moments are the same
   bool operator == (moment const &other) const {
     return std::equal(pows.begin(), pows.end(), other.pows.begin());
