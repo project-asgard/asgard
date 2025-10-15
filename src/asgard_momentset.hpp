@@ -147,6 +147,8 @@ public:
   std::vector<P> const &operator[] (moment_id mid) const { return moms_[mid()]; }
   //! return the provided moment
   std::vector<P> &operator[] (moment_id mid) { return moms_[mid()]; }
+  //! return the provided moment, never const
+  std::vector<P> &get(moment_id mid) { return moms_[mid()]; }
 
 private:
   std::vector<std::vector<P>> moms_;

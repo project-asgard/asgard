@@ -130,6 +130,18 @@ public:
   //! returns true if the manager has been initialized
   operator bool () const { return (num_dims_ > 0); }
 
+  //! returns a grid defined over the position dimensions ready for kronmult
+  sparse_grid const &get_kronmult_grid() const {
+    if (dsort_generation != pos_grid.generation_) {
+      pos_grid.dsort_ = dimension_sort(pos_grid.iset_);
+      dsort_generation = pos_grid.generation_;
+    }
+    return pos_grid;
+  }
+  //! computes the specified moment
+  void compute(sparse_grid const &grid, moment_id id,
+               std::vector<P> const &state, std::vector<P> &vals) const;
+
 protected:
   //! set the new groups
   moment_manager(moments_list &&mlist_in,
@@ -137,6 +149,10 @@ protected:
 
   //! set a dimension where only level 0 will contain moment data
   void set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim);
+  //! computes the specified moment
+  template<int nvel>
+  void compute(sparse_grid const &grid, moment_id id,
+               std::vector<P> const &state, std::vector<P> &vals) const;
 
 private:
   //! indicates whether level 0 contains all the needed moment data
@@ -144,14 +160,20 @@ private:
     //! all moments are at level 0
     zero,
     //! need to consider all levels
-    all
+    all,
   };
 
   int num_dims_ = 0;
   int num_vel_ = 0;
   int pdof = 0;
 
-  sparse_grid grid; // holds the reduced grid (could be 1 cell)
+  int pos_block = 0;
+  int vel_block = 0;
+  int full_block = 0;
+
+  mutable int grid_generation = -1;
+  mutable int dsort_generation = -1; // keeps track of when dsort is set in the grid
+  mutable sparse_grid pos_grid; // holds the reduced grid (could be 1 cell)
 
   moments_list mlist;
   std::vector<std::vector<moment_id>> groups_;

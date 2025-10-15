@@ -191,7 +191,7 @@ struct term_manager
   //! manages the moments operations, interplays with the mass
   moment_manager<P> moms;
   //! storage for the interpolated moments
-  momentset momset_interp;
+  momentset<P> momset_interp;
   //! interpolation data
   interpolation_manager<P> interp;
   //! values for the interpolation field, allows reuse for several interp ops

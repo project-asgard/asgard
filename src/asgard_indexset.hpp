@@ -512,13 +512,7 @@ public:
   sparse_grid() = default;
   //! number of dimensions and levels
   sparse_grid(prog_opts const &options);
-  sparse_grid(int num_dimensions, std::vector<int> &&indexes)
-      : iset_(num_dimensions, std::move(indexes)
-  {
-    if (iset_.num_dimensions() > 1 and iset.num_indexes() > 0) {
-      dsort_ = dimension_sort(iset_); // potentially will need kronmult
-    }
-  }
+
   //! Returns the number of dimensions for the multi-index set
   int num_dims() const { return iset_.num_dimensions(); }
   //! Returns the number of indexes

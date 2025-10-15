@@ -541,6 +541,12 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
   num_vel_  = domain.num_vel();
   pdof      = degree + 1;
 
+  pos_block  = fm::ipow(pdof, domain.num_pos());
+  vel_block  = fm::ipow(pdof, domain.num_vel());
+  full_block = fm::ipow(pdof, domain.num_dims());
+
+  pos_grid.iset_.num_dimensions_ = domain.num_pos();
+
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -563,6 +569,12 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   num_dims_ = domain.num_dims();
   num_vel_  = domain.num_vel();
   pdof      = hier.degree() + 1;
+
+  pos_block  = fm::ipow(pdof, domain.num_pos());
+  vel_block  = fm::ipow(pdof, domain.num_vel());
+  full_block = fm::ipow(pdof, domain.num_dims());
+
+  pos_grid.iset_.num_dimensions_ = domain.num_pos();
 
   dim_level.fill(moment_level::zero);
 
@@ -740,6 +752,54 @@ void moment_manager<P>::set_mass(
       hier.transform(max_level, work.data(), integ[dim][m]);
     }
   }
+}
+
+template<typename P>
+template<int nvel>
+void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
+                                std::vector<P> const &state, std::vector<P> &vals) const
+{
+  auto match_indexes = [&](int const idx1[], int const idx2[])
+    -> bool {
+      for (int d : iindexof(pos_grid.num_dims()))
+        if (idx1[d] != idx2[d])
+          return false;
+      return true;
+    };
+
+  vals.resize(0);
+  vals.reserve(state.size()); // overkill but safe
+  vals.resize(pos_block, 0);
+
+  moment const &mom = mlist[id];
+
+  if (grid_generation != grid.generation()) { // grid changed, must rebuild
+    std::vector<int> &pos_indexes = pos_grid.iset_.indexes_;
+    pos_indexes.resize(pos_grid.num_dims(), 0); // zero index
+    pos_indexes.reserve(grid.iset_.size());
+
+    int const num_indexes = grid.num_indexes();
+    int gridi = 0, posi = 0;
+    while (gridi < num_indexes)
+    {
+      if (not match_indexes(grid[gridi], pos_grid[posi])) {
+        for (int d : iindexof(pos_grid.num_dims()))
+          pos_grid.iset_.indexes_.push_back(grid[gridi][d]);
+        posi++;
+        vals.resize(vals.size() + pos_block, 0);
+      }
+
+      gridi++;
+    }
+  } else {
+  }
+}
+
+template<typename P>
+void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
+                                std::vector<P> const &state, std::vector<P> &vals) const
+{
+  //
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
