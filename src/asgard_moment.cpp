@@ -64,18 +64,18 @@ moments1d<P>::moments1d(int num_mom, int degree, int max_level, pde_domain<P> co
     }
   }
 
-  for (int d = 1; d < 3; d++) {
-    std::cout << " ============ dim = " << d << " ============\n";
-    for (int i = 0; i < nump; i++) {
-      for (int j = 0; j < pdof; j++) {
-        for (int k = 0; k < num_mom_; k++) {
-          std::cout << std::setw(12) << integ[d][i][k * pdof + j] << "    ";
-        }
-        std::cout << '\n';
-      }
-    }
-  }
-  std::cout << "\n ============================== \n";
+  // for (int d = 1; d < 3; d++) {
+  //   std::cout << " ============ dim = " << d << " ============\n";
+  //   for (int i = 0; i < nump; i++) {
+  //     for (int j = 0; j < pdof; j++) {
+  //       for (int k = 0; k < num_mom_; k++) {
+  //         std::cout << std::setw(12) << integ[d][i][k * pdof + j] << "    ";
+  //       }
+  //       std::cout << '\n';
+  //     }
+  //   }
+  // }
+  // std::cout << "\n ============================== \n";
 }
 
 template<typename P>
@@ -537,11 +537,14 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
                                   std::vector<moments_list> &&mom_groups)
     : moment_manager(std::move(mlist_in), std::move(mom_groups))
 {
+  if (mlist.empty()) // no moments, nothing more to set
+    return;
+
   num_dims_ = domain.num_dims();
   num_vel_  = domain.num_vel();
   pdof      = degree + 1;
 
-  pos_block  = fm::ipow(pdof, domain.num_pos());
+  pos_block  = (domain.num_pos() == 0) ? 0 :fm::ipow(pdof, domain.num_pos());
   vel_block  = fm::ipow(pdof, domain.num_vel());
   full_block = fm::ipow(pdof, domain.num_dims());
 
@@ -566,11 +569,14 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
                                   std::vector<moments_list> &&mom_groups)
     : moment_manager(std::move(mlist_in), std::move(mom_groups))
 {
+  if (mlist.empty()) // no moments, nothing more to set
+    return;
+
   num_dims_ = domain.num_dims();
   num_vel_  = domain.num_vel();
   pdof      = hier.degree() + 1;
 
-  pos_block  = fm::ipow(pdof, domain.num_pos());
+  pos_block  = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   vel_block  = fm::ipow(pdof, domain.num_vel());
   full_block = fm::ipow(pdof, domain.num_dims());
 
@@ -755,51 +761,242 @@ void moment_manager<P>::set_mass(
 }
 
 template<typename P>
+template<int npos>
+void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
+{
+  expect(npos == pos_grid.num_dims());
+  std::vector<int> &pos_indexes = pos_grid.iset_.indexes_;
+  pos_indexes.resize(npos, 0); // zero index
+  pos_indexes.reserve(grid.num_indexes() * npos);
+  pntr.resize(grid.num_indexes() + 1);
+
+  auto position_mismatch = [&](int const idx1[], int const idx2[])
+        -> bool {
+        if constexpr (npos == 1)
+          return (idx1[0] != idx2[0]);
+        else if constexpr (npos == 2)
+          return (idx1[0] != idx2[0] or idx1[1] != idx2[1]);
+        else if constexpr (npos == 3)
+          return (idx1[0] != idx2[0] or idx1[1] != idx2[1] or idx1[2] != idx2[2]);
+        else
+          return false; // unreachable
+      };
+
+  int ipos = 0;
+
+  // this loop is sequential (do not use parallel for)
+  for (int i = 0; i < grid.num_indexes(); i++)
+  {
+    if (position_mismatch(pos_grid[ipos], grid[i])) { // found new entry
+      pos_indexes.insert(pos_indexes.end(), grid[i], grid[i] + npos);
+      pntr.push_back(i);
+      ipos++;
+    }
+  }
+
+  pos_grid.iset_.num_indexes_ = ipos + 1;
+  pntr.push_back(pos_grid.num_indexes());
+  pos_grid.generation_ = grid.generation();
+}
+
+template<typename P>
+template<int nvel, int tpdof>
+void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
+                                std::vector<P> const &state, std::vector<P> &vals) const
+{
+  int const num = pos_grid.num_indexes();
+  vals.resize(pos_block * pos_grid.num_indexes());
+
+  moment const mom = mlist[id]; // using this to get the necessary powers
+
+  if (all_levels_zero) { // simple case, consider only zero-th indexes
+    for (int i = 0; i < num; i++) {
+      P const *v1 = integ[0][mom.pows[0]];
+      P const *v2 = (nvel >= 1) ? integ[1][mom.pows[1]] : nullptr;
+      P const *v3 = (nvel >= 2) ? integ[2][mom.pows[2]] : nullptr;
+
+      P const *in  = state.data() + full_block * pntr[i];
+      P *out       = vals.data() + pos_block * i;
+
+      if constexpr (nvel == 1) {
+        for (int j = 0; j < pos_block; j++) {
+          P sum = 0;
+          for (int k = 0; k < tpdof; k++)
+            sum += v1[k] * (*in++);
+          out[j] = sum;
+        }
+      } else if constexpr (nvel == 2) {
+        for (int j = 0; j < pos_block; j++) {
+          P sum1 = 0;
+          for (int k1 = 0; k1 < tpdof; k1++) {
+            P sum2 = 0;
+            for (int k2 = 0; k2 < tpdof; k2++) {
+              sum2 += v2[k2] * (*in++);
+            }
+            sum1 += v1[k1] * sum2;
+          }
+          out[j] = sum1;
+        }
+      } else if constexpr (nvel == 3) {
+        for (int j = 0; j < pos_block; j++) {
+          P sum1 = 0;
+          for (int k1 = 0; k1 < tpdof; k1++) {
+            P sum2 = 0;
+            for (int k2 = 0; k2 < tpdof; k2++) {
+              P sum3 = 0;
+              for (int k3 = 0; k3 < tpdof; k3++) {
+                sum3 += v3[k3] * (*in++);
+              }
+              sum2 += v2[k2] * sum3;
+            }
+            sum1 += v1[k1] * sum2;
+          }
+          out[j] = sum1;
+        }
+      }
+    }
+    return;
+  }
+
+  int const npos = pos_grid.num_dims();
+
+  for (int i = 0; i < num; i++) {
+
+    P *out = vals.data() + pos_block * i;
+    std::fill_n(out, pos_block, P{0});
+
+    for (int j = pntr[i]; j < pntr[i + 1]; j++)
+    {
+      // some directions may have only level zero entries, then if the index is non-zero
+      // the moment contribution is zero and the index can be skipped
+      if constexpr (nvel == 1) {
+        if ((grid[j][npos] != 0 and dim_level[0] == moment_level::zero)
+            or (grid[j][npos + 1] != 0 and dim_level[1] == moment_level::zero))
+        continue;
+      } else if constexpr (nvel == 2) {
+        if ((grid[j][npos] != 0 and dim_level[0] == moment_level::zero)
+            or (grid[j][npos + 1] != 0 and dim_level[1] == moment_level::zero)
+              or (grid[j][npos + 2] != 0 and dim_level[2] == moment_level::zero))
+        continue;
+      }
+
+      // if we got here, the j-th index has a contribution to the i-th block
+      P const *v1 = integ[0][mom.pows[0]];
+      if (dim_level[0] == moment_level::all)
+        v1 += grid[j][npos] * tpdof;
+      P const *v2, *v3;
+      if constexpr (nvel >= 2) {
+        v2 = integ[1][mom.pows[1]];
+        if (dim_level[1] == moment_level::all)
+          v2 += grid[j][npos + 1] * tpdof;
+      }
+      if constexpr (nvel >= 3) {
+        v3 = integ[2][mom.pows[2]];
+        if (dim_level[2] == moment_level::all)
+          v3 += grid[j][npos + 2] * tpdof;
+      }
+
+      P const *in  = state.data() + full_block * j;
+
+      if constexpr (nvel == 1) {
+        for (int k = 0; k < pos_block; k++) {
+          P sum = 0;
+          for (int k1 = 0; k1 < tpdof; k1++)
+            sum += v1[k1] * (*in++);
+          out[k] += sum;
+        }
+      } else if constexpr (nvel == 2) {
+        for (int k = 0; k < pos_block; k++) {
+          P sum1 = 0;
+          for (int k1 = 0; k1 < tpdof; k1++) {
+            P sum2 = 0;
+            for (int k2 = 0; k2 < tpdof; k2++) {
+              sum2 += v2[k2] * (*in++);
+            }
+            sum1 += v1[k1] * sum2;
+          }
+          out[k] += sum1;
+        }
+      } else if constexpr (nvel == 3) {
+        for (int k = 0; k < pos_block; k++) {
+          P sum1 = 0;
+          for (int k1 = 0; k1 < tpdof; k1++) {
+            P sum2 = 0;
+            for (int k2 = 0; k2 < tpdof; k2++) {
+              P sum3 = 0;
+              for (int k3 = 0; k3 < tpdof; k3++) {
+                sum3 += v3[k3] * (*in++);
+              }
+              sum2 += v2[k2] * sum3;
+            }
+            sum1 += v1[k1] * sum2;
+          }
+          out[k] += sum1;
+        }
+      }
+
+    } // for grid indexes j
+  } // for pos_gird indexes i
+}
+
+template<typename P>
 template<int nvel>
 void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
                                 std::vector<P> const &state, std::vector<P> &vals) const
 {
-  auto match_indexes = [&](int const idx1[], int const idx2[])
-    -> bool {
-      for (int d : iindexof(pos_grid.num_dims()))
-        if (idx1[d] != idx2[d])
-          return false;
-      return true;
-    };
-
-  vals.resize(0);
-  vals.reserve(state.size()); // overkill but safe
-  vals.resize(pos_block, 0);
-
-  moment const &mom = mlist[id];
-
-  if (grid_generation != grid.generation()) { // grid changed, must rebuild
-    std::vector<int> &pos_indexes = pos_grid.iset_.indexes_;
-    pos_indexes.resize(pos_grid.num_dims(), 0); // zero index
-    pos_indexes.reserve(grid.iset_.size());
-
-    int const num_indexes = grid.num_indexes();
-    int gridi = 0, posi = 0;
-    while (gridi < num_indexes)
-    {
-      if (not match_indexes(grid[gridi], pos_grid[posi])) {
-        for (int d : iindexof(pos_grid.num_dims()))
-          pos_grid.iset_.indexes_.push_back(grid[gridi][d]);
-        posi++;
-        vals.resize(vals.size() + pos_block, 0);
-      }
-
-      gridi++;
-    }
-  } else {
-  }
+  switch (pdof) {
+  case 1:
+    compute<nvel, 1>(grid, id, state, vals);
+    break;
+  case 2:
+    compute<nvel, 2>(grid, id, state, vals);
+    break;
+  case 3:
+    compute<nvel, 3>(grid, id, state, vals);
+    break;
+  case 4:
+    compute<nvel, 4>(grid, id, state, vals);
+    break;
+  default:
+    // unreachable
+    break;
+  };
 }
 
 template<typename P>
 void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
                                 std::vector<P> const &state, std::vector<P> &vals) const
 {
-  //
+  if (pos_grid.generation() != grid.generation()) { // grid changed, must rebuild
+    switch (pos_grid.num_dims()) {
+    case 1:
+      reduce_grid<1>(grid);
+      break;
+    case 2:
+      reduce_grid<2>(grid);
+      break;
+    case 3:
+      reduce_grid<3>(grid);
+      break;
+    default:
+      break;
+    };
+    pos_grid.generation_ = grid.generation();
+  }
+
+  switch (num_vel_) {
+  case 1:
+    compute<1>(grid, id, state, vals);
+    break;
+  case 2:
+    compute<2>(grid, id, state, vals);
+    break;
+  case 3:
+    compute<3>(grid, id, state, vals);
+    break;
+  default:
+    break;
+  };
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

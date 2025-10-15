@@ -149,10 +149,29 @@ protected:
 
   //! set a dimension where only level 0 will contain moment data
   void set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim);
-  //! computes the specified moment
+  /*!
+   * \brief computes the specified moment
+   *
+   * This assumes that the position grid (pos_grid) has been set together with the
+   * offsets of the nodes within the global grid.
+   * The method templates on the number of velocity dimensions and polynomial
+   * degrees of freedom (pdof) to speed up work.
+   */
+  template<int nvel, int tpdof>
+  void compute(sparse_grid const &grid, moment_id id,
+               std::vector<P> const &state, std::vector<P> &vals) const;
+  //! mid-step, realizes the template from above using the pdof
   template<int nvel>
   void compute(sparse_grid const &grid, moment_id id,
                std::vector<P> const &state, std::vector<P> &vals) const;
+  /*!
+   * \brief computes the position grid from the given global grid
+   *
+   * Computes both the position indexes and the pntr array linking the position
+   * multi-indexes to the corresponding zero-th index in the grid.
+   */
+  template<int npos>
+  void reduce_grid(sparse_grid const &grid) const;
 
 private:
   //! indicates whether level 0 contains all the needed moment data
@@ -171,9 +190,10 @@ private:
   int vel_block = 0;
   int full_block = 0;
 
-  mutable int grid_generation = -1;
   mutable int dsort_generation = -1; // keeps track of when dsort is set in the grid
   mutable sparse_grid pos_grid; // holds the reduced grid (could be 1 cell)
+  // location of the zero-th entry of pos_grid in the global grid
+  mutable std::vector<int> pntr;
 
   moments_list mlist;
   std::vector<std::vector<moment_id>> groups_;
