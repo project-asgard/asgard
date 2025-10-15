@@ -83,6 +83,10 @@ public:
   //! returns true if the list is empty
   bool empty() const { return moms_.empty(); }
 
+  //! \brief adds a new moment to the set
+  void add_moment(moment const &mom) {
+    this->get_id(mom);
+  }
   //! \brief returns the ID of the moment, adds the moment to the list (if not there already)
   moment_id get_id(moment const &mom) {
     for (int i = 0; i < static_cast<int>(moms_.size()); i++)
@@ -110,6 +114,8 @@ public:
 
   //! returns the max powers in each dimension
   moment max_moment() const;
+  //! returns the max powers in specific dimension
+  int max_moment(int dim) const;
   //! print the list
   void print(std::ostream &os = std::cout) const {
     for (auto const &m : moms_)
@@ -123,7 +129,8 @@ private:
 /*!
  * \brief Holds the computed moments
  *
- * Stores the data for each moment after it has been computed
+ * Stores the data for each moment after it has been computed,
+ * can hold either the hierarchical coefficients or the interpolation values.
  */
 template<typename P>
 class momentset {

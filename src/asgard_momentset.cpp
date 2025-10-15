@@ -40,4 +40,11 @@ moment moments_list::max_moment() const {
   return result;
 }
 
+int moments_list::max_moment(int dim) const {
+  int result = -1;
+  for (auto const &m : moms_)
+    result = std::max(result, m.pows[dim]);
+  return result;
+}
+
 }

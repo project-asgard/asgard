@@ -276,7 +276,7 @@ void gen_diag_cmat(legendre_basis<P> const &basis, int level,
                    P const rhs_const, block_diag_matrix<P> &coeff)
 {
   static_assert(optype == operation_type::volume,
-                "only mass matrices should be used to create mass terms");
+                "only volume matrices should be used to create volume terms");
 
   int const num_cells = fm::ipow2(level);
   int const nblock = basis.pdof * basis.pdof;

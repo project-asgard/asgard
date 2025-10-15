@@ -14,34 +14,26 @@ int main(int argc, char **argv)
   // allows someone to easily come here, dump code and start playing
   // this is good for prototyping and quick-testing features/behavior
 
+  int const degree = 0;
+  int const level  = 2;
+
   prog_opts options(argc, argv);
-  pde_domain<prec> domain(2);
-
   options.default_start_levels = {3, };
-  options.default_degree = 1;
+  options.default_degree = degree;
 
-  pde_scheme<prec> pde(options, domain);
+  pde_domain<prec> domain(position_dims{1}, velocity_dims{2}, {{0, 1}, {-1, 1}, {0, 1}});
 
-  auto g1 = pde.new_term_group();
+  hierarchy_manipulator<prec> hier(degree, domain);
+  moments1d<prec> mom1d(2, degree, level, domain);
 
-  auto id0 = pde.register_moment({0, 1});
-  auto id1 = pde.register_moment({1, 1});
+  moments_list mlist;
+  mlist.add_moment({0, 0});
+  mlist.add_moment({1, 0});
+  mlist.add_moment({0, 1});
+  mlist.add_moment({2, 2});
+  moment_manager<prec> momd(domain, degree, std::move(mlist));
 
-  // std::cout << id0() << "    " << id1() << '\n';
 
-  auto g2 = pde.new_term_group();
-
-  auto id2 = pde.register_moment({1, 1});
-  auto id3 = pde.register_moment({2, 1});
-
-  ignore(g1);
-  ignore(g2);
-  ignore(id0);
-  ignore(id1);
-  ignore(id2);
-  ignore(id3);
-
-  pde.print_moments();
 
   return 0;
 }

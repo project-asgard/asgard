@@ -63,6 +63,19 @@ moments1d<P>::moments1d(int num_mom, int degree, int max_level, pde_domain<P> co
       }
     }
   }
+
+  for (int d = 1; d < 3; d++) {
+    std::cout << " ============ dim = " << d << " ============\n";
+    for (int i = 0; i < nump; i++) {
+      for (int j = 0; j < pdof; j++) {
+        for (int k = 0; k < num_mom_; k++) {
+          std::cout << std::setw(12) << integ[d][i][k * pdof + j] << "    ";
+        }
+        std::cout << '\n';
+      }
+    }
+  }
+  std::cout << "\n ============================== \n";
 }
 
 template<typename P>
@@ -508,30 +521,225 @@ void moments1d<P>::project_cell(
 }
 
 template<typename P>
-moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
-                                  hierarchy_manipulator<P> const &hier,
-                                  legendre_basis<P> const &legendre,
-                                  moments_list &&mlist_in,
-                                  std::vector<moments_list> &&mom_groups)
-    : num_dims_(domain.num_dims()), num_vel_(domain.num_vel()),
-      pdof(hier.degree() + 1), mlist(std::move(mlist_in))
+moment_manager<P>::moment_manager(moments_list &&mlist_in, std::vector<moments_list> &&mom_groups)
+    : mlist(std::move(mlist_in))
 {
   if (not mom_groups.empty()) {
     groups_.reserve(mom_groups.size());
     for (auto const &mgroup : mom_groups)
       groups_.push_back( mlist.find_as_subset_of(mgroup) );
   }
+}
 
-  int const num_cells   = fm::ipow2(max_level);
+template<typename P>
+moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
+                                  moments_list &&mlist_in,
+                                  std::vector<moments_list> &&mom_groups)
+    : moment_manager(std::move(mlist_in), std::move(mom_groups))
+{
+  num_dims_ = domain.num_dims();
+  num_vel_  = domain.num_vel();
+  pdof      = degree + 1;
+
+  dim_level.fill(moment_level::zero);
+
   moment const max_moms = mlist.max_moment();
 
+  // this constructor assumes no mass and the degree is high enough
+  // to capture all moments into the zero-level element
+  expect(pdof > max_moms.pows[0] and pdof > max_moms.pows[1] and pdof > max_moms.pows[2]);
+
+  for (int d = 0; d < num_vel_; d++)
+    set_level_zero(domain, max_moms, d);
+}
+
+template<typename P>
+moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
+                                  hierarchy_manipulator<P> const &hier,
+                                  moments_list &&mlist_in,
+                                  std::vector<moments_list> &&mom_groups)
+    : moment_manager(std::move(mlist_in), std::move(mom_groups))
+{
+  num_dims_ = domain.num_dims();
+  num_vel_  = domain.num_vel();
+  pdof      = hier.degree() + 1;
+
+  dim_level.fill(moment_level::zero);
+
+  moment const max_moms = mlist.max_moment();
+
+  if (pdof <= max_moms.pows[0] or pdof <= max_moms.pows[1] or pdof <= max_moms.pows[2])
+    all_levels_zero = false;
+
+  rhs_raw_data<P> coeff;
   for (int d = 0; d < num_vel_; d++) {
-    integ[d] = vector2d<P>(num_cells * pdof, max_moms.pows[d] + 1);
+    if (pdof > max_moms.pows[d])
+      set_level_zero(domain, max_moms, d);
+    else
+      set_mass(d, domain.xleft(domain.num_pos() + d), domain.xright(domain.num_pos() + d),
+               max_level, hier, coeff);
+  }
+}
 
+template<typename P>
+void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim)
+{
+  dim_level[dim] = moment_level::zero;
 
+  // TODO: can reuse some of these, maybe take in a Legendre basis
+  auto [quadp, quadw]  = legendre_weights(pdof - 1, -1, 1);
+  auto [lvals, lprime] = legendre_vals(quadp, pdof - 1);
+  ignore(lprime);
+  int const num_quad = static_cast<int>(quadw.size());
+  std::vector<double> legw(2 * pdof * num_quad);
+  double *legws = legw.data() + pdof * num_quad; // scaled points and weights
+  smmat::col_scal(num_quad, pdof, quadw.data(), lvals.data(), legw.data());
 
+  rhs_raw_data<double> rhs_raw;
+  rhs_raw.pnts.resize(num_quad);
+  rhs_raw.vals.resize(rhs_raw.pnts.size());
+
+  std::vector<double> work;
+  if constexpr (is_float<P>)
+    work.resize(pdof); // scratch space to convert to float
+
+  // setting up quadrature points over all cells in the given dimension
+  double const xleft = domain.xleft(domain.num_pos() + dim);
+  double const dx    = (domain.xright(domain.num_pos() + dim) - xleft);
+
+  std::copy_n(legw.begin(), pdof * num_quad, legws);
+  smmat::scal(pdof * num_quad, 0.5 * std::sqrt(dx), legws);
+
+  for (int k = 0; k < num_quad; k++)
+    rhs_raw.pnts[k] = (0.5 * quadp[k] + 0.5) * dx + xleft;
+
+  integ[dim] = vector2d<P>(pdof, max_moms.pows[dim] + 1);
+  for (int m = 0; m <= max_moms.pows[dim]; m++)
+  {
+    switch (m) {
+    case 0:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad; i++)
+        rhs_raw.vals[i] = 1.0;
+      break;
+    case 1:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad; i++)
+        rhs_raw.vals[i] = rhs_raw.pnts[i];
+      break;
+    case 2:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad; i++)
+        rhs_raw.vals[i] = rhs_raw.pnts[i] * rhs_raw.pnts[i];
+      break;
+    case 3:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad; i++)
+        rhs_raw.vals[i] = rhs_raw.pnts[i] * rhs_raw.pnts[i] * rhs_raw.pnts[i];
+      break;
+    default:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad; i++)
+        rhs_raw.vals[i] = fm::powi(rhs_raw.pnts[i], m);
+      break;
+    };
+
+    if constexpr (is_double<P>) {
+      smmat::gemtv(num_quad, pdof, legws, rhs_raw.vals.data(), integ[dim][m]);
+    } else {
+      // convert to single precision
+      smmat::gemtv(num_quad, pdof, legws, rhs_raw.vals.data(), work.data());
+      std::copy_n(work.data(), pdof, integ[dim][m]);
+    }
+  }
+}
+
+template<typename P>
+void moment_manager<P>::set_mass(
+    int dim, P xleft, P xright, int max_level,
+    hierarchy_manipulator<P> const &hier, rhs_raw_data<P> &coeff)
+{
+  int const num_cells  = fm::ipow2(max_level);
+  int const max_moment = mlist.max_moment(dim);
+
+  // TODO: can reuse some of these, maybe take in a Legendre basis
+  auto [quadp, quadw]  = legendre_weights(pdof - 1, -1, 1);
+  auto [lvals, lprime] = legendre_vals(quadp, pdof - 1);
+  ignore(lprime);
+  int const num_quad = static_cast<int>(quadw.size());
+  std::vector<double> legw(2 * pdof * num_quad);
+  double *legws = legw.data() + pdof * num_quad; // scaled points and weights
+  smmat::col_scal(num_quad, pdof, quadw.data(), lvals.data(), legw.data());
+
+  if (coeff.vals.empty())
+    coeff.vals.resize(num_quad * num_cells, 1);
+
+  rhs_raw_data<double> rhs_raw;
+  rhs_raw.pnts.resize(num_quad * num_cells);
+  rhs_raw.vals.resize(rhs_raw.pnts.size());
+  span2d<double> rhs_vals(num_quad, num_cells, rhs_raw.vals.data());
+
+  vector2d<double> cell_moments(pdof, num_cells);
+  std::vector<float> work;
+  if constexpr (is_float<P>)
+    work.resize(num_cells * pdof); // scratch space to convert to float
+
+  // setting up quadrature points over all cells in the given dimension
+  double const dx = (xright - xleft) / static_cast<double>(num_cells);
+
+  std::copy_n(legw.begin(), pdof * num_quad, legws);
+  smmat::scal(pdof * num_quad, 0.5 * std::sqrt(dx), legws);
+
+  #pragma omp parallel for
+  for (int i = 0; i < num_cells; i++) {
+      double const l = xleft + i * dx; // left edge of cell i
+      for (int k = 0; k < num_quad; k++)
+      rhs_raw.pnts[i * num_quad + k] = (0.5 * quadp[k] + 0.5) * dx + l;
   }
 
+  integ[dim] = vector2d<P>(num_cells * pdof, max_moment + 1);
+  for (int m = 0; m <= max_moment; m++)
+  {
+    switch (m) {
+    case 0:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad * num_cells; i++)
+        rhs_raw.vals[i] = coeff.vals[i];
+    break;
+    case 1:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad * num_cells; i++)
+        rhs_raw.vals[i] = coeff.vals[i] * rhs_raw.pnts[i];
+    break;
+    case 2:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad * num_cells; i++)
+        rhs_raw.vals[i] = coeff.vals[i] * rhs_raw.pnts[i] * rhs_raw.pnts[i];
+    break;
+    case 3:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad * num_cells; i++)
+        rhs_raw.vals[i] = coeff.vals[i] * rhs_raw.pnts[i] * rhs_raw.pnts[i] * rhs_raw.pnts[i];
+    break;
+    default:
+      ASGARD_OMP_PARFOR_SIMD
+      for(int i = 0; i < num_quad * num_cells; i++)
+        rhs_raw.vals[i] = coeff.vals[i] * fm::powi(rhs_raw.pnts[i], m);
+    break;
+    };
+
+    #pragma omp parallel for
+    for (int i = 0; i < num_cells; i++)
+      smmat::gemtv(num_quad, pdof, legws, rhs_vals[i], cell_moments[i]);
+
+    if constexpr (is_double<P>) {
+      hier.transform(max_level, cell_moments[0], integ[dim][m]);
+    } else {
+      // convert to single precision before transformation
+      std::copy_n(cell_moments[0], work.size(), work.data());
+      hier.transform(max_level, work.data(), integ[dim][m]);
+    }
+  }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

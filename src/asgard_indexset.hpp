@@ -4,6 +4,15 @@
 
 namespace asgard
 {
+
+// forward declaration of the moment-manager
+// when computing the moments over a sparse grid, the result is defined over
+// a reduced sparse grid with dimensions equal to the position dimensions
+// the moment manager will construct such grid by intruding into the data-structures
+// of both a sparse_grid and an indexset
+template<typename P>
+class moment_manager;
+
 /*!
  * \brief Helper wrapper for data that will be organized in two dimensional form
  *
@@ -328,6 +337,8 @@ public:
   template<typename P> friend class h5manager;
   // needed for MPI sync through the sparse-grid class
   friend class sparse_grid;
+  // needed to construct the grid for the moments
+  template<typename P> friend class moment_manager;
 
 protected:
   //! \brief Result of a comparison
@@ -501,6 +512,13 @@ public:
   sparse_grid() = default;
   //! number of dimensions and levels
   sparse_grid(prog_opts const &options);
+  sparse_grid(int num_dimensions, std::vector<int> &&indexes)
+      : iset_(num_dimensions, std::move(indexes)
+  {
+    if (iset_.num_dimensions() > 1 and iset.num_indexes() > 0) {
+      dsort_ = dimension_sort(iset_); // potentially will need kronmult
+    }
+  }
   //! Returns the number of dimensions for the multi-index set
   int num_dims() const { return iset_.num_dimensions(); }
   //! Returns the number of indexes
@@ -578,6 +596,9 @@ public:
   //! allows writer to save/load the grid
   template<typename P>
   friend class h5manager;
+  //! used when computing the moments
+  template<typename P>
+  friend class moment_manager;
 
 protected:
   //! marks the status of an entry

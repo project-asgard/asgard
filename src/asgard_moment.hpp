@@ -106,28 +106,60 @@ public:
   //! creates a default empty maanger, no moments
   moment_manager() = default;
   //! create the manager with the new groups
+  moment_manager(pde_domain<P> const &domain, int degree,
+                 moments_list &&mlist_in,
+                 std::vector<moments_list> &&mom_groups = std::vector<moments_list>{});
+  //! create the manager with the new groups and potentially lower degree
   moment_manager(pde_domain<P> const &domain, int max_level,
                  hierarchy_manipulator<P> const &hier,
-                 legendre_basis<P> const &legendre,
-                 moments_list &&mlist,
-                 std::vector<moments_list> &&mom_groups);
+                 moments_list &&mlist_in,
+                 std::vector<moments_list> &&mom_groups = std::vector<moments_list>{});
+
+  /*!
+   * \brief set mass term in the given dimension
+   *
+   * This is useful to reuse the data for the points computed from
+   * the construction of the mass term.
+   * However, if coeff is empty, it will be resized and filled with 1 for the values.
+   */
+  void set_mass(int dim, P xleft, P xright, int max_level,
+                hierarchy_manipulator<P> const &hier, rhs_raw_data<P> &coeff);
 
   //! returns the loaded dimensions
   int num_dims() const { return num_dims_; }
   //! returns true if the manager has been initialized
   operator bool () const { return (num_dims_ > 0); }
 
+protected:
+  //! set the new groups
+  moment_manager(moments_list &&mlist_in,
+                 std::vector<moments_list> &&mom_groups = std::vector<moments_list>{});
+
+  //! set a dimension where only level 0 will contain moment data
+  void set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim);
 
 private:
+  //! indicates whether level 0 contains all the needed moment data
+  enum class moment_level {
+    //! all moments are at level 0
+    zero,
+    //! need to consider all levels
+    all
+  };
+
   int num_dims_ = 0;
   int num_vel_ = 0;
   int pdof = 0;
 
+  sparse_grid grid; // holds the reduced grid (could be 1 cell)
+
   moments_list mlist;
   std::vector<std::vector<moment_id>> groups_;
 
-  std::array<vector2d<P>, max_mom_dims> integ;
+  bool all_levels_zero = true;
+  std::array<moment_level, max_mom_dims> dim_level;
 
+  std::array<vector2d<P>, max_mom_dims> integ;
 };
 
 } // namespace asgard

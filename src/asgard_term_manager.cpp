@@ -76,7 +76,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                               pde_scheme<P> &pde, sparse_grid const &grid,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
-  : num_dims(domain.num_dims()), max_level(options.max_level()), legendre(hier.degree())
+  : num_dims(domain.num_dims()), max_level(options.max_level()), legendre(hier.degree()),
+    moms(domain, hier.degree(), std::move(pde.mlist), std::move(pde.mom_groups))
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
 #endif

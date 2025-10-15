@@ -222,7 +222,7 @@ void gemtv(int const n, P const A[], P const x[], P y[])
       y[i] += A[i * n + j] * x[j];
   }
 }
-//! matrix-vector multiplication y = A^T * x, A has size n X n
+//! matrix-vector multiplication y += A^T * x, A has size n X n
 template<typename P>
 void gemtv1(int const n, P const A[], P const x[], P y[])
 {

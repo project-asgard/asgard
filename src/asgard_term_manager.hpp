@@ -188,6 +188,10 @@ struct term_manager
   coupled_term_data<P> cdata;
   //! storage for the moments
   momentset<P> momset;
+  //! manages the moments operations, interplays with the mass
+  moment_manager<P> moms;
+  //! storage for the interpolated moments
+  momentset momset_interp;
   //! interpolation data
   interpolation_manager<P> interp;
   //! values for the interpolation field, allows reuse for several interp ops
