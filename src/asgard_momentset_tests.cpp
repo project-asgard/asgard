@@ -16,6 +16,12 @@ void test_moment() {
   tassert(moment(2, 3) != moment(1, 3));
   tassert(moment(2, 3) != moment(2, 1));
 
+  tassert(moment(0).action == moment::regular);
+  tassert(moment(0, 0).action == moment::regular);
+  tassert(moment(0, 0, 0).action == moment::regular);
+  tassert(moment(3, moment::interpolatory).action == moment::interpolatory);
+  tassert(moment(0, 0, moment::inactive).action == moment::inactive);
+
   // moment ids
   static_assert(not std::is_default_constructible_v<moment_id>);
   tassert(moment_id(2).get() == 2);

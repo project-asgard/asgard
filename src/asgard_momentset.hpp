@@ -17,12 +17,27 @@ inline constexpr int max_mom_dims = 3;
  */
 struct moment
 {
+  /*!
+   * \brief Holds the different ways the moment can be used
+   *
+   * The internals of the moment_manager and term_manager will perform
+   * the appropriate actions.
+   */
+  enum moment_type {
+    //! indicate a regular moment, probably needed for 1d operators
+    regular,
+    //! interpolatory, requires the expansion of the nodes
+    interpolatory,
+    //! do nothing, for information and plotting purposes only
+    inactive,
+  };
+
   //! create a 1D moment with the given power
-  moment(int pv1) : pows{pv1, -1, -1} {}
+  moment(int pv1, moment_type act = regular) : pows{pv1, -1, -1}, action(act) {}
   //! create a 2D moment with the given powers
-  moment(int pv1, int pv2) : pows{pv1, pv2, -1} {}
+  moment(int pv1, int pv2, moment_type act = regular) : pows{pv1, pv2, -1}, action(act) {}
   //! create a 3D moment with the given powers
-  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} {}
+  moment(int pv1, int pv2, int pv3, moment_type act = regular) : pows{pv1, pv2, pv3}, action(act) {}
   //! number of valid powers
   int num_dims() const {
     for (int i = 0; i < max_mom_dims; i++)
@@ -48,6 +63,8 @@ struct moment
   }
   //! holds the powers
   std::array<int, max_mom_dims> pows;
+  //! action to perform on the moment
+  moment_type action = regular;
 };
 
 std::ostream& operator<<(std::ostream& os, moment const &m);

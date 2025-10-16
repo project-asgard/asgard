@@ -97,7 +97,6 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
 
   { // aux fields section
     int const num_aux = static_cast<int>(aux_fields.size()) + ((!!moms) ? moms.num_moments() : 0);
-    std::cout << " num_aux = " << num_aux << '\n';
     H5Easy::dump(file, "num_aux_fields", num_aux);
     for (int i : iindexof(aux_fields)) {
       H5Easy::dump(file, "aux_field_" + std::to_string(i) + "_name", aux_fields[i].name);
@@ -125,6 +124,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
       file.createDataSet<int>(
           "aux_field_" + std::to_string(auxid) + "_grid",
           HighFive::DataSpace(pgrid.size()), vopts).write_raw(pgrid.data());
+      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_dims", domain.num_vel());
     }
   }
 }
@@ -387,13 +387,10 @@ void h5manager<P>::read(std::string const &filename, bool silent,
 
   { // reading aux fields
     int const num_aux = H5Easy::load<int>(file, "num_aux_fields");
-    std::cout << " num_aux = " << num_aux << '\n';
     aux_fields.resize(0);
     aux_fields.reserve(num_aux);
     for (int i : iindexof(num_aux)) {
       std::string const name = H5Easy::load<std::string>(file, "aux_field_" + std::to_string(i) + "_name");
-      std::cout << " reading = " << name << "\n";
-      std::cout << " pos = " << name.rfind("__moment_", 0) << '\n';
       if (name.rfind("__moment_", 0) == 0)
         continue;
       aux_fields.emplace_back();

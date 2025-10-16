@@ -120,6 +120,7 @@ class pde_snapshot:
             for i in range(num_aux):
                 self.aux_fields[i] = {
                     'name' : fdata[f"aux_field_{i}_name"][()].decode("utf-8"),
+                    'dims' : fdata[f"aux_field_{i}_dims"][()],
                     'data' : fdata[f"aux_field_{i}_data"][()],
                     'grid' : fdata[f"aux_field_{i}_grid"][()]
                     }
@@ -168,7 +169,7 @@ class pde_snapshot:
               or the auxid can be a number indicating the index (0-base)
               that is the index according to the order in which the field was loaded
         '''
-        assert isinstance(auxid, int) or isinstance(auxid, string), "auxid must be an int or a string"
+        assert isinstance(auxid, int) or isinstance(auxid, str), "auxid must be an int or a string"
         if isinstance(auxid, int):
             assert 0 <= auxid and auxid < len(self.aux_fields), f"the auxid {auxid} must point to a valid entry in the list with size {len(self.aux_fields)}"
 
@@ -176,10 +177,16 @@ class pde_snapshot:
         else: # must be a string due to the assertion on top
             idnum = -1
             for i in range(len(self.aux_fields)):
-                if self.aux_fields[i].name == auxid:
+                if self.aux_fields[i]['name'] == auxid:
                     idnum = i
                     break
-            assert idnum != -1, f"the auxid '{auxid}' is not in the list of aux-fields"
+            if idnum == -1:
+              try:
+                  someid = int(auxid)
+                  idnum = someid
+                  assert 0 <= idnum and idnum < len(self.aux_fields), f"the auxid {auxid} must point to a valid entry in the list with size {len(self.aux_fields)}"
+              except ValueError:
+                  assert idnum != -1, f"the auxid '{auxid}' is not in the list of aux-fields or not a valid id number"
 
         aux = pde_snapshot("::aux-filed", self.verbose)
 
@@ -191,10 +198,15 @@ class pde_snapshot:
 
         aux.default_view = self.default_view
 
-        aux.num_dimensions = self.num_dimensions
-        aux.num_position   = self.num_position
-        aux.num_velocity   = self.num_velocity
-        aux.num_cells      = int(aux.cells.shape[0] / aux.num_dimensions)
+        aux.num_dimensions = self.aux_fields[idnum]['dims']
+        if aux.num_dimensions == self.num_dimensions:
+          aux.num_position = self.num_position
+          aux.num_velocity = self.num_velocity
+        else:
+          aux.num_position = aux.num_dimensions
+          aux.num_velocity = 0
+
+        aux.num_cells = int(aux.cells.shape[0] / aux.num_dimensions)
 
         aux.time  = self.time
         aux.time  = self.time
@@ -211,14 +223,14 @@ class pde_snapshot:
             aux.double_precision = True
 
             aux.recsol = libasgard.asgard_make_dreconstruct_solution(
-                self.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
+                aux.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
         else:
             aux.double_precision = False
 
             aux.recsol = libasgard.asgard_make_freconstruct_solution_v2(
-                self.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
+                aux.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
         libasgard.asgard_reconstruct_solution_setbounds(aux.recsol,
@@ -226,6 +238,13 @@ class pde_snapshot:
                                                         np.ctypeslib.as_ctypes(self.dimension_max.reshape(-1,)))
 
         return aux
+
+    def get_moment(self, lpows):
+        assert len(lpows) == self.num_velocity
+        name = "__moment"
+        for p in lpows:
+            name += f"_{p}"
+        return self.get_aux_field(name)
 
     def plot_data1d(self, dims, num_points = 32):
         '''
@@ -426,6 +445,8 @@ if __name__ == "__main__":
         print(" -ss, -vv                    : super-summary or very-verbose info")
         print(" -g, -grid                   : plot the grid")
         print(" -view                       : adjust the view plane")
+        print(" -fig                        : figure name to save to file")
+        print(" -aux                        : auxilary field id")
         print("")
         print("no file and no option provided, shows the version of the")
         print("")
@@ -474,6 +495,7 @@ if __name__ == "__main__":
         plotview = None
         savefig  = None
         auxfield = None
+        moment   = None
         addgrid  = False
         if len(sys.argv) > 2:
             i = 2
@@ -486,10 +508,17 @@ if __name__ == "__main__":
                     savefig = sys.argv[i + 1] if i + 1 < n else None
                     i += 2
                 elif sys.argv[i] == "-aux":
+                    assert moment is None, "cannot simultaneously plot aux field and moment"
                     auxfield = sys.argv[i + 1] if i + 1 < n else None
                     i += 2
                     assert auxfield is not None, "-aux requires an filed number"
-                    auxfield = int(auxfield)
+                elif sys.argv[i] == "-mom":
+                    assert auxfield is None, "cannot simultaneously plot aux field and moment"
+                    moment = sys.argv[i + 1] if i + 1 < n else None
+                    i += 2
+                    assert auxfield is not None, "-mom requires an filed number"
+                    lpows = moment.split(" ")
+                    moment = [int(p) for p in lpows]
                 elif sys.argv[i] == "-grid":
                     addgrid = True
                     i += 1
@@ -499,6 +528,8 @@ if __name__ == "__main__":
 
         if auxfield is not None:
             shot = shot.get_aux_field(auxfield)
+        if moment is not None:
+            shot = shot.get_moment(moment)
 
         asgplot.title(shot.title, fontsize = 'large')
 

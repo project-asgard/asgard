@@ -153,12 +153,14 @@ public:
   void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const {
     if (group < 0) { // do all moments
       for (int i : iindexof(mlist.size())) {
-        compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
+        if (mlist[moment_id{i}].action != moment::inactive)
+          compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
         full_level.get(moment_id{i}).resize(0); // will be updated upon request
       }
     } else {
       for (auto const &id : groups_[group]) {
-        compute(grid, id, state, raw_vals.get(id));
+        if (mlist[id].action != moment::inactive)
+          compute(grid, id, state, raw_vals.get(id));
         full_level.get(id).resize(0);
       }
     }
