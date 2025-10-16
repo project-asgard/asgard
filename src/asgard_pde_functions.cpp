@@ -72,6 +72,20 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 }
 
 template<typename P>
+void pde_scheme<P>:: update_deps(term_md<P> const &tmd) {
+  if (tmd.is_separable()) {
+    for (int d = 0; d < domain_.num_dims(); d++) {
+      term_dependence const dep = tmd.dim(d).depends();
+      if (dep == term_dependence::electric_field or dep == term_dependence::electric_field_only) {
+        rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
+                "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
+        this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
+      }
+    }
+  }
+}
+
+template<typename P>
 void builtin_v<P>::positive(std::vector<P> const &x, std::vector<P> &y)
 {
 #pragma omp parallel for

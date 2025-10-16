@@ -38,7 +38,7 @@ void test_moment_list() {
     tassert(list.num_moms() == 0);
     tassert(list.size() == 0);
 
-    moment_id id = list.get_id({0, 0});
+    moment_id id = list.get_add_id({0, 0});
     tassert(list.size() == 1);
     tassert(id() == 0);
     tassert(list[0] == moment(0, 0));
@@ -46,9 +46,9 @@ void test_moment_list() {
     tassert(list[id] == moment(0, 0));
   }{
     moments_list list;
-    auto id0 = list.get_id(0);
-    auto id1 = list.get_id(2);
-    auto id2 = list.get_id(0);
+    auto id0 = list.get_add_id(0);
+    auto id1 = list.get_add_id(2);
+    auto id2 = list.get_add_id(0);
     static_assert(std::is_same_v<decltype(id0), moment_id>);
     tassert(list.size() == 2);
     tassert(id0 == id2);
@@ -60,20 +60,20 @@ void test_moment_list() {
 
     terror_message(clist.get_id(3), "cannot find the specified moment");
 
-    id0 = list.get_id({0, 2});
+    id0 = list.get_add_id({0, 2});
     tassert(list.size() == 3);
     tassert(!clist.have_all_dimension(1));
     tassert(!clist.have_all_dimension(2));
     tassert(!clist.have_all_dimension(3));
   }{
     moments_list super;
-    super.get_id(0);
-    auto id1 = super.get_id(5);
-    auto id2 = super.get_id(3);
-    super.get_id(4);
+    super.get_add_id(0);
+    auto id1 = super.get_add_id(5);
+    auto id2 = super.get_add_id(3);
+    super.get_add_id(4);
     moments_list list;
-    list.get_id(3);
-    list.get_id(5);
+    list.get_add_id(3);
+    list.get_add_id(5);
     std::vector<moment_id> ref = {id1, id2};
     std::vector<moment_id> val = list.find_as_subset_of(super);
     tassert(ref.size() == val.size());

@@ -31,6 +31,12 @@ struct moment
     //! do nothing, for information and plotting purposes only
     inactive,
   };
+  //! produces zero moment with the specified number of velocity dimensions
+  static moment zero(int num_velocity, moment_type act = regular) {
+    moment m(0, act);
+    for (int d = 1; d < num_velocity; d++) m.pows[d] = 0;
+    return m;
+  }
 
   //! create a 1D moment with the given power
   moment(int pv1, moment_type act = regular) : pows{pv1, -1, -1}, action(act) {}
@@ -111,13 +117,18 @@ public:
 
   //! \brief adds a new moment to the set
   void add_moment(moment const &mom) {
-    this->get_id(mom);
+    this->get_add_id(mom);
   }
   //! \brief returns the ID of the moment, adds the moment to the list (if not there already)
-  moment_id get_id(moment const &mom) {
+  moment_id get_add_id(moment const &mom) {
     for (int i = 0; i < static_cast<int>(moms_.size()); i++)
-      if (moms_[i] == mom)
+      if (moms_[i] == mom) {
+        if (moms_[i].action == moment::inactive and mom.action != moment::inactive)
+          moms_[i].action = mom.action;
+        if (moms_[i].action == moment::regular and mom.action != moment::interpolatory)
+          moms_[i].action = mom.interpolatory;
         return moment_id{i};
+      }
     moms_.push_back(mom);
     return moment_id{static_cast<int>(moms_.size() - 1)};
   }
@@ -136,7 +147,7 @@ public:
   //! returns true if all moments have the given dimension
   bool have_all_dimension(int const dims) const;
   //! returns moment_id of the members of this list within the main set
-   std::vector<moment_id> find_as_subset_of(moments_list const &superset) const;
+  std::vector<moment_id> find_as_subset_of(moments_list const &superset) const;
 
   //! returns the max powers in each dimension
   moment max_moment() const;

@@ -521,13 +521,15 @@ void moments1d<P>::project_cell(
 }
 
 template<typename P>
-moment_manager<P>::moment_manager(moments_list &&mlist_in, std::vector<moments_list> &&mom_groups)
-    : mlist(std::move(mlist_in))
+moment_manager<P>::moment_manager(moments_list &&mlist_in,
+                                  std::vector<moments_list> const &mom_groups)
+    : mlist(std::move(mlist_in)), raw_vals(mlist.size()), full_level(mlist.size()),
+      interps(mlist.size())
 {
   if (not mom_groups.empty()) {
     groups_.reserve(mom_groups.size());
     for (auto const &mgroup : mom_groups)
-      groups_.push_back( mlist.find_as_subset_of(mgroup) );
+      groups_.push_back( mgroup.find_as_subset_of(mlist) );
   }
 
   pos_grid.generation_ = -1;
@@ -536,8 +538,8 @@ moment_manager<P>::moment_manager(moments_list &&mlist_in, std::vector<moments_l
 template<typename P>
 moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
                                   moments_list &&mlist_in,
-                                  std::vector<moments_list> &&mom_groups)
-    : moment_manager(std::move(mlist_in), std::move(mom_groups))
+                                  std::vector<moments_list> const &mom_groups)
+    : moment_manager(std::move(mlist_in), mom_groups)
 {
   if (mlist.empty()) // no moments, nothing more to set
     return;
@@ -568,8 +570,8 @@ template<typename P>
 moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
                                   hierarchy_manipulator<P> const &hier,
                                   moments_list &&mlist_in,
-                                  std::vector<moments_list> &&mom_groups)
-    : moment_manager(std::move(mlist_in), std::move(mom_groups))
+                                  std::vector<moments_list> const &mom_groups)
+    : moment_manager(std::move(mlist_in), mom_groups)
 {
   if (mlist.empty()) // no moments, nothing more to set
     return;
@@ -1029,12 +1031,14 @@ void moment_manager<P>::cache_moments(
     sparse_grid const &grid, std::vector<P> const &state, int group) const
 {
   if (group < 0) { // do all moments
+    tools::time_event performance_("cache all moments");
     for (int i : iindexof(mlist.size())) {
       if (mlist[moment_id{i}].action != moment::inactive)
         compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
       full_level.get(moment_id{i}).resize(0); // will be updated upon request
     }
   } else {
+    tools::time_event performance_("cache moments (" + std::to_string(group) + ")");
     for (auto const &id : groups_[group]) {
       if (mlist[id].action != moment::inactive)
         compute(grid, id, state, raw_vals.get(id));

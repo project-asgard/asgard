@@ -153,6 +153,7 @@ public:
   bool has_poisson() const { return poisson; }
   //! check if the terms have moment dependence
   bool has_moments() const { return moms1d.has_value(); }
+  bool has_moments_v2() const { return !!terms.moms; }
 
   //! computes the right-hand-side of the ode
   void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
@@ -470,6 +471,7 @@ public:
   void compute_moments_v2(int groupid, std::vector<precision> const &f) const {
     rassert(terms.moms, "no moments set for this PDE");
     terms.moms.cache_moments(grid, f, groupid);
+    compute_poisson_v2(groupid);
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments_v2(std::vector<precision> const &f) const {
@@ -500,7 +502,7 @@ public:
     terms.rebuild_poisson(grid, conn, hier);
   }
   //! recomputes the poisson term for the given group
-  void compute_poisson_v2(int groupid, std::vector<precision> const &f) const {
+  void compute_poisson_v2(int groupid) const {
     if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
       return;
 
@@ -510,13 +512,12 @@ public:
       return;
     #endif
 
-    // if (terms.resources.has_poisson()) {
-    //   // currently we only support 1d in position space, so the solver is trivial
-    //   // the cost is so low, that everyone can do it even if it is repeated work
-    //   // when we get to multi-d Poisson problems, the leader will be needed
-    //   // to help the communication process
-    //
-    // }
+    // currently we only support 1d in position space, so the solver is trivial
+    // the cost is so low, that everyone can do it even if it is repeated work
+    // when we get to multi-d Poisson problems, the leader will be needed
+    // to help the communication process
+    poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
+                           terms.moms.edit_poisson_level());
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(std::vector<precision> const &f) const {

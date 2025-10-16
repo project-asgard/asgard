@@ -1396,7 +1396,9 @@ public:
     if (tmd.is_chain())
       rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
     tmd.set_num_dimensions(domain_.num_dims());
+    // check the dependence
     terms_.emplace_back(std::move(tmd));
+    update_deps(terms_.back());
   }
   //! returns the loaded terms
   std::vector<term_md<P>> const &terms() const { return terms_; }
@@ -1459,9 +1461,9 @@ public:
     rassert(domain_.num_vel() == mom.num_dims(),
             "mismatch between the velocity dimensions for the domain and "
             "the dimensions of the moment");
-    moment_id const id = mlist.get_id(mom);
+    moment_id const id = mlist.get_add_id(mom);
     if (current_term_group >= 0)
-      mom_groups[current_term_group].get_id(mom);
+      mom_groups[current_term_group].get_add_id(mom);
     return id;
   }
   //! returns a reference to all moments (mostly for testing)
@@ -1515,6 +1517,8 @@ private:
                                  static_cast<int>(sources_sep_.size()));
     }
   }
+  //! updates the moment dependence based on the term just added
+  void update_deps(term_md<P> const &tmd);
 
   prog_opts options_;
   pde_domain<P> domain_;

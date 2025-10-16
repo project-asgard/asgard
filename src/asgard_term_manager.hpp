@@ -296,6 +296,17 @@ struct term_manager
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
+  //! rebuild the terms that depend only on the moments
+  void rebuild_moment_terms_v2(sparse_grid const &grid, connection_patterns const &conn,
+                               hierarchy_manipulator<P> const &hier)
+  {
+    tools::time_event timing_("rebuild - moments (all)");
+    for (auto &te : terms) {
+      for (int d : indexof(num_dims))
+        if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
+          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+    }
+  }
   //! rebuild the terms for the given group
   void rebuild_moment_terms(int groupid, sparse_grid const &grid,
                             connection_patterns const &conn,

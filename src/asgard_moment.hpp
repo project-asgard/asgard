@@ -108,12 +108,12 @@ public:
   //! create the manager with the new groups
   moment_manager(pde_domain<P> const &domain, int degree,
                  moments_list &&mlist_in,
-                 std::vector<moments_list> &&mom_groups = std::vector<moments_list>{});
+                 std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
   //! create the manager with the new groups and potentially lower degree
   moment_manager(pde_domain<P> const &domain, int max_level,
                  hierarchy_manipulator<P> const &hier,
                  moments_list &&mlist_in,
-                 std::vector<moments_list> &&mom_groups = std::vector<moments_list>{});
+                 std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
 
   /*!
    * \brief set mass term in the given dimension
@@ -130,7 +130,7 @@ public:
   //! returns the total number of moments
   int num_moments() const { return mlist.size(); }
   //! returns true if the manager has been initialized
-  operator bool () const { return (num_dims_ > 0); }
+  operator bool () const { return (not mlist.empty()); }
 
   //! return the specified moment
   moment const &get_by_id(moment_id id) const { return mlist[id]; }
@@ -156,13 +156,8 @@ public:
   //! returns the  moment vector after expanding to full level and reconstructing
   std::vector<P> const &get_cached_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
     expect(pos_grid.num_dims() == 1); // this must be changed for higher dims
-    if (full_level[id].empty()) {
-      std::vector<P> const &raw = raw_vals[id];
-      std::vector<P> &vals = full_level.get(id);
-      vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
-      for (int i = 0; i < pos_grid.num_indexes(); i++)
-        vals[pos_grid[i][0]] = raw[i];
-    }
+    if (full_level[id].empty())
+      complete_level(hier, raw_vals[id], full_level.get(id));
     return full_level[id];
   }
   //! returns the  moment vector, assumes it has already been reconstructed
@@ -172,15 +167,33 @@ public:
     return full_level[id];
   }
   //! returns the Poisson solution on the position grid, 1D position uses poisson_level() only
-  std::vector<P> &poisson_raw() const { return poisson_raw_; }
+  std::vector<P> const &poisson_raw() const { return poisson_raw_; }
   //! returns the Poisson solution on the full 1D level (position 1D case)
-  std::vector<P> &poisson_level() const { return poisson_level_; }
+  std::vector<P> const &poisson_level() const { return poisson_level_; }
   //! returns the Poisson solution expanded to the interpolation nodes
-  std::vector<P> &poisson_interp() const { return poisson_interp_; }
+  std::vector<P> const &poisson_interp() const { return poisson_interp_; }
+
+  //! returns the Poisson solution on the position grid, 1D position uses poisson_level() only
+  std::vector<P> &edit_poisson_raw() const { return poisson_raw_; }
+  //! returns the Poisson solution on the full 1D level (position 1D case)
+  std::vector<P> &edit_poisson_level() const { return poisson_level_; }
+  //! returns the Poisson solution expanded to the interpolation nodes
+  std::vector<P> &edit_poisson_interp() const { return poisson_interp_; }
+
+  //! fill the vector to a full 1d level, only for position 1d
+  void complete_level(hierarchy_manipulator<P> const &hier, std::vector<P> const &raw,
+                      std::vector<P>  &vals) const
+  {
+    vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
+    for (int i = 0; i < pos_grid.num_indexes(); i++)
+      vals[pos_grid[i][0]] = raw[i];
+    hier.reconstruct1d(pos_grid.level_[0], vals);
+  }
+
 protected:
   //! set the new groups
   moment_manager(moments_list &&mlist_in,
-                 std::vector<moments_list> &&mom_groups = std::vector<moments_list>{});
+                 std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
 
   //! set a dimension where only level 0 will contain moment data
   void set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim);
