@@ -574,11 +574,11 @@ void term_manager<P>::build_raw_mat(
           if (t1d.rhs()) {
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
-            t1d.rhs(cdata.electric_field, kwork.w1);
+            t1d.rhs(moms.poisson_level(), kwork.w1);
             gen_diag_cmat_pwc<P>(legendre, level, kwork.w1, raw_diag);
             kwork.w1.resize(n);
           } else {
-            gen_diag_cmat_pwc<P>(legendre, level, cdata.electric_field, raw_diag);
+            gen_diag_cmat_pwc<P>(legendre, level, moms.poisson_level(), raw_diag);
           }
           break;
         case term_dependence::electric_field:

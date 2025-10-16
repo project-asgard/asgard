@@ -275,16 +275,16 @@ struct term_manager
   }
 
   //! rebuild the terms that depend on the Poisson electric field
-  void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
-                       hierarchy_manipulator<P> const &hier)
-  {
-    tools::time_event timing_("rebuild - poisson");
-    for (auto &te : terms) {
-      for (int d : indexof(num_dims))
-        if (te.deps[d].poisson and resources.owns(te.rec))
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
-    }
-  }
+  // void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
+  //                      hierarchy_manipulator<P> const &hier)
+  // {
+  //   tools::time_event timing_("rebuild - poisson");
+  //   for (auto &te : terms) {
+  //     for (int d : indexof(num_dims))
+  //       if (te.deps[d].poisson and resources.owns(te.rec))
+  //         rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+  //   }
+  // }
   //! rebuild the terms that depend only on the moments
   void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
                             hierarchy_manipulator<P> const &hier)
@@ -300,11 +300,47 @@ struct term_manager
   void rebuild_moment_terms_v2(sparse_grid const &grid, connection_patterns const &conn,
                                hierarchy_manipulator<P> const &hier)
   {
-    tools::time_event timing_("rebuild - moments (all)");
+    tools::time_event timing_("rebuild all moment terms");
     for (auto &te : terms) {
       for (int d : indexof(num_dims))
         if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
+        {
+          // isolate terms that have not been updated for v2 yet
+          auto const dep = te.tmd.dim(d).depends();
+          if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
+              dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
+              dep == term_dependence::lenard_bernstein_coll_theta_1x3v or
+              dep == term_dependence::moment_divided_by_density // or
+              // dep == term_dependence::electric_field or
+              // dep == term_dependence::electric_field_only
+              )
+              continue;
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+        }
+    }
+  }
+  //! rebuild the terms that depend only on the moments
+  void rebuild_moment_terms_v2(int groupid, sparse_grid const &grid, connection_patterns const &conn,
+                               hierarchy_manipulator<P> const &hier)
+  {
+    tools::time_event timing_("rebuild moment terms (" + std::to_string(groupid) + ")");
+    expect(0 <= groupid and groupid < static_cast<int>(term_groups.size()));
+    for (int it : indexrange(term_groups[groupid])) {
+      auto &te = terms[it];
+      for (int d : indexof(num_dims))
+        if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
+        {
+          // isolate terms that have not been updated for v2 yet
+          auto const dep = te.tmd.dim(d).depends();
+          if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
+              dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
+              dep == term_dependence::lenard_bernstein_coll_theta_1x3v or
+              dep == term_dependence::moment_divided_by_density or
+              dep == term_dependence::electric_field or
+              dep == term_dependence::electric_field_only)
+              continue;
+          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+        }
     }
   }
   //! rebuild the terms for the given group

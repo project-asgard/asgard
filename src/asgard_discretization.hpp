@@ -377,12 +377,12 @@ public:
     project_function({sep, }, fmd, result);
     return result;
   }
-  //! computes a specific moment
-  std::vector<precision> get_moment(moment_id id) const {
-    std::vector<precision> result;
-    terms.moms.compute(grid, id, state, result);
-    return result;
-  }
+  //! computes a specific moment for the current state
+  std::vector<precision> get_moment(moment_id id) const;
+  //! computes a specific moment for the current state
+  std::vector<precision> get_moment_level(moment_id id) const;
+  //! computes and returns the electric field for the current state
+  std::vector<precision> get_electric() const;
 
   //! allows an auxiliary field to be saved for post-processing
   void add_aux_field(aux_field_entry<precision> f) {
@@ -467,40 +467,48 @@ public:
   void compute_moments(std::vector<precision> const &f) const {
     compute_moments(-1, f);
   }
+  //! recomputes the moments with the current state, if groupid is negative all groups will be computed
+  void compute_moments_v2(int groupid = all_groups) const {
+    compute_moments_v2(groupid, state);
+  }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments_v2(int groupid, std::vector<precision> const &f) const {
     rassert(terms.moms, "no moments set for this PDE");
     terms.moms.cache_moments(grid, f, groupid);
     compute_poisson_v2(groupid);
+    if (groupid == -1)
+      terms.rebuild_moment_terms_v2(grid, conn, hier);
+    else
+      terms.rebuild_moment_terms_v2(groupid, grid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments_v2(std::vector<precision> const &f) const {
     compute_moments_v2(all_groups, f);
   }
   //! recomputes the poisson term for the given group
-  void compute_poisson(int groupid, std::vector<precision> const &f) const {
-    if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
-      return;
-
-    #ifdef ASGARD_USE_MPI
-    // leader must always communicate, the rest only if they have a poisson term
-    if (not is_leader() and not terms.resources.has_poisson())
-      return;
-    #endif
-
-    if (is_leader())
-      do_poisson_update(f);
-    else
-      poisson.resize_vector(terms.cdata.electric_field);
-
-    #ifdef ASGARD_USE_MPI
-    if (terms.resources.num_ranks() > 1)
-      terms.resources.template bcast
-          <precision, resource_comm::poisson>(terms.cdata.electric_field);
-    #endif
-
-    terms.rebuild_poisson(grid, conn, hier);
-  }
+  // void compute_poisson(int groupid, std::vector<precision> const &f) const {
+  //   if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
+  //     return;
+  //
+  //   #ifdef ASGARD_USE_MPI
+  //   // leader must always communicate, the rest only if they have a poisson term
+  //   if (not is_leader() and not terms.resources.has_poisson())
+  //     return;
+  //   #endif
+  //
+  //   if (is_leader())
+  //     do_poisson_update(f);
+  //   else
+  //     poisson.resize_vector(terms.cdata.electric_field);
+  //
+  //   #ifdef ASGARD_USE_MPI
+  //   if (terms.resources.num_ranks() > 1)
+  //     terms.resources.template bcast
+  //         <precision, resource_comm::poisson>(terms.cdata.electric_field);
+  //   #endif
+  //
+  //   terms.rebuild_poisson(grid, conn, hier);
+  // }
   //! recomputes the poisson term for the given group
   void compute_poisson_v2(int groupid) const {
     if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
@@ -520,9 +528,9 @@ public:
                            terms.moms.edit_poisson_level());
   }
   //! recomputes the poisson term for the given group
-  void compute_poisson(std::vector<precision> const &f) const {
-    compute_poisson(-1, f);
-  }
+  // void compute_poisson(std::vector<precision> const &f) const {
+  //   compute_poisson(-1, f);
+  // }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
     rassert(ns.size() == state.size(), "cannot set state with different size");
@@ -619,10 +627,10 @@ protected:
       }();
 
     if constexpr (use_groups) {
-      compute_poisson(gid, current);
+      // compute_poisson(gid, current);
       compute_moments(gid, current);
     } else {
-      compute_poisson(current);
+      // compute_poisson(current);
       compute_moments(current);
     }
     // locally update all moments

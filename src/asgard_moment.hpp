@@ -153,6 +153,12 @@ public:
 
   //! load all moments into the data-structures
   void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const;
+  //! computes and caches a specific moment
+  void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state);
+  //! get the cached moment
+  std::vector<P> const &get_cached(moment_id id) const {
+    return raw_vals[id];
+  }
   //! returns the  moment vector after expanding to full level and reconstructing
   std::vector<P> const &get_cached_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
     expect(pos_grid.num_dims() == 1); // this must be changed for higher dims
@@ -182,13 +188,7 @@ public:
 
   //! fill the vector to a full 1d level, only for position 1d
   void complete_level(hierarchy_manipulator<P> const &hier, std::vector<P> const &raw,
-                      std::vector<P>  &vals) const
-  {
-    vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
-    for (int i = 0; i < pos_grid.num_indexes(); i++)
-      vals[pos_grid[i][0]] = raw[i];
-    hier.reconstruct1d(pos_grid.level_[0], vals);
-  }
+                      std::vector<P> &vals) const;
 
 protected:
   //! set the new groups

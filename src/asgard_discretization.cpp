@@ -380,6 +380,32 @@ discretization_manager<precision>::project_function(
   }
 }
 
+template<typename precision>
+std::vector<precision> discretization_manager<precision>::get_moment(moment_id id) const {
+  std::vector<precision> result;
+  terms.moms.compute(grid, id, state, result);
+  return result;
+}
+
+template<typename precision>
+std::vector<precision> discretization_manager<precision>::get_moment_level(moment_id id) const {
+  rassert(domain_.num_pos() == 1, "level completion is done only for 1 position dimension");
+  std::vector<precision> tmp;
+  std::vector<precision> result;
+  terms.moms.compute(grid, id, state, tmp);
+  terms.moms.complete_level(hier, tmp, result);
+  return result;
+}
+
+template<typename precision>
+std::vector<precision> discretization_manager<precision>::get_electric() const {
+  rassert(poisson, "get_electric() requires a PDE with terms with electric dependence");
+  terms.moms.cache_moment(poisson.moment0(), grid, state);
+  poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
+                         terms.moms.edit_poisson_level());
+  return terms.moms.poisson_level();
+}
+
 template<typename precision> void
 discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
   expect(field.size() == static_cast<size_t>(grid.num_indexes() * fm::ipow(degree() + 1, grid.num_dims())));

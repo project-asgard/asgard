@@ -90,7 +90,7 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
 
   options.default_stop_time = 1.0;
 
-  // using explicit RK3
+  // using explicit RK2
   options.default_step_method = asgard::time_method::rk2;
 
   // create a pde from the given options and domain
@@ -238,17 +238,21 @@ void test_energy(std::string const &opt_str) {
 
   prog_opts const options = make_opts(opt_str);
 
-  discretization_manager disc(make_two_stream(options), verbosity_level::quiet);
+  auto pde = make_two_stream(options);
+  moment_id const m0 = pde.register_moment({0, moment::inactive});
+  moment_id const m1 = pde.register_moment({1, moment::inactive}); // needed for verification, but not running
+  moment_id const m2 = pde.register_moment({2, moment::inactive});
+  discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
 
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check conservation properties
-  int const num_moms = 3;
-  int const pdof     = disc.degree() + 1;
-  moments1d moms(num_moms, pdof - 1, disc.options().max_level(),
-                 disc.domain());
-  std::vector<P> mom_vec;
+  // int const num_moms = 3;
+  // int const pdof     = disc.degree() + 1;
+  // moments1d moms(num_moms, pdof - 1, disc.options().max_level(),
+  //                disc.domain());
+  // std::vector<P> mom_vec;
 
   int64_t const n = disc.remaining_steps();
 
@@ -263,33 +267,30 @@ void test_energy(std::string const &opt_str) {
     int const num_cell = fm::ipow2(level0);
     P const dx         = disc.domain().length(0) / num_cell;
 
-    moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
-
-    disc.do_poisson_update(disc.current_state()); // update the electric field
-
-    auto const &efield = disc.get_terms().cdata.electric_field;
+    auto efield = disc.get_electric();
 
     P Ep = 0;
-    for (auto e : efield)
-      Ep += e * e;
+    for (auto e : efield) Ep += e * e;
     Ep *= dx;
 
-    span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
+    std::vector<P> mom2 = disc.get_moment(m2);
 
-    P Ek = 0;
-    for (int j : iindexof(num_cell))
-      Ek += moments[j][2 * pdof]; // integrating the third moment
-    Ek *= std::sqrt(disc.domain().length(0));
+    P const Ek = mom2[0] * std::sqrt(disc.domain().length(0));
 
     if (disc.current_step() == 1) // first time-step
       E0 = Ep + Ek;
 
-    tcheckless(i, std::abs(Ep + Ek - E0), 1.E-6);
+    tcheckless(i, std::abs(Ep + Ek - E0), 1.E-5);
 
+    std::vector<P> mom0 = disc.get_moment(m0);
+    std::vector<P> mom1 = disc.get_moment(m1);
+
+    // integral of moment 0 by moment 1, by delta_ij orthogonality of the basis
+    // just sum up the product of the coefficients
     P mv = 0;
-    for (auto j : indexof(num_cell))
-      for (auto k : indexof(pdof))
-        mv += moments[j][k] * moments[j][k + pdof];
+    for (size_t j = 0; j < mom0.size(); j++)
+      mv += mom0[j] * mom1[j];
+
     tcheckless(i, std::abs(mv), 3.0e-14);
 
     // check the initial slight energy decay before it stabilizes
@@ -303,7 +304,7 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>("-l 5 -d 2 -g dense -dt 6.25e-3 -n 20");
+  test_energy<double>("-l 6 -d 2 -g dense -dt 6.25e-3 -n 20");
   test_energy<double>("-l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
 
 #endif

@@ -12,6 +12,11 @@ void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
 {
   tools::time_event psolve_("poisson_solver");
 
+  // std::cout << " density as input \n";
+  // for (size_t i = 0; i < density.size(); i++) {
+  //   std::cout << " i = " << i << "    " << density[i] << '\n';
+  // }
+
   if (current_level == 0)
   {
     efield.resize(1);

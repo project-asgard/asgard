@@ -1033,19 +1033,50 @@ void moment_manager<P>::cache_moments(
   if (group < 0) { // do all moments
     tools::time_event performance_("cache all moments");
     for (int i : iindexof(mlist.size())) {
-      if (mlist[moment_id{i}].action != moment::inactive)
+      if (mlist[moment_id{i}].action != moment::inactive) {
         compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
-      full_level.get(moment_id{i}).resize(0); // will be updated upon request
+        full_level.get(moment_id{i}).resize(0); // will be updated upon request
+        interps.get(moment_id{i}).resize(0);
+      }
     }
   } else {
     tools::time_event performance_("cache moments (" + std::to_string(group) + ")");
     for (auto const &id : groups_[group]) {
-      if (mlist[id].action != moment::inactive)
+      if (mlist[id].action != moment::inactive) {
         compute(grid, id, state, raw_vals.get(id));
-      full_level.get(id).resize(0);
+        full_level.get(id).resize(0);
+        interps.get(id).resize(0);
+      }
     }
   }
 }
+
+template<typename P>
+void moment_manager<P>::cache_moment(moment_id id, sparse_grid const &grid,
+                                     std::vector<P> const &state)
+{
+  compute(grid, id, state, raw_vals.get(id));
+  full_level.get(id).resize(0);
+  interps.get(id).resize(0);
+}
+
+template<typename P>
+void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
+                                       std::vector<P> const &raw,
+                                       std::vector<P> &vals) const
+  {
+    if (vals.empty())
+      vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
+    else {
+      vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
+      std::fill(vals.begin(), vals.end(), P{0});
+    }
+
+    for (int i = 0; i < pos_grid.num_indexes(); i++)
+      std::copy_n(raw.data() + i * pdof, pdof, vals.data() + pos_grid[i][0] * pdof);
+
+    hier.reconstruct1d(pos_grid.level_[0], vals);
+  }
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class moments1d<double>;
