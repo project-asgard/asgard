@@ -212,7 +212,7 @@ public:
     return terms.normL2(grid, conn, x);
   }
 
-  //! applies all terms
+  //! applies all terms, does not recompute moments
   void terms_apply(precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
@@ -236,7 +236,7 @@ public:
     #endif
     terms.apply(grid, conn, alpha, x, beta, y);
   }
-  //! applies terms for the given group
+  //! applies terms for the given group, does not recompute moments
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
@@ -466,6 +466,15 @@ public:
   void compute_moments(std::vector<precision> const &f) const {
     compute_moments(-1, f);
   }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments_v2(int groupid, std::vector<precision> const &f) const {
+    rassert(terms.moms, "no moments set for this PDE");
+    terms.moms.cache_moments(grid, f, groupid);
+  }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments_v2(std::vector<precision> const &f) const {
+    compute_moments_v2(all_groups, f);
+  }
   //! recomputes the poisson term for the given group
   void compute_poisson(int groupid, std::vector<precision> const &f) const {
     if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
@@ -489,6 +498,25 @@ public:
     #endif
 
     terms.rebuild_poisson(grid, conn, hier);
+  }
+  //! recomputes the poisson term for the given group
+  void compute_poisson_v2(int groupid, std::vector<precision> const &f) const {
+    if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
+      return;
+
+    #ifdef ASGARD_USE_MPI
+    // leader must always communicate, the rest only if they have a poisson term
+    if (not is_leader() and not terms.resources.has_poisson())
+      return;
+    #endif
+
+    // if (terms.resources.has_poisson()) {
+    //   // currently we only support 1d in position space, so the solver is trivial
+    //   // the cost is so low, that everyone can do it even if it is repeated work
+    //   // when we get to multi-d Poisson problems, the leader will be needed
+    //   // to help the communication process
+    //
+    // }
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(std::vector<precision> const &f) const {
@@ -548,6 +576,47 @@ protected:
   void ode_rhs_templ(int gid, precision time, std::vector<precision> const &current,
                      std::vector<precision> &R) const
   {
+    // first broadcast the current to all ranks, then compute the moments
+    // (the moments can be done locally, the work is cheap)
+    // then apply the terms and sources and collect the final answer
+    // naturally, if not using MPI or using only 1 rank, there is no broadcast
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1) {
+      terms.mpiwork.resize(current.size());
+      if (is_leader()) {
+        terms.resources.bcast(current);
+      } else {
+        terms.resources.bcast(terms.mpiwork);
+      }
+    }
+    #endif
+
+    // the effective input vector, in MPI context this is either current or mpiwork
+    // leader just uses current, the rest use mpiwork
+    std::vector<precision> const &in = [&]() -> std::vector<precision> const &
+      {
+        #ifdef ASGARD_USE_MPI
+        if (terms.resources.num_ranks() == 1 or is_leader())
+          return current;
+        else
+          return terms.mpiwork;
+        #else
+        return current;
+        #endif
+      }();
+    // the effective input vector, in MPI context this is either mpiwork or R
+    std::vector<precision> &out = [&]() -> std::vector<precision> &
+      {
+        #ifdef ASGARD_USE_MPI
+        if (terms.resources.num_ranks() > 1 and is_leader())
+          return terms.mpiwork;
+        else
+          return R;
+        #else
+        return R;
+        #endif
+      }();
+
     if constexpr (use_groups) {
       compute_poisson(gid, current);
       compute_moments(gid, current);
@@ -555,72 +624,38 @@ protected:
       compute_poisson(current);
       compute_moments(current);
     }
+    // locally update all moments
+    if (terms.moms) {
+      compute_moments_v2(gid, in);
+    }
+
+    {
+      #ifdef ASGARD_USE_FLOPCOUNTER
+      int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);
+      tools::time_event performance_("ode-rhs kronmult", flops);
+      #else
+      tools::time_event performance_("ode-rhs kronmult");
+      #endif
+      if constexpr (use_groups)
+        terms.apply(gid, grid, conn, -1, in, 0, out);
+      else
+        terms.apply(grid, conn, -1, in, 0, out);
+      if (not terms.has_terms()) // R wasn't zeroes out above
+          std::fill(R.begin(), R.end(), 0);
+    }{
+      tools::time_event performance_("ode-rhs sources");
+      if constexpr (use_groups)
+        terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, out);
+      else
+        terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, out);
+    }
 
     #ifdef ASGARD_USE_MPI
     if (terms.resources.num_ranks() > 1) {
-      terms.mpiwork.resize(current.size());
-      // if this rank has terms, then apply_all() will zero out mpiwork/R
-      // else an explicit zero-out is needed
-      if (is_leader()) {
-        terms.resources.bcast(current);
-        {
-          tools::time_event performance_("ode-rhs kronmult");
-          if constexpr (use_groups)
-            terms.apply(gid, grid, conn, -1, current, 0, terms.mpiwork);
-          else
-            terms.apply(grid, conn, -1, current, 0, terms.mpiwork);
-          if (not terms.has_terms()) // mpiwork must be zeroed out explicitly
-            std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
-        }{
-          tools::time_event performance_("ode-rhs sources");
-          if constexpr (use_groups)
-            terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, terms.mpiwork);
-          else
-            terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, terms.mpiwork);
-        }
-        terms.resources.reduce_add(terms.mpiwork, R);
-      } else {
-        terms.resources.bcast(terms.mpiwork);
-        {
-          tools::time_event performance_("ode-rhs kronmult");
-          if constexpr (use_groups)
-            terms.apply(gid, grid, conn, -1, terms.mpiwork, 0, R);
-          else
-            terms.apply(grid, conn, -1, terms.mpiwork, 0, R);
-          if (not terms.has_terms()) // R must be zeroed out explicitly
-            std::fill(R.begin(), R.end(), 0);
-        }{
-          tools::time_event performance_("ode-rhs sources");
-          if constexpr (use_groups)
-            terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, R);
-          else
-            terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, R);
-        }
-        terms.resources.reduce_add(R);
-      }
-    } else {
-    #endif
-      {
-        #ifdef ASGARD_USE_FLOPCOUNTER
-        int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);
-        tools::time_event performance_("ode-rhs kronmult", flops);
-        #else
-        tools::time_event performance_("ode-rhs kronmult");
-        #endif
-        if constexpr (use_groups)
-          terms.apply(gid, grid, conn, -1, current, 0, R);
-        else
-          terms.apply(grid, conn, -1, current, 0, R);
-        if (not terms.has_terms()) // R wasn't zeroes out above
-            std::fill(R.begin(), R.end(), 0);
-      }{
-        tools::time_event performance_("ode-rhs sources");
-        if constexpr (use_groups)
-          terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, R);
-        else
-          terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, R);
-      }
-    #ifdef ASGARD_USE_MPI
+      if (is_leader())
+        terms.resources.reduce_add(out, R);
+      else
+        terms.resources.reduce_add(out);
     }
     #endif
   }
@@ -688,6 +723,9 @@ protected:
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 private:
+  // tag indicating the use of all groups
+  static constexpr int all_groups = -1;
+  // indicates the level of noise pushed to the cout
   mutable verbosity_level verb = verbosity_level::quiet;
   // user provided options
   prog_opts options_;

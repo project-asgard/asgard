@@ -134,6 +134,8 @@ public:
 
   //! return the specified moment
   moment const &get_by_id(moment_id id) const { return mlist[id]; }
+  //! returns the ID of an existing moment
+  moment_id find_id(moment const &m) const { return mlist.get_id(m); }
 
   //! returns a grid defined over the position dimensions ready for kronmult
   sparse_grid const &get_kronmult_grid() const {
@@ -151,8 +153,8 @@ public:
 
   //! load all moments into the data-structures
   void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const;
-  //! returns the  moment vector after expanding to full level
-  std::vector<P> const &get_cached_level(moment_id id) const {
+  //! returns the  moment vector after expanding to full level and reconstructing
+  std::vector<P> const &get_cached_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
     expect(pos_grid.num_dims() == 1); // this must be changed for higher dims
     if (full_level[id].empty()) {
       std::vector<P> const &raw = raw_vals[id];
@@ -163,7 +165,18 @@ public:
     }
     return full_level[id];
   }
-
+  //! returns the  moment vector, assumes it has already been reconstructed
+  std::vector<P> const &get_cached_level(moment_id id) const {
+    expect(pos_grid.num_dims() == 1); // this must be changed for higher dims
+    expect(not full_level[id].empty());
+    return full_level[id];
+  }
+  //! returns the Poisson solution on the position grid, 1D position uses poisson_level() only
+  std::vector<P> &poisson_raw() const { return poisson_raw_; }
+  //! returns the Poisson solution on the full 1D level (position 1D case)
+  std::vector<P> &poisson_level() const { return poisson_level_; }
+  //! returns the Poisson solution expanded to the interpolation nodes
+  std::vector<P> &poisson_interp() const { return poisson_interp_; }
 protected:
   //! set the new groups
   moment_manager(moments_list &&mlist_in,
@@ -228,6 +241,10 @@ private:
   mutable momentset<P> raw_vals; // computed on pos-grid
   mutable momentset<P> full_level; // operator matrices need full level moments
   mutable momentset<P> interps; // moment values for interpolation
+
+  mutable std::vector<P> poisson_raw_; // computed on pos-grid (or full grid for 1D)
+  mutable std::vector<P> poisson_level_; // Poisson extended to full level
+  mutable std::vector<P> poisson_interp_; // Poisson extended to the interp nodes
 };
 
 } // namespace asgard

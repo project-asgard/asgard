@@ -337,6 +337,86 @@ void hierarchy_manipulator<P>::reconstruct1d(
 }
 
 template<typename P>
+void hierarchy_manipulator<P>::reconstruct1d(int level, std::vector<P> &hdata) const
+{
+  expect(static_cast<int>(hdata.size()) == (degree_ + 1) * fm::ipow2(level));
+
+  if (level == 0)
+    return; // the hierarchical form is the same as the nodal
+
+  switch (degree_)
+  {
+    case 0:
+      reconstruct1d<0>(level, hdata);
+      break;
+    case 1:
+      reconstruct1d<1>(level, hdata);
+      break;
+    default:
+      reconstruct1d<-1>(level, hdata);
+      break;
+  }
+}
+
+template<typename P>
+template<int tdegree>
+void hierarchy_manipulator<P>:: reconstruct1d(int level, std::vector<P> &hdata) const
+{
+  int const pdof = (degree_ + 1); // strip size
+  P constexpr s22 = 0.5 * s2;
+  P constexpr is2h = 0.5 * is2;
+  P constexpr is64  = s6 / 4.0;
+
+  auto prj1 = [&](P const left[], P const right[], P out_left[], P out_right[])
+  {
+    switch (tdegree)
+    {
+      case 0:
+        out_left[0]  = s22 * left[0] - s22 * right[0];
+        out_right[0] = s22 * left[0] + s22 * right[0];
+        break;
+      case 1:
+        out_left[0] = is2 * left[0] - is64 * left[1] +                  is2h * right[1];
+        out_left[1] =                 is2h * left[1] - is2 * right[0] + is64 * right[1];
+
+        out_right[0] = is2 * left[0] + is64 * left[1]                  - is2h * right[1];
+        out_right[1] =               + is2h * left[1] + is2 * right[0] + is64 * right[1];
+        break;
+      default:
+        smmat::gemtv(pdof, tmatup, left, out_left);
+        smmat::gemtv1(pdof, tmatlev, right, out_left);
+        smmat::gemtv(pdof, tmatup + pdof * pdof, left, out_right);
+        smmat::gemtv1(pdof, tmatlev + pdof * pdof, right, out_right);
+        break;
+    };
+  };
+
+  twork.resize(hdata.size());
+  pwork.resize(twork.size());
+
+  int const num_cells = fm::ipow2(level);
+  span2d<P> work0(pdof, num_cells, twork.data());
+  span2d<P> work1(pdof, num_cells, pwork.data());
+
+  span2d<P const> data(pdof, num_cells, hdata.data());
+
+  prj1(data[0], data[1], work0[0], work0[1]);
+
+  int num = 2;
+
+  while (--level > 0)
+  {
+    #pragma omp parallel for
+    for (int i = 0; i < num; i++)
+      prj1(work0[i], data[num + i], work1[2 * i], work1[2 * i + 1]);
+    std::swap(work0, work1);
+    num *= 2;
+  }
+
+  std::copy_n(work0[0], hdata.size(), hdata.begin());
+}
+
+template<typename P>
 void hierarchy_manipulator<P>::project1d(
     int dim, int level, std::vector<P> const &vals,
     block_diag_matrix<P> const &mass, std::vector<P> &cells) const

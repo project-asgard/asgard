@@ -11,6 +11,41 @@ void test_transform()
   std::minstd_rand park_miller(42);
   std::uniform_real_distribution<TestType> unif(-1.0, 1.0);
 
+  for (int level = 0; level < 5; level++) {
+    for (int degree = 0; degree < 4; degree++)
+    {
+      hierarchy_manipulator<TestType> hier(degree, 1, {-2,}, {1,}); // dims 1
+
+      int const pdof    = (degree + 1);
+      int64_t const num = fm::ipow2(level);
+
+      std::vector<TestType> ref(num * pdof);
+
+      for (auto &x : ref)
+        x = unif(park_miller);
+
+      std::vector<TestType> fp;
+      std::vector<TestType> work = ref; // note the forward transform is destructive on ref
+      hier.transform(level, work, fp); // to hierarchical
+
+      if (level > 0)
+        tassert(fm::diff_inf(fp, ref) > 1.E-2); // sanity check, did we transform anything
+
+      std::vector<TestType> inv = fp;
+      hier.reconstruct1d(level, inv);
+
+      tassert(fm::diff_inf(ref, inv) < 5.E-6); // inverse transform should get us back
+    }
+  }
+}
+
+template<typename TestType>
+void test_transform_bached()
+{
+  current_test<TestType> name_("fast-transform (batched)");
+  std::minstd_rand park_miller(42);
+  std::uniform_real_distribution<TestType> unif(-1.0, 1.0);
+
   for (int nbatch = 1; nbatch < 5; nbatch++) {
     for (int level = 0; level < 5; level++) {
       for (int degree = 0; degree < 4; degree++)
@@ -254,6 +289,7 @@ template<typename P>
 void all_templated_tests()
 {
   test_transform<P>();
+  test_transform_bached<P>();
   test_permute<P>();
   test_custom_transform<P>();
 }
