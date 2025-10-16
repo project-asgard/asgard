@@ -802,6 +802,10 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   pos_grid.iset_.num_indexes_ = ipos + 1;
   pntr.push_back(grid.num_indexes());
   pos_grid.generation_ = grid.generation();
+
+  // take the highest levels for full-level vectors
+  for (int d = 0; d < pos_grid.num_dims(); d++)
+    pos_grid.level_[d] = grid.level_[d];
 }
 
 template<typename P>
@@ -1018,6 +1022,25 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
   default:
     break;
   };
+}
+
+template<typename P>
+void moment_manager<P>::cache_moments(
+    sparse_grid const &grid, std::vector<P> const &state, int group) const
+{
+  if (group < 0) { // do all moments
+    for (int i : iindexof(mlist.size())) {
+      if (mlist[moment_id{i}].action != moment::inactive)
+        compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
+      full_level.get(moment_id{i}).resize(0); // will be updated upon request
+    }
+  } else {
+    for (auto const &id : groups_[group]) {
+      if (mlist[id].action != moment::inactive)
+        compute(grid, id, state, raw_vals.get(id));
+      full_level.get(id).resize(0);
+    }
+  }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

@@ -150,20 +150,18 @@ public:
                std::vector<P> const &state, std::vector<P> &vals) const;
 
   //! load all moments into the data-structures
-  void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const {
-    if (group < 0) { // do all moments
-      for (int i : iindexof(mlist.size())) {
-        if (mlist[moment_id{i}].action != moment::inactive)
-          compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
-        full_level.get(moment_id{i}).resize(0); // will be updated upon request
-      }
-    } else {
-      for (auto const &id : groups_[group]) {
-        if (mlist[id].action != moment::inactive)
-          compute(grid, id, state, raw_vals.get(id));
-        full_level.get(id).resize(0);
-      }
+  void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const;
+  //! returns the  moment vector after expanding to full level
+  std::vector<P> const &get_cached_level(moment_id id) const {
+    expect(pos_grid.num_dims() == 1); // this must be changed for higher dims
+    if (full_level[id].empty()) {
+      std::vector<P> const &raw = raw_vals[id];
+      std::vector<P> &vals = full_level.get(id);
+      vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
+      for (int i = 0; i < pos_grid.num_indexes(); i++)
+        vals[pos_grid[i][0]] = raw[i];
     }
+    return full_level[id];
   }
 
 protected:
@@ -229,6 +227,7 @@ private:
 
   mutable momentset<P> raw_vals; // computed on pos-grid
   mutable momentset<P> full_level; // operator matrices need full level moments
+  mutable momentset<P> interps; // moment values for interpolation
 };
 
 } // namespace asgard
