@@ -149,6 +149,21 @@ public:
   void compute(sparse_grid const &grid, moment_id id,
                std::vector<P> const &state, std::vector<P> &vals) const;
 
+  //! load all moments into the data-structures
+  void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const {
+    if (group < 0) { // do all moments
+      for (int i : iindexof(mlist.size())) {
+        compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
+        full_level.get(moment_id{i}).resize(0); // will be updated upon request
+      }
+    } else {
+      for (auto const &id : groups_[group]) {
+        compute(grid, id, state, raw_vals.get(id));
+        full_level.get(id).resize(0);
+      }
+    }
+  }
+
 protected:
   //! set the new groups
   moment_manager(moments_list &&mlist_in,
@@ -209,6 +224,9 @@ private:
   std::array<moment_level, max_mom_dims> dim_level;
 
   std::array<vector2d<P>, max_mom_dims> integ;
+
+  mutable momentset<P> raw_vals; // computed on pos-grid
+  mutable momentset<P> full_level; // operator matrices need full level moments
 };
 
 } // namespace asgard

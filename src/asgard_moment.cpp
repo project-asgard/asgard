@@ -823,7 +823,9 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
   }
 
   if (allzero) { // simple case, consider only zero-th indexes
-    for (int i = 0; i < num; i++) {
+    #pragma omp parallel for
+    for (int i = 0; i < num; i++)
+    {
       P const *v1 = integ[0][mom.pows[0]];
       P const *v2 = (nvel >= 1) ? integ[1][mom.pows[1]] : nullptr;
       P const *v3 = (nvel >= 2) ? integ[2][mom.pows[2]] : nullptr;
@@ -873,6 +875,7 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
   int const npos = pos_grid.num_dims();
 
+  #pragma omp parallel for
   for (int i = 0; i < num; i++)
   {
     P *out = vals.data() + pos_block * i;
@@ -912,9 +915,12 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
       P const *in  = state.data() + full_block * j;
 
+      // TODO: test SIMD directives below, although this is pretty cheap overall
       if constexpr (nvel == 1) {
+        // #pragma omp simd
         for (int k = 0; k < pos_block; k++) {
           P sum = 0;
+          // #pragma omp simd reduction(+:sum)
           for (int k1 = 0; k1 < tpdof; k1++) {
             sum += v1[k1] * (*in++);
           }
