@@ -96,7 +96,7 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
                 "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
         this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
         break;
-      case term_dependence::moment_divided_by_density_v2:
+      case term_dependence::moment_divided_by_density:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "moment-over-density requires defined velocity dimensions");
         rassert(domain_.num_pos() == 1,

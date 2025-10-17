@@ -29,14 +29,9 @@ enum class term_dependence
   //! dependence on the electric field only, coefficient is 1
   electric_field_only,
   //! moment divided by moment 0
-  moment_divided_by_density_v2,
+  moment_divided_by_density,
   //! Lenard-Bernstein theta term
-  // lenard_bernstein_coll_theta_1x1v,
-  lenard_bernstein_coll_theta,
-  //! Lenard-Bernstein theta term, 1x2v term
-  // lenard_bernstein_coll_theta_1x2v,
-  //! Lenard-Bernstein theta term, 1x3v term
-  // lenard_bernstein_coll_theta_1x3v,
+  lenard_bernstein_coll_theta
 };
 
 /*!
@@ -580,7 +575,7 @@ public:
   //! make moment over density, moment dependence term
   term_1d(term_moment_over_density_v2 mover)
     : optype_(operation_type::volume),
-      depends_(term_dependence::moment_divided_by_density_v2),
+      depends_(term_dependence::moment_divided_by_density),
       change_(changes_with::time), rhs_const_(mover.scale),
       smom_(mover.mom)
   {
@@ -1575,13 +1570,5 @@ private:
   std::vector<moments_list> mom_groups;
   moments_list mlist;
 };
-
-/*!
- * \brief Alias for backwards computationally
- *
- * Will be removed in an upcoming release.
- */
-template<typename P>
-using PDEv2 = pde_scheme<P>;
 
 } // namespace asgard

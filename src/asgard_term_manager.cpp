@@ -595,7 +595,7 @@ void term_manager<P>::build_raw_mat(
         //   gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x3v>
         //     (legendre, level, 0, cdata.moments, raw_diag);
         //   break;
-        case term_dependence::moment_divided_by_density_v2:
+        case term_dependence::moment_divided_by_density:
           gen_diag_mom_over_zero<P>(legendre, level, t1d.rhs_const(),
                                     moms.get_cached_level(t1d.moment_ids()[0], hier),
                                     moms.get_cached_level(t1d.moment_ids()[1], hier),

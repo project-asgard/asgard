@@ -369,116 +369,6 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 }
 
 //! moment over moment zero
-// template<typename P, int multsign, term_dependence dep>
-// void gen_diag_mom_cases(
-//     legendre_basis<P> const &basis, int level, int mindex,
-//     std::vector<P> const &moms, block_diag_matrix<P> &coefficients)
-// {
-//   static_assert(multsign == 1 or multsign == -1);
-//
-//   // setup jacobi of variable x and define coeff_mat
-//   int const num_cells = fm::ipow2(level);
-//
-//   int const pdof     = basis.pdof;
-//   int const num_quad = basis.num_quad;
-//
-//   coefficients.resize_and_zero(pdof * pdof, num_cells);
-//
-//   size_t const wsize = [&]() -> size_t {
-//     // if constexpr (dep == term_dependence::moment_divided_by_density)
-//     //   return num_quad * pdof + 2 * num_quad;
-//     // else
-//     if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x1v
-//                        or dep == term_dependence::lenard_bernstein_coll_theta_1x2v
-//                        or dep == term_dependence::lenard_bernstein_coll_theta_1x3v)
-//       return num_quad * pdof + 3 * num_quad;
-//   }();
-//
-//   span2d<P const> moment(moms.size() / num_cells, num_cells, moms.data());
-//
-// #pragma omp parallel
-//   {
-//     // each thread will allocate it's own tmp matrix
-//     std::vector<P> workspace(wsize);
-//     P *tmp   = workspace.data();
-//     P *gv    = tmp + num_quad * pdof;
-//     P *gdiv  = gv + num_quad;
-//     //P *gv2   = (dep == term_dependence::moment_divided_by_density) ? nullptr : gdiv + num_quad;
-//     P *gv2   = gdiv + num_quad;
-//
-//     // workspace will be captured inside the lambda closure
-//     // no allocations will occur per call
-// #pragma omp for
-//     for (int i = 0; i < num_cells; ++i)
-//     {
-//       //if constexpr (dep == term_dependence::moment_divided_by_density)
-//       //{
-//       //  // make gv to be the values of rhs at the quad-nodes
-//       //  smmat::gemv(num_quad, pdof, basis.leg, moment[i] + mindex * pdof, gv);
-//       //  smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
-//       //
-//       //  for (int k : iindexof(num_quad))
-//       //    gv[k] /= gdiv[k];
-//       //}
-//       //else
-//       if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x1v)
-//       {
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + pdof, gv);
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 2 * pdof, gv2);
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
-//
-//         for (int k : iindexof(num_quad))
-//           gv[k] = (gv2[k] / gdiv[k]) - gv[k] * gv[k] / (gdiv[k] * gdiv[k]);
-//       }
-//       else if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x2v)
-//       {
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + pdof, gv2);
-//         for (int k : iindexof(num_quad))
-//           gv[k] = gv2[k] * gv2[k];
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 2 * pdof, gv2);
-//         for (int k : iindexof(num_quad))
-//           gv[k] += gv2[k] * gv2[k];
-//
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 3 * pdof, gv2);
-//         smmat::gemv1(num_quad, pdof, basis.leg, moment[i] + 4 * pdof, gv2);
-//
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
-//
-//         for (int k : iindexof(num_quad))
-//           gv[k] = 0.5 * ((gv2[k] / gdiv[k]) - gv[k] / (gdiv[k] * gdiv[k]));
-//       }
-//       else if constexpr (dep == term_dependence::lenard_bernstein_coll_theta_1x3v)
-//       {
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 1 * pdof, gv2);
-//         for (int k : iindexof(num_quad))
-//           gv[k] = gv2[k] * gv2[k];
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 2 * pdof, gv2);
-//         for (int k : iindexof(num_quad))
-//           gv[k] += gv2[k] * gv2[k];
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 3 * pdof, gv2);
-//         for (int k : iindexof(num_quad))
-//           gv[k] += gv2[k] * gv2[k];
-//
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i] + 4 * pdof, gv2);
-//         smmat::gemv1(num_quad, pdof, basis.leg, moment[i] + 5 * pdof, gv2);
-//         smmat::gemv1(num_quad, pdof, basis.leg, moment[i] + 6 * pdof, gv2);
-//
-//         smmat::gemv(num_quad, pdof, basis.leg, moment[i], gdiv);
-//
-//         for (int k : iindexof(num_quad))
-//           gv[k] = (P{1} / P{3}) * ((gv2[k] / gdiv[k]) - gv[k] / (gdiv[k] * gdiv[k]));
-//       }
-//
-//       // multiply the values of rhs by the values of the Leg. polynomials
-//       smmat::col_scal(num_quad, pdof, gv, basis.leg, tmp);
-//
-//       // multiply results in integration
-//       smmat::gemm_tn<multsign>(pdof, num_quad, basis.legw, tmp, coefficients[i]);
-//     }
-//   } // #pragma omp parallel
-// }
-
-//! moment over moment zero
 template<typename P>
 void gen_diag_mom_over_zero(
     legendre_basis<P> const &basis, int level, P alpha,
@@ -515,8 +405,6 @@ void gen_diag_mom_over_zero(
     #pragma omp for
     for (int i = 0; i < num_cells; ++i)
     {
-      // smmat::gemv(num_quad, pdof, basis.leg, mom0[i], v0);
-      // smmat::gemv(num_quad, pdof, basis.leg, mom1[i], v1);
       legendre::coeffs2quadvals(basis, mom0[i], v0);
       legendre::coeffs2quadvals(basis, mom1[i], v1);
 
@@ -525,12 +413,10 @@ void gen_diag_mom_over_zero(
         v1[j] /= v0[j];
 
       // multiply the values of rhs by the values of the Leg. polynomials
-      // smmat::col_scal(num_quad, pdof, v1, basis.leg, sleg);
       legendre::scale_quadvals(basis, v1, sleg);
 
       // multiply results in integration
       smmat::gemm_tn<1>(pdof, num_quad, legw.data(), sleg, coefficients[i]);
-      // legendre::integrate<1>(basis, sleg, coefficients[i]);
     }
   } // #pragma omp parallel
 }
@@ -542,8 +428,6 @@ void gen_diag_lenard_bernstein_theta(
     std::array<moment_id, 7> const &mom_ids, momentset<P> const &moments,
     block_diag_matrix<P> &coefficients)
 {
-  // std::cout << " rebuilding LBTH\n";
-
   static_assert(1 <= num_vel and num_vel <= 3, "only up to 3 velocity dims are supported");
   int const num_cells = fm::ipow2(level);
 
@@ -557,15 +441,9 @@ void gen_diag_lenard_bernstein_theta(
     expect(static_cast<int>(moments[mom_ids[i]].size()) == num_cells * pdof);
   }
 
-  // std::cout << " getting ids: " << mom_ids[0]() << "  " << mom_ids[1]() << "  " << mom_ids[2]() << '\n';
-
   span2d<P const> mom0(pdof, num_cells, moments[mom_ids[0]].data());
   span2d<P const> mom1(pdof, num_cells, moments[mom_ids[1]].data());
   span2d<P const> mom2(pdof, num_cells, moments[mom_ids[2]].data());
-
-  // std::cout << mom0[0][0] << "  " << mom0[0][1] << "  " << mom0[0][2] << '\n';
-  // std::cout << mom1[0][0] << "  " << mom1[0][1] << "  " << mom1[0][2] << '\n';
-  // std::cout << mom2[0][0] << "  " << mom2[0][1] << "  " << mom2[0][2] << '\n';
 
   span2d<P const> mom3(pdof, num_cells, (used_ids >= 3) ? moments[mom_ids[3]].data() : nullptr);
   span2d<P const> mom4(pdof, num_cells, (used_ids >= 4) ? moments[mom_ids[4]].data() : nullptr);
@@ -652,8 +530,6 @@ void gen_diag_lenard_bernstein_theta(
       smmat::gemm_tn<1>(pdof, num_quad, legw.data(), sleg, coefficients[i]);
     }
   } // #pragma omp parallel
-
-  // coefficients.to_full().print();
 }
 
 } // namespace asgard
