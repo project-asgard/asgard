@@ -2,13 +2,6 @@
 
 #include "asgard_kronmult_common.hpp"
 
-#define ASGARD_PRAGMA(x) _Pragma(#x)
-#if defined(__clang__)
-#define ASGARD_CLANG_OMP ASGARD_PRAGMA(omp parallel for)
-#else
-#define ASGARD_CLANG_OMP ASGARD_OMP_PARFOR_SIMD
-#endif
-
 namespace asgard
 {
 
@@ -21,6 +14,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 
   auto vnu = [nu=lbc.nu](std::vector<P> const &v, std::vector<P> &fv)
         -> void {
+      ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < v.size(); i++)
         fv[i] = -nu * v[i];
     };
@@ -29,41 +23,48 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 
   term_1d<P> divv_nuv = term_div<P>{vnu, flux_type::upwind, boundary_type::bothsides};
 
-  term_1d<P> div_nu = term_div<P>{static_cast<P>(lbc.nu), flux_type::central, boundary_type::bothsides};
+  term_1d<P> div = term_div<P>{1, flux_type::central, boundary_type::bothsides};
 
-  P const snu = std::sqrt(lbc.nu);
-  term_1d<P> nu_div_grad = term_1d<P>({term_div<P>{-snu, flux_type::upwind, boundary_type::bothsides},
-                                       term_grad<P>{snu, flux_type::upwind, boundary_type::bothsides}});
+  term_1d<P> div_grad = term_1d<P>({term_div<P>{-1, flux_type::upwind, boundary_type::bothsides},
+                                    term_grad<P>{1, flux_type::upwind, boundary_type::bothsides}});
 
-  if (domain_.num_vel() == 1) {
+  switch(domain_.num_vel())
+  {
+  case 1:
     *this += term_md<P>({I, divv_nuv});
-    *this += term_md<P>({term_moment_over_density{1.0, moment{1}}, div_nu});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1}}, div});
 
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, nu_div_grad});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad});
+    break;
 
-  } else if (domain_.num_vel() == 2) {
+  case 2:
     *this += term_md<P>({I, divv_nuv, I});
     *this += term_md<P>({I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{1.0, moment{1, 0}}, div_nu, I});
-    *this += term_md<P>({term_moment_over_density{1.0, moment{0, 1}}, I, div_nu});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0}}, div, I});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1}}, I, div});
 
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, nu_div_grad, I});
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, I, nu_div_grad});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad});
+    break;
 
-  } else {
+  case 3:
     *this += term_md<P>({I, divv_nuv, I, I});
     *this += term_md<P>({I, I, divv_nuv, I});
     *this += term_md<P>({I, I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{1.0, moment{1, 0, 0}}, div_nu, I, I});
-    *this += term_md<P>({term_moment_over_density{1.0, moment{0, 1, 0}}, I, div_nu, I});
-    *this += term_md<P>({term_moment_over_density{1.0, moment{0, 0, 1}}, I, I, div_nu});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0, 0}}, div, I, I});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1, 0}}, I, div, I});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 0, 1}}, I, I, div});
 
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, nu_div_grad, I, I});
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, I, nu_div_grad, I});
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, I, I, nu_div_grad});
-  }
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, I, div_grad});
+    break;
+  default:
+    // unreachable
+    break;
+  };
 
   return *this;
 }
@@ -102,7 +103,6 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
         case 1:
           t1d.mids_[1] = this->register_moment(moment(1, moment::regular));
           t1d.mids_[2] = this->register_moment(moment(2, moment::regular));
-          // std::cout << " registering ids: " << t1d.mids_[0]() << "   " << t1d.mids_[1]() << "   " << t1d.mids_[2]() << "\n";
           break;
         case 2:
           t1d.mids_[1] = this->register_moment(moment(1, 0, moment::regular));
