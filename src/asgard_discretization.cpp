@@ -246,7 +246,8 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
-  if (terms.deps().poisson) {
+  //if (terms.deps().poisson) {
+  if (terms.needs_poisson()) {
     moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
     poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
                                grid.current_level(0), m0);

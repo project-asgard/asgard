@@ -5,29 +5,6 @@
 namespace asgard
 {
 
-/*!
- * \internal
- * \brief Additional data for term coupling, e.g., Poisson electric field
- *
- * This just holds a bunch of vectors with data needed for the term coefficients,
- * the data depends on coupling, e.g., moments or Poisson solver, and thus
- * cannot be hard-coded in the PDE spec.
- *
- * \endinternal
- */
-template<typename P>
-struct coupled_term_data
-{
-  //! electic field from the Poisson solver
-  std::vector<P> electric_field;
-  //! max-absolute value of the electric field
-  std::optional<P> electric_field_infnrm;
-  //! number of computed moments
-  int num_moments = 0;
-  //! data for the computed moments
-  std::vector<P> moments;
-};
-
 //! holds the moment dependencies in the current term set
 struct mom_deps {
   //! requires an electric field and poisson solver
@@ -75,6 +52,7 @@ struct term_entry {
   kronmult::permutes perm;
   //! dependencies on the moments
   std::array<mom_deps, max_num_dimensions> deps;
+  bool needs_poisson = false;
   //! indicates if this a single term or a chain, negative means member of a chain
   int num_chain = 1;
   //! left/right boundary conditions source index, if positive
@@ -82,6 +60,8 @@ struct term_entry {
 
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
+  //! check if the 1d term needs a Poisson solver
+  static bool check_needs_poisson(term_1d<P> const &t1d);
 
   //! boundary conditions, start and end
   indexrange<int> bc;
@@ -184,8 +164,6 @@ struct term_manager
   //! handles basis manipulations
   legendre_basis<P> legendre;
 
-  //! data for the coupling with moments and electric field
-  coupled_term_data<P> cdata;
   //! storage for the moments
   momentset<P> momset;
   //! manages the moments operations, interplays with the mass
@@ -210,6 +188,9 @@ struct term_manager
   #endif
 
   //! dependencies for each term group, last entry is for all terms
+  std::vector<bool> needs_poisson_;
+  bool needs_poisson(int groupid) const { return (not needs_poisson_.empty() and needs_poisson_[groupid]); }
+  bool needs_poisson() const { return needs_poisson_.back(); }
   std::vector<mom_deps> deps_;
 
   //! resource set to use for the computations

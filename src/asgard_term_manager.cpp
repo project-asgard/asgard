@@ -34,6 +34,7 @@ term_entry<P>::term_entry(term_md<P> tin)
     }
 
     deps[d] = get_deps(t1d);
+    needs_poisson = needs_poisson or check_needs_poisson(t1d);
   }
 
   perm = kronmult::permutes(active_dirs, flux_dir);
@@ -66,6 +67,23 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
     return result;
   } else {
     return process_dep(t1d);
+  }
+}
+template<typename P>
+bool term_entry<P>::check_needs_poisson(term_1d<P> const &t1d) {
+  auto check_poisson = [](term_1d<P> const &single)
+    -> bool {
+      return (single.depends() == term_dependence::electric_field or
+              single.depends() == term_dependence::electric_field_only);
+    };
+
+  if (t1d.is_chain()) {
+    for (int i : iindexof(t1d.num_chain()))
+      if (check_poisson(t1d[i]))
+        return true;
+    return false;
+  } else {
+    return check_poisson(t1d);
   }
 }
 
@@ -156,15 +174,39 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       for (int d : iindexof(num_dims))
         deps += tentry.deps[d];
     deps_.emplace_back(deps);
+
+    needs_poisson_.resize(1, false);
+    for (auto const &tentry : terms) {
+      if (tentry.needs_poisson) {
+        needs_poisson_.back() = true;
+        break;
+      }
+    }
+
   } else {
     deps_.reserve(term_groups.size() + 1);
+    needs_poisson_.reserve(term_groups.size() + 1);
+    bool any_need = false;
     for (auto const &tg : term_groups) {
       mom_deps deps;
       for (int tid : indexrange(tg))
         for (int d : iindexof(num_dims))
           deps += terms[tid].deps[d];
+
+      bool needs = false;
+      for (int tid : indexrange(tg)) {
+        if (terms[tid].needs_poisson) {
+          needs = true;
+          break;
+        }
+      }
+      any_need = any_need or needs;
+      needs_poisson_.push_back(needs);
+
       deps_.emplace_back(deps);
     }
+    needs_poisson_.push_back(any_need);
+
     mom_deps deps;
     for (auto const &dp : deps_)
       deps += dp;

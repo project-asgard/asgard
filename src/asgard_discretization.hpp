@@ -463,7 +463,8 @@ public:
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(int groupid) const {
-    if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
+    // if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
+    if (not poisson or (groupid >= 0 and not terms.needs_poisson(groupid)))
       return;
 
     #ifdef ASGARD_USE_MPI
