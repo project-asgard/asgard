@@ -238,9 +238,7 @@ public:
     return result;
   }
 
-  //! transform the batch of vectors to nodal representation
-  void reconstruct1d(int const nbatch, int const level, span2d<P> hdata) const;
-  //! transform a hierarchical vector on a full level to nodal (cell-by-cell) representation
+  //! transform a hierarchical vector on a full level to a nodal (cell-by-cell) representation
   void reconstruct1d(int level, std::vector<P> &hdata) const;
 
   //! size of a multi-dimensional block, i.e., (degree + 1)^d
@@ -384,10 +382,7 @@ protected:
    */
   void prepare_quadrature(int dim, int num_cells) const;
 
-  //! tempalted version for reduction of runtime if-statements
-  template<int tdegree>
-  void reconstruct1d(int const nbatch, int level, span2d<P> data) const;
-  //! tempalted version for reduction of runtime if-statements
+  //! template version for reduction of runtime if-statements
   template<int tdegree>
   void reconstruct1d(int level, std::vector<P> &hdata) const;
 
