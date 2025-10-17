@@ -143,6 +143,8 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   set_initial_condition();
 
   start_moments(); // grid may have changes above, wait to start the moments
+  if (terms.moms)
+    compute_moments_v2(state);
 
   if (not stop_verbosity()) {
     int64_t const dof = grid.num_indexes() * hier.block_size();

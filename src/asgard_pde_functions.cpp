@@ -37,7 +37,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 
   if (domain_.num_vel() == 1) {
     *this += term_md<P>({I, divv_nuv});
-    *this += term_md<P>({term_moment_over_density{1}, div_nu});
+    // *this += term_md<P>({term_moment_over_density{1}, div_nu});
+    *this += term_md<P>({term_moment_over_density_v2{1.0, moment{1}}, div_nu});
 
     term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x1v);
     *this += term_md<P>({vol_theta, nu_div_grad});
@@ -46,8 +47,10 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     *this += term_md<P>({I, divv_nuv, I});
     *this += term_md<P>({I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{1}, div_nu, I});
-    *this += term_md<P>({term_moment_over_density{2}, I, div_nu});
+    // *this += term_md<P>({term_moment_over_density{1}, div_nu, I});
+    // *this += term_md<P>({term_moment_over_density{2}, I, div_nu});
+    *this += term_md<P>({term_moment_over_density_v2{1.0, moment{1, 0}}, div_nu, I});
+    *this += term_md<P>({term_moment_over_density_v2{1.0, moment{0, 1}}, I, div_nu});
 
     term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x2v);
     *this += term_md<P>({vol_theta, nu_div_grad, I});
@@ -58,9 +61,12 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     *this += term_md<P>({I, I, divv_nuv, I});
     *this += term_md<P>({I, I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{1}, div_nu, I, I});
-    *this += term_md<P>({term_moment_over_density{2}, I, div_nu, I});
-    *this += term_md<P>({term_moment_over_density{3}, I, I, div_nu});
+    // *this += term_md<P>({term_moment_over_density{1}, div_nu, I, I});
+    // *this += term_md<P>({term_moment_over_density{2}, I, div_nu, I});
+    // *this += term_md<P>({term_moment_over_density{3}, I, I, div_nu});
+    *this += term_md<P>({term_moment_over_density_v2{1.0, moment{1, 0, 0}}, div_nu, I, I});
+    *this += term_md<P>({term_moment_over_density_v2{1.0, moment{0, 1, 0}}, I, div_nu, I});
+    *this += term_md<P>({term_moment_over_density_v2{1.0, moment{0, 0, 1}}, I, I, div_nu});
 
     term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x3v);
     *this += term_md<P>({vol_theta, nu_div_grad, I, I});
@@ -86,7 +92,7 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
                 "moment-over-density requires defined velocity dimensions");
         rassert(domain_.num_pos() == 1,
                 "moment-over-density work only for one position dimension");
-        rassert(t1d.moment_over() == domain_.num_vel(),
+        rassert(t1d.moment_over().num_dims() == domain_.num_vel(),
                 "moment-over-density requires moment with dimension matching the number of velocity dimensions");
         t1d.mids_[0] = this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
         t1d.mids_[1] = this->register_moment(t1d.moment_over());

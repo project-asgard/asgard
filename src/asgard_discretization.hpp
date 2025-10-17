@@ -474,7 +474,22 @@ public:
   //! recomputes the moments given the state of interest and this term group
   void compute_moments_v2(int groupid, std::vector<precision> const &f) const {
     rassert(terms.moms, "no moments set for this PDE");
-    terms.moms.cache_moments(grid, f, groupid);
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1) {
+      if (is_leader()) {
+        terms.resources.template bcast <precision, resource_comm::regular>(f);
+        terms.moms.cache_moments(grid, f, groupid);
+      } else {
+        terms.mpiwork.resize(grid.num_indexes() * hier.block_size());
+        terms.resources.template bcast <precision, resource_comm::regular>(terms.mpiwork);
+        terms.moms.cache_moments(grid, terms.mpiwork, groupid);
+      }
+    } else {
+    #endif
+      terms.moms.cache_moments(grid, f, groupid);
+    #ifdef ASGARD_USE_MPI
+    }
+    #endif
     compute_poisson_v2(groupid);
     if (groupid == -1)
       terms.rebuild_moment_terms_v2(grid, conn, hier);

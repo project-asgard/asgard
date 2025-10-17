@@ -475,4 +475,58 @@ void gen_diag_mom_cases(
   } // #pragma omp parallel
 }
 
+//! moment over moment zero
+template<typename P>
+void gen_diag_mom_over_zero(
+    legendre_basis<P> const &basis, int level, P alpha,
+    std::vector<P> const &level_mom0, std::vector<P> const &level_mom1,
+    block_diag_matrix<P> &coefficients)
+{
+  // setup jacobi of variable x and define coeff_mat
+  int const num_cells = fm::ipow2(level);
+
+  int const pdof     = basis.pdof;
+  int const num_quad = basis.num_quad;
+
+  expect(static_cast<int>(level_mom0.size()) == pdof * num_cells);
+  expect(static_cast<int>(level_mom1.size()) == pdof * num_cells);
+
+  coefficients.resize_and_zero(pdof * pdof, num_cells);
+
+  span2d<P const> mom0(pdof, num_cells, level_mom0.data());
+  span2d<P const> mom1(pdof, num_cells, level_mom1.data());
+
+  std::vector<P> legw(pdof * num_quad);
+  for (int i = 0; i < pdof * num_quad; i++)
+    legw[i] = alpha * basis.legw[i];
+
+  #pragma omp parallel
+  {
+    // each thread will allocate it's own tmp matrix
+    std::vector<P> workspace(num_quad * pdof + 2 * num_quad);
+    P *v0 = workspace.data(); // values of moment 0 at the quad-points
+    P *v1 = v0 + num_quad; // values of the numerator moment at the quad-points
+    P *sleg = v1 + num_quad; // values of the Legendre polynomials scaled
+
+    // workspace will be captured inside the lambda closure
+    // no allocations will occur per call
+    #pragma omp for
+    for (int i = 0; i < num_cells; ++i)
+    {
+      smmat::gemv(num_quad, pdof, basis.leg, mom0[i], v0);
+      smmat::gemv(num_quad, pdof, basis.leg, mom1[i], v1);
+
+      ASGARD_OMP_SIMD
+      for (int j = 0; j < num_quad; j++)
+        v1[j] /= v0[j];
+
+      // multiply the values of rhs by the values of the Leg. polynomials
+      smmat::col_scal(num_quad, pdof, v1, basis.leg, sleg);
+
+      // multiply results in integration
+      smmat::gemm_tn<1>(pdof, num_quad, legw.data(), sleg, coefficients[i]);
+    }
+  } // #pragma omp parallel
+}
+
 } // namespace asgard

@@ -1065,10 +1065,11 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
                                        std::vector<P> const &raw,
                                        std::vector<P> &vals) const
   {
+    int const num_cells = fm::ipow2(pos_grid.level_[0]);
     if (vals.empty())
-      vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
+      vals.resize(pdof * num_cells);
     else {
-      vals.resize(pdof * fm::ipow2(pos_grid.level_[0]));
+      vals.resize(pdof * num_cells);
       std::fill(vals.begin(), vals.end(), P{0});
     }
 
