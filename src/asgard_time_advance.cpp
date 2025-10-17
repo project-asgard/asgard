@@ -427,14 +427,8 @@ void crank_nicolson<P>::next_step(
 
   P const substep = (method == time_method::cn) ? 0.5 : 1;
 
-  //disc.compute_moments(current);
-
-  // if (disc.has_moments() and not disc.has_poisson()) {
-  //   // TODO: figure out the Poisson part here
-  //   disc.compute_moments(current);
-  // }
-  if (disc.has_moments_v2())
-    disc.compute_moments_v2(current);
+  if (disc.has_moments())
+    disc.compute_moments(current);
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
@@ -540,8 +534,8 @@ void imex_stepper<P>::implicit_solve(
     std::vector<P> &current, std::vector<P> &R) const
 {
   // disc.compute_moments(imex_implicit.gid, current);
-  if (disc.has_moments_v2())
-    disc.compute_moments_v2(imex_implicit.gid, current);
+  if (disc.has_moments())
+    disc.compute_moments(imex_implicit.gid, current);
 
   P const dt = disc.dt();
 

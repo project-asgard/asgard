@@ -583,18 +583,6 @@ void term_manager<P>::build_raw_mat(
         case term_dependence::electric_field:
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;
-        // case term_dependence::lenard_bernstein_coll_theta_1x1v:
-        //   gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x1v>
-        //     (legendre, level, 0, cdata.moments, raw_diag);
-        //   break;
-        // case term_dependence::lenard_bernstein_coll_theta_1x2v:
-        //   gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x2v>
-        //     (legendre, level, 0, cdata.moments, raw_diag);
-        //   break;
-        // case term_dependence::lenard_bernstein_coll_theta_1x3v:
-        //   gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x3v>
-        //     (legendre, level, 0, cdata.moments, raw_diag);
-        //   break;
         case term_dependence::moment_divided_by_density:
           gen_diag_mom_over_zero<P>(legendre, level, t1d.rhs_const(),
                                     moms.get_cached_level(t1d.moment_ids()[0], hier),
@@ -1018,7 +1006,7 @@ void term_manager<P>::apply_tmpl(
     expect(x.size() == y.size());
     expect(x.size() == kwork.w1.size());
   }
-  expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
+  expect(all_groups <= gid and gid < static_cast<int>(term_groups.size()));
 
   auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
@@ -1060,9 +1048,9 @@ void term_manager<P>::apply_tmpl(
   if (not ifield.empty()) // using interpolation and will need the field
     interp.wav2nodal(grid, conns, px, ifield, kwork);
 
-  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
-  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
-  while (icurrent < iend)
+  auto const group = terms_group_range(gid);
+  int icurrent = group.ibegin();
+  while (icurrent < group.iend())
   {
     auto it = terms.begin() + icurrent;
 
@@ -1276,6 +1264,8 @@ void term_manager<P>::apply_tmpl_gpu(
 
   int const num_gpus = compute->num_gpus();
 
+  auto const group = terms_group_range(gid);
+
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
     compute->set_device(gpu::device{g});
@@ -1320,9 +1310,8 @@ void term_manager<P>::apply_tmpl_gpu(
 
     bool term_found = false; // does this GPU have at least 1 term
 
-    int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
-    int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
-    while (icurrent < iend)
+    int icurrent = group.ibegin();
+    while (icurrent < group.iend())
     {
       auto it = terms.begin() + icurrent;
 

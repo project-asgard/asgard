@@ -144,7 +144,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   start_moments(); // grid may have changes above, wait to start the moments
   if (terms.moms)
-    compute_moments_v2(state);
+    compute_moments(state);
 
   if (not stop_verbosity()) {
     int64_t const dof = grid.num_indexes() * hier.block_size();
@@ -246,38 +246,6 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
-  // process the moments, can compute moments based on the initial conditions
-  // if (terms.deps().poisson or terms.deps().num_moments > 0) {
-  //   // the poisson solver needs 1 moment
-  //   int const num      = std::max(terms.deps().num_moments, 1);
-  //   int const pos_size = fm::ipow2(grid.current_level(0));
-  //   int const mom_size = pos_size * (degree() + 1);
-  //   moms1d = moments1d(num, degree(), options_.max_level(), domain_);
-  //   if (terms.deps().poisson) {
-  //     moment_id const m0 = [&, this]() -> moment_id {
-  //         switch (domain_.num_vel()) {
-  //         case 1:
-  //           return terms.moms.find_id(0);
-  //         case 2:
-  //           return terms.moms.find_id({0, 0});
-  //         case 3:
-  //           return terms.moms.find_id({0, 0, 0});
-  //         default:
-  //           rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
-  //                   "moments and Poisson solvers require 1 - 3 velocity dimensions");
-  //           return moment_id{-1}; // invalid, exception is thrown above
-  //         };
-  //       }();
-  //
-  //     poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
-  //                                grid.current_level(0), m0);
-  //
-  //     // skip the first solve, putting in dummy data for the term construction
-  //     // the electric_field is pw-constant, does not have degrees + 1 entries
-  //     terms.cdata.electric_field.resize(pos_size);
-  //   }
-  //   terms.cdata.moments.resize(num * mom_size);
-  // }
   if (terms.deps().poisson) {
     moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
     poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),

@@ -152,8 +152,7 @@ public:
   //! check if the terms have poisson dependence
   bool has_poisson() const { return poisson; }
   //! check if the terms have moment dependence
-  // bool has_moments() const { return moms1d.has_value(); }
-  bool has_moments_v2() const { return !!terms.moms; }
+  bool has_moments() const { return !!terms.moms; }
 
   //! computes the right-hand-side of the ode
   void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
@@ -429,50 +428,12 @@ public:
   //! return the connection patterns
   connection_patterns const &get_conn() const { return conn; }
 
-  //! recomputes the moments given the state of interest and this term group
-  // void compute_moments(int groupid, std::vector<precision> const &f) const {
-  //   if ((groupid == -1 and terms.deps().num_moments == 0)
-  //       or (groupid >= 0 and terms.deps(groupid).num_moments == 0)) // no moments needed
-  //     return;
-  //
-  //   #ifdef ASGARD_USE_MPI
-  //   if (not is_leader() and not terms.resources.has_moments())
-  //     return;
-  //   #endif
-  //
-  //   if (is_leader()) {
-  //     int const level = grid.current_level(0);
-  //     moms1d->project_moments(grid, f, terms.cdata.moments);
-  //     int const num_cells = fm::ipow2(level);
-  //     int const num_outs  = moms1d->num_comp_mom();
-  //     hier.reconstruct1d(
-  //         num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
-  //                                             terms.cdata.moments.data()));
-  //   } else {
-  //     moms1d->resize_moments(grid, terms.cdata.moments);
-  //   }
-  //
-  //   #ifdef ASGARD_USE_MPI
-  //   if (terms.resources.num_ranks() > 1)
-  //     terms.resources.template bcast
-  //         <precision, resource_comm::moments>(terms.cdata.moments);
-  //   #endif
-  //
-  //   if (groupid == -1)
-  //     terms.rebuild_moment_terms(grid, conn, hier);
-  //   else
-  //     terms.rebuild_moment_terms(groupid, grid, conn, hier);
-  // }
-  //! recomputes the moments given the state of interest
-  // void compute_moments(std::vector<precision> const &f) const {
-  //   compute_moments(-1, f);
-  // }
   //! recomputes the moments with the current state, if groupid is negative all groups will be computed
-  void compute_moments_v2(int groupid = all_groups) const {
-    compute_moments_v2(groupid, state);
+  void compute_moments(int groupid = all_groups) const {
+    compute_moments(groupid, state);
   }
   //! recomputes the moments given the state of interest and this term group
-  void compute_moments_v2(int groupid, std::vector<precision> const &f) const {
+  void compute_moments(int groupid, std::vector<precision> const &f) const {
     rassert(terms.moms, "no moments set for this PDE");
     #ifdef ASGARD_USE_MPI
     if (terms.resources.num_ranks() > 1) {
@@ -490,42 +451,18 @@ public:
     #ifdef ASGARD_USE_MPI
     }
     #endif
-    compute_poisson_v2(groupid);
-    if (groupid == -1)
-      terms.rebuild_moment_terms_v2(grid, conn, hier);
-    else
-      terms.rebuild_moment_terms_v2(groupid, grid, conn, hier);
+    compute_poisson(groupid);
+    // if (groupid == -1)
+    //   terms.rebuild_moment_terms(grid, conn, hier);
+    // else
+    terms.rebuild_moment_terms(groupid, grid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
-  void compute_moments_v2(std::vector<precision> const &f) const {
-    compute_moments_v2(all_groups, f);
+  void compute_moments(std::vector<precision> const &f) const {
+    compute_moments(all_groups, f);
   }
   //! recomputes the poisson term for the given group
-  // void compute_poisson(int groupid, std::vector<precision> const &f) const {
-  //   if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
-  //     return;
-  //
-  //   #ifdef ASGARD_USE_MPI
-  //   // leader must always communicate, the rest only if they have a poisson term
-  //   if (not is_leader() and not terms.resources.has_poisson())
-  //     return;
-  //   #endif
-  //
-  //   if (is_leader())
-  //     do_poisson_update(f);
-  //   else
-  //     poisson.resize_vector(terms.cdata.electric_field);
-  //
-  //   #ifdef ASGARD_USE_MPI
-  //   if (terms.resources.num_ranks() > 1)
-  //     terms.resources.template bcast
-  //         <precision, resource_comm::poisson>(terms.cdata.electric_field);
-  //   #endif
-  //
-  //   terms.rebuild_poisson(grid, conn, hier);
-  // }
-  //! recomputes the poisson term for the given group
-  void compute_poisson_v2(int groupid) const {
+  void compute_poisson(int groupid) const {
     if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
       return;
 
@@ -535,23 +472,13 @@ public:
       return;
     #endif
 
-    // std::cout << " recomputing poisson\n";
-
     // currently we only support 1d in position space, so the solver is trivial
     // the cost is so low, that everyone can do it even if it is repeated work
     // when we get to multi-d Poisson problems, the leader will be needed
     // to help the communication process
     poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
                            terms.moms.edit_poisson_level());
-
-    // precision sum = 0;
-    // for (auto x : terms.moms.poisson_level()) sum += x;
-    // std::cout << " sum of poisson: " << sum << '\n';
   }
-  //! recomputes the poisson term for the given group
-  // void compute_poisson(std::vector<precision> const &f) const {
-  //   compute_poisson(-1, f);
-  // }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
     rassert(ns.size() == state.size(), "cannot set state with different size");
@@ -588,6 +515,8 @@ public:
   friend class h5manager<precision>;
   // handles the time-integration meta-data
   friend struct time_advance_manager<precision>;
+  // tag indicating the use of all groups
+  static constexpr int all_groups = -1;
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 protected:
@@ -647,16 +576,9 @@ protected:
         #endif
       }();
 
-    if constexpr (use_groups) {
-      // compute_poisson(gid, current);
-      // compute_moments(gid, current);
-    } else {
-      // compute_poisson(current);
-      // compute_moments(current);
-    }
     // locally update all moments
     if (terms.moms) {
-      compute_moments_v2(gid, in);
+      compute_moments(gid, in);
     }
 
     {
@@ -753,8 +675,6 @@ protected:
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 private:
-  // tag indicating the use of all groups
-  static constexpr int all_groups = -1;
   // indicates the level of noise pushed to the cout
   mutable verbosity_level verb = verbosity_level::quiet;
   // user provided options
