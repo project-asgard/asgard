@@ -535,12 +535,18 @@ public:
       return;
     #endif
 
+    // std::cout << " recomputing poisson\n";
+
     // currently we only support 1d in position space, so the solver is trivial
     // the cost is so low, that everyone can do it even if it is repeated work
     // when we get to multi-d Poisson problems, the leader will be needed
     // to help the communication process
     poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
                            terms.moms.edit_poisson_level());
+
+    // precision sum = 0;
+    // for (auto x : terms.moms.poisson_level()) sum += x;
+    // std::cout << " sum of poisson: " << sum << '\n';
   }
   //! recomputes the poisson term for the given group
   // void compute_poisson(std::vector<precision> const &f) const {

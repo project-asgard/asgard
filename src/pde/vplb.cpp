@@ -387,16 +387,20 @@ void test_energy(int const vdims, std::string const &opt_str) {
 
   prog_opts const options = make_opts(opt_str);
 
-  discretization_manager disc(make_vplb<P>(vdims, options), verbosity_level::quiet);
+  auto pde = make_vplb<P>(vdims, options);
+  // moment_id const m0 = pde.register_moment({0, moment::inactive});
+  // moment_id const m1 = pde.register_moment({1, moment::inactive}); // needed for verification, but not running
+  moment_id const m2 = pde.register_moment({2, moment::inactive});
+  discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   double E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
 
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check conservation properties
-  int const num_moms = 3;
-  int const pdof     = disc.degree() + 1;
-  moments1d moms(num_moms, pdof - 1, disc.options().max_level(), disc.domain());
-  std::vector<P> mom_vec;
+  // int const num_moms = 3;
+  // int const pdof     = disc.degree() + 1;
+  // moments1d moms(num_moms, pdof - 1, disc.options().max_level(), disc.domain());
+  // std::vector<P> mom_vec;
 
   int64_t const n = disc.remaining_steps();
 
@@ -410,23 +414,29 @@ void test_energy(int const vdims, std::string const &opt_str) {
     int const num_cell = fm::ipow2(level0);
     P const dx         = disc.domain().length(0) / num_cell;
 
-    moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
+    // moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
+    //
+    // disc.do_poisson_update(disc.current_state()); // update the electric field
+    //
+    // auto const &efield = disc.get_terms().cdata.electric_field;
 
-    disc.do_poisson_update(disc.current_state()); // update the electric field
-
-    auto const &efield = disc.get_terms().cdata.electric_field;
+    auto efield = disc.get_electric();
 
     double Ep = 0;
     for (auto e : efield)
       Ep += e * e;
     Ep *= dx;
 
-    span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
+    // span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
+    //
+    // double Ek = 0;
+    // for (int j : iindexof(num_cell))
+    //   Ek += moments[j][2 * pdof]; // integrating the third moment
+    // Ek *= std::sqrt(disc.domain().length(0));
 
-    double Ek = 0;
-    for (int j : iindexof(num_cell))
-      Ek += moments[j][2 * pdof]; // integrating the third moment
-    Ek *= std::sqrt(disc.domain().length(0));
+    std::vector<P> mom2 = disc.get_moment(m2);
+
+    P const Ek = mom2[0] * std::sqrt(disc.domain().length(0));
 
     if (disc.current_step() == 1) // first time-step
       E0 = Ep + Ek;

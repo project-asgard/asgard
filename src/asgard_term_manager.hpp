@@ -307,6 +307,15 @@ struct term_manager
         {
           // isolate terms that have not been updated for v2 yet
           auto const dep = te.tmd.dim(d).depends();
+          // if (dep == term_dependence::moment_divided_by_density) {
+          //   std::cout << " - rebuilding mom-div\n";
+          // } else if (dep == term_dependence::moment_divided_by_density_v2) {
+          //   std::cout << " - rebuilding mod-div-2\n";
+          // } else if (dep == term_dependence::electric_field or dep == term_dependence::electric_field_only) {
+          //   std::cout << " - rebuilding electric\n";
+          // } else {
+          //   std::cout << " - rebuilding LB-theta\n";
+          // }
           if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
               dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
               dep == term_dependence::lenard_bernstein_coll_theta_1x3v or
@@ -315,6 +324,9 @@ struct term_manager
               // dep == term_dependence::electric_field_only
               )
               continue;
+          // if (dep == term_dependence::moment_divided_by_density_v2) {
+          //   std::cout << " - rebuilding mod-div-2 for " << mpi::world_rank() << "\n";
+          // }
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
         }
     }
@@ -332,13 +344,26 @@ struct term_manager
         {
           // isolate terms that have not been updated for v2 yet
           auto const dep = te.tmd.dim(d).depends();
+          // if (dep == term_dependence::moment_divided_by_density) {
+          //   std::cout << groupid << " rebuilding mom-div\n";
+          // } else if (dep == term_dependence::moment_divided_by_density_v2) {
+          //   std::cout << groupid << " rebuilding mod-div-2\n";
+          // } else if (dep == term_dependence::electric_field or dep == term_dependence::electric_field_only) {
+          //   std::cout << groupid << " rebuilding electric\n";
+          // } else {
+          //   std::cout << groupid << " rebuilding LB-theta\n";
+          // }
           if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
               dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
               dep == term_dependence::lenard_bernstein_coll_theta_1x3v or
-              dep == term_dependence::moment_divided_by_density or
-              dep == term_dependence::electric_field or
-              dep == term_dependence::electric_field_only)
+              dep == term_dependence::moment_divided_by_density // or
+              // dep == term_dependence::electric_field or
+              // dep == term_dependence::electric_field_only
+              )
               continue;
+          // if (dep == term_dependence::moment_divided_by_density_v2) {
+          //   std::cout << " - rebuilding mod-div-2 for " << mpi::world_rank() << "\n";
+          // }
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
         }
     }
@@ -354,7 +379,7 @@ struct term_manager
     for (int it : indexrange(term_groups[groupid])) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0)
+        if (te.deps[d].num_moments > 0 and resources.owns(te.rec))
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }

@@ -500,6 +500,13 @@ void gen_diag_mom_over_zero(
   for (int i = 0; i < pdof * num_quad; i++)
     legw[i] = alpha * basis.legw[i];
 
+  // P sum = 0;
+  // for (auto x : level_mom0) sum += x;
+  // std::cout << " mom 0 sum = " << sum << '\n';
+  // sum = 0;
+  // for (auto x : level_mom1) sum += x;
+  // std::cout << " mom 1 sum = " << sum << '\n';
+
   #pragma omp parallel
   {
     // each thread will allocate it's own tmp matrix

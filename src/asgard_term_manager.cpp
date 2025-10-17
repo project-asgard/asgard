@@ -1431,8 +1431,15 @@ void term_manager<P>::make_jacobi(
     }
     #endif
 
+    // if (mpi::is_world_rank(1))
+    //   std::cout << "processing term: " << icurrent <<'\n';
+
     if (it->num_chain == 1) {
       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
+
+      // if (mpi::is_world_rank(1))
+      //   tools::dump(y, "jacobi 1");
+
       icurrent++;
     } else {
       // dealing with a chain
@@ -1454,6 +1461,8 @@ ASGARD_OMP_PARFOR_SIMD
       icurrent += num_chain;
     }
   }
+  // if (mpi::is_world_rank(0))
+  //   tools::dump(y, "final jacobi 0");
 }
 
 template<typename P>
@@ -1716,25 +1725,23 @@ void term_manager<P>::assign_compute_resources()
           ranks.push_back(t.rec.group);
     }
     expect(ranks.size() > 0);
-    if (ranks.size() > 1) {
-      ranks.push_back(0);
-      std::sort(ranks.begin(), ranks.end());
-      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
-      MPI_Comm cm = resources.new_comm_from_group(ranks);
-      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
-        resources.set_moments_comm(cm);
-    }
+    ranks.push_back(0);
+    std::sort(ranks.begin(), ranks.end());
+    ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
+    MPI_Comm cm = resources.new_comm_from_group(ranks);
+    if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
+      resources.set_moments_comm(cm);
   }
   #endif // ASGARD_USE_MPI
 
   // if (mpi::is_world_rank(0)) {
-  //   std::cout << term_groups.size() << "\n";
-  //
-  //   for (auto const &t : terms)
-  //     std::cout << " assigned to: " << t.rec.group << "  gpu: " << t.rec.device << " chain num = " << t.num_chain << '\n';
-  //
-  //   for (auto const &s : sources)
-  //     std::cout << " source to: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+    // for (auto const &t : terms)
+    //   std::cout << " assigned to: " << t.rec.group << "  gpu: " << t.rec.device << " chain num = " << t.num_chain << '\n';
+    //
+    // for (auto const &s : sources)
+    //   std::cout << " source to: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+    //
+    // std::cout << "rank 0 dep 0 moms = " << deps(0).num_moments << " dep 1 moms = " << deps(1).num_moments << std::endl;
   // }
 #endif
 }

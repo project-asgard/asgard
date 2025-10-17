@@ -63,19 +63,6 @@ moments1d<P>::moments1d(int num_mom, int degree, int max_level, pde_domain<P> co
       }
     }
   }
-
-  // for (int d = 1; d < 3; d++) {
-  //   std::cout << " ============ dim = " << d << " ============\n";
-  //   for (int i = 0; i < nump; i++) {
-  //     for (int j = 0; j < pdof; j++) {
-  //       for (int k = 0; k < num_mom_; k++) {
-  //         std::cout << std::setw(12) << integ[d][i][k * pdof + j] << "    ";
-  //       }
-  //       std::cout << '\n';
-  //     }
-  //   }
-  // }
-  // std::cout << "\n ============================== \n";
 }
 
 template<typename P>

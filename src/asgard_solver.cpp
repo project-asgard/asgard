@@ -497,7 +497,24 @@ void solver_manager<P>::update_grid(
     var = solvers::direct<P>(grid, conn, terms, alpha);
 
   if (precon == precon_method::jacobi) {
+    #ifdef ASGARD_USE_MPI
+    if (terms.resources.num_ranks() > 1) {
+      if (terms.resources.is_leader()) {
+        terms.make_jacobi(groupid, grid, conn, terms.mpiwork);
+        terms.resources.reduce_add(terms.mpiwork, jacobi);
+      } else {
+        terms.make_jacobi(groupid, grid, conn, jacobi);
+        terms.resources.reduce_add(jacobi);
+        grid_gen = grid.generation();
+        return;
+      }
+    } else {
+      terms.make_jacobi(groupid, grid, conn, jacobi);
+    }
+    #else
     terms.make_jacobi(groupid, grid, conn, jacobi);
+    #endif
+
     if (alpha == 0) { // steady state solver
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < jacobi.size(); i++)
