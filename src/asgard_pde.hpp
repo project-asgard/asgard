@@ -330,14 +330,6 @@ struct volume_electric {
  * \ingroup asgard_pde_definition
  * \brief Volume term that depends on a given moment divided by the density (moment 0)
  */
-struct term_moment_over_density {
-  //! constructor, sets the moment
-  explicit term_moment_over_density(int mom) : moment(mom) {
-    rassert(moment > 0, "The moment over density must be at least 1");
-  }
-  //! the moment to be used, must use something other than 0
-  int moment = 0;
-};
 struct term_moment_over_density_v2 {
   //! constructor, sets the moment and the constant scale factor
   explicit term_moment_over_density_v2(double cscale, moment mom_in)
@@ -347,25 +339,16 @@ struct term_moment_over_density_v2 {
   //! the moment to be used, must use something other than 0
   moment mom;
 };
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Volume term, the theta component of the Lenard-Bernstein collision operator 1xMv
+ */
 struct term_lenard_bernstein_coll_theta {
   //! constructor, sets the collision frequency for the theta term
   explicit term_lenard_bernstein_coll_theta(double collision_frequency_coefficient)
       : coeff(collision_frequency_coefficient) {}
   //! the constant coefficient to be loaded in the term_1d
   double coeff;
-};
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Volume term that depends on the negative of a moment divided by the density (moment 0)
- */
-struct term_moment_over_density_neg {
-  //! set the negative moment over density
-  explicit term_moment_over_density_neg(int mom) : moment(mom) {
-    rassert(moment > 0, "The moment over density must be at least 1");
-  }
-  //! the moment to be used, must use something other than 0
-  int moment = 0;
 };
 
 // forward declaration so it can be set as a friend
