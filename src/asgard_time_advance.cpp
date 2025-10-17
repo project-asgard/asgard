@@ -429,10 +429,10 @@ void crank_nicolson<P>::next_step(
 
   //disc.compute_moments(current);
 
-  if (disc.has_moments() and not disc.has_poisson()) {
-    // TODO: figure out the Poisson part here
-    disc.compute_moments(current);
-  }
+  // if (disc.has_moments() and not disc.has_poisson()) {
+  //   // TODO: figure out the Poisson part here
+  //   disc.compute_moments(current);
+  // }
   if (disc.has_moments_v2())
     disc.compute_moments_v2(current);
 
@@ -539,7 +539,7 @@ void imex_stepper<P>::implicit_solve(
     discretization_manager<P> const &disc, P time,
     std::vector<P> &current, std::vector<P> &R) const
 {
-  disc.compute_moments(imex_implicit.gid, current);
+  // disc.compute_moments(imex_implicit.gid, current);
   if (disc.has_moments_v2())
     disc.compute_moments_v2(imex_implicit.gid, current);
 

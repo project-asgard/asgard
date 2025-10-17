@@ -278,9 +278,9 @@ void test_energy(std::string const &opt_str) {
     P const Ek = mom2[0] * std::sqrt(disc.domain().length(0));
 
     if (disc.current_step() == 1) // first time-step
-      E0 = Ep + Ek;
+      E0 = 0.5 * (Ep + Ek);
 
-    tcheckless(i, std::abs(Ep + Ek - E0), 1.E-5);
+    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 3.E-7);
 
     std::vector<P> mom0 = disc.get_moment(m0);
     std::vector<P> mom1 = disc.get_moment(m1);

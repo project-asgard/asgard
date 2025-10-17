@@ -40,8 +40,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     // *this += term_md<P>({term_moment_over_density{1}, div_nu});
     *this += term_md<P>({term_moment_over_density_v2{1.0, moment{1}}, div_nu});
 
-    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x1v);
-    *this += term_md<P>({vol_theta, nu_div_grad});
+    // term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x1v);
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, nu_div_grad});
 
   } else if (domain_.num_vel() == 2) {
     *this += term_md<P>({I, divv_nuv, I});
@@ -52,9 +52,11 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     *this += term_md<P>({term_moment_over_density_v2{1.0, moment{1, 0}}, div_nu, I});
     *this += term_md<P>({term_moment_over_density_v2{1.0, moment{0, 1}}, I, div_nu});
 
-    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x2v);
-    *this += term_md<P>({vol_theta, nu_div_grad, I});
-    *this += term_md<P>({vol_theta, I, nu_div_grad});
+    // term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x2v);
+    // *this += term_md<P>({vol_theta, nu_div_grad, I});
+    // *this += term_md<P>({vol_theta, I, nu_div_grad});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, nu_div_grad, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, I, nu_div_grad});
 
   } else {
     *this += term_md<P>({I, divv_nuv, I, I});
@@ -68,10 +70,14 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     *this += term_md<P>({term_moment_over_density_v2{1.0, moment{0, 1, 0}}, I, div_nu, I});
     *this += term_md<P>({term_moment_over_density_v2{1.0, moment{0, 0, 1}}, I, I, div_nu});
 
-    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x3v);
-    *this += term_md<P>({vol_theta, nu_div_grad, I, I});
-    *this += term_md<P>({vol_theta, I, nu_div_grad, I});
-    *this += term_md<P>({vol_theta, I, I, nu_div_grad});
+    // term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x3v);
+    // *this += term_md<P>({vol_theta, nu_div_grad, I, I});
+    // *this += term_md<P>({vol_theta, I, nu_div_grad, I});
+    // *this += term_md<P>({vol_theta, I, I, nu_div_grad});
+
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, nu_div_grad, I, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, I, nu_div_grad, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{1.0}, I, I, nu_div_grad});
   }
 
   return *this;
@@ -83,11 +89,14 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
     for (int d = 0; d < domain_.num_dims(); d++) {
       term_1d<P> &t1d = tmd.dim(d);
       term_dependence const dep = t1d.depends();
-      if (dep == term_dependence::electric_field or dep == term_dependence::electric_field_only) {
+      switch (dep) {
+      case term_dependence::electric_field:
+      case term_dependence::electric_field_only:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
         this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
-      } else if (dep == term_dependence::moment_divided_by_density_v2) {
+        break;
+      case term_dependence::moment_divided_by_density_v2:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "moment-over-density requires defined velocity dimensions");
         rassert(domain_.num_pos() == 1,
@@ -96,7 +105,43 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
                 "moment-over-density requires moment with dimension matching the number of velocity dimensions");
         t1d.mids_[0] = this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
         t1d.mids_[1] = this->register_moment(t1d.moment_over());
-      }
+        break;
+      case term_dependence::lenard_bernstein_coll_theta:
+        rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
+                "Lenard-Bernstein-theta requires defined velocity dimensions");
+        rassert(domain_.num_pos() == 1,
+                "Lenard-Bernstein-theta work only for one position dimension");
+        t1d.mids_[0] = this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
+        // the zero-th moment is always needed, the others are set based on the dimensions
+        switch (domain_.num_vel()) {
+        case 1:
+          t1d.mids_[1] = this->register_moment(moment(1, moment::regular));
+          t1d.mids_[2] = this->register_moment(moment(2, moment::regular));
+          // std::cout << " registering ids: " << t1d.mids_[0]() << "   " << t1d.mids_[1]() << "   " << t1d.mids_[2]() << "\n";
+          break;
+        case 2:
+          t1d.mids_[1] = this->register_moment(moment(1, 0, moment::regular));
+          t1d.mids_[2] = this->register_moment(moment(0, 1, moment::regular));
+          t1d.mids_[3] = this->register_moment(moment(2, 0, moment::regular));
+          t1d.mids_[4] = this->register_moment(moment(0, 2, moment::regular));
+          break;
+        case 3:
+          t1d.mids_[1] = this->register_moment(moment(1, 0, 0, moment::regular));
+          t1d.mids_[2] = this->register_moment(moment(0, 1, 0, moment::regular));
+          t1d.mids_[3] = this->register_moment(moment(0, 0, 1, moment::regular));
+          t1d.mids_[4] = this->register_moment(moment(2, 0, 0, moment::regular));
+          t1d.mids_[5] = this->register_moment(moment(0, 2, 0, moment::regular));
+          t1d.mids_[6] = this->register_moment(moment(0, 0, 2, moment::regular));
+          break;
+        default:
+          // unreachable due to the assertion above
+          break;
+        };
+        break;
+      default:
+        // nothing to do for term_dependence::none
+        break;
+      };
     }
   }
 }

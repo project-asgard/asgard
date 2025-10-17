@@ -33,6 +33,7 @@ enum class term_dependence
   moment_divided_by_density_v2,
   //! Lenard-Bernstein theta term, 1x1v term
   lenard_bernstein_coll_theta_1x1v,
+  lenard_bernstein_coll_theta,
   //! Lenard-Bernstein theta term, 1x2v term
   lenard_bernstein_coll_theta_1x2v,
   //! Lenard-Bernstein theta term, 1x3v term
@@ -352,6 +353,13 @@ struct term_moment_over_density_v2 {
   //! the moment to be used, must use something other than 0
   moment mom;
 };
+struct term_lenard_bernstein_coll_theta {
+  //! constructor, sets the collision frequency for the theta term
+  explicit term_lenard_bernstein_coll_theta(double collision_frequency_coefficient)
+      : coeff(collision_frequency_coefficient) {}
+  //! the constant coefficient to be loaded in the term_1d
+  double coeff;
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -590,6 +598,12 @@ public:
   {
     smom_.action = moment::regular;
   }
+  //! make a special term using the collision theta term
+  term_1d(term_lenard_bernstein_coll_theta lbt)
+    : optype_(operation_type::volume),
+      depends_(term_dependence::lenard_bernstein_coll_theta),
+      change_(changes_with::time), rhs_const_(lbt.coeff)
+  {}
 
   //! indicates whether this is an identity term
   bool is_identity() const { return (optype_ == operation_type::identity); }
@@ -720,7 +734,7 @@ private:
 
   int mom = 0;
   moment smom_;
-  std::array<moment_id, 7> mids_;
+  std::array<moment_id, 7> mids_; // needed so many for Lenard Bernstein theta
   sfixed_func1d_f<P> field_f_;
 
   std::vector<term_1d<P>> chain_;

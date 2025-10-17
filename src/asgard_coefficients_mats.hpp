@@ -1,7 +1,7 @@
 #pragma once
 #include "asgard_transformations.hpp"
 
-#include "asgard_small_mats.hpp"
+#include "asgard_legendre_matrices.hpp"
 
 // private header, exposes some of the coefficient methods for easier testing
 // also reduces the clutter in asgard_coefficients.cpp
@@ -482,7 +482,6 @@ void gen_diag_mom_over_zero(
     std::vector<P> const &level_mom0, std::vector<P> const &level_mom1,
     block_diag_matrix<P> &coefficients)
 {
-  // setup jacobi of variable x and define coeff_mat
   int const num_cells = fm::ipow2(level);
 
   int const pdof     = basis.pdof;
@@ -496,16 +495,9 @@ void gen_diag_mom_over_zero(
   span2d<P const> mom0(pdof, num_cells, level_mom0.data());
   span2d<P const> mom1(pdof, num_cells, level_mom1.data());
 
-  std::vector<P> legw(pdof * num_quad);
-  for (int i = 0; i < pdof * num_quad; i++)
-    legw[i] = alpha * basis.legw[i];
-
-  // P sum = 0;
-  // for (auto x : level_mom0) sum += x;
-  // std::cout << " mom 0 sum = " << sum << '\n';
-  // sum = 0;
-  // for (auto x : level_mom1) sum += x;
-  // std::cout << " mom 1 sum = " << sum << '\n';
+  // scale the Legendre values already scaled by the quadrature weights
+  std::vector<P> legw(basis.legw, basis.legw + pdof * num_quad);
+  smmat::scal(pdof * num_quad, alpha, legw.data());
 
   #pragma omp parallel
   {
@@ -520,20 +512,145 @@ void gen_diag_mom_over_zero(
     #pragma omp for
     for (int i = 0; i < num_cells; ++i)
     {
-      smmat::gemv(num_quad, pdof, basis.leg, mom0[i], v0);
-      smmat::gemv(num_quad, pdof, basis.leg, mom1[i], v1);
+      // smmat::gemv(num_quad, pdof, basis.leg, mom0[i], v0);
+      // smmat::gemv(num_quad, pdof, basis.leg, mom1[i], v1);
+      legendre::coeffs2quadvals(basis, mom0[i], v0);
+      legendre::coeffs2quadvals(basis, mom1[i], v1);
 
       ASGARD_OMP_SIMD
       for (int j = 0; j < num_quad; j++)
         v1[j] /= v0[j];
 
       // multiply the values of rhs by the values of the Leg. polynomials
-      smmat::col_scal(num_quad, pdof, v1, basis.leg, sleg);
+      // smmat::col_scal(num_quad, pdof, v1, basis.leg, sleg);
+      legendre::scale_quadvals(basis, v1, sleg);
+
+      // multiply results in integration
+      smmat::gemm_tn<1>(pdof, num_quad, legw.data(), sleg, coefficients[i]);
+      // legendre::integrate<1>(basis, sleg, coefficients[i]);
+    }
+  } // #pragma omp parallel
+}
+
+//! moment over moment zero
+template<typename P, int num_vel>
+void gen_diag_lenard_bernstein_theta(
+    legendre_basis<P> const &basis, int level, P nu,
+    std::array<moment_id, 7> const &mom_ids, momentset<P> const &moments,
+    block_diag_matrix<P> &coefficients)
+{
+  // std::cout << " rebuilding LBTH\n";
+
+  static_assert(1 <= num_vel and num_vel <= 3, "only up to 3 velocity dims are supported");
+  int const num_cells = fm::ipow2(level);
+
+  int const pdof     = basis.pdof;
+  int const num_quad = basis.num_quad;
+
+  int constexpr used_ids = 1 + 2 * num_vel;
+
+  for (int i = 0; i < used_ids; i++) {
+    // make sure the moments are already cached and the right size
+    expect(static_cast<int>(moments[mom_ids[i]].size()) == num_cells * pdof);
+  }
+
+  // std::cout << " getting ids: " << mom_ids[0]() << "  " << mom_ids[1]() << "  " << mom_ids[2]() << '\n';
+
+  span2d<P const> mom0(pdof, num_cells, moments[mom_ids[0]].data());
+  span2d<P const> mom1(pdof, num_cells, moments[mom_ids[1]].data());
+  span2d<P const> mom2(pdof, num_cells, moments[mom_ids[2]].data());
+
+  // std::cout << mom0[0][0] << "  " << mom0[0][1] << "  " << mom0[0][2] << '\n';
+  // std::cout << mom1[0][0] << "  " << mom1[0][1] << "  " << mom1[0][2] << '\n';
+  // std::cout << mom2[0][0] << "  " << mom2[0][1] << "  " << mom2[0][2] << '\n';
+
+  span2d<P const> mom3(pdof, num_cells, (used_ids >= 3) ? moments[mom_ids[3]].data() : nullptr);
+  span2d<P const> mom4(pdof, num_cells, (used_ids >= 4) ? moments[mom_ids[4]].data() : nullptr);
+  span2d<P const> mom5(pdof, num_cells, (used_ids >= 5) ? moments[mom_ids[5]].data() : nullptr);
+  span2d<P const> mom6(pdof, num_cells, (used_ids >= 6) ? moments[mom_ids[6]].data() : nullptr);
+
+  coefficients.resize_and_zero(pdof * pdof, num_cells);
+
+  std::vector<P> legw(basis.legw, basis.legw + pdof * num_quad);
+  smmat::scal(pdof * num_quad, nu, legw.data());
+
+  #pragma omp parallel
+  {
+    // each thread will allocate it's own tmp matrix
+    std::vector<P> workspace(num_quad * pdof + 4 * num_quad);
+    P *v0 = workspace.data(); // values of moment 0 at the quad-points
+    P *v1 = v0 + num_quad; // values of the sum of first order moments
+    P *v2 = v1 + num_quad; // values of the sum of second order moments
+    P *th = v2 + num_quad; // values of the theta parameter at the quadrature points
+    P *sleg = th + num_quad; // values of the Legendre polynomials scaled, also workspace
+
+    // workspace will be captured inside the lambda closure
+    // no allocations will occur per call
+    #pragma omp for
+    for (int i = 0; i < num_cells; ++i)
+    {
+      if constexpr (num_vel == 1)
+      {
+        legendre::coeffs2quadvals(basis, mom0[i], v0);
+        legendre::coeffs2quadvals(basis, mom1[i], v1);
+        legendre::coeffs2quadvals(basis, mom2[i], v2);
+
+        ASGARD_OMP_SIMD
+        for (int j = 0; j < num_quad; j++)
+          th[j] = (v2[j] / v0[j]) - (v1[j] * v1[j] / (v0[j] * v0[j]));
+      }
+      else if constexpr (num_vel == 2)
+      {
+        // load the sum of squares of first order terms into v1
+        legendre::coeffs2quadvals(basis, mom1[i], v0); // using v0 as scratch
+        legendre::coeffs2quadvals(basis, mom2[i], v1);
+
+        ASGARD_OMP_SIMD
+        for (int j = 0; j < num_quad; j++)
+          v1[j] = v1[j] * v1[j] + v0[j] * v0[j];
+
+        // sum the second order terms
+        legendre::coeffs2quadvals(basis, mom3[i], v2);
+        legendre::add_coeffs2quadvals(basis, mom4[i], v2);
+
+        legendre::coeffs2quadvals(basis, mom0[i], v0); // moment 0
+
+        ASGARD_OMP_SIMD
+        for (int j = 0; j < num_quad; j++)
+          th[j] = 0.5 * ((v2[j] / v0[j]) - (v1[j] / (v0[j] * v0[j])));
+      }
+      else if constexpr (num_vel == 3)
+      {
+        // load the sum of squares of first order terms into v1
+        legendre::coeffs2quadvals(basis, mom1[i], v0); // using v0 as scratch
+        legendre::coeffs2quadvals(basis, mom2[i], v1); // using v1 as scratch
+        legendre::coeffs2quadvals(basis, mom3[i], v2);
+
+        ASGARD_OMP_SIMD
+        for (int j = 0; j < num_quad; j++)
+          v1[j] = v2[j] * v2[j] + v1[j] * v1[j] + v0[j] * v0[j];
+
+        // sum the second order terms
+        legendre::coeffs2quadvals(basis, mom4[i], v2);
+        legendre::add_coeffs2quadvals(basis, mom5[i], v2);
+        legendre::add_coeffs2quadvals(basis, mom6[i], v2);
+
+        legendre::coeffs2quadvals(basis, mom0[i], v0); // moment 0
+
+        ASGARD_OMP_SIMD
+        for (int j = 0; j < num_quad; j++)
+          th[j] = ((v2[j] / v0[j]) - (v1[j] / (v0[j] * v0[j]))) / P{3};
+      }
+
+      // multiply the values of the Legendre polynomials by the values for theta
+      legendre::scale_quadvals(basis, th, sleg);
 
       // multiply results in integration
       smmat::gemm_tn<1>(pdof, num_quad, legw.data(), sleg, coefficients[i]);
     }
   } // #pragma omp parallel
+
+  // coefficients.to_full().print();
 }
 
 } // namespace asgard

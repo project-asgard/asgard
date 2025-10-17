@@ -612,6 +612,31 @@ void term_manager<P>::build_raw_mat(
                                     moms.get_cached_level(t1d.moment_ids()[1], hier),
                                     raw_diag);
           break;
+        case term_dependence::lenard_bernstein_coll_theta:
+          switch (moms.num_vel()) {
+          case 1:
+            moms.cache_levels(3, hier, t1d.mids_);
+            gen_diag_lenard_bernstein_theta<P, 1>(legendre, level, t1d.rhs_const(),
+                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  raw_diag);
+            break;
+          case 2:
+            moms.cache_levels(5, hier, t1d.mids_);
+            gen_diag_lenard_bernstein_theta<P, 2>(legendre, level, t1d.rhs_const(),
+                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  raw_diag);
+            break;
+          case 3:
+            moms.cache_levels(7, hier, t1d.mids_);
+            gen_diag_lenard_bernstein_theta<P, 3>(legendre, level, t1d.rhs_const(),
+                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  raw_diag);
+            break;
+          default:
+            // unreachable here
+            break;
+          };
+          break;
         default:
           if (t1d.rhs()) {
             gen_diag_cmat<P, operation_type::volume>

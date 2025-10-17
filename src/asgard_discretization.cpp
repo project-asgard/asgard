@@ -247,36 +247,41 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
   // process the moments, can compute moments based on the initial conditions
-  if (terms.deps().poisson or terms.deps().num_moments > 0) {
-    // the poisson solver needs 1 moment
-    int const num      = std::max(terms.deps().num_moments, 1);
-    int const pos_size = fm::ipow2(grid.current_level(0));
-    int const mom_size = pos_size * (degree() + 1);
-    moms1d = moments1d(num, degree(), options_.max_level(), domain_);
-    if (terms.deps().poisson) {
-      moment_id const m0 = [&, this]() -> moment_id {
-          switch (domain_.num_vel()) {
-          case 1:
-            return terms.moms.find_id(0);
-          case 2:
-            return terms.moms.find_id({0, 0});
-          case 3:
-            return terms.moms.find_id({0, 0, 0});
-          default:
-            rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
-                    "moments and Poisson solvers require 1 - 3 velocity dimensions");
-            return moment_id{-1}; // invalid, exception is thrown above
-          };
-        }();
-
-      poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
-                                 grid.current_level(0), m0);
-
-      // skip the first solve, putting in dummy data for the term construction
-      // the electric_field is pw-constant, does not have degrees + 1 entries
-      terms.cdata.electric_field.resize(pos_size);
-    }
-    terms.cdata.moments.resize(num * mom_size);
+  // if (terms.deps().poisson or terms.deps().num_moments > 0) {
+  //   // the poisson solver needs 1 moment
+  //   int const num      = std::max(terms.deps().num_moments, 1);
+  //   int const pos_size = fm::ipow2(grid.current_level(0));
+  //   int const mom_size = pos_size * (degree() + 1);
+  //   moms1d = moments1d(num, degree(), options_.max_level(), domain_);
+  //   if (terms.deps().poisson) {
+  //     moment_id const m0 = [&, this]() -> moment_id {
+  //         switch (domain_.num_vel()) {
+  //         case 1:
+  //           return terms.moms.find_id(0);
+  //         case 2:
+  //           return terms.moms.find_id({0, 0});
+  //         case 3:
+  //           return terms.moms.find_id({0, 0, 0});
+  //         default:
+  //           rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
+  //                   "moments and Poisson solvers require 1 - 3 velocity dimensions");
+  //           return moment_id{-1}; // invalid, exception is thrown above
+  //         };
+  //       }();
+  //
+  //     poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
+  //                                grid.current_level(0), m0);
+  //
+  //     // skip the first solve, putting in dummy data for the term construction
+  //     // the electric_field is pw-constant, does not have degrees + 1 entries
+  //     terms.cdata.electric_field.resize(pos_size);
+  //   }
+  //   terms.cdata.moments.resize(num * mom_size);
+  // }
+  if (terms.deps().poisson) {
+    moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
+    poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
+                               grid.current_level(0), m0);
   }
 }
 
@@ -411,14 +416,15 @@ std::vector<precision> discretization_manager<precision>::get_electric() const {
 template<typename precision> void
 discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
   expect(field.size() == static_cast<size_t>(grid.num_indexes() * fm::ipow(degree() + 1, grid.num_dims())));
+  ignore(field);
 
-  std::vector<precision> moment0;
-  moms1d->project_moment(0, grid, field, moment0);
-
-  int const level = grid.current_level(0);
-  hier.reconstruct1d(1, level, span2d<precision>(degree() + 1, fm::ipow2(level), moment0.data()));
-
-  poisson.solve_periodic(moment0, terms.cdata.electric_field);
+  // std::vector<precision> moment0;
+  // moms1d->project_moment(0, grid, field, moment0);
+  //
+  // int const level = grid.current_level(0);
+  // hier.reconstruct1d(1, level, span2d<precision>(degree() + 1, fm::ipow2(level), moment0.data()));
+  //
+  // poisson.solve_periodic(moment0, terms.cdata.electric_field);
 }
 
 template<typename precision>

@@ -152,7 +152,7 @@ public:
   //! check if the terms have poisson dependence
   bool has_poisson() const { return poisson; }
   //! check if the terms have moment dependence
-  bool has_moments() const { return moms1d.has_value(); }
+  // bool has_moments() const { return moms1d.has_value(); }
   bool has_moments_v2() const { return !!terms.moms; }
 
   //! computes the right-hand-side of the ode
@@ -430,43 +430,43 @@ public:
   connection_patterns const &get_conn() const { return conn; }
 
   //! recomputes the moments given the state of interest and this term group
-  void compute_moments(int groupid, std::vector<precision> const &f) const {
-    if ((groupid == -1 and terms.deps().num_moments == 0)
-        or (groupid >= 0 and terms.deps(groupid).num_moments == 0)) // no moments needed
-      return;
-
-    #ifdef ASGARD_USE_MPI
-    if (not is_leader() and not terms.resources.has_moments())
-      return;
-    #endif
-
-    if (is_leader()) {
-      int const level = grid.current_level(0);
-      moms1d->project_moments(grid, f, terms.cdata.moments);
-      int const num_cells = fm::ipow2(level);
-      int const num_outs  = moms1d->num_comp_mom();
-      hier.reconstruct1d(
-          num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
-                                              terms.cdata.moments.data()));
-    } else {
-      moms1d->resize_moments(grid, terms.cdata.moments);
-    }
-
-    #ifdef ASGARD_USE_MPI
-    if (terms.resources.num_ranks() > 1)
-      terms.resources.template bcast
-          <precision, resource_comm::moments>(terms.cdata.moments);
-    #endif
-
-    if (groupid == -1)
-      terms.rebuild_moment_terms(grid, conn, hier);
-    else
-      terms.rebuild_moment_terms(groupid, grid, conn, hier);
-  }
+  // void compute_moments(int groupid, std::vector<precision> const &f) const {
+  //   if ((groupid == -1 and terms.deps().num_moments == 0)
+  //       or (groupid >= 0 and terms.deps(groupid).num_moments == 0)) // no moments needed
+  //     return;
+  //
+  //   #ifdef ASGARD_USE_MPI
+  //   if (not is_leader() and not terms.resources.has_moments())
+  //     return;
+  //   #endif
+  //
+  //   if (is_leader()) {
+  //     int const level = grid.current_level(0);
+  //     moms1d->project_moments(grid, f, terms.cdata.moments);
+  //     int const num_cells = fm::ipow2(level);
+  //     int const num_outs  = moms1d->num_comp_mom();
+  //     hier.reconstruct1d(
+  //         num_outs, level, span2d<precision>((degree() + 1), num_outs * num_cells,
+  //                                             terms.cdata.moments.data()));
+  //   } else {
+  //     moms1d->resize_moments(grid, terms.cdata.moments);
+  //   }
+  //
+  //   #ifdef ASGARD_USE_MPI
+  //   if (terms.resources.num_ranks() > 1)
+  //     terms.resources.template bcast
+  //         <precision, resource_comm::moments>(terms.cdata.moments);
+  //   #endif
+  //
+  //   if (groupid == -1)
+  //     terms.rebuild_moment_terms(grid, conn, hier);
+  //   else
+  //     terms.rebuild_moment_terms(groupid, grid, conn, hier);
+  // }
   //! recomputes the moments given the state of interest
-  void compute_moments(std::vector<precision> const &f) const {
-    compute_moments(-1, f);
-  }
+  // void compute_moments(std::vector<precision> const &f) const {
+  //   compute_moments(-1, f);
+  // }
   //! recomputes the moments with the current state, if groupid is negative all groups will be computed
   void compute_moments_v2(int groupid = all_groups) const {
     compute_moments_v2(groupid, state);
@@ -649,10 +649,10 @@ protected:
 
     if constexpr (use_groups) {
       // compute_poisson(gid, current);
-      compute_moments(gid, current);
+      // compute_moments(gid, current);
     } else {
       // compute_poisson(current);
-      compute_moments(current);
+      // compute_moments(current);
     }
     // locally update all moments
     if (terms.moms) {
@@ -774,7 +774,7 @@ private:
   #endif
 
   // moments
-  mutable std::optional<moments1d<precision>> moms1d;
+  // mutable std::optional<moments1d<precision>> moms1d;
   // poisson solver data
   mutable solvers::poisson<precision> poisson;
 

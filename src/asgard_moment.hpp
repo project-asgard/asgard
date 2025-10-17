@@ -127,6 +127,8 @@ public:
 
   //! returns the loaded dimensions
   int num_dims() const { return num_dims_; }
+  //! returns the number of velocity dimensions
+  int num_vel() const { return num_vel_; }
   //! returns the total number of moments
   int num_moments() const { return mlist.size(); }
   //! returns true if the manager has been initialized
@@ -161,14 +163,14 @@ public:
   }
   //! returns the  moment vector after expanding to full level and reconstructing
   std::vector<P> const &get_cached_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
-    expect(pos_grid.num_dims() == 1); // this must be changed for higher dims
+    expect(pos_grid.num_dims() == 1); // levels work only for position 1d
     if (full_level[id].empty())
       complete_level(hier, raw_vals[id], full_level.get(id));
     return full_level[id];
   }
   //! returns the  moment vector, assumes it has already been reconstructed
   std::vector<P> const &get_cached_level(moment_id id) const {
-    expect(pos_grid.num_dims() == 1); // this must be changed for higher dims
+    expect(pos_grid.num_dims() == 1); // levels work only for position 1d
     expect(not full_level[id].empty());
     return full_level[id];
   }
@@ -189,6 +191,19 @@ public:
   //! fill the vector to a full 1d level, only for position 1d
   void complete_level(hierarchy_manipulator<P> const &hier, std::vector<P> const &raw,
                       std::vector<P> &vals) const;
+  //! cache a number of ids listed as the first n entries of a container ids, were ids[i] is moment_id
+  template<typename vec_type>
+  void cache_levels(int num, hierarchy_manipulator<P> const &hier, vec_type const &ids) const {
+    expect(num <= static_cast<int>(ids.size()));
+    expect(pos_grid.num_dims() == 1); // levels work only for position 1d
+    static_assert(std::is_same_v<decltype(ids[0]), moment_id const> or std::is_same_v<decltype(ids[0]), moment_id const &>);
+    for (int i = 0; i < num; i++) {
+      if (full_level[ids[i]].empty())
+        complete_level(hier, raw_vals[ids[i]], full_level.get(ids[i]));
+    }
+  }
+  //! return the set of cached levels, all relevant moments must be cached already
+  momentset<P> const &get_cached_levels() const { return full_level; }
 
 protected:
   //! set the new groups
