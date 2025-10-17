@@ -225,6 +225,11 @@ struct term_manager
   //! get the moment dependencies for the given group
   mom_deps const &deps(int groupid) const { return deps_[groupid]; }
 
+  //! return the range for the given group, returns full range for group -1
+  indexrange<int> terms_range(int groupid) const {
+    return (groupid < 0) ? indexrange<int>(terms) : indexrange<int>(term_groups[groupid]);
+  }
+
   //! rebuild all matrices
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
                       hierarchy_manipulator<P> const &hier,
@@ -274,28 +279,6 @@ struct term_manager
     }
   }
 
-  //! rebuild the terms that depend on the Poisson electric field
-  // void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
-  //                      hierarchy_manipulator<P> const &hier)
-  // {
-  //   tools::time_event timing_("rebuild - poisson");
-  //   for (auto &te : terms) {
-  //     for (int d : indexof(num_dims))
-  //       if (te.deps[d].poisson and resources.owns(te.rec))
-  //         rebuld_term1d(te, d, grid.current_level(d), conn, hier);
-  //   }
-  // }
-  //! rebuild the terms that depend only on the moments
-  void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
-                            hierarchy_manipulator<P> const &hier)
-  {
-    tools::time_event timing_("rebuild - moments (all)");
-    for (auto &te : terms) {
-      for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0 and resources.owns(te.rec))
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
-    }
-  }
   //! rebuild the terms that depend only on the moments
   void rebuild_moment_terms_v2(sparse_grid const &grid, connection_patterns const &conn,
                                hierarchy_manipulator<P> const &hier)
@@ -306,7 +289,7 @@ struct term_manager
         if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
         {
           // isolate terms that have not been updated for v2 yet
-          auto const dep = te.tmd.dim(d).depends();
+          //auto const dep = te.tmd.dim(d).depends();
           // if (dep == term_dependence::moment_divided_by_density) {
           //   std::cout << " - rebuilding mom-div\n";
           // } else if (dep == term_dependence::moment_divided_by_density_v2) {
@@ -316,14 +299,14 @@ struct term_manager
           // } else {
           //   std::cout << " - rebuilding LB-theta\n";
           // }
-          if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
-              dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
-              dep == term_dependence::lenard_bernstein_coll_theta_1x3v or
-              dep == term_dependence::moment_divided_by_density // or
-              // dep == term_dependence::electric_field or
-              // dep == term_dependence::electric_field_only
-              )
-              continue;
+          //if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
+          //    dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
+          //    dep == term_dependence::lenard_bernstein_coll_theta_1x3v // or
+          //    // dep == term_dependence::moment_divided_by_density // or
+          //    // dep == term_dependence::electric_field or
+          //    // dep == term_dependence::electric_field_only
+          //    )
+          //    continue;
           // if (dep == term_dependence::moment_divided_by_density_v2) {
           //   std::cout << " - rebuilding mod-div-2 for " << mpi::world_rank() << "\n";
           // }
@@ -336,14 +319,15 @@ struct term_manager
                                hierarchy_manipulator<P> const &hier)
   {
     tools::time_event timing_("rebuild moment terms (" + std::to_string(groupid) + ")");
-    expect(0 <= groupid and groupid < static_cast<int>(term_groups.size()));
-    for (int it : indexrange(term_groups[groupid])) {
+    expect(-1 <= groupid and groupid < static_cast<int>(term_groups.size()));
+    // for (int it : indexrange(term_groups[groupid])) {
+    for (int it : terms_range(groupid)) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
         if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
         {
           // isolate terms that have not been updated for v2 yet
-          auto const dep = te.tmd.dim(d).depends();
+          // auto const dep = te.tmd.dim(d).depends();
           // if (dep == term_dependence::moment_divided_by_density) {
           //   std::cout << groupid << " rebuilding mom-div\n";
           // } else if (dep == term_dependence::moment_divided_by_density_v2) {
@@ -353,34 +337,19 @@ struct term_manager
           // } else {
           //   std::cout << groupid << " rebuilding LB-theta\n";
           // }
-          if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
-              dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
-              dep == term_dependence::lenard_bernstein_coll_theta_1x3v or
-              dep == term_dependence::moment_divided_by_density // or
-              // dep == term_dependence::electric_field or
-              // dep == term_dependence::electric_field_only
-              )
-              continue;
+          // if (dep == term_dependence::lenard_bernstein_coll_theta_1x1v or
+          //     dep == term_dependence::lenard_bernstein_coll_theta_1x2v or
+          //     dep == term_dependence::lenard_bernstein_coll_theta_1x3v // or
+          //     // dep == term_dependence::moment_divided_by_density // or
+          //     // dep == term_dependence::electric_field or
+          //     // dep == term_dependence::electric_field_only
+          //     )
+          //     continue;
           // if (dep == term_dependence::moment_divided_by_density_v2) {
           //   std::cout << " - rebuilding mod-div-2 for " << mpi::world_rank() << "\n";
           // }
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
         }
-    }
-  }
-  //! rebuild the terms for the given group
-  void rebuild_moment_terms(int groupid, sparse_grid const &grid,
-                            connection_patterns const &conn,
-                            hierarchy_manipulator<P> const &hier)
-  {
-    tools::time_event timing_("rebuild - moments");
-    expect(0 <= groupid and groupid < static_cast<int>(term_groups.size()));
-
-    for (int it : indexrange(term_groups[groupid])) {
-      auto &te = terms[it];
-      for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0 and resources.owns(te.rec))
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
   //! prepares the kronmult workspace

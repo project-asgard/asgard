@@ -48,14 +48,12 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
         case term_dependence::electric_field_only:
           // technically, el-field requires 1 moment, but it is a special case
           return {true, 0};
-        case term_dependence::moment_divided_by_density:
-          return {false, std::abs(single.get_moment())};
-        case term_dependence::lenard_bernstein_coll_theta_1x1v:
-          return {false, 3};
-        case term_dependence::lenard_bernstein_coll_theta_1x2v:
-          return {false, 5};
-        case term_dependence::lenard_bernstein_coll_theta_1x3v:
-          return {false, 7};
+        // case term_dependence::lenard_bernstein_coll_theta_1x1v:
+        //   return {false, 3};
+        // case term_dependence::lenard_bernstein_coll_theta_1x2v:
+        //   return {false, 5};
+        // case term_dependence::lenard_bernstein_coll_theta_1x3v:
+        //   return {false, 7};
         default:
           return {};
       };
@@ -585,27 +583,18 @@ void term_manager<P>::build_raw_mat(
         case term_dependence::electric_field:
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;
-        case term_dependence::moment_divided_by_density:
-          if (t1d.get_moment() > 0) {
-            gen_diag_mom_cases<P, +1, term_dependence::moment_divided_by_density>
-              (legendre, level, t1d.get_moment(), cdata.moments, raw_diag);
-          } else {
-            gen_diag_mom_cases<P, -1, term_dependence::moment_divided_by_density>
-              (legendre, level, -t1d.get_moment(), cdata.moments, raw_diag);
-          }
-          break;
-        case term_dependence::lenard_bernstein_coll_theta_1x1v:
-          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x1v>
-            (legendre, level, 0, cdata.moments, raw_diag);
-          break;
-        case term_dependence::lenard_bernstein_coll_theta_1x2v:
-          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x2v>
-            (legendre, level, 0, cdata.moments, raw_diag);
-          break;
-        case term_dependence::lenard_bernstein_coll_theta_1x3v:
-          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x3v>
-            (legendre, level, 0, cdata.moments, raw_diag);
-          break;
+        // case term_dependence::lenard_bernstein_coll_theta_1x1v:
+        //   gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x1v>
+        //     (legendre, level, 0, cdata.moments, raw_diag);
+        //   break;
+        // case term_dependence::lenard_bernstein_coll_theta_1x2v:
+        //   gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x2v>
+        //     (legendre, level, 0, cdata.moments, raw_diag);
+        //   break;
+        // case term_dependence::lenard_bernstein_coll_theta_1x3v:
+        //   gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x3v>
+        //     (legendre, level, 0, cdata.moments, raw_diag);
+        //   break;
         case term_dependence::moment_divided_by_density_v2:
           gen_diag_mom_over_zero<P>(legendre, level, t1d.rhs_const(),
                                     moms.get_cached_level(t1d.moment_ids()[0], hier),

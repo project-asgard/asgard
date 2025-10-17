@@ -29,15 +29,14 @@ enum class term_dependence
   //! dependence on the electric field only, coefficient is 1
   electric_field_only,
   //! moment divided by moment 0
-  moment_divided_by_density,
   moment_divided_by_density_v2,
-  //! Lenard-Bernstein theta term, 1x1v term
-  lenard_bernstein_coll_theta_1x1v,
+  //! Lenard-Bernstein theta term
+  // lenard_bernstein_coll_theta_1x1v,
   lenard_bernstein_coll_theta,
   //! Lenard-Bernstein theta term, 1x2v term
-  lenard_bernstein_coll_theta_1x2v,
+  // lenard_bernstein_coll_theta_1x2v,
   //! Lenard-Bernstein theta term, 1x3v term
-  lenard_bernstein_coll_theta_1x3v,
+  // lenard_bernstein_coll_theta_1x3v,
 };
 
 /*!
@@ -578,18 +577,7 @@ public:
     depends_ = (field_f_) ? term_dependence::electric_field
                           : term_dependence::electric_field_only;
   }
-  //! make moment over density dependence term
-  term_1d(term_moment_over_density moment)
-    : optype_(operation_type::volume),
-      depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), mom(moment.moment)
-  {}
-  //! make moment over density dependence term, with negative sign
-  term_1d(term_moment_over_density_neg moment)
-    : optype_(operation_type::volume),
-      depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), mom(-moment.moment)
-  {}
+  //! make moment over density, moment dependence term
   term_1d(term_moment_over_density_v2 mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density_v2),
