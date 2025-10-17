@@ -330,9 +330,9 @@ struct volume_electric {
  * \ingroup asgard_pde_definition
  * \brief Volume term that depends on a given moment divided by the density (moment 0)
  */
-struct term_moment_over_density_v2 {
+struct term_moment_over_density {
   //! constructor, sets the moment and the constant scale factor
-  explicit term_moment_over_density_v2(double cscale, moment mom_in)
+  explicit term_moment_over_density(double cscale, moment mom_in)
       : scale(cscale), mom(mom_in) {}
   //! constant scale factor
   double scale;
@@ -556,7 +556,7 @@ public:
                           : term_dependence::electric_field_only;
   }
   //! make moment over density, moment dependence term
-  term_1d(term_moment_over_density_v2 mover)
+  term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
       change_(changes_with::time), rhs_const_(mover.scale),
