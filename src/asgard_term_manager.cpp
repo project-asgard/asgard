@@ -49,7 +49,7 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
           // technically, el-field requires 1 moment, but it is a special case
           return {true, 0};
         case term_dependence::moment_divided_by_density:
-          return {false, std::abs(single.moment())};
+          return {false, std::abs(single.get_moment())};
         case term_dependence::lenard_bernstein_coll_theta_1x1v:
           return {false, 3};
         case term_dependence::lenard_bernstein_coll_theta_1x2v:
@@ -585,12 +585,12 @@ void term_manager<P>::build_raw_mat(
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;
         case term_dependence::moment_divided_by_density:
-          if (t1d.moment() > 0) {
+          if (t1d.get_moment() > 0) {
             gen_diag_mom_cases<P, +1, term_dependence::moment_divided_by_density>
-              (legendre, level, t1d.moment(), cdata.moments, raw_diag);
+              (legendre, level, t1d.get_moment(), cdata.moments, raw_diag);
           } else {
             gen_diag_mom_cases<P, -1, term_dependence::moment_divided_by_density>
-              (legendre, level, -t1d.moment(), cdata.moments, raw_diag);
+              (legendre, level, -t1d.get_moment(), cdata.moments, raw_diag);
           }
           break;
         case term_dependence::lenard_bernstein_coll_theta_1x1v:

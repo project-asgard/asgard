@@ -23,7 +23,6 @@ void test_moment() {
   tassert(moment(0, 0, moment::inactive).action == moment::inactive);
 
   // moment ids
-  static_assert(not std::is_default_constructible_v<moment_id>);
   tassert(moment_id(2).get() == 2);
   tassert(moment_id(5)() == 5);
   tassert(moment_id(3) == moment_id(3));

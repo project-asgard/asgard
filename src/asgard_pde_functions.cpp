@@ -72,14 +72,24 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 }
 
 template<typename P>
-void pde_scheme<P>:: update_deps(term_md<P> const &tmd) {
+void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
   if (tmd.is_separable()) {
     for (int d = 0; d < domain_.num_dims(); d++) {
-      term_dependence const dep = tmd.dim(d).depends();
+      term_1d<P> &t1d = tmd.dim(d);
+      term_dependence const dep = t1d.depends();
       if (dep == term_dependence::electric_field or dep == term_dependence::electric_field_only) {
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
         this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
+      } else if (dep == term_dependence::moment_divided_by_density_v2) {
+        rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
+                "moment-over-density requires defined velocity dimensions");
+        rassert(domain_.num_pos() == 1,
+                "moment-over-density work only for one position dimension");
+        rassert(t1d.moment_over() == domain_.num_vel(),
+                "moment-over-density requires moment with dimension matching the number of velocity dimensions");
+        t1d.mids_[0] = this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
+        t1d.mids_[1] = this->register_moment(t1d.moment_over());
       }
     }
   }

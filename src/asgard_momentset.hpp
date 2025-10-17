@@ -37,7 +37,8 @@ struct moment
     for (int d = 1; d < num_velocity; d++) m.pows[d] = 0;
     return m;
   }
-
+  //! creating a placeholder invalid moment
+  moment() : pows{-1, -1, -1} {}
   //! create a 1D moment with the given power
   moment(int pv1, moment_type act = regular) : pows{pv1, -1, -1}, action(act) {}
   //! create a 2D moment with the given powers
@@ -78,6 +79,8 @@ std::ostream& operator<<(std::ostream& os, moment const &m);
 //! strong type for the moment ID
 class moment_id {
 public:
+  //! default placeholder id
+  moment_id() = default;
   //! explicit constructor for the new id
   explicit moment_id(int num) : id_(num) {}
   //! get the id
@@ -96,7 +99,7 @@ public:
 
 private:
   //! stored value for the ID
-  int id_;
+  int id_ = -1;
 };
 
 /*!

@@ -30,6 +30,7 @@ enum class term_dependence
   electric_field_only,
   //! moment divided by moment 0
   moment_divided_by_density,
+  moment_divided_by_density_v2,
   //! Lenard-Bernstein theta term, 1x1v term
   lenard_bernstein_coll_theta_1x1v,
   //! Lenard-Bernstein theta term, 1x2v term
@@ -342,6 +343,15 @@ struct term_moment_over_density {
   //! the moment to be used, must use something other than 0
   int moment = 0;
 };
+struct term_moment_over_density_v2 {
+  //! constructor, sets the moment and the constant scale factor
+  explicit term_moment_over_density_v2(double cscale, moment mom_in)
+      : scale(cscale), mom(mom_in) {}
+  //! constant scale factor
+  double scale;
+  //! the moment to be used, must use something other than 0
+  moment mom;
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -356,6 +366,9 @@ struct term_moment_over_density_neg {
   int moment = 0;
 };
 
+// forward declaration so it can be set as a friend
+template<typename P>
+class pde_scheme;
 // forward declaration so it can be set as a friend
 template<typename P>
 struct term_manager;
@@ -569,6 +582,14 @@ public:
       depends_(term_dependence::moment_divided_by_density),
       change_(changes_with::time), mom(-moment.moment)
   {}
+  term_1d(term_moment_over_density_v2 mover)
+    : optype_(operation_type::volume),
+      depends_(term_dependence::moment_divided_by_density_v2),
+      change_(changes_with::time), rhs_const_(mover.scale),
+      smom_(mover.mom)
+  {
+    smom_.action = moment::regular;
+  }
 
   //! indicates whether this is an identity term
   bool is_identity() const { return (optype_ == operation_type::identity); }
@@ -597,7 +618,11 @@ public:
   }
 
   //! returns the required moment, if any
-  int moment() const { return mom; }
+  int get_moment() const { return mom; }
+
+  moment const &moment_over() const { return smom_; }
+  std::array<moment_id, 7> const &moment_ids() const { return mids_; }
+  //! (internal use, sets the ids used by the moment
 
   //! returns the rhs function that calls the field
   sfixed_func1d_f<P> const &field() const { return field_f_; }
@@ -657,6 +682,7 @@ public:
   P penalty() const { return penalty_; }
 
   // allow direct access to the private data
+  friend class pde_scheme<P>;
   friend struct term_manager<P>;
 
 private:
@@ -693,6 +719,8 @@ private:
   P penalty_   = 0;
 
   int mom = 0;
+  moment smom_;
+  std::array<moment_id, 7> mids_;
   sfixed_func1d_f<P> field_f_;
 
   std::vector<term_1d<P>> chain_;
@@ -1518,7 +1546,7 @@ private:
     }
   }
   //! updates the moment dependence based on the term just added
-  void update_deps(term_md<P> const &tmd);
+  void update_deps(term_md<P> &tmd);
 
   prog_opts options_;
   pde_domain<P> domain_;
