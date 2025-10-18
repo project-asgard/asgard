@@ -202,7 +202,7 @@ void moment_manager<P>::set_mass(
   for (int i = 0; i < num_cells; i++) {
       double const l = xleft + i * dx; // left edge of cell i
       for (int k = 0; k < num_quad; k++)
-      rhs_raw.pnts[i * num_quad + k] = (0.5 * quadp[k] + 0.5) * dx + l;
+        rhs_raw.pnts[i * num_quad + k] = (0.5 * quadp[k] + 0.5) * dx + l;
   }
 
   integ[dim] = vector2d<P>(num_cells * pdof, max_moment + 1);

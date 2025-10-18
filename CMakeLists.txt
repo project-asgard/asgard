@@ -396,7 +396,7 @@ set(asgard_components
     resource_groups
     small_mats
     solver
-    term_apply
+    term_build
     term_manager
     term_sources
     test_macros
