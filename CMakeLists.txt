@@ -396,9 +396,11 @@ set(asgard_components
     resource_groups
     small_mats
     solver
+    term_apply
     term_manager
     term_sources
     test_macros
+    test_pdes
     time_advance
     time_data
     transformations
