@@ -314,8 +314,6 @@ void term_manager<P>::apply_tmpl_gpu(
 
   int const num_gpus = compute->num_gpus();
 
-  auto const group = terms_group_range(gid);
-
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
     compute->set_device(gpu::device{g});
@@ -359,6 +357,8 @@ void term_manager<P>::apply_tmpl_gpu(
     }
 
     bool term_found = false; // does this GPU have at least 1 term
+
+    auto const group = terms_group_range(gid);
 
     int icurrent = group.ibegin();
     while (icurrent < group.iend())

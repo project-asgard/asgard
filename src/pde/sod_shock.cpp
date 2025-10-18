@@ -356,8 +356,13 @@ void self_test() {
 
     disc.advance_time();
 
-    size_t const dofs = disc.current_state().size();
-    tassert(dofs == 2511u); // maybe too exact?
+    double n = 0;
+    for (auto s : disc.current_state())
+      n += s * s;
+    n = std::sqrt(n); // L^2 norm of the solution
+
+    double constexpr expected = 5.311351452729612e-01;
+    tcheckless(0, std::abs(expected - n) / expected, disc.options().adapt_ralative.value());
   }
 
 #endif
