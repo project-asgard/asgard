@@ -80,7 +80,7 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
       case term_dependence::electric_field_only:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
-        this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
+        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)), };
         break;
       case term_dependence::moment_divided_by_density:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
@@ -89,34 +89,36 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
                 "moment-over-density work only for one position dimension");
         rassert(t1d.moment_over().num_dims() == domain_.num_vel(),
                 "moment-over-density requires moment with dimension matching the number of velocity dimensions");
-        t1d.mids_[0] = this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
-        t1d.mids_[1] = this->register_moment(t1d.moment_over());
+        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                     this->register_moment(t1d.moment_over())};
         break;
       case term_dependence::lenard_bernstein_coll_theta:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "Lenard-Bernstein-theta requires defined velocity dimensions");
         rassert(domain_.num_pos() == 1,
                 "Lenard-Bernstein-theta work only for one position dimension");
-        t1d.mids_[0] = this->register_moment(moment::zero(domain_.num_vel(), moment::regular));
         // the zero-th moment is always needed, the others are set based on the dimensions
         switch (domain_.num_vel()) {
         case 1:
-          t1d.mids_[1] = this->register_moment(moment(1, moment::regular));
-          t1d.mids_[2] = this->register_moment(moment(2, moment::regular));
+          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                       this->register_moment(moment(1, moment::regular)),
+                       this->register_moment(moment(2, moment::regular)), };
           break;
         case 2:
-          t1d.mids_[1] = this->register_moment(moment(1, 0, moment::regular));
-          t1d.mids_[2] = this->register_moment(moment(0, 1, moment::regular));
-          t1d.mids_[3] = this->register_moment(moment(2, 0, moment::regular));
-          t1d.mids_[4] = this->register_moment(moment(0, 2, moment::regular));
+          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                       this->register_moment(moment(1, 0, moment::regular)),
+                       this->register_moment(moment(0, 1, moment::regular)),
+                       this->register_moment(moment(2, 0, moment::regular)),
+                       this->register_moment(moment(0, 2, moment::regular)), };
           break;
         case 3:
-          t1d.mids_[1] = this->register_moment(moment(1, 0, 0, moment::regular));
-          t1d.mids_[2] = this->register_moment(moment(0, 1, 0, moment::regular));
-          t1d.mids_[3] = this->register_moment(moment(0, 0, 1, moment::regular));
-          t1d.mids_[4] = this->register_moment(moment(2, 0, 0, moment::regular));
-          t1d.mids_[5] = this->register_moment(moment(0, 2, 0, moment::regular));
-          t1d.mids_[6] = this->register_moment(moment(0, 0, 2, moment::regular));
+          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                       this->register_moment(moment(1, 0, 0, moment::regular)),
+                       this->register_moment(moment(0, 1, 0, moment::regular)),
+                       this->register_moment(moment(0, 0, 1, moment::regular)),
+                       this->register_moment(moment(2, 0, 0, moment::regular)),
+                       this->register_moment(moment(0, 2, 0, moment::regular)),
+                       this->register_moment(moment(0, 0, 2, moment::regular)), };
           break;
         default:
           // unreachable due to the assertion above

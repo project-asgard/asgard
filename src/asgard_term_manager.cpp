@@ -14,6 +14,7 @@ term_entry<P>::term_entry(term_md<P> tin)
   expect(not tmd.is_chain());
   if (tmd.is_interpolatory()) {
     deps[0] = {false, 0}; // set interpolation deps here
+    has_poisson = false; // interpolation poisson dependence goes here
     return;
   }
 
@@ -34,7 +35,7 @@ term_entry<P>::term_entry(term_md<P> tin)
     }
 
     deps[d] = get_deps(t1d);
-    needs_poisson = needs_poisson or check_needs_poisson(t1d);
+    has_poisson = has_poisson or has_needs_poisson(t1d);
   }
 
   perm = kronmult::permutes(active_dirs, flux_dir);
@@ -70,7 +71,7 @@ mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
   }
 }
 template<typename P>
-bool term_entry<P>::check_needs_poisson(term_1d<P> const &t1d) {
+bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
   auto check_poisson = [](term_1d<P> const &single)
     -> bool {
       return (single.depends() == term_dependence::electric_field or
@@ -174,38 +175,16 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       for (int d : iindexof(num_dims))
         deps += tentry.deps[d];
     deps_.emplace_back(deps);
-
-    needs_poisson_.resize(1, false);
-    for (auto const &tentry : terms) {
-      if (tentry.needs_poisson) {
-        needs_poisson_.back() = true;
-        break;
-      }
-    }
-
   } else {
     deps_.reserve(term_groups.size() + 1);
-    needs_poisson_.reserve(term_groups.size() + 1);
-    bool any_need = false;
     for (auto const &tg : term_groups) {
       mom_deps deps;
       for (int tid : indexrange(tg))
         for (int d : iindexof(num_dims))
           deps += terms[tid].deps[d];
 
-      bool needs = false;
-      for (int tid : indexrange(tg)) {
-        if (terms[tid].needs_poisson) {
-          needs = true;
-          break;
-        }
-      }
-      any_need = any_need or needs;
-      needs_poisson_.push_back(needs);
-
       deps_.emplace_back(deps);
     }
-    needs_poisson_.push_back(any_need);
 
     mom_deps deps;
     for (auto const &dp : deps_)
@@ -422,6 +401,45 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
     if (has_field_interp)
       ifield.resize(1);
+
+    // handle the moment dependence
+    std::vector<moment_id> active_moments;
+    active_moments.reserve(250); // should be more than enough, not a big deal otherwise
+    bool has_poisson = false;
+    for (auto const &tentry : terms) {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(tentry.rec))
+        continue;
+      #endif
+      has_poisson = has_poisson or tentry.has_poisson;
+      if (tentry.is_separable()) // only separable terms can have 1D moment deps
+        for (int d : iindexof(num_dims)) {
+          auto const &mids = tentry.tmd.dim(d).mids_;
+          if (not mids.empty()) {
+            active_moments.insert(active_moments.end(), mids.begin(), mids.end());
+          }
+        }
+    }
+    if (has_poisson) {
+      if (term_groups.empty())
+        has_poisson_.resize(1, true);
+      else
+        has_poisson_.resize(term_groups.size(), false); // will process groups below
+    }
+    if (not term_groups.empty()) {
+      for (int gid : iindexof(term_groups)) {
+        bool needs = false;
+        for (int tid : indexrange(term_groups[gid])) {
+          #ifdef ASGARD_USE_MPI
+          if (not resources.owns(terms[tid].rec))
+            continue;
+          #endif
+          needs = needs or terms[tid].has_poisson;
+        }
+        if (needs)
+          has_poisson_[gid] = needs;
+      }
+    }
   }
 }
 

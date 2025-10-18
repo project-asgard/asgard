@@ -425,7 +425,7 @@ void gen_diag_mom_over_zero(
 template<typename P, int num_vel>
 void gen_diag_lenard_bernstein_theta(
     legendre_basis<P> const &basis, int level, P nu,
-    std::array<moment_id, 7> const &mom_ids, momentset<P> const &moments,
+    std::vector<moment_id> const &mom_ids, momentset<P> const &moments,
     block_diag_matrix<P> &coefficients)
 {
   static_assert(1 <= num_vel and num_vel <= 3, "only up to 3 velocity dims are supported");
@@ -439,6 +439,13 @@ void gen_diag_lenard_bernstein_theta(
   for (int i = 0; i < used_ids; i++) {
     // make sure the moments are already cached and the right size
     expect(static_cast<int>(moments[mom_ids[i]].size()) == num_cells * pdof);
+  }
+  if constexpr (num_vel == 1) {
+    expect(mom_ids.size() == 3);
+  } else if constexpr (num_vel == 2) {
+    expect(mom_ids.size() == 5);
+  } else {
+    expect(mom_ids.size() == 7);
   }
 
   span2d<P const> mom0(pdof, num_cells, moments[mom_ids[0]].data());

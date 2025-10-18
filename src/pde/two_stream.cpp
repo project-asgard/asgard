@@ -260,7 +260,9 @@ void test_energy(std::string const &opt_str) {
   {
     disc.advance_time(1);
 
-    if (not disc.is_leader()) // in MPI context, do error checking only on rank 0
+    disc.sync_mpi_state();
+
+    if (not disc.has_poisson()) // in MPI context, do error checking only on Poisson-ranks
       continue;
 
     int const level0   = disc.get_grid().current_level(0);

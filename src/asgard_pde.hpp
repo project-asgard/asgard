@@ -601,7 +601,7 @@ public:
   int get_moment() const { return mom; }
 
   moment const &moment_over() const { return smom_; }
-  std::array<moment_id, 7> const &moment_ids() const { return mids_; }
+  std::vector<moment_id> const &moment_ids() const { return mids_; }
   //! (internal use, sets the ids used by the moment
 
   //! returns the rhs function that calls the field
@@ -700,7 +700,7 @@ private:
 
   int mom = 0;
   moment smom_;
-  std::array<moment_id, 7> mids_; // needed so many for Lenard Bernstein theta
+  std::vector<moment_id> mids_; // separable LB or interpolatory
   sfixed_func1d_f<P> field_f_;
 
   std::vector<term_1d<P>> chain_;

@@ -52,7 +52,7 @@ struct term_entry {
   kronmult::permutes perm;
   //! dependencies on the moments
   std::array<mom_deps, max_num_dimensions> deps;
-  bool needs_poisson = false;
+  bool has_poisson = false;
   //! indicates if this a single term or a chain, negative means member of a chain
   int num_chain = 1;
   //! left/right boundary conditions source index, if positive
@@ -61,7 +61,7 @@ struct term_entry {
   //! returns the dependencies for a 1d term
   static mom_deps get_deps(term_1d<P> const &t1d);
   //! check if the 1d term needs a Poisson solver
-  static bool check_needs_poisson(term_1d<P> const &t1d);
+  static bool has_needs_poisson(term_1d<P> const &t1d);
 
   //! boundary conditions, start and end
   indexrange<int> bc;
@@ -188,9 +188,9 @@ struct term_manager
   #endif
 
   //! dependencies for each term group, last entry is for all terms
-  std::vector<bool> needs_poisson_;
-  bool needs_poisson(int groupid) const { return (not needs_poisson_.empty() and needs_poisson_[groupid]); }
-  bool needs_poisson() const { return needs_poisson_.back(); }
+  std::vector<bool> has_poisson_;
+  bool has_poisson(int groupid) const { return (not has_poisson_.empty() and has_poisson_[groupid]); }
+  bool has_poisson() const { return (not has_poisson_.empty()); }
   std::vector<mom_deps> deps_;
 
   //! resource set to use for the computations
