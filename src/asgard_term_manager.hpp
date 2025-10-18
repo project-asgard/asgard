@@ -6,9 +6,40 @@ namespace asgard
 {
 
 /*!
+ * \internal
  * \brief Manages the terms and matrices, also holds the mass-matrices and kronmult-workspace
  *
- * This is the core of the spatial discretization of the terms.
+ * The terms, sources and boundary conditions have a close interplay with each other,
+ * building term entries and using the coefficient functions also leads to updates
+ * of the boundary conditions. After construction, boundary conditions work
+ * much like sources; however, both sources and boundary conditions also use mass-matrices
+ * and kronmult operations in case of chaining or using non-separable sources.
+ * The term matrices also have two stages, first is the build and then the application,
+ * where both have to account for 1d and multi-d chaining, separable and interpolatory
+ * operations.
+ *
+ * Managing a large amount of functionality is challenging while breaking it into separate
+ * modules, components or classes will create artificial API walls and even more overall
+ * complexity, e.g., more dependencies for each function call, grant access with fiend classes,
+ * setter/getter methods, or incur computational cost by recomputing the same result more
+ * than once. The solution here is to keep relevant data together but have the methods
+ * split across multiple files.
+ *
+ * asgard_term_sources.hpp
+ * asgard_term_build.hpp -> includes asgard_term_sources.hpp
+ * asgard_term_manager.hpp -> includes asgard_term_build.hpp
+ * asgard_term_manager.cpp -> all .cpp files include asgard_term_manager.hpp
+ * asgard_term_build.cpp
+ * asgard_term_sources.cpp
+ *
+ * The implementation is grouped:
+ * - build methods, e.g., constructing matrices and sources, and assigning work
+ *   to MPI ranks and GPU devices
+ * - apply method, e.g., perform matrix-vector operations on groups of terms and sources
+ *   associated with the current MPI-rank
+ * - source methods, e.g., update the sources based on the current grid and add the vectors
+ *
+ * \endinternal
  */
 template<typename P>
 struct term_manager
