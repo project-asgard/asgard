@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_dimension.hpp"
+#include "asgard_domain.hpp"
 #include "asgard_momentset.hpp"
 #include "asgard_quadrature.hpp"
 
@@ -107,6 +107,16 @@ using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
 template<typename P>
 using md_func_f = std::function<void(P t, vector2d<P> const &x,
                                      std::vector<P> const &f, std::vector<P> &vals)>;
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Signature for a non-separable function with field and moment parameters
+ */
+template<typename P>
+using md_mom_func_f = std::function<void(P t, vector2d<P> const &x,
+                                         momentset<P> const &moments,
+                                         std::vector<P> const &f,
+                                         std::vector<P> &vals)>;
 
 /*!
  * \ingroup asgard_pde_definition
@@ -777,9 +787,16 @@ private:
 template<typename P>
 struct term_interp {
   //! create the intermediate term and set the interpolation function
-  term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
+  explicit term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
+  //! create the term with the moment interpolation function and moment ids
+  explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
+      : interp_mom(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
   md_func_f<P> interp;
+  //! holds the moment interpolation function
+  md_mom_func_f<P> interp_mom;
+  //! moment ids required for the interpolation function
+  std::vector<moment_id> mids;
 };
 
 /*!
@@ -1044,8 +1061,12 @@ public:
   }
   //! set an interpolation term
   term_md(term_interp<P> tint)
-    : mode_(mode::interpolatory), interp_(std::move(tint.interp))
-  {}
+    : mode_(mode::interpolatory), interp_(std::move(tint.interp)),
+      interp_mom_(std::move(tint.interp_mom)), mids_(std::move(tint.mids))
+  {
+    if (interp_mom_) // using interpolation with moments
+      rassert(not mids_.empty(), "moment interpolation set but no moment_id provides");
+  }
 
   //! (separable mode only) get the 1d term with index i
   term_1d<P> &dim(int i) {
@@ -1145,12 +1166,20 @@ public:
     bc_flux_.emplace_back(std::move(bf));
     return *this;
   }
-  //! returns the interpolation matrix
+  //! returns the interpolation function
   md_func_f<P> const &interp() const { return interp_; }
-  //! applies the interpolation function, f = f(t, x, nu)
+  //! applies the interpolation function, vals = f(t, x, f)
   void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
     expect(!!interp_);
     interp_(t, x, f, vals);
+  }
+  //! returns the moment interpolation function
+  md_mom_func_f<P> const &interp_mom() const { return interp_mom_; }
+  //! applies the moment interpolation function, vals = f(t, x, m, f)
+  void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
+              std::vector<P> const &f, std::vector<P> &vals) const {
+    expect(!!interp_mom_);
+    interp_mom_(t, x, moments, f, vals);
   }
 
   // allow direct access to the private data
@@ -1163,8 +1192,12 @@ private:
   int num_dims_ = 0;
   std::array<term_1d<P>, max_num_dimensions> sep;
   mass_md<P> mass_;
-  // non-separable/interpolation case (may also use the mass_)
+  // non-separable/interpolation case
   md_func_f<P> interp_;
+  // non-separable/interpolation case using moments
+  md_mom_func_f<P> interp_mom_;
+  // moments needed by the interpolation
+  std::vector<moment_id> mids_;
   // chain of other terms
   std::vector<term_md<P>> chain_;
   // boundary conditions
