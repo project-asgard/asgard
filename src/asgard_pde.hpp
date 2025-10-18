@@ -1,7 +1,7 @@
 #pragma once
 
 #include "asgard_dimension.hpp"
-#include "asgard_indexset.hpp"
+#include "asgard_momentset.hpp"
 #include "asgard_quadrature.hpp"
 
 // the quadrature is needed by some of the pdes to perform internal operations
@@ -30,12 +30,8 @@ enum class term_dependence
   electric_field_only,
   //! moment divided by moment 0
   moment_divided_by_density,
-  //! Lenard-Bernstein theta term, 1x1v term
-  lenard_bernstein_coll_theta_1x1v,
-  //! Lenard-Bernstein theta term, 1x2v term
-  lenard_bernstein_coll_theta_1x2v,
-  //! Lenard-Bernstein theta term, 1x3v term
-  lenard_bernstein_coll_theta_1x3v,
+  //! Lenard-Bernstein theta term
+  lenard_bernstein_coll_theta
 };
 
 /*!
@@ -335,27 +331,29 @@ struct volume_electric {
  * \brief Volume term that depends on a given moment divided by the density (moment 0)
  */
 struct term_moment_over_density {
-  //! constructor, sets the moment
-  explicit term_moment_over_density(int mom) : moment(mom) {
-    rassert(moment > 0, "The moment over density must be at least 1");
-  }
+  //! constructor, sets the moment and the constant scale factor
+  explicit term_moment_over_density(double cscale, moment mom_in)
+      : scale(cscale), mom(mom_in) {}
+  //! constant scale factor
+  double scale;
   //! the moment to be used, must use something other than 0
-  int moment = 0;
+  moment mom;
 };
-
 /*!
  * \ingroup asgard_pde_definition
- * \brief Volume term that depends on the negative of a moment divided by the density (moment 0)
+ * \brief Volume term, the theta component of the Lenard-Bernstein collision operator 1xMv
  */
-struct term_moment_over_density_neg {
-  //! set the negative moment over density
-  explicit term_moment_over_density_neg(int mom) : moment(mom) {
-    rassert(moment > 0, "The moment over density must be at least 1");
-  }
-  //! the moment to be used, must use something other than 0
-  int moment = 0;
+struct term_lenard_bernstein_coll_theta {
+  //! constructor, sets the collision frequency for the theta term
+  explicit term_lenard_bernstein_coll_theta(double collision_frequency_coefficient)
+      : coeff(collision_frequency_coefficient) {}
+  //! the constant coefficient to be loaded in the term_1d
+  double coeff;
 };
 
+// forward declaration so it can be set as a friend
+template<typename P>
+class pde_scheme;
 // forward declaration so it can be set as a friend
 template<typename P>
 struct term_manager;
@@ -557,17 +555,20 @@ public:
     depends_ = (field_f_) ? term_dependence::electric_field
                           : term_dependence::electric_field_only;
   }
-  //! make moment over density dependence term
-  term_1d(term_moment_over_density moment)
+  //! make moment over density, moment dependence term
+  term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), mom(moment.moment)
-  {}
-  //! make moment over density dependence term, with negative sign
-  term_1d(term_moment_over_density_neg moment)
+      change_(changes_with::time), rhs_const_(mover.scale),
+      smom_(mover.mom)
+  {
+    smom_.action = moment::regular;
+  }
+  //! make a special term using the collision theta term
+  term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
-      depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), mom(-moment.moment)
+      depends_(term_dependence::lenard_bernstein_coll_theta),
+      change_(changes_with::time), rhs_const_(lbt.coeff)
   {}
 
   //! indicates whether this is an identity term
@@ -597,7 +598,11 @@ public:
   }
 
   //! returns the required moment, if any
-  int moment() const { return mom; }
+  int get_moment() const { return mom; }
+
+  moment const &moment_over() const { return smom_; }
+  std::vector<moment_id> const &moment_ids() const { return mids_; }
+  //! (internal use, sets the ids used by the moment
 
   //! returns the rhs function that calls the field
   sfixed_func1d_f<P> const &field() const { return field_f_; }
@@ -657,6 +662,7 @@ public:
   P penalty() const { return penalty_; }
 
   // allow direct access to the private data
+  friend class pde_scheme<P>;
   friend struct term_manager<P>;
 
 private:
@@ -693,6 +699,8 @@ private:
   P penalty_   = 0;
 
   int mom = 0;
+  moment smom_;
+  std::vector<moment_id> mids_; // separable LB or interpolatory
   sfixed_func1d_f<P> field_f_;
 
   std::vector<term_1d<P>> chain_;
@@ -1396,7 +1404,9 @@ public:
     if (tmd.is_chain())
       rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
     tmd.set_num_dimensions(domain_.num_dims());
+    // check the dependence
     terms_.emplace_back(std::move(tmd));
+    update_deps(terms_.back());
   }
   //! returns the loaded terms
   std::vector<term_md<P>> const &terms() const { return terms_; }
@@ -1413,7 +1423,7 @@ public:
     sources_sep_.emplace_back(std::move(smd));
   }
   //! add separable right-hand-source, can have multiple
-  pde_scheme<P> & operator += (separable_func<P> tmd) {
+  pde_scheme<P> &operator += (separable_func<P> tmd) {
     this->add_source(std::move(tmd));
     return *this;
   }
@@ -1442,14 +1452,45 @@ public:
   int new_term_group() {
     if (current_term_group == -1) { // initialize group engine
       rassert(terms_.empty() and sources_sep_.empty(),
-              "if using term-groups, new_term_group() must be called before any terms/sources are added");
+              "if using term-groups, new_term_group() must be called "
+              "before any terms/sources are added");
       current_term_group = 0;
+      mom_groups.push_back(mlist);
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
       sources_md_.push_back(nullptr); // add empty interpolatory source
+      mom_groups.emplace_back();
     }
     return current_term_group;
+  }
+  //! register a moment and obtain the moment id
+  moment_id register_moment(moment const &mom) {
+    rassert(domain_.num_vel() == mom.num_dims(),
+            "mismatch between the velocity dimensions for the domain and "
+            "the dimensions of the moment");
+    moment_id const id = mlist.get_add_id(mom);
+    if (current_term_group >= 0)
+      mom_groups[current_term_group].get_add_id(mom);
+    return id;
+  }
+  //! returns a reference to all moments (mostly for testing)
+  moments_list const &moments() const { return mlist; }
+  //! returns a reference to all moments (mostly for testing)
+  moments_list const &moments(group_id gid) const { return mom_groups[gid.gid]; }
+  //! print the list of moments, useful for debugging
+  void print_moments(std::ostream &os = std::cout) const {
+    if (mom_groups.empty()) {
+      os << " moments:\n";
+      mlist.print(os);
+      os << '\n';
+    } else {
+      for (size_t i = 0; i < mom_groups.size(); i++) {
+        os << " moment group: " << i << '\n';
+        mom_groups[i].print(os);
+        os << '\n';
+      }
+    }
   }
 
   //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
@@ -1471,6 +1512,7 @@ public:
   friend class discretization_manager<P>;
 
 private:
+  //! internal use, finalize the group data-structures
   void finalize_term_groups() {
     if (current_term_group == -1) // no groups being used
       return;
@@ -1483,6 +1525,8 @@ private:
                                  static_cast<int>(sources_sep_.size()));
     }
   }
+  //! updates the moment dependence based on the term just added
+  void update_deps(term_md<P> &tmd);
 
   prog_opts options_;
   pde_domain<P> domain_;
@@ -1505,14 +1549,9 @@ private:
 
   imex_implicit_group im_;
   imex_explicit_group ex_;
-};
 
-/*!
- * \brief Alias for backwards computationally
- *
- * Will be removed in an upcoming release.
- */
-template<typename P>
-using PDEv2 = pde_scheme<P>;
+  std::vector<moments_list> mom_groups;
+  moments_list mlist;
+};
 
 } // namespace asgard

@@ -119,7 +119,7 @@ void test_bookkeeping() {
                    "cannot chain a central flux with a side flux");
   }
   {
-    current_test<TestType> name_("term 1d - extras");
+    current_test<TestType> name_("term_1d - extras");
     term_1d<TestType> ptI;
     term_1d<TestType> ptM = term_volume<TestType>(3);
     term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
@@ -210,6 +210,33 @@ void test_pde_class() {
     pde.set(imex_implicit_group{2}, imex_explicit_group{5});
     tassert(pde.imex_im().gid == 2);
     tassert(pde.imex_ex().gid == 5);
+  }
+  {
+    current_test<TestType> name_("pde moments");
+    prog_opts opts = make_opts("-l 2 -d 1");
+    pde_domain<TestType> domain(position_dims{0}, velocity_dims{2});
+    pde_scheme<TestType> pde(opts, domain);
+    auto id0 = pde.register_moment({0, 1});
+    auto id1 = pde.register_moment({1, 1});
+    static_assert(std::is_same_v<decltype(id0), moment_id>);
+    tassert(id0() == 0);
+    tassert(id1() == 1);
+    tassert(pde.moments().size() == 2);
+    group_id const gid1{ pde.new_term_group() };
+    tassert(pde.moments(gid1).size() == 2);
+    group_id const gid2{ pde.new_term_group() };
+    auto id2 = pde.register_moment({2, 1});
+    auto id3 = pde.register_moment({1, 1});
+    auto id4 = pde.register_moment({3, 1});
+    tassert(pde.moments(gid2).size() == 3);
+    tassert(id3 == id1);
+    tassert(id2() == 2);
+    tassert(id4() == 3);
+    // error checking
+    terror_message(pde.register_moment(0),
+                   "mismatch between the velocity dimensions for the domain");
+    terror_message(pde.register_moment({0, 0, 0}),
+                   "mismatch between the velocity dimensions for the domain");
   }
 }
 

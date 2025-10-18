@@ -238,8 +238,8 @@ public:
     return result;
   }
 
-  //! transform the batch of vectors to nodal representation
-  void reconstruct1d(int const nbatch, int const level, span2d<P> hdata) const;
+  //! transform a hierarchical vector on a full level to a nodal (cell-by-cell) representation
+  void reconstruct1d(int level, std::vector<P> &hdata) const;
 
   //! size of a multi-dimensional block, i.e., (degree + 1)^d
   int64_t block_size() const { return block_size_; }
@@ -382,9 +382,9 @@ protected:
    */
   void prepare_quadrature(int dim, int num_cells) const;
 
-  //! tempalted version for reduction of runtime if-statements
+  //! template version for reduction of runtime if-statements
   template<int tdegree>
-  void reconstruct1d(int const nbatch, int level, span2d<P> data) const;
+  void reconstruct1d(int level, std::vector<P> &hdata) const;
 
   //! creates a new sparse matrix with the given format
   block_sparse_matrix<P> make_block_sparse_matrix(connection_patterns const &conns,

@@ -143,6 +143,8 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   set_initial_condition();
 
   start_moments(); // grid may have changes above, wait to start the moments
+  if (terms.moms)
+    compute_moments(state);
 
   if (not stop_verbosity()) {
     int64_t const dof = grid.num_indexes() * hier.block_size();
@@ -203,6 +205,26 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
       std::cout << "  title: " << options_.title << '\n';
     if (not options_.subtitle.empty())
       std::cout << "subtitle: " << options_.subtitle << '\n';
+
+    std::cout << "basis degree: " << hier.degree();
+    switch (hier.degree()) {
+      case 0:
+        std::cout << " (constant)";
+        break;
+      case 1:
+        std::cout << " (linear)";
+        break;
+      case 2:
+        std::cout << " (quadratic)";
+        break;
+      case 3:
+        std::cout << " (cubic)";
+        break;
+      default:
+        break;
+    };
+    std::cout << '\n';
+
     std::cout << grid;
     if (options_.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
@@ -224,22 +246,11 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
-  // process the moments, can compute moments based on the initial conditions
-  if (terms.deps().poisson or terms.deps().num_moments > 0) {
-    // the poisson solver needs 1 moment
-    int const num      = std::max(terms.deps().num_moments, 1);
-    int const pos_size = fm::ipow2(grid.current_level(0));
-    int const mom_size = pos_size * (degree() + 1);
-    moms1d = moments1d(num, degree(), options_.max_level(), domain_);
-    if (terms.deps().poisson) {
-      poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
-                                 grid.current_level(0));
-
-      // skip the first solve, putting in dummy data for the term construction
-      // the electric_field is pw-constant, does not have degrees + 1 entries
-      terms.cdata.electric_field.resize(pos_size);
-    }
-    terms.cdata.moments.resize(num * mom_size);
+  //if (terms.deps().poisson) {
+  if (terms.has_poisson()) {
+    moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
+    poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
+                               grid.current_level(0), m0);
   }
 }
 
@@ -251,7 +262,7 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
     return;
   #endif
   h5manager<precision>::write(options_, domain_, degree(), grid, stepper.data,
-                              state, aux_fields, filename);
+                              state, terms.moms, aux_fields, filename);
 #else
   ignore(filename);
   throw std::runtime_error("saving to a file requires CMake option -DASGARD_USE_HIGHFIVE=ON");
@@ -345,17 +356,30 @@ discretization_manager<precision>::project_function(
   }
 }
 
-template<typename precision> void
-discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
-  expect(field.size() == static_cast<size_t>(grid.num_indexes() * fm::ipow(degree() + 1, grid.num_dims())));
+template<typename precision>
+std::vector<precision> discretization_manager<precision>::get_moment(moment_id id) const {
+  std::vector<precision> result;
+  terms.moms.compute(grid, id, state, result);
+  return result;
+}
 
-  std::vector<precision> moment0;
-  moms1d->project_moment(0, grid, field, moment0);
+template<typename precision>
+std::vector<precision> discretization_manager<precision>::get_moment_level(moment_id id) const {
+  rassert(domain_.num_pos() == 1, "level completion is done only for 1 position dimension");
+  std::vector<precision> tmp;
+  std::vector<precision> result;
+  terms.moms.compute(grid, id, state, tmp);
+  terms.moms.complete_level(hier, tmp, result);
+  return result;
+}
 
-  int const level = grid.current_level(0);
-  hier.reconstruct1d(1, level, span2d<precision>(degree() + 1, fm::ipow2(level), moment0.data()));
-
-  poisson.solve_periodic(moment0, terms.cdata.electric_field);
+template<typename precision>
+std::vector<precision> discretization_manager<precision>::get_electric() const {
+  rassert(poisson, "get_electric() requires a PDE with terms with electric dependence");
+  terms.moms.cache_moment(poisson.moment0(), grid, state);
+  poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
+                         terms.moms.edit_poisson_level());
+  return terms.moms.poisson_level();
 }
 
 template<typename precision>

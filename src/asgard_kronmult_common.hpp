@@ -227,8 +227,6 @@ struct permutes
   }
   //! \brief Pads all permutations with the given dimensions and assuming upper matrices
   void prepad_upper(std::vector<int> const &additional) {
-    // std::cout << " -- prepending \n";
-    // for (auto a : additional) std::cout << a << '\n';
     expect(not direction.empty());
     int const new_dims = num_dimensions() + static_cast<int>(additional.size());
     std::vector<std::vector<conn_fill>> old_fill = std::move(fill);
@@ -241,12 +239,6 @@ struct permutes
       std::copy(additional.begin(), additional.end(), direction[i].begin());
       std::copy(old_direction[i].begin(), old_direction[i].end(), direction[i].begin() + additional.size());
     }
-
-    // for (size_t i = 0; i < fill.size(); i++) {
-    //   std::cout << " perm \n";
-    //   for (int j = 0 ; j < new_dims; j++)
-    //     std::cout << direction[i][j] << "   " << fill_name(i, j) << '\n';
-    // }
   }
   //! \brief Indicates if the permutation has been set
   operator bool () const { return not direction.empty(); }

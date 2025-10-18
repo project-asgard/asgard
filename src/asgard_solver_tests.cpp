@@ -8,7 +8,7 @@ template<typename P>
 P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P xright,
                P dleft, P dright, solvers::poisson_bc const bc, int degree, int level)
 {
-  solvers::poisson<P> solver(degree, xleft, xright, level);
+  solvers::poisson<P> solver(degree, xleft, xright, level, moment_id{0});
 
   // construct the cell-by-cell Legenre expansion of the rhs
   // we must switch to std::vector functions

@@ -26,8 +26,8 @@ public:
   //! default, uninitialized constructor
   poisson() = default;
   //! initialize Poisson solver over the domain with given min/max, level and degree of input basis
-  poisson(int pdegree, P domain_min, P domain_max, int level)
-    : degree(pdegree), xmin(domain_min), xmax(domain_max), current_level(level)
+  poisson(int pdegree, P domain_min, P domain_max, int level, moment_id m0)
+    : degree(pdegree), xmin(domain_min), xmax(domain_max), current_level(level), mom0(m0)
   {
     if (current_level == 0) return; // nothing to solve
 
@@ -64,6 +64,8 @@ public:
   void resize_vector(std::vector<P> &eflield) {
     eflield.resize(fm::ipow2(current_level));
   }
+  //! returns the id for the zero moment
+  moment_id const &moment0() const { return mom0; }
 
 private:
   //! set the solver for the current level
@@ -85,6 +87,7 @@ private:
   int degree = -1;
   P xmin = 0, xmax = 0;
   int current_level = -1;
+  moment_id mom0 = moment_id{-1};
   std::vector<P> diag, subdiag, rhs;
 };
 

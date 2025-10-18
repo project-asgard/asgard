@@ -2,13 +2,6 @@
 
 #include "asgard_kronmult_common.hpp"
 
-#define ASGARD_PRAGMA(x) _Pragma(#x)
-#if defined(__clang__)
-#define ASGARD_CLANG_OMP ASGARD_PRAGMA(omp parallel for)
-#else
-#define ASGARD_CLANG_OMP ASGARD_OMP_PARFOR_SIMD
-#endif
-
 namespace asgard
 {
 
@@ -21,6 +14,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 
   auto vnu = [nu=lbc.nu](std::vector<P> const &v, std::vector<P> &fv)
         -> void {
+      ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < v.size(); i++)
         fv[i] = -nu * v[i];
     };
@@ -29,46 +23,114 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 
   term_1d<P> divv_nuv = term_div<P>{vnu, flux_type::upwind, boundary_type::bothsides};
 
-  term_1d<P> div_nu = term_div<P>{static_cast<P>(lbc.nu), flux_type::central, boundary_type::bothsides};
+  term_1d<P> div = term_div<P>{1, flux_type::central, boundary_type::bothsides};
 
-  P const snu = std::sqrt(lbc.nu);
-  term_1d<P> nu_div_grad = term_1d<P>({term_div<P>{-snu, flux_type::upwind, boundary_type::bothsides},
-                                       term_grad<P>{snu, flux_type::upwind, boundary_type::bothsides}});
+  term_1d<P> div_grad = term_1d<P>({term_div<P>{-1, flux_type::upwind, boundary_type::bothsides},
+                                    term_grad<P>{1, flux_type::upwind, boundary_type::bothsides}});
 
-  if (domain_.num_vel() == 1) {
+  switch(domain_.num_vel())
+  {
+  case 1:
     *this += term_md<P>({I, divv_nuv});
-    *this += term_md<P>({term_moment_over_density{1}, div_nu});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1}}, div});
 
-    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x1v);
-    *this += term_md<P>({vol_theta, nu_div_grad});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad});
+    break;
 
-  } else if (domain_.num_vel() == 2) {
+  case 2:
     *this += term_md<P>({I, divv_nuv, I});
     *this += term_md<P>({I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{1}, div_nu, I});
-    *this += term_md<P>({term_moment_over_density{2}, I, div_nu});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0}}, div, I});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1}}, I, div});
 
-    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x2v);
-    *this += term_md<P>({vol_theta, nu_div_grad, I});
-    *this += term_md<P>({vol_theta, I, nu_div_grad});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad});
+    break;
 
-  } else {
+  case 3:
     *this += term_md<P>({I, divv_nuv, I, I});
     *this += term_md<P>({I, I, divv_nuv, I});
     *this += term_md<P>({I, I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{1}, div_nu, I, I});
-    *this += term_md<P>({term_moment_over_density{2}, I, div_nu, I});
-    *this += term_md<P>({term_moment_over_density{3}, I, I, div_nu});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0, 0}}, div, I, I});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1, 0}}, I, div, I});
+    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 0, 1}}, I, I, div});
 
-    term_1d<P> vol_theta(term_dependence::lenard_bernstein_coll_theta_1x3v);
-    *this += term_md<P>({vol_theta, nu_div_grad, I, I});
-    *this += term_md<P>({vol_theta, I, nu_div_grad, I});
-    *this += term_md<P>({vol_theta, I, I, nu_div_grad});
-  }
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad, I});
+    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, I, div_grad});
+    break;
+  default:
+    // unreachable
+    break;
+  };
 
   return *this;
+}
+
+template<typename P>
+void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
+  if (tmd.is_separable()) {
+    for (int d = 0; d < domain_.num_dims(); d++) {
+      term_1d<P> &t1d = tmd.dim(d);
+      term_dependence const dep = t1d.depends();
+      switch (dep) {
+      case term_dependence::electric_field:
+      case term_dependence::electric_field_only:
+        rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
+                "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
+        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)), };
+        break;
+      case term_dependence::moment_divided_by_density:
+        rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
+                "moment-over-density requires defined velocity dimensions");
+        rassert(domain_.num_pos() == 1,
+                "moment-over-density work only for one position dimension");
+        rassert(t1d.moment_over().num_dims() == domain_.num_vel(),
+                "moment-over-density requires moment with dimension matching the number of velocity dimensions");
+        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                     this->register_moment(t1d.moment_over())};
+        break;
+      case term_dependence::lenard_bernstein_coll_theta:
+        rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
+                "Lenard-Bernstein-theta requires defined velocity dimensions");
+        rassert(domain_.num_pos() == 1,
+                "Lenard-Bernstein-theta work only for one position dimension");
+        // the zero-th moment is always needed, the others are set based on the dimensions
+        switch (domain_.num_vel()) {
+        case 1:
+          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                       this->register_moment(moment(1, moment::regular)),
+                       this->register_moment(moment(2, moment::regular)), };
+          break;
+        case 2:
+          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                       this->register_moment(moment(1, 0, moment::regular)),
+                       this->register_moment(moment(0, 1, moment::regular)),
+                       this->register_moment(moment(2, 0, moment::regular)),
+                       this->register_moment(moment(0, 2, moment::regular)), };
+          break;
+        case 3:
+          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel(), moment::regular)),
+                       this->register_moment(moment(1, 0, 0, moment::regular)),
+                       this->register_moment(moment(0, 1, 0, moment::regular)),
+                       this->register_moment(moment(0, 0, 1, moment::regular)),
+                       this->register_moment(moment(2, 0, 0, moment::regular)),
+                       this->register_moment(moment(0, 2, 0, moment::regular)),
+                       this->register_moment(moment(0, 0, 2, moment::regular)), };
+          break;
+        default:
+          // unreachable due to the assertion above
+          break;
+        };
+        break;
+      default:
+        // nothing to do for term_dependence::none
+        break;
+      };
+    }
+  }
 }
 
 template<typename P>

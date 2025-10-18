@@ -1,204 +1,264 @@
 #include "asgard_test_macros.hpp"
 
-using P = asgard::default_precision;
+// using P = asgard::default_precision;
 
 using namespace asgard;
 
-double test_moments(std::vector<P> const &drange, int level, int degree, int num_mom,
-                    std::vector<std::function<P(P)>> const base,
-                    std::vector<std::function<P(P)>> const moments)
+template<typename P>
+struct test_function
 {
-  expect(drange.size() % 2 == 0);
-  expect(drange.size() / 2 == base.size());
-  expect(not base.empty());
+  std::string name;
+  domain_range range;
+  std::function<P(P)> base; // base signature
+  std::function<void(std::vector<P> const &, P, std::vector<P> &)> func;
+  std::array<P, 4> moms; // moments
+};
 
-  std::vector<domain_range> ranges;
-  for (size_t i = 0; i < drange.size(); i += 2)
-    ranges.emplace_back(drange[i], drange[i + 1]);
+std::vector<test_function<float>> ffuncs;
+std::vector<test_function<double>> dfuncs;
+
+template<typename P>
+std::vector<test_function<P>> const &get_functions()
+{
+  std::vector<test_function<P>> &funcs = []() -> std::vector<test_function<P>> & {
+      if constexpr (is_double<P>)
+        return dfuncs;
+      else
+        return ffuncs;
+    }();
+
+  if (not funcs.empty()) return funcs;
+  // initialize the functions
+
+  funcs.reserve(10); // maybe an overkill
+  // exp(x) over (-1, 1)
+  funcs.push_back(test_function<P>{"exp(x)", {-1, 1}, [](P x)->P{ return std::exp(x); }, nullptr,
+                  {2.350402387287603, 0.735758882342885, 0.878884622601834, 0.449507401824987}});
+  // sin(x) over (0, 1)
+  funcs.push_back(test_function<P>{"sin(x)", {0, 1}, [](P x)->P{ return std::sin(x); }, nullptr,
+                  {0.459697694131860, 0.301168678939757, 0.223244275483933, 0.177098574917009}});
+  // cos(x) over (1, 2)
+  funcs.push_back(test_function<P>{"cos(x)", {1, 2}, [](P x)->P{ return std::cos(x); }, nullptr,
+                  {6.782644201778519e-02, 2.067472642818477e-02, -8.512611946558914e-02, -0.305808884941680}});
+  // sin(x) over (-1, 1)
+  funcs.push_back(test_function<P>{"sin(x)", {-1, 1}, [](P x)->P{ return std::sin(x); }, nullptr,
+                  {0, 0.602337357879514, 0, 0.354197149834018}});
+  // exp(x) over (0.5, 1.5)
+  funcs.push_back(test_function<P>{"exp(x)", {0.5, 1.5}, [](P x)->P{ return std::exp(x); }, nullptr,
+                  {2.832967799637936, 3.065205170519097, 3.541209749547421, 4.295981204911191}});
+
+  for (auto &f : funcs)
+    f.func = vectorize_t<P>(f.base);
+
+  return funcs;
+}
+
+template<typename P>
+pde_scheme<P> make_pde(pde_domain<P> const &domain, int level, int degree,
+                       std::vector<std::function<void(std::vector<P> const &, P, std::vector<P> &)>> const &funcs)
+{
+  expect(static_cast<int>(funcs.size()) == domain.num_dims());
 
   prog_opts options;
   options.default_degree = degree;
-  options.start_levels = {level, };
-  options.default_dt        = 0.01;
-  options.default_stop_time = 1;
+  options.default_start_levels = {level, };
 
-  pde_domain domain(position_dims{1},
-                    velocity_dims{static_cast<int>(base.size()) - 1},
-                    ranges);
+  options.num_time_steps = 0;
 
-  // make the reference PDE
   pde_scheme<P> pde(options, domain);
 
-  separable_func<P> vbase(std::vector<P>(base.size(), 1));
-  for (int d : iindexof(base))
-    vbase.set(d, vectorize_t<P>(base[d]));
+  pde.add_initial(separable_func<P>(funcs));
 
-  pde.add_initial(vbase);
-
-  discretization_manager<P> disc(pde, verbosity_level::quiet);
-
-  int const num_moms = static_cast<int>(moments.size());
-
-  moments1d<P> moms(num_mom, degree, disc.max_level(), domain);
-
-  std::vector<std::unique_ptr<discretization_manager<P>>> dmoms;
-
-  for (int m = 0; m < num_moms; m++)
-  {
-    pde_scheme<P> pde2(options, pde_domain({ranges[0], }));
-
-    pde2.add_initial(separable_func<P>({vectorize_t<P>(moments[m]), }));
-
-    dmoms.emplace_back(std::make_unique<discretization_manager<P>>
-                       (std::move(pde2), verbosity_level::quiet));
-  }
-
-  std::vector<P> raw_moments;
-  moms.project_moments(disc.get_grid(), disc.current_state(), raw_moments);
-
-  // the raw_moments are stored interlaces, e.g., cell0-mom0, cell0-mom1, cell1-mom0 ...
-  // splitting into separate vectors, for easier comparison against the reference states
-  int num_comp = 1 + (pde.num_dims() - 1) * (num_mom - 1);
-  std::vector<std::vector<P>> vmoms(num_comp, std::vector<P>(raw_moments.size() / num_comp));
-  {
-    std::vector<decltype(vmoms.front().begin())> imoms(num_comp);
-    for (int m : iindexof(num_comp))
-      imoms[m] = vmoms[m].begin();
-
-    auto im = raw_moments.begin();
-    while (imoms.front() != vmoms[0].end()) {
-      for (int i : iindexof(num_comp))
-      {
-        imoms[i] = std::copy_n(im, degree + 1, imoms[i]);
-        std::advance(im, degree + 1);
-      }
-    }
-  }
-
-  P err = 0;
-  for (int m = 0; m < num_comp; m++)
-  {
-    std::vector<P> const &ref = dmoms[m]->current_state();
-
-    err = std::max(err, fm::diff_inf(vmoms[m], ref));
-
-    // also include comparison with the solution of a single moment
-    std::vector<P> single_mom;
-    moms.project_moment(m, disc.get_grid(), disc.current_state(), single_mom);
-    err = std::max(err, fm::diff_inf(single_mom, ref));
-  }
-
-  return err;
+  return pde;
 }
 
-void test_compute_moments()
+struct test_props {
+  int degree = 0;
+  int level = 0;
+  std::vector<double> tols;
+};
+
+template<typename P>
+void test_case(std::string info, int num_pos, std::vector<int> ifuncs,
+               std::vector<moment> const &moms,
+               std::vector<test_props> const &props)
 {
-  double constexpr tol = (std::is_same_v<P, double>) ? 5.E-14 : 5.E-6;
+  expect(num_pos + 1 <= static_cast<int>(ifuncs.size()));
+  for (auto const &p : props) {
+    expect(p.tols.size() == moms.size());
+  }
 
+  int const num_vel = static_cast<int>(ifuncs.size() - num_pos);
+
+  current_test<P> name_("compute moments " + std::to_string(num_pos) + "x"
+                                           + std::to_string(num_vel) + "v  ("
+                                           + info + ")");
+  tassert(num_vel > 0);
+
+  auto const &funcs = get_functions<P>();
+
+  std::vector<domain_range> ranges; ranges.reserve(ifuncs.size());
+  for (auto i : ifuncs) ranges.push_back(funcs[i].range);
+  pde_domain<P> domain(position_dims{num_pos}, velocity_dims{num_vel});
+  domain.set(ranges);
+
+  moments_list mlist;
+  for (auto const &m : moms) mlist.add_moment(m);
+
+  moment_manager<P> manager;
+  tassert(not manager);
+
+  for (auto const &p : props)
   {
-    current_test<P> name_("compute moments", 2);
-    std::vector<std::function<P(P)>> base(2), moms(3);
+    int const degree = p.degree;
+    int const level  = p.level;
 
-    base[0] = [](P x) -> P { return std::sin(x); };
-    base[1] = [](P) -> P { return 1.0; };
+    std::vector<svector_func1d<P>> f1d; f1d.reserve(ifuncs.size());
+    for (auto i : ifuncs) f1d.push_back(funcs[i].func);
+    auto pde = make_pde<P>(domain, level, degree, f1d);
+    f1d.resize(num_pos);
+    auto pos_pde = make_pde<P>(domain.position_domain(), level, degree, f1d);
 
-    moms[0] = [](P x) -> P { return 3.0 * std::sin(x); };
-    moms[1] = [](P x) -> P { return -1.5 * std::sin(x); };
-    moms[2] = [](P x) -> P { return 3.0 * std::sin(x); };
+    std::vector<moment_id> mid; mid.reserve(moms.size());
+    for (auto const &m : moms)
+      mid.push_back( pde.register_moment(m) );
 
-    for (int d = 0; d < 4; d++) {
-      for (int l = 1; l < 7; l++) {
-        double err = test_moments({-2, 1, -2, 1}, l, d, 3, base, moms);
-        tassert(err < tol);
-      }
-    }
+    discretization_manager<P> disc(pde, verbosity_level::quiet);
+    discretization_manager<P> pos_disc(pos_pde, verbosity_level::quiet);
 
-    base[0] = [](P x) -> P { return std::sin(x); };
-    base[1] = [](P v) -> P { return std::cos(v); };
+    std::vector<P> const &ref = pos_disc.current_state();
 
-    moms[0] = [](P x) -> P { return 1.75076841163357 * std::sin(x); };
-    moms[1] = [](P x) -> P { return -2.067472642818473e-02 * std::sin(x); };
-    moms[2] = [](P x) -> P { return 0.393141134391177 * std::sin(x); };
+    for (int i : iindexof(moms)) {
+      P scale = 1;
+      for (int d = num_pos; d < domain.num_dims(); d++)
+        scale *= funcs[ifuncs[d]].moms[ moms[i].pows[d - num_pos] ];
 
-    for (int d = 0; d < 4; d++) {
-      std::vector<std::function<P(P)>> rmoms;
-      for (int m = 0; m < std::min(d+1, 3); m++)
-        rmoms.push_back(moms[m]);
-      for (int l = 1; l < 7; l++) {
-        double err = test_moments({-2, 1, -2, 1}, l, d, std::min(d+1, 3), base, rmoms);
-        tassert(err < 5 * tol);
-      }
+      std::vector<P> vals = disc.get_moment(mid[i]);
+      tassert(ref.size() == vals.size());
+
+      P err = 0;
+      for (size_t j = 0; j < ref.size(); j++)
+        err = std::max(err, std::abs(scale * ref[j] - vals[j]));
+
+      // std::cout << "  err = " << err << "  degree = " << degree
+      //           << "  level = " << level << "  mom = " << i << " :: "
+      //           << moms[i] << '\n';
+      tcheckless(i, err, p.tols[i]);
     }
   }
-  {
-    current_test<P> name_("compute moments", 3);
-    std::vector<std::function<P(P)>> base(3), moms(5);
+}
 
-    base[0] = [](P x) -> P { return std::sin(x); };
-    base[1] = [](P v) -> P { return std::cos(v); };
-    base[2] = [](P v) -> P { return std::exp(v); };
+template<typename P>
+void do_all_tests() {
+  constexpr P tol = (is_double<P>) ? 1.E-14 : 1.E-5;
 
-    moms[0] = [](P x) -> P { return 7.021176657759206 * 1.75076841163357 * std::sin(x); };
-    moms[1] = [](P x) -> P { return 7.021176657759206 * -2.067472642818473e-02 * std::sin(x); };
-    moms[2] = [](P x) -> P { return 8.124814981273536 * 1.75076841163357 * std::sin(x); };
-    moms[3] = [](P x) -> P { return 7.021176657759206 * 0.393141134391177 * std::sin(x); };
-    moms[4] = [](P x) -> P { return 12.93871499200409 * 1.75076841163357 * std::sin(x); };
+  test_case<P>("case 1", 1, {0, 1}, {moment(0), moment(1), moment(2)},
+               {test_props{0, 0, {tol, 2.E-1, 2.E-1}},
+                test_props{0, 7, {tol, 5.E-3, 5.E-3}},
+                test_props{1, 0, {tol, tol, 5.E-3}},
+                test_props{1, 1, {tol, tol, 5.E-3}},
+                test_props{1, 2, {tol, tol, 1.E-4}},
+                test_props{2, 0, {tol, tol, tol}},
+                test_props{2, 1, {tol, tol, tol}},
+                test_props{2, 5, {tol, tol, tol}},
+                test_props{3, 0, {tol, tol, tol}},
+                test_props{3, 1, {tol, tol, tol}},
+                test_props{3, 3, {tol, tol, tol}},
+                });
 
-    for (int d = 0; d < 4; d++) {
-      std::vector<std::function<P(P)>> rmoms;
-      int const npow = std::min(d+1, 3);
-      int const nm   = 1 + 2 * (npow - 1);
-      for (int m = 0; m < nm; m++)
-        rmoms.push_back(moms[m]);
-      for (int l = 1; l < 7; l++) {
-        double err = test_moments({-2, 1, -2, 1, -1, 2}, l, d, npow, base, rmoms);
-        tassert(err < 10 * tol);
-      }
-    }
-  }
-  {
-    current_test<P> name_("compute moments", 4);
-    std::vector<std::function<P(P)>> base(4), moms(7);
+  test_case<P>("case 2", 1, {1, 2}, {moment(0), moment(1), moment(2)},
+               {test_props{0, 0, {tol, 2.E-1, 2.E-1}},
+                test_props{0, 7, {tol, 5.E-3, 5.E-3}},
+                test_props{1, 0, {tol, tol, 5.E-3}},
+                test_props{1, 1, {tol, tol, 5.E-3}},
+                test_props{1, 2, {tol, tol, 1.E-4}},
+                test_props{2, 0, {tol, tol, tol}},
+                test_props{2, 1, {tol, tol, tol}},
+                test_props{2, 5, {tol, tol, tol}},
+                test_props{3, 0, {tol, tol, tol}},
+                test_props{3, 1, {tol, tol, tol}},
+                test_props{3, 3, {tol, tol, tol}},
+                });
+  test_case<P>("case 3", 1, {2, 1}, {moment(0), moment(2)},
+               {test_props{0, 0, {tol, 2.E-1}},
+                test_props{0, 7, {tol, 5.E-3}},
+                test_props{1, 0, {tol, 5.E-3}},
+                test_props{1, 1, {tol, 5.E-3}},
+                test_props{1, 2, {tol, 1.E-4}},
+                test_props{2, 0, {tol, tol}},
+                test_props{2, 1, {tol, tol}},
+                test_props{2, 5, {tol, tol}},
+                test_props{3, 0, {tol, tol}},
+                test_props{3, 1, {tol, tol}},
+                test_props{3, 3, {tol, tol}},
+                });
 
-    base[0] = [](P x) -> P { return std::sin(x); };
-    base[1] = [](P v) -> P { return std::cos(v); };
-    base[2] = [](P v) -> P { return std::exp(v); };
-    base[3] = [](P v) -> P { return std::sin(v); };
+  test_case<P>("case 1", 1, {0, 1, 2}, {moment(0, 0), moment(0, 1), moment(2, 0), moment(2, 1)},
+               {test_props{0, 0, {tol, 1.E-1, 1.E-2, 5.E-2}},
+                test_props{0, 7, {tol, 5.E-4, 5.E-5, 1.E-4}},
+                test_props{1, 0, {tol, tol, 5.E-3, 1.E-4}},
+                test_props{1, 1, {tol, tol, 5.E-5, 1.E-5}},
+                test_props{1, 4, {tol, tol, 5.E-7, 1.E-7}},
+                test_props{2, 0, {tol, tol, tol, tol}},
+                test_props{2, 1, {tol, tol, tol, tol}},
+                test_props{2, 5, {tol, tol, tol, tol}},
+                test_props{3, 0, {tol, tol, tol, tol}},
+                test_props{3, 1, {tol, tol, tol, tol}},
+                test_props{3, 3, {tol, tol, tol, tol}},
+                });
+  test_case<P>("case 2", 1, {2, 1, 0}, {moment(0, 0), moment(0, 1), moment(2, 0), moment(2, 1)},
+               {test_props{0, 7, {tol, 5.E-4, 1.E-4, 5.E-3}},
+                test_props{1, 0, {tol, tol, 5.E-3, 5.E-3}},
+                test_props{1, 4, {tol, tol, 5.E-7, 1.E-7}},
+                test_props{2, 0, {tol, tol, tol, tol}},
+                test_props{3, 0, {tol, tol, tol, tol}},
+                });
+  test_case<P>("case 3", 1, {1, 2, 0}, {moment(0, 1), moment(3, 0), moment(3, 1)},
+               {test_props{1, 4, {tol, 5.E-7, 5.E-7}},
+                test_props{2, 0, {tol, 1.E-4, 1.E-4}},
+                test_props{3, 0, {tol, tol, tol}},
+                });
 
-    moms[0] = [](P x) -> P {
-      return -4.347843211251236e-02 * 7.021176657759206 * 1.75076841163357 * std::sin(x);
-    };
-    moms[1] = [](P x) -> P {
-      return -4.347843211251236e-02 * 7.021176657759206 * -2.067472642818473e-02 * std::sin(x);
-    };
-    moms[2] = [](P x) -> P {
-      return -4.347843211251236e-02 * 8.124814981273536 * 1.75076841163357 * std::sin(x);
-    };
-    moms[3] = [](P x) -> P {
-      return 6.162820236651310e-02 * 7.021176657759206 * 1.75076841163357 * std::sin(x);
-    };
-    moms[4] = [](P x) -> P {
-      return -4.347843211251236e-02 * 7.021176657759206 * 0.393141134391177 * std::sin(x);
-    };
-    moms[5] = [](P x) -> P {
-      return -4.347843211251236e-02 * 12.93871499200409 * 1.75076841163357 * std::sin(x);
-    };
-    moms[6] = [](P x) -> P {
-      return -8.908119100126307e-03 * 7.021176657759206 * 1.75076841163357 * std::sin(x);
-    };
+  test_case<P>("case 1", 1, {0, 1, 2, 4}, {moment(0, 0, 0), moment(0, 1, 1), moment(3, 0, 0)},
+               {test_props{0, 7, {tol, 5.E-4, 1.E-4,}},
+                test_props{1, 0, {tol, tol, 1.E-3}},
+                test_props{1, 4, {tol, tol, 3.E-6}},
+                test_props{2, 0, {tol, tol, 3.E-5}},
+                test_props{3, 0, {tol, tol, tol}},
+                });
 
-    for (int d = 0; d < 4; d++) {
-      std::vector<std::function<P(P)>> rmoms;
-      int const npow = std::min(d+1, 3);
-      int const nm   = 1 + 3 * (npow - 1);
-      for (int m = 0; m < nm; m++)
-        rmoms.push_back(moms[m]);
-      for (int l = 1; l < 7; l++) {
-        double err = test_moments({-2, 1, -2, 1, -1, 2, -0.5, 0.4}, l, d, npow, base, rmoms);
-        tassert(err < tol);
-      }
-    }
-  }
+  test_case<P>("case 2", 1, {4, 1, 2, 2}, {moment(0, 0, 0), moment(0, 0, 3)},
+               {test_props{0, 7, {tol, 1.E-1}},
+                test_props{1, 0, {tol, 1.E-1}},
+                test_props{1, 6, {tol, 3.E-6}},
+                test_props{2, 0, {tol, 3.E-5}},
+                test_props{3, 0, {tol, tol}},
+                });
+
+  test_case<P>("all", 2, {0, 1, 2}, {moment(0), moment(1), moment(2)},
+               {test_props{0, 7, {tol, 5.E-4, 1.E-3}},
+                test_props{1, 0, {tol, 1.E-8, 5.E-4}},
+                test_props{1, 6, {tol, 3.E-8, 3.E-8}},
+                test_props{2, 0, {tol, tol, tol}},
+                test_props{2, 4, {tol, tol, tol}},
+                test_props{3, 0, {tol, tol, tol}},
+                });
+
+  test_case<P>("all", 2, {1, 2, 3, 4}, {moment(2, 0), moment(0, 0), moment(0, 1)},
+               {test_props{1, 0, {tol, 1.E-8, 5.E-4}},
+                test_props{1, 6, {tol, 1.E-8, 1.E-8}},
+                test_props{2, 0, {tol, tol, tol}},
+                test_props{2, 4, {tol, tol, tol}},
+                test_props{3, 0, {tol, tol, tol}},
+                });
+
+  test_case<P>("all", 3, {1, 2, 0, 0, 2, 1}, {moment(0, 0, 0), moment(2, 0, 0)},
+               {test_props{1, 0, {tol, 1.E-3}},
+                test_props{1, 6, {tol, 5.E-8}},
+                test_props{2, 0, {tol, tol}},
+                test_props{2, 4, {tol, tol}},
+                test_props{3, 0, {tol, tol}},
+                });
 }
 
 int main(int argc, char **argv)
@@ -207,7 +267,13 @@ int main(int argc, char **argv)
 
   all_tests global_("computing moments", " field integrals in velocity domain");
 
-  test_compute_moments();
+  #ifdef ASGARD_ENABLE_DOUBLE
+  do_all_tests<double>();
+  #endif
+
+  #ifdef ASGARD_ENABLE_FLOAT
+  do_all_tests<float>();
+  #endif
 
   return 0;
 }

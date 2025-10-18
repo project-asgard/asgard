@@ -99,17 +99,17 @@ class pde_domain
 public:
   //! create an empty domain
   pde_domain() {
-    std::fill(xleft_.begin(), xleft_.end(), 0);
-    std::fill(xright_.begin(), xright_.end(), 0);
-    std::fill(length_.begin(), length_.end(), 0);
+    xleft_.fill(0);
+    xright_.fill(0);
+    length_.fill(0);
   }
   //! create a canonical domain for the given number of dimensions
   pde_domain(int num_dimensions)
     : num_dims_(num_dimensions)
   {
-    std::fill(xleft_.begin(), xleft_.end(), 0);
-    std::fill(xright_.begin(), xright_.end(), 1);
-    std::fill(length_.begin(), length_.end(), 1);
+    xleft_.fill(0);
+    xright_.fill(1);
+    length_.fill(1);
     check_init();
   }
   //! create a domain with given range in each dimension
@@ -126,9 +126,9 @@ public:
   {
     check_init();
 
-    std::fill(xleft_.begin(), xleft_.end(), 0);
-    std::fill(xright_.begin(), xright_.end(), 1);
-    std::fill(length_.begin(), length_.end(), 1);
+    xleft_.fill(0);
+    xright_.fill(1);
+    length_.fill(1);
 
     if (list.size() > 0)
       this->set(list);
@@ -206,6 +206,21 @@ public:
   P cell_size(int dim, int level) const {
     int num_cells = fm::ipow2(level);
     return length_[dim] / num_cells;
+  }
+  //! (mostly for moment testing) returns just the position dimensions
+  pde_domain<P> position_domain() const {
+    if (num_pos_ == 0) {
+      if (num_vel_ == 0) return *this; // everything is a position
+      else return pde_domain<P>{}; // nothing is a position dimension
+    }
+    std::vector<domain_range> rng;
+    rng.reserve(num_pos_);
+    for (int i = 0; i < num_pos_; i++)
+      rng.push_back({xleft_[i], xright_[i]});
+
+    pde_domain<P> result(position_dims{num_pos_}, velocity_dims{0});
+    result.set(rng);
+    return result;
   }
 
   //! used for i/o purposes
@@ -437,6 +452,8 @@ struct aux_field_entry {
   {}
   //! reference name for the field, should be unique
   std::string name;
+  //! the field can potentially have a different number of dimensions
+  int num_dimensions = -1;
   //! vector data
   std::vector<P> data;
   //! multi-indexes

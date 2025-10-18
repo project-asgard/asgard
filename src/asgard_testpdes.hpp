@@ -159,6 +159,10 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
 
     pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
 
+    moment_id const m0 = pde.register_moment({0, moment::inactive});
+    moment_id const m1 = pde.register_moment({1, moment::inactive});
+    moment_id const m2 = pde.register_moment({2, moment::inactive});
+
     return pde;
 
   } else {
@@ -185,34 +189,22 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
   {
     // there is no analytic solution, using the sum of particle potential and kinetic
     // energy as the indicator, it is not zero but must be near constant
-    int const num_moms = 3;
-    int const pdof     = disc.degree() + 1;
-    moments1d moms(num_moms, pdof - 1, disc.max_level(), disc.domain());
-    std::vector<P> mom_vec;
-
-    moms.project_moments(disc.get_grid(), disc.current_state(), mom_vec);
-
-    disc.do_poisson_update(disc.current_state()); // update the electric field
-
-    auto const &efield = disc.get_terms().cdata.electric_field;
 
     int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
-    double const dx    = disc.domain().length(0) / num_cell;
+    P const dx         = disc.domain().length(0) / num_cell;
 
-    double Ep = 0;
-    for (auto e : efield)
-      Ep += e * e;
+    auto efield = disc.get_electric();
+
+    P Ep = 0;
+    for (auto e : efield) Ep += e * e;
     Ep *= dx;
 
-    span2d<P> moments(num_moms * pdof, num_cell, mom_vec.data());
+    std::vector<P> mom2 = disc.get_moment(moment_id{2}); // cheating here, why exactly 2
 
-    double Ek = 0;
-    for (int j : iindexof(num_cell))
-      Ek += moments[j][2 * pdof]; // integrating the third moment
-    Ek *= std::sqrt(disc.domain().length(0));
+    P const Ek = mom2[0] * std::sqrt(disc.domain().length(0));
 
-    return Ep + Ek;
+    return 0.5 * (Ep + Ek);
   }
 
   int const num_dims = disc.num_dims();

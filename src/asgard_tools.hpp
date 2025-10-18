@@ -501,7 +501,7 @@ using iindexof = indexof<int>;
 
 
 /*!
- * \brief Allows for range for-loops but using indexes
+ * \brief Allows ranged for-loops using indexes
  *
  * This construct is similar to asgard::indexof but it focuses on working
  * with slices of vectors (as opposed to entire vectors).

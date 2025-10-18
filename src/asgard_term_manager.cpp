@@ -9,12 +9,11 @@ namespace asgard
 
 template<typename P>
 term_entry<P>::term_entry(term_md<P> tin)
-  : tmd(std::move(tin))
+  : tmd(std::move(tin)), has_poisson(false)
 {
   expect(not tmd.is_chain());
   if (tmd.is_interpolatory()) {
-    deps[0] = {false, 0}; // set interpolation deps here
-    return;
+    return; // interpolation poisson dependence goes here
   }
 
   int const num_dims = tmd.num_dims();
@@ -33,41 +32,27 @@ term_entry<P>::term_entry(term_md<P> tin)
       }
     }
 
-    deps[d] = get_deps(t1d);
+    has_poisson = has_poisson or has_needs_poisson(t1d);
   }
 
   perm = kronmult::permutes(active_dirs, flux_dir);
 }
 
 template<typename P>
-mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
-  auto process_dep = [](term_1d<P> const &single)
-    -> mom_deps {
-      switch (single.depends()) {
-        case term_dependence::electric_field:
-        case term_dependence::electric_field_only:
-          // technically, el-field requires 1 moment, but it is a special case
-          return {true, 0};
-        case term_dependence::moment_divided_by_density:
-          return {false, std::abs(single.moment())};
-        case term_dependence::lenard_bernstein_coll_theta_1x1v:
-          return {false, 3};
-        case term_dependence::lenard_bernstein_coll_theta_1x2v:
-          return {false, 5};
-        case term_dependence::lenard_bernstein_coll_theta_1x3v:
-          return {false, 7};
-        default:
-          return {};
-      };
+bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
+  auto check_poisson = [](term_1d<P> const &single)
+    -> bool {
+      return (single.depends() == term_dependence::electric_field or
+              single.depends() == term_dependence::electric_field_only);
     };
 
   if (t1d.is_chain()) {
-    mom_deps result;
     for (int i : iindexof(t1d.num_chain()))
-      result += process_dep(t1d[i]);
-    return result;
+      if (check_poisson(t1d[i]))
+        return true;
+    return false;
   } else {
-    return process_dep(t1d);
+    return check_poisson(t1d);
   }
 }
 
@@ -76,7 +61,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                               pde_scheme<P> &pde, sparse_grid const &grid,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
-  : num_dims(domain.num_dims()), max_level(options.max_level()), legendre(hier.degree())
+  : num_dims(domain.num_dims()), max_level(options.max_level()), legendre(hier.degree()),
+    moms(domain, max_level, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
 #endif
@@ -148,28 +134,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
     if (has_interp)
       interp = interpolation_manager<P>(options, domain, hier, conn);
-  }
-
-  // compute the dependencies
-  if (term_groups.empty()) {
-    mom_deps deps;
-    for (auto const &tentry : terms)
-      for (int d : iindexof(num_dims))
-        deps += tentry.deps[d];
-    deps_.emplace_back(deps);
-  } else {
-    deps_.reserve(term_groups.size() + 1);
-    for (auto const &tg : term_groups) {
-      mom_deps deps;
-      for (int tid : indexrange(tg))
-        for (int d : iindexof(num_dims))
-          deps += terms[tid].deps[d];
-      deps_.emplace_back(deps);
-    }
-    mom_deps deps;
-    for (auto const &dp : deps_)
-      deps += dp;
-    deps_.emplace_back(deps);
   }
 
   int num_bc = 0;
@@ -381,6 +345,45 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
     if (has_field_interp)
       ifield.resize(1);
+
+    // handle the moment dependence
+    std::vector<moment_id> active_moments;
+    active_moments.reserve(250); // should be more than enough, not a big deal otherwise
+    bool has_poisson = false;
+    for (auto const &tentry : terms) {
+      #ifdef ASGARD_USE_MPI
+      if (not resources.owns(tentry.rec))
+        continue;
+      #endif
+      has_poisson = has_poisson or tentry.has_poisson;
+      if (tentry.is_separable()) // only separable terms can have 1D moment deps
+        for (int d : iindexof(num_dims)) {
+          auto const &mids = tentry.tmd.dim(d).mids_;
+          if (not mids.empty()) {
+            active_moments.insert(active_moments.end(), mids.begin(), mids.end());
+          }
+        }
+    }
+    if (has_poisson) {
+      if (term_groups.empty())
+        has_poisson_.resize(1, true);
+      else
+        has_poisson_.resize(term_groups.size(), false); // will process groups below
+    }
+    if (not term_groups.empty()) {
+      for (int gid : iindexof(term_groups)) {
+        bool needs = false;
+        for (int tid : indexrange(term_groups[gid])) {
+          #ifdef ASGARD_USE_MPI
+          if (not resources.owns(terms[tid].rec))
+            continue;
+          #endif
+          needs = needs or terms[tid].has_poisson;
+        }
+        if (needs)
+          has_poisson_[gid] = needs;
+      }
+    }
   }
 }
 
@@ -485,9 +488,9 @@ void term_manager<P>::rebuld_term1d(
 
   bool is_diag = t1d.is_volume();
   if (t1d.is_chain()) {
-    rebuld_chain(tentry, dim, level, bmass, is_diag, wraw_diag, wraw_tri);
+    rebuld_chain(tentry, dim, level, hier, bmass, is_diag, wraw_diag, wraw_tri);
   } else {
-    build_raw_mat(tentry, dim, 0, level, bmass, wraw_diag, wraw_tri);
+    build_raw_mat(tentry, dim, 0, level, hier, bmass, wraw_diag, wraw_tri);
   }
 
   // the build/rebuild put the result in raw_diag or raw_tri
@@ -559,6 +562,7 @@ void term_manager<P>::rebuld_term1d(
 template<typename P>
 void term_manager<P>::build_raw_mat(
     term_entry<P> &tentry, int d, int clink, int level,
+    hierarchy_manipulator<P> const &hier,
     block_diag_matrix<P> const *bmass,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
@@ -573,36 +577,46 @@ void term_manager<P>::build_raw_mat(
           if (t1d.rhs()) {
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
-            t1d.rhs(cdata.electric_field, kwork.w1);
+            t1d.rhs(moms.poisson_level(), kwork.w1);
             gen_diag_cmat_pwc<P>(legendre, level, kwork.w1, raw_diag);
             kwork.w1.resize(n);
           } else {
-            gen_diag_cmat_pwc<P>(legendre, level, cdata.electric_field, raw_diag);
+            gen_diag_cmat_pwc<P>(legendre, level, moms.poisson_level(), raw_diag);
           }
           break;
         case term_dependence::electric_field:
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;
         case term_dependence::moment_divided_by_density:
-          if (t1d.moment() > 0) {
-            gen_diag_mom_cases<P, +1, term_dependence::moment_divided_by_density>
-              (legendre, level, t1d.moment(), cdata.moments, raw_diag);
-          } else {
-            gen_diag_mom_cases<P, -1, term_dependence::moment_divided_by_density>
-              (legendre, level, -t1d.moment(), cdata.moments, raw_diag);
-          }
+          gen_diag_mom_over_zero<P>(legendre, level, t1d.rhs_const(),
+                                    moms.get_cached_level(t1d.moment_ids()[0], hier),
+                                    moms.get_cached_level(t1d.moment_ids()[1], hier),
+                                    raw_diag);
           break;
-        case term_dependence::lenard_bernstein_coll_theta_1x1v:
-          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x1v>
-            (legendre, level, 0, cdata.moments, raw_diag);
-          break;
-        case term_dependence::lenard_bernstein_coll_theta_1x2v:
-          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x2v>
-            (legendre, level, 0, cdata.moments, raw_diag);
-          break;
-        case term_dependence::lenard_bernstein_coll_theta_1x3v:
-          gen_diag_mom_cases<P, 1, term_dependence::lenard_bernstein_coll_theta_1x3v>
-            (legendre, level, 0, cdata.moments, raw_diag);
+        case term_dependence::lenard_bernstein_coll_theta:
+          switch (moms.num_vel()) {
+          case 1:
+            moms.cache_levels(3, hier, t1d.mids_);
+            gen_diag_lenard_bernstein_theta<P, 1>(legendre, level, t1d.rhs_const(),
+                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  raw_diag);
+            break;
+          case 2:
+            moms.cache_levels(5, hier, t1d.mids_);
+            gen_diag_lenard_bernstein_theta<P, 2>(legendre, level, t1d.rhs_const(),
+                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  raw_diag);
+            break;
+          case 3:
+            moms.cache_levels(7, hier, t1d.mids_);
+            gen_diag_lenard_bernstein_theta<P, 3>(legendre, level, t1d.rhs_const(),
+                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  raw_diag);
+            break;
+          default:
+            // unreachable here
+            break;
+          };
           break;
         default:
           if (t1d.rhs()) {
@@ -773,6 +787,7 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 template<typename P>
 void term_manager<P>::rebuld_chain(
     term_entry<P> &tentry, int const d, int const level,
+    hierarchy_manipulator<P> const &hier,
     block_diag_matrix<P> const *bmass,
     bool &is_diag, block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
@@ -795,14 +810,14 @@ void term_manager<P>::rebuld_chain(
     // the last product has to be written to raw_diag
     block_diag_matrix<P> *diag0 = &raw_diag0;
     block_diag_matrix<P> *diag1 = &raw_diag1;
-    build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, raw_tri);
+    build_raw_mat(tentry, d, num_chain - 1, level, hier, bmass, *diag0, raw_tri);
     for (int i = num_chain - 2; i > 0; i--) {
-      build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
+      build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
       diag1->check_resize(raw_diag);
       gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
     }
-    build_raw_mat(tentry, d, 0, level, bmass, *diag1, raw_tri);
+    build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, raw_tri);
     raw_diag.check_resize(*diag1);
     gemm_block_diag(legendre.pdof, *diag1, *diag0, raw_diag);
 
@@ -826,11 +841,11 @@ void term_manager<P>::rebuld_chain(
   // if we start with a diagonal, we will switch to tri at some point
 
   fill current = (t1d.chain_.back().is_volume()) ? fill::diag : fill::tri;
-  build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, *tri0);
+  build_raw_mat(tentry, d, num_chain - 1, level, hier, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
   {
-    build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
+    build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
     if (t1d[i].is_volume()) { // computed a diagonal fill
@@ -859,7 +874,7 @@ void term_manager<P>::rebuld_chain(
   }
 
   // last term, compute in diag1/tri1 and multiply into raw_tri
-  build_raw_mat(tentry, d, 0, level, bmass, *diag1, *tri1);
+  build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, *tri1);
 
   if (t1d[0].is_volume()) {
     // the rest must be a tri-diagonal matrix already
@@ -995,7 +1010,7 @@ void term_manager<P>::apply_tmpl(
     expect(x.size() == y.size());
     expect(x.size() == kwork.w1.size());
   }
-  expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
+  expect(all_groups <= gid and gid < static_cast<int>(term_groups.size()));
 
   auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
@@ -1037,9 +1052,9 @@ void term_manager<P>::apply_tmpl(
   if (not ifield.empty()) // using interpolation and will need the field
     interp.wav2nodal(grid, conns, px, ifield, kwork);
 
-  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
-  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
-  while (icurrent < iend)
+  auto const group = terms_group_range(gid);
+  int icurrent = group.ibegin();
+  while (icurrent < group.iend())
   {
     auto it = terms.begin() + icurrent;
 
@@ -1253,6 +1268,8 @@ void term_manager<P>::apply_tmpl_gpu(
 
   int const num_gpus = compute->num_gpus();
 
+  auto const group = terms_group_range(gid);
+
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
     compute->set_device(gpu::device{g});
@@ -1297,9 +1314,8 @@ void term_manager<P>::apply_tmpl_gpu(
 
     bool term_found = false; // does this GPU have at least 1 term
 
-    int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
-    int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
-    while (icurrent < iend)
+    int icurrent = group.ibegin();
+    while (icurrent < group.iend())
     {
       auto it = terms.begin() + icurrent;
 
@@ -1424,6 +1440,7 @@ void term_manager<P>::make_jacobi(
 
     if (it->num_chain == 1) {
       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
+
       icurrent++;
     } else {
       // dealing with a chain
@@ -1676,56 +1693,14 @@ void term_manager<P>::assign_compute_resources()
     }
   }
 
-  std::vector<int> ranks;
-  if (deps().poisson or deps().num_moments > 0)
-    ranks.reserve(terms.size() + 1);
-
-  #ifdef ASGARD_USE_MPI
-  if (deps().poisson) {
-    for (auto const &t : terms) {
-      for (auto const &d : t.deps)
-        if (d.poisson)
-          ranks.push_back(t.rec.group);
-    }
-    expect(ranks.size() > 0);
-    if (ranks.size() > 1) {
-      ranks.push_back(0);
-      std::sort(ranks.begin(), ranks.end());
-      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
-
-      MPI_Comm cm = resources.new_comm_from_group(ranks);
-      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
-        resources.set_poisson_comm(cm);
-    }
-  }
-
-  if (deps().num_moments > 0) {
-    ranks.resize(0);
-    for (auto const &t : terms) {
-      for (auto const &d : t.deps)
-        if (d.num_moments > 0)
-          ranks.push_back(t.rec.group);
-    }
-    expect(ranks.size() > 0);
-    if (ranks.size() > 1) {
-      ranks.push_back(0);
-      std::sort(ranks.begin(), ranks.end());
-      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
-      MPI_Comm cm = resources.new_comm_from_group(ranks);
-      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
-        resources.set_moments_comm(cm);
-    }
-  }
-  #endif // ASGARD_USE_MPI
-
   // if (mpi::is_world_rank(0)) {
-  //   std::cout << term_groups.size() << "\n";
-  //
-  //   for (auto const &t : terms)
-  //     std::cout << " assigned to: " << t.rec.group << "  gpu: " << t.rec.device << " chain num = " << t.num_chain << '\n';
-  //
-  //   for (auto const &s : sources)
-  //     std::cout << " source to: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+    // for (auto const &t : terms)
+    //   std::cout << " assigned to: " << t.rec.group << "  gpu: " << t.rec.device << " chain num = " << t.num_chain << '\n';
+    //
+    // for (auto const &s : sources)
+    //   std::cout << " source to: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+    //
+    // std::cout << "rank 0 dep 0 moms = " << deps(0).num_moments << " dep 1 moms = " << deps(1).num_moments << std::endl;
   // }
 #endif
 }

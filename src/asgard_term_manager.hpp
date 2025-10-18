@@ -5,49 +5,6 @@
 namespace asgard
 {
 
-/*!
- * \internal
- * \brief Additional data for term coupling, e.g., Poisson electric field
- *
- * This just holds a bunch of vectors with data needed for the term coefficients,
- * the data depends on coupling, e.g., moments or Poisson solver, and thus
- * cannot be hard-coded in the PDE spec.
- *
- * \endinternal
- */
-template<typename P>
-struct coupled_term_data
-{
-  //! electic field from the Poisson solver
-  std::vector<P> electric_field;
-  //! max-absolute value of the electric field
-  std::optional<P> electric_field_infnrm;
-  //! number of computed moments
-  int num_moments = 0;
-  //! data for the computed moments
-  std::vector<P> moments;
-};
-
-//! holds the moment dependencies in the current term set
-struct mom_deps {
-  //! requires an electric field and poisson solver
-  bool poisson = false;
-  //! number of required moments
-  int num_moments = 0;
-  //! set new minimum moments required
-  void set_min(int n) { num_moments = std::max(num_moments, n); }
-  //! combine with other deps
-  void set_min(mom_deps const &dep) {
-    poisson = (poisson or dep.poisson);
-    set_min(dep.num_moments);
-  }
-  //! combine with other deps
-  mom_deps &operator += (mom_deps const &dep) {
-    set_min(dep);
-    return *this;
-  }
-};
-
 //! \brief Combines a term with data used for linear operations
 template<typename P>
 struct term_entry {
@@ -73,15 +30,15 @@ struct term_entry {
   std::array<block_diag_matrix<P>, max_num_dimensions> mass;
   //! kronmult operation permutations
   kronmult::permutes perm;
-  //! dependencies on the moments
-  std::array<mom_deps, max_num_dimensions> deps;
+  //! dependencies on the Poisson solver
+  bool has_poisson = false;
   //! indicates if this a single term or a chain, negative means member of a chain
   int num_chain = 1;
   //! left/right boundary conditions source index, if positive
   int bc_source_id = -1;
 
-  //! returns the dependencies for a 1d term
-  static mom_deps get_deps(term_1d<P> const &t1d);
+  //! check if the 1d term needs a Poisson solver
+  static bool has_needs_poisson(term_1d<P> const &t1d);
 
   //! boundary conditions, start and end
   indexrange<int> bc;
@@ -184,8 +141,12 @@ struct term_manager
   //! handles basis manipulations
   legendre_basis<P> legendre;
 
-  //! data for the coupling with moments and electric field
-  coupled_term_data<P> cdata;
+  //! storage for the moments
+  momentset<P> momset;
+  //! manages the moments operations, interplays with the mass
+  moment_manager<P> moms;
+  //! storage for the interpolated moments
+  momentset<P> momset_interp;
   //! interpolation data
   interpolation_manager<P> interp;
   //! values for the interpolation field, allows reuse for several interp ops
@@ -203,8 +164,12 @@ struct term_manager
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
 
-  //! dependencies for each term group, last entry is for all terms
-  std::vector<mom_deps> deps_;
+  //! dependencies for each term group, last entry is for all terms, use has_poisson() not this directly
+  std::vector<bool> has_poisson_;
+  //! has Poisson solver for the given group
+  bool has_poisson(int groupid) const { return (not has_poisson_.empty() and has_poisson_[groupid]); }
+  //! has Poisson solver for any group
+  bool has_poisson() const { return (not has_poisson_.empty()); }
 
   //! resource set to use for the computations
   resource_set resources;
@@ -214,10 +179,10 @@ struct term_manager
   mutable std::vector<P> mpiwork;
   #endif
 
-  //! get the moment dependencies for all terms
-  mom_deps const &deps() const { return deps_.back(); }
-  //! get the moment dependencies for the given group
-  mom_deps const &deps(int groupid) const { return deps_[groupid]; }
+  //! return the range for the given group, returns full range for group -1
+  indexrange<int> terms_group_range(int groupid) const {
+    return (groupid == all_groups) ? indexrange<int>(terms) : indexrange<int>(term_groups[groupid]);
+  }
 
   //! rebuild all matrices
   void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
@@ -268,40 +233,22 @@ struct term_manager
     }
   }
 
-  //! rebuild the terms that depend on the Poisson electric field
-  void rebuild_poisson(sparse_grid const &grid, connection_patterns const &conn,
-                       hierarchy_manipulator<P> const &hier)
-  {
-    tools::time_event timing_("rebuild - poisson");
-    for (auto &te : terms) {
-      for (int d : indexof(num_dims))
-        if (te.deps[d].poisson and resources.owns(te.rec))
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
-    }
-  }
   //! rebuild the terms that depend only on the moments
   void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
-                            hierarchy_manipulator<P> const &hier)
+                               hierarchy_manipulator<P> const &hier)
   {
-    tools::time_event timing_("rebuild - moments (all)");
-    for (auto &te : terms) {
-      for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0 and resources.owns(te.rec))
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
-    }
+    rebuild_moment_terms(all_groups, grid, conn, hier);
   }
-  //! rebuild the terms for the given group
-  void rebuild_moment_terms(int groupid, sparse_grid const &grid,
-                            connection_patterns const &conn,
-                            hierarchy_manipulator<P> const &hier)
+  //! rebuild the terms that depend only on the moments
+  void rebuild_moment_terms(int groupid, sparse_grid const &grid, connection_patterns const &conn,
+                               hierarchy_manipulator<P> const &hier)
   {
-    tools::time_event timing_("rebuild - moments");
-    expect(0 <= groupid and groupid < static_cast<int>(term_groups.size()));
-
-    for (int it : indexrange(term_groups[groupid])) {
+    tools::time_event timing_("rebuild moment terms (" + ((groupid == -1) ? std::string("all") : std::to_string(groupid)) + ")");
+    expect(-1 <= groupid and groupid < static_cast<int>(term_groups.size()));
+    for (int it : terms_group_range(groupid)) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
-        if (te.deps[d].num_moments > 0)
+        if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
           rebuld_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
@@ -348,18 +295,18 @@ struct term_manager
   void apply(sparse_grid const &grid, connection_patterns const &conn,
              P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
     #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(-1, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(all_groups, grid, conn, alpha, x, beta, y);
     #else
-    apply_tmpl<std::vector<P> const &, std::vector<P> &>(-1, grid, conn, alpha, x, beta, y);
+    apply_tmpl<std::vector<P> const &, std::vector<P> &>(all_groups, grid, conn, alpha, x, beta, y);
     #endif
   }
   //! y = sum(terms * x), applies all terms
   void apply(sparse_grid const &grid, connection_patterns const &conn,
              P alpha, P const x[], P beta, P y[]) const {
     #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(-1, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(all_groups, grid, conn, alpha, x, beta, y);
     #else
-    apply_tmpl<P const[], P[]>(-1, grid, conn, alpha, x, beta, y);
+    apply_tmpl<P const[], P[]>(all_groups, grid, conn, alpha, x, beta, y);
     #endif
   }
   //! y = sum(terms * x), applies all terms
@@ -388,7 +335,7 @@ struct term_manager
   //! construct term diagonal
   void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const {
-    make_jacobi(-1, grid, conns, y);
+    make_jacobi(all_groups, grid, conns, y);
   }
 
   //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
@@ -444,7 +391,7 @@ struct term_manager
   void apply_sources(sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]) {
-    apply_sources<dmode>(-1, grid, conns, hier, time, alpha, y);
+    apply_sources<dmode>(all_groups, grid, conns, hier, time, alpha, y);
   }
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
@@ -462,8 +409,11 @@ struct term_manager
                      P time, P alpha, std::vector<P> &y)
   {
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(-1, grid, conns, hier, time, alpha, y.data());
+    apply_sources<dmode>(all_groups, grid, conns, hier, time, alpha, y.data());
   }
+
+  //! indicates the use of all groups
+  static constexpr int all_groups = -1;
 
 protected:
   //! remember which grid was cached for the workspace
@@ -482,11 +432,13 @@ protected:
                      bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
+                    hierarchy_manipulator<P> const &hier,
                     block_diag_matrix<P> const *bmass, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
 
   //! helper method, build the matrix corresponding to the term
   void build_raw_mat(term_entry<P> &tentry, int dim, int clink, int level,
+                     hierarchy_manipulator<P> const &hier,
                      block_diag_matrix<P> const *bmass,
                      block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
   //! helper method, build a mass matrix with no dependencies
