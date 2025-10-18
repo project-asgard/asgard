@@ -361,6 +361,7 @@ void self_test() {
       n += s * s;
     n = std::sqrt(n); // L^2 norm of the solution
 
+    // but CPU/GPU gives different results, but still within adaptive tolerance
     double constexpr expected = 5.311351452729612e-01;
     tcheckless(0, std::abs(expected - n) / expected, disc.options().adapt_ralative.value());
   }
