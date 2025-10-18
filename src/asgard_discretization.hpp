@@ -267,9 +267,6 @@ public:
     terms.apply_all_adi(grid, conn, x, y);
   }
 
-  //! compute the electric field for the given state and update the coefficient matrices
-  void do_poisson_update(std::vector<precision> const &field) const;
-
   //! write out checkpoint/restart data and data for plotting
   void checkpoint() const;
   //! write out snapshot data, same as checkpoint but can be invoked manually
@@ -451,10 +448,8 @@ public:
     #ifdef ASGARD_USE_MPI
     }
     #endif
+
     compute_poisson(groupid);
-    // if (groupid == -1)
-    //   terms.rebuild_moment_terms(grid, conn, hier);
-    // else
     terms.rebuild_moment_terms(groupid, grid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
@@ -463,7 +458,6 @@ public:
   }
   //! recomputes the poisson term for the given group
   void compute_poisson(int groupid) const {
-    // if (not poisson or (groupid >= 0 and not terms.deps(groupid).poisson))
     if (not poisson or (groupid >= 0 and not terms.has_poisson(groupid)))
       return;
 

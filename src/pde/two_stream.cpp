@@ -238,6 +238,8 @@ void test_energy(std::string const &opt_str) {
 
   prog_opts const options = make_opts(opt_str);
 
+  // the pde needs only the zeroth moment and computes that internally
+  // we are using the other moments to check energy conservation properties
   auto pde = make_two_stream(options);
   moment_id const m0 = pde.register_moment({0, moment::inactive});
   moment_id const m1 = pde.register_moment({1, moment::inactive}); // needed for verification, but not running
@@ -245,14 +247,6 @@ void test_energy(std::string const &opt_str) {
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
-
-  // the pde needs only the zeroth moment and computes that internally
-  // we are using the other moments to check conservation properties
-  // int const num_moms = 3;
-  // int const pdof     = disc.degree() + 1;
-  // moments1d moms(num_moms, pdof - 1, disc.options().max_level(),
-  //                disc.domain());
-  // std::vector<P> mom_vec;
 
   int64_t const n = disc.remaining_steps();
 

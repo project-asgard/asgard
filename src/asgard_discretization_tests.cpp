@@ -46,7 +46,7 @@ void compile_tests()
     current_test<P> name_("discretization manager compile tests");
     discretization_manager<P> disc_null;
     tassert(disc_null.num_dims() == 0);
-    // tassert(not disc_null.has_moments());
+    tassert(not disc_null.has_moments());
     tassert(not disc_null.high_verbosity());
     tassert(not disc_null.low_verbosity());
     tassert(disc_null.stop_verbosity());

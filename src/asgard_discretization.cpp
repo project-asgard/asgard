@@ -382,20 +382,6 @@ std::vector<precision> discretization_manager<precision>::get_electric() const {
   return terms.moms.poisson_level();
 }
 
-template<typename precision> void
-discretization_manager<precision>::do_poisson_update(std::vector<precision> const &field) const {
-  expect(field.size() == static_cast<size_t>(grid.num_indexes() * fm::ipow(degree() + 1, grid.num_dims())));
-  ignore(field);
-
-  // std::vector<precision> moment0;
-  // moms1d->project_moment(0, grid, field, moment0);
-  //
-  // int const level = grid.current_level(0);
-  // hier.reconstruct1d(1, level, span2d<precision>(degree() + 1, fm::ipow2(level), moment0.data()));
-  //
-  // poisson.solve_periodic(moment0, terms.cdata.electric_field);
-}
-
 template<typename precision>
 void discretization_manager<precision>::print_mats() const {
   int const num_dims = terms.num_dims;

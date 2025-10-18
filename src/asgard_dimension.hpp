@@ -99,7 +99,7 @@ class pde_domain
 public:
   //! create an empty domain
   pde_domain() {
-     xleft_.fill(0);
+    xleft_.fill(0);
     xright_.fill(0);
     length_.fill(0);
   }
