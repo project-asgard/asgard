@@ -386,7 +386,7 @@ set(asgard_components
     kronmult_common
     kronmult_cpu
     legendre_matrices
-    moment
+    moment_manager
     momentset
     pde
     pde_functions
