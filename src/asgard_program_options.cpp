@@ -400,7 +400,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       if (not selected)
         throw std::runtime_error(report_no_value());
       try {
-        adapt_ralative = std::stod(selected->data());
+        adapt_relative = std::stod(selected->data());
       } catch(std::invalid_argument &) {
         throw std::runtime_error(report_wrong_value());
       } catch(std::out_of_range &) {
@@ -411,7 +411,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
     case optentry::no_adapt:
       // sufficient to override a deck file adapt options
       adapt_threshold.reset();
-      adapt_ralative.reset();
+      adapt_relative.reset();
       // needed to cancel adaptivity from a restart file
       set_no_adapt = true;
     break;
@@ -642,11 +642,11 @@ void prog_opts::print_options(std::ostream &os) const
   if (not max_levels.empty())
     os << "    max levels: " << max_levels_str() << '\n';
 
-  if (adapt_threshold or adapt_ralative)
+  if (adapt_threshold or adapt_relative)
   {
     os << "  adaptive tolerance:";
-    if (adapt_ralative)
-      os << " (relative)" << adapt_ralative.value();
+    if (adapt_relative)
+      os << " (relative)" << adapt_relative.value();
     if (adapt_threshold)
       os << " (absolute)" << adapt_threshold.value();
     os << '\n';

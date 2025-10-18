@@ -339,7 +339,7 @@ struct prog_opts
   //! provides the absolute tolerance threshold for adaptivity
   std::optional<double> adapt_threshold;
   //! provides the relative tolerance threshold for adaptivity
-  std::optional<double> adapt_ralative;
+  std::optional<double> adapt_relative;
 
   //! time stepping method, explicit, implicit or imex
   std::optional<time_method> step_method;

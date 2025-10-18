@@ -147,6 +147,9 @@ public:
   //! return the moment with the given index
   moment const &operator[] (int i) const { return moms_[i]; }
 
+  //! set the action for the new moment
+  void set_action(moment_id mid, moment::moment_type action) { moms_[mid()].action = action; }
+
   //! returns true if all moments have the given dimension
   bool have_all_dimension(int const dims) const;
   //! returns moment_id of the members of this list within the main set

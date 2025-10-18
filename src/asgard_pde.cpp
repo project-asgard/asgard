@@ -130,6 +130,15 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
         break;
       };
     }
+  } else if (tmd.is_chain()) {
+    // recursively process the chain
+    for (int i = 0; i < tmd.num_chain(); i++)
+      update_deps(tmd.chain(i));
+  } else if (tmd.is_interpolatory()) {
+    if (tmd.interp_mom()) { // flag the moments as interpolatory
+      for (auto id : tmd.get_interp_moments())
+        mlist.set_action(id, moment::moment_type::interpolatory);
+    }
   }
 }
 

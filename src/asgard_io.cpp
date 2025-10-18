@@ -352,7 +352,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
           options.adapt_threshold = adapt;
         double const adapt_rel = H5Easy::load<double>(file, "grid_adapt_relative");
         if (adapt_rel > 0) // if negative, then adaptivity was never set to begin with
-          options.adapt_ralative = adapt_rel;
+          options.adapt_relative = adapt_rel;
       }
     }
   }

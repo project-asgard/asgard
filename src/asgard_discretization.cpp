@@ -55,9 +55,9 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
     std::cout << grid;
     if (options_.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
-    if (options_.adapt_ralative)
-      std::cout << "  relative tolerance: " << options_.adapt_ralative.value() << '\n';
-    if (not options_.adapt_threshold and not options_.adapt_ralative)
+    if (options_.adapt_relative)
+      std::cout << "  relative tolerance: " << options_.adapt_relative.value() << '\n';
+    if (not options_.adapt_threshold and not options_.adapt_relative)
       std::cout << "  non-adaptive\n";
   }
 
@@ -228,9 +228,9 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     std::cout << grid;
     if (options_.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
-    if (options_.adapt_ralative)
-      std::cout << "  relative tolerance: " << options_.adapt_ralative.value() << '\n';
-    if (not options_.adapt_threshold and not options_.adapt_ralative)
+    if (options_.adapt_relative)
+      std::cout << "  relative tolerance: " << options_.adapt_relative.value() << '\n';
+    if (not options_.adapt_threshold and not options_.adapt_relative)
       std::cout << "  non-adaptive\n";
     std::cout << stepper;
     if (high_verbosity())
@@ -273,7 +273,7 @@ template<typename precision>
 void discretization_manager<precision>::set_initial_condition()
 {
   precision const atol = options_.adapt_threshold.value_or(0);
-  precision const rtol = options_.adapt_ralative.value_or(0);
+  precision const rtol = options_.adapt_relative.value_or(0);
 
   #ifdef ASGARD_USE_MPI
   if (not is_leader()) {

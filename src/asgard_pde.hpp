@@ -1181,6 +1181,8 @@ public:
     expect(!!interp_mom_);
     interp_mom_(t, x, moments, f, vals);
   }
+  //! get the moment ids for interpolation
+  std::vector<moment_id> const &get_interp_moments() const { return mids_; }
 
   // allow direct access to the private data
   friend struct term_manager<P>;
