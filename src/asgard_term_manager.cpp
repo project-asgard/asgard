@@ -9,13 +9,11 @@ namespace asgard
 
 template<typename P>
 term_entry<P>::term_entry(term_md<P> tin)
-  : tmd(std::move(tin))
+  : tmd(std::move(tin)), has_poisson(false)
 {
   expect(not tmd.is_chain());
   if (tmd.is_interpolatory()) {
-    deps[0] = {false, 0}; // set interpolation deps here
-    has_poisson = false; // interpolation poisson dependence goes here
-    return;
+    return; // interpolation poisson dependence goes here
   }
 
   int const num_dims = tmd.num_dims();
@@ -34,42 +32,12 @@ term_entry<P>::term_entry(term_md<P> tin)
       }
     }
 
-    deps[d] = get_deps(t1d);
     has_poisson = has_poisson or has_needs_poisson(t1d);
   }
 
   perm = kronmult::permutes(active_dirs, flux_dir);
 }
 
-template<typename P>
-mom_deps term_entry<P>::get_deps(term_1d<P> const &t1d) {
-  auto process_dep = [](term_1d<P> const &single)
-    -> mom_deps {
-      switch (single.depends()) {
-        case term_dependence::electric_field:
-        case term_dependence::electric_field_only:
-          // technically, el-field requires 1 moment, but it is a special case
-          return {true, 0};
-        // case term_dependence::lenard_bernstein_coll_theta_1x1v:
-        //   return {false, 3};
-        // case term_dependence::lenard_bernstein_coll_theta_1x2v:
-        //   return {false, 5};
-        // case term_dependence::lenard_bernstein_coll_theta_1x3v:
-        //   return {false, 7};
-        default:
-          return {};
-      };
-    };
-
-  if (t1d.is_chain()) {
-    mom_deps result;
-    for (int i : iindexof(t1d.num_chain()))
-      result += process_dep(t1d[i]);
-    return result;
-  } else {
-    return process_dep(t1d);
-  }
-}
 template<typename P>
 bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
   auto check_poisson = [](term_1d<P> const &single)
@@ -166,30 +134,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
     if (has_interp)
       interp = interpolation_manager<P>(options, domain, hier, conn);
-  }
-
-  // compute the dependencies
-  if (term_groups.empty()) {
-    mom_deps deps;
-    for (auto const &tentry : terms)
-      for (int d : iindexof(num_dims))
-        deps += tentry.deps[d];
-    deps_.emplace_back(deps);
-  } else {
-    deps_.reserve(term_groups.size() + 1);
-    for (auto const &tg : term_groups) {
-      mom_deps deps;
-      for (int tid : indexrange(tg))
-        for (int d : iindexof(num_dims))
-          deps += terms[tid].deps[d];
-
-      deps_.emplace_back(deps);
-    }
-
-    mom_deps deps;
-    for (auto const &dp : deps_)
-      deps += dp;
-    deps_.emplace_back(deps);
   }
 
   int num_bc = 0;
@@ -1494,14 +1438,8 @@ void term_manager<P>::make_jacobi(
     }
     #endif
 
-    // if (mpi::is_world_rank(1))
-    //   std::cout << "processing term: " << icurrent <<'\n';
-
     if (it->num_chain == 1) {
       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
-
-      // if (mpi::is_world_rank(1))
-      //   tools::dump(y, "jacobi 1");
 
       icurrent++;
     } else {
@@ -1524,8 +1462,6 @@ ASGARD_OMP_PARFOR_SIMD
       icurrent += num_chain;
     }
   }
-  // if (mpi::is_world_rank(0))
-  //   tools::dump(y, "final jacobi 0");
 }
 
 template<typename P>
@@ -1756,46 +1692,6 @@ void term_manager<P>::assign_compute_resources()
                 << " the likely outcome is performance degradation" << std::endl;
     }
   }
-
-  std::vector<int> ranks;
-  if (deps().poisson or deps().num_moments > 0)
-    ranks.reserve(terms.size() + 1);
-
-  #ifdef ASGARD_USE_MPI
-  if (deps().poisson) {
-    for (auto const &t : terms) {
-      for (auto const &d : t.deps)
-        if (d.poisson)
-          ranks.push_back(t.rec.group);
-    }
-    expect(ranks.size() > 0);
-    if (ranks.size() > 1) {
-      ranks.push_back(0);
-      std::sort(ranks.begin(), ranks.end());
-      ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
-
-      MPI_Comm cm = resources.new_comm_from_group(ranks);
-      if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
-        resources.set_poisson_comm(cm);
-    }
-  }
-
-  if (deps().num_moments > 0) {
-    ranks.resize(0);
-    for (auto const &t : terms) {
-      for (auto const &d : t.deps)
-        if (d.num_moments > 0)
-          ranks.push_back(t.rec.group);
-    }
-    expect(ranks.size() > 0);
-    ranks.push_back(0);
-    std::sort(ranks.begin(), ranks.end());
-    ranks.erase( std::unique(ranks.begin(), ranks.end()), ranks.end() );
-    MPI_Comm cm = resources.new_comm_from_group(ranks);
-    if (std::any_of(ranks.begin(), ranks.end(), [&](int r) -> bool { return (r == resources.rank()); }))
-      resources.set_moments_comm(cm);
-  }
-  #endif // ASGARD_USE_MPI
 
   // if (mpi::is_world_rank(0)) {
     // for (auto const &t : terms)

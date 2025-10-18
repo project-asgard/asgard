@@ -5,26 +5,6 @@
 namespace asgard
 {
 
-//! holds the moment dependencies in the current term set
-struct mom_deps {
-  //! requires an electric field and poisson solver
-  bool poisson = false;
-  //! number of required moments
-  int num_moments = 0;
-  //! set new minimum moments required
-  void set_min(int n) { num_moments = std::max(num_moments, n); }
-  //! combine with other deps
-  void set_min(mom_deps const &dep) {
-    poisson = (poisson or dep.poisson);
-    set_min(dep.num_moments);
-  }
-  //! combine with other deps
-  mom_deps &operator += (mom_deps const &dep) {
-    set_min(dep);
-    return *this;
-  }
-};
-
 //! \brief Combines a term with data used for linear operations
 template<typename P>
 struct term_entry {
@@ -50,16 +30,13 @@ struct term_entry {
   std::array<block_diag_matrix<P>, max_num_dimensions> mass;
   //! kronmult operation permutations
   kronmult::permutes perm;
-  //! dependencies on the moments
-  std::array<mom_deps, max_num_dimensions> deps;
+  //! dependencies on the Poisson solver
   bool has_poisson = false;
   //! indicates if this a single term or a chain, negative means member of a chain
   int num_chain = 1;
   //! left/right boundary conditions source index, if positive
   int bc_source_id = -1;
 
-  //! returns the dependencies for a 1d term
-  static mom_deps get_deps(term_1d<P> const &t1d);
   //! check if the 1d term needs a Poisson solver
   static bool has_needs_poisson(term_1d<P> const &t1d);
 
@@ -187,11 +164,12 @@ struct term_manager
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
 
-  //! dependencies for each term group, last entry is for all terms
+  //! dependencies for each term group, last entry is for all terms, use has_poisson() not this directly
   std::vector<bool> has_poisson_;
+  //! has Poisson solver for the given group
   bool has_poisson(int groupid) const { return (not has_poisson_.empty() and has_poisson_[groupid]); }
+  //! has Poisson solver for any group
   bool has_poisson() const { return (not has_poisson_.empty()); }
-  std::vector<mom_deps> deps_;
 
   //! resource set to use for the computations
   resource_set resources;
@@ -200,11 +178,6 @@ struct term_manager
   //! workspace for MPI
   mutable std::vector<P> mpiwork;
   #endif
-
-  //! get the moment dependencies for all terms
-  mom_deps const &deps() const { return deps_.back(); }
-  //! get the moment dependencies for the given group
-  mom_deps const &deps(int groupid) const { return deps_[groupid]; }
 
   //! return the range for the given group, returns full range for group -1
   indexrange<int> terms_group_range(int groupid) const {

@@ -469,7 +469,7 @@ public:
 
     #ifdef ASGARD_USE_MPI
     // leader must always communicate, the rest only if they have a poisson term
-    if (not is_leader() and not terms.resources.has_poisson())
+    if (not is_leader() and not terms.has_poisson())
       return;
     #endif
 
