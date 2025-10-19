@@ -347,8 +347,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       ifield.resize(1);
 
     // handle the moment dependence
-    std::vector<moment_id> active_moments;
-    active_moments.reserve(250); // should be more than enough, not a big deal otherwise
+    std::vector<moment_id> regular_moments;
+    std::vector<moment_id> interp_moments;
+    regular_moments.reserve(250); // should be more than enough, not a big deal otherwise
     bool has_poisson = false;
     for (auto const &tentry : terms) {
       #ifdef ASGARD_USE_MPI
@@ -356,13 +357,42 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         continue;
       #endif
       has_poisson = has_poisson or tentry.has_poisson;
-      if (tentry.is_separable()) // only separable terms can have 1D moment deps
+      if (tentry.is_separable()) { // only separable terms can have 1D moment deps
         for (int d : iindexof(num_dims)) {
           auto const &mids = tentry.tmd.dim(d).mids_;
           if (not mids.empty()) {
-            active_moments.insert(active_moments.end(), mids.begin(), mids.end());
+            regular_moments.insert(regular_moments.end(), mids.begin(), mids.end());
           }
         }
+      } else if (tentry.interp_uses_moments) {
+        auto const &mids = tentry.tmd.mids_;
+        interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
+      }
+    }{
+      auto comp_id  = [](moment_id id1, moment_id id2) -> bool { return (id1() < id2()); };
+      auto match_id = [](moment_id id1, moment_id id2) -> bool { return (id1() == id2()); };
+
+      std::sort(interp_moments.begin(), interp_moments.end(), comp_id);
+      std::sort(regular_moments.begin(), regular_moments.end(), comp_id);
+
+      auto last = std::unique(regular_moments.begin(), regular_moments.end(), match_id);
+      regular_moments.erase(last, regular_moments.end());
+
+      last = std::unique(interp_moments.begin(), interp_moments.end(), match_id);
+      interp_moments.erase(last, interp_moments.end());
+
+      for (int i : iindexof(moms.num_moments())) {
+        if (moms.get_by_id(moment_id{i}).action == moment::moment_type::interpolatory) {
+          if (not std::binary_search(interp_moments.begin(), interp_moments.end(),
+                                     moment_id{i}, comp_id))
+            moms.set_action(moment_id{i}, moment::moment_type::regular);
+        }
+        if (moms.get_by_id(moment_id{i}).action == moment::moment_type::regular) {
+          if (not std::binary_search(regular_moments.begin(), regular_moments.end(),
+                                     moment_id{i}, comp_id))
+            moms.set_action(moment_id{i}, moment::moment_type::inactive);
+        }
+      }
     }
     if (has_poisson) {
       if (term_groups.empty())
@@ -964,6 +994,207 @@ void term_manager<P>::rebuld_chain(
         bentry.consts[d][i] += dest[i];
     }
   }
+}
+
+template<typename P>
+void term_manager<P>::assign_compute_resources()
+{
+// if there's no MPI or GPU, then there's nothing to do
+#ifdef ASGARD_MANAGED_RESOURCES
+  // measuring work in units of 1D kron operations
+  // a 3d term with 1 identity has weight 2, 2 identities is weight 1
+  // interpolation term has weight 3 * num_dims + 1
+  //    - the extra comes from the function evaluation
+  // source term has lower weight, say 0.5
+  // interpolatory source has weight 2 * num_dims + 1
+
+  // (TODO) there is an optimization problem here ...
+
+  float constexpr source_weight = 0.5f;
+  float const iterm_weight   = 3.0f * num_dims + 1.0f;
+  float const isource_weight = 2.0f * num_dims + 1.0f;
+
+  struct work_amount {
+    explicit work_amount(float v) : value(v) {}
+    float value = 0;
+  };
+
+  struct balance_manager {
+    std::vector<float> workload;
+    void add(int id, work_amount work) {
+      workload[id] += work.value;
+    }
+    int lowest() { // get the id with lowest load
+      int im = 0, l = workload[0];
+      for (size_t i = 1; i < workload.size(); i++) {
+        if (workload[i] < l) {
+          im = static_cast<int>(i);
+          l = workload[i];
+        }
+      }
+      return im;
+    }
+  };
+
+  std::vector<int> ids;
+  ids.reserve(std::max(terms.size(), sources.size()));
+  std::vector<float> weights;
+  weights.reserve(ids.capacity());
+
+  auto get_weight = [&](term_entry<P> const &t)
+    -> float {
+      // count the number of 1D Kronecker operations
+      return (t.is_separable()) ? t.perm.num_dimensions() : iterm_weight;
+    };
+
+  auto get_heaviest = [&]()
+    -> int {
+      // get the id of the heaviest unassigned term
+      auto iw = std::max_element(weights.begin(), weights.end());
+      if (*iw < 0) // all assigned
+        return -1;
+      else
+        return static_cast<int>(std::distance(weights.begin(), iw));
+    };
+
+  enum class balance_mode {
+    mpi_ranks, gpus
+  };
+
+  auto load_balance = [&](int gid, int num_workers, balance_mode mode)
+    -> void {
+      // case of 0 GPUs, all goes to the CPU
+      // MPI always has at least 1 rank
+      // consider cases: num_workers == 1 or num_workers > 1
+      if (num_workers == 1) {
+        // if using only one GPU, then assign all terms to that device
+        // the mpi-ranks default to 0 anyway
+        if (mode == balance_mode::gpus) {
+          for (auto &t : terms)
+            t.rec.device = 0;
+        }
+      } else if (num_workers > 1) {
+        balance_manager balance;
+        balance.workload.resize(num_workers);
+
+        // device 0 handles the interpolation sources
+        if (gid < 0 and sources_md[0])
+          balance.add(0, work_amount{isource_weight});
+        if (gid >= 0 and sources_md[gid])
+          balance.add(0, work_amount{isource_weight});
+
+        ids.resize(0);
+        weights.resize(0);
+
+        int id   = (gid < 0) ? 0 : term_groups[gid].begin();
+        int iend = (gid < 0) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+        while(id < iend)
+        {
+          // skip terms assigned to other mpi ranks
+          if (mode == balance_mode::gpus and not resources.owns(terms[id].rec)) {
+            id += terms[id].num_chain;
+            continue;
+          }
+
+          ids.push_back(id);
+
+          int w = 0;
+          for (int j = id; j < id + terms[id].num_chain; j++)
+            w += get_weight(terms[j]);
+          weights.push_back(w);
+
+          id += terms[id].num_chain;
+        }
+
+        id = (weights.empty()) ? -1 : get_heaviest();
+        while (id >= 0) {
+          // get the heaviest term, add it to the lowest weigh group
+          // then mark the term as "done" (remove the weight), move to next
+          int const low = balance.lowest();
+          if (mode == balance_mode::mpi_ranks)
+            terms[ids[id]].rec.group = low;
+          else
+            terms[ids[id]].rec.device = low;
+          balance.add(low, work_amount{weights[id]});
+          weights[id] = -1;
+
+          id = get_heaviest();
+        }
+
+        ids.resize(0);
+        weights.resize(0);
+
+        int ibegin = (gid < 0) ? 0                                : source_groups[gid].source_range.begin();
+        iend       = (gid < 0) ? static_cast<int>(sources.size()) : source_groups[gid].source_range.end();
+        for (int i = ibegin; i < iend; i++)
+        {
+          // skip terms assigned to other mpi ranks
+          if (mode == balance_mode::gpus and not resources.owns(sources[i].rec))
+            continue;
+          ids.push_back(i);
+        }
+
+        for (auto i : ids) {
+          int const low = balance.lowest();
+          if (mode == balance_mode::mpi_ranks)
+            sources[i].rec.group = low;
+          else
+            sources[i].rec.device = low;
+          balance.add(low, work_amount{source_weight});
+        }
+      }
+    };
+
+  if (term_groups.empty()) {
+    load_balance(-1, resources.num_ranks(), balance_mode::mpi_ranks);
+    load_balance(-1, resources.num_gpus(), balance_mode::gpus);
+  } else {
+    for (int gid = 0; gid < static_cast<int>(term_groups.size()); gid++) {
+      load_balance(gid, resources.num_ranks(), balance_mode::mpi_ranks);
+      load_balance(gid, resources.num_gpus(), balance_mode::gpus);
+    }
+  }
+
+  // mark all chains to make sure they go together
+  // check whether there are any terms
+  has_terms_ = false;
+  {
+    auto it = terms.begin();
+    while (it < terms.end()) {
+      if (resources.owns(it->rec))
+        has_terms_ = true;
+
+      if (it->num_chain > 1) {
+        for (int i = 0; i < it->num_chain; i++)
+          (it + i)->rec = it->rec;
+      }
+      it += it->num_chain;
+    }
+  }
+  if (not has_terms_) {
+    bool has_sources = false;
+    for (auto const &s : sources)
+      if (resources.owns(s.rec))
+        has_sources = true;
+    if (not terms.empty() and resources.num_ranks() > 1 and not has_sources) {
+      // if the PDE has some terms, e.g., some testing PDEs don't,
+      // and if there are multiple MPI ranks, yet some ranks have no terms
+      // that means there are more ranks then terms and we should print a warning
+      std::cerr << " -- warning: the number of MPI ranks exceeds the number of terms and sources,"
+                << " the likely outcome is performance degradation" << std::endl;
+    }
+  }
+
+  // if (mpi::is_world_rank(0)) {
+    // for (auto const &t : terms)
+    //   std::cout << " assigned to: " << t.rec.group << "  gpu: " << t.rec.device << " chain num = " << t.num_chain << '\n';
+    //
+    // for (auto const &s : sources)
+    //   std::cout << " source to: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+    //
+    // std::cout << "rank 0 dep 0 moms = " << deps(0).num_moments << " dep 1 moms = " << deps(1).num_moments << std::endl;
+  // }
+#endif
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

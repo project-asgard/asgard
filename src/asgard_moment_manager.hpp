@@ -47,6 +47,10 @@ public:
   moment const &get_by_id(moment_id id) const { return mlist[id]; }
   //! returns the ID of an existing moment
   moment_id find_id(moment const &m) const { return mlist.get_id(m); }
+  //! update the action for the given moment
+  void set_action(moment_id id, moment::moment_type action) {
+    mlist.set_action(id, action);
+  }
 
   //! returns a grid defined over the position dimensions ready for kronmult
   sparse_grid const &get_kronmult_grid() const {
