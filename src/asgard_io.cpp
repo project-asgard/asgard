@@ -124,7 +124,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
       file.createDataSet<int>(
           "aux_field_" + std::to_string(auxid) + "_grid",
           HighFive::DataSpace(pgrid.size()), vopts).write_raw(pgrid.data());
-      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_dims", domain.num_vel());
+      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_dims", domain.num_pos());
     }
   }
 }
