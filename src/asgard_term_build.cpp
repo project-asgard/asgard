@@ -61,7 +61,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                               pde_scheme<P> &pde, sparse_grid const &grid,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
-  : num_dims(domain.num_dims()), max_level(options.max_level()), legendre(hier.degree()),
+  : num_dims(domain.num_dims()), max_level(options.max_level()), basis(hier.degree()),
     moms(domain, max_level, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
@@ -396,7 +396,7 @@ void term_manager<P>::build_const_terms(
   if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms
     return;
 
-  expect(legendre.pdof == hier.degree() + 1);
+  expect(basis.pdof == hier.degree() + 1);
   expect(not terms[tid].tmd.is_chain());
 
   auto &tmd = terms[tid];
@@ -555,12 +555,12 @@ void term_manager<P>::rebuild_term1d(
   // build the ADI preconditioner here
   if (precon == precon_method::adi) {
     if (is_diag) {
-      to_euler(legendre.pdof, alpha, wraw_diag);
-      psedoinvert(legendre.pdof, wraw_diag, raw_diag0);
+      to_euler(basis.pdof, alpha, wraw_diag);
+      psedoinvert(basis.pdof, wraw_diag, raw_diag0);
       tentry.adi[dim] = hier.diag2hierarchical(raw_diag0, level, conn);
     } else {
-      to_euler(legendre.pdof, alpha, wraw_tri);
-      psedoinvert(legendre.pdof, wraw_tri, raw_tri0);
+      to_euler(basis.pdof, alpha, wraw_tri);
+      psedoinvert(basis.pdof, wraw_tri, raw_tri0);
       tentry.adi[dim] = hier.tri2hierarchical(raw_tri0, level, conn);
     }
   }
@@ -585,17 +585,17 @@ void term_manager<P>::build_raw_mat(
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
             t1d.rhs(moms.poisson_level(), kwork.w1);
-            gen_diag_cmat_pwc<P>(legendre, level, kwork.w1, raw_diag);
+            gen_diag_cmat_pwc<P>(basis, level, kwork.w1, raw_diag);
             kwork.w1.resize(n);
           } else {
-            gen_diag_cmat_pwc<P>(legendre, level, moms.poisson_level(), raw_diag);
+            gen_diag_cmat_pwc<P>(basis, level, moms.poisson_level(), raw_diag);
           }
           break;
         case term_dependence::electric_field:
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;
         case term_dependence::moment_divided_by_density:
-          gen_diag_mom_over_zero<P>(legendre, level, t1d.rhs_const(),
+          gen_diag_mom_over_zero<P>(basis, level, t1d.rhs_const(),
                                     moms.get_cached_level(t1d.moment_ids()[0], hier),
                                     moms.get_cached_level(t1d.moment_ids()[1], hier),
                                     raw_diag);
@@ -604,19 +604,19 @@ void term_manager<P>::build_raw_mat(
           switch (moms.num_vel()) {
           case 1:
             moms.cache_levels(3, hier, t1d.mids_);
-            gen_diag_lenard_bernstein_theta<P, 1>(legendre, level, t1d.rhs_const(),
+            gen_diag_lenard_bernstein_theta<P, 1>(basis, level, t1d.rhs_const(),
                                                   t1d.mids_, moms.get_cached_levels(),
                                                   raw_diag);
             break;
           case 2:
             moms.cache_levels(5, hier, t1d.mids_);
-            gen_diag_lenard_bernstein_theta<P, 2>(legendre, level, t1d.rhs_const(),
+            gen_diag_lenard_bernstein_theta<P, 2>(basis, level, t1d.rhs_const(),
                                                   t1d.mids_, moms.get_cached_levels(),
                                                   raw_diag);
             break;
           case 3:
             moms.cache_levels(7, hier, t1d.mids_);
-            gen_diag_lenard_bernstein_theta<P, 3>(legendre, level, t1d.rhs_const(),
+            gen_diag_lenard_bernstein_theta<P, 3>(basis, level, t1d.rhs_const(),
                                                   t1d.mids_, moms.get_cached_levels(),
                                                   raw_diag);
             break;
@@ -628,10 +628,10 @@ void term_manager<P>::build_raw_mat(
         default:
           if (t1d.rhs()) {
             gen_diag_cmat<P, operation_type::volume>
-              (legendre, xleft[d], xright[d], level, t1d.rhs(), raw_rhs, raw_diag);
+              (basis, xleft[d], xright[d], level, t1d.rhs(), raw_rhs, raw_diag);
           } else {
             gen_diag_cmat<P, operation_type::volume>
-              (legendre, level, t1d.rhs_const(), raw_diag);
+              (basis, level, t1d.rhs_const(), raw_diag);
           }
           break;
       }
@@ -639,33 +639,33 @@ void term_manager<P>::build_raw_mat(
     case operation_type::div:
       if (t1d.rhs()) {
         gen_tri_cmat<P, operation_type::div, rhs_type::is_func>
-          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       } else {
         gen_tri_cmat<P, operation_type::div, rhs_type::is_const>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       if (t1d.penalty() != 0) {
         gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       break;
     case operation_type::grad:
       if (t1d.rhs()) {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_func>
-          (legendre, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       } else {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_const>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       if (t1d.penalty() != 0) {
         gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-          (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       break;
     case operation_type::penalty:
       expect(not t1d.rhs());
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
-        (legendre, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+        (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
     default: // case operation_type::identity:
       // identity, nothing to do for the matrix, but may have to do boundary conditions
@@ -674,9 +674,9 @@ void term_manager<P>::build_raw_mat(
 
   if (bmass) {
     if (t1d.optype() == operation_type::volume)
-      bmass->solve(legendre.pdof, raw_diag);
+      bmass->solve(basis.pdof, raw_diag);
     else
-      bmass->solve(legendre.pdof, raw_tri);
+      bmass->solve(basis.pdof, raw_tri);
   }
 
   for (int b : indexrange(tentry.bc)) {
@@ -686,14 +686,14 @@ void term_manager<P>::build_raw_mat(
     if (bentry.flux.chain_level(d) > clink) {
       expect(not bentry.consts[d].empty());
       if (t1d.is_volume()) {
-        raw_diag.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
+        raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
       } else {
-        raw_tri.inplace_gemv(legendre.pdof, bentry.consts[d], t1);
+        raw_tri.inplace_gemv(basis.pdof, bentry.consts[d], t1);
       }
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry
       if (tentry.flux_dim == d) {
-        int const pdof = legendre.pdof;
+        int const pdof = basis.pdof;
 
         int64_t const num_cells = fm::ipow2(level);
         int64_t const num_entries = pdof * num_cells;
@@ -712,9 +712,9 @@ void term_manager<P>::build_raw_mat(
           P const fc = bentry.flux.func().cdomain(d);
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
-            smmat::axpy(pdof, - rhs_left * scale, legendre.leg_left, bentry.consts[d].data());
+            smmat::axpy(pdof, - rhs_left * scale, basis.leg_left, bentry.consts[d].data());
           } else {
-            smmat::axpy(pdof, - rhs_left * scale * fc, legendre.leg_left, bentry.consts[d].data());
+            smmat::axpy(pdof, - rhs_left * scale * fc, basis.leg_left, bentry.consts[d].data());
           }
         }
 
@@ -727,10 +727,10 @@ void term_manager<P>::build_raw_mat(
           P const fc = bentry.flux.func().cdomain(d);
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
-            smmat::axpy(pdof, rhs_right * scale, legendre.leg_right,
+            smmat::axpy(pdof, rhs_right * scale, basis.leg_right,
                         bentry.consts[d].data() + num_entries - pdof);
           } else {
-            smmat::axpy(pdof, rhs_right * scale * fc, legendre.leg_right,
+            smmat::axpy(pdof, rhs_right * scale * fc, basis.leg_right,
                         bentry.consts[d].data() + num_entries - pdof);
           }
         }
@@ -746,30 +746,30 @@ void term_manager<P>::build_raw_mat(
 
         if (bentry.flux.func().is_const(d)) {
           if (t1d.rhs()) { // constant times spatially variable
-            bentry.consts[d] = legendre.project(t1d.is_volume(), level, dsqr,
-                                                bentry.flux.func().cdomain(d), raw_rhs.vals);
+            bentry.consts[d] = basis.project(t1d.is_volume(), level, dsqr,
+                                             bentry.flux.func().cdomain(d), raw_rhs.vals);
           } else { // constant times a constant
             P const rconst = (t1d.is_identity()) ? 1 : t1d.rhs_const();
-            bentry.consts[d] = legendre.project(level, dsqr,
-                                                bentry.flux.func().cdomain(d) * rconst);
+            bentry.consts[d] = basis.project(level, dsqr,
+                                             bentry.flux.func().cdomain(d) * rconst);
           }
         } else {
           if (t1d.rhs()) { // product of non-consts
             std::vector<P> f(raw_rhs.pnts.size());
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, f);
-            bentry.consts[d] = legendre.project(t1d.is_volume(), level, dsqr, f, raw_rhs.vals);
+            bentry.consts[d] = basis.project(t1d.is_volume(), level, dsqr, f, raw_rhs.vals);
           } else {
             // need function values, rhs is a constant
-            legendre.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
+            basis.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
             raw_rhs.vals.resize(raw_rhs.pnts.size());
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, raw_rhs.vals);
             bool constexpr use_interior = true;
-            bentry.consts[d] = legendre.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
+            bentry.consts[d] = basis.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
           }
         }
 
         if (bmass)
-          bmass->solve(legendre.pdof, bentry.consts[d]);
+          bmass->solve(basis.pdof, bentry.consts[d]);
       }
     } // if the bentry is associated with a higher link, then do nothing here
   }
@@ -784,10 +784,10 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 
   if (t1d.rhs()) {
     gen_diag_cmat<P, operation_type::volume>
-      (legendre, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
+      (basis, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
   } else {
     gen_diag_cmat<P, operation_type::volume>
-      (legendre, level, t1d.rhs_const(), raw_diag);
+      (basis, level, t1d.rhs_const(), raw_diag);
   }
 }
 
@@ -821,12 +821,12 @@ void term_manager<P>::rebuld_chain(
     for (int i = num_chain - 2; i > 0; i--) {
       build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
       diag1->check_resize(raw_diag);
-      gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
+      gemm_block_diag(basis.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
     }
     build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, raw_tri);
     raw_diag.check_resize(*diag1);
-    gemm_block_diag(legendre.pdof, *diag1, *diag0, raw_diag);
+    gemm_block_diag(basis.pdof, *diag1, *diag0, raw_diag);
 
     return;
   }
@@ -858,22 +858,22 @@ void term_manager<P>::rebuld_chain(
     if (t1d[i].is_volume()) { // computed a diagonal fill
       if (current == fill::diag) { // diag-to-diag
         diag1->check_resize(raw_diag);
-        gemm_block_diag(legendre.pdof, raw_diag, *diag0, *diag1);
+        gemm_block_diag(basis.pdof, raw_diag, *diag0, *diag1);
         std::swap(diag0, diag1);
       } else { // multiplying diag by tri-diag
         tri1->check_resize(raw_diag);
-        gemm_diag_tri(legendre.pdof, raw_diag, *tri0, *tri1);
+        gemm_diag_tri(basis.pdof, raw_diag, *tri0, *tri1);
         std::swap(tri0, tri1);
       }
     } else { // computed tri matrix (upper or lower diagonal)
       if (current == fill::diag ) { // tri times diag
         tri1->check_resize(raw_tri);
-        gemm_tri_diag(legendre.pdof, raw_tri, *diag0, *tri1);
+        gemm_tri_diag(basis.pdof, raw_tri, *diag0, *tri1);
         std::swap(tri0, tri1);
         current = fill::tri;
       } else {
         tri1->check_resize(raw_tri);
-        gemm_block_tri(legendre.pdof, raw_tri, *tri0, *tri1);
+        gemm_block_tri(basis.pdof, raw_tri, *tri0, *tri1);
         std::swap(tri0, tri1);
         current = fill::tri;
       }
@@ -887,14 +887,14 @@ void term_manager<P>::rebuld_chain(
     // the rest must be a tri-diagonal matrix already
     // otherwise the whole chain would consist of only diagonal ones
     raw_tri.check_resize(*tri0);
-    gemm_diag_tri(legendre.pdof, *diag1, *tri0, raw_tri);
+    gemm_diag_tri(basis.pdof, *diag1, *tri0, raw_tri);
   } else {
     if (current == fill::diag) {
       raw_tri.check_resize(*tri1);
-      gemm_tri_diag(legendre.pdof, *tri1, *diag0, raw_tri);
+      gemm_tri_diag(basis.pdof, *tri1, *diag0, raw_tri);
     } else {
       raw_tri.check_resize(*tri1);
-      gemm_block_tri(legendre.pdof, *tri1, *tri0, raw_tri);
+      gemm_block_tri(basis.pdof, *tri1, *tri0, raw_tri);
     }
   }
 
@@ -904,14 +904,14 @@ void term_manager<P>::rebuld_chain(
 
   if (bmass) {
     gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
-      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
+      (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
         t1d.chain_.back().boundary(), raw_rhs, *tri0);
-    bmass->solve(legendre.pdof, *tri0);
+    bmass->solve(basis.pdof, *tri0);
     raw_tri += *tri0;
   } else {
     // no need to worry about the mass, just add the penalty to the raw-tri
     gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-      (legendre, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
+      (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
         t1d.chain_.back().boundary(), raw_rhs, raw_tri);
   }
   // handle the penalty component of the boundary conditions
@@ -924,7 +924,7 @@ void term_manager<P>::rebuld_chain(
     if (bentry.flux.chain_level(d) != num_chain - 1)
       continue;
 
-    int const pdof = legendre.pdof;
+    int const pdof = basis.pdof;
 
     int64_t const num_cells = fm::ipow2(level);
     int64_t const num_entries = pdof * num_cells;
@@ -942,18 +942,18 @@ void term_manager<P>::rebuld_chain(
     if (bentry.flux.is_left()) {
       P const fc = bentry.flux.func().cdomain(d);
       if (fc == 0) { // non-separable in time
-        smmat::axpy(pdof, -scale, legendre.leg_left, dest);
+        smmat::axpy(pdof, -scale, basis.leg_left, dest);
       } else {
-        smmat::axpy(pdof, -scale * fc, legendre.leg_left, dest);
+        smmat::axpy(pdof, -scale * fc, basis.leg_left, dest);
       }
     }
 
     if (bentry.flux.is_right()) {
       P const fc = bentry.flux.func().cdomain(d);
       if (fc == 0) { // non-separable in time
-        smmat::axpy(pdof, scale, legendre.leg_right, dest + num_entries - pdof);
+        smmat::axpy(pdof, scale, basis.leg_right, dest + num_entries - pdof);
       } else {
-        smmat::axpy(pdof, scale * fc, legendre.leg_right, dest + num_entries - pdof);
+        smmat::axpy(pdof, scale * fc, basis.leg_right, dest + num_entries - pdof);
       }
     }
 

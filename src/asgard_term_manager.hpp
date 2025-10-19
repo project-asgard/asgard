@@ -111,7 +111,7 @@ struct term_manager
   std::array<P, max_num_dimensions> xright;
 
   //! handles basis manipulations
-  legendre_basis<P> legendre;
+  legendre_basis<P> basis;
 
   //! storage for the moments
   momentset<P> momset;
@@ -183,7 +183,7 @@ struct term_manager
         if (not mass_term[d].is_identity()) {
           build_raw_mass(d, mass_term[d], max_level, mass[d]);
           mass_forward[d] = hier.diag2hierarchical(mass[d], max_level, conn);
-          mass[d].spd_factorize(legendre.pdof);
+          mass[d].spd_factorize(basis.pdof);
           active_dirs.push_back(d);
         }
       mass_perm = kronmult::permutes(active_dirs);
@@ -199,7 +199,7 @@ struct term_manager
           int const nrows = fm::ipow2(grid.current_level(d));
           if (lmass[d].nrows() != nrows) {
             build_raw_mass(d, mass_term[d], grid.current_level(d), lmass[d]);
-            lmass[d].spd_factorize(legendre.pdof);
+            lmass[d].spd_factorize(basis.pdof);
           }
         }
     }
@@ -229,7 +229,7 @@ struct term_manager
     if (workspace_grid_gen == grid.generation())
       return;
 
-    int const block_size = fm::ipow(legendre.pdof, grid.num_dims());
+    int const block_size = fm::ipow(basis.pdof, grid.num_dims());
     int64_t num_entries  = block_size * grid.num_indexes();
 
     kwork.w1.resize(num_entries);
@@ -330,7 +330,7 @@ struct term_manager
       } else
         interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
-      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+      block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
     }
   }
@@ -345,7 +345,7 @@ struct term_manager
       } else
         interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
-      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+      block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);
     }
   }
@@ -354,7 +354,7 @@ struct term_manager
                      term_entry<P> const &tme, P alpha, P const x[], P beta,
                      P y[]) const
   {
-    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.adi, alpha, x, beta, y, kwork);
+    block_cpu(basis.pdof, grid, conns, tme.perm, tme.adi, alpha, x, beta, y, kwork);
   }
   //! build the diagonal preconditioner
   template<data_mode mode>

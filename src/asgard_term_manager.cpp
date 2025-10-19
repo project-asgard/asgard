@@ -16,7 +16,7 @@ void term_manager<P>::mass_apply(
     expect(y.size() == x.size());
   }
   if (mass_term) {
-    block_cpu(legendre.pdof, grid, conns, mass_perm, mass_forward,
+    block_cpu(basis.pdof, grid, conns, mass_perm, mass_forward,
               alpha, x.data(), beta, y.data(), kwork);
   } else {
     ASGARD_OMP_PARFOR_SIMD
@@ -73,7 +73,7 @@ void term_manager<P>::apply_tmpl(
             interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
         }
       } else {
-        block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+        block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                   al, in, be, out, kwork);
       }
     };
@@ -132,7 +132,7 @@ void term_manager<P>::apply_tmpl(
   }
 
   if (not has_terms_) {
-    int64_t const num = grid.num_indexes() * fm::ipow(legendre.pdof, num_dims);
+    int64_t const num = grid.num_indexes() * fm::ipow(basis.pdof, num_dims);
     if (beta == 0) {
       std::fill_n(py, num, 0);
     } else {
@@ -167,7 +167,7 @@ int64_t term_manager<P>::flop_count(
   auto kterm = [&grid, &conns, &flops, this](term_entry<P> const &tme, P al, P be)
     -> void {
       if (not tme.tmd.is_interpolatory())
-        flops += block_cpu(legendre.pdof, grid, conns, tme.perm, al, be, kwork);
+        flops += block_cpu(basis.pdof, grid, conns, tme.perm, al, be, kwork);
     };
 
   P b = beta; // on first iteration, overwrite y
@@ -266,7 +266,7 @@ void term_manager<P>::apply_tmpl_gpu(
   if constexpr (using_vectors)
     expect(x.size() == y.size());
 
-  int64_t const num_entries  = fm::ipow(legendre.pdof, grid.num_dims()) * grid.num_indexes();
+  int64_t const num_entries  = fm::ipow(basis.pdof, grid.num_dims()) * grid.num_indexes();
 
   expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
 
@@ -290,7 +290,7 @@ void term_manager<P>::apply_tmpl_gpu(
                    cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
         }
       } else {
-        block_gpu(dev, legendre.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
+        block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                   al, in, be, out, kwork, tme.coeffs);
       }
     };
@@ -433,7 +433,7 @@ void term_manager<P>::apply_all_adi(
     sparse_grid const &grid, connection_patterns const &conns,
     P const x[], P y[]) const
 {
-  int64_t const n = grid.num_indexes() * fm::ipow(legendre.pdof, grid.num_dims());
+  int64_t const n = grid.num_indexes() * fm::ipow(basis.pdof, grid.num_dims());
 
   t1.resize(n);
   t2.resize(n);
@@ -459,7 +459,7 @@ void term_manager<P>::make_jacobi(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     std::vector<P> &y) const
 {
-  int const block_size      = fm::ipow(legendre.pdof, grid.num_dims());
+  int const block_size      = fm::ipow(basis.pdof, grid.num_dims());
   int64_t const num_entries = block_size * grid.num_indexes();
 
   if (y.size() == 0)
@@ -536,10 +536,10 @@ void term_manager<P>::kron_diag(
         for (int d = num_dims - 1; d >= 0; --d)
         {
           if (amats[d] != nullptr) {
-            int const rc = tt % legendre.pdof;
-            a *= amats[d][rc * legendre.pdof + rc];
+            int const rc = tt % basis.pdof;
+            a *= amats[d][rc * basis.pdof + rc];
           }
-          tt /= legendre.pdof;
+          tt /= basis.pdof;
         }
         if constexpr (mode == data_mode::increment)
           y[i * block_size + t] += a;
