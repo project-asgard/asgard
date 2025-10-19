@@ -33,24 +33,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
     if (not options_.subtitle.empty())
       std::cout << "           " << options_.subtitle << '\n';
 
-    std::cout << "basis degree: " << degree_;
-    switch (degree_) {
-      case 0:
-        std::cout << " (constant)";
-        break;
-      case 1:
-        std::cout << " (linear)";
-        break;
-      case 2:
-        std::cout << " (quadratic)";
-        break;
-      case 3:
-        std::cout << " (cubic)";
-        break;
-      default:
-        break;
-    };
-    std::cout << '\n';
+    std::cout << "basis degree: " << degree_to_string(degree_) << '\n';
 
     std::cout << grid;
     if (options_.adapt_threshold)
@@ -142,14 +125,12 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   set_initial_condition();
 
-  start_moments(); // grid may have changes above, wait to start the moments
-  if (terms.moms)
-    compute_moments(state);
-
   if (not stop_verbosity()) {
     int64_t const dof = grid.num_indexes() * hier.block_size();
     std::cout << "initial degrees of freedom: " << tools::split_style(dof) << "\n\n";
   }
+
+  start_moments(); // grid may have changes above, wait to start the moments
 
   if (stepper.needed_precon() == precon_method::adi) {
     terms.build_matrices(grid, conn, hier, precon_method::adi,
@@ -165,6 +146,9 @@ template<typename precision>
 void discretization_manager<precision>::restart_from_file(pde_scheme<precision> &pde)
 {
 #ifdef ASGARD_USE_HIGHFIVE
+  if (not stop_verbosity())
+    std::cout << "restarting from file: \"" << options_.restart_file << "\"\n";
+
   tools::time_event timing_("restart from file");
 
   time_data dtime;
@@ -206,24 +190,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     if (not options_.subtitle.empty())
       std::cout << "subtitle: " << options_.subtitle << '\n';
 
-    std::cout << "basis degree: " << hier.degree();
-    switch (hier.degree()) {
-      case 0:
-        std::cout << " (constant)";
-        break;
-      case 1:
-        std::cout << " (linear)";
-        break;
-      case 2:
-        std::cout << " (quadratic)";
-        break;
-      case 3:
-        std::cout << " (cubic)";
-        break;
-      default:
-        break;
-    };
-    std::cout << '\n';
+    std::cout << "basis degree: " << degree_to_string(hier.degree()) << '\n';
 
     std::cout << grid;
     if (options_.adapt_threshold)
@@ -246,7 +213,9 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
-  //if (terms.deps().poisson) {
+  if (terms.moms)
+    compute_moments(state);
+
   if (terms.has_poisson()) {
     moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
     poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),

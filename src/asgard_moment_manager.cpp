@@ -38,6 +38,11 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
 
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
 
+  wav_scale  = 1;
+  for (int d : iindexof(pos_grid.num_dims()))
+    wav_scale *= (domain.xright(d) - domain.xleft(d));
+  wav_scale = P{1} / std::sqrt(wav_scale);
+
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -562,6 +567,47 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
     std::copy_n(raw.data() + i * pdof, pdof, vals.data() + pos_grid[i][0] * pdof);
 
   hier.reconstruct1d(pos_grid.level_[0], vals);
+}
+
+template<typename P>
+void moment_manager<P>::make_nodal(
+    moment_id id, interpolation_manager<P> const &interp, connection_patterns const &conn,
+    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+{
+  interp.pos2nodal(pos_grid, conn, raw_vals[id].data(), wav_scale, workspace, work);
+
+  interps[id].resize(pntr.back() * full_block);
+
+  #pragma omp parallel for
+  for (int i = 0; i < pos_grid.num_indexes(); i++)
+  {
+    P *base = interps[id].data() + pntr[i] * full_block;
+    for (int j = 0; j < pos_block; j++)
+      std::fill_n(base + j * vel_block, vel_block, workspace[i * pos_block + j]);
+    P *out = base + full_block;
+    for (int j = pntr[i] + 1; j < pntr[i + 1]; j++)
+      out = std::copy_n(base, full_block, out);
+  }
+}
+
+template<typename P>
+void moment_manager<P>::load_interp(
+    interpolation_manager<P> const &interp, connection_patterns const &conn,
+    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+{
+  for (int i = 0; i < mlist.size(); i++)
+    if (mlist[moment_id{i}].action == moment::interpolatory)
+      make_nodal(moment_id{i}, interp, conn, work, workspace);
+}
+
+template<typename P>
+void moment_manager<P>::load_interp(
+    int groupid, interpolation_manager<P> const &interp, connection_patterns const &conn,
+    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+{
+  for (auto id : groups_[groupid])
+    if (mlist[id].action == moment::interpolatory)
+      make_nodal(id, interp, conn, work, workspace);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

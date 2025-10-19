@@ -168,7 +168,7 @@ struct term_manager
       if (not resources.owns(terms[t].rec))
         continue;
       #endif
-      buld_term(t, grid, conn, hier, precon, alpha);
+      build_const_terms(t, grid, conn, hier, precon, alpha);
     }
   }
   //! build the large matrices to the max level
@@ -221,7 +221,7 @@ struct term_manager
       auto &te = terms[it];
       for (int d : indexof(num_dims))
         if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+          rebuild_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
   //! prepares the kronmult workspace
@@ -402,14 +402,14 @@ protected:
   int sources_grid_gen = -1;
 
   //! rebuild term[tid], loops over all dimensions
-  void buld_term(int const tid, sparse_grid const &grid, connection_patterns const &conn,
-                 hierarchy_manipulator<P> const &hier,
-                 precon_method precon = precon_method::none, P alpha = 0);
+  void build_const_terms(int const tid, sparse_grid const &grid, connection_patterns const &conn,
+                         hierarchy_manipulator<P> const &hier,
+                         precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild term[tmd][t1d], assumes non-identity
-  void rebuld_term1d(term_entry<P> &tentry, int const dim, int level,
-                     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     precon_method precon = precon_method::none, P alpha = 0,
-                     bool merge_with_interp = false);
+  void rebuild_term1d(term_entry<P> &tentry, int const dim, int level,
+                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                      precon_method precon = precon_method::none, P alpha = 0,
+                      bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
                     hierarchy_manipulator<P> const &hier,

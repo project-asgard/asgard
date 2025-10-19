@@ -1,8 +1,6 @@
 #pragma once
-#include "asgard_pde.hpp"
-#include "asgard_pde_functions.hpp"
-#include "asgard_wavelet_basis.hpp"
-#include "asgard_transformations.hpp"
+
+#include "asgard_interp.hpp"
 
 namespace asgard
 {
@@ -116,6 +114,15 @@ public:
   //! return the set of cached levels, all relevant moments must be cached already
   momentset<P> const &get_cached_levels() const { return full_level; }
 
+  //! load the inteprolatory moments, all groups
+  void load_interp(interpolation_manager<P> const &interp,
+                   connection_patterns const &conn, kronmult::workspace<P> &work,
+                   std::vector<P> &workspace) const;
+  //! load the inteprolatory moments, specified group
+  void load_interp(int groupid, interpolation_manager<P> const &interp,
+                   connection_patterns const &conn, kronmult::workspace<P> &work,
+                   std::vector<P> &workspace) const;
+
 protected:
   //! set the new groups
   moment_manager(moments_list &&mlist_in,
@@ -147,6 +154,13 @@ protected:
   template<int npos>
   void reduce_grid(sparse_grid const &grid) const;
 
+  /*!
+   * \brief computes the nodal values of the moment
+   */
+  void make_nodal(moment_id id, interpolation_manager<P> const &interp,
+                  connection_patterns const &conn, kronmult::workspace<P> &work,
+                  std::vector<P> &workspace) const;
+
 private:
   //! indicates whether level 0 contains all the needed moment data
   enum class moment_level {
@@ -163,6 +177,8 @@ private:
   int pos_block = 0;
   int vel_block = 0;
   int full_block = 0;
+
+  P wav_scale = 0;
 
   mutable int dsort_generation = -1; // keeps track of when dsort is set in the grid
   mutable sparse_grid pos_grid; // holds the reduced grid (could be 1 cell)

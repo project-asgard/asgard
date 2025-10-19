@@ -33,6 +33,18 @@ bool is_imex(time_method method) {
   }
 }
 
+std::string degree_to_string(int degree)
+{
+  switch (degree) {
+  case 0: return "0 (constant)";
+  case 1: return "1 (linear)";
+  case 2: return "2 (quadratic)";
+  case 3: return "3 (cubic)";
+  default:
+    return std::to_string(degree);
+  };
+}
+
 split_views split_argv(std::string_view const &opts)
 {
   std::stringstream inopts{std::string(opts)};
@@ -600,23 +612,7 @@ void prog_opts::print_options(std::ostream &os) const
 
   os << "discretization:\n";
   if (degree)
-    switch (degree.value())
-    {
-    case 0:
-      os << "  degree: constant (0) \n";
-      break;
-    case 1:
-      os << "  degree: linear (1) \n";
-      break;
-    case 2:
-      os << "  degree: quadratic (2) \n";
-      break;
-    case 3:
-      os << "  degree: cubic (3) \n";
-      break;
-    default:
-      os << "  degree: " << degree.value() << '\n';
-    };
+    os << "  degree: " << degree_to_string(*degree) << '\n';
 
   if (grid)
     switch (grid.value())

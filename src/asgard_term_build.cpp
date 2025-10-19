@@ -389,7 +389,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
 
 template<typename P>
-void term_manager<P>::buld_term(
+void term_manager<P>::build_const_terms(
     int const tid, sparse_grid const &grid, connection_patterns const &conn,
     hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
 {
@@ -425,7 +425,10 @@ void term_manager<P>::buld_term(
     id_dirs.reserve(num_dims);
     for (int d : iindexof(num_dims))
     {
-      rebuld_term1d(terms[tid], d, max_level, conn, hier, precon, alpha, merge_with_interp);
+      if (tmd.tmd.dim(d).change() == changes_with::time)
+        continue;
+
+      rebuild_term1d(terms[tid], d, max_level, conn, hier, precon, alpha, merge_with_interp);
       if (terms[tid].tmd.dim(d).is_identity())
         id_dirs.push_back(d);
     }
@@ -436,8 +439,11 @@ void term_manager<P>::buld_term(
   }
   else
   {
-    for (int d : iindexof(num_dims)) {
+    for (int d : iindexof(num_dims))
+    {
       auto const &t1d = tmd.tmd.dim(d);
+      if (t1d.change() == changes_with::time)
+        continue;
 
       int level = grid.current_level(d); // required level
 
@@ -445,13 +451,13 @@ void term_manager<P>::buld_term(
       if (t1d.change() == changes_with::none)
         level = max_level; // build up to the max
 
-      rebuld_term1d(terms[tid], d, level, conn, hier, precon, alpha);
+      rebuild_term1d(terms[tid], d, level, conn, hier, precon, alpha);
     } // move to next dimension d
   }
 }
 
 template<typename P>
-void term_manager<P>::rebuld_term1d(
+void term_manager<P>::rebuild_term1d(
     term_entry<P> &tentry, int const dim, int level,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
     precon_method precon, P alpha, bool merge_with_interp)
