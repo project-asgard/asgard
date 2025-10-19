@@ -1,6 +1,6 @@
 #include "asgard_test_macros.hpp"
 
-#include "asgard_testpdes.hpp"
+#include "asgard_test_pdes.hpp"
 
 using namespace asgard;
 

@@ -531,7 +531,7 @@ private:
  * \endinternal
  */
 template<typename P>
-struct block_sparse_matrix
+class block_sparse_matrix
 {
 public:
   //! make an empty matrix

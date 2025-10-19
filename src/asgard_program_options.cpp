@@ -33,6 +33,18 @@ bool is_imex(time_method method) {
   }
 }
 
+std::string degree_to_string(int degree)
+{
+  switch (degree) {
+  case 0: return "0 (constant)";
+  case 1: return "1 (linear)";
+  case 2: return "2 (quadratic)";
+  case 3: return "3 (cubic)";
+  default:
+    return std::to_string(degree);
+  };
+}
+
 split_views split_argv(std::string_view const &opts)
 {
   std::stringstream inopts{std::string(opts)};
@@ -400,7 +412,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       if (not selected)
         throw std::runtime_error(report_no_value());
       try {
-        adapt_ralative = std::stod(selected->data());
+        adapt_relative = std::stod(selected->data());
       } catch(std::invalid_argument &) {
         throw std::runtime_error(report_wrong_value());
       } catch(std::out_of_range &) {
@@ -411,7 +423,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
     case optentry::no_adapt:
       // sufficient to override a deck file adapt options
       adapt_threshold.reset();
-      adapt_ralative.reset();
+      adapt_relative.reset();
       // needed to cancel adaptivity from a restart file
       set_no_adapt = true;
     break;
@@ -600,23 +612,7 @@ void prog_opts::print_options(std::ostream &os) const
 
   os << "discretization:\n";
   if (degree)
-    switch (degree.value())
-    {
-    case 0:
-      os << "  degree: constant (0) \n";
-      break;
-    case 1:
-      os << "  degree: linear (1) \n";
-      break;
-    case 2:
-      os << "  degree: quadratic (2) \n";
-      break;
-    case 3:
-      os << "  degree: cubic (3) \n";
-      break;
-    default:
-      os << "  degree: " << degree.value() << '\n';
-    };
+    os << "  degree: " << degree_to_string(*degree) << '\n';
 
   if (grid)
     switch (grid.value())
@@ -642,11 +638,11 @@ void prog_opts::print_options(std::ostream &os) const
   if (not max_levels.empty())
     os << "    max levels: " << max_levels_str() << '\n';
 
-  if (adapt_threshold or adapt_ralative)
+  if (adapt_threshold or adapt_relative)
   {
     os << "  adaptive tolerance:";
-    if (adapt_ralative)
-      os << " (relative)" << adapt_ralative.value();
+    if (adapt_relative)
+      os << " (relative)" << adapt_relative.value();
     if (adapt_threshold)
       os << " (absolute)" << adapt_threshold.value();
     os << '\n';

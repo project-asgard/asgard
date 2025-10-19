@@ -49,8 +49,7 @@ public:
     #else
     tools::time_event performance_("wavelet-to-nodal");
     #endif
-    block_cpu(pdof, grid, conn, perm, wav2nodal_,
-              P{wav_scale}, f, P{0}, vals, work);
+    block_cpu(pdof, grid, conn, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
   }
   //! compute values for the field, vector overload
   void wav2nodal(sparse_grid const &grid, connection_patterns const &conn,
@@ -62,12 +61,42 @@ public:
     wav2nodal(grid, conn, f, vals.data(), work);
   }
 
+  //! compute nodal values for the moment position coefficients
+  void pos2nodal(sparse_grid const &grid, connection_patterns const &conn,
+                 P const f[], P scal, P vals[], kronmult::workspace<P> &work) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 1;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(
+                  pdof, grid, conn, perm, P{wav_scale}, P{0}, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("position-to-nodal", flops);
+    #else
+    tools::time_event performance_("position-to-nodal");
+    #endif
+    block_cpu(pdof, grid, conn, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
+  }
+  //! compute values for the moment position coefficients, vector overload
+  void pos2nodal(sparse_grid const &grid, connection_patterns const &conn,
+                 P const f[], P scal, std::vector<P> &vals,
+                 kronmult::workspace<P> &work) const
+  {
+    size_t num_entries = static_cast<size_t>(grid.num_indexes() * fm::ipow(pdof, grid.num_dims()));
+    vals.resize(num_entries);
+    pos2nodal(grid, conn, f, scal, vals.data(), work);
+  }
+
   //! converts interpolated nodal values to hierarchical coefficients
   void nodal2hier(sparse_grid const &grid, connection_patterns const &conn,
                   P const f[], P hier[], kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
+    int constexpr id = 2;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(
@@ -89,7 +118,7 @@ public:
                  kronmult::workspace<P> &work, std::vector<P> &t1) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
+    int constexpr id = 3;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = 2 * kronmult::block_cpu(
@@ -293,6 +322,27 @@ public:
     block_gpu(dev, pdof, grid, conn, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
               P{0}, vals, work, wav2nodal_);
   }
+  //! compute nodal values for the moment
+  void pos2nodal(gpu::device dev, sparse_grid const &grid,
+                 connection_patterns const &conn, P const f[], P scal, P vals[],
+                 kronmult::workspace<P> &work) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int constexpr id = 1;
+    int64_t const flops = [&, this]()-> int64_t {
+        if (flop_info[id].grid_gen != grid.generation()) {
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, scal, P{0}, work);
+          flop_info[id].grid_gen = grid.generation();
+        }
+        return flop_info[id].flops;
+      }();
+    tools::time_event performance_("position-to-nodal-gpu", flops);
+    #else
+    tools::time_event performance_("position-to-nodal-gpu");
+    #endif
+    block_gpu(dev, pdof, grid, conn, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
+              P{0}, vals, work, wav2nodal_);
+  }
   //! compute hirarchical coefficients from nodal values
   void nodal2hier(gpu::device dev, sparse_grid const &grid,
                  connection_patterns const &conn,
@@ -300,7 +350,7 @@ public:
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
+    int constexpr id = 2;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(
@@ -323,7 +373,7 @@ public:
                  kronmult::workspace<P> &work, gpu::vector<P> &t1) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
+    int constexpr id = 3;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = 2 * kronmult::block_cpu(
@@ -451,6 +501,7 @@ private:
   kronmult::permutes perm;
   kronmult::permutes perm_low; // only lower matrices
   kronmult::permutes perm_up; // only upper matrices
+  kronmult::permutes perm_pos; // position only permutations
 
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
@@ -476,8 +527,9 @@ private:
     int grid_gen = -1;
     int64_t flops = 0;
   };
-  // indexes are wav2nodal (0), nodal2wav (1)
-  mutable std::array<flop_info_entry, 2> flop_info;
+  // indexes are wav2nodal (0), wav2nodal position-only (1)
+  //             nodal2hier (2), nodal2wav (3)
+  mutable std::array<flop_info_entry, 4> flop_info;
   #endif
 };
 

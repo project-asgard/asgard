@@ -728,7 +728,7 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     num_steps = 1;
 
   P const atol = manager.options().adapt_threshold.value_or(0);
-  P const rtol = manager.options().adapt_ralative.value_or(0);
+  P const rtol = manager.options().adapt_relative.value_or(0);
 
   sparse_grid &grid = manager.grid;
 

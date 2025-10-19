@@ -1,6 +1,5 @@
 #pragma once
 #include "asgard_kronmult.hpp"
-#include "asgard_pde.hpp"
 #include "asgard_pde_functions.hpp"
 #include "asgard_wavelet_basis.hpp"
 

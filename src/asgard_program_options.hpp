@@ -156,6 +156,16 @@ bool is_imex(time_method method);
 
 /*!
  * \internal
+ * \brief Convert the number associated with degree to a string
+ *
+ * Decorates the string with name, e.g., linear or quadratic,
+ * and returns a string formatted as "2 (quadratic)".
+ * \endinternal
+ */
+std::string degree_to_string(int degree);
+
+/*!
+ * \internal
  * \brief Internal use and testing
  *
  * Allows constructing prog_opts directly from a vector of string_view.
@@ -339,7 +349,7 @@ struct prog_opts
   //! provides the absolute tolerance threshold for adaptivity
   std::optional<double> adapt_threshold;
   //! provides the relative tolerance threshold for adaptivity
-  std::optional<double> adapt_ralative;
+  std::optional<double> adapt_relative;
 
   //! time stepping method, explicit, implicit or imex
   std::optional<time_method> step_method;

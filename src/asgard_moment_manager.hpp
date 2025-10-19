@@ -1,8 +1,6 @@
 #pragma once
-#include "asgard_pde.hpp"
-#include "asgard_pde_functions.hpp"
-#include "asgard_wavelet_basis.hpp"
-#include "asgard_transformations.hpp"
+
+#include "asgard_interp.hpp"
 
 namespace asgard
 {
@@ -21,7 +19,7 @@ public:
                  moments_list &&mlist_in,
                  std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
   //! create the manager with the new groups and potentially lower degree
-  moment_manager(pde_domain<P> const &domain, int max_level,
+  moment_manager(pde_domain<P> const &domain, int max_level, legendre_basis<P> const &basis,
                  hierarchy_manipulator<P> const &hier,
                  moments_list &&mlist_in,
                  std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
@@ -33,8 +31,8 @@ public:
    * the construction of the mass term.
    * However, if coeff is empty, it will be resized and filled with 1 for the values.
    */
-  void set_mass(int dim, P xleft, P xright, int max_level,
-                hierarchy_manipulator<P> const &hier, rhs_raw_data<P> &coeff);
+  void set_mass(int dim, P xleft, P xright, int max_level, legendre_basis<P> const &basis,
+                hierarchy_manipulator<P> const &hier, P scale, rhs_raw_data<P> &coeff);
 
   //! returns the loaded dimensions
   int num_dims() const { return num_dims_; }
@@ -49,6 +47,10 @@ public:
   moment const &get_by_id(moment_id id) const { return mlist[id]; }
   //! returns the ID of an existing moment
   moment_id find_id(moment const &m) const { return mlist.get_id(m); }
+  //! update the action for the given moment
+  void set_action(moment_id id, moment::moment_type action) {
+    mlist.set_action(id, action);
+  }
 
   //! returns a grid defined over the position dimensions ready for kronmult
   sparse_grid const &get_kronmult_grid() const {
@@ -116,13 +118,23 @@ public:
   //! return the set of cached levels, all relevant moments must be cached already
   momentset<P> const &get_cached_levels() const { return full_level; }
 
+  //! load the inteprolatory moments, all groups
+  void load_interp(interpolation_manager<P> const &interp,
+                   connection_patterns const &conn, kronmult::workspace<P> &work,
+                   std::vector<P> &workspace) const;
+  //! load the inteprolatory moments, specified group
+  void load_interp(int groupid, interpolation_manager<P> const &interp,
+                   connection_patterns const &conn, kronmult::workspace<P> &work,
+                   std::vector<P> &workspace) const;
+
 protected:
   //! set the new groups
   moment_manager(moments_list &&mlist_in,
                  std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
 
   //! set a dimension where only level 0 will contain moment data
-  void set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim);
+  void set_level_zero(pde_domain<P> const &domain, legendre_basis<P> const &basis,
+                      moment const &max_moms, int dim);
   /*!
    * \brief computes the specified moment
    *
@@ -147,6 +159,13 @@ protected:
   template<int npos>
   void reduce_grid(sparse_grid const &grid) const;
 
+  /*!
+   * \brief computes the nodal values of the moment
+   */
+  void make_nodal(moment_id id, interpolation_manager<P> const &interp,
+                  connection_patterns const &conn, kronmult::workspace<P> &work,
+                  std::vector<P> &workspace) const;
+
 private:
   //! indicates whether level 0 contains all the needed moment data
   enum class moment_level {
@@ -163,6 +182,8 @@ private:
   int pos_block = 0;
   int vel_block = 0;
   int full_block = 0;
+
+  P wav_scale = 0;
 
   mutable int dsort_generation = -1; // keeps track of when dsort is set in the grid
   mutable sparse_grid pos_grid; // holds the reduced grid (could be 1 cell)

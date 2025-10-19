@@ -377,8 +377,8 @@ set(asgard_components
     block_matrix
     coefficients_mats
     compute
-    dimension
     discretization
+    domain
     grid_1d
     indexset
     interp
@@ -386,7 +386,7 @@ set(asgard_components
     kronmult_common
     kronmult_cpu
     legendre_matrices
-    moment
+    moment_manager
     momentset
     pde
     pde_functions
@@ -396,9 +396,11 @@ set(asgard_components
     resource_groups
     small_mats
     solver
+    term_build
     term_manager
     term_sources
     test_macros
+    test_pdes
     time_advance
     time_data
     transformations

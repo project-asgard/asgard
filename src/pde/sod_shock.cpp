@@ -91,8 +91,8 @@ asgard::pde_scheme<P> make_sod(int vdims, asgard::prog_opts options) {
 
   // if no adaptivity is set and adaptivity is not explicitly disabled
   // then enable adaptivity to relative tolerance 0.1%
-  if (not options.adapt_ralative and not options.set_no_adapt)
-    options.adapt_ralative = 1.E-3;
+  if (not options.adapt_relative and not options.set_no_adapt)
+    options.adapt_relative = 1.E-3;
 
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;
@@ -356,8 +356,14 @@ void self_test() {
 
     disc.advance_time();
 
-    size_t const dofs = disc.current_state().size();
-    tassert(dofs == 2511u); // maybe too exact?
+    double n = 0;
+    for (auto s : disc.current_state())
+      n += s * s;
+    n = std::sqrt(n); // L^2 norm of the solution
+
+    // but CPU/GPU gives different results, but still within adaptive tolerance
+    double constexpr expected = 5.311351452729612e-01;
+    tcheckless(0, std::abs(expected - n) / expected, disc.options().adapt_relative.value());
   }
 
 #endif

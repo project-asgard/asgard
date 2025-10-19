@@ -1,73 +1,45 @@
 #pragma once
 
-#include "asgard_term_sources.hpp"
+#include "asgard_term_build.hpp"
 
 namespace asgard
 {
 
-//! \brief Combines a term with data used for linear operations
-template<typename P>
-struct term_entry {
-  //! make default entry, needs to be re-initialized
-  term_entry() = default;
-  //! initialize the entry with the given term
-  term_entry(term_md<P> tin);
-  //! resource (mpi-rank/gpu) that will own this term
-  resource rec;
-  //! the term, moved from the pde definition
-  term_md<P> tmd;
-  //! coefficient matrices for the term
-  std::array<block_sparse_matrix<P>, max_num_dimensions> coeffs;
-  #ifdef ASGARD_USE_GPU
-  //! gpu coefficient matrices for different levels
-  std::array<std::vector<gpu::vector<P>>, max_num_dimensions> gpu_lcoeffs;
-  //! pointers to gpu matrices
-  std::array<gpu::vector<P*>, max_num_dimensions> gpu_coeffs;
-  #endif
-  //! ADI pseudoinverses of the coefficients
-  std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
-  //! if the term has additional mass terms, term 0 will contain the mass-up-to current level
-  std::array<block_diag_matrix<P>, max_num_dimensions> mass;
-  //! kronmult operation permutations
-  kronmult::permutes perm;
-  //! dependencies on the Poisson solver
-  bool has_poisson = false;
-  //! indicates if this a single term or a chain, negative means member of a chain
-  int num_chain = 1;
-  //! left/right boundary conditions source index, if positive
-  int bc_source_id = -1;
-
-  //! check if the 1d term needs a Poisson solver
-  static bool has_needs_poisson(term_1d<P> const &t1d);
-
-  //! boundary conditions, start and end
-  indexrange<int> bc;
-  //! dimension holding a flux, -1 if no flux
-  int flux_dim = -1;
-
-  //! returns true if this is the beginning of a chain with at least one more term
-  bool is_chain_start() const { return (num_chain > 1); }
-  //! returns true if this is a link in a chain, false if stand-alone or first link
-  bool is_chain_link() const { return (num_chain < 0); }
-  //! mark the entry as being part of a chain
-  void mark_as_chain_link() { num_chain = -1; }
-  //! retrun true if the term is separable
-  bool is_separable() const { return (not is_interpolatory); }
-
-  //! indicates whether the term is interpolatory
-  bool is_interpolatory = false;
-  //! interpolation always uses ifield, e.g., first in the chain
-  bool interp_uses_ifield = false;
-  //! interpolation uses the moments or just the field
-  bool interp_uses_moments = false;
-  //! interpolation goes to hierarchical basis only or goes all the way to wavelets
-  bool interp_stop_at_hierarchy = false;
-};
-
 /*!
+ * \internal
  * \brief Manages the terms and matrices, also holds the mass-matrices and kronmult-workspace
  *
- * This is the core of the spatial discretization of the terms.
+ * The terms, sources and boundary conditions have a close interplay with each other,
+ * building term entries and using the coefficient functions also leads to updates
+ * of the boundary conditions. After construction, boundary conditions work
+ * much like sources; however, both sources and boundary conditions also use mass-matrices
+ * and kronmult operations in case of chaining or using non-separable sources.
+ * The term matrices also have two stages, first is the build and then the application,
+ * where both have to account for 1d and multi-d chaining, separable and interpolatory
+ * operations.
+ *
+ * Managing a large amount of functionality is challenging while breaking it into separate
+ * modules, components or classes will create artificial API walls and even more overall
+ * complexity, e.g., more dependencies for each function call, grant access with fiend classes,
+ * setter/getter methods, or incur computational cost by recomputing the same result more
+ * than once. The solution here is to keep relevant data together but have the methods
+ * split across multiple files.
+ *
+ * asgard_term_sources.hpp
+ * asgard_term_build.hpp -> includes asgard_term_sources.hpp
+ * asgard_term_manager.hpp -> includes asgard_term_build.hpp
+ * asgard_term_manager.cpp -> all .cpp files include asgard_term_manager.hpp
+ * asgard_term_build.cpp
+ * asgard_term_sources.cpp
+ *
+ * The implementation is grouped:
+ * - build methods, e.g., constructing matrices and sources, and assigning work
+ *   to MPI ranks and GPU devices
+ * - apply method, e.g., perform matrix-vector operations on groups of terms and sources
+ *   associated with the current MPI-rank
+ * - source methods, e.g., update the sources based on the current grid and add the vectors
+ *
+ * \endinternal
  */
 template<typename P>
 struct term_manager
@@ -139,7 +111,7 @@ struct term_manager
   std::array<P, max_num_dimensions> xright;
 
   //! handles basis manipulations
-  legendre_basis<P> legendre;
+  legendre_basis<P> basis;
 
   //! storage for the moments
   momentset<P> momset;
@@ -196,7 +168,7 @@ struct term_manager
       if (not resources.owns(terms[t].rec))
         continue;
       #endif
-      buld_term(t, grid, conn, hier, precon, alpha);
+      build_const_terms(t, grid, conn, hier, precon, alpha);
     }
   }
   //! build the large matrices to the max level
@@ -211,8 +183,18 @@ struct term_manager
         if (not mass_term[d].is_identity()) {
           build_raw_mass(d, mass_term[d], max_level, mass[d]);
           mass_forward[d] = hier.diag2hierarchical(mass[d], max_level, conn);
-          mass[d].spd_factorize(legendre.pdof);
+          mass[d].spd_factorize(basis.pdof);
           active_dirs.push_back(d);
+          if (moms) {
+            if (mass_term[d].rhs()) {
+              // the constant will be ignored here
+              moms.set_mass(d, xleft[d], xright[d], max_level, basis, hier, 1, raw_rhs);
+            } else {
+              raw_rhs.vals.resize(0); // no variable coefficient, will fill this with a constant
+              moms.set_mass(d, xleft[d], xright[d], max_level, basis, hier,
+                            mass_term[d].rhs_const(), raw_rhs);
+            }
+          }
         }
       mass_perm = kronmult::permutes(active_dirs);
     }
@@ -227,7 +209,7 @@ struct term_manager
           int const nrows = fm::ipow2(grid.current_level(d));
           if (lmass[d].nrows() != nrows) {
             build_raw_mass(d, mass_term[d], grid.current_level(d), lmass[d]);
-            lmass[d].spd_factorize(legendre.pdof);
+            lmass[d].spd_factorize(basis.pdof);
           }
         }
     }
@@ -249,7 +231,7 @@ struct term_manager
       auto &te = terms[it];
       for (int d : indexof(num_dims))
         if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
-          rebuld_term1d(te, d, grid.current_level(d), conn, hier);
+          rebuild_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }
   //! prepares the kronmult workspace
@@ -257,7 +239,7 @@ struct term_manager
     if (workspace_grid_gen == grid.generation())
       return;
 
-    int const block_size = fm::ipow(legendre.pdof, grid.num_dims());
+    int const block_size = fm::ipow(basis.pdof, grid.num_dims());
     int64_t num_entries  = block_size * grid.num_indexes();
 
     kwork.w1.resize(num_entries);
@@ -312,12 +294,20 @@ struct term_manager
   //! y = sum(terms * x), applies all terms
   void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
              P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+    #ifdef ASGARD_USE_GPU
+    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(gid, grid, conn, alpha, x, beta, y);
+    #else
     apply_tmpl<std::vector<P> const &, std::vector<P> &>(gid, grid, conn, alpha, x, beta, y);
+    #endif
   }
   //! y = sum(terms * x), applies all terms
   void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
              P alpha, P const x[], P beta, P y[]) const {
+    #ifdef ASGARD_USE_GPU
+    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(gid, grid, conn, alpha, x, beta, y);
+    #else
     apply_tmpl<P const[], P[]>(gid, grid, conn, alpha, x, beta, y);
+    #endif
   }
   #ifdef ASGARD_USE_FLOPCOUNTER
   //! count flops for the application of the specified group
@@ -350,7 +340,7 @@ struct term_manager
       } else
         interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
-      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+      block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
     }
   }
@@ -365,7 +355,7 @@ struct term_manager
       } else
         interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
     } else {
-      block_cpu(legendre.pdof, grid, conns, tme.perm, tme.coeffs,
+      block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);
     }
   }
@@ -374,7 +364,7 @@ struct term_manager
                      term_entry<P> const &tme, P alpha, P const x[], P beta,
                      P y[]) const
   {
-    block_cpu(legendre.pdof, grid, conns, tme.perm, tme.adi, alpha, x, beta, y, kwork);
+    block_cpu(basis.pdof, grid, conns, tme.perm, tme.adi, alpha, x, beta, y, kwork);
   }
   //! build the diagonal preconditioner
   template<data_mode mode>
@@ -422,14 +412,14 @@ protected:
   int sources_grid_gen = -1;
 
   //! rebuild term[tid], loops over all dimensions
-  void buld_term(int const tid, sparse_grid const &grid, connection_patterns const &conn,
-                 hierarchy_manipulator<P> const &hier,
-                 precon_method precon = precon_method::none, P alpha = 0);
+  void build_const_terms(int const tid, sparse_grid const &grid, connection_patterns const &conn,
+                         hierarchy_manipulator<P> const &hier,
+                         precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild term[tmd][t1d], assumes non-identity
-  void rebuld_term1d(term_entry<P> &tentry, int const dim, int level,
-                     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     precon_method precon = precon_method::none, P alpha = 0,
-                     bool merge_with_interp = false);
+  void rebuild_term1d(term_entry<P> &tentry, int const dim, int level,
+                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                      precon_method precon = precon_method::none, P alpha = 0,
+                      bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
                     hierarchy_manipulator<P> const &hier,

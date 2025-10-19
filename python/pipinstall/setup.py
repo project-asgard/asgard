@@ -2,21 +2,11 @@
 import os, sys, site
 
 # do standard skbuild setup
-from packaging import version
 from skbuild.exceptions import SKBuildError
 from skbuild.cmaker import get_cmake_version
 from skbuild import setup  # This line replaces 'from setuptools import setup'
 
 asg_ver = '0.7.1b1'  # trying to keep this set to the "next" release
-
-# Add CMake as a build requirement if cmake is not installed or too old
-setup_requires = []
-try:
-    if version.parse(get_cmake_version()) < version.parse("3.19"):
-        setup_requires.append('cmake>=3.19')
-except SKBuildError:
-    setup_requires.append('cmake>=3.19')
-setup_requires.append('numpy>=1.10')
 
 with open('README.md', 'r') as fh:
      readme_file = fh.readlines()
@@ -94,7 +84,6 @@ setup(
     url='https://github.com/project-asgard/asgard',
     install_requires=['numpy>=1.10', 'h5py>=3.6', 'scipy>=1.8', 'matplotlib>=3.5'],
     ### cmake portion of the setup, specific to skbuild ###
-    setup_requires=setup_requires,
     cmake_args=cmake_args,
     py_modules=[]
 )

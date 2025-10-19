@@ -1,7 +1,6 @@
 [project]
 name = "ornl-asgard"
 license = {text = "MIT"}
-version = "0.7.1a3"
 classifiers = ["Programming Language :: Python :: 3",
                "Programming Language :: C++",
                "Development Status :: 3 - Alpha",
@@ -9,8 +8,7 @@ classifiers = ["Programming Language :: Python :: 3",
                "Operating System :: MacOS",
                "Operating System :: POSIX :: Linux",
                "Topic :: Scientific/Engineering :: Mathematics" ]
-dynamic = ["authors", "description", "readme", "dependencies"]
+dynamic = ["authors", "description", "readme", "dependencies", "version"]
 
 [build-system]
-requires = ["setuptools", "wheel", "scikit-build>=0.10.0", "packaging"]
-
+requires = ["setuptools", "wheel", "scikit-build>=0.10.0", "cmake>=3.19", "numpy>=1.10"]

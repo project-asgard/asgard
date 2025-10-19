@@ -4,7 +4,7 @@
 
 #include "asgard_quadrature.hpp"
 
-namespace asgard::basis
+namespace asgard::legendre
 {
 // hardcoded linear basis functions
 template<typename P>
@@ -97,7 +97,7 @@ enum class integ_range
  * e.g., (-1, 0), (0, 1) or (-1, 1).
  */
 template<typename P, integ_range range = integ_range::full>
-vector2d<P> legendre_poly(int const degree)
+vector2d<P> poly(int const degree)
 {
   // the level 0 wavelets, in this case, the Legendre polynomials
   // so we use the recurrence relation to express the Legendre polynomials
@@ -105,21 +105,21 @@ vector2d<P> legendre_poly(int const degree)
 
   int const pdof = degree + 1; // number of polynomial dof for given degree
 
-  vector2d<P> legendre(pdof, pdof);
-  legendre[0][0] = 1.0; // constant polynomial
+  vector2d<P> lpoly(pdof, pdof);
+  lpoly[0][0] = 1.0; // constant polynomial
   if (degree >= 1)
   {
     if constexpr (range == integ_range::full)
-      legendre[1][1] = 1.0; // linear term
+      lpoly[1][1] = 1.0; // linear term
     else if constexpr (range == integ_range::right)
     {
-      legendre[1][0] = -1.0; // linear term
-      legendre[1][1] = 2.0;
+      lpoly[1][0] = -1.0; // linear term
+      lpoly[1][1] = 2.0;
     }
     else
     {
-      legendre[1][0] = 1.0; // linear term
-      legendre[1][1] = 2.0;
+      lpoly[1][0] = 1.0; // linear term
+      lpoly[1][1] = 2.0;
     }
   }
   if (degree >= 2)
@@ -140,19 +140,19 @@ vector2d<P> legendre_poly(int const degree)
         gamma += (range == integ_range::right) ? -2 : 2;
 
       if constexpr (range == integ_range::full)
-        legendre[n][0] = - beta * legendre[n - 2][0] / n;
+        lpoly[n][0] = - beta * lpoly[n - 2][0] / n;
       else
-        legendre[n][0] = (gamma * legendre[n - 1][0] - beta * legendre[n - 2][0]) / n;
+        lpoly[n][0] = (gamma * lpoly[n - 1][0] - beta * lpoly[n - 2][0]) / n;
 
       for (int k = 1; k < n; k++)
         if constexpr (range == integ_range::full)
-          legendre[n][k] = (alpha * legendre[n - 1][k - 1]
-                            - beta * legendre[n - 2][k]) / n;
+          lpoly[n][k] = (alpha * lpoly[n - 1][k - 1]
+                         - beta * lpoly[n - 2][k]) / n;
         else
-          legendre[n][k] = (alpha * legendre[n - 1][k - 1]
-                            + gamma * legendre[n - 1][k]
-                             - beta * legendre[n - 2][k]) / n;
-      legendre[n][n] = alpha * legendre[n - 1][n - 1] / n;
+          lpoly[n][k] = (alpha * lpoly[n - 1][k - 1]
+                         + gamma * lpoly[n - 1][k]
+                          - beta * lpoly[n - 2][k]) / n;
+      lpoly[n][n] = alpha * lpoly[n - 1][n - 1] / n;
     }
   }
 
@@ -166,12 +166,12 @@ vector2d<P> legendre_poly(int const degree)
         return std::sqrt((2 * n + P{1}));
     }();
 
-    P *p = legendre[n];
+    P *p = lpoly[n];
     for (auto i : indexof<int>(pdof))
       p[i] *= scale;
   }
 
-  return legendre;
+  return lpoly;
 }
 
 /*!
@@ -420,4 +420,4 @@ vector2d<P> wavelet_poly(vector2d<P> const &legendre, int degree)
   return wavelet_poly(legendre, canonical_integrator(degree));
 }
 
-} // namespace asgard::basis
+} // namespace asgard::legendre

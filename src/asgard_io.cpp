@@ -124,7 +124,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
       file.createDataSet<int>(
           "aux_field_" + std::to_string(auxid) + "_grid",
           HighFive::DataSpace(pgrid.size()), vopts).write_raw(pgrid.data());
-      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_dims", domain.num_vel());
+      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_dims", domain.num_pos());
     }
   }
 }
@@ -352,7 +352,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
           options.adapt_threshold = adapt;
         double const adapt_rel = H5Easy::load<double>(file, "grid_adapt_relative");
         if (adapt_rel > 0) // if negative, then adaptivity was never set to begin with
-          options.adapt_ralative = adapt_rel;
+          options.adapt_relative = adapt_rel;
       }
     }
   }

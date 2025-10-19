@@ -94,7 +94,7 @@ direct<P>::direct(
   tools::time_event timing_("forming dense matrix");
   int const num_dims    = grid.num_dims();
   int const num_indexes = grid.num_indexes();
-  int const pdof        = terms.legendre.pdof;
+  int const pdof        = terms.basis.pdof;
 
   int const n = fm::ipow(pdof, num_dims);
 

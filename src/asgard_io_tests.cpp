@@ -1,7 +1,7 @@
 
 #include "asgard_test_macros.hpp"
 
-#include "asgard_testpdes.hpp"
+#include "asgard_test_pdes.hpp"
 
 // reintroduce private headers
 #include <highfive/H5Easy.hpp>

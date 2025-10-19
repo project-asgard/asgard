@@ -1,4 +1,4 @@
-#include "asgard_moment.hpp"
+#include "asgard_moment_manager.hpp"
 #include "asgard_coefficients_mats.hpp"
 
 namespace asgard
@@ -38,6 +38,11 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
 
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
 
+  wav_scale  = 1;
+  for (int d : iindexof(pos_grid.num_dims()))
+    wav_scale *= (domain.xright(d) - domain.xleft(d));
+  wav_scale = P{1} / std::sqrt(wav_scale);
+
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -46,12 +51,15 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
   // to capture all moments into the zero-level element
   expect(pdof > max_moms.pows[0] and pdof > max_moms.pows[1] and pdof > max_moms.pows[2]);
 
+  legendre_basis<P> basis(pdof - 1);
+
   for (int d = 0; d < num_vel_; d++)
-    set_level_zero(domain, max_moms, d);
+    set_level_zero(domain, basis, max_moms, d);
 }
 
 template<typename P>
 moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
+                                  legendre_basis<P> const &basis,
                                   hierarchy_manipulator<P> const &hier,
                                   moments_list &&mlist_in,
                                   std::vector<moments_list> const &mom_groups)
@@ -80,26 +88,21 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   rhs_raw_data<P> coeff;
   for (int d = 0; d < num_vel_; d++) {
     if (pdof > max_moms.pows[d])
-      set_level_zero(domain, max_moms, d);
+      set_level_zero(domain, basis, max_moms, d);
     else
       set_mass(d, domain.xleft(domain.num_pos() + d), domain.xright(domain.num_pos() + d),
-               max_level, hier, coeff);
+               max_level, basis, hier, 1, coeff);
   }
 }
 
 template<typename P>
-void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim)
+void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, legendre_basis<P> const &basis,
+                                       moment const &max_moms, int dim)
 {
   dim_level[dim] = moment_level::zero;
 
-  // TODO: can reuse some of these, maybe take in a Legendre basis
-  auto [quadp, quadw]  = legendre_weights(pdof - 1, -1, 1);
-  auto [lvals, lprime] = legendre_vals(quadp, pdof - 1);
-  ignore(lprime);
-  int const num_quad = static_cast<int>(quadw.size());
-  std::vector<double> legw(2 * pdof * num_quad);
-  double *legws = legw.data() + pdof * num_quad; // scaled points and weights
-  smmat::col_scal(num_quad, pdof, quadw.data(), lvals.data(), legw.data());
+  int const num_quad = basis.num_quad;
+  std::vector<double> legws(pdof * num_quad);
 
   rhs_raw_data<double> rhs_raw;
   rhs_raw.pnts.resize(num_quad);
@@ -113,11 +116,11 @@ void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, moment const
   double const xleft = domain.xleft(domain.num_pos() + dim);
   double const dx    = (domain.xright(domain.num_pos() + dim) - xleft);
 
-  std::copy_n(legw.begin(), pdof * num_quad, legws);
-  smmat::scal(pdof * num_quad, 0.5 * std::sqrt(dx), legws);
+  std::copy_n(basis.legw, pdof * num_quad, legws.data());
+  smmat::scal(pdof * num_quad, std::sqrt(dx), legws.data());
 
   for (int k = 0; k < num_quad; k++)
-    rhs_raw.pnts[k] = (0.5 * quadp[k] + 0.5) * dx + xleft;
+    rhs_raw.pnts[k] = (0.5 * basis.qp[k] + 0.5) * dx + xleft;
 
   integ[dim] = vector2d<P>(pdof, max_moms.pows[dim] + 1);
   for (int m = 0; m <= max_moms.pows[dim]; m++)
@@ -151,10 +154,10 @@ void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, moment const
     };
 
     if constexpr (is_double<P>) {
-      smmat::gemtv(num_quad, pdof, legws, rhs_raw.vals.data(), integ[dim][m]);
+      smmat::gemtv(num_quad, pdof, legws.data(), rhs_raw.vals.data(), integ[dim][m]);
     } else {
       // convert to single precision
-      smmat::gemtv(num_quad, pdof, legws, rhs_raw.vals.data(), work.data());
+      smmat::gemtv(num_quad, pdof, legws.data(), rhs_raw.vals.data(), work.data());
       std::copy_n(work.data(), pdof, integ[dim][m]);
     }
   }
@@ -162,25 +165,20 @@ void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, moment const
 
 template<typename P>
 void moment_manager<P>::set_mass(
-    int dim, P xleft, P xright, int max_level,
-    hierarchy_manipulator<P> const &hier, rhs_raw_data<P> &coeff)
+    int dim, P xleft, P xright, int max_level, legendre_basis<P> const &basis,
+    hierarchy_manipulator<P> const &hier, P scale, rhs_raw_data<P> &coeff)
 {
   dim_level[dim] = moment_level::all;
 
   int const num_cells  = fm::ipow2(max_level);
   int const max_moment = mlist.max_moment(dim);
 
-  // TODO: can reuse some of these, maybe take in a Legendre basis
-  auto [quadp, quadw]  = legendre_weights(pdof - 1, -1, 1);
-  auto [lvals, lprime] = legendre_vals(quadp, pdof - 1);
-  ignore(lprime);
-  int const num_quad = static_cast<int>(quadw.size());
-  std::vector<double> legw(2 * pdof * num_quad);
-  double *legws = legw.data() + pdof * num_quad; // scaled points and weights
-  smmat::col_scal(num_quad, pdof, quadw.data(), lvals.data(), legw.data());
+  int const num_quad = basis.num_quad;
+
+  std::vector<double> legws(pdof * num_quad);
 
   if (coeff.vals.empty())
-    coeff.vals.resize(num_quad * num_cells, 1);
+    coeff.vals.resize(num_quad * num_cells, scale);
 
   rhs_raw_data<double> rhs_raw;
   rhs_raw.pnts.resize(num_quad * num_cells);
@@ -195,14 +193,14 @@ void moment_manager<P>::set_mass(
   // setting up quadrature points over all cells in the given dimension
   double const dx = (xright - xleft) / static_cast<double>(num_cells);
 
-  std::copy_n(legw.begin(), pdof * num_quad, legws);
-  smmat::scal(pdof * num_quad, 0.5 * std::sqrt(dx), legws);
+  std::copy_n(basis.legw, pdof * num_quad, legws.data());
+  smmat::scal(pdof * num_quad, std::sqrt(dx), legws.data());
 
   #pragma omp parallel for
   for (int i = 0; i < num_cells; i++) {
       double const l = xleft + i * dx; // left edge of cell i
       for (int k = 0; k < num_quad; k++)
-      rhs_raw.pnts[i * num_quad + k] = (0.5 * quadp[k] + 0.5) * dx + l;
+        rhs_raw.pnts[i * num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
   }
 
   integ[dim] = vector2d<P>(num_cells * pdof, max_moment + 1);
@@ -238,7 +236,7 @@ void moment_manager<P>::set_mass(
 
     #pragma omp parallel for
     for (int i = 0; i < num_cells; i++)
-      smmat::gemtv(num_quad, pdof, legws, rhs_vals[i], cell_moments[i]);
+      smmat::gemtv(num_quad, pdof, legws.data(), rhs_vals[i], cell_moments[i]);
 
     if constexpr (is_double<P>) {
       hier.transform(max_level, cell_moments[0], integ[dim][m]);
@@ -562,6 +560,47 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
     std::copy_n(raw.data() + i * pdof, pdof, vals.data() + pos_grid[i][0] * pdof);
 
   hier.reconstruct1d(pos_grid.level_[0], vals);
+}
+
+template<typename P>
+void moment_manager<P>::make_nodal(
+    moment_id id, interpolation_manager<P> const &interp, connection_patterns const &conn,
+    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+{
+  interp.pos2nodal(pos_grid, conn, raw_vals[id].data(), wav_scale, workspace, work);
+
+  interps[id].resize(pntr.back() * full_block);
+
+  #pragma omp parallel for
+  for (int i = 0; i < pos_grid.num_indexes(); i++)
+  {
+    P *base = interps[id].data() + pntr[i] * full_block;
+    for (int j = 0; j < pos_block; j++)
+      std::fill_n(base + j * vel_block, vel_block, workspace[i * pos_block + j]);
+    P *out = base + full_block;
+    for (int j = pntr[i] + 1; j < pntr[i + 1]; j++)
+      out = std::copy_n(base, full_block, out);
+  }
+}
+
+template<typename P>
+void moment_manager<P>::load_interp(
+    interpolation_manager<P> const &interp, connection_patterns const &conn,
+    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+{
+  for (int i = 0; i < mlist.size(); i++)
+    if (mlist[moment_id{i}].action == moment::interpolatory)
+      make_nodal(moment_id{i}, interp, conn, work, workspace);
+}
+
+template<typename P>
+void moment_manager<P>::load_interp(
+    int groupid, interpolation_manager<P> const &interp, connection_patterns const &conn,
+    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+{
+  for (auto id : groups_[groupid])
+    if (mlist[id].action == moment::interpolatory)
+      make_nodal(id, interp, conn, work, workspace);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

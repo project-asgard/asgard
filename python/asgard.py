@@ -241,10 +241,20 @@ class pde_snapshot:
 
     def get_moment(self, lpows):
         assert len(lpows) == self.num_velocity
-        name = "__moment"
+        name = "__moment_"
         for p in lpows:
-            name += f"_{p}"
-        return self.get_aux_field(name)
+            name += f"{p}"
+        for i in range(len(lpows), 3):
+            name += "x"
+
+        mom_field = self.get_aux_field(name)
+        name = f"{lpows[0]}"
+        for i in range(1, len(lpows)):
+            name += f", {lpows[i]}"
+        mom_field.title = f"moment ({name})"
+        mom_field.subtitle = ""
+
+        return mom_field
 
     def plot_data1d(self, dims, num_points = 32):
         '''
@@ -516,7 +526,7 @@ if __name__ == "__main__":
                     assert auxfield is None, "cannot simultaneously plot aux field and moment"
                     moment = sys.argv[i + 1] if i + 1 < n else None
                     i += 2
-                    assert auxfield is not None, "-mom requires an filed number"
+                    assert moment is not None, "-mom requires an filed number"
                     lpows = moment.split(" ")
                     moment = [int(p) for p in lpows]
                 elif sys.argv[i] == "-grid":
