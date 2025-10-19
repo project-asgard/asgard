@@ -610,9 +610,10 @@ public:
   //! returns the required moment, if any
   int get_moment() const { return mom; }
 
+  //! get the moment that is in the denominator, only for moment over density case
   moment const &moment_over() const { return smom_; }
+  //! get the ids of all moments needed by this 1d term
   std::vector<moment_id> const &moment_ids() const { return mids_; }
-  //! (internal use, sets the ids used by the moment
 
   //! returns the rhs function that calls the field
   sfixed_func1d_f<P> const &field() const { return field_f_; }

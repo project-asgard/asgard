@@ -62,7 +62,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
   : num_dims(domain.num_dims()), max_level(options.max_level()), basis(hier.degree()),
-    moms(domain, max_level, hier, std::move(pde.mlist), pde.mom_groups)
+    moms(domain, max_level, basis, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
 #endif

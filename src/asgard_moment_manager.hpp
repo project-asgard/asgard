@@ -19,7 +19,7 @@ public:
                  moments_list &&mlist_in,
                  std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
   //! create the manager with the new groups and potentially lower degree
-  moment_manager(pde_domain<P> const &domain, int max_level,
+  moment_manager(pde_domain<P> const &domain, int max_level, legendre_basis<P> const &basis,
                  hierarchy_manipulator<P> const &hier,
                  moments_list &&mlist_in,
                  std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
@@ -31,8 +31,8 @@ public:
    * the construction of the mass term.
    * However, if coeff is empty, it will be resized and filled with 1 for the values.
    */
-  void set_mass(int dim, P xleft, P xright, int max_level,
-                hierarchy_manipulator<P> const &hier, rhs_raw_data<P> &coeff);
+  void set_mass(int dim, P xleft, P xright, int max_level, legendre_basis<P> const &basis,
+                hierarchy_manipulator<P> const &hier, P scale, rhs_raw_data<P> &coeff);
 
   //! returns the loaded dimensions
   int num_dims() const { return num_dims_; }
@@ -133,7 +133,8 @@ protected:
                  std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
 
   //! set a dimension where only level 0 will contain moment data
-  void set_level_zero(pde_domain<P> const &domain, moment const &max_moms, int dim);
+  void set_level_zero(pde_domain<P> const &domain, legendre_basis<P> const &basis,
+                      moment const &max_moms, int dim);
   /*!
    * \brief computes the specified moment
    *

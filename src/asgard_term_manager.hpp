@@ -185,6 +185,16 @@ struct term_manager
           mass_forward[d] = hier.diag2hierarchical(mass[d], max_level, conn);
           mass[d].spd_factorize(basis.pdof);
           active_dirs.push_back(d);
+          if (moms) {
+            if (mass_term[d].rhs()) {
+              // the constant will be ignored here
+              moms.set_mass(d, xleft[d], xright[d], max_level, basis, hier, 1, raw_rhs);
+            } else {
+              raw_rhs.vals.resize(0); // no variable coefficient, will fill this with a constant
+              moms.set_mass(d, xleft[d], xright[d], max_level, basis, hier,
+                            mass_term[d].rhs_const(), raw_rhs);
+            }
+          }
         }
       mass_perm = kronmult::permutes(active_dirs);
     }
