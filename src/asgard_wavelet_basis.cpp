@@ -1,6 +1,6 @@
 #include "asgard_wavelet_basis.hpp"
 
-namespace asgard::basis
+namespace asgard::legendre
 {
 // generate_multi_wavelets routine creates wavelet basis (phi_co)
 // then uses these to generate the two-scale coefficients which can be
@@ -66,11 +66,11 @@ std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
   std::vector<double> h0(pdof * pdof);
   std::vector<double> h1(pdof * pdof);
 
-  basis::canonical_integrator quad(degree);
+  legendre::canonical_integrator quad(degree);
 
   // those are the transposes compared to the matrices used in the rest of the code
-  auto leg = basis::legendre_poly<double>(degree);
-  auto wav = basis::wavelet_poly(leg, quad);
+  auto leg = legendre::poly<double>(degree);
+  auto wav = legendre::wavelet_poly(leg, quad);
 
   double constexpr  s2 = 1.41421356237309505;
   double constexpr is2 = 1.0 / s2;
@@ -107,7 +107,7 @@ std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
   // no we have the wavelets at level n and the corresponding remainder going up
   // on level 0, there will be just a remainders
 
-  auto leg2 = basis::legendre_poly<double, basis::integ_range::right>(degree);
+  auto leg2 = legendre::poly<double, legendre::integ_range::right>(degree);
   double s = 1.0;
 
   for (int row = 0; row < pdof; ++row)
@@ -152,4 +152,4 @@ std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
   return {h0, h1, g0, g1};
 }
 
-} // namespace asgard::basis
+} // namespace asgard::legendre

@@ -43,9 +43,9 @@ reconstruct_solution::reconstruct_solution(
     for (int i = 1; i < pterms_; i++)
       wavelets[i] = std::sqrt(2.0 * i + 1.0);
 
-    auto legendre = basis::legendre_poly<double>(degree);
+    auto leg = legendre::poly<double>(degree);
 
-    auto wavs = basis::wavelet_poly(legendre, degree);
+    auto wavs = legendre::wavelet_poly(leg, degree);
 
     // the wavs coefficients are contiguous for a given wavelet
     // but the basis_value() will access in a different pattern
@@ -382,23 +382,23 @@ reconstruct_solution::basis_value(int const p[], double const x[],
     {
       if (p[d] == 0)
       {
-        vals[d][0] = basis::quadratic<double>::pleg0(xn[d]);
-        vals[d][1] = basis::quadratic<double>::pleg1(xn[d]);
-        vals[d][2] = basis::quadratic<double>::pleg2(xn[d]);
+        vals[d][0] = legendre::quadratic<double>::pleg0(xn[d]);
+        vals[d][1] = legendre::quadratic<double>::pleg1(xn[d]);
+        vals[d][2] = legendre::quadratic<double>::pleg2(xn[d]);
       }
       else
       {
         if (xn[d] < 0.5)
         {
-          vals[d][0] = basis::quadratic<double>::pwav0L(xn[d]);
-          vals[d][1] = basis::quadratic<double>::pwav1L(xn[d]);
-          vals[d][2] = basis::quadratic<double>::pwav2L(xn[d]);
+          vals[d][0] = legendre::quadratic<double>::pwav0L(xn[d]);
+          vals[d][1] = legendre::quadratic<double>::pwav1L(xn[d]);
+          vals[d][2] = legendre::quadratic<double>::pwav2L(xn[d]);
         }
         else
         {
-          vals[d][0] = basis::quadratic<double>::pwav0R(xn[d]);
-          vals[d][1] = basis::quadratic<double>::pwav1R(xn[d]);
-          vals[d][2] = basis::quadratic<double>::pwav2R(xn[d]);
+          vals[d][0] = legendre::quadratic<double>::pwav0R(xn[d]);
+          vals[d][1] = legendre::quadratic<double>::pwav1R(xn[d]);
+          vals[d][2] = legendre::quadratic<double>::pwav2R(xn[d]);
         }
       }
     }
@@ -428,19 +428,19 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       if (p[d] == 0)
       {
         vals[d][0] = 1.0;
-        vals[d][1] = basis::linear<double>::pleg1(xn[d]);
+        vals[d][1] = legendre::linear<double>::pleg1(xn[d]);
       }
       else
       {
         if (xn[d] < 0.5)
         {
-          vals[d][0] = basis::linear<double>::pwav0L(xn[d]);
-          vals[d][1] = basis::linear<double>::pwav1L(xn[d]);
+          vals[d][0] = legendre::linear<double>::pwav0L(xn[d]);
+          vals[d][1] = legendre::linear<double>::pwav1L(xn[d]);
         }
         else
         {
-          vals[d][0] = basis::linear<double>::pwav0R(xn[d]);
-          vals[d][1] = basis::linear<double>::pwav1R(xn[d]);
+          vals[d][0] = legendre::linear<double>::pwav0R(xn[d]);
+          vals[d][1] = legendre::linear<double>::pwav1R(xn[d]);
         }
       }
     }

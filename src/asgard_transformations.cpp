@@ -1342,7 +1342,7 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
   if (degree_ >= 2) // need transformation matrices, degree_ <= 1 is hard-coded
   {
     // work on the transformation matrices
-    auto rawmats = basis::generate_multi_wavelets(degree_);
+    auto rawmats = legendre::generate_multi_wavelets(degree_);
     int const pdof = degree_ + 1;
     // copy the matrices twice, once for level 1->0 and once for generic levels
     tmats.resize(8 * pdof * pdof);
