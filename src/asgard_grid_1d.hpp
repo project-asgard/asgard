@@ -38,6 +38,13 @@ public:
   static column_extended_hierarchy col_extend_hierarchy;
   //! Placeholder, empty connection
   connect_1d() : levels(0), rows(0) {}
+  //! set a custom pattern, used in reduced pattern for interpolation wav2nodal
+  connect_1d(int levels_in, int rows_in, std::vector<int> &&pntr_in,
+             std::vector<int> &&indx_in, std::vector<int> &&diag_in)
+    : levels(levels_in), rows(rows_in), pntr(std::move(pntr_in)),
+      indx(std::move(indx_in)), diag(std::move(diag_in))
+  {}
+
   /*!
    *  \brief Constructor, makes the connectivity up to and including the given
    *         max-level.
@@ -227,14 +234,12 @@ public:
     os << '\n';
   }
 
-  #ifdef ASGARD_USE_GPU
   //! allows pushing the pntr data to GPU memory
   std::vector<int> const &get_pntr() const { return pntr; }
   //! allows pushing the indx data to GPU memory
   std::vector<int> const &get_indx() const { return indx; }
   //! allows pushing the diag data to GPU memory
   std::vector<int> const &get_diag() const { return diag; }
-  #endif
 
 protected:
   //! \brief Allows for different hierarchy modes with if-constexpr
@@ -523,6 +528,8 @@ struct connection_patterns
     expect(h == connect_1d::hierarchy::volume or h == connect_1d::hierarchy::full);
     return lconns[static_cast<int>(h)][level];
   }
+  //! fill the levels from a full volume connection with reduced fill
+  void load_reduced_fill(); // connection_patterns const &conns);
   #endif
 };
 

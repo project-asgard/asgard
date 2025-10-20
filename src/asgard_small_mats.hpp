@@ -611,6 +611,15 @@ void kron_block(int n, int cycle, int stride, int repeat, P const A[], P B[])
     }
 }
 
+template<typename P>
+P norm_inf(int const n, P const x[]) {
+  P res = 0;
+  ASGARD_OMP_SIMD
+  for (int i = 0; i < n; i++)
+    res = std::max(res, std::abs(x[i]));
+  return res;
+}
+
 } // namespace asgard::smmat
 
 // put some fast-math overloads here that work with std::vector

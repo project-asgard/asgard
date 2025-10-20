@@ -31,7 +31,7 @@ public:
   vector2d<P> const &nodes(sparse_grid const &grid) const;
 
   //! compute nodal values for the field
-  void wav2nodal(sparse_grid const &grid, connection_patterns const &conn,
+  void wav2nodal(sparse_grid const &grid, connection_patterns const &conns,
                  P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
@@ -40,7 +40,7 @@ public:
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn, perm, P{wav_scale}, P{0}, work);
+                  pdof, grid, conn_reduced, perm, P{wav_scale}, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -49,7 +49,8 @@ public:
     #else
     tools::time_event performance_("wavelet-to-nodal");
     #endif
-    block_cpu(pdof, grid, conn, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
+    ignore(conns);
+    block_cpu(pdof, grid, conn_reduced, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
   }
   //! compute values for the field, vector overload
   void wav2nodal(sparse_grid const &grid, connection_patterns const &conn,
@@ -62,7 +63,7 @@ public:
   }
 
   //! compute nodal values for the moment position coefficients
-  void pos2nodal(sparse_grid const &grid, connection_patterns const &conn,
+  void pos2nodal(sparse_grid const &grid, connection_patterns const &conns,
                  P const f[], P scal, P vals[], kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -70,7 +71,7 @@ public:
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn, perm, P{wav_scale}, P{0}, work);
+                  pdof, grid, conn_reduced, perm, P{wav_scale}, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -79,7 +80,8 @@ public:
     #else
     tools::time_event performance_("position-to-nodal");
     #endif
-    block_cpu(pdof, grid, conn, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
+    ignore(conns);
+    block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
   }
   //! compute values for the moment position coefficients, vector overload
   void pos2nodal(sparse_grid const &grid, connection_patterns const &conn,
@@ -506,6 +508,8 @@ private:
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
   block_sparse_matrix<P> hier2wav_;
+
+  connection_patterns conn_reduced;
 
   #ifdef ASGARD_USE_GPU
   //! gpu coefficient matrices for different levels wavelet to nodal

@@ -303,6 +303,8 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
     if (static_cast<int>(xidx.size()) < conn.num_rows())
       xidx.resize(conn.num_rows(), -1);
 
+    // std::cout << " rows = " << conn.num_rows() << '\n';
+
 #pragma omp for schedule(dynamic)
     for (int vec_id = 0; vec_id < num_vecs; vec_id++)
     {
@@ -337,6 +339,8 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
 
         for (int c = col_begin; c < col_end; c++)
         {
+          // std::cout << " c = " << c << '\n';
+          // std::cout << " conn[c] = " << conn[c] << '\n';
           int64_t const xj = xidx[conn[c]];
           if (xj != -1)
           {

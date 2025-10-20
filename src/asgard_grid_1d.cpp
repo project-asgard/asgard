@@ -71,6 +71,20 @@ void connection_patterns::load_to_gpu()
     gpu_conns[g] = gpu_connect(max_level);
   }
 }
+
+void connection_patterns::load_reduced_fill() // connection_patterns const &conns)
+{
+  ignore(conns);
+  connect_1d const &conn = conns[static_cast<int>(connect_1d::hierarchy::volume)];
+  int const max_level = conn.max_loaded_level();
+  lconns[0].reserve(max_level + 1);
+
+  for (int l = 0; l <= max_level; l++) {
+  }
+
+
+
+}
 #endif
 
 } // namespace asgard
