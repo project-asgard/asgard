@@ -31,8 +31,7 @@ public:
   vector2d<P> const &nodes(sparse_grid const &grid) const;
 
   //! compute nodal values for the field
-  void wav2nodal(sparse_grid const &grid, connection_patterns const &conns,
-                 P const f[], P vals[],
+  void wav2nodal(sparse_grid const &grid, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -49,17 +48,15 @@ public:
     #else
     tools::time_event performance_("wavelet-to-nodal");
     #endif
-    ignore(conns);
     block_cpu(pdof, grid, conn_reduced, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
   }
   //! compute values for the field, vector overload
-  void wav2nodal(sparse_grid const &grid, connection_patterns const &conn,
-                 P const f[], std::vector<P> &vals,
+  void wav2nodal(sparse_grid const &grid, P const f[], std::vector<P> &vals,
                  kronmult::workspace<P> &work) const
   {
     size_t const num_entries = static_cast<size_t>(grid.num_indexes() * block_size);
     vals.resize(num_entries);
-    wav2nodal(grid, conn, f, vals.data(), work);
+    wav2nodal(grid, f, vals.data(), work);
   }
 
   //! compute nodal values for the moment position coefficients
@@ -195,7 +192,7 @@ public:
        P alpha, md_func_f<P> const &func, P beta, P y[],
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
   {
-    wav2nodal(grid, conn, state, t1.data(), work);
+    wav2nodal(grid, state, t1.data(), work);
     {
       tools::time_event perf_("interpolation function");
       func(time, nodes(grid), t1, t2);
@@ -214,7 +211,7 @@ public:
        P time, P const state[], md_func_f<P> const &func, P y[],
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
   {
-    wav2nodal(grid, conn, state, t1.data(), work);
+    wav2nodal(grid, state, t1.data(), work);
     {
       tools::time_event perf_("interpolation function");
       func(time, nodes(grid), t1, t2);
@@ -304,8 +301,7 @@ public:
 
   #ifdef ASGARD_USE_GPU
   //! compute nodal values for the field
-  void wav2nodal(gpu::device dev, sparse_grid const &grid,
-                 connection_patterns const &conn, P const f[], P vals[],
+  void wav2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -325,8 +321,7 @@ public:
               P{0}, vals, work, wav2nodal_);
   }
   //! compute nodal values for the moment
-  void pos2nodal(gpu::device dev, sparse_grid const &grid,
-                 connection_patterns const &conn, P const f[], P scal, P vals[],
+  void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P scal, P vals[],
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -429,7 +424,7 @@ public:
                 std::vector<P> &t1, std::vector<P> &t2,
                 gpu::vector<P> &gpu_t1) const
   {
-    wav2nodal(dev, grid, conn, state, gpu_t1.data(), work);
+    wav2nodal(dev, grid, state, gpu_t1.data(), work);
     gpu_t1.copy_to_host(t1);
     {
       tools::time_event perf_("interpolation function");
@@ -450,7 +445,7 @@ public:
        std::vector<P> &t1, std::vector<P> &t2,
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
   {
-    wav2nodal(dev, grid, conn, state, gpu_t1.data(), work);
+    wav2nodal(dev, grid, state, gpu_t1.data(), work);
     gpu_t1.copy_to_host(t1);
     {
       tools::time_event perf_("interpolation function");

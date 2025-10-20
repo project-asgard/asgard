@@ -96,7 +96,7 @@ void term_manager<P>::apply_tmpl(
       }();
 
   if (not ifield.empty()) // using interpolation and will need the field
-    interp.wav2nodal(grid, conns, px, ifield, kwork);
+    interp.wav2nodal(grid, px, ifield, kwork);
 
   auto const group = terms_group_range(gid);
   int icurrent = group.ibegin();
@@ -352,7 +352,7 @@ void term_manager<P>::apply_tmpl_gpu(
     P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
 
     if (not ifield.empty()) {
-      interp.wav2nodal(gpu::device{0}, grid, conns, xpntr, gpu_it1[0].data(), kwork);
+      interp.wav2nodal(gpu::device{0}, grid, xpntr, gpu_it1[0].data(), kwork);
       gpu_it1[0].copy_to_host(ifield);
     }
 
