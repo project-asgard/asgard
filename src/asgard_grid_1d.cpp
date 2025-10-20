@@ -79,10 +79,36 @@ void connection_patterns::load_reduced_fill() // connection_patterns const &conn
   int const max_level = conn.max_loaded_level();
   lconns[0].reserve(max_level + 1);
 
+  int rows = 1; // number of cells on this level
   for (int l = 0; l <= max_level; l++) {
+    std::vector<int> pntr;  pntr.reserve(conn.get_pntr().size());
+    std::vector<int> indx;  indx.reserve(conn.get_indx().size());
+    std::vector<int> diag;  diag.reserve(conn.get_diag().size());
+
+    int outj = 0;
+    pntr.push_back(0);
+    for (int r = 0; r < rows; r++)
+    {
+      indx.insert(indx.end(), conn.get_indx().begin() + conn.row_begin(r),
+                              conn.get_indx().begin() + conn.row_diag(r));
+      outj += static_cast<int>(indx.size());
+
+      indx.push_back(r);
+      diag.push_back(outj++);
+
+      for (int j = conn.row_diag(r) + 1; j < conn.row_end(r); j++) {
+        if (conn[j] >= rows)
+          break;
+        indx.push_back(outj++);
+      }
+
+      pntr.push_back(outj);
+    }
+
+    lconns[0].emplace_back(l, rows, std::move(pntr), std::move(indx), std::move(diag));
+
+    rows *= 2;
   }
-
-
 
 }
 #endif
