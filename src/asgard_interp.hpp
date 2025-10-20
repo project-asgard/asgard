@@ -321,7 +321,7 @@ public:
     #else
     tools::time_event performance_("wavelet-to-nodal-gpu");
     #endif
-    block_gpu(dev, pdof, grid, conn, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
+    block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
               P{0}, vals, work, wav2nodal_);
   }
   //! compute nodal values for the moment
@@ -342,7 +342,7 @@ public:
     #else
     tools::time_event performance_("position-to-nodal-gpu");
     #endif
-    block_gpu(dev, pdof, grid, conn, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
+    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
               P{0}, vals, work, wav2nodal_);
   }
   //! compute hirarchical coefficients from nodal values

@@ -453,24 +453,9 @@ struct gpu_connect {
   //! \brief creates a default empty connection
   gpu_connect() = default;
   //! \brief creates the volume and full-edge connectivity for the current level and loads to the gpu
-  gpu_connect(int max_level)
-  {
-    for (int l = 0; l <= max_level; l++)
-    {
-      {
-        connect_1d const conn(l, connect_1d::hierarchy::volume);
-
-        for (int p = 0; p < 3; p++)
-          patts[p].add_level(conn, static_cast<conn_fill>(p));
-      }{
-        connect_1d const conn(l, connect_1d::hierarchy::full);
-        full().add_level(conn, conn_fill::both);
-      }
-    }
-
-    for (auto &p : patts)
-      p.done_adding();
-  }
+  gpu_connect(int max_level);
+  //! create volume-only pattern on the GPU, using provided levels
+  gpu_connect(std::vector<connect_1d> &levels, connect_1d const &last, connect_1d::hierarchy h);
   //! access the full pattern
   gpu_connect_1d &full() { return patts.back(); }
   //! access the full pattern, const-ref
@@ -485,7 +470,7 @@ struct gpu_connect {
  */
 struct connection_patterns
 {
-  //! no patterns set, must be reinitalized later
+  //! no patterns set, must be reinitialized later
   connection_patterns() = default;
   //! construct patterns up to the given level
   explicit connection_patterns(int max_level)
@@ -521,15 +506,15 @@ struct connection_patterns
   void load_to_gpu();
   //! GPU data for the connectivity
   std::array<gpu_connect, max_num_gpus> gpu_conns;
-  //! connection patterns for different levels
+  //! connection patterns for different levels, needed to get matrix sub-patterns
   std::array<std::vector<connect_1d>, 2> lconns;
-  //! returns the connection pattern for a given level
+  //! returns the connection pattern for a given level, needed by get_subpattern()
   connect_1d const &get(int level, connect_1d::hierarchy h) const {
     expect(h == connect_1d::hierarchy::volume or h == connect_1d::hierarchy::full);
     return lconns[static_cast<int>(h)][level];
   }
   //! fill the levels from a full volume connection with reduced fill
-  void load_reduced_fill(); // connection_patterns const &conns);
+  void load_reduced_fill();
   #endif
 };
 

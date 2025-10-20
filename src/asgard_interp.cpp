@@ -191,6 +191,15 @@ interpolation_manager<P>::interpolation_manager(
     conn_reduced.conns[0] = connect_1d(level, conn.num_rows(), std::move(pntr),
                                        std::move(indx), std::move(diag));
 
+    #ifdef ASGARD_USE_GPU
+    conn_reduced.load_reduced_fill();
+    #endif
+
+    // uncomment the two lines below to revert to using the full matrix
+    // wav2nodal_ = w2n_;
+    // conn_reduced = connection_patterns(level);
+
+    // uncomment the lines below to see the % saving from the reduced pattern
     // std::cout << " reduction of non-zeros: " <<
     //     100.0 - 100.0 * static_cast<double>(conn_reduced.conns[0].num_connections())
     //     / static_cast<double>(conn.num_connections()) << "%\n";
@@ -244,8 +253,6 @@ interpolation_manager<P>::interpolation_manager(
     for (int c = 0; c < pdof; c++) // each high order basis function
       ihier_coeff(lorder[i], c) = fm::lagrange<double>(points, c, canonical_hier[i + pdof]);
 
-  // ihier_coeff.print();
-
   { // nodal cell-by-cell projection
     auto [pnts, wts]     = legendre_weights(pdof - 1, -1, 1);
     auto [lvals, lprime] = legendre_vals(pnts, pdof - 1);
@@ -294,10 +301,9 @@ interpolation_manager<P>::interpolation_manager(
 
     std::vector<P*> coeff_pntrs(level + 1, nullptr);
 
-    // loading wav2nodal_
     gpu_lwav2nodal_[g].resize(level + 1);
     for (int l = 0; l < level; l++) {
-      gpu_lwav2nodal_[g][l] = wav2nodal_.get_subpattern(l, conns).data_vector();
+      gpu_lwav2nodal_[g][l] = wav2nodal_.get_subpattern(l, conn_reduced).data_vector();
       coeff_pntrs[l]        = gpu_lwav2nodal_[g][l].data();
     }
     gpu_lwav2nodal_[g][level] = wav2nodal_.data_vector();
