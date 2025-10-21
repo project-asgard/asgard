@@ -308,7 +308,8 @@ public:
     int constexpr id = 0;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, P{wav_scale}, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn_reduced, perm,
+                                                    P{wav_scale}, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -328,7 +329,7 @@ public:
     int constexpr id = 1;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(n, grid, conn, perm, scal, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(n, grid, conn_reduced, perm, scal, P{0}, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
