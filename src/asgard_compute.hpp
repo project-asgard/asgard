@@ -227,6 +227,23 @@ public:
   void scal(int num, no_deduce<P> alpha, P x[]) const {
     blas_.scal(num, alpha, x);
   }
+  //! dot product between two vectors
+  template<typename P>
+  P dot(int num, P const x[], P const y[]) const {
+    return blas_.dot(num, x, y);
+  }
+  //! dot product of a vector with itself
+  template<typename P>
+  P dot1(int num, P const x[]) const {
+    P const n = blas_.nrm2(num, x);
+    return n * n;
+  }
+  //! norm-2 of a vector
+  template<typename P>
+  P nrm2(int num, P const x[]) const {
+    P const n = blas_.nrm2(num, x);
+    return n;
+  }
   #endif
 
 private:

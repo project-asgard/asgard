@@ -309,6 +309,18 @@ struct term_manager
     apply_tmpl<P const[], P[]>(gid, grid, conn, alpha, x, beta, y);
     #endif
   }
+  #ifdef ASGARD_USE_GPU
+  //! y = sum(terms * x), applies all terms, input is on the GPU
+  void apply_gpu(sparse_grid const &grid, connection_patterns const &conn,
+                 P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(all_groups, grid, conn, alpha, x, beta, y);
+  }
+  //! y = sum(terms * x), applies all terms for the group, input is on the GPU
+  void apply_gpu(int gid, sparse_grid const &grid, connection_patterns const &conn,
+                 P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(gid, grid, conn, alpha, x, beta, y);
+  }
+  #endif
   #ifdef ASGARD_USE_FLOPCOUNTER
   //! count flops for the application of the specified group
   int64_t flop_count(

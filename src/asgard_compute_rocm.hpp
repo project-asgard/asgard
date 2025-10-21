@@ -87,10 +87,10 @@ public:
   ~blas_engine() {
     if (rocblas != nullptr)
       rocblas_destroy_handle(rocblas);
-    if (fone != nullptr)
-      memfree(fone);
-    if (done != nullptr)
-      memfree(done);
+    if (fone != nullptr) memfree(fone);
+    if (done != nullptr) memfree(done);
+    if (ftmp != nullptr) memfree(ftmp);
+    if (dtmp != nullptr) memfree(dtmp);
   }
 
   void init() {
@@ -104,6 +104,9 @@ public:
     done = memalloc<double>(1);
     double cpu_done = 1.0;
     memcopy_host2dev(1, &cpu_done, done);
+
+    ftmp = memalloc<float>(1);
+    dtmp = memalloc<double>(1);
   }
 
   template<typename P>
@@ -141,6 +144,40 @@ public:
     }
   }
 
+  template<typename P>
+  P dot(int num, P const x[], P const y[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "dot can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_sdot(rocblas, num, x, 1, y, 1, ftmp) );
+      P res = 0;
+      memcopy_dev2host(1, ftmp, &res);
+      return res;
+    } else {
+      rocblas_check_error( rocblas_ddot(rocblas, num, x, 1, y, 1, dtmp) );
+      P res = 0;
+      memcopy_dev2host(1, dtmp, &res);
+      return res;
+    }
+  }
+
+  template<typename P>
+  P nrm2(int num, P const x[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "dot can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_snrm2(rocblas, num, x, 1, ftmp) );
+      P res = 0;
+      memcopy_dev2host(1, ftmp, &res);
+      return res;
+    } else {
+      rocblas_check_error( rocblas_dnrm2(rocblas, num, x, 1, dtmp) );
+      P res = 0;
+      memcopy_dev2host(1, dtmp, &res);
+      return res;
+    }
+  }
+
   operator rocblas_handle () const { return rocblas; }
 
 private:
@@ -148,6 +185,9 @@ private:
 
   float *fone  = nullptr;
   double *done = nullptr;
+
+  float *ftmp  = nullptr;
+  double *dtmp = nullptr;
 };
 
 }
