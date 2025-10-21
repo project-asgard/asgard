@@ -558,9 +558,12 @@ public:
   bool empty() const { return (data_.stride() == 0); }
 
   //! converts the matrix to a full one, mostly for testing/plotting
-  block_matrix<P> to_full(connection_patterns const &conns) const
+  block_matrix<P> to_full(connection_patterns const &conns) const {
+    return to_full(conns(htype_));
+  }
+  //! converts the matrix to a full one, mostly for testing/plotting
+  block_matrix<P> to_full(connect_1d const &conn) const
   {
-    connect_1d const &conn = conns(htype_);
     int const n     = nblock();
     int const nrows = conn.num_rows();
     int mcol = 0;

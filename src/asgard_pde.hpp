@@ -74,6 +74,8 @@ enum class flux_type
   central  = 0,
   //! other dimensions yield negative coefficient
   downwind = -1,
+  //! (experimental) div/grad term but without the edge fluxes, used for adding artificial viscosity
+  none
 };
 
 /*!

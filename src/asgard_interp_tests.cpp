@@ -64,8 +64,7 @@ void interp_wav2nodal() {
     rec.reconstruct(dnodes[0], nodes.num_strips(), ref.data());
 
     std::vector<P> vals(ref.size());
-    interp.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
-                     vals.data(), disc.get_terms().kwork);
+    interp.wav2nodal(grid, disc.current_state().data(), vals.data(), disc.get_terms().kwork);
 
     // std::cout << "  err = " << fm::diff_inf(vals, ref) << '\n';
     tassert(vals.size() == ref.size());
@@ -105,8 +104,7 @@ void interp_wav2nodal() {
       ref[i] = ic.eval(nodes[i], 0);
 
     std::vector<P> vals(ref.size());
-    interp.wav2nodal(grid, disc.get_conn(), disc.current_state().data(),
-                     vals.data(), disc.get_terms().kwork);
+    interp.wav2nodal(grid, disc.current_state().data(), vals.data(), disc.get_terms().kwork);
 
     // std::cout << "  err = " << fm::diff_inf(vals, ref) << '\n';
     tassert(vals.size() == ref.size());

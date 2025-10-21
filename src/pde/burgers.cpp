@@ -538,7 +538,7 @@ void self_test() {
 #endif
 
 #ifndef ASGARD_ENABLE_DOUBLE
-  std::cout << "no tests for single precision due to conditioning\n";
+  dotest<float>(2.E-3, 2, "-l 6 -n 20 -nu 0");
 #endif
 }
 

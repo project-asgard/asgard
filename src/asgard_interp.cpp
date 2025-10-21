@@ -8,7 +8,7 @@ template<typename P>
 interpolation_manager<P>::interpolation_manager(
     prog_opts const &opts,
     pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
-    connection_patterns const &conn)
+    connection_patterns const &conns)
     : num_dims(domain.num_dims()), pdof(hier.degree() + 1),
       block_size(hier.block_size()),
       perm(num_dims),
@@ -106,8 +106,8 @@ interpolation_manager<P>::interpolation_manager(
   // ------------------------------------------------------------
   // construct the points and remap to hierarchical order
   // ------------------------------------------------------------
-  int const level     = conn.max_loaded_level();
-  int const num_cells = conn.conns[0].num_rows();
+  int const level     = conns.max_loaded_level();
+  int const num_cells = conns.conns[0].num_rows();
   P const cell_size = P{1} / static_cast<P>(num_cells);
   P const sqrt_size = std::sqrt(static_cast<P>(num_cells));
 
@@ -141,10 +141,69 @@ interpolation_manager<P>::interpolation_manager(
     }
   }
 
-  wav2nodal_ = hier.diag2block(hierarchy_manipulator<P>::operation::custom_unitary,
-                               permute.data(),
-                               hierarchy_manipulator<P>::operation::transform,
-                               nullptr, diag_h2w, level, conn);
+  block_sparse_matrix<P> w2n_
+      = hier.diag2block(hierarchy_manipulator<P>::operation::custom_unitary,
+                        permute.data(),
+                        hierarchy_manipulator<P>::operation::transform,
+                        nullptr, diag_h2w, level, conns);
+
+  {
+    // the wav2nodal matrix has additional sparsity, up to 31% fewer non-zeros
+    // since the other matrices have upper or lower structure, this is one dominates the cost
+    // reducing the number of non-zeros can lead to more than 20% speed up of inter operations
+    connect_1d const &conn = conns[connect_1d::hierarchy::volume];
+
+    wav2nodal_ = block_sparse_matrix<P>(pdof2, conn.num_connections(),
+                                        connect_1d::hierarchy::volume);
+
+    std::vector<int> const &big_pntr = conn.get_pntr();
+    std::vector<int> const &big_indx = conn.get_indx();
+    std::vector<int> const &big_diag = conn.get_diag();
+    std::vector<int> pntr, indx, diag;
+    pntr.reserve(big_pntr.size());
+    indx.reserve(big_indx.size());
+    diag.reserve(big_diag.size());
+
+    P const tol = (is_double<P>) ? 1.E-14 : 1.E-5;
+
+    int outj = 0;
+    for (int row = 0; row < conn.num_rows(); row++)
+    {
+      pntr.push_back(outj);
+      for (int j = conn.row_begin(row); j < conn.row_diag(row); j++) {
+        if (smmat::norm_inf(pdof2, w2n_[j]) > tol) {
+          indx.push_back(big_indx[j]);
+          std::copy_n(w2n_[j], pdof2, wav2nodal_[outj++]);
+        }
+      }
+      diag.push_back(outj);
+      indx.push_back(big_indx[conn.row_diag(row)]);
+      std::copy_n(w2n_[conn.row_diag(row)], pdof2, wav2nodal_[outj++]);
+      for (int j = conn.row_diag(row) + 1; j < conn.row_end(row); j++) {
+        if (smmat::norm_inf(pdof2, w2n_[j]) > tol) {
+          indx.push_back(big_indx[j]);
+          std::copy_n(w2n_[j], pdof2, wav2nodal_[outj++]);
+        }
+      }
+    }
+    pntr.push_back(outj);
+
+    conn_reduced.conns[0] = connect_1d(level, conn.num_rows(), std::move(pntr),
+                                       std::move(indx), std::move(diag));
+
+    #ifdef ASGARD_USE_GPU
+    conn_reduced.load_reduced_fill();
+    #endif
+
+    // uncomment the two lines below to revert to using the full matrix
+    // wav2nodal_ = w2n_;
+    // conn_reduced = connection_patterns(level);
+
+    // uncomment the lines below to see the % saving from the reduced pattern
+    // std::cout << " reduction of non-zeros: " <<
+    //     100.0 - 100.0 * static_cast<double>(conn_reduced.conns[0].num_connections())
+    //     / static_cast<double>(conn.num_connections()) << "%\n";
+  }
 
   // ------------------------------------------------------------
   // transforming nodal coefficients to hierarchical coefficients
@@ -171,7 +230,6 @@ interpolation_manager<P>::interpolation_manager(
     for (int i = 0; i < pdof; i++)
       hier_coeff(r + pdof, horder[i]) = -fm::lagrange<double>(points, i, canonical_hier[r + pdof]);
 
-  // hier_coeff.print();
 
   fill_pattern(smmat::make_identity<P>(pdof).data(), diag_h2w); // start with identity
 
@@ -179,7 +237,7 @@ interpolation_manager<P>::interpolation_manager(
                     hierarchy_manipulator<P>::operation::custom_non_unitary,
                     hier_coeff.data(),
                     hierarchy_manipulator<P>::operation::custom_unitary,
-                    permute.data(), diag_h2w, level, conn);
+                    permute.data(), diag_h2w, level, conns);
 
   // ------------------------------------------------------------
   // projecting hierarchical interpolation basis to hierarchical Legendre
@@ -194,8 +252,6 @@ interpolation_manager<P>::interpolation_manager(
   for (int i = 0; i < pdof; i++) // each low order point
     for (int c = 0; c < pdof; c++) // each high order basis function
       ihier_coeff(lorder[i], c) = fm::lagrange<double>(points, c, canonical_hier[i + pdof]);
-
-  // ihier_coeff.print();
 
   { // nodal cell-by-cell projection
     auto [pnts, wts]     = legendre_weights(pdof - 1, -1, 1);
@@ -230,12 +286,12 @@ interpolation_manager<P>::interpolation_manager(
   hier2wav_ = hier.diag2block(
                   hierarchy_manipulator<P>::operation::transform, nullptr,
                   hierarchy_manipulator<P>::operation::custom_non_unitary,
-                  ihier_coeff.data(), diag_h2w, level, conn);
+                  ihier_coeff.data(), diag_h2w, level, conns);
 
 
-  // wav2nodal_.to_full(conn).print();
-  // nodal2hier_.to_full(conn).print();
-  // hier2wav_.to_full(conn).print();
+  // wav2nodal_.to_full(conns).print();
+  // nodal2hier_.to_full(conns).print();
+  // hier2wav_.to_full(conns).print();
 
 #ifdef ASGARD_USE_GPU
   int const num_gpus = compute->num_gpus();
@@ -245,10 +301,9 @@ interpolation_manager<P>::interpolation_manager(
 
     std::vector<P*> coeff_pntrs(level + 1, nullptr);
 
-    // loading wav2nodal_
     gpu_lwav2nodal_[g].resize(level + 1);
     for (int l = 0; l < level; l++) {
-      gpu_lwav2nodal_[g][l] = wav2nodal_.get_subpattern(l, conn).data_vector();
+      gpu_lwav2nodal_[g][l] = wav2nodal_.get_subpattern(l, conn_reduced).data_vector();
       coeff_pntrs[l]        = gpu_lwav2nodal_[g][l].data();
     }
     gpu_lwav2nodal_[g][level] = wav2nodal_.data_vector();
@@ -259,7 +314,7 @@ interpolation_manager<P>::interpolation_manager(
     // loading nodal2hier_
     gpu_lnodal2hier_[g].resize(level + 1);
     for (int l = 0; l < level; l++) {
-      gpu_lnodal2hier_[g][l] = nodal2hier_.get_subpattern(l, conn).data_vector();
+      gpu_lnodal2hier_[g][l] = nodal2hier_.get_subpattern(l, conns).data_vector();
       coeff_pntrs[l]         = gpu_lnodal2hier_[g][l].data();
     }
     gpu_lnodal2hier_[g][level] = nodal2hier_.data_vector();
@@ -270,7 +325,7 @@ interpolation_manager<P>::interpolation_manager(
     // loading hier2wav_
     gpu_lhier2wav_[g].resize(level + 1);
     for (int l = 0; l < level; l++) {
-      gpu_lhier2wav_[g][l] = hier2wav_.get_subpattern(l, conn).data_vector();
+      gpu_lhier2wav_[g][l] = hier2wav_.get_subpattern(l, conns).data_vector();
       coeff_pntrs[l]       = gpu_lhier2wav_[g][l].data();
     }
     gpu_lhier2wav_[g][level] = hier2wav_.data_vector();

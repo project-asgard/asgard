@@ -14,6 +14,91 @@ enum class rhs_type {
 };
 
 template<typename P, operation_type optype, rhs_type rtype, data_mode dmode = data_mode::replace>
+void gen_no_flux_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
+                      sfixed_func1d<P> const &rhs, P const rhs_const,
+                      rhs_raw_data<P> &rhs_raw, block_tri_matrix<P> &coeff)
+{
+  static_assert(optype == operation_type::div or optype == operation_type::grad,
+                "identity, mass and chain operations yield diagonal matrices, "
+                "should not be used in the tri-diagonal case");
+  static_assert(dmode == data_mode::replace or dmode == data_mode::increment,
+                "matrices can either replace existing data or add to it, "
+                "use data_mode::replace or data_mode::increment");
+  static_assert(not (optype == operation_type::penalty and rtype == rhs_type::is_func),
+                "cannot use spatially dependant penalty term");
+
+  int const num_cells = fm::ipow2(level);
+  P const dx = (xright - xleft) / num_cells;
+
+  int const nblock = basis.pdof * basis.pdof;
+  if constexpr (dmode == data_mode::replace) {
+    coeff.resize_and_zero(nblock, num_cells);
+  } else {
+    expect(coeff.nblock() == nblock);
+    expect(coeff.nrows() == num_cells);
+  }
+
+  span2d<P> rhs_vals;
+  if constexpr (rtype == rhs_type::is_func) {
+    // left point, interior pnts, right-point, left/right in adjacent cells will match
+    rhs_raw.pnts.resize(basis.num_quad * num_cells);
+    rhs_raw.vals.resize(rhs_raw.pnts.size());
+#pragma omp parallel for
+    for (int i = 0; i < num_cells; i++) {
+      P const l = xleft + i * dx;
+      for (int k = 0; k < basis.num_quad; k++)
+        rhs_raw.pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
+    }
+    // right most cell
+    rhs_raw.pnts.back() = xright;
+    rhs(rhs_raw.pnts, rhs_raw.vals);
+
+    rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.vals.data());
+  }
+
+  P const vscale = P{2} / dx; // volume scale
+
+  std::vector<P> const_mat;
+  if constexpr (rtype == rhs_type::is_const) {
+    // if the coefficient is constant, we have identical copies of the same matrix
+    // compute once and reuse as needed,
+    // also note that the penalty operation skips the volume component
+    const_mat.resize(nblock);
+    smmat::gemm_tn<-1>(basis.pdof, basis.num_quad,
+                       basis.der, basis.legw, const_mat.data());
+    smmat::scal(nblock, vscale * rhs_const, const_mat.data());
+  }
+
+#pragma omp parallel
+  {
+    // each thread will allocate it's own tmp matrix
+    std::vector<P> tmp;
+    if constexpr (rtype == rhs_type::is_func)
+      tmp.resize(basis.num_quad * basis.pdof); // if not using const coefficient
+
+#pragma omp for
+    for (int i = 1; i < num_cells - 1; i++)
+    {
+      if constexpr (rtype == rhs_type::is_const) {
+        std::copy_n(const_mat.data(), nblock, coeff.diag(i));
+      } else {
+        smmat::col_scal(basis.num_quad, basis.pdof,
+                        vscale, rhs_vals[i], basis.legw, tmp.data());
+        smmat::gemm_tn<-1>(basis.pdof, basis.num_quad, basis.der, tmp.data(), coeff.diag(i));
+      }
+    }
+  }
+
+  if constexpr (optype == operation_type::grad)
+  {
+    // take the negative transpose of div
+#pragma omp parallel for
+    for (int64_t r = 0; r < coeff.nrows(); r++)
+      smmat::neg_transp(basis.pdof, coeff.diag(r));
+  }
+}
+
+template<typename P, operation_type optype, rhs_type rtype, data_mode dmode = data_mode::replace>
 void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                   sfixed_func1d<P> const &rhs, P const rhs_const, flux_type flux,
                   boundary_type boundary, rhs_raw_data<P> &rhs_raw, block_tri_matrix<P> &coeff)
@@ -28,6 +113,13 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                 "use data_mode::replace or data_mode::increment");
   static_assert(not (optype == operation_type::penalty and rtype == rhs_type::is_func),
                 "cannot use spatially dependant penalty term");
+
+  if constexpr (optype == operation_type::div or optype == operation_type::grad) {
+    if (flux == flux_type::none) {
+      gen_no_flux_cmat<P, optype, rtype, dmode>(basis, xleft, xright, level,
+                                                rhs, rhs_const, rhs_raw, coeff);
+    }
+  }
 
   if constexpr (optype == operation_type::grad) {
     // the grad operation flips the fixed and free boundary conditions
@@ -59,9 +151,6 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
     expect(coeff.nblock() == nblock);
     expect(coeff.nrows() == num_cells);
   }
-
-  // if not using a constant rhs, get the values from the function
-  static std::vector<P> rhs_pnts;
 
   span2d<P> rhs_vals;
   if constexpr (rtype == rhs_type::is_func) {
