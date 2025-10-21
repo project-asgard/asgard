@@ -377,6 +377,7 @@ set(asgard_components
     block_matrix
     coefficients_mats
     compute
+    compute_cpu
     discretization
     domain
     grid_1d

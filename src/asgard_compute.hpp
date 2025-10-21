@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_tools.hpp"
+#include "asgard_compute_cpu.hpp"
 
 namespace asgard
 {
