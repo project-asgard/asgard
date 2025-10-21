@@ -341,6 +341,67 @@ ASGARD_OMP_PARFOR_SIMD
   return num_appy;
 }
 
+#ifdef ASGARD_USE_GPU
+template<typename P>
+int bicgstab<P>::solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
+                       gpu::vector<P> &x) const
+{
+  tools::time_event timing_("bicgstab::solve-gpu");
+  int64_t const n = rhs.size();
+  if (gv.size() != rhs.size()) // the other temps are initialized with a copy
+    gv.resize(n);
+  if (gt.size() != rhs.size()) // the other temps are initialized with a copy
+    gt.resize(n);
+
+  gr = rhs;
+
+  int num_appy = 1;
+  apply_lhs(-1, x.data(), 1, gr.data()); // r0 = b - A * x0
+
+  P rho = compute->dot1(n, gr.data());
+
+  grref = gr; // initialize rref (hat-r-0) and p
+  gp    = gr;
+
+  for (int i = 0; i < max_iter_; i++) {
+    ++num_appy;
+    apply_lhs(1, gp.data(), 0, gv.data()); // v = A * p
+
+    P const alpha = rho / compute->dot(n, grref.data(), gv.data());
+
+    compute->axpy(n, alpha, gp.data(), x.data());
+    compute->axpy(n, -alpha, gv.data(), gr.data());
+
+    if (compute->nrm2(n, gr.data()) < tolerance_) {
+      return num_appy;
+    }
+
+    ++num_appy;
+    apply_lhs(1, gr.data(), 0, gt.data()); // t = A * p
+
+    P const omega = compute->dot(n, gr.data(), gt.data()) / compute->dot1(n, gt.data());
+
+    compute->axpy(n, omega, gr.data(), x.data());
+    compute->axpy(n, -omega, gt.data(), gr.data());
+
+    if (compute->nrm2(n, gr.data()) < tolerance_) {
+      return num_appy;
+    }
+
+    P const rho1 = compute->dot(n, grref.data(), gr.data());
+    P const beta = (rho1 / rho) * (alpha / omega);
+
+    gpu::compute_last_bicgstab(beta, omega, gr, gv, gp);
+
+    rho = rho1;
+  }
+  std::cerr << "Warning: ASGarD BiCGSTAB solver failed to converge within "
+            << max_iter_ << " iterations.\n";
+  return num_appy;
+}
+#endif
+
+
 template<typename P>
 int gmres<P>::solve(
     operatoin_apply_precon<P> apply_precon,
@@ -447,48 +508,6 @@ namespace asgard
 
 template<typename P>
 void solver_manager<P>::update_grid(
-    sparse_grid const &grid, connection_patterns const &conn,
-    term_manager<P> const &terms, P alpha)
-{
-  tools::time_event timing_("updating solver");
-  if (opt == solver_method::direct)
-    var = solvers::direct<P>(grid, conn, terms, alpha);
-
-  if (precon == precon_method::jacobi) {
-    #ifdef ASGARD_USE_MPI
-    if (terms.resources.num_ranks() > 1) {
-      if (terms.resources.is_leader()) {
-        terms.make_jacobi(grid, conn, terms.mpiwork);
-        terms.resources.reduce_add(terms.mpiwork, jacobi);
-      } else {
-        terms.make_jacobi(grid, conn, jacobi);
-        terms.resources.reduce_add(jacobi);
-        grid_gen = grid.generation();
-        return;
-      }
-    } else {
-      terms.make_jacobi(grid, conn, jacobi);
-    }
-    #else
-    terms.make_jacobi(grid, conn, jacobi);
-    #endif
-
-    if (alpha == 0) { // steady state solver
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < jacobi.size(); i++)
-        jacobi[i] = P{1} / jacobi[i];
-    } else {
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < jacobi.size(); i++)
-        jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
-    }
-  }
-
-  grid_gen = grid.generation();
-}
-
-template<typename P>
-void solver_manager<P>::update_grid(
     int groupid, sparse_grid const &grid,
     connection_patterns const &conn, term_manager<P> const &terms, P alpha)
 {
@@ -525,6 +544,13 @@ void solver_manager<P>::update_grid(
         jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
     }
   }
+
+  #ifdef ASGARD_USE_GPU
+  if (terms.resources.is_leader()) {
+    compute->set_device(gpu::device{0});
+    jacobi_gpu = jacobi;
+  }
+  #endif
 
   grid_gen = grid.generation();
 }

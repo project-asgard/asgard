@@ -100,10 +100,10 @@ public:
       cublasDestroy(cublas);
     if (cusolverdn != nullptr)
       cusolverDnDestroy(cusolverdn);
-    if (fone != nullptr)
-      memfree(fone);
-    if (done != nullptr)
-      memfree(done);
+    if (fone != nullptr) memfree(fone);
+    if (done != nullptr) memfree(done);
+    if (ftmp != nullptr) memfree(ftmp);
+    if (dtmp != nullptr) memfree(dtmp);
   }
 
   void init() {
@@ -119,6 +119,9 @@ public:
     done = memalloc<double>(1);
     double cpu_done = 1.0;
     memcopy_host2dev(1, &cpu_done, done);
+
+    ftmp = memalloc<float>(1);
+    dtmp = memalloc<double>(1);
   }
 
   template<typename P>
@@ -154,6 +157,40 @@ public:
     }
   }
 
+  template<typename P>
+  P dot(int num, P const x[], P const y[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "dot can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      P res = 0;
+      cublas_check_error( cublasSdot(cublas, num, x, 1, y, 1, &res) );
+      // memcopy_dev2host(1, ftmp, &res);
+      return res;
+    } else {
+      P res = 0;
+      cublas_check_error( cublasDdot(cublas, num, x, 1, y, 1, &res) );
+      // memcopy_dev2host(1, dtmp, &res);
+      return res;
+    }
+  }
+
+  template<typename P>
+  P nrm2(int num, P const x[]) const {
+    static_assert(is_float<P> or is_double<P>,
+                  "dot can be called only with floats and doubles");
+    if constexpr (is_float<P>) {
+      P res = 0;
+      cublas_check_error( cublasSnrm2(cublas, num, x, 1, &res) );
+      // memcopy_dev2host(1, ftmp, &res);
+      return res;
+    } else {
+      P res = 0;
+      cublas_check_error( cublasDnrm2(cublas, num, x, 1, &res) );
+      // memcopy_dev2host(1, dtmp, &res);
+      return res;
+    }
+  }
+
   operator cublasHandle_t () const { return cublas; }
   operator cusolverDnHandle_t () const { return cusolverdn; }
 
@@ -163,6 +200,9 @@ private:
 
   float *fone  = nullptr;
   double *done = nullptr;
+
+  float *ftmp  = nullptr;
+  double *dtmp = nullptr;
 };
 
 }

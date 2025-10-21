@@ -260,6 +260,26 @@ public:
     #endif
     terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
   }
+  #ifdef ASGARD_USE_GPU
+  //! applies all terms, non-owning array signature
+  void terms_apply_gpu(precision alpha, precision const x[], precision beta,
+                       precision y[]) const
+  {
+    terms_apply_gpu(group_id{term_manager<precision>::all_groups}, alpha, x, beta, y);
+  }
+  //! applies all terms, non-owning array signature
+  void terms_apply_gpu(group_id gid, precision alpha, precision const x[], precision beta,
+                       precision y[]) const
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
+    tools::time_event performance_("terms_apply kronmult", flops);
+    #else
+    tools::time_event performance_("terms_apply kronmult");
+    #endif
+    terms.apply_gpu(gid.gid, grid, conn, alpha, x, beta, y);
+  }
+  #endif
   //! applies ADI preconditioner for all terms
   void terms_apply_adi(precision const x[], precision y[]) const
   {

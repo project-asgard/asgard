@@ -175,6 +175,12 @@ public:
   int solve(operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
             std::vector<P> &x) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! solve for the given linear operator, right-hand-side and initial iterate, uses the gpus
+  int solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
+            gpu::vector<P> &x) const;
+  #endif
+
   //! preconditioning requires three extra workspace vectors
   mutable std::vector<P> prec_rhs;
   //! preconditioning requires three extra workspace vectors
@@ -186,11 +192,24 @@ public:
   //! returns the set max-number of iterations
   int max_iter() const { return max_iter_; }
 
+  #ifdef ASGARD_USE_GPU
+  //! preconditioning requires three extra workspace vectors
+  mutable gpu::vector<P> prec_rhs_gpu;
+  //! preconditioning requires three extra workspace vectors
+  mutable gpu::vector<P> prec_y_gpu;
+  //! preconditioning requires three extra workspace vectors
+  mutable gpu::vector<P> prec_yb_gpu;
+  #endif
+
 private:
   P tolerance_  = 0;
   int max_iter_ = 0;
 
   mutable std::vector<P> rref, r, p, v, t;
+
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> grref, gr, gp, gv, gt;
+  #endif
 };
 
 /*!
@@ -360,10 +379,56 @@ struct solver_manager
     }
   }
 
+  #ifdef ASGARD_USE_GPU
+  //! iterative solver, calls the appropriate iterative solver, gpu variant
+  void iterate_solve(solvers::operatoin_apply_precon<P> prec,
+                     solvers::operatoin_apply_lhs<P> apply_lhs,
+                     gpu::vector<P> const &rhs, gpu::vector<P> &x) const
+  {
+    expect(opt != solver_method::direct);
+    if (opt == solver_method::bicgstab) {
+      if (prec) {
+        solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
+
+        bicg.prec_y_gpu.resize(rhs.size());
+
+        bicg.prec_rhs_gpu = rhs;
+        prec(bicg.prec_rhs_gpu.data());
+
+        num_apply += bicg.solve([&](P alpha, P const xx[], P beta, P y[])
+            -> void {
+              if (beta == 0) {
+                apply_lhs(alpha, xx, 0, y);
+                prec(y);
+              } else {
+                apply_lhs(alpha, xx, 0, bicg.prec_y_gpu.data());
+                prec(bicg.prec_y_gpu.data());
+                gpu::xpby(bicg.prec_y_gpu, beta, y);
+              }
+            }, bicg.prec_rhs_gpu, x);
+      } else {
+        num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
+      }
+    } else { // if (opt == solve_opts::gmres)
+      // if (prec) {
+      //   solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
+      //
+      //   num_apply += gmres.solve(prec, apply_lhs, rhs, x);
+      // } else {
+      //   num_apply += std::get<solvers::gmres<P>>(var).solve(
+      //     [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
+      // }
+    }
+  }
+  #endif
+
   //! updates the internals for the current grid generation
   void update_grid(sparse_grid const &grid,
                    connection_patterns const &conn,
-                   term_manager<P> const &terms, P alpha);
+                   term_manager<P> const &terms, P alpha)
+  {
+    update_grid(term_manager<P>::all_groups, grid, conn, terms, alpha);
+  }
   //! updates the internals for the current grid generation
   void update_grid(int groupid, sparse_grid const &grid,
                    connection_patterns const &conn,
@@ -384,6 +449,10 @@ struct solver_manager
   std::variant<solvers::direct<P>, solvers::gmres<P>, solvers::bicgstab<P>> var;
   //! holds data for the jacobi preconditioner
   std::vector<P> jacobi;
+  #ifdef ASGARD_USE_GPU
+  //! holds data for the jacobi preconditioner on the GPU
+  gpu::vector<P> jacobi_gpu;
+  #endif
 
   //! helper method, y = x + beta * y, compiles with OpenMP and SIMD
   static void xpby(std::vector<P> const &x, P beta, P y[]);

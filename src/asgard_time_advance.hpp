@@ -240,6 +240,10 @@ private:
   imex_explicit_group imex_explicit;
   // workspace
   mutable std::vector<P> fs, f;
+
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> t1, t2; // GPU workspace
+  #endif
 };
 
 }
