@@ -1,7 +1,5 @@
 #include "asgard_pde_functions.hpp"
 
-#include "asgard_kronmult_common.hpp"
-
 namespace asgard
 {
 

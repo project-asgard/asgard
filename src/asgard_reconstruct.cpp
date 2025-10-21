@@ -1,6 +1,6 @@
 #include "asgard_reconstruct.hpp"
 
-#include "asgard_kronmult_common.hpp"
+// #include "asgard_kronmult.hpp"
 #include "asgard_wavelet_basis.hpp"
 
 namespace asgard

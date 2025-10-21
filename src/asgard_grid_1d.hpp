@@ -6,6 +6,26 @@
 namespace asgard
 {
 /*!
+ * \brief Indicates the upper/lower connectivity fill of a sparsity pattern
+ *
+ * In CPU mode, this is used only by the Kronmult module; however, the GPU algorithms
+ * explicitly require the upper and lower connectivity patterns.
+ * In GPU mode, this is used by the grid_1d module and asgard::gpu_connect_1d,
+ * thus it is here in a common header.
+ */
+enum class conn_fill : int
+{
+  //! \brief Row r is connected only to self and the children of index r
+  upper = 0,
+  //! \brief All overlapping volume or edge support, regardless of child-parent relation
+  both,
+  //! \brief Row r is connected only to the parents of index r (no self-connection)
+  lower,
+  //! \brief Row r is connected only to the parents of index r, self-connection is identity
+  lower_udiag,
+};
+
+/*!
  * \brief Keeps track of the connectivity of the elements in the 1d hierarchy.
  *
  * Constructs a sparse matrix-like structure with row-compressed format and
