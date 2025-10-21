@@ -99,8 +99,6 @@ __signleton_compute_resources::__signleton_compute_resources() {
   cuda_check_error( cudaGetDeviceCount(&num_gpus_) );
   num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "CUDA is enabled but there are no visible CUDA devices, maybe a driver problem");
-  // cublas_check_error( cublasCreate(&cublas) );
-  // cusolver_check_error( cusolverDnCreate(&cusolverdn) );
   // TODO: give GPU direct access to one-another's resources
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus_; g++) {
@@ -114,12 +112,9 @@ __signleton_compute_resources::__signleton_compute_resources() {
   rocm_check_error( hipGetDeviceCount(&num_gpus_) );
   num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "ROCM is enabled but there are no visible ROCM devices, maybe a driver problem");
-  // rocblas_check_error( rocblas_create_handle(&rocblas) );
   #endif
   #ifdef ASGARD_USE_GPU
   blas_.init();
-  // fone = std::vector<float>(1, 1);
-  // done = std::vector<double>(1, 1);
   #endif
 }
 
@@ -366,6 +361,5 @@ template void
 __signleton_compute_resources::pttrs<float>(std::vector<float> const &,
                                             std::vector<float> const &,
                                             std::vector<float> &) const;
-
 
 } // namespace asgard

@@ -13,7 +13,6 @@ namespace asgard
 {
 
 #ifdef ASGARD_USE_GPU
-
 namespace gpu
 {
 

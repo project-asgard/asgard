@@ -457,6 +457,7 @@ target_include_directories (libasgard
 
 if (ASGARD_USE_CUDA)
     target_sources(libasgard PRIVATE
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_compute_cuda.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp>
                    )
 
@@ -468,6 +469,7 @@ endif()
 
 if (ASGARD_USE_ROCM)
     target_sources(libasgard PRIVATE
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_compute_rocm.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp>
                    )
 
