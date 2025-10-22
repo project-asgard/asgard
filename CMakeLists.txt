@@ -380,6 +380,7 @@ set(asgard_components
     compute_cpu
     discretization
     domain
+    gpu_algorithms
     grid_1d
     indexset
     interp
@@ -688,6 +689,14 @@ foreach (_asg_target asgard_hdf5 libasgard asgard_exe)
 endforeach()
 
 # installing the headers
+if (ASGARD_USE_CUDA)
+  list(APPEND asgard_components compute_cuda)
+  list(APPEND asgard_components gpu_algorithms_cuda)
+endif()
+if (ASGARD_USE_ROCM)
+  list(APPEND asgard_components compute_rocm)
+  list(APPEND asgard_components gpu_algorithms_rocm)
+endif()
 foreach (_asgcomp ${asgard_components})
   if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp"
