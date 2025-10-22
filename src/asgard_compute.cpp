@@ -91,7 +91,7 @@ std::string error_message(rocblas_status err) {
 } // namespace gpu
 #endif
 
-compute_resources::compute_resources() {
+__signleton_compute_resources::__signleton_compute_resources() {
   #ifdef ASGARD_USE_GPU
   set_device(gpu::device{0}); // the default thread works on GPU device 0
   #endif
@@ -99,8 +99,6 @@ compute_resources::compute_resources() {
   cuda_check_error( cudaGetDeviceCount(&num_gpus_) );
   num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "CUDA is enabled but there are no visible CUDA devices, maybe a driver problem");
-  cublas_check_error( cublasCreate(&cublas) );
-  cusolver_check_error( cusolverDnCreate(&cusolverdn) );
   // TODO: give GPU direct access to one-another's resources
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus_; g++) {
@@ -114,27 +112,15 @@ compute_resources::compute_resources() {
   rocm_check_error( hipGetDeviceCount(&num_gpus_) );
   num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "ROCM is enabled but there are no visible ROCM devices, maybe a driver problem");
-  rocblas_check_error( rocblas_create_handle(&rocblas) );
   #endif
   #ifdef ASGARD_USE_GPU
-  fone = std::vector<float>(1, 1);
-  done = std::vector<double>(1, 1);
-  #endif
-}
-
-compute_resources::~compute_resources() {
-  #ifdef ASGARD_USE_CUDA
-  cublasDestroy(cublas);
-  cusolverDnDestroy(cusolverdn);
-  #endif
-  #ifdef ASGARD_USE_ROCM
-  rocblas_destroy_handle(rocblas);
+  blas_.init();
   #endif
 }
 
 // LAPACK factorize and solve for a general matrix, used by the direct solver
 template<typename P>
-void compute_resources::getrf(int M, std::vector<P> &A, std::vector<int> &ipiv) const
+void __signleton_compute_resources::getrf(int M, std::vector<P> &A, std::vector<int> &ipiv) const
 {
   expect(static_cast<size_t>(M) * static_cast<size_t>(M) == A.size());
 
@@ -165,12 +151,12 @@ void compute_resources::getrf(int M, std::vector<P> &A, std::vector<int> &ipiv) 
 }
 
 template void
-compute_resources::getrf<double>(int, std::vector<double> &A, std::vector<int> &ipiv) const;
+__signleton_compute_resources::getrf<double>(int, std::vector<double> &A, std::vector<int> &ipiv) const;
 template void
-compute_resources::getrf<float>(int, std::vector<float> &A, std::vector<int> &ipiv) const;
+__signleton_compute_resources::getrf<float>(int, std::vector<float> &A, std::vector<int> &ipiv) const;
 
 template<typename P>
-void compute_resources::getrs(int M, std::vector<P> const &A, std::vector<int> const &ipiv,
+void __signleton_compute_resources::getrs(int M, std::vector<P> const &A, std::vector<int> const &ipiv,
                               std::vector<P> &b) const
 {
   expect(static_cast<size_t>(M) == ipiv.size());
@@ -191,33 +177,33 @@ void compute_resources::getrs(int M, std::vector<P> const &A, std::vector<int> c
   expect(info == 0);
 }
 
-template void compute_resources::getrs<double>(
+template void __signleton_compute_resources::getrs<double>(
     int, std::vector<double> const &A, std::vector<int> const &ipiv, std::vector<double> &b) const;
-template void compute_resources::getrs<float>(
+template void __signleton_compute_resources::getrs<float>(
     int, std::vector<float> const &A, std::vector<int> const &ipiv, std::vector<float> &b) const;
 
 #ifdef ASGARD_USE_CUDA
 template<typename P>
-void compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) const {
+void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) const {
   expect(static_cast<int64_t>(M) * M == A.size());
 
   ipiv.resize(M);
 
   int lwork = 0;
   if constexpr (is_double<P>) {
-    cusolver_check_error( cusolverDnDgetrf_bufferSize(cusolverdn, M, M, A.data(), M, &lwork) );
+    cusolver_check_error( cusolverDnDgetrf_bufferSize(blas_, M, M, A.data(), M, &lwork) );
   } else {
-    cusolver_check_error( cusolverDnSgetrf_bufferSize(cusolverdn, M, M, A.data(), M, &lwork) );
+    cusolver_check_error( cusolverDnSgetrf_bufferSize(blas_, M, M, A.data(), M, &lwork) );
   }
 
   gpu::vector<P> workspace(lwork);
   gpu::vector<int> gpu_info(1);
 
   if constexpr (is_double<P>) {
-    cusolver_check_error( cusolverDnDgetrf(cusolverdn, M, M, A.data(), M,
+    cusolver_check_error( cusolverDnDgetrf(blas_, M, M, A.data(), M,
                                            workspace.data(), ipiv.data(), gpu_info.data()) );
   } else {
-    cusolver_check_error( cusolverDnSgetrf(cusolverdn, M, M, A.data(), M,
+    cusolver_check_error( cusolverDnSgetrf(blas_, M, M, A.data(), M,
                                            workspace.data(), ipiv.data(), gpu_info.data()) );
   }
 
@@ -241,8 +227,9 @@ void compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) 
 }
 
 template<typename P>
-void compute_resources::getrs(int M, gpu::vector<P> const &A, gpu::vector<int> const &ipiv,
-                              gpu::vector<P> &b) const
+void __signleton_compute_resources::getrs(int M, gpu::vector<P> const &A,
+                                          gpu::vector<int> const &ipiv,
+                                          gpu::vector<P> &b) const
 {
   expect(M == ipiv.size());
   expect(ipiv.size() * ipiv.size() == A.size());
@@ -251,10 +238,10 @@ void compute_resources::getrs(int M, gpu::vector<P> const &A, gpu::vector<int> c
   gpu::vector<int> gpu_info(1);
 
   if constexpr (is_double<P>) {
-    cusolver_check_error( cusolverDnDgetrs(cusolverdn, CUBLAS_OP_N, M, 1, A.data(), M,
+    cusolver_check_error( cusolverDnDgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
                                            ipiv.data(), b.data(), M, gpu_info.data()) );
   } else {
-    cusolver_check_error( cusolverDnSgetrs(cusolverdn, CUBLAS_OP_N, M, 1, A.data(), M,
+    cusolver_check_error( cusolverDnSgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
                                            ipiv.data(), b.data(), M, gpu_info.data()) );
   }
 }
@@ -262,7 +249,8 @@ void compute_resources::getrs(int M, gpu::vector<P> const &A, gpu::vector<int> c
 
 #ifdef ASGARD_USE_ROCM
 template<typename P>
-void compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<gpu::direct_int> &ipiv) const {
+void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A,
+                                          gpu::vector<gpu::direct_int> &ipiv) const {
   expect(static_cast<int64_t>(M) * M == A.size());
 
   ipiv.resize(M);
@@ -270,10 +258,10 @@ void compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<gpu::direct_
   gpu::vector<gpu::direct_int> gpu_info(1);
 
   if constexpr (is_double<P>) {
-    rocblas_check_error( rocsolver_dgetrf(rocblas, M, M, A.data(), M,
+    rocblas_check_error( rocsolver_dgetrf(blas_, M, M, A.data(), M,
                                           ipiv.data(), gpu_info.data()) );
   } else {
-    rocblas_check_error( rocsolver_sgetrf(rocblas, M, M, A.data(), M,
+    rocblas_check_error( rocsolver_sgetrf(blas_, M, M, A.data(), M,
                                           ipiv.data(), gpu_info.data()) );
   }
 
@@ -292,9 +280,9 @@ void compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<gpu::direct_
 }
 
 template<typename P>
-void compute_resources::getrs(int M, gpu::vector<P> const &A,
-                              gpu::vector<gpu::direct_int> const &ipiv,
-                              gpu::vector<P> &b) const
+void __signleton_compute_resources::getrs(int M, gpu::vector<P> const &A,
+                                          gpu::vector<gpu::direct_int> const &ipiv,
+                                          gpu::vector<P> &b) const
 {
   expect(M == ipiv.size());
   expect(ipiv.size() * ipiv.size() == A.size());
@@ -304,11 +292,11 @@ void compute_resources::getrs(int M, gpu::vector<P> const &A,
 
   if constexpr (is_double<P>) {
     rocblas_check_error( rocsolver_dgetrs(
-        rocblas, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
+        blas_, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
         ipiv.data(), b.data(), M) );
   } else {
     rocblas_check_error( rocsolver_sgetrs(
-        rocblas, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
+        blas_, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
         ipiv.data(), b.data(), M) );
   }
 }
@@ -316,18 +304,18 @@ void compute_resources::getrs(int M, gpu::vector<P> const &A,
 
 #ifdef ASGARD_USE_GPU
 template void
-compute_resources::getrf<double>(int, gpu::vector<double> &A, gpu::vector<int> &ipiv) const;
+__signleton_compute_resources::getrf<double>(int, gpu::vector<double> &A, gpu::vector<int> &ipiv) const;
 template void
-compute_resources::getrf<float>(int, gpu::vector<float> &A, gpu::vector<int> &ipiv) const;
+__signleton_compute_resources::getrf<float>(int, gpu::vector<float> &A, gpu::vector<int> &ipiv) const;
 
-template void compute_resources::getrs<double>(
+template void __signleton_compute_resources::getrs<double>(
     int, gpu::vector<double> const &A, gpu::vector<int> const &ipiv, gpu::vector<double> &b) const;
-template void compute_resources::getrs<float>(
+template void __signleton_compute_resources::getrs<float>(
     int, gpu::vector<float> const &A, gpu::vector<int> const &ipiv, gpu::vector<float> &b) const;
 #endif
 
 template<typename P>
-void compute_resources::pttrf(std::vector<P> &diag, std::vector<P> &sub) const
+void __signleton_compute_resources::pttrf(std::vector<P> &diag, std::vector<P> &sub) const
 {
   expect(sub.size() + 1 == diag.size());
 
@@ -345,13 +333,13 @@ void compute_resources::pttrf(std::vector<P> &diag, std::vector<P> &sub) const
 }
 
 template void
-compute_resources::pttrf<double>(std::vector<double> &, std::vector<double> &) const;
+__signleton_compute_resources::pttrf<double>(std::vector<double> &, std::vector<double> &) const;
 template void
-compute_resources::pttrf<float>(std::vector<float> &, std::vector<float> &) const;
+__signleton_compute_resources::pttrf<float>(std::vector<float> &, std::vector<float> &) const;
 
 template<typename P>
-void compute_resources::pttrs(std::vector<P> const &diag, std::vector<P> const &sub,
-                              std::vector<P> &b) const {
+void __signleton_compute_resources::pttrs(std::vector<P> const &diag, std::vector<P> const &sub,
+                                          std::vector<P> &b) const {
   expect(sub.size() + 1 == diag.size());
 
   int const N = static_cast<int>(diag.size());
@@ -366,11 +354,12 @@ void compute_resources::pttrs(std::vector<P> const &diag, std::vector<P> const &
 }
 
 template void
-compute_resources::pttrs<double>(std::vector<double> const &, std::vector<double> const &,
-                                 std::vector<double> &) const;
+__signleton_compute_resources::pttrs<double>(std::vector<double> const &,
+                                             std::vector<double> const &,
+                                             std::vector<double> &) const;
 template void
-compute_resources::pttrs<float>(std::vector<float> const &, std::vector<float> const &,
-                                std::vector<float> &) const;
-
+__signleton_compute_resources::pttrs<float>(std::vector<float> const &,
+                                            std::vector<float> const &,
+                                            std::vector<float> &) const;
 
 } // namespace asgard

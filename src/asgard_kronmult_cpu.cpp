@@ -7,6 +7,104 @@
 
 namespace asgard::kronmult
 {
+permutes::permutes(int num_dimensions)
+{
+  if (num_dimensions < 1) // could happen with identity operator term
+    return;
+
+  int num_permute = 1;
+  for (int d = 0; d < num_dimensions - 1; d++)
+    num_permute *= 2;
+
+  direction.resize(num_permute);
+  fill.resize(num_permute);
+  for (int perm = 0; perm < num_permute; perm++)
+  {
+    direction[perm].resize(num_dimensions, 0);
+    fill[perm].resize(num_dimensions);
+    int t = perm;
+    for (int d = 1; d < num_dimensions; d++)
+    {
+      // negative dimension means upper fill, positive for lower fill
+      direction[perm][d] = (t % 2 == 0) ? d : -d;
+      t /= 2;
+    }
+    // sort puts the upper matrices first
+    std::sort(direction[perm].begin(), direction[perm].end());
+    for (int d = 0; d < num_dimensions; d++)
+    {
+      fill[perm][d] = (direction[perm][d] < 0) ? conn_fill::upper : ((direction[perm][d] > 0) ? conn_fill::lower : conn_fill::both);
+
+      direction[perm][d] = std::abs(direction[perm][d]);
+    }
+  }
+}
+
+permutes::permutes(int num_dimensions, conn_fill same_fill)
+{
+  if (num_dimensions < 1)
+    return;
+  expect(same_fill != conn_fill::both);
+
+  fill.emplace_back(num_dimensions, same_fill);
+
+  direction.emplace_back(num_dimensions);
+  for (int d = 0; d < num_dimensions; d++)
+    direction.front()[d] = d;
+}
+
+std::string_view permutes::fill_name(int perm, int stage) const
+{
+  switch (fill[perm][stage])
+  {
+  case conn_fill::upper:
+    return "upper";
+  case conn_fill::lower:
+    return "lower";
+  default:
+    return "full";
+  }
+}
+
+void permutes::prepad_upper(std::vector<int> const &additional)
+{
+  expect(not direction.empty());
+  int const new_dims = num_dimensions() + static_cast<int>(additional.size());
+  std::vector<std::vector<conn_fill>> old_fill = std::move(fill);
+  std::vector<std::vector<int>> old_direction = std::move(direction);
+
+  fill = std::vector<std::vector<conn_fill>>(old_fill.size(), std::vector<conn_fill>(new_dims, conn_fill::upper));
+  direction = std::vector<std::vector<int>>(old_direction.size(), std::vector<int>(new_dims));
+  for (size_t i = 0; i < fill.size(); i++) {
+    std::copy(old_fill[i].begin(), old_fill[i].end(), fill[i].begin() + additional.size());
+    std::copy(additional.begin(), additional.end(), direction[i].begin());
+    std::copy(old_direction[i].begin(), old_direction[i].end(), direction[i].begin() + additional.size());
+  }
+}
+
+/*!
+ * \brief Template that computes n to power, e.g., ipow<2, 3>() returns constexpr 8.
+ */
+template<int n, int power>
+constexpr int ipow()
+{
+  if constexpr (power == 1) {
+    return n;
+  } else if constexpr (power == 2) {
+    return n * n;
+  } else if constexpr (power == 3) {
+    return n * n * n;
+  } else if constexpr (power == 4) {
+    return n * n * n * n;
+  } else if constexpr (power == 5) {
+    return n * n * n * n * n;
+  } else if constexpr (power == 6) {
+    return n * n * n * n * n * n;
+  }
+  static_assert(power >= 1 and power <= 6,
+                "ipow() does not works with specified power");
+  return 0;
+}
 
 template<typename precision, int num_dimensions, int dim, int n>
 void gbkron_mult_add(precision const A[], precision const x[], precision y[])

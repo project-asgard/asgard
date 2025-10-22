@@ -377,8 +377,10 @@ set(asgard_components
     block_matrix
     coefficients_mats
     compute
+    compute_cpu
     discretization
     domain
+    gpu_algorithms
     grid_1d
     indexset
     interp
@@ -456,10 +458,14 @@ target_include_directories (libasgard
 
 if (ASGARD_USE_CUDA)
     target_sources(libasgard PRIVATE
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_compute_cuda.hpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms.hpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_cuda.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp>
                    )
 
-    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp
+    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_cuda.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
     target_compile_features (libasgard PUBLIC cuda_std_17)
@@ -467,10 +473,14 @@ endif()
 
 if (ASGARD_USE_ROCM)
     target_sources(libasgard PRIVATE
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_compute_rocm.hpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms.hpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_rocm.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp>
                    )
 
-    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp
+    set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_rocm.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp
                                  PROPERTIES LANGUAGE HIP)
 
     target_compile_features (libasgard PUBLIC hip_std_17)
@@ -679,6 +689,14 @@ foreach (_asg_target asgard_hdf5 libasgard asgard_exe)
 endforeach()
 
 # installing the headers
+if (ASGARD_USE_CUDA)
+  list(APPEND asgard_components compute_cuda)
+  list(APPEND asgard_components gpu_algorithms_cuda)
+endif()
+if (ASGARD_USE_ROCM)
+  list(APPEND asgard_components compute_rocm)
+  list(APPEND asgard_components gpu_algorithms_rocm)
+endif()
 foreach (_asgcomp ${asgard_components})
   if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asgcomp}.hpp"

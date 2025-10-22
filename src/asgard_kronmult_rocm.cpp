@@ -255,7 +255,21 @@ void launch_block_gpu(
 
   constexpr int max_threads = 1024;
 
-  constexpr int block_size = ipow<n, num_dims>();
+  constexpr int block_size = [&]() -> int {
+      if constexpr (num_dims == 1) {
+        return n;
+      } else if constexpr (num_dims == 2) {
+        return n * n;
+      } else if constexpr (num_dims == 3) {
+        return n * n * n;
+      } else if constexpr (num_dims == 4) {
+        return n * n * n * n;
+      } else if constexpr (num_dims == 5) {
+        return n * n * n * n * n;
+      } else { // if constexpr (num_dims == 6) {
+        return n * n * n * n * n * n;
+      }
+    }();
 
   constexpr int num_cycles = [&]() -> int {
       if constexpr (n == 1)
@@ -265,13 +279,12 @@ void launch_block_gpu(
       if constexpr (num_dims == 3 and n == 3)
         return 1; // this is an exception
 
-      if constexpr (num_dims >= 4) {
+      if constexpr (num_dims >= 4)
         return 4;
-      } else if constexpr (num_dims >= 3) {
+      else if constexpr (num_dims >= 3)
         return 2;
-      } else {
+      else
         return 1;
-      }
     }();
 
   constexpr int team_size = block_size / num_cycles
