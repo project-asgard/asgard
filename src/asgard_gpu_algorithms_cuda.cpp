@@ -3,24 +3,30 @@
 namespace asgard::gpu
 {
 
+inline int round_up(int64_t num, int max_threads) {
+  int r = num / max_threads;
+  if (r * max_threads < num) ++r;
+  return r;
+}
+
 template<typename P, int num_threads>
-__global__ void kernel_jacobi_apply(int64_t num, P const jacobi[], P x[])
+__global__ void kernel_jacobi_apply(int64_t num, P const jacobi[], P y[])
 {
   int i = threadIdx.x + blockIdx.x * num_threads;
   while (i < num) {
-    x[i] *= jacobi[i];
+    y[i] *= jacobi[i];
     i += num_threads * gridDim.x;
   }
 }
 
 template<typename P>
-void jacobi_apply(gpu::vector<P> const &jacobi, P x[])
+void jacobi_apply(gpu::vector<P> const &jacobi, P y[])
 {
   constexpr int max_threads = 1024;
-  int const num_blocks = jacobi.size() / max_threads;
+  int const num_blocks = round_up(jacobi.size(), max_threads);
 
   kernel_jacobi_apply<P, max_threads><<<num_blocks, max_threads>>>
-      (jacobi.size(), jacobi.data(), x);
+      (jacobi.size(), jacobi.data(), y);
 }
 
 template<typename P, int num_threads>
@@ -39,7 +45,7 @@ void compute_last_bicgstab(P beta, P omega, gpu::vector<P> const &r,
 {
   expect(r.size() == v.size() and r.size() == p.size());
   constexpr int max_threads = 1024;
-  int const num_blocks = r.size() / max_threads;
+  int const num_blocks = round_up(r.size(), max_threads);
 
   kernel_bicgstab_last<P, max_threads><<<num_blocks, max_threads>>>
       (r.size(), beta, omega, r.data(), v.data(), p.data());
@@ -58,7 +64,7 @@ __global__ void kernel_xpby(int64_t num, P beta, P const x[], P y[])
 template<typename P>
 void xpby(gpu::vector<P> const &x, P beta, P y[]) {
   constexpr int max_threads = 1024;
-  int const num_blocks = x.size() / max_threads;
+  int const num_blocks = round_up(x.size(), max_threads);
 
   kernel_xpby<P, max_threads><<<num_blocks, max_threads>>>(x.size(), beta, x.data(), y);
 }
@@ -76,7 +82,7 @@ __global__ void kernel_axpby(int64_t num, P alpha, P const x[], P beta, P y[])
 template<typename P>
 void axpby(int64_t num, P alpha, P const x[], P beta, P y[]) {
   constexpr int max_threads = 1024;
-  int const num_blocks = num / max_threads;
+  int const num_blocks = round_up(num, max_threads);
 
   kernel_axpby<P, max_threads><<<num_blocks, max_threads>>>(num, alpha, x, beta, y);
 }

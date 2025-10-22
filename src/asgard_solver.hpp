@@ -420,6 +420,12 @@ struct solver_manager
       // }
     }
   }
+  //! iterative solver, calls the appropriate iterative solver
+  void iterate_solve(solvers::operatoin_apply_lhs<P> apply_lhs,
+                     gpu::vector<P> const &rhs, gpu::vector<P> &x) const
+  {
+    iterate_solve(nullptr, apply_lhs, rhs, x);
+  }
   #endif
 
   //! updates the internals for the current grid generation

@@ -184,6 +184,10 @@ private:
   mutable solver_manager<P> solver;
   // workspace
   mutable std::vector<P> work;
+
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> t1, t2; // GPU workspace
+  #endif
 };
 
 /*!
