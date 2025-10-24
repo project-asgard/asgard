@@ -4,34 +4,31 @@ The best place to start is with the examples installed in
 ```
   <CMAKE_INSTRALL_PREFIX>/share/asgard/examples/
 ```
+The prefix used by the pip-installer is either the root of the venv environment
+or `.local` subfolder for the user home folder.
 
-### Write your own PDE class
+### Write your own PDE scheme
 
-Similar to the provided examples, a PDE specification starts as a derived class
-from `asgard::PDE`, where we define the operator term and sources and call the
-parent `initialize()` method.
-While generally speaking the two-stage initialization is an anti-pattern, here
-this is done to provide maximum flexibility to the user.
-We are currently exploring alternative approaches to the API but the existing
-process will be supported for the foreseeable future.
+The first step is create a program options `asgard::prog_opts` object that
+describes sparse grid level, polynomial degree, time-stepping parameters,
+and so on.
+The options can be set manually by the user, or read from the command line
+or input file, where ASGarD provides a convenient way to parce the command
+line parameters and potentially add new options.
 
-In the provided example, the functions in the terms are using static members
-but those use `std::function` and are very flexible, e.g., those can accept
-lambda-closures.
-The main reason to use static methods can variables is to avoid potential
-issues that can arise from:
-* capture of pointer `this` the lifetime of the object
-* the relocation of the object, moving the pointer/reference
-* capture by value (copy) vs. capture by reference
-The approach of static variables effectively creates a singleton class and
-avoids the above potential pitfalls, at the restriction of allowing the
-simulation of only one PDE instance at a time.
+The second step is to create an `asgard::pde_domain` object defining the
+number of dimensions and upper/lower limit for each direction.
 
-Additional examples are provided in the source folder `src/pde/` while those
-contain a lot more capabilities than shown in the simple examples, most of those
-are rather cryptic and not intended for tutorial purposes.
-The ASGarD team is working to improve the presentation of the examples.
+Then the `asgard::pde_scheme` object is created, the domain and options are
+either copied or moved inside, and can no longer be changed.
+Then the scheme has to be populated with the operator terms, source terms,
+initial and boundary conditions.
 
+The final step is to copy (or move) the PDE scheme into an
+`asgard::discretization_manager`, which internally controls the operator
+discretization and performs time-stepping, plotting I/O, error checking, etc.
+
+Really, read the examples!
 
 ### Compile against the installed libasgard
 
