@@ -13,9 +13,9 @@ if (~isfile('example_continuity_2d'))
 end
 
 % command to run the executable and generate the output file
-command = ['./example_continuity_2d -p continuity_2 -d 2 -l 5 -w 10 -n 10 -t 0.0001'];
+command = ['./example_continuity_2d -d 2 -l 6 -n 10 -of _asgout.h5'];
 
-[status, cmdout] = system(command, '-echo');
+[status, cmdout] = system(command);
 
 if (status ~= 0)
     disp(cmdout);
@@ -23,10 +23,10 @@ if (status ~= 0)
 end
 
 % the command above generates this file
-filename = 'asgard_wavelet_10.h5';
+filename = '_asgout.h5';
 
 % asgard_file_stats() allows us to read from the file meta-data
-stats = asgard_file_stats('asgard_wavelet_10.h5');
+stats = asgard_file_stats('_asgout.h5');
 
 disp(['read ASGarD file: ', stats.filename]);
 disp(['integration time: ', num2str(stats.time)]);
@@ -42,9 +42,10 @@ figure(1)
 plot(x, z);
 
 % other useful commands:
-% make a 2d plot
-% [z, x, y] = asgard_plot2d(filename, {[], []}, 64);
-% imgshow(z)
+% make a 2d plot, imgshow() doesn't work on Octave, but it's better on MATLAB
+figure(2)
+[z, x, y] = asgard_plot2d(filename, {[], []}, 64);
+imagesc(flipud(z))
 
 % find values at arbitrary points in the domain
 % p = rand(10, 2)
@@ -52,7 +53,7 @@ plot(x, z);
 
 [z] = asgard_cell_centers(filename);
 
-figure(2)
+figure(3)
 plot(z(:,1), z(:,2), '*')
 
 end
