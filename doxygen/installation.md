@@ -20,7 +20,7 @@ Recommended but optional
 * [OpenMP](https://en.wikipedia.org/wiki/OpenMP) for CPU multi-threading and better vectorization using AVX and AVX512 registers
     * supported by GCC and most recent versions of Clang (16 or newer)
 * If you have Nvidia GPU ASGarD can take advantage of the [linear algebra libraries](https://developer.nvidia.com/cublas) and custom [CUDA kernels](https://developer.nvidia.com/cuda-zone)
-* If you have AMD GPU compatible with the AMD ROCm framework, ASGarD can take advantage of the [linear algebra libraries]() and custom [HIP kernels]()
+* If you have AMD GPU compatible with the AMD ROCm framework, ASGarD can take advantage of the [linear algebra libraries](https://rocm.docs.amd.com/en/latest/reference/api-libraries.html) and custom [HIP kernels](https://rocm.docs.amd.com/projects/HIP/en/docs-develop/what_is_hip.html)
 * [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format) and [HighFive](https://bluebrain.github.io/HighFive/) libraries to output the solution state
 * Python bindings using [h5py](https://www.h5py.org/) and [numpy](https://numpy.org/) for easier visualization and HDF5 post-processing
 * [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface) capabilities for spreading the workload across multiple computing nodes
@@ -72,6 +72,51 @@ It is recommended to use a dedicated `CMAKE_INSTALL_PREFIX` as opposed to common
 locations such as `~/.local/` or `/opt/`, which will make it easier to manage
 different versions and options, e.g., CPU vs. GPU,
 as well as uninstall everything by deleting the folder.
+
+### CMake options
+
+| option | action |
+| ---- | ---- |
+| ASGARD_USE_OPENMP               | Enable OpenMP                                               |
+| ASGARD_TEST_OMP_NUM_THREADS     | Set the number of threads to use for testing (only testing) |
+| ASGARD_USE_CUDA                 | Enable Nvidia CUDA                                          |
+| ASGARD_USE_ROCM                 | Enable AMD ROCm                                             |
+| ASGARD_USE_MPI                  | Enable MPI distributed computing                            |
+| ASGARD_MPI_BCAST_THRESHOLD      | MPI: number of ranks to switch from Send/Recv to Bcast      |
+| ASGARD_MPI_REDUCE_THRESHOLD     | MPI: number of ranks to switch from Send/Recv to Reduce     |
+| ASGARD_TEST_MPI_OMP_NUM_THREADS | MPI: number of OpenMP threads to use during MPI testing     |
+| ASGARD_USE_PYTHON               | Enable the Python bindings, requires HighFive               |
+| ASGARD_USE_HIGHFIVE             | Enable the HDF5/HighFive I/O support                        |
+| ASGARD_BUILD_OPENBLAS           | Compile OpenBLAS together with ASGarD                       |
+| ASGARD_BUILD_HDF5               | Compile HDF5 together with ASGarD                           |
+| ASGARD_PRECISIONS               | Should be "double", "float" or "double;float"               |
+| ASGARD_USE_TIMER                | Record timing of various stages of the simulation           |
+| ASGARD_USE_FLOPCOUNTER          | Count flops per second for Kronecker matrix-vector products |
+| ASGARD_RECOMMENDED_DEFAULTS     | Enables OpenMP and some flags (see below)                   |
+
+Notes:
+* OpenMP is not supported on Apple OSX platforms.
+* CUDA and ROCM cannot be enabled simultaneously.
+* The best values for `MPI_BCAST` and `MPI_REDUCE` thresholds are system specific,
+  several tests may be needed to find the best values for a specific platform.
+* `ASGARD_TEST_MPI_OMP_NUM_THREADS` affects only some of the tests when both MPI and OpenMP are enabled,
+  the option is there to avoid oversubscribing the CPU which will result in a massive drop of performance.
+* It is recommended to use system native BLAS and HDF5, the build options are provided
+  for convince and mostly used in the testing containers.
+* Use `double` precision when developing a new PDE scheme and switch to `float` only
+  when sure that the lower precision is enough.
+* The timer comes with very low overhead and it is useful for debugging, but it is probably
+  superfluous for a long run.
+* The flop counter comes with significant overhead, use it only for profiling and debugging.
+* ASGarD makes a heavy use of both OpenMP multi-threading and SIMD features, and while SIMD is not
+  supported under Clang, it is recommended to enable flags:
+```
+  -mfma            enable fused-multiply-add instructions
+  -march=native    auto-detects CPU features
+  -mtune=native    auto-detects CPU features
+  -mavx512f        if the CPU supports AVX512
+  -mavx512dq       if the CPU supports AVX512
+```
 
 ### Python pip install
 

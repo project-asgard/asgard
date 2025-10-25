@@ -59,8 +59,6 @@ else()
     option (ASGARD_BUILD_OPENBLAS "Download and build our own OpenBLAS" OFF)
 endif()
 option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
-option (ASGARD_HIGHFIVE_PATH "Optional location of existing HighFive library" "")
-option (ASGARD_HDF5_PATH "Optional location of lib/ containing HDF5" "")
 
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
 set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
