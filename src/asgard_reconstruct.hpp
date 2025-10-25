@@ -26,6 +26,9 @@ namespace asgard
  * the values of the basis functions. The class also comes with bindings for
  * Python and MATLAB. See the included examples.
  *
+ * The reconstructor uses Python ctypes module and thus the API signatures follow
+ * C style and conventions.
+ *
  * \internal
  * The C bindings allow Python to hold onto a reconstruct_solution object via a
  * void pointer. On every call, reinterpret_cast is used on the pointer to match
@@ -58,14 +61,14 @@ public:
    *
    * \param dims is the problem number of dimenisons
    * \param num_cells is the number of sparse grid cells (multi-indexes)
-   * \param asg_cells is an array of size 2 * dims * num_cells containing
-   *                  the multi-indexes in ASGarD format (level, index)
+   * \param cells is an array of size dims * num_cells containing
+   *              the multi-indexes in ASGarD format (level, index)
    * \param degree is the polynomial order
    * \param solution is the current set of coefficients representing
    *                 the PDE solution, size is (degree + 1)^dims * num_cells
    */
   template<typename precision>
-  reconstruct_solution(int dims, int64_t num_cells, int const asg_cells[],
+  reconstruct_solution(int dims, int64_t num_cells, int const cells[],
                        int degree, precision const solution[]);
 
   /*!
@@ -110,11 +113,12 @@ protected:
    * \brief Prepare the inernal data-structures for fast reconstruction
    *
    * The way things are commonly done in ASGarD is to build the basis on a full
-   * grid (at least in 1D), then move to wavelet space using a matrix product.
-   * The process is expensive and becomes less viable after level 10.
+   * grid (at least in 1D), then move to wavelet space using a hierarchical transformation.
+   * The limitation of the process is that the output has to sit on a pre-determined
+   * possibly dense grid, which is inflexible and computationally expensive.
    *
    * The alternative is to find analytic expressions for the wavelets and avoid
-   * going to "real" or "non-wavelet" space
+   * going to "non-wavelet" basis
    * and because the basis is local, many of the functions can be
    * skipped in the reconstruction. The sparse grids cells natually form
    * a directed-acyclic-graph (DAG) and we can use the fact that the support
@@ -154,7 +158,7 @@ protected:
    * \param c is the coefficients of the basis functions in this cell
    *
    * \returns the value of the sum of basis times coefficients,
-   * the optional is empty if the basis is not supported.
+   * the optional is empty if the basis has no support over x.
    */
   template<int degree>
   std::optional<double>
@@ -227,8 +231,7 @@ void asgard_delete_reconstruct_solution(void **);
  * \ingroup asgard_postprocess
  * \brief C binding for reconstruct_solution::set_domain_bounds()
  */
-void asgard_reconstruct_solution_setbounds(void *, double const[],
-                                           double const[]);
+void asgard_reconstruct_solution_setbounds(void *, double const[], double const[]);
 
 /*!
  * \ingroup asgard_postprocess
