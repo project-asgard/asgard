@@ -26,7 +26,7 @@ def stat_file():
 def read_points():
     data = sio.loadmat('__asgard_pymatlab.mat')
     pnts = data['point_list']
-    nump = int(data['num_points'][0])
+    nump = int(data['num_points'][0][0])
 
     llist = []
 
@@ -50,10 +50,6 @@ def plot1d():
     snapshot = asgard.pde_snapshot(filename)
 
     llist, nump = read_points()
-    print(llist)
-    print(nump)
-
-    print(len(llist), snapshot.num_dimensions)
 
     z, x = snapshot.plot_data1d(llist, nump)
 

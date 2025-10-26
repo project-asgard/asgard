@@ -36,7 +36,7 @@ static constexpr double const PI = 3.141592653589793;
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Scalar function, returning f(x)
+ * \brief Scalar function, returning y = F(x)
  */
 template<typename P>
 using scalar_func = std::function<P(P const)>;
@@ -286,7 +286,9 @@ struct ones_for_dimensions {
  * \brief A function that is the product of 1d functions
  *
  * There are 3 modes of this function, depending on the way that the time
- * component operates.
+ * component operates. All 3 modes yield identical numerical result; however,
+ * the separability and time-invariance can be exploited for better performance,
+ * e.g., pre-compute the constant part once and then reuse for each time-step.
  *
  * If the function is non-separable in time:
  * \code
@@ -304,11 +306,6 @@ struct ones_for_dimensions {
  * \code
  *   separable_func<P> f({f1, f2, f3, ...}, ignores_time);
  * \endcode
- *
- * If a time-independent function is not marked with "ignores_time" or if
- * a separable time-component is built into the spacial components, the projection
- * of the function will be recomputed several times per-time step.
- * The result will be the same but there will be some performance penalty.
  */
 template<typename P = default_precision>
 class separable_func
@@ -437,7 +434,7 @@ private:
  *
  * In plotting and post-processing, it is sometime desirable to store
  * additional data that sits on the sparse grid mesh, e.g.,
- * deviation from a nominal state or initial condition.
+ * deviation from a nominal state, moments or initial condition.
  * Since the data is defined on a sparse grid, it has to be accessed with
  * the asgard::reconstruct_solution class (e.g., via python), but the data
  * has to be saved/loaded in the asgard::discretization_manager

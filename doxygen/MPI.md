@@ -20,7 +20,7 @@ int main(int argc, char **argv)
   asgard::libasgard_runtime running_(argc, argv);
 ```
 The `asgard::libasgard_runtime` should not be used with manual calls to `MPI_Init()`
-and the ASGarD library does not require initialization.
+and the ASGarD library itself does not require initialization.
 
 The `asgard::prog_opts` object has a communicator operation, available only
 in conjunction with MPI
@@ -41,7 +41,7 @@ Those include:
 * `asgard::discretization_manager::advance_time()`
 * `asgard::discretization_manager::sync_mpi_state()`
 * `asgard::discretization_manager::current_state_mpi()`
-All fo the `_mpi()` methods can also be called without an MPI context and they will act as expected,
+All of the `_mpi()` methods can also be called without an MPI context and they will act as expected,
 e.g., `sync` is a no-op and `current_state` is just the current state.`
 
 Calling `current_state()` is normally valid only on the zero rank, as it is not normally needed by all ranks.
@@ -68,4 +68,5 @@ MPI should be used in a distributed memory environment, e.g., multiple CPUs conn
 through a interconnect/network.
 
 The exception is MacOSX, which has notoriously bad support for OpenMP.
-MPI is often times a better way to get performance from multiple CPU cores on an OSX machine.
+MPI is often times a better way to get performance from multiple CPU cores on an OSX machine,
+although getting MPI to work on OSX can also be a challenge.

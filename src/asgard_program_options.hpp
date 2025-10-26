@@ -47,11 +47,11 @@ enum class verbosity_level
 
 /*!
  * \ingroup asgard_common_options
- * \brief the available solvers for implicit time stepping
+ * \brief The available solvers for implicit time stepping
  */
 enum class solver_method
 {
-  //! direct solve using LAPACK, slow but stable
+  //! direct solve using LAPACK, slow but stable, do not use for large problems
   direct,
   //! popular iterative solver, can be sensitive to the tolerance and restart frequency
   gmres,
@@ -115,7 +115,7 @@ enum class grid_type
 
 /*!
  * \ingroup asgard_common_options
- * types of time advance methods, declared here to be used in the program options
+ * \brief Types of time advance methods that can be set in the the program options
  */
 enum class time_method
 {
@@ -153,16 +153,6 @@ bool is_implicit(time_method method);
  * returns true if the given time_method is mixed implicit-explicit
  */
 bool is_imex(time_method method);
-
-/*!
- * \internal
- * \brief Convert the number associated with degree to a string
- *
- * Decorates the string with name, e.g., linear or quadratic,
- * and returns a string formatted as "2 (quadratic)".
- * \endinternal
- */
-std::string degree_to_string(int degree);
 
 /*!
  * \internal
@@ -240,8 +230,9 @@ struct split_views
  * The asgsrd::prog_opts objects can be default-constructed as empty,
  * i.e., no options provided, then each of the values can be set manually
  * before passing into other ASGarD objects.
- * In most cases, if an option is not set, a default values will be used
- * based on the hardcoded PDE specification.
+ * Many of the common options also have a "default" variant that can be set
+ * and will be used if no alternative is provided on the command line
+ * options.
  *
  * Reading from the command line example:
  * \code
@@ -252,7 +243,7 @@ struct split_views
  *     // add defaults
  *     options.default_start_levels = {4, };
  *
- *     asgard::PDE<P> pde(options, domain);
+ *     asgard::pde_scheme<P> pde(options, domain);
  *
  * \endcode
  * This will process the inputs from argv and will also include any inputs
@@ -618,6 +609,7 @@ struct prog_opts
   bool constexpr is_mpi_rank_zero() const { return true; } // always "zero rank"
   #endif
 
+  #ifndef __ASGARD_DOXYGEN_SKIP
   //! (internal use) if we encounter a "no-adapt" option, must skip adaptivity during restart
   bool set_no_adapt = false;
 
@@ -628,8 +620,10 @@ struct prog_opts
   std::vector<double> interp_points;
   //! testing/development purposes, not needed in production, order on the higher level, see the comment in asgard_interp.cpp
   std::vector<int> interp_horder;
+  #endif
 
 private:
+  #ifndef __ASGARD_DOXYGEN_SKIP
   //! mapping from cli options to variables and actions
   enum class optentry
   {
@@ -800,9 +794,20 @@ private:
       s += ((i < 10) ? "  " : " ") + std::to_string(i);
     return s;
   }
+  #endif
 };
 
 #ifndef __ASGARD_DOXYGEN_SKIP
+/*!
+ * \internal
+ * \brief Convert the number associated with degree to a string
+ *
+ * Decorates the string with name, e.g., linear or quadratic,
+ * and returns a string formatted as "2 (quadratic)".
+ * \endinternal
+ */
+std::string degree_to_string(int degree);
+
 /*!
  * \internal
  * \brief (testing) splits a single string into multiple strings by spaces
@@ -821,7 +826,7 @@ split_views split_argv(std::string_view const &opts);
 
 /*!
  * \internal
- * \brief Makes a prog_opts object from a single sting, see split_argv
+ * \brief makes a prog_opts object from a single sting, see split_argv
  *
  * \endinternal
  */
@@ -831,7 +836,10 @@ inline prog_opts make_opts(std::string const &cli)
 }
 #endif
 
-//! overload for writing options to a stream
+/*!
+ * \ingroup asgard_common_options
+ * \brief overload, allows writing options to a stream
+ */
 inline std::ostream &operator<<(std::ostream &os, prog_opts const &options)
 {
   options.print_options(os);

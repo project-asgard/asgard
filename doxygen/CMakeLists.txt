@@ -36,8 +36,10 @@ set(DOXYGEN_FORMULA_FONTSIZE "20")
 if (NOT DOXYGEN_INTERNAL_DOCS)
     # the \internal command works for functions and namespaces, but not classes
     # have to exclude the classes manually
-    set(DOXYGEN_EXCLUDE_SYMBOLS asgard::vecstrview asgard::split_views asgard::matrix_factor
-        asgard::rungekutta3 asgard::time_advance::rungekutta3)
+    set(DOXYGEN_EXCLUDE_SYMBOLS asgard::vecstrview asgard::split_views
+        asgard::time_advance::steady_state    asgard::time_advance::rungekutta
+        asgard::time_advance::crank_nicolson  asgard::time_advance::imex_stepper
+        asgard::time_advance_manager)
 
     set(DOXYGEN_PREDEFINED "__ASGARD_DOXYGEN_SKIP;__ASGARD_DOXYGEN_SKIP_INTERNAL;ASGARD_USE_MPI;")
 endif()
@@ -52,7 +54,7 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard_discretization.hpp
                  src/asgard_program_options.hpp
                  src/asgard_reconstruct.hpp
-                 src/asgard_dimension.hpp
+                 src/asgard_domain.hpp
                  src/asgard_pde.hpp
                  examples/continuity_2d.cpp
                  examples/inputs_1d.cpp

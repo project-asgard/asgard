@@ -173,7 +173,15 @@ int main(int argc, char** argv)
   asgard::discretization_manager<precision> disc(pde, asgard::verbosity_level::high);
 
   // solves the pde
-  asgard::simulate(disc);
+  disc.advance_time(); // integrate until num-steps or stop-time
+
+  if (not disc.stop_verbosity())
+    disc.progress_report();
+
+  disc.save_final_snapshot(); // only if output filename is provided
+
+  if (asgard::tools::timer.enabled() and not disc.stop_verbosity())
+    std::cout << asgard::tools::timer.report() << '\n';
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [continuity_2d main]

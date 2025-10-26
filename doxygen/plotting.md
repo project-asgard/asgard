@@ -23,7 +23,7 @@ control over the plotting format or even use a matplotlib alternatives.
 If matplotlib plot can also be written to an image file, e.g., if the data files
 are stored on a remote machine that has matplotlib but no display connection:
 ```
-  python3 -m asgard outfile.h5 outfile.png
+  python3 -m asgard outfile.h5 -fig outfile.png
 ```
 Here, `outfile.png` is any supported matplotlib format.
 
@@ -33,3 +33,14 @@ file high-level meta data to the console:
   python3 -m asgard -s outfile.h5
 ```
 The `-s` switch can be replaced with either `-stats` or `-summary`.
+
+For more options see:
+```
+  python3 -m asgard --help
+```
+
+ASGarD also provides a simple shell script that can be used in place of the verbose
+`python3 -m asgard`, e.g.,
+```
+  asgardplot.sh --help
+```
