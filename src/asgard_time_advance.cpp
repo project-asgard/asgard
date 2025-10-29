@@ -5,137 +5,6 @@
 namespace asgard::time_advance
 {
 
-template<typename P, bool use_groups>
-void mpi_apply_terms_iter_leader(
-    discretization_manager<P> const &disc, int gid,
-    P alpha, P const x[], P beta, P y[])
-{
-#ifdef ASGARD_USE_MPI
-  tools::time_event performance_("mpi kronmult iter");
-
-  resource_set const &resources = disc.get_resources();
-  bool const has_terms = disc.get_terms().has_terms();
-  std::vector<P> &work = disc.get_mpiwork();
-
-  if (resources.num_ranks() > 1) {
-    int const n = static_cast<int>(disc.state_size());
-    // each rank computes w = terms * x, if alpha = 1 and beta = 0, then that's the answer
-    // using different alpha/beta means obtaining w first, then computing alpha * w + beta * y
-    expect(disc.is_leader());
-    if (alpha == 1 and beta == 0)
-      work.resize(n);
-    else
-      work.resize(2 * n);
-
-    resources.bcast(n, x);
-
-    if constexpr (use_groups)
-      disc.terms_apply(group_id{gid}, 1, x, 0, work.data());
-    else
-      disc.terms_apply(1, x, 0, work.data());
-
-    if (not has_terms) { // mpiwork must be zeroed out explicitly
-      if (beta == 0)
-        std::fill_n(work.begin(), n, 0);
-    }
-
-    if (work.size() == static_cast<size_t>(n)) { // alpha == 1 and beta == 0
-      resources.reduce_add(n, work.data(), y);
-    } else {
-      resources.reduce_add(n, work.data(), work.data() + n);
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < static_cast<size_t>(n); i++)
-        y[i] = alpha * work[i + n] + beta * y[i];
-    }
-  } else {
-    if constexpr (use_groups)
-      disc.terms_apply(group_id{gid}, alpha, x, beta, y);
-    else
-      disc.terms_apply(alpha, x, beta, y);
-  }
-#else
-  tools::time_event performance_("kronmult iter");
-  if constexpr (use_groups)
-    disc.terms_apply(group_id{gid}, alpha, x, beta, y);
-  else
-    disc.terms_apply(alpha, x, beta, y);
-#endif
-}
-
-template<typename P>
-void mpi_apply_terms_iter_leader(
-    discretization_manager<P> const &disc, P alpha, P const x[], P beta, P y[])
-{
-  bool constexpr use_groups = false;
-  mpi_apply_terms_iter_leader<P, use_groups>(disc, -1, alpha, x, beta, y);
-}
-
-template<typename P>
-void mpi_apply_terms_iter_leader(
-    discretization_manager<P> const &disc, int gid, P alpha, P const x[], P beta, P y[])
-{
-  bool constexpr use_groups = true;
-  mpi_apply_terms_iter_leader<P, use_groups>(disc, gid, alpha, x, beta, y);
-}
-
-#ifdef ASGARD_USE_MPI
-template<typename P, bool use_groups>
-void mpi_apply_terms_iter_worker(
-    discretization_manager<P> const &disc, int gid, P w[])
-{
-  expect(not disc.is_leader());
-  tools::time_event performance_("mpi kronmult iter");
-  int const n = static_cast<int>(disc.state_size());
-  resource_set const &resources = disc.get_resources();
-  bool const has_terms = disc.get_terms().has_terms();
-  std::vector<P> &work = disc.get_mpiwork();
-  work.resize(n);
-
-  while (true)
-  {
-    resources.bcast(work);
-    if (work.back() == std::numeric_limits<P>::max())
-      break;
-
-    if constexpr (use_groups)
-      disc.terms_apply(group_id{gid}, 1, work.data(), 0, w);
-    else
-      disc.terms_apply(1, work.data(), 0, w);
-
-    if (not has_terms) // R must be zeroed out explicitly
-      std::fill_n(w, n, 0);
-
-    resources.reduce_add(n, w);
-  }
-}
-
-template<typename P>
-void mpi_apply_terms_iter_worker(
-    discretization_manager<P> const &disc, P w[])
-{
-  bool constexpr use_groups = false;
-  mpi_apply_terms_iter_worker<P, use_groups>(disc, -1, w);
-}
-
-template<typename P>
-void mpi_apply_terms_iter_worker(
-    discretization_manager<P> const &disc, int gid, P w[])
-{
-  bool constexpr use_groups = true;
-  mpi_apply_terms_iter_worker<P, use_groups>(disc, gid, w);
-}
-
-template<typename P>
-void mpi_terms_iter_stop_workers(discretization_manager<P> const &disc)
-{
-  expect(disc.is_leader());
-  std::vector<P> &work = disc.get_mpiwork();
-  work.resize(disc.state_size());
-  work.back() = std::numeric_limits<P>::max();
-  disc.get_terms().resources.bcast(work);
-}
-#endif
-
 template<typename P>
 void steady_state<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -167,19 +36,18 @@ void steady_state<P>::next_step(
     work.resize(n);
     disc.set_ode_rhs_sources(time, 1, work); // right-hand-side
 
-    #ifdef ASGARD_USE_MPI
     if (not disc.is_leader()) {
-      mpi_apply_terms_iter_worker<P>(disc, work.data());
+      // enter worker mode for iterative solver
+      disc.mpi_iteration_apply(work);
       return;
     }
-    #endif
 
     switch (solver.precon) {
     case precon_method::none:
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          mpi_apply_terms_iter_leader<P>(disc, alpha, x, beta, y);
+          disc.mpi_leader_apply(alpha, x, beta, y);
         }, work, endstep);
     break;
     case precon_method::jacobi:
@@ -187,23 +55,18 @@ void steady_state<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] *= solver.jacobi[i];
+          fm::jacobi_apply(n, solver.jacobi, y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          mpi_apply_terms_iter_leader<P>(disc, alpha, x, beta, y);
+          disc.mpi_leader_apply(alpha, x, beta, y);
         }, work, endstep);
     break;
     default:
       throw std::runtime_error("steady state solver cannot use the adi preconditioner");
     }
 
-    #ifdef ASGARD_USE_MPI
-    if (disc.get_terms().resources.num_ranks() > 1)
-      mpi_terms_iter_stop_workers(disc);
-    #endif
+    disc.mpi_iteration_stop();
   }
 }
 
@@ -331,7 +194,7 @@ void rungekutta<P>::next_step(
 }
 
 template<typename P>
-void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep, P time, P dt,
+void crank_nicolson<P>::set_rhs(discretization_manager<P> const &disc, P substep, P time, P dt,
                                 std::vector<P> const &current, std::vector<P> &rhs) const
 {
   if (substep == 1)
@@ -365,7 +228,7 @@ void crank_nicolson<P>::next_step(
   if (solver.opt == solver_method::direct) {
 
     next.resize(current.size());
-    mpi_rhs(disc, substep, time, dt, current, next);
+    set_rhs(disc, substep, time, dt, current, next);
 
     if (disc.is_leader())
       solver.direct_solve(next);
@@ -374,18 +237,16 @@ void crank_nicolson<P>::next_step(
     // form the right-hand-side inside work
     work = current;
 
-    mpi_rhs(disc, substep, time, dt, current, work);
+    set_rhs(disc, substep, time, dt, current, work);
 
     next = current; // use the current step as the initial guess
 
     int64_t const n = static_cast<int64_t>(work.size());
 
-    #ifdef ASGARD_USE_MPI
     if (not disc.is_leader()) {
-      mpi_apply_terms_iter_worker<P>(disc, work.data());
+      disc.mpi_iteration_apply(work);
       return;
     }
-    #endif
 
     switch (solver.precon) {
     case precon_method::none:
@@ -406,10 +267,8 @@ void crank_nicolson<P>::next_step(
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-          mpi_apply_terms_iter_leader<P>(disc, substep * alpha * dt, x, 1, y);
+          fm::xapby(n, alpha, x, beta, y);
+          disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
     case precon_method::jacobi:
@@ -436,45 +295,19 @@ void crank_nicolson<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] *= solver.jacobi[i];
+          fm::jacobi_apply(n, solver.jacobi, y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-
-          mpi_apply_terms_iter_leader<P>(disc, substep * alpha * dt, x, 1, y);
+          fm::xapby(n, alpha, x, beta, y);
+          disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
     break;
-    default: {
-      static std::vector<P> adi_work;
-      adi_work.resize(work.size());
-      // assuming ADI
-      solver.iterate_solve(
-        [&](P y[]) -> void
-        {
-          disc.terms_apply_adi(y, adi_work.data());
-          std::copy(adi_work.begin(), adi_work.end(), y);
-        },
-        [&](P alpha, P const x[], P beta, P y[]) -> void
-        {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-
-          mpi_apply_terms_iter_leader<P>(disc, substep * alpha * dt, x, 1, y);
-        }, work, next);
-    }
+    default:
     break;
     }
 
-    #ifdef ASGARD_USE_MPI
-    if (disc.get_terms().resources.num_ranks() > 1)
-      mpi_terms_iter_stop_workers(disc);
-    #endif
+    disc.mpi_iteration_stop();
   }
 }
 
@@ -502,12 +335,10 @@ void imex_stepper<P>::implicit_solve(
 
     int64_t const n = static_cast<int64_t>(R.size());
 
-    #ifdef ASGARD_USE_MPI
     if (not disc.is_leader()) {
-      mpi_apply_terms_iter_worker<P>(disc, imex_implicit.gid, current.data());
+      disc.mpi_iteration_apply(group_id{imex_implicit}, current);
       return;
     }
-    #endif
 
     switch (solver.precon) {
     case precon_method::none:
@@ -528,11 +359,8 @@ void imex_stepper<P>::implicit_solve(
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-
-          mpi_apply_terms_iter_leader<P>(disc, imex_implicit.gid, alpha * dt, x, 1, y);
+          fm::xapby(n, alpha, x, beta, y);
+          disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
         }, current, R);
     break;
     case precon_method::jacobi:
@@ -559,18 +387,12 @@ void imex_stepper<P>::implicit_solve(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] *= solver.jacobi[i];
+          fm::jacobi_apply(n, solver.jacobi, y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          ASGARD_OMP_PARFOR_SIMD
-          for (int64_t i = 0; i < n; i++)
-            y[i] = alpha * x[i] + beta * y[i];
-
-          mpi_apply_terms_iter_leader<P>(disc, imex_implicit.gid, alpha * dt, x, 1, y);
+          fm::xapby(n, alpha, x, beta, y);
+          disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
         }, current, R);
     break;
     default:
@@ -578,10 +400,8 @@ void imex_stepper<P>::implicit_solve(
     break;
     }
   }
-  #ifdef ASGARD_USE_MPI
-  if (disc.get_terms().resources.num_ranks() > 1)
-    mpi_terms_iter_stop_workers(disc);
-  #endif
+
+  disc.mpi_iteration_stop();
 }
 
 template<typename P>

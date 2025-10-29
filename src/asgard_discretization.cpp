@@ -571,6 +571,90 @@ void discretization_manager<precision>::ode_rhs_sources(
   #endif
 }
 
+#ifdef ASGARD_USE_MPI
+template<typename precision>
+void discretization_manager<precision>::mpi_iteration_apply_base(
+    int gid, std::vector<precision> &y) const
+{
+  rassert(not is_leader(), "cannot call mpi_iteration_apply() on the leader rank");
+
+  tools::time_event performance_("terms-apply");
+
+  y.resize(grid.num_indexes() * hier.block_size());
+
+  std::vector<precision> &x = terms.mpiwork;
+  x.resize(y.size());
+
+  while (true) // will break-exist from the loop
+  {
+    terms.resources.bcast(x); // get the input from the leader
+
+    // if the last entry is equal to the numeric-max, stop
+    // the numeric max is the "kill" signal, since it will not happen in a real run
+    if (x.back() == std::numeric_limits<precision>::max())
+      break;
+
+    terms.apply(gid, grid, conn, 1, x, 0, y);
+
+    if (not terms.has_terms()) // R must be zeroed out explicitly
+      std::fill(y.begin(), y.end(), 0);
+
+    terms.resources.reduce_add(y);
+  }
+}
+template<typename precision>
+void discretization_manager<precision>::mpi_iteration_stop() const
+{
+  // only the leader calls the "stop" and only non-leader can be stopped
+  // make sure the leader is calling and there is someone to call
+  if (not is_leader() or terms.resources.num_ranks() == 1)
+    return;
+
+  std::vector<precision> &w = terms.mpiwork;
+  w.resize(grid.num_indexes() * hier.block_size());
+  w.back() = std::numeric_limits<precision>::max();
+  terms.resources.bcast(w);
+}
+template<typename precision>
+void discretization_manager<precision>::mpi_leader_apply_base(
+    int gid, precision alpha, precision const x[], precision beta, precision y[]) const
+{
+  rassert(is_leader(), "mpi_leader_apply() can be called only on the leader rank");
+  tools::time_event performance_("mpi_leader_apply");
+
+  if (terms.resources.num_ranks() == 1) {
+    terms.apply(gid, grid, conn, alpha, x, beta, y);
+    return;
+  }
+
+  std::vector<precision> &work = terms.mpiwork;
+
+  int const n = static_cast<int>(state_size());
+  // each rank computes w = terms * x, if alpha = 1 and beta = 0, then that's the answer
+  // using different alpha/beta means obtaining w first, then computing alpha * w + beta * y
+  if (alpha == 1 and beta == 0)
+    work.resize(n);
+  else
+    work.resize(2 * n);
+
+  terms.resources.bcast(n, x);
+
+  terms.apply(gid, grid, conn, 1, x, 0, work.data());
+
+  if (not terms.has_terms() and beta == 0) // mpiwork must be zeroed out explicitly (??)
+    std::fill_n(work.begin(), n, 0);
+
+  if (work.size() == static_cast<size_t>(n)) { // alpha == 1 and beta == 0
+    terms.resources.reduce_add(n, work.data(), y);
+  } else {
+    terms.resources.reduce_add(n, work.data(), work.data() + n);
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < static_cast<size_t>(n); i++)
+      y[i] = alpha * work[i + n] + beta * y[i];
+  }
+}
+#endif
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class discretization_manager<double>;
 

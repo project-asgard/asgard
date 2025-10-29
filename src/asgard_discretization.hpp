@@ -297,12 +297,45 @@ public:
     terms.apply_gpu(gid.gid, grid, conn, alpha, x, beta, y);
   }
   #endif
-  //! applies ADI preconditioner for all terms
-  void terms_apply_adi(precision const x[], precision y[]) const
-  {
-    tools::time_event performance_("terms_apply_adi kronmult");
-    terms.apply_all_adi(grid, conn, x, y);
+
+  #ifdef ASGARD_USE_MPI
+  //! initiate iterative loop on MPI for the given group and workspace
+  void mpi_iteration_apply(group_id gid, std::vector<precision> &work) const {
+    mpi_iteration_apply_base(gid.gid, work);
   }
+  //! initiate iterative loop on MPI for the all groups and given workspace
+  void mpi_iteration_apply(std::vector<precision> &work) const {
+    mpi_iteration_apply_base(all_groups, work);
+  }
+  //! stop the currently working iteration
+  void mpi_iteration_stop() const;
+  //! performs apply operation on the leader, assuming the non-leader ranks are running mpi_iteration_apply()
+  void mpi_leader_apply(precision alpha, precision const x[], precision beta,
+                        precision y[]) const
+  {
+    mpi_leader_apply_base(all_groups, alpha, x, beta, y);
+  }
+  //! performs apply operation on the leader, assuming the non-leader ranks are running mpi_iteration_apply()
+  void mpi_leader_apply(group_id gid, precision alpha, precision const x[],
+                        precision beta, precision y[]) const
+  {
+    mpi_leader_apply_base(gid.gid, alpha, x, beta, y);
+  }
+  #else
+  void mpi_iteration_apply(group_id, std::vector<precision> &) const {}
+  void mpi_iteration_apply(std::vector<precision> &) const {}
+  void mpi_iteration_stop() const {}
+  void mpi_leader_apply(precision alpha, precision const x[], precision beta,
+                        precision y[]) const
+  {
+    terms_apply(alpha, x, beta, y);
+  }
+  void mpi_leader_apply(group_id gid, precision alpha, precision const x[],
+                        precision beta, precision y[]) const
+  {
+    terms_apply(gid, alpha, x, beta, y);
+  }
+  #endif
 
   //! write out checkpoint/restart data and data for plotting
   void checkpoint() const;
@@ -592,6 +625,13 @@ protected:
 
     return shot;
   }
+  #ifdef ASGARD_USE_MPI
+  //! worker iteration apply
+  void mpi_iteration_apply_base(int gid, std::vector<precision> &work) const;
+  //! leader iteration apply
+  void mpi_leader_apply_base(int gid, precision alpha, precision const x[],
+                             precision beta, precision y[]) const;
+  #endif
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 private:

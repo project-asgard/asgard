@@ -429,32 +429,6 @@ void term_manager<P>::apply_tmpl_gpu(
 #endif
 
 template<typename P>
-void term_manager<P>::apply_all_adi(
-    sparse_grid const &grid, connection_patterns const &conns,
-    P const x[], P y[]) const
-{
-  int64_t const n = grid.num_indexes() * fm::ipow(basis.pdof, grid.num_dims());
-
-  t1.resize(n);
-  t2.resize(n);
-  std::copy_n(x, n, t1.data());
-
-  auto it = terms.begin();
-  while (it < terms.end())
-  {
-    if (it->num_chain == 1) {
-      kron_term_adi(grid, conns, *it, 1, t1.data(), 0, t2.data());
-      std::swap(t1, t2);
-      ++it;
-    } else {
-      // TODO: consider whether we should do this or not
-      it += it->num_chain;
-    }
-  }
-  std::copy_n(t1.data(), n, y);
-}
-
-template<typename P>
 void term_manager<P>::make_jacobi(
     int gid, sparse_grid const &grid, connection_patterns const &conns,
     std::vector<P> &y) const
