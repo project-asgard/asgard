@@ -33,6 +33,33 @@ template<typename precision>
 class discretization_manager;
 
 /*!
+ * \internal
+ * \ingroup asgard_time_advance
+ * \brief Strong type indicating scaling for the terms
+ *
+ * \endinternal
+ */
+struct terms_scale {
+  //! set the term-scale
+  explicit terms_scale(double s) : value(s) {}
+  //! the scale factor
+  double value = 0;
+};
+/*!
+ * \internal
+ * \ingroup asgard_time_advance
+ * \brief Strong type indicating scaling for the sources
+ *
+ * \endinternal
+ */
+struct sources_scale {
+  //! set the term-scale
+  explicit sources_scale(double s) : value(s) {}
+  //! the scale factor
+  double value = 0;
+};
+
+/*!
  * \ingroup asgard_discretization
  * \brief Integrates in time until the final time or number of steps
  *
@@ -214,8 +241,6 @@ struct imex_stepper
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
 
-  //! rebuilds the operator matrix
-  //void rebuild_matrix(discretization_manager<P> const &dist) const;
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
@@ -229,9 +254,6 @@ struct imex_stepper
   }
 
 private:
-  //! fills into R the ode_rhs for the explicit part
-  void explicit_ode_rhs(discretization_manager<P> const &disc, P time,
-                        std::vector<P> const &current, std::vector<P> &R) const;
   //! fills into R the ode_rhs for the explicit part
   void implicit_solve(discretization_manager<P> const &disc, P time,
                       std::vector<P> &current, std::vector<P> &R) const;

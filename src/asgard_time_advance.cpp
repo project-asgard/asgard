@@ -360,58 +360,11 @@ template<typename P>
 void crank_nicolson<P>::mpi_rhs(discretization_manager<P> const &disc, P substep, P time, P dt,
                                 std::vector<P> const &current, std::vector<P> &rhs) const
 {
-#ifdef ASGARD_USE_MPI
-  resource_set const &resources = disc.get_resources();
-  bool const has_terms = disc.get_terms().has_terms();
-  std::vector<P> &w = disc.get_mpiwork();
-
-  if (resources.num_ranks() > 1) {
-    tools::time_event performance_("mpi kronmult rhs");
-
-    if (disc.is_leader()) {
-      w = current;
-
-      resources.bcast(current);
-
-      if (substep < 1)
-        disc.terms_apply(-substep * dt, current, 1, w);
-
-      disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-          disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, w);
-
-      resources.reduce_add(w, rhs);
-
-    } else {
-      w.resize(disc.state_size());
-
-      resources.bcast(w);
-
-      if (has_terms) {
-        if (substep < 1)
-          disc.terms_apply(-substep * dt, w, 0, rhs);
-
-        disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-            disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
-      } else {
-        disc.get_terms_m().template apply_sources<data_mode::scal_rep>(
-            disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
-      }
-
-      resources.reduce_add(rhs);
-    }
-  } else {
-#endif
-    tools::time_event performance_("kronmult rhs");
-
-    rhs = current;
-    if (substep < 1)
-      disc.terms_apply(-substep * dt, current, 1, rhs);
-
-    disc.get_terms_m().template apply_sources<data_mode::scal_inc>(
-        disc.get_grid(), disc.get_conn(), disc.get_hier(), time + substep * dt, dt, rhs);
-#ifdef ASGARD_USE_MPI
-  }
-#endif
+  if (substep == 1)
+    disc.ode_euler(time + substep * dt, current, terms_scale{0}, sources_scale{dt}, rhs);
+  else
+    disc.ode_euler(time + substep * dt, current,
+                   terms_scale{dt * (1 - substep)}, sources_scale{dt}, rhs);
 }
 
 template<typename P>
@@ -552,23 +505,12 @@ void crank_nicolson<P>::next_step(
 }
 
 template<typename P>
-void imex_stepper<P>::explicit_ode_rhs(
-    discretization_manager<P> const &disc, P time, std::vector<P> const &current,
-    std::vector<P> &R) const
-{
-  if (R.size() != current.size())
-    R.resize(current.size());
-
-  disc.ode_rhs(group_id{imex_explicit}, time, current, R);
-}
-template<typename P>
 void imex_stepper<P>::implicit_solve(
     discretization_manager<P> const &disc, P time,
     std::vector<P> &current, std::vector<P> &R) const
 {
-  // disc.compute_moments(imex_implicit.gid, current);
   if (disc.has_moments())
-    disc.compute_moments(imex_implicit.gid, current);
+    disc.compute_moments(group_id{imex_implicit}, current);
 
   P const dt = disc.dt();
 
@@ -678,22 +620,14 @@ void imex_stepper<P>::next_step(
   P const time = disc.time();
   P const dt   = disc.dt();
 
-  explicit_ode_rhs(disc, time, current, fs);
-
-  f.resize(fs.size());
-
-  if (disc.is_leader()) {
-    ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < current.size(); i++)
-      f[i] = current[i] + dt * fs[i];
-  }
+  disc.ode_euler(group_id{imex_explicit}, time, current, dt, f);
 
   implicit_solve(disc, time + dt, f, next);
 
   if (method == time_method::imex1)
     return;
 
-  explicit_ode_rhs(disc, time + dt, next, f);
+  disc.ode_rhs(group_id{imex_explicit}, time + dt, next, f);
 
   if (disc.is_leader()) {
     ASGARD_OMP_PARFOR_SIMD

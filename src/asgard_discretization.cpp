@@ -417,9 +417,8 @@ void discretization_manager<precision>::ode_rhs_base(
     }();
 
   // locally update all moments
-  if (terms.moms) {
-    compute_moments(gid, in);
-  }
+  if (terms.moms)
+    compute_moments(group_id{gid}, in);
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -441,6 +440,93 @@ void discretization_manager<precision>::ode_rhs_base(
   if (terms.resources.num_ranks() > 1) {
     if (is_leader())
       terms.resources.reduce_add(out, y);
+    else
+      terms.resources.reduce_add(out);
+  }
+  #endif
+}
+
+template<typename precision>
+void discretization_manager<precision>::ode_euler_base(
+    int gid, precision time, std::vector<precision> const &current,
+    terms_scale term_scal, sources_scale source_scal, std::vector<precision> &next) const
+{
+  // 1. broadcast x to all ranks, then compute the moments
+  //    (the moments can be done locally, the work is cheap)
+  // 2. apply the terms and sources with the two scales
+  // 3. collect (reduce-add) the result into y
+  // naturally, if not using MPI or using only 1 rank, there is no broadcast/reduce
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    terms.mpiwork.resize(current.size());
+    if (is_leader()) {
+      terms.resources.bcast(current);
+    } else {
+      terms.resources.bcast(terms.mpiwork);
+    }
+  }
+  #endif
+
+  // the effective input vector, in MPI context this is either current or mpiwork
+  // leader just uses current, the rest use mpiwork
+  std::vector<precision> const &in = [&]() -> std::vector<precision> const &
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() == 1 or is_leader())
+        return current;
+      else
+        return terms.mpiwork;
+      #else
+      return current;
+      #endif
+    }();
+  // the effective input vector, in MPI context this is either mpiwork or R
+  std::vector<precision> &out = [&]() -> std::vector<precision> &
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() > 1 and is_leader())
+        return terms.mpiwork;
+      else
+        return next;
+      #else
+      return next;
+      #endif
+    }();
+
+  // locally update all moments
+  if (terms.moms)
+    compute_moments(group_id{gid}, in);
+
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(gid, grid, conn, -term_scal.value, 1);
+    tools::time_event performance_("ode-rhs kronmult", flops);
+    #else
+    tools::time_event performance_("ode-rhs kronmult");
+    #endif
+    if (is_leader())
+      out = in;
+    else
+      out.resize(in.size());
+
+    if (term_scal.value != 0)
+      terms.apply(gid, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+
+    if (not terms.has_terms()) // R wasn't zeroes out above
+        std::fill(out.begin(), out.end(), 0);
+  }{
+    tools::time_event performance_("ode-rhs sources");
+    if (source_scal.value == 1)
+      terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, out);
+    else
+      terms.template apply_sources<data_mode::scal_inc>(gid, grid, conn, hier, time,
+                                                        source_scal.value, out);
+  }
+
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    if (is_leader())
+      terms.resources.reduce_add(out, next);
     else
       terms.resources.reduce_add(out);
   }
@@ -473,7 +559,7 @@ void discretization_manager<precision>::ode_rhs_sources(
             return mode;
         }();
       terms.template apply_sources<mm>(gid, grid, conn, hier, time, alpha, src);
-      terms.resources.reduce_add(src, src);
+      terms.resources.reduce_add(src);
     }
   } else {
   #endif

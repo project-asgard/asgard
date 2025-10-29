@@ -166,6 +166,32 @@ public:
   {
     ode_rhs_base(all_groups, time, current, R);
   }
+  //! takes an Euler-like step, next = current + ode-rhs(current), but terms and sources can be scaled separately
+  void ode_euler(group_id gid, precision time, std::vector<precision> const &current,
+                 terms_scale term_scal, sources_scale source_scal,
+                 std::vector<precision> &next) const
+  {
+    ode_euler_base(gid.gid, time, current, term_scal, source_scal, next);
+  }
+  //! takes an Euler-like step, next = current + scale * ode-rhs(current)
+  void ode_euler(group_id gid, precision time, std::vector<precision> const &current,
+                 precision scale, std::vector<precision> &next) const
+  {
+    ode_euler_base(gid.gid, time, current, terms_scale{scale}, sources_scale{scale}, next);
+  }
+  //! takes an Euler-like step, next = current + ode-rhs(current), but terms and sources can be scaled separately
+  void ode_euler(precision time, std::vector<precision> const &current,
+                 terms_scale term_scal, sources_scale source_scal,
+                 std::vector<precision> &next) const
+  {
+    ode_euler_base(all_groups, time, current, term_scal, source_scal, next);
+  }
+  //! takes an Euler-like step, next = current + scale * ode-rhs(current)
+  void ode_euler(precision time, std::vector<precision> const &current,
+                 precision scale, std::vector<precision> &next) const
+  {
+    ode_euler_base(all_groups, time, current, terms_scale{scale}, sources_scale{scale}, next);
+  }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
@@ -437,39 +463,39 @@ public:
   connection_patterns const &get_conn() const { return conn; }
 
   //! recomputes the moments with the current state, if groupid is negative all groups will be computed
-  void compute_moments(int groupid = all_groups) const {
-    compute_moments(groupid, state);
+  void compute_moments(group_id gid = group_id{all_groups}) const {
+    compute_moments(gid, state);
   }
   //! recomputes the moments given the state of interest and this term group
-  void compute_moments(int groupid, std::vector<precision> const &f) const {
+  void compute_moments(group_id gid, std::vector<precision> const &f) const {
     rassert(terms.moms, "no moments set for this PDE");
     #ifdef ASGARD_USE_MPI
     if (terms.resources.num_ranks() > 1) {
       if (is_leader()) {
         terms.resources.template bcast <precision, resource_comm::regular>(f);
-        terms.moms.cache_moments(grid, f, groupid);
+        terms.moms.cache_moments(grid, f, gid.gid);
       } else {
         terms.mpiwork.resize(grid.num_indexes() * hier.block_size());
         terms.resources.template bcast <precision, resource_comm::regular>(terms.mpiwork);
-        terms.moms.cache_moments(grid, terms.mpiwork, groupid);
+        terms.moms.cache_moments(grid, terms.mpiwork, gid.gid);
       }
     } else {
     #endif
-      terms.moms.cache_moments(grid, f, groupid);
+      terms.moms.cache_moments(grid, f, gid.gid);
     #ifdef ASGARD_USE_MPI
     }
     #endif
 
-    compute_poisson(groupid);
-    terms.rebuild_moment_terms(groupid, grid, conn, hier);
+    compute_poisson(gid);
+    terms.rebuild_moment_terms(gid.gid, grid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(std::vector<precision> const &f) const {
-    compute_moments(all_groups, f);
+    compute_moments(group_id{all_groups}, f);
   }
-  //! recomputes the poisson term for the given group
-  void compute_poisson(int groupid) const {
-    if (not poisson or (groupid >= 0 and not terms.has_poisson(groupid)))
+  //! recomputes the Poisson term for the given group
+  void compute_poisson(group_id gid) const {
+    if (not poisson or (gid.gid >= 0 and not terms.has_poisson(gid.gid)))
       return;
 
     #ifdef ASGARD_USE_MPI
@@ -493,8 +519,12 @@ public:
   //! (debugging) prints the term-matrices
   void print_mats() const;
 
-  //! returns true if this is mpi rank 0
+  #ifdef ASGARD_USE_MPI
+  //! returns true if this is mpi rank 0, always true when MPI is not enabled
   bool is_leader() const { return terms.resources.is_leader(); }
+  #else
+  static constexpr bool is_leader() { return true; }
+  #endif
 
   #ifdef ASGARD_USE_MPI
   //! returns persistent vector for mpi operations
@@ -539,6 +569,10 @@ protected:
   //! computes the right-hand-side of the ode, templated version
   void ode_rhs_base(int gid, precision time, std::vector<precision> const &current,
                     std::vector<precision> &R) const;
+  //! computes next = current + scale_terms * F(x) + scale_src * sources(time)
+  void ode_euler_base(int gid, precision time, std::vector<precision> const &current,
+                      terms_scale term_scal, sources_scale source_scal,
+                      std::vector<precision> &next) const;
   //! template version of ode right-hand-side sources
   template<data_mode mode>
   void ode_rhs_sources(int gid, precision time, precision alpha, std::vector<precision> &src) const;
