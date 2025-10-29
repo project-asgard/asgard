@@ -420,6 +420,8 @@ void discretization_manager<precision>::ode_rhs_base(
   if (terms.moms)
     compute_moments(group_id{gid}, in);
 
+  out.resize(in.size());
+
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);

@@ -208,6 +208,54 @@ void steady_state<P>::next_step(
 }
 
 template<typename P>
+void rungekutta<P>::leader_sum(discretization_manager<P> const &disc,
+                               std::vector<P> const &x, P a1, std::vector<P> const &x1,
+                               std::vector<P> &y)
+{
+  if (disc.is_leader()) {
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < x.size(); i++)
+      y[i] = x[i] + a1 * x1[i];
+  }
+}
+template<typename P>
+void rungekutta<P>::leader_sum(discretization_manager<P> const &disc,
+                               std::vector<P> const &x, P a1, std::vector<P> const &x1,
+                               P a2, std::vector<P> const &x2,
+                               std::vector<P> &y)
+{
+  if (disc.is_leader()) {
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < x.size(); i++)
+      y[i] = x[i] + a1 * x1[i] + a2 * x2[i];
+  }
+}
+template<typename P>
+void rungekutta<P>::leader_sum(discretization_manager<P> const &disc,
+                               std::vector<P> const &x, P a1, std::vector<P> const &x1,
+                               P a2, std::vector<P> const &x2, P a3, std::vector<P> const &x3,
+                               std::vector<P> &y)
+{
+  if (disc.is_leader()) {
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < x.size(); i++)
+      y[i] = x[i] + a1 * x1[i] + a2 * x2[i] + a3 * x3[i];
+  }
+}
+template<typename P>
+void rungekutta<P>::leader_sum(discretization_manager<P> const &disc,
+                               std::vector<P> const &x, P a1, std::vector<P> const &x1,
+                               P a2, std::vector<P> const &x2, P a3, std::vector<P> const &x3,
+                               P a4, std::vector<P> const &x4, std::vector<P> &y)
+{
+  if (disc.is_leader()) {
+    ASGARD_OMP_PARFOR_SIMD
+    for (size_t i = 0; i < x.size(); i++)
+      y[i] = x[i] + a1 * x1[i] + a2 * x2[i] + a3 * x3[i] + a4 * x4[i];
+  }
+}
+
+template<typename P>
 void rungekutta<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
@@ -230,125 +278,51 @@ void rungekutta<P>::next_step(
   P const time = disc.time();
   P const dt   = disc.dt();
 
-  #ifdef ASGARD_USE_MPI
-  if (not disc.is_leader()) {
-    // if working in MPI mode and this is a worker
-    k1.resize(current.size());
-    switch (rktype) {
-      case time_method::forward_euler:
-        disc.ode_rhs(time, current, k1);
-        break;
-      case time_method::rk2:
-        disc.ode_rhs(time, current, k1);
-        disc.ode_rhs(time + 0.5 * dt, current, k1);
-        break;
-      case time_method::rk3:
-        disc.ode_rhs(time, current, k1);
-        disc.ode_rhs(time + 0.5 * dt, current, k1);
-        disc.ode_rhs(time + dt, current, k1);
-        break;
-      case time_method::rk4:
-        disc.ode_rhs(time, current, k1);
-        disc.ode_rhs(time + 0.5 * dt, current, k1);
-        disc.ode_rhs(time + 0.5 * dt, current, k1);
-        disc.ode_rhs(time + dt, current, k1);
-        break;
-      default: // unreachable
-        expect(false); // should never get here
-        break;
-    }
-    return;
-  }
-  #endif
-
   switch (rktype) {
     case time_method::forward_euler:
-      k1.resize(current.size());
-      disc.ode_rhs(time, current, k1);
-
-      next.resize(current.size());
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        next[i] = current[i] + dt * k1[i];
+      disc.ode_euler(time, current, dt, next);
       break;
     case time_method::rk2:
-      k1.resize(current.size());
-      k2.resize(current.size());
-      s1.resize(current.size());
-
-      disc.ode_rhs(time, current, k1);
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        s1[i] = current[i] + 0.5 * dt * k1[i];
-
-      disc.ode_rhs(time + 0.5 * dt, s1, k2);
+      disc.ode_euler(time, current, 0.5 * dt, s1);
+      disc.ode_rhs(time + 0.5 * dt, s1, k1);
 
       next.resize(current.size());
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        next[i] = current[i] + dt * k2[i];
+      leader_sum(disc, current, dt, k1, next);
       break;
     case time_method::rk3:
-      k1.resize(current.size());
-      k2.resize(current.size());
-      k3.resize(current.size());
       s1.resize(current.size());
+      next.resize(current.size());
 
       disc.ode_rhs(time, current, k1);
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        s1[i] = current[i] + 0.5 * dt * k1[i];
+      leader_sum(disc, current, 0.5 * dt, k1, s1);
 
       disc.ode_rhs(time + 0.5 * dt, s1, k2);
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        s1[i] = current[i] - dt * k1[i] + 2 * dt * k2[i];
+      leader_sum(disc, current, -dt, k1, 2 * dt, k2, s1);
 
       disc.ode_rhs(time + dt, s1, k3);
-
-      next.resize(current.size());
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        next[i] = current[i] + dt * (k1[i] + 4 * k2[i] + k3[i]) / P{6};
+      {
+        P const dt6 = dt / P{6};
+        leader_sum(disc, current, dt6, k1, 4 * dt6, k2, dt6, k3, next);
+      }
       break;
     case time_method::rk4:
-      k1.resize(current.size());
-      k2.resize(current.size());
-      k3.resize(current.size());
-      k4.resize(current.size());
       s1.resize(current.size());
-
-      disc.ode_rhs(time, current, k1);
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        s1[i] = current[i] + 0.5 * dt * k1[i];
-
-      disc.ode_rhs(time + 0.5 * dt, s1, k2);
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        s1[i] = current[i] + 0.5 * dt * k2[i];
-
-      disc.ode_rhs(time + 0.5 * dt, s1, k3);
-
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        s1[i] = current[i] + dt * k3[i];
-
-      disc.ode_rhs(time + dt, s1, k4);
-
       next.resize(current.size());
 
-      ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < current.size(); i++)
-        next[i] = current[i] + dt * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) / P{6};
+      disc.ode_rhs(time, current, k1);
+      leader_sum(disc, current, 0.5 * dt, k1, s1);
+
+      disc.ode_rhs(time + 0.5 * dt, s1, k2);
+      leader_sum(disc, current, 0.5 * dt, k2, s1);
+
+      disc.ode_rhs(time + 0.5 * dt, s1, k3);
+      leader_sum(disc, current, dt, k3, s1);
+
+      disc.ode_rhs(time + dt, s1, k4);
+      {
+        P const dt6 = dt / P{6};
+        leader_sum(disc, current, dt6, k1, 2 * dt6, k2, 2 * dt6, k3, dt6, k4, next);
+      }
       break;
     default: // unreachable
       expect(false); // should never get here

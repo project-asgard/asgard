@@ -157,6 +157,37 @@ struct rungekutta
   //! explicit solver and does not require a solver
   static bool constexpr needs_solver = false;
 
+protected:
+  // vector operations for various RK methods, performed only on the leader rank
+  // basically, doing weighted linear sums of vectors
+
+  //! y = x + a1 * x1
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         std::vector<P> &y);
+  //! y = x + a1 * x1 + a2 * x2
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         P a2, std::vector<P> const &x2,
+                         std::vector<P> &y);
+  //! y = x + a1 * x1 + a2 * x2 + a3 * x3
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         P a2, std::vector<P> const &x2,
+                         P a3, std::vector<P> const &x3,
+                         std::vector<P> &y);
+  //! y = x + a1 * x1 + a2 * x2 + a3 * x3 + a4 * x4
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         P a2, std::vector<P> const &x2,
+                         P a3, std::vector<P> const &x3,
+                         P a4, std::vector<P> const &x4,
+                         std::vector<P> &y);
+
 private:
   time_method rktype = time_method::rk3;
 
