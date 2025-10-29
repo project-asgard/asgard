@@ -246,6 +246,13 @@ public:
             operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
             std::vector<P> &x) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! solve for the given linear operators, right-hand-side and initial iterate
+  int solve(operatoin_apply_precon<P> apply_precon,
+            operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
+            gpu::vector<P> &x) const;
+  #endif
+
   //! returns the set tolerance
   P tolerance() const { return tolerance_; }
   //! returns the set max-number of iterations
@@ -259,6 +266,9 @@ private:
   int max_outer_ = 0;
 
   mutable std::vector<P> basis;
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> gpu_basis;
+  #endif
 
   mutable std::vector<P> krylov_data;
   mutable P *krylov_proj = nullptr;
