@@ -158,52 +158,43 @@ public:
   void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
                std::vector<precision> &R) const
   {
-    bool constexpr use_groups = true;
-    ode_rhs_templ<use_groups>(gid.gid, time, current, R);
+    ode_rhs_base(gid.gid, time, current, R);
   }
   //! computes the right-hand-side of the ode
   void ode_rhs(precision time, std::vector<precision> const &current,
                std::vector<precision> &R) const
   {
-    bool constexpr use_groups = false;
-    ode_rhs_templ<use_groups>(-1, time, current, R);
+    ode_rhs_base(all_groups, time, current, R);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    bool constexpr use_groups = false;
-    ode_rhs_sources<data_mode::replace, use_groups>(-1, time, 1, src);
+    ode_rhs_sources<data_mode::replace>(all_groups, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    bool constexpr use_groups = false;
-    ode_rhs_sources<data_mode::scal_rep, use_groups>(-1, time, alpha, src);
+    ode_rhs_sources<data_mode::scal_rep>(all_groups, time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    bool constexpr use_groups = false;
-    ode_rhs_sources<data_mode::increment, use_groups>(-1, time, 1, src);
+    ode_rhs_sources<data_mode::increment>(all_groups, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    bool constexpr use_groups = false;
-    ode_rhs_sources<data_mode::scal_inc, use_groups>(-1, time, alpha, src);
+    ode_rhs_sources<data_mode::scal_inc>(all_groups, time, alpha, src);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
-    bool constexpr use_groups = true;
-    ode_rhs_sources<data_mode::replace, use_groups>(gid.gid, time, 1, src);
+    ode_rhs_sources<data_mode::replace>(gid.gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
-    bool constexpr use_groups = true;
-    ode_rhs_sources<data_mode::increment, use_groups>(gid.gid, time, 1, src);
+    ode_rhs_sources<data_mode::increment>(gid.gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(group_id gid, precision time, precision alpha, std::vector<precision> &src) const {
-    bool constexpr use_groups = true;
-    ode_rhs_sources<data_mode::scal_inc, use_groups>(gid.gid, time, alpha, src);
+    ode_rhs_sources<data_mode::scal_inc>(gid.gid, time, alpha, src);
   }
 
   //! computes the l-2 norm, taking the mass matrix into account
@@ -546,132 +537,12 @@ protected:
   //! common operations for the two start methods
   void start_moments();
   //! computes the right-hand-side of the ode, templated version
-  template<bool use_groups>
-  void ode_rhs_templ(int gid, precision time, std::vector<precision> const &current,
-                     std::vector<precision> &R) const
-  {
-    // first broadcast the current to all ranks, then compute the moments
-    // (the moments can be done locally, the work is cheap)
-    // then apply the terms and sources and collect the final answer
-    // naturally, if not using MPI or using only 1 rank, there is no broadcast
-    #ifdef ASGARD_USE_MPI
-    if (terms.resources.num_ranks() > 1) {
-      terms.mpiwork.resize(current.size());
-      if (is_leader()) {
-        terms.resources.bcast(current);
-      } else {
-        terms.resources.bcast(terms.mpiwork);
-      }
-    }
-    #endif
-
-    // the effective input vector, in MPI context this is either current or mpiwork
-    // leader just uses current, the rest use mpiwork
-    std::vector<precision> const &in = [&]() -> std::vector<precision> const &
-      {
-        #ifdef ASGARD_USE_MPI
-        if (terms.resources.num_ranks() == 1 or is_leader())
-          return current;
-        else
-          return terms.mpiwork;
-        #else
-        return current;
-        #endif
-      }();
-    // the effective input vector, in MPI context this is either mpiwork or R
-    std::vector<precision> &out = [&]() -> std::vector<precision> &
-      {
-        #ifdef ASGARD_USE_MPI
-        if (terms.resources.num_ranks() > 1 and is_leader())
-          return terms.mpiwork;
-        else
-          return R;
-        #else
-        return R;
-        #endif
-      }();
-
-    // locally update all moments
-    if (terms.moms) {
-      compute_moments(gid, in);
-    }
-
-    {
-      #ifdef ASGARD_USE_FLOPCOUNTER
-      int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);
-      tools::time_event performance_("ode-rhs kronmult", flops);
-      #else
-      tools::time_event performance_("ode-rhs kronmult");
-      #endif
-      if constexpr (use_groups)
-        terms.apply(gid, grid, conn, -1, in, 0, out);
-      else
-        terms.apply(grid, conn, -1, in, 0, out);
-      if (not terms.has_terms()) // R wasn't zeroes out above
-          std::fill(R.begin(), R.end(), 0);
-    }{
-      tools::time_event performance_("ode-rhs sources");
-      if constexpr (use_groups)
-        terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, out);
-      else
-        terms.template apply_sources<data_mode::increment>(grid, conn, hier, time, 1, out);
-    }
-
-    #ifdef ASGARD_USE_MPI
-    if (terms.resources.num_ranks() > 1) {
-      if (is_leader())
-        terms.resources.reduce_add(out, R);
-      else
-        terms.resources.reduce_add(out);
-    }
-    #endif
-  }
+  void ode_rhs_base(int gid, precision time, std::vector<precision> const &current,
+                    std::vector<precision> &R) const;
   //! template version of ode right-hand-side sources
-  template<data_mode mode, bool use_groups>
-  void ode_rhs_sources(int gid, precision time, precision alpha, std::vector<precision> &src) const {
-    tools::time_event performance_("ode sources");
-    #ifdef ASGARD_USE_MPI
-    if (terms.resources.num_ranks() > 1) {
-      if constexpr (mode == data_mode::replace or mode == data_mode::scal_rep) {
-        terms.mpiwork.resize(src.size());
-        std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
-      } else {
-        terms.mpiwork = src;
-      }
-      if (is_leader()) {
-        if constexpr (use_groups) {
-          terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, terms.mpiwork);
-        } else {
-          terms.template apply_sources<mode>(grid, conn, hier, time, alpha, terms.mpiwork);
-        }
-        terms.resources.reduce_add(terms.mpiwork, src);
-      } else {
-        data_mode constexpr mm = [=]()-> data_mode {
-            if constexpr (mode == data_mode::increment)
-              return data_mode::replace;
-            else if constexpr (mode == data_mode::scal_inc)
-              return data_mode::scal_rep;
-            else
-              return mode;
-          }();
-        if constexpr (use_groups) {
-          terms.template apply_sources<mm>(gid, grid, conn, hier, time, alpha, src);
-        } else {
-          terms.template apply_sources<mm>(grid, conn, hier, time, alpha, src);
-        }
-        terms.resources.reduce_add(src, src);
-      }
-    } else {
-    #endif
-      if constexpr (use_groups) {
-        terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, src);
-      } else {
-        terms.template apply_sources<mode>(grid, conn, hier, time, alpha, src);
-      }
-    #ifdef ASGARD_USE_MPI
-    }
-    #endif
-  }
+  template<data_mode mode>
+  void ode_rhs_sources(int gid, precision time, precision alpha, std::vector<precision> &src) const;
+  //! returns a snapshot of the state on the current MPI rank
   reconstruct_solution get_local_snapshot() const
   {
     reconstruct_solution shot(

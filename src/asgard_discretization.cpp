@@ -367,12 +367,146 @@ void discretization_manager<precision>::print_mats() const {
   }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//        source and terms apply methods
+///////////////////////////////////////////////////////////////////////////////
+template<typename precision>
+void discretization_manager<precision>::ode_rhs_base(
+    int gid, precision time, std::vector<precision> const &x, std::vector<precision> &y) const
+{
+  // 1. broadcast x to all ranks, then compute the moments
+  //    (the moments can be done locally, the work is cheap)
+  // 2. apply the terms and sources
+  // 3. collect (reduce-add) the result into y
+  // naturally, if not using MPI or using only 1 rank, there is no broadcast/reduce
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    terms.mpiwork.resize(x.size());
+    if (is_leader()) {
+      terms.resources.bcast(x);
+    } else {
+      terms.resources.bcast(terms.mpiwork);
+    }
+  }
+  #endif
+
+  // the effective input vector, in MPI context this is either current or mpiwork
+  // leader just uses current, the rest use mpiwork
+  std::vector<precision> const &in = [&]() -> std::vector<precision> const &
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() == 1 or is_leader())
+        return x;
+      else
+        return terms.mpiwork;
+      #else
+      return x;
+      #endif
+    }();
+  // the effective input vector, in MPI context this is either mpiwork or R
+  std::vector<precision> &out = [&]() -> std::vector<precision> &
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() > 1 and is_leader())
+        return terms.mpiwork;
+      else
+        return y;
+      #else
+      return y;
+      #endif
+    }();
+
+  // locally update all moments
+  if (terms.moms) {
+    compute_moments(gid, in);
+  }
+
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);
+    tools::time_event performance_("ode-rhs kronmult", flops);
+    #else
+    tools::time_event performance_("ode-rhs kronmult");
+    #endif
+    terms.apply(gid, grid, conn, -1, in, 0, out);
+
+    if (not terms.has_terms()) // R wasn't zeroes out above
+        std::fill(y.begin(), y.end(), 0);
+  }{
+    tools::time_event performance_("ode-rhs sources");
+    terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, out);
+  }
+
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    if (is_leader())
+      terms.resources.reduce_add(out, y);
+    else
+      terms.resources.reduce_add(out);
+  }
+  #endif
+}
+
+template<typename precision>
+template<data_mode mode>
+void discretization_manager<precision>::ode_rhs_sources(
+    int gid, precision time, precision alpha, std::vector<precision> &src) const {
+  tools::time_event performance_("ode sources");
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    if constexpr (mode == data_mode::replace or mode == data_mode::scal_rep) {
+      terms.mpiwork.resize(src.size());
+      std::fill(terms.mpiwork.begin(), terms.mpiwork.end(), 0);
+    } else {
+      terms.mpiwork = src;
+    }
+    if (is_leader()) {
+      terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, terms.mpiwork);
+      terms.resources.reduce_add(terms.mpiwork, src);
+    } else {
+      data_mode constexpr mm = [=]()-> data_mode {
+          if constexpr (mode == data_mode::increment)
+            return data_mode::replace;
+          else if constexpr (mode == data_mode::scal_inc)
+            return data_mode::scal_rep;
+          else
+            return mode;
+        }();
+      terms.template apply_sources<mm>(gid, grid, conn, hier, time, alpha, src);
+      terms.resources.reduce_add(src, src);
+    }
+  } else {
+  #endif
+    terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, src);
+  #ifdef ASGARD_USE_MPI
+  }
+  #endif
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class discretization_manager<double>;
+
+template void discretization_manager<double>::ode_rhs_sources<data_mode::increment>(
+    int, double, double, std::vector<double> &) const;
+template void discretization_manager<double>::ode_rhs_sources<data_mode::scal_inc>(
+    int, double, double, std::vector<double> &) const;
+template void discretization_manager<double>::ode_rhs_sources<data_mode::replace>(
+    int, double, double, std::vector<double> &) const;
+template void discretization_manager<double>::ode_rhs_sources<data_mode::scal_rep>(
+    int, double, double, std::vector<double> &) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class discretization_manager<float>;
+
+template void discretization_manager<float>::ode_rhs_sources<data_mode::increment>(
+    int, float, float, std::vector<float> &) const;
+template void discretization_manager<float>::ode_rhs_sources<data_mode::scal_inc>(
+    int, float, float, std::vector<float> &) const;
+template void discretization_manager<float>::ode_rhs_sources<data_mode::replace>(
+    int, float, float, std::vector<float> &) const;
+template void discretization_manager<float>::ode_rhs_sources<data_mode::scal_rep>(
+    int, float, float, std::vector<float> &) const;
 #endif
 
 } // namespace asgard
