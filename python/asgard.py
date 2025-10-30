@@ -529,7 +529,7 @@ if __name__ == "__main__":
                     assert moment is not None, "-mom requires an filed number"
                     lpows = moment.split(" ")
                     moment = [int(p) for p in lpows]
-                elif sys.argv[i] == "-grid":
+                elif sys.argv[i] == "-grid" or sys.argv[i] == "-g":
                     addgrid = True
                     i += 1
                 else:

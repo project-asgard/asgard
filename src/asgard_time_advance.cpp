@@ -349,15 +349,15 @@ void imex_stepper<P>::implicit_solve(
   solver.update_grid(imex_implicit.gid, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt);
 
+  if (solver.opt != solver_method::direct)
+    R = current;
+
   disc.add_ode_rhs_sources_group(group_id{imex_implicit}, time, dt, current);
 
   if (solver.opt == solver_method::direct) {
     R = current; // copy
     solver.direct_solve(R);
   } else { // iterative solver
-    // form the right-hand-side inside work
-    R = current;
-
     int64_t const n = static_cast<int64_t>(R.size());
 
     if (not disc.is_leader()) {
@@ -370,7 +370,7 @@ void imex_stepper<P>::implicit_solve(
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       ignore(n);
       t1 = current;
-      t2 = current;
+      t2 = R;
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -390,7 +390,7 @@ void imex_stepper<P>::implicit_solve(
     case precon_method::jacobi:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       t1 = current;
-      t2 = current;
+      t2 = R;
       solver.iterate_solve(
         [&](P y[]) -> void
         {
