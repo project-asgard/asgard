@@ -107,6 +107,10 @@ public:
   void copy_to_host(T *destination) const {
     gpu::memcopy_dev2host(size_, data_, destination);
   }
+  //! \brief Copy number of entries to a host array, the destination must be large enough
+  void copy_to_host(int64_t num, T *destination) const {
+    gpu::memcopy_dev2host(num, data_, destination);
+  }
   //! \brief Copy to a std::vector on the host.
   void copy_to_host(std::vector<T> &destination) const
   {
@@ -243,6 +247,18 @@ public:
   P nrm2(int num, P const x[]) const {
     P const n = blas_.nrm2(num, x);
     return n;
+  }
+  //! transpose of a matrix, times a vector
+  template<typename P>
+  void gemtv(int m, int n, no_deduce<P> alpha, P const A[], P const x[],
+             no_deduce<P> beta, P y[]) const {
+    blas_.gemtv(m, n, alpha, A, x, beta, y);
+  }
+  //! matrix, times a vector
+  template<typename P>
+  void gemv(int m, int n, no_deduce<P> alpha, P const A[], P const x[],
+             no_deduce<P> beta, P y[]) const {
+    blas_.gemv(m, n, alpha, A, x, beta, y);
   }
   #endif
 

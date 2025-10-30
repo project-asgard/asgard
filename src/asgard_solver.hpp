@@ -233,6 +233,10 @@ public:
   {
     krylov_data.resize(3 * (max_inner_ + 1) + ((max_inner_ + 1) * max_inner_) / 2);
 
+    #ifdef ASGARD_USE_GPU
+    gpu_coeffs.resize(max_inner_ + 1);
+    #endif
+
     P *data = krylov_data.data();
     krylov_proj = std::exchange(data, data + ((max_inner_ + 1) * max_inner_ / 2));
     sines       = std::exchange(data, data + max_inner_ + 1);
@@ -268,6 +272,7 @@ private:
   mutable std::vector<P> basis;
   #ifdef ASGARD_USE_GPU
   mutable gpu::vector<P> gpu_basis;
+  mutable gpu::vector<P> gpu_coeffs;
   #endif
 
   mutable std::vector<P> krylov_data;

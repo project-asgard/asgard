@@ -191,6 +191,24 @@ public:
     }
   }
 
+  template<typename P>
+  void gemtv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      cublas_check_error( cublasSgemv(cublas, CUBLAS_OP_T, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      cublas_check_error( cublasDgemv(cublas, CUBLAS_OP_T, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    }
+  }
+
+  template<typename P>
+  void gemv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      cublas_check_error( cublasSgemv(cublas, CUBLAS_OP_N, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      cublas_check_error( cublasDgemv(cublas, CUBLAS_OP_N, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    }
+  }
+
   operator cublasHandle_t () const { return cublas; }
   operator cusolverDnHandle_t () const { return cusolverdn; }
 

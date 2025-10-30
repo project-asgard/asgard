@@ -178,6 +178,28 @@ public:
     }
   }
 
+  template<typename P>
+  void gemtv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_sgemv(rocblas, rocblas_operation_transpose,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      rocblas_check_error( rocblas_dgemv(rocblas, rocblas_operation_transpose,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    }
+  }
+
+  template<typename P>
+  void gemv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_sgemv(rocblas, rocblas_operation_none,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      rocblas_check_error( rocblas_dgemv(rocblas, rocblas_operation_none,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    }
+  }
+
   operator rocblas_handle () const { return rocblas; }
 
 private:
