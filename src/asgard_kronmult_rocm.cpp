@@ -565,7 +565,7 @@ template void block_gpu<float>(
     gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,
     std::array<gpu::vector<float *>, max_num_dimensions> const &,
     float, float const[], float, float[], workspace<float> &,
-    std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
+    std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
 
 template void block_gpu<float>(
     gpu::device, int, sparse_grid const &, connection_patterns const &, permutes const &,

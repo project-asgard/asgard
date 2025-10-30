@@ -126,7 +126,7 @@ public:
   }
   //! \brief Copy from a host array, the source must contain enough data
   void copy_from_host(int64_t num, T const source[]) {
-    expect(num >= size_);
+    expect(num <= size_);
     gpu::memcopy_host2dev(num, source, data_);
   }
   //! \brief Custom conversion, so we can assign to std::vector.

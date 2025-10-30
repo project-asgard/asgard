@@ -416,7 +416,6 @@ int gmres<P>::solve(
 
   int num_appy = 0;
 
-  // int total_iterations = 0;
   int outer_iterations = 0;
   int inner_iterations = 0;
 
@@ -496,7 +495,6 @@ int gmres<P>::solve(
 
   int num_appy = 0;
 
-  // int total_iterations = 0;
   int outer_iterations = 0;
   int inner_iterations = 0;
 
@@ -504,7 +502,6 @@ int gmres<P>::solve(
   P outer_res = tolerance_ + 1.0;
   while (outer_res > tolerance_ and outer_iterations < max_outer_)
   {
-    //std::copy(rhs.begin(), rhs.end(), basis.begin());
     gpu::memcopy_dev2dev(rhs.size(), rhs.data(), gpu_basis.data());
     apply_lhs(-1, x.data(), 1, gpu_basis.data());
     apply_precon(gpu_basis.data());
@@ -549,39 +546,14 @@ int gmres<P>::solve(
         fm::rot(1, krylov_sol + inner_iterations, krylov_sol + inner_iterations + 1,
                 cosines[inner_iterations], sines[inner_iterations]);
       }
-
-      // fm::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
-      // fm::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
-      //
-      // P const nrm = fm::nrm2(n, r);
-      // fm::scal(n, P{1} / nrm, r);
-      // for (int k = 0; k < inner_iterations; k++)
-      //   fm::rot(1, coeff + k, coeff + k + 1, cosines[k], sines[k]);
-      //
-      // // compute given's rotation
-      // P beta = nrm;
-      // fm::rotg(coeff + inner_iterations, &beta, cosines + inner_iterations, sines + inner_iterations);
-      //
-      // inner_res = std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
-      //
-      // if (inner_res > tolerance_ and inner_iterations < max_inner_)
-      // {
-      //   krylov_sol[inner_iterations + 1] = 0.;
-      //   fm::rot(1, krylov_sol + inner_iterations, krylov_sol + inner_iterations + 1,
-      //           cosines[inner_iterations], sines[inner_iterations]);
-      // }
-
       ++inner_iterations;
     } // end of inner iteration loop
 
     if (inner_iterations > 0)
     {
-      // TODO: GPU part
       fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
       gpu_coeffs.copy_from_host(inner_iterations, krylov_sol);
       compute->gemv(n, inner_iterations, P{1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, x.data());
-
-      // fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
     }
     ++outer_iterations;
     outer_res = inner_res;

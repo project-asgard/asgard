@@ -44,13 +44,40 @@ void steady_state<P>::next_step(
 
     switch (solver.precon) {
     case precon_method::none:
+      #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
+      ignore(n);
+      t1 = work;
+      t2 = work;
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          disc.terms_apply_gpu(alpha, x, beta, y);
+        }, t1, t2);
+      t2.copy_to_host(endstep);
+      #else
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           disc.mpi_leader_apply(alpha, x, beta, y);
         }, work, endstep);
+      #endif
     break;
     case precon_method::jacobi:
+      #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
+      t1 = work;
+      t2 = work;
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          tools::time_event timing_("jacobi preconditioner");
+          gpu::jacobi_apply(solver.jacobi_gpu, y);
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          disc.terms_apply_gpu(alpha, x, beta, y);
+        }, t1, t2);
+      t2.copy_to_host(endstep);
+      #else
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -61,6 +88,7 @@ void steady_state<P>::next_step(
         {
           disc.mpi_leader_apply(alpha, x, beta, y);
         }, work, endstep);
+      #endif
     break;
     default:
       throw std::runtime_error("steady state solver cannot use the adi preconditioner");
@@ -251,46 +279,42 @@ void crank_nicolson<P>::next_step(
     switch (solver.precon) {
     case precon_method::none:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      if (solver.opt == solver_method::bicgstab or solver.opt == solver_method::gmres) {
-        t1 = work;
-        t2 = work;
-        solver.iterate_solve(
-          [&](P alpha, P const x[], P beta, P y[]) -> void
-          {
-            gpu::axpby(t1.size(), alpha, x, beta, y);
-            disc.terms_apply_gpu(substep * alpha * dt, x, 1, y);
-          }, t1, t2);
-        t2.copy_to_host(next);
-        return;
-      }
-      #endif
+      ignore(n);
+      t1 = work;
+      t2 = work;
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(t1.size(), alpha, x, beta, y);
+          disc.terms_apply_gpu(substep * alpha * dt, x, 1, y);
+        }, t1, t2);
+      t2.copy_to_host(next);
+      #else
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           fm::xapby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
+      #endif
     break;
     case precon_method::jacobi:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      if (solver.opt == solver_method::bicgstab or solver.opt == solver_method::gmres) {
-        t1 = work;
-        t2 = work;
-        solver.iterate_solve(
-          [&](P y[]) -> void
-          {
-            tools::time_event timing_("jacobi preconditioner");
-            gpu::jacobi_apply(solver.jacobi_gpu, y);
-          },
-          [&](P alpha, P const x[], P beta, P y[]) -> void
-          {
-            gpu::axpby(t1.size(), alpha, x, beta, y);
-            disc.terms_apply_gpu(substep * alpha * dt, x, 1, y);
-          }, t1, t2);
-        t2.copy_to_host(next);
-        return;
-      }
-      #endif
+      t1 = work;
+      t2 = work;
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          tools::time_event timing_("jacobi preconditioner");
+          gpu::jacobi_apply(solver.jacobi_gpu, y);
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(t1.size(), alpha, x, beta, y);
+          disc.terms_apply_gpu(substep * alpha * dt, x, 1, y);
+        }, t1, t2);
+      t2.copy_to_host(next);
+      #else
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -302,6 +326,7 @@ void crank_nicolson<P>::next_step(
           fm::xapby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
+      #endif
     break;
     default:
     break;
@@ -343,46 +368,42 @@ void imex_stepper<P>::implicit_solve(
     switch (solver.precon) {
     case precon_method::none:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      if (solver.opt == solver_method::bicgstab) {
-        t1 = current;
-        t2 = current;
-        solver.iterate_solve(
-          [&](P alpha, P const x[], P beta, P y[]) -> void
-          {
-            gpu::axpby(t1.size(), alpha, x, beta, y);
-            disc.terms_apply_gpu(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
-          }, t1, t2);
-        t2.copy_to_host(R);
-        return;
-      }
-      #endif
+      ignore(n);
+      t1 = current;
+      t2 = current;
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(t1.size(), alpha, x, beta, y);
+          disc.terms_apply_gpu(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
+        }, t1, t2);
+      t2.copy_to_host(R);
+      #else
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           fm::xapby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
         }, current, R);
+      #endif
     break;
     case precon_method::jacobi:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      if (solver.opt == solver_method::bicgstab) {
-        t1 = current;
-        t2 = current;
-        solver.iterate_solve(
-          [&](P y[]) -> void
-          {
-            tools::time_event timing_("jacobi preconditioner");
-            gpu::jacobi_apply(solver.jacobi_gpu, y);
-          },
-          [&](P alpha, P const x[], P beta, P y[]) -> void
-          {
-            gpu::axpby(t1.size(), alpha, x, beta, y);
-            disc.terms_apply_gpu(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
-          }, t1, t2);
-        t2.copy_to_host(R);
-        return;
-      }
-      #endif
+      t1 = current;
+      t2 = current;
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          tools::time_event timing_("jacobi preconditioner");
+          gpu::jacobi_apply(solver.jacobi_gpu, y);
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(t1.size(), alpha, x, beta, y);
+          disc.terms_apply_gpu(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
+        }, t1, t2);
+      t2.copy_to_host(R);
+      #else
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -394,6 +415,7 @@ void imex_stepper<P>::implicit_solve(
           fm::xapby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
         }, current, R);
+      #endif
     break;
     default:
       throw std::runtime_error("adi preconditioner not available for IMEX steppers");
