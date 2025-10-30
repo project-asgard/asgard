@@ -164,12 +164,10 @@ public:
     if constexpr (is_float<P>) {
       P res = 0;
       cublas_check_error( cublasSdot(cublas, num, x, 1, y, 1, &res) );
-      // memcopy_dev2host(1, ftmp, &res);
       return res;
     } else {
       P res = 0;
       cublas_check_error( cublasDdot(cublas, num, x, 1, y, 1, &res) );
-      // memcopy_dev2host(1, dtmp, &res);
       return res;
     }
   }
@@ -181,13 +179,29 @@ public:
     if constexpr (is_float<P>) {
       P res = 0;
       cublas_check_error( cublasSnrm2(cublas, num, x, 1, &res) );
-      // memcopy_dev2host(1, ftmp, &res);
       return res;
     } else {
       P res = 0;
       cublas_check_error( cublasDnrm2(cublas, num, x, 1, &res) );
-      // memcopy_dev2host(1, dtmp, &res);
       return res;
+    }
+  }
+
+  template<typename P>
+  void gemtv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      cublas_check_error( cublasSgemv(cublas, CUBLAS_OP_T, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      cublas_check_error( cublasDgemv(cublas, CUBLAS_OP_T, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    }
+  }
+
+  template<typename P>
+  void gemv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      cublas_check_error( cublasSgemv(cublas, CUBLAS_OP_N, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      cublas_check_error( cublasDgemv(cublas, CUBLAS_OP_N, m, n, &alpha, A, m, x, 1, &beta, y, 1) );
     }
   }
 

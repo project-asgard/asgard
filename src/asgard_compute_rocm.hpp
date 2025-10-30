@@ -166,15 +166,35 @@ public:
     static_assert(is_float<P> or is_double<P>,
                   "dot can be called only with floats and doubles");
     if constexpr (is_float<P>) {
-      rocblas_check_error( rocblas_snrm2(rocblas, num, x, 1, ftmp) );
       P res = 0;
-      memcopy_dev2host(1, ftmp, &res);
+      rocblas_check_error( rocblas_snrm2(rocblas, num, x, 1, &res) );
       return res;
     } else {
-      rocblas_check_error( rocblas_dnrm2(rocblas, num, x, 1, dtmp) );
       P res = 0;
-      memcopy_dev2host(1, dtmp, &res);
+      rocblas_check_error( rocblas_dnrm2(rocblas, num, x, 1, &res) );
       return res;
+    }
+  }
+
+  template<typename P>
+  void gemtv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_sgemv(rocblas, rocblas_operation_transpose,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      rocblas_check_error( rocblas_dgemv(rocblas, rocblas_operation_transpose,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    }
+  }
+
+  template<typename P>
+  void gemv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
+    if constexpr (is_float<P>) {
+      rocblas_check_error( rocblas_sgemv(rocblas, rocblas_operation_none,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
+    } else {
+      rocblas_check_error( rocblas_dgemv(rocblas, rocblas_operation_none,
+                                         m, n, &alpha, A, m, x, 1, &beta, y, 1) );
     }
   }
 

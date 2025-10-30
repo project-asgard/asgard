@@ -416,7 +416,6 @@ int gmres<P>::solve(
 
   int num_appy = 0;
 
-  // int total_iterations = 0;
   int outer_iterations = 0;
   int inner_iterations = 0;
 
@@ -480,6 +479,89 @@ int gmres<P>::solve(
 
   return num_appy;
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+int gmres<P>::solve(
+    operatoin_apply_precon<P> apply_precon,
+    operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
+    gpu::vector<P> &x) const
+{
+  tools::time_event timing_("gmres::solve");
+  int const n = static_cast<int>(rhs.size());
+  expect(n == static_cast<int>(x.size()));
+
+  gpu_basis.resize(static_cast<int64_t>(n) * (max_inner_ + 1));
+
+  int num_appy = 0;
+
+  int outer_iterations = 0;
+  int inner_iterations = 0;
+
+  P inner_res = 0.;
+  P outer_res = tolerance_ + 1.0;
+  while (outer_res > tolerance_ and outer_iterations < max_outer_)
+  {
+    gpu::memcopy_dev2dev(rhs.size(), rhs.data(), gpu_basis.data());
+    apply_lhs(-1, x.data(), 1, gpu_basis.data());
+    apply_precon(gpu_basis.data());
+    ++num_appy;
+
+    inner_res = compute->nrm2(n, gpu_basis.data());
+
+    compute->scal(n, P{1} / inner_res, gpu_basis.data());
+    krylov_sol[0] = inner_res;
+
+    inner_iterations = 0;
+    while (inner_res > tolerance_ and inner_iterations < max_inner_)
+    {
+      P *r = gpu_basis.data() + static_cast<int64_t>(n) * (inner_iterations + 1);
+      apply_lhs(1, gpu_basis.data() + static_cast<int64_t>(n) * inner_iterations, 0, r);
+      apply_precon(r);
+      ++num_appy;
+
+      compute->gemtv(n, inner_iterations + 1, P{1}, gpu_basis.data(), r, P{0}, gpu_coeffs.data());
+      compute->gemv(n, inner_iterations + 1, P{-1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, r);
+
+      P const nrm = compute->nrm2(n, r);
+      compute->scal(n, P{1} / nrm, r);
+
+      // krylov projection coefficients for this iteration
+      P *coeff = krylov_proj + (inner_iterations * (inner_iterations + 1)) / 2;
+
+      gpu_coeffs.copy_to_host(inner_iterations + 1, coeff);
+
+      for (int k = 0; k < inner_iterations; k++)
+        fm::rot(1, coeff + k, coeff + k + 1, cosines[k], sines[k]);
+
+      // compute given's rotation
+      P beta = nrm;
+      fm::rotg(coeff + inner_iterations, &beta, cosines + inner_iterations, sines + inner_iterations);
+
+      inner_res = std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
+
+      if (inner_res > tolerance_ and inner_iterations < max_inner_)
+      {
+        krylov_sol[inner_iterations + 1] = 0.;
+        fm::rot(1, krylov_sol + inner_iterations, krylov_sol + inner_iterations + 1,
+                cosines[inner_iterations], sines[inner_iterations]);
+      }
+      ++inner_iterations;
+    } // end of inner iteration loop
+
+    if (inner_iterations > 0)
+    {
+      fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
+      gpu_coeffs.copy_from_host(inner_iterations, krylov_sol);
+      compute->gemv(n, inner_iterations, P{1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, x.data());
+    }
+    ++outer_iterations;
+    outer_res = inner_res;
+  } // end outer iteration
+
+  return num_appy;
+}
+#endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class direct<double>;

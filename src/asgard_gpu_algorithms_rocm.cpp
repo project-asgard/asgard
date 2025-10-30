@@ -78,13 +78,25 @@ __global__ void kernel_axpby(int64_t num, P alpha, P const x[], P beta, P y[])
     i += num_threads * gridDim.x;
   }
 }
+template<typename P, int num_threads>
+__global__ void kernel_axpby0(int64_t num, P alpha, P const x[], P y[])
+{
+  int i = threadIdx.x + blockIdx.x * num_threads;
+  while (i < num) {
+    y[i] = alpha * x[i];
+    i += num_threads * gridDim.x;
+  }
+}
 
 template<typename P>
 void axpby(int64_t num, P alpha, P const x[], P beta, P y[]) {
   constexpr int max_threads = 1024;
   int const num_blocks = round_up(num, max_threads);
 
-  kernel_axpby<P, max_threads><<<num_blocks, max_threads>>>(num, alpha, x, beta, y);
+  if (beta == 0)
+    kernel_axpby0<P, max_threads><<<num_blocks, max_threads>>>(num, alpha, x, y);
+  else
+    kernel_axpby<P, max_threads><<<num_blocks, max_threads>>>(num, alpha, x, beta, y);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

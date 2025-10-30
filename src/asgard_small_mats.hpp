@@ -672,4 +672,25 @@ P lagrange(std::vector<P> const &points, int k, P x) {
   return res;
 }
 
+// apply the Jacobi-preconditioner
+template<typename P>
+void jacobi_apply(int64_t n, std::vector<P> const &jacobi, P y[])
+{
+  ASGARD_OMP_PARFOR_SIMD
+  for (int64_t i = 0; i < n; i++)
+    y[i] *= jacobi[i];
 }
+// compute y = alpha * x + beta * y
+template<typename P>
+void axpby(int64_t n, P alpha, P const x[], P beta, P y[]) {
+  if (beta == 0) {
+    ASGARD_OMP_PARFOR_SIMD
+    for (int64_t i = 0; i < n; i++)
+      y[i] = alpha * x[i];
+  } else {
+    ASGARD_OMP_PARFOR_SIMD
+    for (int64_t i = 0; i < n; i++)
+      y[i] = alpha * x[i] + beta * y[i];
+  }
+}
+} // asgard::fm

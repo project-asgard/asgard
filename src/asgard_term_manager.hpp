@@ -327,10 +327,6 @@ struct term_manager
     int gid, sparse_grid const &grid, connection_patterns const &conns, P alpha, P beta) const;
   #endif
 
-  //! y = prod(terms_adi * x), applies the ADI preconditioning to all terms
-  void apply_all_adi(sparse_grid const &grid, connection_patterns const &conns,
-                     P const x[], P y[]) const;
-
   //! construct term diagonal
   void make_jacobi(int groupid, sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const;
@@ -371,13 +367,7 @@ struct term_manager
                 alpha, x, beta, y, kwork);
     }
   }
-  //! apply the ADI preconditioner
-  void kron_term_adi(sparse_grid const &grid, connection_patterns const &conns,
-                     term_entry<P> const &tme, P alpha, P const x[], P beta,
-                     P y[]) const
-  {
-    block_cpu(basis.pdof, grid, conns, tme.perm, tme.adi, alpha, x, beta, y, kwork);
-  }
+
   //! build the diagonal preconditioner
   template<data_mode mode>
   void kron_diag(sparse_grid const &grid, connection_patterns const &conns,

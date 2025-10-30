@@ -33,6 +33,33 @@ template<typename precision>
 class discretization_manager;
 
 /*!
+ * \internal
+ * \ingroup asgard_time_advance
+ * \brief Strong type indicating scaling for the terms
+ *
+ * \endinternal
+ */
+struct terms_scale {
+  //! set the term-scale
+  explicit terms_scale(double s) : value(s) {}
+  //! the scale factor
+  double value = 0;
+};
+/*!
+ * \internal
+ * \ingroup asgard_time_advance
+ * \brief Strong type indicating scaling for the sources
+ *
+ * \endinternal
+ */
+struct sources_scale {
+  //! set the term-scale
+  explicit sources_scale(double s) : value(s) {}
+  //! the scale factor
+  double value = 0;
+};
+
+/*!
  * \ingroup asgard_discretization
  * \brief Integrates in time until the final time or number of steps
  *
@@ -103,6 +130,9 @@ private:
   mutable solver_manager<P> solver;
   // workspace (rhs)
   mutable std::vector<P> work;
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> t1, t2; // GPU workspace
+  #endif
 };
 
 /*!
@@ -129,6 +159,37 @@ struct rungekutta
                  std::vector<P> &next) const;
   //! explicit solver and does not require a solver
   static bool constexpr needs_solver = false;
+
+protected:
+  // vector operations for various RK methods, performed only on the leader rank
+  // basically, doing weighted linear sums of vectors
+
+  //! y = x + a1 * x1
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         std::vector<P> &y);
+  //! y = x + a1 * x1 + a2 * x2
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         P a2, std::vector<P> const &x2,
+                         std::vector<P> &y);
+  //! y = x + a1 * x1 + a2 * x2 + a3 * x3
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         P a2, std::vector<P> const &x2,
+                         P a3, std::vector<P> const &x3,
+                         std::vector<P> &y);
+  //! y = x + a1 * x1 + a2 * x2 + a3 * x3 + a4 * x4
+  static void leader_sum(discretization_manager<P> const &disc,
+                         std::vector<P> const &x,
+                         P a1, std::vector<P> const &x1,
+                         P a2, std::vector<P> const &x2,
+                         P a3, std::vector<P> const &x3,
+                         P a4, std::vector<P> const &x4,
+                         std::vector<P> &y);
 
 private:
   time_method rktype = time_method::rk3;
@@ -159,7 +220,7 @@ struct crank_nicolson
            method == time_method::back_euler);
   }
     //! computes the rhs of the implicit solver using single MPI operation
-  void mpi_rhs(discretization_manager<P> const &dist, P time, P substep, P dt,
+  void set_rhs(discretization_manager<P> const &dist, P time, P substep, P dt,
                std::vector<P> const &current, std::vector<P> &next) const;
 
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
@@ -214,8 +275,6 @@ struct imex_stepper
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
 
-  //! rebuilds the operator matrix
-  //void rebuild_matrix(discretization_manager<P> const &dist) const;
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
@@ -229,9 +288,6 @@ struct imex_stepper
   }
 
 private:
-  //! fills into R the ode_rhs for the explicit part
-  void explicit_ode_rhs(discretization_manager<P> const &disc, P time,
-                        std::vector<P> const &current, std::vector<P> &R) const;
   //! fills into R the ode_rhs for the explicit part
   void implicit_solve(discretization_manager<P> const &disc, P time,
                       std::vector<P> &current, std::vector<P> &R) const;

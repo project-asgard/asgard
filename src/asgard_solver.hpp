@@ -233,6 +233,10 @@ public:
   {
     krylov_data.resize(3 * (max_inner_ + 1) + ((max_inner_ + 1) * max_inner_) / 2);
 
+    #ifdef ASGARD_USE_GPU
+    gpu_coeffs.resize(max_inner_ + 1);
+    #endif
+
     P *data = krylov_data.data();
     krylov_proj = std::exchange(data, data + ((max_inner_ + 1) * max_inner_ / 2));
     sines       = std::exchange(data, data + max_inner_ + 1);
@@ -245,6 +249,13 @@ public:
   int solve(operatoin_apply_precon<P> apply_precon,
             operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
             std::vector<P> &x) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! solve for the given linear operators, right-hand-side and initial iterate
+  int solve(operatoin_apply_precon<P> apply_precon,
+            operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
+            gpu::vector<P> &x) const;
+  #endif
 
   //! returns the set tolerance
   P tolerance() const { return tolerance_; }
@@ -259,6 +270,10 @@ private:
   int max_outer_ = 0;
 
   mutable std::vector<P> basis;
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> gpu_basis;
+  mutable gpu::vector<P> gpu_coeffs;
+  #endif
 
   mutable std::vector<P> krylov_data;
   mutable P *krylov_proj = nullptr;
@@ -410,14 +425,12 @@ struct solver_manager
         num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
       }
     } else { // if (opt == solve_opts::gmres)
-      // if (prec) {
-      //   solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
-      //
-      //   num_apply += gmres.solve(prec, apply_lhs, rhs, x);
-      // } else {
-      //   num_apply += std::get<solvers::gmres<P>>(var).solve(
-      //     [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
-      // }
+      if (prec) {
+        num_apply += std::get<solvers::gmres<P>>(var).solve(prec, apply_lhs, rhs, x);
+      } else {
+        num_apply += std::get<solvers::gmres<P>>(var).solve(
+          [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
+      }
     }
   }
   //! iterative solver, calls the appropriate iterative solver
