@@ -146,7 +146,7 @@ void term_manager<P>::apply_tmpl(
 #ifdef ASGARD_USE_FLOPCOUNTER
 template<typename P>
 int64_t term_manager<P>::flop_count(
-    int gid, sparse_grid const &grid, connection_patterns const &conns, P alpha, P beta) const
+    int gid, sparse_grid const &grid, connection_patterns const &conns) const
 {
   #ifdef ASGARD_USE_MPI
   if (not is_leader())
@@ -164,13 +164,11 @@ int64_t term_manager<P>::flop_count(
 
   int64_t flops = 0;
 
-  auto kterm = [&grid, &conns, &flops, this](term_entry<P> const &tme, P al, P be)
+  auto kterm = [&grid, &conns, &flops, this](term_entry<P> const &tme)
     -> void {
       if (not tme.tmd.is_interpolatory())
-        flops += block_cpu(basis.pdof, grid, conns, tme.perm, al, be, kwork);
+        flops += block_cpu(basis.pdof, grid, conns, tme.perm, kwork);
     };
-
-  P b = beta; // on first iteration, overwrite y
 
   int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
   int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
@@ -179,23 +177,21 @@ int64_t term_manager<P>::flop_count(
     auto it = terms.begin() + icurrent;
 
     if (it->num_chain == 1) {
-      kterm(*it, alpha, b);
+      kterm(*it);
       ++icurrent;
     } else {
       // dealing with a chain
       int const num_chain = it->num_chain;
 
-      kterm(*(it + num_chain - 1), 1, 0);
+      kterm(*(it + num_chain - 1));
 
       for (int i = num_chain - 2; i > 0; --i)
-        kterm(*(it + i), 1, 0);
+        kterm(*(it + i));
 
-      kterm(*it, alpha, b);
+      kterm(*it);
 
       icurrent += num_chain;
     }
-
-    b = 1; // next iteration appends on y
   }
 
   if (not has_terms_)

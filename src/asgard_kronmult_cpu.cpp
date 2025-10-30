@@ -767,7 +767,7 @@ void block_cpu(
 template<typename precision>
 int64_t block_cpu(
     int n, sparse_grid const &grid, connection_patterns const &conns,
-    permutes const &perm, precision alpha, precision beta, workspace<precision> &work)
+    permutes const &perm, workspace<precision> &work)
 {
   auto get_connect_1d = [&](conn_fill const fill)
       -> connect_1d const & {
@@ -803,19 +803,7 @@ int64_t block_cpu(
                            nullptr, nullptr, nullptr, work.row_map);
     }
 
-    if (i == 0) {
-      if (beta == 0) {
-        num_scal += num_entries;
-      } else {
-        num_scal += 2 * num_entries;
-      }
-    } else {
-      if (alpha == 1 or alpha == -1) {
-        num_scal += num_entries;
-      } else {
-        num_scal += 2 * num_entries;
-      }
-    }
+    num_scal += 2 * num_entries; // axpy x to y
   }
 
   return 2 * asgard_kronmult_nblocks_ * fm::ipow(n, num_dims + 1) + num_scal;
@@ -837,8 +825,7 @@ template void block_cpu<double>(
 
 #ifdef ASGARD_USE_FLOPCOUNTER
 template int64_t block_cpu<double>(
-    int, sparse_grid const &, connection_patterns const &,
-    permutes const &, double, double, workspace<double> &);
+    int, sparse_grid const &, connection_patterns const &, permutes const &, workspace<double> &);
 #endif
 
 #endif
@@ -857,8 +844,7 @@ template void block_cpu<float>(
 
 #ifdef ASGARD_USE_FLOPCOUNTER
 template int64_t block_cpu<float>(
-    int, sparse_grid const &, connection_patterns const &,
-    permutes const &, float, float, workspace<float> &);
+    int, sparse_grid const &, connection_patterns const &, permutes const &, workspace<float> &);
 #endif
 
 #endif

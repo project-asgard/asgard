@@ -122,7 +122,7 @@ void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
 //! counts the flops for the specific kronmult operation
 template<typename precision>
 int64_t block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
-                  permutes const &perm, precision alpha, precision beta, workspace<precision> &work);
+                  permutes const &perm, workspace<precision> &work);
 #endif
 
 #ifdef ASGARD_USE_GPU

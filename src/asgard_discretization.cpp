@@ -424,7 +424,7 @@ void discretization_manager<precision>::ode_rhs_base(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn, -1, 0);
+    int64_t const flops = terms.flop_count(gid, grid, conn);
     tools::time_event performance_("ode-rhs kronmult", flops);
     #else
     tools::time_event performance_("ode-rhs kronmult");
@@ -501,7 +501,7 @@ void discretization_manager<precision>::ode_euler_base(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn, -term_scal.value, 1);
+    int64_t const flops = terms.flop_count(gid, grid, conn);
     tools::time_event performance_("ode-rhs kronmult", flops);
     #else
     tools::time_event performance_("ode-rhs kronmult");
