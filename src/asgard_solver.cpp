@@ -578,7 +578,10 @@ int gmres<P>::solve(
     {
       // TODO: GPU part
       fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
-      fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
+      gpu_coeffs.copy_from_host(inner_iterations, krylov_sol);
+      compute->gemv(n, inner_iterations, P{1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, x.data());
+
+      // fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
     }
     ++outer_iterations;
     outer_res = inner_res;

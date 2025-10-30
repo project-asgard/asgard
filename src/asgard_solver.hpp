@@ -425,14 +425,15 @@ struct solver_manager
         num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
       }
     } else { // if (opt == solve_opts::gmres)
-      // if (prec) {
-      //   solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
-      //
-      //   num_apply += gmres.solve(prec, apply_lhs, rhs, x);
-      // } else {
-      //   num_apply += std::get<solvers::gmres<P>>(var).solve(
-      //     [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
-      // }
+        std::cout << " gpu-gmres\n";
+      if (prec) {
+        solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
+
+        num_apply += gmres.solve(prec, apply_lhs, rhs, x);
+      } else {
+        num_apply += std::get<solvers::gmres<P>>(var).solve(
+          [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
+      }
     }
   }
   //! iterative solver, calls the appropriate iterative solver

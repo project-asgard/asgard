@@ -251,7 +251,7 @@ void crank_nicolson<P>::next_step(
     switch (solver.precon) {
     case precon_method::none:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      if (solver.opt == solver_method::bicgstab) {
+      if (solver.opt == solver_method::bicgstab or solver.opt == solver_method::gmres) {
         t1 = work;
         t2 = work;
         solver.iterate_solve(
@@ -273,7 +273,7 @@ void crank_nicolson<P>::next_step(
     break;
     case precon_method::jacobi:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      if (solver.opt == solver_method::bicgstab) {
+      if (solver.opt == solver_method::bicgstab or solver.opt == solver_method::gmres) {
         t1 = work;
         t2 = work;
         solver.iterate_solve(
