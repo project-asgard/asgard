@@ -281,7 +281,7 @@ void crank_nicolson<P>::next_step(
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       ignore(n);
       t1 = work;
-      t2 = work;
+      t2 = current;
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -293,7 +293,7 @@ void crank_nicolson<P>::next_step(
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          fm::xapby(n, alpha, x, beta, y);
+          fm::axpby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
       #endif
@@ -301,7 +301,7 @@ void crank_nicolson<P>::next_step(
     case precon_method::jacobi:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       t1 = work;
-      t2 = work;
+      t2 = current;
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -323,7 +323,7 @@ void crank_nicolson<P>::next_step(
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          fm::xapby(n, alpha, x, beta, y);
+          fm::axpby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
       #endif
@@ -382,7 +382,7 @@ void imex_stepper<P>::implicit_solve(
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          fm::xapby(n, alpha, x, beta, y);
+          fm::axpby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
         }, current, R);
       #endif
@@ -412,7 +412,7 @@ void imex_stepper<P>::implicit_solve(
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
-          fm::xapby(n, alpha, x, beta, y);
+          fm::axpby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
         }, current, R);
       #endif

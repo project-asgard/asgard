@@ -164,12 +164,10 @@ public:
     if constexpr (is_float<P>) {
       P res = 0;
       cublas_check_error( cublasSdot(cublas, num, x, 1, y, 1, &res) );
-      // memcopy_dev2host(1, ftmp, &res);
       return res;
     } else {
       P res = 0;
       cublas_check_error( cublasDdot(cublas, num, x, 1, y, 1, &res) );
-      // memcopy_dev2host(1, dtmp, &res);
       return res;
     }
   }
@@ -181,12 +179,10 @@ public:
     if constexpr (is_float<P>) {
       P res = 0;
       cublas_check_error( cublasSnrm2(cublas, num, x, 1, &res) );
-      // memcopy_dev2host(1, ftmp, &res);
       return res;
     } else {
       P res = 0;
       cublas_check_error( cublasDnrm2(cublas, num, x, 1, &res) );
-      // memcopy_dev2host(1, dtmp, &res);
       return res;
     }
   }

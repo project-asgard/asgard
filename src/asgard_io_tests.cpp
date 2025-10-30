@@ -289,7 +289,8 @@ void restart_longer() {
   rdisc.advance_time();
   tassert(std::abs(rdisc.time() - 0.12) < 1.E-8);
 
-  tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+  constexpr P tol = (is_double<P>) ? 1.E-10 : 1.E-8;
+  tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < tol);
 }
 
 template<typename P>
@@ -346,7 +347,8 @@ void restart_adapt() {
 
   tassert(std::abs(reff.time() - 0.08) < 1.E-8);
 
-  tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < 1.E-10);
+  constexpr P tol = (is_double<P>) ? 1.E-10 : 1.E-8;
+  tassert(std::abs(get_qoi_indicator<pde, P>(reff) - get_qoi_indicator<pde, P>(rdisc)) < tol);
 }
 
 template<typename P>
