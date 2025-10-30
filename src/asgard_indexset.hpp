@@ -572,12 +572,14 @@ public:
   #ifdef ASGARD_USE_GPU
   //! send the grid to all of the managed GPUs, check if needed
   void gpu_sync() {
+    #ifndef ASGARD_GPU_GREEDY
     if (gpu_generation_ == generation_)
       return; // nothing to sync
     // this is split into two methods, so that the if statement can be inlined
     // while the load process uses OpenMP and more complex code
     gpu_generation_ = generation_;
     gpu_load();
+    #endif
   }
   //! send the grid to all of the managed GPUs, regardless if already loaded
   void gpu_load();
@@ -585,6 +587,24 @@ public:
   gpu_grid_data const &gpu_grid(gpu::device device) const {
     return gpu_grid_[device.id];
   }
+  #ifdef ASGARD_GPU_GREEDY
+  void reset_gpu_generation() {
+    if (gpu_generation_ == generation_)
+      return;
+    gpu_generation_ = generation_;
+    for (auto &gpus : gpu_xy)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          cnn.clear();
+    gpu_generation_ = generation_;
+  }
+  gpu::vector<int> &get_xy(gpu::device dev, int dim, conn_fill fill) {
+    return gpu_xy[dev.id][dim][static_cast<int>(fill)];
+  }
+  gpu::vector<int> &get_full_xy(gpu::device dev, int dim) {
+    return gpu_xy[dev.id][dim].back();
+  }
+  #endif
   #endif
 
   //! allows writer to save/load the grid
@@ -626,6 +646,9 @@ private:
   #ifdef ASGARD_USE_GPU
   int gpu_generation_ = -2; // which is the last synced generation
   std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
+  #ifdef ASGARD_GPU_GREEDY
+  mutable std::array<std::array<std::array<gpu::vector<int>, 5>, max_num_dimensions>, max_num_gpus> gpu_xy;
+  #endif
   #endif
 };
 

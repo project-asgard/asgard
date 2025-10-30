@@ -39,6 +39,10 @@
 #define ASGARD_USE_GPU
 #endif
 
+#ifdef ASGARD_USE_GPU
+#define ASGARD_GPU_GREEDY
+#endif
+
 #if defined(ASGARD_USE_MPI) || defined(ASGARD_USE_GPU)
 #define ASGARD_MANAGED_RESOURCES
 #endif
