@@ -942,9 +942,8 @@ connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &
   switch (fill)
   {
   case conn_fill::lower:
-    return connect_cpu<conn_fill::lower>(grid, dim, conn, row_wspace);
   case conn_fill::lower_udiag:
-    return connect_cpu<conn_fill::lower_udiag>(grid, dim, conn, row_wspace);
+    return connect_cpu<conn_fill::lower>(grid, dim, conn, row_wspace);
   case conn_fill::upper:
     return connect_cpu<conn_fill::upper>(grid, dim, conn, row_wspace);
   default: // case permutes::matrix_fill::both:
@@ -956,6 +955,7 @@ template<typename precision>
 void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
                  permutes const &perm, workspace<precision> &work)
 {
+  grid.reset_gpu_generation();
   compute->set_device(dev);
 
   auto get_connect_1d = [&](conn_fill const fill)
@@ -966,6 +966,14 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
       return conns[connect_1d::hierarchy::volume];
   };
 
+  auto get_xy = [&](int dim, conn_fill const fill)
+      -> gpu::vector<int> & {
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
+      return grid.get_full_xy(dev, dim);
+    else
+      return grid.get_xy(dev, dim, fill);
+  };
+
   int const active_dims = perm.num_dimensions();
   expect(active_dims > 0);
 
@@ -973,18 +981,22 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
   {
     int dir = perm.direction[i][0];
 
-    if (grid.get_xy(dev, dir, perm.fill[i][0]).empty()) {
-      grid.get_xy(dev, dir, perm.fill[i][0]) = connect_cpu(
-            grid, dir, perm.fill[i][0], get_connect_1d(perm.fill[i][0]), work.row_map);
+    gpu::vector<int> &xy0 = get_xy(dir, perm.fill[i][0]);
+
+    if (xy0.empty()) {
+      xy0 = connect_cpu(grid, dir, perm.fill[i][0],
+                        get_connect_1d(perm.fill[i][0]), work.row_map);
     }
 
     for (int d = 1; d < active_dims; d++)
     {
       dir = perm.direction[i][d];
 
-      if (grid.get_xy(dev, dir, perm.fill[i][d]).empty()) {
-        grid.get_xy(dev, dir, perm.fill[i][d]) = connect_cpu(
-              grid, dir, perm.fill[i][d], get_connect_1d(perm.fill[i][d]), work.row_map);
+      gpu::vector<int> &xy = get_xy(dir, perm.fill[i][0]);
+
+      if (xy.empty()) {
+        xy = connect_cpu(grid, dir, perm.fill[i][d],
+                         get_connect_1d(perm.fill[i][d]), work.row_map);
       }
     }
   }

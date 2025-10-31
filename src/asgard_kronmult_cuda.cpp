@@ -743,14 +743,15 @@ void launch_block_gpu(
   }
 }
 
-template<typename precision>
+template<typename precision, size_t num_coeffs>
 void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                connection_patterns const &conns, permutes const &perm,
-               std::array<gpu::vector<precision>, max_num_dimensions> const &coeffs,
+               std::array<gpu::vector<precision>, num_coeffs> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work,
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &)
+               std::array<block_sparse_matrix<precision>, num_coeffs> const &)
 {
+  static_assert(num_coeffs == 1 or num_coeffs == max_num_dimensions);
   // recomputes the x-y connections, but only if the grid has been updated
   // otherwise caches or and allows for reuse of the cache
   {
@@ -775,6 +776,14 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       return grid.get_xy(dev, dim, fill);
   };
 
+  auto get_coeff = [&](int dir)
+      -> precision const * {
+    if constexpr (num_coeffs == 1)
+      return coeffs[0].data();
+    else
+      return coeffs[dir].data();
+  };
+
   int const num_dims    = grid.num_dims();
   int const active_dims = perm.num_dimensions();
   expect(active_dims > 0);
@@ -787,7 +796,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
     compute->fill_zeros(num_entries, w1);
     launch_block_gpu(num_dims, n, dir, xy0.size() / 3, xy0.data(),
-                     coeffs[dir].data(), x, w1);
+                     get_coeff(dir), x, w1);
 
     if (perm.fill[i][0] == conn_fill::lower_udiag)
       compute->axpy(num_entries, x, w1);
@@ -800,11 +809,10 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
       compute->fill_zeros(num_entries, w2);
       launch_block_gpu(num_dims, n, dir, xy.size() / 3, xy.data(),
-                       coeffs[dir].data(), x, w1);
+                       get_coeff(dir), x, w1);
 
-      // TODO: can skip storing the lower_udiag
-      // if (perm.fill[i][d] == conn_fill::lower_udiag)
-      //   compute->axpy(num_entries, w1, w2);
+      if (perm.fill[i][d] == conn_fill::lower_udiag)
+        compute->axpy(num_entries, w1, w2);
 
       std::swap(w1, w2);
     }
@@ -823,20 +831,36 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template void block_gpu<double>(gpu::device, int, sparse_grid const &,
-                                connection_patterns const &, permutes const &,
-                                std::array<gpu::vector<double>, max_num_dimensions> const &,
-                                double, double const[], double, double[],
-                                workspace<double> &work,
-                                std::array<block_sparse_matrix<double>, max_num_dimensions> const &);
+template void block_gpu<double, 1>(
+    gpu::device, int, sparse_grid const &,
+    connection_patterns const &, permutes const &,
+    std::array<gpu::vector<double>, 1> const &,
+    double, double const[], double, double[],
+    workspace<double> &work,
+    std::array<block_sparse_matrix<double>, 1> const &);
+template void block_gpu<double, max_num_dimensions>(
+    gpu::device, int, sparse_grid const &,
+    connection_patterns const &, permutes const &,
+    std::array<gpu::vector<double>, max_num_dimensions> const &,
+    double, double const[], double, double[],
+    workspace<double> &work,
+    std::array<block_sparse_matrix<double>, max_num_dimensions> const &);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
-template void block_gpu<float>(gpu::device, int, sparse_grid const &,
-                               connection_patterns const &, permutes const &,
-                               std::array<gpu::vector<float>, max_num_dimensions> const &,
-                               float, float const[], float, float[],
-                               workspace<float> &work,
-                               std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
+template void block_gpu<float, 1>(
+    gpu::device, int, sparse_grid const &,
+    connection_patterns const &, permutes const &,
+    std::array<gpu::vector<float>, 1> const &,
+    float, float const[], float, float[],
+    workspace<float> &work,
+    std::array<block_sparse_matrix<float>, 1> const &);
+template void block_gpu<float, max_num_dimensions>(
+    gpu::device, int, sparse_grid const &,
+    connection_patterns const &, permutes const &,
+    std::array<gpu::vector<float>, max_num_dimensions> const &,
+    float, float const[], float, float[],
+    workspace<float> &work,
+    std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
 #endif
 #endif
 

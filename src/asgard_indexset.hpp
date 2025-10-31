@@ -588,7 +588,7 @@ public:
     return gpu_grid_[device.id];
   }
   #ifdef ASGARD_GPU_GREEDY
-  void reset_gpu_generation() {
+  void reset_gpu_generation() const {
     if (gpu_generation_ == generation_)
       return;
     gpu_generation_ = generation_;
@@ -599,6 +599,7 @@ public:
     gpu_generation_ = generation_;
   }
   gpu::vector<int> &get_xy(gpu::device dev, int dim, conn_fill fill) const {
+    if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
     return gpu_xy[dev.id][dim][static_cast<int>(fill)];
   }
   gpu::vector<int> &get_full_xy(gpu::device dev, int dim) const {
@@ -644,10 +645,10 @@ private:
   std::vector<int> mpimeta;
   #endif
   #ifdef ASGARD_USE_GPU
-  int gpu_generation_ = -2; // which is the last synced generation
+  mutable int gpu_generation_ = -2; // which is the last synced generation
   std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
   #ifdef ASGARD_GPU_GREEDY
-  mutable std::array<std::array<std::array<gpu::vector<int>, 5>, max_num_dimensions>, max_num_gpus> gpu_xy;
+  mutable std::array<std::array<std::array<gpu::vector<int>, 4>, max_num_dimensions>, max_num_gpus> gpu_xy;
   #endif
   #endif
 };

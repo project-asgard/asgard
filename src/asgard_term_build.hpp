@@ -47,7 +47,7 @@ struct term_entry {
   //! pointers to gpu matrices
   std::array<gpu::vector<P*>, max_num_dimensions> gpu_coeffs;
   #ifdef ASGARD_GPU_GREEDY
-  mutable std::array<gpu::vector<P>, max_num_gpus> coeffs_gpu;
+  std::array<gpu::vector<P>, max_num_dimensions> coeffs_gpu;
   #endif
   #endif
   //! ADI pseudoinverses of the coefficients

@@ -501,6 +501,14 @@ private:
   connection_patterns conn_reduced;
 
   #ifdef ASGARD_USE_GPU
+  #ifdef ASGARD_GPU_GREEDY
+  //! gpu matrices for each device
+  std::array<gpu::vector<P>, max_num_gpus> gpu_wav2nodal_;
+  //! gpu matrices for each device
+  std::array<gpu::vector<P>, max_num_gpus> gpu_nodal2hier_;
+  //! gpu matrices for each device
+  std::array<gpu::vector<P>, max_num_gpus> gpu_hier2wav_;
+  #else
   //! gpu coefficient matrices for different levels wavelet to nodal
   std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lwav2nodal_;
   //! gpu coefficient matrices for different levels nodal to hierarchical
@@ -513,6 +521,7 @@ private:
   std::array<gpu::vector<P*>, max_num_gpus> gpu_nodal2hier_;
   //! pointers to gpu matrices for different levels
   std::array<gpu::vector<P*>, max_num_gpus> gpu_hier2wav_;
+  #endif
   #endif
 
   #ifdef ASGARD_USE_FLOPCOUNTER

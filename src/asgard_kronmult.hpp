@@ -171,13 +171,13 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
 /*!
  * \brief GPU implementation that indexes the blocks
  */
-template<typename precision>
+template<typename precision, size_t num_coeffs = max_num_dimensions>
 void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                connection_patterns const &conns, permutes const &perm,
-               std::array<gpu::vector<precision>, max_num_dimensions> const &coeffs,
+               std::array<gpu::vector<precision>, num_coeffs> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work,
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
+               std::array<block_sparse_matrix<precision>, num_coeffs> const &);
 #endif
 
 #endif
