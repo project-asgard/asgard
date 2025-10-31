@@ -601,7 +601,7 @@ public:
   gpu::vector<int> &get_xy(gpu::device dev, int dim, conn_fill fill) const {
     return gpu_xy[dev.id][dim][static_cast<int>(fill)];
   }
-  gpu::vector<int> &get_full_xy(gpu::device dev, int dim) {
+  gpu::vector<int> &get_full_xy(gpu::device dev, int dim) const {
     return gpu_xy[dev.id][dim].back();
   }
   #endif

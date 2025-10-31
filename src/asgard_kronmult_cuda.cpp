@@ -545,29 +545,298 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 }
 
 #ifdef ASGARD_GPU_GREEDY
+template<typename precision, int num_dimensions, int dim, int n, int num_teams,
+         int num_cycles = 1>
+__global__ void kernel_block_gpu_driver(
+    int64_t num_conns, int const xy[],
+    precision const vals[], precision const x[], precision y[])
+{
+  // the block size is n^dim and the number of cycles dictate the size of the team,
+  //  i.e., for 1 cycle the team size matches the block size
+  //  for 2 cycles, each team member works on up to 2 entries of the block
+  // ID of member in the team is threadIdx.x
+  // ID of the team in the block is threadIdx.y
+  // ID of the team in the global workforce is threadIdx.y + blockIdx.x * blockDim.y
+  constexpr int n2 = n * n;
+
+  constexpr int block_size = gpu::ipow<n, num_dimensions>();
+
+  int64_t i = threadIdx.y + blockIdx.x * blockDim.y;
+
+  while (i < num_conns)
+  {
+    int const irow = xy[3 * i];
+    int const icol = xy[3 * i + 1];
+    int const imat = xy[3 * i + 2];
+
+    vec_mult_add<precision, num_dimensions, dim, n, block_size, num_teams, num_cycles>(
+              vals + imat * n2,
+              x + icol * block_size,
+              y + irow * block_size);
+
+    i += gridDim.x * blockDim.y;
+  }
+}
+
+template<typename precision, int num_dims, int dim, int n>
+void launch_block_gpu(int64_t num_conns, int const xy[],
+                      precision const vals[], precision const x[], precision y[])
+{
+  // Not the cleanest logic here and some manual tuning was involved.
+  // Blocks of data have size n^num_dims and we need to launch a kernel
+  // with a specific number of cuda blocks and threads (yes, block has 2 meanings).
+  // The cycles refer to the number of data entries manipulated by a single
+  // cuda thread, e.g., 1 thread works on 1 entry -> 1 cycle (same for 2, 3, 4).
+  // The team size is the number of threads that will work on a single data-block.
+  // The number of teams refers to the teams in a single cuda block,
+  // the teams and team members for a 2d grid, x -> #team member, y -> #team.
+
+  constexpr int max_threads = 1024;
+
+  constexpr int block_size = [&]() -> int {
+      if constexpr (num_dims == 1) {
+        return n;
+      } else if constexpr (num_dims == 2) {
+        return n * n;
+      } else if constexpr (num_dims == 3) {
+        return n * n * n;
+      } else if constexpr (num_dims == 4) {
+        return n * n * n * n;
+      } else if constexpr (num_dims == 5) {
+        return n * n * n * n * n;
+      } else { // if constexpr (num_dims == 6) {
+        return n * n * n * n * n * n;
+      }
+    }();
+
+  constexpr int num_cycles = [&]() -> int {
+      if constexpr (n == 1)
+        return 1; // constant basis can only use one cycle
+      if constexpr (num_dims == 6 and n == 4)
+        return 4; // needs minimum 4 cycles
+      if constexpr (num_dims == 3 and n == 3)
+        return 1; // this is an exception
+
+      if constexpr (num_dims >= 4)
+        return 4;
+      else if constexpr (num_dims >= 3)
+        return 2;
+      else
+        return 1;
+    }();
+
+  constexpr int team_size = block_size / num_cycles
+                           + (block_size % num_cycles == 0 ? 0 : 1);
+  constexpr int max_num_teams = max_threads / team_size;
+  constexpr int opt_num_teams = std::max(32 / block_size, 1);
+
+  int constexpr num_teams = std::clamp(max_num_teams, 1, opt_num_teams);
+  dim3 const launch_grid(team_size, num_teams);
+
+  constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+
+  kernel_block_gpu_driver<precision, num_dims, dim, n, num_teams, num_cycles>
+        <<<launch_blocks, launch_grid>>>
+        (num_conns, xy, vals, x, y);
+  //     (grid.num_vecs[dim], grid.pntr[dim].data(), grid.order[dim].data(),
+  //      grid.sorted[dim].data(), grid.vec_levels[dim].data(),
+  //      conns.rowcol(), conns.nnz(), vals, x, y);
+}
+
+template<typename precision, int num_dims, int dim>
+void launch_block_gpu(
+    int n, int64_t num_conns, int const xy[],
+    precision const vals[], precision const x[], precision y[])
+{
+  static_assert(dim < num_dims);
+  switch (n)
+  {
+  case 1:
+    launch_block_gpu<precision, num_dims, dim, 1>(num_conns, xy, vals, x, y);
+    break;
+  case 2:
+    launch_block_gpu<precision, num_dims, dim, 2>(num_conns, xy, vals, x, y);
+    break;
+  case 3:
+    launch_block_gpu<precision, num_dims, dim, 3>(num_conns, xy, vals, x, y);
+    break;
+  case 4:
+    launch_block_gpu<precision, num_dims, dim, 4>(num_conns, xy, vals, x, y);
+    break;
+  case 5:
+    launch_block_gpu<precision, num_dims, dim, 5>(num_conns, xy, vals, x, y);
+    break;
+  default:
+    throw std::runtime_error("(kronmult-gpu) unimplemented n for given -degree");
+  };
+}
+
+template<typename precision, int num_dims>
+void launch_block_gpu(
+    int n, int dim, int64_t num_conns, int const xy[],
+    precision const vals[], precision const x[], precision y[])
+{
+  expect(dim < num_dims);
+  switch (dim)
+  {
+  case 0:
+    launch_block_gpu<precision, num_dims, 0>(n, num_conns, xy, vals, x, y);
+    break;
+  case 1:
+    if constexpr (num_dims >= 2) {
+      launch_block_gpu<precision, num_dims, 1>(n, num_conns, xy, vals, x, y);
+      break;
+    }
+  case 2:
+    if constexpr (num_dims >= 3) {
+      launch_block_gpu<precision, num_dims, 2>(n, num_conns, xy, vals, x, y);
+      break;
+    }
+  case 3:
+    if constexpr (num_dims >= 4) {
+      launch_block_gpu<precision, num_dims, 3>(n, num_conns, xy, vals, x, y);
+      break;
+    }
+  case 4:
+    if constexpr (num_dims >= 5) {
+      launch_block_gpu<precision, num_dims, 4>(n, num_conns, xy, vals, x, y);
+      break;
+    }
+  case 5:
+    if constexpr (num_dims >= 6) {
+      launch_block_gpu<precision, num_dims, 5>(n, num_conns, xy, vals, x, y);
+      break;
+    }
+  default:
+    throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
+  }
+  static_assert(1 <= num_dims and num_dims <= max_num_dimensions);
+}
+
 template<typename precision>
-void block_gpu(gpu::device dev, sparse_grid const &grid,
+void launch_block_gpu(
+    int num_dims, int n, int dim, int64_t num_conns, int const xy[],
+    precision const vals[], precision const x[], precision y[])
+{
+  switch (num_dims)
+  {
+  case 1:
+    launch_block_gpu<precision, 1>(n, dim, num_conns, xy, vals, x, y);
+    break;
+  case 2:
+    launch_block_gpu<precision, 2>(n, dim, num_conns, xy, vals, x, y);
+    break;
+  case 3:
+    launch_block_gpu<precision, 3>(n, dim, num_conns, xy, vals, x, y);
+    break;
+  case 4:
+    launch_block_gpu<precision, 4>(n, dim, num_conns, xy, vals, x, y);
+    break;
+  case 5:
+    launch_block_gpu<precision, 5>(n, dim, num_conns, xy, vals, x, y);
+    break;
+  case 6:
+    launch_block_gpu<precision, 6>(n, dim, num_conns, xy, vals, x, y);
+    break;
+  default:
+    throw std::runtime_error("(kronmult-gpu) works with only up to 6 dimensions");
+  }
+}
+
+template<typename precision>
+void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                connection_patterns const &conns, permutes const &perm,
                std::array<gpu::vector<precision>, max_num_dimensions> const &coeffs,
+               precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work,
                std::array<block_sparse_matrix<precision>, max_num_dimensions> const &)
 {
-  connect_cpu(dev, grid, conns, perm, work);
+  // recomputes the x-y connections, but only if the grid has been updated
+  // otherwise caches or and allows for reuse of the cache
+  {
+    tools::time_event performance_("count connect");
+    connect_cpu(dev, grid, conns, perm, work);
+  }
+
+  tools::time_event performance_("block_gpu");
+
+  int64_t const num_entries = work.gpu_w1[dev.id].size();
+
+  precision *w1 = work.gpu_w1[dev.id].data();
+  precision *w2 = work.gpu_w2[dev.id].data();
+
+  gpu_connect const &gpu_conn = conns.gpu_conns[dev.id];
+
+  auto get_connect_1d = [&](int dim, conn_fill const fill)
+      -> gpu::vector<int> const & {
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
+      return grid.get_full_xy(dev, dim);
+    else
+      return grid.get_xy(dev, dim, fill);
+  };
+
+  int const num_dims    = grid.num_dims();
+  int const active_dims = perm.num_dimensions();
+  expect(active_dims > 0);
+
+  for (size_t i = 0; i < perm.fill.size(); i++)
+  {
+    int dir = perm.direction[i][0];
+
+    auto const &xy0 = get_connect_1d(dir, perm.fill[i][0]);
+
+    compute->fill_zeros(num_entries, w1);
+    launch_block_gpu(num_dims, n, dir, xy0.size() / 3, xy0.data(),
+                     coeffs[dir].data(), x, w1);
+
+    if (perm.fill[i][0] == conn_fill::lower_udiag)
+      compute->axpy(num_entries, x, w1);
+
+    for (int d = 1; d < active_dims; d++)
+    {
+      dir = perm.direction[i][d];
+
+      auto const &xy = get_connect_1d(dir, perm.fill[i][d]);
+
+      compute->fill_zeros(num_entries, w2);
+      launch_block_gpu(num_dims, n, dir, xy.size() / 3, xy.data(),
+                       coeffs[dir].data(), x, w1);
+
+      // TODO: can skip storing the lower_udiag
+      // if (perm.fill[i][d] == conn_fill::lower_udiag)
+      //   compute->axpy(num_entries, w1, w2);
+
+      std::swap(w1, w2);
+    }
+
+    compute->device_synchronize();
+    cuda_check_error( cudaGetLastError() );
+
+    if (i == 0) { // on iteration zero, scale y
+      if (beta == 0)
+        compute->fill_zeros(num_entries, y);
+      else
+        compute->scal(num_entries, beta, y);
+    }
+    compute->axpy(num_entries, alpha, w1, y);
+  }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template block_gpu<double>(gpu::device, sparse_grid const &,
-                           connection_patterns const &, permutes const &,
-                           std::array<gpu::vector<double>, max_num_dimensions> const &,
-                           workspace<double> &work,
-                           std::array<block_sparse_matrix<double>, max_num_dimensions> const &);
+template void block_gpu<double>(gpu::device, int, sparse_grid const &,
+                                connection_patterns const &, permutes const &,
+                                std::array<gpu::vector<double>, max_num_dimensions> const &,
+                                double, double const[], double, double[],
+                                workspace<double> &work,
+                                std::array<block_sparse_matrix<double>, max_num_dimensions> const &);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
-template block_gpu<float>(gpu::device, sparse_grid const &,
-                          connection_patterns const &, permutes const &,
-                          std::array<gpu::vector<float>, max_num_dimensions> const &,
-                          workspace<float> &work,
-                          std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
+template void block_gpu<float>(gpu::device, int, sparse_grid const &,
+                               connection_patterns const &, permutes const &,
+                               std::array<gpu::vector<float>, max_num_dimensions> const &,
+                               float, float const[], float, float[],
+                               workspace<float> &work,
+                               std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
 #endif
 #endif
 
