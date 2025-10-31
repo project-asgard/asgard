@@ -295,13 +295,13 @@ interpolation_manager<P>::interpolation_manager(
 
 #ifdef ASGARD_USE_GPU
   int const num_gpus = compute->num_gpus();
-#ifdef ASGARD_GPU_GREEDY
+#ifdef ASGARD_GPU_MEMGREEDY
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
     compute->set_device(gpu::device{g});
     gpu_wav2nodal_[g]  = wav2nodal_.data_vector();
-    gpu_nodal2hier_[g] = wav2nodal_.data_vector();
-    gpu_hier2wav_[g]   = wav2nodal_.data_vector();
+    gpu_nodal2hier_[g] = nodal2hier_.data_vector();
+    gpu_hier2wav_[g]   = hier2wav_.data_vector();
   }
 #else
   #pragma omp parallel for schedule(static, 1)

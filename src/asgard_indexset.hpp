@@ -572,7 +572,7 @@ public:
   #ifdef ASGARD_USE_GPU
   //! send the grid to all of the managed GPUs, check if needed
   void gpu_sync() {
-    #ifndef ASGARD_GPU_GREEDY
+    #ifndef ASGARD_GPU_MEMGREEDY
     if (gpu_generation_ == generation_)
       return; // nothing to sync
     // this is split into two methods, so that the if statement can be inlined
@@ -587,7 +587,7 @@ public:
   gpu_grid_data const &gpu_grid(gpu::device device) const {
     return gpu_grid_[device.id];
   }
-  #ifdef ASGARD_GPU_GREEDY
+  #ifdef ASGARD_GPU_MEMGREEDY
   void reset_gpu_generation() const {
     if (gpu_generation_ == generation_)
       return;
@@ -647,7 +647,7 @@ private:
   #ifdef ASGARD_USE_GPU
   mutable int gpu_generation_ = -2; // which is the last synced generation
   std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
-  #ifdef ASGARD_GPU_GREEDY
+  #ifdef ASGARD_GPU_MEMGREEDY
   mutable std::array<std::array<std::array<gpu::vector<int>, 4>, max_num_dimensions>, max_num_gpus> gpu_xy;
   #endif
   #endif

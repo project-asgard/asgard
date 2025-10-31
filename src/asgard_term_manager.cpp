@@ -286,23 +286,10 @@ void term_manager<P>::apply_tmpl_gpu(
                    cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
         }
       } else {
-        #ifdef ASGARD_GPU_GREEDY
-        block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.coeffs_gpu,
-                  al, in, be, out, kwork, tme.coeffs);
-        #else
         block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                   al, in, be, out, kwork, tme.coeffs);
-        #endif
       }
     };
-
-// template<typename precision>
-// void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
-//                connection_patterns const &conns, permutes const &perm,
-//                std::array<gpu::vector<precision>, max_num_dimensions> const &coeffs,
-//                precision alpha, precision const x[], precision beta, precision y[],
-//                workspace<precision> &work,
-//                std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
 
   // if doing out-of-core, load data onto the device and sync across devices, device 0 is always the "root"
   if constexpr (mode == compute_mode::cpu) {
