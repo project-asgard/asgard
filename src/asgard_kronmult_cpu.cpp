@@ -734,6 +734,7 @@ int64_t block_cpu(
 }
 #endif // ASGARD_USE_FLOPCOUNTER
 
+#ifdef ASGARD_USE_GPU
 #ifdef ASGARD_GPU_MEMGREEDY
 template<conn_fill fill, int dim>
 std::vector<int>
@@ -789,10 +790,8 @@ connect_cpu(sparse_grid const &grid, connect_1d const &conn,
         // precision *const local_y = y + xidx[row];
 
         // columns for the 1d pattern
-        int col_begin = (fill == conn_fill::upper)
-                         ? conn.row_diag(row) : conn.row_begin(row);
-        int col_end   = (fill == conn_fill::lower or fill == conn_fill::lower_udiag)
-                         ? conn.row_diag(row) : conn.row_end(row);
+        int col_begin = (fill == conn_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
+        int col_end   = (fill == conn_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
 
         // if constexpr (n != -1) {
         //   if constexpr (fill == conn_fill::lower_udiag) {
@@ -864,10 +863,10 @@ std::vector<int>
 connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &conn,
             std::vector<std::vector<int64_t>> &row_wspace)
 {
+  expect(fill != conn_fill::lower_udiag); // udiag is handled as diag + axpy() operation
   switch (fill)
   {
   case conn_fill::lower:
-  case conn_fill::lower_udiag:
     return connect_cpu<conn_fill::lower>(grid, dim, conn, row_wspace);
   case conn_fill::upper:
     return connect_cpu<conn_fill::upper>(grid, dim, conn, row_wspace);
@@ -904,24 +903,26 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
 
   for (size_t i = 0; i < perm.fill.size(); i++)
   {
-    int dir = perm.direction[i][0];
+    int dir        = perm.direction[i][0];
+    conn_fill fill = perm.fill[i][0];
+    if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
 
-    gpu::vector<int> &xy0 = get_xy(dir, perm.fill[i][0]);
+    gpu::vector<int> &xy0 = get_xy(dir, fill);
 
     if (xy0.empty()) {
-      xy0 = connect_cpu(grid, dir, perm.fill[i][0],
-                        get_connect_1d(perm.fill[i][0]), work.row_map);
+      xy0 = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map);
     }
 
     for (int d = 1; d < active_dims; d++)
     {
-      dir = perm.direction[i][d];
+      dir  = perm.direction[i][d];
+      fill = perm.fill[i][d];
+      if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
 
-      gpu::vector<int> &xy = get_xy(dir, perm.fill[i][0]);
+      gpu::vector<int> &xy = get_xy(dir, fill);
 
       if (xy.empty()) {
-        xy = connect_cpu(grid, dir, perm.fill[i][d],
-                         get_connect_1d(perm.fill[i][d]), work.row_map);
+        xy = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map);
       }
     }
   }
@@ -938,6 +939,7 @@ template void connect_cpu<float>(
     permutes const &perm, workspace<float> &work);
 #endif
 #endif // ASGARD_GPU_MEMGREEDY
+#endif // ASGARD_USE_GPU
 
 #ifdef ASGARD_ENABLE_DOUBLE
 

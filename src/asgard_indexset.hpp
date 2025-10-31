@@ -596,15 +596,27 @@ public:
       for (auto &dims : gpus)
         for (auto &cnn : dims)
           cnn.clear();
+    for (auto &gpus : gpu_xy_red)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          cnn.clear();
     gpu_generation_ = generation_;
   }
   gpu::vector<int> &get_xy(gpu::device dev, int dim, conn_fill fill) const {
     if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
-    return gpu_xy[dev.id][dim][static_cast<int>(fill)];
+    if (gpu_reduced_xy)
+      return gpu_xy_red[dev.id][dim][static_cast<int>(fill)];
+    else
+      return gpu_xy[dev.id][dim][static_cast<int>(fill)];
   }
+  void use_gpu_reduced_xy() const { gpu_reduced_xy = true; }
+  void use_gpu_default_xy() const { gpu_reduced_xy = false; }
   gpu::vector<int> &get_full_xy(gpu::device dev, int dim) const {
     return gpu_xy[dev.id][dim].back();
   }
+  #else
+  void use_gpu_reduced_xy() const {}
+  void use_gpu_default_xy() const {}
   #endif
   #endif
 
@@ -648,7 +660,9 @@ private:
   mutable int gpu_generation_ = -2; // which is the last synced generation
   std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
   #ifdef ASGARD_GPU_MEMGREEDY
+  mutable bool gpu_reduced_xy = false;
   mutable std::array<std::array<std::array<gpu::vector<int>, 4>, max_num_dimensions>, max_num_gpus> gpu_xy;
+  mutable std::array<std::array<std::array<gpu::vector<int>, 3>, max_num_dimensions>, max_num_gpus> gpu_xy_red;
   #endif
   #endif
 };

@@ -421,7 +421,6 @@ void term_manager<P>::apply_tmpl_gpu(
   }
 
   if constexpr (mode == compute_mode::cpu) {// send back to the CPU
-    tools::time_event performance_("copy_to_host");
     gpu_y[0].copy_to_host(y);
   }
 }

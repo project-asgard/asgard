@@ -313,8 +313,10 @@ public:
     #else
     tools::time_event performance_("wavelet-to-nodal-gpu");
     #endif
+    grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
               P{0}, vals, work, wav2nodal_);
+    grid.use_gpu_default_xy();
   }
   //! compute nodal values for the moment
   void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P scal, P vals[],
@@ -333,8 +335,10 @@ public:
     #else
     tools::time_event performance_("position-to-nodal-gpu");
     #endif
+    grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
               P{0}, vals, work, wav2nodal_);
+    grid.use_gpu_default_xy();
   }
   //! compute hirarchical coefficients from nodal values
   void nodal2hier(gpu::device dev, sparse_grid const &grid,

@@ -240,9 +240,9 @@ void launch_block_gpu(int64_t num_conns, int const xy[],
   constexpr int team_size = block_size / num_cycles
                            + (block_size % num_cycles == 0 ? 0 : 1);
   constexpr int max_num_teams = max_threads / team_size;
-  constexpr int opt_num_teams = std::max(32 / block_size, 1);
+  // constexpr int opt_num_teams = std::max(32 / block_size, 1);
 
-  int constexpr num_teams = std::clamp(max_num_teams, 1, opt_num_teams);
+  int constexpr num_teams = max_num_teams; // std::clamp(max_num_teams, 1, opt_num_teams);
   dim3 const launch_grid(team_size, num_teams);
 
   constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
@@ -419,7 +419,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
       compute->fill_zeros(num_entries, w2);
       launch_block_gpu(num_dims, n, dir, xy.size() / 3, xy.data(),
-                       get_coeff(dir), x, w1);
+                       get_coeff(dir), w1, w2);
 
       if (perm.fill[i][d] == conn_fill::lower_udiag)
         compute->axpy(num_entries, w1, w2);
@@ -808,74 +808,6 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
     compute->axpy(num_entries, alpha, w1, y);
   }
 }
-
-// template<typename precision>
-// void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
-//                connection_patterns const &conns, permutes const &perm,
-//                gpu::vector<precision *> const &coeffs,
-//                precision alpha, precision const x[], precision beta, precision y[],
-//                workspace<precision> &work,
-//                block_sparse_matrix<precision> const &)
-// {
-//   tools::time_event performance_("block_gpu");
-//
-//   int64_t const num_entries = work.gpu_w1[dev.id].size();
-//
-//   precision *w1 = work.gpu_w1[dev.id].data();
-//   precision *w2 = work.gpu_w2[dev.id].data();
-//
-//   gpu_connect const &gpu_conn = conns.gpu_conns[dev.id];
-//
-//   auto get_connect_1d = [&](conn_fill const fill)
-//       -> gpu_connect_1d const & {
-//     if (fill == conn_fill::lower_udiag)
-//       return gpu_conn.patts[static_cast<int>(conn_fill::lower)];
-//     return gpu_conn.patts[static_cast<int>(fill)];
-//   };
-//
-//   int const num_dims    = grid.num_dims();
-//   int const active_dims = perm.num_dimensions();
-//   expect(active_dims > 0);
-//
-//   for (size_t i = 0; i < perm.fill.size(); i++)
-//   {
-//     int dir = perm.direction[i][0];
-//
-//     compute->fill_zeros(num_entries, w1);
-//     launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
-//                      get_connect_1d(perm.fill[i][0]),
-//                      coeffs.data(), x, w1);
-//
-//     if (perm.fill[i][0] == conn_fill::lower_udiag)
-//       compute->axpy(num_entries, x, w1);
-//
-//     for (int d = 1; d < active_dims; d++)
-//     {
-//       dir = perm.direction[i][d];
-//
-//       compute->fill_zeros(num_entries, w2);
-//       launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
-//                        get_connect_1d(perm.fill[i][d]),
-//                        coeffs.data(), w1, w2);
-//
-//       if (perm.fill[i][d] == conn_fill::lower_udiag)
-//         compute->axpy(num_entries, w1, w2);
-//
-//       std::swap(w1, w2);
-//     }
-//
-//     // compute->device_synchronize();
-//     // cuda_check_error( cudaGetLastError() );
-//
-//     if (i == 0) { // on iteration zero, scale y
-//       if (beta == 0)
-//         compute->fill_zeros(num_entries, y);
-//       else
-//         compute->scal(num_entries, beta, y);
-//     }
-//     compute->axpy(num_entries, alpha, w1, y);
-//   }
-// }
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
