@@ -495,10 +495,6 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
   auto get_connect_1d = [&](conn_fill const fill)
       -> gpu_connect_1d const & {
-    // cannot happen until we connect interpolation to fux
-    // if (perm.flux_dir != -1 and fill == conn_fill::both) {
-    //   return gpu_conn.full();
-    // } else
     if (fill == conn_fill::lower_udiag)
       return gpu_conn.patts[static_cast<int>(conn_fill::lower)];
     return gpu_conn.patts[static_cast<int>(fill)];
@@ -547,6 +543,33 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
     compute->axpy(num_entries, alpha, w1, y);
   }
 }
+
+#ifdef ASGARD_GPU_GREEDY
+template<typename precision>
+void block_gpu(gpu::device dev, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm,
+               std::array<gpu::vector<precision>, max_num_dimensions> const &coeffs,
+               workspace<precision> &work,
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &)
+{
+  connect_cpu(dev, grid, conns, perm, work);
+}
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template block_gpu<double>(gpu::device, sparse_grid const &,
+                           connection_patterns const &, permutes const &,
+                           std::array<gpu::vector<double>, max_num_dimensions> const &,
+                           workspace<double> &work,
+                           std::array<block_sparse_matrix<double>, max_num_dimensions> const &);
+#endif
+#ifdef ASGARD_ENABLE_FLOAT
+template block_gpu<float>(gpu::device, sparse_grid const &,
+                          connection_patterns const &, permutes const &,
+                          std::array<gpu::vector<float>, max_num_dimensions> const &,
+                          workspace<float> &work,
+                          std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
+#endif
+#endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
 

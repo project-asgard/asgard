@@ -569,6 +569,10 @@ void term_manager<P>::rebuild_term1d(
 
     tentry.gpu_coeffs[dim] = coeff_pntrs;
 
+    #ifdef ASGARD_GPU_GREEDY
+    tentry.coeffs_gpu[dim] = tentry.coeffs[dim].data_vector();
+    #endif
+
     compute->set_device(gpu::device{0});
   }
   #endif

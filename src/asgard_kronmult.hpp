@@ -157,6 +157,28 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                gpu::vector<precision *> const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work, block_sparse_matrix<precision> const &cmat);
+
+#ifdef ASGARD_GPU_GREEDY
+/*!
+ * \brief Uses the CPU to compute the connection pattern for all perms
+ *
+ * While this is executed on the CPU, it caches the connection patter for the greedy
+ * GPU kernels.
+ */
+template<typename precision>
+void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
+                 permutes const &perm, workspace<precision> &work);
+/*!
+ * \brief GPU implementation that indexes the blocks
+ */
+template<typename precision>
+void block_gpu(gpu::device dev, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm,
+               std::array<gpu::vector<precision>, max_num_dimensions> const &coeffs,
+               workspace<precision> &work,
+               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
+#endif
+
 #endif
 
 } // namespace asgard::kronmult

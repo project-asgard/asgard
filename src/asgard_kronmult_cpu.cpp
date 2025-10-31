@@ -763,7 +763,6 @@ void block_cpu(
 }
 
 #ifdef ASGARD_USE_FLOPCOUNTER
-
 template<typename precision>
 int64_t block_cpu(
     int n, sparse_grid const &grid, connection_patterns const &conns,
@@ -808,8 +807,200 @@ int64_t block_cpu(
 
   return 2 * asgard_kronmult_nblocks_ * fm::ipow(n, num_dims + 1) + num_scal;
 }
+#endif // ASGARD_USE_FLOPCOUNTER
 
+#ifdef ASGARD_GPU_GREEDY
+template<conn_fill fill, int dim>
+std::vector<int>
+connect_cpu(sparse_grid const &grid, connect_1d const &conn,
+            std::vector<std::vector<int64_t>> &row_wspace)
+{
+  dimension_sort const &dsort = grid.dsort();
+
+  int const num_vecs = dsort.num_vecs(dim);
+
+  std::vector<int> res;
+  res.reserve(1024);
+
+// #ifdef _OPENMP
+//   int const max_threads = omp_get_max_threads();
+// #else
+  int const max_threads = 1;
+//#endif
+
+  if (static_cast<int>(row_wspace.size()) < max_threads)
+    row_wspace.resize(max_threads);
+
+//  int threadid = 0;
+//#pragma omp parallel
+  {
+//    int64_t my_block_count = 0;
+
+    int tid = 0;
+// #pragma omp critical
+//     tid = threadid++;
+
+    // xidx holds indexes for the entries of the current
+    // sparse row that are present in the current ilist
+    std::vector<int64_t> &xidx = row_wspace[tid];
+    if (static_cast<int>(xidx.size()) < conn.num_rows())
+      xidx.resize(conn.num_rows(), -1);
+
+// #pragma omp for schedule(dynamic)
+    for (int vec_id = 0; vec_id < num_vecs; vec_id++)
+    {
+      int const vec_begin = dsort.vec_begin(dim, vec_id);
+      int const vec_end   = dsort.vec_end(dim, vec_id);
+      // map the indexes of present entries
+      for (int j = vec_begin; j < vec_end; j++)
+        xidx[grid.dsorted(dim, j)] = dsort.map(dim, j);
+
+      // matrix-vector product using xidx as a row
+      for (int rj = vec_begin; rj < vec_end; rj++)
+      {
+        // row in the 1d pattern
+        int const row = grid.dsorted(dim, rj);
+
+        // precision *const local_y = y + xidx[row];
+
+        // columns for the 1d pattern
+        int col_begin = (fill == conn_fill::upper)
+                         ? conn.row_diag(row) : conn.row_begin(row);
+        int col_end   = (fill == conn_fill::lower or fill == conn_fill::lower_udiag)
+                         ? conn.row_diag(row) : conn.row_end(row);
+
+        // if constexpr (n != -1) {
+        //   if constexpr (fill == conn_fill::lower_udiag) {
+        //     std::copy_n(x + xidx[row], block_size, local_y);
+        //   } else {
+        //     for (int j = 0; j < block_size; j++)
+        //       local_y[j] = precision{0};
+        //   }
+        // }
+
+        for (int c = col_begin; c < col_end; c++)
+        {
+          int64_t const xj = xidx[conn[c]];
+          if (xj != -1)
+          {
+            res.push_back(xidx[row]);
+            res.push_back(xidx[conn[c]]);
+            res.push_back(c);
+            // std::cout << " (iy, ix) = (" << xidx[row] / block_size << ", " << xidx[conn[c]] / block_size
+            //           << ")   (ir, ic) = " << row << ", " << conn[c] << ")  "
+            //           << "  " << (vals + n2 * c)[0] << "    " << (x + xj)[0] << "    " << local_y[0] << "\n";
+
+            // if constexpr (n == -1)
+            //   my_block_count += 1;
+            // else
+            //   gbkron_mult_add<precision, num_dimensions, dim, n>(vals + n2 * c, x + xj, local_y);
+          }
+        }
+      }
+
+      // restore the entries
+      for (int j = vec_begin; j < vec_end; j++)
+        xidx[grid.dsorted(dim, j)] = -1;
+    }
+
+//     if constexpr (n == -1)
+// #pragma omp atomic
+//       asgard_kronmult_nblocks_ += my_block_count;
+  } // pragma parallel
+
+  return res;
+}
+
+template<conn_fill fill>
+std::vector<int>
+connect_cpu(sparse_grid const &grid, int dim, connect_1d const &conn,
+            std::vector<std::vector<int64_t>> &row_wspace)
+{
+  switch (dim)
+  {
+  case 0:
+    return connect_cpu<fill, 0>(grid, conn, row_wspace);
+  case 1:
+    return connect_cpu<fill, 1>(grid, conn, row_wspace);
+  case 2:
+    return connect_cpu<fill, 2>(grid, conn, row_wspace);
+  case 3:
+    return connect_cpu<fill, 3>(grid, conn, row_wspace);
+  case 4:
+    return connect_cpu<fill, 4>(grid, conn, row_wspace);
+  case 5:
+    return connect_cpu<fill, 5>(grid, conn, row_wspace);
+  default:
+    throw std::runtime_error("(kronmult) works with only up to 6 dimensions");
+  };
+}
+
+std::vector<int>
+connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &conn,
+            std::vector<std::vector<int64_t>> &row_wspace)
+{
+  switch (fill)
+  {
+  case conn_fill::lower:
+    return connect_cpu<conn_fill::lower>(grid, dim, conn, row_wspace);
+  case conn_fill::lower_udiag:
+    return connect_cpu<conn_fill::lower_udiag>(grid, dim, conn, row_wspace);
+  case conn_fill::upper:
+    return connect_cpu<conn_fill::upper>(grid, dim, conn, row_wspace);
+  default: // case permutes::matrix_fill::both:
+    return connect_cpu<conn_fill::both>(grid, dim, conn, row_wspace);
+  }
+}
+
+template<typename precision>
+void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
+                 permutes const &perm, workspace<precision> &work)
+{
+  compute->set_device(dev);
+
+  auto get_connect_1d = [&](conn_fill const fill)
+      -> connect_1d const & {
+    if (perm.flux_dir != -1 and fill == conn_fill::both)
+      return conns[connect_1d::hierarchy::full];
+    else
+      return conns[connect_1d::hierarchy::volume];
+  };
+
+  int const active_dims = perm.num_dimensions();
+  expect(active_dims > 0);
+
+  for (size_t i = 0; i < perm.fill.size(); i++)
+  {
+    int dir = perm.direction[i][0];
+
+    if (grid.get_xy(dev, dir, perm.fill[i][0]).empty()) {
+      grid.get_xy(dev, dir, perm.fill[i][0]) = connect_cpu(
+            grid, dir, perm.fill[i][0], get_connect_1d(perm.fill[i][0]), work.row_map);
+    }
+
+    for (int d = 1; d < active_dims; d++)
+    {
+      dir = perm.direction[i][d];
+
+      if (grid.get_xy(dev, dir, perm.fill[i][d]).empty()) {
+        grid.get_xy(dev, dir, perm.fill[i][d]) = connect_cpu(
+              grid, dir, perm.fill[i][d], get_connect_1d(perm.fill[i][d]), work.row_map);
+      }
+    }
+  }
+}
+
+#ifdef ASGARD_ENABLE_DOUBLE
+template void connect_cpu<double>(
+    gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
+    permutes const &perm, workspace<double> &work);
 #endif
+#ifdef ASGARD_ENABLE_FLOAT
+template void connect_cpu<float>(
+    gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
+    permutes const &perm, workspace<float> &work);
+#endif
+#endif // ASGARD_GPU_GREEDY
 
 #ifdef ASGARD_ENABLE_DOUBLE
 

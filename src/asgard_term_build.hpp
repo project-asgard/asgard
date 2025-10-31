@@ -46,6 +46,9 @@ struct term_entry {
   std::array<std::vector<gpu::vector<P>>, max_num_dimensions> gpu_lcoeffs;
   //! pointers to gpu matrices
   std::array<gpu::vector<P*>, max_num_dimensions> gpu_coeffs;
+  #ifdef ASGARD_GPU_GREEDY
+  mutable std::array<gpu::vector<P>, max_num_gpus> coeffs_gpu;
+  #endif
   #endif
   //! ADI pseudoinverses of the coefficients
   std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
