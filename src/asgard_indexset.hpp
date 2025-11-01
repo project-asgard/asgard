@@ -586,6 +586,19 @@ public:
           cnn.clear();
     gpu_generation_ = generation_;
   }
+  //! reports the memory usage, in MB
+  int64_t used_xy_ram() const {
+    int64_t sum = 0;
+    for (auto &gpus : gpu_xy)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          sum += cnn.size();
+    for (auto &gpus : gpu_xy_red)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          sum += cnn.size();
+    return 1 + (4 * sum) / (1024 * 1024);
+  }
   //! switch to the reduced connectivity pattern
   void use_gpu_reduced_xy() const { gpu_reduced_xy = true; }
   //! switch to the default connectivity pattern

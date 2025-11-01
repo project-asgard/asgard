@@ -415,6 +415,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       }
     }
   }
+  #ifdef ASGARD_USE_GPU
+  kwork.row_map.resize(max_num_gpus);
+  #endif
 }
 
 

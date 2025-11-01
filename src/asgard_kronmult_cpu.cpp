@@ -739,7 +739,7 @@ int64_t block_cpu(
 template<conn_fill fill, int dim>
 std::vector<int>
 connect_cpu(sparse_grid const &grid, connect_1d const &conn,
-            std::vector<std::vector<int64_t>> &row_wspace)
+            std::vector<int64_t> &xidx)
 {
   dimension_sort const &dsort = grid.dsort();
 
@@ -748,89 +748,43 @@ connect_cpu(sparse_grid const &grid, connect_1d const &conn,
   std::vector<int> res;
   res.reserve(1024);
 
-// #ifdef _OPENMP
-//   int const max_threads = omp_get_max_threads();
-// #else
-  int const max_threads = 1;
-//#endif
+  if (static_cast<int>(xidx.size()) < conn.num_rows())
+    xidx.resize(conn.num_rows(), -1);
 
-  if (static_cast<int>(row_wspace.size()) < max_threads)
-    row_wspace.resize(max_threads);
-
-//  int threadid = 0;
-//#pragma omp parallel
+  for (int vec_id = 0; vec_id < num_vecs; vec_id++)
   {
-//    int64_t my_block_count = 0;
+    int const vec_begin = dsort.vec_begin(dim, vec_id);
+    int const vec_end   = dsort.vec_end(dim, vec_id);
+    // map the indexes of present entries
+    for (int j = vec_begin; j < vec_end; j++)
+      xidx[grid.dsorted(dim, j)] = dsort.map(dim, j);
 
-    int tid = 0;
-// #pragma omp critical
-//     tid = threadid++;
-
-    // xidx holds indexes for the entries of the current
-    // sparse row that are present in the current ilist
-    std::vector<int64_t> &xidx = row_wspace[tid];
-    if (static_cast<int>(xidx.size()) < conn.num_rows())
-      xidx.resize(conn.num_rows(), -1);
-
-// #pragma omp for schedule(dynamic)
-    for (int vec_id = 0; vec_id < num_vecs; vec_id++)
+    // matrix-vector product using xidx as a row
+    for (int rj = vec_begin; rj < vec_end; rj++)
     {
-      int const vec_begin = dsort.vec_begin(dim, vec_id);
-      int const vec_end   = dsort.vec_end(dim, vec_id);
-      // map the indexes of present entries
-      for (int j = vec_begin; j < vec_end; j++)
-        xidx[grid.dsorted(dim, j)] = dsort.map(dim, j);
+      // row in the 1d pattern
+      int const row = grid.dsorted(dim, rj);
 
-      // matrix-vector product using xidx as a row
-      for (int rj = vec_begin; rj < vec_end; rj++)
+      // columns for the 1d pattern
+      int col_begin = (fill == conn_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
+      int col_end   = (fill == conn_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
+
+      for (int c = col_begin; c < col_end; c++)
       {
-        // row in the 1d pattern
-        int const row = grid.dsorted(dim, rj);
-
-        // precision *const local_y = y + xidx[row];
-
-        // columns for the 1d pattern
-        int col_begin = (fill == conn_fill::upper) ? conn.row_diag(row) : conn.row_begin(row);
-        int col_end   = (fill == conn_fill::lower) ? conn.row_diag(row) : conn.row_end(row);
-
-        // if constexpr (n != -1) {
-        //   if constexpr (fill == conn_fill::lower_udiag) {
-        //     std::copy_n(x + xidx[row], block_size, local_y);
-        //   } else {
-        //     for (int j = 0; j < block_size; j++)
-        //       local_y[j] = precision{0};
-        //   }
-        // }
-
-        for (int c = col_begin; c < col_end; c++)
+        int64_t const xj = xidx[conn[c]];
+        if (xj != -1)
         {
-          int64_t const xj = xidx[conn[c]];
-          if (xj != -1)
-          {
-            res.push_back(xidx[row]);
-            res.push_back(xidx[conn[c]]);
-            res.push_back(c);
-            // std::cout << " (iy, ix) = (" << xidx[row] / block_size << ", " << xidx[conn[c]] / block_size
-            //           << ")   (ir, ic) = " << row << ", " << conn[c] << ")  "
-            //           << "  " << (vals + n2 * c)[0] << "    " << (x + xj)[0] << "    " << local_y[0] << "\n";
-
-            // if constexpr (n == -1)
-            //   my_block_count += 1;
-            // else
-            //   gbkron_mult_add<precision, num_dimensions, dim, n>(vals + n2 * c, x + xj, local_y);
-          }
+          res.push_back(xidx[row]);
+          res.push_back(xidx[conn[c]]);
+          res.push_back(c);
         }
       }
-
-      // restore the entries
-      for (int j = vec_begin; j < vec_end; j++)
-        xidx[grid.dsorted(dim, j)] = -1;
     }
 
-//     if constexpr (n == -1)
-// #pragma omp atomic
-//       asgard_kronmult_nblocks_ += my_block_count;
-  } // pragma parallel
+    // restore the entries
+    for (int j = vec_begin; j < vec_end; j++)
+      xidx[grid.dsorted(dim, j)] = -1;
+  }
 
   return res;
 }
@@ -838,7 +792,7 @@ connect_cpu(sparse_grid const &grid, connect_1d const &conn,
 template<conn_fill fill>
 std::vector<int>
 connect_cpu(sparse_grid const &grid, int dim, connect_1d const &conn,
-            std::vector<std::vector<int64_t>> &row_wspace)
+            std::vector<int64_t> &row_wspace)
 {
   switch (dim)
   {
@@ -861,7 +815,7 @@ connect_cpu(sparse_grid const &grid, int dim, connect_1d const &conn,
 
 std::vector<int>
 connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &conn,
-            std::vector<std::vector<int64_t>> &row_wspace)
+            std::vector<int64_t> &row_wspace)
 {
   expect(fill != conn_fill::lower_udiag); // udiag is handled as diag + axpy() operation
   switch (fill)
@@ -910,7 +864,7 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
     gpu::vector<int> &xy0 = get_xy(dir, fill);
 
     if (xy0.empty()) {
-      xy0 = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map);
+      xy0 = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map[dev.id]);
     }
 
     for (int d = 1; d < active_dims; d++)
@@ -922,7 +876,7 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
       gpu::vector<int> &xy = get_xy(dir, fill);
 
       if (xy.empty()) {
-        xy = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map);
+        xy = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map[dev.id]);
       }
     }
   }

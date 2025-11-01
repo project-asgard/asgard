@@ -407,6 +407,10 @@ void term_manager<P>::apply_tmpl_gpu(
     compute->device_synchronize();
   }
 
+  // #ifdef ASGARD_GPU_MEMGREEDY
+  // std::cout << " memory used: " << grid.used_xy_ram() << "MB\n";
+  // #endif
+
   // collect the data across the GPUs
   for (int g = 1; g < num_gpus; g++) {
     gpu::mcopy(num_entries, gpu::device{g}, gpu_y[g].data(), gpu::device{0}, gpu_t1[0].data());
