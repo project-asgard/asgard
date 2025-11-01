@@ -592,6 +592,7 @@ public:
   void fill(P v) { data_.fill(v); }
 
   #ifdef ASGARD_USE_GPU
+  #ifndef ASGARD_GPU_MEMGREEDY
   block_sparse_matrix get_subpattern(int level, connection_patterns const &conns) const {
     expect(htype_ == connect_1d::hierarchy::volume or htype_ == connect_1d::hierarchy::full);
 
@@ -609,6 +610,7 @@ public:
 
     return res;
   }
+  #endif
   #endif
 
 private:

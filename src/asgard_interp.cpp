@@ -191,13 +191,8 @@ interpolation_manager<P>::interpolation_manager(
     conn_reduced.conns[0] = connect_1d(level, conn.num_rows(), std::move(pntr),
                                        std::move(indx), std::move(diag));
 
-    #ifdef ASGARD_USE_GPU
-    #ifdef ASGARD_GPU_MEMGREEDY
-    // conn_reduced = connection_patterns(level);
-    // wav2nodal_   = w2n_;
-    #else
+    #ifdef ASGARD_GPU_NON_GREEDY
     conn_reduced.load_reduced_fill();
-    #endif
     #endif
 
     // uncomment the two lines below to revert to using the full matrix

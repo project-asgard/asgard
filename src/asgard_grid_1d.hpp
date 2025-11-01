@@ -445,6 +445,7 @@ private:
 };
 
 #ifdef ASGARD_USE_GPU
+#ifndef ASGARD_GPU_MEMGREEDY
 /*!
  * \brief Holds a copy of a connect_1d data onto the GPU
  */
@@ -484,6 +485,7 @@ struct gpu_connect {
   std::array<gpu_connect_1d, 4> patts;
 };
 #endif
+#endif
 
 /*!
  * \brief Combines together a volume and an edge flux pattern
@@ -502,7 +504,7 @@ struct connection_patterns
     for (int i = 2; i < 4; i++)
       conns[i] = connect_1d(conns[i - 2], connect_1d::col_extend_hierarchy);
 
-    #ifdef ASGARD_USE_GPU
+    #ifdef ASGARD_GPU_NON_GREEDY
     load_to_gpu();
     #endif
   }
@@ -521,7 +523,7 @@ struct connection_patterns
   //! holds the array of connection patterns
   std::array<connect_1d, 4> conns;
 
-  #ifdef ASGARD_USE_GPU
+  #ifdef ASGARD_GPU_NON_GREEDY
   //! loads the connection data to the GPUs, skips the extended column patterns
   void load_to_gpu();
   //! GPU data for the connectivity

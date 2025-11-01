@@ -376,8 +376,6 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   precision *w1 = work.gpu_w1[dev.id].data();
   precision *w2 = work.gpu_w2[dev.id].data();
 
-  gpu_connect const &gpu_conn = conns.gpu_conns[dev.id];
-
   auto get_connect_1d = [&](int dim, conn_fill const fill)
       -> gpu::vector<int> const & {
     if (perm.flux_dir != -1 and fill == conn_fill::both)
@@ -427,8 +425,8 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
       std::swap(w1, w2);
     }
 
-    compute->device_synchronize();
-    cuda_check_error( cudaGetLastError() );
+    // compute->device_synchronize();
+    // cuda_check_error( cudaGetLastError() );
 
     if (i == 0) { // on iteration zero, scale y
       if (beta == 0)
@@ -475,7 +473,7 @@ template void block_gpu<float, max_num_dimensions>(
     std::array<block_sparse_matrix<float>, max_num_dimensions> const &);
 #endif
 
-#else // ASGARD_GPU_MEMGREEDY
+#else // #ifndef ASGARD_GPU_MEMGREEDY
 
 template<typename precision, int num_dimensions, int dim, int n, int num_teams,
          int num_cycles = 1>

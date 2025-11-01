@@ -570,24 +570,8 @@ public:
   #endif
 
   #ifdef ASGARD_USE_GPU
-  //! send the grid to all of the managed GPUs, check if needed
-  void gpu_sync() {
-    #ifndef ASGARD_GPU_MEMGREEDY
-    if (gpu_generation_ == generation_)
-      return; // nothing to sync
-    // this is split into two methods, so that the if statement can be inlined
-    // while the load process uses OpenMP and more complex code
-    gpu_generation_ = generation_;
-    gpu_load();
-    #endif
-  }
-  //! send the grid to all of the managed GPUs, regardless if already loaded
-  void gpu_load();
-  //! return the data stored on the given gpu device
-  gpu_grid_data const &gpu_grid(gpu::device device) const {
-    return gpu_grid_[device.id];
-  }
   #ifdef ASGARD_GPU_MEMGREEDY
+  //! if the grid geenratio has changed, reset all connectivity
   void reset_gpu_generation() const {
     if (gpu_generation_ == generation_)
       return;
@@ -602,20 +586,44 @@ public:
           cnn.clear();
     gpu_generation_ = generation_;
   }
-  gpu::vector<int> &get_xy(gpu::device dev, int dim, conn_fill fill) const {
-    if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
-    if (gpu_reduced_xy)
-      return gpu_xy_red[dev.id][dim][static_cast<int>(fill)];
-    else
-      return gpu_xy[dev.id][dim][static_cast<int>(fill)];
-  }
+  //! switch to the reduced connectivity pattern
   void use_gpu_reduced_xy() const { gpu_reduced_xy = true; }
+  //! switch to the default connectivity pattern
   void use_gpu_default_xy() const { gpu_reduced_xy = false; }
+  //! get the connectivity for the volume-only pattern, or possibly the reduced one
+  gpu::vector<int> &get_xy(gpu::device dev, int dim, conn_fill fill) const {
+    if (gpu_reduced_xy) {
+      return gpu_xy_red[dev.id][dim][static_cast<int>(fill)];
+    } else {
+      if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
+      return gpu_xy[dev.id][dim][static_cast<int>(fill)];
+    }
+  }
+  //! get the connectivity for the full pattern
   gpu::vector<int> &get_full_xy(gpu::device dev, int dim) const {
     return gpu_xy[dev.id][dim].back();
   }
+  //! low-memory usage, sync the grid to the GPU
+  void gpu_sync() {}
   #else
+  //! send the grid to all of the managed GPUs, check if needed
+  void gpu_sync() {
+    if (gpu_generation_ == generation_)
+      return; // nothing to sync
+    // this is split into two methods, so that the if statement can be inlined
+    // while the load process uses OpenMP and more complex code
+    gpu_generation_ = generation_;
+    gpu_load();
+  }
+  //! send the grid to all of the managed GPUs, regardless if already loaded
+  void gpu_load();
+  //! return the data stored on the given gpu device
+  gpu_grid_data const &gpu_grid(gpu::device device) const {
+    return gpu_grid_[device.id];
+  }
+  //! no-op for the low-memory mode
   void use_gpu_reduced_xy() const {}
+  //! no-op for the low-memory mode
   void use_gpu_default_xy() const {}
   #endif
   #endif
