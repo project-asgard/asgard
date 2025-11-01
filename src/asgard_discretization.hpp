@@ -234,7 +234,7 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(-1, grid, conn, alpha, beta);
+    int64_t const flops = terms.flop_count(-1, grid, conn);
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
@@ -246,7 +246,7 @@ public:
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(-1, grid, conn, alpha, beta);
+    int64_t const flops = terms.flop_count(-1, grid, conn);
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
@@ -258,7 +258,7 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
@@ -270,7 +270,7 @@ public:
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
@@ -289,7 +289,7 @@ public:
                        precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid.gid, grid, conn, alpha, beta);
+    int64_t const flops = terms.flop_count(gid.gid, grid, conn);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");

@@ -38,8 +38,7 @@ public:
     int constexpr id = 0;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn_reduced, perm, P{wav_scale}, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -67,8 +66,7 @@ public:
     int constexpr id = 1;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn_reduced, perm, P{wav_scale}, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -98,8 +96,7 @@ public:
     int constexpr id = 2;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn, perm_low, P{1}, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm_low, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -120,8 +117,7 @@ public:
     int constexpr id = 3;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = 2 * kronmult::block_cpu(
-                  pdof, grid, conn, perm_up, alpha * P{iwav_scale}, beta, work);
+          flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, perm_up, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -308,8 +304,7 @@ public:
     int constexpr id = 0;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(n, grid, conn_reduced, perm,
-                                                    P{wav_scale}, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -318,8 +313,10 @@ public:
     #else
     tools::time_event performance_("wavelet-to-nodal-gpu");
     #endif
+    grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
               P{0}, vals, work, wav2nodal_);
+    grid.use_gpu_default_xy();
   }
   //! compute nodal values for the moment
   void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P scal, P vals[],
@@ -329,7 +326,7 @@ public:
     int constexpr id = 1;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(n, grid, conn_reduced, perm, scal, P{0}, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -338,8 +335,10 @@ public:
     #else
     tools::time_event performance_("position-to-nodal-gpu");
     #endif
+    grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
               P{0}, vals, work, wav2nodal_);
+    grid.use_gpu_default_xy();
   }
   //! compute hirarchical coefficients from nodal values
   void nodal2hier(gpu::device dev, sparse_grid const &grid,
@@ -351,8 +350,7 @@ public:
     int constexpr id = 2;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(
-                  pdof, grid, conn, perm, 1, 0, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -374,8 +372,7 @@ public:
     int constexpr id = 3;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = 2 * kronmult::block_cpu(
-                  pdof, grid, conn, perm, alpha * P{iwav_scale}, beta, work);
+          flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, perm, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -508,18 +505,24 @@ private:
   connection_patterns conn_reduced;
 
   #ifdef ASGARD_USE_GPU
+  #ifdef ASGARD_GPU_MEMGREEDY
+  //! the type of the matrix, either a single matrix or pointers to levels
+  using mat_type = gpu::vector<P>;
+  #else
+  using mat_type = gpu::vector<P*>;
   //! gpu coefficient matrices for different levels wavelet to nodal
   std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lwav2nodal_;
   //! gpu coefficient matrices for different levels nodal to hierarchical
   std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lnodal2hier_;
   //! gpu coefficient matrices for different levels hierarchical to wavelet
   std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lhier2wav_;
-  //! pointers to gpu matrices for different levels
-  std::array<gpu::vector<P*>, max_num_gpus> gpu_wav2nodal_;
-  //! pointers to gpu matrices for different levels
-  std::array<gpu::vector<P*>, max_num_gpus> gpu_nodal2hier_;
-  //! pointers to gpu matrices for different levels
-  std::array<gpu::vector<P*>, max_num_gpus> gpu_hier2wav_;
+  #endif
+  //! gpu matrices for each device
+  std::array<mat_type, max_num_gpus> gpu_wav2nodal_;
+  //! gpu matrices for each device
+  std::array<mat_type, max_num_gpus> gpu_nodal2hier_;
+  //! gpu matrices for each device
+  std::array<mat_type, max_num_gpus> gpu_hier2wav_;
   #endif
 
   #ifdef ASGARD_USE_FLOPCOUNTER

@@ -88,6 +88,9 @@ struct workspace
  * defined on a sparse grid by a set of possibly different matrices.
  *
  * \tparam precision is float or double
+ * \tparam coeff_type is either a single block_sparse_matrix indicating identical matrix
+ *                    applied to all dimensions or array of block_sparse_matrix with size
+ *                    max_num_dimensions
  *
  * \param n is the size of the block, e.g., 1 for degree 0, 2 for linear basis and so on.
  * \param grid is the current sparse grid
@@ -99,22 +102,9 @@ struct workspace
  * \param y is the output vector
  * \param work is initialized workspace
  */
-template<typename precision>
+template<typename precision, typename coeff_type>
 void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
-               permutes const &perm,
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &cmats,
-               precision alpha, precision const x[], precision beta, precision y[],
-               workspace<precision> &work);
-
-/*!
- * \brief Computes the action of a sparse Kronecker onto a vector
- *
- * Uses the same matrix across all dimensions, otherwise identical
- * to kronmult::block_cpu
- */
-template<typename precision>
-void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
-               permutes const &perm, block_sparse_matrix<precision> const &cmats,
+               permutes const &perm, coeff_type const &cmats,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work);
 
@@ -122,7 +112,7 @@ void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
 //! counts the flops for the specific kronmult operation
 template<typename precision>
 int64_t block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
-                  permutes const &perm, precision alpha, precision beta, workspace<precision> &work);
+                  permutes const &perm, workspace<precision> &work);
 #endif
 
 #ifdef ASGARD_USE_GPU
@@ -137,26 +127,36 @@ int64_t block_cpu(int n, sparse_grid const &grid, connection_patterns const &con
  *
  * The device gpu::device is used to identify the workspace and the correctly cached
  * sparse_grid and connection_patterns values.
- */
-template<typename precision>
-void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
-               connection_patterns const &conns, permutes const &perm,
-               std::array<gpu::vector<precision *>, max_num_dimensions> const &coeffs,
-               precision alpha, precision const x[], precision beta, precision y[],
-               workspace<precision> &work,
-               std::array<block_sparse_matrix<precision>, max_num_dimensions> const &);
-
-/*!
- * \brief GPU implementation for the block-cpu evaluate
  *
- * Uses the same matrix across all dimensions
+ * The GPU algorithm has two modes, memory-greedy (default) and low-memory.
+ * The greedy approach uses explicit indexing, which exhaust the memory for any
+ * sufficiently large problem, but the low-memory is obviously slower.
+ * For the greedy method, coeff_type is either a single gpu vector of precision entries
+ * holding the matrix coefficients, or an array of one vector per dimension,
+ * conversely the low-memory variant holds a gpu vector of pointers to the matrices
+ * at different levels. In both cases, the backup_type is either a single block-sparse matrix
+ * or an array of one matrix per dimension.
  */
-template<typename precision>
+template<typename precision, typename coeff_type, typename backup_type>
 void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                connection_patterns const &conns, permutes const &perm,
-               gpu::vector<precision *> const &coeffs,
+               coeff_type const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               workspace<precision> &work, block_sparse_matrix<precision> const &cmat);
+               workspace<precision> &work, backup_type const &);
+
+#ifdef ASGARD_GPU_MEMGREEDY
+/*!
+ * \brief Uses the CPU to compute the connection pattern for all perms
+ *
+ * While this is executed on the CPU, it caches the connection patter for the greedy
+ * GPU kernels.
+ */
+template<typename precision>
+void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
+                 permutes const &perm, workspace<precision> &work);
+
+#endif
+
 #endif
 
 } // namespace asgard::kronmult

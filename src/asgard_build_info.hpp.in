@@ -20,6 +20,7 @@
 #cmakedefine ASGARD_USE_OPENMP
 #cmakedefine ASGARD_USE_CUDA
 #cmakedefine ASGARD_USE_ROCM
+#cmakedefine ASGARD_GPU_MEMGREEDY
 #cmakedefine ASGARD_USE_MPI
 #cmakedefine ASGARD_ENABLE_FLOAT
 #cmakedefine ASGARD_ENABLE_DOUBLE
@@ -37,6 +38,12 @@
 #endif
 #ifdef ASGARD_USE_ROCM
 #define ASGARD_USE_GPU
+#endif
+
+#ifdef ASGARD_USE_GPU
+#ifndef ASGARD_GPU_MEMGREEDY
+#define ASGARD_GPU_NON_GREEDY
+#endif
 #endif
 
 #if defined(ASGARD_USE_MPI) || defined(ASGARD_USE_GPU)

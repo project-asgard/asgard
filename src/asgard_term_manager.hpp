@@ -324,7 +324,7 @@ struct term_manager
   #ifdef ASGARD_USE_FLOPCOUNTER
   //! count flops for the application of the specified group
   int64_t flop_count(
-    int gid, sparse_grid const &grid, connection_patterns const &conns, P alpha, P beta) const;
+    int gid, sparse_grid const &grid, connection_patterns const &conns) const;
   #endif
 
   //! construct term diagonal

@@ -2,7 +2,7 @@
 
 namespace asgard
 {
-#ifdef ASGARD_USE_GPU
+#ifdef ASGARD_GPU_NON_GREEDY
 void gpu_connect_1d::add_level(connect_1d const &conn, conn_fill fill)
 {
   int nnz = conn.num_connections();

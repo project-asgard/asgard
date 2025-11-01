@@ -81,6 +81,7 @@ as well as uninstall everything by deleting the folder.
 | ASGARD_TEST_OMP_NUM_THREADS     | Set the number of threads to use for testing (only testing) |
 | ASGARD_USE_CUDA                 | Enable Nvidia CUDA                                          |
 | ASGARD_USE_ROCM                 | Enable AMD ROCm                                             |
+| ASGARD_GPU_MEMGREEDY            | Select the GPU algorithm that uses more memory (default on) |
 | ASGARD_USE_MPI                  | Enable MPI distributed computing                            |
 | ASGARD_MPI_BCAST_THRESHOLD      | MPI: number of ranks to switch from Send/Recv to Bcast      |
 | ASGARD_MPI_REDUCE_THRESHOLD     | MPI: number of ranks to switch from Send/Recv to Reduce     |
@@ -97,6 +98,9 @@ as well as uninstall everything by deleting the folder.
 Notes:
 * OpenMP is not supported on Apple OSX platforms.
 * CUDA and ROCM cannot be enabled simultaneously.
+* The default greedy algorithm for GPU calculations uses more memory by explicitly indexing
+  the connections between sparse-grid cells, which is faster (especially for smaller problems)
+  while it uses lots of more memory (especially for large problems).
 * The best values for `MPI_BCAST` and `MPI_REDUCE` thresholds are system specific,
   several tests may be needed to find the best values for a specific platform.
 * `ASGARD_TEST_MPI_OMP_NUM_THREADS` affects only some of the tests when both MPI and OpenMP are enabled,

@@ -688,9 +688,14 @@ void prog_opts::print_version_help(std::ostream &os)
 #endif
 #ifdef ASGARD_USE_GPU
   #ifdef ASGARD_USE_CUDA
-    os << "GPU Acceleration         CUDA\n";
+    os << "GPU Acceleration         CUDA";
   #else
-    os << "GPU Acceleration         ROCm\n";
+    os << "GPU Acceleration         ROCm";
+  #endif
+  #ifdef ASGARD_GPU_MEMGREEDY
+    os << " (memory-greedy-method)\n";
+  #else
+    os << " (low-memory-method)\n";
   #endif
 #else
   os << "GPU Acceleration         Disabled\n";

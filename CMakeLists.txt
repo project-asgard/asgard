@@ -90,6 +90,8 @@ if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
   if (ASGARD_MAX_NUM_GPUS LESS 1)
     message(FATAL_ERROR "ASGARD_MAX_NUM_GPUS must be at least 1, but it is set to '${ASGARD_MAX_NUM_GPUS}'")
   endif()
+
+  option(ASGARD_GPU_MEMGREEDY "Use a greedy approach with higher memory usage but also faster speed" ON)
 else()
   # if neither CUDA nor ROCm are present, then never use GPUs
   set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)

@@ -570,6 +570,55 @@ public:
   #endif
 
   #ifdef ASGARD_USE_GPU
+  #ifdef ASGARD_GPU_MEMGREEDY
+  //! if the grid geenratio has changed, reset all connectivity
+  void reset_gpu_generation() const {
+    if (gpu_generation_ == generation_)
+      return;
+    gpu_generation_ = generation_;
+    for (auto &gpus : gpu_xy)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          cnn.clear();
+    for (auto &gpus : gpu_xy_red)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          cnn.clear();
+    gpu_generation_ = generation_;
+  }
+  //! reports the memory usage, in MB
+  int64_t used_xy_ram() const {
+    int64_t sum = 0;
+    for (auto &gpus : gpu_xy)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          sum += cnn.size();
+    for (auto &gpus : gpu_xy_red)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          sum += cnn.size();
+    return 1 + (4 * sum) / (1024 * 1024);
+  }
+  //! switch to the reduced connectivity pattern
+  void use_gpu_reduced_xy() const { gpu_reduced_xy = true; }
+  //! switch to the default connectivity pattern
+  void use_gpu_default_xy() const { gpu_reduced_xy = false; }
+  //! get the connectivity for the volume-only pattern, or possibly the reduced one
+  gpu::vector<int> &get_xy(gpu::device dev, int dim, conn_fill fill) const {
+    if (gpu_reduced_xy) {
+      return gpu_xy_red[dev.id][dim][static_cast<int>(fill)];
+    } else {
+      if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
+      return gpu_xy[dev.id][dim][static_cast<int>(fill)];
+    }
+  }
+  //! get the connectivity for the full pattern
+  gpu::vector<int> &get_full_xy(gpu::device dev, int dim) const {
+    return gpu_xy[dev.id][dim].back();
+  }
+  //! low-memory usage, sync the grid to the GPU
+  void gpu_sync() {}
+  #else
   //! send the grid to all of the managed GPUs, check if needed
   void gpu_sync() {
     if (gpu_generation_ == generation_)
@@ -585,6 +634,11 @@ public:
   gpu_grid_data const &gpu_grid(gpu::device device) const {
     return gpu_grid_[device.id];
   }
+  //! no-op for the low-memory mode
+  void use_gpu_reduced_xy() const {}
+  //! no-op for the low-memory mode
+  void use_gpu_default_xy() const {}
+  #endif
   #endif
 
   //! allows writer to save/load the grid
@@ -624,8 +678,13 @@ private:
   std::vector<int> mpimeta;
   #endif
   #ifdef ASGARD_USE_GPU
-  int gpu_generation_ = -2; // which is the last synced generation
+  mutable int gpu_generation_ = -2; // which is the last synced generation
   std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
+  #ifdef ASGARD_GPU_MEMGREEDY
+  mutable bool gpu_reduced_xy = false;
+  mutable std::array<std::array<std::array<gpu::vector<int>, 4>, max_num_dimensions>, max_num_gpus> gpu_xy;
+  mutable std::array<std::array<std::array<gpu::vector<int>, 3>, max_num_dimensions>, max_num_gpus> gpu_xy_red;
+  #endif
   #endif
 };
 

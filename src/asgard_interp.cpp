@@ -191,7 +191,7 @@ interpolation_manager<P>::interpolation_manager(
     conn_reduced.conns[0] = connect_1d(level, conn.num_rows(), std::move(pntr),
                                        std::move(indx), std::move(diag));
 
-    #ifdef ASGARD_USE_GPU
+    #ifdef ASGARD_GPU_NON_GREEDY
     conn_reduced.load_reduced_fill();
     #endif
 
@@ -295,6 +295,15 @@ interpolation_manager<P>::interpolation_manager(
 
 #ifdef ASGARD_USE_GPU
   int const num_gpus = compute->num_gpus();
+#ifdef ASGARD_GPU_MEMGREEDY
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++) {
+    compute->set_device(gpu::device{g});
+    gpu_wav2nodal_[g]  = wav2nodal_.data_vector();
+    gpu_nodal2hier_[g] = nodal2hier_.data_vector();
+    gpu_hier2wav_[g]   = hier2wav_.data_vector();
+  }
+#else
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
     compute->set_device(gpu::device{g});
@@ -333,6 +342,7 @@ interpolation_manager<P>::interpolation_manager(
 
     gpu_hier2wav_[g] = coeff_pntrs;
   }
+#endif
 #endif
 }
 

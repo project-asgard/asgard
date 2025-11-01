@@ -415,6 +415,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       }
     }
   }
+  #ifdef ASGARD_USE_GPU
+  kwork.row_map.resize(max_num_gpus);
+  #endif
 }
 
 
@@ -558,6 +561,9 @@ void term_manager<P>::rebuild_term1d(
   #ifdef ASGARD_USE_GPU
   if (not tentry.coeffs[dim].empty()) { // load to the GPU
     compute->set_device(gpu::device{tentry.rec.device});
+    #ifdef ASGARD_GPU_MEMGREEDY
+    tentry.gpu_coeffs[dim] = tentry.coeffs[dim].data_vector();
+    #else
     tentry.gpu_lcoeffs[dim].resize(level + 1);
     std::vector<P*> coeff_pntrs(level + 1, nullptr);
     for (int l = 0; l < level; l++) {
@@ -568,6 +574,7 @@ void term_manager<P>::rebuild_term1d(
     coeff_pntrs[level]             = tentry.gpu_lcoeffs[dim][level].data();
 
     tentry.gpu_coeffs[dim] = coeff_pntrs;
+    #endif
 
     compute->set_device(gpu::device{0});
   }

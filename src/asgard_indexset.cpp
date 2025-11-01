@@ -685,7 +685,7 @@ void sparse_grid::mpi_sync(resource_set const &rcs, int last_gen) {
 }
 #endif
 
-#ifdef ASGARD_USE_GPU
+#ifdef ASGARD_GPU_NON_GREEDY
 void sparse_grid::gpu_load() {
   int const num_gpus = compute->num_gpus();
   static std::vector<int> sorted, vec_levels;
