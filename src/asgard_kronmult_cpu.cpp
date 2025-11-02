@@ -860,10 +860,10 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
   int const active_dims = perm.num_dimensions();
   expect(active_dims > 0);
 
-  for (size_t i = 0; i < perm.fill.size(); i++)
+  for (int64_t i = 0; i < perm.size(); i++)
   {
-    int dir        = perm.direction[i][0];
-    conn_fill fill = perm.fill[i][0];
+    int dir        = perm(i, 0).direction;
+    conn_fill fill = perm(i, 0).fill;
     if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
 
     gpu::vector<int> &xy0 = get_xy(dir, fill);
@@ -874,8 +874,8 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
 
     for (int d = 1; d < active_dims; d++)
     {
-      dir  = perm.direction[i][d];
-      fill = perm.fill[i][d];
+      dir  = perm(i, d).direction;
+      fill = perm(i, d).fill;
       if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
 
       gpu::vector<int> &xy = get_xy(dir, fill);
