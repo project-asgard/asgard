@@ -396,30 +396,30 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   int const active_dims = perm.num_dimensions();
   expect(active_dims > 0);
 
-  for (size_t i = 0; i < perm.fill.size(); i++)
+  for (int64_t i = 0; i < perm.size(); i++)
   {
-    int dir = perm.direction[i][0];
+    int dir = perm(i, 0).direction;
 
-    auto const &xy0 = get_connect_1d(dir, perm.fill[i][0]);
+    auto const &xy0 = get_connect_1d(dir, perm(i, 0).fill);
 
     compute->fill_zeros(num_entries, w1);
     launch_block_gpu(num_dims, n, dir, xy0.size() / 3, xy0.data(),
                      get_coeff(dir), x, w1);
 
-    if (perm.fill[i][0] == conn_fill::lower_udiag)
+    if (perm(i, 0).fill == conn_fill::lower_udiag)
       compute->axpy(num_entries, x, w1);
 
     for (int d = 1; d < active_dims; d++)
     {
-      dir = perm.direction[i][d];
+      dir = perm(i, d).direction;
 
-      auto const &xy = get_connect_1d(dir, perm.fill[i][d]);
+      auto const &xy = get_connect_1d(dir, perm(i, d).fill);
 
       compute->fill_zeros(num_entries, w2);
       launch_block_gpu(num_dims, n, dir, xy.size() / 3, xy.data(),
                        get_coeff(dir), w1, w2);
 
-      if (perm.fill[i][d] == conn_fill::lower_udiag)
+      if (perm(i, d).fill == conn_fill::lower_udiag)
         compute->axpy(num_entries, w1, w2);
 
       std::swap(w1, w2);
@@ -767,28 +767,28 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   int const active_dims = perm.num_dimensions();
   expect(active_dims > 0);
 
-  for (size_t i = 0; i < perm.fill.size(); i++)
+  for (int64_t i = 0; i < perm.size(); i++)
   {
-    int dir = perm.direction[i][0];
+    int dir = perm(i, 0).direction;
 
     compute->fill_zeros(num_entries, w1);
     launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
-                     get_connect_1d(perm.fill[i][0]),
+                     get_connect_1d(perm(i, 0).fill),
                      get_data(dir), x, w1);
 
-    if (perm.fill[i][0] == conn_fill::lower_udiag)
+    if (perm(i, 0).fill == conn_fill::lower_udiag)
       compute->axpy(num_entries, x, w1);
 
     for (int d = 1; d < active_dims; d++)
     {
-      dir = perm.direction[i][d];
+      dir = perm(i, d).direction;
 
       compute->fill_zeros(num_entries, w2);
       launch_block_gpu(num_dims, n, grid.gpu_grid(dev), dir,
-                       get_connect_1d(perm.fill[i][d]),
+                       get_connect_1d(perm(i, d).fill),
                        get_data(dir), w1, w2);
 
-      if (perm.fill[i][d] == conn_fill::lower_udiag)
+      if (perm(i, d).fill == conn_fill::lower_udiag)
         compute->axpy(num_entries, w1, w2);
 
       std::swap(w1, w2);
