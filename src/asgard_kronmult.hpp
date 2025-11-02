@@ -24,10 +24,15 @@ namespace asgard::kronmult
  */
 struct permutes
 {
-  //! \brief Matrix fill for each operation.
-  std::vector<std::vector<conn_fill>> fill;
-  //! \brief Direction for each matrix operation.
-  std::vector<std::vector<int>> direction;
+  //! \brief Holds a permutation step, single matrix applied across a direction.
+  struct step {
+    //! The matrix fill for the operation.
+    conn_fill fill = conn_fill::both;
+    //! The direction of the operation.
+    int direction = 0;
+  };
+  //! Holds the permutation steps.
+  vector2d<step> ops;
   //! \brief Direction of the flux, if any
   int flux_dir = -1;
   //! \brief Empty permutation list.
@@ -48,19 +53,28 @@ struct permutes
   //! \brief Shows the number of dimensions considered in the permutation
   int num_dimensions() const
   {
-    return (direction.empty()) ? 0 : static_cast<int>(direction.front().size());
+    return ops.stride();
   }
   //! \brief Reindexes the dimensions to match the active (non-identity) dimensions
   void remap_directions(std::vector<int> const &active_dirs)
   {
-    for (auto &dirs : direction) // for all permutations
-      for (auto &d : dirs)       // for all directions
-        d = active_dirs[d];
+    expect(static_cast<size_t>(ops.stride()) == active_dirs.size());
+    for (int i = 0; i < ops.num_strips(); i++) {
+      step *sweep = ops[i];
+      for (int d = 0; d < ops.stride(); d++) {
+        int dir = sweep[d].direction;
+        sweep[d].direction = active_dirs[dir];
+      }
+    }
   }
   //! \brief Pads all permutations with the given dimensions and assuming upper matrices
   void prepad_upper(std::vector<int> const &additional);
   //! \brief Indicates if the permutation has been set
-  operator bool () const { return not direction.empty(); }
+  operator bool () const { return (ops.stride() > 0); }
+  //! \brief Get the stage of the i-th step
+  step operator() (int i, int stage) const { return ops[i][stage]; }
+  //! \brief Return the number of permutation steps
+  int64_t size() const { return ops.num_strips(); }
 };
 
 /*!

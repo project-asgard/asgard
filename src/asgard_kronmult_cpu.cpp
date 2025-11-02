@@ -12,30 +12,29 @@ permutes::permutes(int num_dimensions)
   if (num_dimensions < 1) // could happen with identity operator term
     return;
 
-  int num_permute = 1;
-  for (int d = 0; d < num_dimensions - 1; d++)
-    num_permute *= 2;
+  int const num_permute = (num_dimensions == 1) ? 1 : fm::ipow2(num_dimensions - 1);
 
-  direction.resize(num_permute);
-  fill.resize(num_permute);
+  ops = vector2d<step>(num_dimensions, num_permute);
+
+  std::vector<int> dims(num_dimensions);
+
   for (int perm = 0; perm < num_permute; perm++)
   {
-    direction[perm].resize(num_dimensions, 0);
-    fill[perm].resize(num_dimensions);
+    dims[0] = 0;
     int t = perm;
     for (int d = 1; d < num_dimensions; d++)
     {
       // negative dimension means upper fill, positive for lower fill
-      direction[perm][d] = (t % 2 == 0) ? d : -d;
+      dims[d] = (t % 2 == 0) ? d : -d;
       t /= 2;
     }
     // sort puts the upper matrices first
-    std::sort(direction[perm].begin(), direction[perm].end());
+    std::sort(dims.begin(), dims.end());
     for (int d = 0; d < num_dimensions; d++)
     {
-      fill[perm][d] = (direction[perm][d] < 0) ? conn_fill::upper : ((direction[perm][d] > 0) ? conn_fill::lower : conn_fill::both);
-
-      direction[perm][d] = std::abs(direction[perm][d]);
+      int const dir = dims[d];
+      ops[perm][d].fill = (dir < 0) ? conn_fill::upper : ((dir > 0) ? conn_fill::lower : conn_fill::both);
+      ops[perm][d].direction = std::abs(dir);
     }
   }
 }
@@ -46,16 +45,16 @@ permutes::permutes(int num_dimensions, conn_fill same_fill)
     return;
   expect(same_fill != conn_fill::both);
 
-  fill.emplace_back(num_dimensions, same_fill);
-
-  direction.emplace_back(num_dimensions);
-  for (int d = 0; d < num_dimensions; d++)
-    direction.front()[d] = d;
+  ops = vector2d<step>(num_dimensions, 1);
+  for (int d = 0; d < num_dimensions; d++) {
+    ops[0][d].fill = same_fill;
+    ops[0][d].direction = d;
+  }
 }
 
 std::string_view permutes::fill_name(int perm, int stage) const
 {
-  switch (fill[perm][stage])
+  switch (ops[perm][stage].fill)
   {
   case conn_fill::upper:
     return "upper";
@@ -68,17 +67,23 @@ std::string_view permutes::fill_name(int perm, int stage) const
 
 void permutes::prepad_upper(std::vector<int> const &additional)
 {
-  expect(not direction.empty());
-  int const new_dims = num_dimensions() + static_cast<int>(additional.size());
-  std::vector<std::vector<conn_fill>> old_fill = std::move(fill);
-  std::vector<std::vector<int>> old_direction = std::move(direction);
+  expect(ops.stride() > 0);
 
-  fill = std::vector<std::vector<conn_fill>>(old_fill.size(), std::vector<conn_fill>(new_dims, conn_fill::upper));
-  direction = std::vector<std::vector<int>>(old_direction.size(), std::vector<int>(new_dims));
-  for (size_t i = 0; i < fill.size(); i++) {
-    std::copy(old_fill[i].begin(), old_fill[i].end(), fill[i].begin() + additional.size());
-    std::copy(additional.begin(), additional.end(), direction[i].begin());
-    std::copy(old_direction[i].begin(), old_direction[i].end(), direction[i].begin() + additional.size());
+  int const new_dims = static_cast<int>(additional.size());
+  int const old_dims = ops.stride();
+
+  vector2d<step> old = std::move(ops);
+  ops = vector2d<step>(new_dims + old_dims, old.num_strips());
+
+  for (int i = 0; i < old.num_strips(); i++) {
+    for (int d = 0; d < new_dims; d++) {
+      ops[i][d].direction = additional[d];
+      ops[i][d].fill      = conn_fill::upper;
+    }
+    for (int d = new_dims; d < new_dims + old_dims; d++) {
+      ops[i][d].direction = old[i][d - new_dims].direction;
+      ops[i][d].fill      = old[i][d - new_dims].fill;
+    }
   }
 }
 
@@ -628,19 +633,19 @@ void block_cpu(
   int const active_dims = perm.num_dimensions();
   expect(active_dims > 0);
 
-  for (size_t i = 0; i < perm.fill.size(); i++)
+  for (int64_t i = 0; i < perm.size(); i++)
   {
-    int dir = perm.direction[i][0];
+    int dir = perm(i, 0).direction;
 
-    block_cpu(num_dims, n, grid, dir, perm.fill[i][0],
-                get_connect_1d(perm.fill[i][0]),
-                get_data(dir), x, w1, work.row_map);
+    block_cpu(num_dims, n, grid, dir, perm(i, 0).fill,
+              get_connect_1d(perm(i, 0).fill),
+              get_data(dir), x, w1, work.row_map);
 
     for (int d = 1; d < active_dims; d++)
     {
-      dir = perm.direction[i][d];
-      block_cpu(num_dims, n, grid, dir, perm.fill[i][d],
-                get_connect_1d(perm.fill[i][d]),
+      dir = perm(i, d).direction;
+      block_cpu(num_dims, n, grid, dir, perm(i, d).fill,
+                get_connect_1d(perm(i, d).fill),
                 get_data(dir), w1, w2, work.row_map);
       std::swap(w1, w2);
     }
@@ -711,19 +716,19 @@ int64_t block_cpu(
 
   int64_t num_scal = 0;
 
-  for (size_t i = 0; i < perm.fill.size(); i++)
+  for (int64_t i = 0; i < perm.size(); i++)
   {
-    int dir = perm.direction[i][0];
+    int dir = perm(i, 0).direction;
 
-    block_cpu<precision>(num_dims, -1, grid, dir, perm.fill[i][0],
-                         get_connect_1d(perm.fill[i][0]),
+    block_cpu<precision>(num_dims, -1, grid, dir, perm(i, 0).fill,
+                         get_connect_1d(perm(i, 0).fill),
                          nullptr, nullptr, nullptr, work.row_map);
 
     for (int d = 1; d < active_dims; d++)
     {
-      dir = perm.direction[i][d];
-      block_cpu<precision>(num_dims, -1, grid, dir, perm.fill[i][d],
-                           get_connect_1d(perm.fill[i][d]),
+      dir = perm(i, d).direction;
+      block_cpu<precision>(num_dims, -1, grid, dir, perm(i, d).fill,
+                           get_connect_1d(perm(i, d).fill),
                            nullptr, nullptr, nullptr, work.row_map);
     }
 

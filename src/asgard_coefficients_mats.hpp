@@ -541,10 +541,10 @@ void gen_diag_lenard_bernstein_theta(
   span2d<P const> mom1(pdof, num_cells, moments[mom_ids[1]].data());
   span2d<P const> mom2(pdof, num_cells, moments[mom_ids[2]].data());
 
-  span2d<P const> mom3(pdof, num_cells, (used_ids >= 3) ? moments[mom_ids[3]].data() : nullptr);
-  span2d<P const> mom4(pdof, num_cells, (used_ids >= 4) ? moments[mom_ids[4]].data() : nullptr);
-  span2d<P const> mom5(pdof, num_cells, (used_ids >= 5) ? moments[mom_ids[5]].data() : nullptr);
-  span2d<P const> mom6(pdof, num_cells, (used_ids >= 6) ? moments[mom_ids[6]].data() : nullptr);
+  span2d<P const> mom3(pdof, num_cells, (used_ids > 3) ? moments[mom_ids[3]].data() : nullptr);
+  span2d<P const> mom4(pdof, num_cells, (used_ids > 4) ? moments[mom_ids[4]].data() : nullptr);
+  span2d<P const> mom5(pdof, num_cells, (used_ids > 5) ? moments[mom_ids[5]].data() : nullptr);
+  span2d<P const> mom6(pdof, num_cells, (used_ids > 6) ? moments[mom_ids[6]].data() : nullptr);
 
   coefficients.resize_and_zero(pdof * pdof, num_cells);
 
