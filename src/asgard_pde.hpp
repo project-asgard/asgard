@@ -164,6 +164,8 @@ enum class operation_type
   div,
   //! penalty term, regularizer used for stability purposes
   penalty,
+  //! Robin boundary conditions, derivative depends on the values of the field
+  robin,
   //! chain term, product of two or more one dimensional terms
   chain
 };
@@ -277,7 +279,7 @@ struct term_div {
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Intermediate container for a div term, includes flux and boundary conditions
+ * \brief Intermediate container for a penalty term, includes flux and boundary conditions
  */
 template<typename P = default_precision>
 struct term_penalty {
@@ -301,6 +303,29 @@ struct term_penalty {
   flux_type flux = flux_type::upwind;
   //! boundary type
   boundary_type boundary = boundary_type::none;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a Robin term, provides left/right values
+ *
+ * The condition ties the value of the derivative and the field and thus it
+ * acts similar to another term, as opposed to a source.
+ * Robin boundary condition can be associated with second order PDEs and make
+ * sense to be used only in conjunction with a div-grad chain, e.g., as in the
+ * diffusion or elliptic examples.
+ * The term_md associated with the Robin boundary condition should have the
+ * same form as the div-grad, but with the robin term in place of the div-grad.
+ */
+template<typename P = default_precision>
+struct term_robin {
+  //! make a penalty term with upwind flux and given boundary type
+  term_robin(P left, P right)
+    : const_coeff{left, right}
+  {}
+
+  //! coefficients
+  std::array<P, 2> const_coeff = {0, 0};
 };
 
 /*!
@@ -468,7 +493,7 @@ public:
   //! make a general term, prefer using the helper structs term_(volume,grad,div,penalty)
   term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
       : optype_(opt), flux_(flx), boundary_(bnd),
-        rhs_(std::move(frhs)), rhs_const_(crhs)
+        rhs_(std::move(frhs)), coeffs_{crhs, 0}
   {
     expect(optype_ != operation_type::identity);
 
@@ -517,6 +542,16 @@ public:
   term_1d(term_penalty<otherP> pent)
     : term_1d(operation_type::penalty, pent.flux, pent.boundary,
               nullptr, static_cast<P>(pent.const_coeff))
+  {}
+  //! make a Robin term
+  term_1d(term_robin<P> robin)
+    : optype_(operation_type::robin), coeffs_(robin.coeffs)
+  {}
+
+  //! make a Robin term
+  template<typename otherP>
+  term_1d(term_robin<otherP> robin)
+    : optype_(operation_type::robin), coeffs_{robin.coeffs[0], robin.coeffs[1]}
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
@@ -571,7 +606,7 @@ public:
   term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), rhs_const_(mover.scale),
+      change_(changes_with::time), coeffs_{mover.scale, 0},
       smom_(mover.mom)
   {
     smom_.action = moment::regular;
@@ -580,7 +615,7 @@ public:
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
       depends_(term_dependence::lenard_bernstein_coll_theta),
-      change_(changes_with::time), rhs_const_(lbt.coeff)
+      change_(changes_with::time), coeffs_{lbt.coeff, 0}
   {}
 
   //! indicates whether this is an identity term
@@ -625,7 +660,7 @@ public:
   }
 
   //! returns the constant right-hand-side
-  P rhs_const() const { return rhs_const_; }
+  P rhs_const() const { return coeffs_[0]; }
 
   //! can read or set the the change option
   changes_with &change() { return change_; }
@@ -669,10 +704,10 @@ public:
             "penalty can be added only to div grad or chain terms, if added to a chain, "
             "the flux and boundary condition will be taken from the back of the chain");
     rassert(penalty_coefficient > 0, "penalty coefficient has to be positive");
-    penalty_ = penalty_coefficient;
+    coeffs_[1] = penalty_coefficient;
   }
   //! get the current penalty coefficient
-  P penalty() const { return penalty_; }
+  P penalty() const { return coeffs_[1]; }
 
   // allow direct access to the private data
   friend class pde_scheme<P>;
@@ -708,8 +743,9 @@ private:
   changes_with change_ = changes_with::none;
 
   sfixed_func1d<P> rhs_;
-  P rhs_const_ = 1;
-  P penalty_   = 0;
+  // holds coefficients, either constant coefficient, penalty
+  // or left/right coefficient for constant Robin conditions
+  std::array<P, 2> coeffs_ = {1, 0};
 
   int mom = 0;
   moment smom_;
