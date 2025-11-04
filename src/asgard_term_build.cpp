@@ -526,7 +526,7 @@ void term_manager<P>::rebuild_term1d(
     }
   }
 
-  bool is_diag = t1d.is_volume();
+  bool is_diag = t1d.is_diagonal();
   if (t1d.is_chain()) {
     rebuld_chain(tentry, dim, level, hier, bmass, is_diag, wraw_diag, wraw_tri);
   } else {
@@ -722,7 +722,7 @@ void term_manager<P>::build_raw_mat(
 
     if (bentry.flux.chain_level(d) > clink) {
       expect(not bentry.consts[d].empty());
-      if (t1d.is_volume()) {
+      if (t1d.is_diagonal()) {
         raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
       } else {
         raw_tri.inplace_gemv(basis.pdof, bentry.consts[d], t1);
@@ -783,7 +783,7 @@ void term_manager<P>::build_raw_mat(
 
         if (bentry.flux.func().is_const(d)) {
           if (t1d.rhs()) { // constant times spatially variable
-            bentry.consts[d] = basis.project(t1d.is_volume(), level, dsqr,
+            bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr,
                                              bentry.flux.func().cdomain(d), raw_rhs.vals);
           } else { // constant times a constant
             P const rconst = (t1d.is_identity()) ? 1 : t1d.rhs_const();
@@ -794,7 +794,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.rhs()) { // product of non-consts
             std::vector<P> f(raw_rhs.pnts.size());
             bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, f);
-            bentry.consts[d] = basis.project(t1d.is_volume(), level, dsqr, f, raw_rhs.vals);
+            bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr, f, raw_rhs.vals);
           } else {
             // need function values, rhs is a constant
             basis.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
@@ -816,7 +816,7 @@ template<typename P>
 void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                                      block_diag_matrix<P> &raw_diag)
 {
-  expect(t1d.is_volume());
+  expect(t1d.is_diagonal());
   expect(t1d.depends() == term_dependence::none);
 
   if (t1d.rhs()) {
@@ -842,7 +842,7 @@ void term_manager<P>::rebuld_chain(
 
   is_diag = true;
   for (int i : iindexof(num_chain)) {
-    if (not t1d[i].is_volume()) {
+    if (t1d[i].is_tri_diag()) {
       is_diag = false;
       break;
     }
@@ -884,7 +884,7 @@ void term_manager<P>::rebuld_chain(
   // and at each stage we multiply by diag/tri-matrix
   // if we start with a diagonal, we will switch to tri at some point
 
-  fill current = (t1d.chain_.back().is_volume()) ? fill::diag : fill::tri;
+  fill current = (t1d.chain_.back().is_diagonal()) ? fill::diag : fill::tri;
   build_raw_mat(tentry, d, num_chain - 1, level, hier, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
@@ -892,7 +892,7 @@ void term_manager<P>::rebuld_chain(
     build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
-    if (t1d[i].is_volume()) { // computed a diagonal fill
+    if (t1d[i].is_diagonal()) { // computed a diagonal fill
       if (current == fill::diag) { // diag-to-diag
         diag1->check_resize(raw_diag);
         gemm_block_diag(basis.pdof, raw_diag, *diag0, *diag1);
@@ -920,7 +920,7 @@ void term_manager<P>::rebuld_chain(
   // last term, compute in diag1/tri1 and multiply into raw_tri
   build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, *tri1);
 
-  if (t1d[0].is_volume()) {
+  if (t1d[0].is_diagonal()) {
     // the rest must be a tri-diagonal matrix already
     // otherwise the whole chain would consist of only diagonal ones
     raw_tri.check_resize(*tri0);

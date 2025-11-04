@@ -50,6 +50,8 @@ void test_bookkeeping() {
     current_test<TestType> name_("term identity");
     term_1d<TestType> ptI1;
     tassert(ptI1.is_identity());
+    tassert(ptI1.is_diagonal());
+    tassert(not ptI1.is_tri_diag());
     term_1d<TestType> ptI2 = term_identity{};
     tassert(ptI2.is_identity());
   }
@@ -57,6 +59,8 @@ void test_bookkeeping() {
     current_test<TestType> name_("term volume");
     term_1d<TestType> ptM = term_volume<TestType>{3.5};
     tassert(not ptM.is_identity());
+    tassert(ptM.is_diagonal());
+    tassert(not ptM.is_tri_diag());
     tassert(ptM.rhs_const() == 3.5);
     tassert(term_1d<TestType>(term_volume<TestType>{rhs}).rhs()); // loaded a function
   }
@@ -66,6 +70,8 @@ void test_bookkeeping() {
     tassert(not ptD.is_identity());
     tassert(ptD.is_div());
     tassert(ptD.optype() == operation_type::div);
+    tassert(ptD.is_tri_diag());
+    tassert(not ptD.is_diagonal());
     tassert(ptD.flux() == flux_type::upwind);
     std::vector<TestType> x = {1, 2, 3}, fx(3);
     ptD.rhs(x, fx);
@@ -77,10 +83,34 @@ void test_bookkeeping() {
     tassert(not ptG.is_identity());
     tassert(ptG.is_grad());
     tassert(ptG.optype() == operation_type::grad);
+    tassert(ptG.is_tri_diag());
+    tassert(not ptG.is_diagonal());
     tassert(ptG.flux() == flux_type::upwind); // grad swaps the fluxes
     std::vector<TestType> x = {-1, 5, 2}, fx(3);
     ptG.rhs()(x, fx);
     tassert(fm::diff_inf(fx, std::vector<TestType>{-2, 10, 4}) == 0);
+  }
+  {
+    current_test<TestType> name_("term penalty");
+    term_1d<TestType> ptP = term_penalty<TestType>{11, flux_type::central, boundary_type::left};
+    tassert(ptP.is_penalty());
+    tassert(ptP.optype() == operation_type::penalty);
+    tassert(ptP.is_tri_diag());
+    tassert(not ptP.is_diagonal());
+    tassert(ptP.flux() == flux_type::central);
+    tassert(not ptP.rhs());
+    tassert(ptP.rhs_const() == 11);
+  }
+  {
+    current_test<TestType> name_("term robin");
+    term_1d<TestType> ptR = term_robin<TestType>{7, 9};
+    tassert(ptR.is_robin());
+    tassert(ptR.optype() == operation_type::robin);
+    tassert(not ptR.is_tri_diag());
+    tassert(ptR.is_diagonal());
+    tassert(not ptR.rhs());
+    tassert(ptR.left_robin() == 7);
+    tassert(ptR.right_robin() == 9);
   }
   {
     current_test<TestType> name_("term chain 1d");

@@ -545,13 +545,13 @@ public:
   {}
   //! make a Robin term
   term_1d(term_robin<P> robin)
-    : optype_(operation_type::robin), coeffs_(robin.coeffs)
+    : optype_(operation_type::robin), coeffs_(robin.const_coeff)
   {}
 
   //! make a Robin term
   template<typename otherP>
   term_1d(term_robin<otherP> robin)
-    : optype_(operation_type::robin), coeffs_{robin.coeffs[0], robin.coeffs[1]}
+    : optype_(operation_type::robin), coeffs_{robin.const_coeff[0], robin.const_coeff[1]}
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
@@ -628,6 +628,8 @@ public:
   bool is_div() const { return (optype_ == operation_type::div); }
   //! indicates whether this is a penalty term
   bool is_penalty() const { return (optype_ == operation_type::penalty); }
+  //! indicates whether this is a Robin term
+  bool is_robin() const { return (optype_ == operation_type::robin); }
   //! indicates whether this is a chain term
   bool is_chain() const { return (optype_ == operation_type::chain); }
   //! returns the operation type
@@ -708,6 +710,20 @@ public:
   }
   //! get the current penalty coefficient
   P penalty() const { return coeffs_[1]; }
+  //! returns true if the associated matrix is diagonal
+  bool is_diagonal() const {
+    return (optype_ != operation_type::div and optype_ != operation_type::grad
+            and optype_ != operation_type::penalty);
+  }
+  //! returns true if the associated matrix is tri-diagonal
+  bool is_tri_diag() const {
+    return (optype_ == operation_type::div or optype_ == operation_type::grad
+            or optype_ == operation_type::penalty);
+  }
+  //! left Robin condition
+  P left_robin() const { return coeffs_[0]; }
+  //! right Robin condition
+  P right_robin() const { return coeffs_[1]; }
 
   // allow direct access to the private data
   friend class pde_scheme<P>;
