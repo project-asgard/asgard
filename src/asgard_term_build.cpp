@@ -553,6 +553,9 @@ void term_manager<P>::rebuild_term1d(
     }
   }
 
+  // std::cout << " ================================ \n";
+  // tentry.coeffs[dim].to_full(conn).print();
+
   // the last interpolation stage (2wav) comes with a scaling factor
   // apply the scaling factor to the zeroth dimension
   if (merge_with_interp and dim == 0)
@@ -664,11 +667,9 @@ void term_manager<P>::build_raw_mat(
           break;
         default:
           if (t1d.rhs()) {
-            gen_diag_cmat<P, operation_type::volume>
-              (basis, xleft[d], xright[d], level, t1d.rhs(), raw_rhs, raw_diag);
+            gen_volume_mat<P>(basis, xleft[d], xright[d], level, t1d.rhs(), raw_rhs, raw_diag);
           } else {
-            gen_diag_cmat<P, operation_type::volume>
-              (basis, level, t1d.rhs_const(), raw_diag);
+            gen_volume_mat<P>(basis, level, t1d.rhs_const(), raw_diag);
           }
           break;
       }
@@ -704,13 +705,17 @@ void term_manager<P>::build_raw_mat(
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
         (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
+    case operation_type::robin:
+      expect(not t1d.rhs());
+      gen_robin_cmat<P>(basis, level, xleft[d], xright[d], t1d.left_robin(), t1d.right_robin(), raw_diag);
+      break;
     default: // case operation_type::identity:
       // identity, nothing to do for the matrix, but may have to do boundary conditions
       break;
   }
 
   if (bmass) {
-    if (t1d.optype() == operation_type::volume)
+    if (t1d.is_diagonal())
       bmass->solve(basis.pdof, raw_diag);
     else
       bmass->solve(basis.pdof, raw_tri);
@@ -820,11 +825,9 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
   expect(t1d.depends() == term_dependence::none);
 
   if (t1d.rhs()) {
-    gen_diag_cmat<P, operation_type::volume>
-      (basis, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
+    gen_volume_mat<P>(basis, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
   } else {
-    gen_diag_cmat<P, operation_type::volume>
-      (basis, level, t1d.rhs_const(), raw_diag);
+    gen_volume_mat<P>(basis, level, t1d.rhs_const(), raw_diag);
   }
 }
 
