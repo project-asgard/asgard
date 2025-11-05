@@ -6,6 +6,8 @@ namespace asgard
 template<typename precision>
 void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 {
+  conn = connection_patterns(pde.max_level());
+
   int const degree_ = options_.degree.value();
 
   if (high_verbosity()) {
@@ -169,8 +171,6 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
   } else {
     stepper = time_advance_manager<precision>(dtime, options_);
   }
-
-  stepper = time_advance_manager<precision>(dtime, options_);
 
   terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
 

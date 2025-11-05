@@ -463,8 +463,6 @@ template<typename P>
 time_advance_manager<P>::time_advance_manager(time_data const &tdata, prog_opts const &options)
   : data(tdata)
 {
-  expect(static_cast<int>(data.step_method()) <= 6); // the new modes that have been implemented
-
   // prepare the time-stepper
   switch (data.step_method())
   {
@@ -481,8 +479,12 @@ time_advance_manager<P>::time_advance_manager(time_data const &tdata, prog_opts 
     case time_method::back_euler:
       method = time_advance::crank_nicolson<P>(options);
       break;
+    case time_method::imex1:
+    case time_method::imex2:
+      throw std::runtime_error("invalid constructor for an imex method");
     default:
-      throw std::runtime_error("unimplemented time-advance option");
+      // should be unreachable
+      throw std::runtime_error("invalid time-advance option");
   }
 }
 
@@ -493,6 +495,8 @@ time_advance_manager<P>::time_advance_manager(
     : data(tdata)
 {
   expect(is_imex(data.step_method()));
+  rassert(im.gid >= -1 and ex.gid >= -1,
+          "the IMEX implicit and explicit groups have not been set in the pde_scheme");
 
   method = time_advance::imex_stepper<P>(options, im, ex);
 }
@@ -516,7 +520,8 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
       std::get<3>(method).next_step(dist, current, next);
       break;
     default:
-      throw std::runtime_error("unimplemented time-advance option");
+      // this should be unreachable
+      throw std::runtime_error("internal error, invalid time-advance method");
   };
 }
 

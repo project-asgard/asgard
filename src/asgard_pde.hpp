@@ -1258,9 +1258,9 @@ struct lenard_bernstein_collisions {
  */
 struct imex_explicit_group {
   //! sets the explicit group
-  explicit imex_explicit_group(int g = -1) : gid(g) {}
+  explicit imex_explicit_group(int g = -2) : gid(g) {}
   //! the group id
-  int gid = -1;
+  int gid = -2;
 };
 /*!
  * \ingroup asgard_pde_definition
@@ -1268,9 +1268,9 @@ struct imex_explicit_group {
  */
  struct imex_implicit_group {
   //! sets the implicit group
-  explicit imex_implicit_group(int g = -1) : gid(g) {}
+  explicit imex_implicit_group(int g = -2) : gid(g) {}
   //! the group id
-  int gid = -1;
+  int gid = -2;
 };
 /*!
  * \ingroup asgard_pde_definition
@@ -1533,7 +1533,10 @@ public:
 
   //! forces the use of IMEX time-stepping and sets the implicit and explicit modes
   void set(imex_implicit_group im, imex_explicit_group ex) {
-    expect(is_imex(options_.step_method.value()));
+    // the imex groups may or may not be used, based on the step method
+    // hard to make this clean, especially when doing a restart
+    rassert(im.gid >= -1, "setting imex groups with an invalid implicit group id");
+    rassert(ex.gid >= -1, "setting imex groups with an invalid explicit group id");
     im_ = im;
     ex_ = ex;
   }
