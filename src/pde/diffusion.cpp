@@ -119,14 +119,14 @@ asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options
 
   // the number of iterations should depends on the time-step and condition
   // number of the operators, should be kept high to allow for convergence
-  options.isolver_iterations = 1000;
+  options.default_isolver_iterations = 1000;
 
   // GMRES uses a two-loop approach (restarted GMRES)
   // the inner iterations explicitly form and manipulate the basis for the Krylov sub-space
   // which requires lots of memory and the number here should be kept moderate
   // (memory usage is dominated by isolver_inner_iterations * degrees-of-freedom)
   // (the bicgstab method ignores this value)
-  options.isolver_inner_iterations = 50;
+  options.default_isolver_inner_iterations = 50;
 
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
