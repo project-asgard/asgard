@@ -187,8 +187,7 @@ void reset_time_params() {
   opts2 = make_opts("-restart " + filename + " -n 8 -noa");
   discretization_manager<TestType> d3(pde_scheme<TestType>(opts2, domain));
   tassert(d3.remaining_steps() == 8);
-  // stop time minus current time is 1, with 8 streps, we have dt = 0.25
-  tassert(d3.dt() == TestType{0.125});
+  tassert(d3.dt() == TestType{0.5});
   tassert(not d3.options().adapt_threshold);
 }
 
@@ -357,7 +356,12 @@ void restart_nonlinear() {
 
   using pde = pde_burgers;
 
-  // auto options = make_opts("-l 7 -d 2 -dt 1.953125E-3 -n 8 -a 1.E-6 -of _asg_testfile.h5");
+  auto options = make_opts("-m 8 -d 2 -a 1.E-5 -n 0 -of _asg_testfile.h5");
+  discretization_manager<P> init_disc(make_testpde<pde, P>(2, options));
+
+  init_disc.advance_time();
+  tassert(init_disc.time() == 0);
+
 }
 
 template<typename P>

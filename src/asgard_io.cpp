@@ -227,6 +227,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     // 2. Values in the restart file
     // 3. Default values in the options
     //
+    //
     // We must check what we have use the values with highest priorities,
     // but have to be careful with some exceptions:
     // - if the current step-method is "steady" and we are switching to something else,
@@ -296,7 +297,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
         auto const file_stop = get_file_stop();
         rassert(file_stop or options.default_stop_time,
                 "new dt is provided but -num-steps or -time must also be provided");
-        double const end_time = file_stop.value_or(options.default_stop_time.value());
+        double const end_time = (file_stop) ? file_stop.value() : options.default_stop_time.value();
         dtime = time_data(sm, dt, time_data::input_stop_time{end_time - curr_time});
         stop_time = end_time;
       }
@@ -311,10 +312,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
         auto const file_dt = get_file_dt(curr_step, file_remain_steps);
         rassert(file_dt or options.default_dt,
                 "new -time is provided but -dt or -num-steps must also be provided");
-        if (file_dt) std::cout << " has file dt\n";
-        if (options.default_dt) std::cout << " has options.default_dt dt\n";
-        double const dt = file_dt.value_or(options.default_dt.value_or(-1));
-        expect(dt >= 0);
+        double const dt = (file_dt) ? file_dt.value() : options.default_dt.value();
         dtime = time_data(sm, time_data::input_dt(dt),
                           time_data::input_stop_time{new_stop.value() - curr_time});
       }
