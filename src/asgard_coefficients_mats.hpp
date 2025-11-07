@@ -373,24 +373,20 @@ template<typename P>
 void gen_robin_cmat(legendre_basis<P> const &basis, int level, P xleft, P xright,
                     P robin_left, P robin_right, block_diag_matrix<P> &coeff)
 {
-  int const n = basis.pdof;
+  int const n2 = basis.pdof * basis.pdof;
 
   int const num_cells = fm::ipow2(level);
   P const dx = (xright - xleft) / num_cells;
 
-  coeff.resize_and_zero(n * n, num_cells);
+  coeff.resize_and_zero(n2, num_cells);
 
   if (robin_left != 0) {
-    robin_left /= dx;
-    P *c = coeff[0];
-    for(int i = 0; i < n * n; i++)
-      c[i] = robin_left * basis.to_left[i];
+    std::copy_n(basis.to_left, n2, coeff[0]);
+    smmat::scal(n2, -robin_left / dx, coeff[0]);
   }
   if (robin_right != 0) {
-    robin_right /= dx;
-    P *c = coeff[num_cells - 1];
-    for(int i = 0; i < n * n; i++)
-      c[i] = robin_right * basis.to_right[i];
+    std::copy_n(basis.to_right, n2, coeff[num_cells - 1]);
+    smmat::scal(n2, robin_right / dx, coeff[num_cells - 1]);
   }
 }
 
