@@ -283,6 +283,9 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     dtime.stop_time_ = (stop >= 0) ? stop : fstop;
     dtime.time_      = curr_time;
     dtime.step_      = curr_step;
+
+    if (not options.step_method)
+      options.step_method = sm;
   }
 
   { // reading the grid
