@@ -4,31 +4,25 @@
 
 /*!
  * \internal
- * \file elliptic.cpp
- * \brief Elliptic equation
+ * \file robin_bc.cpp
+ * \brief Robin boundary conditions
  * \author The ASGarD Team
  *
- * Simple example of steady-state partial differential equation.
+ * Simple example of steady-state partial differential equation
+ * with Robin boundary conditions.
  * \endinternal
  */
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_elliptic Example: Elliptic equation
+ * \addtogroup asgard_examples_robin Example: Robin boundary condition
  *
  * \par Elliptic equation
- * Creates a simple elliptic PDE that multiplies across the dimensions
- * the same one-dimensional boundary value problem
- * \f[ -\frac{d^2}{d x^2} f = 2 \f]
- * the domain is (0, 1) and the exact solution is
- * \f[ f(x) = 2 x - x^2 \f]
- * The solution can be obtained by assigning homogeneous boundary conditions,
- * Dirichlet on the left and Neumann on the right,
- * or alternatively we can assign inhomogeneous conditions
- * \f[ \frac{d}{dx} f(0) = 2, \qquad f(1) = 1 \f]
- * Since the solution is a quadratic function, using degree of 2 or more
- * should resolve the exact solution regardless of the grid
- * (up to rounding error due to conditioning and precision).
+ * Creates a simple elliptic PDE in one dimension
+ * \f[ -\frac{d^2}{d x^2} f = -\cos(x) \f]
+ * the domain is (-1, 1) and the exact solution is
+ * \f[ f(x) = \cos(x) \f]
+ * The solution is obtained by setting Robin boundary conditions
  *
  * \par
  * This examples shows how to set different types of boundary conditions
