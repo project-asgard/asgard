@@ -63,6 +63,9 @@ pde_scheme<P> make_robin_pde(prog_opts options)
   // term_1d<P> robin = term_robin{-0.1 * 0.25 * std::cos(-1.0) / std::sin(-1.0), 0.0};
   // term_1d<P> robin = term_robin{-std::sin(-1.0) / std::cos(-1.0), 0.0};
   term_1d<P> robin = term_robin{0.0, std::sin(1.0) / std::cos(1.0)};
+  // term_1d<P> robin = term_robin{0.0, 1.0};
+
+  // du/dx + gamma * u = 0,  u = cos(x), du/dx = -sin(x) -> gamma = sin(x) / cos(x)
 
   term_1d<P> pen = term_penalty<P>{1.0 / pde.cell_size(0), boundary_type::none};
   pde += term_md{{pen, }};

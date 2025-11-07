@@ -384,7 +384,7 @@ void gen_robin_cmat(legendre_basis<P> const &basis, int level, P xleft, P xright
 
   if (robin_left != 0) {
     // robin_left *= (1.0 * level / 4.0) * std::sqrt(dx);
-    robin_left *= 0.176776695296637;
+    // robin_left *= 0.176776695296637;
     P const *leg = basis.leg_left;
     smmat::matrix<P> mat(n, coeff[0]);
     for(int i = 0; i < n; i++)
@@ -399,14 +399,16 @@ void gen_robin_cmat(legendre_basis<P> const &basis, int level, P xleft, P xright
     // robin_right *= 0.0707;
     // robin_right *= 0.08;
     // std::cout << " robin_right = " << robin_right << "    " << 0.06 * robin_right << '\n';
-    robin_right *= 0.08;
+    // robin_right *= 0.08;
+    robin_right *= 2 / dx;
     P const *leg = basis.leg_right;
     smmat::matrix<P> mat(n, coeff[num_cells - 1]);
+    smmat::matrix<P> to_right(n, basis.to_right);
     for(int i = 0; i < n; i++)
       for(int j = 0; j < n; j++)
-        mat(i, j) = robin_right * leg[i] * leg[j];
+        mat(i, j) = robin_right * to_right(i, j);
 
-    // mat.print(n, n);
+    mat.print(n, n);
   }
 
 //   for (int i = 0; i < basis.pdof; i++)
