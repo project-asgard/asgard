@@ -378,51 +378,20 @@ void gen_robin_cmat(legendre_basis<P> const &basis, int level, P xleft, P xright
   int const num_cells = fm::ipow2(level);
   P const dx = (xright - xleft) / num_cells;
 
-  std::cout << "(" << xleft << ", " << xright << "),  dx = " << dx << '\n';
-
   coeff.resize_and_zero(n * n, num_cells);
 
   if (robin_left != 0) {
-    // robin_left *= (1.0 * level / 4.0) * std::sqrt(dx);
-    // robin_left *= 0.176776695296637;
-    P const *leg = basis.leg_left;
-    smmat::matrix<P> mat(n, coeff[0]);
-    for(int i = 0; i < n; i++)
-      for(int j = 0; j < n; j++)
-        mat(i, j) = robin_left * leg[i] * leg[j];
-
-    // std::cout << " LEFT ---------------\n";
-    // mat.print(n, n);
-    // std::cout << " -------------------\n";
+    robin_left /= dx;
+    P *c = coeff[0];
+    for(int i = 0; i < n * n; i++)
+      c[i] = robin_left * basis.to_left[i];
   }
   if (robin_right != 0) {
-    // robin_right *= 0.0707;
-    // robin_right *= 0.08;
-    // std::cout << " robin_right = " << robin_right << "    " << 0.06 * robin_right << '\n';
-    // robin_right *= 0.08;
-    robin_right *= 2 / dx;
-    P const *leg = basis.leg_right;
-    smmat::matrix<P> mat(n, coeff[num_cells - 1]);
-    smmat::matrix<P> to_right(n, basis.to_right);
-    for(int i = 0; i < n; i++)
-      for(int j = 0; j < n; j++)
-        mat(i, j) = robin_right * to_right(i, j);
-
-    mat.print(n, n);
+    robin_right /= dx;
+    P *c = coeff[num_cells - 1];
+    for(int i = 0; i < n * n; i++)
+      c[i] = robin_right * basis.to_right[i];
   }
-
-//   for (int i = 0; i < basis.pdof; i++)
-//   {
-//     for (int j = 0; j < i; j++)
-//       const_mat[i * basis.pdof + j] = 0;
-//     const_mat[i * basis.pdof + i] = rhs_const;
-//     for (int j = i + 1; j < basis.pdof; j++)
-//       const_mat[i * basis.pdof + j] = 0;
-//   }
-//
-// #pragma omp parallel for
-//   for (int i = 0; i < num_cells; i++)
-//     std::copy_n(const_mat.data(), nblock, coeff[i]);
 }
 
 /*!
