@@ -352,6 +352,15 @@ void restart_adapt() {
 }
 
 template<typename P>
+void restart_nonlinear() {
+  current_test<P> name_("nonlinear restart");
+
+  using pde = pde_burgers;
+
+  // auto options = make_opts("-l 7 -d 2 -dt 1.953125E-3 -n 8 -a 1.E-6 -of _asg_testfile.h5");
+}
+
+template<typename P>
 void restart_moments() {
   current_test<P> name_("adaptive restart");
 
@@ -394,6 +403,8 @@ void all_templated_tests() {
   restart_errors<P>();
   restart_longer<P>();
   restart_adapt<P>();
+  if constexpr (is_double<P>)
+    restart_nonlinear<P>();
   restart_moments<P>();
 }
 

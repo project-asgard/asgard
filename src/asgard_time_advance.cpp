@@ -543,11 +543,11 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   else
     num_steps = std::max(params.num_remain(), num_steps);
 
-  if (num_steps < 1)
-    return;
-
   if (stepper.is_steady_state())
     num_steps = 1;
+
+  if (num_steps < 1)
+    return;
 
   P const atol = manager.options().adapt_threshold.value_or(0);
   P const rtol = manager.options().adapt_relative.value_or(0);
