@@ -226,7 +226,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     // 1. Currently provided in options, from cli, input file, etc.
     // 2. Values in the restart file
     // 3. Default values in the options
-    //
+    // However, should avoid using the default values, since those may be set for a different grid.
     //
     // We must check what we have use the values with highest priorities,
     // but have to be careful with some exceptions:
@@ -295,9 +295,8 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       } else {
         // new time-step, reusing the time from the file
         auto const file_stop = get_file_stop();
-        rassert(file_stop or options.default_stop_time,
-                "new dt is provided but -num-steps or -time must also be provided");
-        double const end_time = (file_stop) ? file_stop.value() : options.default_stop_time.value();
+        rassert(file_stop, "new dt is provided but -num-steps or -time must also be provided");
+        double const end_time = file_stop.value();
         dtime = time_data(sm, dt, time_data::input_stop_time{end_time - curr_time});
         stop_time = end_time;
       }
@@ -310,9 +309,8 @@ void h5manager<P>::read(std::string const &filename, bool silent,
         // new stop time provided, try to reuse the dt from the file
         int64_t const file_remain_steps = H5Easy::load<int64_t>(file, "dtime_remaining");
         auto const file_dt = get_file_dt(curr_step, file_remain_steps);
-        rassert(file_dt or options.default_dt,
-                "new -time is provided but -dt or -num-steps must also be provided");
-        double const dt = (file_dt) ? file_dt.value() : options.default_dt.value();
+        rassert(file_dt, "new -time is provided but -dt or -num-steps must also be provided");
+        double const dt = file_dt.value();
         dtime = time_data(sm, time_data::input_dt(dt),
                           time_data::input_stop_time{new_stop.value() - curr_time});
       }
@@ -329,22 +327,9 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       } else {
         // file did not contain a valid time-step, check if it has a valid final time
         auto const file_stop = get_file_stop();
-        if (file_stop) {
-          dtime = time_data(sm, n, time_data::input_stop_time{file_stop.value() - curr_time});
-          stop_time = file_stop;
-        } else {
-          // missing file values, check for defaults
-          rassert(options.default_dt or options.default_stop_time,
-                  "file loaded with new number of time steps, -time or -dt is also required");
-          if (options.default_dt) {
-            dtime = time_data(sm, time_data::input_dt{options.default_dt.value()}, n);
-            stop_time = curr_time + dtime.stop_time_;
-          } else {
-            double const end_time = options.default_stop_time.value();
-            dtime = time_data(sm, n, time_data::input_stop_time{end_time - curr_time});
-            stop_time = options.default_stop_time;
-          }
-        }
+        rassert(file_stop, "file loaded with new number of time steps, -time or -dt is also required");
+        dtime = time_data(sm, n, time_data::input_stop_time{file_stop.value() - curr_time});
+        stop_time = file_stop;
       }
     } else {
       // no new values, reusing from file or defaults
@@ -358,9 +343,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       } else {
         auto const file_dt   = get_file_dt(curr_step, file_n);
         auto const file_stop = get_file_stop();
-        // the only time when both will be invalid is when the stepping method changes
-        // using default dt and stop-time is dangerous here (unexpected behavior)
-        // it is better to force explicit values
+
         rassert(file_dt and file_stop,
                 "attempting to change the time-stepping method but the file does not contain valid parameters, "
                 "-time and -dt are needed");

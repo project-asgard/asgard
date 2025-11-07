@@ -300,7 +300,7 @@ void restart_adapt() {
 
   // similar to above but uses adaptivity
 
-  auto options = make_opts("-l 8 -d 2 -dt 0.01 -n 8 -a 1.E-2 -of _asg_testfile.h5");
+  auto options = make_opts("-l 8 -d 2 -dt 0.01 -n 8 -a 1.E-2 -of _asg_testfilea.h5");
   discretization_manager<P> disc(make_testpde<pde, P>(2, options));
 
   tassert((get_qoi_indicator<pde, P>(disc) < 1.E-2));
@@ -314,9 +314,9 @@ void restart_adapt() {
   disc.add_aux_field({"aux-field", std::move(vnum)}); // add some AUX data
 
   disc.save_final_snapshot();
-  tassert(std::filesystem::exists("_asg_testfile.h5"));
+  tassert(std::filesystem::exists("_asg_testfilea.h5"));
 
-  auto ropts = make_opts("-restart _asg_testfile.h5");
+  auto ropts = make_opts("-restart _asg_testfilea.h5");
   discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
 
   tassert(rdisc.get_grid().num_indexes() == disc.get_grid().num_indexes());
@@ -356,12 +356,52 @@ void restart_nonlinear() {
 
   using pde = pde_burgers;
 
-  auto options = make_opts("-m 8 -d 2 -a 1.E-5 -n 0 -of _asg_testfile.h5");
+  auto options = make_opts("-l 6 -m 8 -d 2 -a 1.E-5 -n 0 -of _asg_testfilen.h5");
   discretization_manager<P> init_disc(make_testpde<pde, P>(2, options));
 
   init_disc.advance_time();
   tassert(init_disc.time() == 0);
+  init_disc.save_final_snapshot();
+  tassert(std::filesystem::exists("_asg_testfilen.h5"));
 
+  {
+    auto ropts = make_opts("-restart _asg_testfilen.h5 -t 0.25");
+    terror_message(discretization_manager<P>(make_testpde<pde, P>(2, ropts)),
+                   "new -time is provided but -dt or -num-steps must also be provided");
+  }{
+    auto ropts = make_opts("-restart _asg_testfilen.h5 -dt 0.01");
+    terror_message(discretization_manager<P>(make_testpde<pde, P>(2, ropts)),
+                   "new dt is provided but -num-steps or -time must also be provided");
+  }{
+    auto ropts = make_opts("-restart _asg_testfilen.h5 -n 2");
+    terror_message(discretization_manager<P>(make_testpde<pde, P>(2, ropts)),
+                   "file loaded with new number of time steps, -time or -dt is also required");
+  }
+
+  { // run the problem without adaptivity
+    auto ropts = make_opts("-restart _asg_testfilen.h5 -noa -t 0.125 -dt 0.015625");
+    discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
+
+    tassert(rdisc.dt() == 0.015625);
+    tassert(rdisc.stop_time() == 0.125);
+    tassert(rdisc.remaining_steps() == 8);
+
+    rdisc.advance_time();
+    double const err = get_qoi_indicator<pde>(rdisc);
+    tcheckless(0, err, 0.03);
+  }
+  { // run the problem with adaptivity
+    auto ropts = make_opts("-restart _asg_testfilen.h5 -n 8 -dt 0.015625");
+    discretization_manager<P> rdisc(make_testpde<pde, P>(2, ropts));
+
+    tassert(rdisc.dt() == 0.015625);
+    tassert(rdisc.stop_time() == 0.125);
+    tassert(rdisc.remaining_steps() == 8);
+
+    rdisc.advance_time();
+    double const err = get_qoi_indicator<pde>(rdisc);
+    tcheckless(0, err, 0.003);
+  }
 }
 
 template<typename P>
