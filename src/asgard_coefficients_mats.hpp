@@ -367,27 +367,31 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
 }
 
 /*!
- * Generate a diagonal (volume) matrix with constant coefficient.
+ * If given a diagonal matrix, sets it to the matrix corresponding to Robin boundary conditions.
+ * If given a tri-diagonal matrix, adds the Robin conditions to the left/right blocks.
  */
-template<typename P>
-void gen_robin_cmat(legendre_basis<P> const &basis, int level, P xleft, P xright,
-                    P robin_left, P robin_right, block_diag_matrix<P> &coeff)
+template<typename P, typename mat_type>
+void gen_robin_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
+                    P robin_left, P robin_right, mat_type &coeff)
 {
+  static_assert(std::is_same_v<mat_type, block_diag_matrix<P>>
+                or std::is_same_v<mat_type, block_tri_matrix<P>>);
   int const n2 = basis.pdof * basis.pdof;
 
   int const num_cells = fm::ipow2(level);
   P const dx = (xright - xleft) / num_cells;
 
-  coeff.resize_and_zero(n2, num_cells);
+  if constexpr (std::is_same_v<mat_type, block_diag_matrix<P>>) {
+    coeff.resize_and_zero(n2, num_cells);
+  } else {
+    expect(coeff.nrows() == num_cells);
+  }
 
-  if (robin_left != 0) {
-    std::copy_n(basis.to_left, n2, coeff[0]);
-    smmat::scal(n2, -robin_left / dx, coeff[0]);
-  }
-  if (robin_right != 0) {
-    std::copy_n(basis.to_right, n2, coeff[num_cells - 1]);
-    smmat::scal(n2, robin_right / dx, coeff[num_cells - 1]);
-  }
+  if (robin_left != 0)
+    smmat::axpy(n2, -robin_left / dx, basis.to_left, coeff[0]);
+
+  if (robin_right != 0)
+    smmat::axpy(n2, robin_right / dx, basis.to_right, coeff[num_cells - 1]);
 }
 
 /*!

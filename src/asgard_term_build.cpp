@@ -553,9 +553,6 @@ void term_manager<P>::rebuild_term1d(
     }
   }
 
-  // std::cout << " ================================ \n";
-  // tentry.coeffs[dim].to_full(conn).print();
-
   // the last interpolation stage (2wav) comes with a scaling factor
   // apply the scaling factor to the zeroth dimension
   if (merge_with_interp and dim == 0)
@@ -707,7 +704,7 @@ void term_manager<P>::build_raw_mat(
       break;
     case operation_type::robin:
       expect(not t1d.rhs());
-      gen_robin_cmat<P>(basis, level, xleft[d], xright[d], t1d.left_robin(), t1d.right_robin(), raw_diag);
+      gen_robin_cmat<P>(basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), raw_diag);
       break;
     default: // case operation_type::identity:
       // identity, nothing to do for the matrix, but may have to do boundary conditions
@@ -715,7 +712,7 @@ void term_manager<P>::build_raw_mat(
   }
 
   if (bmass) {
-    if (t1d.is_diagonal())
+    if (t1d.is_diagonal() and not t1d.is_identity())
       bmass->solve(basis.pdof, raw_diag);
     else
       bmass->solve(basis.pdof, raw_tri);
@@ -939,21 +936,38 @@ void term_manager<P>::rebuld_chain(
   }
 
   // apply the penalty that is added to the whole chain
+  if (t1d.penalty() != 0) {
+    if (bmass) {
+      gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
+        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
+          t1d.chain_.back().boundary(), raw_rhs, *tri0);
+      bmass->solve(basis.pdof, *tri0);
+      raw_tri += *tri0;
+    } else {
+      // no need to worry about the mass, just add the penalty to the raw-tri
+      gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
+        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
+          t1d.chain_.back().boundary(), raw_rhs, raw_tri);
+    }
+  }
+
+  if (t1d.left_robin() != 0 or t1d.right_robin() != 0) {
+    if (bmass) {
+      gen_robin_cmat<P>
+        (basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), *diag0);
+      bmass->solve(basis.pdof, *diag0);
+      raw_tri += *diag0;
+    } else {
+      gen_robin_cmat<P>
+        (basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), raw_tri);
+    }
+  }
+
+  // the penalty may yield additional work for the boundary conditions
+  // the robin added matrices do not affect the boundary terms (they don't chain)
   if (t1d.penalty() == 0)
     return;
 
-  if (bmass) {
-    gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
-      (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
-        t1d.chain_.back().boundary(), raw_rhs, *tri0);
-    bmass->solve(basis.pdof, *tri0);
-    raw_tri += *tri0;
-  } else {
-    // no need to worry about the mass, just add the penalty to the raw-tri
-    gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-      (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
-        t1d.chain_.back().boundary(), raw_rhs, raw_tri);
-  }
   // handle the penalty component of the boundary conditions
   std::vector<P> penwork; // extra allocation, should be rare, when having mass + builtin penalty
   for (int b : indexrange(tentry.bc)) {

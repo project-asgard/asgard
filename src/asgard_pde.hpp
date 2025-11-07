@@ -490,20 +490,6 @@ public:
   term_1d() = default;
   //! make an identity term
   term_1d(term_identity) {}
-  //! make a general term, prefer using the helper structs term_(volume,grad,div,penalty)
-  term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
-      : optype_(opt), flux_(flx), boundary_(bnd),
-        rhs_(std::move(frhs)), coeffs_{crhs, 0}
-  {
-    expect(optype_ != operation_type::identity);
-
-    if (optype_ == operation_type::grad) {
-      if (flux_ == flux_type::upwind)
-        flux_ = flux_type::downwind;
-      else if (flux_ == flux_type::downwind)
-        flux_ = flux_type::upwind;
-    }
-  }
   //! make a term that depends on coupled fields, e.g., moments or electric field
   term_1d(term_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
     : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
@@ -555,7 +541,7 @@ public:
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
-    : optype_(operation_type::chain), chain_(std::move(tvec))
+    : optype_(operation_type::chain), coeffs_{0, 0}, chain_(std::move(tvec))
   {
     // remove the identity terms in the chain
     int numid = 0;
@@ -706,10 +692,10 @@ public:
             "penalty can be added only to div grad or chain terms, if added to a chain, "
             "the flux and boundary condition will be taken from the back of the chain");
     rassert(penalty_coefficient > 0, "penalty coefficient has to be positive");
-    coeffs_[1] = penalty_coefficient;
+    penalty_ = penalty_coefficient;
   }
   //! get the current penalty coefficient
-  P penalty() const { return coeffs_[1]; }
+  P penalty() const { return penalty_; }
   //! returns true if the associated matrix is diagonal
   bool is_diagonal() const {
     return (optype_ != operation_type::div and optype_ != operation_type::grad
@@ -725,11 +711,39 @@ public:
   //! right Robin condition
   P right_robin() const { return coeffs_[1]; }
 
+  //! add a robin boundary condition to a chain term, more efficient than adding additional terms
+  void set_left_robin(P left) {
+    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
+                        "or create a new term_robin");
+    coeffs_[0] = left;
+  }
+  //! add a robin boundary condition to a chain term, more efficient than adding additional terms
+  void set_right_robin(P right) {
+    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
+                        "or create a new term_robin");
+    coeffs_[1] = right;
+  }
+
   // allow direct access to the private data
   friend class pde_scheme<P>;
   friend struct term_manager<P>;
 
 private:
+  //! helper constructor
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
+      : optype_(opt), flux_(flx), boundary_(bnd),
+        rhs_(std::move(frhs)), coeffs_{crhs, 0}
+  {
+    expect(optype_ != operation_type::identity);
+
+    if (optype_ == operation_type::grad) {
+      if (flux_ == flux_type::upwind)
+        flux_ = flux_type::downwind;
+      else if (flux_ == flux_type::downwind)
+        flux_ = flux_type::upwind;
+    }
+  }
+
   //! (chain-mode only) access the i-th term in the chain, allows mods
   term_1d<P> &chain(int i) { return chain_[i]; }
   //! check if the chain has wrong set of fluxes
@@ -759,9 +773,11 @@ private:
   changes_with change_ = changes_with::none;
 
   sfixed_func1d<P> rhs_;
-  // holds coefficients, either constant coefficient, penalty
+  // holds coefficients, either constant coefficient
   // or left/right coefficient for constant Robin conditions
   std::array<P, 2> coeffs_ = {1, 0};
+
+  P penalty_ = 0;
 
   int mom = 0;
   moment smom_;

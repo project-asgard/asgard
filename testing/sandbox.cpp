@@ -56,21 +56,24 @@ pde_scheme<P> make_robin_pde(prog_opts options)
   // laplacian += right_boundary_flux<P>{std::vector<P>{std::cos(1.0), }};
   // pde += laplacian;
 
-  pde += term_md{{dxx, }};
-
   //term_1d<P> robin = term_robin{-std::sin(-1.0) / std::cos(-1.0), std::sin(1.0) / std::cos(1.0)};
   // term_1d<P> robin = term_robin{-100* std::sin(-1.0) / std::cos(-1.0), 0.0};
   // term_1d<P> robin = term_robin{-0.1 * 0.25 * std::cos(-1.0) / std::sin(-1.0), 0.0};
   // term_1d<P> robin = term_robin{-std::sin(-1.0) / std::cos(-1.0), 0.0};
-  term_1d<P> robin = term_robin{std::sin(-1.0) / std::cos(-1.0), std::sin(1.0) / std::cos(1.0)};
   // term_1d<P> robin = term_robin{0.0, 1.0};
+
+  dxx.set_left_robin(std::sin(-1.0) / std::cos(-1.0));
+  dxx.set_right_robin(std::sin(1.0) / std::cos(1.0));
+
+  pde += term_md{{dxx, }};
 
   // du/dx + gamma * u = 0,  u = cos(x), du/dx = -sin(x) -> gamma = sin(x) / cos(x)
 
   term_1d<P> pen = term_penalty<P>{1.0 / pde.cell_size(0), boundary_type::none};
   pde += term_md{{pen, }};
 
-  pde += term_md{{robin, }};
+  //term_1d<P> robin = term_robin{std::sin(-1.0) / std::cos(-1.0), std::sin(1.0) / std::cos(1.0)};
+  //pde += term_md{{robin, }};
 
   // using 0 as the initial conditions
 

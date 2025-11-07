@@ -187,6 +187,13 @@ void axpy(int const n, P const alpha, P const x[], P y[]) {
   for (int i = 0; i < n; i++)
     y[i] += alpha * x[i];
 }
+//! y += x
+template<typename P>
+void axpy1(int const n, P const x[], P y[]) {
+  ASGARD_OMP_SIMD
+  for (int i = 0; i < n; i++)
+    y[i] += x[i];
+}
 
 //! matrix-vector multiplication y += A * x, A has size nr X nc
 template<typename P>
