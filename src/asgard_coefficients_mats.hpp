@@ -13,6 +13,9 @@ enum class rhs_type {
   is_func, is_const
 };
 
+/*!
+ * Generates a div or grad matrix with constant coefficient, but ignores the fluxes.
+ */
 template<typename P, operation_type optype, rhs_type rtype, data_mode dmode = data_mode::replace>
 void gen_no_flux_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                       sfixed_func1d<P> const &rhs, P const rhs_const,
@@ -98,6 +101,9 @@ void gen_no_flux_cmat(legendre_basis<P> const &basis, P xleft, P xright, int lev
   }
 }
 
+/*!
+ * Generate div, grad, or penalty matrix, constant or variable coefficient.
+ */
 template<typename P, operation_type optype, rhs_type rtype, data_mode dmode = data_mode::replace>
 void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
                   sfixed_func1d<P> const &rhs, P const rhs_const, flux_type flux,
@@ -360,13 +366,41 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   }
 }
 
-template<typename P, operation_type optype>
-void gen_diag_cmat(legendre_basis<P> const &basis, int level,
-                   P const rhs_const, block_diag_matrix<P> &coeff)
+/*!
+ * If given a diagonal matrix, sets it to the matrix corresponding to Robin boundary conditions.
+ * If given a tri-diagonal matrix, adds the Robin conditions to the left/right blocks.
+ */
+template<typename P, typename mat_type>
+void gen_robin_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
+                    P robin_left, P robin_right, mat_type &coeff)
 {
-  static_assert(optype == operation_type::volume,
-                "only volume matrices should be used to create volume terms");
+  static_assert(std::is_same_v<mat_type, block_diag_matrix<P>>
+                or std::is_same_v<mat_type, block_tri_matrix<P>>);
+  int const n2 = basis.pdof * basis.pdof;
 
+  int const num_cells = fm::ipow2(level);
+  P const dx = (xright - xleft) / num_cells;
+
+  if constexpr (std::is_same_v<mat_type, block_diag_matrix<P>>) {
+    coeff.resize_and_zero(n2, num_cells);
+  } else {
+    expect(coeff.nrows() == num_cells);
+  }
+
+  if (robin_left != 0)
+    smmat::axpy(n2, -robin_left / dx, basis.to_left, coeff[0]);
+
+  if (robin_right != 0)
+    smmat::axpy(n2, robin_right / dx, basis.to_right, coeff[num_cells - 1]);
+}
+
+/*!
+ * Generate a diagonal (volume) matrix with constant coefficient.
+ */
+template<typename P>
+void gen_volume_mat(legendre_basis<P> const &basis, int level,
+                    P const rhs_const, block_diag_matrix<P> &coeff)
+{
   int const num_cells = fm::ipow2(level);
   int const nblock = basis.pdof * basis.pdof;
 
@@ -392,6 +426,9 @@ void gen_diag_cmat(legendre_basis<P> const &basis, int level,
     std::copy_n(const_mat.data(), nblock, coeff[i]);
 }
 
+/*!
+ * Generate a diagonal (volume) matrix with piece-wise (cell-by-cell) constant coefficient.
+ */
 template<typename P>
 void gen_diag_cmat_pwc(legendre_basis<P> const &basis, int level,
                        std::vector<P> const &pwc, block_diag_matrix<P> &coeff)
@@ -410,15 +447,14 @@ void gen_diag_cmat_pwc(legendre_basis<P> const &basis, int level,
     smmat::axpy(nblock, pwc[i], const_mat.data(), coeff[i]);
 }
 
-template<typename P, operation_type optype,
-         term_dependence depends = term_dependence::none>
-void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
-                   sfixed_func1d<P> const &rhs, rhs_raw_data<P> &rhs_raw,
-                   block_diag_matrix<P> &coeff)
+/*!
+ * Generate a diagonal (volume) matrix with non-constant coefficient.
+ */
+template<typename P>
+void gen_volume_mat(legendre_basis<P> const &basis, P xleft, P xright, int level,
+                    sfixed_func1d<P> const &rhs, rhs_raw_data<P> &rhs_raw,
+                    block_diag_matrix<P> &coeff)
 {
-  static_assert(optype == operation_type::volume,
-                "only volume matrices should be used to create volume terms");
-
   int const num_cells = fm::ipow2(level);
   P const dx = (xright - xleft) / num_cells;
 
@@ -426,20 +462,18 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   coeff.resize_and_zero(nblock, num_cells);
 
   span2d<P> rhs_vals;
-  if constexpr (depends == term_dependence::none) {
-    rhs_raw.pnts.resize(basis.num_quad * num_cells);
-    rhs_raw.vals.resize(rhs_raw.pnts.size());
+  rhs_raw.pnts.resize(basis.num_quad * num_cells);
+  rhs_raw.vals.resize(rhs_raw.pnts.size());
 #pragma omp parallel for
-    for (int i = 0; i < num_cells; i++) {
-      P const l = xleft + i * dx; // left edge of cell i
-      for (int k = 0; k < basis.num_quad; k++)
-        rhs_raw.pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
-    }
-
-    rhs(rhs_raw.pnts, rhs_raw.vals);
-
-    rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.vals.data());
+  for (int i = 0; i < num_cells; i++) {
+    P const l = xleft + i * dx; // left edge of cell i
+    for (int k = 0; k < basis.num_quad; k++)
+      rhs_raw.pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
   }
+
+  rhs(rhs_raw.pnts, rhs_raw.vals);
+
+  rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.vals.data());
 
 #pragma omp parallel
   {
@@ -457,7 +491,9 @@ void gen_diag_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   }
 }
 
-//! moment over moment zero
+/*!
+ * Generate diagonal matrix corresponding to moment over moment 0
+ */
 template<typename P>
 void gen_diag_mom_over_zero(
     legendre_basis<P> const &basis, int level, P alpha,
@@ -510,7 +546,9 @@ void gen_diag_mom_over_zero(
   } // #pragma omp parallel
 }
 
-//! moment over moment zero
+/*!
+ * Generate diagonal matrix with LB theta term.
+ */
 template<typename P, int num_vel>
 void gen_diag_lenard_bernstein_theta(
     legendre_basis<P> const &basis, int level, P nu,

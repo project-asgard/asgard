@@ -19,7 +19,7 @@
  * \par Two stream instability
  * Solves the Vlasov-Poisson equation in a common example
  * often called the two stream instability problem
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) = 0 \f]
+ * \f[ \frac{\partial}{\partial t} f(x, v) + v \cdot \nabla_x f(x, v, t) + E(x, t) \nabla_v \cdot f(x, v, t) = 0 \f]
  * where the electric field term depends on the Poisson equation
  * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
  * The equation represents the evolution of a charged particle field under the effects
@@ -58,8 +58,7 @@ void self_test();
  *
  * \param options is the set of options
  *
- * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
- *          removed in the near future
+ * \returns the asgard::pde_scheme definition
  *
  * \snippet two_stream.cpp two_stream make
  */

@@ -65,8 +65,7 @@
  * \param num_dims is the number of dimensions, currently between 1 and 6
  * \param options is the set of options
  *
- * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
- *          removed in the near future
+ * \returns the asgard::pde_scheme definition
  *
  * \snippet diffusion.cpp diffusion_md make
  */

@@ -273,7 +273,7 @@ inline constexpr type_tag_ignores_time ignores_time = type_tag_ignores_time{};
  */
 struct ones_for_dimensions {
   //! sets the number of dimensions
-  ones_for_dimensions(int d = 0) : dims(d) {
+  explicit ones_for_dimensions(int d = 0) : dims(d) {
     rassert(0 < dims and dims < max_num_dimensions,
             "incorrect number of dimensions for ones_for_dimensions()");
   }

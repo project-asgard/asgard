@@ -439,9 +439,9 @@ public:
   int64_t nrows() const { return nrows_; }
 
   //! gives the main diagonal block
-  P *operator() (int64_t r) { return data_[3 * r + 1]; }
+  P *operator[] (int64_t r) { return data_[3 * r + 1]; }
   //! gives the i,j-th block, const-overload
-  P const *operator() (int64_t r) const { return data_[3 * r + 1]; }
+  P const *operator[] (int64_t r) const { return data_[3 * r + 1]; }
 
   //! gives the lower diagonal block
   P *lower(int64_t r) { return data_[3 * r]; }
@@ -487,6 +487,8 @@ public:
 
   //! add another matrix to this one, used to merge with the penalty term
   block_tri_matrix<P> &operator += (block_tri_matrix<P> const &other);
+  //! add another matrix to this one, used to merge with the Robin term
+  block_tri_matrix<P> &operator += (block_diag_matrix<P> const &other);
 
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full() const

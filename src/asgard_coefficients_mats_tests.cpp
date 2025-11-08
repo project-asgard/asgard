@@ -66,7 +66,7 @@ void test_volume_matrix()
 
   block_diag_matrix<P> mat;
 
-  gen_diag_cmat<P, operation_type::volume>(basis, level, 1, mat);
+  gen_volume_mat<P>(basis, level, 1, mat);
 
   for (int i = 0; i < 8; i++) {
     std::vector<P> ref = {1, 0, 0, 0, 1, 0, 0, 0, 1};
@@ -81,8 +81,7 @@ void test_volume_matrix()
     };
 
   rhs_raw_data<P> dummy;
-  gen_diag_cmat<P, operation_type::volume>(
-      basis, 0, 1, level, cc, dummy, mat);
+  gen_volume_mat<P>(basis, 0, 1, level, cc, dummy, mat);
 
   for (int i = 0; i < 8; i++) {
     std::vector<P> ref = {-3.5, 0, 0, 0, -3.5, 0, 0, 0, -3.5};

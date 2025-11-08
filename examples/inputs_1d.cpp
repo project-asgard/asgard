@@ -128,8 +128,8 @@ int main(int argc, char **argv)
   asgard::pde_scheme pde(options, domain);
 
   // one dimensional divergence term using upwind flux
-  pde += asgard::term_1d{asgard::term_div(1, asgard::flux_type::upwind,
-                                             asgard::boundary_type::periodic)};
+  pde += asgard::term_1d<precision>{asgard::term_div(1, asgard::flux_type::upwind,
+                                                        asgard::boundary_type::periodic)};
 
   // exact solution
   auto exact_x = [](std::vector<precision> const &x, precision /* time */,

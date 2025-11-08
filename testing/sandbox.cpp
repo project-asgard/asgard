@@ -4,7 +4,7 @@
 
 using namespace asgard;
 
-using prec = asgard::default_precision;
+using P = asgard::default_precision;
 
 int main(int argc, char **argv)
 {

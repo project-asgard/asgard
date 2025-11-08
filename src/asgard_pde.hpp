@@ -164,6 +164,8 @@ enum class operation_type
   div,
   //! penalty term, regularizer used for stability purposes
   penalty,
+  //! Robin boundary conditions, derivative depends on the values of the field
+  robin,
   //! chain term, product of two or more one dimensional terms
   chain
 };
@@ -277,7 +279,7 @@ struct term_div {
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Intermediate container for a div term, includes flux and boundary conditions
+ * \brief Intermediate container for a penalty term, includes flux and boundary conditions
  */
 template<typename P = default_precision>
 struct term_penalty {
@@ -301,6 +303,30 @@ struct term_penalty {
   flux_type flux = flux_type::upwind;
   //! boundary type
   boundary_type boundary = boundary_type::none;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Intermediate container for a Robin term, provides left/right values
+ *
+ * The condition ties the value of the derivative and the field and thus it
+ * acts similar to another term, as opposed to a source.
+ * Robin boundary condition can be associated with second order PDEs and make
+ * sense to be used only in conjunction with a div-grad chain, e.g., as in the
+ * diffusion or elliptic examples.
+ * The term_md associated with the Robin boundary condition should have the
+ * same form as the div-grad, but with the robin term in place of the div-grad.
+ */
+struct term_robin {
+  //! make a penalty term with upwind flux and given boundary type
+  term_robin(double left, double right)
+    : left_const{left}, right_const{right}
+  {}
+
+  //! left coefficient
+  double left_const = 0;
+  //! right coefficient
+  double right_const = 0;
 };
 
 /*!
@@ -465,20 +491,6 @@ public:
   term_1d() = default;
   //! make an identity term
   term_1d(term_identity) {}
-  //! make a general term, prefer using the helper structs term_(volume,grad,div,penalty)
-  term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
-      : optype_(opt), flux_(flx), boundary_(bnd),
-        rhs_(std::move(frhs)), rhs_const_(crhs)
-  {
-    expect(optype_ != operation_type::identity);
-
-    if (optype_ == operation_type::grad) {
-      if (flux_ == flux_type::upwind)
-        flux_ = flux_type::downwind;
-      else if (flux_ == flux_type::downwind)
-        flux_ = flux_type::upwind;
-    }
-  }
   //! make a term that depends on coupled fields, e.g., moments or electric field
   term_1d(term_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
     : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
@@ -503,11 +515,28 @@ public:
     : term_1d(operation_type::grad, grd.flux, grd.boundary,
               std::move(grd.var_coeff), grd.const_coeff)
   {}
+  //! make a grad term
+  template<typename otherP>
+  term_1d(term_grad<otherP> grd)
+    : term_1d(operation_type::grad, grd.flux, grd.boundary,
+              nullptr, grd.const_coeff)
+  {
+    rassert(not grd.var_coeff, "type mismatch, variable coefficient is set for one "
+            "precision but it is loaded into another");
+  }
   //! make a div term
   term_1d(term_div<P> divt)
     : term_1d(operation_type::div, divt.flux, divt.boundary,
               std::move(divt.var_coeff), divt.const_coeff)
   {}
+  //! make a div term
+  template<typename otherP>
+  term_1d(term_div<otherP> divt)
+    : term_1d(operation_type::div, divt.flux, divt.boundary, nullptr, divt.const_coeff)
+  {
+    rassert(not divt.var_coeff, "type mismatch, variable coefficient is set for one "
+            "precision but it is loaded into another");
+  }
   //! make a penalty term
   term_1d(term_penalty<P> pent)
     : term_1d(operation_type::penalty, pent.flux, pent.boundary, nullptr, pent.const_coeff)
@@ -518,9 +547,18 @@ public:
     : term_1d(operation_type::penalty, pent.flux, pent.boundary,
               nullptr, static_cast<P>(pent.const_coeff))
   {}
+  //! make a Robin term
+  term_1d(term_robin robin)
+    : optype_(operation_type::robin),
+      coeffs_{static_cast<P>(robin.left_const), static_cast<P>(robin.right_const)}
+  {}
+  //! make a chain term and setting the terms
+  term_1d(term_chain, std::vector<term_1d<P>> tvec)
+    : term_1d(std::move(tvec))
+  {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
-    : optype_(operation_type::chain), chain_(std::move(tvec))
+    : optype_(operation_type::chain), coeffs_{0, 0}, chain_(std::move(tvec))
   {
     // remove the identity terms in the chain
     int numid = 0;
@@ -571,7 +609,7 @@ public:
   term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), rhs_const_(mover.scale),
+      change_(changes_with::time), coeffs_{static_cast<P>(mover.scale), 0},
       smom_(mover.mom)
   {
     smom_.action = moment::regular;
@@ -580,7 +618,7 @@ public:
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
       depends_(term_dependence::lenard_bernstein_coll_theta),
-      change_(changes_with::time), rhs_const_(lbt.coeff)
+      change_(changes_with::time), coeffs_{static_cast<P>(lbt.coeff), 0}
   {}
 
   //! indicates whether this is an identity term
@@ -593,6 +631,8 @@ public:
   bool is_div() const { return (optype_ == operation_type::div); }
   //! indicates whether this is a penalty term
   bool is_penalty() const { return (optype_ == operation_type::penalty); }
+  //! indicates whether this is a Robin term
+  bool is_robin() const { return (optype_ == operation_type::robin); }
   //! indicates whether this is a chain term
   bool is_chain() const { return (optype_ == operation_type::chain); }
   //! returns the operation type
@@ -625,7 +665,7 @@ public:
   }
 
   //! returns the constant right-hand-side
-  P rhs_const() const { return rhs_const_; }
+  P rhs_const() const { return coeffs_[0]; }
 
   //! can read or set the the change option
   changes_with &change() { return change_; }
@@ -673,12 +713,54 @@ public:
   }
   //! get the current penalty coefficient
   P penalty() const { return penalty_; }
+  //! returns true if the associated matrix is diagonal
+  bool is_diagonal() const {
+    return (optype_ != operation_type::div and optype_ != operation_type::grad
+            and optype_ != operation_type::penalty);
+  }
+  //! returns true if the associated matrix is tri-diagonal
+  bool is_tri_diag() const {
+    return (optype_ == operation_type::div or optype_ == operation_type::grad
+            or optype_ == operation_type::penalty);
+  }
+  //! left Robin condition
+  P left_robin() const { return coeffs_[0]; }
+  //! right Robin condition
+  P right_robin() const { return coeffs_[1]; }
+
+  //! add a robin boundary condition to a chain term, more efficient than adding additional terms
+  void set_left_robin(P left) {
+    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
+                        "or create a new term_robin");
+    coeffs_[0] = left;
+  }
+  //! add a robin boundary condition to a chain term, more efficient than adding additional terms
+  void set_right_robin(P right) {
+    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
+                        "or create a new term_robin");
+    coeffs_[1] = right;
+  }
 
   // allow direct access to the private data
   friend class pde_scheme<P>;
   friend struct term_manager<P>;
 
 private:
+  //! helper constructor
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
+      : optype_(opt), flux_(flx), boundary_(bnd),
+        rhs_(std::move(frhs)), coeffs_{crhs, 0}
+  {
+    expect(optype_ != operation_type::identity);
+
+    if (optype_ == operation_type::grad) {
+      if (flux_ == flux_type::upwind)
+        flux_ = flux_type::downwind;
+      else if (flux_ == flux_type::downwind)
+        flux_ = flux_type::upwind;
+    }
+  }
+
   //! (chain-mode only) access the i-th term in the chain, allows mods
   term_1d<P> &chain(int i) { return chain_[i]; }
   //! check if the chain has wrong set of fluxes
@@ -708,8 +790,11 @@ private:
   changes_with change_ = changes_with::none;
 
   sfixed_func1d<P> rhs_;
-  P rhs_const_ = 1;
-  P penalty_   = 0;
+  // holds coefficients, either constant coefficient
+  // or left/right coefficient for constant Robin conditions
+  std::array<P, 2> coeffs_ = {1, 0};
+
+  P penalty_ = 0;
 
   int mom = 0;
   moment smom_;

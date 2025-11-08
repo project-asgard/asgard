@@ -245,6 +245,21 @@ block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_tri_matrix<P> const
 }
 
 template<typename P>
+block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_diag_matrix<P> const &other)
+{
+  expect(nrows_ == other.nrows());
+  expect(data_.stride() == other.nblock());
+
+  int const n = data_.stride();
+
+  #pragma omp parallel for
+  for (int64_t r = 0; r < nrows_; r++)
+    smmat::axpy1(n, other[r], (*this)[r]);
+
+  return *this;
+}
+
+template<typename P>
 void fill_pattern(P const pattern[], block_diag_matrix<P> &A)
 {
   int const rows   = A.nrows();

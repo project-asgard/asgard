@@ -112,7 +112,7 @@ endif()
 # the documentation PDEs are going to be installed and the string will be used
 # to configure the examples cmake file, so it needs to be a single string as opposed to a list
 # on the other hand, the additional internal (testing) PDEs are just a normal list
-set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic sinwav two_stream vplb sod_shock burgers")
+set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic robin_bc sinwav two_stream vplb sod_shock burgers")
 set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal misc_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}") # save for examples configuration

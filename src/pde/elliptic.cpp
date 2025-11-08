@@ -19,7 +19,7 @@
  * \par Elliptic equation
  * Creates a simple elliptic PDE that multiplies across the dimensions
  * the same one-dimensional boundary value problem
- * \f[ \frac{d^2}{d x^2} f = 2 \f]
+ * \f[ -\frac{d^2}{d x^2} f = 2 \f]
  * the domain is (0, 1) and the exact solution is
  * \f[ f(x) = 2 x - x^2 \f]
  * The solution can be obtained by assigning homogeneous boundary conditions,
@@ -60,8 +60,7 @@ enum class boundary_enum {
  * \param num_dims number of dimensions
  * \param options is the set of options
  *
- * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
- *          removed in the near future
+ * \returns the asgard::pde_scheme description
  *
  * \b Note: The asgard namespace includes the name \b boundary_type,
  * it a natural name but it is possible to create a conflict if the entire namespace
