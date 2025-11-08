@@ -68,9 +68,7 @@ enum class precon_method
   //! probably not a good idea for an iterative solve
   none = 0,
   //! diagonal Jacobi preconditioner
-  jacobi,
-  //! using alternating direction pseudoinverse (experimental)
-  adi
+  jacobi
 };
 
 #ifndef __ASGARD_DOXYGEN_SKIP

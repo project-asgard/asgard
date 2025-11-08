@@ -677,9 +677,6 @@ void solver_manager<P>::print_opts(std::ostream &os) const
       case precon_method::jacobi:
         os << "  jacobi diagonal preconditioner\n";
         break;
-      case precon_method::adi:
-        os << "  adi preconditioner\n";
-        break;
       default: // unreachable
         break;
     }

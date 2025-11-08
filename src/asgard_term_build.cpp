@@ -493,7 +493,7 @@ template<typename P>
 void term_manager<P>::rebuild_term1d(
     term_entry<P> &tentry, int const dim, int level,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    precon_method precon, P alpha, bool merge_with_interp)
+    precon_method, P, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -586,19 +586,6 @@ void term_manager<P>::rebuild_term1d(
     if (not bentry.consts[dim].empty()) {
       // will be empty if non-flux direction and non-separable in time
       hier.transform(level, bentry.consts[dim]);
-    }
-  }
-
-  // build the ADI preconditioner here
-  if (precon == precon_method::adi) {
-    if (is_diag) {
-      to_euler(basis.pdof, alpha, wraw_diag);
-      psedoinvert(basis.pdof, wraw_diag, raw_diag0);
-      tentry.adi[dim] = hier.diag2hierarchical(raw_diag0, level, conn);
-    } else {
-      to_euler(basis.pdof, alpha, wraw_tri);
-      psedoinvert(basis.pdof, wraw_tri, raw_tri0);
-      tentry.adi[dim] = hier.tri2hierarchical(raw_tri0, level, conn);
     }
   }
 }
