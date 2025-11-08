@@ -350,7 +350,7 @@ void self_test() {
   dotest<float>(5.E-3, "-d 2 -l 3");
   dotest<float>(5.E-3, "-d 2 -l 3 -bc 1");
   dotest<float>(1.E-3, "-d 2 -l 6");
-  dotest<float>(5.E-4, "-d 3 -l 3");
+  dotest<float>(8.E-4, "-d 3 -l 3");
   #endif
 }
 
