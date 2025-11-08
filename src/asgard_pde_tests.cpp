@@ -103,7 +103,7 @@ void test_bookkeeping() {
   }
   {
     current_test<TestType> name_("term robin");
-    term_1d<TestType> ptR = term_robin<TestType>{7, 9};
+    term_1d<TestType> ptR = term_robin{7, 9};
     tassert(ptR.is_robin());
     tassert(ptR.optype() == operation_type::robin);
     tassert(not ptR.is_tri_diag());

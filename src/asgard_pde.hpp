@@ -317,15 +317,16 @@ struct term_penalty {
  * The term_md associated with the Robin boundary condition should have the
  * same form as the div-grad, but with the robin term in place of the div-grad.
  */
-template<typename P = default_precision>
 struct term_robin {
   //! make a penalty term with upwind flux and given boundary type
-  term_robin(P left, P right)
-    : const_coeff{left, right}
+  term_robin(double left, double right)
+    : left_const{left}, right_const{right}
   {}
 
-  //! coefficients
-  std::array<P, 2> const_coeff = {0, 0};
+  //! left coefficient
+  double left_const = 0;
+  //! right coefficient
+  double right_const = 0;
 };
 
 /*!
@@ -514,11 +515,28 @@ public:
     : term_1d(operation_type::grad, grd.flux, grd.boundary,
               std::move(grd.var_coeff), grd.const_coeff)
   {}
+  //! make a grad term
+  template<typename otherP>
+  term_1d(term_grad<otherP> grd)
+    : term_1d(operation_type::grad, grd.flux, grd.boundary,
+              nullptr, grd.const_coeff)
+  {
+    rassert(not grd.var_coeff, "type mismatch, variable coefficient is set for one "
+            "precision but it is loaded into another");
+  }
   //! make a div term
   term_1d(term_div<P> divt)
     : term_1d(operation_type::div, divt.flux, divt.boundary,
               std::move(divt.var_coeff), divt.const_coeff)
   {}
+  //! make a div term
+  template<typename otherP>
+  term_1d(term_div<otherP> divt)
+    : term_1d(operation_type::div, divt.flux, divt.boundary, nullptr, divt.const_coeff)
+  {
+    rassert(not divt.var_coeff, "type mismatch, variable coefficient is set for one "
+            "precision but it is loaded into another");
+  }
   //! make a penalty term
   term_1d(term_penalty<P> pent)
     : term_1d(operation_type::penalty, pent.flux, pent.boundary, nullptr, pent.const_coeff)
@@ -530,14 +548,13 @@ public:
               nullptr, static_cast<P>(pent.const_coeff))
   {}
   //! make a Robin term
-  term_1d(term_robin<P> robin)
-    : optype_(operation_type::robin), coeffs_(robin.const_coeff)
+  term_1d(term_robin robin)
+    : optype_(operation_type::robin),
+      coeffs_{static_cast<P>(robin.left_const), static_cast<P>(robin.right_const)}
   {}
-
-  //! make a Robin term
-  template<typename otherP>
-  term_1d(term_robin<otherP> robin)
-    : optype_(operation_type::robin), coeffs_{robin.const_coeff[0], robin.const_coeff[1]}
+  //! make a chain term and setting the terms
+  term_1d(term_chain, std::vector<term_1d<P>> tvec)
+    : term_1d(std::move(tvec))
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
@@ -592,7 +609,7 @@ public:
   term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), coeffs_{mover.scale, 0},
+      change_(changes_with::time), coeffs_{static_cast<P>(mover.scale), 0},
       smom_(mover.mom)
   {
     smom_.action = moment::regular;
@@ -601,7 +618,7 @@ public:
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
       depends_(term_dependence::lenard_bernstein_coll_theta),
-      change_(changes_with::time), coeffs_{lbt.coeff, 0}
+      change_(changes_with::time), coeffs_{static_cast<P>(lbt.coeff), 0}
   {}
 
   //! indicates whether this is an identity term

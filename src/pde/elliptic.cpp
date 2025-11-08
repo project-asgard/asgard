@@ -60,8 +60,7 @@ enum class boundary_enum {
  * \param num_dims number of dimensions
  * \param options is the set of options
  *
- * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
- *          removed in the near future
+ * \returns the asgard::pde_scheme description
  *
  * \b Note: The asgard namespace includes the name \b boundary_type,
  * it a natural name but it is possible to create a conflict if the entire namespace

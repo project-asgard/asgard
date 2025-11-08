@@ -59,8 +59,7 @@ void self_test();
  * \param vdims is the number of velocity dimensions, 1-3
  * \param options is the set of options
  *
- * \returns the PDE description, the \b v2 suffix is temporary syntax and will be
- *          removed in the near future
+ * \returns the asgard::pde_scheme definition
  *
  * \snippet vplb.cpp asgard_examples_vplb make
  */
