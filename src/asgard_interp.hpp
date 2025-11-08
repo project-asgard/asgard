@@ -5,6 +5,64 @@
 namespace asgard
 {
 /*!
+ * \brief Describes the stages of the interpolation operation.
+ *
+ * Uses bit operations to avoid storing multiple bools.
+ */
+struct interpolation_plan
+{
+  //! holds the information about the plan
+  int plan_mode_ = 0;
+
+  //! enable/disable the interpolation plan
+  void enable(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << enabled_);
+    else
+      plan_mode_ &= ~(1 << enabled_);
+  }
+  //! use the existing interpolated field or start from wavelet coefficients
+  void use_field(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << field_);
+    else
+      plan_mode_ &= ~(1 << field_);
+  }
+  //! does the current function use moments
+  void use_moments(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << moments_);
+    else
+      plan_mode_ &= ~(1 << moments_);
+  }
+  //! do we stop at the hierarchical coefficients or go back to wavelet basis
+  void stop_hier(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << hier_);
+    else
+      plan_mode_ &= ~(1 << hier_);
+  }
+
+  //! indicates whether the plan has been enabled
+  bool is_enabled() const { return (plan_mode_ != 0); }
+  //! indicates whether the plan uses pre-interpolated field
+  bool uses_field() const { return (plan_mode_ & (1 << field_)) != 0; }
+  //! indicates whether the plan uses moments
+  bool uses_moments() const { return (plan_mode_ & (1 << moments_)) != 0; }
+  //! indicates whether the plan stops at the hierarchy
+  bool uses_hier() const { return (plan_mode_ & (1 << hier_)) != 0; }
+
+  //! tag for whether to use the enabled
+  static int constexpr enabled_ = 0;
+  //! tag for whether to use the field
+  static int constexpr field_ = 1;
+  //! tag for whether to use moments
+  static int constexpr moments_ = 2;
+  //! tag for whether to stop at the hierarchy
+  static int constexpr hier_ = 3;
+};
+
+/*!
  * \brief Manages the data-structures for the non-separable operations
  */
 template<typename P>
@@ -194,6 +252,36 @@ public:
       func(time, nodes(grid), t1, t2);
     }
     nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
+  }
+  void operator ()
+      (interpolation_plan const &plan, sparse_grid const &grid,
+       connection_patterns const &conn, momentset<P> const &moments,
+       P time, P const state[], std::vector<P> const &ifield,
+       P alpha, term_md<P> const &tmd, P beta, P y[],
+       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+  {
+    expect(plan.is_enabled());
+    std::vector<P> const &nodal = [&]() -> std::vector<P> const &
+      {
+        if (plan.uses_field()) {
+          wav2nodal(grid, state, t1.data(), work);
+          return t1;
+        } else {
+          return ifield;
+        }
+      }();
+    {
+      tools::time_event perf_("interpolation function");
+      if (plan.uses_moments()) {
+        tmd.interp(time, nodes(grid), moments, nodal, t2);
+      } else {
+        tmd.interp(time, nodes(grid), nodal, t2);
+      }
+    }
+    if (plan.uses_hier())
+      nodal2hier(grid, conn, t2.data(), y, work);
+    else
+      nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
   }
   /*!
    * \brief Perform the interpolation ending at the heirarchical coefficients

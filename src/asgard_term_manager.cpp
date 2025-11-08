@@ -60,18 +60,8 @@ void term_manager<P>::apply_tmpl(
 
   auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
-      if (tme.is_interpolatory) {
-        if (tme.interp_uses_ifield) {
-          if (tme.interp_stop_at_hierarchy)
-            interp.field2hier(grid, conns, 0, ifield, tme.tmd.interp(), out, kwork, it1);
-          else
-            interp.field2wav(grid, conns, 0, ifield, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-        } else { // no field
-          if (tme.interp_stop_at_hierarchy)
-            interp.wav2hier(grid, conns, 0, in, tme.tmd.interp(), out, kwork, it1, it2);
-          else
-            interp(grid, conns, 0, in, al, tme.tmd.interp(), be, out, kwork, it1, it2);
-        }
+      if (tme.is_interpolatory()) {
+        interp(tme.interplan, grid, conns, momset, 0, in, ifield, al, tme.tmd, be, out, kwork, it1, it2);
       } else {
         block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                   al, in, be, out, kwork);
