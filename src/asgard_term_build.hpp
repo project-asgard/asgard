@@ -82,15 +82,6 @@ struct term_entry {
   //! retrun true if the term is separable
   bool is_separable() const { return (not is_interpolatory()); }
 
-  //! indicates whether the term is interpolatory
-  // bool is_interpolatory = false;
-  //! interpolation always uses ifield, e.g., first in the chain
-  // bool interp_uses_ifield = false;
-  //! interpolation uses the moments or just the field
-  //bool interp_uses_moments = false;
-  //! interpolation goes to hierarchical basis only or goes all the way to wavelets
-  //bool interp_stop_at_hierarchy = false;
-
   //! plan for the interpolation options
   interpolation_plan interplan;
   //! indicates whether the term is interpolatory
