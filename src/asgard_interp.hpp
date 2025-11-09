@@ -44,7 +44,10 @@ struct interpolation_plan
   }
 
   //! indicates whether the plan has been enabled
-  bool is_enabled() const { return (plan_mode_ != 0); }
+  bool is_enabled() const {
+    // if any flags is set, this is an interpolatory term
+    return (plan_mode_ != 0);
+  }
   //! indicates whether the plan uses pre-interpolated field
   bool uses_field() const { return (plan_mode_ & (1 << field_)) != 0; }
   //! indicates whether the plan uses moments
@@ -393,71 +396,41 @@ public:
     block_gpu(dev, pdof, grid, conn, perm_up, gpu_hier2wav_[dev.id],
               alpha * P{iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
   }
-  //! given field nodal values, compute hierarchical coefficients
-  void field2hier(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
-                 P time, std::vector<P> const &field,
-                 md_func_f<P> const &func, P y[],
-                 kronmult::workspace<P> &work, std::vector<P> &t1,
-                 gpu::vector<P> &gpu_t1) const
-  {
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), field, t1);
-    }
-    gpu_t1 = t1;
-    nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
-  }
-  //! given field nodal values, compute wavelet coefficients
-  void field2wav(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
-                 P time, std::vector<P> const &field,
-                 P alpha, md_func_f<P> const &func, P beta, P y[],
-                 kronmult::workspace<P> &work, std::vector<P> &t1,
-                 gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
-  {
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), field, t1);
-    }
-    gpu_t1 = t1;
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
-  }
-
-  void wav2hier(gpu::device dev, sparse_grid const &grid,
-                connection_patterns const &conn, P time, P const state[],
-                md_func_f<P> const &func, P y[],
-                kronmult::workspace<P> &work,
-                std::vector<P> &t1, std::vector<P> &t2,
-                gpu::vector<P> &gpu_t1) const
-  {
-    wav2nodal(dev, grid, state, gpu_t1.data(), work);
-    gpu_t1.copy_to_host(t1);
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), t1, t2);
-    }
-    gpu_t1 = t2;
-    nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
-  }
-
   /*!
    * \brief Performs the interpolation of the function func
    */
   void operator ()
-      (gpu::device dev, sparse_grid const &grid,
-       connection_patterns const &conn, P time, P const state[],
-       P alpha, md_func_f<P> const &func, P beta, P y[],
-       kronmult::workspace<P> &work,
-       std::vector<P> &t1, std::vector<P> &t2,
+      (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
+       connection_patterns const &conn, momentset<P> const &moments,
+       P time, P const state[], std::vector<P> const &ifield,
+       P alpha, term_md<P> const &tmd, P beta, P y[],
+       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2,
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
   {
-    wav2nodal(dev, grid, state, gpu_t1.data(), work);
-    gpu_t1.copy_to_host(t1);
+    expect(plan.is_enabled());
+    std::vector<P> const &nodal = [&]() -> std::vector<P> const &
+      {
+        if (plan.uses_field()) {
+          wav2nodal(dev, grid, state, gpu_t1.data(), work);
+          gpu_t1.copy_to_host(t1);
+          return t1;
+        } else {
+          return ifield;
+        }
+      }();
     {
       tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), t1, t2);
+      if (plan.uses_moments()) {
+        tmd.interp(time, nodes(grid), moments, nodal, t2);
+      } else {
+        tmd.interp(time, nodes(grid), nodal, t2);
+      }
     }
     gpu_t1 = t2;
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+    if (plan.uses_hier())
+      nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
+    else
+      nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
   }
   /*!
    * \brief Computes the interpolation function on the CPU and moves the data to the GPU
