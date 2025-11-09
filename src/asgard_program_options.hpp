@@ -68,9 +68,7 @@ enum class precon_method
   //! probably not a good idea for an iterative solve
   none = 0,
   //! diagonal Jacobi preconditioner
-  jacobi,
-  //! using alternating direction pseudoinverse (experimental)
-  adi
+  jacobi
 };
 
 #ifndef __ASGARD_DOXYGEN_SKIP
@@ -508,6 +506,14 @@ struct prog_opts
   void throw_if_invalid() const {
     throw_if_argv_not_in({}, {});
   }
+  /*!
+   * \brief throw if bad value is encountered, e.g., negative dt or degree
+   *
+   * This mostly checks if values that should be positive are indeed positive.
+   * It does not check deeper logic, e.g., the number of initial levels match
+   * the number of dimensions of the pde, or math logic
+   */
+  void throw_if_bad_value() const;
 
   //! sets the title, if the user did not provide a custom title
   void set_default_title(std::string_view const &dtitle) {

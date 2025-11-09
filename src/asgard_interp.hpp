@@ -5,6 +5,67 @@
 namespace asgard
 {
 /*!
+ * \brief Describes the stages of the interpolation operation.
+ *
+ * Uses bit operations to avoid storing multiple bools.
+ */
+struct interpolation_plan
+{
+  //! holds the information about the plan
+  int plan_mode_ = 0;
+
+  //! enable/disable the interpolation plan
+  void enable(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << enabled_);
+    else
+      plan_mode_ &= ~(1 << enabled_);
+  }
+  //! use the existing interpolated field or start from wavelet coefficients
+  void use_field(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << field_);
+    else
+      plan_mode_ &= ~(1 << field_);
+  }
+  //! does the current function use moments
+  void use_moments(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << moments_);
+    else
+      plan_mode_ &= ~(1 << moments_);
+  }
+  //! do we stop at the hierarchical coefficients or go back to wavelet basis
+  void stop_hier(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << hier_);
+    else
+      plan_mode_ &= ~(1 << hier_);
+  }
+
+  //! indicates whether the plan has been enabled
+  bool is_enabled() const {
+    // if any flags is set, this is an interpolatory term
+    return (plan_mode_ != 0);
+  }
+  //! indicates whether the plan uses pre-interpolated field
+  bool uses_field() const { return (plan_mode_ & (1 << field_)) != 0; }
+  //! indicates whether the plan uses moments
+  bool uses_moments() const { return (plan_mode_ & (1 << moments_)) != 0; }
+  //! indicates whether the plan stops at the hierarchy
+  bool uses_hier() const { return (plan_mode_ & (1 << hier_)) != 0; }
+
+  //! tag for whether to use the enabled
+  static int constexpr enabled_ = 0;
+  //! tag for whether to use the field
+  static int constexpr field_ = 1;
+  //! tag for whether to use moments
+  static int constexpr moments_ = 2;
+  //! tag for whether to stop at the hierarchy
+  static int constexpr hier_ = 3;
+};
+
+/*!
  * \brief Manages the data-structures for the non-separable operations
  */
 template<typename P>
@@ -131,45 +192,6 @@ public:
     block_cpu(pdof, grid, conn, perm_up, hier2wav_,
               alpha * P{iwav_scale}, t1.data(), beta, vals, work);
   }
-
-  /*!
-   * \brief given existing field values, perform the interpolation operation
-   *
-   * In essence this is the same operation as operator(), but the difference
-   * is that the first step (wav2nodal) is already done and only the application
-   * of the func and (nodal2wav) is needed.
-   */
-  void field2wav(sparse_grid const &grid, connection_patterns const &conn,
-                 P time, std::vector<P> const &field,
-                 P alpha, md_func_f<P> const &func, P beta, P y[],
-                 kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
-  {
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), field, t2);
-    }
-    nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
-  }
-
-  /*!
-   * \brief given existing field values, construct the interpolation hierarchical coefficients
-   *
-   * In essence this is the same operation as operator(), but the difference
-   * is that the first step (wav2nodal) is already done and only the application
-   * of the func and (nodal2wav) is needed.
-   */
-  void field2hier(sparse_grid const &grid, connection_patterns const &conn,
-                  P time, std::vector<P> const &field,
-                  md_func_f<P> const &func, P y[],
-                  kronmult::workspace<P> &work, std::vector<P> &t1) const
-  {
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), field, t1);
-    }
-    nodal2hier(grid, conn, t1.data(), y, work);
-  }
-
   /*!
    * \brief Performs the interpolation of the function func
    *
@@ -179,59 +201,47 @@ public:
    * 3. call func() with the time, nodes, state values as "f", and computes vals
    * 4. projects the result back in the basis and y = alpha * vals + beta * y
    *
+   * Depending on the plan options:
+   * 1. instead of computing the values of the state at the nodes,
+   *    the pre-computed ifield vector will be used
+   * 2. the func() will be called with the given moment set
+   * 3. the inversion may stop at the intermediate hierarchical interpolation
+   *    surpluses, when the projection to the wavelet basis is merged with
+   *    the follow-on separable term in a chain
+   *
    * The workspace is needed to call kronmult, the t1 and t2 are additional
    * workspace with size equal to the state.
    * The names t1/t2 come because this uses term_manager scratch space for working with chains
    */
   void operator ()
-      (sparse_grid const &grid, connection_patterns const &conn, P time, P const state[],
-       P alpha, md_func_f<P> const &func, P beta, P y[],
+      (interpolation_plan const &plan, sparse_grid const &grid,
+       connection_patterns const &conn, momentset<P> const &moments,
+       P time, P const state[], std::vector<P> const &ifield,
+       P alpha, term_md<P> const &tmd, P beta, P y[],
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
   {
-    wav2nodal(grid, state, t1.data(), work);
+    expect(plan.is_enabled());
+    std::vector<P> const &nodal = [&]() -> std::vector<P> const &
+      {
+        if (plan.uses_field()) {
+          wav2nodal(grid, state, t1.data(), work);
+          return t1;
+        } else {
+          return ifield;
+        }
+      }();
     {
       tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), t1, t2);
+      if (plan.uses_moments()) {
+        tmd.interp(time, nodes(grid), moments, nodal, t2);
+      } else {
+        tmd.interp(time, nodes(grid), nodal, t2);
+      }
     }
-    nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
-  }
-  /*!
-   * \brief Perform the interpolation ending at the heirarchical coefficients
-   *
-   * First this computes the values of the state at the interpolation nodes,
-   * then f is called with those values and the resulting output is converted
-   * to hierarchical form. The assumption here is that the final step (hier2wav)
-   * has been merged with the next link in the chain.
-   */
-  void wav2hier(sparse_grid const &grid, connection_patterns const &conn,
-       P time, P const state[], md_func_f<P> const &func, P y[],
-       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
-  {
-    wav2nodal(grid, state, t1.data(), work);
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), t1, t2);
-    }
-    nodal2hier(grid, conn, t2.data(), y, work);
-  }
-  /*!
-   * \brief Performs the interpolation of the function func
-   *
-   * Vector variant
-   */
-  void operator ()
-      (sparse_grid const &grid, connection_patterns const &conn, P time,
-       std::vector<P> const &state,
-       P alpha, md_func_f<P> const &func, P beta, std::vector<P> &y,
-       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
-  {
-    expect(state.size() == t1.size() and t1.size() == t2.size());
-    if (beta == 0)
-      y.resize(state.size());
+    if (plan.uses_hier())
+      nodal2hier(grid, conn, t2.data(), y, work);
     else
-      expect(y.size() == state.size());
-    (*this)(grid, conn, time, state.data(), alpha, func, beta, y.data(),
-            work, t1, t2);
+      nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -386,71 +396,41 @@ public:
     block_gpu(dev, pdof, grid, conn, perm_up, gpu_hier2wav_[dev.id],
               alpha * P{iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
   }
-  //! given field nodal values, compute hierarchical coefficients
-  void field2hier(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
-                 P time, std::vector<P> const &field,
-                 md_func_f<P> const &func, P y[],
-                 kronmult::workspace<P> &work, std::vector<P> &t1,
-                 gpu::vector<P> &gpu_t1) const
-  {
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), field, t1);
-    }
-    gpu_t1 = t1;
-    nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
-  }
-  //! given field nodal values, compute wavelet coefficients
-  void field2wav(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
-                 P time, std::vector<P> const &field,
-                 P alpha, md_func_f<P> const &func, P beta, P y[],
-                 kronmult::workspace<P> &work, std::vector<P> &t1,
-                 gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
-  {
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), field, t1);
-    }
-    gpu_t1 = t1;
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
-  }
-
-  void wav2hier(gpu::device dev, sparse_grid const &grid,
-                connection_patterns const &conn, P time, P const state[],
-                md_func_f<P> const &func, P y[],
-                kronmult::workspace<P> &work,
-                std::vector<P> &t1, std::vector<P> &t2,
-                gpu::vector<P> &gpu_t1) const
-  {
-    wav2nodal(dev, grid, state, gpu_t1.data(), work);
-    gpu_t1.copy_to_host(t1);
-    {
-      tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), t1, t2);
-    }
-    gpu_t1 = t2;
-    nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
-  }
-
   /*!
    * \brief Performs the interpolation of the function func
    */
   void operator ()
-      (gpu::device dev, sparse_grid const &grid,
-       connection_patterns const &conn, P time, P const state[],
-       P alpha, md_func_f<P> const &func, P beta, P y[],
-       kronmult::workspace<P> &work,
-       std::vector<P> &t1, std::vector<P> &t2,
+      (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
+       connection_patterns const &conn, momentset<P> const &moments,
+       P time, P const state[], std::vector<P> const &ifield,
+       P alpha, term_md<P> const &tmd, P beta, P y[],
+       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2,
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
   {
-    wav2nodal(dev, grid, state, gpu_t1.data(), work);
-    gpu_t1.copy_to_host(t1);
+    expect(plan.is_enabled());
+    std::vector<P> const &nodal = [&]() -> std::vector<P> const &
+      {
+        if (plan.uses_field()) {
+          wav2nodal(dev, grid, state, gpu_t1.data(), work);
+          gpu_t1.copy_to_host(t1);
+          return t1;
+        } else {
+          return ifield;
+        }
+      }();
     {
       tools::time_event perf_("interpolation function");
-      func(time, nodes(grid), t1, t2);
+      if (plan.uses_moments()) {
+        tmd.interp(time, nodes(grid), moments, nodal, t2);
+      } else {
+        tmd.interp(time, nodes(grid), nodal, t2);
+      }
     }
     gpu_t1 = t2;
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+    if (plan.uses_hier())
+      nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
+    else
+      nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
   }
   /*!
    * \brief Computes the interpolation function on the CPU and moves the data to the GPU

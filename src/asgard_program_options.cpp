@@ -452,8 +452,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         precon = precon_method::none;
       else if (*selected == "jacobi")
         precon = precon_method::jacobi;
-      else if (*selected == "adi")
-        precon = precon_method::adi;
       else
         throw std::runtime_error(report_wrong_value());
     }

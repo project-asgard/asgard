@@ -313,16 +313,16 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     // set interpolatory properties
     for (int i : indexof(terms)) {
       auto &t = terms[i];
-      t.is_interpolatory = t.tmd.is_interpolatory();
-      if (t.is_interpolatory) {
+      t.interplan.enable(t.tmd.is_interpolatory());
+      if (t.is_interpolatory()) {
         if (t.num_chain == 1) { // single entry
-          t.interp_uses_ifield = true;
+          t.interplan.use_field();
         } else if (t.is_chain_link() and
                    (i+1 == static_cast<int>(terms.size())
                     or not terms[i+1].is_chain_link())) {
           // if part of a chain and the next term is not from the current chain
           // i.e., this is the first link in the chain
-          t.interp_uses_ifield = true;
+          t.interplan.use_field();
         }
       }
     }
@@ -337,9 +337,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         continue;
       }
       #endif
-      has_field_interp = has_field_interp or it->interp_uses_ifield;
+      has_field_interp = has_field_interp or it->interplan.uses_field();
       if (it->is_chain_start())
-        has_field_interp = has_field_interp or (it + it->num_chain -1)->interp_uses_ifield;
+        has_field_interp = has_field_interp or (it + it->num_chain -1)->interplan.uses_field();
       it += it->num_chain;
     }
 
@@ -364,7 +364,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
             regular_moments.insert(regular_moments.end(), mids.begin(), mids.end());
           }
         }
-      } else if (tentry.interp_uses_moments) {
+      } else if (tentry.interplan.uses_moments()) {
         auto const &mids = tentry.tmd.mids_;
         interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
       }
@@ -438,7 +438,7 @@ void term_manager<P>::build_const_terms(
   if ((tmd.is_chain_start() or tmd.is_chain_link())
        and (static_cast<size_t>(tid + 1) < terms.size())
         and terms[tid + 1].is_chain_link()
-         and terms[tid + 1].is_interpolatory)
+         and terms[tid + 1].is_interpolatory())
   {
     // there is a potential here to merge this separable term with hier2wav
     merging_with_interp = true;
@@ -452,7 +452,7 @@ void term_manager<P>::build_const_terms(
   if (merging_with_interp)
   {
     constexpr bool merge_with_interp = true;
-    terms[tid + 1].interp_stop_at_hierarchy = true;
+    terms[tid + 1].interplan.stop_hier();
 
     std::vector<int> id_dirs;
     id_dirs.reserve(num_dims);
@@ -493,7 +493,7 @@ template<typename P>
 void term_manager<P>::rebuild_term1d(
     term_entry<P> &tentry, int const dim, int level,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    precon_method precon, P alpha, bool merge_with_interp)
+    precon_method, P, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -586,19 +586,6 @@ void term_manager<P>::rebuild_term1d(
     if (not bentry.consts[dim].empty()) {
       // will be empty if non-flux direction and non-separable in time
       hier.transform(level, bentry.consts[dim]);
-    }
-  }
-
-  // build the ADI preconditioner here
-  if (precon == precon_method::adi) {
-    if (is_diag) {
-      to_euler(basis.pdof, alpha, wraw_diag);
-      psedoinvert(basis.pdof, wraw_diag, raw_diag0);
-      tentry.adi[dim] = hier.diag2hierarchical(raw_diag0, level, conn);
-    } else {
-      to_euler(basis.pdof, alpha, wraw_tri);
-      psedoinvert(basis.pdof, wraw_tri, raw_tri0);
-      tentry.adi[dim] = hier.tri2hierarchical(raw_tri0, level, conn);
     }
   }
 }

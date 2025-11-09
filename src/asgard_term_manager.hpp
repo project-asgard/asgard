@@ -341,12 +341,9 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
   {
-    if (tme.is_interpolatory) {
-      if (tme.interp_stop_at_hierarchy) {
-        expect(alpha == 1 and beta == 0); // should oly be called by the boudary condition chains
-        interp.nodal2hier(grid, conns, x.data(), y.data(), kwork);
-      } else
-        interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+    if (tme.is_interpolatory()) {
+      interp(tme.interplan, grid, conns, momset, 0, x.data(), {},
+             alpha, tme.tmd, beta, y.data(), kwork, it1, it2);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -356,12 +353,9 @@ struct term_manager
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
-    if (tme.is_interpolatory) {
-      if (tme.interp_stop_at_hierarchy) {
-        expect(alpha == 1 and beta == 0); // should oly be called by the boudary condition chains
-        interp.nodal2hier(grid, conns, x, y, kwork);
-      } else
-        interp(grid, conns, 0, x, alpha, tme.tmd.interp(), beta, y, kwork, it1, it2);
+    if (tme.is_interpolatory()) {
+      interp(tme.interplan, grid, conns, momset, 0, x, {},
+             alpha, tme.tmd, beta, y, kwork, it1, it2);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);

@@ -134,11 +134,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   start_moments(); // grid may have changes above, wait to start the moments
 
-  if (stepper.needed_precon() == precon_method::adi) {
-    terms.build_matrices(grid, conn, hier, precon_method::adi,
-                         0.5 * stepper.data.dt());
-  } else
-    terms.build_matrices(grid, conn, hier);
+  terms.build_matrices(grid, conn, hier);
 
   if (high_verbosity())
     progress_report();
@@ -176,13 +172,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
   start_moments();
 
-  if (stepper.needed_precon() == precon_method::adi) {
-    precision const substep
-        = (options_.step_method.value() == time_method::cn) ? 0.5 : 1;
-    terms.build_matrices(grid, conn, hier, precon_method::adi,
-                         substep * stepper.data.dt());
-  } else
-    terms.build_matrices(grid, conn, hier);
+  terms.build_matrices(grid, conn, hier);
 
   if (not stop_verbosity()) {
     if (not options_.title.empty())

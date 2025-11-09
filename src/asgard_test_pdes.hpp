@@ -33,6 +33,14 @@ struct pde_contcos {};
  * \endinternal
  */
 struct pde_twostream {};
+/*!
+ * \internal
+ * \ingroup asgard_testing
+ * \brief Simple PDE using interpolation and imex solver
+ *
+ * \endinternal
+ */
+struct pde_burgers {};
 
 #endif
 
@@ -164,6 +172,155 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
     moment_id const m2 = pde.register_moment({2, moment::inactive});
 
     return pde;
+  }
+  else if constexpr (std::is_same_v<pde_type, pde_burgers>)
+  {
+    options.title = "Burgers PDE 2D";
+
+    P const nu = 0.01;
+
+    // the 1D case is set on (-8, 8), the higher dimensions use (-1, 1)^d
+    asgard::pde_domain<P> domain =
+        asgard::pde_domain<P>(std::vector<asgard::domain_range>(num_dims, {-1.0, 1.0}));
+
+    options.default_degree = 2;
+    options.default_start_levels = {6, };
+
+    // the inviscit equation can be done with an explicit time stepper
+    options.default_step_method = asgard::time_method::imex1;
+
+    P const dx = domain.min_cell_size(options.max_level());
+    options.default_dt = 0.05 * dx;
+    options.default_stop_time = 0.25;
+
+    options.default_solver = asgard::solver_method::bicgstab;
+
+    // defaults for iterative solvers, not necessarily optimal
+    options.default_isolver_tolerance  = 1.E-8;
+    options.default_isolver_iterations = 1000;
+
+    asgard::pde_scheme<P> pde(options, std::move(domain));
+
+    auto f2p = [=](P, asgard::vector2d<P> const &,
+                  std::vector<P> const &f, std::vector<P> &vals) ->
+      void {
+        for (size_t i = 0; i < f.size(); i++) {
+          vals[i] = (f[i] > 0) ? f[i] * f[i] : 0;
+        }
+      };
+    auto f2n = [=](P, asgard::vector2d<P> const &,
+                  std::vector<P> const &f, std::vector<P> &vals) ->
+      void {
+        for (size_t i = 0; i < f.size(); i++) {
+          vals[i] = (f[i] < 0) ? f[i] * f[i] : 0;
+        }
+      };
+
+    // setting up multidimensional volume term that uses interpolated coefficient
+    asgard::term_md<P> term_f2_pos = asgard::term_interp<P>{f2p};
+    asgard::term_md<P> term_f2_neg = asgard::term_interp<P>{f2n};
+
+    // initial conditions and derivatives in x and y, also the exact solution in time
+    auto icx   = [](P x) -> P { return P{1} + P{0.75} * x - P{0.25} * x * x; };
+    auto icdx  = [](P x) -> P { return P{0.75} - P{0.5} * x; };
+    auto icdxx = [](P) -> P { return - P{0.5}; };
+
+    auto icy   = [](P y) -> P { return (P{1} - y * y); };
+    auto icdy  = [](P y) -> P { return -2 * y; };
+    auto icdyy = [](P) -> P { return -2; };
+
+    auto exact_t = [](P t) -> P { return std::exp(-t); };
+
+    // boundary conditions in y are homogeneous and simple to impose to all terms
+    // boundary conditions in x are imposed only on the second order term
+    asgard::term_md<P> divx_pos = {asgard::term_div<P>{0.5, asgard::flux_type::upwind},
+                                    asgard::term_identity{}};
+    asgard::term_md<P> divx_neg = {asgard::term_div<P>{0.5, asgard::flux_type::downwind},
+                                    asgard::term_identity{}};
+    asgard::term_md<P> divy_pos = {asgard::term_identity{},
+                                    asgard::term_div<P>{0.5, asgard::boundary_type::left,
+                                                        asgard::flux_type::upwind}, };
+    asgard::term_md<P> divy_neg = {asgard::term_identity{},
+                                    asgard::term_div<P>{0.5, asgard::boundary_type::right,
+                                                        asgard::flux_type::downwind}, };
+
+    // the group ids are needed for IMEX scheme in the viscous way
+    int const non_linear_group_id = pde.new_term_group();
+
+    pde += asgard::term_md<P>{divx_pos, term_f2_pos};
+    pde += asgard::term_md<P>{divx_neg, term_f2_neg};
+    pde += asgard::term_md<P>{divy_pos, term_f2_pos};
+    pde += asgard::term_md<P>{divy_neg, term_f2_neg};
+
+    // setting up the non-separable source
+    auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
+      void {
+        for (int64_t i = 0; i < nodes.num_strips(); i++) {
+          P const x = nodes[i][0];
+          P const y = nodes[i][1];
+          // linear contribution
+          vals[i] = std::exp(-t)
+                    * (-icx(x) * icy(y) - nu * icdxx(x) * icy(y) - nu * icx(x) * icdyy(y));
+          // non-linear contribution
+          vals[i] += std::exp(-t) * std::exp(-t)
+                    * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
+        }
+      };
+
+    // setting the non-separable source into the pde_scheme
+    pde.set_source(smd);
+
+    // second order term in x
+    asgard::term_1d<P> div_grad_x = std::vector<asgard::term_1d<P>>{
+        asgard::term_div<P>{-std::sqrt(nu), asgard::boundary_type::none},
+        asgard::term_grad<P>{std::sqrt(nu), asgard::boundary_type::bothsides},
+      };
+
+    div_grad_x.set_penalty(1 / dx);
+
+    asgard::term_md<P> dgx = {div_grad_x, asgard::term_identity{}};
+
+    // adding inhomogeneous boundary condition on the right
+    asgard::separable_func<P> fr(std::vector<P>{icx(pde.domain().xright(0)), 1}, exact_t);
+    fr.set(1, [=](std::vector<P> const &y, P, std::vector<P> &fy) ->
+              void {
+                for (size_t i = 0; i < y.size(); i++)
+                  fy[i] = icy(y[i]);
+              });
+    dgx += asgard::right_boundary_flux{fr};
+
+    asgard::term_1d<P> div_grad_y = std::vector<asgard::term_1d<P>>{
+        asgard::term_div<P>{-std::sqrt(nu), asgard::boundary_type::none},
+        asgard::term_grad<P>{std::sqrt(nu), asgard::boundary_type::bothsides},
+      };
+
+    div_grad_y.set_penalty(1 / dx);
+
+    asgard::term_md<P> dgy = {asgard::term_identity{}, div_grad_y};
+
+    // adding the second order terms to a new term-group
+    int const laplacian_group_id = pde.new_term_group();
+    pde += dgx;
+    pde += dgy;
+
+    pde.set(asgard::imex_implicit_group{laplacian_group_id},
+            asgard::imex_explicit_group{non_linear_group_id});
+
+    // the vector version of the initial conditions
+    auto icx_vec = [=](std::vector<P> const &x, P, std::vector<P> &fx)
+      -> void {
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = icx(x[i]);
+      };
+    auto icy_vec = [=](std::vector<P> const &y, P, std::vector<P> &fy)
+      -> void {
+        for (size_t i = 0; i < y.size(); i++)
+          fy[i] = icy(y[i]);
+      };
+
+    pde.add_initial(asgard::separable_func<P>({icx_vec, icy_vec}, exact_t));
+
+    return pde;
 
   } else {
     rassert(false, "Incorrect pde type for make_testpde");
@@ -205,6 +362,33 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
     P const Ek = mom2[0] * std::sqrt(disc.domain().length(0));
 
     return 0.5 * (Ep + Ek);
+  }
+
+  if constexpr (std::is_same_v<pde_type, pde_burgers>)
+  {
+    // using the fact that the initial condition is the exact solution
+    std::vector<P> const eref = disc.project_function(disc.initial_cond_sep());
+
+    double constexpr space = 1984.0 / 900.0;
+    double const time_val  = std::exp(-disc.time());
+
+    // this is the L^2 norm-squared of the exact solution
+    double const enorm = space * time_val * time_val;
+
+    std::vector<P> const &state = disc.current_state_mpi();
+    assert(eref.size() == state.size());
+
+    double nself = 0;
+    double ndiff = 0;
+    for (size_t i = 0; i < state.size(); i++)
+    {
+      double const e = eref[i] - state[i];
+      ndiff += e * e;
+      double const r = eref[i];
+      nself += r * r;
+    }
+
+    return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
   }
 
   int const num_dims = disc.num_dims();
