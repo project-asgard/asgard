@@ -457,14 +457,16 @@ template void block_gpu<double, std::array<gpu::vector<double>, max_num_dimensio
     std::array<block_sparse_matrix<double>, max_num_dimensions> const &);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
-template void block_gpu<float, 1>(
+template void block_gpu<float, gpu::vector<float>, block_sparse_matrix<float>>(
     gpu::device, int, sparse_grid const &,
     connection_patterns const &, permutes const &,
-    std::array<gpu::vector<float>, 1> const &,
+    gpu::vector<float> const &,
     float, float const[], float, float[],
     workspace<float> &work,
-    std::array<block_sparse_matrix<float>, 1> const &);
-template void block_gpu<float, max_num_dimensions>(
+    block_sparse_matrix<float> const &);
+
+template void block_gpu<float, std::array<gpu::vector<float>, max_num_dimensions>,
+                        std::array<block_sparse_matrix<float>, max_num_dimensions>>(
     gpu::device, int, sparse_grid const &,
     connection_patterns const &, permutes const &,
     std::array<gpu::vector<float>, max_num_dimensions> const &,
