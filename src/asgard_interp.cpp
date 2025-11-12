@@ -230,7 +230,6 @@ interpolation_manager<P>::interpolation_manager(
     for (int i = 0; i < pdof; i++)
       hier_coeff(r + pdof, horder[i]) = -fm::lagrange<double>(points, i, canonical_hier[r + pdof]);
 
-
   fill_pattern(smmat::make_identity<P>(pdof).data(), diag_h2w); // start with identity
 
   nodal2hier_ = hier.diag2block(
@@ -287,7 +286,6 @@ interpolation_manager<P>::interpolation_manager(
                   hierarchy_manipulator<P>::operation::transform, nullptr,
                   hierarchy_manipulator<P>::operation::custom_non_unitary,
                   ihier_coeff.data(), diag_h2w, level, conns);
-
 
   // wav2nodal_.to_full(conns).print();
   // nodal2hier_.to_full(conns).print();

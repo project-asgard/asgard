@@ -295,12 +295,12 @@ sparse_grid::sparse_grid(prog_opts const &options)
   if (options.max_levels.empty()) { // testing or not using adaptivity
     for (int d : iindexof(numd)) {
       level_[d]     = levels[d];
-      max_index_[d] = (levels[d] == 0) ? 1 : fm::ipow2(levels[d]);
+      max_index_[d] = (levels[d] == 0) ? 0 : fm::ipow2(levels[d]);
     }
   } else {
     for (int d : iindexof(numd)) {
       level_[d]     = levels[d];
-      max_index_[d] = (options.max_levels[d] == 0) ? 1 : fm::ipow2(options.max_levels[d]);
+      max_index_[d] = (options.max_levels[d] == 0) ? 0 : fm::ipow2(options.max_levels[d]);
     }
   }
 
