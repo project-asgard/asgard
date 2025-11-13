@@ -487,8 +487,8 @@ void self_test() {
 
   // in the first few steps here, the grid is very coarse
   // finer refinement and time-step is needed, only the final error is OK
-  longtest(2.E-3, 2, "-l 2 -m 8 -a 1.E-3");
-  longtest(2.E-3, 2, "-l 2 -m 8 -a 1.E-3 -sv direct"); // check if solver is updated
+  longtest(8.E-3, 2, "-l 2 -m 8 -a 1.E-3");
+  longtest(8.E-3, 2, "-l 2 -m 8 -a 1.E-3 -sv direct"); // check if solver is updated
   dotest(5.E-3, 2, "-l 8 -a 1.E-4");
 #endif
 

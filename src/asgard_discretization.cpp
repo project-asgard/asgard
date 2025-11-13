@@ -29,6 +29,8 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   grid.gpu_sync();
   #endif
 
+  refinement = refinement_manager<precision>(options_, pde);
+
   if (not stop_verbosity()) {
     if (not options_.title.empty())
       std::cout << "    title: " << options_.title << '\n';
@@ -159,6 +161,8 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
   #ifdef ASGARD_USE_GPU
   grid.gpu_sync();
   #endif
+
+  refinement = refinement_manager<precision>(options_, pde);
 
   hier = hierarchy_manipulator(options_.degree.value(), domain_);
 

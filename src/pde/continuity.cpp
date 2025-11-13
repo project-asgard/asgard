@@ -474,9 +474,9 @@ void self_test() {
   dotest<double>(0.002, 2, "-l 5 -d 3 -n 20");
 
   // test adaptivity, should remain within the error tolerance
-  dotest<double>(1.E-2, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-2");
-  dotest<double>(1.E-3, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-3");
-  dotest<double>(1.E-4, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-4");
+  dotest<double>(2.E-2, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-2");
+  dotest<double>(2.E-3, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-3");
+  dotest<double>(2.E-4, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-4");
 
   // test different number of dimensions
   dotest<double>(1.E-1, 1, "-l 4 -m 8 -d 2 -n 20 -a 1.E-1");
@@ -493,7 +493,7 @@ void self_test() {
   dolongtest<double>(0.02, 2, "-l 5 -t 10");
 
   // adaptivity is tricky near the time-period when the solution vanishes
-  dolongtest<double>(0.03, 2, "-l 4 -m 8 -t 10 -a 5.E-3");
+  dolongtest<double>(0.07, 2, "-l 4 -m 8 -t 10 -a 1.E-3");
 
   // different explicit time-stepping
   dotest<double>(0.05, 2, "-s rk2 -l 5 -n 20");

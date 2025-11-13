@@ -469,7 +469,7 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
 
         idx[d] = iset_[i][d];
       }
-    } else {
+    } else if (weights[i] < tol) {
       // maybe remove, but only if the parents are small
       if (mode != strategy::refine) { // if we are allowed to remove nodes
         bool keep = false;
@@ -486,6 +486,178 @@ void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hiera
         if (not keep)
           stat[i] = istatus::clear;
       }
+    }
+  }
+
+  // never remove index 0, must have at least one cell in the grid
+  if (stat.front() == istatus::clear)
+    stat.front() = istatus::keep;
+
+  // count an upper bound for the new nodes
+  int const num_family = 1 + 2 * num_dims; // self + kids
+  int64_t reserve = 0;
+  for (int64_t i = 0; i < num; i++)
+  {
+    switch (stat[i]) {
+      case istatus::keep:
+        reserve += 1;
+        break;
+      case istatus::refine:
+        {
+          bool valid_kid = false;
+          for (int d : iindexof(num_dims)) {
+            int const kid = 2 * iset_[i][d];
+            if (kid < max_index_[d]) { // enforce the max-level
+              valid_kid = true;
+              break; // stop the loop over num_dims
+            }
+          }
+          if (valid_kid)
+            reserve += num_family;
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  // assign new memory for the kept + refined nodes
+  std::vector<int> update;
+  update.reserve(num_dims * reserve);
+  for (int64_t i = 0; i < num; i++)
+  {
+    std::array<int, max_num_dimensions> idx;
+
+    switch (stat[i]) {
+      case istatus::keep:
+        update.insert(update.end(), iset_[i], iset_[i] + num_dims);
+        break;
+      case istatus::refine:
+        {
+          update.insert(update.end(), iset_[i], iset_[i] + num_dims);
+          std::copy_n(iset_[i], num_dims, idx.data());
+          for (int d : iindexof(num_dims)) {
+            idx[d] *= 2;
+            if (idx[d] >= max_index_[d]) { // enforce the max-level
+              idx[d] = iset_[i][d];
+              continue;
+            }
+            update.insert(update.end(), idx.data(), idx.data() + num_dims);
+            idx[d] += 1;
+            update.insert(update.end(), idx.data(), idx.data() + num_dims);
+            idx[d] = iset_[i][d];
+          }
+        }
+        break;
+      default: // remove the point, nothing to do
+        break;
+    }
+  }
+
+  indexset inew = make_index_set(span2d<int>(num_dims, update));
+
+  inew += compute_ancestry_completion(inew, hierarchy);
+
+  // indexset hcheck = compute_ancestry_completion(inew, hierarchy);
+  // std::cout << "  --     new nodes: " << inew.num_indexes() << "\n";
+  // std::cout << "  -- missing nodes: " << hcheck.num_indexes() << " (should be zero)\n";
+
+  // check if the new grid is different
+  bool change = false;
+  if (inew.num_indexes() != iset_.num_indexes()) {
+    change = true;
+  } else {
+    for (int64_t i = 0; i < num; i++) {
+      for (int d : iindexof(num_dims)) {
+        if (inew[i][d] != iset_[i][d]) {
+          change = true;
+          break;
+        }
+      }
+      if (change)
+        break;
+    }
+  }
+
+  if (not change) // done, nothing to do here
+    return;
+
+  // find the map from the old indexes to the new ones
+  int64_t const num_new = inew.num_indexes();
+  map_.resize(inew.num_indexes());
+#pragma omp parallel for
+  for (int64_t i = 0; i < num_new; i++) {
+    map_[i] = iset_.find(inew[i]);
+  }
+
+  std::fill_n(level_.begin(), num_dims, 0);
+
+  #pragma omp parallel
+  {
+    std::array<int, max_num_dimensions> mylvl;
+    std::fill_n(mylvl.begin(), num_dims, 0);
+
+    #pragma omp for
+    for (int64_t i = 0; i < num_new; i++) {
+      for (int d = 0; d < num_dims; d++) {
+        int const l = (inew[i][d] == 0) ? 0 : (1 + fm::intlog2(inew[i][d]));
+        mylvl[d] = std::max(mylvl[d], l);
+      }
+    }
+
+    #pragma omp critical
+    {
+      for (int d = 0; d < num_dims; d++)
+        level_[d] = std::max(level_[d], mylvl[d]);
+    }
+  }
+
+  iset_  = std::move(inew);
+  dsort_ = dimension_sort(iset_);
+
+  generation_ += 1; // grid changed
+}
+
+void sparse_grid::refine(connect_1d const &hierarchy, strategy mode, std::vector<istatus> &stat)
+{
+  tools::time_event refining("grid refining");
+  int const num_dims = iset_.num_dimensions();
+
+  int64_t const num = iset_.num_indexes();
+
+#pragma omp parallel for
+  for (int64_t i = 0; i < num; i++)
+  {
+    std::array<int, max_num_dimensions> idx;
+    std::copy_n(iset_[i], num_dims, idx.data());
+
+    if (stat[i] == istatus::refine and mode != strategy::coarsen) {
+      // must refine but only if kids are missing
+      for (int d : iindexof(num_dims)) {
+        idx[d] *= 2;
+        if (not iset_.missing(idx)) {
+          idx[d] += 1;
+          // if both kids are here, don't refine
+          if (not iset_.missing(idx))
+            stat[i] = istatus::keep;
+        }
+        idx[d] = iset_[i][d];
+      }
+    } else if (stat[i] == istatus::clear and mode != strategy::refine) {
+      // maybe remove, but only if allowed to clear and parents are set as "clear"
+      bool keep = false;
+      for (int d : iindexof(num_dims)) {
+        if (idx[d] == 0)
+          continue;
+
+        idx[d] /= 2;
+        if (stat[ iset_.find(idx.data()) ] != istatus::clear)
+          keep = true;
+
+        idx[d] = iset_[i][d];
+      }
+      if (keep)
+        stat[i] = istatus::keep;
     }
   }
 
