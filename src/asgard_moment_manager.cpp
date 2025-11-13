@@ -584,6 +584,19 @@ void moment_manager<P>::make_nodal(
 }
 
 template<typename P>
+void moment_manager<P>::compute_interps(
+    std::vector<moment_id> const &ids, sparse_grid const &grid,
+    std::vector<P> const &state, interpolation_manager<P> const &interp,
+    connection_patterns const &conn, kronmult::workspace<P> &work,
+    std::vector<P> &workspace)
+{
+  for (auto const &id : ids) {
+    cache_moment(id, grid, state);
+    make_nodal(id, interp, conn, work, workspace);
+  }
+}
+
+template<typename P>
 void moment_manager<P>::load_interp(
     interpolation_manager<P> const &interp, connection_patterns const &conn,
     kronmult::workspace<P> &work, std::vector<P> &workspace) const
