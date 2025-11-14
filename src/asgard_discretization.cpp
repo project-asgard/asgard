@@ -266,19 +266,17 @@ void discretization_manager<precision>::set_initial_condition()
 
       terms.rebuild_mass_matrices(grid);
 
-      std::array<block_diag_matrix<precision>, max_num_dimensions> mock;
-
       hier.template project_separable<data_mode::increment>
             (initial_sep_[i], grid, terms.lmass, time, 1, state.data());
     }
 
-    if (atol > 0 or rtol > 0) {
+    if (refinement) {
       // on the first iteration, do both refine and coarsen with a full-adapt
       // on follow-on iteration, only add more nodes for stability and to avoid stagnation
       sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
                                                      : sparse_grid::strategy::refine;
       int const gid = grid.generation();
-      grid.refine(atol, rtol, hier.block_size(), conn[connect_1d::hierarchy::volume], mode, state);
+      refine(mode, state);
 
       // if the grid remained the same, there's nothing to do
       keep_refining = (gid != grid.generation());

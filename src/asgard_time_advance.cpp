@@ -561,18 +561,11 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   {
     stepper.next_step(manager, manager.state, next);
 
-    if (atol > 0 or rtol > 0) {
+    if (manager.refinement) {
       int const gen = grid.generation();
-      bool const use_old = false;
-      if (use_old) {
-        if (manager.is_leader()) {
-          grid.refine(atol, rtol, manager.hier.block_size(),
-                      manager.conn[connect_1d::hierarchy::volume], grid_strategy, next);
-        }
-      } else {
-        manager.refine(grid_strategy, next);
-      }
+      manager.refine(grid_strategy, next);
       manager.grid_sync(); // no-op, unless MPI or GPUs are enabled
+
       if (grid.generation() != gen) {
         if (manager.is_leader())
           grid.remap(manager.hier.block_size(), next);
