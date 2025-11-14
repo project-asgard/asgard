@@ -106,7 +106,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
   auto f2p = [=](P, asgard::vector2d<P> const &,
-                std::vector<P> const &f, std::vector<P> &vals) ->
+                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       // ignore the first input, it is time but it is not implemented yet
       // the coefficient function must return values at specific points
@@ -128,12 +128,22 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       }
     };
   auto f2n = [=](P, asgard::vector2d<P> const &,
-                std::vector<P> const &f, std::vector<P> &vals) ->
+                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       for (size_t i = 0; i < f.size(); i++) {
         vals[i] = (f[i] < 0) ? f[i] * f[i] : 0;
       }
     };
+
+  // ensure that the adaptive process captures the nonlinear component in addition to the field
+  auto f2 = [=](P, asgard::vector2d<P> const &,
+                std::vector<P> const &f, std::vector<P> &vals) ->
+    void {
+      for (size_t i = 0; i < f.size(); i++) {
+        vals[i] = f[i] * f[i];
+      }
+    };
+  pde.set_adapt_weight(f2);
 
   // setting up multidimensional volume term that uses interpolated coefficient
   asgard::term_md<P> term_f2_pos = asgard::term_interp<P>{f2p};

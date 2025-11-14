@@ -225,10 +225,10 @@ public:
     std::vector<P> const &nodal = [&]() -> std::vector<P> const &
       {
         if (plan.uses_field()) {
+          return ifield;
+        } else {
           wav2nodal(grid, state, t1.data(), work);
           return t1;
-        } else {
-          return ifield;
         }
       }();
     {
