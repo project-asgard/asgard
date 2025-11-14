@@ -549,9 +549,6 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   if (num_steps < 1)
     return;
 
-  P const atol = manager.options().adapt_threshold.value_or(0);
-  P const rtol = manager.options().adapt_relative.value_or(0);
-
   sparse_grid &grid = manager.grid;
 
   sparse_grid::strategy grid_strategy = sparse_grid::strategy::refine;
