@@ -351,6 +351,7 @@ void self_test() {
     discretization_manager<P> disc(make_sod(1, options), verbosity_level::quiet);
 
     // initial grid, 2D, level 5, degree 2
+    std::cout << " disc.current_state().size() = " << disc.current_state().size() << '\n';
     tassert(disc.current_state().size() == 900u);
 
     disc.advance_time();

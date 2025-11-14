@@ -235,9 +235,6 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
 template<typename precision>
 void discretization_manager<precision>::set_initial_condition()
 {
-  precision const atol = options_.adapt_threshold.value_or(0);
-  precision const rtol = options_.adapt_relative.value_or(0);
-
   #ifdef ASGARD_USE_MPI
   if (not is_leader()) {
     this->grid_sync();
