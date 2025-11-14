@@ -643,9 +643,9 @@ void sparse_grid::refine(connect_1d const &hierarchy, strategy mode, std::vector
         }
         idx[d] = iset_[i][d];
       }
-    } else if (stat[i] == istatus::clear and mode != strategy::refine) {
+    } else if (stat[i] == istatus::clear) {
       // maybe remove, but only if allowed to clear and parents are set as "clear"
-      bool keep = false;
+      bool keep = (mode == strategy::refine);
       for (int d : iindexof(num_dims)) {
         if (idx[d] == 0)
           continue;

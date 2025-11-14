@@ -47,7 +47,7 @@ void refinement_manager<P>::refine_(
     maxw += sumall;
   }
 
-  P tol = rtol * std::sqrt(maxw) + atol;;
+  P tol = rtol * std::sqrt(maxw) + atol;
 
   stats.resize(num_indexes);
   ASGARD_OMP_PARFOR_SIMD
