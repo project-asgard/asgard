@@ -545,6 +545,7 @@ void self_test() {
 #ifdef ASGARD_ENABLE_DOUBLE
   dotest<double>(1.E-5, 2, "-l 6 -n 10 -nu 0.1");
   dotest<double>(1.E-7, 2, "-l 6 -n 20 -nu 0");
+  dotest<double>(1.E-7, 2, "-l 3 -m 8 -n 20 -a 1.E-8 -nu 0");
 #endif
 
 #ifndef ASGARD_ENABLE_DOUBLE

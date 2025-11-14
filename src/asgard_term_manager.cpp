@@ -261,7 +261,8 @@ void term_manager<P>::apply_tmpl_gpu(
                (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.is_interpolatory()) {
-        interp(dev, tme.interplan, grid, conns, momset, 0, in, ifield, al, tme.tmd, be, out, kwork,
+        interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(), 0, in, ifield,
+               al, tme.tmd, be, out, kwork,
                cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
       } else {
         block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
