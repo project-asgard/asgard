@@ -242,11 +242,11 @@ class asgard_reconstruction_tests(unittest.TestCase):
 
     def test_cellcenters(self):
         print("\ntesting cell centers")
-        os.system("./continuity -dims 2 -d 1 -l 2 -n 0 -of cells.h5 -dt 0.01 1>/dev/null")
+        os.system("./continuity -dims 2 -d 1 -l 2 -n 0 -of _asg_cells.h5 -dt 0.01 -vv 0")
 
-        self.assertTrue(os.path.isfile("cells.h5"), "failed to generate output for cell centers")
+        self.assertTrue(os.path.isfile("_asg_cells.h5"), "failed to generate output for cell centers")
 
-        snapshot = asgard.pde_snapshot("cells.h5")
+        snapshot = asgard.pde_snapshot("_asg_cells.h5")
 
         cells = snapshot.cell_centers()
 
