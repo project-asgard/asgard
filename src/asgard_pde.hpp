@@ -1631,12 +1631,16 @@ public:
   imex_explicit_group imex_ex() const { return ex_; }
 
   //! set an interpolation function for adaptivity
-  void set_adapt_weight(md_func_f<P> func) { ref_interp_ = std::move(func); }
+  void set_adapt_weight(md_func_f<P> func) {
+    has_interp_funcs = true;
+    ref_interp_      = std::move(func);
+  }
   //! set an interpolation function for adaptivity
   void set_adapt_weight(std::vector<moment_id> moments, md_mom_func_f<P> func) {
     rassert(not moments.empty(), "moment function");
-    ref_moments_    = std::move(moments);
-    ref_interp_mom_ = std::move(func);
+    has_interp_funcs = true;
+    ref_moments_     = std::move(moments);
+    ref_interp_mom_  = std::move(func);
   }
 
   //! allows writer to save/load the pde and options

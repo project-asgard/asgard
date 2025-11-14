@@ -54,9 +54,26 @@ private:
   P atol = -1;
   P rtol = -1;
 
-  md_func_f<P> finterp_;
-  md_mom_func_f<P> finterp_mom_;
+  struct interp_funcs {
+    void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
+      expect(!!interp_);
+      interp_(t, x, f, vals);
+    }
+    void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
+                std::vector<P> const &f, std::vector<P> &vals) const {
+      expect(!!interp_mom_);
+      interp_mom_(t, x, moments, f, vals);
+    }
+    operator bool () const { return (interp_ or interp_mom_); }
+    md_func_f<P> interp_;
+    md_mom_func_f<P> interp_mom_;
+  };
+
+  interp_funcs ifuncs_;
+
   std::vector<moment_id> moments_;
+
+  mutable interpolation_plan iplan;
 
   mutable std::vector<istatus> stats;
   mutable std::vector<P> weights;

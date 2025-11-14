@@ -10,9 +10,14 @@ refinement_manager<P>::refinement_manager(prog_opts const &options, pde_scheme<P
     atol = static_cast<P>(options.adapt_threshold.value_or(0));
     rtol = static_cast<P>(options.adapt_relative.value_or(0));
 
-    finterp_     = std::move(pde.ref_interp_);
-    finterp_mom_ = std::move(pde.ref_interp_mom_);
+    ifuncs_ = interp_funcs{std::move(pde.ref_interp_), std::move(pde.ref_interp_mom_)};
+
     moments_     = std::move(pde.ref_moments_);
+
+    if (ifuncs_) {
+      iplan.enable();
+      iplan.stop_hier();
+    }
   }
 }
 
@@ -34,7 +39,7 @@ void refinement_manager<P>::refine_(
     #pragma omp for
     for (int64_t i = 0; i < num_indexes; i++) {
       P sum = 0;
-      // ASGARD_OMP_SIMD
+      ASGARD_OMP_SIMD
       for (int64_t j = 0; j < block_size; j++) {
         P const s = state[i * block_size + j];
         sum += s * s;
@@ -47,7 +52,7 @@ void refinement_manager<P>::refine_(
     maxw += sumall;
   }
 
-  P tol = rtol * std::sqrt(maxw) + atol;
+  P const tol = rtol * std::sqrt(maxw) + atol;
 
   stats.resize(num_indexes);
   ASGARD_OMP_PARFOR_SIMD
@@ -55,13 +60,61 @@ void refinement_manager<P>::refine_(
     stats[i] = (std::sqrt(weights[i]) >= tol) ? istatus::refine : istatus::clear;
   }
 
+  auto update_stats = [&](std::vector<P> const &vals) -> void
+    {
+      P wmax = 0;
+
+      #pragma omp parallel
+      {
+        P maxall = 0;
+
+        #pragma omp for
+        for (int64_t i = 0; i < num_indexes; i++) {
+          P m = 0;
+          ASGARD_OMP_SIMD
+          for (int64_t j = 0; j < block_size; j++)
+            m = std::max(m, std::abs(vals[i * block_size + j]));
+
+          maxall     = std::max(m, maxall);
+          weights[i] = m;
+        }
+
+        #pragma omp critical
+        if (maxall > wmax) {
+          wmax = maxall;
+        }
+      }
+
+      P const t = rtol * wmax + atol;
+
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_indexes; i++) {
+        if (stats[i] == istatus::clear and weights[i] >= t)
+          stats[i] = istatus::refine;
+      }
+    };
+
+  // add the correction due to the interpolation terms
+  if (iplan.is_enabled()) {
+    if (ifuncs_.interp_) {
+      iplan.use_moments(false);
+      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
+                   1, ifuncs_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+      update_stats(terms.t1);
+    }
+
+    if (ifuncs_.interp_mom_) {
+      terms.moms.compute_interps(moments_, grid, state, terms.interp,
+                                 conns, terms.kwork, terms.t1);
+      iplan.use_moments();
+      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
+                   1, ifuncs_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+      update_stats(terms.t1);
+    }
+  }
+
+
   grid.refine(conns[connect_1d::hierarchy::volume], mode, stats);
-
-  ignore(terms);
-
-//   if (finterp_mom_) {
-//
-//   }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
