@@ -26,7 +26,9 @@ template<typename P>
 class refinement_manager
 {
 private:
+  //! using enums from the sparse grid class
   using istatus  = sparse_grid::istatus;
+  //! using enums from the sparse grid class
   using strategy = sparse_grid::strategy;
 
 public:
@@ -51,14 +53,24 @@ private:
   void refine_(connection_patterns const &conns, term_manager<P> const &terms,
                std::vector<P> const &state, strategy mode, sparse_grid &grid) const;
 
+  //! absolute tolerance, -1 indicates not using refinement
   P atol = -1;
+  //! relative tolerance, -1 indicates not using refinement
   P rtol = -1;
 
-  struct interp_funcs {
+  /*!
+   * \brief Holds the information for additional interpolation weights
+   *
+   * The weights are defined via interpolation functions and match the call
+   * convention used by asgard::term_md to easily work with interpolation.
+   */
+  struct interp_weights {
+    //! interpolation weights using only the field
     void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
       expect(!!interp_);
       interp_(t, x, f, vals);
     }
+    //! interpolation weights using the field and moments
     void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
                 std::vector<P> const &f, std::vector<P> &vals) const {
       expect(!!interp_mom_);
@@ -69,7 +81,7 @@ private:
     md_mom_func_f<P> interp_mom_;
   };
 
-  interp_funcs ifuncs_;
+  interp_weights weights_;
 
   std::vector<moment_id> moments_;
 

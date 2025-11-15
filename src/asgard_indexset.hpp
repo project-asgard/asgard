@@ -555,10 +555,14 @@ public:
    *
    * \param hierarchy is the volume hierarchy build up to the max level
    * \param mode indicates whether we are coarsening, refining or both (adapt)
-   * \param stat mark for each multi-index whether it should be refined (large coefficient),
-   *             or cleared (small coefficient)
+   * \param marked each multi-index whether it should be refined (large coefficient),
+   *               or cleared (small coefficient)
+   *
+   * \b marked must have size equal to num_indexes() and contain only values of refine
+   * and clear. If using strategy::coarsen, then no refinement will be performed,
+   * and indexes marked as clear may be kept to preserve completeness.
    */
-  void refine(connect_1d const &hierarchy, strategy mode, std::vector<istatus> &stat);
+  void refine(connect_1d const &hierarchy, strategy mode, std::vector<istatus> &marked);
 
   //! remaps the vector entries from an old grid to the new one, pads with zero
   template<typename P>

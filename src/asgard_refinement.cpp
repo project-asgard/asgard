@@ -10,11 +10,11 @@ refinement_manager<P>::refinement_manager(prog_opts const &options, pde_scheme<P
     atol = static_cast<P>(options.adapt_threshold.value_or(0));
     rtol = static_cast<P>(options.adapt_relative.value_or(0));
 
-    ifuncs_ = interp_funcs{std::move(pde.ref_interp_), std::move(pde.ref_interp_mom_)};
+    weights_ = interp_weights{std::move(pde.ref_interp_), std::move(pde.ref_interp_mom_)};
 
-    moments_     = std::move(pde.ref_moments_);
+    moments_ = std::move(pde.ref_moments_);
 
-    if (ifuncs_) {
+    if (weights_) {
       iplan.enable();
       iplan.stop_hier();
     }
@@ -96,23 +96,22 @@ void refinement_manager<P>::refine_(
 
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
-    if (ifuncs_.interp_) {
+    if (weights_.interp_) {
       iplan.use_moments(false);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, ifuncs_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+                   1, weights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
       update_stats(terms.t1);
     }
 
-    if (ifuncs_.interp_mom_) {
+    if (weights_.interp_mom_) {
       terms.moms.compute_interps(moments_, grid, state, terms.interp,
                                  conns, terms.kwork, terms.t1);
-      iplan.use_moments();
+      iplan.use_moments(true);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, ifuncs_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+                   1, weights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
       update_stats(terms.t1);
     }
   }
-
 
   grid.refine(conns[connect_1d::hierarchy::volume], mode, stats);
 }
