@@ -113,12 +113,8 @@ struct term_manager
   //! handles basis manipulations
   legendre_basis<P> basis;
 
-  //! storage for the moments
-  momentset<P> momset;
   //! manages the moments operations, interplays with the mass
   moment_manager<P> moms;
-  //! storage for the interpolated moments
-  momentset<P> momset_interp;
   //! interpolation data
   interpolation_manager<P> interp;
   //! values for the interpolation field, allows reuse for several interp ops
@@ -342,7 +338,7 @@ struct term_manager
                  std::vector<P> &y) const
   {
     if (tme.is_interpolatory()) {
-      interp(tme.interplan, grid, conns, momset, 0, x.data(), {},
+      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x.data(), {},
              alpha, tme.tmd, beta, y.data(), kwork, it1, it2);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
@@ -354,7 +350,7 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(tme.interplan, grid, conns, momset, 0, x, {},
+      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x, {},
              alpha, tme.tmd, beta, y, kwork, it1, it2);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,

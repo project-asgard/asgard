@@ -12,6 +12,10 @@ namespace asgard
 // of both a sparse_grid and an indexset
 template<typename P>
 class moment_manager;
+// forward declaration for friend to the pde_scheme and direct access to
+// the refinement interpolation functions
+template<typename P>
+class refinement_manager;
 
 /*!
  * \brief Helper wrapper for data that will be organized in two dimensional form
@@ -498,11 +502,20 @@ struct gpu_grid_data {
 class sparse_grid
 {
 public:
+  //! marks the status of a sparse grid multi-index (cell)
+  enum class istatus {
+    //! keep this index
+    keep,
+    //! refine this index, i.e., include the hierarchical descendants
+    refine,
+    //! mark index for removal
+    clear
+  };
   //! indicates whether to refine, coarsen (compress) or do both
   enum class strategy {
-    //! add indexes based on the tolerance, does not remove indexes
+    //! add hierarchical descendants of indexes marked as refine, ignore istatus::clear
     refine,
-    //! remove indexes only (compress the solution)
+    //! remove indexes marked as clear, ignore istatus::refine
     coarsen,
     //! simultaneously add and remove indexes
     adapt
@@ -540,19 +553,16 @@ public:
   /*!
    * \brief Update the grid based on the strategy and current state
    *
-   * \tparam P is float or double
-   *
-   * \param atolerance indicates the absolute tolerance for the refinement
-   * \param rtolerance indicates the relative tolerance for the refinement
-   * \param block_size is the number of degrees of freedom in a cell
    * \param hierarchy is the volume hierarchy build up to the max level
    * \param mode indicates whether we are coarsening, refining or both (adapt)
-   * \param state the magnitude of the indexes in the cell will guide the refinement,
-   *              the size of \b state should be block_size * num_indexes()
+   * \param marked each multi-index whether it should be refined (large coefficient),
+   *               or cleared (small coefficient)
+   *
+   * \b marked must have size equal to num_indexes() and contain only values of refine
+   * and clear. If using strategy::coarsen, then no refinement will be performed,
+   * and indexes marked as clear may be kept to preserve completeness.
    */
-  template<typename P>
-  void refine(P atolerance, P rtolerance, int block_size, connect_1d const &hierarchy,
-              strategy mode, std::vector<P> const &state);
+  void refine(connect_1d const &hierarchy, strategy mode, std::vector<istatus> &marked);
 
   //! remaps the vector entries from an old grid to the new one, pads with zero
   template<typename P>
@@ -649,16 +659,6 @@ public:
   friend class moment_manager;
 
 protected:
-  //! marks the status of an entry
-  enum class istatus {
-    //! keep this index
-    keep,
-    //! refine this index, i.e., include the hierarchical descendants
-    refine,
-    //! mark index for removal
-    clear
-  };
-
   //! helper method, constructs a sparse grid given type and anisotropy
   template<grid_type gtype>
   indexset make_level_set(std::vector<int> const &levels);

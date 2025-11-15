@@ -535,7 +535,7 @@ void moment_manager<P>::cache_moments(
 
 template<typename P>
 void moment_manager<P>::cache_moment(moment_id id, sparse_grid const &grid,
-                                     std::vector<P> const &state)
+                                     std::vector<P> const &state) const
 {
   compute(grid, id, state, raw_vals.get(id));
   full_level.get(id).resize(0);
@@ -580,6 +580,19 @@ void moment_manager<P>::make_nodal(
     P *out = base + full_block;
     for (int j = pntr[i] + 1; j < pntr[i + 1]; j++)
       out = std::copy_n(base, full_block, out);
+  }
+}
+
+template<typename P>
+void moment_manager<P>::compute_interps(
+    std::vector<moment_id> const &ids, sparse_grid const &grid,
+    std::vector<P> const &state, interpolation_manager<P> const &interp,
+    connection_patterns const &conn, kronmult::workspace<P> &work,
+    std::vector<P> &workspace) const
+{
+  for (auto const &id : ids) {
+    cache_moment(id, grid, state);
+    make_nodal(id, interp, conn, work, workspace);
   }
 }
 

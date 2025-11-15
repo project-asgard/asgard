@@ -295,12 +295,12 @@ sparse_grid::sparse_grid(prog_opts const &options)
   if (options.max_levels.empty()) { // testing or not using adaptivity
     for (int d : iindexof(numd)) {
       level_[d]     = levels[d];
-      max_index_[d] = (levels[d] == 0) ? 1 : fm::ipow2(levels[d]);
+      max_index_[d] = (levels[d] == 0) ? 0 : fm::ipow2(levels[d]);
     }
   } else {
     for (int d : iindexof(numd)) {
       level_[d]     = levels[d];
-      max_index_[d] = (options.max_levels[d] == 0) ? 1 : fm::ipow2(options.max_levels[d]);
+      max_index_[d] = (options.max_levels[d] == 0) ? 0 : fm::ipow2(options.max_levels[d]);
     }
   }
 
@@ -411,80 +411,68 @@ indexset sparse_grid::make_level_set(std::vector<int> const &levels)
   }
 }
 
-template<typename P>
-void sparse_grid::refine(P atol, P rtol, int block_size, connect_1d const &hierarchy,
-                         strategy mode, std::vector<P> const &state)
+void sparse_grid::refine(connect_1d const &hierarchy, strategy mode, std::vector<istatus> &marked)
 {
   tools::time_event refining("grid refining");
   int const num_dims = iset_.num_dimensions();
 
   int64_t const num = iset_.num_indexes();
-  std::vector<P> weights(num);
 
-  P wsum = 0.0;
+  static std::vector<istatus> stat;
+  stat.resize(num, istatus::keep);
 
-  // compute the L^2 weight of each multi-index
-  #pragma omp parallel
-  {
-    P lsum = 0;
-
-    #pragma omp for
+  if (mode == strategy::coarsen) { // not allowed to refine
+    #pragma omp parallel for
     for (int64_t i = 0; i < num; i++)
-    {
-      P w{0};
-      for (int j : iindexof(block_size)) {
-        P s = state[i * block_size + j];
-        w += s * s;
-      }
-      weights[i] = std::sqrt(w);
-
-      lsum += weights[i];
-    }
-
-    #pragma omp atomic
-    wsum += lsum;
-  }
-
-  P const tol = rtol * std::sqrt(wsum) + atol;
-
-  // decide which index to keep and which to clear
-  std::vector<istatus> stat(num, istatus::keep);
-#pragma omp parallel for
-  for (int64_t i = 0; i < num; i++)
-  {
-    std::array<int, max_num_dimensions> idx;
-    std::copy_n(iset_[i], num_dims, idx.data());
-
-    if (weights[i] >= tol and mode != strategy::coarsen) {
-      // large weight, must refine but only if kids are missing
-      for (int d : iindexof(num_dims)) {
-        idx[d] *= 2;
-        if (iset_.missing(idx))
-          stat[i] = istatus::refine;
-
-        idx[d] += 1;
-        // dont' search for the second kid if the first is missing
-        if (stat[i] != istatus::refine and iset_.missing(idx))
-          stat[i] = istatus::refine;
-
-        idx[d] = iset_[i][d];
-      }
-    } else {
-      // maybe remove, but only if the parents are small
-      if (mode != strategy::refine) { // if we are allowed to remove nodes
-        bool keep = false;
+      stat[i] = (marked[i] == istatus::refine) ? istatus::keep : istatus::clear;
+  } else {
+    #pragma omp parallel for
+    for (int64_t i = 0; i < num; i++) {
+      stat[i] = marked[i];
+      if (stat[i] == istatus::refine) {
+        // refining but only if the children are missing
+        std::array<int, max_num_dimensions> idx;
+        std::copy_n(iset_[i], num_dims, idx.data());
         for (int d : iindexof(num_dims)) {
-          if (idx[d] == 0)
-            continue;
-
-          idx[d] /= 2;
-          if (weights[ iset_.find(idx.data()) ] >= tol)
-            keep = true;
-
+          idx[d] *= 2;
+          if (not iset_.missing(idx)) {
+            idx[d] += 1;
+            // if both kids are here, don't refine
+            if (not iset_.missing(idx))
+              stat[i] = istatus::keep;
+          }
           idx[d] = iset_[i][d];
         }
-        if (not keep)
-          stat[i] = istatus::clear;
+      }
+    }
+  }
+
+  if (mode == strategy::refine) {
+    #pragma omp parallel for
+    for (int64_t i = 0; i < num; i++)
+      if (stat[i] == istatus::clear)
+        stat[i] = istatus::keep;
+  } else {
+    #pragma omp parallel for
+    for (int64_t i = 0; i < num; i++) {
+      if (stat[i] != istatus::clear)
+        continue;
+
+      std::array<int, max_num_dimensions> idx;
+      std::copy_n(iset_[i], num_dims, idx.data());
+
+      for (int d : iindexof(num_dims)) {
+        if (idx[d] == 0)
+          continue;
+
+        int z = idx[d];
+        idx[d] /= 2;
+        if (marked[ iset_.find(idx.data()) ] != istatus::clear) {
+          stat[i] = istatus::keep;
+          break;
+        }
+
+        idx[d] = z;
       }
     }
   }
@@ -723,10 +711,6 @@ template indexset sparse_grid::make_level_set<grid_type::dense>(std::vector<int>
 template indexset sparse_grid::make_level_set<grid_type::sparse>(std::vector<int> const &);
 template indexset sparse_grid::make_level_set<grid_type::mixed>(std::vector<int> const &);
 
-template void sparse_grid::refine<double>(double,  double,int, connect_1d const &,
-                                          strategy, std::vector<double> const &);
-template void sparse_grid::refine<float>(float, float, int, connect_1d const &,
-                                         strategy, std::vector<float> const &);
 template void sparse_grid::remap<double>(int, std::vector<double> &) const;
 template void sparse_grid::remap<float>(int, std::vector<float> &) const;
 

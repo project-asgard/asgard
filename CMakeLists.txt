@@ -395,6 +395,7 @@ set(asgard_components
     program_options
     quadrature
     reconstruct
+    refinement
     resource_groups
     small_mats
     solver

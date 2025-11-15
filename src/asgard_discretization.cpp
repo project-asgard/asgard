@@ -29,6 +29,8 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   grid.gpu_sync();
   #endif
 
+  refinement = refinement_manager<precision>(options_, pde);
+
   if (not stop_verbosity()) {
     if (not options_.title.empty())
       std::cout << "    title: " << options_.title << '\n';
@@ -160,6 +162,8 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
   grid.gpu_sync();
   #endif
 
+  refinement = refinement_manager<precision>(options_, pde);
+
   hier = hierarchy_manipulator(options_.degree.value(), domain_);
 
   if (is_imex(dtime.step_method())) {
@@ -231,9 +235,6 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
 template<typename precision>
 void discretization_manager<precision>::set_initial_condition()
 {
-  precision const atol = options_.adapt_threshold.value_or(0);
-  precision const rtol = options_.adapt_relative.value_or(0);
-
   #ifdef ASGARD_USE_MPI
   if (not is_leader()) {
     this->grid_sync();
@@ -262,19 +263,17 @@ void discretization_manager<precision>::set_initial_condition()
 
       terms.rebuild_mass_matrices(grid);
 
-      std::array<block_diag_matrix<precision>, max_num_dimensions> mock;
-
       hier.template project_separable<data_mode::increment>
             (initial_sep_[i], grid, terms.lmass, time, 1, state.data());
     }
 
-    if (atol > 0 or rtol > 0) {
+    if (refinement) {
       // on the first iteration, do both refine and coarsen with a full-adapt
       // on follow-on iteration, only add more nodes for stability and to avoid stagnation
       sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
                                                      : sparse_grid::strategy::refine;
       int const gid = grid.generation();
-      grid.refine(atol, rtol, hier.block_size(), conn[connect_1d::hierarchy::volume], mode, state);
+      refine(mode, state);
 
       // if the grid remained the same, there's nothing to do
       keep_refining = (gid != grid.generation());

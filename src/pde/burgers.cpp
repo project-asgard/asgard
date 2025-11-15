@@ -106,7 +106,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
   auto f2p = [=](P, asgard::vector2d<P> const &,
-                std::vector<P> const &f, std::vector<P> &vals) ->
+                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       // ignore the first input, it is time but it is not implemented yet
       // the coefficient function must return values at specific points
@@ -128,12 +128,28 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       }
     };
   auto f2n = [=](P, asgard::vector2d<P> const &,
-                std::vector<P> const &f, std::vector<P> &vals) ->
+                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       for (size_t i = 0; i < f.size(); i++) {
         vals[i] = (f[i] < 0) ? f[i] * f[i] : 0;
       }
     };
+
+  // ensure that the adaptive process captures the nonlinear component in addition to the field
+  // by default, adaptivity in ASGarD focuses on the solution to the PDE
+  // but if interpolation is also used, the sparse grid associated with the solution may fail
+  // to capture the interpolated coefficients
+  auto f2 = [=](P, asgard::vector2d<P> const &,
+                std::vector<P> const &f, std::vector<P> &vals) ->
+    void {
+      for (size_t i = 0; i < f.size(); i++) {
+        vals[i] = f[i] * f[i];
+      }
+    };
+  // setting an adapt-weight will make the adaptive algorithm keep sparse grid cells
+  // with significant contribution to either the solution or the result of
+  // the interpolated field
+  pde.set_adapt_weight(f2);
 
   // setting up multidimensional volume term that uses interpolated coefficient
   asgard::term_md<P> term_f2_pos = asgard::term_interp<P>{f2p};
@@ -535,6 +551,7 @@ void self_test() {
 #ifdef ASGARD_ENABLE_DOUBLE
   dotest<double>(1.E-5, 2, "-l 6 -n 10 -nu 0.1");
   dotest<double>(1.E-7, 2, "-l 6 -n 20 -nu 0");
+  dotest<double>(1.E-7, 2, "-l 3 -m 8 -n 20 -a 1.E-8 -nu 0");
 #endif
 
 #ifndef ASGARD_ENABLE_DOUBLE

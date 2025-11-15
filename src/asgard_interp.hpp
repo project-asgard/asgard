@@ -213,21 +213,22 @@ public:
    * workspace with size equal to the state.
    * The names t1/t2 come because this uses term_manager scratch space for working with chains
    */
+  template<typename tmd_type>
   void operator ()
       (interpolation_plan const &plan, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments,
        P time, P const state[], std::vector<P> const &ifield,
-       P alpha, term_md<P> const &tmd, P beta, P y[],
+       P alpha, tmd_type const &tmd, P beta, P y[],
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
   {
     expect(plan.is_enabled());
     std::vector<P> const &nodal = [&]() -> std::vector<P> const &
       {
         if (plan.uses_field()) {
+          return ifield;
+        } else {
           wav2nodal(grid, state, t1.data(), work);
           return t1;
-        } else {
-          return ifield;
         }
       }();
     {

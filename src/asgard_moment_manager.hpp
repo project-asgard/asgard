@@ -69,7 +69,7 @@ public:
   //! load all moments into the data-structures
   void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const;
   //! computes and caches a specific moment
-  void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state);
+  void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state) const;
   //! get the cached moment
   std::vector<P> const &get_cached(moment_id id) const {
     return raw_vals[id];
@@ -117,7 +117,14 @@ public:
   }
   //! return the set of cached levels, all relevant moments must be cached already
   momentset<P> const &get_cached_levels() const { return full_level; }
+  //! return the set of cached interpolation values, all relevant moments must be cached already
+  momentset<P> const &get_cached_interps() const { return interps; }
 
+  //! compute the specified interpolated moments
+  void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
+                       std::vector<P> const &state, interpolation_manager<P> const &interp,
+                       connection_patterns const &conn, kronmult::workspace<P> &work,
+                       std::vector<P> &workspace) const;
   //! load the inteprolatory moments, all groups
   void load_interp(interpolation_manager<P> const &interp,
                    connection_patterns const &conn, kronmult::workspace<P> &work,

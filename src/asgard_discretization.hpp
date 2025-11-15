@@ -622,6 +622,14 @@ protected:
 
     return shot;
   }
+  //! refines the sparse grid using the given strategy and
+  void refine(sparse_grid::strategy mode, std::vector<precision> const &f)
+  {
+    if (not is_leader())
+      return;
+    refinement.refine(conn, terms, f, mode, grid);
+  }
+
   #ifdef ASGARD_USE_MPI
   //! worker iteration apply
   void mpi_iteration_apply_base(int gid, std::vector<precision> &work) const;
@@ -650,8 +658,8 @@ private:
   int grid_synced_gen_ = -2;
   #endif
 
-  // moments
-  // mutable std::optional<moments1d<precision>> moms1d;
+  refinement_manager<precision> refinement;
+
   // poisson solver data
   mutable solvers::poisson<precision> poisson;
 

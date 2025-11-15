@@ -1630,12 +1630,27 @@ public:
   //! returns the explicit group
   imex_explicit_group imex_ex() const { return ex_; }
 
+  //! set an interpolation function for adaptivity
+  void set_adapt_weight(md_func_f<P> func) {
+    has_interp_funcs = true;
+    ref_interp_      = std::move(func);
+  }
+  //! set an interpolation function for adaptivity
+  void set_adapt_weight(std::vector<moment_id> moments, md_mom_func_f<P> func) {
+    rassert(not moments.empty(), "moment function");
+    has_interp_funcs = true;
+    ref_moments_     = std::move(moments);
+    ref_interp_mom_  = std::move(func);
+  }
+
   //! allows writer to save/load the pde and options
   friend class h5manager<P>;
   //! allows the term_manager to access the terms
   friend struct term_manager<P>;
   //! allows the discretization_manager to access the options
   friend class discretization_manager<P>;
+  //! allows the refinement_manager to access the ref_ members
+  friend class refinement_manager<P>;
 
 private:
   //! internal use, finalize the group data-structures
@@ -1678,6 +1693,10 @@ private:
 
   std::vector<moments_list> mom_groups;
   moments_list mlist;
+
+  md_func_f<P> ref_interp_;
+  md_mom_func_f<P> ref_interp_mom_;
+  std::vector<moment_id> ref_moments_;
 };
 
 } // namespace asgard

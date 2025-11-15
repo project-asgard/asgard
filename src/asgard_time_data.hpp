@@ -1,7 +1,5 @@
 #pragma once
-#include "asgard_reconstruct.hpp"
-#include "asgard_transformations.hpp"
-#include "asgard_solver.hpp"
+#include "asgard_refinement.hpp"
 
 /*!
  * \internal
