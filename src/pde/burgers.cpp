@@ -136,6 +136,9 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     };
 
   // ensure that the adaptive process captures the nonlinear component in addition to the field
+  // by default, adaptivity in ASGarD focuses on the solution to the PDE
+  // but if interpolation is also used, the sparse grid associated with the solution may fail
+  // to capture the interpolated coefficients
   auto f2 = [=](P, asgard::vector2d<P> const &,
                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
@@ -143,6 +146,9 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
         vals[i] = f[i] * f[i];
       }
     };
+  // setting an adapt-weight will make the adaptive algorithm keep sparse grid cells
+  // with significant contribution to either the solution or the result of
+  // the interpolated field
   pde.set_adapt_weight(f2);
 
   // setting up multidimensional volume term that uses interpolated coefficient
