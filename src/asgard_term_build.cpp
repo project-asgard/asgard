@@ -1208,6 +1208,128 @@ void term_manager<P>::assign_compute_resources()
 #endif
 }
 
+template<typename P>
+void term_manager<P>::assign_compute_resources_v2()
+{
+// if there's no MPI or GPU, then there's nothing to do
+#ifdef ASGARD_MANAGED_RESOURCES
+  // measuring work in units of 1D lower/upper kron operations
+  // assuming the cost is the same (it is near the same)
+  // interpolation terms count all the steps and ignore the nodal-function
+  // (the nodal function can be costly, especially in GPU context with data has to move)
+  // terms take into account chaining
+
+  struct work_amount {
+    explicit work_amount(float v) : value(v) {}
+    float value = 0;
+  };
+
+  struct work_item {
+    work_item() = default;
+    work_item(work_amount amount) : work(amount) {}
+    work_amount work{0};
+    int term_id = -1; // only one can be non-negative
+    int src_id = -1;
+  };
+
+  std::vector<work_item> work;
+  work.reserve(terms.size() + sources.size());
+
+  auto get_work = [&](term_entry<P> const &tentry)
+    -> work_amount {
+      if (tentry.is_separable()) {
+        auto const &perm      = tentry.perm;
+        int const active_dims = perm.num_dimensions();
+
+        float w = 0;
+        for (int64_t i = 0; i < perm.size(); i++) {
+          for (int d : iindexof(active_dims))
+            w += (perm(i, d).fill == conn_fill::both) ? 2 : 1;
+        }
+        return work_amount{w};
+      } else {
+        float const w = fm::ipow2(num_dims) + 2 * num_dims;
+        return work_amount{w};
+      }
+    };
+
+  struct balance_manager {
+    std::vector<float> workload;
+    void add(int id, work_amount work) {
+      workload[id] += work.value;
+    }
+    int lowest() { // get the id with lowest load
+      int im = 0, l = workload[0];
+      for (size_t i = 1; i < workload.size(); i++) {
+        if (workload[i] < l) {
+          im = static_cast<int>(i);
+          l = workload[i];
+        }
+      }
+      return im;
+    }
+  };
+
+  enum class balance_mode {
+    mpi_ranks, gpus
+  };
+
+  auto load_balance = [&](int gid, int num_workers, balance_mode mode)
+    -> void {
+      expect(num_workers >= 1);
+      // consider cases: num_workers == 1 or num_workers > 1
+      if (num_workers == 1) {
+        // if using only 1 worker, put it all in one place regardless of the gid
+        if (mode == balance_mode::gpus) {
+          for (auto &t : terms)
+            t.rec.device = 0;
+        } else {
+          for (auto &t : terms)
+            t.rec.group = 0; // maybe redundant
+        }
+        return;
+      }
+
+      work.resize(0); // load the new work-items
+
+      auto const tgroup = terms_group_range(gid);
+      int icurrent = tgroup.ibegin();
+      while (icurrent < tgroup.iend())
+      {
+        auto it = terms.begin() + icurrent;
+
+        if (mode == balance_mode::gpus and not resources.owns(it->rec)) {
+          icurrent += it->num_chain;
+          continue;
+        }
+
+        work_item item{get_work(*it)};
+        int const num_chain = it->num_chain;
+        for (int i = 1; i < num_chain; i++)
+          item.work.value += get_work(terms[icurrent + i]).value;
+
+        item.term_id = icurrent;
+        work.push_back(item);
+        icurrent += num_chain;
+      }
+  };
+
+
+  // auto get_heaviest = [&]()
+  //   -> int {
+  //     // get the id of the heaviest unassigned term
+  //     auto iw = std::max_element(weights.begin(), weights.end());
+  //     if (*iw < 0) // all assigned
+  //       return -1;
+  //     else
+  //       return static_cast<int>(std::distance(weights.begin(), iw));
+  //   };
+
+
+
+#endif
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct term_entry<double>;
 template struct term_manager<double>;

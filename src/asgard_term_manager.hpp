@@ -446,6 +446,7 @@ protected:
   void raw2cells(bool is_diag, int level, std::vector<P> &out);
   //! assign compute resources to the terms
   void assign_compute_resources();
+  void assign_compute_resources_v2();
 
 private:
   // workspace and workspace matrices
