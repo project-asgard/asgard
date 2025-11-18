@@ -202,6 +202,9 @@ void term_manager<P>::apply_sources(
       #ifdef ASGARD_USE_MPI
       if (not src.func or not resources.owns(src.rec))
         continue;
+      #else
+      if (not src.func)
+        continue;
       #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         interp(grid, conns, time, 1, src.func, 1, y, kwork, it1, it2);
