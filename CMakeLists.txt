@@ -359,6 +359,7 @@ set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature point
 #  Define the asgard library.
 #-------------------------------------------------------------------------------
 configure_file(src/asgard_build_info.hpp.in  ${CMAKE_CURRENT_BINARY_DIR}/asgard_build_info.hpp)
+configure_file(src/asgard_cmakelog.hpp.in    ${CMAKE_CURRENT_BINARY_DIR}/asgard_cmakelog.hpp)
 
 add_library (libasgard)
 set_target_properties(libasgard PROPERTIES OUTPUT_NAME "asgard"

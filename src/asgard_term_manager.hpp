@@ -96,7 +96,7 @@ struct term_manager
   //! all boundary conditions
   std::vector<boundary_entry<P>> bcs;
   //! interpolatory sources
-  std::vector<md_func<P>> sources_md;
+  std::vector<source_entry_interp<P>> sources_md;
 
   //! term groups, chains are flattened
   std::vector<irange> term_groups;
