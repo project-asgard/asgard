@@ -212,7 +212,10 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     if (dims > 0) ++num_sources;
   }
 
-  sources_md = std::move(pde.sources_md_);
+  sources_md.resize(pde.sources_md_.size());
+  for (size_t i = 0; i < pde.sources_md_.size(); i++)
+    sources_md[i].func = std::move(pde.sources_md_[i]);
+
   sources.reserve(num_sources);
 
   for (auto &s : sep) {
@@ -251,7 +254,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   prapare_kron_workspace(grid); // setup kronmult workspace
 
   has_terms_ = not terms.empty();
-  assign_compute_resources();
+  // assign_compute_resources();
+  assign_compute_resources_v2();
 
   // prepare the workspaces for the sources
   // consider only sources that are associated with this MPI rank and not time-dependant
@@ -1089,9 +1093,9 @@ void term_manager<P>::assign_compute_resources()
         balance.workload.resize(num_workers);
 
         // device 0 handles the interpolation sources
-        if (gid < 0 and sources_md[0])
+        if (gid < 0 and sources_md[0].func)
           balance.add(0, work_amount{isource_weight});
-        if (gid >= 0 and sources_md[gid])
+        if (gid >= 0 and sources_md[gid].func)
           balance.add(0, work_amount{isource_weight});
 
         ids.resize(0);
@@ -1227,9 +1231,9 @@ void term_manager<P>::assign_compute_resources_v2()
   struct work_item {
     work_item() = default;
     work_item(work_amount amount) : work(amount) {}
+    work_item(work_amount amount, int id_in) : work(amount), id(id_in) {}
     work_amount work{0};
-    int term_id = -1; // only one can be non-negative
-    int src_id = -1;
+    int id = -1;
   };
 
   std::vector<work_item> work;
@@ -1255,14 +1259,27 @@ void term_manager<P>::assign_compute_resources_v2()
 
   struct balance_manager {
     std::vector<float> workload;
+    balance_manager(int num_workers) : workload(num_workers, 0) {}
     void add(int id, work_amount work) {
       workload[id] += work.value;
     }
     int lowest() { // get the id with lowest load
-      int im = 0, l = workload[0];
-      for (size_t i = 1; i < workload.size(); i++) {
+      int im  = 0;
+      float l = workload[0];
+      for (int i = 1; i < static_cast<int>(workload.size()); i++) {
         if (workload[i] < l) {
-          im = static_cast<int>(i);
+          im = i;
+          l = workload[i];
+        }
+      }
+      return im;
+    }
+    int lowest_back() { // get the id with lowest load, but starts from the back
+      int im  = static_cast<int>(workload.size() - 1);
+      float l = workload.back();
+      for (int i = static_cast<int>(workload.size()) - 2; i >= 0; i--) {
+        if (workload[i] < l) {
+          im = i;
           l = workload[i];
         }
       }
@@ -1274,22 +1291,8 @@ void term_manager<P>::assign_compute_resources_v2()
     mpi_ranks, gpus
   };
 
-  auto load_balance = [&](int gid, int num_workers, balance_mode mode)
+  auto compute_terms_work = [&](int gid, balance_mode mode)
     -> void {
-      expect(num_workers >= 1);
-      // consider cases: num_workers == 1 or num_workers > 1
-      if (num_workers == 1) {
-        // if using only 1 worker, put it all in one place regardless of the gid
-        if (mode == balance_mode::gpus) {
-          for (auto &t : terms)
-            t.rec.device = 0;
-        } else {
-          for (auto &t : terms)
-            t.rec.group = 0; // maybe redundant
-        }
-        return;
-      }
-
       work.resize(0); // load the new work-items
 
       auto const tgroup = terms_group_range(gid);
@@ -1303,29 +1306,204 @@ void term_manager<P>::assign_compute_resources_v2()
           continue;
         }
 
-        work_item item{get_work(*it)};
+        work_item item{get_work(*it), icurrent};
         int const num_chain = it->num_chain;
         for (int i = 1; i < num_chain; i++)
           item.work.value += get_work(terms[icurrent + i]).value;
 
-        item.term_id = icurrent;
         work.push_back(item);
         icurrent += num_chain;
       }
-  };
+    };
 
+  auto compute_src_work = [&](int gid, balance_mode mode)
+    -> void {
+      work.resize(0); // load the new work-items
 
-  // auto get_heaviest = [&]()
-  //   -> int {
-  //     // get the id of the heaviest unassigned term
-  //     auto iw = std::max_element(weights.begin(), weights.end());
-  //     if (*iw < 0) // all assigned
-  //       return -1;
-  //     else
-  //       return static_cast<int>(std::distance(weights.begin(), iw));
-  //   };
+      work_amount interp_src{2.0f * num_dims};
+      if (gid == -1) {
+        for (int i : iindexof(sources_md)) {
+          if (mode == balance_mode::gpus and not resources.owns(sources_md[i].rec))
+            continue;
+          if (sources_md[i].func)
+            work.emplace_back(interp_src, -i - 1); // negative id for interp-sources
+        }
+      } else {
+        if ((mode == balance_mode::mpi_ranks or resources.owns(sources_md[gid].rec))
+            and sources_md[gid].func)
+          work.emplace_back(interp_src, -gid - 1);
+      }
 
+      indexrange sgroup = (gid == -1) ? indexrange(sources)
+                                      : source_groups[gid].source_range;
 
+      for (auto is : sgroup) {
+        auto const &src = sources[is];
+        if (src.is_time_dependent())
+          work.emplace_back(work_amount{static_cast<float>(num_dims)}, is);
+        else
+          work.emplace_back(work_amount{0.1f}, is);
+      }
+    };
+
+  auto load_balance_terms = [&](int gid, int num_workers, balance_mode mode)
+    -> void {
+      expect(num_workers >= 1);
+      compute_terms_work(gid, mode);
+
+      // consider cases: num_workers == 1 or num_workers > 1
+      if (num_workers == 1) {
+        // if using only 1 worker, put it all in one place regardless of the gid
+        if (mode == balance_mode::gpus) {
+          for (auto &item : work)
+            terms[item.id].rec.device = 0;
+        } else {
+          for (auto &item : work)
+            terms[item.id].rec.group = 0; // maybe redundant
+        }
+        return;
+      }
+
+      balance_manager load{num_workers};
+
+      if (mode == balance_mode::gpus) {
+        for (auto const &item : work) {
+          int const worker = load.lowest();
+          terms[item.id].rec.device = worker;
+          load.add(worker, item.work);
+        }
+      } else {
+        for (auto const &item : work) {
+          int const worker = load.lowest();
+          terms[item.id].rec.group = worker;
+          load.add(worker, item.work);
+        }
+      }
+    };
+
+  auto load_balance_src = [&](int gid, int num_workers, balance_mode mode)
+    -> void {
+      expect(num_workers >= 1);
+      compute_src_work(gid, mode);
+
+      // consider cases: num_workers == 1 or num_workers > 1
+      if (num_workers == 1) {
+        // if using only 1 worker, put it all in one place regardless of the gid
+        if (mode == balance_mode::gpus) {
+          for (auto &item : work)
+            if (item.id >= 0)
+              sources[item.id].rec.device = 0;
+            else
+              sources_md[std::abs(item.id + 1)].rec.device = 0;
+        } else {
+          for (auto &item : work)
+            if (item.id >= 0)
+              sources[item.id].rec.group = 0;
+            else
+              sources_md[std::abs(item.id + 1)].rec.group = 0;
+        }
+        return;
+      }
+
+      balance_manager load{num_workers};
+
+      if (mode == balance_mode::gpus) {
+        for (auto const &item : work) {
+          int const worker = load.lowest_back();
+          if (item.id >= 0)
+            sources[item.id].rec.device = worker;
+          else
+            sources_md[std::abs(item.id + 1)].rec.device = worker;
+          load.add(worker, item.work);
+        }
+      } else {
+        for (auto const &item : work) {
+          int const worker = load.lowest_back();
+          if (item.id >= 0)
+            sources[item.id].rec.group = worker;
+          else
+            sources_md[std::abs(item.id + 1)].rec.group = worker;
+          load.add(worker, item.work);
+        }
+      }
+    };
+
+  int const num_ranks = std::max(resources.num_ranks(), 1);
+  int const num_gpus  = std::max(resources.num_gpus(), 1);
+
+  if (term_groups.empty()) {
+    load_balance_terms(-1, num_ranks, balance_mode::mpi_ranks);
+    load_balance_terms(-1, num_gpus, balance_mode::gpus);
+    load_balance_src(-1, num_ranks, balance_mode::mpi_ranks);
+    load_balance_src(-1, num_gpus, balance_mode::gpus);
+  } else {
+    for (int gid = 0; gid < static_cast<int>(term_groups.size()); gid++) {
+      load_balance_terms(gid, num_ranks, balance_mode::mpi_ranks);
+      load_balance_terms(gid, num_gpus, balance_mode::gpus);
+      load_balance_src(gid, num_ranks, balance_mode::mpi_ranks);
+      load_balance_src(gid, num_gpus, balance_mode::gpus);
+    }
+  }
+
+  // mark all chains to make sure they go together
+  // check whether there are any terms
+  has_terms_ = false;
+  {
+    auto it = terms.begin();
+    while (it < terms.end()) {
+      if (resources.owns(it->rec))
+        has_terms_ = true;
+
+      if (it->num_chain > 1) {
+        for (int i = 0; i < it->num_chain; i++)
+          (it + i)->rec = it->rec;
+      }
+      it += it->num_chain;
+    }
+  }
+
+  bool has_sources = false;
+  for (auto const &s : sources)
+    if (resources.owns(s.rec))
+      has_sources = true;
+  for (auto const &s : sources_md)
+    if (s.func and resources.owns(s.rec))
+      has_sources = true;
+
+  if (not terms.empty() and resources.num_ranks() > 1 and not has_terms_ and not has_sources) {
+    // if the PDE has some terms, e.g., some testing PDEs don't,
+    // and if there are multiple MPI ranks, yet some ranks have no terms
+    // that means there are more ranks then terms and we should print a warning
+    std::cerr << " -- warning: the number of MPI ranks exceeds the number of terms and sources,"
+              << " the likely outcome is performance degradation" << std::endl;
+  }
+
+  bool constexpr print_dist = false;
+  if constexpr (print_dist) {
+    #ifdef ASGARD_USE_MPI
+    if (mpi::is_world_rank(0))
+    #else
+    if (true)
+    #endif
+    {
+      std::cout << "\n";
+      for (auto const &t : terms)
+        std::cout << " term to rank: " << t.rec.group << "  gpu: " << t.rec.device << "  chain num = " << t.num_chain << '\n';
+
+      std::cout << "\n";
+      for (auto const &s : sources)
+        std::cout << " source to rank: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+
+      std::cout << "\n";
+      for (auto const &s : sources_md)
+        if (s.func)
+          std::cout << " source-md to rank: " << s.rec.group << "  gpu: " << s.rec.device << '\n';
+        else
+          std::cout << " source-md: inactive\n";
+
+      std::cout << "\n";
+    }
+  }
 
 #endif
 }

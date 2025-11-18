@@ -44,6 +44,16 @@ struct source_entry
   int ilump = -1;
 };
 
+//! holds the data for an interpolatory source entry
+template<typename P>
+struct source_entry_interp
+{
+  //! resource (GPU/MPI-rank) assigned to this source
+  resource rec;
+  //! inteprolatory function for the source entry
+  md_func<P> func;
+};
+
 /*!
  * \brief Manages the terms and matrices, also holds the mass-matrices and kronmult-workspace
  *

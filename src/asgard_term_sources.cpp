@@ -198,26 +198,26 @@ void term_manager<P>::apply_sources(
   }
 
   if (groupid == -1) {
-    #ifdef ASGARD_USE_MPI
-    if (resources.is_leader())
-    #endif
-    for (auto const &s : sources_md)
-      if (s) {
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(grid, conns, time, 1, s, 1, y, kwork, it1, it2);
-        else
-          interp(grid, conns, time, alpha, s, 1, y, kwork, it1, it2);
-      }
+    for (auto const &src : sources_md) {
+      #ifdef ASGARD_USE_MPI
+      if (not src.func or not resources.owns(src.rec))
+        continue;
+      #endif
+      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        interp(grid, conns, time, 1, src.func, 1, y, kwork, it1, it2);
+      else
+        interp(grid, conns, time, alpha, src.func, 1, y, kwork, it1, it2);
+    }
   } else {
     #ifdef ASGARD_USE_MPI
-    if (sources_md[groupid] and resources.is_leader()) {
+    if (resources.owns(sources_md[groupid].rec) and sources_md[groupid].func) {
     #else
-    if (sources_md[groupid]) {
+    if (sources_md[groupid].func) {
     #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, time, 1, sources_md[groupid], 1, y, kwork, it1, it2);
+        interp(grid, conns, time, 1, sources_md[groupid].func, 1, y, kwork, it1, it2);
       else
-        interp(grid, conns, time, alpha, sources_md[groupid], 1, y, kwork, it1, it2);
+        interp(grid, conns, time, alpha, sources_md[groupid].func, 1, y, kwork, it1, it2);
     }
   }
 
