@@ -515,6 +515,10 @@ public:
     #ifdef ASGARD_USE_MPI
     }
     #endif
+    if (gid.gid == all_groups)
+      terms.moms.load_interp(terms.interp, conn, terms.kwork, terms.it1);
+    else
+      terms.moms.load_interp(gid.gid, terms.interp, conn, terms.kwork, terms.it1);
 
     compute_poisson(gid);
     terms.rebuild_moment_terms(gid.gid, grid, conn, hier);

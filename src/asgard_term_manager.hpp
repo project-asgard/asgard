@@ -226,7 +226,7 @@ struct term_manager
     for (int it : terms_group_range(groupid)) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
-        if (resources.owns(te.rec) and te.tmd.dim(d).depends() != term_dependence::none)
+        if (resources.owns(te.rec) and te.is_separable() and te.tmd.dim(d).depends() != term_dependence::none)
           rebuild_term1d(te, d, grid.current_level(d), conn, hier);
     }
   }

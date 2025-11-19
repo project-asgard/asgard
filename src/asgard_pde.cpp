@@ -6,8 +6,9 @@ namespace asgard
 template<typename P>
 pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collisions lbc)
 {
-  rassert(domain_.num_vel() > 0, "cannot set collision operator for a pde_domain with velocity dimensions");
-  rassert(domain_.num_pos() == 1, "currently lenard-bernstein collisions work for only 1 position dimension");
+  rassert(domain_.num_pos() > 0, "cannot set collision operator for a pde_domain with no position dimensions");
+  rassert(domain_.num_vel() > 0, "cannot set collision operator for a pde_domain with no velocity dimensions");
+  //rassert(domain_.num_pos() == 1, "currently lenard-bernstein collisions work for only 1 position dimension");
   rassert(lbc.nu > 0, "the collision frequency has to be positive");
 
   auto vnu = [nu=lbc.nu](std::vector<P> const &v, std::vector<P> &fv)
@@ -26,13 +27,59 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
   term_1d<P> div_grad = term_1d<P>({term_div<P>{-1, flux_type::upwind, boundary_type::bothsides},
                                     term_grad<P>{1, flux_type::upwind, boundary_type::bothsides}});
 
+  int const num_pos = domain_.num_pos();
+
   switch(domain_.num_vel())
   {
   case 1:
-    *this += term_md<P>({I, divv_nuv});
-    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1}}, div});
+    if (num_pos == 1) {
+      *this += term_md<P>({I, divv_nuv});
+      *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1}}, div});
 
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad});
+      *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad});
+    } else if (num_pos == 2) {
+      *this += term_md<P>({I, I, divv_nuv});
+
+      moment_id m0 = this->register_moment(moment{0});
+      moment_id m1 = this->register_moment(moment{1});
+      moment_id m2 = this->register_moment(moment{2});
+
+      auto m1over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                         std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0 = moments[m0];
+          std::vector<P> const &mom1 = moments[m1];
+          expect(static_cast<size_t>(x.num_strips()) == mom0.size());
+          expect(static_cast<size_t>(x.num_strips()) == mom1.size());
+          // ASGARD_OMP_PARFOR_SIMD
+          // for (int64_t i = 0; i < 3; i++)
+          //   std::cout << mom0[i] << "    " << mom1[i] << '\n';
+          for (int64_t i = 0; i < x.num_strips(); i++)
+          {
+            vals[i] = (mom1[i] * f[i]) / mom0[i];
+          }
+        };
+      *this += term_md<P>{term_md<P>{I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
+
+      auto theta = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                       std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0 = moments[m0];
+          std::vector<P> const &mom1 = moments[m1];
+          std::vector<P> const &mom2 = moments[m2];
+          // ASGARD_OMP_PARFOR_SIMD
+          // for (int64_t i = 0; i < 3; i++)
+          //   std::cout << mom0[i] << "    " << mom1[i] << "    " << mom2[i] << '\n';
+          for (int64_t i = 0; i < x.num_strips(); i++)
+          {
+            vals[i] = lbc.nu * (mom2[i] / mom0[i] + (mom1[i] * mom1[i]) / (mom2[i] * mom2[i])) * f[i];
+          }
+        };
+      *this += term_md<P>{term_md<P>{I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
+
+    } else {
+
+    }
     break;
 
   case 2:

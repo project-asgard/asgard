@@ -22,19 +22,21 @@ void self_test();
 #endif
 
 template<typename P = asgard::default_precision>
-asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts options) {
+  rassert(1 <= xdims and xdims <= 3, "problem is set for 1, 2 or 3 position dimensions")
   rassert(1 <= vdims and vdims <= 3, "problem is set for 1, 2 or 3 velocity dimensions")
 
-  options.title = "Relaxation 1x" + std::to_string(vdims) + "v";
+  options.title = "Relaxation " + std::to_string(xdims) + "x" + std::to_string(vdims) + "v";
 
   std::vector<domain_range> ranges;
-  ranges.reserve(vdims + 1);
-  ranges.emplace_back(-0.5, +0.5);
+  ranges.reserve(xdims + vdims);
+  for (int x = 0; x < xdims; x++)
+    ranges.emplace_back(-0.5, +0.5);
   for (int v = 0; v < vdims; v++)
     ranges.emplace_back(-8.0, 12.0);
 
   // the domain has one position and multiple velocity dimensions
-  pde_domain<P> domain(position_dims{1}, velocity_dims{vdims}, ranges);
+  pde_domain<P> domain(position_dims{xdims}, velocity_dims{vdims}, ranges);
 
   options.default_degree = 2;
   options.default_start_levels = {7, };
@@ -62,10 +64,11 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
 
   pde += operators::lenard_bernstein_collisions{nu};
 
-  if (vdims == 1) {
-    separable_func<P> ic({0.5, 0.5}); // separable initial conditions
+  if (vdims == 1)
+  {
+    separable_func<P> ic(std::vector<P>(xdims + vdims, 0.5)); // separable initial conditions
 
-    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(xdims, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = -1.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -75,7 +78,7 @@ asgard::pde_scheme<P> make_relaxation(int vdims, asgard::prog_opts options) {
       });
     pde.add_initial(ic);
 
-    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(xdims, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = 2.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -170,12 +173,15 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
   int const num_dims = disc.num_dims();
 
-  std::vector<P> eref;
-  P enorm = fm::powi(0.170109559932217, num_dims - 1);
+  int const xdims = disc.domain().num_pos();
+  int const vdims = disc.domain().num_vel();
 
-  if (num_dims == 2) { // 1x1v
-    separable_func<P> exact({1.0, 1.0});
-    exact.set(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+  std::vector<P> eref;
+  P enorm = fm::powi(0.170109559932217, vdims);
+
+  if (vdims == 1) { // 1x1v
+    separable_func<P> exact(std::vector<P>(xdims + vdims, 1.0));
+    exact.set(xdims, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
         P constexpr u     = 0.5;
@@ -187,7 +193,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
     eref = disc.project_function({exact, });
   }
-  else if (num_dims == 3) // 1x2v
+  else if (vdims == 2) // 1x2v
   {
     separable_func<P> exact({1.0, 1.0, 1.0});
     exact.set(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
@@ -211,7 +217,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
 
     eref = disc.project_function({exact, });
   }
-  else if (num_dims == 4) // 1x3v
+  else if (vdims == 3) // 1x3v
   {
     separable_func<P> exact({1.0, 1.0, 1.0, 1.0});
     auto max1 = [](std::vector<P> const &v, P, std::vector<P> &fv)
@@ -236,6 +242,9 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   std::vector<P> const &state = disc.current_state_mpi();
   expect(eref.size() == state.size());
 
+  std::cout << std::scientific;
+  std::cout.precision(14);
+
   double nself = 0;
   double ndiff = 0;
   for (size_t i = 0; i < state.size(); i++)
@@ -244,7 +253,12 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
     ndiff += e * e;
     double const r = eref[i];
     nself += r * r;
+
+    std::cout << " i = " << i << "   e = " << e << "   " << eref[i] << "   " << state[i] << "\n";
   }
+
+
+  std::cout << nself << "    " << enorm << "    " << ndiff << "\n";
 
   return std::sqrt(ndiff + std::abs(enorm - nself));
 }
@@ -264,6 +278,7 @@ int main(int argc, char** argv)
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << "<< additional options for this file >>\n";
+    std::cout << "-xdims                              position dimensions (1 - 3)\n";
     std::cout << "-vdims                              velocity dimensions (1 - 3)\n";
     std::cout << "-nu                                 collision frequency\n";
     std::cout << "-test                               perform self-testing\n\n";
@@ -273,7 +288,7 @@ int main(int argc, char** argv)
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", "-vdims", "-vd"});
+  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", "-xdims", "-xd", "-vdims", "-vd"});
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -282,10 +297,11 @@ int main(int argc, char** argv)
   }
 
   int const vdims = options.extra_cli_value_group<int>({"-vdims", "-vd"}).value_or(1);
+  int const xdims = options.extra_cli_value_group<int>({"-xdims", "-xd"}).value_or(1);
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  discretization_manager<P> disc(make_relaxation<P>(vdims, options),
+  discretization_manager<P> disc(make_relaxation<P>(xdims, vdims, options),
                                  asgard::verbosity_level::high);
 
   disc.advance_time(); // integrate until num-steps or stop-time
@@ -305,7 +321,7 @@ void test_final(double tol, int num_dims, std::string const &opt_str) {
 
   auto options = make_opts(opt_str);
 
-  discretization_manager<P> disc(make_relaxation<P>(num_dims - 1, options),
+  discretization_manager<P> disc(make_relaxation<P>(1, num_dims - 1, options),
                                  verbosity_level::quiet);
 
   disc.advance_time();
@@ -332,7 +348,7 @@ void test_aniso(double tol, int num_dims, std::vector<int> const &levels,
 
   options.start_levels = levels;
 
-  discretization_manager<P> disc(make_relaxation<P>(num_dims - 1, options),
+  discretization_manager<P> disc(make_relaxation<P>(1, num_dims - 1, options),
                                  verbosity_level::quiet);
 
   disc.advance_time();

@@ -43,6 +43,8 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
     wav_scale *= (domain.xright(d) - domain.xleft(d));
   wav_scale = P{1} / std::sqrt(wav_scale);
 
+  std::cout << " wav-scale = " << wav_scale << "\n";
+
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -77,6 +79,12 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   full_block = fm::ipow(pdof, domain.num_dims());
 
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
+
+  wav_scale  = 1;
+  for (int d : iindexof(pos_grid.num_dims())) {
+    wav_scale *= (domain.xright(d) - domain.xleft(d));
+  }
+  wav_scale = P{1} / std::sqrt(wav_scale);
 
   dim_level.fill(moment_level::zero);
 
@@ -565,11 +573,24 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
 template<typename P>
 void moment_manager<P>::make_nodal(
     moment_id id, interpolation_manager<P> const &interp, connection_patterns const &conn,
-    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+    kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
 {
-  interp.pos2nodal(pos_grid, conn, raw_vals[id].data(), wav_scale, workspace, work);
+  if (dsort_generation != pos_grid.generation()) {
+    pos_grid.dsort_  = dimension_sort(pos_grid.iset_);
+    dsort_generation = pos_grid.generation();
+  }
+
+  //std::cout << " making nodal for " << id() << '\n';
+
+  //tools::dump(raw_vals[id], "raw-moment");
+
+
+
+  interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
 
   interps[id].resize(pntr.back() * full_block);
+
+  //tools::dump(workspace, "nodes pos-dims");
 
   #pragma omp parallel for
   for (int i = 0; i < pos_grid.num_indexes(); i++)
@@ -577,6 +598,9 @@ void moment_manager<P>::make_nodal(
     P *base = interps[id].data() + pntr[i] * full_block;
     for (int j = 0; j < pos_block; j++)
       std::fill_n(base + j * vel_block, vel_block, workspace[i * pos_block + j]);
+
+    // tools::dump(std::vector<P>(base, base + full_block), "block");
+
     P *out = base + full_block;
     for (int j = pntr[i] + 1; j < pntr[i + 1]; j++)
       out = std::copy_n(base, full_block, out);

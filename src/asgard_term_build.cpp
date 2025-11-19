@@ -327,6 +327,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           // i.e., this is the first link in the chain
           t.interplan.use_field();
         }
+        if (t.tmd.interp_mom()) {
+          t.interplan.use_moments();
+        }
       }
     }
 

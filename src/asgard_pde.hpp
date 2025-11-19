@@ -1368,6 +1368,8 @@ struct group_id {
   explicit group_id(imex_implicit_group ii) : gid(ii.gid) {}
   //! sets the implicit group
   explicit group_id(int g = -1) : gid(g) {}
+  //! get the group id
+  int operator () () const { return gid; }
   //! the group id
   int gid = -1;
 };

@@ -15,8 +15,9 @@ interpolation_manager<P>::interpolation_manager(
       perm_low(num_dims, conn_fill::lower_udiag),
       perm_up(num_dims, conn_fill::upper)
 {
-  if (domain.num_pos() > 0)
+  if (domain.num_pos() > 0) {
     perm_pos = kronmult::permutes(domain.num_pos());
+  }
 
   wav_scale  = 1;
   for (int d : iindexof(num_dims)) {
