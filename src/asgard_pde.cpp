@@ -42,9 +42,9 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     }
     else // interpolation case
     {
-      moment_id m0 = this->register_moment(moment{0});
-      moment_id m1 = this->register_moment(moment{1});
-      moment_id m2 = this->register_moment(moment{2});
+      moment_id const m0 = this->register_moment(moment{0});
+      moment_id const m1 = this->register_moment(moment{1});
+      moment_id const m2 = this->register_moment(moment{2});
 
       auto m1over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
                                     std::vector<P> const &f, std::vector<P> &vals) -> void
@@ -95,11 +95,11 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     }
     else // interpolation case
     {
-      moment_id m0  = this->register_moment(moment{0, 0});
-      moment_id m10 = this->register_moment(moment{1, 0});
-      moment_id m01 = this->register_moment(moment{0, 1});
-      moment_id m20 = this->register_moment(moment{2, 0});
-      moment_id m02 = this->register_moment(moment{0, 2});
+      moment_id const m0  = this->register_moment(moment{0, 0});
+      moment_id const m10 = this->register_moment(moment{1, 0});
+      moment_id const m01 = this->register_moment(moment{0, 1});
+      moment_id const m20 = this->register_moment(moment{2, 0});
+      moment_id const m02 = this->register_moment(moment{0, 2});
 
       auto m10over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
                                      std::vector<P> const &f, std::vector<P> &vals) -> void
@@ -174,13 +174,13 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     }
     else // interpolation case
     {
-      moment_id m0   = this->register_moment(moment{0, 0, 0});
-      moment_id m100 = this->register_moment(moment{1, 0, 0});
-      moment_id m010 = this->register_moment(moment{0, 1, 0});
-      moment_id m001 = this->register_moment(moment{0, 0, 1});
-      moment_id m200 = this->register_moment(moment{2, 0, 0});
-      moment_id m020 = this->register_moment(moment{0, 2, 0});
-      moment_id m002 = this->register_moment(moment{0, 0, 2});
+      moment_id const m0   = this->register_moment(moment{0, 0, 0});
+      moment_id const m100 = this->register_moment(moment{1, 0, 0});
+      moment_id const m010 = this->register_moment(moment{0, 1, 0});
+      moment_id const m001 = this->register_moment(moment{0, 0, 1});
+      moment_id const m200 = this->register_moment(moment{2, 0, 0});
+      moment_id const m020 = this->register_moment(moment{0, 2, 0});
+      moment_id const m002 = this->register_moment(moment{0, 0, 2});
 
       auto m100over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
                                       std::vector<P> const &f, std::vector<P> &vals) -> void

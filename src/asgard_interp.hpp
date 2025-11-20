@@ -136,12 +136,7 @@ public:
     #else
     tools::time_event performance_("position-to-nodal");
     #endif
-    // std::cout << " ========================= BLOCK CPU CALL ============== \n";
-    // std::cout << grid;
     block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
-    // wav2nodal_.to_full(conn_reduced).print();
-    // tools::dump(std::vector<P>(f, f + 5), "f in interp");
-    // tools::dump(std::vector<P>(vals, vals + 5), "vals in interp");
   }
   //! compute values for the moment position coefficients, vector overload
   void pos2nodal(sparse_grid const &grid, P const f[], P scal, std::vector<P> &vals,

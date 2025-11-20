@@ -318,8 +318,8 @@ int main(int argc, char** argv)
     return 0;
   }
 
-  int const vdims = options.extra_cli_value_group<int>({"-vdims", "-vd"}).value_or(1);
   int const xdims = options.extra_cli_value_group<int>({"-xdims", "-xd"}).value_or(1);
+  int const vdims = options.extra_cli_value_group<int>({"-vdims", "-vd"}).value_or(1);
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.

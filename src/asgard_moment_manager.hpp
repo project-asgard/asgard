@@ -123,16 +123,13 @@ public:
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
-                       connection_patterns const &conn, kronmult::workspace<P> &work,
-                       std::vector<P> &workspace) const;
+                       kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! load the inteprolatory moments, all groups
   void load_interp(interpolation_manager<P> const &interp,
-                   connection_patterns const &conn, kronmult::workspace<P> &work,
-                   std::vector<P> &workspace) const;
+                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! load the inteprolatory moments, specified group
   void load_interp(int groupid, interpolation_manager<P> const &interp,
-                   connection_patterns const &conn, kronmult::workspace<P> &work,
-                   std::vector<P> &workspace) const;
+                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
 protected:
   //! set the new groups
@@ -170,8 +167,7 @@ protected:
    * \brief computes the nodal values of the moment
    */
   void make_nodal(moment_id id, interpolation_manager<P> const &interp,
-                  connection_patterns const &conn, kronmult::workspace<P> &work,
-                  std::vector<P> &workspace) const;
+                  kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
 private:
   //! indicates whether level 0 contains all the needed moment data
