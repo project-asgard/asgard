@@ -6,9 +6,10 @@ namespace asgard
 template<typename P>
 pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collisions lbc)
 {
-  rassert(domain_.num_pos() > 0, "cannot set collision operator for a pde_domain with no position dimensions");
-  rassert(domain_.num_vel() > 0, "cannot set collision operator for a pde_domain with no velocity dimensions");
-  //rassert(domain_.num_pos() == 1, "currently lenard-bernstein collisions work for only 1 position dimension");
+  rassert(domain_.num_pos() > 0, "cannot set lenard_bernstein_collisions operator for a pde_domain with no position dimensions");
+  rassert(domain_.num_vel() > 0, "cannot set lenard_bernstein_collisions operator for a pde_domain with no velocity dimensions");
+  rassert(domain_.num_pos() <= 3, "cannot set lenard_bernstein_collisions operator for a pde_domain with more than 3 position dimensions");
+  rassert(domain_.num_vel() <= 3, "cannot set lenard_bernstein_collisions operator for a pde_domain with more than 3 velocity dimensions");
   rassert(lbc.nu > 0, "the collision frequency has to be positive");
 
   auto vnu = [nu=lbc.nu](std::vector<P> const &v, std::vector<P> &fv)
@@ -32,14 +33,15 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
   switch(domain_.num_vel())
   {
   case 1:
-    if (num_pos == 1) {
+    if (num_pos == 1)
+    {
       *this += term_md<P>({I, divv_nuv});
+
       *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1}}, div});
-
       *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad});
-    } else if (num_pos == 2) {
-      *this += term_md<P>({I, I, divv_nuv});
-
+    }
+    else // interpolation case
+    {
       moment_id m0 = this->register_moment(moment{0});
       moment_id m1 = this->register_moment(moment{1});
       moment_id m2 = this->register_moment(moment{2});
@@ -51,14 +53,10 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           std::vector<P> const &mom1 = moments[m1];
           expect(static_cast<size_t>(x.num_strips()) == mom0.size());
           expect(static_cast<size_t>(x.num_strips()) == mom1.size());
-          // ASGARD_OMP_PARFOR_SIMD
+          ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < x.num_strips(); i++)
-          {
             vals[i] = (nu * mom1[i] * f[i]) / mom0[i];
-            //vals[i] = (mom1[i] * f[i]) / mom0[i];
-          }
         };
-      *this += term_md<P>{term_md<P>{I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
 
       auto theta = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
                                   std::vector<P> const &f, std::vector<P> &vals) -> void
@@ -66,42 +64,197 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           std::vector<P> const &mom0 = moments[m0];
           std::vector<P> const &mom1 = moments[m1];
           std::vector<P> const &mom2 = moments[m2];
-          // ASGARD_OMP_PARFOR_SIMD
+          ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < x.num_strips(); i++)
-          {
             vals[i] = nu * (mom2[i] / mom0[i] - (mom1[i] * mom1[i]) / (mom0[i] * mom0[i])) * f[i];
-          }
         };
-      *this += term_md<P>{term_md<P>{I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
 
-    } else {
-
+      if (num_pos == 2) {
+        *this += term_md<P>({I, I, divv_nuv});
+        *this += term_md<P>{term_md<P>{I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
+        *this += term_md<P>{term_md<P>{I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
+      } else {
+        *this += term_md<P>({I, I, I, divv_nuv});
+        *this += term_md<P>{term_md<P>{I, I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
+        *this += term_md<P>{term_md<P>{I, I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
+      }
     }
     break;
 
   case 2:
-    *this += term_md<P>({I, divv_nuv, I});
-    *this += term_md<P>({I, I, divv_nuv});
+    if (num_pos == 1)
+    {
+      *this += term_md<P>({I, divv_nuv, I});
+      *this += term_md<P>({I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0}}, div, I});
-    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1}}, I, div});
+      *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0}}, div, I});
+      *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1}}, I, div});
 
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I});
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad});
+      *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I});
+      *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad});
+    }
+    else // interpolation case
+    {
+      moment_id m0  = this->register_moment(moment{0, 0});
+      moment_id m10 = this->register_moment(moment{1, 0});
+      moment_id m01 = this->register_moment(moment{0, 1});
+      moment_id m20 = this->register_moment(moment{2, 0});
+      moment_id m02 = this->register_moment(moment{0, 2});
+
+      auto m10over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                     std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0  = moments[m0];
+          std::vector<P> const &mom10 = moments[m10];
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < x.num_strips(); i++)
+            vals[i] = (nu * mom10[i] * f[i]) / mom0[i];
+        };
+      auto m01over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                     std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0  = moments[m0];
+          std::vector<P> const &mom01 = moments[m01];
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < x.num_strips(); i++)
+            vals[i] = (nu * mom01[i] * f[i]) / mom0[i];
+        };
+
+      auto theta = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                  std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0  = moments[m0];
+          std::vector<P> const &mom10 = moments[m10];
+          std::vector<P> const &mom01 = moments[m01];
+          std::vector<P> const &mom20 = moments[m20];
+          std::vector<P> const &mom02 = moments[m02];
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < x.num_strips(); i++)
+            vals[i] = 0.5 *  nu * f[i] *
+                      ((mom20[i] + mom02[i]) / mom0[i] -
+                       (mom10[i] * mom10[i] + mom01[i] * mom01[i]) / (mom0[i] * mom0[i]));
+        };
+
+      if (num_pos == 2) {
+        *this += term_md<P>({I, I, divv_nuv, I});
+        *this += term_md<P>({I, I, I, divv_nuv});
+
+        *this += term_md<P>{term_md<P>{I, I, div, I}, term_interp<P>{m10over0, {m0, m10}}};
+        *this += term_md<P>{term_md<P>{I, I, I, div}, term_interp<P>{m01over0, {m0, m01}}};
+
+        *this += term_md<P>{term_md<P>{I, I, div_grad, I}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+        *this += term_md<P>{term_md<P>{I, I, I, div_grad}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+      } else {
+        *this += term_md<P>({I, I, I, divv_nuv, I});
+        *this += term_md<P>({I, I, I, I, divv_nuv});
+
+        *this += term_md<P>{term_md<P>{I, I, I, div, I}, term_interp<P>{m10over0, {m0, m10}}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, div}, term_interp<P>{m01over0, {m0, m01}}};
+
+        *this += term_md<P>{term_md<P>{I, I, I, div_grad, I}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, div_grad}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+      }
+    }
     break;
 
   case 3:
-    *this += term_md<P>({I, divv_nuv, I, I});
-    *this += term_md<P>({I, I, divv_nuv, I});
-    *this += term_md<P>({I, I, I, divv_nuv});
+    if (num_pos == 1)
+    {
+      *this += term_md<P>({I, divv_nuv, I, I});
+      *this += term_md<P>({I, I, divv_nuv, I});
+      *this += term_md<P>({I, I, I, divv_nuv});
 
-    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0, 0}}, div, I, I});
-    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1, 0}}, I, div, I});
-    *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 0, 1}}, I, I, div});
+      *this += term_md<P>({term_moment_over_density{lbc.nu, moment{1, 0, 0}}, div, I, I});
+      *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 1, 0}}, I, div, I});
+      *this += term_md<P>({term_moment_over_density{lbc.nu, moment{0, 0, 1}}, I, I, div});
 
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I, I});
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad, I});
-    *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, I, div_grad});
+      *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, div_grad, I, I});
+      *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, div_grad, I});
+      *this += term_md<P>({term_lenard_bernstein_coll_theta{lbc.nu}, I, I, div_grad});
+    }
+    else // interpolation case
+    {
+      moment_id m0   = this->register_moment(moment{0, 0, 0});
+      moment_id m100 = this->register_moment(moment{1, 0, 0});
+      moment_id m010 = this->register_moment(moment{0, 1, 0});
+      moment_id m001 = this->register_moment(moment{0, 0, 1});
+      moment_id m200 = this->register_moment(moment{2, 0, 0});
+      moment_id m020 = this->register_moment(moment{0, 2, 0});
+      moment_id m002 = this->register_moment(moment{0, 0, 2});
+
+      auto m100over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                      std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0   = moments[m0];
+          std::vector<P> const &mom100 = moments[m100];
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < x.num_strips(); i++)
+            vals[i] = (nu * mom100[i] * f[i]) / mom0[i];
+        };
+      auto m010over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                      std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0   = moments[m0];
+          std::vector<P> const &mom010 = moments[m010];
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < x.num_strips(); i++)
+            vals[i] = (nu * mom010[i] * f[i]) / mom0[i];
+        };
+      auto m001over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                      std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0   = moments[m0];
+          std::vector<P> const &mom001 = moments[m001];
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < x.num_strips(); i++)
+            vals[i] = (nu * mom001[i] * f[i]) / mom0[i];
+        };
+
+      auto theta = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                  std::vector<P> const &f, std::vector<P> &vals) -> void
+        {
+          std::vector<P> const &mom0  = moments[m0];
+          std::vector<P> const &mom100 = moments[m100];
+          std::vector<P> const &mom010 = moments[m010];
+          std::vector<P> const &mom001 = moments[m001];
+          std::vector<P> const &mom200 = moments[m200];
+          std::vector<P> const &mom020 = moments[m020];
+          std::vector<P> const &mom002 = moments[m002];
+          ASGARD_OMP_PARFOR_SIMD
+          for (int64_t i = 0; i < x.num_strips(); i++)
+            vals[i] = (P{1} / P{3}) *  nu * f[i] *
+                      ((mom200[i] + mom020[i] + mom002[i]) / mom0[i] -
+                       (mom100[i] * mom100[i] + mom010[i] * mom010[i] + mom001[i] * mom001[i]) / (mom0[i] * mom0[i]));
+        };
+
+      std::vector<moment_id> theta_deps = {m0, m100, m010, m001, m200, m020, m002};
+
+      if (num_pos == 2) {
+        *this += term_md<P>({I, I, divv_nuv, I, I});
+        *this += term_md<P>({I, I, I, divv_nuv, I});
+        *this += term_md<P>({I, I, I, I, divv_nuv});
+
+        *this += term_md<P>{term_md<P>{I, I, div, I, I}, term_interp<P>{m100over0, {m0, m100}}};
+        *this += term_md<P>{term_md<P>{I, I, I, div, I}, term_interp<P>{m010over0, {m0, m010}}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, div}, term_interp<P>{m001over0, {m0, m001}}};
+
+        *this += term_md<P>{term_md<P>{I, I, div_grad, I, I}, term_interp<P>{theta, theta_deps}};
+        *this += term_md<P>{term_md<P>{I, I, I, div_grad, I}, term_interp<P>{theta, theta_deps}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, div_grad}, term_interp<P>{theta, theta_deps}};
+      } else {
+        *this += term_md<P>({I, I, I, divv_nuv, I, I});
+        *this += term_md<P>({I, I, I, I, divv_nuv, I});
+        *this += term_md<P>({I, I, I, I, I, divv_nuv});
+
+        *this += term_md<P>{term_md<P>{I, I, I, div, I, I}, term_interp<P>{m100over0, {m0, m100}}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, div, I}, term_interp<P>{m010over0, {m0, m010}}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, I, div}, term_interp<P>{m001over0, {m0, m001}}};
+
+        *this += term_md<P>{term_md<P>{I, I, I, div_grad, I, I}, term_interp<P>{theta, theta_deps}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, div_grad, I}, term_interp<P>{theta, theta_deps}};
+        *this += term_md<P>{term_md<P>{I, I, I, I, I, div_grad}, term_interp<P>{theta, theta_deps}};
+      }
+    }
     break;
   default:
     // unreachable

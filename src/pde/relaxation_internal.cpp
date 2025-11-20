@@ -50,7 +50,8 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
   options.default_isolver_iterations = 1000;
   options.default_isolver_inner_iterations = 50;
 
-  options.default_precon = precon_method::jacobi;
+  options.default_precon = (xdims == 1) ? precon_method::jacobi : precon_method::none;
+  options.default_precon = precon_method::none;
 
   // using implicit backward Euler
   options.default_step_method = asgard::time_method::back_euler;
@@ -66,9 +67,12 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
 
   if (vdims == 1)
   {
-    separable_func<P> ic(std::vector<P>(xdims + vdims, 0.5)); // separable initial conditions
+    std::vector<P> ic_vec(xdims + vdims, 1);
+    ic_vec[0] = 0.5;
+    separable_func<P> ic(ic_vec); // separable initial conditions
 
-    ic.set(xdims, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    int const v1 = xdims;
+    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = -1.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -78,7 +82,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
       });
     pde.add_initial(ic);
 
-    ic.set(xdims, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = 2.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -90,9 +94,13 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
   }
   else if (vdims == 2)
   {
-    separable_func<P> ic({0.5, 0.5, 0.5}); // separable initial conditions
+    std::vector<P> ic_vec(xdims + vdims, 1);
+    ic_vec[0] = 0.5;
+    separable_func<P> ic(ic_vec);
 
-    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    int const v1 = xdims;
+    int const v2 = xdims + 1;
+    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -100,7 +108,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    ic.set(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 0.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -110,7 +118,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
       });
     pde.add_initial(ic);
 
-    ic.set(1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 0.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -118,7 +126,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    ic.set(2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -149,16 +157,30 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       };
 
-    separable_func<P> ic({nullptr, max3, max0, max0});
-    ic.set(0, xc);
+    int const v1 = xdims;
+    int const v2 = xdims + 1;
+    int const v3 = xdims + 2;
+
+    std::vector<P> ic_vec(xdims + vdims, 1);
+    ic_vec[0] = xc;
+    separable_func<P> ic;
+
+    ic = separable_func<P>(ic_vec);
+    ic.set(v1, max3);
+    ic.set(v2, max0);
+    ic.set(v3, max0);
     pde.add_initial(ic);
 
-    ic = separable_func<P>({nullptr, max0, max3, max0});
-    ic.set(0, xc);
+    ic = separable_func<P>(ic_vec);
+    ic.set(v1, max0);
+    ic.set(v2, max3);
+    ic.set(v3, max0);
     pde.add_initial(ic);
 
-    ic = separable_func<P>({nullptr, max0, max0, max3});
-    ic.set(0, xc);
+    ic = separable_func<P>(ic_vec);
+    ic.set(v1, max0);
+    ic.set(v2, max0);
+    ic.set(v3, max3);
     pde.add_initial(ic);
   }
 
@@ -166,8 +188,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
 }
 
 template<typename P>
-//double get_error_l2(asgard::discretization_manager<P> const &disc) {
-double get_error_l2(asgard::discretization_manager<P> &disc) {
+double get_error_l2(asgard::discretization_manager<P> const &disc) {
   // there is no analytic solution in time, only the final state
   // in a "short" time, the solution will converge to a steady state
   // effective time-scale is collision-frequency (nu) * final-time
@@ -180,25 +201,28 @@ double get_error_l2(asgard::discretization_manager<P> &disc) {
   std::vector<P> eref;
   P enorm = fm::powi(0.170109559932217, vdims);
 
-  if (vdims == 1) { // 1x1v
-    separable_func<P> exact(std::vector<P>(xdims + vdims, 1.0));
-    exact.set(xdims, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+  if (vdims == 1) { // 1x1v, 2x1v and 3x1v
+    int const v1 = xdims; // due to zero indexing, the index of v1 is the number of x-dimensions
+    separable_func<P> exact(std::vector<P>(num_dims, 1.0));
+    exact.set(v1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
         P constexpr u     = 0.5;
 
-        P const c = 1.0 / std::sqrt(2.0 * PI * theta);
+        P const c = P{1} / std::sqrt(2.0 * PI * theta);
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
 
     eref = disc.project_function({exact, });
-    //disc.set_current_state(eref);
   }
-  else if (vdims == 2) // 1x2v
+  else if (vdims == 2) // 1x2v, 2x2v, 3x2v
   {
-    separable_func<P> exact({1.0, 1.0, 1.0});
-    exact.set(1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+    separable_func<P> exact(std::vector<P>(num_dims, 1.0));
+
+    int const v1 = xdims;
+    int const v2 = xdims + 1;
+    exact.set(v1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
         P constexpr u     = 1.5;
@@ -207,7 +231,7 @@ double get_error_l2(asgard::discretization_manager<P> &disc) {
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    exact.set(2, [&](std::vector<P> const &v, P, std::vector<P> &fv)
+    exact.set(v2, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
         P constexpr u     = 1.5;
@@ -219,9 +243,13 @@ double get_error_l2(asgard::discretization_manager<P> &disc) {
 
     eref = disc.project_function({exact, });
   }
-  else if (vdims == 3) // 1x3v
+  else if (vdims == 3) // 1x3v, 2x3v, 3x3v
   {
-    separable_func<P> exact({1.0, 1.0, 1.0, 1.0});
+    separable_func<P> exact(std::vector<P>(num_dims, 1.0));
+
+    int const v1 = xdims;
+    int const v2 = xdims + 1;
+    int const v3 = xdims + 2;
     auto max1 = [](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.5;
@@ -232,9 +260,9 @@ double get_error_l2(asgard::discretization_manager<P> &disc) {
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       };
 
-    exact.set(1, max1);
-    exact.set(2, max1);
-    exact.set(3, max1);
+    exact.set(v1, max1);
+    exact.set(v2, max1);
+    exact.set(v3, max1);
 
     eref = disc.project_function({exact, });
 
@@ -244,9 +272,6 @@ double get_error_l2(asgard::discretization_manager<P> &disc) {
   std::vector<P> const &state = disc.current_state_mpi();
   expect(eref.size() == state.size());
 
-  std::cout << std::scientific;
-  std::cout.precision(14);
-
   double nself = 0;
   double ndiff = 0;
   for (size_t i = 0; i < state.size(); i++)
@@ -255,11 +280,7 @@ double get_error_l2(asgard::discretization_manager<P> &disc) {
     ndiff += e * e;
     double const r = eref[i];
     nself += r * r;
-
-    // std::cout << " i = " << i << "   e = " << e << "   " << eref[i] << "   " << state[i] << "\n";
   }
-
-  //std::cout << nself << "    " << enorm << "    " << ndiff << "\n";
 
   return std::sqrt(ndiff + std::abs(enorm - nself));
 }
@@ -307,8 +328,9 @@ int main(int argc, char** argv)
 
   disc.advance_time(); // integrate until num-steps or stop-time
 
+  double const err = get_error_l2(disc);
   if (not disc.stop_verbosity())
-    std::cout << " -- final error: " << get_error_l2(disc) << "\n";
+    std::cout << " -- final error: " << err << "\n";
 
   disc.final_output();
 
@@ -317,12 +339,16 @@ int main(int argc, char** argv)
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 template<typename P>
-void test_final(double tol, int num_dims, std::string const &opt_str) {
+void test_final(double tol, int xdims, int vdims, std::string const &opt_str)
+{
+  expect(1 <= xdims and xdims <= 3);
+  expect(1 <= vdims and vdims <= 3);
+  int const num_dims = xdims + vdims;
   current_test<P> test_(opt_str, num_dims);
 
   auto options = make_opts(opt_str);
 
-  discretization_manager<P> disc(make_relaxation<P>(1, num_dims - 1, options),
+  discretization_manager<P> disc(make_relaxation<P>(xdims, vdims, options),
                                  verbosity_level::quiet);
 
   disc.advance_time();
@@ -335,9 +361,12 @@ void test_final(double tol, int num_dims, std::string const &opt_str) {
 }
 
 template<typename P>
-void test_aniso(double tol, int num_dims, std::vector<int> const &levels,
-                std::string const &opt_str) {
-  expect(1 <= num_dims and num_dims <= max_num_dimensions);
+void test_aniso(double tol, int xdims, int vdims, std::vector<int> const &levels,
+                std::string const &opt_str)
+{
+  expect(1 <= xdims and xdims <= 3);
+  expect(1 <= vdims and vdims <= 3);
+  int const num_dims = xdims + vdims;
   expect(static_cast<size_t>(num_dims) == levels.size());
   std::string rstr = "aniso {";
   for (size_t i = 0; i < levels.size() - 1; i++)
@@ -349,7 +378,7 @@ void test_aniso(double tol, int num_dims, std::vector<int> const &levels,
 
   options.start_levels = levels;
 
-  discretization_manager<P> disc(make_relaxation<P>(1, num_dims - 1, options),
+  discretization_manager<P> disc(make_relaxation<P>(xdims, vdims, options),
                                  verbosity_level::quiet);
 
   disc.advance_time();
@@ -366,23 +395,31 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_final<double>(5.E-3, 2, "-l 5 -t 2 -d 2 -nu 1000");
-  test_final<double>(1.E-4, 2, "-l 6 -t 2 -d 2 -nu 1000");
-  test_final<double>(1.E-4, 2, "-l 6 -t 1 -d 2 -nu 2000");
-  test_final<double>(1.E-3, 2, "-l 2 -m 5 -nu 1000 -a 1.E-3");
-
-  test_final<double>(5.E-3, 3, "-l 5 -t 1 -d 2 -nu 2000");
-  test_final<double>(5.E-2, 4, "-l 4 -t 1 -d 2 -nu 2000");
+  // 1x1v
+  test_final<double>(5.E-3, 1, 1, "-l 5 -t 2 -d 2 -nu 1000");
+  test_final<double>(1.E-4, 1, 1, "-l 6 -t 2 -d 2 -nu 1000");
+  test_final<double>(1.E-4, 1, 1, "-l 6 -t 1 -d 2 -nu 2000");
+  test_final<double>(1.E-3, 1, 1, "-l 2 -m 5 -nu 1000 -a 1.E-3");
+  // *x2v
+  test_final<double>(5.E-3, 1, 2, "-l 5 -t 0.25 -d 2 -nu 2000");
+  test_final<double>(5.E-3, 2, 2, "-l 5 -t 0.25 -d 2 -nu 2000");
+  // *x3v
+  test_final<double>(5.E-2, 1, 3, "-l 4 -t 0.125 -d 2 -nu 200");
+  test_final<double>(5.E-2, 2, 3, "-l 4 -t 0.125 -d 2 -nu 200");
 
   // test ansitropic sparse grid with one level restricted to zero
-  test_aniso<double>(5.E-3, 2, {0, 4}, "-nu 1000");
+  test_aniso<double>(5.E-3, 1, 1, {1, 4}, "-nu 1000");
+  test_aniso<double>(5.E-3, 2, 1, {0, 0, 5}, "-nu 1000");
+  test_aniso<double>(5.E-3, 3, 1, {0, 0, 0, 5}, "-nu 1000");
+  test_aniso<double>(5.E-3, 3, 2, {0, 0, 0, 5, 5}, "-t 0.125 -nu 200");
+  test_aniso<double>(5.E-2, 3, 3, {0, 0, 0, 4, 4, 4}, "-t 0.125 -nu 200");
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  test_final<float>(5.E-3, 2, "-l 5 -t 2 -d 2 -nu 1000");
-  test_final<float>(8.E-3, 3, "-l 4 -t 2 -d 2 -nu 100");
+  test_final<float>(5.E-3, 1, 1, "-l 5 -t 2 -d 2 -nu 1000");
+  test_final<float>(8.E-3, 1, 2, "-l 4 -t 2 -d 2 -nu 100");
 
 #endif
 }
