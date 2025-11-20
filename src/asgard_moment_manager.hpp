@@ -12,7 +12,7 @@ namespace asgard
 template<typename P>
 class moment_manager {
 public:
-  //! creates a default empty maanger, no moments
+  //! creates a default empty manager, no moments
   moment_manager() = default;
   //! create the manager with the new groups
   moment_manager(pde_domain<P> const &domain, int degree,

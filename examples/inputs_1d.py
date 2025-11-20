@@ -35,9 +35,9 @@ if __name__ == '__main__':
     outfile1 = 'waves1.h5'
     outfile2 = 'waves2.h5'
 
-    # providing the input file and also forcing the degree to 1
-    os.system(f"./{exefilename} -if inputs_1d_1.txt -d 2 -of {outfile1}")
-    os.system(f"./{exefilename} -if inputs_1d_2.txt -d 2 -of {outfile2}")
+    # providing the input file and also forcing the degree to 2
+    asgard.run_with_args(exefilename, f"-if inputs_1d_1.txt -d 2 -of {outfile1}")
+    asgard.run_with_args(exefilename, f"-if inputs_1d_2.txt -d 2 -of {outfile2}")
 
     if not os.path.isfile(outfile1) or not os.path.isfile(outfile2):
         print("ERROR: example_inputs_1d did not generate an output file")
