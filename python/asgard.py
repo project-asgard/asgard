@@ -559,11 +559,13 @@ if __name__ == "__main__":
 
             dims = [0, 1]
 
+            num_dims = 2
             if plotview is None:
                 plist = [(), ()]
                 for i in range(2, shot.num_dimensions):
                     plist.append(0.5 * (shot.dimension_max[i] + shot.dimension_min[i]) + shot.eps)
             else:
+                num_dims = 0
                 ss = plotview.split(':')
                 plist = []
                 dims = []
@@ -572,29 +574,44 @@ if __name__ == "__main__":
                     if '*' in s:
                         plist.append(())
                         dims.append(i)
+                        num_dims += 1
                     else:
                         plist.append(float(s))
 
-            z, x, y = shot.plot_data2d(plist, num_points = 256)
+            if num_dims == 1:
+                z, x = shot.plot_data1d(plist, num_points = 256)
+                asgplot.plot(x, z)
+                asgplot.xlabel(shot.dimension_names[0], fontsize = 'large')
 
-            xmin = shot.dimension_min[dims[0]]
-            ymin = shot.dimension_min[dims[1]]
-            xmax = shot.dimension_max[dims[0]]
-            ymax = shot.dimension_max[dims[1]]
+                if addgrid:
+                    cc = shot.cell_centers()
+                    ymin = np.min(z)
+                    asgplot.plot(cc, ymin * np.ones(cc.shape), 'om')
 
-            #p = asgplot.pcolor(x, y, z, cmap='jet')
-            p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
+            elif num_dims == 2:
+                z, x, y = shot.plot_data2d(plist, num_points = 256)
 
-            asgplot.colorbar(p, orientation='vertical')
+                xmin = shot.dimension_min[dims[0]]
+                ymin = shot.dimension_min[dims[1]]
+                xmax = shot.dimension_max[dims[0]]
+                ymax = shot.dimension_max[dims[1]]
 
-            asgplot.gca().set_anchor('C')
+                #p = asgplot.pcolor(x, y, z, cmap='jet')
+                p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
 
-            if addgrid:
-                cc = shot.cell_centers()
-                asgplot.scatter(cc[:,0], cc[:,1], 5 * np.ones(cc[:,0].shape), color='purple')
+                asgplot.colorbar(p, orientation='vertical')
 
-            asgplot.xlabel(shot.dimension_names[dims[0]], fontsize='large')
-            asgplot.ylabel(shot.dimension_names[dims[1]], fontsize='large')
+                asgplot.gca().set_anchor('C')
+
+                if addgrid:
+                    cc = shot.cell_centers()
+                    asgplot.scatter(cc[:,0], cc[:,1], 5 * np.ones(cc[:,0].shape), color='purple')
+
+                asgplot.xlabel(shot.dimension_names[dims[0]], fontsize='large')
+                asgplot.ylabel(shot.dimension_names[dims[1]], fontsize='large')
+
+            else:
+                raise RuntimeError("wrong view parameter, only 1 or 2 dimensions should be plotted in full")
 
         if savefig is not None and savefig != "":
             asgplot.savefig(savefig)

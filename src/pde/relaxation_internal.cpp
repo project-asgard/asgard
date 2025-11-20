@@ -166,7 +166,8 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
 }
 
 template<typename P>
-double get_error_l2(asgard::discretization_manager<P> const &disc) {
+//double get_error_l2(asgard::discretization_manager<P> const &disc) {
+double get_error_l2(asgard::discretization_manager<P> &disc) {
   // there is no analytic solution in time, only the final state
   // in a "short" time, the solution will converge to a steady state
   // effective time-scale is collision-frequency (nu) * final-time
@@ -192,6 +193,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
       });
 
     eref = disc.project_function({exact, });
+    //disc.set_current_state(eref);
   }
   else if (vdims == 2) // 1x2v
   {
@@ -254,11 +256,10 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
     double const r = eref[i];
     nself += r * r;
 
-    std::cout << " i = " << i << "   e = " << e << "   " << eref[i] << "   " << state[i] << "\n";
+    // std::cout << " i = " << i << "   e = " << e << "   " << eref[i] << "   " << state[i] << "\n";
   }
 
-
-  std::cout << nself << "    " << enorm << "    " << ndiff << "\n";
+  //std::cout << nself << "    " << enorm << "    " << ndiff << "\n";
 
   return std::sqrt(ndiff + std::abs(enorm - nself));
 }

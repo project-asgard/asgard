@@ -44,35 +44,32 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
       moment_id m1 = this->register_moment(moment{1});
       moment_id m2 = this->register_moment(moment{2});
 
-      auto m1over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
-                         std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto m1over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                    std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0 = moments[m0];
           std::vector<P> const &mom1 = moments[m1];
           expect(static_cast<size_t>(x.num_strips()) == mom0.size());
           expect(static_cast<size_t>(x.num_strips()) == mom1.size());
           // ASGARD_OMP_PARFOR_SIMD
-          // for (int64_t i = 0; i < 3; i++)
-          //   std::cout << mom0[i] << "    " << mom1[i] << '\n';
           for (int64_t i = 0; i < x.num_strips(); i++)
           {
-            vals[i] = (mom1[i] * f[i]) / mom0[i];
+            vals[i] = (nu * mom1[i] * f[i]) / mom0[i];
+            //vals[i] = (mom1[i] * f[i]) / mom0[i];
           }
         };
       *this += term_md<P>{term_md<P>{I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
 
-      auto theta = [=](P, vector2d<P> const &x, momentset<P> const &moments,
-                       std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto theta = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
+                                  std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0 = moments[m0];
           std::vector<P> const &mom1 = moments[m1];
           std::vector<P> const &mom2 = moments[m2];
           // ASGARD_OMP_PARFOR_SIMD
-          // for (int64_t i = 0; i < 3; i++)
-          //   std::cout << mom0[i] << "    " << mom1[i] << "    " << mom2[i] << '\n';
           for (int64_t i = 0; i < x.num_strips(); i++)
           {
-            vals[i] = lbc.nu * (mom2[i] / mom0[i] + (mom1[i] * mom1[i]) / (mom2[i] * mom2[i])) * f[i];
+            vals[i] = nu * (mom2[i] / mom0[i] - (mom1[i] * mom1[i]) / (mom0[i] * mom0[i])) * f[i];
           }
         };
       *this += term_md<P>{term_md<P>{I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
