@@ -630,7 +630,7 @@ if (ASGARD_BUILD_TESTS)
           asgard_add_mpi_test(NAME asgard-pde-${_asg_pde}-mpin${_asgnumranks}  COMMAND ${_asg_pde} RANKS ${_asgnumranks})
           if (ASGARD_TEST_MPI_OMP_NUM_THREADS)
             set_tests_properties (asgard-pde-${_asg_pde}-mpin${_asgnumranks} PROPERTIES
-                                  PROCESSORS ${ASGARD_TEST_MPI_OMP_NUM_THREADS}
+                                  PROCESSORS ${_asgnumranks}
                                   ENVIRONMENT OMP_NUM_THREADS=${ASGARD_TEST_MPI_OMP_NUM_THREADS})
           endif()
         endforeach()
