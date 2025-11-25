@@ -38,6 +38,9 @@ list(APPEND CMAKE_BUILD_RPATH "${__asgard_install_prefix}/${CMAKE_INSTALL_LIBDIR
 option (BUILD_SHARED_LIBS "Build the ASGarD library with dynamic or static linking" ON)
 
 option (ASGARD_BUILD_TESTS "Build tests for ASGarD" ON)
+if (ASGARD_BUILD_TESTS)
+  option (ASGARD_LONG_TESTS "Build the longer tests, disable if tests take too long" ON)
+endif()
 option (ASGARD_USE_OPENMP "Optional OpenMP multi-threading support" OFF)
 set (ASGARD_TEST_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in testing (only in testing)")
 option (ASGARD_USE_CUDA "Optional Nvidia/CUDA support" OFF)

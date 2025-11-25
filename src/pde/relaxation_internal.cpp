@@ -402,17 +402,24 @@ void self_test() {
   test_final<double>(1.E-3, 1, 1, "-l 2 -m 5 -nu 1000 -a 1.E-3");
   // *x2v
   test_final<double>(5.E-3, 1, 2, "-l 5 -t 0.25 -d 2 -nu 2000");
+
+  #ifdef ASGARD_LONG_TESTS
+  // *x2v
   test_final<double>(5.E-3, 2, 2, "-l 5 -t 0.25 -d 2 -nu 2000");
   // *x3v
   test_final<double>(5.E-2, 1, 3, "-l 4 -t 0.125 -d 2 -nu 200");
   test_final<double>(5.E-2, 2, 3, "-l 4 -t 0.125 -d 2 -nu 200");
+  #endif
 
   // test ansitropic sparse grid with one level restricted to zero
   test_aniso<double>(5.E-3, 1, 1, {1, 4}, "-nu 1000");
   test_aniso<double>(5.E-3, 2, 1, {0, 0, 5}, "-nu 1000");
+
+  #ifdef ASGARD_LONG_TESTS
   test_aniso<double>(5.E-3, 3, 1, {0, 0, 0, 5}, "-nu 1000");
   test_aniso<double>(5.E-3, 3, 2, {0, 0, 0, 5, 5}, "-t 0.125 -nu 200");
   test_aniso<double>(5.E-2, 3, 3, {0, 0, 0, 4, 4, 4}, "-t 0.125 -nu 200");
+  #endif
 
 #endif
 

@@ -77,8 +77,10 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build
       - name: Configure
+# skip some of the tests, MPI runs slower when all ranks sit on one CPU
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_LONG_TESTS=OFF
                    -DASGARD_USE_MPI=ON
                    -DASGARD_TEST_MPI_OMP_NUM_THREADS=1
                    -DASGARD_RECOMMENDED_DEFAULTS=ON
