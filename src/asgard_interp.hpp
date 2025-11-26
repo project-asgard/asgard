@@ -127,7 +127,7 @@ public:
     int constexpr id = 1;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;

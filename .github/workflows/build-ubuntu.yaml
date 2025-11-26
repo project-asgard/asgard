@@ -39,6 +39,8 @@ jobs:
 # g++-13 using both precisions
   asgard-allprec:
     runs-on: ubuntu-24.04
+    env:
+        OMP_NUM_THREADS: 2
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -81,9 +83,8 @@ jobs:
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
                    -DASGARD_LONG_TESTS=OFF
+                   -DASGARD_USE_OPENMP=OFF
                    -DASGARD_USE_MPI=ON
-                   -DASGARD_TEST_MPI_OMP_NUM_THREADS=1
-                   -DASGARD_RECOMMENDED_DEFAULTS=ON
                    -DMPIEXEC_PREFLAGS="--oversubscribe"
                    ../
       - name: Build
