@@ -245,9 +245,6 @@ void crank_nicolson<P>::next_step(
 
   P const substep = (method == time_method::cn) ? 0.5 : 1;
 
-  if (disc.has_moments())
-    disc.compute_moments(current);
-
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
   if (solver.grid_gen != disc.grid_generation())

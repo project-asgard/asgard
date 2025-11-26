@@ -43,6 +43,8 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
     wav_scale *= (domain.xright(d) - domain.xleft(d));
   wav_scale = P{1} / std::sqrt(wav_scale);
 
+  std::cout << " wav-scale = " << wav_scale << "\n";
+
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -77,6 +79,12 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   full_block = fm::ipow(pdof, domain.num_dims());
 
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
+
+  wav_scale  = 1;
+  for (int d : iindexof(pos_grid.num_dims())) {
+    wav_scale *= (domain.xright(d) - domain.xleft(d));
+  }
+  wav_scale = P{1} / std::sqrt(wav_scale);
 
   dim_level.fill(moment_level::zero);
 
@@ -564,10 +572,15 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
 
 template<typename P>
 void moment_manager<P>::make_nodal(
-    moment_id id, interpolation_manager<P> const &interp, connection_patterns const &conn,
-    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+    moment_id id, interpolation_manager<P> const &interp,
+    kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
 {
-  interp.pos2nodal(pos_grid, conn, raw_vals[id].data(), wav_scale, workspace, work);
+  if (dsort_generation != pos_grid.generation()) {
+    pos_grid.dsort_  = dimension_sort(pos_grid.iset_);
+    dsort_generation = pos_grid.generation();
+  }
+
+  interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
 
   interps[id].resize(pntr.back() * full_block);
 
@@ -577,6 +590,7 @@ void moment_manager<P>::make_nodal(
     P *base = interps[id].data() + pntr[i] * full_block;
     for (int j = 0; j < pos_block; j++)
       std::fill_n(base + j * vel_block, vel_block, workspace[i * pos_block + j]);
+
     P *out = base + full_block;
     for (int j = pntr[i] + 1; j < pntr[i + 1]; j++)
       out = std::copy_n(base, full_block, out);
@@ -587,33 +601,32 @@ template<typename P>
 void moment_manager<P>::compute_interps(
     std::vector<moment_id> const &ids, sparse_grid const &grid,
     std::vector<P> const &state, interpolation_manager<P> const &interp,
-    connection_patterns const &conn, kronmult::workspace<P> &work,
-    std::vector<P> &workspace) const
+    kronmult::workspace<P> &work, std::vector<P> &workspace) const
 {
   for (auto const &id : ids) {
     cache_moment(id, grid, state);
-    make_nodal(id, interp, conn, work, workspace);
+    make_nodal(id, interp, work, workspace);
   }
 }
 
 template<typename P>
 void moment_manager<P>::load_interp(
-    interpolation_manager<P> const &interp, connection_patterns const &conn,
-    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+    interpolation_manager<P> const &interp, kronmult::workspace<P> &work,
+    std::vector<P> &workspace) const
 {
   for (int i = 0; i < mlist.size(); i++)
     if (mlist[moment_id{i}].action == moment::interpolatory)
-      make_nodal(moment_id{i}, interp, conn, work, workspace);
+      make_nodal(moment_id{i}, interp, work, workspace);
 }
 
 template<typename P>
 void moment_manager<P>::load_interp(
-    int groupid, interpolation_manager<P> const &interp, connection_patterns const &conn,
+    int groupid, interpolation_manager<P> const &interp,
     kronmult::workspace<P> &work, std::vector<P> &workspace) const
 {
   for (auto id : groups_[groupid])
     if (mlist[id].action == moment::interpolatory)
-      make_nodal(id, interp, conn, work, workspace);
+      make_nodal(id, interp, work, workspace);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

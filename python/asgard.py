@@ -1,4 +1,5 @@
 import sys
+import os
 
 from ctypes import c_char_p, c_int, c_int64, c_double, c_float, c_void_p, POINTER, CDLL, create_string_buffer, RTLD_GLOBAL
 import numpy as np
@@ -430,10 +431,43 @@ class pde_snapshot:
         return '\n' + s
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2 or sys.argv[1] in ("-v", "-version", "--version"):
+def run_with_args(exefilename, argv_str = '', argv_list = None):
+    '''
+    Using the os.system command, launches the executable with the current list of commands.
+
+    The args is a string of arguments, e.g., '-d 2 -of somefile.h5'
+
+    The argv_list is a list of strings that will be concatenated in the list of arguments.
+    If argv_list is not provided, arguments will be inferred from sys.argv
+
+    The interplay between argv_str and argv_list allows arguments to be hard-coded
+    inside argv_str and then argv_list can specify complementary parameters
+    for a specific run. The parameters in argv_list will also override the ones
+    specified in argv_str.
+
+    By default, argv_list takes all arguments from the command-line sys.argv
+    but a different list can be specified, e.g., the driver python script can accept
+    arguments of it's own, take actions based on those parameters and finally
+    remove them from the list and pass only standard arguments to the executable.
+
+    Note that this method can cause security issues if the arguments come from
+    an untrusted source, e.g., reading from the web or using a file provided by a malicious actor.
+    '''
+    if argv_list is None:
+        argv_list = sys.argv[1:]
+    arg_str = ('"' + '" "'.join(argv_list) + '"') if len(argv_list) > 0 else ''
+    executable = os.path.abspath(exefilename)
+    #print(f'"{executable}" {args} {arg_str}')
+    os.system(f'"{executable}" {argv_str} {arg_str}')
+
+
+def plot_with_args(argv = None):
+    if argv is None:
+        argv = sys.argv
+
+    if len(argv) < 2 or argv[1] in ("-v", "-version", "--version"):
         libasgard.asgard_print_version_help()
-    elif sys.argv[1] in ("-h", "-help", "--help"):
+    elif argv[1] in ("-h", "-help", "--help"):
         print("")
         print("python -m asgard plt.data")
         print("   makes a quick 1D or 2D plot of output contained in out.data")
@@ -460,28 +494,28 @@ if __name__ == "__main__":
         print("")
         print("no file and no option provided, shows the version of the")
         print("")
-    elif sys.argv[1] in ("-s", "-stat", "-stats", "-summary"):
-        if len(sys.argv) < 3:
+    elif argv[1] in ("-s", "-stat", "-stats", "-summary"):
+        if len(argv) < 3:
             print("stats summary option requires a filename")
         else:
-            shot = pde_snapshot(sys.argv[2])
+            shot = pde_snapshot(argv[2])
             print("\n", shot, shot.timer_report)
-    elif sys.argv[1] in ("-ss", "-vv"):
-        if len(sys.argv) < 3:
+    elif argv[1] in ("-ss", "-vv"):
+        if len(argv) < 3:
             print("-ss/-vv summary option requires a filename")
         else:
-            shot = pde_snapshot(sys.argv[2])
+            shot = pde_snapshot(argv[2])
             print("\n", shot.long_str(), shot.timer_report)
     elif not _matplotlib_found_:
         print("could not 'import matplotlib'")
         print("can only print stats-summary, use")
-        print("  python3 -m asgard -s %s" % sys.argv[2])
+        print("  python3 -m asgard -s %s" % argv[2])
         libasgard.asgard_print_version_help()
-    elif sys.argv[1] in ("-grid", "-g"):
-        if len(sys.argv) < 3:
+    elif argv[1] in ("-grid", "-g"):
+        if len(argv) < 3:
             print("-grid option requires a filename")
         else:
-            shot = pde_snapshot(sys.argv[2])
+            shot = pde_snapshot(argv[2])
             print("\n", shot)
 
             asgplot.title(shot.title, fontsize = 'large')
@@ -492,13 +526,13 @@ if __name__ == "__main__":
             else:
                 asgplot.scatter(cells[:,0], cells[:,1], 5 * np.ones(cells[:,0].shape), color='red')
 
-        if len(sys.argv) > 3:
-            asgplot.savefig(sys.argv[3])
+        if len(argv) > 3:
+            asgplot.savefig(argv[3])
         else:
             asgplot.show()
 
     else:
-        shot = pde_snapshot(sys.argv[1])
+        shot = pde_snapshot(argv[1])
         print("\n", shot)
 
         # we are plotting, consider extra options
@@ -507,33 +541,33 @@ if __name__ == "__main__":
         auxfield = None
         moment   = None
         addgrid  = False
-        if len(sys.argv) > 2:
+        if len(argv) > 2:
             i = 2
-            n = len(sys.argv)
+            n = len(argv)
             while i < n:
-                if sys.argv[i] == "-view":
-                    plotview = sys.argv[i + 1] if i + 1 < n else None
+                if argv[i] == "-view":
+                    plotview = argv[i + 1] if i + 1 < n else None
                     i += 2
-                elif sys.argv[i] == "-fig":
-                    savefig = sys.argv[i + 1] if i + 1 < n else None
+                elif argv[i] == "-fig":
+                    savefig = argv[i + 1] if i + 1 < n else None
                     i += 2
-                elif sys.argv[i] == "-aux":
+                elif argv[i] == "-aux":
                     assert moment is None, "cannot simultaneously plot aux field and moment"
-                    auxfield = sys.argv[i + 1] if i + 1 < n else None
+                    auxfield = argv[i + 1] if i + 1 < n else None
                     i += 2
                     assert auxfield is not None, "-aux requires an filed number"
-                elif sys.argv[i] == "-mom":
+                elif argv[i] == "-mom":
                     assert auxfield is None, "cannot simultaneously plot aux field and moment"
-                    moment = sys.argv[i + 1] if i + 1 < n else None
+                    moment = argv[i + 1] if i + 1 < n else None
                     i += 2
                     assert moment is not None, "-mom requires an filed number"
                     lpows = moment.split(" ")
                     moment = [int(p) for p in lpows]
-                elif sys.argv[i] == "-grid" or sys.argv[i] == "-g":
+                elif argv[i] == "-grid" or argv[i] == "-g":
                     addgrid = True
                     i += 1
                 else:
-                    savefig = sys.argv[i]
+                    savefig = argv[i]
                     i += 1
 
         if auxfield is not None:
@@ -559,11 +593,13 @@ if __name__ == "__main__":
 
             dims = [0, 1]
 
+            num_dims = 2
             if plotview is None:
                 plist = [(), ()]
                 for i in range(2, shot.num_dimensions):
                     plist.append(0.5 * (shot.dimension_max[i] + shot.dimension_min[i]) + shot.eps)
             else:
+                num_dims = 0
                 ss = plotview.split(':')
                 plist = []
                 dims = []
@@ -572,31 +608,50 @@ if __name__ == "__main__":
                     if '*' in s:
                         plist.append(())
                         dims.append(i)
+                        num_dims += 1
                     else:
                         plist.append(float(s))
 
-            z, x, y = shot.plot_data2d(plist, num_points = 256)
+            if num_dims == 1:
+                z, x = shot.plot_data1d(plist, num_points = 256)
+                asgplot.plot(x, z)
+                asgplot.xlabel(shot.dimension_names[0], fontsize = 'large')
 
-            xmin = shot.dimension_min[dims[0]]
-            ymin = shot.dimension_min[dims[1]]
-            xmax = shot.dimension_max[dims[0]]
-            ymax = shot.dimension_max[dims[1]]
+                if addgrid:
+                    cc = shot.cell_centers()
+                    ymin = np.min(z)
+                    asgplot.plot(cc, ymin * np.ones(cc.shape), 'om')
 
-            #p = asgplot.pcolor(x, y, z, cmap='jet')
-            p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
+            elif num_dims == 2:
+                z, x, y = shot.plot_data2d(plist, num_points = 256)
 
-            asgplot.colorbar(p, orientation='vertical')
+                xmin = shot.dimension_min[dims[0]]
+                ymin = shot.dimension_min[dims[1]]
+                xmax = shot.dimension_max[dims[0]]
+                ymax = shot.dimension_max[dims[1]]
 
-            asgplot.gca().set_anchor('C')
+                #p = asgplot.pcolor(x, y, z, cmap='jet')
+                p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
 
-            if addgrid:
-                cc = shot.cell_centers()
-                asgplot.scatter(cc[:,0], cc[:,1], 5 * np.ones(cc[:,0].shape), color='purple')
+                asgplot.colorbar(p, orientation='vertical')
 
-            asgplot.xlabel(shot.dimension_names[dims[0]], fontsize='large')
-            asgplot.ylabel(shot.dimension_names[dims[1]], fontsize='large')
+                asgplot.gca().set_anchor('C')
+
+                if addgrid:
+                    cc = shot.cell_centers()
+                    asgplot.scatter(cc[:,0], cc[:,1], 5 * np.ones(cc[:,0].shape), color='purple')
+
+                asgplot.xlabel(shot.dimension_names[dims[0]], fontsize='large')
+                asgplot.ylabel(shot.dimension_names[dims[1]], fontsize='large')
+
+            else:
+                raise RuntimeError("wrong view parameter, only 1 or 2 dimensions should be plotted in full")
 
         if savefig is not None and savefig != "":
             asgplot.savefig(savefig)
         else:
             asgplot.show()
+
+
+if __name__ == "__main__":
+    plot_with_args()

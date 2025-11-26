@@ -636,17 +636,26 @@ void block_cpu(
   for (int64_t i = 0; i < perm.size(); i++)
   {
     int dir = perm(i, 0).direction;
+    // std::cout << " i = " << i << "  dir = " << dir << "\n";
 
     block_cpu(num_dims, n, grid, dir, perm(i, 0).fill,
               get_connect_1d(perm(i, 0).fill),
               get_data(dir), x, w1, work.row_map);
 
+    // tools::dump(std::vector<precision>(x, x + 5), "x after first step");
+    // tools::dump(std::vector<precision>(w1, w1 + 5), "w1 after first step");
+
     for (int d = 1; d < active_dims; d++)
     {
       dir = perm(i, d).direction;
+      // std::cout << " i = " << i << "  dir = " << dir << "\n";
       block_cpu(num_dims, n, grid, dir, perm(i, d).fill,
                 get_connect_1d(perm(i, d).fill),
                 get_data(dir), w1, w2, work.row_map);
+
+      // tools::dump(std::vector<precision>(w1, w1 + 5), "w1 after first step");
+      // tools::dump(std::vector<precision>(w2, w2 + 5), "w2 after first step");
+
       std::swap(w1, w2);
     }
 

@@ -104,8 +104,7 @@ void refinement_manager<P>::refine_(
     }
 
     if (weights_.interp_mom_) {
-      terms.moms.compute_interps(moments_, grid, state, terms.interp,
-                                 conns, terms.kwork, terms.t1);
+      terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork, terms.t1);
       iplan.use_moments(true);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
                    1, weights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);

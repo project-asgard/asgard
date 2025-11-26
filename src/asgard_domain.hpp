@@ -420,6 +420,30 @@ public:
     return v;
   }
 
+  //! writes out general meta-data for the separable function
+  void print_stats(std::ostream &os = std::cout) const {
+    int nd = num_dims();
+    os << "separable function: " << nd << "D\n";
+    os << "  (";
+    if (is_const(0))
+      os << cdomain(0);
+    else
+      os << "func";
+    for (int d = 1; d < nd; d++)
+      if (is_const(d))
+        os << ", " << cdomain(d);
+      else
+        os << ", func";
+    os << ") ";
+    if (ignores_time_) {
+      os << "constant-in-time\n";
+    } else if (time_func_) {
+      os << "separable-in-time\n";
+    } else {
+      os << "non-separable-in-time\n";
+    }
+  }
+
 private:
   using func_entry = std::variant<int, P, svector_func1d<P>>;
 
@@ -427,6 +451,17 @@ private:
   std::array<func_entry, max_num_dimensions> funcs_;
   scalar_func<P> time_func_;
 };
+
+/*!
+ * \ingroup asgard_discretization
+ * \brief Allows writing the separable function stats
+ */
+template<typename P>
+inline std::ostream &operator<<(std::ostream &os, separable_func<P> const &func)
+{
+  func.print_stats(os);
+  return os;
+}
 
 /*!
  * \ingroup asgard_discretization

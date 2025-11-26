@@ -120,14 +120,14 @@ public:
   }
 
   //! compute nodal values for the moment position coefficients
-  void pos2nodal(sparse_grid const &grid, connection_patterns const &conns,
-                 P const f[], P scal, P vals[], kronmult::workspace<P> &work) const
+  void pos2nodal(sparse_grid const &grid, P const f[], P scal, P vals[],
+                 kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = 1;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -136,17 +136,15 @@ public:
     #else
     tools::time_event performance_("position-to-nodal");
     #endif
-    ignore(conns);
     block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
   }
   //! compute values for the moment position coefficients, vector overload
-  void pos2nodal(sparse_grid const &grid, connection_patterns const &conn,
-                 P const f[], P scal, std::vector<P> &vals,
+  void pos2nodal(sparse_grid const &grid, P const f[], P scal, std::vector<P> &vals,
                  kronmult::workspace<P> &work) const
   {
     size_t num_entries = static_cast<size_t>(grid.num_indexes() * fm::ipow(pdof, grid.num_dims()));
     vals.resize(num_entries);
-    pos2nodal(grid, conn, f, scal, vals.data(), work);
+    pos2nodal(grid, f, scal, vals.data(), work);
   }
 
   //! converts interpolated nodal values to hierarchical coefficients
