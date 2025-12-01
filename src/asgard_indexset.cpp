@@ -6,15 +6,15 @@ namespace asgard
 // the signature of callable is
 // std::function<bool(std::array<int, max_num_dimensions> const &index)>
 template<typename callable>
-inline std::vector<int> generate_lower_index_set(
-    size_t num_dims, callable inside)
+inline std::vector<int> generate_lower_index_set(int num_dims, callable inside)
 {
-  size_t c   = 0;
+  expect(num_dims > 0);
+  int c = 0;
   bool is_in = true;
   std::array<int, max_num_dimensions> root;
   std::fill_n(root.begin(), num_dims, 0);
   std::vector<int> indexes;
-  // reserve 1-4 pages to save on the first few relocations
+  // reserve 1-4 pages to save on the first few relocation
   indexes.reserve( (16 * 1024) / (num_dims * sizeof(int)) );
   while (is_in or c > 0)
   {
