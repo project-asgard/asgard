@@ -362,4 +362,9 @@ __signleton_compute_resources::pttrs<float>(std::vector<float> const &,
                                             std::vector<float> const &,
                                             std::vector<float> &) const;
 
+void init_compute() {
+  if (not compute)
+    compute.emplace();
+}
+
 } // namespace asgard

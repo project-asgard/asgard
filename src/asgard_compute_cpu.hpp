@@ -41,6 +41,15 @@ using default_precision = float;
 #endif
 
 /*!
+ * \brief Initializes the compute environment, if not initialized already
+ *
+ * Called by the discretization manager, during the initial setup of the PDE
+ * discretization. This is not technically not thread safe but multiple managers should not be
+ * constructed in parallel, since the managers themselves use OpenMP in the background.
+ */
+void init_compute();
+
+/*!
  * \brief Indicated if computing should be done suing the CPU or GPU.
  *
  * This allows differentiating the array modes for the inputs into a function.
@@ -239,6 +248,7 @@ struct libasgard_runtime {
   //! calls libasgard_init
   libasgard_runtime(int &argc, char **&argv) {
     libasgard_init(argc, argv);
+    init_compute();
   }
   //! calls libasgard_finish
   ~libasgard_runtime() { libasgard_finish(); }
@@ -248,7 +258,9 @@ inline void libasgard_init(int &, char **&) {}
 inline void libasgard_finish() {}
 struct libasgard_runtime {
   //! does nothing
-  libasgard_runtime(int &, char **&) {}
+  libasgard_runtime(int &, char **&) {
+    init_compute();
+  }
 };
 #endif
 
