@@ -64,14 +64,13 @@ endif()
 option (ASGARD_BUILD_HDF5 "Download and build our own HDF5/HighFive" OFF)
 
 option (ASGARD_USE_PCH "Enable precompiled header files." OFF)
-set (ASGARD_TESTING_RANKS "0" CACHE STRING "Override default number of ranks to use for testing")
 
 set (ASGARD_PRECISIONS "float;double" CACHE STRING "Select floating point precision, supported values are 'float', 'double' or 'float;double'")
 set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;double")
 
 option (ASGARD_USE_TIMER "Enable the builtin profiling tool" ON)
 option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
-option (ASGARD_BUILD_DOCS "(incomplete) Build the documentation." OFF)
+option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 option (ASGARD_USE_GITINFO "Optional read git properties and build them into the library" ON)
 
