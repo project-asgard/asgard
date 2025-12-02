@@ -240,6 +240,9 @@ void test_pde_class() {
     pde.set(imex_implicit_group{2}, imex_explicit_group{5});
     tassert(pde.imex_im().gid == 2);
     tassert(pde.imex_ex().gid == 5);
+    tassert(group_id{2} == group_id{2});
+    tassert(not (group_id{2} == group_id{3}));
+    tassert(group_id::all().gid < 0); // all cannot be a valid vector index, any negative will work
   }
   {
     current_test<TestType> name_("pde moments");

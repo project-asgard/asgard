@@ -741,7 +741,8 @@ public:
     coeffs_[1] = right;
   }
 
-  // allow direct access to the private data
+  // both the pde_scheme and term_manager need access to the internal data
+  // to manage the internals of the term_1d
   friend class pde_scheme<P>;
   friend struct term_manager<P>;
 
@@ -948,7 +949,7 @@ struct right_boundary_flux {
   //! the separable function
   separable_func<P> func;
   //! the chain levels
-  std::array<int, max_num_dimensions> chain_level = {-1};
+  std::array<int, max_num_dimensions> chain_level;
 };
 
 /*!
@@ -985,7 +986,7 @@ struct sym_boundary_flux {
   //! the separable function
   separable_func<P> func;
   //! the chain levels
-  std::array<int, max_num_dimensions> chain_level = {-1};
+  std::array<int, max_num_dimensions> chain_level;
 };
 
 /*!
@@ -1034,7 +1035,7 @@ private:
 
   bf_mode side_ = unset;
   separable_func<P> func_;
-  std::array<int, max_num_dimensions> ch_level_ = {-1};
+  std::array<int, max_num_dimensions> ch_level_;
 };
 
 /*!
@@ -1372,8 +1373,14 @@ struct group_id {
   constexpr int operator () () const { return gid; }
   //! compare the two group ids
   bool operator == (group_id const &other) const { return (other.gid == gid); }
+  //! check if the id is between -1 and the max bound, used for sanity checking
+  bool is_valid(size_t index_end) const {
+    return (-1 <= gid and gid < static_cast<int>(index_end));
+  }
   //! the group id
   int gid = -1;
+  //! indicates all groups
+  static constexpr group_id all() { return group_id{-1}; }
 };
 
 /*!

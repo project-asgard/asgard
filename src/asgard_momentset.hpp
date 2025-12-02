@@ -68,13 +68,24 @@ struct moment
     m += (pows[2] == -1) ? "x" : std::to_string(pows[2]);
     return m;
   }
+  //! print information about the moment to an std::ostream
+  friend std::ostream& operator<<(std::ostream& os, moment const &m) {
+    if (m.num_dims() == 0) os << "()";
+    else if (m.num_dims() == 1) os << "(" << m.pows[0] << ")";
+    else {
+      os << "(" << m.pows[0];
+      for (int i = 1; i < m.num_dims(); i++)
+        os << ", " << m.pows[i];
+      os << ")";
+    }
+    return os;
+  }
+
   //! holds the powers
   std::array<int, max_mom_dims> pows;
   //! action to perform on the moment
   moment_type action = regular;
 };
-
-std::ostream& operator<<(std::ostream& os, moment const &m);
 
 //! strong type for the moment ID
 class moment_id {

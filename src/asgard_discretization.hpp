@@ -151,7 +151,7 @@ public:
   void ode_rhs(precision time, std::vector<precision> const &current,
                std::vector<precision> &R) const
   {
-    ode_rhs_base(all_groups, time, current, R);
+    ode_rhs_base(group_id::all(), time, current, R);
   }
   //! takes an Euler-like step, next = current + ode-rhs(current), but terms and sources can be scaled separately
   void ode_euler(group_id gid, precision time, std::vector<precision> const &current,
@@ -171,30 +171,30 @@ public:
                  terms_scale term_scal, sources_scale source_scal,
                  std::vector<precision> &next) const
   {
-    ode_euler_base(all_groups, time, current, term_scal, source_scal, next);
+    ode_euler_base(group_id::all(), time, current, term_scal, source_scal, next);
   }
   //! takes an Euler-like step, next = current + scale * ode-rhs(current)
   void ode_euler(precision time, std::vector<precision> const &current,
                  precision scale, std::vector<precision> &next) const
   {
-    ode_euler_base(all_groups, time, current, terms_scale{scale}, sources_scale{scale}, next);
+    ode_euler_base(group_id::all(), time, current, terms_scale{scale}, sources_scale{scale}, next);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    ode_rhs_sources<data_mode::replace>(all_groups, time, 1, src);
+    ode_rhs_sources<data_mode::replace>(group_id::all(), time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    ode_rhs_sources<data_mode::scal_rep>(all_groups, time, alpha, src);
+    ode_rhs_sources<data_mode::scal_rep>(group_id::all(), time, alpha, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, std::vector<precision> &src) const {
-    ode_rhs_sources<data_mode::increment>(all_groups, time, 1, src);
+    ode_rhs_sources<data_mode::increment>(group_id::all(), time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources(precision time, precision alpha, std::vector<precision> &src) const {
-    ode_rhs_sources<data_mode::scal_inc>(all_groups, time, alpha, src);
+    ode_rhs_sources<data_mode::scal_inc>(group_id::all(), time, alpha, src);
   }
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
@@ -269,7 +269,7 @@ public:
   void terms_apply_gpu(precision alpha, precision const x[], precision beta,
                        precision y[]) const
   {
-    terms_apply_gpu(term_manager<precision>::all_groups, alpha, x, beta, y);
+    terms_apply_gpu(group_id::all(), alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply_gpu(group_id gid, precision alpha, precision const x[], precision beta,
@@ -292,7 +292,7 @@ public:
   }
   //! initiate iterative loop on MPI for the all groups and given workspace
   void mpi_iteration_apply(std::vector<precision> &work) const {
-    mpi_iteration_apply_base(all_groups, work);
+    mpi_iteration_apply_base(group_id::all(), work);
   }
   //! stop the currently working iteration
   void mpi_iteration_stop() const;
@@ -300,7 +300,7 @@ public:
   void mpi_leader_apply(precision alpha, precision const x[], precision beta,
                         precision y[]) const
   {
-    mpi_leader_apply_base(all_groups, alpha, x, beta, y);
+    mpi_leader_apply_base(group_id::all(), alpha, x, beta, y);
   }
   //! performs apply operation on the leader, assuming the non-leader ranks are running mpi_iteration_apply()
   void mpi_leader_apply(group_id gid, precision alpha, precision const x[],
@@ -479,7 +479,7 @@ public:
   connection_patterns const &get_conn() const { return conn; }
 
   //! recomputes the moments with the current state, if groupid is negative all groups will be computed
-  void compute_moments(group_id gid = group_id{all_groups}) const {
+  void compute_moments(group_id gid = group_id::all()) const {
     compute_moments(gid, state);
   }
   //! recomputes the moments given the state of interest and this term group
@@ -501,7 +501,7 @@ public:
     #ifdef ASGARD_USE_MPI
     }
     #endif
-    if (gid == all_groups)
+    if (gid == group_id::all())
       terms.moms.load_interp(terms.interp, terms.kwork, terms.it1);
     else
       terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
@@ -511,7 +511,7 @@ public:
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(std::vector<precision> const &f) const {
-    compute_moments(group_id{all_groups}, f);
+    compute_moments(group_id::all(), f);
   }
   //! recomputes the Poisson term for the given group
   void compute_poisson(group_id gid) const {
@@ -571,8 +571,6 @@ public:
   friend class h5manager<precision>;
   // handles the time-integration meta-data
   friend struct time_advance_manager<precision>;
-  // tag indicating the use of all groups
-  static constexpr group_id all_groups{-1};
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 protected:

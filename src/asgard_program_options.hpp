@@ -378,6 +378,14 @@ struct prog_opts
   static void print_version_help(std::ostream &os = std::cout);
   //! print the current set of options
   void print_options(std::ostream &os = std::cout) const;
+  /*!
+   * \ingroup asgard_common_options
+   * \brief overload, allows writing options to a stream
+   */
+  friend std::ostream &operator<<(std::ostream &os, prog_opts const &options) {
+    options.print_options(os);
+    return os;
+  }
 
   //! argv input values unrecognized by ASGarD
   std::vector<std::string> externals;
@@ -841,15 +849,5 @@ inline prog_opts make_opts(std::string const &cli)
   return prog_opts(split_argv(cli));
 }
 #endif
-
-/*!
- * \ingroup asgard_common_options
- * \brief overload, allows writing options to a stream
- */
-inline std::ostream &operator<<(std::ostream &os, prog_opts const &options)
-{
-  options.print_options(os);
-  return os;
-}
 
 } // namespace asgard

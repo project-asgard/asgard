@@ -157,8 +157,8 @@ void term_manager<P>::apply_sources(
 
   sweights.resize(0);
 
-  indexrange isrng = (group == all_groups) ? indexrange(sources)
-                                           : source_groups[group()].source_range;
+  indexrange isrng = (group == group_id::all()) ? indexrange(sources)
+                                                : source_groups[group()].source_range;
 
   for (int is : isrng) {
     auto const &src = sources[is];
@@ -197,7 +197,7 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  if (group == all_groups) {
+  if (group == group_id::all()) {
     for (auto const &src : sources_md) {
       #ifdef ASGARD_USE_MPI
       if (not src.func or not resources.owns(src.rec))
@@ -224,8 +224,8 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  indexrange ibrng = (group == all_groups) ? indexrange(bcs)
-                                           : source_groups[group()].bc_range;
+  indexrange ibrng = (group == group_id::all()) ? indexrange(bcs)
+                                                : source_groups[group()].bc_range;
 
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
@@ -273,8 +273,8 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  indexrange irng = (group == all_groups) ? indexrange(0, num_lumped)
-                                          : source_groups[group()].lump_range;
+  indexrange irng = (group == group_id::all()) ? indexrange(0, num_lumped)
+                                               : source_groups[group()].lump_range;
 
   // using BLAS level 2 gemv operation is more efficient when we are dealing
   // with a sufficiently large number of sources

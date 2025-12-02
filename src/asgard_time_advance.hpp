@@ -383,6 +383,17 @@ struct time_advance_manager
       };
     }
   }
+  /*!
+   * \internal
+   * \ingroup asgard_time_advance
+   * \brief Allows writing time-data to a stream
+   *
+   * \endinternal
+   */
+  friend std::ostream &operator<<(std::ostream &os, time_advance_manager<P> const &manger) {
+    manger.print_time(os);
+    return os;
+  }
   //! returns the count the iterations of the iterative solver, -1 if using a direct solver
   int64_t solver_iterations() const {
     switch (method.index()) {
@@ -406,19 +417,4 @@ struct time_advance_manager
                time_advance::crank_nicolson<P>, time_advance::imex_stepper<P>> method;
 };
 
-/*!
- * \internal
- * \ingroup asgard_time_advance
- * \brief Allows writing time-data to a stream
- *
- * \endinternal
- */
-template<typename P>
-inline std::ostream &operator<<(std::ostream &os, time_advance_manager<P> const &manger)
-{
-  manger.print_time(os);
-  return os;
 }
-
-}
-

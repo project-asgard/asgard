@@ -56,7 +56,7 @@ void term_manager<P>::apply_tmpl(
     expect(x.size() == y.size());
     expect(x.size() == kwork.w1.size());
   }
-  expect(all_groups() <= gid() and gid() < static_cast<int>(term_groups.size()));
+  expect(gid.is_valid(term_groups.size()));
 
   auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {

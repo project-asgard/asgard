@@ -63,8 +63,6 @@ void init_tests()
   {
     current_test<P> name_("zero steps time");
 
-    tassert(discretization_manager<P>::all_groups == term_manager<P>::all_groups);
-
     auto disc1 = disc_testpde<pde_contcos, P>(1, make_opts("-l 1 -d 0 -n 0"));
     tassert(disc1.time() == 0);
     tassert(disc1.degree() == 0);

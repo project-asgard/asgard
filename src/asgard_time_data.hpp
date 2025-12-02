@@ -128,6 +128,15 @@ public:
        << "\n  num-steps (n)   " << tools::split_style(num_remain_)
        << "\n  time-step (dt)  " << dt_ << '\n';
   }
+  /*!
+   * \ingroup asgard_discretization
+   * \brief Allows writing time-data to a stream
+   */
+  friend std::ostream &operator<<(std::ostream &os, time_data const &dtime)
+  {
+    dtime.print_time(os);
+    return os;
+  }
 
   //! allows writer to save/load the time data
   friend class h5manager<double>;
@@ -149,15 +158,5 @@ private:
   //! remaining steps
   int64_t num_remain_ = -1;
 };
-
-/*!
- * \ingroup asgard_discretization
- * \brief Allows writing time-data to a stream
- */
-inline std::ostream &operator<<(std::ostream &os, time_data const &dtime)
-{
-  dtime.print_time(os);
-  return os;
-}
 
 } // namespace asgard

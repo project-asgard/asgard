@@ -76,7 +76,7 @@ public:
   void solve(gpu::vector<P> &b) const;
   #endif
 
-  //! (testing) writes the the matric to the scream
+  //! (testing) writes the the matrix to the scream
   void print(std::ostream &os = std::cout) {
     for (int64_t r = 0; r < nrows_; r++) {
       for (int64_t c = 0; c < ncols_; c++)
@@ -112,9 +112,9 @@ class block_matrix
 {
 public:
   //! make an empty matrix
-  block_matrix() : nrows_(0), ncols_(0), data_(0, 0) {}
+  block_matrix() = default;
   //! initialize matrix with given block-size and number of rows/cols
-  block_matrix(int block_size, int64_t num_rows, int64_t num_cols)
+  block_matrix(int64_t block_size, int64_t num_rows, int64_t num_cols)
       : nrows_(num_rows), ncols_(num_cols), data_(block_size, num_rows * num_cols)
   {}
 
@@ -215,7 +215,7 @@ public:
     os << '\n';
   }
 
-  //! returns the l-inf max norm between the two matrices
+  //! returns the l-inf max norm between the two matrices, uses the vector norm of the data, not the operator l-inf
   P max_diff(block_matrix<P> const &other) {
     expect(nrows_ == other.nrows_);
     expect(ncols_ == other.ncols_);
@@ -242,7 +242,8 @@ public:
   }
 
 private:
-  int64_t nrows_, ncols_;
+  int64_t nrows_ = 0;
+  int64_t ncols_ = 0;
   vector2d<P> data_;
 };
 

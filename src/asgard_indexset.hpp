@@ -580,6 +580,11 @@ public:
 
   //! print summary of the grid
   void print_stats(std::ostream &os) const;
+  //! overload for writing grid stats
+  friend std::ostream &operator<<(std::ostream &os, sparse_grid const &grid) {
+    grid.print_stats(os);
+    return os;
+  }
 
   #ifdef ASGARD_USE_MPI
   //! send the grid from the leader to all the sub-grids
@@ -694,12 +699,5 @@ private:
   #endif
   #endif
 };
-
-//! overload for writing grid stats
-inline std::ostream &operator<<(std::ostream &os, sparse_grid const &grid)
-{
-  grid.print_stats(os);
-  return os;
-}
 
 } // namespace asgard

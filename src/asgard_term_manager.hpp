@@ -149,7 +149,7 @@ struct term_manager
 
   //! return the range for the given group, returns full range for group -1
   indexrange<int> terms_group_range(group_id group) const {
-    return (group == all_groups) ? indexrange<int>(terms) : indexrange<int>(term_groups[group()]);
+    return (group == group_id::all()) ? indexrange<int>(terms) : indexrange<int>(term_groups[group()]);
   }
 
   //! rebuild all matrices
@@ -214,14 +214,14 @@ struct term_manager
   void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
                             hierarchy_manipulator<P> const &hier)
   {
-    rebuild_moment_terms(all_groups, grid, conn, hier);
+    rebuild_moment_terms(group_id::all(), grid, conn, hier);
   }
   //! rebuild the terms that depend only on the moments
   void rebuild_moment_terms(group_id group, sparse_grid const &grid,
                             connection_patterns const &conn, hierarchy_manipulator<P> const &hier)
   {
     tools::time_event timing_("rebuild moment terms (" + ((group() == -1) ? std::string("all") : std::to_string(group())) + ")");
-    expect(-1 <= group() and group() < static_cast<int>(term_groups.size()));
+    expect(group.is_valid(term_groups.size()));
     for (int it : terms_group_range(group)) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
@@ -272,18 +272,18 @@ struct term_manager
   void apply(sparse_grid const &grid, connection_patterns const &conn,
              P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
     #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(all_groups, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(group_id::all(), grid, conn, alpha, x, beta, y);
     #else
-    apply_tmpl<std::vector<P> const &, std::vector<P> &>(all_groups, grid, conn, alpha, x, beta, y);
+    apply_tmpl<std::vector<P> const &, std::vector<P> &>(group_id::all(), grid, conn, alpha, x, beta, y);
     #endif
   }
   //! y = sum(terms * x), applies all terms
   void apply(sparse_grid const &grid, connection_patterns const &conn,
              P alpha, P const x[], P beta, P y[]) const {
     #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(all_groups, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(group_id::all(), grid, conn, alpha, x, beta, y);
     #else
-    apply_tmpl<P const[], P[]>(all_groups, grid, conn, alpha, x, beta, y);
+    apply_tmpl<P const[], P[]>(group_id::all(), grid, conn, alpha, x, beta, y);
     #endif
   }
   //! y = sum(terms * x), applies all terms
@@ -308,7 +308,7 @@ struct term_manager
   //! y = sum(terms * x), applies all terms, input is on the GPU
   void apply_gpu(sparse_grid const &grid, connection_patterns const &conn,
                  P alpha, P const x[], P beta, P y[]) const {
-    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(all_groups, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(group_id::all(), grid, conn, alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms for the group, input is on the GPU
   void apply_gpu(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
@@ -328,7 +328,7 @@ struct term_manager
   //! construct term diagonal
   void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const {
-    make_jacobi(all_groups, grid, conns, y);
+    make_jacobi(group_id::all(), grid, conns, y);
   }
 
   //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
@@ -372,7 +372,7 @@ struct term_manager
   void apply_sources(sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]) {
-    apply_sources<dmode>(all_groups, grid, conns, hier, time, alpha, y);
+    apply_sources<dmode>(group_id::all(), grid, conns, hier, time, alpha, y);
   }
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
@@ -390,11 +390,8 @@ struct term_manager
                      P time, P alpha, std::vector<P> &y)
   {
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(all_groups, grid, conns, hier, time, alpha, y.data());
+    apply_sources<dmode>(group_id::all(), grid, conns, hier, time, alpha, y.data());
   }
-
-  //! indicates the use of all groups
-  static constexpr group_id all_groups{-1};
 
 protected:
   //! remember which grid was cached for the workspace
