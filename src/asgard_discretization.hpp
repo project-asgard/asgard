@@ -32,8 +32,6 @@ template<typename precision = default_precision>
 class discretization_manager
 {
 public:
-  //! sets the precision type
-  using precision_type = precision;
   //! allows the creation of a null manager, has to be reinitialized later
   discretization_manager() {
     #ifdef ASGARD_ENABLE_DOUBLE
@@ -50,17 +48,9 @@ public:
   //! take ownership of the pde object and discretize the pde
   discretization_manager(pde_scheme<precision> pde,
                          verbosity_level verbosity = verbosity_level::quiet)
-    : verb(pde.options().verbosity.value_or(verbosity))
+    : discretization_manager()
   {
-    #ifdef ASGARD_ENABLE_DOUBLE
-    #ifdef ASGARD_ENABLE_FLOAT
-    static_assert(is_double<precision> or is_float<precision>);
-    #else
-    static_assert(is_double<precision>);
-    #endif
-    #else
-    static_assert(is_float<precision>);
-    #endif
+    verb = pde.options().verbosity.value_or(verbosity);
 
     rassert(pde.num_dims() > 0, "cannot discretize an empty pde");
 
@@ -116,8 +106,8 @@ public:
 
   //! set the time in the beginning of the simulation, time() must be zero to call this
   void set_time(precision t) {
-    if (stepper.data.step() != 0)
-      throw std::runtime_error("cannot reset the current time after the simulation start");
+    rassert(stepper.data.step() == 0,
+            "cannot reset the current time after the simulation start");
     stepper.data.time() = t;
   }
   //! return the current state, in wavelet format, local to this mpi rank
@@ -149,7 +139,7 @@ public:
   //! check if the terms have poisson dependence
   bool has_poisson() const { return poisson; }
   //! check if the terms have moment dependence
-  bool has_moments() const { return !!terms.moms; }
+  bool has_moments() const { return terms.moms; }
 
   //! computes the right-hand-side of the ode
   void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
@@ -222,7 +212,7 @@ public:
 
   //! computes the l-2 norm, taking the mass matrix into account
   precision normL2(std::vector<precision> const &x) const {
-    expect(x.size() == state.size());
+    rassert(x.size() == state.size(), "the vector size must match the state_size()");
     return terms.normL2(grid, conn, x);
   }
 
@@ -231,7 +221,7 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(-1, grid, conn);
+    int64_t const flops = terms.flop_count(all_groups, grid, conn);
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
@@ -334,8 +324,6 @@ public:
   }
   #endif
 
-  //! write out checkpoint/restart data and data for plotting
-  void checkpoint() const;
   //! write out snapshot data, same as checkpoint but can be invoked manually
   void save_snapshot(std::filesystem::path const &filename) const;
   //! calls save-snapshot for the final step, if requested with -outfile
@@ -433,7 +421,7 @@ public:
   }
   //! projects a single separable function and md_func onto the current basis
   std::vector<precision> project_function(
-      separable_func<precision> const &sep = {},
+      separable_func<precision> const &sep,
       md_func<precision> const &fmd = nullptr) const
   {
     std::vector<precision> result;
@@ -482,8 +470,6 @@ public:
   }
   //! returns the term manager
   term_manager<precision> const &get_terms() const { return terms; }
-  //! returns the term manager, non-const ref
-  term_manager<precision> &get_terms_m() const { return terms; }
   //! returns the compute resources meta structure
   resource_set const &get_resources() const { return terms.resources; }
 
