@@ -93,7 +93,7 @@ struct current_test{
     if (mpi::is_world_rank(0)) {
       std::string s = "    " + asgard_test_name;
 
-      if (s.size() < 60)
+      if (s.size() < 68)
         std::cout << s << std::setw(70 - s.size()) << ((asgard_test_pass) ? "pass" : "FAIL") << '\n';
       else
         std::cout << s << "  " << ((asgard_test_pass) ? "pass" : "FAIL") << '\n';
