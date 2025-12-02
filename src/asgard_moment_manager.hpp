@@ -14,10 +14,6 @@ class moment_manager {
 public:
   //! creates a default empty manager, no moments
   moment_manager() = default;
-  //! create the manager with the new groups
-  moment_manager(pde_domain<P> const &domain, int degree,
-                 moments_list &&mlist_in,
-                 std::vector<moments_list> const &mom_groups = std::vector<moments_list>{});
   //! create the manager with the new groups and potentially lower degree
   moment_manager(pde_domain<P> const &domain, int max_level, legendre_basis<P> const &basis,
                  hierarchy_manipulator<P> const &hier,
@@ -34,8 +30,6 @@ public:
   void set_mass(int dim, P xleft, P xright, int max_level, legendre_basis<P> const &basis,
                 hierarchy_manipulator<P> const &hier, P scale, rhs_raw_data<P> &coeff);
 
-  //! returns the loaded dimensions
-  int num_dims() const { return num_dims_; }
   //! returns the number of velocity dimensions
   int num_vel() const { return num_vel_; }
   //! returns the total number of moments
@@ -52,14 +46,6 @@ public:
     mlist.set_action(id, action);
   }
 
-  //! returns a grid defined over the position dimensions ready for kronmult
-  sparse_grid const &get_kronmult_grid() const {
-    if (dsort_generation != pos_grid.generation_) {
-      pos_grid.dsort_ = dimension_sort(pos_grid.iset_);
-      dsort_generation = pos_grid.generation_;
-    }
-    return pos_grid;
-  }
   //! returns a grid indexes, used for I/O
   std::vector<int> const &get_grid_indexes() const { return pos_grid.iset_.indexes_; }
   //! computes the specified moment
@@ -70,10 +56,7 @@ public:
   void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const;
   //! computes and caches a specific moment
   void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state) const;
-  //! get the cached moment
-  std::vector<P> const &get_cached(moment_id id) const {
-    return raw_vals[id];
-  }
+
   //! returns the  moment vector after expanding to full level and reconstructing
   std::vector<P> const &get_cached_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
     expect(pos_grid.num_dims() == 1); // levels work only for position 1d

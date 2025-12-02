@@ -20,46 +20,6 @@ moment_manager<P>::moment_manager(moments_list &&mlist_in,
 }
 
 template<typename P>
-moment_manager<P>::moment_manager(pde_domain<P> const &domain, int degree,
-                                  moments_list &&mlist_in,
-                                  std::vector<moments_list> const &mom_groups)
-    : moment_manager(std::move(mlist_in), mom_groups)
-{
-  if (mlist.empty()) // no moments, nothing more to set
-    return;
-
-  num_dims_ = domain.num_dims();
-  num_vel_  = domain.num_vel();
-  pdof      = degree + 1;
-
-  pos_block  = (domain.num_pos() == 0) ? 0 :fm::ipow(pdof, domain.num_pos());
-  vel_block  = fm::ipow(pdof, domain.num_vel());
-  full_block = fm::ipow(pdof, domain.num_dims());
-
-  pos_grid.iset_.num_dimensions_ = domain.num_pos();
-
-  wav_scale  = 1;
-  for (int d : iindexof(pos_grid.num_dims()))
-    wav_scale *= (domain.xright(d) - domain.xleft(d));
-  wav_scale = P{1} / std::sqrt(wav_scale);
-
-  std::cout << " wav-scale = " << wav_scale << "\n";
-
-  dim_level.fill(moment_level::zero);
-
-  moment const max_moms = mlist.max_moment();
-
-  // this constructor assumes no mass and the degree is high enough
-  // to capture all moments into the zero-level element
-  expect(pdof > max_moms.pows[0] and pdof > max_moms.pows[1] and pdof > max_moms.pows[2]);
-
-  legendre_basis<P> basis(pdof - 1);
-
-  for (int d = 0; d < num_vel_; d++)
-    set_level_zero(domain, basis, max_moms, d);
-}
-
-template<typename P>
 moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
                                   legendre_basis<P> const &basis,
                                   hierarchy_manipulator<P> const &hier,
