@@ -54,9 +54,6 @@ void compile_tests()
     static_assert(std::is_move_constructible_v<discretization_manager<P>>);
     static_assert(std::is_copy_assignable_v<discretization_manager<P>>);
     static_assert(std::is_move_assignable_v<discretization_manager<P>>);
-
-    static_assert(discretization_manager<P>::all_groups == term_manager<P>::all_groups,
-                  "ensure group selection consistency");
   }
 }
 
@@ -65,6 +62,8 @@ void init_tests()
 {
   {
     current_test<P> name_("zero steps time");
+
+    tassert(discretization_manager<P>::all_groups == term_manager<P>::all_groups);
 
     auto disc1 = disc_testpde<pde_contcos, P>(1, make_opts("-l 1 -d 0 -n 0"));
     tassert(disc1.time() == 0);

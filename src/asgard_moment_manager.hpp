@@ -128,7 +128,7 @@ public:
   void load_interp(interpolation_manager<P> const &interp,
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! load the inteprolatory moments, specified group
-  void load_interp(int groupid, interpolation_manager<P> const &interp,
+  void load_interp(group_id group, interpolation_manager<P> const &interp,
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
 protected:

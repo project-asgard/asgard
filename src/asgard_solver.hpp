@@ -449,7 +449,7 @@ struct solver_manager
     update_grid(term_manager<P>::all_groups, grid, conn, terms, alpha);
   }
   //! updates the internals for the current grid generation
-  void update_grid(int groupid, sparse_grid const &grid,
+  void update_grid(group_id groupid, sparse_grid const &grid,
                    connection_patterns const &conn,
                    term_manager<P> const &terms, P alpha);
 

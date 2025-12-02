@@ -135,7 +135,7 @@ struct term_manager
   //! dependencies for each term group, last entry is for all terms, use has_poisson() not this directly
   std::vector<bool> has_poisson_;
   //! has Poisson solver for the given group
-  bool has_poisson(int groupid) const { return (not has_poisson_.empty() and has_poisson_[groupid]); }
+  bool has_poisson(group_id group) const { return (not has_poisson_.empty() and has_poisson_[group()]); }
   //! has Poisson solver for any group
   bool has_poisson() const { return (not has_poisson_.empty()); }
 
@@ -148,8 +148,8 @@ struct term_manager
   #endif
 
   //! return the range for the given group, returns full range for group -1
-  indexrange<int> terms_group_range(int groupid) const {
-    return (groupid == all_groups) ? indexrange<int>(terms) : indexrange<int>(term_groups[groupid]);
+  indexrange<int> terms_group_range(group_id group) const {
+    return (group == all_groups) ? indexrange<int>(terms) : indexrange<int>(term_groups[group()]);
   }
 
   //! rebuild all matrices
@@ -168,8 +168,7 @@ struct term_manager
     }
   }
   //! build the large matrices to the max level
-  void build_mass_matrices(hierarchy_manipulator<P> const &hier,
-                           connection_patterns const &conn)
+  void build_mass_matrices(hierarchy_manipulator<P> const &hier, connection_patterns const &conn)
   {
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
@@ -213,17 +212,17 @@ struct term_manager
 
   //! rebuild the terms that depend only on the moments
   void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
-                               hierarchy_manipulator<P> const &hier)
+                            hierarchy_manipulator<P> const &hier)
   {
     rebuild_moment_terms(all_groups, grid, conn, hier);
   }
   //! rebuild the terms that depend only on the moments
-  void rebuild_moment_terms(int groupid, sparse_grid const &grid, connection_patterns const &conn,
-                               hierarchy_manipulator<P> const &hier)
+  void rebuild_moment_terms(group_id group, sparse_grid const &grid,
+                            connection_patterns const &conn, hierarchy_manipulator<P> const &hier)
   {
-    tools::time_event timing_("rebuild moment terms (" + ((groupid == -1) ? std::string("all") : std::to_string(groupid)) + ")");
-    expect(-1 <= groupid and groupid < static_cast<int>(term_groups.size()));
-    for (int it : terms_group_range(groupid)) {
+    tools::time_event timing_("rebuild moment terms (" + ((group() == -1) ? std::string("all") : std::to_string(group())) + ")");
+    expect(-1 <= group() and group() < static_cast<int>(term_groups.size()));
+    for (int it : terms_group_range(group)) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
         if (resources.owns(te.rec) and te.is_separable() and te.tmd.dim(d).depends() != term_dependence::none)
@@ -288,7 +287,7 @@ struct term_manager
     #endif
   }
   //! y = sum(terms * x), applies all terms
-  void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
+  void apply(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
              P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
     #ifdef ASGARD_USE_GPU
     apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(gid, grid, conn, alpha, x, beta, y);
@@ -297,7 +296,7 @@ struct term_manager
     #endif
   }
   //! y = sum(terms * x), applies all terms
-  void apply(int gid, sparse_grid const &grid, connection_patterns const &conn,
+  void apply(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
              P alpha, P const x[], P beta, P y[]) const {
     #ifdef ASGARD_USE_GPU
     apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(gid, grid, conn, alpha, x, beta, y);
@@ -312,7 +311,7 @@ struct term_manager
     apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(all_groups, grid, conn, alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms for the group, input is on the GPU
-  void apply_gpu(int gid, sparse_grid const &grid, connection_patterns const &conn,
+  void apply_gpu(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
                  P alpha, P const x[], P beta, P y[]) const {
     apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(gid, grid, conn, alpha, x, beta, y);
   }
@@ -324,7 +323,7 @@ struct term_manager
   #endif
 
   //! construct term diagonal
-  void make_jacobi(int groupid, sparse_grid const &grid, connection_patterns const &conns,
+  void make_jacobi(group_id group, sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const;
   //! construct term diagonal
   void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
@@ -365,7 +364,7 @@ struct term_manager
 
   //! process the source group and store the result into pre-allocated vector
   template<data_mode dmode>
-  void apply_sources(int groupid, sparse_grid const &grid,
+  void apply_sources(group_id group, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]);
   //! process all the sources and store the result into pre-allocated vector
@@ -377,12 +376,12 @@ struct term_manager
   }
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
-  void apply_sources(int groupid, sparse_grid const &grid,
+  void apply_sources(group_id group, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, std::vector<P> &y)
   {
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(groupid, grid, conns, hier, time, alpha, y.data());
+    apply_sources<dmode>(group, grid, conns, hier, time, alpha, y.data());
   }
   //! process all sources and apply the dmode operation to y
   template<data_mode dmode>
@@ -395,7 +394,7 @@ struct term_manager
   }
 
   //! indicates the use of all groups
-  static constexpr int all_groups = -1;
+  static constexpr group_id all_groups{-1};
 
 protected:
   //! remember which grid was cached for the workspace
@@ -430,14 +429,14 @@ protected:
   //! single point implementation for all variations of apply
   template<typename vector_type_x, typename vector_type_y>
   void apply_tmpl(
-    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const;
 
   #ifdef ASGARD_USE_GPU
   //! single point implementation for all variations of apply, uses the GPU the data can come from the CPU or GPU
   template<typename vector_type_x, typename vector_type_y, compute_mode mode>
   void apply_tmpl_gpu(
-    int gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const;
   #endif
 

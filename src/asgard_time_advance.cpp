@@ -343,7 +343,7 @@ void imex_stepper<P>::implicit_solve(
 
   P const dt = disc.dt();
 
-  solver.update_grid(imex_implicit.gid, disc.get_grid(), disc.get_conn(),
+  solver.update_grid(group_id{imex_implicit}, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt);
 
   if (solver.opt != solver_method::direct)
@@ -372,7 +372,7 @@ void imex_stepper<P>::implicit_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           gpu::axpby(t1.size(), alpha, x, beta, y);
-          disc.terms_apply_gpu(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
+          disc.terms_apply_gpu(group_id{imex_implicit}, alpha * dt, x, 1, y);
         }, t1, t2);
       t2.copy_to_host(R);
       #else
@@ -380,7 +380,7 @@ void imex_stepper<P>::implicit_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           fm::axpby(n, alpha, x, beta, y);
-          disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
+          disc.mpi_leader_apply(group_id{imex_implicit}, alpha * dt, x, 1, y);
         }, current, R);
       #endif
     break;
@@ -397,7 +397,7 @@ void imex_stepper<P>::implicit_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           gpu::axpby(t1.size(), alpha, x, beta, y);
-          disc.terms_apply_gpu(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
+          disc.terms_apply_gpu(group_id{imex_implicit}, alpha * dt, x, 1, y);
         }, t1, t2);
       t2.copy_to_host(R);
       #else
@@ -410,7 +410,7 @@ void imex_stepper<P>::implicit_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           fm::axpby(n, alpha, x, beta, y);
-          disc.mpi_leader_apply(group_id{imex_implicit.gid}, alpha * dt, x, 1, y);
+          disc.mpi_leader_apply(group_id{imex_implicit}, alpha * dt, x, 1, y);
         }, current, R);
       #endif
     break;

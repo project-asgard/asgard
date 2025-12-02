@@ -9,7 +9,7 @@ namespace asgard
 template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_sources(
-    int groupid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id group, sparse_grid const &grid, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
   // make all sources/bc lumped, except the time-dependent ones
@@ -157,8 +157,8 @@ void term_manager<P>::apply_sources(
 
   sweights.resize(0);
 
-  indexrange isrng = (groupid == -1) ? indexrange(sources)
-                                     : source_groups[groupid].source_range;
+  indexrange isrng = (group == all_groups) ? indexrange(sources)
+                                           : source_groups[group()].source_range;
 
   for (int is : isrng) {
     auto const &src = sources[is];
@@ -197,7 +197,7 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  if (groupid == -1) {
+  if (group == all_groups) {
     for (auto const &src : sources_md) {
       #ifdef ASGARD_USE_MPI
       if (not src.func or not resources.owns(src.rec))
@@ -213,19 +213,19 @@ void term_manager<P>::apply_sources(
     }
   } else {
     #ifdef ASGARD_USE_MPI
-    if (resources.owns(sources_md[groupid].rec) and sources_md[groupid].func) {
+    if (resources.owns(sources_md[group()].rec) and sources_md[group()].func) {
     #else
-    if (sources_md[groupid].func) {
+    if (sources_md[group()].func) {
     #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, time, 1, sources_md[groupid].func, 1, y, kwork, it1, it2);
+        interp(grid, conns, time, 1, sources_md[group()].func, 1, y, kwork, it1, it2);
       else
-        interp(grid, conns, time, alpha, sources_md[groupid].func, 1, y, kwork, it1, it2);
+        interp(grid, conns, time, alpha, sources_md[group()].func, 1, y, kwork, it1, it2);
     }
   }
 
-  indexrange ibrng = (groupid == -1) ? indexrange(bcs)
-                                     : source_groups[groupid].bc_range;
+  indexrange ibrng = (group == all_groups) ? indexrange(bcs)
+                                           : source_groups[group()].bc_range;
 
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
@@ -273,8 +273,8 @@ void term_manager<P>::apply_sources(
     }
   }
 
-  indexrange irng = (groupid == -1) ? indexrange(0, num_lumped)
-                                    : source_groups[groupid].lump_range;
+  indexrange irng = (group == all_groups) ? indexrange(0, num_lumped)
+                                          : source_groups[group()].lump_range;
 
   // using BLAS level 2 gemv operation is more efficient when we are dealing
   // with a sufficiently large number of sources
@@ -300,31 +300,31 @@ void term_manager<P>::apply_sources(
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template void term_manager<double>::apply_sources<data_mode::replace>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::increment>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_inc>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_rep>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template void term_manager<float>::apply_sources<data_mode::replace>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::increment>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_inc>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_rep>(
-    int, sparse_grid const &, connection_patterns const &,
+    group_id, sparse_grid const &, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
 

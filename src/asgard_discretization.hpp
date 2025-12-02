@@ -145,7 +145,7 @@ public:
   void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
                std::vector<precision> &R) const
   {
-    ode_rhs_base(gid.gid, time, current, R);
+    ode_rhs_base(gid, time, current, R);
   }
   //! computes the right-hand-side of the ode
   void ode_rhs(precision time, std::vector<precision> const &current,
@@ -158,13 +158,13 @@ public:
                  terms_scale term_scal, sources_scale source_scal,
                  std::vector<precision> &next) const
   {
-    ode_euler_base(gid.gid, time, current, term_scal, source_scal, next);
+    ode_euler_base(gid, time, current, term_scal, source_scal, next);
   }
   //! takes an Euler-like step, next = current + scale * ode-rhs(current)
   void ode_euler(group_id gid, precision time, std::vector<precision> const &current,
                  precision scale, std::vector<precision> &next) const
   {
-    ode_euler_base(gid.gid, time, current, terms_scale{scale}, sources_scale{scale}, next);
+    ode_euler_base(gid, time, current, terms_scale{scale}, sources_scale{scale}, next);
   }
   //! takes an Euler-like step, next = current + ode-rhs(current), but terms and sources can be scaled separately
   void ode_euler(precision time, std::vector<precision> const &current,
@@ -199,15 +199,15 @@ public:
 
   //! computes the ode right-hand-side sources by projecting them onto the basis and setting them in src
   void set_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
-    ode_rhs_sources<data_mode::replace>(gid.gid, time, 1, src);
+    ode_rhs_sources<data_mode::replace>(gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(group_id gid, precision time, std::vector<precision> &src) const {
-    ode_rhs_sources<data_mode::increment>(gid.gid, time, 1, src);
+    ode_rhs_sources<data_mode::increment>(gid, time, 1, src);
   }
   //! computes the ode right-hand-side sources by projecting them onto the basis and adding them to src
   void add_ode_rhs_sources_group(group_id gid, precision time, precision alpha, std::vector<precision> &src) const {
-    ode_rhs_sources<data_mode::scal_inc>(gid.gid, time, alpha, src);
+    ode_rhs_sources<data_mode::scal_inc>(gid, time, alpha, src);
   }
 
   //! computes the l-2 norm, taking the mass matrix into account
@@ -250,45 +250,45 @@ public:
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid, grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid.gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid, grid, conn);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid.gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid, grid, conn, alpha, x, beta, y);
   }
   #ifdef ASGARD_USE_GPU
   //! applies all terms, non-owning array signature
   void terms_apply_gpu(precision alpha, precision const x[], precision beta,
                        precision y[]) const
   {
-    terms_apply_gpu(group_id{term_manager<precision>::all_groups}, alpha, x, beta, y);
+    terms_apply_gpu(term_manager<precision>::all_groups, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply_gpu(group_id gid, precision alpha, precision const x[], precision beta,
                        precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid.gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid, grid, conn);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply_gpu(gid.gid, grid, conn, alpha, x, beta, y);
+    terms.apply_gpu(gid, grid, conn, alpha, x, beta, y);
   }
   #endif
 
   #ifdef ASGARD_USE_MPI
   //! initiate iterative loop on MPI for the given group and workspace
   void mpi_iteration_apply(group_id gid, std::vector<precision> &work) const {
-    mpi_iteration_apply_base(gid.gid, work);
+    mpi_iteration_apply_base(gid, work);
   }
   //! initiate iterative loop on MPI for the all groups and given workspace
   void mpi_iteration_apply(std::vector<precision> &work) const {
@@ -306,7 +306,7 @@ public:
   void mpi_leader_apply(group_id gid, precision alpha, precision const x[],
                         precision beta, precision y[]) const
   {
-    mpi_leader_apply_base(gid.gid, alpha, x, beta, y);
+    mpi_leader_apply_base(gid, alpha, x, beta, y);
   }
   #else
   void mpi_iteration_apply(group_id, std::vector<precision> &) const {}
@@ -501,13 +501,13 @@ public:
     #ifdef ASGARD_USE_MPI
     }
     #endif
-    if (gid.gid == all_groups)
+    if (gid == all_groups)
       terms.moms.load_interp(terms.interp, terms.kwork, terms.it1);
     else
-      terms.moms.load_interp(gid.gid, terms.interp, terms.kwork, terms.it1);
+      terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
 
     compute_poisson(gid);
-    terms.rebuild_moment_terms(gid.gid, grid, conn, hier);
+    terms.rebuild_moment_terms(gid, grid, conn, hier);
   }
   //! recomputes the moments given the state of interest and this term group
   void compute_moments(std::vector<precision> const &f) const {
@@ -515,7 +515,7 @@ public:
   }
   //! recomputes the Poisson term for the given group
   void compute_poisson(group_id gid) const {
-    if (not poisson or (gid.gid >= 0 and not terms.has_poisson(gid.gid)))
+    if (not poisson or (gid() >= 0 and not terms.has_poisson(gid)))
       return;
 
     #ifdef ASGARD_USE_MPI
@@ -572,7 +572,7 @@ public:
   // handles the time-integration meta-data
   friend struct time_advance_manager<precision>;
   // tag indicating the use of all groups
-  static constexpr int all_groups = -1;
+  static constexpr group_id all_groups{-1};
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
 protected:
@@ -587,15 +587,16 @@ protected:
   //! common operations for the two start methods
   void start_moments();
   //! computes the right-hand-side of the ode, templated version
-  void ode_rhs_base(int gid, precision time, std::vector<precision> const &current,
+  void ode_rhs_base(group_id gid, precision time, std::vector<precision> const &current,
                     std::vector<precision> &R) const;
   //! computes next = current + scale_terms * F(x) + scale_src * sources(time)
-  void ode_euler_base(int gid, precision time, std::vector<precision> const &current,
+  void ode_euler_base(group_id gid, precision time, std::vector<precision> const &current,
                       terms_scale term_scal, sources_scale source_scal,
                       std::vector<precision> &next) const;
   //! template version of ode right-hand-side sources
   template<data_mode mode>
-  void ode_rhs_sources(int gid, precision time, precision alpha, std::vector<precision> &src) const;
+  void ode_rhs_sources(group_id gid, precision time, precision alpha,
+                       std::vector<precision> &src) const;
   //! returns a snapshot of the state on the current MPI rank
   reconstruct_solution get_local_snapshot() const
   {
@@ -622,9 +623,9 @@ protected:
 
   #ifdef ASGARD_USE_MPI
   //! worker iteration apply
-  void mpi_iteration_apply_base(int gid, std::vector<precision> &work) const;
+  void mpi_iteration_apply_base(group_id gid, std::vector<precision> &work) const;
   //! leader iteration apply
-  void mpi_leader_apply_base(int gid, precision alpha, precision const x[],
+  void mpi_leader_apply_base(group_id gid, precision alpha, precision const x[],
                              precision beta, precision y[]) const;
   #endif
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL

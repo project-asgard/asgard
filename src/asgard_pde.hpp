@@ -1367,9 +1367,11 @@ struct group_id {
   //! make a generic id from an implicit group
   explicit group_id(imex_implicit_group ii) : gid(ii.gid) {}
   //! sets the implicit group
-  explicit group_id(int g = -1) : gid(g) {}
+  explicit constexpr group_id(int g = -1) : gid(g) {}
   //! get the group id
-  int operator () () const { return gid; }
+  constexpr int operator () () const { return gid; }
+  //! compare the two group ids
+  bool operator == (group_id const &other) const { return (other.gid == gid); }
   //! the group id
   int gid = -1;
 };

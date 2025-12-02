@@ -621,10 +621,10 @@ void moment_manager<P>::load_interp(
 
 template<typename P>
 void moment_manager<P>::load_interp(
-    int groupid, interpolation_manager<P> const &interp,
+    group_id group, interpolation_manager<P> const &interp,
     kronmult::workspace<P> &work, std::vector<P> &workspace) const
 {
-  for (auto id : groups_[groupid])
+  for (auto id : groups_[group()])
     if (mlist[id].action == moment::interpolatory)
       make_nodal(id, interp, work, workspace);
 }

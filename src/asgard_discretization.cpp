@@ -361,7 +361,8 @@ void discretization_manager<precision>::print_mats() const {
 ///////////////////////////////////////////////////////////////////////////////
 template<typename precision>
 void discretization_manager<precision>::ode_rhs_base(
-    int gid, precision time, std::vector<precision> const &x, std::vector<precision> &y) const
+    group_id group, precision time, std::vector<precision> const &x,
+    std::vector<precision> &y) const
 {
   // 1. broadcast x to all ranks, then compute the moments
   //    (the moments can be done locally, the work is cheap)
@@ -407,24 +408,24 @@ void discretization_manager<precision>::ode_rhs_base(
 
   // locally update all moments
   if (terms.moms)
-    compute_moments(group_id{gid}, in);
+    compute_moments(group, in);
 
   out.resize(in.size());
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn);
+    int64_t const flops = terms.flop_count(group, grid, conn);
     tools::time_event performance_("ode-rhs kronmult", flops);
     #else
     tools::time_event performance_("ode-rhs kronmult");
     #endif
-    terms.apply(gid, grid, conn, -1, in, 0, out);
+    terms.apply(group, grid, conn, -1, in, 0, out);
 
     if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(y.begin(), y.end(), 0);
   }{
     tools::time_event performance_("ode-rhs sources");
-    terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, out);
+    terms.template apply_sources<data_mode::increment>(group, grid, conn, hier, time, 1, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -439,7 +440,7 @@ void discretization_manager<precision>::ode_rhs_base(
 
 template<typename precision>
 void discretization_manager<precision>::ode_euler_base(
-    int gid, precision time, std::vector<precision> const &current,
+    group_id group, precision time, std::vector<precision> const &current,
     terms_scale term_scal, sources_scale source_scal, std::vector<precision> &next) const
 {
   // 1. broadcast x to all ranks, then compute the moments
@@ -486,7 +487,7 @@ void discretization_manager<precision>::ode_euler_base(
 
   // locally update all moments
   if (terms.moms)
-    compute_moments(group_id{gid}, in);
+    compute_moments(group, in);
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -501,16 +502,16 @@ void discretization_manager<precision>::ode_euler_base(
       out.resize(in.size());
 
     if (term_scal.value != 0)
-      terms.apply(gid, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+      terms.apply(group, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
 
     if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(out.begin(), out.end(), 0);
   }{
     tools::time_event performance_("ode-rhs sources");
     if (source_scal.value == 1)
-      terms.template apply_sources<data_mode::increment>(gid, grid, conn, hier, time, 1, out);
+      terms.template apply_sources<data_mode::increment>(group, grid, conn, hier, time, 1, out);
     else
-      terms.template apply_sources<data_mode::scal_inc>(gid, grid, conn, hier, time,
+      terms.template apply_sources<data_mode::scal_inc>(group, grid, conn, hier, time,
                                                         source_scal.value, out);
   }
 
@@ -527,7 +528,7 @@ void discretization_manager<precision>::ode_euler_base(
 template<typename precision>
 template<data_mode mode>
 void discretization_manager<precision>::ode_rhs_sources(
-    int gid, precision time, precision alpha, std::vector<precision> &src) const {
+    group_id group, precision time, precision alpha, std::vector<precision> &src) const {
   tools::time_event performance_("ode sources");
   #ifdef ASGARD_USE_MPI
   if (terms.resources.num_ranks() > 1) {
@@ -538,7 +539,7 @@ void discretization_manager<precision>::ode_rhs_sources(
       terms.mpiwork = src;
     }
     if (is_leader()) {
-      terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, terms.mpiwork);
+      terms.template apply_sources<mode>(group, grid, conn, hier, time, alpha, terms.mpiwork);
       terms.resources.reduce_add(terms.mpiwork, src);
     } else {
       data_mode constexpr mm = [=]()-> data_mode {
@@ -549,12 +550,12 @@ void discretization_manager<precision>::ode_rhs_sources(
           else
             return mode;
         }();
-      terms.template apply_sources<mm>(gid, grid, conn, hier, time, alpha, src);
+      terms.template apply_sources<mm>(group, grid, conn, hier, time, alpha, src);
       terms.resources.reduce_add(src);
     }
   } else {
   #endif
-    terms.template apply_sources<mode>(gid, grid, conn, hier, time, alpha, src);
+    terms.template apply_sources<mode>(group, grid, conn, hier, time, alpha, src);
   #ifdef ASGARD_USE_MPI
   }
   #endif
@@ -563,7 +564,7 @@ void discretization_manager<precision>::ode_rhs_sources(
 #ifdef ASGARD_USE_MPI
 template<typename precision>
 void discretization_manager<precision>::mpi_iteration_apply_base(
-    int gid, std::vector<precision> &y) const
+    group_id group, std::vector<precision> &y) const
 {
   rassert(not is_leader(), "cannot call mpi_iteration_apply() on the leader rank");
 
@@ -583,7 +584,7 @@ void discretization_manager<precision>::mpi_iteration_apply_base(
     if (x.back() == std::numeric_limits<precision>::max())
       break;
 
-    terms.apply(gid, grid, conn, 1, x, 0, y);
+    terms.apply(group, grid, conn, 1, x, 0, y);
 
     if (not terms.has_terms()) // R must be zeroed out explicitly
       std::fill(y.begin(), y.end(), 0);
@@ -606,13 +607,13 @@ void discretization_manager<precision>::mpi_iteration_stop() const
 }
 template<typename precision>
 void discretization_manager<precision>::mpi_leader_apply_base(
-    int gid, precision alpha, precision const x[], precision beta, precision y[]) const
+    group_id group, precision alpha, precision const x[], precision beta, precision y[]) const
 {
   rassert(is_leader(), "mpi_leader_apply() can be called only on the leader rank");
   tools::time_event performance_("mpi_leader_apply");
 
   if (terms.resources.num_ranks() == 1) {
-    terms.apply(gid, grid, conn, alpha, x, beta, y);
+    terms.apply(group, grid, conn, alpha, x, beta, y);
     return;
   }
 
@@ -628,7 +629,7 @@ void discretization_manager<precision>::mpi_leader_apply_base(
 
   terms.resources.bcast(n, x);
 
-  terms.apply(gid, grid, conn, 1, x, 0, work.data());
+  terms.apply(group, grid, conn, 1, x, 0, work.data());
 
   if (not terms.has_terms() and beta == 0) // mpiwork must be zeroed out explicitly (??)
     std::fill_n(work.begin(), n, 0);
@@ -648,26 +649,26 @@ void discretization_manager<precision>::mpi_leader_apply_base(
 template class discretization_manager<double>;
 
 template void discretization_manager<double>::ode_rhs_sources<data_mode::increment>(
-    int, double, double, std::vector<double> &) const;
+    group_id, double, double, std::vector<double> &) const;
 template void discretization_manager<double>::ode_rhs_sources<data_mode::scal_inc>(
-    int, double, double, std::vector<double> &) const;
+    group_id, double, double, std::vector<double> &) const;
 template void discretization_manager<double>::ode_rhs_sources<data_mode::replace>(
-    int, double, double, std::vector<double> &) const;
+    group_id, double, double, std::vector<double> &) const;
 template void discretization_manager<double>::ode_rhs_sources<data_mode::scal_rep>(
-    int, double, double, std::vector<double> &) const;
+    group_id, double, double, std::vector<double> &) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class discretization_manager<float>;
 
 template void discretization_manager<float>::ode_rhs_sources<data_mode::increment>(
-    int, float, float, std::vector<float> &) const;
+    group_id, float, float, std::vector<float> &) const;
 template void discretization_manager<float>::ode_rhs_sources<data_mode::scal_inc>(
-    int, float, float, std::vector<float> &) const;
+    group_id, float, float, std::vector<float> &) const;
 template void discretization_manager<float>::ode_rhs_sources<data_mode::replace>(
-    int, float, float, std::vector<float> &) const;
+    group_id, float, float, std::vector<float> &) const;
 template void discretization_manager<float>::ode_rhs_sources<data_mode::scal_rep>(
-    int, float, float, std::vector<float> &) const;
+    group_id, float, float, std::vector<float> &) const;
 #endif
 
 } // namespace asgard
