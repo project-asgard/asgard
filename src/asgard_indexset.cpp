@@ -35,7 +35,7 @@ inline std::vector<int> generate_lower_index_set(int num_dims, callable inside)
 }
 
 template<typename data_container>
-indexset make_index_set(organize2d<int, data_container> const &indexes)
+indexset make_index_set_(data_container const &indexes)
 {
   int64_t num_indexes    = indexes.num_strips();
   int64_t num_dimensions = indexes.stride();
@@ -86,12 +86,8 @@ indexset make_index_set(organize2d<int, data_container> const &indexes)
   return indexset(num_dimensions, std::move(sorted_indexes));
 }
 
-template indexset
-make_index_set(organize2d<int, std::vector<int>> const &indexes);
-template indexset
-make_index_set(organize2d<int, int *> const &indexes);
-template indexset
-make_index_set(organize2d<int, int const *> const &indexes);
+template indexset make_index_set_(vector2d<int> const &indexes);
+template indexset make_index_set_(span2d<int> const &indexes);
 
 dimension_sort::dimension_sort(indexset const &iset)
 {

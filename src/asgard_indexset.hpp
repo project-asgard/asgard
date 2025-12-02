@@ -18,43 +18,6 @@ template<typename P>
 class refinement_manager;
 
 /*!
- * \brief Helper wrapper for data that will be organized in two dimensional form
- *
- * See the vector2d and span2d that derive from this class,
- * the purpose here is to reduce retyping of the same code.
- */
-template<typename T, typename data_container>
-class organize2d
-{
-public:
-  //! \brief Virtual destructor
-  virtual ~organize2d() = default;
-
-  //! \brief Returns the vector stride.
-  int64_t stride() const { return stride_; }
-  //! \brief Returns the vector stride.
-  int64_t num_strips() const { return num_strips_; }
-  //! \brief Returns the total number of entries.
-  int64_t total_size() const { return stride_ * num_strips_; }
-  //! \brief Returns true if empty.
-  bool empty() const { return (num_strips_ == 0); }
-
-  //! \brief Return pointer to the i-th strip.
-  T *operator[](int64_t i) { return &data_[i * stride_]; }
-  //! \brief Return const-pointer to the i-th strip.
-  T const *operator[](int64_t i) const { return &data_[i * stride_]; }
-
-protected:
-  //! \brief Constructor, not intended for public use.
-  organize2d(int64_t stride, int64_t num_strips)
-      : stride_(stride), num_strips_(num_strips)
-  {}
-
-  int64_t stride_, num_strips_;
-  data_container data_;
-};
-
-/*!
  * \brief Wrapper around std::vector, but providing 2d organization of the data.
  *
  * The data is divided into contiguous strips of fixed size.
@@ -71,25 +34,36 @@ protected:
  * clear all the existing data.
  */
 template<typename T>
-class vector2d : public organize2d<T, std::vector<T>>
+class vector2d
 {
 public:
   //! \brief Make an empty vector
-  vector2d() : organize2d<T, std::vector<T>>::organize2d(0, 0) {}
+  vector2d() = default;
   //! \brief Make a vector with the given dimensions, initialize to 0.
   vector2d(int64_t stride, int64_t num_strips)
-      : organize2d<T, std::vector<T>>::organize2d(stride, num_strips)
-  {
-    this->data_ = std::vector<T>(stride * num_strips);
-  }
+      : stride_(stride), num_strips_(num_strips), data_(stride_ * num_strips_)
+  {}
   //! \brief Assume ownership of the data.
   vector2d(int64_t stride, std::vector<int> data)
-      : organize2d<T, std::vector<T>>::organize2d(stride, 0)
+      : stride_(stride), num_strips_(static_cast<int64_t>(data.size()) / stride_),
+        data_(std::move(data))
   {
-    expect(static_cast<int64_t>(data.size()) % this->stride_ == 0);
-    this->num_strips_ = static_cast<int64_t>(data.size()) / this->stride_;
-    this->data_       = std::move(data);
+    expect(static_cast<size_t>(stride_ * num_strips_) == data_.size());
   }
+  //! \brief Returns the vector stride.
+  int64_t stride() const { return stride_; }
+  //! \brief Returns the vector stride.
+  int64_t num_strips() const { return num_strips_; }
+  //! \brief Returns the total number of entries.
+  int64_t total_size() const { return stride_ * num_strips_; }
+  //! \brief Returns true if empty.
+  bool empty() const { return (num_strips_ == 0); }
+
+  //! \brief Return pointer to the i-th strip.
+  T *operator[](int64_t i) { return &data_[i * stride_]; }
+  //! \brief Return const-pointer to the i-th strip.
+  T const *operator[](int64_t i) const { return &data_[i * stride_]; }
+
   //! \brief Append to the end of the vector, assuming num_strips of data.
   void append(T const *p, int64_t num_strips = 1)
   {
@@ -106,15 +80,15 @@ public:
   //! \brief Remove all data but keep the stride.
   void clear()
   {
-    this->data_.clear();
-    this->num_strips_ = 0;
+    data_.clear();
+    num_strips_ = 0;
   }
   //! \brief Resizes, avoids calling allocate
   void resize(int64_t stride, int64_t num_strips)
   {
-    this->stride_     = stride;
-    this->num_strips_ = num_strips;
-    this->data_.resize(stride * num_strips);
+    stride_     = stride;
+    num_strips_ = num_strips;
+    data_.resize(stride * num_strips);
   }
   //! \brief Resizes and sets all entries to zero (avoids calling allocate)
   void resize_and_zero(int64_t stride, int64_t num_strips)
@@ -141,32 +115,48 @@ public:
   std::vector<T> const &data_vector() const { return this->data_; }
   //! \brief (testing) fill the vector with a value
   void fill(T v) { std::fill(this->data_.begin(), this->data_.end(), v); }
+
+private:
+  int64_t stride_     = 0;
+  int64_t num_strips_ = 0;
+  std::vector<T> data_;
 };
 
 //! \brief Non-owning version of vector2d.
 template<typename T>
-class span2d : public organize2d<T, T *>
+class span2d
 {
 public:
   //! \brief Make an empty data set
-  span2d()
-      : organize2d<T, T *>::organize2d(0, 0)
-  {
-    this->data_ = nullptr;
-  }
+  span2d() = default;
   //! \brief Organize data with the given size
   span2d(int64_t stride, int64_t num_strips, T *data)
-      : organize2d<T, T *>::organize2d(stride, num_strips)
-  {
-    this->data_ = data;
-  }
+      : stride_(stride), num_strips_(num_strips), data_(data)
+  {}
   //! \brief Organize the data from a vector
   span2d(int64_t stride, std::vector<T> &vec)
-      : organize2d<T, T *>::organize2d(stride, static_cast<int64_t>(vec.size() / stride))
+      : stride_(stride), num_strips_(static_cast<int64_t>(vec.size()) / stride), data_(vec.data())
   {
-    expect(vec.size() == static_cast<size_t>(this->num_strips_ * this->stride_));
-    this->data_ = vec.data();
+    expect(vec.size() == static_cast<size_t>(num_strips_ * stride_));
   }
+  //! \brief Returns the vector stride.
+  int64_t stride() const { return stride_; }
+  //! \brief Returns the vector stride.
+  int64_t num_strips() const { return num_strips_; }
+  //! \brief Returns the total number of entries.
+  int64_t total_size() const { return stride_ * num_strips_; }
+  //! \brief Returns true if empty.
+  bool empty() const { return (num_strips_ == 0); }
+
+  //! \brief Return pointer to the i-th strip.
+  T *operator[](int64_t i) { return &data_[i * stride_]; }
+  //! \brief Return const-pointer to the i-th strip.
+  T const *operator[](int64_t i) const { return &data_[i * stride_]; }
+
+private:
+  int64_t stride_     = 0;
+  int64_t num_strips_ = 0;
+  T *data_ = nullptr;
 };
 
 //!\brief Helper to convert from asg index format to tasmanian format.
@@ -373,6 +363,18 @@ private:
 };
 
 /*!
+ * \internal
+ * \brief Helper template for make_index_set(), do not use directly
+ *
+ * The set list could have repeated indexes.
+ *
+ * Works with vector2d<int> and span2d<int>
+ * \endinternal
+ */
+template<typename data_container>
+indexset make_index_set_(data_container const &indexes);
+
+/*!
  * \brief Factory method for constructing a set from unsorted and non-unique indexes.
  *
  * The set list could have repeated indexes.
@@ -380,7 +382,12 @@ private:
  * Works with vector2d<int> and span2d<int>
  */
 template<typename data_container>
-indexset make_index_set(organize2d<int, data_container> const &indexes);
+indexset make_index_set(data_container const &indexes) {
+  static_assert(std::is_same_v<data_container, span2d<int>>
+                or std::is_same_v<data_container, vector2d<int>>,
+                "make_index_set() requires span2d<int> or vector2d<int>");
+  return make_index_set_<data_container>(indexes);
+}
 
 /*!
  * \brief Splits the multi-index set into 1D vectors
