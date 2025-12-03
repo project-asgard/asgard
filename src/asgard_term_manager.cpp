@@ -137,16 +137,16 @@ void term_manager<P>::apply_tmpl(
 #ifdef ASGARD_USE_FLOPCOUNTER
 template<typename P>
 int64_t term_manager<P>::flop_count(
-    int gid, sparse_grid const &grid, connection_patterns const &conns) const
+    group_id gid, sparse_grid const &grid, connection_patterns const &conns) const
 {
   #ifdef ASGARD_USE_MPI
-  if (not is_leader())
+  if (not resources.is_leader())
     return -1;
   #endif
 
-  expect(-1 <= gid and gid < static_cast<int>(term_groups.size()));
+  expect(gid.is_valid(term_groups.size()));
 
-  int const gidx = gid + 1;
+  int const gidx = gid() + 1;
   if (flop_info.size() <= static_cast<size_t>(gidx))
     flop_info.resize(gidx + 1);
 
@@ -161,8 +161,8 @@ int64_t term_manager<P>::flop_count(
         flops += block_cpu(basis.pdof, grid, conns, tme.perm, kwork);
     };
 
-  int icurrent   = (gid == -1) ? 0                              : term_groups[gid].begin();
-  int const iend = (gid == -1) ? static_cast<int>(terms.size()) : term_groups[gid].end();
+  int icurrent   = (gid == group_id::all()) ? 0                              : term_groups[gid()].begin();
+  int const iend = (gid == group_id::all()) ? static_cast<int>(terms.size()) : term_groups[gid()].end();
   while (icurrent < iend)
   {
     auto it = terms.begin() + icurrent;

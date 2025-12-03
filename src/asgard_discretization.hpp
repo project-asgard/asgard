@@ -221,31 +221,31 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(all_groups, grid, conn);
+    int64_t const flops = terms.flop_count(group_id::all(), grid, conn);
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(grid, conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), grid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(-1, grid, conn);
+    int64_t const flops = terms.flop_count(group_id::all(), grid, conn);
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(grid, conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), grid, conn, alpha, x, beta, y);
   }
   //! applies terms for the given group, does not recompute moments
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid.gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid, grid, conn);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
@@ -315,7 +315,7 @@ public:
   void mpi_leader_apply(precision alpha, precision const x[], precision beta,
                         precision y[]) const
   {
-    terms_apply(alpha, x, beta, y);
+    terms_apply(group_id::all(), alpha, x, beta, y);
   }
   void mpi_leader_apply(group_id gid, precision alpha, precision const x[],
                         precision beta, precision y[]) const

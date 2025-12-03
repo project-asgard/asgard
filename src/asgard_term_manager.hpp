@@ -211,12 +211,6 @@ struct term_manager
   }
 
   //! rebuild the terms that depend only on the moments
-  void rebuild_moment_terms(sparse_grid const &grid, connection_patterns const &conn,
-                            hierarchy_manipulator<P> const &hier)
-  {
-    rebuild_moment_terms(group_id::all(), grid, conn, hier);
-  }
-  //! rebuild the terms that depend only on the moments
   void rebuild_moment_terms(group_id group, sparse_grid const &grid,
                             connection_patterns const &conn, hierarchy_manipulator<P> const &hier)
   {
@@ -268,24 +262,7 @@ struct term_manager
   //! compute the inner product < x, mass * x >
   P normL2(sparse_grid const &grid, connection_patterns const &conns,
            std::vector<P> const &x) const;
-  //! y = sum(terms * x), applies all terms
-  void apply(sparse_grid const &grid, connection_patterns const &conn,
-             P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
-    #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(group_id::all(), grid, conn, alpha, x, beta, y);
-    #else
-    apply_tmpl<std::vector<P> const &, std::vector<P> &>(group_id::all(), grid, conn, alpha, x, beta, y);
-    #endif
-  }
-  //! y = sum(terms * x), applies all terms
-  void apply(sparse_grid const &grid, connection_patterns const &conn,
-             P alpha, P const x[], P beta, P y[]) const {
-    #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(group_id::all(), grid, conn, alpha, x, beta, y);
-    #else
-    apply_tmpl<P const[], P[]>(group_id::all(), grid, conn, alpha, x, beta, y);
-    #endif
-  }
+
   //! y = sum(terms * x), applies all terms
   void apply(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
              P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
@@ -319,7 +296,7 @@ struct term_manager
   #ifdef ASGARD_USE_FLOPCOUNTER
   //! count flops for the application of the specified group
   int64_t flop_count(
-    int gid, sparse_grid const &grid, connection_patterns const &conns) const;
+    group_id gid, sparse_grid const &grid, connection_patterns const &conns) const;
   #endif
 
   //! construct term diagonal
