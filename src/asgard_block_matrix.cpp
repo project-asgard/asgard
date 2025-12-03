@@ -43,6 +43,118 @@ void dense_matrix<P>::solve(gpu::vector<P> &b) const
 #endif
 
 template<typename P>
+void dense_matrix<P>::print(std::ostream &os) {
+  for (int64_t r = 0; r < nrows_; r++) {
+    for (int64_t c = 0; c < ncols_; c++)
+      os << std::setw(16) << data_[c * nrows_ + r];
+    os << '\n';
+  }
+}
+
+template<typename P>
+void block_matrix<P>::print(std::ostream &os, int br, int bc, int oswidth)
+{
+  if (br == -1)
+  {
+    int const nb = data_.stride();
+    br = 0;
+    while (br < nb and br * br != nb)
+      ++br;
+    expect(br * br == nb);
+    bc = br;
+  }
+  expect(br * bc == data_.stride());
+  for (auto r : indexof(nrows_))
+  {
+    for (int i = 0; i < br; i++)
+    {
+      for (auto c : indexof(ncols_))
+      {
+        for (int j = 0; j < bc; j++)
+          os << std::setw(oswidth) << data_[c * nrows_ + r][j * br + i];
+        os << std::setw(oswidth / 2) << "  ";
+      }
+      os << '\n';
+    }
+    os << '\n';
+  }
+}
+
+template<typename P>
+void block_matrix<P>::printc(std::ostream &os, int c, int oswidth)
+{
+  int const nb = data_.stride();
+  int br = 0;
+  while (br < nb and br * br != nb)
+    ++br;
+  expect(br * br == nb);
+  int bc = br;
+  expect(br * bc == data_.stride());
+  for (auto r : indexof(nrows_))
+  {
+    for (int i = 0; i < br; i++)
+    {
+      for (int j = 0; j < bc; j++)
+        os << std::setw(oswidth) << data_[c * nrows_ + r][j * br + i];
+      os << std::setw(oswidth / 2) << "  ";
+
+      os << '\n';
+    }
+    os << '\n';
+  }
+}
+
+template<typename P>
+void block_matrix<P>::printr(std::ostream &os, int r, int oswidth)
+{
+  int const nb = data_.stride();
+  int br = 0;
+  while (br < nb and br * br != nb)
+    ++br;
+  expect(br * br == nb);
+  int bc = br;
+  expect(br * bc == data_.stride());
+  for (int i = 0; i < br; i++)
+  {
+    for (auto c : indexof(ncols_))
+    {
+      for (int j = 0; j < bc; j++)
+        os << std::setw(oswidth) << data_[c * nrows_ + r][j * br + i];
+      os << std::setw(oswidth / 2) << "  ";
+    }
+    os << '\n';
+  }
+  os << '\n';
+}
+
+template<typename P>
+P block_matrix<P>::max_diff(block_matrix<P> const &other) {
+  expect(nrows_ == other.nrows_);
+  expect(ncols_ == other.ncols_);
+  expect(nblock() == other.nblock());
+  int64_t const size = nrows_ * ncols_ * nblock();
+  P const *v1 = data_[0];
+  P const *v2 = other.data_[0];
+  P err = 0;
+  for (auto i : indexof(size))
+    err = std::max(err, std::abs(v1[i] - v2[i]));
+  return err;
+}
+
+template<typename P>
+dense_matrix<P> block_matrix<P>::to_dense_matrix(int const n) const
+{
+  expect(n * n == data_.stride());
+  dense_matrix<P> mat(n * nrows_, n * ncols_);
+  #pragma omp parallel for
+  for (int r = 0; r < nrows_; r++)
+    for (int c = 0; c < ncols_; c++)
+      for (int k = 0; k < n; k++)
+        std::copy_n(data_[c * nrows_ + r] + n * k , n, mat.data(n * r, n * c + k));
+  return mat;
+}
+
+template<typename P>
 void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, block_matrix<P> &C)
 {
   int M = A.nrows();
@@ -67,6 +179,28 @@ void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, bloc
 }
 
 template<typename P>
+block_matrix<P> mass_matrix<P>::to_full() const
+{
+  int const n = nblock();
+  block_matrix<P> full(n, nrows(), nrows());
+  #pragma omp parallel for
+  for (int64_t r = 0; r < nrows(); r++)
+    std::copy_n(data_[r], n, full(r, r));
+  return full;
+}
+
+template<typename P>
+block_matrix<P> block_diag_matrix<P>::to_full() const
+{
+  int const n = nblock();
+  block_matrix<P> full(n, nrows(), nrows());
+  #pragma omp parallel for
+  for (int64_t r = 0; r < nrows(); r++)
+    std::copy_n(data_[r], n, full(r, r));
+  return full;
+}
+
+template<typename P>
 void block_diag_matrix<P>::spd_factorize(int const n)
 {
   expect(n * n == nblock());
@@ -74,17 +208,17 @@ void block_diag_matrix<P>::spd_factorize(int const n)
   {
   case 1:
     ASGARD_OMP_PARFOR_SIMD
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       data_[r][0] = P{1} / data_[r][0];
     break;
   case 2:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       smmat::inv2by2(data_[r]);
     break;
   default:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       smmat::potrf(n, data_[r]);
     break;
   }
@@ -98,17 +232,17 @@ void block_diag_matrix<P>::solve(int const n, P rhs[]) const
   {
   case 1:
     ASGARD_OMP_PARFOR_SIMD
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       rhs[r] *= data_[r][0];
     break;
   case 2:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       smmat::gemv2by2(data_[r], rhs + 2 * r);
     break;
   default:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       smmat::posv(n, data_[r], rhs + n * r);
     break;
   }
@@ -121,17 +255,17 @@ void block_diag_matrix<P>::solve(int const n, block_diag_matrix<P> &rhs) const
   {
   case 1:
     ASGARD_OMP_PARFOR_SIMD
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       rhs[r][0] *= data_[r][0];
     break;
   case 2:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       smmat::gemm2by2(data_[r], rhs[r]);
     break;
   default:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
       smmat::posvm(n, data_[r], rhs[r]);
     break;
   }
@@ -144,7 +278,7 @@ void block_diag_matrix<P>::solve(int const n, block_tri_matrix<P> &rhs) const
   {
   case 1:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
     {
       rhs.lower(r)[0] *= data_[r][0];
       rhs.diag(r)[0] *= data_[r][0];
@@ -153,7 +287,7 @@ void block_diag_matrix<P>::solve(int const n, block_tri_matrix<P> &rhs) const
     break;
   case 2:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
     {
       smmat::gemm2by2(data_[r], rhs.lower(r));
       smmat::gemm2by2(data_[r], rhs.diag(r));
@@ -162,7 +296,7 @@ void block_diag_matrix<P>::solve(int const n, block_tri_matrix<P> &rhs) const
     break;
   default:
 #pragma omp parallel for
-    for (int64_t r = 0; r < nrows_; r++)
+    for (int64_t r = 0; r < nrows(); r++)
     {
       smmat::posvm(n, data_[r], rhs.lower(r));
       smmat::posvm(n, data_[r], rhs.diag(r));
@@ -176,17 +310,17 @@ template<typename P>
 void block_diag_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<P> &work) const
 {
   expect(nblock() == n * n);
-  expect(vec.size() == static_cast<size_t>(n * nrows_));
+  expect(vec.size() == static_cast<size_t>(n * nrows()));
   if (work.size() < vec.size())
     work.resize(vec.size());
 
   std::copy(vec.begin(), vec.end(), work.begin());
 
-  span2d<P> x(n, nrows_, work.data());
-  span2d<P> y(n, nrows_, vec.data());
+  span2d<P> x(n, nrows(), work.data());
+  span2d<P> y(n, nrows(), vec.data());
 
 #pragma omp parallel for
-  for (int64_t r = 0; r < nrows_; r++) {
+  for (int64_t r = 0; r < nrows(); r++) {
     smmat::gemv(n, n, data_[r], x[r], y[r]);
   }
 }
@@ -257,6 +391,52 @@ block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_diag_matrix<P> cons
     smmat::axpy1(n, other[r], (*this)[r]);
 
   return *this;
+}
+
+template<typename P>
+block_matrix<P> block_tri_matrix<P>::to_full() const
+{
+  int const n = nblock();
+  block_matrix<P> full(n, nrows_, nrows_);
+  std::copy_n(diag(0), n, full(0, 0));
+  if (nrows_ == 1)
+    return full;
+  std::copy_n(lower(0), n, full(0, nrows_ - 1));
+  std::copy_n(upper(0), n, full(0, 1));
+  for (int64_t r = 1; r < nrows_ - 1; r++)
+  {
+    std::copy_n(lower(r), n, full(r, r - 1));
+    std::copy_n(diag(r), n, full(r, r));
+    std::copy_n(upper(r), n, full(r, r + 1));
+  }
+  std::copy_n(lower(nrows_ - 1), n, full(nrows_ - 1, nrows_ - 2));
+  std::copy_n(diag(nrows_ - 1), n, full(nrows_ - 1, nrows_ - 1));
+  std::copy_n(upper(nrows_ - 1), n, full(nrows_ - 1, 0));
+  if (nrows_ == 2)
+  {
+    for (int i : indexof<int>(data_.stride()))
+      full(0, 1)[i] += lower(0)[i];
+    for (int i : indexof<int>(data_.stride()))
+      full(1, 0)[i] += lower(nrows_ - 1)[i];
+  }
+  return full;
+}
+
+template<typename P>
+block_matrix<P> block_sparse_matrix<P>::to_full(connect_1d const &conn) const
+{
+  int const n     = nblock();
+  int const nrows = conn.num_rows();
+  int mcol = 0;
+  for (int j = 0; j < conn.num_connections(); j++)
+    mcol = std::max(mcol, conn[j]);
+  block_matrix<P> full(n, nrows, mcol + 1);
+
+  for (int r = 0; r < nrows; r++)
+    for (int j = conn.row_begin(r); j < conn.row_end(r); j++)
+      std::copy_n(data_[j], n, full(r, conn[j]));
+
+  return full;
 }
 
 template<typename P>
@@ -740,6 +920,7 @@ void psedoinvert(int const n, block_tri_matrix<P> &A,
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class dense_matrix<double>;
+template class block_matrix<double>;
 template class block_diag_matrix<double>;
 template class block_tri_matrix<double>;
 template class block_sparse_matrix<double>;
@@ -781,6 +962,7 @@ template void psedoinvert<double>(int const, block_tri_matrix<double> &, block_t
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class dense_matrix<float>;
+template class block_matrix<float>;
 template class block_diag_matrix<float>;
 template class block_tri_matrix<float>;
 template class block_sparse_matrix<float>;

@@ -7,13 +7,19 @@ inline bool asgard_test_pass  = true;  // helps in reporting whether the last te
 inline bool asgard_all_tests  = true;  // reports total result of all tests
 
 // test assert macro
+
+#define ASGARD_TO_STRING(x) ASGARD_ADD_QUOTES(x)
+#define ASGARD_ADD_QUOTES(x) #x
+#define ASGARD_FILE std::string(ASGARD_TO_STRING(__FILE__))
+#define ASGARD_LINE std::string(ASGARD_TO_STRING(__LINE__))
+
 #define tassert(_result_)      \
   if (!(_result_)){            \
     asgard_test_pass = false;  \
     asgard_all_tests = false;  \
     throw std::runtime_error("test: " + asgard_test_name \
-                             + "\n        in file: " + __FILE__    \
-                             + "\n           line: " + std::to_string(__LINE__) );  \
+                             + "\n        in file: " + ASGARD_FILE  \
+                             + "\n           line: " + ASGARD_LINE );  \
   }
 
 #define tcheckless_loud(_iinx_, _terr_, _ttol_)      \
@@ -26,8 +32,8 @@ inline bool asgard_all_tests  = true;  // reports total result of all tests
     asgard_all_tests = false;  \
     tcheckless_loud(_iinx_, _terr_, _ttol_) \
     throw std::runtime_error("test: " + asgard_test_name \
-                             + "\n        in file: " + __FILE__    \
-                             + "\n           line: " + std::to_string(__LINE__) );  \
+                             + "\n        in file: " + ASGARD_FILE  \
+                             + "\n           line: " + ASGARD_LINE );  \
   }
 
 #define terror_message(_code_, _message_) \
