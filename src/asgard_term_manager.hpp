@@ -75,7 +75,7 @@ struct term_manager
   //! indicates if there are time dependent sources, build extra data-structures
   bool sources_have_time_dep = false;
   //! indicates if there are time dependent boundary conditions, build extra data-structures
-  bool bcs_have_time_dep     = false;
+  bool bcs_have_time_dep = false;
 
   //! definition of the mass matrix, usually used in inverse
   mass_md<P> mass_term;
@@ -325,11 +325,6 @@ struct term_manager
   //! construct term diagonal
   void make_jacobi(group_id group, sparse_grid const &grid, connection_patterns const &conns,
                    std::vector<P> &y) const;
-  //! construct term diagonal
-  void make_jacobi(sparse_grid const &grid, connection_patterns const &conns,
-                   std::vector<P> &y) const {
-    make_jacobi(group_id::all(), grid, conns, y);
-  }
 
   //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
   void kron_term(sparse_grid const &grid, connection_patterns const &conns,

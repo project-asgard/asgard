@@ -16,6 +16,7 @@ moment_manager<P>::moment_manager(moments_list &&mlist_in,
       groups_.push_back( mgroup.find_as_subset_of(mlist) );
   }
 
+  // start with an invalid generation, triggers update-sync with the full grid
   pos_grid.generation_ = -1;
 }
 
