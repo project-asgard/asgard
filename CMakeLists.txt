@@ -614,6 +614,12 @@ if (ASGARD_BUILD_TESTS)
     set(asgard_pde_ranks_two_stream 2 3 4)
   endif()
 
+  # basic test, no crash and covers the human-readable lines of output
+  # human-readable output is used a lot, any issues should be easy to catch
+  add_test (NAME asgard-help    COMMAND asgard --help)
+  add_test (NAME asgard-version COMMAND asgard --version)
+  add_test (NAME asgard-example-continuity-2d COMMAND example_continuity_2d)
+
   # add the pdes and set the MPI tests
   foreach( _asg_pde ${_asgard_pdes})
       add_test (NAME asgard-pde-${_asg_pde}-test

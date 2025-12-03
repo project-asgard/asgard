@@ -369,8 +369,6 @@ struct prog_opts
   bool show_help = false;
   //! indicates if the --version option was selected
   bool show_version = false;
-  //! indicates if the exact solution should be ignored or the error computed and shown every time-step
-  bool ignore_exact = false;
 
   //! print list of ASGarD specific options
   static void print_help(std::ostream &os = std::cout);
@@ -644,7 +642,6 @@ private:
     show_help,
     version_help,
     input_file,
-    ignore_exact,
     title,
     subtitle,
     grid_mode,

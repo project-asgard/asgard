@@ -163,7 +163,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"version", optentry::version_help}, {"-v", optentry::version_help},
       {"-infile", optentry::input_file}, {"-if", optentry::input_file},
       {"-view", optentry::view},
-      {"-noexact", optentry::ignore_exact}, {"-ne", optentry::ignore_exact},
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
       {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
@@ -231,9 +230,6 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       break;
     case optentry::version_help:
       show_version = true;
-      break;
-    case optentry::ignore_exact:
-      ignore_exact = true;
       break;
     case optentry::input_file: {
       auto selected = move_process_next();

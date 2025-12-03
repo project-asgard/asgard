@@ -13,8 +13,12 @@ void new_prog_opts() {
     tassert(prog.show_help);
     tassert(prog_opts(vecstrview({"", "-?"})).show_help);
     tassert(prog_opts(vecstrview({"", "-h"})).show_help);
+    tassert(prog_opts(vecstrview({"", "--help"})).show_help);
     tassert(prog_opts(vecstrview({"", "-help"})).show_help);
     tassert(prog_opts(vecstrview({"", "help"})).show_help);
+    tassert(prog_opts(vecstrview({"", "version"})).show_version);
+    tassert(prog_opts(vecstrview({"", "-version"})).show_version);
+    tassert(prog_opts(vecstrview({"", "--version"})).show_version);
   }{
     current_test name_("-step-method");
     terror_message(prog_opts(vecstrview({"exe", "-step-method"})),
@@ -60,6 +64,10 @@ void new_prog_opts() {
                    "invalid value for -g, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-g", "mix"})),
                    "missing mixed grid number, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-g", "mix", "novalue"})),
+                   "invalid value for mix, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-g", "mix", "9100100100"})),
+                   "invalid value for mix, see exe -help");
     prog_opts opts3(vecstrview({"exe", "-g", "sparse"}));
     tassert(not opts3.mgrid_group);
   }{
@@ -108,9 +116,11 @@ void new_prog_opts() {
     prog_opts prog(vecstrview({"", "-num-steps", "2"}));
     tassert(prog.num_time_steps);
     tassert(prog.num_time_steps.value() == 2);
-    terror_message(prog_opts(vecstrview({"exe", "-m"})),
-                   "-m must be followed by a value, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-n"})),
+                   "-n must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-num-steps", "dummy"})),
+                   "invalid value for -num-steps, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-num-steps", "10100100100"})),
                    "invalid value for -num-steps, see exe -help");
   }{
     current_test name_("-dt");
@@ -122,6 +132,8 @@ void new_prog_opts() {
                    "-dt must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-dt", "dummy"})),
                    "invalid value for -dt, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-dt", "7.E+310"})),
+                   "invalid value for -dt, see exe -help");
   }{
     current_test name_("-time");
     prog_opts prog(vecstrview({"", "-time", "2.5"}));
@@ -132,17 +144,36 @@ void new_prog_opts() {
                    "-time must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-t", "dummy"})),
                    "invalid value for -t, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-t", "7.E+310"})),
+                   "invalid value for -t, see exe -help");
   }{
-    current_test name_("-adapt");
+    current_test name_("-adapt-abs");
     prog_opts prog(vecstrview({"", "-adapt", "0.5"}));
     tassert(prog.adapt_threshold);
     tassert(prog.adapt_threshold.value() == 0.5);
-    tassert(prog_opts(vecstrview({"exe", "-adapt", "0.1"})).adapt_threshold);
+    tassert(prog_opts(vecstrview({"exe", "-adapt-abs", "0.1"})).adapt_threshold);
+    tassert(prog_opts(vecstrview({"exe", "-a", "0.1"})).adapt_threshold);
+    tassert(prog_opts(vecstrview({"exe", "-aa", "0.1"})).adapt_threshold);
     tassert(not prog_opts(vecstrview({"exe", "-adapt", "0.1", "-noadapt"})).adapt_threshold);
     terror_message(prog_opts(vecstrview({"exe", "-a"})),
                    "-a must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-adapt", "dummy"})),
                    "invalid value for -adapt, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-adapt", "7.E+310"})),
+                   "invalid value for -adapt, see exe -help");
+  }{
+    current_test name_("-adapt-rel");
+    prog_opts prog(vecstrview({"", "-adapt-rel", "0.5"}));
+    tassert(prog.adapt_relative);
+    tassert(prog.adapt_relative.value() == 0.5);
+    tassert(prog_opts(vecstrview({"exe", "-ar", "0.1"})).adapt_relative);
+    tassert(not prog_opts(vecstrview({"exe", "-ar", "0.1", "-noadapt"})).adapt_relative);
+    terror_message(prog_opts(vecstrview({"exe", "-ar"})),
+                   "-ar must be followed by a value, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-adapt-rel", "dummy"})),
+                   "invalid value for -adapt-rel, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-adapt-rel", "7.E+310"})),
+                   "invalid value for -adapt-rel, see exe -help");
   }{
     current_test name_("-solver");
     prog_opts prog(vecstrview({"", "-solver", "direct"}));
@@ -150,6 +181,8 @@ void new_prog_opts() {
     tassert(prog.solver.value() == solver_method::direct);
     tassert(prog_opts(vecstrview({"exe", "-sv", "gmres"})).solver.value() == solver_method::gmres);
     tassert(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solver_method::bicgstab);
+    terror_message(prog_opts(vecstrview({"exe", "-solver"})),
+                   "-solver must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-solver", "dummy"})),
                    "invalid value for -solver, see exe -help");
 
@@ -169,6 +202,8 @@ void new_prog_opts() {
                    "-isolve-tol must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-ist", "dummy"})),
                    "invalid value for -ist, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-ist", "7.E+310"})),
+                   "invalid value for -ist, see exe -help");
   }{
     current_test name_("-isolve_iter");
     prog_opts prog(vecstrview({"", "-isolve-iter", "100"}));
@@ -177,6 +212,8 @@ void new_prog_opts() {
     terror_message(prog_opts(vecstrview({"exe", "-isolve-iter"})),
                    "-isolve-iter must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-isi", "dummy"})),
+                   "invalid value for -isi, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-isi", "8100100100"})),
                    "invalid value for -isi, see exe -help");
   }{
     current_test name_("-isolve_inner");
@@ -187,6 +224,19 @@ void new_prog_opts() {
                    "-isolve-inner must be followed by a value, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-isn", "dummy"})),
                    "invalid value for -isn, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-isn", "8100100100"})),
+                   "invalid value for -isn, see exe -help");
+  }{
+    current_test name_("-precon");
+    prog_opts prog(vecstrview({"", "-precon", "none"}));
+    tassert(prog.precon);
+    tassert(prog.precon.value() == precon_method::none);
+    tassert(prog_opts(vecstrview({"exe", "-precon", "jacobi"})).precon);
+    tassert(prog_opts(vecstrview({"exe", "-pc", "jacobi"})).precon.value() == precon_method::jacobi);
+    terror_message(prog_opts(vecstrview({"exe", "-precon"})),
+                   "-precon must be followed by a value, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-pc", "dummy"})),
+                   "invalid value for -pc, see exe -help");
   }{
     current_test name_("-title");
     prog_opts prog(vecstrview({"", "-title", "mypde"}));
@@ -265,12 +315,17 @@ void new_prog_opts() {
     tassert(not parsed.start_levels.empty());
     tassert(parsed.start_levels.size() == 1 and parsed.start_levels[0] == 5);
     tassert(parsed.solver.value_or(solver_method::direct) == solver_method::gmres);
+
+    // print options, human readable, ensure no crash but not double-checking
+    std::stringstream ss;
+    parsed.print_options(ss);
   }
 }
 
 void input_files() {
   {
     current_test name_("test_input1.txt");
+
     prog_opts prog(vecstrview({"", "-l", "3", "-if", "test_input1.txt"}));
     tassert(not prog.start_levels.empty());
     tassert(prog.start_levels[0] == 5);
@@ -347,6 +402,44 @@ void input_files() {
     tassert(iint);
     tassert(iint.value() == 8);
   }
+  {
+    current_test name_("input-file error checking");
+
+    terror_message(prog_opts(vecstrview({"exe", "-if"})),
+                   "-if must be followed by a value, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-if", "test_input1.txt", "-if", "test_input2.txt"})),
+                   "cannot read from two input files");
+  }
+}
+
+void misc_opts()
+{
+  {
+    current_test name_("classify steppers (explicit/implicit/imex)");
+
+    tassert(is_explicit(time_method::rk2));
+    tassert(not is_explicit(time_method::cn));
+    tassert(not is_explicit(time_method::back_euler));
+    tassert(not is_explicit(time_method::imex1));
+
+    tassert(is_implicit(time_method::cn));
+    tassert(not is_implicit(time_method::rk2));
+    tassert(not is_implicit(time_method::steady));
+    tassert(not is_implicit(time_method::imex2));
+
+    tassert(is_imex(time_method::imex1));
+    tassert(not is_imex(time_method::rk4));
+    tassert(not is_imex(time_method::back_euler));
+  }
+  {
+    current_test name_("order names");
+
+    tassert(degree_to_string(0).find("constant") != std::string::npos);
+    tassert(degree_to_string(1).find("linear") != std::string::npos);
+    tassert(degree_to_string(2).find("quadratic") != std::string::npos);
+    tassert(degree_to_string(3).find("cubic") != std::string::npos);
+    tassert(degree_to_string(7).find("7") != std::string::npos);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -357,6 +450,7 @@ int main(int argc, char **argv) {
 
   new_prog_opts();
   input_files();
+  misc_opts();
 
   return 0;
 }
