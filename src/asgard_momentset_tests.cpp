@@ -43,6 +43,9 @@ void test_moment_list() {
     tassert(list[0] == moment(0, 0));
     tassert(list[0] != moment(0, 1));
     tassert(list[id] == moment(0, 0));
+
+    std::stringstream ss;
+    list.print(ss); // human readable code test
   }{
     moments_list list;
     auto id0 = list.get_add_id(0);

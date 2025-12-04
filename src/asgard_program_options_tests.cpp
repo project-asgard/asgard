@@ -55,6 +55,9 @@ void new_prog_opts() {
     tassert(prog_opts(vecstrview({"exe", "-g", "dense"})).grid.value() == grid_type::dense);
     tassert(prog_opts(vecstrview({"exe", "-g", "mix", "1"})).grid.value() == grid_type::mixed);
     tassert(prog_opts(vecstrview({"exe", "-g", "mixed", "2"})).grid.value() == grid_type::mixed);
+    tassert(prog_opts(vecstrview({"exe", "-g", "mixed2"})).grid);
+    tassert(prog_opts(vecstrview({"exe", "-g", "mixed2"})).grid.value() == grid_type::mixed);
+    tassert(prog_opts(vecstrview({"exe", "-g", "mixed3"})).mgrid_group.value() == 3);
     prog_opts opts(vecstrview({"exe", "-g", "mixed", "2"}));
     tassert(opts.mgrid_group);
     tassert(opts.mgrid_group.value() == 2);
@@ -68,6 +71,10 @@ void new_prog_opts() {
                    "invalid value for mix, see exe -help");
     terror_message(prog_opts(vecstrview({"exe", "-g", "mix", "9100100100"})),
                    "invalid value for mix, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-g", "mixed-noval"})),
+                   "invalid value for -g, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-g", "mixed9100100100"})),
+                   "invalid value for -g, see exe -help");
     prog_opts opts3(vecstrview({"exe", "-g", "sparse"}));
     tassert(not opts3.mgrid_group);
   }{
@@ -285,6 +292,13 @@ void new_prog_opts() {
                         "-of must be followed by a value, see exe -help");
     tassert(prog_opts(vecstrview({"exe", "-outfile", "dummy", "-of", ""})).subtitle.empty());
   }{
+    current_test name_("-restart");
+    prog_opts prog(vecstrview({"", "-restart", "some-file"}));
+    tassert(not prog.restart_file.empty());
+    tassert(prog.restart_file == "some-file");
+    terror_message(prog_opts(vecstrview({"exe", "-restart"})),
+                        "-restart must be followed by a value, see exe -help");
+  }{
     current_test name_("-view");
     prog_opts prog(vecstrview({"", "-view", "some-view"}));
     tassert(not prog.default_plotter_view.empty());
@@ -315,10 +329,23 @@ void new_prog_opts() {
     tassert(not parsed.start_levels.empty());
     tassert(parsed.start_levels.size() == 1 and parsed.start_levels[0] == 5);
     tassert(parsed.solver.value_or(solver_method::direct) == solver_method::gmres);
-
+  }{
     // print options, human readable, ensure no crash but not double-checking
+    current_test name_("human readable opts");
+
     std::stringstream ss;
-    parsed.print_options(ss);
+    prog_opts(vecstrview(
+      {"exe", "-title", "title", "-subtitle", "sub", "-d", "3",
+       "-g", "mixed2", "-l", "4", "-m", "6", "-a", "1.E-3", "-ar", "1.E-3",
+       "-s", "rk2", "-t", "10", "-dt", "1.E-2", "-n", "100", "-restart", "file"
+      })).print_options(ss);
+
+    prog_opts opts2(vecstrview({"exe", "-g", "sparse", "-s", "rk2"}));
+    opts2.default_stop_time = 7;
+    opts2.print_options(ss);
+
+    prog_opts opts3(vecstrview({"exe", "-g", "full", "-a", "1.E-3"}));
+    opts3.print_options(ss);
   }
 }
 

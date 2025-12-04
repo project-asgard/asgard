@@ -1437,7 +1437,7 @@ public:
           options_.start_levels.resize(numd, l); // fill vector with l
       } else {
         if (numd != static_cast<int>(options_.start_levels.size()))
-          throw std::runtime_error("the starting levels must include either a single entry"
+          throw std::runtime_error("the starting levels must include either a single entry "
                                    "indicating uniform/isotropic grid or one entry per dimension");
       }
 
@@ -1450,7 +1450,7 @@ public:
             options_.max_levels.resize(numd, l); // fill vector with l
         } else {
           if (options_.max_levels.size() != options_.start_levels.size())
-            throw std::runtime_error("the max levels must include either a single entry"
+            throw std::runtime_error("the max levels must include either a single entry "
                                      "indicating uniform max or one entry per dimension");
         }
         // use the initial as max, if the max is less than the initial level

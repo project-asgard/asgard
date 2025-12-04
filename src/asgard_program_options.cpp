@@ -272,7 +272,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
           throw std::runtime_error(report_wrong_value());
         }
       }
-      else if (selected->size() > 6 and (*selected).find("mixed") != std::string::npos)
+      else if (selected->size() >= 6 and (*selected).find("mixed") != std::string::npos)
       {
         auto pos = (*selected).rfind("mixed") + 5; // 5 == length of "mixed"
         try {
@@ -616,10 +616,7 @@ void prog_opts::print_options(std::ostream &os) const
       break;
     case grid_type::mixed:
       os << "  gird mode: mixed (tensor of two sparse grids)\n";
-      if (mgrid_group)
-        os << "  group size: " << mgrid_group.value() << '\n';
-      else
-        os << "  -- warning: missing mixed group size\n";
+      os << "  group size: " << mgrid_group.value() << '\n';
       break;
     default:
       os << "  gird mode: sparse grid\n";

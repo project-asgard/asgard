@@ -99,6 +99,11 @@ private:
  * since it explicitly forms the dense matrix, the cost of the actual linear
  * algebra operations is orders of magnitude more than alternatives.
  *
+ * The alpha parameter indicates the type of operator needed.
+ * If alpha is non-zero, this will build the matrix I + alpha * terms,
+ * e.g., use alpha = dt for backwards Euler method with the native being canceled
+ * since the terms appear on the left side of the equation.
+ * If alpha is zero, the matrix being build will correspond to just terms.
  * \endinternal
  */
 template<typename P>
@@ -110,10 +115,10 @@ public:
   //! build a dense solver for the system I + alpha * terms
   direct(sparse_grid const &grid, connection_patterns const &conn,
          term_manager<P> const &terms, P alpha)
-      : direct(-1, grid, conn, terms, alpha)
+      : direct(group_id::all(), grid, conn, terms, alpha)
   {}
   //! builds a dense solver for a given term group
-  direct(int groupid, sparse_grid const &grid, connection_patterns const &conn,
+  direct(group_id group, sparse_grid const &grid, connection_patterns const &conn,
          term_manager<P> const &terms, P alpha);
 
   //! inverts the stored matrix

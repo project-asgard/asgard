@@ -12,11 +12,6 @@ void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
 {
   tools::time_event psolve_("poisson_solver");
 
-  // std::cout << " density as input \n";
-  // for (size_t i = 0; i < density.size(); i++) {
-  //   std::cout << " i = " << i << "    " << density[i] << '\n';
-  // }
-
   if (current_level == 0)
   {
     efield.resize(1);
@@ -88,7 +83,7 @@ void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
 
 template<typename P>
 direct<P>::direct(
-    int groupid, sparse_grid const &grid, connection_patterns const &conn,
+    group_id group, sparse_grid const &grid, connection_patterns const &conn,
     term_manager<P> const &terms, P alpha)
 {
   tools::time_event timing_("forming dense matrix");
@@ -163,14 +158,12 @@ direct<P>::direct(
       }
     };
 
+  indexrange trange = terms.terms_group_range(group);
 
-  int const iend = (groupid == -1) ? static_cast<int>(terms.terms.size())
-                                   : terms.term_groups[groupid].end();
-
-  int tid = (groupid == -1) ? 0 : terms.term_groups[groupid].begin();
-  while (tid < iend)
+  int icurrent = trange.ibegin();
+  while (icurrent < trange.iend())
   {
-    auto it = terms.terms.begin() + tid;
+    auto it = terms.terms.begin() + icurrent;
 
     #ifdef ASGARD_USE_MPI
     if (not terms.resources.owns(it->rec)) {
@@ -192,7 +185,7 @@ direct<P>::direct(
       for (int64_t i = 0; i < size; i++)
         mat_data[i] += wmat_data[i];
 
-      ++tid;
+      ++icurrent;
     } else {
       if (it->num_chain == 2) {
         // need two temp matrices
@@ -213,7 +206,7 @@ direct<P>::direct(
             "for the direct solver");
       }
 
-      tid += it->num_chain;
+      icurrent += it->num_chain;
     }
   }
 
