@@ -76,14 +76,8 @@ public:
   void solve(gpu::vector<P> &b) const;
   #endif
 
-  //! (testing) writes the the matric to the scream
-  void print(std::ostream &os = std::cout) {
-    for (int64_t r = 0; r < nrows_; r++) {
-      for (int64_t c = 0; c < ncols_; c++)
-        os << std::setw(16) << data_[c * nrows_ + r];
-      os << '\n';
-    }
-  }
+  //! (testing) writes the the matrix to the scream
+  void print(std::ostream &os = std::cout);
 
 private:
   int64_t nrows_ = 0;
@@ -112,9 +106,9 @@ class block_matrix
 {
 public:
   //! make an empty matrix
-  block_matrix() : nrows_(0), ncols_(0), data_(0, 0) {}
+  block_matrix() = default;
   //! initialize matrix with given block-size and number of rows/cols
-  block_matrix(int block_size, int64_t num_rows, int64_t num_cols)
+  block_matrix(int64_t block_size, int64_t num_rows, int64_t num_cols)
       : nrows_(num_rows), ncols_(num_cols), data_(block_size, num_rows * num_cols)
   {}
 
@@ -139,110 +133,23 @@ public:
   void fill(P v) { std::fill_n(data_[0], data_.total_size(), v); }
 
   //! prints the block-matrix with given block row/cols, or assume block is square
-  void print(std::ostream &os = std::cout, int br = -1, int bc = -1, int oswidth = 16)
-  {
-    if (br == -1)
-    {
-      int const nb = data_.stride();
-      br = 0;
-      while (br < nb and br * br != nb)
-        ++br;
-      expect(br * br == nb);
-      bc = br;
-    }
-    expect(br * bc == data_.stride());
-    for (auto r : indexof(nrows_))
-    {
-      for (int i = 0; i < br; i++)
-      {
-        for (auto c : indexof(ncols_))
-        {
-          for (int j = 0; j < bc; j++)
-            os << std::setw(oswidth) << data_[c * nrows_ + r][j * br + i];
-          os << std::setw(oswidth / 2) << "  ";
-        }
-        os << '\n';
-      }
-      os << '\n';
-    }
-  }
+  void print(std::ostream &os = std::cout, int br = -1, int bc = -1, int oswidth = 16);
 
   //! prints one column
-  void printc(std::ostream &os, int c = 0, int oswidth = 12)
-  {
-    int const nb = data_.stride();
-    int br = 0;
-    while (br < nb and br * br != nb)
-      ++br;
-    expect(br * br == nb);
-    int bc = br;
-    expect(br * bc == data_.stride());
-    for (auto r : indexof(nrows_))
-    {
-      for (int i = 0; i < br; i++)
-      {
-
-        for (int j = 0; j < bc; j++)
-          os << std::setw(oswidth) << data_[c * nrows_ + r][j * br + i];
-        os << std::setw(oswidth / 2) << "  ";
-
-        os << '\n';
-      }
-      os << '\n';
-    }
-  }
+  void printc(std::ostream &os, int c = 0, int oswidth = 12);
 
   //! prints the block-matrix with given block row/cols, or assume block is square
-  void printr(std::ostream &os, int r = 0, int oswidth = 12)
-  {
-    int const nb = data_.stride();
-    int br = 0;
-    while (br < nb and br * br != nb)
-      ++br;
-    expect(br * br == nb);
-    int bc = br;
-    expect(br * bc == data_.stride());
-    for (int i = 0; i < br; i++)
-    {
-      for (auto c : indexof(ncols_))
-      {
-        for (int j = 0; j < bc; j++)
-          os << std::setw(oswidth) << data_[c * nrows_ + r][j * br + i];
-        os << std::setw(oswidth / 2) << "  ";
-      }
-      os << '\n';
-    }
-    os << '\n';
-  }
+  void printr(std::ostream &os, int r = 0, int oswidth = 12);
 
-  //! returns the l-inf max norm between the two matrices
-  P max_diff(block_matrix<P> const &other) {
-    expect(nrows_ == other.nrows_);
-    expect(ncols_ == other.ncols_);
-    expect(nblock() == other.nblock());
-    int64_t const size = nrows_ * ncols_ * nblock();
-    P const *v1 = data_[0];
-    P const *v2 = other.data_[0];
-    P err = 0;
-    for (auto i : indexof(size))
-      err = std::max(err, std::abs(v1[i] - v2[i]));
-    return err;
-  }
+  //! returns the l-inf max norm between the two matrices, uses the vector norm of the data, not the operator l-inf
+  P max_diff(block_matrix<P> const &other);
 
   //! convert the matrix to dense matrix
-  dense_matrix<P> to_dense_matrix(int const n) const
-  {
-    expect(n * n == data_.stride());
-    dense_matrix<P> mat(n * nrows_, n * ncols_);
-    for (int r = 0; r < nrows_; r++)
-      for (int c = 0; c < ncols_; c++)
-        for (int k = 0; k < n; k++)
-          std::copy_n(data_[c * nrows_ + r] + n * k , n, mat.data(n * r, n * c + k));
-    return mat;
-  }
+  dense_matrix<P> to_dense_matrix(int const n) const;
 
 private:
-  int64_t nrows_, ncols_;
+  int64_t nrows_ = 0;
+  int64_t ncols_ = 0;
   vector2d<P> data_;
 };
 
@@ -287,22 +194,15 @@ public:
   P const *operator[] (int64_t row) const { return data_[row]; }
 
   //! returns the raw internal data
-  P *data() { return data_.data(); }
+  P *data() { return data_[0]; }
   //! returns the raw internal data, const-overload
-  P const *data() const { return data_.data(); }
+  P const *data() const { return data_[0]; }
 
   //! returns true of the matrix is empty
   bool empty() const { return data_.empty(); }
 
   //! converts the matrix to a full one, mostly for testing/plotting
-  block_matrix<P> to_full() const
-  {
-    int const n = nblock();
-    block_matrix<P> full(n, nrows(), nrows());
-    for (auto r : indexof(nrows()))
-      std::copy_n(data_[r], n, full(r, r));
-    return full;
-  }
+  block_matrix<P> to_full() const;
 
 private:
   vector2d<P> data_;
@@ -323,16 +223,16 @@ class block_diag_matrix
 {
 public:
   //! make an empty matrix
-  block_diag_matrix() : nrows_(0), data_(0, 0) {}
+  block_diag_matrix() : data_(0, 0) {}
   //! initialize matrix with given block-size and number of rows/cols
   block_diag_matrix(int block_size, int64_t num_rows)
-      : nrows_(num_rows), data_(block_size, num_rows)
+      : data_(block_size, num_rows)
   {}
 
   //! block size
   int nblock() const { return data_.stride(); }
   //! number of rows
-  int64_t nrows() const { return nrows_; }
+  int64_t nrows() const { return data_.num_strips(); }
 
   //! gives the main diagonal block
   P *operator() (int64_t r) { return data_[r]; }
@@ -349,24 +249,16 @@ public:
   //! returns the raw internal data, const-overload
   P const *data() const { return data_[0]; }
   //! indicates whether the matrix is empty
-  operator bool () const { return (nrows_ > 0); }
+  operator bool () const { return (not data_.empty()); }
   //! indicates whether the matrix is empty
-  bool empty() const { return (nrows_ == 0); }
+  bool empty() const { return data_.empty(); }
 
   //! converts the matrix to a full one, mostly for testing/plotting
-  block_matrix<P> to_full() const
-  {
-    int const n = nblock();
-    block_matrix<P> full(n, nrows_, nrows_);
-    for (auto r : indexof(nrows_))
-      std::copy_n(data_[r], n, full(r, r));
-    return full;
-  }
+  block_matrix<P> to_full() const;
 
   //! resizes the matrix and sets all entries to zero
   void resize_and_zero(int block_size, int64_t nrows)
   {
-    nrows_ = nrows;
     data_.resize_and_zero(block_size, nrows);
   }
   //! resize to match the other matrix size
@@ -376,7 +268,7 @@ public:
   }
   //! check size, resizes only if the size is different
   void check_resize(block_diag_matrix<P> const &other) {
-    if (nblock() != other.nblock() or nrows_ != other.nrows())
+    if (nblock() != other.nblock() or nrows() != other.nrows())
       resize_and_zero(other);
   }
 
@@ -384,7 +276,7 @@ public:
   void spd_factorize(int const n);
   //! solves against a vector
   void solve(int const n, std::vector<P> &rhs) const {
-    expect(rhs.size() == static_cast<size_t>(n * nrows_));
+    expect(rhs.size() == static_cast<size_t>(n * nrows()));
     solve(n, rhs.data());
   }
   //! solves against a raw-array
@@ -397,7 +289,6 @@ public:
   void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
 
 private:
-  int64_t nrows_;
   vector2d<P> data_;
 };
 
@@ -491,38 +382,12 @@ public:
   block_tri_matrix<P> &operator += (block_diag_matrix<P> const &other);
 
   //! converts the matrix to a full one, mostly for testing/plotting
-  block_matrix<P> to_full() const
-  {
-    int const n = nblock();
-    block_matrix<P> full(n, nrows_, nrows_);
-    std::copy_n(diag(0), n, full(0, 0));
-    if (nrows_ == 1)
-      return full;
-    std::copy_n(lower(0), n, full(0, nrows_ - 1));
-    std::copy_n(upper(0), n, full(0, 1));
-    for (int64_t r = 1; r < nrows_ - 1; r++)
-    {
-      std::copy_n(lower(r), n, full(r, r - 1));
-      std::copy_n(diag(r), n, full(r, r));
-      std::copy_n(upper(r), n, full(r, r + 1));
-    }
-    std::copy_n(lower(nrows_ - 1), n, full(nrows_ - 1, nrows_ - 2));
-    std::copy_n(diag(nrows_ - 1), n, full(nrows_ - 1, nrows_ - 1));
-    std::copy_n(upper(nrows_ - 1), n, full(nrows_ - 1, 0));
-    if (nrows_ == 2)
-    {
-      for (int i : indexof<int>(data_.stride()))
-        full(0, 1)[i] += lower(0)[i];
-      for (int i : indexof<int>(data_.stride()))
-        full(1, 0)[i] += lower(nrows_ - 1)[i];
-    }
-    return full;
-  };
-
+  block_matrix<P> to_full() const;
+  //! multiply x = A * x, using the work as scratch space
   void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
 
 private:
-  int64_t nrows_;
+  int64_t nrows_; // avoids constantly dividing by 3
   vector2d<P> data_;
 };
 
@@ -564,21 +429,8 @@ public:
     return to_full(conns(htype_));
   }
   //! converts the matrix to a full one, mostly for testing/plotting
-  block_matrix<P> to_full(connect_1d const &conn) const
-  {
-    int const n     = nblock();
-    int const nrows = conn.num_rows();
-    int mcol = 0;
-    for (int j = 0; j < conn.num_connections(); j++)
-      mcol = std::max(mcol, conn[j]);
-    block_matrix<P> full(n, nrows, mcol + 1);
+  block_matrix<P> to_full(connect_1d const &conn) const;
 
-    for (int r = 0; r < nrows; r++)
-      for (int j = conn.row_begin(r); j < conn.row_end(r); j++)
-        std::copy_n(data_[j], n, full(r, conn[j]));
-
-    return full;
-  }
   //! compute matrix vector product
   void gemv(int const n, int const level, connection_patterns const &conns, P const x[], P y[]) const;
   //! copy into external vector

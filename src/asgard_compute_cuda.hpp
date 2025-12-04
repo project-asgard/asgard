@@ -102,8 +102,6 @@ public:
       cusolverDnDestroy(cusolverdn);
     if (fone != nullptr) memfree(fone);
     if (done != nullptr) memfree(done);
-    if (ftmp != nullptr) memfree(ftmp);
-    if (dtmp != nullptr) memfree(dtmp);
   }
 
   void init() {
@@ -119,9 +117,6 @@ public:
     done = memalloc<double>(1);
     double cpu_done = 1.0;
     memcopy_host2dev(1, &cpu_done, done);
-
-    ftmp = memalloc<float>(1);
-    dtmp = memalloc<double>(1);
   }
 
   template<typename P>
@@ -214,9 +209,6 @@ private:
 
   float *fone  = nullptr;
   double *done = nullptr;
-
-  float *ftmp  = nullptr;
-  double *dtmp = nullptr;
 };
 
 }

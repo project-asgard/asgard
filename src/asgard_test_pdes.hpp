@@ -84,29 +84,45 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
     // put the time-parameter inside one of the cos-functions
     // tests the non-separable in time capabilities
     auto cos_1t = [](std::vector<P> const &x, P t, std::vector<P> &fx) ->
-        void {
+      void {
         for (size_t i = 0; i < x.size(); i++)
-            fx[i] = std::cos(t) * std::cos(x[i]);
-        };
+          fx[i] = std::cos(t) * std::cos(x[i]);
+      };
 
-    std::vector<svector_func1d<P>> func_md(num_dims, builtin_t<P>::cos);
+    auto cos_t = [](std::vector<P> const &x, P, std::vector<P> &fx) ->
+      void {
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = std::cos(x[i]);
+      };
+    auto dcos_t = [](std::vector<P> const &x, P, std::vector<P> &fx) ->
+      void {
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = -std::sin(x[i]);
+      };
+
+    auto cos_s  = [](P t)->P { return  std::cos(t); };
+    auto dcos_s = [](P t)->P { return -std::sin(t); };
+
+    std::vector<svector_func1d<P>> func_md(num_dims, cos_t);
 
     func_md[0] = cos_1t;
     pde.add_initial(func_md);
-    func_md[0] = builtin_t<P>::cos;
+    func_md[0] = cos_t;
 
-    pde.add_source({func_md, builtin_s<P>::dcos}); // derivative in time
+    pde.add_source({func_md, dcos_s}); // derivative in time
 
-    func_md[0] = builtin_t<P>::dcos;
-    pde.add_source({func_md, builtin_s<P>::cos});
+    func_md[0] = dcos_t;
+    pde.add_source({func_md, cos_s});
     func_md[0] = cos_1t;
 
     // compute the spacial derivatives
     for (int d = 1; d < num_dims; d++)
     {
-      func_md[d] = builtin_t<P>::dcos;
+      func_md[d] = dcos_t;
       pde.add_source(func_md);
-      func_md[d] = builtin_t<P>::cos;
+      func_md[d] = cos_t;
     }
 
     return pde;
@@ -130,23 +146,37 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
 
     pde_scheme<P> pde(options, domain);
 
+    auto positive = [](std::vector<P> const &x, std::vector<P> &fx) ->
+      void {
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = std::max(x[i], P{0});
+      };
+
+    auto negative = [](std::vector<P> const &x, std::vector<P> &fx) ->
+      void {
+        ASGARD_OMP_PARFOR_SIMD
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = std::min(x[i], P{0});
+      };
+
     pde += term_md<P>(std::vector<term_1d<P>>{
         term_div<P>(1, flux_type::upwind, boundary_type::periodic),
-        term_volume<P>(builtin_v<P>::positive)
+        term_volume<P>(positive)
       });
 
     pde += term_md<P>(std::vector<term_1d<P>>{
         term_div<P>(1, flux_type::downwind, boundary_type::periodic),
-        term_volume<P>(builtin_v<P>::negative),
+        term_volume<P>(negative),
       });
 
     pde += term_md<P>(std::vector<term_1d<P>>{
-        volume_electric<P>(builtin_v<P>::positive),
+        volume_electric<P>(positive),
         term_div<P>(1, flux_type::upwind, boundary_type::bothsides)
       });
 
     pde += term_md<P>(std::vector<term_1d<P>>{
-        volume_electric<P>(builtin_v<P>::negative),
+        volume_electric<P>(negative),
         term_div<P>(1, flux_type::downwind, boundary_type::bothsides)
       });
 

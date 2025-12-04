@@ -1096,7 +1096,7 @@ void term_manager<P>::assign_compute_resources()
     -> void {
       work.resize(0); // load the new work-items
 
-      auto const tgroup = terms_group_range(gid);
+      auto const tgroup = terms_group_range(group_id{gid});
       int icurrent = tgroup.ibegin();
       while (icurrent < tgroup.iend())
       {

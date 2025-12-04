@@ -741,7 +741,8 @@ public:
     coeffs_[1] = right;
   }
 
-  // allow direct access to the private data
+  // both the pde_scheme and term_manager need access to the internal data
+  // to manage the internals of the term_1d
   friend class pde_scheme<P>;
   friend struct term_manager<P>;
 
@@ -948,7 +949,7 @@ struct right_boundary_flux {
   //! the separable function
   separable_func<P> func;
   //! the chain levels
-  std::array<int, max_num_dimensions> chain_level = {-1};
+  std::array<int, max_num_dimensions> chain_level;
 };
 
 /*!
@@ -985,7 +986,7 @@ struct sym_boundary_flux {
   //! the separable function
   separable_func<P> func;
   //! the chain levels
-  std::array<int, max_num_dimensions> chain_level = {-1};
+  std::array<int, max_num_dimensions> chain_level;
 };
 
 /*!
@@ -1034,7 +1035,7 @@ private:
 
   bf_mode side_ = unset;
   separable_func<P> func_;
-  std::array<int, max_num_dimensions> ch_level_ = {-1};
+  std::array<int, max_num_dimensions> ch_level_;
 };
 
 /*!
@@ -1367,11 +1368,19 @@ struct group_id {
   //! make a generic id from an implicit group
   explicit group_id(imex_implicit_group ii) : gid(ii.gid) {}
   //! sets the implicit group
-  explicit group_id(int g = -1) : gid(g) {}
+  explicit constexpr group_id(int g = -1) : gid(g) {}
   //! get the group id
-  int operator () () const { return gid; }
+  constexpr int operator () () const { return gid; }
+  //! compare the two group ids
+  bool operator == (group_id const &other) const { return (other.gid == gid); }
+  //! check if the id is between -1 and the max bound, used for sanity checking
+  bool is_valid(size_t index_end) const {
+    return (-1 <= gid and gid < static_cast<int>(index_end));
+  }
   //! the group id
   int gid = -1;
+  //! indicates all groups
+  static constexpr group_id all() { return group_id{-1}; }
 };
 
 /*!
@@ -1428,7 +1437,7 @@ public:
           options_.start_levels.resize(numd, l); // fill vector with l
       } else {
         if (numd != static_cast<int>(options_.start_levels.size()))
-          throw std::runtime_error("the starting levels must include either a single entry"
+          throw std::runtime_error("the starting levels must include either a single entry "
                                    "indicating uniform/isotropic grid or one entry per dimension");
       }
 
@@ -1441,7 +1450,7 @@ public:
             options_.max_levels.resize(numd, l); // fill vector with l
         } else {
           if (options_.max_levels.size() != options_.start_levels.size())
-            throw std::runtime_error("the max levels must include either a single entry"
+            throw std::runtime_error("the max levels must include either a single entry "
                                      "indicating uniform max or one entry per dimension");
         }
         // use the initial as max, if the max is less than the initial level

@@ -42,22 +42,32 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
 
   pde_scheme<P> pde(options, std::move(domain));
 
+  auto expneg = [](std::vector<P> const &x, std::vector<P> &fx) ->
+    void {
+      ASGARD_OMP_PARFOR_SIMD
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = std::exp(-x[i]);
+    };
+
+  auto cos_s  = [](P t)->P { return  std::cos(t); };
+  auto dcos_s = [](P t)->P { return -std::sin(t); };
+
   if (num_dims == 1) {
-    term_1d<P> div = term_div<P>(builtin_v<P>::expneg, boundary_type::left);
+    term_1d<P> div = term_div<P>(expneg, boundary_type::left);
     pde += {div, };
 
     auto cospi2 = vectorize_t<P>([](P x)->P{ return std::cos(0.5 * PI * x); });
 
-    separable_func<P> exact({cospi2, }, builtin_s<P>::cos);
+    separable_func<P> exact({cospi2, }, cos_s);
     pde.add_initial(exact);
 
     // add the time derivative
-    pde.add_source({{cospi2, }, builtin_s<P>::dcos});
+    pde.add_source({{cospi2, }, dcos_s});
 
     pde.add_source({{vectorize_t<P>([](P x)->P{ return -std::exp(-x) * std::cos(0.5 * PI * x); }), },
-                   builtin_s<P>::cos});
+                   cos_s});
     pde.add_source({{vectorize_t<P>([](P x)->P{ return -0.5 * PI * std::exp(-x) * std::sin(0.5 * PI * x); }), },
-                   builtin_s<P>::cos});
+                   cos_s});
   }
 
   return pde;

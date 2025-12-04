@@ -99,6 +99,11 @@ private:
  * since it explicitly forms the dense matrix, the cost of the actual linear
  * algebra operations is orders of magnitude more than alternatives.
  *
+ * The alpha parameter indicates the type of operator needed.
+ * If alpha is non-zero, this will build the matrix I + alpha * terms,
+ * e.g., use alpha = dt for backwards Euler method with the native being canceled
+ * since the terms appear on the left side of the equation.
+ * If alpha is zero, the matrix being build will correspond to just terms.
  * \endinternal
  */
 template<typename P>
@@ -110,10 +115,10 @@ public:
   //! build a dense solver for the system I + alpha * terms
   direct(sparse_grid const &grid, connection_patterns const &conn,
          term_manager<P> const &terms, P alpha)
-      : direct(-1, grid, conn, terms, alpha)
+      : direct(group_id::all(), grid, conn, terms, alpha)
   {}
   //! builds a dense solver for a given term group
-  direct(int groupid, sparse_grid const &grid, connection_patterns const &conn,
+  direct(group_id group, sparse_grid const &grid, connection_patterns const &conn,
          term_manager<P> const &terms, P alpha);
 
   //! inverts the stored matrix
@@ -446,15 +451,25 @@ struct solver_manager
                    connection_patterns const &conn,
                    term_manager<P> const &terms, P alpha)
   {
-    update_grid(term_manager<P>::all_groups, grid, conn, terms, alpha);
+    update_grid(group_id::all(), grid, conn, terms, alpha);
   }
   //! updates the internals for the current grid generation
-  void update_grid(int groupid, sparse_grid const &grid,
+  void update_grid(group_id groupid, sparse_grid const &grid,
                    connection_patterns const &conn,
                    term_manager<P> const &terms, P alpha);
 
   //! write the solver options in human-readable format
   void print_opts(std::ostream &os) const;
+  /*!
+   * \internal
+   * \brief Write the options to a stream
+   *
+   * \endinternal
+   */
+  friend std::ostream &operator<<(std::ostream &os, solver_manager<P> const &solver) {
+    solver.print_opts(os);
+    return os;
+  }
 
   //! selected solver
   solver_method opt = solver_method::direct;
@@ -476,18 +491,5 @@ struct solver_manager
   //! helper method, y = x + beta * y, compiles with OpenMP and SIMD
   static void xpby(std::vector<P> const &x, P beta, P y[]);
 };
-
-/*!
- * \internal
- * \brief Write the options to a stream
- *
- * \endinternal
- */
-template<typename P>
-inline std::ostream &operator<<(std::ostream &os, solver_manager<P> const &solver)
-{
-  solver.print_opts(os);
-  return os;
-}
 
 }

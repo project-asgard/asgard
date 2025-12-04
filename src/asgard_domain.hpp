@@ -443,6 +443,14 @@ public:
       os << "non-separable-in-time\n";
     }
   }
+ /*!
+  * \ingroup asgard_discretization
+  * \brief Allows writing the separable function stats
+  */
+  friend std::ostream &operator<<(std::ostream &os, separable_func<P> const &func) {
+    func.print_stats(os);
+    return os;
+  }
 
 private:
   using func_entry = std::variant<int, P, svector_func1d<P>>;
@@ -451,17 +459,6 @@ private:
   std::array<func_entry, max_num_dimensions> funcs_;
   scalar_func<P> time_func_;
 };
-
-/*!
- * \ingroup asgard_discretization
- * \brief Allows writing the separable function stats
- */
-template<typename P>
-inline std::ostream &operator<<(std::ostream &os, separable_func<P> const &func)
-{
-  func.print_stats(os);
-  return os;
-}
 
 /*!
  * \ingroup asgard_discretization

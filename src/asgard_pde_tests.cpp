@@ -120,6 +120,11 @@ void test_bookkeeping() {
     tassert(not chain.is_chain());
     tassert(chain.is_div());
     tassert(chain.num_chain() == 0);
+
+    term_1d<TestType> chain1({ptD, ptD});
+    tassert(chain1.is_chain());
+    terror_message(term_1d<TestType>({ptD, chain1}),
+                   "cannot create a chain-of-chains of term1d");
   }
   {
     current_test<TestType> name_("term 2 instances");
@@ -177,6 +182,10 @@ void test_bookkeeping() {
     terror_message(term_md<TestType>({ptI, ptI}),
                    "cannot create term_md with all terms being identities");
 
+    std::vector<term_1d<TestType>> tlist = {ptI, ptI};
+    terror_message(term_md<TestType>(tlist),
+                   "cannot create term_md with all terms being identities");
+
     term_md<TestType> t1({ptM, ptI});
     tassert(term_md<TestType>({t1, t1}).term_mode() == term_md<TestType>::mode::chain);
     tassert(term_md<TestType>({t1, t1}).num_dims() == 2);
@@ -196,6 +205,15 @@ void test_bookkeeping() {
       tassert(tm.term_mode() == term_md<TestType>::mode::separable);
       ptc[i] = ptI;
     }
+
+    term_md<TestType> tc({t1, t1});
+    tassert(tc.is_chain());
+    terror_message(term_md<TestType>({t1, tc}),
+                   "recursive chains (chain with chains) of term_md are not supported");
+
+    terror_message(t1.set_num_dimensions(3), "wrong number of dimensions of separable term");
+    terror_message(tc.set_num_dimensions(3), "wrong number of dimensions of separable term in a chain");
+    tc.set_num_dimensions(2);
   }
 }
 
@@ -214,6 +232,28 @@ void test_pde_class() {
     tassert(pde.domain().length(1) == TestType{7});
     tassert(!!pde.options().degree);
     tassert(pde.options().degree.value() == 4);
+
+    tassert(pde.num_terms() == 0);
+    tassert(pde.degree() == 4);
+  }
+  {
+    current_test<TestType> name_("pde error checking");
+    pde_domain<TestType> domain({{1, 3}, {-1, 6}});
+    terror_message(pde_scheme<TestType>(make_opts(""), domain),
+                   "must specify start levels for the grid");
+
+    prog_opts opts = make_opts("-d 1");
+    opts.start_levels = {3, 4, 5};
+    terror_message(pde_scheme<TestType>(opts, domain),
+                   "the starting levels must include either a single entry indicating");
+
+    opts.start_levels = {3, 4};
+    opts.max_levels   = {3, 4, 5};
+    terror_message(pde_scheme<TestType>(opts, domain),
+                   "the max levels must include either a single entry indicating");
+
+    terror_message(pde_scheme<TestType>(make_opts("-l 3"), domain),
+                   "must provide a polynomial degree with -d");
   }
   {
     current_test<TestType> name_("pde constructors");
@@ -240,6 +280,9 @@ void test_pde_class() {
     pde.set(imex_implicit_group{2}, imex_explicit_group{5});
     tassert(pde.imex_im().gid == 2);
     tassert(pde.imex_ex().gid == 5);
+    tassert(group_id{2} == group_id{2});
+    tassert(not (group_id{2} == group_id{3}));
+    tassert(group_id::all().gid < 0); // all cannot be a valid vector index, any negative will work
   }
   {
     current_test<TestType> name_("pde moments");

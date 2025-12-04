@@ -191,10 +191,10 @@ public:
     // if we use the hierarchy with all elements connected by volume
     // the first two elements have lots of connection which slows the search
     // but the search result is trivial
-    //if (row == 0)
-    //  return col;
-    //else if (row == 1)
-    //  return rows + col;
+    if (row == 0)
+      return col;
+    else if (row == 1)
+      return rows + col;
     // if not on the first or second row, do binary search
     int sstart = pntr[row], send = pntr[row + 1] - 1;
     int current = (sstart + send) / 2;

@@ -54,10 +54,6 @@ void compile_tests()
     static_assert(std::is_move_constructible_v<discretization_manager<P>>);
     static_assert(std::is_copy_assignable_v<discretization_manager<P>>);
     static_assert(std::is_move_assignable_v<discretization_manager<P>>);
-    static_assert(std::is_same_v<typename discretization_manager<P>::precision_type, P>);
-
-    static_assert(discretization_manager<P>::all_groups == term_manager<P>::all_groups,
-                  "ensure group selection consistency");
   }
 }
 

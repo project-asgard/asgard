@@ -6,15 +6,15 @@ namespace asgard
 // the signature of callable is
 // std::function<bool(std::array<int, max_num_dimensions> const &index)>
 template<typename callable>
-inline std::vector<int> generate_lower_index_set(
-    size_t num_dims, callable inside)
+inline std::vector<int> generate_lower_index_set(int num_dims, callable inside)
 {
-  size_t c   = 0;
+  expect(num_dims > 0);
+  int c = 0;
   bool is_in = true;
   std::array<int, max_num_dimensions> root;
   std::fill_n(root.begin(), num_dims, 0);
   std::vector<int> indexes;
-  // reserve 1-4 pages to save on the first few relocations
+  // reserve 1-4 pages to save on the first few relocation
   indexes.reserve( (16 * 1024) / (num_dims * sizeof(int)) );
   while (is_in or c > 0)
   {
@@ -35,7 +35,7 @@ inline std::vector<int> generate_lower_index_set(
 }
 
 template<typename data_container>
-indexset make_index_set(organize2d<int, data_container> const &indexes)
+indexset make_index_set_(data_container const &indexes)
 {
   int64_t num_indexes    = indexes.num_strips();
   int64_t num_dimensions = indexes.stride();
@@ -86,12 +86,8 @@ indexset make_index_set(organize2d<int, data_container> const &indexes)
   return indexset(num_dimensions, std::move(sorted_indexes));
 }
 
-template indexset
-make_index_set(organize2d<int, std::vector<int>> const &indexes);
-template indexset
-make_index_set(organize2d<int, int *> const &indexes);
-template indexset
-make_index_set(organize2d<int, int const *> const &indexes);
+template indexset make_index_set_(vector2d<int> const &indexes);
+template indexset make_index_set_(span2d<int> const &indexes);
 
 dimension_sort::dimension_sort(indexset const &iset)
 {

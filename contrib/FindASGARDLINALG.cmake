@@ -109,6 +109,12 @@ else ()
     add_library (asgard::LINALG INTERFACE IMPORTED)
     target_link_libraries (asgard::LINALG INTERFACE BLAS::BLAS LAPACK::LAPACK)
 
+    find_path(__asg_check_cblas cblas.h)
+    if (NOT __asg_check_cblas)
+      find_path(__asg_cblas cblas.h PATH_SUFFIXES "openblas")
+      target_include_directories(asgard::LINALG INTERFACE ${__asg_cblas})
+    endif()
+
     if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set(ASGARD_USING_APPLEBLAS ON)
     else()

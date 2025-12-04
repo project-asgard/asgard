@@ -9,8 +9,7 @@ namespace asgard::kronmult
 {
 permutes::permutes(int num_dimensions)
 {
-  if (num_dimensions < 1) // could happen with identity operator term
-    return;
+  expect(num_dimensions > 0);
 
   int const num_permute = (num_dimensions == 1) ? 1 : fm::ipow2(num_dimensions - 1);
 

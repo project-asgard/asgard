@@ -272,16 +272,4 @@ private:
 //! singleton, wrapper around some compute capabilities
 inline std::optional<__signleton_compute_resources> compute;
 
-/*!
- * \brief Initializes the compute environment, if not initialized already
- *
- * Called by the discretization manager, during the initial setup of the PDE
- * discretization. This is not technically not thread safe but multiple managers should not be
- * constructed in parallel, since the managers themselves use OpenMP in the background.
- */
-inline void init_compute() {
-  if (not compute)
-    compute.emplace();
-}
-
 } // namespace asgard
