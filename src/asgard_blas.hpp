@@ -75,12 +75,57 @@ void scal(int n, P alpha, P x[]) {
 template<typename P>
 void gemv(char trans, int m, int n, no_deduce<P> alpha, P const A[],
           P const x[], no_deduce<P> beta, P y[]) {
+  tools::time_event perf_("openblas gemv");
   static_assert(is_double<P> or is_float<P>);
   if constexpr (is_double<P>)
     cblas_dgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
   else
     cblas_sgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
 }
+template<typename P>
+void gemv_omp(char trans, int m, int n, no_deduce<P> alpha, P const A[],
+              P const x[], no_deduce<P> beta, P y[]) {
+  static_assert(is_double<P> or is_float<P>);
+  tools::time_event perf_("my gemv");
+
+  if (trans == 't' or trans == 'T')
+  {
+    for (int j = 0; j < n; j++) {
+      P sum = 0;
+      ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:sum))
+      for (int i = 0; i < m; i++) {
+        sum += A[j * m + i] * x[i];
+      }
+      y[j] = alpha * sum + beta * y[j];
+    }
+  }
+  else
+  {
+    int constexpr block_size = 128;
+    int const num_blocks = [&]() ->
+      int {
+        int const b = m / block_size;
+        return (block_size * b < m) ? b + 1 : b;
+      }();
+
+    #pragma omp parallel for
+    for (int b = 0; b < num_blocks; b++) {
+      int const begin = b * block_size;
+      int const candidate_end = begin + block_size;
+      int const end = (candidate_end < m) ? candidate_end : m;
+      for (int i = begin; i < end; i++)
+      {
+        P sum = 0;
+        ASGARD_OMP_SIMD
+        for (int j = 0; j < n; j++) {
+          sum += A[j * m + i] * x[j];
+        }
+        y[i] = alpha * sum + beta * y[i];
+      }
+    }
+  }
+}
+
 //! apply the Givens rotation, BLAS srot()/drot()
 template<typename P>
 void rot(int n, P x[], P y[], P c, P s) {

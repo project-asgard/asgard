@@ -437,8 +437,11 @@ int gmres<P>::solve(
       // krylov projection coefficients for this iteration
       P *coeff = krylov_proj + (inner_iterations * (inner_iterations + 1)) / 2;
 
-      fm::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
-      fm::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
+      // fm::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
+      // fm::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
+
+      fm::gemv_omp('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
+      fm::gemv_omp('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
 
       P const nrm = fm::nrm2(n, r);
       fm::scal(n, P{1} / nrm, r);
