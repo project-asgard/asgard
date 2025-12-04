@@ -498,7 +498,7 @@ add_executable (asgard_exe)
 set_target_properties(asgard_exe PROPERTIES OUTPUT_NAME "asgard")
 target_sources (asgard_exe
                 PRIVATE
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp>
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_main.cpp>
 )
 target_link_libraries (asgard_exe PRIVATE libasgard)
 

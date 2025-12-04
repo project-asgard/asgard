@@ -498,6 +498,8 @@ void self_test() {
   // different explicit time-stepping
   dotest<double>(0.05, 2, "-s rk2 -l 5 -n 20");
   dotest<double>(0.01, 2, "-s rk2 -l 6 -n 10");
+  dotest<double>(0.05, 2, "-s rk4 -l 5 -n 20");
+  dotest<double>(0.01, 2, "-s rk4 -l 6 -n 10");
 
   // implicit stepping is fast, test some of the implicit methods
   dotest<double>(0.05, 1, "-l 7 -n 20 -sv direct -s be -dt 0.05");

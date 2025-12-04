@@ -301,6 +301,7 @@ void self_test() {
 
   test_energy<double>("-l 6 -d 2 -g dense -dt 6.25e-3 -n 20");
   test_energy<double>("-l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
+  test_energy<double>("-s rk4 -l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
 
 #endif
 
