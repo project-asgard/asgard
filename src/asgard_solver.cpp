@@ -167,7 +167,7 @@ direct<P>::direct(
 
     #ifdef ASGARD_USE_MPI
     if (not terms.resources.owns(it->rec)) {
-      tid += it->num_chain;
+      icurrent += it->num_chain;
       continue;
     }
     #endif
