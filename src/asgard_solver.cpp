@@ -401,9 +401,15 @@ int gmres<P>::solve(
     operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs,
     std::vector<P> &x) const
 {
+  #ifdef ASGARD_HAS_FAST_INSTERNAL_BLAS2
+  bool constexpr use_asgard_blas = true;
+  #else
+  bool constexpr use_asgard_blas = false;
+  #endif
+
   tools::time_event timing_("gmres::solve");
   int const n = static_cast<int>(rhs.size());
-  expect(n == static_cast<int>(x.size()));
+  expect(x.size() == rhs.size());
 
   basis.resize(static_cast<int64_t>(n) * (max_inner_ + 1));
 
@@ -423,7 +429,11 @@ int gmres<P>::solve(
 
     inner_res = fm::nrm2(n, basis.data());
 
-    fm::scal(n, P{1} / inner_res, basis.data());
+    if constexpr (use_asgard_blas)
+      fm::scal_omp(n, P{1} / inner_res, basis.data());
+    else
+      fm::scal(n, P{1} / inner_res, basis.data());
+
     krylov_sol[0] = inner_res;
 
     inner_iterations = 0;
@@ -437,11 +447,24 @@ int gmres<P>::solve(
       // krylov projection coefficients for this iteration
       P *coeff = krylov_proj + (inner_iterations * (inner_iterations + 1)) / 2;
 
-      fm::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
-      fm::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
+      if constexpr (use_asgard_blas)
+      {
+        fm::gemv_omp('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
+        fm::gemv_omp('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
+      }
+      else
+      {
+        fm::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
+        fm::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
+      }
 
       P const nrm = fm::nrm2(n, r);
-      fm::scal(n, P{1} / nrm, r);
+
+      if constexpr (use_asgard_blas)
+        fm::scal_omp(n, P{1} / nrm, r);
+      else
+        fm::scal(n, P{1} / nrm, r);
+
       for (int k = 0; k < inner_iterations; k++)
         fm::rot(1, coeff + k, coeff + k + 1, cosines[k], sines[k]);
 
@@ -464,7 +487,10 @@ int gmres<P>::solve(
     if (inner_iterations > 0)
     {
       fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
-      fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
+      if constexpr (use_asgard_blas)
+        fm::gemv_omp('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
+      else
+        fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
     }
     ++outer_iterations;
     outer_res = inner_res;

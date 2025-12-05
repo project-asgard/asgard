@@ -52,7 +52,8 @@ if sys.platform == 'darwin' and not isvirtual:
 cmake_args=[
         '-DCMAKE_BUILD_TYPE=Release',
         '-DBUILD_SHARED_LIBS=ON',
-        '-DASGARD_RECOMMENDED_DEFAULTS:BOOL=ON',
+        '-DASGARD_FAST_FLAGS=ON',
+        '-DASGARD_TRYUSE_OPENMP=ON',
         '-DASGARD_USE_PYTHON:BOOL=ON',
         '-DPython_EXECUTABLE:PATH={0:1s}'.format(sys.executable),
         '-DASGARD_python_pip_path:PATH={0:1s}/'.format(final_install_path),

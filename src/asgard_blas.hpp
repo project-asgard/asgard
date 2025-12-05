@@ -14,6 +14,16 @@
   #endif
 #endif
 
+#ifdef ASGARD_USE_OPENMP
+  // Some BLAS implementations (e.g., OpenBLAS) use their own thread-pool
+  // which conflicts with Kronmult leading to fast BLAS operations but overall
+  // slow performance due to cache pollution and thread oversubscribing.
+  // Using simple custom BLAS Level 2 algorithms with OpenMP have comparable performance
+  // when tested directly against OpenBLAS but also avoid caching/threading issues
+  // and thus lead to a significant performance boost.
+  #define ASGARD_HAS_FAST_INSTERNAL_BLAS2
+#endif
+
 namespace asgard {
 
 // fast math
@@ -71,16 +81,72 @@ void scal(int n, P alpha, P x[]) {
   else
     cblas_sscal(n, alpha, x, 1);
 }
+template<typename P>
+void scal_omp(int n, P alpha, P x[]) {
+  static_assert(is_double<P> or is_float<P>);
+  ASGARD_OMP_PARFOR_SIMD
+  for (int i = 0; i < n; i++)
+    x[i] *= alpha;
+}
 //! matrix vector product, BLAS sgemv()/dgemv()
 template<typename P>
 void gemv(char trans, int m, int n, no_deduce<P> alpha, P const A[],
-          P const x[], no_deduce<P> beta, P y[]) {
+          P const x[], no_deduce<P> beta, P y[])
+{
   static_assert(is_double<P> or is_float<P>);
+  // tools::time_event perf_("openblas gemv");
   if constexpr (is_double<P>)
     cblas_dgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
   else
     cblas_sgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
 }
+template<typename P>
+void gemv_omp(char trans, int m, int n, no_deduce<P> alpha, P const A[],
+              P const x[], no_deduce<P> beta, P y[])
+{
+  // within ASGarD, this is used only with thin-and-tall matrices A
+  // thus, the algorithms below are tuned to that case
+  static_assert(is_double<P> or is_float<P>);
+  // tools::time_event perf_("my gemv");
+
+  if (trans == 't' or trans == 'T')
+  {
+    for (int j = 0; j < n; j++) {
+      P sum = 0;
+      ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:sum))
+      for (int i = 0; i < m; i++) {
+        sum += A[j * m + i] * x[i];
+      }
+      y[j] = alpha * sum + beta * y[j];
+    }
+  }
+  else
+  {
+    int constexpr block_size = 128;
+    int const num_blocks = [&]() ->
+      int {
+        int const b = m / block_size;
+        return (block_size * b < m) ? b + 1 : b;
+      }();
+
+    #pragma omp parallel for
+    for (int b = 0; b < num_blocks; b++) {
+      int const begin = b * block_size;
+      int const candidate_end = begin + block_size;
+      int const end = (candidate_end < m) ? candidate_end : m;
+      for (int i = begin; i < end; i++)
+      {
+        P sum = 0;
+        ASGARD_OMP_SIMD
+        for (int j = 0; j < n; j++) {
+          sum += A[j * m + i] * x[j];
+        }
+        y[i] = alpha * sum + beta * y[i];
+      }
+    }
+  }
+}
+
 //! apply the Givens rotation, BLAS srot()/drot()
 template<typename P>
 void rot(int n, P x[], P y[], P c, P s) {

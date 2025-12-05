@@ -15,16 +15,20 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+      - name: prep
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt-get update && sudo apt-get upgrade && sudo apt-get install libopenblas-dev libomp-dev
       - name: Makedir
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_FAST_FLAGS=ON
                    -DCMAKE_CXX_COMPILER=${{matrix.compiler}}
                    -DASGARD_PRECISIONS=${{matrix.prec}}
+                   -DASGARD_USE_OPENMP=ON
                    -DASGARD_BUILD_HDF5=ON
-                   -DASGARD_RECOMMENDED_DEFAULTS=ON
                    ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
@@ -41,6 +45,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
         OMP_NUM_THREADS: 2
+        OPENBLAS_NUM_THREADS: 1
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -53,8 +58,10 @@ jobs:
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_FAST_FLAGS=ON
+                   -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wshadow -pedantic -Werror"
                    -DASGARD_PRECISIONS="float;double"
-                   -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   -DASGARD_USE_OPENMP=ON
                    ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
@@ -69,6 +76,8 @@ jobs:
 # basic MPI build using default settings
   asgard-mpi:
     runs-on: ubuntu-24.04
+    env:
+      OPENBLAS_NUM_THREADS: 1
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -82,6 +91,8 @@ jobs:
 # skip some of the tests, MPI runs slower when all ranks sit on one CPU
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_FAST_FLAGS=ON
+                   -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wshadow -pedantic"
                    -DASGARD_LONG_TESTS=OFF
                    -DASGARD_USE_OPENMP=OFF
                    -DASGARD_USE_MPI=ON
@@ -116,8 +127,9 @@ jobs:
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
         run: cmake -DCMAKE_BUILD_TYPE=Release
+                   -DASGARD_FAST_FLAGS=ON
                    -DASGARD_PRECISIONS=double
-                   -DASGARD_RECOMMENDED_DEFAULTS=ON
+                   -DASGARD_USE_OPENMP=ON
                    ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build

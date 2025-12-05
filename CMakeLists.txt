@@ -41,10 +41,15 @@ option (ASGARD_BUILD_TESTS "Build tests for ASGarD" ON)
 if (ASGARD_BUILD_TESTS)
   option (ASGARD_LONG_TESTS "Build the longer tests, disable if tests take too long" ON)
 endif()
+
 option (ASGARD_USE_OPENMP "Optional OpenMP multi-threading support" OFF)
+# the python pip installer is less robust when dealing with many different build options
+option (ASGARD_TRYUSE_OPENMP "Try to enable OpenMP but if missing then just build without it (used by pip install)" OFF)
 set (ASGARD_TEST_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in testing (only in testing)")
+
 option (ASGARD_USE_CUDA "Optional Nvidia/CUDA support" OFF)
 option (ASGARD_USE_ROCM "Optional AMD/ROCm support" OFF)
+
 option (ASGARD_USE_MPI "Optional distributed computing support" OFF)
 
 if (ASGARD_USE_MPI)
@@ -69,7 +74,7 @@ set (ASGARD_PRECISIONS "float;double" CACHE STRING "Select floating point precis
 set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;double")
 
 option (ASGARD_USE_TIMER "Enable the builtin profiling tool" ON)
-option (ASGARD_RECOMMENDED_DEFAULTS "Enable OpenMP, set some flags, download OpenBLAS if system BLAS is missing." OFF)
+option (ASGARD_FAST_FLAGS "Enable aggressive performance flags for this CPU, -mtune=native and -mfma" OFF)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 option (ASGARD_USE_GITINFO "Optional read git properties and build them into the library" ON)
@@ -78,9 +83,9 @@ if (ASGARD_USE_TIMER)
   option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" OFF)
 endif()
 
-if (ASGARD_RECOMMENDED_DEFAULTS)
+if (ASGARD_RECOMMENDED_FLAGS)
   # add compiler flags we always want to use, mostly for CI purposes
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native -Wall -Wextra -Wpedantic -Wshadow")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native -mfma")
 endif ()
 
 if (ASGARD_USE_CUDA AND ASGARD_USE_ROCM)
@@ -155,7 +160,7 @@ endif()
 # handle OpenMP dependence
 if (ASGARD_USE_OPENMP)
   find_package(OpenMP REQUIRED)
-elseif (ASGARD_RECOMMENDED_DEFAULTS AND NOT APPLE)
+elseif (ASGARD_TRYUSE_OPENMP AND NOT APPLE)
   # OpenMP has poor support on OSX platforms, do not recommend as a default
   # ASGARD_USE_OPENMP will still explicitly enable OpenMP regardless of the platform
   find_package(OpenMP)

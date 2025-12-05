@@ -109,12 +109,11 @@ else ()
     add_library (asgard::LINALG INTERFACE IMPORTED)
     target_link_libraries (asgard::LINALG INTERFACE BLAS::BLAS LAPACK::LAPACK)
 
-    find_path(__asg_check_cblas cblas.h)
-    if (NOT __asg_check_cblas)
-      find_path(__asg_cblas cblas.h PATH_SUFFIXES "openblas")
-      target_include_directories(asgard::LINALG INTERFACE ${__asg_cblas})
-    endif()
-
+    # looking for the required cblas header, note that while BLAS is needed at runtime
+    # the header is private and needed only to build, thus the path is not exported during install
+    # on an Apple system, search for "Accelerate/Accelerate.h", assume Apple handles that
+    # on an MKL system, search for mkl_cblas.h, assume already set in MKL environment
+    # otherwise search for cblas.h (e.g., using OpenBLAS)
     if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set(ASGARD_USING_APPLEBLAS ON)
     else()
@@ -122,8 +121,22 @@ else ()
 
         if (__asgard_mkl_pos GREATER_EQUAL 0)
             set(ASGARD_USING_MKL ON)
+        else()
+            find_path(__asg_check_cblas cblas.h)
+            if (NOT __asg_check_cblas)
+                # some OpenBLAS installs put cblas.h in a sub-folder
+                find_path(__asg_cblas "cblas.h" PATH_SUFFIXES "openblas")
+                if (NOT __asg_cblas)
+                    message(FATAL_ERROR
+"ASGarD found a BLAS package but could not find the required cblas.h header \
+please include the path to the header in CMAKE_INCLUDE_PATH, e.g., -DCMAKE_INCLUDE_PATH=/some/path/ \
+or set environment variable CMAKE_INCLUDE_PATH")
+                endif()
+                target_include_directories(asgard::LINALG INTERFACE ${__asg_cblas})
+            else()
+                target_include_directories(asgard::LINALG INTERFACE ${__asg_check_cblas})
+            endif()
         endif()
         unset(__asgard_mkl_pos)
     endif()
-
 endif ()
