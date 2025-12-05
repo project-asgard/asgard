@@ -423,7 +423,8 @@ int gmres<P>::solve(
 
     inner_res = fm::nrm2(n, basis.data());
 
-    fm::scal(n, P{1} / inner_res, basis.data());
+    // fm::scal(n, P{1} / inner_res, basis.data());
+    fm::scal_omp(n, P{1} / inner_res, basis.data());
     krylov_sol[0] = inner_res;
 
     inner_iterations = 0;
@@ -444,7 +445,8 @@ int gmres<P>::solve(
       fm::gemv_omp('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
 
       P const nrm = fm::nrm2(n, r);
-      fm::scal(n, P{1} / nrm, r);
+      // fm::scal(n, P{1} / nrm, r);
+      fm::scal_omp(n, P{1} / nrm, r);
       for (int k = 0; k < inner_iterations; k++)
         fm::rot(1, coeff + k, coeff + k + 1, cosines[k], sines[k]);
 
@@ -467,7 +469,8 @@ int gmres<P>::solve(
     if (inner_iterations > 0)
     {
       fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
-      fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
+      // fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
+      fm::gemv_omp('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
     }
     ++outer_iterations;
     outer_res = inner_res;

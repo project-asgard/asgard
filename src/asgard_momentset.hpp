@@ -119,9 +119,7 @@ private:
 class moments_list {
 public:
   //! creates a new empty list
-  moments_list() {
-    moms_.reserve(7); // should rarely be exceeded
-  }
+  moments_list();
   //! returns the current number of moments
   int num_moms() const { return static_cast<int>(moms_.size()); }
   //! returns the current number of moments

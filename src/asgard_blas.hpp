@@ -71,6 +71,13 @@ void scal(int n, P alpha, P x[]) {
   else
     cblas_sscal(n, alpha, x, 1);
 }
+template<typename P>
+void scal_omp(int n, P alpha, P x[]) {
+  static_assert(is_double<P> or is_float<P>);
+  ASGARD_OMP_PARFOR_SIMD
+  for (int i = 0; i < n; i++)
+    x[i] *= alpha;
+}
 //! matrix vector product, BLAS sgemv()/dgemv()
 template<typename P>
 void gemv(char trans, int m, int n, no_deduce<P> alpha, P const A[],

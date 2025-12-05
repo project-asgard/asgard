@@ -4,6 +4,10 @@
 namespace asgard
 {
 
+moments_list::moments_list() {
+  moms_.reserve(8); // should rarely be exceeded
+}
+
 bool moments_list::have_all_dimension(int const dims) const {
   for (auto const &m : moms_)
     if (m.num_dims() != dims)
