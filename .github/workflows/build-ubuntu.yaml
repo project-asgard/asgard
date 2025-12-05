@@ -15,6 +15,9 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+      - name: prep
+        working-directory: ${{runner.workspace}}/asgard
+        run: sudo apt-get update && sudo apt-get upgrade && sudo apt-get install libopenblas-dev libomp-dev
       - name: Makedir
         working-directory: ${{runner.workspace}}/asgard
         run: cmake -E make_directory build
@@ -26,7 +29,6 @@ jobs:
                    -DASGARD_PRECISIONS=${{matrix.prec}}
                    -DASGARD_USE_OPENMP=ON
                    -DASGARD_BUILD_HDF5=ON
-                   -DASGARD_BUILD_OPENBLAS=ON
                    ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
