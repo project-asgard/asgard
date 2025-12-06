@@ -771,153 +771,6 @@ void invert_mass(int const n, mass_matrix<P> const &mass, P x[])
   }
 }
 
-template<typename P>
-void to_euler(int const n, P alpha, block_diag_matrix<P> &A) {
-  expect(A.nblock() == n * n);
-
-  int const nrows = A.nrows();
-  int const n2    = n * n;
-
-#pragma omp parallel for
-  for (int i = 0; i < nrows; i++) {
-    P *r = A[i];
-    smmat::scal(n2, alpha, r);
-    for (int j = 0; j < n; j++)
-      r[j * n + j] += P{1};
-  }
-}
-
-template<typename P>
-void to_euler(int const n, P alpha, block_tri_matrix<P> &A) {
-  expect(A.nblock() == n * n);
-
-  int const nrows = A.nrows();
-  int const n2    = n * n;
-
-  #pragma omp parallel for
-  for (int i = 0; i < nrows; i++) {
-    P *r = A.diag(i);
-    smmat::scal(n2, alpha, A.lower(i));
-    smmat::scal(n2, alpha, r);
-    smmat::scal(n2, alpha, A.upper(i));
-    for (int j = 0; j < n; j++)
-      r[j * n + j] += P{1};
-  }
-}
-
-template<typename P>
-void psedoinvert(int const n, block_diag_matrix<P> &A,
-                 block_diag_matrix<P> &iA)
-{
-  expect(A.nblock() == n * n);
-  iA.resize_and_zero(n * n, A.nrows());
-
-  int const nrows = A.nrows();
-
-#pragma omp parallel for
-  for (int i = 0; i < nrows; i++) {
-    smmat::getrf(n, A[i]);
-    smmat::set_eye(n, iA[i]);
-    smmat::getrs_l(n, A[i], iA[i]);
-    smmat::getrs_u(n, A[i], iA[i]);
-  }
-}
-
-template<typename P>
-void psedoinvert(int const n, block_tri_matrix<P> &A,
-                 block_tri_matrix<P> &iA)
-{
-  expect(A.nblock() == n * n);
-  iA.resize_and_zero(n * n, A.nrows());
-
-  int const nrows = A.nrows();
-
-  for (int i = 0; i < nrows; i++)
-    smmat::set_eye(n, iA.diag(i));
-
-  smmat::getrf(n, A.diag(0));
-
-  if (nrows <= 2) {
-    if (nrows == 1) {
-      smmat::getrs_l(n, A.diag(0), iA.diag(0));
-      smmat::getrs_u(n, A.diag(0), iA.diag(0));
-    } else {
-      // merge the periodic blocks
-      smmat::axpy(n * n, P{1}, A.lower(0), A.upper(0));
-      smmat::axpy(n * n, P{1}, A.upper(1), A.lower(1));
-      // factorize the rest of the blocks
-      smmat::getrs_l(n, A.diag(0), A.upper(0));
-      smmat::getrs_u_right(n, A.diag(0), A.lower(1));
-      smmat::gemm<-1>(n, A.lower(1), A.upper(0), A.diag(1));
-      smmat::getrf(n, A.diag(1));
-      // invert the L factor
-      smmat::getrs_l(n, A.diag(0), iA.diag(0));
-      smmat::gemm<-1>(n, A.lower(1), iA.diag(0), iA.lower(1));
-      smmat::getrs_l(n, A.diag(1), iA.lower(1));
-      smmat::getrs_l(n, A.diag(1), iA.diag(1));
-      // invert the U factor
-      smmat::getrs_u(n, A.diag(1), iA.lower(1));
-      smmat::getrs_u(n, A.diag(1), iA.diag(1));
-      smmat::gemm<-1>(n, A.upper(0), iA.lower(1), iA.diag(0));
-      smmat::gemm<-1>(n, A.upper(0), iA.diag(1), iA.upper(0));
-      smmat::getrs_u(n, A.diag(0), iA.diag(1));
-      smmat::getrs_u(n, A.diag(0), iA.upper(1));
-    }
-    return;
-  }
-
-  // factorization
-  smmat::getrs_l(n, A.diag(0), A.upper(0));
-  smmat::getrs_u_right(n, A.diag(0), A.lower(1));
-
-  for (int i = 1; i < nrows - 1; i++)
-  {
-    smmat::gemm<-1>(n, A.lower(i), A.upper(i - 1), A.diag(i));
-    smmat::getrf(n, A.diag(i));
-    smmat::getrs_l(n, A.diag(i), A.upper(i));
-    smmat::getrs_u_right(n, A.diag(i), A.lower(i + 1));
-  }
-
-  int const r = nrows - 1;
-  smmat::getrs_l(n, A.diag(0), A.upper(r));
-  smmat::getrs_u_right(n, A.diag(0), A.lower(0));
-
-  smmat::gemm<-1>(n, A.lower(r), A.upper(r - 1), A.diag(r));
-  smmat::gemm<-1>(n, A.upper(r), A.lower(0), A.diag(r));
-  smmat::getrf(n, A.diag(r));
-
-  // inversion of L
-  smmat::getrs_l(n, A.diag(0), iA.diag(0));
-  for (int i = 1; i < nrows; i++) {
-    smmat::gemm<-1>(n, A.lower(i), iA.diag(i - 1), iA.lower(i));
-    smmat::getrs_l(n, A.diag(i), iA.lower(i));
-    smmat::getrs_l(n, A.diag(i), iA.diag(i));
-  }
-  smmat::gemm<-1>(n, A.upper(r), iA.diag(0), iA.upper(r));
-
-  // inversion of U
-  smmat::getrs_u(n, A.diag(r), iA.lower(r));
-  smmat::getrs_u(n, A.diag(r), iA.diag(r));
-  smmat::getrs_u(n, A.diag(r), iA.upper(r));
-
-  for (int i = r - 1; i > 0; --i) {
-    smmat::gemm<-1>(n, A.upper(i), iA.lower(i + 1), iA.diag(i));
-    smmat::gemm<-1>(n, A.upper(i), iA.diag(i + 1), iA.upper(i));
-
-    smmat::getrs_u(n, A.diag(i), iA.lower(i));
-    smmat::getrs_u(n, A.diag(i), iA.diag(i));
-    smmat::getrs_u(n, A.diag(i), iA.upper(i));
-  }
-
-  smmat::gemm<-1>(n, A.upper(0), iA.lower(1), iA.diag(0));
-  smmat::gemm<-1>(n, A.upper(0), iA.upper(r), iA.diag(0));
-  smmat::gemm<-1>(n, A.upper(0), iA.diag(1), iA.upper(0));
-
-  smmat::getrs_u(n, A.diag(0), iA.lower(0));
-  smmat::getrs_u(n, A.diag(0), iA.diag(0));
-  smmat::getrs_u(n, A.diag(0), iA.upper(0));
-}
-
 #ifdef ASGARD_ENABLE_DOUBLE
 template class dense_matrix<double>;
 template class block_matrix<double>;
@@ -952,12 +805,6 @@ template void gemm_block_diag<double>(
 template void invert_mass(int const, mass_matrix<double> const &, block_tri_matrix<double> &);
 template void invert_mass(int const, mass_matrix<double> const &, block_diag_matrix<double> &);
 template void invert_mass(int const, mass_matrix<double> const &, double[]);
-
-template void to_euler<double>(int const n, double alpha, block_diag_matrix<double> &A);
-template void to_euler<double>(int const n, double alpha, block_tri_matrix<double> &A);
-
-template void psedoinvert<double>(int const, block_diag_matrix<double> &, block_diag_matrix<double> &);
-template void psedoinvert<double>(int const, block_tri_matrix<double> &, block_tri_matrix<double> &);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -994,12 +841,6 @@ template void gemm_block_diag<float>(
 template void invert_mass(int const, mass_matrix<float> const &, block_tri_matrix<float> &);
 template void invert_mass(int const, mass_matrix<float> const &, block_diag_matrix<float> &);
 template void invert_mass(int const, mass_matrix<float> const &, float[]);
-
-template void to_euler<float>(int const n, float alpha, block_diag_matrix<float> &A);
-template void to_euler<float>(int const n, float alpha, block_tri_matrix<float> &A);
-
-template void psedoinvert<float>(int const, block_diag_matrix<float> &, block_diag_matrix<float> &);
-template void psedoinvert<float>(int const, block_tri_matrix<float> &, block_tri_matrix<float> &);
 #endif
 
 } // namespace asgard
