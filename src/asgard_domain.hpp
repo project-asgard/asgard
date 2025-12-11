@@ -453,7 +453,7 @@ public:
   }
 
 private:
-  using func_entry = std::variant<int, P, svector_func1d<P>>;
+  using func_entry = std::variant<std::monostate, P, svector_func1d<P>>;
 
   bool ignores_time_ = false;
   std::array<func_entry, max_num_dimensions> funcs_;

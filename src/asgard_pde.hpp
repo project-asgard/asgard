@@ -104,6 +104,13 @@ template<typename P>
 using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Signature for a non-separable function with moment dependence
+ */
+template<typename P>
+using md_mom_func = std::function<void(P t, vector2d<P> const &, momentset<P> const &moments,
+                                       std::vector<P> &)>;
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function that accepts an additional field parameter
  */
 template<typename P>
@@ -119,6 +126,33 @@ using md_mom_func_f = std::function<void(P t, vector2d<P> const &x,
                                          momentset<P> const &moments,
                                          std::vector<P> const &f,
                                          std::vector<P> &vals)>;
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Source term that depends on the moments
+ */
+template<typename P = default_precision>
+struct moment_source {
+  //! create a new moment source
+  moment_source(md_mom_func<P> func, std::vector<moment_id> mids)
+      : func_(std::move(func)), mids_(std::move(mids))
+  {
+    rassert(not (!!func and mids.empty()),
+            "providing a moment source must include a non-empty vector of moment_id");
+  }
+  //! call the loaded function
+  void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
+                   std::vector<P> &vals) const
+  {
+    func_(t, x, moments, vals);
+  }
+  //! check if a function has been set
+  operator bool () const { return !!func_; }
+  //! the callable function
+  md_mom_func<P> func_;
+  //! the moments used by this function
+  std::vector<moment_id> mids_;
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -1550,7 +1584,26 @@ public:
   //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_func<P> smd) {
     has_interp_funcs = true;
-    sources_md_[std::max(current_term_group, 0)] = std::move(smd);
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    sources_md_[idx] = std::move(smd);
+  }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(moment_source<P> smd) {
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+
+    for (auto id : smd.mids_)
+      mlist.set_action(id, moment::moment_type::interpolatory);
+
+    sources_md_[idx] = std::move(smd);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
@@ -1567,8 +1620,6 @@ public:
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources
   separable_func<P> const &source_sep(int i) const { return sources_sep_[i]; }
-  //! returns the non-separable source
-  md_func<P> const &source_md(int i) const { return sources_md_[i]; }
 
   //! returns the smallest cell size in given dimension and level, , uses max-level by default
   P cell_size(int dim, int level = -1) const {
@@ -1593,7 +1644,7 @@ public:
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
-      sources_md_.push_back(nullptr); // add empty interpolatory source
+      sources_md_.emplace_back(std::monostate{}); // add empty interpolatory source
       mom_groups.emplace_back();
     }
     return current_term_group;
@@ -1692,7 +1743,7 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  std::vector<md_func<P>> sources_md_;
+  std::vector<std::variant<std::monostate, md_func<P>, moment_source<P>>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
 
   int current_term_group = -1;

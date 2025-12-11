@@ -254,7 +254,14 @@ void discretization_manager<precision>::set_initial_condition()
     state.resize(grid.num_indexes() * hier.block_size());
 
     if (initial_md_)
-      terms.interp(grid, conn, time, 1, initial_md_, 0, state, terms.kwork, terms.it1, terms.it2);
+      terms.interp(grid, conn, {}, time, 1,
+                   // using the moment signature, even thought the initial conditions
+                   // cannot have a moment dependence
+                   [&](precision t, vector2d<precision> const &x,
+                       momentset<precision> const &, std::vector<precision> &vals)
+                       -> void {
+                         initial_md_(t, x, vals);
+                   }, 0, state, terms.kwork, terms.it1, terms.it2);
     else
       std::fill(state.begin(), state.end(), precision{0});
 

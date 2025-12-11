@@ -226,7 +226,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       // using constant entry
       if (s.ignores_time()) {
         sources.emplace_back(source_entry<P>::time_mode::constant);
-        sources.back().func = 0; // no need for a func
+        sources.back().func = std::monostate{}; // no need for a func
       } else {
         sources.emplace_back(source_entry<P>::time_mode::separable);
         sources.back().func = s.ftime();
@@ -374,7 +374,21 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         auto const &mids = tentry.tmd.mids_;
         interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
       }
-    }{
+    }
+    for (auto const &src : sources_md) {
+      #ifdef ASGARD_USE_MPI
+      if (not src.is_moment() or not resources.owns(src.rec))
+        continue;
+      #else
+      if (not src.is_moment())
+        continue;
+      #endif
+      auto const &mids = src.get_mom_md().mids_;
+      interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
+    }
+    {
+      // moments that were pushed to other MPI ranks should be "downgraded"
+      // potentially to being inactive
       auto comp_id  = [](moment_id id1, moment_id id2) -> bool { return (id1() < id2()); };
       auto match_id = [](moment_id id1, moment_id id2) -> bool { return (id1() == id2()); };
 
@@ -1126,12 +1140,12 @@ void term_manager<P>::assign_compute_resources()
         for (int i : iindexof(sources_md)) {
           if (mode == balance_mode::gpus and not resources.owns(sources_md[i].rec))
             continue;
-          if (sources_md[i].func)
+          if (sources_md[i])
             work.emplace_back(interp_src, -i - 1); // negative id for interp-sources
         }
       } else {
         if ((mode == balance_mode::mpi_ranks or resources.owns(sources_md[gid].rec))
-            and sources_md[gid].func)
+            and sources_md[gid])
           work.emplace_back(interp_src, -gid - 1);
       }
 
@@ -1268,7 +1282,7 @@ void term_manager<P>::assign_compute_resources()
     if (resources.owns(s.rec))
       has_sources = true;
   for (auto const &s : sources_md)
-    if (s.func and resources.owns(s.rec))
+    if (!!s and resources.owns(s.rec))
       has_sources = true;
 
   if (not terms.empty() and resources.num_ranks() > 1 and not has_terms_ and not has_sources) {

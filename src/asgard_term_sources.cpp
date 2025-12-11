@@ -200,27 +200,29 @@ void term_manager<P>::apply_sources(
   if (group == group_id::all()) {
     for (auto const &src : sources_md) {
       #ifdef ASGARD_USE_MPI
-      if (not src.func or not resources.owns(src.rec))
+      if (not src or not resources.owns(src.rec))
         continue;
       #else
-      if (not src.func)
+      if (not src)
         continue;
       #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, time, 1, src.func, 1, y, kwork, it1, it2);
+        interp(grid, conns, moms.get_cached_interps(), time, 1, src, 1, y, kwork, it1, it2);
       else
-        interp(grid, conns, time, alpha, src.func, 1, y, kwork, it1, it2);
+        interp(grid, conns, moms.get_cached_interps(), time, alpha, src, 1, y, kwork, it1, it2);
     }
   } else {
     #ifdef ASGARD_USE_MPI
-    if (resources.owns(sources_md[group()].rec) and sources_md[group()].func) {
+    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()]) {
     #else
-    if (sources_md[group()].func) {
+    if (sources_md[group()]) {
     #endif
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, time, 1, sources_md[group()].func, 1, y, kwork, it1, it2);
+        interp(grid, conns, moms.get_cached_interps(), time, 1, sources_md[group()],
+               1, y, kwork, it1, it2);
       else
-        interp(grid, conns, time, alpha, sources_md[group()].func, 1, y, kwork, it1, it2);
+        interp(grid, conns, moms.get_cached_interps(), time, alpha, sources_md[group()],
+               1, y, kwork, it1, it2);
     }
   }
 

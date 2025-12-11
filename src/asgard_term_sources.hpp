@@ -34,7 +34,7 @@ struct source_entry
   bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
 
   //! if the function is separable or time-dependent, handle the extra data
-  std::variant<int, scalar_func<P>, separable_func<P>> func;
+  std::variant<std::monostate, scalar_func<P>, separable_func<P>> func;
 
   //! vector for the current grid
   std::vector<P> val;
@@ -50,8 +50,27 @@ struct source_entry_interp
 {
   //! resource (GPU/MPI-rank) assigned to this source
   resource rec;
-  //! inteprolatory function for the source entry
-  md_func<P> func;
+  //! calls the moment variant, if set for moments
+  void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
+                   std::vector<P> &vals) const
+  {
+    expect(not std::holds_alternative<std::monostate>(func));
+    if (std::holds_alternative<moment_source<P>>(func)) {
+      std::get<moment_source<P>>(func)(t, x, moments, vals);
+    } else {
+      std::get<md_func<P>>(func)(t, x, vals);
+    }
+  }
+  //! returns the moment source, use only if is_moment()
+  moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
+  //! indicates whether the entry contains a moment function
+  bool is_moment() const { return std::holds_alternative<moment_source<P>>(func); }
+  //! indicates whether the entry contains a non-moment function
+  bool is_non_moment() const { return std::holds_alternative<md_func<P>>(func); }
+  //! indicates whether the entry contains any function of any kind
+  operator bool () const { return not std::holds_alternative<std::monostate>(func); }
+  //! interpolatory function for the source entry
+  std::variant<std::monostate, md_func<P>, moment_source<P>> func;
 };
 
 /*!
