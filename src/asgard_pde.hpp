@@ -913,11 +913,11 @@ struct term_interp {
   explicit term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
-      : interp_mom(std::move(itep)), mids(std::move(ids)) {}
+      : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
-  md_func_f<P> interp;
+  std::variant<md_func_f<P>, md_mom_func_f<P>> interp;
   //! holds the moment interpolation function
-  md_mom_func_f<P> interp_mom;
+  // md_mom_func_f<P> interp_mom;
   //! moment ids required for the interpolation function
   std::vector<moment_id> mids;
 };
@@ -1184,11 +1184,13 @@ public:
   }
   //! set an interpolation term
   term_md(term_interp<P> tint)
-    : mode_(mode::interpolatory), interp_(std::move(tint.interp)),
-      interp_mom_(std::move(tint.interp_mom)), mids_(std::move(tint.mids))
+    : mode_(mode::interpolatory), mids_(std::move(tint.mids))
   {
-    if (interp_mom_) // using interpolation with moments
+    if (std::holds_alternative<md_mom_func_f<P>>(tint.interp)) {
       rassert(not mids_.empty(), "moment interpolation set but no moment_id provides");
+      interp_ = std::move(std::get<md_mom_func_f<P>>(tint.interp));
+    } else
+      interp_ = std::move(std::get<md_func_f<P>>(tint.interp));
   }
 
   //! (separable mode only) get the 1d term with index i
@@ -1289,20 +1291,18 @@ public:
     bc_flux_.emplace_back(std::move(bf));
     return *this;
   }
-  //! returns the interpolation function
-  md_func_f<P> const &interp() const { return interp_; }
   //! applies the interpolation function, vals = f(t, x, f)
   void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
-    expect(!!interp_);
-    interp_(t, x, f, vals);
+    expect(std::holds_alternative<md_func_f<P>>(interp_));
+    std::get<md_func_f<P>>(interp_)(t, x, f, vals);
   }
-  //! returns the moment interpolation function
-  md_mom_func_f<P> const &interp_mom() const { return interp_mom_; }
+  //! returns true if the term uses moment interpolation
+  bool is_interp_mom() const { return std::holds_alternative<md_mom_func_f<P>>(interp_); }
   //! applies the moment interpolation function, vals = f(t, x, m, f)
   void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
               std::vector<P> const &f, std::vector<P> &vals) const {
-    expect(!!interp_mom_);
-    interp_mom_(t, x, moments, f, vals);
+    expect(std::holds_alternative<md_mom_func_f<P>>(interp_));
+    std::get<md_mom_func_f<P>>(interp_)(t, x, moments, f, vals);
   }
   //! get the moment ids for interpolation
   std::vector<moment_id> const &get_interp_moments() const { return mids_; }
@@ -1317,10 +1317,8 @@ private:
   int num_dims_ = 0;
   std::array<term_1d<P>, max_num_dimensions> sep;
   mass_md<P> mass_;
-  // non-separable/interpolation case
-  md_func_f<P> interp_;
-  // non-separable/interpolation case using moments
-  md_mom_func_f<P> interp_mom_;
+  // non-separable/interpolation case, with or without moments
+  std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> interp_ = std::monostate{};
   // moments needed by the interpolation
   std::vector<moment_id> mids_;
   // chain of other terms

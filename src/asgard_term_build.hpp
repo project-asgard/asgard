@@ -52,8 +52,6 @@ struct term_entry {
   std::array<gpu::vector<P*>, max_num_dimensions> gpu_coeffs;
   #endif
   #endif
-  //! ADI pseudoinverses of the coefficients
-  std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
   //! if the term has additional mass terms, term 0 will contain the mass-up-to current level
   std::array<block_diag_matrix<P>, max_num_dimensions> mass;
   //! kronmult operation permutations
