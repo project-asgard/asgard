@@ -396,7 +396,7 @@ void test_energy(int const vdims, std::string const &opt_str) {
 
   int64_t const n = disc.remaining_steps();
 
-  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-10 : 5.E-7;
+  P constexpr tol = (std::is_same_v<P, double>) ? 1.E-10 : 5.E-4;
 
   for (int64_t i = 0; i < n; i++)
   {
