@@ -94,7 +94,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
   // using implicit-explicit stepper
   options.default_step_method = asgard::time_method::imex2;
-  options.throw_if_not_imex_stepper();
+  //options.throw_if_not_imex_stepper();
 
   // cfl condition for the explicit component
   options.default_dt = 0.01 * domain.min_cell_size(options.max_level());
@@ -172,6 +172,8 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     }
   };
 
+  pde.set_source(asgard::moment_source<P>(fbgk, {im0, im1, im2}));
+
   auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
                   asgard::momentset<P> const &moments, std::vector<P> const &,
                   std::vector<P> &vals)
@@ -180,8 +182,6 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   };
 
   pde.set_adapt_weight({im0, im1, im2}, abgk);
-
-  pde.set_source(asgard::moment_source<P>(fbgk, {im0, im1, im2}));
 
   // set the implicit and explicit operator groups
   pde.set(asgard::imex_implicit_group{b_group_id},
