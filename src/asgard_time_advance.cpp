@@ -335,13 +335,11 @@ void crank_nicolson<P>::next_step(
 
 template<typename P>
 void imex_stepper<P>::implicit_solve(
-    discretization_manager<P> const &disc, P time,
+    discretization_manager<P> const &disc, P time, P dt,
     std::vector<P> &current, std::vector<P> &R) const
 {
   if (disc.has_moments())
     disc.compute_moments(group_id{imex_implicit}, current);
-
-  P const dt = disc.dt();
 
   solver.update_grid(group_id{imex_implicit}, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt);
@@ -435,7 +433,7 @@ void imex_stepper<P>::next_step(
 
   disc.ode_euler(group_id{imex_explicit}, time, current, dt, f);
 
-  implicit_solve(disc, time + dt, f, next);
+  implicit_solve(disc, time + dt, dt, f, next);
 
   if (method == time_method::imex1)
     return;
@@ -448,7 +446,7 @@ void imex_stepper<P>::next_step(
       f[i] = 0.5 * current[i] + 0.5 * (next[i] + dt * f[i]);
   }
 
-  implicit_solve(disc, time + dt, f, next);
+  implicit_solve(disc, time + dt, P{0.5} * dt, f, next);
 }
 
 }
