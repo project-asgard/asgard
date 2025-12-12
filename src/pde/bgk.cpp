@@ -141,6 +141,9 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
       asgard::term_volume<P>(negative),
     };
 
+  pde += dx_positive;
+  pde += dx_negative;
+
   int const b_group_id = pde.new_term_group();
 
   pde += asgard::term_md<P>({asgard::term_volume<P>{nu}, asgard::term_identity{}});
@@ -192,15 +195,15 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 1;
+        fx[i] = 1.0 + 1.E-4 * std::cos(0.5 * x[i]);
     };
 
   auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
     void {
-      // P const c = P{1} / std::sqrt(2 * PI);
+      P const c = P{1} / std::sqrt(2 * PI);
 
       for (size_t i = 0; i < v.size(); i++)
-        fv[i] = 1;
+        fv[i] = c * std::exp(-0.5 * v[i] * v[i]);
     };
 
   pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
