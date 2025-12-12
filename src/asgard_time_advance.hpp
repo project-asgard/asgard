@@ -289,7 +289,7 @@ struct imex_stepper
 
 private:
   //! fills into R the ode_rhs for the explicit part
-  void implicit_solve(discretization_manager<P> const &disc, P time,
+  void implicit_solve(discretization_manager<P> const &disc, P time, P dt,
                       std::vector<P> &current, std::vector<P> &R) const;
 
   time_method method = time_method::imex2;
