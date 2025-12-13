@@ -525,10 +525,6 @@ public:
   term_1d() = default;
   //! make an identity term
   term_1d(term_identity) {}
-  //! make a term that depends on coupled fields, e.g., moments or electric field
-  term_1d(term_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
-    : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
-  {}
 
   //! make a volume term
   term_1d(term_volume<P> mt)
@@ -585,10 +581,6 @@ public:
   term_1d(term_robin robin)
     : optype_(operation_type::robin),
       coeffs_{static_cast<P>(robin.left_const), static_cast<P>(robin.right_const)}
-  {}
-  //! make a chain term and setting the terms
-  term_1d(term_chain, std::vector<term_1d<P>> tvec)
-    : term_1d(std::move(tvec))
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
@@ -1106,6 +1098,8 @@ public:
   {
     int num_identity = 0;
     expect(num_dims_ <= max_num_dimensions);
+    interp_.template emplace<std::array<term_1d<P>, max_num_dimensions>>();
+    auto &sep = get_sep();
     for (int i : iindexof(num_dims_)) {
       sep[i] = std::move(*(clist.begin() + i));
       if (sep[i].is_identity())
@@ -1121,6 +1115,8 @@ public:
   {
     int num_identity = 0;
     expect(num_dims_ <= max_num_dimensions);
+    interp_.template emplace<std::array<term_1d<P>, max_num_dimensions>>();
+    auto &sep = get_sep();
     for (int i : iindexof(num_dims_)) {
       sep[i] = std::move(*(clist.begin() + i));
       if (sep[i].is_identity())
@@ -1196,12 +1192,12 @@ public:
   //! (separable mode only) get the 1d term with index i
   term_1d<P> &dim(int i) {
     expect(mode_ == mode::separable);
-    return sep[i];
+    return get_sep()[i];
   }
   //! (separable mode only) get the 1d term with index i, const overload
   term_1d<P> const &dim(int i) const {
     expect(mode_ == mode::separable);
-    return sep[i];
+    return get_sep()[i];
   }
 
   //! get the chain term with index i
@@ -1270,13 +1266,14 @@ public:
       while (dir == -1 and c < chain_.size())
         dir = chain_[c++].flux_dim();
       return dir;
-    } else {
+    } else if (is_separable()) {
+      auto const &sep = get_sep();
       for (int d : iindexof(num_dims_)) {
         if (sep[d].has_flux())
           return d;
       }
-      return -1;
     }
+    return -1;
   }
   //! add new inhomogeneous boundary function to the term
   term_md<P> operator += (boundary_flux<P> bf) {
@@ -1311,14 +1308,23 @@ public:
   friend struct term_manager<P>;
 
 private:
+  // get the const-array for the separable functions
+  std::array<term_1d<P>, max_num_dimensions> const &
+  get_sep() const { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
+  // get the array for the separable functions
+  std::array<term_1d<P>, max_num_dimensions> &
+  get_sep() { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
+
   // mode for the term
   mode mode_ = mode::interpolatory;
   // separable case
   int num_dims_ = 0;
-  std::array<term_1d<P>, max_num_dimensions> sep;
   mass_md<P> mass_;
   // non-separable/interpolation case, with or without moments
-  std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> interp_ = std::monostate{};
+  std::variant<std::monostate,
+               std::array<term_1d<P>, max_num_dimensions>,
+               md_func_f<P>,
+               md_mom_func_f<P>> interp_ = std::monostate{};
   // moments needed by the interpolation
   std::vector<moment_id> mids_;
   // chain of other terms
@@ -1326,7 +1332,6 @@ private:
   // boundary conditions
   std::vector<boundary_flux<P>> bc_flux_;
 };
-
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 /*!
