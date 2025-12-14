@@ -184,7 +184,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     fbgk(time, nodes, moments, vals);
   };
 
-  pde.set_adapt_weight({im0, im1, im2}, abgk);
+  pde.set_adapt_weight(abgk, {im0, im1, im2});
 
   // set the implicit and explicit operator groups
   pde.set(asgard::imex_implicit_group{b_group_id},

@@ -1698,14 +1698,18 @@ public:
   //! set an interpolation function for adaptivity
   void set_adapt_weight(md_func_f<P> func) {
     has_interp_funcs = true;
-    ref_interp_      = std::move(func);
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
+    ref_interp_ = std::move(func);
   }
   //! set an interpolation function for adaptivity
-  void set_adapt_weight(std::vector<moment_id> moments, md_mom_func_f<P> func) {
-    rassert(not moments.empty(), "moment function");
+  void set_adapt_weight(md_mom_func_f<P> func, std::vector<moment_id> moments) {
+    rassert(not moments.empty(), "moment function requires moments");
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
     has_interp_funcs = true;
-    ref_moments_     = std::move(moments);
-    ref_interp_mom_  = std::move(func);
+    ref_interp_  = std::move(func);
+    ref_moments_ = std::move(moments);
   }
 
   //! allows writer to save/load the pde and options
@@ -1759,8 +1763,7 @@ private:
   std::vector<moments_list> mom_groups;
   moments_list mlist;
 
-  md_func_f<P> ref_interp_;
-  md_mom_func_f<P> ref_interp_mom_;
+  std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> ref_interp_;
   std::vector<moment_id> ref_moments_;
 };
 

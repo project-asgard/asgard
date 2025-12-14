@@ -67,18 +67,23 @@ private:
   struct interp_weights {
     //! interpolation weights using only the field
     void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
-      expect(!!interp_);
-      interp_(t, x, f, vals);
+      expect(std::holds_alternative<md_func_f<P>>(interp_));
+      std::get<md_func_f<P>>(interp_)(t, x, f, vals);
     }
     //! interpolation weights using the field and moments
     void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
                 std::vector<P> const &f, std::vector<P> &vals) const {
-      expect(!!interp_mom_);
-      interp_mom_(t, x, moments, f, vals);
+      expect(std::holds_alternative<md_mom_func_f<P>>(interp_));
+      std::get<md_mom_func_f<P>>(interp_)(t, x, moments, f, vals);
     }
-    operator bool () const { return (interp_ or interp_mom_); }
-    md_func_f<P> interp_;
-    md_mom_func_f<P> interp_mom_;
+    //! indicates whether the weights use moments
+    bool uses_moment() const {
+      return std::holds_alternative<md_mom_func_f<P>>(interp_);
+    }
+    //! indicates whether a refinement weight was set
+    operator bool () const { return (not std::holds_alternative<std::monostate>(interp_)); }
+    //! holds the interpolation weight variant
+    std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> interp_;
   };
 
   interp_weights weights_;
