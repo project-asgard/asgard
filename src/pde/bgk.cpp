@@ -190,12 +190,11 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   pde.set(asgard::imex_implicit_group{b_group_id},
           asgard::imex_explicit_group{v_group_id});
 
-
   // separable initial conditions in x and v
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 1.0 + 1.E-4 * std::cos(0.5 * x[i]);
+        fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);
     };
 
   auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
@@ -239,29 +238,28 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
 //! [asgard_examples_bgk compute_perturbation]
 #endif
 
-  // // The Maxwellian is the initial condition
-  // // but with constant value of 1.0 set in dimension 0 (the position dimension)
-  // asgard::separable_func<P> maxw = disc.initial_cond_sep().front();
-  //
-  // // set dimension 0 to be a constant function with value 1
-  // maxw.set(0, P{1});
-  //
-  // // project the Maxwellian onto the current grid
-  // std::vector<P> proj_max = disc.project_function(maxw);
-  //
-  // // subtract the current state
-  // std::vector<P> const &state = disc.current_state();
-  //
-  // // the projected size will always match the size of the current state
-  // if (proj_max.size() != state.size())
-  //   throw std::runtime_error("this will never happen");
-  //
-  // size_t n = state.size();
-  // for (size_t i = 0; i < n; i++)
-  //   proj_max[i] -= state[i];
-  //
-  // return proj_max;
-  return std::vector<P>(disc.state_size());
+  // The Maxwellian is the initial condition
+  // but with constant value of 1.0 set in dimension 0 (the position dimension)
+  asgard::separable_func<P> maxw = disc.initial_cond_sep().front();
+
+  // set dimension 0 to be a constant function with value 1
+  maxw.set(0, P{1});
+
+  // project the Maxwellian onto the current grid
+  std::vector<P> proj_max = disc.project_function(maxw);
+
+  // subtract the current state
+  std::vector<P> const &state = disc.current_state();
+
+  // the projected size will always match the size of the current state
+  if (proj_max.size() != state.size())
+    throw std::runtime_error("this will never happen");
+
+  size_t n = state.size();
+  for (size_t i = 0; i < n; i++)
+    proj_max[i] -= state[i];
+
+  return proj_max;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [asgard_examples_bgk compute_perturbation]
