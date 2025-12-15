@@ -71,7 +71,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
     ic_vec[0] = 0.5;
     separable_func<P> ic(ic_vec); // separable initial conditions
 
-    int const v1 = xdims;
+    dimension_id const v1{xdims};
     ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = -1.0;
@@ -98,8 +98,8 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
     ic_vec[0] = 0.5;
     separable_func<P> ic(ic_vec);
 
-    int const v1 = xdims;
-    int const v2 = xdims + 1;
+    dimension_id const v1{xdims};
+    dimension_id const v2{xdims + 1};
     ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
@@ -157,9 +157,9 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       };
 
-    int const v1 = xdims;
-    int const v2 = xdims + 1;
-    int const v3 = xdims + 2;
+    dimension_id const v1{xdims};
+    dimension_id const v2{xdims + 1};
+    dimension_id const v3{xdims + 2};
 
     std::vector<P> ic_vec(xdims + vdims, 1);
     ic_vec[0] = xc;
@@ -202,7 +202,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   P enorm = fm::powi(0.170109559932217, vdims);
 
   if (vdims == 1) { // 1x1v, 2x1v and 3x1v
-    int const v1 = xdims; // due to zero indexing, the index of v1 is the number of x-dimensions
+    dimension_id const v1{xdims}; // due to zero indexing, the index of v1 is the number of x-dimensions
     separable_func<P> exact(std::vector<P>(num_dims, 1.0));
     exact.set(v1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
@@ -220,8 +220,8 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   {
     separable_func<P> exact(std::vector<P>(num_dims, 1.0));
 
-    int const v1 = xdims;
-    int const v2 = xdims + 1;
+    dimension_id const v1{xdims};
+    dimension_id const v2{xdims + 1};
     exact.set(v1, [&](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.75;
@@ -247,9 +247,9 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   {
     separable_func<P> exact(std::vector<P>(num_dims, 1.0));
 
-    int const v1 = xdims;
-    int const v2 = xdims + 1;
-    int const v3 = xdims + 2;
+    dimension_id const v1{xdims};
+    dimension_id const v2{xdims + 1};
+    dimension_id const v3{xdims + 2};
     auto max1 = [](std::vector<P> const &v, P, std::vector<P> &fv)
           -> void {
         P constexpr theta = 2.5;

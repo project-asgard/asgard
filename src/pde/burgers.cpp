@@ -332,7 +332,8 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
 
       // adding inhomogeneous boundary condition on the right
       asgard::separable_func<P> fr(std::vector<P>{icx(pde.domain().xright(0)), 1}, exact_t);
-      fr.set(1, [=](std::vector<P> const &y, P, std::vector<P> &fy) ->
+      fr.set(asgard::dimension_id{1},
+             [=](std::vector<P> const &y, P, std::vector<P> &fy) ->
                 void {
                   for (size_t i = 0; i < y.size(); i++)
                     fy[i] = icy(y[i]);

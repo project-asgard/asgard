@@ -1283,7 +1283,7 @@ public:
     int fd = flux_dim();
     rassert(fd != -1,
             "cannot set boundary conditions for term_md with no derivatives");
-    rassert(bf.func().is_const(fd),
+    rassert(bf.func().is_const(dimension_id{fd}),
             "the flux function has to be constant in the dimension of term_md::flux_dim()")
     bc_flux_.emplace_back(std::move(bf));
     return *this;

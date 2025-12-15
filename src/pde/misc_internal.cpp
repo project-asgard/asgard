@@ -67,16 +67,16 @@ double run_chain_test(prog_opts options) {
     separable_func<P> bc1 = exact1;
     separable_func<P> bc2 = exact2;
 
-    bc1.set(0, std::exp(P{2}));
-    bc2.set(0, std::exp(-P{2}));
+    bc1.set(dimension_id{0}, std::exp(P{2}));
+    bc2.set(dimension_id{0}, std::exp(-P{2}));
 
     dxx += right_boundary_flux<P>{bc1};
     dxx += right_boundary_flux<P>{bc2};
 
     // the Neumann boundary condition is applied to c1 * f (f is the solution)
     // this would not be necessary if c1 was included in the div term
-    bc1.set(0, std::exp(0.25) * std::sin(P{0.25}));
-    bc2.set(0, -std::exp(-0.25) * std::sin(P{0.25}));
+    bc1.set(dimension_id{0}, std::exp(0.25) * std::sin(P{0.25}));
+    bc2.set(dimension_id{0}, -std::exp(-0.25) * std::sin(P{0.25}));
     boundary_flux<P> f_bc1 = left_boundary_flux<P>{bc1};
     boundary_flux<P> f_bc2 = left_boundary_flux<P>{bc2};
 
@@ -103,14 +103,14 @@ double run_chain_test(prog_opts options) {
     separable_func<P> bc1 = exact1;
     separable_func<P> bc2 = exact2;
 
-    bc1.set(1, std::cos(P{4}));
-    bc2.set(1, std::sin(P{4}));
+    bc1.set(dimension_id{1}, std::cos(P{4}));
+    bc2.set(dimension_id{1}, std::sin(P{4}));
 
     dyy += right_boundary_flux<P>{bc1};
     dyy += right_boundary_flux<P>{bc2};
 
-    bc1.set(1, -std::sin(P{1}));
-    bc2.set(1, std::cos(P{1}));
+    bc1.set(dimension_id{1}, -std::sin(P{1}));
+    bc2.set(dimension_id{1}, std::cos(P{1}));
     boundary_flux<P> f_bc1 = left_boundary_flux<P>{bc1};
     boundary_flux<P> f_bc2 = left_boundary_flux<P>{bc2};
 

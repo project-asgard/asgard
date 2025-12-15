@@ -67,7 +67,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
     separable_func<P> lbc(std::vector<P>(num_dims, 1));
     separable_func<P> rbc(std::vector<P>(num_dims, 1));
-    rbc.set(dim, 2);
+    rbc.set(dimension_id{dim}, 2);
 
     div_md += left_boundary_flux{lbc};
     div_md += right_boundary_flux{rbc};
