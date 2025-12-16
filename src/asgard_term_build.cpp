@@ -360,6 +360,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     std::vector<moment_id> interp_moments;
     regular_moments.reserve(250); // should be more than enough, not a big deal otherwise
     bool has_poisson = false;
+    bool has_sep_mom = false;
     for (auto const &tentry : terms) {
       #ifdef ASGARD_USE_MPI
       if (not resources.owns(tentry.rec))
@@ -370,6 +371,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         for (int d : iindexof(num_dims)) {
           auto const &mids = tentry.tmd.dim(d).mids_;
           if (not mids.empty()) {
+            has_sep_mom = true;
             regular_moments.insert(regular_moments.end(), mids.begin(), mids.end());
           }
         }
@@ -435,6 +437,33 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         }
         if (needs)
           has_poisson_[gid] = needs;
+      }
+    }
+    // There is a catch here. The has_poisson() logic is used to determine whether we need
+    // to have a local Poisson solve and whether to update any Poisson terms at all.
+    // The has_sep_moments() logic is used to determine when any of the terms change
+    // which would require updating the preconditioner even if the sparse grid is unchanged.
+    // Thus, the Poisson logic considers separable and non-separable terms and excludes terms
+    // no associated with this MPI rank, while the sep-mom logic considers only separable terms
+    // but disregards MPI, since building the preconditioner is a global MPI operation.
+    if (has_sep_mom) {
+      if (term_groups.empty())
+        has_sep_moments_.resize(1, true);
+      else
+        has_sep_moments_.resize(term_groups.size(), false); // will process groups below
+    }
+    if (not term_groups.empty()) {
+      // for each group, look for separable term that has moment dependence
+      for (int gid : iindexof(term_groups)) {
+        for (int tid : indexrange(term_groups[gid])) {
+          if (terms[tid].is_separable()) {
+            for (int d : iindexof(num_dims))
+              if (terms[tid].tmd.dim(d).depends() != term_dependence::none) {
+                has_sep_moments_[gid] = true;
+                break;
+              }
+          }
+        }
       }
     }
   }

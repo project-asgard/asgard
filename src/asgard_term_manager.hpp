@@ -132,12 +132,17 @@ struct term_manager
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
 
-  //! dependencies for each term group, last entry is for all terms, use has_poisson() not this directly
-  std::vector<bool> has_poisson_;
   //! has Poisson solver for the given group
   bool has_poisson(group_id group) const { return (not has_poisson_.empty() and has_poisson_[group()]); }
   //! has Poisson solver for any group
   bool has_poisson() const { return (not has_poisson_.empty()); }
+  //! the given group has separable terms that depend on the moments
+  bool has_sep_moments(group_id group = group_id::all()) const {
+    if (group == group_id::all())
+      return (not has_sep_moments_.empty());
+    else
+      return (not has_sep_moments_.empty() and has_sep_moments_[group()]);
+  }
 
   //! resource set to use for the computations
   resource_set resources;
@@ -370,6 +375,10 @@ protected:
   int workspace_grid_gen = -1;
   //! remember which grid was cached for the sources
   int sources_grid_gen = -1;
+  //! dependencies for each term group, if empty then no poisson dependence for any group
+  std::vector<bool> has_poisson_;
+  //! if operators have separable moment dependencies, used to update preconditioners
+  std::vector<bool> has_sep_moments_;
 
   //! rebuild term[tid], loops over all dimensions
   void build_const_terms(int const tid, sparse_grid const &grid, connection_patterns const &conn,

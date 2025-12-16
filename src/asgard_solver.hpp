@@ -112,27 +112,39 @@ class direct
 public:
   //! make a default, empty solver
   direct() = default;
-  //! build a dense solver for the system I + alpha * terms
-  direct(sparse_grid const &grid, connection_patterns const &conn,
-         term_manager<P> const &terms, P alpha)
-      : direct(group_id::all(), grid, conn, terms, alpha)
-  {}
-  //! builds a dense solver for a given term group
-  direct(group_id group, sparse_grid const &grid, connection_patterns const &conn,
-         term_manager<P> const &terms, P alpha);
 
-  //! inverts the stored matrix
-  void operator() (std::vector<P> &x) const
-  {
-    expect(dense_mat.is_factorized());
-    dense_mat.solve(x);
+  //! updates the matrix for the given group
+  void update(group_id group, sparse_grid const &grid, connection_patterns const &conn,
+              term_manager<P> const &terms, P alpha);
+
+  //! returns the currently loaded grid generation
+  int grid_gen(group_id group = group_id::all()) const {
+    size_t const idx = mat_index(group);
+    if (idx < mats.size()) {
+      return mats[idx].grid_gen;
+    } else {
+      return -1; // no generation loaded, no matrix at all
+    }
   }
-  //! checks whether the solver has been set
-  operator bool () const { return dense_mat; }
+  //! solves Ax = b
+  void operator() (group_id group, std::vector<P> &b) const {
+    size_t const idx = mat_index(group);
+    expect(idx < mats.size());
+    mats[idx].dense_mat.solve(b);
+  }
 
 private:
-  //! holds the factor of the dense matrix
-  dense_matrix<P> dense_mat;
+  //! returns the index for the given group
+  static size_t mat_index(group_id group) { return static_cast<size_t>(group() + 1); }
+  //! instance of a matrix for a given term generation
+  struct matrix_instance {
+    //! holds the sparse grid generation
+    int grid_gen = -1;
+    //! holds the factorized dense matrix
+    dense_matrix<P> dense_mat;
+  };
+  //! holds the matrices for the different matrix terms
+  std::vector<matrix_instance> mats;
 };
 
 /*!
@@ -294,6 +306,80 @@ namespace asgard
 
 /*!
  * \internal
+ * \brief Stores precondioner data
+ *
+ * Holds the variants for the precondioner.
+ * \endinternal
+ */
+template<typename P>
+struct preconditioner_data {
+  //! default constructor
+  preconditioner_data() = default;
+  //! set the method for the precondioner
+  preconditioner_data(precon_method precon) {
+    if (precon == precon_method::jacobi) {
+      data.template emplace<std::vector<P>>();
+      #ifdef ASGARD_USE_GPU
+      gpu_data.template emplace<gpu::vector<P>>();
+      #endif
+    }
+  }
+
+  //! returns the precondioner method
+  precon_method method() const { return static_cast<precon_method>(data.index()); }
+  //! extracts the precon_method
+  operator precon_method() const { return static_cast<precon_method>(data.index()); }
+  //! print the human-readable name of the precondioner
+  void print_method(std::ostream &os = std::cout) const {
+    switch(method()) {
+      case precon_method::none:
+        os << "  no preconditioner";
+        break;
+      case precon_method::jacobi:
+        os << "   jacobi diagonal preconditioner";
+        break;
+      default:
+        os << "unknown"; // should never happen
+        break;
+    }
+  }
+  /*!
+   * \internal
+   * \brief Write the preconditioner name to a stream
+   *
+   * \endinternal
+   */
+  friend std::ostream &operator<<(std::ostream &os, preconditioner_data<P> const &precon) {
+    precon.print_method(os);
+    return os;
+  }
+
+  //! indicates whether the precondioner is set to none
+  operator bool () const { return not std::holds_alternative<std::monostate>(data); }
+
+  //! indicates whether the precondioner is valid for this sparse grid
+  bool valid_for(sparse_grid const &grid) const {
+    return (std::holds_alternative<std::monostate>(data) or grid_gen == grid.generation());
+  }
+
+  //! returns the data for the Jacobi precondioner
+  std::vector<P> &jacobi() { return std::get<std::vector<P>>(data); }
+  #ifdef ASGARD_USE_GPU
+  gpu::vector<P> &gpu_jacobi() { return std::get<gpu::vector<P>>(gpu_data); }
+  #endif
+
+  //! sparse grid generation
+  int grid_gen = -1;
+  //! holds the cpu data for the precondioner
+  std::variant<std::monostate, std::vector<P>> data = std::monostate{};
+  #ifdef ASGARD_USE_GPU
+  // holds the gpu data for the precondioner
+  std::variant<std::monostate, gpu::vector<P>> gpu_data = std::monostate{};
+  #endif
+};
+
+/*!
+ * \internal
  * \brief Allows a time-stepper to take a hold of some solver
  *
  * Variant that represents any of the available asgard solvers.
@@ -326,7 +412,7 @@ struct solver_manager
                 "missing number of iterations for the iterative solver bicgstab");
         var = solvers::bicgstab<P>(options.isolver_tolerance.value(),
                                    options.isolver_iterations.value());
-        precon = options.precon.value_or(precon_method::none);
+        // precon = options.precon.value_or(precon_method::none);
         break;
       case solver_method::gmres:
         rassert(options.isolver_tolerance,
@@ -338,7 +424,7 @@ struct solver_manager
         var = solvers::gmres<P>(options.isolver_tolerance.value(),
                                 options.isolver_inner_iterations.value(),
                                 options.isolver_iterations.value());
-        precon = options.precon.value_or(precon_method::none);
+        // precon = options.precon.value_or(precon_method::none);
         break;
       default: // unreachable
         break;
@@ -348,7 +434,12 @@ struct solver_manager
   //! direct solver only, just call the matrix inversion method
   void direct_solve(std::vector<P> &x) {
     expect(opt == solver_method::direct);
-    std::get<solvers::direct<P>>(var)(x);
+    std::get<solvers::direct<P>>(var)(group_id::all(), x);
+  }
+  //! direct solver only, just call the matrix inversion method
+  void direct_solve(group_id group, std::vector<P> &x) {
+    expect(opt == solver_method::direct);
+    std::get<solvers::direct<P>>(var)(group, x);
   }
 
   //! iterative solver, calls the appropriate iterative solver
@@ -449,14 +540,16 @@ struct solver_manager
   //! updates the internals for the current grid generation
   void update_grid(sparse_grid const &grid,
                    connection_patterns const &conn,
-                   term_manager<P> const &terms, P alpha)
+                   term_manager<P> const &terms, P alpha,
+                   preconditioner_data<P> &precon)
   {
-    update_grid(group_id::all(), grid, conn, terms, alpha);
+    update_grid(group_id::all(), grid, conn, terms, alpha, precon);
   }
   //! updates the internals for the current grid generation
   void update_grid(group_id groupid, sparse_grid const &grid,
                    connection_patterns const &conn,
-                   term_manager<P> const &terms, P alpha);
+                   term_manager<P> const &terms, P alpha,
+                   preconditioner_data<P> &precon);
 
   //! write the solver options in human-readable format
   void print_opts(std::ostream &os) const;
@@ -474,18 +567,18 @@ struct solver_manager
   //! selected solver
   solver_method opt = solver_method::direct;
   //! selected solver
-  precon_method precon = precon_method::none;
+  //precon_method precon = precon_method::none;
   //! remember the total mat-vec products
   mutable int64_t num_apply = 0;
   //! remembers the generation of the grid that was used to last set the manager
-  int grid_gen = -1;
+  //int grid_gen = -1;
   //! holds the actual solver instance
   std::variant<solvers::direct<P>, solvers::gmres<P>, solvers::bicgstab<P>> var;
   //! holds data for the jacobi preconditioner
-  std::vector<P> jacobi;
+  //std::vector<P> jacobi;
   #ifdef ASGARD_USE_GPU
   //! holds data for the jacobi preconditioner on the GPU
-  gpu::vector<P> jacobi_gpu;
+  //gpu::vector<P> jacobi_gpu;
   #endif
 
   //! helper method, y = x + beta * y, compiles with OpenMP and SIMD

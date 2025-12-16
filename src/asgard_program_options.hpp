@@ -62,6 +62,12 @@ enum class solver_method
 /*!
  * \ingroup asgard_common_options
  * \brief the available preconditioners for the solvers
+ *
+ * \internal
+ * The "none" preconditioner must always come at index 0,
+ * the order of the preconditioners must be in sync with the std::variant
+ * used in the preconditioner class.
+ * \endinternal
  */
 enum class precon_method
 {

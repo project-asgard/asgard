@@ -82,7 +82,7 @@ void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
 }
 
 template<typename P>
-direct<P>::direct(
+void direct<P>::update(
     group_id group, sparse_grid const &grid, connection_patterns const &conn,
     term_manager<P> const &terms, P alpha)
 {
@@ -210,6 +210,14 @@ direct<P>::direct(
     }
   }
 
+  size_t const idx = mat_index(group); // index for the matrix entry
+  if (mats.size() <= idx)
+    mats.resize(idx + 1);
+
+  // must happen before the potential MPI return down below
+  mats[idx].grid_gen = grid.generation();
+
+  dense_matrix<P> &dense_mat = mats[idx].dense_mat;
   dense_mat = bmat.to_dense_matrix(n);
 
   #ifdef ASGARD_USE_MPI
@@ -610,13 +618,31 @@ namespace asgard
 template<typename P>
 void solver_manager<P>::update_grid(
     group_id group, sparse_grid const &grid,
-    connection_patterns const &conn, term_manager<P> const &terms, P alpha)
+    connection_patterns const &conn, term_manager<P> const &terms, P alpha,
+    preconditioner_data<P> &precon)
 {
   tools::time_event timing_("updating solver");
-  if (opt == solver_method::direct)
-    var = solvers::direct<P>(grid, conn, terms, alpha);
+  // assuming that the moments will cause the terms to change all the time
+  // therefore, we need to update the matrices and preconditioners
+  bool const needs_update = terms.has_sep_moments(group);
 
-  if (precon == precon_method::jacobi) {
+  if (opt == solver_method::direct) {
+    solvers::direct<P> &solver = std::get<solvers::direct<P>>(var);
+    if (needs_update or solver.grid_gen(group) != grid.generation())
+      solver.update(group, grid, conn, terms, alpha);
+  }
+
+  // return if nothing more to do
+  if (not needs_update and precon.valid_for(grid))
+    return;
+
+  precon.grid_gen = grid.generation(); // update the grid gen
+
+  precon_method const method = precon; // get the precon method
+
+  if (method == precon_method::jacobi) {
+    std::vector<P> &jacobi = precon.jacobi();
+
     #ifdef ASGARD_USE_MPI
     if (terms.resources.num_ranks() > 1) {
       if (terms.resources.is_leader()) {
@@ -625,7 +651,6 @@ void solver_manager<P>::update_grid(
       } else {
         terms.make_jacobi(group, grid, conn, jacobi);
         terms.resources.reduce_add(jacobi);
-        grid_gen = grid.generation();
         return;
       }
     } else {
@@ -644,16 +669,14 @@ void solver_manager<P>::update_grid(
       for (size_t i = 0; i < jacobi.size(); i++)
         jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
     }
-  }
 
-  #ifdef ASGARD_USE_GPU
-  if (terms.resources.is_leader()) {
-    compute->set_device(gpu::device{0});
-    jacobi_gpu = jacobi;
+    #ifdef ASGARD_USE_GPU
+    if (terms.resources.is_leader()) {
+      compute->set_device(gpu::device{0});
+      precon.gpu_jacobi() = jacobi;
+    }
+    #endif
   }
-  #endif
-
-  grid_gen = grid.generation();
 }
 
 template<typename P>
@@ -667,7 +690,6 @@ template<typename P>
 void solver_manager<P>::print_opts(std::ostream &os) const
 {
   os << "solver:\n";
-  bool has_precon = false;
   switch (var.index()) {
     case 0:
       os << "  direct\n";
@@ -677,28 +699,14 @@ void solver_manager<P>::print_opts(std::ostream &os) const
       os << "  tolerance: " << std::get<solvers::gmres<P>>(var).tolerance() << '\n';
       os << "  max inner: " << std::get<solvers::gmres<P>>(var).max_inner() << '\n';
       os << "  max outer: " << std::get<solvers::gmres<P>>(var).max_outer() << '\n';
-      has_precon = true;
       break;
     case 2:
       os << "  bicgstab\n";
       os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
       os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
-      has_precon = true;
       break;
     default:
       break;
-  }
-  if (has_precon) {
-    switch (precon) {
-      case precon_method::none:
-        os << "  no preconditioner\n";
-        break;
-      case precon_method::jacobi:
-        os << "  jacobi diagonal preconditioner\n";
-        break;
-      default: // unreachable
-        break;
-    }
   }
 }
 

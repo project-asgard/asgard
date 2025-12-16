@@ -104,7 +104,7 @@ struct steady_state
   steady_state() = default;
   //! Initialize the stepper and
   steady_state(prog_opts const &options)
-    : solver(options)
+    : solver(options), precon(options.precon.value_or(precon_method::none))
   {
     expect(options.step_method.value() == method);
   }
@@ -122,12 +122,14 @@ struct steady_state
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
+    os << precon << '\n';
   }
 
 private:
   static time_method constexpr method = time_method::steady;
   // the solver used
   mutable solver_manager<P> solver;
+  mutable preconditioner_data<P> precon;
   // workspace (rhs)
   mutable std::vector<P> work;
   #ifdef ASGARD_USE_GPU
@@ -214,7 +216,8 @@ struct crank_nicolson
   crank_nicolson() = default;
   //! Initialize the stepper and
   crank_nicolson(prog_opts const &options)
-      : method(options.step_method.value()), solver(options)
+      : method(options.step_method.value()), solver(options),
+        precon(options.precon.value_or(precon_method::none))
   {
     expect(method == time_method::cn or
            method == time_method::back_euler);
@@ -237,12 +240,15 @@ struct crank_nicolson
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
+    os << precon << '\n';
   }
 
 private:
   time_method method = time_method::cn;
   // the solver used
   mutable solver_manager<P> solver;
+  // the preconditioner being used
+  mutable preconditioner_data<P> precon;
   // workspace
   mutable std::vector<P> work;
 
@@ -267,6 +273,8 @@ struct imex_stepper
   //! Initialize the stepper and
   imex_stepper(prog_opts const &options, imex_implicit_group im, imex_explicit_group ex)
       : method(options.step_method.value()), solver(options),
+        precon1(options.precon.value_or(precon_method::none)),
+        precon2(options.precon.value_or(precon_method::none)),
         imex_implicit(im), imex_explicit(ex)
   {
     expect(is_imex(method));
@@ -285,16 +293,21 @@ struct imex_stepper
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
+    os << precon1 << '\n';
   }
 
 private:
   //! fills into R the ode_rhs for the explicit part
   void implicit_solve(discretization_manager<P> const &disc, P time, P dt,
+                      preconditioner_data<P> &precon,
                       std::vector<P> &current, std::vector<P> &R) const;
 
   time_method method = time_method::imex2;
   // the solver used
   mutable solver_manager<P> solver;
+  // preconditioners
+  mutable preconditioner_data<P> precon1;
+  mutable preconditioner_data<P> precon2; // only for 2-stage IMEX
   // implicit and explicit groups
   imex_implicit_group imex_implicit;
   imex_explicit_group imex_explicit;
