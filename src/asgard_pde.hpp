@@ -137,7 +137,7 @@ struct moment_source {
   moment_source(md_mom_func<P> func, std::vector<moment_id> mids)
       : func_(std::move(func)), mids_(std::move(mids))
   {
-    rassert(not (!!func and mids.empty()),
+    rassert(not (!!func_ and mids_.empty()),
             "providing a moment source must include a non-empty vector of moment_id");
   }
   //! call the loaded function
