@@ -53,10 +53,12 @@ enum class solver_method
 {
   //! direct solve using LAPACK, slow but stable, do not use for large problems
   direct,
+  //! alternative to gmres, cheaper when taking many steps between restarts
+  bicgstab,
   //! popular iterative solver, can be sensitive to the tolerance and restart frequency
   gmres,
-  //! alternative to gmres, cheaper when taking many steps between restarts
-  bicgstab
+  //! special case solver, when the matrix is a scaled identity, e.g., as in the BGK example
+  scaled_identity
 };
 
 /*!

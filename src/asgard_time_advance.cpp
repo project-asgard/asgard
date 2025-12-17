@@ -18,13 +18,13 @@ void steady_state<P>::next_step(
   // update the matrices and preconditioners, update-grid checks what's needed
   solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), 0, precon);
 
-  if (solver.opt == solver_method::direct) {
+  if (solver.uses_inplace_solve()) {
 
     endstep.resize(current.size());
     disc.set_ode_rhs_sources(time, 1, endstep);
 
     if (disc.is_leader())
-      solver.direct_solve(endstep);
+      solver.solve_inplace(endstep);
 
   } else { // iterative solver
     // form the right-hand-side inside work
@@ -248,13 +248,13 @@ void crank_nicolson<P>::next_step(
   // update the matrices and preconditioners, update-grid checks what's needed
   solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
-  if (solver.opt == solver_method::direct) {
+  if (solver.uses_inplace_solve()) {
 
     next.resize(current.size());
     set_rhs(disc, substep, time, dt, current, next);
 
     if (disc.is_leader())
-      solver.direct_solve(next);
+      solver.solve_inplace(next);
 
   } else { // iterative solver
     // form the right-hand-side inside work
@@ -333,24 +333,25 @@ void crank_nicolson<P>::next_step(
 
 template<typename P>
 void imex_stepper<P>::implicit_solve(
-    discretization_manager<P> const &disc, P time, P dt,
-    preconditioner_data<P> &precon,
+    discretization_manager<P> const &disc, size_t stage,
+    P time, P dt, preconditioner_data<P> &precon,
     std::vector<P> &current, std::vector<P> &R) const
 {
   if (disc.has_moments())
     disc.compute_moments(group_id{imex_implicit}, current);
 
-  solver.update_grid(group_id{imex_implicit}, disc.get_grid(), disc.get_conn(),
+  solver.update_grid(group_id{imex_implicit}, stage, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt, precon);
 
-  if (solver.opt != solver_method::direct)
+  bool const uses_inplace = solver.uses_inplace_solve();
+  if (not uses_inplace)
     R = current;
 
   disc.add_ode_rhs_sources_group(group_id{imex_implicit}, time, dt, current);
 
-  if (solver.opt == solver_method::direct) {
+  if (uses_inplace) {
     R = current; // copy
-    solver.direct_solve(R);
+    solver.solve_inplace(group_id{imex_implicit}, stage, R);
   } else { // iterative solver
     int64_t const n = static_cast<int64_t>(R.size());
 
@@ -415,9 +416,9 @@ void imex_stepper<P>::implicit_solve(
       throw std::runtime_error("adi preconditioner not available for IMEX steppers");
     break;
     }
-  }
 
-  disc.mpi_iteration_stop();
+    disc.mpi_iteration_stop();
+  }
 }
 
 template<typename P>
@@ -432,7 +433,8 @@ void imex_stepper<P>::next_step(
 
   disc.ode_euler(group_id{imex_explicit}, time, current, dt, f);
 
-  implicit_solve(disc, time + dt, dt, precon1, f, next);
+  constexpr size_t stage0 = 0;
+  implicit_solve(disc, stage0, time + dt, dt, precon1, f, next);
 
   if (method == time_method::imex1)
     return;
@@ -445,7 +447,8 @@ void imex_stepper<P>::next_step(
       f[i] = 0.5 * current[i] + 0.5 * (next[i] + dt * f[i]);
   }
 
-  implicit_solve(disc, time + dt, P{0.5} * dt, precon2, f, next);
+  constexpr size_t stage1 = 1;
+  implicit_solve(disc, stage1, time + dt, P{0.5} * dt, precon2, f, next);
 }
 
 }

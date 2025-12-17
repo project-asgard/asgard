@@ -122,7 +122,8 @@ struct steady_state
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
-    os << precon << '\n';
+    if (not solver.uses_inplace_solve())
+      os << precon << '\n';
   }
 
 private:
@@ -240,7 +241,8 @@ struct crank_nicolson
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
-    os << precon << '\n';
+    if (not solver.uses_inplace_solve())
+      os << precon << '\n';
   }
 
 private:
@@ -278,6 +280,8 @@ struct imex_stepper
         imex_implicit(im), imex_explicit(ex)
   {
     expect(is_imex(method));
+    if (method != time_method::imex1)
+      solver.set_num_stages(2);
   }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -293,13 +297,14 @@ struct imex_stepper
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
-    os << precon1 << '\n';
+    if (not solver.uses_inplace_solve())
+      os << precon1 << '\n';
   }
 
 private:
   //! fills into R the ode_rhs for the explicit part
-  void implicit_solve(discretization_manager<P> const &disc, P time, P dt,
-                      preconditioner_data<P> &precon,
+  void implicit_solve(discretization_manager<P> const &disc, size_t stage,
+                      P time, P dt, preconditioner_data<P> &precon,
                       std::vector<P> &current, std::vector<P> &R) const;
 
   time_method method = time_method::imex2;

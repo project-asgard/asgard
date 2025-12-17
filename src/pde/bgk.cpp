@@ -102,7 +102,9 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   options.default_stop_time = 1.0;
 
   // default solver parameters for the implicit component
-  options.default_solver = asgard::solver_method::bicgstab;
+  options.default_solver = asgard::solver_method::scaled_identity;
+
+  // used by solver_method::gmres and solver_method::bicgstab
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 400;
   options.default_isolver_inner_iterations = 50;
@@ -195,6 +197,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);
+        // fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);;
     };
 
   auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
@@ -203,6 +206,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
       for (size_t i = 0; i < v.size(); i++)
         fv[i] = c * std::exp(-0.5 * v[i] * v[i]);
+        //fv[i] = 1.0;
     };
 
   pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));

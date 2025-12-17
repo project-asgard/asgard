@@ -25,4 +25,8 @@ void xpby(gpu::vector<P> const &x, P beta, P y[]);
 template<typename P>
 void axpby(int64_t num, P alpha, P const x[], P beta, P y[]);
 
+//! computes, y = alpha * x
+template<typename P>
+void set_scal(int64_t num, P alpha, P x[]);
+
 }

@@ -137,10 +137,11 @@ Options          Short   Value      Description
 -outfile         -of     filename   File to write the last step of the simulation.
 
 <<< solvers and linear algebra options >>>
--solver          -sv     string     accepts: direct/gmres/bicgstab (implicit/imex methods only)
+-solver          -sv     string     accepts: direct/gmres/bicgstab/scal (implicit/imex methods only)
                                     Direct: use LAPACK, expensive but stable.
                                     GMRES: general but sensitive to restart selection.
                                     bicgstab: cheaper (per-iteration) alternative to GMRES
+                                    scal: special case, the matrix is scaled identity
 -precon          -pc     string     accepts: none/jacobi (iterative solvers only)
                                     specifies the preconditioner for the iterative method
                                     none - is not advisable as it takes too long
@@ -435,6 +436,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         solver = solver_method::gmres;
       else if (*selected == "bicgstab")
         solver = solver_method::bicgstab;
+      else if (*selected == "scal")
+        solver = solver_method::scaled_identity;
       else
         throw std::runtime_error(report_wrong_value());
     }
