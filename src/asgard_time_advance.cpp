@@ -69,7 +69,7 @@ void steady_state<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(precon.jacobi_gpu(), y);
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -301,7 +301,7 @@ void crank_nicolson<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(precon.jacobi_gpu(), y);
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -389,7 +389,7 @@ void imex_stepper<P>::implicit_solve(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(precon.jacobi_gpu(), y);
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
