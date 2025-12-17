@@ -103,6 +103,8 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 1000;
 
+  options.default_precon = asgard::precon_method::jacobi;
+
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
   auto f2p = [=](P, asgard::vector2d<P> const &,

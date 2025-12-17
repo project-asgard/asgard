@@ -115,7 +115,7 @@ struct steady_state
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  precon_method needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return precon.method(); }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
@@ -233,7 +233,7 @@ struct crank_nicolson
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  precon_method needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return precon.method(); }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
@@ -286,7 +286,7 @@ struct imex_stepper
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  precon_method needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return precon1. method(); }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 

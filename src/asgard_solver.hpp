@@ -8,9 +8,17 @@
 
 namespace asgard::solvers
 {
+/*!
+ * \internal
+ * \brief Boundary conditions for the Poisson solver
+ *
+ * \endinternal
+ */
 enum class poisson_bc
 {
+  //! Dirichlet, set left-right values
   dirichlet,
+  //! Periodic, implemented with zero-Dirichlet and removed average
   periodic
 };
 

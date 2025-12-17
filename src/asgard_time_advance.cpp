@@ -41,7 +41,7 @@ void steady_state<P>::next_step(
       return;
     }
 
-    switch (solver.precon) {
+    switch (precon.method()) {
     case precon_method::none:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       ignore(n);
@@ -69,7 +69,7 @@ void steady_state<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(solver.jacobi_gpu, y);
+          gpu::jacobi_apply(precon.jacobi_gpu(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -81,7 +81,7 @@ void steady_state<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          fm::jacobi_apply(n, solver.jacobi, y);
+          fm::jacobi_apply(n, precon.jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -432,7 +432,7 @@ void imex_stepper<P>::next_step(
 
   disc.ode_euler(group_id{imex_explicit}, time, current, dt, f);
 
-  implicit_solve(disc, time + dt, dt, f, next, precon1);
+  implicit_solve(disc, time + dt, dt, precon1, f, next);
 
   if (method == time_method::imex1)
     return;
@@ -445,7 +445,7 @@ void imex_stepper<P>::next_step(
       f[i] = 0.5 * current[i] + 0.5 * (next[i] + dt * f[i]);
   }
 
-  implicit_solve(disc, time + dt, P{0.5} * dt, f, next, precon2);
+  implicit_solve(disc, time + dt, P{0.5} * dt, precon2, f, next);
 }
 
 }
