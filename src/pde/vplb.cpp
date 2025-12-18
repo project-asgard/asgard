@@ -19,7 +19,7 @@
  * \par Vlasov-Poisson-Lenard-Bernstein
  * Solves the Vlasov-Poisson equation with Lenard-Bernstein collisions
  *
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
+ * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
  *  \mathcal{C}_{LB}[f](x, v, t) \f]
  * where the electric field term depends on the Poisson equation
  * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]

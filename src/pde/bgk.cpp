@@ -14,22 +14,35 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_bgk Example: Bhatnagar-Gross-Krook
+ * \addtogroup asgard_examples_bgk Example: Bhatnagar-Gross-Krook (BGK)
  *
  * \par Bhatnagar-Gross-Krook
- * Solves the Vlasov-Poisson equation with Lenard-Bernstein collisions
+ * Solves the BGK model
  *
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
- *  \mathcal{C}_{LB}[f](x, v, t) \f]
- * where the electric field term depends on the Poisson equation
- * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
- * and the Lenard Bernstein collision operator is the same as defined in equations
- * (2.1) - (2.6) in <a href="https://arxiv.org/pdf/2402.06493">Schnake, et al.</a>
+ * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) =
+ *  \nu ( M(f) - f) \f]
+ * where the collision operator has a source term that depends on the moments
+ * of the field
+ * \f[ M(f)(x, v) = \frac{n(x)}{\sqrt{2\pi \theta(x)}} \exp \left( - \frac{|v - u(x)|^2}{2 \theta(x)} \right) \f]
+ * where
+ * \f[ n(x) = \int_v f dv, \qquad u(x) = (u_1, u_2, u_3), \quad u_i(x) = \frac{1}{n(x)} \int_v v_i f dv \f]
+ * and
+ * \f[ \theta(x) = \frac{1}{3 n(x)} \int_v |v|^2 f dv - \frac{1}{3} \| u(x) \|^2  \f]
+ *
+ * This file implements 2 examples, a 1x1v (2D) example with simple initial conditions
+ * that is just a perturbation of a Maxwellian and a more complex "explosion" problem
+ * borrowed from
+ * <a href="https://link.springer.com/book/10.1007/b79761">
+ * E. F. Toro. "Riemann Solvers and Numerical Methods for Fluid Dynamics" </a>,
+ * page 586, section 17.1.
+ *
+ * In the above equation, M has only implicit dependence on f through the moments,
+ * which means that it appears as a moment source term in the equation.
  *
  * \par
- * The focus of this example is the term groups needed for the IMEX time-stepping,
- * the builtin LB collision operator and the functionality to store and plot additional
- * (auxiliary) fields for the problem.
+ * The focus of this example is to show the usage of asgard::moment_source and
+ * the specialized solver asgard::solver_method::scaled_identity that is designed
+ * for problems where the operator is a scaled identity and therefore trivial to invert.
  *
  * \par
  * <i>This is still work-in-progress, the documentation needs more work.</i>
@@ -48,7 +61,7 @@ void self_test();
 
 /*!
  * \ingroup asgard_examples_bgk
- * \brief Make single VPLB PDE
+ * \brief Make single BGK PDE
  *
  * Constructs the pde description for the given umber of dimensions
  * and options.
@@ -56,7 +69,7 @@ void self_test();
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
- * \param vdims is the number of velocity dimensions, 1-3
+ * \param dims is the number of spatial velocity dimensions, 1-3
  * \param options is the set of options
  *
  * \returns the asgard::pde_scheme definition
@@ -90,112 +103,198 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
   // setting some default options
   options.default_degree = 2;
-  options.default_start_levels = {4, };
+  options.default_start_levels = {6, };
 
-  // using implicit-explicit stepper
+  // default: using implicit-explicit stepper
+  // since both the implicit and explicit components are linear,
+  // this PDE can use fully implicit time-stepping
   options.default_step_method = asgard::time_method::imex2;
-  //options.throw_if_not_imex_stepper();
 
   // cfl condition for the explicit component
   options.default_dt = 0.01 * domain.min_cell_size(options.max_level());
 
   options.default_stop_time = 1.0;
 
-  // default solver parameters for the implicit component
-  options.default_solver = asgard::solver_method::scaled_identity;
+  // if the user has selected a time-stepping method that is not imex
+  if (options.step_method and not asgard::is_imex(options.step_method.value())) {
+    // then we default to the GMRES solver
+    options.default_solver = asgard::solver_method::gmres;
 
-  // used by solver_method::gmres and solver_method::bicgstab
-  options.default_isolver_tolerance  = 1.E-8;
-  options.default_isolver_iterations = 400;
-  options.default_isolver_inner_iterations = 50;
+    options.default_isolver_tolerance  = 1.E-8;
+    options.default_isolver_iterations = 400;
+    options.default_isolver_inner_iterations = 50;
+  } else {
+    // if IMEX is selected or default, using specialized solver
+    options.default_solver = asgard::solver_method::scaled_identity;
+  }
 
   // create a pde from the given options and domain
   asgard::pde_scheme<P> pde(options, domain);
 
-  // adding the Vlasov-Poisson terms
+  // adding the advection terms in the explicit group
   // the vp_group_id will persist until new_term_group() is called again
-  int const v_group_id = pde.new_term_group();
+  int const explicit_id = pde.new_term_group();
 
-  // see the two-stream instability example for details
-  auto positive = [](std::vector<P> const &x, std::vector<P> &y)
-      -> void {
-#pragma omp parallel for
-      for (size_t i = 0; i < x.size(); i++)
-        y[i] = std::max(P{0}, x[i]);
-    };
-
-  auto negative = [](std::vector<P> const &x, std::vector<P> &y)
-      -> void {
-#pragma omp parallel for
-      for (size_t i = 0; i < x.size(); i++)
-        y[i] = std::min(P{0}, x[i]);
-    };
-
-  std::vector<asgard::term_1d<P>> dx_positive = {
-      asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
-      asgard::term_volume<P>(positive)
-    };
-
-  std::vector<asgard::term_1d<P>> dx_negative = {
-      asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
-      asgard::term_volume<P>(negative),
-    };
-
-  pde += dx_positive;
-  pde += dx_negative;
-
-  int const b_group_id = pde.new_term_group();
-
-  pde += asgard::term_md<P>({asgard::term_volume<P>{nu}, asgard::term_identity{}});
-
-  asgard::moment_id im0 = pde.register_moment(asgard::moment(0));
-  asgard::moment_id im1 = pde.register_moment(asgard::moment(1));
-  asgard::moment_id im2 = pde.register_moment(asgard::moment(2));
-
-  auto fbgk = [=](P /* time */, asgard::vector2d<P> const &nodes,
-                  asgard::momentset<P> const &moments, std::vector<P> &vals)
   {
-    std::vector<P> const &m0 = moments[im0];
-    std::vector<P> const &m1 = moments[im1];
-    std::vector<P> const &m2 = moments[im2];
+    // creating intermediate variables and adding terms to the PDE
+    // using the curly braces {} creates a local scope and intermediates
+    // will be cleaned at the close of the braces limiting the scope
+    // and lowering the chance of accidental reuse or error
 
-    int64_t const num_nodes = nodes.num_strips();
-#pragma omp parallel for
-    for (int64_t i = 0; i < num_nodes; i++) {
-      // P const x = nodes[i][0];
-      P const v = nodes[i][1];
+    // see the two-stream instability example for details
+    asgard::term_1d<P> positive = asgard::term_volume<P>(
+        [](std::vector<P> const &x, std::vector<P> &y)
+          -> void {
+          #pragma omp parallel for
+          for (size_t i = 0; i < x.size(); i++)
+            y[i] = std::max(P{0}, x[i]);
+        });
 
-      P const n = m0[i];
-      P const u = m1[i] / m0[i];
-      P const t = m2[i] / m0[i] - u * u;
+    asgard::term_1d<P> negative = asgard::term_volume<P>(
+        [](std::vector<P> const &x, std::vector<P> &y)
+          -> void {
+          #pragma omp parallel for
+          for (size_t i = 0; i < x.size(); i++)
+            y[i] = std::min(P{0}, x[i]);
+        });
 
-      vals[i] = nu * n / std::sqrt(2 * PI * t);
-      P const d = v - u;
-      vals[i] *= std::exp(- P{0.5} * d * d / t);
+    asgard::term_1d<P> div_up = asgard::term_div<P>(1, asgard::flux_type::upwind,
+                                                    asgard::boundary_type::periodic);
+
+    asgard::term_1d<P> div_do = asgard::term_div<P>(1, asgard::flux_type::downwind,
+                                                    asgard::boundary_type::periodic);
+
+    asgard::term_1d<P> I = asgard::term_identity{};
+
+    switch (dims) {
+      case 1:
+        pde += asgard::term_md{div_up, positive};
+        pde += asgard::term_md{div_do, negative};
+        break;
+      case 2:
+        pde += asgard::term_md{div_up, I, positive, I};
+        pde += asgard::term_md{div_do, I, negative, I};
+        pde += asgard::term_md{I, div_up, I, positive};
+        pde += asgard::term_md{I, div_do, I, negative};
+        break;
+      case 3:
+        pde += asgard::term_md{div_up, I, I, positive, I, I};
+        pde += asgard::term_md{div_do, I, I, negative, I, I};
+        pde += asgard::term_md{I, div_up, I, I, positive, I};
+        pde += asgard::term_md{I, div_do, I, I, negative, I};
+        pde += asgard::term_md{I, I, div_up, I, I, positive};
+        pde += asgard::term_md{I, I, div_do, I, I, negative};
+        break;
     }
-  };
+  }
 
-  pde.set_source(asgard::moment_source<P>(fbgk, {im0, im1, im2}));
+  // the right-hand-side of the equation is set for the implicit group
+  int const implicit_id = pde.new_term_group();
 
-  auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
-                  asgard::momentset<P> const &moments, std::vector<P> const &,
-                  std::vector<P> &vals)
-  {
-    fbgk(time, nodes, moments, vals);
-  };
+  { // setting the nu * f term
+    std::vector<asgard::term_1d<P>> nuI(2 * dims, asgard::term_identity{});
+    nuI[0] = asgard::term_volume<P>{nu};
+    pde += asgard::term_md<P>(nuI);
+  }
 
-  pde.set_adapt_weight(abgk, {im0, im1, im2});
+  if (dims == 1) {
+    asgard::moment_id im0 = pde.register_moment(asgard::moment(0));
+    asgard::moment_id im1 = pde.register_moment(asgard::moment(1));
+    asgard::moment_id im2 = pde.register_moment(asgard::moment(2));
+
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &nodes,
+                    asgard::momentset<P> const &moments, std::vector<P> &vals)
+    {
+      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m1 = moments[im1];
+      std::vector<P> const &m2 = moments[im2];
+
+      int64_t const num_nodes = nodes.num_strips();
+      #pragma omp parallel for
+      for (int64_t i = 0; i < num_nodes; i++) {
+        // P const x = nodes[i][0]; // no explicit spatial dependence
+        P const v = nodes[i][1];
+
+        P const n = m0[i];
+        P const u = m1[i] / m0[i];
+        P const t = m2[i] / m0[i] - u * u;
+
+        vals[i] = nu * n / std::sqrt(2 * PI * t);
+        P const d = v - u;
+        vals[i] *= std::exp(- P{0.5} * d * d / t);
+      }
+    };
+
+    pde.set_source(asgard::moment_source<P>(fbgk, {im0, im1, im2}));
+
+    auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
+                    std::vector<P> &vals)
+    {
+      fbgk(time, nodes, moments, vals);
+    };
+
+    pde.set_adapt_weight(abgk, {im0, im1, im2});
+
+  } else if (dims == 2){
+
+    asgard::moment_id im0 = pde.register_moment(asgard::moment(0, 0));
+    asgard::moment_id im10 = pde.register_moment(asgard::moment(1, 0));
+    asgard::moment_id im01 = pde.register_moment(asgard::moment(0, 1));
+    asgard::moment_id im20 = pde.register_moment(asgard::moment(2, 0));
+    asgard::moment_id im02 = pde.register_moment(asgard::moment(0, 2));
+
+    std::vector<asgard::moment_id> const mids = {im0, im10, im01, im20, im02};
+
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &nodes,
+                    asgard::momentset<P> const &moments, std::vector<P> &vals)
+    {
+      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m10 = moments[im10];
+      std::vector<P> const &m01 = moments[im01];
+      std::vector<P> const &m20 = moments[im20];
+      std::vector<P> const &m02 = moments[im02];
+
+      int64_t const num_nodes = nodes.num_strips();
+      #pragma omp parallel for
+      for (int64_t i = 0; i < num_nodes; i++) {
+        P const n = m0[i];
+        P const u0 = m10[i] / m0[i];
+        P const u1 = m01[i] / m0[i];
+        P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
+
+        vals[i] = nu * n / std::sqrt(2 * PI * t);
+        P const vu0 = nodes[i][2] - u0;
+        P const vu1 = nodes[i][3] - u1;
+        P const d = vu0 * vu0 + vu1 * vu1;
+        vals[i] *= std::exp(- P{0.5} * d / t);
+      }
+    };
+
+    pde.set_source(asgard::moment_source<P>(fbgk, mids));
+
+    auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
+                    std::vector<P> &vals)
+    {
+      fbgk(time, nodes, moments, vals);
+    };
+
+    pde.set_adapt_weight(abgk, mids);
+
+  } else /* if (dims == 3) */ {
+    //
+  }
 
   // set the implicit and explicit operator groups
-  pde.set(asgard::imex_implicit_group{b_group_id},
-          asgard::imex_explicit_group{v_group_id});
+  pde.set(asgard::imex_implicit_group{implicit_id},
+          asgard::imex_explicit_group{explicit_id});
 
   // separable initial conditions in x and v
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);
-        // fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);;
     };
 
   auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
@@ -204,7 +303,6 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
       for (size_t i = 0; i < v.size(); i++)
         fv[i] = c * std::exp(-0.5 * v[i] * v[i]);
-        //fv[i] = 1.0;
     };
 
   pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
@@ -398,8 +496,10 @@ void test_energy(int const dims, std::string const &opt_str) {
     if (i == 0)
       energy0 = energy;
 
-    std::cout << " delta-energy = " << std::abs(energy - energy0) << '\n';
+    //std::cout << " delta-energy = " << std::abs(energy - energy0) << '\n';
     //tassert(std::abs(energy - energy0) < 1.E-11);
+
+    std::cout << " delta-mass: " << std::abs(mass - mass0) << "    " << std::abs(energy - energy0) << '\n';
 
 
   //   int const level0   = disc.get_grid().current_level(0);
@@ -430,8 +530,8 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  //test_energy<double>(1, "-l 6 -t 0.25");
-  test_energy<double>(1, "-l 6 -n 10");
+  // test_energy<double>(1, "-l 6 -n 100 -s imex1");
+  // test_energy<double>(1, "-l 6 -n 100 -s imex2");
 
   // test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
   // test_energy<double>(1, "-l 6 -t 0.25 -s imex2");

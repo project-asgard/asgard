@@ -19,7 +19,7 @@
  * \par Sod shock tube problem
  * Solves the Sod shock problem
  *
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) =
+ * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) =
  *  \mathcal{C}_{LB}[f](x, v, t) \f]
  * where the Lenard Bernstein collision operator is the same as defined in equations
  * (2.1) - (2.6) in <a href="https://arxiv.org/pdf/2402.06493">Schnake, et al.</a>
