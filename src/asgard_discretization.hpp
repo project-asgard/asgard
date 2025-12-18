@@ -536,6 +536,11 @@ public:
     rassert(ns.size() == state.size(), "cannot set state with different size");
     state = ns;
   }
+  //! get the current moment manager, allows detailed access to loaded moments
+  moment_manager<precision> const &get_moment_manager() const {
+    return terms.moms;
+  }
+
   //! (debugging) prints the term-matrices
   void print_mats() const;
 

@@ -69,7 +69,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 //! [asgard_examples_bgk make]
 #endif
 
-  rassert(1 <= dims and dims <= 3, "problem is set for 1, 2 or 3 velocity dimensions");
+  rassert(1 <= dims and dims <= 3, "problem is set for 1, 2 or 3 position dimensions");
 
   options.title = "Bhatnagar-Gross-Krook "
                  + std::to_string(dims) + "x" + std::to_string(dims) + "v";
@@ -108,8 +108,6 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 400;
   options.default_isolver_inner_iterations = 50;
-
-//   options.default_precon = asgard::precon_method::jacobi;
 
   // create a pde from the given options and domain
   asgard::pde_scheme<P> pde(options, domain);
@@ -358,29 +356,52 @@ int main(int argc, char** argv)
 using namespace asgard;
 
 template<typename P>
-void test_energy(int const vdims, std::string const &opt_str) {
-  current_test<P> test_(opt_str, 1 + vdims);
+void test_energy(int const dims, std::string const &opt_str) {
+  current_test<P> test_(opt_str, 2 * dims);
   // analytic solution is not available, hence we use energy conservation for
   // the test quantity in place of an L^2 error
 
   prog_opts const options = make_opts(opt_str);
 
-  // the pde needs only the zeroth moment and computes that internally
-  // we are using the other moments to check energy conservation properties
-  // auto pde = make_bgk<P>(vdims, options);
-  // moment_id const m2 = pde.register_moment({2, moment::inactive});
-  // discretization_manager disc(std::move(pde), verbosity_level::quiet);
-  //
-  // double E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
-  //
-  // int64_t const n = disc.remaining_steps();
-  //
-  // P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 5.E-3;
-  //
-  // for (int64_t i = 0; i < n; i++)
-  // {
-  //   disc.advance_time(1);
-  //
+  auto pde = make_bgk<P>(dims, options);
+  moment_id const m0 = pde.register_moment({0, moment::inactive});
+  moment_id const m1 = pde.register_moment({1, moment::inactive});
+  moment_id const m2 = pde.register_moment({2, moment::inactive});
+  discretization_manager disc(std::move(pde), verbosity_level::quiet);
+
+  double mass0   = 0; // initial total mass
+  double energy0 = 0; // initial total energy
+
+  int64_t const n = disc.remaining_steps();
+
+  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 5.E-3;
+
+  moment_manager<P> const &moms = disc.get_moment_manager();
+
+  std::cout.precision(8);
+  std::cout << std::scientific;
+
+  for (int64_t i = 0; i < n; i++)
+  {
+    disc.advance_time(1);
+
+    disc.compute_moments();
+
+    double const mass = moms.get_cached_raws()[m0][0];
+    if (i == 0)
+      mass0 = mass;
+
+    //std::cout << " delta-mass = " << std::abs(mass - mass0) << '\n';
+    //tassert(std::abs(mass - mass0) < 1.E-11);
+
+    double const energy = moms.get_cached_raws()[m2][0];
+    if (i == 0)
+      energy0 = energy;
+
+    std::cout << " delta-energy = " << std::abs(energy - energy0) << '\n';
+    //tassert(std::abs(energy - energy0) < 1.E-11);
+
+
   //   int const level0   = disc.get_grid().current_level(0);
   //   int const num_cell = fm::ipow2(level0);
   //   P const dx         = disc.domain().length(0) / num_cell;
@@ -401,7 +422,7 @@ void test_energy(int const vdims, std::string const &opt_str) {
   //
   //   // check the initial slight energy decay before it stabilizes
   //   tcheckless(i, std::abs(Ep + Ek - E0), tol);
-  // }
+  }
 }
 
 void self_test() {
@@ -409,8 +430,9 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  // test_energy<double>(1, "-l 5 -t 0.5 -s imex1");
-  //
+  //test_energy<double>(1, "-l 6 -t 0.25");
+  test_energy<double>(1, "-l 6 -n 10");
+
   // test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
   // test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
 
