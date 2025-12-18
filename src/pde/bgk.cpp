@@ -236,7 +236,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
     pde.set_adapt_weight(abgk, {im0, im1, im2});
 
-  } else if (dims == 2){
+  } else if (dims == 2) {
 
     asgard::moment_id im0 = pde.register_moment(asgard::moment(0, 0));
     asgard::moment_id im10 = pde.register_moment(asgard::moment(1, 0));
@@ -290,22 +290,50 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   pde.set(asgard::imex_implicit_group{implicit_id},
           asgard::imex_explicit_group{explicit_id});
 
-  // separable initial conditions in x and v
-  auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-    void {
-      for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);
-    };
+  if (dims == 1) {
+    // separable initial conditions in x and v
+    auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+      void {
+        for (size_t i = 0; i < x.size(); i++)
+          fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);
+      };
 
-  auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
-    void {
-      P const c = P{1} / std::sqrt(2 * PI);
+    auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
+      void {
+        P const c = P{1} / std::sqrt(2 * PI);
 
-      for (size_t i = 0; i < v.size(); i++)
-        fv[i] = c * std::exp(-0.5 * v[i] * v[i]);
-    };
+        for (size_t i = 0; i < v.size(); i++)
+          fv[i] = c * std::exp(-0.5 * v[i] * v[i]);
+      };
 
-  pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
+    pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
+
+  } else if (dims == 2) {
+
+    auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
+          -> void {
+
+        P constexpr s = 1455;
+        P const c_in  = P{1} / (2 * PI);
+        P const c_out = P{1} / (2 * PI * 1455);
+
+        for (int64_t i = 0; i < nodes.num_strips(); i++) {
+          P const x = nodes[i][0];
+          P const y = nodes[i][1];
+          P const v0 = nodes[i][2];
+          P const v1 = nodes[i][3];
+          if (x * x + y * y < 0.16) {
+            vals[i] = c_in * exp(- 0.5 * v0 * v0) * exp(- 0.5 * v1 * v1);
+          } else {
+            vals[i] = c_out * exp(- 0.5 * v0 * v0 / s) * exp(- 0.5 * v1 * v1 / s);
+          }
+        }
+      };
+
+    pde.set_initial(icmd);
+  }
+
+  // sigma = 1455 inside the ball with radius 0.4
 
   return pde;
 
@@ -397,7 +425,7 @@ int main(int argc, char** argv)
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << R"help(<< additional options for this file >>
--vdims           -dv     int        accepts: 1, 2 or 3
+-dims            -dim    int        accepts: 1, 2 or 3
                                     number of velocity dimensions
 -nu                      double     accepts: a positive number
                                     collision frequency
@@ -410,7 +438,7 @@ int main(int argc, char** argv)
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", "-vdims", "-dv" });
+  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", "-dims", "-dim" });
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -419,20 +447,25 @@ int main(int argc, char** argv)
   }
 
   // get the number of velocity dimensions, defaults to 1
-  int const vdims = options.extra_cli_value_group<P>({"-dv", "-vdims"}).value_or(1);
+  int const dims = options.extra_cli_value_group<P>({"-dims", "-dim"}).value_or(1);
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_bgk<P>(vdims, options),
+  asgard::discretization_manager<P> disc(make_bgk<P>(dims, options),
                                          asgard::verbosity_level::high);
 
-  // save the perturbation as an auxiliary field, for plotting
-  disc.add_aux_field({"initial perturbation", compute_perturbation(disc)});
+  if (dims == 1) {
+    // save the perturbation as an auxiliary field, for plotting
+    disc.add_aux_field({"initial perturbation", compute_perturbation(disc)});
 
-  disc.advance_time(); // integrate until num-steps or stop-time
+    disc.advance_time(); // integrate until num-steps or stop-time
 
-  // save the final perturbation
-  disc.add_aux_field({"final perturbation", compute_perturbation(disc)});
+    // save the final perturbation
+    disc.add_aux_field({"final perturbation", compute_perturbation(disc)});
+
+  } else {
+    disc.advance_time(); // integrate until num-steps or stop-time
+  }
 
   disc.final_output();
 
