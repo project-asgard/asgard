@@ -313,9 +313,9 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
           -> void {
 
-        P constexpr s = 1455;
+        P constexpr s = 174.9;
         P const c_in  = P{1} / (2 * PI);
-        P const c_out = P{1} / (2 * PI * 1455);
+        P const c_out = P{1} / (2 * PI * s);
 
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
           P const x = nodes[i][0];
