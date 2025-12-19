@@ -378,11 +378,14 @@ public:
    * Example usage:
    * \code
    *   int64_t const stride = 10;
-   *   while (disc.remaining_steps() > 0){
-   *     disc.advance_time(10); // advance for 10 steps
+   *   while (disc.remaining_steps() > 0
+   *          and disc.advance_time(stride)){
+   *    // the while loop will try to advance for 10 time-steps
+   *    // if safety is enabled and a step fails, the loop will exit
    *    // safe a snapshot with filename snapshot_10, snapshot_20 ...
    *     disc.save_snapshot("snapshot_" + std::to_string(disc.current_step()));
    *   }
+   *   disc.save_final_snapshot();
    * \endcode
    *
    * \code

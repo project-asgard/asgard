@@ -94,10 +94,10 @@ std::string simple_timer::report()
 
   #ifdef ASGARD_USE_FLOPCOUNTER
   report << "\n                    total work: ";
-  if (total_flops_ < int64_t{2000000000})
-    report << pad_left<double_block>(split_style(total_flops_ / int64_t{1000000})) << "Mflops";
+  if (total_flops_ < int64_t{2'000'000'000}) // if less than 2Gflops
+    report << pad_left<double_block>(split_style(total_flops_ / int64_t{1'000'000})) << "Mflops";
   else
-    report << pad_left<double_block>(split_style(total_flops_ / int64_t{1000000000})) << "Gflops";
+    report << pad_left<double_block>(split_style(total_flops_ / int64_t{1'000'000'000})) << "Gflops";
   #endif
 
   report << "\n  - all times are in ms, 1000ms = 1 second\n\n";

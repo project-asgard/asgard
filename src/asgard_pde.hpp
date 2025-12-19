@@ -1333,7 +1333,6 @@ private:
   std::vector<boundary_flux<P>> bc_flux_;
 };
 
-#ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \ingroup asgard_pde_definition
  * \brief Contains shorthand notation for common operators
@@ -1346,22 +1345,10 @@ namespace operators {
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief The divergence operator, sum of derivatives in each dimension
- *
- * The divergence operator in general form for d dimensions:
- * \f[ \nabla \cdot f = \frac{\partial}{\partial x_1} f + \frac{\partial}{\partial x_2} f + \cdots + \frac{\partial}{\partial x_d} f \f]
- * Each term can be assigned a separate coefficient.
- */
-struct divergence {
-  //! boundary condition to use for all divergence terms
-  boundary_type btype;
-  //! coefficients of the divergence terms
-  std::vector<double> coeffs;
-};
-
-/*!
- * \ingroup asgard_pde_definition
  * \brief Adds the Lenard-Bernstein collision operator to the PDE
+ *
+ * See \ref asgard_examples_vplb "Example: Vlasov-Poisson-Lenard-Bernstein"
+ * for references that describe the operator.
  *
  * Currently sets homogeneous (zero) boundary conditions at the edge of the velocity domain.
  */
@@ -1372,8 +1359,20 @@ struct lenard_bernstein_collisions {
   double nu = 0;
 };
 
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Adds the simple form of Bhatnagar-Gross-Krook collisions
+ *
+ * See \ref asgard_examples_bgk "Example: Bhatnagar-Gross-Krook" for the definition of the operator.
+ */
+struct simple_bgk_collisions {
+  //! sets the simple Bhatnagar-Gross-Krook collision operator with the given collision frequency
+  simple_bgk_collisions(double coll_frequency) : nu(coll_frequency) {}
+  //! collision frequency
+  double nu = 0;
+};
+
 } // namespace::operators
-#endif
 
 /*!
  * \ingroup asgard_pde_definition
@@ -1619,6 +1618,8 @@ public:
   }
   //! add collision operator
   pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
+  //! add collision operator
+  pde_scheme<P> & operator += (operators::simple_bgk_collisions bgkc);
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources

@@ -118,7 +118,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
     std::cout << stepper;
 
   if (safe_step)
-    std::cout << "enabled safety checks for inf/nan\n";
+    std::cout << "enabled safety checks for invalid floats\n";
 
   if (stepper.needs_solver() and not options_.solver)
     throw std::runtime_error("the selected time-stepping method requires a solver, "
@@ -198,7 +198,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
       std::cout << "  non-adaptive\n";
     std::cout << stepper;
     if (safe_step)
-      std::cout << "enabled safety checks for inf/nan\n";
+      std::cout << "enabled safety checks for invalid floats\n";
     if (high_verbosity())
       progress_report();
   }

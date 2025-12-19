@@ -265,6 +265,148 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 }
 
 template<typename P>
+pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc)
+{
+  rassert(domain_.num_pos() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no position dimensions");
+  rassert(domain_.num_vel() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no velocity dimensions");
+  rassert(domain_.num_pos() <= 3, "cannot set simple_bgk_collisions operator for a pde_domain with more than 3 position dimensions");
+  rassert(domain_.num_vel() <= 3, "cannot set simple_bgk_collisions operator for a pde_domain with more than 3 velocity dimensions");
+  rassert(bgkc.nu > 0, "the collision frequency has to be positive");
+
+  P const nu = static_cast<P>(bgkc.nu);
+
+  {
+    std::vector<asgard::term_1d<P>> nuI(domain_.num_dims(), asgard::term_identity{});
+    nuI[0] = asgard::term_volume<P>{nu};
+    *this += asgard::term_md<P>(nuI);
+  }
+
+  int const num_pos = domain_.num_pos();
+
+  switch(domain_.num_vel())
+  {
+  case 1: {
+    moment_id im0 = this->register_moment(moment(0));
+    moment_id im1 = this->register_moment(moment(1));
+    moment_id im2 = this->register_moment(moment(2));
+
+    auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
+                    momentset<P> const &moments, std::vector<P> &vals)
+    {
+      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m1 = moments[im1];
+      std::vector<P> const &m2 = moments[im2];
+
+      int64_t const num_nodes = nodes.num_strips();
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_nodes; i++) {
+        P const v = nodes[i][num_pos];
+
+        P const n = m0[i];
+        P const u = m1[i] / m0[i];
+        P const t = m2[i] / m0[i] - u * u;
+
+        vals[i] = nu * n / std::sqrt(2 * PI * t);
+        P const d = v - u;
+        vals[i] *= std::exp(- P{0.5} * d * d / t);
+      }
+    };
+
+    this->set_source(moment_source<P>(fbgk, {im0, im1, im2}));
+  }
+  break;
+  case 2: {
+    moment_id im0 = this->register_moment(moment(0, 0));
+    moment_id im10 = this->register_moment(moment(1, 0));
+    moment_id im01 = this->register_moment(moment(0, 1));
+    moment_id im20 = this->register_moment(moment(2, 0));
+    moment_id im02 = this->register_moment(moment(0, 2));
+
+    std::vector<moment_id> const mids = {im0, im10, im01, im20, im02};
+
+    auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
+                    momentset<P> const &moments, std::vector<P> &vals)
+    {
+      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m10 = moments[im10];
+      std::vector<P> const &m01 = moments[im01];
+      std::vector<P> const &m20 = moments[im20];
+      std::vector<P> const &m02 = moments[im02];
+
+      int64_t const num_nodes = nodes.num_strips();
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_nodes; i++) {
+        P const n = m0[i];
+        P const u0 = m10[i] / m0[i];
+        P const u1 = m01[i] / m0[i];
+        P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
+
+        vals[i] = nu * n / (2 * PI * t);
+        P const vu0 = nodes[i][num_pos] - u0;
+        P const vu1 = nodes[i][num_pos + 1] - u1;
+        P const d = vu0 * vu0 + vu1 * vu1;
+        vals[i] *= std::exp(- P{0.5} * d / t);
+      }
+    };
+
+    this->set_source(moment_source<P>(fbgk, mids));
+  }
+  break;
+  case 3: {
+    moment_id im0 = this->register_moment(moment(0, 0, 0));
+    moment_id im100 = this->register_moment(moment(1, 0, 0));
+    moment_id im010 = this->register_moment(moment(0, 1, 0));
+    moment_id im001 = this->register_moment(moment(0, 0, 1));
+    moment_id im200 = this->register_moment(moment(2, 0, 0));
+    moment_id im020 = this->register_moment(moment(0, 2, 0));
+    moment_id im002 = this->register_moment(moment(0, 0, 2));
+
+    std::vector<moment_id> const mids = {im0, im100, im010, im001, im200, im020, im002};
+
+    auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
+                    momentset<P> const &moments, std::vector<P> &vals)
+    {
+      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m100 = moments[im100];
+      std::vector<P> const &m010 = moments[im010];
+      std::vector<P> const &m001 = moments[im001];
+      std::vector<P> const &m200 = moments[im200];
+      std::vector<P> const &m020 = moments[im020];
+      std::vector<P> const &m002 = moments[im002];
+
+      int64_t const num_nodes = nodes.num_strips();
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_nodes; i++) {
+        P const n = m0[i];
+        P const u0 = m100[i] / m0[i];
+        P const u1 = m010[i] / m0[i];
+        P const u2 = m001[i] / m0[i];
+        P const t = ((m200[i] + m020[i] + m002[i]) / m0[i] - u0 * u0 - u1 * u1 - u2 * u2) / P{3};
+
+        P const pit = 2 * PI * t;
+        vals[i] = nu * n / (pit * std::sqrt(pit));
+        P const vu0 = nodes[i][num_pos] - u0;
+        P const vu1 = nodes[i][num_pos + 1] - u1;
+        P const vu2 = nodes[i][num_pos + 2] - u2;
+        P const d = vu0 * vu0 + vu1 * vu1 + vu2 * vu2;
+        vals[i] *= std::exp(- P{0.5} * d / t);
+      }
+    };
+
+    this->set_source(moment_source<P>(fbgk, mids));
+  }
+  break;
+  default:
+    // unreachable
+    break;
+  };
+
+
+
+  return *this;
+}
+
+template<typename P>
 void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
   if (tmd.is_separable()) {
     for (int d = 0; d < domain_.num_dims(); d++) {

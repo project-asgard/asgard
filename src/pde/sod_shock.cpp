@@ -303,9 +303,9 @@ int main(int argc, char** argv)
   int const stride = static_cast<int>(0.1 / disc.dt());
 
   // look over the entries and save multiple snapshots
-  while (disc.remaining_steps() > 0)
+  while (disc.remaining_steps() > 0
+         and disc.advance_time(stride))
   {
-    disc.advance_time(stride);
     disc.progress_report();
     disc.add_aux_field({"smapshot time = " + std::to_string(disc.time()),
                         disc.current_state()});

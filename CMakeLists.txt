@@ -75,7 +75,7 @@ set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;
 
 option (ASGARD_USE_TIMER "Enable the builtin profiling tool" ON)
 option (ASGARD_FAST_FLAGS "Enable aggressive performance flags for this CPU, -mtune=native and -mfma" OFF)
-option (ASGARD_ALWAYS_SAFE_STEP "Always enable the '-safe-step' flag, detects problems early with negligible cost" OFF)
+option (ASGARD_ALWAYS_SAFE_STEP "Always enable the '-safe-step' flag, detects problems early with negligible cost" ON)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 option (ASGARD_USE_GITINFO "Optional read git properties and build them into the library" ON)

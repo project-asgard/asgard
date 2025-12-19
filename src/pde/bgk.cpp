@@ -263,7 +263,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
         P const u1 = m01[i] / m0[i];
         P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
 
-        vals[i] = nu * n / std::sqrt(2 * PI * t);
+        vals[i] = nu * n / (2 * PI * t);
         P const vu0 = nodes[i][2] - u0;
         P const vu1 = nodes[i][3] - u1;
         P const d = vu0 * vu0 + vu1 * vu1;
@@ -292,7 +292,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
         P const u1 = m01[i] / m0[i];
         P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
 
-        vals[i] = n / std::sqrt(2 * PI * t);
+        vals[i] = n / (2 * PI * t);
         P const vu0 = nodes[i][2] - u0;
         P const vu1 = nodes[i][3] - u1;
         P const d = vu0 * vu0 + vu1 * vu1;
@@ -303,7 +303,11 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     pde.set_adapt_weight(abgk, mids);
 
   } else /* if (dims == 3) */ {
-    //
+
+    // the simple for of the BGK operator (shows above) is built into the ASGarD library
+    // it can be used for any combination of position/velocity dimensions 1 - 3
+    pde += asgard::operators::simple_bgk_collisions{nu};
+
   }
 
   // set the implicit and explicit operator groups
@@ -351,9 +355,12 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
       };
 
     pde.set_initial(icmd);
-  }
 
-  // sigma = 1455 inside the ball with radius 0.4
+  } else /* if (dims == 3) */ {
+
+    rassert(dims != 3, "initial condition for 6D not ready yet");
+
+  }
 
   return pde;
 
