@@ -72,11 +72,32 @@ std::string simple_timer::report()
   if (total_time > 1000)
     report << pad_left<double_block>(split_style(static_cast<int64_t>(total_time + 0.5))) << "ms";
   else
-    report << pad_string( total_time) << "ms";
+    report << pad_string(total_time) << "ms";
+
+  // 1 sec 1000ms, 1 min = 60 sec, 1 hour = 60 min, 1 day = 24 hours
+  int64_t constexpr one_day    = 1000 * 60 * 60 * 24;
+  int64_t constexpr one_hour   = 1000 * 60 * 60;
+  int64_t constexpr one_minute = 1000 * 60;
+
+  if (total_time >= 2 * one_day) { // if over 2 days
+    int64_t const days    = static_cast<int64_t>(total_time / one_day);
+    int64_t const hours   = static_cast<int64_t>((total_time - days * one_day) / one_hour);
+    int64_t const minutes = static_cast<int64_t>(total_time / one_minute) % 60;
+    report << "  ~ " << days << "d " << hours << "h " << minutes << "m";
+  } else if (total_time >= 2 * one_hour) { // if over 2 hours
+    int64_t const minutes = static_cast<int64_t>(total_time / one_minute);
+    report << "  ~ " << minutes / 60 << "h " << minutes % 60 << "m";
+  } else if (total_time >= 2 * one_minute) { // if over 2 minutes
+    int64_t const seconds = static_cast<int64_t>(total_time / 1000);
+    report << "  ~ " << seconds / 60 << "m " << seconds % 60 << "s";
+  }
+
   #ifdef ASGARD_USE_FLOPCOUNTER
-  report << "    total work: "
-         << pad_left<double_block>(split_style(total_flops_ / int64_t{1000000000}))
-         << " Gflops";
+  report << "\n                    total work: ";
+  if (total_flops_ < int64_t{2000000000})
+    report << pad_left<double_block>(split_style(total_flops_ / int64_t{1000000})) << "Mflops";
+  else
+    report << pad_left<double_block>(split_style(total_flops_ / int64_t{1000000000})) << "Gflops";
   #endif
 
   report << "\n  - all times are in ms, 1000ms = 1 second\n\n";
