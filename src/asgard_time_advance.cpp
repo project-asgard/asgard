@@ -523,7 +523,7 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
 }
 
 template<typename P> // implemented in time-advance
-void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
+bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 {
   // periodically reports time, first initialization is not important
   static tools::simple_timer::time_point wctime = tools::simple_timer::current_time();
@@ -544,7 +544,7 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     num_steps = 1;
 
   if (num_steps < 1)
-    return;
+    return true;
 
   sparse_grid &grid = manager.grid;
 
@@ -554,6 +554,33 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   while (--num_steps >= 0)
   {
     stepper.next_step(manager, manager.state, next);
+
+    if (manager.safe_step) {
+      tools::time_event performance_("check for inf/nan");
+      // technically the found-bad is OK/not-OK
+      // but OpenMP works better with int or size_t
+      size_t found_bad = 0;
+      #pragma omp parallel
+      {
+        size_t local_bad = 0;
+        #pragma omp for
+        for (size_t i = 0; i < next.size(); i++)
+          if (not std::isfinite(next[i]))
+            ++local_bad;
+
+        #pragma omp atomic
+        found_bad += local_bad;
+      }
+      if (found_bad > 0) {
+        if (not manager.stop_verbosity())
+          std::cerr << "ERROR: found 'inf' or 'nan' entries in the next time-step\n"
+                    << "       this is an indication of either bad pde_scheme or incompatible ASGarD options\n"
+                    << "       e.g., adaptive tolerance or solver tolerance is too high,\n"
+                    << "       max-grid level is too low, time-step is too large, etc.\n";
+
+        return false;
+      }
+    }
 
     if (manager.refinement) {
       int const gen = grid.generation();
@@ -596,6 +623,8 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     if (stepper.is_steady_state())
       params.set_final_time();
   }
+
+  return true;
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -604,7 +633,7 @@ template struct time_advance::rungekutta<double>;
 template struct time_advance::crank_nicolson<double>;
 template struct time_advance_manager<double>;
 
-template void advance_in_time(discretization_manager<double> &, int64_t);
+template bool advance_in_time(discretization_manager<double> &, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -613,6 +642,6 @@ template struct time_advance::rungekutta<float>;
 template struct time_advance::crank_nicolson<float>;
 template struct time_advance_manager<float>;
 
-template void advance_in_time(discretization_manager<float> &, int64_t);
+template bool advance_in_time(discretization_manager<float> &, int64_t);
 #endif
 } // namespace asgard

@@ -52,6 +52,12 @@ public:
   {
     verb = pde.options().verbosity.value_or(verbosity);
 
+    #ifdef ASGARD_ALWAYS_SAFE_STEP
+    safe_step = true;
+    #else
+    safe_step = pde.options().safe_step;
+    #endif
+
     rassert(pde.num_dims() > 0, "cannot discretize an empty pde");
 
     options_ = std::move(pde.options_);
@@ -355,9 +361,59 @@ public:
   //! resets the verbosity level
   void set_verbosity(verbosity_level v) const { verb = v; }
 
-  //! integrate in time for the given number of steps, -1 means until the end
-  void advance_time(int64_t num_steps = -1) {
-    advance_in_time(*this, num_steps);
+  /*!
+   * \brief integrate in time for the given number of steps, -1 means until the end
+   *
+   * \param num_steps indicates the number of time-steps to perform.
+   *
+   * If \b num_steps is negative, integration proceeds until the end-time.
+   *
+   * If \b num_steps is more than the number of remaining steps, integration
+   * will not exceed the final time and will stop as soon as end-time is reached.
+   *
+   * If solving for a steady state, \b num_steps has no effect.
+   *
+   * \b returns true on success or false if running with -safe-step and inf or nan was detected
+   *
+   * Example usage:
+   * \code
+   *   int64_t const stride = 10;
+   *   while (disc.remaining_steps() > 0){
+   *     disc.advance_time(10); // advance for 10 steps
+   *    // safe a snapshot with filename snapshot_10, snapshot_20 ...
+   *     disc.save_snapshot("snapshot_" + std::to_string(disc.current_step()));
+   *   }
+   * \endcode
+   *
+   * \code
+   *   auto success = disc.advance_time(); // integrate until the end
+   *   if (not success) {
+   *     int const step = disc.current_step();
+   *     std::cerr << "at time step " << step << ", 'inf' and/or 'nan' detected "
+   *                  "when computing step " << step + 1 << '\n';
+   *   }
+   * \endcode
+   *
+   * \code
+   *   if (disc.advance_time())
+   *     std::cout << "all good\n";
+   *   else
+   *     std::cout << "problem encountered\n";
+   * \endcode
+   *
+   * \code
+   *   disc.advance_time();
+   *   disc.final_output();
+   *   // if an error occurred, the final output will be saved for the time-step
+   *   // right before inf/nan was encountered
+   *   // the success can also be verified at a later time
+   *   if (disc.remaining_steps() > 0)
+   *     std::cerr << "the time stepping process encountered "
+   *                  "'inf' and/or 'nan' and terminated early\n";
+   * \endcode
+   */
+  bool advance_time(int64_t num_steps = -1) {
+    return advance_in_time(*this, num_steps);
   }
 
   //! report time progress
@@ -570,7 +626,7 @@ public:
   #endif
 
   // performs integration in time
-  friend void advance_in_time<precision>(
+  friend bool advance_in_time<precision>(
       discretization_manager<precision> &disc, int64_t num_steps);
   // this is the I/O manager
   friend class h5manager<precision>;
@@ -636,6 +692,8 @@ protected:
 private:
   // indicates the level of noise pushed to the cout
   mutable verbosity_level verb = verbosity_level::quiet;
+  // indicates whether the time-stepper should perform sanity check accept/reject
+  bool safe_step = false;
   // user provided options
   prog_opts options_;
   // initial conditions, non-separable

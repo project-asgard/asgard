@@ -619,6 +619,8 @@ struct prog_opts
   std::string default_plotter_view;
   //! allows overriding the verbosity level
   std::optional<verbosity_level> verbosity;
+  //! on each time-step, rejects the step if it contains inf or nan
+  bool safe_step = false;
 
   #ifdef ASGARD_USE_MPI
   //! MPI communicator to be used, it defaults to MPI_COMM_WORLD
@@ -671,7 +673,8 @@ private:
     isol_inner_iterations,
     restart_file,
     view,
-    set_verbosity
+    set_verbosity,
+    safe_step
   };
   //! indicate how the reading is done
   enum class handle_mode

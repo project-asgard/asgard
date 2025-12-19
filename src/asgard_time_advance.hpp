@@ -72,9 +72,12 @@ struct sources_scale {
  * The optional variable num_steps indicates the number of time steps to take:
  * - if zero, the method will return immediately,
  * - if negative, integration will continue until the final time step
+ *
+ * If running with safe-step enabled, then the method will yield true/false
+ * on success/failure respectively.
  */
 template<typename P> // implemented in time-advance
-void advance_in_time(discretization_manager<P> &manager, int64_t num_steps = -1);
+bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps = -1);
 
 } // namespace asgard
 

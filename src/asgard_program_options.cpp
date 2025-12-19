@@ -131,6 +131,10 @@ Options          Short   Value      Description
                                     Final time for integration (v2 pdes only)
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
 -dt                      double     Fixed time step to use (must be positive).
+-safe-step       -sstep  -          Checks every time step and if it contains inf or nan
+                                    then the time-advance method will not accept the step
+                                    and the time_advance() method will exit with 'false' flag.
+                                    This is not done by default for performance reasons.
 
 <<< i/o options >>>
 -restart                 filename   Wavelet output file to restart the simulation.
@@ -167,6 +171,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
       {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
+      {"-safe-step", optentry::safe_step}, {"-sstep", optentry::safe_step},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
@@ -531,6 +536,9 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       else
         throw std::runtime_error(report_wrong_value());
     }
+    break;
+    case optentry::safe_step:
+      safe_step = true;
     break;
     };
   }

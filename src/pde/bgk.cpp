@@ -273,11 +273,31 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
     pde.set_source(asgard::moment_source<P>(fbgk, mids));
 
-    auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
+    auto abgk = [=](P, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
-      fbgk(time, nodes, moments, vals);
+      // fbgk(time, nodes, moments, vals);
+      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m10 = moments[im10];
+      std::vector<P> const &m01 = moments[im01];
+      std::vector<P> const &m20 = moments[im20];
+      std::vector<P> const &m02 = moments[im02];
+
+      int64_t const num_nodes = nodes.num_strips();
+      #pragma omp parallel for
+      for (int64_t i = 0; i < num_nodes; i++) {
+        P const n = m0[i];
+        P const u0 = m10[i] / m0[i];
+        P const u1 = m01[i] / m0[i];
+        P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
+
+        vals[i] = n / std::sqrt(2 * PI * t);
+        P const vu0 = nodes[i][2] - u0;
+        P const vu1 = nodes[i][3] - u1;
+        P const d = vu0 * vu0 + vu1 * vu1;
+        vals[i] *= std::exp(- P{0.5} * d / t);
+      }
     };
 
     pde.set_adapt_weight(abgk, mids);
@@ -313,9 +333,9 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
           -> void {
 
-        P constexpr s = 174.9;
+        P constexpr s = 0.8;
         P const c_in  = P{1} / (2 * PI);
-        P const c_out = P{1} / (2 * PI * s);
+        P const c_out = P{0.125} / (2 * PI * s);
 
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
           P const x = nodes[i][0];
