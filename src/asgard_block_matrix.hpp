@@ -79,6 +79,11 @@ public:
   //! (testing) writes the the matrix to the scream
   void print(std::ostream &os = std::cout);
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    return data_.size() * sizeof(P) + ipiv.size() * sizeof(int);
+  }
+
 private:
   int64_t nrows_ = 0;
   int64_t ncols_ = 0;
@@ -147,6 +152,9 @@ public:
   //! convert the matrix to dense matrix
   dense_matrix<P> to_dense_matrix(int const n) const;
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const { return data_.total_size() * sizeof(P);}
+
 private:
   int64_t nrows_ = 0;
   int64_t ncols_ = 0;
@@ -203,6 +211,9 @@ public:
 
   //! converts the matrix to a full one, mostly for testing/plotting
   block_matrix<P> to_full() const;
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const { return data_.total_size() * sizeof(P);}
 
 private:
   vector2d<P> data_;
@@ -285,8 +296,11 @@ public:
   void solve(int const n, block_diag_matrix<P> &rhs) const;
   //! solves against a tri-matrix
   void solve(int const n, block_tri_matrix<P> &rhs) const;
-
+  //! gemv performed inplace with the use of pre-allocated work
   void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const { return data_.total_size() * sizeof(P);}
 
 private:
   vector2d<P> data_;
@@ -386,6 +400,9 @@ public:
   //! multiply x = A * x, using the work as scratch space
   void inplace_gemv(int n, std::vector<P> &x, std::vector<P> &work) const;
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const { return data_.total_size() * sizeof(P);}
+
 private:
   int64_t nrows_; // avoids constantly dividing by 3
   vector2d<P> data_;
@@ -466,6 +483,9 @@ public:
   }
   #endif
   #endif
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const { return data_.total_size() * sizeof(P);}
 
 private:
   connect_1d::hierarchy htype_ = connect_1d::hierarchy::volume;

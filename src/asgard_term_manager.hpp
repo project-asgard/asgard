@@ -370,6 +370,9 @@ struct term_manager
     apply_sources<dmode>(group_id::all(), grid, conns, hier, time, alpha, y.data());
   }
 
+  //! returns the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
+
 protected:
   //! remember which grid was cached for the workspace
   int workspace_grid_gen = -1;

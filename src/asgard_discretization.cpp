@@ -143,6 +143,8 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   if (high_verbosity())
     progress_report();
+
+  if (not stop_verbosity()) report_memusage();
 }
 
 template<typename precision>
@@ -202,6 +204,8 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     if (high_verbosity())
       progress_report();
   }
+
+  // if (not stop_verbosity()) report_memusage();
 
 #else
   ignore(pde);
@@ -366,6 +370,19 @@ void discretization_manager<precision>::print_mats() const {
       std::cout << '\n';
     }
   }
+}
+
+template<typename precision>
+void discretization_manager<precision>::report_memusage(std::ostream &os) const {
+  auto MB = [](size_t bytes) -> std::string {
+    std::string s = std::to_string(bytes / (1024 * 1024)) + "MB\n";
+    s.insert(0, 11 - s.size(), ' ');
+    return s;
+  };
+  os << "sparse grid " << MB(grid.used_bytes());
+  os << "hierarchy   " << MB(hier.used_bytes());
+  //os << "terms       " << MB(terms.used_bytes());
+  terms.print_bytes(os);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

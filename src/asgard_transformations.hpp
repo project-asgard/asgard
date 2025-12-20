@@ -345,6 +345,15 @@ public:
     transform(trans, level, src.data(), dest.data());
   }
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = fvals.size() + pwork.size() + twork.size();
+    for(auto const &v : pf) t += v.size();
+    for(auto const &v : quad_points) t += v.size();
+    for(auto const &v : colblocks) t += v.size();
+    return t * sizeof(int);
+  }
+
 protected:
   /*!
    * \brief Perform the transformation on the given data
@@ -564,8 +573,6 @@ private:
   mutable std::vector<P> pwork, twork;
 
   mutable std::vector<std::vector<P>> colblocks;
-  // TODO: make reusable cache matrixes
-  //mutable std::array<block_sparse_matrix<P>, 4> rowstage;
 };
 
 } // namespace asgard

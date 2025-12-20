@@ -42,6 +42,13 @@ struct source_entry
   std::array<std::vector<P>, max_num_dimensions> consts;
   //! index if lumped with other sources
   int ilump = -1;
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = val.size() * sizeof(P);
+    for (auto const &v : consts) t += v.size() * sizeof(P);
+    return t;
+  }
 };
 
 //! holds the data for an interpolatory source entry

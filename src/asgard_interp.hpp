@@ -457,6 +457,13 @@ public:
   }
   #endif
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = diag_h2w.used_bytes() + nodes1d_.size() * sizeof(P)
+              + nodes1d_.size() * sizeof(P);
+    return t + wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
+  }
+
 private:
   int num_dims = 0;
   int pdof = 0;

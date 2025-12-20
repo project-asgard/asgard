@@ -617,6 +617,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       if ((manager.high_verbosity() and duration > 2000) or (duration > 10000)) {
         manager.progress_report();
         wctime = tools::simple_timer::current_time();
+        manager.report_memusage();
       }
     }
 

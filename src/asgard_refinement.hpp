@@ -48,6 +48,11 @@ public:
   //! returns true if a refinement tolerance has been set
   operator bool() const { return (atol > 0 or rtol > 0); }
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    return stats.size() * sizeof(istatus) + weights.size() * sizeof(P);
+  }
+
 private:
   //! if no-refinement is set, the public method will have an inline if-statement
   void refine_(connection_patterns const &conns, term_manager<P> const &terms,

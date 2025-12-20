@@ -118,6 +118,14 @@ public:
   void load_interp(group_id group, interpolation_manager<P> const &interp,
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = raw_vals.used_bytes() + full_level.used_bytes() + interps.used_bytes();
+    t += poisson_raw_.size() * sizeof(P);
+    t += poisson_level_.size() * sizeof(P);
+    t += poisson_interp_.size() * sizeof(P);
+    return t;
+  }
 protected:
   //! set the new groups
   moment_manager(moments_list &&mlist_in,

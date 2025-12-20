@@ -505,6 +505,41 @@ void term_manager<P>::kron_diag(
   }
 }
 
+template<typename P>
+void term_manager<P>::print_bytes(std::ostream &os) const {
+  auto MB = [](size_t bytes) -> std::string {
+    std::string s = std::to_string(bytes / (1024 * 1024)) + "MB\n";
+    s.insert(0, 11 - s.size(), ' ');
+    return s;
+  };
+  size_t t = 0, c = 0;
+  for (auto const &s : mass) t += s.used_bytes();
+  for (auto const &s : lmass) t += s.used_bytes();
+  for (auto const &s : mass_forward) t += s.used_bytes();
+  os << "terms\n";
+  os << "  mass      " << MB(t);
+  c = t;
+  t = 0;
+  for (auto const &s : terms) t += s.used_bytes();
+  os << "  separable " << MB(t);
+  c += t;
+  t = 0;
+  for (auto const &s : sources) t += s.used_bytes();
+  os << "  sources   " << MB(t);
+  t = moms.used_bytes() + interp.used_bytes() + kwork.used_bytes();
+  os << "  moments   " << MB(moms.used_bytes());
+  os << "  interp    " << MB(interp.used_bytes());
+  os << "  kwork     " << MB(kwork.used_bytes());
+  c += t;
+  t = 0;
+  t += ifield.size() * sizeof(P);
+  t += t1.size() * sizeof(P) + t2.size() * sizeof(P);
+  t += it1.size() * sizeof(P) + it2.size() * sizeof(P);
+  t += swork.size() * sizeof(P) + sweights.size() * sizeof(P);
+  os << "  workspace " << MB(t);
+  os << "  total     " << MB(c);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template struct term_manager<double>;
 

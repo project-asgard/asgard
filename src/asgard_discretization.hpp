@@ -628,6 +628,9 @@ public:
   std::vector<precision> const &current_state_mpi() const { return state; }
   #endif
 
+  //! report memory usage by different componets
+  void report_memusage(std::ostream &os = std::cout) const;
+
   // performs integration in time
   friend bool advance_in_time<precision>(
       discretization_manager<precision> &disc, int64_t num_steps);
