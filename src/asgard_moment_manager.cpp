@@ -590,6 +590,15 @@ void moment_manager<P>::load_interp(
       make_nodal(id, interp, work, workspace);
 }
 
+template<typename P>
+size_t moment_manager<P>::used_bytes() const {
+  size_t t = raw_vals.used_bytes() + full_level.used_bytes() + interps.used_bytes();
+  t += poisson_raw_.size() * sizeof(P);
+  t += poisson_level_.size() * sizeof(P);
+  t += poisson_interp_.size() * sizeof(P);
+  return t;
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class moment_manager<double>;
 #endif

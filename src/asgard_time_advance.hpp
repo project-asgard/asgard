@@ -128,6 +128,8 @@ struct steady_state
     if (not solver.uses_inplace_solve())
       os << precon << '\n';
   }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 private:
   static time_method constexpr method = time_method::steady;
@@ -165,6 +167,8 @@ struct rungekutta
                  std::vector<P> &next) const;
   //! explicit solver and does not require a solver
   static bool constexpr needs_solver = false;
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 protected:
   // vector operations for various RK methods, performed only on the leader rank
@@ -247,6 +251,8 @@ struct crank_nicolson
     if (not solver.uses_inplace_solve())
       os << precon << '\n';
   }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 private:
   time_method method = time_method::cn;
@@ -303,6 +309,8 @@ struct imex_stepper
     if (not solver.uses_inplace_solve())
       os << precon1 << '\n';
   }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 private:
   //! fills into R the ode_rhs for the explicit part
@@ -430,6 +438,10 @@ struct time_advance_manager
   }
   //! returns true of the stepper is set to steady-state
   bool is_steady_state() const { return (method.index() == 0); }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const {
+    std::visit([&](auto const &v) { v.print_bytes(os); }, method);
+  }
 
   //! holds the common time-stepping parameters
   time_data data;

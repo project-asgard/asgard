@@ -5,6 +5,12 @@
 namespace asgard::time_advance
 {
 
+std::string toMB(size_t bytes) {
+  std::string s = std::to_string(bytes / (1024 * 1024)) + "MB\n";
+  s.insert(0, 11 - s.size(), ' ');
+  return s;
+};
+
 template<typename P>
 void steady_state<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -95,6 +101,14 @@ void steady_state<P>::next_step(
 
     disc.mpi_iteration_stop();
   }
+}
+
+template<typename P>
+void steady_state<P>::print_bytes(std::ostream &os) const {
+  os << "time-advance\n";
+  os << "  workspace " << toMB(work.size() * sizeof(P)) << '\n';
+  os << "  solver    " << toMB(solver.used_bytes()) << '\n';
+  os << "  precon    " << toMB(precon.used_bytes()) << '\n';
 }
 
 template<typename P>
@@ -221,6 +235,13 @@ void rungekutta<P>::next_step(
 }
 
 template<typename P>
+void rungekutta<P>::print_bytes(std::ostream &os) const {
+  size_t const t = k1.size() + k2.size() + k3.size() + k4.size() + s1.size();
+  os << "time-advance\n";
+  os << "  workspace " << toMB(t * sizeof(P)) << '\n';
+}
+
+template<typename P>
 void crank_nicolson<P>::set_rhs(discretization_manager<P> const &disc, P substep, P time, P dt,
                                 std::vector<P> const &current, std::vector<P> &rhs) const
 {
@@ -329,6 +350,14 @@ void crank_nicolson<P>::next_step(
 
     disc.mpi_iteration_stop();
   }
+}
+
+template<typename P>
+void crank_nicolson<P>::print_bytes(std::ostream &os) const {
+  os << "time-advance\n";
+  os << "  workspace " << toMB(work.size() * sizeof(P)) << '\n';
+  os << "  solver    " << toMB(solver.used_bytes()) << '\n';
+  os << "  precon    " << toMB(precon.used_bytes()) << '\n';
 }
 
 template<typename P>
@@ -449,6 +478,14 @@ void imex_stepper<P>::next_step(
 
   constexpr size_t stage1 = 1;
   implicit_solve(disc, stage1, time + dt, P{0.5} * dt, precon2, f, next);
+}
+
+template<typename P>
+void imex_stepper<P>::print_bytes(std::ostream &os) const {
+  os << "time-advance\n";
+  os << "  workspace " << toMB((f.size() + fs.size()) * sizeof(P)) << '\n';
+  os << "  solver    " << toMB(solver.used_bytes()) << '\n';
+  os << "  precon    " << toMB(precon1.used_bytes() + precon2.used_bytes()) << '\n';
 }
 
 }
@@ -617,7 +654,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       if ((manager.high_verbosity() and duration > 2000) or (duration > 10000)) {
         manager.progress_report();
         wctime = tools::simple_timer::current_time();
-        manager.report_memusage();
+        // manager.report_memusage();
       }
     }
 

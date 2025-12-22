@@ -256,6 +256,13 @@ void direct<P>::update(
 }
 
 template<typename P>
+size_t direct<P>::used_bytes() const {
+  size_t t = 0;
+  for (auto const &m : mats) t += m.dense_mat.used_bytes();
+  return t;
+}
+
+template<typename P>
 int bicgstab<P>::solve(
     operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const
 {
@@ -340,6 +347,12 @@ ASGARD_OMP_PARFOR_SIMD
   std::cerr << "Warning: ASGarD BiCGSTAB solver failed to converge within "
             << max_iter_ << " iterations.\n";
   return num_appy;
+}
+
+template<typename P>
+size_t bicgstab<P>::used_bytes() const {
+  size_t total = rref.size() + r.size() + p.size() + v.size() + t.size();
+  return total * sizeof(P);
 }
 
 #ifdef ASGARD_USE_GPU
@@ -505,6 +518,11 @@ int gmres<P>::solve(
   } // end outer iteration
 
   return num_appy;
+}
+
+template<typename P>
+size_t gmres<P>::used_bytes() const {
+  return (basis.size() + krylov_data.size()) * sizeof(P);
 }
 
 #ifdef ASGARD_USE_GPU

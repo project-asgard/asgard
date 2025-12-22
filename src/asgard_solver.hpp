@@ -156,6 +156,9 @@ public:
   //! set the number of stages
   void set_num_stages(size_t num) { num_stages = num; }
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const;
+
 private:
   //! returns the index for the given group
   size_t mat_index(group_id group, int stage) const {
@@ -245,6 +248,9 @@ public:
   mutable gpu::vector<P> prec_yb_gpu;
   #endif
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const;
+
 private:
   P tolerance_  = 0;
   int max_iter_ = 0;
@@ -307,6 +313,8 @@ public:
   int max_inner() const { return max_inner_; }
   //! returns the max-number of restarts
   int max_outer() const { return max_outer_; }
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const;
 
 private:
   P tolerance_   = 0;
@@ -391,6 +399,8 @@ public:
 
   //! set the number of stages
   void set_num_stages(size_t num) { num_stages = num; }
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const { return 0; }
 
 private:
   struct scales {
@@ -475,6 +485,13 @@ struct preconditioner_data {
   #ifdef ASGARD_USE_GPU
   gpu::vector<P> &gpu_jacobi() { return std::get<gpu::vector<P>>(gpu_data); }
   #endif
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    if (std::holds_alternative<std::vector<P>>(data))
+      return std::get<std::vector<P>>(data).size() * sizeof(P);
+    return 0;
+  }
 
   //! sparse grid generation
   int grid_gen = -1;
@@ -697,6 +714,13 @@ struct solver_manager
                solvers::bicgstab<P>,
                solvers::gmres<P>,
                solvers::scaled_identity<P>> var;
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    return std::visit([](auto const &v) -> size_t {
+        return v.used_bytes();
+      }, var);
+  }
 
   //! helper method, y = x + beta * y, compiles with OpenMP and SIMD
   static void xpby(std::vector<P> const &x, P beta, P y[]);

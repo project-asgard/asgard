@@ -144,7 +144,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   if (high_verbosity())
     progress_report();
 
-  if (not stop_verbosity()) report_memusage();
+  // if (not stop_verbosity()) report_memusage();
 }
 
 template<typename precision>
@@ -381,8 +381,8 @@ void discretization_manager<precision>::report_memusage(std::ostream &os) const 
   };
   os << "sparse grid " << MB(grid.used_bytes());
   os << "hierarchy   " << MB(hier.used_bytes());
-  //os << "terms       " << MB(terms.used_bytes());
   terms.print_bytes(os);
+  stepper.print_bytes(os);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

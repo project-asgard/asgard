@@ -335,6 +335,7 @@ public:
   //! calls save-snapshot for the final step, if requested with -outfile
   void save_final_snapshot() const
   {
+    // if (not stop_verbosity()) report_memusage();
     if (not options_.outfile.empty())
       save_snapshot(options_.outfile);
   }
