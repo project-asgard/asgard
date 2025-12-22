@@ -121,12 +121,17 @@ endif()
 # to configure the examples cmake file, so it needs to be a single string as opposed to a list
 # on the other hand, the additional internal (testing) PDEs are just a normal list
 set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic robin_bc sinwav two_stream vplb sod_shock burgers bgk")
+set (_asgard_gpu_pdes "burgers_gpu")
 set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal misc_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}") # save for examples configuration
 separate_arguments(_asgard_doc_pdes) # switch to list format for the documentation PDEs
 
+set (_asgard_gpu_pdes_str "${_asgard_gpu_pdes}") # save for examples configuration
+separate_arguments(_asgard_gpu_pdes)
+
 list(APPEND _asgard_pdes ${_asgard_doc_pdes})
+list(APPEND _asgard_pdes ${_asgard_gpu_pdes})
 list(APPEND _asgard_pdes ${_asgard_int_pdes})
 
 ###############################################################################
@@ -496,7 +501,6 @@ if (ASGARD_USE_ROCM)
     target_compile_features (libasgard PUBLIC hip_std_17)
 endif()
 
-
 #-------------------------------------------------------------------------------
 #  Define a asgard executables targets.
 #-------------------------------------------------------------------------------
@@ -511,12 +515,29 @@ target_link_libraries (asgard_exe PRIVATE libasgard)
 foreach (_asgexe IN LISTS _asgard_pdes)
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
-    if (${_asgexe} IN_LIST _asgard_doc_pdes)
+    if (${_asgexe} IN_LIST _asgard_doc_pdes OR ${_asgexe} IN_LIST _asgard_gpu_pdes)
         install(TARGETS ${_asgexe} RUNTIME DESTINATION "share/asgard/pde")
         install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp"
                 DESTINATION "share/asgard/examples")
     endif()
 endforeach()
+
+# GPU_COMPONENT and GPU_LAND are used to configure the examples CMakeLists
+# if the GPU is disable, those will be set to CUDA but will not be used since
+# the CUDA component will not be found, ROCM needs to change those to the right values
+set (__asgard_GPU_COMPONENT "asgard_CUDA_FOUND")
+set (__asgard_GPU_LANG "CUDA")
+if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
+    if (ASGARD_USE_ROCM)
+        set (__asgard_GPU_LANG "HIP") # using HIP
+        set (__asgard_GPU_COMPONENT "asgard_ROCM_FOUND")
+    endif()
+
+    foreach (_asgpde ${_asgard_gpu_pdes})
+        set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgpde}.cpp
+                                     PROPERTIES LANGUAGE ${__asgard_GPU_LANG})
+    endforeach()
+endif()
 
 #-------------------------------------------------------------------------------
 # Builds the documentation, must come after asgard target is defined
