@@ -75,6 +75,7 @@ set_property (CACHE ASGARD_PRECISIONS PROPERTY STRINGS "float" "double" "float\;
 
 option (ASGARD_USE_TIMER "Enable the builtin profiling tool" ON)
 option (ASGARD_FAST_FLAGS "Enable aggressive performance flags for this CPU, -mtune=native and -mfma" OFF)
+option (ASGARD_ALWAYS_SAFE_STEP "Always enable the '-safe-step' flag, detects problems early with negligible cost" ON)
 option (ASGARD_BUILD_DOCS "Build the documentation." OFF)
 
 option (ASGARD_USE_GITINFO "Optional read git properties and build them into the library" ON)
@@ -119,7 +120,7 @@ endif()
 # the documentation PDEs are going to be installed and the string will be used
 # to configure the examples cmake file, so it needs to be a single string as opposed to a list
 # on the other hand, the additional internal (testing) PDEs are just a normal list
-set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic robin_bc sinwav two_stream vplb sod_shock burgers")
+set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic robin_bc sinwav two_stream vplb sod_shock burgers bgk")
 set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal misc_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}") # save for examples configuration

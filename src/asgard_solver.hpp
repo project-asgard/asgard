@@ -8,9 +8,17 @@
 
 namespace asgard::solvers
 {
+/*!
+ * \internal
+ * \brief Boundary conditions for the Poisson solver
+ *
+ * \endinternal
+ */
 enum class poisson_bc
 {
+  //! Dirichlet, set left-right values
   dirichlet,
+  //! Periodic, implemented with zero-Dirichlet and removed average
   periodic
 };
 
@@ -112,27 +120,61 @@ class direct
 public:
   //! make a default, empty solver
   direct() = default;
-  //! build a dense solver for the system I + alpha * terms
-  direct(sparse_grid const &grid, connection_patterns const &conn,
-         term_manager<P> const &terms, P alpha)
-      : direct(group_id::all(), grid, conn, terms, alpha)
-  {}
-  //! builds a dense solver for a given term group
-  direct(group_id group, sparse_grid const &grid, connection_patterns const &conn,
-         term_manager<P> const &terms, P alpha);
 
-  //! inverts the stored matrix
-  void operator() (std::vector<P> &x) const
+  //! updates the matrix for the given group
+  void update(group_id group, size_t stage, sparse_grid const &grid,
+              connection_patterns const &conn,
+              term_manager<P> const &terms, P alpha);
+
+  void update(group_id group, sparse_grid const &grid,
+              connection_patterns const &conn,
+              term_manager<P> const &terms, P alpha)
   {
-    expect(dense_mat.is_factorized());
-    dense_mat.solve(x);
+    update(group, 0, grid, conn, terms, alpha);
   }
-  //! checks whether the solver has been set
-  operator bool () const { return dense_mat; }
+
+  //! returns the currently loaded grid generation
+  int grid_gen(group_id group, size_t stage) const {
+    size_t const idx = mat_index(group, stage);
+    if (idx < mats.size()) {
+      return mats[idx].grid_gen;
+    } else {
+      return -1; // no generation loaded, no matrix at all
+    }
+  }
+  //! returns the currently loaded grid generation, group_id::all() and stage 0
+  int grid_gen() const { return grid_gen(group_id::all(), 0); }
+  //! solves Ax = b
+  void operator() (group_id group, size_t stage, std::vector<P> &b) const {
+    size_t const idx = mat_index(group, stage);
+    expect(idx < mats.size());
+    mats[idx].dense_mat.solve(b);
+  }
+  //! solves Ax = b
+  void operator() (group_id group, std::vector<P> &b) const { (*this)(group, 0, b); }
+
+  //! set the number of stages
+  void set_num_stages(size_t num) { num_stages = num; }
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const;
 
 private:
-  //! holds the factor of the dense matrix
-  dense_matrix<P> dense_mat;
+  //! returns the index for the given group
+  size_t mat_index(group_id group, int stage) const {
+    return static_cast<size_t>((group() + 1) * num_stages + stage);
+  }
+  //! instance of a matrix for a given term generation
+  struct matrix_instance {
+    //! holds the sparse grid generation
+    int grid_gen = -1;
+    //! holds the factorized dense matrix
+    dense_matrix<P> dense_mat;
+  };
+  //! holds the number of stages, e.g., IMEX needs two matrices
+  size_t num_stages = 1;
+  //! holds the matrices for the different matrix terms
+  std::vector<matrix_instance> mats;
 };
 
 /*!
@@ -206,6 +248,9 @@ public:
   mutable gpu::vector<P> prec_yb_gpu;
   #endif
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const;
+
 private:
   P tolerance_  = 0;
   int max_iter_ = 0;
@@ -268,6 +313,8 @@ public:
   int max_inner() const { return max_inner_; }
   //! returns the max-number of restarts
   int max_outer() const { return max_outer_; }
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const;
 
 private:
   P tolerance_   = 0;
@@ -287,10 +334,174 @@ private:
   mutable P *krylov_sol  = nullptr;
 };
 
+/*!
+ * \internal
+ * \brief Specialized solver for problem with form nu * identity * f = rhs
+ *
+ * Certain PDEs, e.g., BGK, are using IMEX setup where the implicit solve
+ * uses a term of the form, nu * I * f = rhs.
+ * The solution in that case is trivial and does not need the extra overhead
+ * of the more sophisticated solvers.
+ * \endinternal
+ */
+template<typename P>
+class scaled_identity
+{
+public:
+  //! default constructor, nothing to do
+  scaled_identity() = default;
+  //! update the solver, i.e., recompute the scale
+  void update(group_id group, size_t stage, sparse_grid const &grid,
+              term_manager<P> const &terms, P alpha);
+  //! update the solver, i.e., recompute the scale, stage 0
+  void update(group_id group, sparse_grid const &grid, term_manager<P> const &terms, P alpha) {
+    update(group, 0, grid, terms, alpha);
+  }
+
+  //! returns the currently loaded grid generation
+  int grid_gen(group_id group, size_t stage) const {
+    size_t const idx = s_index(group, stage);
+    if (idx < scale_.size()) {
+      return scale_[idx].grid_gen;
+    } else {
+      return -1; // no generation loaded, no matrix at all
+    }
+  }
+  //! return the currently loaded grid generation for group_id::all() and stage 0
+  int grid_gen() const { return grid_gen(group_id::all(), 0); }
+
+  //! set the scale of the left-hand-side, solution is scaled by 1/alpha
+  void set_alpha(group_id group, size_t stage, P alpha) {
+    size_t const idx = s_index(group, stage);
+    if (scale_.size() <= idx) scale_.resize(idx + 1);
+    scale_[idx].value = P{1} / alpha;
+  }
+  //! set the scale of the left-hand-side, solution is scaled by 1/alpha
+  void set_alpha(P alpha) {
+    set_alpha(group_id::all(), 0, alpha);
+  }
+  //! returns the current scale
+  P scale(group_id group, size_t stage) const { return scale_[s_index(group, stage)].value; }
+  //! returns the current scale
+  P scale() const { return scale_[s_index(group_id::all(), 0)].value; }
+
+  //! solve for the given linear operators, right-hand-side and initial iterate
+  void operator() (std::vector<P> &x) const {
+    return (*this)(group_id::all(), 0, x);
+  }
+  //! solve for the given linear operators, right-hand-side and initial iterate
+  void operator() (group_id group, size_t stage, std::vector<P> &x) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! solve for the given linear operators, right-hand-side and initial iterate
+  void operator() (group_id group, size_t stage, gpu::vector<P> &x) const;
+  #endif
+
+  //! set the number of stages
+  void set_num_stages(size_t num) { num_stages = num; }
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const { return 0; }
+
+private:
+  struct scales {
+    P value = 0;
+    int grid_gen = -1;
+  };
+  //! returns the index for the given group
+  size_t s_index(group_id group, size_t stage) const {
+    return static_cast<size_t>((group() + 1) * num_stages + stage);
+  }
+  //! number of stored stages
+  size_t num_stages = 1;
+  //! scale factor
+  std::vector<scales> scale_;
+};
+
 } // namespace asgard::solvers
 
 namespace asgard
 {
+
+/*!
+ * \internal
+ * \brief Stores precondioner data
+ *
+ * Holds the variants for the precondioner.
+ * \endinternal
+ */
+template<typename P>
+struct preconditioner_data {
+  //! default constructor
+  preconditioner_data() = default;
+  //! set the method for the precondioner
+  preconditioner_data(precon_method precon) {
+    if (precon == precon_method::jacobi) {
+      data.template emplace<std::vector<P>>();
+      #ifdef ASGARD_USE_GPU
+      gpu_data.template emplace<gpu::vector<P>>();
+      #endif
+    }
+  }
+
+  //! returns the precondioner method
+  precon_method method() const { return static_cast<precon_method>(data.index()); }
+  //! extracts the precon_method
+  operator precon_method() const { return static_cast<precon_method>(data.index()); }
+  //! print the human-readable name of the precondioner
+  void print_method(std::ostream &os = std::cout) const {
+    switch(method()) {
+      case precon_method::none:
+        os << "  no preconditioner";
+        break;
+      case precon_method::jacobi:
+        os << "   jacobi diagonal preconditioner";
+        break;
+      default:
+        os << "unknown"; // should never happen
+        break;
+    }
+  }
+  /*!
+   * \internal
+   * \brief Write the preconditioner name to a stream
+   *
+   * \endinternal
+   */
+  friend std::ostream &operator<<(std::ostream &os, preconditioner_data<P> const &precon) {
+    precon.print_method(os);
+    return os;
+  }
+
+  //! indicates whether the precondioner is set to none
+  operator bool () const { return not std::holds_alternative<std::monostate>(data); }
+
+  //! indicates whether the precondioner is valid for this sparse grid
+  bool valid_for(sparse_grid const &grid) const {
+    return (std::holds_alternative<std::monostate>(data) or grid_gen == grid.generation());
+  }
+
+  //! returns the data for the Jacobi precondioner
+  std::vector<P> &jacobi() { return std::get<std::vector<P>>(data); }
+  #ifdef ASGARD_USE_GPU
+  gpu::vector<P> &gpu_jacobi() { return std::get<gpu::vector<P>>(gpu_data); }
+  #endif
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    if (std::holds_alternative<std::vector<P>>(data))
+      return std::get<std::vector<P>>(data).size() * sizeof(P);
+    return 0;
+  }
+
+  //! sparse grid generation
+  int grid_gen = -1;
+  //! holds the cpu data for the precondioner
+  std::variant<std::monostate, std::vector<P>> data = std::monostate{};
+  #ifdef ASGARD_USE_GPU
+  // holds the gpu data for the precondioner
+  std::variant<std::monostate, gpu::vector<P>> gpu_data = std::monostate{};
+  #endif
+};
 
 /*!
  * \internal
@@ -313,7 +524,7 @@ struct solver_manager
             "'-sv direct' or '-sv gmres -ist 1.E-6 -isi 300 -isn 50 "
             "see --help for list of available solvers");
 
-    opt = options.solver.value();
+    solver_method opt = options.solver.value();
 
     switch (opt) {
       case solver_method::direct:
@@ -326,7 +537,6 @@ struct solver_manager
                 "missing number of iterations for the iterative solver bicgstab");
         var = solvers::bicgstab<P>(options.isolver_tolerance.value(),
                                    options.isolver_iterations.value());
-        precon = options.precon.value_or(precon_method::none);
         break;
       case solver_method::gmres:
         rassert(options.isolver_tolerance,
@@ -338,17 +548,41 @@ struct solver_manager
         var = solvers::gmres<P>(options.isolver_tolerance.value(),
                                 options.isolver_inner_iterations.value(),
                                 options.isolver_iterations.value());
-        precon = options.precon.value_or(precon_method::none);
+        break;
+      case solver_method::scaled_identity:
+        var = solvers::scaled_identity<P>{};
         break;
       default: // unreachable
         break;
     }
   }
 
+  //! for multi-stage solves, e.g., IMEX-2, set the number of stages
+  void set_num_stages(size_t num) {
+    if (method() == solver_method::direct)
+      std::get<solvers::direct<P>>(var).set_num_stages(num);
+  }
+
+  //! returns true if the solver is one-shot in-place, i.e., direct or scaled_identity
+  bool uses_inplace_solve() const {
+    solver_method const m = method();
+    return (m == solver_method::direct or m == solver_method::scaled_identity);
+  }
+
   //! direct solver only, just call the matrix inversion method
-  void direct_solve(std::vector<P> &x) {
-    expect(opt == solver_method::direct);
-    std::get<solvers::direct<P>>(var)(x);
+  void solve_inplace(std::vector<P> &x) {
+    if (method() == solver_method::direct)
+      std::get<solvers::direct<P>>(var)(group_id::all(), 0, x);
+    else
+      std::get<solvers::scaled_identity<P>>(var)(group_id::all(), 0, x);
+
+  }
+  //! direct solver only, just call the matrix inversion method
+  void solve_inplace(group_id group, size_t stage, std::vector<P> &x) {
+    if (method() == solver_method::direct)
+      std::get<solvers::direct<P>>(var)(group, stage, x);
+    else
+      std::get<solvers::scaled_identity<P>>(var)(group, stage, x);
   }
 
   //! iterative solver, calls the appropriate iterative solver
@@ -363,8 +597,7 @@ struct solver_manager
                      solvers::operatoin_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x) const
   {
-    expect(opt != solver_method::direct);
-    if (opt == solver_method::bicgstab) {
+    if (method() == solver_method::bicgstab) {
       if (prec) {
         solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
 
@@ -405,8 +638,7 @@ struct solver_manager
                      solvers::operatoin_apply_lhs<P> apply_lhs,
                      gpu::vector<P> const &rhs, gpu::vector<P> &x) const
   {
-    expect(opt != solver_method::direct);
-    if (opt == solver_method::bicgstab) {
+    if (method() == solver_method::bicgstab) {
       if (prec) {
         solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
 
@@ -449,14 +681,16 @@ struct solver_manager
   //! updates the internals for the current grid generation
   void update_grid(sparse_grid const &grid,
                    connection_patterns const &conn,
-                   term_manager<P> const &terms, P alpha)
+                   term_manager<P> const &terms, P alpha,
+                   preconditioner_data<P> &precon)
   {
-    update_grid(group_id::all(), grid, conn, terms, alpha);
+    update_grid(group_id::all(), 0, grid, conn, terms, alpha, precon);
   }
   //! updates the internals for the current grid generation
-  void update_grid(group_id groupid, sparse_grid const &grid,
+  void update_grid(group_id groupid, size_t stage, sparse_grid const &grid,
                    connection_patterns const &conn,
-                   term_manager<P> const &terms, P alpha);
+                   term_manager<P> const &terms, P alpha,
+                   preconditioner_data<P> &precon);
 
   //! write the solver options in human-readable format
   void print_opts(std::ostream &os) const;
@@ -470,23 +704,23 @@ struct solver_manager
     solver.print_opts(os);
     return os;
   }
+  //! get the currently set method
+  solver_method method() const { return static_cast<solver_method>(var.index()); }
 
-  //! selected solver
-  solver_method opt = solver_method::direct;
-  //! selected solver
-  precon_method precon = precon_method::none;
   //! remember the total mat-vec products
   mutable int64_t num_apply = 0;
-  //! remembers the generation of the grid that was used to last set the manager
-  int grid_gen = -1;
   //! holds the actual solver instance
-  std::variant<solvers::direct<P>, solvers::gmres<P>, solvers::bicgstab<P>> var;
-  //! holds data for the jacobi preconditioner
-  std::vector<P> jacobi;
-  #ifdef ASGARD_USE_GPU
-  //! holds data for the jacobi preconditioner on the GPU
-  gpu::vector<P> jacobi_gpu;
-  #endif
+  std::variant<solvers::direct<P>,
+               solvers::bicgstab<P>,
+               solvers::gmres<P>,
+               solvers::scaled_identity<P>> var;
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    return std::visit([](auto const &v) -> size_t {
+        return v.used_bytes();
+      }, var);
+  }
 
   //! helper method, y = x + beta * y, compiles with OpenMP and SIMD
   static void xpby(std::vector<P> const &x, P beta, P y[]);

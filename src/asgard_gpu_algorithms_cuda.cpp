@@ -99,6 +99,22 @@ void axpby(int64_t num, P alpha, P const x[], P beta, P y[]) {
     kernel_axpby<P, max_threads><<<num_blocks, max_threads>>>(num, alpha, x, beta, y);
 }
 
+template<typename P, int num_threads>
+__global__ void kernel_setscal(int64_t num, P alpha, P x[])
+{
+  int i = threadIdx.x + blockIdx.x * num_threads;
+  while (i < num) {
+    x[i] = alpha * x[i];
+    i += num_threads * gridDim.x;
+  }
+}
+
+template<typename P>
+void set_scal(int64_t num, P alpha, P x[]) {
+  constexpr int max_threads = 1024;
+  int const num_blocks = round_up(num, max_threads);
+  kernel_setscal<P, max_threads><<<num_blocks, max_threads>>>(num, alpha, x);
+}
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
@@ -109,7 +125,7 @@ template void compute_last_bicgstab<double>(double, double, gpu::vector<double> 
 
 template void xpby(gpu::vector<double> const &x, double beta, double y[]);
 template void axpby(int64_t, double, double const[], double, double[]);
-
+template void set_scal(int64_t, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -121,6 +137,6 @@ template void compute_last_bicgstab<float>(float, float, gpu::vector<float> cons
 
 template void xpby(gpu::vector<float> const &x, float beta, float y[]);
 template void axpby(int64_t, float, float const[], float, float[]);
-
+template void set_scal(int64_t, float, float[]);
 #endif
 }

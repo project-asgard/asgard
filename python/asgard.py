@@ -55,8 +55,8 @@ class pde_snapshot:
 
     def __init__(self, filename, verbose = False):
         self.verbose = verbose
+        self.recsol  = None
         if filename == "::aux-filed":
-            self.recsol = None
             return
 
         if self.verbose:
@@ -71,6 +71,7 @@ class pde_snapshot:
 
             self.degree = fdata['degree'][()]
             self.state  = fdata['state'][()]
+            assert np.isfinite(self.state).any(), "The state file is corrupt, contains 'inf' and/or 'nan'"
 
             self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
@@ -144,7 +145,6 @@ class pde_snapshot:
 
             print('number of sparse grid cells: %d' % self.num_cells)
 
-        self.recsol = None
         if self.state.dtype == np.float64:
             self.double_precision = True
             self.recsol = libasgard.asgard_make_dreconstruct_solution(
@@ -155,6 +155,8 @@ class pde_snapshot:
             self.recsol = libasgard.asgard_make_freconstruct_solution(
                 self.num_dimensions, self.num_cells, np.ctypeslib.as_ctypes(self.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(self.state.reshape(-1,)))
+
+        assert self.recsol is not None, "could not load the reconstrct file, encountered some C++ error"
 
         libasgard.asgard_reconstruct_solution_setbounds(self.recsol,
                                                         np.ctypeslib.as_ctypes(self.dimension_min.reshape(-1,)),
@@ -491,6 +493,8 @@ def plot_with_args(argv = None):
         print(" -view                       : adjust the view plane")
         print(" -fig                        : figure name to save to file")
         print(" -aux                        : auxilary field id")
+        print(" -mom                        : plot a moment, must be pre-registered in the pde-scheme")
+        print('                               the format is -mom "0 1" or -mom "0:1" ')
         print("")
         print("no file and no option provided, shows the version of the")
         print("")
@@ -560,8 +564,11 @@ def plot_with_args(argv = None):
                     assert auxfield is None, "cannot simultaneously plot aux field and moment"
                     moment = argv[i + 1] if i + 1 < n else None
                     i += 2
-                    assert moment is not None, "-mom requires an filed number"
-                    lpows = moment.split(" ")
+                    assert moment is not None, '-mom requires an index, e.g., -mom "0 1" or -mom "0:1" '
+                    if ':' in moment:
+                        lpows = moment.split(":")
+                    else:
+                        lpows = moment.split(" ")
                     moment = [int(p) for p in lpows]
                 elif argv[i] == "-grid" or argv[i] == "-g":
                     addgrid = True

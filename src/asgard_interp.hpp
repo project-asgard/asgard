@@ -254,14 +254,15 @@ public:
    * workspace with size equal to the state.
    * The names t1/t2 come because this sues term_manager scratch space for working with chains
    */
+  template<typename tmd_type>
   void operator ()
-      (sparse_grid const &grid, connection_patterns const &conn, P time,
-       P alpha, md_func<P> const &func, P beta, P y[],
+      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
+       P time, P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
   {
     {
       tools::time_event perf_("interpolation eval");
-      func(time, nodes(grid), t1);
+      func(time, nodes(grid), moments, t1);
     }
     nodal2wav(grid, conn, alpha, t1.data(), beta, y, work, t2);
   }
@@ -270,16 +271,17 @@ public:
    *
    * Vector variant
    */
+  template<typename tmd_type>
   void operator ()
-      (sparse_grid const &grid, connection_patterns const &conn, P time,
-       P alpha, md_func<P> const &func, P beta, std::vector<P> &y,
+      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
+       P time, P alpha, tmd_type const &func, P beta, std::vector<P> &y,
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
   {
     if (beta == 0)
       y.resize(t1.size());
     else
       expect(y.size() == t1.size());
-    (*this)(grid, conn, time, alpha, func, beta, y.data(), work, t1, t2);
+    (*this)(grid, conn, moments, time, alpha, func, beta, y.data(), work, t1, t2);
   }
 
   //! indicates whether the manager has been initialized
@@ -437,22 +439,30 @@ public:
    * In this context, the kronmult work is done on the GPU
    * but the function evaluation is done on the CPU side.
    */
+  template<typename tmd_type>
   void operator ()
       (gpu::device dev, sparse_grid const &grid,
-       connection_patterns const &conn, P time,
-       P alpha, md_func<P> const &func, P beta, P y[],
+       connection_patterns const &conn, momentset<P> const &moments, P time,
+       P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work,
        std::vector<P> &t1,
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
   {
     {
       tools::time_event perf_("source function");
-      func(time, nodes(grid), t1);
+      func(time, nodes(grid), moments, t1);
     }
     gpu_t1 = t1;
     nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
   }
   #endif
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = diag_h2w.used_bytes() + nodes1d_.size() * sizeof(P)
+              + nodes1d_.size() * sizeof(P);
+    return t + wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
+  }
 
 private:
   int num_dims = 0;

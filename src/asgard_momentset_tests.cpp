@@ -4,6 +4,10 @@ using namespace asgard;
 
 void test_moment() {
   current_test name_("create/compare moments");
+
+  static_assert(max_mom_dims <= max_num_dimensions,
+                "cannot have more moments than dimensions");
+
   tassert(moment(-1).num_dims() == 0);
   tassert(moment(0).num_dims() == 1);
   tassert(moment(0, 2).num_dims() == 2);

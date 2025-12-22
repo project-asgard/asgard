@@ -131,16 +131,22 @@ Options          Short   Value      Description
                                     Final time for integration (v2 pdes only)
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
 -dt                      double     Fixed time step to use (must be positive).
+-safe-step       -sstep  -          Checks every time step and if it contains inf or nan
+                                    then the time-advance method will not accept the step
+                                    and the time_advance() method will exit with 'false' flag.
+                                    This is can be disabled for performance reasons.
+-memusage        -mem    -          On every information step will print verbose memory usage.
 
 <<< i/o options >>>
 -restart                 filename   Wavelet output file to restart the simulation.
 -outfile         -of     filename   File to write the last step of the simulation.
 
 <<< solvers and linear algebra options >>>
--solver          -sv     string     accepts: direct/gmres/bicgstab (implicit/imex methods only)
+-solver          -sv     string     accepts: direct/gmres/bicgstab/scal (implicit/imex methods only)
                                     Direct: use LAPACK, expensive but stable.
                                     GMRES: general but sensitive to restart selection.
                                     bicgstab: cheaper (per-iteration) alternative to GMRES
+                                    scal: special case, the matrix is scaled identity
 -precon          -pc     string     accepts: none/jacobi (iterative solvers only)
                                     specifies the preconditioner for the iterative method
                                     none - is not advisable as it takes too long
@@ -166,6 +172,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-title", optentry::title},
       {"-subtitle", optentry::subtitle},
       {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
+      {"-safe-step", optentry::safe_step}, {"-sstep", optentry::safe_step},
+      {"-memusage", optentry::memusage}, {"-mem", optentry::memusage},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
@@ -435,6 +443,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         solver = solver_method::gmres;
       else if (*selected == "bicgstab")
         solver = solver_method::bicgstab;
+      else if (*selected == "scal")
+        solver = solver_method::scaled_identity;
       else
         throw std::runtime_error(report_wrong_value());
     }
@@ -528,6 +538,12 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       else
         throw std::runtime_error(report_wrong_value());
     }
+    break;
+    case optentry::safe_step:
+      safe_step = true;
+    break;
+    case optentry::memusage:
+      show_memusage = true;
     break;
     };
   }
@@ -709,6 +725,11 @@ void prog_opts::print_version_help(std::ostream &os)
 #endif
 #else
   os << "Available precision      float\n";
+#endif
+#ifdef ASGARD_ALWAYS_SAFE_STEP
+  os << "Always check inf/nan     Enabled\n";
+#else
+  os << "Sanity check inf/nan     Optional\n";
 #endif
   os << '\n';
 }

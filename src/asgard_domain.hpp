@@ -65,6 +65,20 @@ struct velocity_dims {
   //! holds the number of position dimensions
   int const num;
 };
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Strong-type, usage separable_func<double> func; func.set(dimension_id{2}, val);
+ */
+struct dimension_id {
+  //! do not create an empty dimension id
+  dimension_id() = delete;
+  //! set the index dimension
+  explicit dimension_id(int n) : id(n) {}
+  //! holds the id of the position dimensions
+  int const id;
+  //! returns the index with a simple call
+  int operator()() const { return id; }
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -376,21 +390,21 @@ public:
   //! returns the i-th domain function
   svector_func1d<P> const &fdomain(int i) const { return std::get<2>(funcs_[i]); }
   //! returns the i-th constant function
-  P cdomain(int i) const { return std::get<1>(funcs_[i]); }
+  P cdomain(dimension_id id) const { return std::get<1>(funcs_[id()]); }
   //! set the i-th function to f
-  void set(int i, svector_func1d<P> f) {
-    funcs_[i] = std::move(f);
+  void set(dimension_id id, svector_func1d<P> f) {
+    funcs_[id()] = std::move(f);
   }
   //! sets the i-th function to a constant function
-  void set(int i, P c) {
-    funcs_[i] = c;
+  void set(dimension_id id, P c) {
+    funcs_[id()] = c;
   }
   //! applies the i-th domain function on x and return the result in y
-  void fdomain(int i, std::vector<P> const &x, P t, std::vector<P> &y) const {
-    return std::get<2>(funcs_[i])(x, t, y);
+  void fdomain(dimension_id id, std::vector<P> const &x, P t, std::vector<P> &y) const {
+    return std::get<2>(funcs_[id()])(x, t, y);
   }
   //! check if the given dimension is constant
-  bool is_const(int dim) const { return (funcs_[dim].index() == 1); }
+  bool is_const(dimension_id dim) const { return (funcs_[dim()].index() == 1); }
 
   //! returns the time function
   scalar_func<P> const &ftime() const { return time_func_; }
@@ -453,7 +467,7 @@ public:
   }
 
 private:
-  using func_entry = std::variant<int, P, svector_func1d<P>>;
+  using func_entry = std::variant<std::monostate, P, svector_func1d<P>>;
 
   bool ignores_time_ = false;
   std::array<func_entry, max_num_dimensions> funcs_;

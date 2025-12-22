@@ -19,7 +19,7 @@
  * \par Sod shock tube problem
  * Solves the Sod shock problem
  *
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) =
+ * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) =
  *  \mathcal{C}_{LB}[f](x, v, t) \f]
  * where the Lenard Bernstein collision operator is the same as defined in equations
  * (2.1) - (2.6) in <a href="https://arxiv.org/pdf/2402.06493">Schnake, et al.</a>
@@ -303,9 +303,9 @@ int main(int argc, char** argv)
   int const stride = static_cast<int>(0.1 / disc.dt());
 
   // look over the entries and save multiple snapshots
-  while (disc.remaining_steps() > 0)
+  while (disc.remaining_steps() > 0
+         and disc.advance_time(stride))
   {
-    disc.advance_time(stride);
     disc.progress_report();
     disc.add_aux_field({"smapshot time = " + std::to_string(disc.time()),
                         disc.current_state()});

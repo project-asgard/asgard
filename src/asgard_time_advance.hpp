@@ -72,9 +72,12 @@ struct sources_scale {
  * The optional variable num_steps indicates the number of time steps to take:
  * - if zero, the method will return immediately,
  * - if negative, integration will continue until the final time step
+ *
+ * If running with safe-step enabled, then the method will yield true/false
+ * on success/failure respectively.
  */
 template<typename P> // implemented in time-advance
-void advance_in_time(discretization_manager<P> &manager, int64_t num_steps = -1);
+bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps = -1);
 
 } // namespace asgard
 
@@ -104,7 +107,7 @@ struct steady_state
   steady_state() = default;
   //! Initialize the stepper and
   steady_state(prog_opts const &options)
-    : solver(options)
+    : solver(options), precon(options.precon.value_or(precon_method::none))
   {
     expect(options.step_method.value() == method);
   }
@@ -115,19 +118,24 @@ struct steady_state
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  precon_method needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return precon.method(); }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
+    if (not solver.uses_inplace_solve())
+      os << precon << '\n';
   }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 private:
   static time_method constexpr method = time_method::steady;
   // the solver used
   mutable solver_manager<P> solver;
+  mutable preconditioner_data<P> precon;
   // workspace (rhs)
   mutable std::vector<P> work;
   #ifdef ASGARD_USE_GPU
@@ -159,6 +167,8 @@ struct rungekutta
                  std::vector<P> &next) const;
   //! explicit solver and does not require a solver
   static bool constexpr needs_solver = false;
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 protected:
   // vector operations for various RK methods, performed only on the leader rank
@@ -214,7 +224,8 @@ struct crank_nicolson
   crank_nicolson() = default;
   //! Initialize the stepper and
   crank_nicolson(prog_opts const &options)
-      : method(options.step_method.value()), solver(options)
+      : method(options.step_method.value()), solver(options),
+        precon(options.precon.value_or(precon_method::none))
   {
     expect(method == time_method::cn or
            method == time_method::back_euler);
@@ -230,19 +241,25 @@ struct crank_nicolson
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  precon_method needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return precon.method(); }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
+    if (not solver.uses_inplace_solve())
+      os << precon << '\n';
   }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 private:
   time_method method = time_method::cn;
   // the solver used
   mutable solver_manager<P> solver;
+  // the preconditioner being used
+  mutable preconditioner_data<P> precon;
   // workspace
   mutable std::vector<P> work;
 
@@ -267,9 +284,13 @@ struct imex_stepper
   //! Initialize the stepper and
   imex_stepper(prog_opts const &options, imex_implicit_group im, imex_explicit_group ex)
       : method(options.step_method.value()), solver(options),
+        precon1(options.precon.value_or(precon_method::none)),
+        precon2(options.precon.value_or(precon_method::none)),
         imex_implicit(im), imex_explicit(ex)
   {
     expect(is_imex(method));
+    if (method != time_method::imex1)
+      solver.set_num_stages(2);
   }
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -278,23 +299,31 @@ struct imex_stepper
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
-  precon_method needed_precon() const { return solver.precon; }
+  precon_method needed_precon() const { return precon1. method(); }
   //! returns the number of matrix-vector products, if using an iterative solver
   int64_t num_apply_calls() const { return solver.num_apply; }
 
   //! prints options for the solver
   void print_solver_opts(std::ostream &os = std::cout) const {
     os << solver;
+    if (not solver.uses_inplace_solve())
+      os << precon1 << '\n';
   }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const;
 
 private:
   //! fills into R the ode_rhs for the explicit part
-  void implicit_solve(discretization_manager<P> const &disc, P time, P dt,
+  void implicit_solve(discretization_manager<P> const &disc, size_t stage,
+                      P time, P dt, preconditioner_data<P> &precon,
                       std::vector<P> &current, std::vector<P> &R) const;
 
   time_method method = time_method::imex2;
   // the solver used
   mutable solver_manager<P> solver;
+  // preconditioners
+  mutable preconditioner_data<P> precon1;
+  mutable preconditioner_data<P> precon2; // only for 2-stage IMEX
   // implicit and explicit groups
   imex_implicit_group imex_implicit;
   imex_explicit_group imex_explicit;
@@ -409,6 +438,10 @@ struct time_advance_manager
   }
   //! returns true of the stepper is set to steady-state
   bool is_steady_state() const { return (method.index() == 0); }
+  //! prints the total memory used
+  void print_bytes(std::ostream &os = std::cout) const {
+    std::visit([&](auto const &v) { v.print_bytes(os); }, method);
+  }
 
   //! holds the common time-stepping parameters
   time_data data;

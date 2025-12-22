@@ -187,12 +187,12 @@ void hierarchy_manipulator<P>::project_separable(
   int const num_dims = grid.num_dims();
   for (int d : iindexof(num_dims))
   {
-    if (sep.is_const(d)) {
-      project1d_c(sep.cdomain(d), mass[d], d, grid.current_level(d), pf[d]);
+    if (sep.is_const(dimension_id{d})) {
+      project1d_c(sep.cdomain(dimension_id{d}), mass[d], d, grid.current_level(d), pf[d]);
     } else {
       project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
           -> void {
-        sep.fdomain(d, x, time, fx);
+        sep.fdomain(dimension_id{d}, x, time, fx);
       }, mass[d], d, grid.current_level(d), pf[d]);
     }
   }

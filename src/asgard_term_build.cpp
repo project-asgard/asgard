@@ -174,7 +174,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         bcs.back().tmode = boundary_entry<P>::time_mode::constant;
       } else {
         if (bcs.back().flux.func_.ftime()) {
-          if (bcs.back().flux.func_.cdomain(fdim) == 0) {
+          if (bcs.back().flux.func_.cdomain(dimension_id{fdim}) == 0) {
             bcs_have_time_dep = true;
             bcs.back().tmode  = boundary_entry<P>::time_mode::time_dependent;
             for (int d : iindexof(num_dims)) {
@@ -226,19 +226,22 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       // using constant entry
       if (s.ignores_time()) {
         sources.emplace_back(source_entry<P>::time_mode::constant);
-        sources.back().func = 0; // no need for a func
+        sources.back().func = std::monostate{}; // no need for a func
       } else {
         sources.emplace_back(source_entry<P>::time_mode::separable);
         sources.back().func = s.ftime();
       }
 
       for (int d : iindexof(num_dims)) {
-        if (s.is_const(d)) {
+        if (s.is_const(dimension_id{d})) {
           sources.back().consts[d]
-              = hier.get_project1d_c(s.cdomain(d), mass[d], d, max_level);
+              = hier.get_project1d_c(s.cdomain(dimension_id{d}), mass[d], d, max_level);
         } else {
           sources.back().consts[d] = hier.get_project1d_f(
-              [&](std::vector<P> const &x, std::vector<P> &y)-> void { s.fdomain(d, x, 0, y); },
+              [&](std::vector<P> const &x, std::vector<P> &y)->
+                void {
+                  s.fdomain(dimension_id{d}, x, 0, y);
+                },
               mass[d], d, max_level);
         }
       }
@@ -327,7 +330,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           // i.e., this is the first link in the chain
           t.interplan.use_field();
         }
-        if (t.tmd.interp_mom()) {
+        if (t.tmd.is_interp_mom()) {
           t.interplan.use_moments();
         }
       }
@@ -357,6 +360,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     std::vector<moment_id> interp_moments;
     regular_moments.reserve(250); // should be more than enough, not a big deal otherwise
     bool has_poisson = false;
+    bool has_sep_mom = false;
     for (auto const &tentry : terms) {
       #ifdef ASGARD_USE_MPI
       if (not resources.owns(tentry.rec))
@@ -367,6 +371,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         for (int d : iindexof(num_dims)) {
           auto const &mids = tentry.tmd.dim(d).mids_;
           if (not mids.empty()) {
+            has_sep_mom = true;
             regular_moments.insert(regular_moments.end(), mids.begin(), mids.end());
           }
         }
@@ -374,7 +379,21 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         auto const &mids = tentry.tmd.mids_;
         interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
       }
-    }{
+    }
+    for (auto const &src : sources_md) {
+      #ifdef ASGARD_USE_MPI
+      if (not src.is_moment() or not resources.owns(src.rec))
+        continue;
+      #else
+      if (not src.is_moment())
+        continue;
+      #endif
+      auto const &mids = src.get_mom_md().mids_;
+      interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
+    }
+    {
+      // moments that were pushed to other MPI ranks should be "downgraded"
+      // potentially to being inactive
       auto comp_id  = [](moment_id id1, moment_id id2) -> bool { return (id1() < id2()); };
       auto match_id = [](moment_id id1, moment_id id2) -> bool { return (id1() == id2()); };
 
@@ -418,6 +437,33 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         }
         if (needs)
           has_poisson_[gid] = needs;
+      }
+    }
+    // There is a catch here. The has_poisson() logic is used to determine whether we need
+    // to have a local Poisson solve and whether to update any Poisson terms at all.
+    // The has_sep_moments() logic is used to determine when any of the terms change
+    // which would require updating the preconditioner even if the sparse grid is unchanged.
+    // Thus, the Poisson logic considers separable and non-separable terms and excludes terms
+    // no associated with this MPI rank, while the sep-mom logic considers only separable terms
+    // but disregards MPI, since building the preconditioner is a global MPI operation.
+    if (has_sep_mom) {
+      if (term_groups.empty())
+        has_sep_moments_.resize(1, true);
+      else
+        has_sep_moments_.resize(term_groups.size(), false); // will process groups below
+    }
+    if (not term_groups.empty()) {
+      // for each group, look for separable term that has moment dependence
+      for (int gid : iindexof(term_groups)) {
+        for (int tid : indexrange(term_groups[gid])) {
+          if (terms[tid].is_separable()) {
+            for (int d : iindexof(num_dims))
+              if (terms[tid].tmd.dim(d).depends() != term_dependence::none) {
+                has_sep_moments_[gid] = true;
+                break;
+              }
+          }
+        }
       }
     }
   }
@@ -741,7 +787,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
-          P const fc = bentry.flux.func().cdomain(d);
+          P const fc = bentry.flux.func().cdomain(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, - rhs_left * scale, basis.leg_left, bentry.consts[d].data());
@@ -756,7 +802,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
 
-          P const fc = bentry.flux.func().cdomain(d);
+          P const fc = bentry.flux.func().cdomain(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, rhs_right * scale, basis.leg_right,
@@ -776,25 +822,25 @@ void term_manager<P>::build_raw_mat(
 
         P const dsqr = std::sqrt(xright[d] - xleft[d]);
 
-        if (bentry.flux.func().is_const(d)) {
+        if (bentry.flux.func().is_const(dimension_id{d})) {
           if (t1d.rhs()) { // constant times spatially variable
             bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr,
-                                             bentry.flux.func().cdomain(d), raw_rhs.vals);
+                                             bentry.flux.func().cdomain(dimension_id{d}), raw_rhs.vals);
           } else { // constant times a constant
             P const rconst = (t1d.is_identity()) ? 1 : t1d.rhs_const();
             bentry.consts[d] = basis.project(level, dsqr,
-                                             bentry.flux.func().cdomain(d) * rconst);
+                                             bentry.flux.func().cdomain(dimension_id{d}) * rconst);
           }
         } else {
           if (t1d.rhs()) { // product of non-consts
             std::vector<P> f(raw_rhs.pnts.size());
-            bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, f);
+            bentry.flux.func().fdomain(dimension_id{d}, raw_rhs.pnts, 0, f);
             bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr, f, raw_rhs.vals);
           } else {
             // need function values, rhs is a constant
             basis.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
             raw_rhs.vals.resize(raw_rhs.pnts.size());
-            bentry.flux.func().fdomain(d, raw_rhs.pnts, 0, raw_rhs.vals);
+            bentry.flux.func().fdomain(dimension_id{d}, raw_rhs.pnts, 0, raw_rhs.vals);
             bool constexpr use_interior = true;
             bentry.consts[d] = basis.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
           }
@@ -987,7 +1033,7 @@ void term_manager<P>::rebuld_chain(
     P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
 
     if (bentry.flux.is_left()) {
-      P const fc = bentry.flux.func().cdomain(d);
+      P const fc = bentry.flux.func().cdomain(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, -scale, basis.leg_left, dest);
       } else {
@@ -996,7 +1042,7 @@ void term_manager<P>::rebuld_chain(
     }
 
     if (bentry.flux.is_right()) {
-      P const fc = bentry.flux.func().cdomain(d);
+      P const fc = bentry.flux.func().cdomain(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, scale, basis.leg_right, dest + num_entries - pdof);
       } else {
@@ -1126,12 +1172,12 @@ void term_manager<P>::assign_compute_resources()
         for (int i : iindexof(sources_md)) {
           if (mode == balance_mode::gpus and not resources.owns(sources_md[i].rec))
             continue;
-          if (sources_md[i].func)
+          if (sources_md[i])
             work.emplace_back(interp_src, -i - 1); // negative id for interp-sources
         }
       } else {
         if ((mode == balance_mode::mpi_ranks or resources.owns(sources_md[gid].rec))
-            and sources_md[gid].func)
+            and sources_md[gid])
           work.emplace_back(interp_src, -gid - 1);
       }
 
@@ -1268,7 +1314,7 @@ void term_manager<P>::assign_compute_resources()
     if (resources.owns(s.rec))
       has_sources = true;
   for (auto const &s : sources_md)
-    if (s.func and resources.owns(s.rec))
+    if (!!s and resources.owns(s.rec))
       has_sources = true;
 
   if (not terms.empty() and resources.num_ranks() > 1 and not has_terms_ and not has_sources) {

@@ -10,7 +10,7 @@ refinement_manager<P>::refinement_manager(prog_opts const &options, pde_scheme<P
     atol = static_cast<P>(options.adapt_threshold.value_or(0));
     rtol = static_cast<P>(options.adapt_relative.value_or(0));
 
-    weights_ = interp_weights{std::move(pde.ref_interp_), std::move(pde.ref_interp_mom_)};
+    weights_.interp_ = std::move(pde.ref_interp_);
 
     moments_ = std::move(pde.ref_moments_);
 
@@ -96,14 +96,14 @@ void refinement_manager<P>::refine_(
 
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
-    if (weights_.interp_) {
+    if (not weights_.uses_moment()) {
       iplan.use_moments(false);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
                    1, weights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
       update_stats(terms.t1);
     }
 
-    if (weights_.interp_mom_) {
+    if (weights_.uses_moment()) {
       terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork, terms.t1);
       iplan.use_moments(true);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},

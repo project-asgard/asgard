@@ -53,15 +53,23 @@ enum class solver_method
 {
   //! direct solve using LAPACK, slow but stable, do not use for large problems
   direct,
+  //! alternative to gmres, cheaper when taking many steps between restarts
+  bicgstab,
   //! popular iterative solver, can be sensitive to the tolerance and restart frequency
   gmres,
-  //! alternative to gmres, cheaper when taking many steps between restarts
-  bicgstab
+  //! special case solver, when the matrix is a scaled identity, e.g., as in the BGK example
+  scaled_identity
 };
 
 /*!
  * \ingroup asgard_common_options
  * \brief the available preconditioners for the solvers
+ *
+ * \internal
+ * The "none" preconditioner must always come at index 0,
+ * the order of the preconditioners must be in sync with the std::variant
+ * used in the preconditioner class.
+ * \endinternal
  */
 enum class precon_method
 {
@@ -369,6 +377,8 @@ struct prog_opts
   bool show_help = false;
   //! indicates if the --version option was selected
   bool show_version = false;
+  //! on each reporting step, also show summary of memory usage
+  bool show_memusage = false;
 
   //! print list of ASGarD specific options
   static void print_help(std::ostream &os = std::cout);
@@ -611,6 +621,8 @@ struct prog_opts
   std::string default_plotter_view;
   //! allows overriding the verbosity level
   std::optional<verbosity_level> verbosity;
+  //! on each time-step, rejects the step if it contains inf or nan
+  bool safe_step = false;
 
   #ifdef ASGARD_USE_MPI
   //! MPI communicator to be used, it defaults to MPI_COMM_WORLD
@@ -663,7 +675,9 @@ private:
     isol_inner_iterations,
     restart_file,
     view,
-    set_verbosity
+    set_verbosity,
+    safe_step,
+    memusage
   };
   //! indicate how the reading is done
   enum class handle_mode

@@ -19,7 +19,7 @@
  * \par Vlasov-Poisson-Lenard-Bernstein
  * Solves the Vlasov-Poisson equation with Lenard-Bernstein collisions
  *
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
+ * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
  *  \mathcal{C}_{LB}[f](x, v, t) \f]
  * where the electric field term depends on the Poisson equation
  * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
@@ -36,7 +36,7 @@
  */
 
 /*!
- * \ingroup asgard_examples_two_stream
+ * \ingroup asgard_examples_vplb
  * \brief The ratio of circumference to diameter of a circle
  */
 double constexpr PI = asgard::PI;
@@ -268,7 +268,7 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
   asgard::separable_func<P> maxw = disc.initial_cond_sep().front();
 
   // set dimension 0 to be a constant function with value 1
-  maxw.set(0, P{1});
+  maxw.set(asgard::dimension_id{0}, P{1});
 
   // project the Maxwellian onto the current grid
   std::vector<P> proj_max = disc.project_function(maxw);
@@ -430,6 +430,7 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
+  test_energy<double>(1, "-l 5 -t 0.5 -s imex1 -sv direct");
   test_energy<double>(1, "-l 5 -t 0.5 -s imex1");
 
   test_energy<double>(1, "-l 5 -t 0.5 -s imex2");

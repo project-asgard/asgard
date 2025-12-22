@@ -19,6 +19,8 @@ void new_prog_opts() {
     tassert(prog_opts(vecstrview({"", "version"})).show_version);
     tassert(prog_opts(vecstrview({"", "-version"})).show_version);
     tassert(prog_opts(vecstrview({"", "--version"})).show_version);
+    tassert(prog_opts(vecstrview({"", "-memusage"})).show_memusage);
+    tassert(prog_opts(vecstrview({"", "-mem"})).show_memusage);
   }{
     current_test name_("-step-method");
     terror_message(prog_opts(vecstrview({"exe", "-step-method"})),

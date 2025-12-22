@@ -93,6 +93,12 @@ struct workspace
   #ifdef ASGARD_USE_GPU
   std::array<gpu::vector<precision>, max_num_gpus> gpu_w1, gpu_w2;
   #endif
+
+  size_t used_bytes() const {
+    size_t t = w1.size() * sizeof(precision) + w2.size() * sizeof(precision);
+    for (auto const &v : row_map) t += v.size() * sizeof(int64_t);
+    return t;
+  }
 };
 
 /*!

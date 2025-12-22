@@ -114,7 +114,7 @@ asgard::pde_scheme<P> make_robin_pde(asgard::prog_opts options) {
   // the Robin term will ensure the problem has a unique solution
   asgard::term_1d<P> div  = asgard::term_div{-1, asgard::boundary_type::bothsides};
   asgard::term_1d<P> grad = asgard::term_grad{1, asgard::boundary_type::none};
-  asgard::term_1d<P> dxx{asgard::term_chain{}, {div, grad}};
+  asgard::term_1d<P> dxx{{div, grad}};
 
   if constexpr (mode == pde_mode::coalesced)
   {

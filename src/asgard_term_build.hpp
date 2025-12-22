@@ -52,8 +52,6 @@ struct term_entry {
   std::array<gpu::vector<P*>, max_num_dimensions> gpu_coeffs;
   #endif
   #endif
-  //! ADI pseudoinverses of the coefficients
-  std::array<block_sparse_matrix<P>, max_num_dimensions> adi;
   //! if the term has additional mass terms, term 0 will contain the mass-up-to current level
   std::array<block_diag_matrix<P>, max_num_dimensions> mass;
   //! kronmult operation permutations
@@ -86,6 +84,15 @@ struct term_entry {
   interpolation_plan interplan;
   //! indicates whether the term is interpolatory
   bool is_interpolatory() const { return interplan.is_enabled(); }
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    if (is_separable()) return 0;
+    size_t t = 0;
+    for (auto const &v : coeffs) t += v.used_bytes();
+    for (auto const &v : mass) t += v.used_bytes();
+    return t;
+  }
 };
 
 }

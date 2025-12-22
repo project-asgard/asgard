@@ -104,6 +104,13 @@ template<typename P>
 using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Signature for a non-separable function with moment dependence
+ */
+template<typename P>
+using md_mom_func = std::function<void(P t, vector2d<P> const &, momentset<P> const &moments,
+                                       std::vector<P> &)>;
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function that accepts an additional field parameter
  */
 template<typename P>
@@ -119,6 +126,33 @@ using md_mom_func_f = std::function<void(P t, vector2d<P> const &x,
                                          momentset<P> const &moments,
                                          std::vector<P> const &f,
                                          std::vector<P> &vals)>;
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Source term that depends on the moments
+ */
+template<typename P = default_precision>
+struct moment_source {
+  //! create a new moment source
+  moment_source(md_mom_func<P> func, std::vector<moment_id> mids)
+      : func_(std::move(func)), mids_(std::move(mids))
+  {
+    rassert(not (!!func_ and mids_.empty()),
+            "providing a moment source must include a non-empty vector of moment_id");
+  }
+  //! call the loaded function
+  void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
+                   std::vector<P> &vals) const
+  {
+    func_(t, x, moments, vals);
+  }
+  //! check if a function has been set
+  operator bool () const { return !!func_; }
+  //! the callable function
+  md_mom_func<P> func_;
+  //! the moments used by this function
+  std::vector<moment_id> mids_;
+};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -491,10 +525,6 @@ public:
   term_1d() = default;
   //! make an identity term
   term_1d(term_identity) {}
-  //! make a term that depends on coupled fields, e.g., moments or electric field
-  term_1d(term_dependence dep, sfixed_func1d_f<P> ffunc = nullptr)
-    : optype_(operation_type::volume), depends_(dep), field_f_(std::move(ffunc))
-  {}
 
   //! make a volume term
   term_1d(term_volume<P> mt)
@@ -551,10 +581,6 @@ public:
   term_1d(term_robin robin)
     : optype_(operation_type::robin),
       coeffs_{static_cast<P>(robin.left_const), static_cast<P>(robin.right_const)}
-  {}
-  //! make a chain term and setting the terms
-  term_1d(term_chain, std::vector<term_1d<P>> tvec)
-    : term_1d(std::move(tvec))
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
@@ -879,11 +905,11 @@ struct term_interp {
   explicit term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
-      : interp_mom(std::move(itep)), mids(std::move(ids)) {}
+      : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
-  md_func_f<P> interp;
+  std::variant<md_func_f<P>, md_mom_func_f<P>> interp;
   //! holds the moment interpolation function
-  md_mom_func_f<P> interp_mom;
+  // md_mom_func_f<P> interp_mom;
   //! moment ids required for the interpolation function
   std::vector<moment_id> mids;
 };
@@ -1072,6 +1098,8 @@ public:
   {
     int num_identity = 0;
     expect(num_dims_ <= max_num_dimensions);
+    interp_.template emplace<std::array<term_1d<P>, max_num_dimensions>>();
+    auto &sep = get_sep();
     for (int i : iindexof(num_dims_)) {
       sep[i] = std::move(*(clist.begin() + i));
       if (sep[i].is_identity())
@@ -1087,6 +1115,8 @@ public:
   {
     int num_identity = 0;
     expect(num_dims_ <= max_num_dimensions);
+    interp_.template emplace<std::array<term_1d<P>, max_num_dimensions>>();
+    auto &sep = get_sep();
     for (int i : iindexof(num_dims_)) {
       sep[i] = std::move(*(clist.begin() + i));
       if (sep[i].is_identity())
@@ -1150,22 +1180,24 @@ public:
   }
   //! set an interpolation term
   term_md(term_interp<P> tint)
-    : mode_(mode::interpolatory), interp_(std::move(tint.interp)),
-      interp_mom_(std::move(tint.interp_mom)), mids_(std::move(tint.mids))
+    : mode_(mode::interpolatory), mids_(std::move(tint.mids))
   {
-    if (interp_mom_) // using interpolation with moments
+    if (std::holds_alternative<md_mom_func_f<P>>(tint.interp)) {
       rassert(not mids_.empty(), "moment interpolation set but no moment_id provides");
+      interp_ = std::move(std::get<md_mom_func_f<P>>(tint.interp));
+    } else
+      interp_ = std::move(std::get<md_func_f<P>>(tint.interp));
   }
 
   //! (separable mode only) get the 1d term with index i
   term_1d<P> &dim(int i) {
     expect(mode_ == mode::separable);
-    return sep[i];
+    return get_sep()[i];
   }
   //! (separable mode only) get the 1d term with index i, const overload
   term_1d<P> const &dim(int i) const {
     expect(mode_ == mode::separable);
-    return sep[i];
+    return get_sep()[i];
   }
 
   //! get the chain term with index i
@@ -1234,13 +1266,14 @@ public:
       while (dir == -1 and c < chain_.size())
         dir = chain_[c++].flux_dim();
       return dir;
-    } else {
+    } else if (is_separable()) {
+      auto const &sep = get_sep();
       for (int d : iindexof(num_dims_)) {
         if (sep[d].has_flux())
           return d;
       }
-      return -1;
     }
+    return -1;
   }
   //! add new inhomogeneous boundary function to the term
   term_md<P> operator += (boundary_flux<P> bf) {
@@ -1250,25 +1283,23 @@ public:
     int fd = flux_dim();
     rassert(fd != -1,
             "cannot set boundary conditions for term_md with no derivatives");
-    rassert(bf.func().is_const(fd),
+    rassert(bf.func().is_const(dimension_id{fd}),
             "the flux function has to be constant in the dimension of term_md::flux_dim()")
     bc_flux_.emplace_back(std::move(bf));
     return *this;
   }
-  //! returns the interpolation function
-  md_func_f<P> const &interp() const { return interp_; }
   //! applies the interpolation function, vals = f(t, x, f)
   void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
-    expect(!!interp_);
-    interp_(t, x, f, vals);
+    expect(std::holds_alternative<md_func_f<P>>(interp_));
+    std::get<md_func_f<P>>(interp_)(t, x, f, vals);
   }
-  //! returns the moment interpolation function
-  md_mom_func_f<P> const &interp_mom() const { return interp_mom_; }
+  //! returns true if the term uses moment interpolation
+  bool is_interp_mom() const { return std::holds_alternative<md_mom_func_f<P>>(interp_); }
   //! applies the moment interpolation function, vals = f(t, x, m, f)
   void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
               std::vector<P> const &f, std::vector<P> &vals) const {
-    expect(!!interp_mom_);
-    interp_mom_(t, x, moments, f, vals);
+    expect(std::holds_alternative<md_mom_func_f<P>>(interp_));
+    std::get<md_mom_func_f<P>>(interp_)(t, x, moments, f, vals);
   }
   //! get the moment ids for interpolation
   std::vector<moment_id> const &get_interp_moments() const { return mids_; }
@@ -1277,16 +1308,23 @@ public:
   friend struct term_manager<P>;
 
 private:
+  // get the const-array for the separable functions
+  std::array<term_1d<P>, max_num_dimensions> const &
+  get_sep() const { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
+  // get the array for the separable functions
+  std::array<term_1d<P>, max_num_dimensions> &
+  get_sep() { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
+
   // mode for the term
   mode mode_ = mode::interpolatory;
   // separable case
   int num_dims_ = 0;
-  std::array<term_1d<P>, max_num_dimensions> sep;
   mass_md<P> mass_;
-  // non-separable/interpolation case
-  md_func_f<P> interp_;
-  // non-separable/interpolation case using moments
-  md_mom_func_f<P> interp_mom_;
+  // non-separable/interpolation case, with or without moments
+  std::variant<std::monostate,
+               std::array<term_1d<P>, max_num_dimensions>,
+               md_func_f<P>,
+               md_mom_func_f<P>> interp_ = std::monostate{};
   // moments needed by the interpolation
   std::vector<moment_id> mids_;
   // chain of other terms
@@ -1295,8 +1333,6 @@ private:
   std::vector<boundary_flux<P>> bc_flux_;
 };
 
-
-#ifndef __ASGARD_DOXYGEN_SKIP
 /*!
  * \ingroup asgard_pde_definition
  * \brief Contains shorthand notation for common operators
@@ -1309,22 +1345,10 @@ namespace operators {
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief The divergence operator, sum of derivatives in each dimension
- *
- * The divergence operator in general form for d dimensions:
- * \f[ \nabla \cdot f = \frac{\partial}{\partial x_1} f + \frac{\partial}{\partial x_2} f + \cdots + \frac{\partial}{\partial x_d} f \f]
- * Each term can be assigned a separate coefficient.
- */
-struct divergence {
-  //! boundary condition to use for all divergence terms
-  boundary_type btype;
-  //! coefficients of the divergence terms
-  std::vector<double> coeffs;
-};
-
-/*!
- * \ingroup asgard_pde_definition
  * \brief Adds the Lenard-Bernstein collision operator to the PDE
+ *
+ * See \ref asgard_examples_vplb "Example: Vlasov-Poisson-Lenard-Bernstein"
+ * for references that describe the operator.
  *
  * Currently sets homogeneous (zero) boundary conditions at the edge of the velocity domain.
  */
@@ -1335,8 +1359,20 @@ struct lenard_bernstein_collisions {
   double nu = 0;
 };
 
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Adds the simple form of Bhatnagar-Gross-Krook collisions
+ *
+ * See \ref asgard_examples_bgk "Example: Bhatnagar-Gross-Krook" for the definition of the operator.
+ */
+struct simple_bgk_collisions {
+  //! sets the simple Bhatnagar-Gross-Krook collision operator with the given collision frequency
+  simple_bgk_collisions(double coll_frequency) : nu(coll_frequency) {}
+  //! collision frequency
+  double nu = 0;
+};
+
 } // namespace::operators
-#endif
 
 /*!
  * \ingroup asgard_pde_definition
@@ -1550,7 +1586,26 @@ public:
   //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_func<P> smd) {
     has_interp_funcs = true;
-    sources_md_[std::max(current_term_group, 0)] = std::move(smd);
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    sources_md_[idx] = std::move(smd);
+  }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(moment_source<P> smd) {
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+
+    for (auto id : smd.mids_)
+      mlist.set_action(id, moment::moment_type::interpolatory);
+
+    sources_md_[idx] = std::move(smd);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
@@ -1563,12 +1618,12 @@ public:
   }
   //! add collision operator
   pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
+  //! add collision operator
+  pde_scheme<P> & operator += (operators::simple_bgk_collisions bgkc);
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources
   separable_func<P> const &source_sep(int i) const { return sources_sep_[i]; }
-  //! returns the non-separable source
-  md_func<P> const &source_md(int i) const { return sources_md_[i]; }
 
   //! returns the smallest cell size in given dimension and level, , uses max-level by default
   P cell_size(int dim, int level = -1) const {
@@ -1593,7 +1648,7 @@ public:
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
-      sources_md_.push_back(nullptr); // add empty interpolatory source
+      sources_md_.emplace_back(std::monostate{}); // add empty interpolatory source
       mom_groups.emplace_back();
     }
     return current_term_group;
@@ -1644,14 +1699,18 @@ public:
   //! set an interpolation function for adaptivity
   void set_adapt_weight(md_func_f<P> func) {
     has_interp_funcs = true;
-    ref_interp_      = std::move(func);
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
+    ref_interp_ = std::move(func);
   }
   //! set an interpolation function for adaptivity
-  void set_adapt_weight(std::vector<moment_id> moments, md_mom_func_f<P> func) {
-    rassert(not moments.empty(), "moment function");
+  void set_adapt_weight(md_mom_func_f<P> func, std::vector<moment_id> moments) {
+    rassert(not moments.empty(), "moment function requires moments");
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
     has_interp_funcs = true;
-    ref_moments_     = std::move(moments);
-    ref_interp_mom_  = std::move(func);
+    ref_interp_  = std::move(func);
+    ref_moments_ = std::move(moments);
   }
 
   //! allows writer to save/load the pde and options
@@ -1692,7 +1751,7 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  std::vector<md_func<P>> sources_md_;
+  std::vector<std::variant<std::monostate, md_func<P>, moment_source<P>>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
 
   int current_term_group = -1;
@@ -1705,8 +1764,7 @@ private:
   std::vector<moments_list> mom_groups;
   moments_list mlist;
 
-  md_func_f<P> ref_interp_;
-  md_mom_func_f<P> ref_interp_mom_;
+  std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> ref_interp_;
   std::vector<moment_id> ref_moments_;
 };
 

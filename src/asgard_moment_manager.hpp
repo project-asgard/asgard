@@ -98,10 +98,14 @@ public:
         complete_level(hier, raw_vals[ids[i]], full_level.get(ids[i]));
     }
   }
+  //! return the set of cached raw moments defined on the position grid
+  momentset<P> const &get_cached_raws() const { return raw_vals; }
   //! return the set of cached levels, all relevant moments must be cached already
   momentset<P> const &get_cached_levels() const { return full_level; }
   //! return the set of cached interpolation values, all relevant moments must be cached already
   momentset<P> const &get_cached_interps() const { return interps; }
+  //! return the current position grid where the raw moments are defined
+  sparse_grid const &get_position_grid() const { return pos_grid; }
 
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
@@ -113,6 +117,9 @@ public:
   //! load the inteprolatory moments, specified group
   void load_interp(group_id group, interpolation_manager<P> const &interp,
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const;
 
 protected:
   //! set the new groups

@@ -432,6 +432,14 @@ struct dimension_sort
   //! \brief Get the 1d index of the j-th entry
   int operator()(indexset const &iset, int dimension, int j) const { return iset[iorder_[dimension][j]][dimension]; }
 
+  //! compute the memory usage of the object
+  size_t num_ints() const {
+    size_t t = 0;
+    for (auto const &v : iorder_) t += v.size();
+    for (auto const &v : pntr_) t += v.size();
+    return t;
+  }
+
   //! \brief Holds the order of the indexes re-sorted for each dimension
   std::array<std::vector<int>, max_num_dimensions> iorder_;
   //! \brief Holds the offsets of each group of indexes that belong to a single "line" of the grid
@@ -662,6 +670,15 @@ public:
   void use_gpu_default_xy() const {}
   #endif
   #endif
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = iset_.size() + dsort_.num_ints();
+    #ifdef ASGARD_USE_MPI
+    t += mpimeta.size();
+    #endif
+    return t * sizeof(int);
+  }
 
   //! allows writer to save/load the grid
   template<typename P>

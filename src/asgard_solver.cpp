@@ -82,8 +82,8 @@ void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
 }
 
 template<typename P>
-direct<P>::direct(
-    group_id group, sparse_grid const &grid, connection_patterns const &conn,
+void direct<P>::update(
+    group_id group, size_t stage, sparse_grid const &grid, connection_patterns const &conn,
     term_manager<P> const &terms, P alpha)
 {
   tools::time_event timing_("forming dense matrix");
@@ -210,6 +210,14 @@ direct<P>::direct(
     }
   }
 
+  size_t const idx = mat_index(group, stage); // index for the matrix entry
+  if (mats.size() <= idx)
+    mats.resize(idx + 1);
+
+  // must happen before the potential MPI return down below
+  mats[idx].grid_gen = grid.generation();
+
+  dense_matrix<P> &dense_mat = mats[idx].dense_mat;
   dense_mat = bmat.to_dense_matrix(n);
 
   #ifdef ASGARD_USE_MPI
@@ -245,6 +253,13 @@ direct<P>::direct(
   }
 
   dense_mat.factorize();
+}
+
+template<typename P>
+size_t direct<P>::used_bytes() const {
+  size_t t = 0;
+  for (auto const &m : mats) t += m.dense_mat.used_bytes();
+  return t;
 }
 
 template<typename P>
@@ -332,6 +347,12 @@ ASGARD_OMP_PARFOR_SIMD
   std::cerr << "Warning: ASGarD BiCGSTAB solver failed to converge within "
             << max_iter_ << " iterations.\n";
   return num_appy;
+}
+
+template<typename P>
+size_t bicgstab<P>::used_bytes() const {
+  size_t total = rref.size() + r.size() + p.size() + v.size() + t.size();
+  return total * sizeof(P);
 }
 
 #ifdef ASGARD_USE_GPU
@@ -499,6 +520,11 @@ int gmres<P>::solve(
   return num_appy;
 }
 
+template<typename P>
+size_t gmres<P>::used_bytes() const {
+  return (basis.size() + krylov_data.size()) * sizeof(P);
+}
+
 #ifdef ASGARD_USE_GPU
 template<typename P>
 int gmres<P>::solve(
@@ -582,10 +608,68 @@ int gmres<P>::solve(
 }
 #endif
 
+template<typename P>
+void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const &grid,
+                                term_manager<P> const &terms, P alpha)
+{
+  indexrange trange = terms.terms_group_range(group);
+
+  if (grid_gen(group, stage) == -1) {
+    // first time getting a call here, verify that the operators are scaled identity
+    for (int i : trange) {
+      term_md<P> const &term = terms.terms[i].tmd;
+      rassert(term.is_separable(), "non-separable term detected in the scaled-identity solver");
+      for (int d : iindexof(terms.num_dims)) {
+        term_1d<P> const &t1d = term.dim(d);
+        rassert(t1d.is_identity() or t1d.is_volume(),
+                "scaled-identity solver can be used only with volume and identity instances of term1d");
+        if (t1d.is_volume())
+          rassert(not t1d.rhs(), "detected non-constant coefficient for the scaled-identity solver");
+      }
+    }
+  }
+
+  P scal = 1;
+  for (int i : trange) {
+    term_md<P> const &term = terms.terms[i].tmd;
+    expect(term.is_separable() and term.flux_dim() == -1);
+    for (int d : iindexof(terms.num_dims)) {
+      term_1d<P> const &t1d = term.dim(d);
+      if (t1d.is_volume())
+        scal *= t1d.rhs_const();
+    }
+  }
+  if (alpha != 0)
+    set_alpha(group, stage, P{1} + alpha * scal); // Euler I + alpha * nu * I
+  else
+    set_alpha(group, stage, scal); // steady state, nu * I
+
+  size_t const idx = s_index(group, stage);
+  scale_[idx].grid_gen = grid.generation();
+}
+
+template<typename P>
+void scaled_identity<P>::operator()(group_id group, size_t stage, std::vector<P> &x) const
+{
+  P const s = scale(group, stage);
+  ASGARD_OMP_PARFOR_SIMD
+  for (size_t i = 0; i < x.size(); i++)
+    x[i] = s * x[i];
+}
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void scaled_identity<P>::operator()(group_id group, size_t stage, gpu::vector<P> &x) const
+{
+  gpu::set_scal(x.size(), scale(group, stage), x.data());
+}
+#endif
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class direct<double>;
 template class bicgstab<double>;
 template class gmres<double>;
+template class scaled_identity<double>;
 
 template void poisson<double>::solve(
     std::vector<double> const &, double, double, poisson_bc const, std::vector<double> &);
@@ -596,6 +680,7 @@ template void poisson<double>::solve(
 template class direct<float>;
 template class bicgstab<float>;
 template class gmres<float>;
+template class scaled_identity<float>;
 
 template void poisson<float>::solve(
     std::vector<float> const &, float, float, poisson_bc const, std::vector<float> &);
@@ -609,14 +694,45 @@ namespace asgard
 
 template<typename P>
 void solver_manager<P>::update_grid(
-    group_id group, sparse_grid const &grid,
-    connection_patterns const &conn, term_manager<P> const &terms, P alpha)
+    group_id group, size_t stage, sparse_grid const &grid,
+    connection_patterns const &conn, term_manager<P> const &terms, P alpha,
+    preconditioner_data<P> &precon)
 {
   tools::time_event timing_("updating solver");
-  if (opt == solver_method::direct)
-    var = solvers::direct<P>(grid, conn, terms, alpha);
+  // assuming that the moments will cause the terms to change all the time
+  // therefore, we need to update the matrices and preconditioners
+  bool const needs_update = terms.has_sep_moments(group);
 
-  if (precon == precon_method::jacobi) {
+  // first, update the solver itself
+  switch (method()) {
+    case solver_method::direct: {
+      solvers::direct<P> &solver = std::get<solvers::direct<P>>(var);
+      if (needs_update or solver.grid_gen(group, stage) != grid.generation())
+        solver.update(group, stage, grid, conn, terms, alpha);
+    }
+    break;
+    case solver_method::scaled_identity: {
+      solvers::scaled_identity<P> &solver = std::get<solvers::scaled_identity<P>>(var);
+      if (needs_update or solver.grid_gen(group, stage) != grid.generation())
+        solver.update(group, stage, grid, terms, alpha);
+    }
+    break;
+    default: // iterative solvers don't need updating
+      break;
+  };
+
+  // second, update the preconditioner
+  // return if nothing more to do
+  if (not needs_update and precon.valid_for(grid))
+    return;
+
+  precon.grid_gen = grid.generation(); // update the grid gen
+
+  precon_method const method = precon; // get the precon method
+
+  if (method == precon_method::jacobi) {
+    std::vector<P> &jacobi = precon.jacobi();
+
     #ifdef ASGARD_USE_MPI
     if (terms.resources.num_ranks() > 1) {
       if (terms.resources.is_leader()) {
@@ -625,7 +741,6 @@ void solver_manager<P>::update_grid(
       } else {
         terms.make_jacobi(group, grid, conn, jacobi);
         terms.resources.reduce_add(jacobi);
-        grid_gen = grid.generation();
         return;
       }
     } else {
@@ -644,16 +759,14 @@ void solver_manager<P>::update_grid(
       for (size_t i = 0; i < jacobi.size(); i++)
         jacobi[i] = P{1} / (P{1} + alpha * jacobi[i]);
     }
-  }
 
-  #ifdef ASGARD_USE_GPU
-  if (terms.resources.is_leader()) {
-    compute->set_device(gpu::device{0});
-    jacobi_gpu = jacobi;
+    #ifdef ASGARD_USE_GPU
+    if (terms.resources.is_leader()) {
+      compute->set_device(gpu::device{0});
+      precon.gpu_jacobi() = jacobi;
+    }
+    #endif
   }
-  #endif
-
-  grid_gen = grid.generation();
 }
 
 template<typename P>
@@ -667,38 +780,26 @@ template<typename P>
 void solver_manager<P>::print_opts(std::ostream &os) const
 {
   os << "solver:\n";
-  bool has_precon = false;
-  switch (var.index()) {
-    case 0:
+  switch (method()) {
+    case solver_method::direct:
       os << "  direct\n";
       break;
-    case 1:
+    case solver_method::bicgstab:
+      os << "  bicgstab\n";
+      os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
+      os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
+      break;
+    case solver_method::gmres:
       os << "  gmres\n";
       os << "  tolerance: " << std::get<solvers::gmres<P>>(var).tolerance() << '\n';
       os << "  max inner: " << std::get<solvers::gmres<P>>(var).max_inner() << '\n';
       os << "  max outer: " << std::get<solvers::gmres<P>>(var).max_outer() << '\n';
-      has_precon = true;
       break;
-    case 2:
-      os << "  bicgstab\n";
-      os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
-      os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
-      has_precon = true;
+    case solver_method::scaled_identity:
+      os << "  scaled-identity\n";
       break;
     default:
       break;
-  }
-  if (has_precon) {
-    switch (precon) {
-      case precon_method::none:
-        os << "  no preconditioner\n";
-        break;
-      case precon_method::jacobi:
-        os << "  jacobi diagonal preconditioner\n";
-        break;
-      default: // unreachable
-        break;
-    }
   }
 }
 

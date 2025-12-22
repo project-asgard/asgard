@@ -5,6 +5,12 @@
 namespace asgard::time_advance
 {
 
+std::string toMB(size_t bytes) {
+  std::string s = std::to_string(bytes / (1024 * 1024)) + "MB\n";
+  s.insert(0, 11 - s.size(), ' ');
+  return s;
+};
+
 template<typename P>
 void steady_state<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -16,16 +22,15 @@ void steady_state<P>::next_step(
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
-  if (solver.grid_gen != disc.grid_generation())
-    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), 0);
+  solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), 0, precon);
 
-  if (solver.opt == solver_method::direct) {
+  if (solver.uses_inplace_solve()) {
 
     endstep.resize(current.size());
     disc.set_ode_rhs_sources(time, 1, endstep);
 
     if (disc.is_leader())
-      solver.direct_solve(endstep);
+      solver.solve_inplace(endstep);
 
   } else { // iterative solver
     // form the right-hand-side inside work
@@ -42,7 +47,7 @@ void steady_state<P>::next_step(
       return;
     }
 
-    switch (solver.precon) {
+    switch (precon.method()) {
     case precon_method::none:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       ignore(n);
@@ -70,7 +75,7 @@ void steady_state<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(solver.jacobi_gpu, y);
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -82,7 +87,7 @@ void steady_state<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          fm::jacobi_apply(n, solver.jacobi, y);
+          fm::jacobi_apply(n, precon.jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -96,6 +101,14 @@ void steady_state<P>::next_step(
 
     disc.mpi_iteration_stop();
   }
+}
+
+template<typename P>
+void steady_state<P>::print_bytes(std::ostream &os) const {
+  os << "time-advance\n";
+  os << "  workspace " << toMB(work.size() * sizeof(P)) << '\n';
+  os << "  solver    " << toMB(solver.used_bytes()) << '\n';
+  os << "  precon    " << toMB(precon.used_bytes()) << '\n';
 }
 
 template<typename P>
@@ -222,6 +235,13 @@ void rungekutta<P>::next_step(
 }
 
 template<typename P>
+void rungekutta<P>::print_bytes(std::ostream &os) const {
+  size_t const t = k1.size() + k2.size() + k3.size() + k4.size() + s1.size();
+  os << "time-advance\n";
+  os << "  workspace " << toMB(t * sizeof(P)) << '\n';
+}
+
+template<typename P>
 void crank_nicolson<P>::set_rhs(discretization_manager<P> const &disc, P substep, P time, P dt,
                                 std::vector<P> const &current, std::vector<P> &rhs) const
 {
@@ -247,16 +267,15 @@ void crank_nicolson<P>::next_step(
 
   // if the grid changed since the last time we used the solver
   // update the matrices and preconditioners, update-grid checks what's needed
-  if (solver.grid_gen != disc.grid_generation())
-    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt);
+  solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
-  if (solver.opt == solver_method::direct) {
+  if (solver.uses_inplace_solve()) {
 
     next.resize(current.size());
     set_rhs(disc, substep, time, dt, current, next);
 
     if (disc.is_leader())
-      solver.direct_solve(next);
+      solver.solve_inplace(next);
 
   } else { // iterative solver
     // form the right-hand-side inside work
@@ -273,7 +292,7 @@ void crank_nicolson<P>::next_step(
       return;
     }
 
-    switch (solver.precon) {
+    switch (precon.method()) {
     case precon_method::none:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       ignore(n);
@@ -303,7 +322,7 @@ void crank_nicolson<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(solver.jacobi_gpu, y);
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -316,7 +335,7 @@ void crank_nicolson<P>::next_step(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          fm::jacobi_apply(n, solver.jacobi, y);
+          fm::jacobi_apply(n, precon.jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -334,24 +353,34 @@ void crank_nicolson<P>::next_step(
 }
 
 template<typename P>
+void crank_nicolson<P>::print_bytes(std::ostream &os) const {
+  os << "time-advance\n";
+  os << "  workspace " << toMB(work.size() * sizeof(P)) << '\n';
+  os << "  solver    " << toMB(solver.used_bytes()) << '\n';
+  os << "  precon    " << toMB(precon.used_bytes()) << '\n';
+}
+
+template<typename P>
 void imex_stepper<P>::implicit_solve(
-    discretization_manager<P> const &disc, P time, P dt,
+    discretization_manager<P> const &disc, size_t stage,
+    P time, P dt, preconditioner_data<P> &precon,
     std::vector<P> &current, std::vector<P> &R) const
 {
   if (disc.has_moments())
     disc.compute_moments(group_id{imex_implicit}, current);
 
-  solver.update_grid(group_id{imex_implicit}, disc.get_grid(), disc.get_conn(),
-                     disc.get_terms(), dt);
+  solver.update_grid(group_id{imex_implicit}, stage, disc.get_grid(), disc.get_conn(),
+                     disc.get_terms(), dt, precon);
 
-  if (solver.opt != solver_method::direct)
+  bool const uses_inplace = solver.uses_inplace_solve();
+  if (not uses_inplace)
     R = current;
 
   disc.add_ode_rhs_sources_group(group_id{imex_implicit}, time, dt, current);
 
-  if (solver.opt == solver_method::direct) {
+  if (uses_inplace) {
     R = current; // copy
-    solver.direct_solve(R);
+    solver.solve_inplace(group_id{imex_implicit}, stage, R);
   } else { // iterative solver
     int64_t const n = static_cast<int64_t>(R.size());
 
@@ -360,7 +389,7 @@ void imex_stepper<P>::implicit_solve(
       return;
     }
 
-    switch (solver.precon) {
+    switch (precon.method()) {
     case precon_method::none:
       #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
       ignore(n);
@@ -390,7 +419,7 @@ void imex_stepper<P>::implicit_solve(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(solver.jacobi_gpu, y);
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -403,7 +432,7 @@ void imex_stepper<P>::implicit_solve(
         [&](P y[]) -> void
         {
           tools::time_event timing_("jacobi preconditioner");
-          fm::jacobi_apply(n, solver.jacobi, y);
+          fm::jacobi_apply(n, precon.jacobi(), y);
         },
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
@@ -416,9 +445,9 @@ void imex_stepper<P>::implicit_solve(
       throw std::runtime_error("adi preconditioner not available for IMEX steppers");
     break;
     }
-  }
 
-  disc.mpi_iteration_stop();
+    disc.mpi_iteration_stop();
+  }
 }
 
 template<typename P>
@@ -433,7 +462,8 @@ void imex_stepper<P>::next_step(
 
   disc.ode_euler(group_id{imex_explicit}, time, current, dt, f);
 
-  implicit_solve(disc, time + dt, dt, f, next);
+  constexpr size_t stage0 = 0;
+  implicit_solve(disc, stage0, time + dt, dt, precon1, f, next);
 
   if (method == time_method::imex1)
     return;
@@ -446,7 +476,16 @@ void imex_stepper<P>::next_step(
       f[i] = 0.5 * current[i] + 0.5 * (next[i] + dt * f[i]);
   }
 
-  implicit_solve(disc, time + dt, P{0.5} * dt, f, next);
+  constexpr size_t stage1 = 1;
+  implicit_solve(disc, stage1, time + dt, P{0.5} * dt, precon2, f, next);
+}
+
+template<typename P>
+void imex_stepper<P>::print_bytes(std::ostream &os) const {
+  os << "time-advance\n";
+  os << "  workspace " << toMB((f.size() + fs.size()) * sizeof(P)) << '\n';
+  os << "  solver    " << toMB(solver.used_bytes()) << '\n';
+  os << "  precon    " << toMB(precon1.used_bytes() + precon2.used_bytes()) << '\n';
 }
 
 }
@@ -521,7 +560,7 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
 }
 
 template<typename P> // implemented in time-advance
-void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
+bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 {
   // periodically reports time, first initialization is not important
   static tools::simple_timer::time_point wctime = tools::simple_timer::current_time();
@@ -542,7 +581,7 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     num_steps = 1;
 
   if (num_steps < 1)
-    return;
+    return true;
 
   sparse_grid &grid = manager.grid;
 
@@ -552,6 +591,33 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   while (--num_steps >= 0)
   {
     stepper.next_step(manager, manager.state, next);
+
+    if (manager.safe_step) {
+      tools::time_event performance_("check for inf/nan");
+      // technically the found-bad is OK/not-OK
+      // but OpenMP works better with int or size_t
+      size_t found_bad = 0;
+      #pragma omp parallel
+      {
+        size_t local_bad = 0;
+        #pragma omp for
+        for (size_t i = 0; i < next.size(); i++)
+          if (not std::isfinite(next[i]))
+            ++local_bad;
+
+        #pragma omp atomic
+        found_bad += local_bad;
+      }
+      if (found_bad > 0) {
+        if (not manager.stop_verbosity())
+          std::cerr << "ERROR: found 'inf' or 'nan' entries in the next time-step\n"
+                    << "       this is an indication of either bad pde_scheme or incompatible ASGarD options\n"
+                    << "       e.g., adaptive tolerance or solver tolerance is too high,\n"
+                    << "       max-grid level is too low, time-step is too large, etc.\n";
+
+        return false;
+      }
+    }
 
     if (manager.refinement) {
       int const gen = grid.generation();
@@ -588,12 +654,16 @@ void advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       if ((manager.high_verbosity() and duration > 2000) or (duration > 10000)) {
         manager.progress_report();
         wctime = tools::simple_timer::current_time();
+        if (manager.options_.show_memusage)
+          manager.report_memusage();
       }
     }
 
     if (stepper.is_steady_state())
       params.set_final_time();
   }
+
+  return true;
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -602,7 +672,7 @@ template struct time_advance::rungekutta<double>;
 template struct time_advance::crank_nicolson<double>;
 template struct time_advance_manager<double>;
 
-template void advance_in_time(discretization_manager<double> &, int64_t);
+template bool advance_in_time(discretization_manager<double> &, int64_t);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -611,6 +681,6 @@ template struct time_advance::rungekutta<float>;
 template struct time_advance::crank_nicolson<float>;
 template struct time_advance_manager<float>;
 
-template void advance_in_time(discretization_manager<float> &, int64_t);
+template bool advance_in_time(discretization_manager<float> &, int64_t);
 #endif
 } // namespace asgard

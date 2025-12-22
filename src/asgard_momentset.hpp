@@ -202,6 +202,13 @@ public:
   //! return the provided moment, never const
   std::vector<P> &get(moment_id mid) { return moms_[mid()]; }
 
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = 0;
+    for (auto const &v : moms_) t += v.size();
+    return t * sizeof(P);
+  }
+
 private:
   std::vector<std::vector<P>> moms_;
 };
