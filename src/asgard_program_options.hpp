@@ -377,6 +377,8 @@ struct prog_opts
   bool show_help = false;
   //! indicates if the --version option was selected
   bool show_version = false;
+  //! on each reporting step, also show summary of memory usage
+  bool show_memusage = false;
 
   //! print list of ASGarD specific options
   static void print_help(std::ostream &os = std::cout);
@@ -674,7 +676,8 @@ private:
     restart_file,
     view,
     set_verbosity,
-    safe_step
+    safe_step,
+    memusage
   };
   //! indicate how the reading is done
   enum class handle_mode

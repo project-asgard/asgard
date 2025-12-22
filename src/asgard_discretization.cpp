@@ -2,6 +2,40 @@
 
 namespace asgard
 {
+template<typename precision>
+discretization_manager<precision>::discretization_manager(
+    pde_scheme<precision> pde, verbosity_level verbosity)
+    : discretization_manager()
+{
+  verb = pde.options().verbosity.value_or(verbosity);
+
+  #ifdef ASGARD_ALWAYS_SAFE_STEP
+  safe_step = true;
+  #else
+  safe_step = pde.options().safe_step;
+  #endif
+
+  rassert(pde.num_dims() > 0, "cannot discretize an empty pde");
+
+  options_ = std::move(pde.options_);
+  domain_  = std::move(pde.domain_);
+
+  initial_md_  = std::move(pde.initial_md_);
+  initial_sep_ = std::move(pde.initial_sep_);
+
+  init_compute(); // compute engine, detect GPUs, etc.
+
+  #ifdef ASGARD_USE_MPI
+  // only rank 0 will do regular I/O, others will default to silent mode
+  if (mpi::comm_rank(options_.mpicomm) != 0)
+    verb = verbosity_level::quiet;
+  #endif
+
+  if (options_.restarting())
+    restart_from_file(pde);
+  else
+    start_cold(pde);
+}
 
 template<typename precision>
 void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
@@ -117,8 +151,10 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   if (not stop_verbosity())
     std::cout << stepper;
 
+  #ifndef ASGARD_ALWAYS_SAFE_STEP
   if (safe_step)
     std::cout << "enabled safety checks for invalid floats\n";
+  #endif
 
   if (stepper.needs_solver() and not options_.solver)
     throw std::runtime_error("the selected time-stepping method requires a solver, "
@@ -144,7 +180,10 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   if (high_verbosity())
     progress_report();
 
-  // if (not stop_verbosity()) report_memusage();
+  if (options_.show_memusage) {
+    std::cout << "memory usage after initial setup\n";
+    report_memusage();
+  }
 }
 
 template<typename precision>
@@ -199,13 +238,18 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     if (not options_.adapt_threshold and not options_.adapt_relative)
       std::cout << "  non-adaptive\n";
     std::cout << stepper;
+    #ifndef ASGARD_ALWAYS_SAFE_STEP
     if (safe_step)
       std::cout << "enabled safety checks for invalid floats\n";
+    #endif
     if (high_verbosity())
       progress_report();
   }
 
-  // if (not stop_verbosity()) report_memusage();
+  if (options_.show_memusage) {
+    std::cout << "memory usage after restart\n";
+    report_memusage();
+  }
 
 #else
   ignore(pde);
@@ -239,6 +283,17 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
   ignore(filename);
   throw std::runtime_error("saving to a file requires CMake option -DASGARD_USE_HIGHFIVE=ON");
 #endif
+}
+
+template<typename precision>
+void discretization_manager<precision>::save_final_snapshot() const
+{
+  if (options_.show_memusage) {
+    std::cout << "final memory usage\n";
+    report_memusage();
+  }
+  if (not options_.outfile.empty())
+    save_snapshot(options_.outfile);
 }
 
 template<typename precision>

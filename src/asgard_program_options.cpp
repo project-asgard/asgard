@@ -134,7 +134,8 @@ Options          Short   Value      Description
 -safe-step       -sstep  -          Checks every time step and if it contains inf or nan
                                     then the time-advance method will not accept the step
                                     and the time_advance() method will exit with 'false' flag.
-                                    This is not done by default for performance reasons.
+                                    This is can be disabled for performance reasons.
+-memusage        -mem    -          On every information step will print verbose memory usage.
 
 <<< i/o options >>>
 -restart                 filename   Wavelet output file to restart the simulation.
@@ -172,6 +173,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-subtitle", optentry::subtitle},
       {"-verbosity", optentry::set_verbosity}, {"-vv", optentry::set_verbosity},
       {"-safe-step", optentry::safe_step}, {"-sstep", optentry::safe_step},
+      {"-memusage", optentry::memusage}, {"-mem", optentry::memusage},
       {"-grid", optentry::grid_mode}, {"-g", optentry::grid_mode},
       {"-step-method", optentry::step_method}, {"-s", optentry::step_method},
       {"-adapt", optentry::adapt_threshold},  {"-a", optentry::adapt_threshold},
@@ -540,6 +542,9 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
     case optentry::safe_step:
       safe_step = true;
     break;
+    case optentry::memusage:
+      show_memusage = true;
+    break;
     };
   }
 }
@@ -720,6 +725,11 @@ void prog_opts::print_version_help(std::ostream &os)
 #endif
 #else
   os << "Available precision      float\n";
+#endif
+#ifdef ASGARD_ALWAYS_SAFE_STEP
+  os << "Always check inf/nan     Enabled\n";
+#else
+  os << "Sanity check inf/nan     Optional\n";
 #endif
   os << '\n';
 }

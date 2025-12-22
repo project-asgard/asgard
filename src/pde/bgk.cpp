@@ -334,6 +334,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
   } else if (dims == 2) {
 
+    std::cout << "WARNING: this is very incomplete\n";
     auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
           -> void {
 
@@ -523,7 +524,7 @@ void test_energy(int const dims, std::string const &opt_str) {
 
   auto pde = make_bgk<P>(dims, options);
   moment_id const m0 = pde.register_moment({0, moment::inactive});
-  moment_id const m1 = pde.register_moment({1, moment::inactive});
+  // moment_id const m1 = pde.register_moment({1, moment::inactive});
   moment_id const m2 = pde.register_moment({2, moment::inactive});
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
@@ -549,39 +550,15 @@ void test_energy(int const dims, std::string const &opt_str) {
     if (i == 0)
       mass0 = mass;
 
-    //std::cout << " delta-mass = " << std::abs(mass - mass0) << '\n';
-    //tassert(std::abs(mass - mass0) < 1.E-11);
+    tassert(std::abs(mass - mass0) < tol);
 
     double const energy = moms.get_cached_raws()[m2][0];
     if (i == 0)
       energy0 = energy;
 
-    //std::cout << " delta-energy = " << std::abs(energy - energy0) << '\n';
-    //tassert(std::abs(energy - energy0) < 1.E-11);
+    tassert(std::abs(energy - energy0) < tol);
 
-    std::cout << " delta-mass: " << std::abs(mass - mass0) << "    " << std::abs(energy - energy0) << '\n';
-
-
-  //   int const level0   = disc.get_grid().current_level(0);
-  //   int const num_cell = fm::ipow2(level0);
-  //   P const dx         = disc.domain().length(0) / num_cell;
-  //
-  //   auto efield = disc.get_electric();
-  //
-  //   double Ep = 0;
-  //   for (auto e : efield)
-  //     Ep += e * e;
-  //   Ep *= dx;
-  //
-  //   std::vector<P> mom2 = disc.get_moment(m2);
-  //
-  //   P const Ek = mom2[0] * std::sqrt(disc.domain().length(0));
-  //
-  //   if (disc.current_step() == 1) // first time-step
-  //     E0 = Ep + Ek;
-  //
-  //   // check the initial slight energy decay before it stabilizes
-  //   tcheckless(i, std::abs(Ep + Ek - E0), tol);
+    // std::cout << " delta-mass: " << std::abs(mass - mass0) << "    " << std::abs(energy - energy0) << '\n';
   }
 }
 
@@ -590,17 +567,17 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  // test_energy<double>(1, "-l 6 -n 100 -s imex1");
-  // test_energy<double>(1, "-l 6 -n 100 -s imex2");
+  test_energy<double>(1, "-l 6 -n 100 -s imex1");
+  test_energy<double>(1, "-l 6 -n 100 -s imex2");
 
-  // test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
-  // test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
+  test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
+  test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  // test_energy<float>(1, "-l 5");
+  test_energy<float>(1, "-l 5");
 
 #endif
 }

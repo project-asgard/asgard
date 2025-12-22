@@ -47,38 +47,7 @@ public:
   }
   //! take ownership of the pde object and discretize the pde
   discretization_manager(pde_scheme<precision> pde,
-                         verbosity_level verbosity = verbosity_level::quiet)
-    : discretization_manager()
-  {
-    verb = pde.options().verbosity.value_or(verbosity);
-
-    #ifdef ASGARD_ALWAYS_SAFE_STEP
-    safe_step = true;
-    #else
-    safe_step = pde.options().safe_step;
-    #endif
-
-    rassert(pde.num_dims() > 0, "cannot discretize an empty pde");
-
-    options_ = std::move(pde.options_);
-    domain_  = std::move(pde.domain_);
-
-    initial_md_  = std::move(pde.initial_md_);
-    initial_sep_ = std::move(pde.initial_sep_);
-
-    init_compute(); // compute engine, detect GPUs, etc.
-
-    #ifdef ASGARD_USE_MPI
-    // only rank 0 will do regular I/O, others will default to silent mode
-    if (mpi::comm_rank(options_.mpicomm) != 0)
-      verb = verbosity_level::quiet;
-    #endif
-
-    if (options_.restarting())
-      restart_from_file(pde);
-    else
-      start_cold(pde);
-  }
+                         verbosity_level verbosity = verbosity_level::quiet);
 
   //! returns the degree of the discretization
   int degree() const { return hier.degree(); }
@@ -333,12 +302,7 @@ public:
   //! write out snapshot data, same as checkpoint but can be invoked manually
   void save_snapshot(std::filesystem::path const &filename) const;
   //! calls save-snapshot for the final step, if requested with -outfile
-  void save_final_snapshot() const
-  {
-    // if (not stop_verbosity()) report_memusage();
-    if (not options_.outfile.empty())
-      save_snapshot(options_.outfile);
-  }
+  void save_final_snapshot() const;
 
   //! returns the title of the PDE
   std::string const &title() const { return options_.title; }
