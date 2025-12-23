@@ -82,6 +82,9 @@ __global__ void fsquared_positive(int64_t const num_points, P time,
 
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < num_points) {
+    // for coefficients that depend on the nodes, we have (x, y) below
+    // P const x = nodes[2 * i];
+    // P const y = nodes[2 * i + 1];
     if constexpr (mode == coefficient_mode::positive)
       vals[i] = (f[i] > 0) ? f[i] * f[i] : 0;
     else if constexpr (mode == coefficient_mode::negative)

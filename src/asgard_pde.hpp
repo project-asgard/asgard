@@ -119,6 +119,16 @@ using md_func_f = std::function<void(P t, vector2d<P> const &x,
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Signature for a GPU non-separable function that accepts an additional field parameter
+ *
+ * Using this function requires either CUDA or ROCM support and the arrays will
+ * be on the GPU device.
+ */
+template<typename P>
+using md_gpu_func_f = std::function<void(int64_t const, P, P const[], P const[], P[])>;
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function with field and moment parameters
  */
 template<typename P>
@@ -903,13 +913,13 @@ template<typename P>
 struct term_interp {
   //! create the intermediate term and set the interpolation function
   explicit term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
+    //! create the intermediate term and set the interpolation function
+  explicit term_interp(md_gpu_func_f<P> itep) : interp(std::move(itep)) {}
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
-  std::variant<md_func_f<P>, md_mom_func_f<P>> interp;
-  //! holds the moment interpolation function
-  // md_mom_func_f<P> interp_mom;
+  std::variant<md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>> interp;
   //! moment ids required for the interpolation function
   std::vector<moment_id> mids;
 };
@@ -1185,6 +1195,12 @@ public:
     if (std::holds_alternative<md_mom_func_f<P>>(tint.interp)) {
       rassert(not mids_.empty(), "moment interpolation set but no moment_id provides");
       interp_ = std::move(std::get<md_mom_func_f<P>>(tint.interp));
+    } else if (std::holds_alternative<md_gpu_func_f<P>>(tint.interp)) {
+      #if !defined(ASGARD_USE_CUDA) && !defined(ASGARD_USE_ROCM)
+      rassert(not std::holds_alternative<md_gpu_func_f<P>>(tint.interp),
+              "the GPU interpolation functions requires CUDA or ROCM enabled");
+      #endif
+      interp_ = std::move(std::get<md_gpu_func_f<P>>(tint.interp));
     } else
       interp_ = std::move(std::get<md_func_f<P>>(tint.interp));
   }
@@ -1324,7 +1340,8 @@ private:
   std::variant<std::monostate,
                std::array<term_1d<P>, max_num_dimensions>,
                md_func_f<P>,
-               md_mom_func_f<P>> interp_ = std::monostate{};
+               md_mom_func_f<P>,
+               md_gpu_func_f<P>> interp_ = std::monostate{};
   // moments needed by the interpolation
   std::vector<moment_id> mids_;
   // chain of other terms
