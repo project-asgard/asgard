@@ -1238,6 +1238,8 @@ public:
   bool is_separable() const { return (mode_ == mode::separable); }
   //! return true if the term uses interpolation
   bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
+  //! return true if the term uses interpolation on the GPU device
+  bool is_gpu_interpolatory() const { return std::holds_alternative<md_gpu_func_f<P>>(interp_); }
 
   //! sets the mass term
   void set_mass(mass_md<P> tmass) {
@@ -1319,6 +1321,12 @@ public:
   }
   //! get the moment ids for interpolation
   std::vector<moment_id> const &get_interp_moments() const { return mids_; }
+
+  //! applies the function on the GPU device, vals = f(n, t, x, f)
+  void interp(int64_t num_points, P t, P const x[], P const f[], P vals[]) const {
+    expect(std::holds_alternative<md_gpu_func_f<P>>(interp_));
+    std::get<md_gpu_func_f<P>>(interp_)(num_points, t, x, f, vals);
+  }
 
   // allow direct access to the private data
   friend struct term_manager<P>;
@@ -1588,6 +1596,11 @@ public:
   //! adding a term to the pde
   void add_term(term_md<P> tmd) {
     rassert(not tmd.mass(), "only terms in a chain can have a mass_md");
+    #ifndef ASGARD_USE_GPU
+    rassert(not tmd.is_gpu_interpolatory(),
+            "functions with GPU interpolation signature require GPU capabilities built in ASGarD, "
+            "either use the std::vector signature or recompile with -DASGARD_USE_CUDA=ON or -DASGARD_USE_ROCM=ON");
+    #endif
     if (tmd.is_chain())
       rassert(not tmd.chain(0).mass(), "the 0-th term of a chain cannot have a mass_md")
     tmd.set_num_dimensions(domain_.num_dims());

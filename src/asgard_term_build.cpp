@@ -330,9 +330,18 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           // i.e., this is the first link in the chain
           t.interplan.use_field();
         }
-        if (t.tmd.is_interp_mom()) {
+        if (not t.tmd.get_interp_moments().empty()) {
           t.interplan.use_moments();
         }
+        #ifdef ASGARD_USE_GPU
+        if (t.tmd.is_gpu_interpolatory()) {
+          t.interplan.use_gpu_func();
+          if (t.interplan.uses_field() and resources.owns(t.rec))
+            gpu_ifield.resize(1);
+        }
+        #else
+        rassert(not t.tmd.is_gpu_interpolatory(), "cannot use GPU interpolation without CUDA or ROCM enabled");
+        #endif
       }
     }
 
@@ -346,9 +355,16 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         continue;
       }
       #endif
-      has_field_interp = has_field_interp or it->interplan.uses_field();
-      if (it->is_chain_start())
-        has_field_interp = has_field_interp or (it + it->num_chain -1)->interplan.uses_field();
+      if (it->is_chain_start()) {
+        auto const itn = it + (it->num_chain -1); // first link of the chain
+        // if using field from the CPU
+        if (itn->interplan.uses_field() and not itn->interplan.uses_gpu_func())
+          has_field_interp = true;
+      } else {
+        if (it->interplan.uses_field() and not it->interplan.uses_gpu_func())
+          has_field_interp = true;
+      }
+
       it += it->num_chain;
     }
 

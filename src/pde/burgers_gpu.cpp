@@ -73,13 +73,15 @@ enum class coefficient_mode {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [burgers_gpu f2_kernel]
 #endif
-template<typename P, coefficient_mode mode>
-__global__ void fsquared_positive(int64_t const num_points, P time,
-                                  P const nodes[], P const f[], P vals[])
+template<coefficient_mode mode, typename P>
+__global__ void fsquared_kernel(int64_t const num_points, P time,
+                                P const nodes[], P const f[], P vals[])
 {
-  asgard::ignore(time); // ignore() is an ASGarD macro that suppresses compiler warnings
-  asgard::ignore(nodes);
+  (void) time;  // this line just suppresses compiler warnings
+  (void) nodes; // this line just suppresses compiler warnings
 
+  // index of the first point processed by this thread
+  // this assumes a 1D logical grid of thread-blocks
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < num_points) {
     // for coefficients that depend on the nodes, we have (x, y) below
@@ -91,6 +93,8 @@ __global__ void fsquared_positive(int64_t const num_points, P time,
       vals[i] = (f[i] < 0) ? f[i] * f[i] : 0;
     else // case full
       vals[i] = f[i] * f[i];
+
+    // move to the next point
     i += blockDim.x * gridDim.x;
   }
 }
@@ -117,12 +121,34 @@ __global__ void fsquared_positive(int64_t const num_points, P time,
  *
  * \snippet burgers_gpu.cpp burgers f2pos
  */
-template<typename P>
-void fsquared_positive(int64_t const num_points, P time, P const nodes[], P const f[], P vals[])
+template<coefficient_mode mode, typename P>
+void fsquared(int64_t const num_points, P time, P const nodes[], P const f[], P vals[])
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [burgers_gpu f2pos]
 #endif
+  // this is a demonstration of now a kernel launch can be incorporated with ASGarD
+  // this is not a tutorial on how to write CUDA/ROCM/HIP kernels
+
+  // the kernel will launch on a one-dimensional thread grid and 1 thread per point
+
+  // setting up the number of threads in a thead-block
+  int constexpr num_threads = 1024;
+
+  // how many thread blocks do we need for the given num_points
+  // the operation rounds up, so that num_blocks * num_threads >= num_points
+  int const num_blocks = (num_points + num_threads - 1) / num_threads;
+
+  // call a CUDA/ROCM kernel
+  #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
+  // if (mode == coefficient_mode::positive)
+  //   std::cout << " kernel launch positive: " << num_blocks << "  " << num_threads << "  " << num_points << '\n';
+  // else if (mode == coefficient_mode::negative)
+  //   std::cout << " kernel launch negative: " << num_blocks << "  " << num_threads << "  " << num_points << '\n';
+  // else
+  //   std::cout << " kernel launch full: " << num_blocks << "  " << num_threads << '\n';
+  fsquared_kernel<mode, P><<<num_blocks, num_threads>>>(num_points, time,nodes, f, vals);
+  #endif
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [burgers_gpu f2pos]
@@ -194,24 +220,26 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
+  #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
+  auto f2p = [=](int64_t num_points, P t, P const x[], P const f[], P vals[]) ->
+    void {
+      fsquared<coefficient_mode::positive, P>(num_points, t, x, f, vals);
+    };
+  auto f2n = [=](int64_t num_points, P t, P const x[], P const f[], P vals[]) ->
+    void {
+      fsquared<coefficient_mode::negative, P>(num_points, t, x, f, vals);
+    };
+
+  // ensure that the adaptive process captures the nonlinear component in addition to the field
+  auto f2 = [=](int64_t num_points, P t, P const x[], P const f[], P vals[]) ->
+    void {
+      fsquared<coefficient_mode::full, P>(num_points, t, x, f, vals);
+    };
+  #else
+  // if CUDA/ROCM are not enabled, defaulting to the CPU
   auto f2p = [=](P, asgard::vector2d<P> const &,
                  std::vector<P> const &f, std::vector<P> &vals) ->
     void {
-      // ignore the first input, it is time but it is not implemented yet
-      // the coefficient function must return values at specific points
-      // the number of points is f.size() and f contains the values
-      // of the current solution at the corresponding points
-      // in the case Burger's equation, the coefficient values depend only
-      // on f, but in a general case the nodes can be needed too
-      // asgard::vector2d<P> const &nodes provides a 2D organization of data,
-      // so that the nodes of i-th point are
-      // nodes[i][0], ..., nodes[i][num_dims - 1] corresponding to x1, x2, ..., xd
-      // e.g., x1 = nodes[i][0], x2 = nodes[i][1] ...
-      // see also the source term of the 2D case
-
-      // the function f^2 is split into f < 0 and f > 0 section
-      // since in the term f_x f the direction of the flux is based sing(f)
-      // the positive-negative will be paired with upwind/downwind fluxes
       for (size_t i = 0; i < f.size(); i++) {
         vals[i] = (f[i] > 0) ? f[i] * f[i] : 0;
       }
@@ -224,7 +252,6 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
       }
     };
 
-  // ensure that the adaptive process captures the nonlinear component in addition to the field
   auto f2 = [=](P, asgard::vector2d<P> const &,
                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
@@ -232,9 +259,20 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
         vals[i] = f[i] * f[i];
       }
     };
-  pde.set_adapt_weight(f2);
+  #endif
+
+  auto f2cpu = [=](P, asgard::vector2d<P> const &,
+                std::vector<P> const &f, std::vector<P> &vals) ->
+    void {
+      for (size_t i = 0; i < f.size(); i++) {
+        vals[i] = f[i] * f[i];
+      }
+    };
+  pde.set_adapt_weight(f2cpu);
 
   // setting up multidimensional volume term that uses interpolated coefficient
+  // the signature of the f2p and f2n functions determine whether to use the CPU
+  // or the GPU device
   asgard::term_md<P> term_f2_pos = asgard::term_interp<P>{f2p};
   asgard::term_md<P> term_f2_neg = asgard::term_interp<P>{f2n};
 
@@ -546,14 +584,14 @@ void self_test() {
   all_tests testing_("Burgers' equation:", " using CUDA or ROCM");
 
 #ifdef ASGARD_ENABLE_DOUBLE
-//   dotest<double>(2.E-5, "-l 6 -n 20 -nu 0.1");
-//   dotest<double>(2.E-5, "-l 6 -n 20 -nu 0.1 -s imex2");
-//   dotest<double>(1.E-7, "-l 6 -n 20 -nu 0");
-//   dotest<double>(1.E-7, "-l 3 -m 8 -n 20 -a 1.E-8 -nu 0");
+  dotest<double>(2.E-5, "-l 6 -n 20 -nu 0.1");
+  dotest<double>(2.E-5, "-l 6 -n 20 -nu 0.1 -s imex2");
+  dotest<double>(1.E-7, "-l 6 -n 20 -nu 0");
+  dotest<double>(1.E-7, "-l 3 -m 8 -n 20 -a 1.E-8 -nu 0");
 #endif
 
 #ifndef ASGARD_ENABLE_DOUBLE
-//   dotest<float>(2.E-3, "-l 6 -n 20 -nu 0");
+  dotest<float>(2.E-3, "-l 6 -n 20 -nu 0");
 #endif
 }
 

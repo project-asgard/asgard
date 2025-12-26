@@ -119,6 +119,10 @@ struct term_manager
   interpolation_manager<P> interp;
   //! values for the interpolation field, allows reuse for several interp ops
   mutable std::vector<P> ifield;
+  #ifdef ASGARD_USE_GPU
+  //! field value sitting on the GPU
+  mutable gpu::vector<P> gpu_ifield;
+  #endif
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains

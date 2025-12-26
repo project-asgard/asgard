@@ -73,6 +73,7 @@ public:
   //! \brief Copy the data from the std::vector
   vector<T> &operator=(std::vector<T> const &other)
   {
+    // tools::time_event perf_("copy-from-std::vector");
     this->resize(other.size());
     gpu::memcopy_host2dev(size_, other.data(), data_);
     return *this;
@@ -105,15 +106,18 @@ public:
   }
   //! \brief Copy to a host array, the destination must be large enough
   void copy_to_host(T *destination) const {
+    // tools::time_event perf_("copy-to-host");
     gpu::memcopy_dev2host(size_, data_, destination);
   }
   //! \brief Copy number of entries to a host array, the destination must be large enough
   void copy_to_host(int64_t num, T *destination) const {
+    // tools::time_event perf_("copy-to-host");
     gpu::memcopy_dev2host(num, data_, destination);
   }
   //! \brief Copy to a std::vector on the host.
   void copy_to_host(std::vector<T> &destination) const
   {
+    // tools::time_event perf_("copy-resize-to-host");
     destination.resize(size_);
     this->copy_to_host(destination.data());
   }

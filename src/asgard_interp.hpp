@@ -241,7 +241,7 @@ public:
         }
       }();
     {
-      tools::time_event perf_("interpolation function");
+      tools::time_event perf_("interpolation func");
       if (plan.uses_moments()) {
         tmd.interp(time, nodes(grid), moments, nodal, t2);
       } else {
@@ -272,7 +272,7 @@ public:
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
   {
     {
-      tools::time_event perf_("interpolation eval");
+      tools::time_event perf_("source func");
       func(time, nodes(grid), moments, t1);
     }
     nodal2wav(grid, conn, alpha, t1.data(), beta, y, work, t2);
@@ -318,6 +318,8 @@ public:
 
 
   #ifdef ASGARD_USE_GPU
+  //! returns the nodes corresponding to the grid
+  P const *gpu_nodes(gpu::device dev, sparse_grid const &grid) const;
   //! compute nodal values for the field
   void wav2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
@@ -431,6 +433,19 @@ public:
             return gpu_t1;
           }
         }();
+      {
+        tools::time_event perf_("interpolation func-gpu");
+        if (plan.uses_moments()) {
+          // TODO: moments on the GPU
+          // tmd.interp(time, nodes(grid), moments, nodal, t2);
+        } else {
+          tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), nodal.data(), gpu_t2.data());
+        }
+      }
+      if (plan.uses_hier())
+        nodal2hier(dev, grid, conn, gpu_t2.data(), y, work);
+      else
+        nodal2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
     } else {
       std::vector<P> const &nodal = [&]() -> std::vector<P> const &
         {
@@ -443,7 +458,7 @@ public:
           }
         }();
       {
-        tools::time_event perf_("interpolation function");
+        tools::time_event perf_("interpolation func");
         if (plan.uses_moments()) {
           tmd.interp(time, nodes(grid), moments, nodal, t2);
         } else {
@@ -473,7 +488,7 @@ public:
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
   {
     {
-      tools::time_event perf_("source function");
+      tools::time_event perf_("source func");
       func(time, nodes(grid), moments, t1);
     }
     gpu_t1 = t1;
@@ -530,6 +545,10 @@ private:
   //! gpu coefficient matrices for different levels hierarchical to wavelet
   std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lhier2wav_;
   #endif
+  //! grid gen for the nodes loaded on the GPU
+  mutable std::array<int, max_num_gpus> gpu_nodes_grid_gen_;
+  //! nodal matrices, TODO for multi-GPU
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_nodes_;
   //! gpu matrices for each device
   std::array<mat_type, max_num_gpus> gpu_wav2nodal_;
   //! gpu matrices for each device
