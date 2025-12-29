@@ -49,6 +49,13 @@ struct source_entry
     for (auto const &v : consts) t += v.size() * sizeof(P);
     return t;
   }
+
+  #ifdef ASGARD_USE_GPU
+  //! constant components on the gpu
+  std::array<gpu::vector<P>, max_num_dimensions> gpu_consts;
+  //! vector for the current grid
+  gpu::vector<P> gpu_val;
+  #endif
 };
 
 //! holds the data for an interpolatory source entry
@@ -118,6 +125,13 @@ struct boundary_entry {
   std::array<std::vector<P>, max_num_dimensions> consts;
   //! index if lumped with other sources
   int ilump = -1;
+
+  #ifdef ASGARD_USE_GPU
+  //! constant components on the gpu
+  std::array<gpu::vector<P>, max_num_dimensions> gpu_consts;
+  //! vector for the current grid
+  gpu::vector<P> gpu_val;
+  #endif
 };
 
 /*!

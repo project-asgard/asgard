@@ -600,6 +600,7 @@ public:
   #endif
 
   #ifdef ASGARD_USE_GPU
+  int const *gpu_indexes() const { return gpu_indexes_.data(); }
   #ifdef ASGARD_GPU_MEMGREEDY
   //! if the grid geenratio has changed, reset all connectivity
   void reset_gpu_generation() const {
@@ -647,7 +648,12 @@ public:
     return gpu_xy[dev.id][dim].back();
   }
   //! low-memory usage, sync the grid to the GPU
-  void gpu_sync() {}
+  void gpu_sync() {
+    if (gpu_generation_ == generation_)
+      return; // nothing to sync
+    gpu_generation_ = generation_;
+    gpu_indexes_    = iset_.indexes();
+  }
   #else
   //! send the grid to all of the managed GPUs, check if needed
   void gpu_sync() {
@@ -656,6 +662,7 @@ public:
     // this is split into two methods, so that the if statement can be inlined
     // while the load process uses OpenMP and more complex code
     gpu_generation_ = generation_;
+    gpu_indexes_    = iset_.indexes();
     gpu_load();
   }
   //! send the grid to all of the managed GPUs, regardless if already loaded
@@ -708,11 +715,13 @@ private:
   #endif
   #ifdef ASGARD_USE_GPU
   mutable int gpu_generation_ = -2; // which is the last synced generation
-  std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
+  gpu::vector<int> gpu_indexes_; // raw-indexes on the GPU
   #ifdef ASGARD_GPU_MEMGREEDY
   mutable bool gpu_reduced_xy = false;
   mutable std::array<std::array<std::array<gpu::vector<int>, 4>, max_num_dimensions>, max_num_gpus> gpu_xy;
   mutable std::array<std::array<std::array<gpu::vector<int>, 3>, max_num_dimensions>, max_num_gpus> gpu_xy_red;
+  #else
+  std::array<gpu_grid_data, max_num_gpus> gpu_grid_;
   #endif
   #endif
 };

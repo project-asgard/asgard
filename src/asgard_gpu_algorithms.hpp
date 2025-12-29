@@ -29,4 +29,10 @@ void axpby(int64_t num, P alpha, P const x[], P beta, P y[]);
 template<typename P>
 void set_scal(int64_t num, P alpha, P x[]);
 
+//! tensors the vectors into the output according to the multi-indexes
+template<typename P>
+void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
+                     P const c1[], P const c2[], P const c3[], P const c4[], P const c5[], P const c6[],
+                     P x[]);
+
 }
