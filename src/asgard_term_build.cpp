@@ -658,6 +658,9 @@ void term_manager<P>::rebuild_term1d(
     if (not bentry.consts[dim].empty()) {
       // will be empty if non-flux direction and non-separable in time
       hier.transform(level, bentry.consts[dim]);
+      #ifdef ASGARD_USE_GPU
+      bentry.gpu_consts[dim] = bentry.consts[dim];
+      #endif
     }
   }
 }
