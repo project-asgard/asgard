@@ -602,21 +602,6 @@ public:
   #ifdef ASGARD_USE_GPU
   int const *gpu_indexes() const { return gpu_indexes_.data(); }
   #ifdef ASGARD_GPU_MEMGREEDY
-  //! if the grid geenratio has changed, reset all connectivity
-  void reset_gpu_generation() const {
-    if (gpu_generation_ == generation_)
-      return;
-    gpu_generation_ = generation_;
-    for (auto &gpus : gpu_xy)
-      for (auto &dims : gpus)
-        for (auto &cnn : dims)
-          cnn.clear();
-    for (auto &gpus : gpu_xy_red)
-      for (auto &dims : gpus)
-        for (auto &cnn : dims)
-          cnn.clear();
-    gpu_generation_ = generation_;
-  }
   //! reports the memory usage, in MB
   int64_t used_xy_ram() const {
     int64_t sum = 0;
@@ -651,8 +636,16 @@ public:
   void gpu_sync() {
     if (gpu_generation_ == generation_)
       return; // nothing to sync
-    gpu_generation_ = generation_;
+    for (auto &gpus : gpu_xy)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          cnn.clear();
+    for (auto &gpus : gpu_xy_red)
+      for (auto &dims : gpus)
+        for (auto &cnn : dims)
+          cnn.clear();
     gpu_indexes_    = iset_.indexes();
+    gpu_generation_ = generation_;
   }
   #else
   //! send the grid to all of the managed GPUs, check if needed

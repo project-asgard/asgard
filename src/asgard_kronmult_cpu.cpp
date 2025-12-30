@@ -846,7 +846,6 @@ template<typename precision>
 void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
                  permutes const &perm, workspace<precision> &work)
 {
-  grid.reset_gpu_generation();
   compute->set_device(dev);
 
   auto get_connect_1d = [&](conn_fill const fill)
