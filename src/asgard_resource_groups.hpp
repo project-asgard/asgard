@@ -195,7 +195,7 @@ public:
     #else
     if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
       cpu_work.resize(static_cast<size_t>(count) * sizeof(T));
-    T *w = cpu_work.data();
+    T *w = reinterpret_cast<T *>(cpu_work.data());
     if (is_leader())
       gpu::memcopy_dev2host(count, data, w);
     bcast<T, cm>(count, w);
@@ -218,7 +218,7 @@ public:
     #else
     if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
       cpu_work.resize(static_cast<size_t>(count) * sizeof(T));
-    T *w = cpu_work.data();
+    T *w = reinterpret_cast<T*>(cpu_work.data());
     gpu::memcopy_dev2host(count, data, w);
     bcast<T, cm>(count, w);
     #endif
@@ -262,16 +262,17 @@ public:
       expect(output != nullptr);
       if (2 * static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
         cpu_work.resize(2 * static_cast<size_t>(count) * sizeof(T));
+      T *w = reinterpret_cast<T *>(cpu_work.data());
+      gpu::memcopy_dev2host(count, input, w);
+      reduce_add<T, cm>(count, w, w + count);
+      gpu::memcopy_host2dev(count, w + count, output);
     } else {
       if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
         cpu_work.resize(static_cast<size_t>(count) * sizeof(T));
+      T *w = reinterpret_cast<T *>(cpu_work.data());
+      gpu::memcopy_dev2host(count, input, w);
+      reduce_add<T, cm>(count, w, nullptr);
     }
-    T *w = cpu_work.data();
-    T *o = (is_leader()) ? w + count : nullptr;
-    gpu::memcopy_dev2host(count, input, w);
-    reduce_add<T, cm>(count, w, o);
-    if (is_leader())
-      gpu::memcopy_host2dev(count, o, output);
     #endif
   }
 #endif

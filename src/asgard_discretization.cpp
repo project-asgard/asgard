@@ -661,9 +661,9 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
   if (terms.resources.num_ranks() > 1) {
     terms.gpumpi_work.resize(num_entries);
     if (is_leader()) {
-      terms.resources.bcast(inume, current);
+      terms.resources.bcast_gpu(inume, current);
     } else {
-      terms.resources.bcast(inume, terms.gpumpi_work.data());
+      terms.resources.bcast_gpu(inume, terms.gpumpi_work.data());
     }
   }
   #endif
@@ -720,9 +720,9 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
   #ifdef ASGARD_USE_MPI
   if (terms.resources.num_ranks() > 1) {
     if (is_leader())
-      terms.resources.reduce_add(inume, out, R);
+      terms.resources.reduce_add_gpu(inume, out, R);
     else
-      terms.resources.reduce_add(inume, out);
+      terms.resources.reduce_add_gpu(inume, out);
   }
   #endif
 }
@@ -739,14 +739,14 @@ void discretization_manager<precision>::ode_euler_base_gpu(
   if (terms.resources.num_ranks() > 1) {
     terms.gpumpi_work.resize(num_entries);
     if (is_leader()) {
-      terms.resources.bcast(inume, current);
+      terms.resources.bcast_gpu(inume, current);
     } else {
-      terms.resources.bcast(inume, terms.gpumpi_work.data());
+      terms.resources.bcast_gpu(inume, terms.gpumpi_work.data());
     }
   }
   #endif
 
-  //std::cout << " HERE 2\n";
+  // std::cout << " HERE 2\n";
 
   // the effective input vector, in MPI context this is either current or mpiwork
   // leader just uses current, the rest use mpiwork
@@ -756,7 +756,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
       if (terms.resources.num_ranks() == 1 or is_leader())
         return current;
       else
-        return terms.mpiwork.data();
+        return terms.gpumpi_work.data();
       #else
       return current;
       #endif
@@ -766,7 +766,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
     {
       #ifdef ASGARD_USE_MPI
       if (terms.resources.num_ranks() > 1 and is_leader())
-        return terms.mpiwork.data();
+        return terms.gpumpi_work.data();
       else
         return next;
       #else
@@ -820,9 +820,9 @@ void discretization_manager<precision>::ode_euler_base_gpu(
   #ifdef ASGARD_USE_MPI
   if (terms.resources.num_ranks() > 1) {
     if (is_leader())
-      terms.resources.reduce_add(inume, out, next);
+      terms.resources.reduce_add_gpu(inume, out, next);
     else
-      terms.resources.reduce_add(inume, out);
+      terms.resources.reduce_add_gpu(inume, out);
   }
   #endif
 }
