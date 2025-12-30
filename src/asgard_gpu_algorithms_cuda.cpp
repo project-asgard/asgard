@@ -158,14 +158,14 @@ __global__ void kernel_sum5(int64_t num, P const x[], P a1, P const x1[],
 }
 
 template<typename P>
-void sum2(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, gpu::vector<P> &y) {
+void sum2(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, gpu::vector<P> &y) {
   constexpr int max_threads = 1024;
   int64_t const num = x.size();
   int const num_blocks = round_up(num, max_threads);
   kernel_sum2<P, max_threads><<<num_blocks, max_threads>>>(num, x.data(), a1, x1.data(), y.data());
 }
 template<typename P>
-void sum3(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::vector<P> const &x2,
+void sum3(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, no_deduce<P> a2, gpu::vector<P> const &x2,
           gpu::vector<P> &y) {
   constexpr int max_threads = 1024;
   int64_t const num = x.size();
@@ -174,8 +174,8 @@ void sum3(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::ve
       num, x.data(), a1, x1.data(), a2, x2.data(), y.data());
 }
 template<typename P>
-void sum4(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::vector<P> const &x2,
-          P a3, gpu::vector<P> const &x3, gpu::vector<P> &y) {
+void sum4(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, no_deduce<P> a2, gpu::vector<P> const &x2,
+          no_deduce<P> a3, gpu::vector<P> const &x3, gpu::vector<P> &y) {
   constexpr int max_threads = 1024;
   int64_t const num = x.size();
   int const num_blocks = round_up(num, max_threads);
@@ -183,8 +183,8 @@ void sum4(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::ve
       num, x.data(), a1, x1.data(), a2, x2.data(), a3, x3.data(), y.data());
 }
 template<typename P>
-void sum5(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::vector<P> const &x2,
-          P a3, gpu::vector<P> const &x3, P a4, gpu::vector<P> const &x4, gpu::vector<P> &y) {
+void sum5(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, no_deduce<P> a2, gpu::vector<P> const &x2,
+          no_deduce<P> a3, gpu::vector<P> const &x3, no_deduce<P> a4, gpu::vector<P> const &x4, gpu::vector<P> &y) {
   constexpr int max_threads = 1024;
   int64_t const num = x.size();
   int const num_blocks = round_up(num, max_threads);
@@ -210,15 +210,10 @@ __global__ void kernel_tensor2d(int n, int num_indexes, int const indexes[],
   int i = threadIdx.y + blockIdx.x * blockDim.y;
   while (i < num_indexes)
   {
-    // printf(" reading indexes at %d %d\n", 2 * i, 2 * i + 1);
-    // printf(" reading indexes %d %d\n", indexes[2 * i], indexes[2 * i + 1]);
-    // printf(" reading c1/c2 %d %d\n", indexes[2 * i] * n + threadIdx.x % n, indexes[2 * i + 1] * n + threadIdx.x / n);
     P v = c1[ indexes[2 * i] * n + threadIdx.x / n ];
     v *= c2[ indexes[2 * i + 1] * n + threadIdx.x % n ];
 
-    // printf(" putting in x: %d  %f\n", i * n * n + threadIdx.x, v);
     x[i * n * n + threadIdx.x] = v;
-    // printf(" putting in x: %d  %f\n", i * n * n + threadIdx.x, v);
     i += gridDim.x * blockDim.y;
   }
 }
@@ -348,15 +343,11 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
   dim3 const launch_grid(team_size, num_teams);
   constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
 
-  // std::cout << " n = " << n << "  num_dims = " << num_dims << "  num_indexes = " << num_indexes << std::endl;
-  // std::cout << " team_size = " << team_size << "  num_teams = " << num_teams << "  " << launch_blocks << std::endl;
-  // std::cout << " c1-6, x: " << c1 << " " << c2 << " " << c3 << " " << c4 << " " << c5 << " " << c6 << "  " << x << std::endl;
   switch (num_dims) {
   case 1:
     kernel_tensor1d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, x);
     break;
   case 2:
-    // std::cout << "  c1 = " << c1 << "  c2 = " << c2 << "   " << x << std::endl;
     kernel_tensor2d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, c2, x);
     break;
   case 3:
