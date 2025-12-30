@@ -451,8 +451,10 @@ void term_manager<P>::apply_sources_gpu(
   expect(static_cast<size_t>(num_entries) == t1.size());
   bool t1_initialized = false;
   auto using_cpu_t1 = [&, this]() -> void {
-    if (not t1_initialized)
+    if (not t1_initialized) {
       std::fill(t1.begin(), t1.end(), P{0});
+      t1_initialized = true;
+    }
   };
 
   //cuda_check_error( cudaPeekAtLastError() ); std::cout << " sources filling-zero" << std::endl;
@@ -578,6 +580,7 @@ void term_manager<P>::apply_sources_gpu(
       if (not src)
         continue;
       #endif
+      // std::cout << " has sources_md  for all groups\n";
       using_cpu_t1();
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         interp(grid, conns, moms.get_cached_interps(), time, 1, src, 0, t1.data(), kwork, it1, it2);
@@ -590,6 +593,7 @@ void term_manager<P>::apply_sources_gpu(
     #else
     if (sources_md[group()]) {
     #endif
+      // std::cout << " has sources_md[group()]  for  " << group() << "\n";
       using_cpu_t1();
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         interp(grid, conns, moms.get_cached_interps(), time, 1, sources_md[group()],
@@ -600,7 +604,9 @@ void term_manager<P>::apply_sources_gpu(
     }
   }
 
+  // std::cout << " check if initialized\n";
   if (t1_initialized) {
+    // std::cout << " is Initialized\n";
     gpu_t1[0] = t1;
     compute->axpy(num_entries, 1, gpu_t1[0].data(), y);
   }
