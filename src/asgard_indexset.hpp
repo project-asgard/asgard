@@ -708,7 +708,9 @@ private:
   #endif
   #ifdef ASGARD_USE_GPU
   mutable int gpu_generation_ = -2; // which is the last synced generation
+  public:
   gpu::vector<int> gpu_indexes_; // raw-indexes on the GPU
+  private:
   #ifdef ASGARD_GPU_MEMGREEDY
   mutable bool gpu_reduced_xy = false;
   mutable std::array<std::array<std::array<gpu::vector<int>, 4>, max_num_dimensions>, max_num_gpus> gpu_xy;

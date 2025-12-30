@@ -152,6 +152,13 @@ template<typename T>
 void mcopy(device src_dev, T const src[], device dest_dev, vector<T> &dest) {
   mcopy(dest.size(), src_dev, src, dest_dev, dest.data());
 }
+//! \brief Copy data to the CPU and dump for debugging
+template<typename P>
+void dump(int n, P const x[], std::string message = "") {
+  std::vector<P> cpu(n);
+  memcopy_dev2host(n, x, cpu.data());
+  tools::dump(cpu, message);
+}
 
 } // namespace gpu
 #endif

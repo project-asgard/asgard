@@ -25,6 +25,7 @@
 #cmakedefine ASGARD_USE_ROCM
 #cmakedefine ASGARD_GPU_MEMGREEDY
 #cmakedefine ASGARD_USE_MPI
+#cmakedefine ASGARD_GPUMPI_DIRECT
 #cmakedefine ASGARD_ENABLE_FLOAT
 #cmakedefine ASGARD_ENABLE_DOUBLE
 #cmakedefine ASGARD_ALWAYS_SAFE_STEP

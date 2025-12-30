@@ -38,13 +38,12 @@ enum class resource_comm {
 class resource_set {
 public:
   //! sets the default resource set
-  resource_set() : num_gpus_(compute->num_gpus()) {}
+  resource_set() = default;
 
 #ifdef ASGARD_USE_MPI
   //! sets the resource set as a member of this communicator
   resource_set(MPI_Comm cm)
-      : num_gpus_(compute->num_gpus()), rank_(mpi::comm_rank(cm)),
-        num_ranks_(mpi::comm_size(cm)), comm(cm)
+      : rank_(mpi::comm_rank(cm)), num_ranks_(mpi::comm_size(cm)), comm(cm)
   {}
   //! returns the mpi rank
   MPI_Comm mpicomm() const { return comm; }
@@ -177,10 +176,106 @@ public:
     MPI_Group_free(&new_group);
     return result;
   }
+#ifdef ASGARD_USE_GPU
+  //! broadcasts the data to all sets in the communicator, can send or receive
+  template<typename T, resource_comm cm = resource_comm::regular>
+  void bcast_gpu(int count, T *data) const {
+    compute->set_device(gpu::device{0});
+    #ifdef ASGARD_GPUMPI_DIRECT
+    if (num_ranks<cm>() >= mpi::bcast_threshold) {
+      MPI_Bcast(data, count, mpi::datatype<T>(), root, get_comm<cm>());
+    } else {
+      if (is_leader()) {
+        for (int r = 1; r < num_ranks<cm>(); r++)
+          MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, get_comm<cm>());
+      } else {
+        MPI_Recv(data, count, mpi::datatype<T>(), root, bcast_tag, get_comm<cm>(), MPI_STATUS_IGNORE);
+      }
+    }
+    #else
+    if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
+      cpu_work.resize(static_cast<size_t>(count) * sizeof(T));
+    T *w = cpu_work.data();
+    if (is_leader())
+      gpu::memcopy_dev2host(count, data, w);
+    bcast<T, cm>(count, w);
+    if (not is_leader())
+      gpu::memcopy_host2dev(count, w, data);
+    #endif
+  }
+  //! broadcasts the data to all sets in the communicator, sender-only
+  template<typename T, resource_comm cm = resource_comm::regular>
+  void bcast_gpu(int count, T const *data) const {
+    compute->set_device(gpu::device{0});
+    #ifdef ASGARD_GPUMPI_DIRECT
+    expect(rank_ == root); // otherwise we will violate const-correctness
+    if (num_ranks<cm>() >= mpi::bcast_threshold) {
+      MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, get_comm<cm>());
+    } else {
+      for (int r = 1; r < num_ranks<cm>(); r++)
+        MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, get_comm<cm>());
+    }
+    #else
+    if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
+      cpu_work.resize(static_cast<size_t>(count) * sizeof(T));
+    T *w = cpu_work.data();
+    gpu::memcopy_dev2host(count, data, w);
+    bcast<T, cm>(count, w);
+    #endif
+  }
+  //! adds the data across communicator
+  template<typename T, resource_comm cm = resource_comm::regular>
+  void reduce_add_gpu(int count, T const *input, T *output = nullptr) const {
+    compute->set_device(gpu::device{0});
+    #ifdef ASGARD_GPUMPI_DIRECT
+    if (num_ranks_ >= mpi::reduce_threshold) {
+      MPI_Reduce(input, output, count, mpi::datatype<T>(), MPI_SUM, root, get_comm<cm>());
+    } else {
+      if (is_leader()) {
+        expect(output != nullptr);
+        int64_t const stride = static_cast<int64_t>(count) * sizeof(T);
+        gpu_work.resize((num_ranks_ - 1) * stride);
+        if (num_ranks_ == 2) {
+          MPI_Recv(gpu_work.data(), count, mpi::datatype<T>(), 1, reduce_tag, get_comm<cm>(), MPI_STATUS_IGNORE);
+          T const *data = reinterpret_cast<T const *>(gpu_work.data());
+          gpu::memcopy_dev2dev(count, input, output);
+          compute->axpy(count, 1, data, output);
+        } else {
+          // overlap addition and communication
+          std::array<MPI_Request, mpi::reduce_threshold - 1> requests;
+          for (int r = 0; r < num_ranks_ - 1; r++)
+            MPI_Irecv(gpu_work.data() + r * stride, count, mpi::datatype<T>(), r + 1, reduce_tag, get_comm<cm>(), requests.data() + r);
+          gpu::memcopy_dev2dev(count, input, output);
+          for (int r = 0; r < num_ranks_ - 1; r++) {
+            int gotten = 0;
+            MPI_Waitany(num_ranks_ - 1, requests.data(), &gotten, MPI_STATUS_IGNORE);
+            T const *data = reinterpret_cast<T const *>(gpu_work.data() + gotten * stride);
+            compute->axpy(count, 1, data, output);
+          }
+        }
+      } else {
+        MPI_Send(input, count, mpi::datatype<T>(), root, reduce_tag, get_comm<cm>());
+      }
+    }
+    #else
+    if (is_leader()) { // needs 2x the buffer size, for input and output
+      expect(output != nullptr);
+      if (2 * static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
+        cpu_work.resize(2 * static_cast<size_t>(count) * sizeof(T));
+    } else {
+      if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
+        cpu_work.resize(static_cast<size_t>(count) * sizeof(T));
+    }
+    T *w = cpu_work.data();
+    T *o = (is_leader()) ? w + count : nullptr;
+    gpu::memcopy_dev2host(count, input, w);
+    reduce_add<T, cm>(count, w, o);
+    if (is_leader())
+      gpu::memcopy_host2dev(count, o, output);
+    #endif
+  }
 #endif
-
-  //! returns the number of GPU devices
-  int num_gpus() const { return num_gpus_; }
+#endif
 
 private:
   #ifdef ASGARD_USE_MPI
@@ -195,9 +290,6 @@ private:
   }
   #endif
 
-  // local resources, e.g., GPU devices
-  int num_gpus_ = 0;
-
   // expressive way to address the mpi-comm root
   static int constexpr root = 0;
 
@@ -210,6 +302,12 @@ private:
   int num_ranks_ = 1;
   MPI_Comm comm;
   mutable std::vector<std::byte> work;
+
+  #ifdef ASGARD_GPUMPI_DIRECT
+  mutable gpu::vector<std::byte> gpu_work;
+  #else
+  mutable std::vector<std::byte> cpu_work;
+  #endif
 
   MPI_Comm poisson = MPI_COMM_NULL;
   MPI_Comm moments = MPI_COMM_NULL;

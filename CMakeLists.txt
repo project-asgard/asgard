@@ -56,6 +56,14 @@ if (ASGARD_USE_MPI)
   set (ASGARD_MPI_BCAST_THRESHOLD "4" CACHE STRING "Number of ranks to switch from Send/Recv to collective Bcast")
   set (ASGARD_MPI_REDUCE_THRESHOLD "4" CACHE STRING "Number of ranks to switch from Send/Recv to collective Reduce")
   set (ASGARD_TEST_MPI_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in MPI testing (only in testing)")
+
+  if (ASGARD_USE_CUDA AND ASGARD_USE_ROCM)
+    option (ASGARD_GPUMPI_DIRECT "Optional enable GPU-Aware MPI communication, make sure the MPI version supports GPU-Aware MPI" OFF)
+  endif()
+endif()
+
+if (ASGARD_GPUMPI_DIRECT AND NOT ASGARD_USE_MPI) # maybe ASGARD_GPUMPI_DIRECT is set by an external script
+  set(ASGARD_GPUMPI_DIRECT OFF CACHE FORCE)
 endif()
 
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
@@ -101,8 +109,11 @@ if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
 
   option(ASGARD_GPU_MEMGREEDY "Use a greedy approach with higher memory usage but also faster speed" ON)
 else()
-  # if neither CUDA nor ROCm are present, then never use GPUs
+  # if neither CUDA nor ROCm are present, then never use GPUs or GPU-Aware things
   set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
+  if (ASGARD_GPUMPI_DIRECT) # if set by a script or by mistake
+    set(ASGARD_GPUMPI_DIRECT OFF CACHE FORCE)
+  endif()
 endif()
 
 #Enable HighFive IO if any of the following variables are defined

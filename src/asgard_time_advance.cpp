@@ -179,6 +179,13 @@ void rungekutta<P>::next_step(
 
   tools::time_event performance_(name);
 
+  #ifdef ASGARD_USE_GPU
+  gcurrent = current;
+  next_step(disc, gcurrent, gnext);
+  gnext.copy_to_host(next);
+  return;
+  #endif
+
   P const time = disc.time();
   P const dt   = disc.dt();
 
@@ -233,6 +240,85 @@ void rungekutta<P>::next_step(
       break;
   }
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void rungekutta<P>::next_step(
+    discretization_manager<P> const &disc, gpu::vector<P> const &current,
+    gpu::vector<P> &next) const
+{
+  next.resize(disc.num_dof());
+  expect(next.size() == current.size());
+
+  P const time = disc.time();
+  P const dt   = disc.dt();
+
+  switch (rktype) {
+    case time_method::forward_euler:
+      disc.ode_euler_gpu(time, current.data(), dt, next.data());
+      break;
+    case time_method::rk2:
+      gs1.resize(next.size());
+      gk1.resize(gs1.size());
+      disc.ode_euler_gpu(time, current.data(), 0.5 * dt, gs1.data());
+      disc.ode_rhs_gpu(time + 0.5 * dt, gs1.data(), gk1.data());
+
+      if (disc.is_leader())
+        gpu::sum2(current, dt, gk1, next);
+      break;
+    case time_method::rk3:
+      gs1.resize(next.size());
+      gk1.resize(gs1.size());
+      gk2.resize(gs1.size());
+      gk3.resize(gs1.size());
+
+      disc.ode_rhs_gpu(time, current.data(), gk1.data());
+      if (disc.is_leader())
+        gpu::sum2(current, 0.5 * dt, gk1, gs1);
+
+      disc.ode_rhs_gpu(time + 0.5 * dt, gs1.data(), gk2.data());
+      if (disc.is_leader())
+        gpu::sum3(current, -dt, gk1, 2 * dt, gk2, gs1);
+
+      disc.ode_rhs_gpu(time + dt, gs1.data(), gk3.data());
+      {
+        P const dt6 = dt / P{6};
+        if (disc.is_leader())
+          gpu::sum4(current, dt6, gk1, 4 * dt6, gk2, dt6, gk3, next);
+      }
+      break;
+    case time_method::rk4:
+      gs1.resize(next.size());
+      gk1.resize(gs1.size());
+      gk2.resize(gs1.size());
+      gk3.resize(gs1.size());
+      gk4.resize(gs1.size());
+
+      disc.ode_rhs_gpu(time, current.data(), gk1.data());
+      if (disc.is_leader())
+        gpu::sum2(current, 0.5 * dt, gk1, gs1);
+
+      disc.ode_rhs_gpu(time + 0.5 * dt, gs1.data(), gk2.data());
+      if (disc.is_leader())
+        gpu::sum2(current, 0.5 * dt, gk2, gs1);
+
+      disc.ode_rhs_gpu(time + 0.5 * dt, gs1.data(), gk3.data());
+      if (disc.is_leader())
+        gpu::sum2(current, dt, gk3, gs1);
+
+      disc.ode_rhs_gpu(time + dt, gs1.data(), gk4.data());
+      {
+        P const dt6 = dt / P{6};
+        if (disc.is_leader())
+          gpu::sum5(current, dt6, gk1, 2 * dt6, gk2, 2 * dt6, gk3, dt6, gk4, next);
+      }
+      break;
+    default: // unreachable
+      expect(false); // should never get here
+      break;
+  }
+}
+#endif
 
 template<typename P>
 void rungekutta<P>::print_bytes(std::ostream &os) const {

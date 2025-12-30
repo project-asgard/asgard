@@ -162,9 +162,15 @@ struct rungekutta
     expect(rktype == time_method::forward_euler or rktype == time_method::rk2
            or rktype == time_method::rk3 or rktype == time_method::rk4);
   }
-  //! Performs RK3 step forward in time, uses the current and next step
+  //! Performs RK step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
+  #ifdef ASGARD_USE_GPU
+  //! Performs RK step forward in time, uses the current and next step
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
+  #endif
+
   //! explicit solver and does not require a solver
   static bool constexpr needs_solver = false;
   //! prints the total memory used
@@ -206,6 +212,10 @@ private:
 
   // workspace vectors
   mutable std::vector<P> k1, k2, k3, k4, s1;
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> gcurrent, gnext;
+  mutable gpu::vector<P> gk1, gk2, gk3, gk4, gs1;
+  #endif
 };
 
 /*!

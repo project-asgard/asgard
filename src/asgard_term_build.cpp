@@ -244,6 +244,10 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                 },
               mass[d], d, max_level);
         }
+        #ifdef ASGARD_USE_GPU
+        // TODO: mult-GPU logic
+        sources.back().gpu_consts[d] = sources.back().consts[d];
+        #endif
       }
 
     } else {
@@ -1292,7 +1296,7 @@ void term_manager<P>::assign_compute_resources()
     };
 
   int const num_ranks = std::max(resources.num_ranks(), 1);
-  int const num_gpus  = std::max(resources.num_gpus(), 1);
+  int const num_gpus  = std::max(compute->num_gpus(), 1);
 
   if (term_groups.empty()) {
     load_balance_terms(-1, num_ranks, balance_mode::mpi_ranks);

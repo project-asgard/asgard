@@ -29,6 +29,22 @@ void axpby(int64_t num, P alpha, P const x[], P beta, P y[]);
 template<typename P>
 void set_scal(int64_t num, P alpha, P x[]);
 
+//! y = x + a1 * x1
+template<typename P>
+void sum2(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, gpu::vector<P> &y);
+//! y = x + a1 * x1 + a2 * x2
+template<typename P>
+void sum3(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::vector<P> const &x2,
+          gpu::vector<P> &y);
+//! y = x + a1 * x1 + a2 * x2 + a3 * x3
+template<typename P>
+void sum4(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::vector<P> const &x2,
+          P a3, gpu::vector<P> const &x3, gpu::vector<P> &y);
+//! y = x + a1 * x1 + a2 * x2 + a3 * x3 + a4 * x4
+template<typename P>
+void sum5(gpu::vector<P> const &x, P a1, gpu::vector<P> const &x1, P a2, gpu::vector<P> const &x2,
+          P a3, gpu::vector<P> const &x3, P a4, gpu::vector<P> const &x4, gpu::vector<P> &y);
+
 //! tensors the vectors into the output according to the multi-indexes
 template<typename P>
 void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],

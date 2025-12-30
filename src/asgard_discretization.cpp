@@ -477,7 +477,7 @@ void discretization_manager<precision>::ode_rhs_base(
       return x;
       #endif
     }();
-  // the effective input vector, in MPI context this is either mpiwork or R
+  // the effective output vector, in MPI context this is either mpiwork or R
   std::vector<precision> &out = [&]() -> std::vector<precision> &
     {
       #ifdef ASGARD_USE_MPI
@@ -506,7 +506,7 @@ void discretization_manager<precision>::ode_rhs_base(
     terms.apply(group, grid, conn, -1, in, 0, out);
 
     if (not terms.has_terms()) // R wasn't zeroes out above
-        std::fill(y.begin(), y.end(), 0);
+        std::fill(out.begin(), out.end(), 0);
   }{
     tools::time_event performance_("ode-rhs sources");
     terms.template apply_sources<data_mode::increment>(group, grid, conn, hier, time, 1, out);
@@ -590,6 +590,8 @@ void discretization_manager<precision>::ode_euler_base(
 
     if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(out.begin(), out.end(), 0);
+
+    //tools::dump(out, "after terms");
   }{
     tools::time_event performance_("ode-rhs sources");
     if (source_scal.value == 1)
@@ -597,6 +599,8 @@ void discretization_manager<precision>::ode_euler_base(
     else
       terms.template apply_sources<data_mode::scal_inc>(group, grid, conn, hier, time,
                                                         source_scal.value, out);
+
+    //tools::dump(out, "after sources");
   }
 
   #ifdef ASGARD_USE_MPI
@@ -644,6 +648,186 @@ void discretization_manager<precision>::ode_rhs_sources(
   }
   #endif
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename precision>
+void discretization_manager<precision>::ode_rhs_base_gpu(
+    group_id group, precision time, precision const current[], precision R[]) const
+{
+  int64_t const num_entries = num_dof();
+  #ifdef ASGARD_USE_MPI
+  expect(num_entries < static_cast<int64_t>(std::numeric_limits<int>::max()));
+  int const inume = static_cast<int>(num_entries);
+  if (terms.resources.num_ranks() > 1) {
+    terms.gpumpi_work.resize(num_entries);
+    if (is_leader()) {
+      terms.resources.bcast(inume, current);
+    } else {
+      terms.resources.bcast(inume, terms.gpumpi_work.data());
+    }
+  }
+  #endif
+
+  // the effective input array, in MPI context this is either current or mpiwork
+  // leader just uses current, the rest use mpiwork
+  precision const *in = [&]() -> precision const *
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() == 1 or is_leader())
+        return current;
+      else
+        return terms.gpumpi_work.data();
+      #else
+      return current;
+      #endif
+    }();
+  // the effective output array, in MPI context this is either mpiwork or R
+  precision *out = [&]() -> precision *
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() > 1 and is_leader())
+        return terms.gpumpi_work.data();
+      else
+        return R;
+      #else
+      return R;
+      #endif
+    }();
+
+  // locally update all moments
+  if (terms.moms) {
+    moments_workspace.resize(num_entries);
+    gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
+    compute_moments(group, moments_workspace);
+  }
+
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(group, grid, conn);
+    tools::time_event performance_("ode-rhs-gpu kronmult", flops);
+    #else
+    tools::time_event performance_("ode-rhs-gpu kronmult");
+    #endif
+    terms.apply_gpu(group, grid, conn, -1, in, 0, out);
+
+    if (not terms.has_terms()) // R wasn't zeroes out above
+      compute->fill_zeros(num_entries, out);
+  }{
+    tools::time_event performance_("ode-rhs-gpu sources");
+    terms.template apply_sources_gpu<data_mode::increment>(group, grid, conn, hier, time, 1, out);
+  }
+
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    if (is_leader())
+      terms.resources.reduce_add(inume, out, R);
+    else
+      terms.resources.reduce_add(inume, out);
+  }
+  #endif
+}
+
+template<typename precision>
+void discretization_manager<precision>::ode_euler_base_gpu(
+    group_id group, precision time, precision const current[], terms_scale term_scal,
+    sources_scale source_scal, precision next[]) const
+{
+  int64_t const num_entries = num_dof();
+  #ifdef ASGARD_USE_MPI
+  expect(num_entries < static_cast<int64_t>(std::numeric_limits<int>::max()));
+  int const inume = static_cast<int>(num_entries);
+  if (terms.resources.num_ranks() > 1) {
+    terms.gpumpi_work.resize(num_entries);
+    if (is_leader()) {
+      terms.resources.bcast(inume, current);
+    } else {
+      terms.resources.bcast(inume, terms.gpumpi_work.data());
+    }
+  }
+  #endif
+
+  //std::cout << " HERE 2\n";
+
+  // the effective input vector, in MPI context this is either current or mpiwork
+  // leader just uses current, the rest use mpiwork
+  precision const *in = [&]() -> precision const *
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() == 1 or is_leader())
+        return current;
+      else
+        return terms.mpiwork.data();
+      #else
+      return current;
+      #endif
+    }();
+  // the effective input vector, in MPI context this is either mpiwork or R
+  precision *out = [&]() -> precision *
+    {
+      #ifdef ASGARD_USE_MPI
+      if (terms.resources.num_ranks() > 1 and is_leader())
+        return terms.mpiwork.data();
+      else
+        return next;
+      #else
+      return next;
+      #endif
+    }();
+
+  // locally update all moments
+  if (terms.moms) {
+    moments_workspace.resize(num_entries);
+    gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
+    compute_moments(group, moments_workspace);
+  }
+  //std::cout << " HERE 2\n";
+  {
+    #ifdef ASGARD_USE_FLOPCOUNTER
+    int64_t const flops = terms.flop_count(group, grid, conn);
+    tools::time_event performance_("ode-rhs-gpu kronmult", flops);
+    #else
+    tools::time_event performance_("ode-rhs-gpu kronmult");
+    #endif
+    if (is_leader()) {
+      gpu::memcopy_dev2dev(num_entries, in, out);
+    }
+    //cuda_check_error( cudaPeekAtLastError() ); std::cout << " after mem-copy\n";
+
+    if (term_scal.value != 0)
+      terms.apply_gpu(group, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+
+    //cuda_check_error( cudaPeekAtLastError() ); std::cout << " after apply_gpu\n";
+
+    if (not terms.has_terms()) // R wasn't zeroes out above
+      compute->fill_zeros(num_entries, out);
+
+    //gpu::dump(num_entries, out, "after terms");
+
+    //cuda_check_error( cudaPeekAtLastError() ); std::cout << " after fill_zeros\n";
+  }{
+    tools::time_event performance_("ode-rhs-gpu sources");
+    if (source_scal.value == 1)
+      terms.template apply_sources_gpu<data_mode::increment>(group, grid, conn, hier, time, 1, out);
+    else
+      terms.template apply_sources_gpu<data_mode::scal_inc>(group, grid, conn, hier, time,
+                                                            source_scal.value, out);
+
+    //gpu::dump(num_entries, out, "after sources");
+
+    //cuda_check_error( cudaPeekAtLastError() ); std::cout << " after apply_sources_gpu\n";
+  }
+
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    if (is_leader())
+      terms.resources.reduce_add(inume, out, next);
+    else
+      terms.resources.reduce_add(inume, out);
+  }
+  #endif
+}
+
+#endif
 
 #ifdef ASGARD_USE_MPI
 template<typename precision>

@@ -134,7 +134,7 @@ struct term_manager
   // for both multi-gpu support and interpolation evals on the CPU
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
-  mutable std::vector<P> gpu_swork, gpu_sweights;
+  mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
 
   //! has Poisson solver for the given group
@@ -155,6 +155,10 @@ struct term_manager
   #ifdef ASGARD_USE_MPI
   //! workspace for MPI
   mutable std::vector<P> mpiwork;
+  #ifdef ASGARD_USE_GPU
+  //! workspace for MPI+GPU
+  mutable gpu::vector<P> gpumpi_work;
+  #endif
   #endif
 
   //! return the range for the given group, returns full range for group -1

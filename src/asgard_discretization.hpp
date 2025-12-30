@@ -89,6 +89,12 @@ public:
   std::vector<precision> const &current_state() const { return state; }
   //! returns the size of the current state
   int64_t state_size() const { return static_cast<int64_t>(state.size()); }
+  //! returns the number of degrees of freedom, will match state_size()
+  int64_t num_dof() const {
+    // developer purposes mostly, need to know the state inbetween computations
+    // when the state vector has not been updated yet due to GPU/MPI considerations
+    return grid.num_indexes() * hier.block_size();
+  }
 
   //! return a snapshot of the current solution (in MPI context, only rank 0 gets a valid snapshot)
   reconstruct_solution get_snapshot() const
@@ -184,6 +190,43 @@ public:
   void add_ode_rhs_sources_group(group_id gid, precision time, precision alpha, std::vector<precision> &src) const {
     ode_rhs_sources<data_mode::scal_inc>(gid, time, alpha, src);
   }
+
+  #ifdef ASGARD_USE_GPU
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_rhs_gpu(group_id gid, precision time, precision const current[], precision R[]) const
+  {
+    ode_rhs_base_gpu(gid, time, current, R);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_rhs_gpu(precision time, precision const current[], precision R[]) const
+  {
+    ode_rhs_base_gpu(group_id::all(), time, current, R);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(group_id gid, precision time, precision const current[],
+                     terms_scale term_scal, sources_scale source_scal, precision next[]) const
+  {
+    ode_euler_base_gpu(gid, time, current, term_scal, source_scal, next);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(group_id gid, precision time, precision const current[],
+                     precision scale, precision next[]) const
+  {
+    ode_euler_base_gpu(gid, time, current, terms_scale{scale}, sources_scale{scale}, next);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(precision time, precision const current[],
+                     terms_scale term_scal, sources_scale source_scal, precision next[]) const
+  {
+    ode_euler_base_gpu(group_id::all(), time, current, term_scal, source_scal, next);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(precision time, precision const current[],
+                     precision scale, precision next[]) const
+  {
+    ode_euler_base_gpu(group_id::all(), time, current, terms_scale{scale}, sources_scale{scale}, next);
+  }
+  #endif
 
   //! computes the l-2 norm, taking the mass matrix into account
   precision normL2(std::vector<precision> const &x) const {
@@ -627,6 +670,16 @@ protected:
   template<data_mode mode>
   void ode_rhs_sources(group_id gid, precision time, precision alpha,
                        std::vector<precision> &src) const;
+  #ifdef ASGARD_USE_GPU
+  //! same as ode_rhs_base() but the arrays are pre-allocated and on the GPU device 0
+  void ode_rhs_base_gpu(group_id gid, precision time, precision const current[],
+                        precision R[]) const;
+  //! same as ode_euler_base() but the arrays are pre-allocated and on the GPU device 0
+  void ode_euler_base_gpu(group_id gid, precision time, precision const current[],
+                          terms_scale term_scal, sources_scale source_scal,
+                          precision next[]) const;
+  #endif
+
   //! returns a snapshot of the state on the current MPI rank
   reconstruct_solution get_local_snapshot() const
   {
@@ -697,6 +750,11 @@ private:
   mutable
   #endif
   std::vector<precision> state;
+
+  #ifdef ASGARD_USE_GPU
+  // remove when moments can be computed from the GPU directly
+  mutable std::vector<precision> moments_workspace;
+  #endif
 
   //! fields to store and save for plotting
   std::vector<aux_field_entry<precision>> aux_fields;
