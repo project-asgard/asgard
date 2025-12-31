@@ -821,11 +821,11 @@ void discretization_manager<precision>::ode_rhs_sources_gpu(
   #ifdef ASGARD_USE_MPI
   int64_t const num_entries = num_dof();
   if (terms.resources.num_ranks() > 1) {
+    terms.gpumpi_work.resize(num_entries);
     if constexpr (mode == data_mode::replace or mode == data_mode::scal_rep) {
-      terms.gpumpi_work.resize(num_entries);
       compute->fill_zeros(terms.gpumpi_work);
     } else {
-      terms.mpiwork = src;
+      gpu::memcopy_dev2dev(num_entries, src, terms.gpumpi_work.data());
     }
     if (is_leader()) {
       terms.template apply_sources_gpu<mode>(group, grid, conn, hier, time, alpha,
@@ -950,7 +950,7 @@ void discretization_manager<precision>::mpi_iteration_apply_base_gpu(
 
   while (true) // will break-exist from the loop
   {
-    terms.resources.bcast(num_entries, x); // get the input from the leader
+    terms.resources.bcast_gpu(num_entries, x); // get the input from the leader
 
     // if the last entry is equal to the numeric-max, stop
     // the numeric max is the "kill" signal, since it will not happen in a real run
@@ -1008,7 +1008,7 @@ void discretization_manager<precision>::mpi_leader_apply_base_gpu(
 
   precision *work = terms.gpumpi_work.data();
 
-  terms.resources.bcast(num_entries, x);
+  terms.resources.bcast_gpu(num_entries, x);
 
   terms.apply_gpu(group, grid, conn, 1, x, 0, work);
 

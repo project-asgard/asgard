@@ -360,35 +360,13 @@ void term_manager<P>::apply_sources_gpu(
             //std::cout << " using data in gpu_val with size: " << entry.gpu_val.size() << "\n";
           } else {
             data = gpu_swork.data() + entry.ilump * num_entries;
-            // std::cout << " using data in gpu_swork with size: " << gpu_swork.size() << "\n";
-            // std::cout << " entry.ilump: " << entry.ilump << "  for num_entries = " << num_entries << "\n";
-            // std::cout << " data = " << data << "    gpu_swork.data() = " << gpu_swork.data() << "\n";
           }
         }
-
-        // compute->device_synchronize();
-        // cuda_check_error( cudaPeekAtLastError() ); std::cout << " tensoring consts" << std::endl;
-
-        // for (auto const &gc : entry.gpu_consts) std::cout << gc.size() << "\n";
-        // std::cout << " pdof = " << pdof << "\n";
-        // std::cout << " num_dims = " << num_dims << "\n";
-        // std::cout << " grid.num_indexes() = " << grid.num_indexes() << "\n";
-        // std::cout << " num_entries = " << num_entries << "\n";
-        // std::cout << " block_size = "  << block_size << "\n";
-        //
-        // std::cout << " grid.gpu_indexes() = " << grid.gpu_indexes() << "\n";
-        // std::cout << " grid.gpu_indexes_.size() = " << grid.gpu_indexes_.size() << "\n";
-        // std::vector<int> tst;
-        // grid.gpu_indexes_.copy_to_host(tst);
-        // tools::dump(tst, "indexes");
 
         gpu::tensor_by_index(pdof, num_dims, grid.num_indexes(), grid.gpu_indexes(),
             entry.gpu_consts[0].data(), entry.gpu_consts[1].data(), entry.gpu_consts[2].data(),
             entry.gpu_consts[3].data(), entry.gpu_consts[4].data(), entry.gpu_consts[5].data(),
             data);
-
-        // compute->device_synchronize();
-        // cuda_check_error( cudaPeekAtLastError() ); std::cout << " done tensoring consts" << std::endl;
       };
 
     // update the constant components
@@ -405,9 +383,6 @@ void term_manager<P>::apply_sources_gpu(
 
       tensor_consts(src);
     }
-
-    // compute->device_synchronize();
-    // cuda_check_error( cudaPeekAtLastError() ); std::cout << " done non-bc" << std::endl;
 
     // update the constant components
     for (auto &bc : bcs)
@@ -431,16 +406,11 @@ void term_manager<P>::apply_sources_gpu(
         tensor_consts(bc);
     }
 
-    // cuda_check_error( cudaPeekAtLastError() ); std::cout << " done bc" << std::endl;
-
     if (sources_have_time_dep or bcs_have_time_dep)
       rebuild_mass_matrices(grid);
 
-    //cuda_check_error( cudaPeekAtLastError() ); std::cout << " done rebuild_mass_matrices" << std::endl;
     sources_gpu_grid_gen = grid.generation();
   }
-
-  //cuda_check_error( cudaPeekAtLastError() ); std::cout << " done updating" << std::endl;
 
   // NOTE: when adding the "boundary" and "edge" sources, the sign is flipped
 

@@ -355,10 +355,10 @@ void crank_nicolson<P>::next_step(
   // update the matrices and preconditioners, update-grid checks what's needed
   solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
-  #ifdef ASGARD_USE_GPU
+  #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
   gcurrent = current;
   gnext.resize(gcurrent.size());
-  next_step_gpu(disc, gcurrent.data(), gnext.data());
+  next_step_gpu_(disc, gcurrent.data(), gnext.data());
   gnext.copy_to_host(next);
   return;
   #endif
@@ -388,43 +388,14 @@ void crank_nicolson<P>::next_step(
 
     switch (precon.method()) {
     case precon_method::none:
-      #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      ignore(n);
-      t1 = work;
-      t2 = current;
-      solver.iterate_solve(
-        [&](P alpha, P const x[], P beta, P y[]) -> void
-        {
-          gpu::axpby(t1.size(), alpha, x, beta, y);
-          disc.terms_apply_gpu(substep * alpha * dt, x, 1, y);
-        }, t1, t2);
-      t2.copy_to_host(next);
-      #else
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           fm::axpby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
-      #endif
     break;
     case precon_method::jacobi:
-      #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
-      t1 = work;
-      t2 = current;
-      solver.iterate_solve(
-        [&](P y[]) -> void
-        {
-          tools::time_event timing_("jacobi preconditioner");
-          gpu::jacobi_apply(precon.gpu_jacobi(), y);
-        },
-        [&](P alpha, P const x[], P beta, P y[]) -> void
-        {
-          gpu::axpby(t1.size(), alpha, x, beta, y);
-          disc.terms_apply_gpu(substep * alpha * dt, x, 1, y);
-        }, t1, t2);
-      t2.copy_to_host(next);
-      #else
       solver.iterate_solve(
         [&](P y[]) -> void
         {
@@ -436,7 +407,6 @@ void crank_nicolson<P>::next_step(
           fm::axpby(n, alpha, x, beta, y);
           disc.mpi_leader_apply(substep * alpha * dt, x, 1, y);
         }, work, next);
-      #endif
     break;
     default:
     break;
@@ -459,9 +429,11 @@ void crank_nicolson<P>::set_rhs_gpu(discretization_manager<P> const &disc, P sub
 }
 
 template<typename P>
-void crank_nicolson<P>::next_step_gpu(
+void crank_nicolson<P>::next_step_gpu_(
     discretization_manager<P> const &disc, P const current[], P next[]) const
 {
+  std::cout << " GPU RUN\n";
+
   P const time = disc.time();
   P const dt   = disc.dt();
 
@@ -484,13 +456,13 @@ void crank_nicolson<P>::next_step_gpu(
 
     set_rhs_gpu(disc, substep, time, dt, current, gwork.data());
 
-    // use the current step as the initial guess
-    gpu::memcopy_dev2dev(num_entries, current, next);
-
     if (not disc.is_leader()) {
       disc.mpi_iteration_apply_gpu(gwork.data());
       return;
     }
+
+    // use the current step as the initial guess
+    gpu::memcopy_dev2dev(num_entries, current, next);
 
     switch (precon.method()) {
     case precon_method::none: {

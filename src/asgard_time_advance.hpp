@@ -254,8 +254,8 @@ struct crank_nicolson
                    P const current[], P next[]) const;
 
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
-  void next_step_gpu(discretization_manager<P> const &dist, P const current[],
-                     P next[]) const;
+  void next_step_gpu_(discretization_manager<P> const &dist, P const current[],
+                      P next[]) const;
   #endif
 
   //! requires a solver
