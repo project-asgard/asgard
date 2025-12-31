@@ -104,6 +104,15 @@ template<typename P>
 using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Signature for a GPU non-separable function
+ *
+ * Using this function requires either CUDA or ROCM support and the arrays will
+ * be on the GPU device.
+ */
+template<typename P>
+using md_gpu_func = std::function<void(int64_t const, P, P const[], P[])>;
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function with moment dependence
  */
 template<typename P>

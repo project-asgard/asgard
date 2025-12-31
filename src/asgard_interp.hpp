@@ -494,6 +494,26 @@ public:
     gpu_t1 = t1;
     nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
   }
+  /*!
+   * \brief Computes the interpolation function on the GPU
+   *
+   * In this context, all work is done on the GPU.
+   */
+  template<typename tmd_type>
+  void operator ()
+      (gpu::device dev, sparse_grid const &grid,
+       connection_patterns const &conn, momentset<P> const &moments, P time,
+       P alpha, tmd_type const &func, P beta, P y[],
+       kronmult::workspace<P> &work,
+       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+  {
+    {
+      tools::time_event perf_("source func");
+      func(time, gpu_nodes(dev, grid), moments, gpu_t1.data());
+    }
+    gpu_t1 = t1;
+    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+  }
   #endif
 
   //! computes approximate memory usage by the object

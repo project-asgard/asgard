@@ -457,13 +457,9 @@ void term_manager<P>::apply_sources_gpu(
     }
   };
 
-  //cuda_check_error( cudaPeekAtLastError() ); std::cout << " sources filling-zero" << std::endl;
-
   // most entries delay updating y until the end but rechaining updates on-the-fly
   if constexpr (dmode == data_mode::replace or dmode == data_mode::scal_rep)
     compute->fill_zeros(num_entries, y);
-
-  //cuda_check_error( cudaPeekAtLastError() ); std::cout << " done sources filling-zero" << std::endl;
 
   indexrange isrng = (group == group_id::all()) ? indexrange(sources)
                                                 : source_groups[group()].source_range;
@@ -560,7 +556,6 @@ void term_manager<P>::apply_sources_gpu(
   indexrange irng = (group == group_id::all()) ? indexrange(0, num_lumped)
                                                : source_groups[group()].lump_range;
 
-  //cuda_check_error( cudaPeekAtLastError() ); std::cout << " before sources gemv" << std::endl;
   if (not gpu_swork.empty())
   {
     gpu_sweights = sweights;
@@ -568,7 +563,6 @@ void term_manager<P>::apply_sources_gpu(
                   gpu_swork.data() + num_entries * irng.ibegin(),
                   gpu_sweights.data(), 1, y);
   }
-  //cuda_check_error( cudaPeekAtLastError() ); std::cout << " after sources gemv" << std::endl;
 
   // interpolation sources
   if (group == group_id::all()) {
@@ -580,11 +574,12 @@ void term_manager<P>::apply_sources_gpu(
       if (not src)
         continue;
       #endif
-      using_cpu_t1();
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, moms.get_cached_interps(), time, 1, src, 0, t1.data(), kwork, it1, it2);
+        interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
+               1, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
       else
-        interp(grid, conns, moms.get_cached_interps(), time, alpha, src, 0, t1.data(), kwork, it1, it2);
+        interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
+               alpha, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
     }
   } else {
     #ifdef ASGARD_USE_MPI
@@ -592,13 +587,16 @@ void term_manager<P>::apply_sources_gpu(
     #else
     if (sources_md[group()]) {
     #endif
-      using_cpu_t1();
-      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conns, moms.get_cached_interps(), time, 1, sources_md[group()],
-               1, t1.data(), kwork, it1, it2);
-      else
-        interp(grid, conns, moms.get_cached_interps(), time, alpha, sources_md[group()],
-               1, t1.data(), kwork, it1, it2);
+      if (sources_md[group()].uses_gpu()) {
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time, 1, sources_md[group()],
+                 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
+        else
+          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time, alpha, sources_md[group()],
+                 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
+      } else {
+        // TODO: fix the GPU non-GPU thing
+      }
     }
   }
 
