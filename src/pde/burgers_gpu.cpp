@@ -391,12 +391,12 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
     pde += asgard::term_md<P>{divy_neg, term_f2_neg};
 
     // setting up the non-separable source
-    // #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
-    // auto smd = [=](int64_t num_points, P t, P const x[], P vals[]) ->
-    //   void {
-    //     fsquared<coefficient_mode::source_diff, P>(num_points, t, x, nullptr, vals, nu);
-    //   };
-    // #else
+    #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
+    auto smd = [=](int64_t num_points, P t, P const x[], P vals[]) ->
+      void {
+        fsquared<coefficient_mode::source_diff, P>(num_points, t, x, nullptr, vals, nu);
+      };
+    #else
     auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
       void {
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
@@ -410,7 +410,7 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
                     * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
         }
       };
-    // #endif
+    #endif
 
     // setting the non-separable source into the pde_scheme
     pde.set_source(smd);

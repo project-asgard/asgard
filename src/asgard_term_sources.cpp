@@ -418,12 +418,12 @@ void term_manager<P>::apply_sources_gpu(
 
   // the non-separable in time sources are still processed on the CPU
   // if such entry is encountered, zero and store in t1
-  expect(static_cast<size_t>(num_entries) == t1.size());
-  bool t1_initialized = false;
-  auto using_cpu_t1 = [&, this]() -> void {
-    if (not t1_initialized) {
-      std::fill(t1.begin(), t1.end(), P{0});
-      t1_initialized = true;
+  bool s1_initialized = false;
+  auto using_cpu_s1 = [&, this]() -> void {
+    if (not s1_initialized) {
+      cpu_s1.resize(num_entries);
+      std::fill(cpu_s1.begin(), cpu_s1.end(), P{0});
+      s1_initialized = true;
     }
   };
 
@@ -458,13 +458,13 @@ void term_manager<P>::apply_sources_gpu(
         }
         break;
       case source_entry<P>::time_mode::time_dependent:
-        using_cpu_t1();
+        using_cpu_s1();
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           hier.template project_separable<data_mode::increment>
-              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, t1.data());
+              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, cpu_s1.data());
         else
           hier.template project_separable<data_mode::scal_inc>
-              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, t1.data());
+              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, cpu_s1.data());
         break;
       default:
         // unreachable here
@@ -508,13 +508,13 @@ void term_manager<P>::apply_sources_gpu(
           else
             rechain(gpu::device{0}, bc, -alpha, y);
         } else {
-          using_cpu_t1();
+          using_cpu_s1();
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
             hier.template project_separable<data_mode::increment>
-                (bc.flux.func(), grid, lmass, time, P{-1}, t1.data());
+                (bc.flux.func(), grid, lmass, time, P{-1}, cpu_s1.data());
           else
             hier.template project_separable<data_mode::scal_inc>
-                (bc.flux.func(), grid, lmass, time, -alpha, t1.data());
+                (bc.flux.func(), grid, lmass, time, -alpha, cpu_s1.data());
         }
         break;
       default:
@@ -575,8 +575,8 @@ void term_manager<P>::apply_sources_gpu(
     }
   }
 
-  if (t1_initialized) {
-    gpu_t1[0] = t1;
+  if (s1_initialized) {
+    gpu_t1[0] = cpu_s1;
     compute->axpy(num_entries, 1, gpu_t1[0].data(), y);
   }
 }

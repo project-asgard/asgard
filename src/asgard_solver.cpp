@@ -643,6 +643,7 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
         scal *= t1d.rhs_const();
     }
   }
+
   if (alpha != 0)
     set_alpha(group, stage, P{1} + alpha * scal); // Euler I + alpha * nu * I
   else

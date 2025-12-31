@@ -592,7 +592,6 @@ struct solver_manager
       std::get<solvers::direct<P>>(var)(group_id::all(), 0, x);
     else
       std::get<solvers::scaled_identity<P>>(var)(group_id::all(), 0, x);
-
   }
   //! direct solver only, just call the matrix inversion method
   void solve_inplace(group_id group, size_t stage, std::vector<P> &x) {
@@ -609,7 +608,6 @@ struct solver_manager
       std::get<solvers::direct<P>>(var)(group_id::all(), 0, x);
     else
       std::get<solvers::scaled_identity<P>>(var)(group_id::all(), 0, x);
-
   }
   //! direct solver only, just call the matrix inversion method
   void solve_inplace(group_id group, size_t stage, P x[]) {

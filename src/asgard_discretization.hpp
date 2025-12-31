@@ -226,6 +226,18 @@ public:
   {
     ode_euler_base_gpu(group_id::all(), time, current, terms_scale{scale}, sources_scale{scale}, next);
   }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void set_ode_rhs_sources_group_gpu(group_id gid, precision time, precision src[]) const {
+    ode_rhs_sources_gpu<data_mode::replace>(gid, time, 1, src);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void add_ode_rhs_sources_group_gpu(group_id gid, precision time, precision src[]) const {
+    ode_rhs_sources_gpu<data_mode::increment>(gid, time, 1, src);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void add_ode_rhs_sources_group_gpu(group_id gid, precision time, precision alpha, precision src[]) const {
+    ode_rhs_sources_gpu<data_mode::scal_inc>(gid, time, alpha, src);
+  }
   #endif
 
   //! computes the l-2 norm, taking the mass matrix into account

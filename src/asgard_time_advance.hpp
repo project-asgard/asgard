@@ -286,7 +286,6 @@ private:
   #ifdef ASGARD_USE_GPU
   mutable gpu::vector<P> gcurrent, gnext;
   mutable gpu::vector<P> gwork;
-  mutable gpu::vector<P> t1, t2; // GPU workspace
   #endif
 };
 
@@ -314,9 +313,14 @@ struct imex_stepper
     if (method != time_method::imex1)
       solver.set_num_stages(2);
   }
-  //! Performs Crank-Nicolson step forward in time, uses the current and next step
+  //! Performs IMEX step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! Performs IMEX step, arrays sit on the GPU device
+  void next_step_gpu_(discretization_manager<P> const &disc, P const current[], P next[]) const;
+  #endif
 
   //! requires a solver
   static bool constexpr needs_solver = true;
@@ -340,6 +344,13 @@ private:
                       P time, P dt, preconditioner_data<P> &precon,
                       std::vector<P> &current, std::vector<P> &R) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! same as above but uses arrays allocated on the GPU
+  void implicit_solve(discretization_manager<P> const &disc, size_t stage,
+                      P time, P dt, preconditioner_data<P> &precon,
+                      P current[], P R[]) const;
+  #endif
+
   time_method method = time_method::imex2;
   // the solver used
   mutable solver_manager<P> solver;
@@ -354,6 +365,8 @@ private:
 
   #ifdef ASGARD_USE_GPU
   mutable gpu::vector<P> t1, t2; // GPU workspace
+  mutable gpu::vector<P> gcurrent, gnext;
+  mutable gpu::vector<P> gf;
   #endif
 };
 

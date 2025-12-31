@@ -100,6 +100,25 @@ void axpby(int64_t num, P alpha, P const x[], P beta, P y[]) {
 }
 
 template<typename P, int num_threads>
+__global__ void kernel_axpbygz(int64_t num, P alpha, P const x[], P beta, P const y[], P gamma, P z[])
+{
+  int i = threadIdx.x + blockIdx.x * num_threads;
+  while (i < num) {
+    z[i] = alpha * x[i] + beta * y[i] + gamma * z[i];
+    i += num_threads * gridDim.x;
+  }
+}
+
+template<typename P>
+void axpbygz(int64_t num, no_deduce<P> alpha, P const x[], no_deduce<P> beta, P const y[],
+             no_deduce<P> gamma, P z[]) {
+  constexpr int max_threads = 1024;
+  int const num_blocks = round_up(num, max_threads);
+
+  kernel_axpbygz<P, max_threads><<<num_blocks, max_threads>>>(num, alpha, x, beta, y, gamma, z);
+}
+
+template<typename P, int num_threads>
 __global__ void kernel_setscal(int64_t num, P alpha, P x[])
 {
   int i = threadIdx.x + blockIdx.x * num_threads;

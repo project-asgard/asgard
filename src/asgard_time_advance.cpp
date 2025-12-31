@@ -432,8 +432,6 @@ template<typename P>
 void crank_nicolson<P>::next_step_gpu_(
     discretization_manager<P> const &disc, P const current[], P next[]) const
 {
-  std::cout << " GPU RUN\n";
-
   P const time = disc.time();
   P const dt   = disc.dt();
 
@@ -523,12 +521,12 @@ void imex_stepper<P>::implicit_solve(
 
   bool const uses_inplace = solver.uses_inplace_solve();
   if (not uses_inplace)
-    R = current;
+    R = current; // save current before it is updated below
 
   disc.add_ode_rhs_sources_group(group_id{imex_implicit}, time, dt, current);
 
   if (uses_inplace) {
-    R = current; // copy
+    R = current;
     solver.solve_inplace(group_id{imex_implicit}, stage, R);
   } else { // iterative solver
     int64_t const n = static_cast<int64_t>(R.size());
@@ -606,6 +604,15 @@ void imex_stepper<P>::next_step(
 {
   tools::time_event performance_("stepper-imex");
 
+  // #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
+  #if defined(ASGARD_USE_GPU)
+  gcurrent = current;
+  gnext.resize(gcurrent.size());
+  next_step_gpu_(disc, gcurrent.data(), gnext.data());
+  gnext.copy_to_host(next);
+  return;
+  #endif
+
   P const time = disc.time();
   P const dt   = disc.dt();
 
@@ -628,6 +635,109 @@ void imex_stepper<P>::next_step(
   constexpr size_t stage1 = 1;
   implicit_solve(disc, stage1, time + dt, P{0.5} * dt, precon2, f, next);
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void imex_stepper<P>::implicit_solve(
+    discretization_manager<P> const &disc, size_t stage,
+    P time, P dt, preconditioner_data<P> &precon, P current[], P R[]) const
+{
+  int64_t const num_entries = disc.num_dof();
+  if (disc.has_moments())
+  {
+    std::vector<P> cpu_current(num_entries);
+    gpu::memcopy_dev2host(num_entries, current, cpu_current.data());
+    disc.compute_moments(group_id{imex_implicit}, cpu_current);
+  }
+
+  solver.update_grid(group_id{imex_implicit}, stage, disc.get_grid(), disc.get_conn(),
+                     disc.get_terms(), dt, precon);
+
+  bool const uses_inplace = solver.uses_inplace_solve();
+  if (not uses_inplace)
+    gpu::memcopy_dev2dev(num_entries, current, R); // save current as the initial guess
+
+  disc.add_ode_rhs_sources_group_gpu(group_id{imex_implicit}, time, dt, current);
+
+  if (uses_inplace) {
+    gpu::memcopy_dev2dev(num_entries, current, R);
+    solver.solve_inplace(group_id{imex_implicit}, stage, R);
+  } else { // iterative solver
+
+    if (not disc.is_leader()) {
+      disc.mpi_iteration_apply_gpu(group_id{imex_implicit}, current);
+      return;
+    }
+
+    switch (precon.method()) {
+    case precon_method::none: {
+      gpu::vector<P> wrap_current(current, num_entries);
+      gpu::vector<P> wrap_R(R, num_entries);
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(num_entries, alpha, x, beta, y);
+          disc.mpi_leader_apply_gpu(group_id{imex_implicit}, alpha * dt, x, 1, y);
+        }, wrap_current, wrap_R);
+      wrap_current.release();
+      wrap_R.release();
+    }
+    break;
+    case precon_method::jacobi: {
+      gpu::vector<P> wrap_current(current, num_entries);
+      gpu::vector<P> wrap_R(R, num_entries);
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          tools::time_event timing_("jacobi preconditioner");
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(num_entries, alpha, x, beta, y);
+          disc.mpi_leader_apply_gpu(group_id{imex_implicit}, alpha * dt, x, 1, y);
+        }, wrap_current, wrap_R);
+      wrap_current.release();
+      wrap_R.release();
+    }
+    break;
+    default:
+      throw std::runtime_error("adi preconditioner not available for IMEX steppers");
+    break;
+    }
+
+    disc.mpi_iteration_stop_gpu();
+  }
+}
+
+template<typename P>
+void imex_stepper<P>::next_step_gpu_(
+    discretization_manager<P> const &disc, P const current[], P next[]) const
+{
+  int64_t const num_entries = disc.num_dof();
+
+  P const time = disc.time();
+  P const dt   = disc.dt();
+
+  gf.resize(num_entries);
+  disc.ode_euler_gpu(group_id{imex_explicit}, time, current, dt, gf.data());
+
+  constexpr size_t stage0 = 0;
+  implicit_solve(disc, stage0, time + dt, dt, precon1, gf.data(), next);
+
+  if (method == time_method::imex1)
+    return;
+
+  disc.ode_rhs_gpu(group_id{imex_explicit}, time + dt, next, gf.data());
+
+  if (disc.is_leader())
+    // f = 0.5 * current + 0.5 * next + 0.5 * dt * f
+    gpu::axpbygz(num_entries, 0.5, current, 0.5, next, 0.5 * dt, gf.data());
+
+  constexpr size_t stage1 = 1;
+  implicit_solve(disc, stage1, time + dt, P{0.5} * dt, precon2, gf.data(), next);
+}
+#endif
 
 template<typename P>
 void imex_stepper<P>::print_bytes(std::ostream &os) const {

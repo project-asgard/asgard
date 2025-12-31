@@ -129,6 +129,7 @@ struct term_manager
   mutable std::vector<P> it1, it2; // used for interpolation
   mutable std::vector<P> swork, sweights; // source workspace and time weights
   #ifdef ASGARD_USE_GPU
+  mutable std::vector<P> cpu_s1; // used for sources on the CPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
   // for both multi-gpu support and interpolation evals on the CPU
