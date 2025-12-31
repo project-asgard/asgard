@@ -68,7 +68,7 @@ struct source_entry_interp
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                    std::vector<P> &vals) const
   {
-    expect(not std::holds_alternative<std::monostate>(func));
+    expect(not uses_gpu());
     if (std::holds_alternative<moment_source<P>>(func)) {
       std::get<moment_source<P>>(func)(t, x, moments, vals);
     } else {
@@ -81,11 +81,6 @@ struct source_entry_interp
   {
     expect(not std::holds_alternative<std::monostate>(func));
     std::get<md_gpu_func<P>>(func)(num, t, x, vals);
-    // if (std::holds_alternative<moment_source<P>>(func)) {
-    //   //std::get<moment_source<P>>(func)(num, t, x, moments, vals);
-    // } else {
-    //   std::get<md_gpu_func<P>>(func)(num, t, x, vals);
-    // }
   }
   //! returns the moment source, use only if is_moment()
   moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
@@ -105,7 +100,7 @@ struct source_entry_interp
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }
   //! interpolatory function for the source entry
-  std::variant<std::monostate, md_func<P>, moment_source<P>, md_gpu_func<P>> func;
+  md_source_var<P> func;
 };
 
 /*!

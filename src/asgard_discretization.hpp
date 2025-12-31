@@ -326,6 +326,30 @@ public:
   {
     mpi_leader_apply_base(gid, alpha, x, beta, y);
   }
+  #ifdef ASGARD_USE_GPU
+  //! same as the CPU version but the input array is on the GPU-device
+  void mpi_iteration_apply_gpu(group_id gid, precision work[]) const {
+    mpi_iteration_apply_base_gpu(gid, work);
+  }
+  //! initiate iterative loop on MPI for the all groups and given workspace
+  void mpi_iteration_apply_gpu(precision work[]) const {
+    mpi_iteration_apply_base_gpu(group_id::all(), work);
+  }
+  //! stop the currently working iteration
+  void mpi_iteration_stop_gpu() const;
+  //! performs apply operation on the leader, assuming the non-leader ranks are running mpi_iteration_apply()
+  void mpi_leader_apply_gpu(precision alpha, precision const x[], precision beta,
+                            precision y[]) const
+  {
+    mpi_leader_apply_base_gpu(group_id::all(), alpha, x, beta, y);
+  }
+  //! performs apply operation on the leader, assuming the non-leader ranks are running mpi_iteration_apply()
+  void mpi_leader_apply_gpu(group_id gid, precision alpha, precision const x[],
+                            precision beta, precision y[]) const
+  {
+    mpi_leader_apply_base_gpu(gid, alpha, x, beta, y);
+  }
+  #endif
   #else
   void mpi_iteration_apply(group_id, std::vector<precision> &) const {}
   void mpi_iteration_apply(std::vector<precision> &) const {}
@@ -340,6 +364,21 @@ public:
   {
     terms_apply(gid, alpha, x, beta, y);
   }
+  #ifdef ASGARD_USE_GPU
+  void mpi_iteration_apply_gpu(group_id, precision[]) const {}
+  void mpi_iteration_apply_gpu(precision[]) const {}
+  void mpi_iteration_stop_gpu() const {}
+  void mpi_leader_apply_gpu(precision alpha, precision const x[], precision beta,
+                            precision y[]) const
+  {
+    terms_apply_gpu(group_id::all(), alpha, x, beta, y);
+  }
+  void mpi_leader_apply_gpu(group_id gid, precision alpha, precision const x[],
+                            precision beta, precision y[]) const
+  {
+    terms_apply_gpu(gid, alpha, x, beta, y);
+  }
+  #endif
   #endif
 
   //! write out snapshot data, same as checkpoint but can be invoked manually
@@ -678,6 +717,9 @@ protected:
   void ode_euler_base_gpu(group_id gid, precision time, precision const current[],
                           terms_scale term_scal, sources_scale source_scal,
                           precision next[]) const;
+  //! same as ode_rhs_sources() but the arrays are pre-allocated and on the GPU device 0
+  template<data_mode mode>
+  void ode_rhs_sources_gpu(group_id gid, precision time, precision alpha, precision src[]) const;
   #endif
 
   //! returns a snapshot of the state on the current MPI rank
@@ -710,6 +752,11 @@ protected:
   //! leader iteration apply
   void mpi_leader_apply_base(group_id gid, precision alpha, precision const x[],
                              precision beta, precision y[]) const;
+  #ifdef ASGARD_USE_GPU
+  void mpi_iteration_apply_base_gpu(group_id gid, precision work[]) const;
+  void mpi_leader_apply_base_gpu(group_id gid, precision alpha, precision const x[],
+                                 precision beta, precision y[]) const;
+  #endif
   #endif
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 

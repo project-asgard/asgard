@@ -39,7 +39,11 @@ enum class coefficient_mode {
   //! picking up the negative part of the coefficient
   negative,
   //! take the entire coefficient, i.e., no positive/negative split
-  full
+  full,
+  //! set the source for the inviscit case
+  source_inv,
+  //! set the source for the diffusive case
+  source_diff
 };
 
 #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
@@ -75,7 +79,8 @@ enum class coefficient_mode {
 #endif
 template<coefficient_mode mode, typename P>
 __global__ void fsquared_kernel(int64_t const num_points, P time,
-                                P const nodes[], P const f[], P vals[])
+                                P const nodes[], P const f[], P vals[],
+                                P const nu = 0)
 {
   (void) time;  // this line just suppresses compiler warnings
   (void) nodes; // this line just suppresses compiler warnings
@@ -83,16 +88,49 @@ __global__ void fsquared_kernel(int64_t const num_points, P time,
   // index of the first point processed by this thread
   // this assumes a 1D logical grid of thread-blocks
   int i = threadIdx.x + blockIdx.x * blockDim.x;
-  while (i < num_points) {
-    // for coefficients that depend on the nodes, we have (x, y) below
-    // P const x = nodes[2 * i];
-    // P const y = nodes[2 * i + 1];
+  while (i < num_points)
+  {
     if constexpr (mode == coefficient_mode::positive)
       vals[i] = (f[i] > 0) ? f[i] * f[i] : 0;
     else if constexpr (mode == coefficient_mode::negative)
       vals[i] = (f[i] < 0) ? f[i] * f[i] : 0;
-    else // case full
+    else if constexpr (mode == coefficient_mode::full)
       vals[i] = f[i] * f[i];
+    else if constexpr (mode == coefficient_mode::source_inv)
+    {
+      auto icx   = [](P x) -> P { return P{1} + P{0.75} * x - P{0.25} * x * x; };
+      auto icdx  = [](P x) -> P { return P{0.75} - P{0.5} * x; };
+
+      auto icy   = [](P y) -> P { return (P{1} - y * y); };
+      auto icdy  = [](P y) -> P { return -2 * y; };
+
+      P const x = nodes[2 * i];
+      P const y = nodes[2 * i + 1];
+      // linear contribution
+      vals[i] = -exp(-time) * icx(x) * icy(y);
+      // non-linear contribution
+      vals[i] += exp(-time) * exp(-time)
+                    * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
+    }
+    else if constexpr (mode == coefficient_mode::source_diff)
+    {
+      auto icx   = [](P x) -> P { return P{1} + P{0.75} * x - P{0.25} * x * x; };
+      auto icdx  = [](P x) -> P { return P{0.75} - P{0.5} * x; };
+      auto icdxx = [](P) -> P { return - P{0.5}; };
+
+      auto icy   = [](P y) -> P { return (P{1} - y * y); };
+      auto icdy  = [](P y) -> P { return -2 * y; };
+      auto icdyy = [](P) -> P { return -2; };
+
+      P const x = nodes[2 * i];
+      P const y = nodes[2 * i + 1];
+      // linear contribution
+      vals[i] = exp(-time)
+               * (-icx(x) * icy(y) - nu * icdxx(x) * icy(y) - nu * icx(x) * icdyy(y));
+      // non-linear contribution
+      vals[i] += exp(-time) * exp(-time)
+                * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
+    }
 
     // move to the next point
     i += blockDim.x * gridDim.x;
@@ -119,10 +157,16 @@ __global__ void fsquared_kernel(int64_t const num_points, P time,
  * \param nodes is an array of size num_points X num_dimensions, in this example, the number
  *        of dimensions are implicitly set to 2
  *
+ * \param f is the field, used by the coeffieints and ignored by the sources
+ *
+ * \param vals is the output array of size num_points that will hold the result
+ *
+ * \param nu is the collision frequency, used in the non-inviscit source
+ *
  * \snippet burgers_gpu.cpp burgers f2pos
  */
 template<coefficient_mode mode, typename P>
-void fsquared(int64_t const num_points, P time, P const nodes[], P const f[], P vals[])
+void fsquared(int64_t const num_points, P time, P const nodes[], P const f[], P vals[], P nu = 0)
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [burgers_gpu f2pos]
@@ -141,13 +185,7 @@ void fsquared(int64_t const num_points, P time, P const nodes[], P const f[], P 
 
   // call a CUDA/ROCM kernel
   #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
-  // if (mode == coefficient_mode::positive)
-  //   std::cout << " kernel launch positive: " << num_blocks << "  " << num_threads << "  " << num_points << '\n';
-  // else if (mode == coefficient_mode::negative)
-  //   std::cout << " kernel launch negative: " << num_blocks << "  " << num_threads << "  " << num_points << '\n';
-  // else
-  //   std::cout << " kernel launch full: " << num_blocks << "  " << num_threads << '\n';
-  fsquared_kernel<mode, P><<<num_blocks, num_threads>>>(num_points, time,nodes, f, vals);
+  fsquared_kernel<mode, P><<<num_blocks, num_threads>>>(num_points, time,nodes, f, vals, nu);
   #endif
 
 #ifndef __ASGARD_DOXYGEN_SKIP
@@ -306,8 +344,12 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
     pde += asgard::term_md<P>{divy_neg, term_f2_neg};
 
     // setting up the non-separable source
-    // the term can be split into separable and non-separable components
-    // splitting may improve stability but will increase the overall cost
+    #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
+    auto smd = [=](int64_t num_points, P t, P const x[], P vals[]) ->
+      void {
+        fsquared<coefficient_mode::source_inv, P>(num_points, t, x, nullptr, vals);
+      };
+    #else
     auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
       void {
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
@@ -320,6 +362,7 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
                     * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
         }
       };
+    #endif
 
     // a term-group can have at most one non-separable source
     // thus we use the "set" method, as opposed to "add"
@@ -348,6 +391,12 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
     pde += asgard::term_md<P>{divy_neg, term_f2_neg};
 
     // setting up the non-separable source
+    // #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
+    // auto smd = [=](int64_t num_points, P t, P const x[], P vals[]) ->
+    //   void {
+    //     fsquared<coefficient_mode::source_diff, P>(num_points, t, x, nullptr, vals, nu);
+    //   };
+    // #else
     auto smd = [=](P t, asgard::vector2d<P> const &nodes, std::vector<P> &vals) ->
       void {
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
@@ -361,6 +410,7 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
                     * (icx(x) * icdx(x) * icy(y) * icy(y) + icx(x) * icx(x) * icy(y) * icdy(y));
         }
       };
+    // #endif
 
     // setting the non-separable source into the pde_scheme
     pde.set_source(smd);

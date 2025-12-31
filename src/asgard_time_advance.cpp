@@ -355,6 +355,14 @@ void crank_nicolson<P>::next_step(
   // update the matrices and preconditioners, update-grid checks what's needed
   solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
+  #ifdef ASGARD_USE_GPU
+  gcurrent = current;
+  gnext.resize(gcurrent.size());
+  next_step_gpu(disc, gcurrent.data(), gnext.data());
+  gnext.copy_to_host(next);
+  return;
+  #endif
+
   if (solver.uses_inplace_solve()) {
 
     next.resize(current.size());
@@ -365,7 +373,7 @@ void crank_nicolson<P>::next_step(
 
   } else { // iterative solver
     // form the right-hand-side inside work
-    work = current;
+    work.resize(current.size());
 
     set_rhs(disc, substep, time, dt, current, work);
 
@@ -437,6 +445,89 @@ void crank_nicolson<P>::next_step(
     disc.mpi_iteration_stop();
   }
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void crank_nicolson<P>::set_rhs_gpu(discretization_manager<P> const &disc, P substep, P time, P dt,
+                                    P const current[], P rhs[]) const
+{
+  if (substep == 1)
+    disc.ode_euler_gpu(time + substep * dt, current, terms_scale{0}, sources_scale{dt}, rhs);
+  else
+    disc.ode_euler_gpu(time + substep * dt, current,
+                       terms_scale{dt * (1 - substep)}, sources_scale{dt}, rhs);
+}
+
+template<typename P>
+void crank_nicolson<P>::next_step_gpu(
+    discretization_manager<P> const &disc, P const current[], P next[]) const
+{
+  P const time = disc.time();
+  P const dt   = disc.dt();
+
+  P const substep = (method == time_method::cn) ? 0.5 : 1;
+
+  // assumes this has already been called
+  // solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
+
+  if (solver.uses_inplace_solve()) {
+
+    set_rhs_gpu(disc, substep, time, dt, current, next);
+
+    if (disc.is_leader())
+      solver.solve_inplace(next);
+
+  } else { // iterative solver
+    // form the right-hand-side inside work
+    int64_t const num_entries = disc.num_dof();
+    gwork.resize(num_entries);
+
+    set_rhs_gpu(disc, substep, time, dt, current, gwork.data());
+
+    // use the current step as the initial guess
+    gpu::memcopy_dev2dev(num_entries, current, next);
+
+    if (not disc.is_leader()) {
+      disc.mpi_iteration_apply_gpu(gwork.data());
+      return;
+    }
+
+    switch (precon.method()) {
+    case precon_method::none: {
+      gpu::vector<P> wrap_next(next, num_entries);
+      solver.iterate_solve(
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(num_entries, alpha, x, beta, y);
+          disc.mpi_leader_apply_gpu(substep * alpha * dt, x, 1, y);
+        }, gwork, wrap_next);
+      wrap_next.release();
+    }
+    break;
+    case precon_method::jacobi: {
+      gpu::vector<P> wrap_next(next, num_entries);
+      solver.iterate_solve(
+        [&](P y[]) -> void
+        {
+          tools::time_event timing_("jacobi preconditioner");
+          gpu::jacobi_apply(precon.gpu_jacobi(), y);
+        },
+        [&](P alpha, P const x[], P beta, P y[]) -> void
+        {
+          gpu::axpby(num_entries, alpha, x, beta, y);
+          disc.mpi_leader_apply_gpu(substep * alpha * dt, x, 1, y);
+        }, gwork, wrap_next);
+      wrap_next.release();
+    }
+    break;
+    default:
+    break;
+    }
+
+    disc.mpi_iteration_stop_gpu();
+  }
+}
+#endif
 
 template<typename P>
 void crank_nicolson<P>::print_bytes(std::ostream &os) const {

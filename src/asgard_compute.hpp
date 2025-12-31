@@ -136,6 +136,14 @@ public:
   //! \brief Custom conversion, so we can assign to std::vector.
   operator std::vector<T>() const { return this->copy_to_host(); }
 
+  //! non-owning mode, no safeguards, make sure resize is not called with new size and release before destruct
+  vector(T *d, int64_t s) : data_(d), size_(s) {}
+  //! release without destruction
+  T *release() {
+    size_ = 0;
+    return std::exchange(data_, nullptr);
+  }
+
 private:
   T *data_ = nullptr;
   int64_t size_ = 0;
@@ -195,8 +203,14 @@ public:
   void getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) const;
   //! PLU solve of an M x M matrix
   template<typename P>
+  void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv, P b[]) const;
+  //! PLU solve of an M x M matrix
+  template<typename P>
   void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv,
-             gpu::vector<P> &b) const;
+             gpu::vector<P> &b) const
+  {
+    getrs<P>(M, A, ipiv, b.data());
+  }
   //! PLU solve of an M x M matrix
   template<typename P>
   void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv,

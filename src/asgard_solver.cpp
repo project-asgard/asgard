@@ -612,6 +612,10 @@ template<typename P>
 void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const &grid,
                                 term_manager<P> const &terms, P alpha)
 {
+  #ifdef ASGARD_USE_GPU
+  num_entries = grid.num_indexes() * fm::ipow(terms.basis.pdof, grid.num_dims());
+  #endif
+
   indexrange trange = terms.terms_group_range(group);
 
   if (grid_gen(group, stage) == -1) {
@@ -661,7 +665,13 @@ void scaled_identity<P>::operator()(group_id group, size_t stage, std::vector<P>
 template<typename P>
 void scaled_identity<P>::operator()(group_id group, size_t stage, gpu::vector<P> &x) const
 {
+  expect(num_entries == x.size());
   gpu::set_scal(x.size(), scale(group, stage), x.data());
+}
+template<typename P>
+void scaled_identity<P>::operator()(group_id group, size_t stage, P x[]) const
+{
+  gpu::set_scal(num_entries, scale(group, stage), x);
 }
 #endif
 

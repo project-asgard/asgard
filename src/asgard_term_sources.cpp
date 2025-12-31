@@ -564,6 +564,25 @@ void term_manager<P>::apply_sources_gpu(
                   gpu_sweights.data(), 1, y);
   }
 
+  auto interp_source = [&](source_entry_interp<P> const &src)
+        -> void {
+      if (src.uses_gpu()) {
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
+                 1, src, 1, y, kwork, gpu_it1[0], gpu_it2[0]);
+        else
+          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
+                 alpha, src, 1, y, kwork, gpu_it1[0], gpu_it2[0]);
+      } else {
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
+                 1, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
+        else
+          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
+                 alpha, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
+      }
+    };
+
   // interpolation sources
   if (group == group_id::all()) {
     for (auto const &src : sources_md) {
@@ -574,12 +593,7 @@ void term_manager<P>::apply_sources_gpu(
       if (not src)
         continue;
       #endif
-      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
-               1, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
-      else
-        interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
-               alpha, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
+      interp_source(src);
     }
   } else {
     #ifdef ASGARD_USE_MPI
@@ -587,16 +601,7 @@ void term_manager<P>::apply_sources_gpu(
     #else
     if (sources_md[group()]) {
     #endif
-      if (sources_md[group()].uses_gpu()) {
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time, 1, sources_md[group()],
-                 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
-        else
-          interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time, alpha, sources_md[group()],
-                 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
-      } else {
-        // TODO: fix the GPU non-GPU thing
-      }
+      interp_source(sources_md[group()]);
     }
   }
 

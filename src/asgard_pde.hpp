@@ -175,6 +175,13 @@ struct moment_source {
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Variant for the non-separable source functions
+ */
+template<typename P>
+using md_source_var = std::variant<std::monostate, md_func<P>, moment_source<P>, md_gpu_func<P>>;
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Defines the boundary conditions for separable operator
  *
  * The separable operators are always defined on a 1d interval. Periodic conditions
@@ -1627,7 +1634,17 @@ public:
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
     rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
-            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "cannot simultaneously set a moment and non-moment source or CPU and GPU for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    sources_md_[idx] = std::move(smd);
+  }
+  //! set non-separable right-hand-source, can have only one per term-group
+  void set_source(md_gpu_func<P> smd) {
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source or CPU and GPU for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
     sources_md_[idx] = std::move(smd);
@@ -1790,7 +1807,7 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  std::vector<std::variant<std::monostate, md_func<P>, moment_source<P>>> sources_md_;
+  std::vector<md_source_var<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
 
   int current_term_group = -1;

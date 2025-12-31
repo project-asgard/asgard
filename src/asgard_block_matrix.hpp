@@ -74,6 +74,8 @@ public:
   #ifdef ASGARD_USE_GPU
   //! applies the inverse of the matrix to the provided vector
   void solve(gpu::vector<P> &b) const;
+  //! applies the inverse of the matrix to the provided vector
+  void solve(P b[]) const;
   #endif
 
   //! (testing) writes the the matrix to the scream

@@ -240,13 +240,23 @@ struct crank_nicolson
     expect(method == time_method::cn or
            method == time_method::back_euler);
   }
-    //! computes the rhs of the implicit solver using single MPI operation
+  //! computes the rhs of the implicit solver using single MPI operation
   void set_rhs(discretization_manager<P> const &dist, P time, P substep, P dt,
                std::vector<P> const &current, std::vector<P> &next) const;
 
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
                  std::vector<P> &next) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! computes the rhs of the implicit solver using single MPI operation
+  void set_rhs_gpu(discretization_manager<P> const &dist, P time, P substep, P dt,
+                   P const current[], P next[]) const;
+
+  //! Performs Crank-Nicolson step forward in time, uses the current and next step
+  void next_step_gpu(discretization_manager<P> const &dist, P const current[],
+                     P next[]) const;
+  #endif
 
   //! requires a solver
   static bool constexpr needs_solver = true;
@@ -274,6 +284,8 @@ private:
   mutable std::vector<P> work;
 
   #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> gcurrent, gnext;
+  mutable gpu::vector<P> gwork;
   mutable gpu::vector<P> t1, t2; // GPU workspace
   #endif
 };

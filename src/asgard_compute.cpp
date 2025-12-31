@@ -228,21 +228,19 @@ void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<
 
 template<typename P>
 void __signleton_compute_resources::getrs(int M, gpu::vector<P> const &A,
-                                          gpu::vector<int> const &ipiv,
-                                          gpu::vector<P> &b) const
+                                          gpu::vector<int> const &ipiv, P b[]) const
 {
   expect(M == ipiv.size());
   expect(ipiv.size() * ipiv.size() == A.size());
-  expect(ipiv.size() == b.size());
 
   gpu::vector<int> gpu_info(1);
 
   if constexpr (is_double<P>) {
     cusolver_check_error( cusolverDnDgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
-                                           ipiv.data(), b.data(), M, gpu_info.data()) );
+                                           ipiv.data(), b, M, gpu_info.data()) );
   } else {
     cusolver_check_error( cusolverDnSgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
-                                           ipiv.data(), b.data(), M, gpu_info.data()) );
+                                           ipiv.data(), b, M, gpu_info.data()) );
   }
 }
 #endif
@@ -280,24 +278,22 @@ void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A,
 }
 
 template<typename P>
-void __signleton_compute_resources::getrs(int M, gpu::vector<P> const &A,
-                                          gpu::vector<gpu::direct_int> const &ipiv,
-                                          gpu::vector<P> &b) const
+void __signleton_compute_resources::getrs(
+    int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv, P b[]) const
 {
   expect(M == ipiv.size());
   expect(ipiv.size() * ipiv.size() == A.size());
-  expect(ipiv.size() == b.size());
 
   gpu::vector<int> gpu_info(1);
 
   if constexpr (is_double<P>) {
     rocblas_check_error( rocsolver_dgetrs(
         blas_, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
-        ipiv.data(), b.data(), M) );
+        ipiv.data(), b, M) );
   } else {
     rocblas_check_error( rocsolver_sgetrs(
         blas_, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
-        ipiv.data(), b.data(), M) );
+        ipiv.data(), b, M) );
   }
 }
 #endif
@@ -309,9 +305,9 @@ template void
 __signleton_compute_resources::getrf<float>(int, gpu::vector<float> &A, gpu::vector<int> &ipiv) const;
 
 template void __signleton_compute_resources::getrs<double>(
-    int, gpu::vector<double> const &A, gpu::vector<int> const &ipiv, gpu::vector<double> &b) const;
+    int, gpu::vector<double> const &A, gpu::vector<int> const &ipiv, double b[]) const;
 template void __signleton_compute_resources::getrs<float>(
-    int, gpu::vector<float> const &A, gpu::vector<int> const &ipiv, gpu::vector<float> &b) const;
+    int, gpu::vector<float> const &A, gpu::vector<int> const &ipiv, float b[]) const;
 #endif
 
 template<typename P>

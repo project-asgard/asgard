@@ -508,10 +508,9 @@ public:
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
   {
     {
-      tools::time_event perf_("source func");
-      func(time, gpu_nodes(dev, grid), moments, gpu_t1.data());
+      tools::time_event perf_("source func (gpu)");
+      func(gpu_t1.size(), time, gpu_nodes(dev, grid), moments, gpu_t1.data());
     }
-    gpu_t1 = t1;
     nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
   }
   #endif
